@@ -789,12 +789,15 @@ export function LockRequestBody({
  * ⏳ The deadline is said: after 3 days without an answer the couple may keep
  * waiting, release the booking themselves, or cancel the change.
  */
-function DateChangeBody({
+export function DateChangeBody({
   card,
   answerDateChange,
+  returnTo,
 }: {
   card: Extract<WhatsNewCard, { kind: 'date_change' }>;
   answerDateChange: (formData: FormData) => void | Promise<void>;
+  /** The client card path when answered on Details — the answer lands back there (`dayAnswerBack`). Absent → Today. */
+  returnTo?: string;
 }) {
   // The short words the Next card says ("Move to Sun 25 Oct") — one way to say the date on one screen.
   const to = dateChangeShort(card.proposedDate, card.proposedPrecision);
@@ -815,11 +818,13 @@ function DateChangeBody({
       <div className="mt-3 flex flex-wrap items-center gap-2" data-date-change-answer={card.eventVendorId}>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           <input type="hidden" name="answer" value="moved" />
           <SupplierSubmit tone="brand" main icon={<CalendarClock {...ico} />} label={`Move to ${to}`} pendingLabel="Saving…" />
         </form>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           <input type="hidden" name="answer" value="unlocked" />
           <SupplierSubmit tone="neutral" icon={<LogOut {...ico} />} label="Unlock my service" pendingLabel="Releasing…" />
         </form>
@@ -853,14 +858,17 @@ function DateChangeBody({
  * fuse — anything that auto-agreed would manufacture a consent nobody gave.
  * The card therefore says what silence means: nothing happens.
  */
-function DeleteRequestBody({
+export function DeleteRequestBody({
   card,
   agreeDeletion,
   declineDeletion,
+  returnTo,
 }: {
   card: Extract<WhatsNewCard, { kind: 'delete_request' }>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** The client card path when answered on Details — the answer lands back there (`dayAnswerBack`). Absent → Today. */
+  returnTo?: string;
 }) {
   const detail = metaLine([
     card.eventDate ? monthDay(card.eventDate) : null,
@@ -883,6 +891,7 @@ function DeleteRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeDeletion}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           {/* Taking something away for good is the delete look — never the accent. */}
           <SupplierSubmit tone="danger" main icon={<Trash2 {...ico} />} label="Agree to remove it" pendingLabel="Agreeing…" />
         </form>
@@ -890,6 +899,7 @@ function DeleteRequestBody({
       <Fold data="answer-no" title="Not yet — say why" className="mt-1">
         <form action={declineDeletion} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           <WhyRow />
           <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Keep it for now" pendingLabel="Sending…" />
         </form>

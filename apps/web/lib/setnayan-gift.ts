@@ -39,8 +39,24 @@ import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
  * 40% of the booking fee — the gift's CEILING (owner 2026-09-09). A whole
  * percent, applied in integer centavos and FLOORED, so the charge can never
  * exceed 40% by even a centavo (a float `× 0.4` can land on 6999.9999…).
+ *
+ * ⚖ 8 Nov 2026 (THE ONE BUILD, owner v112): the share is now the ADMIN SETTING
+ * `platform_settings.gift_limit_pct` ("Gift limit · % of the booking fee",
+ * Admin › Gifts), read by `getGiftLimitPct` and passed in as `opts.limitPct`.
+ * 40 is only the RULED DEFAULT — what the column defaults to and what a failed
+ * read falls back to. The SQL (`setnayan_gift_for_fee`) reads the same column.
  */
-export const GIFT_SHARE_OF_FEE_PCT = 40;
+export const GIFT_LIMIT_PCT_DEFAULT = 40;
+
+/**
+ * A gift-limit percent as the sizing uses it: a whole number 0–100. Anything else (absent, NaN, out of range)
+ * falls back to the ruled default — never to 0 (no gift) and never above 100.
+ */
+export function giftLimitPctOrDefault(pct: number | null | undefined): number {
+  if (typeof pct !== 'number' || !Number.isFinite(pct)) return GIFT_LIMIT_PCT_DEFAULT;
+  const whole = Math.trunc(pct);
+  return whole >= 0 && whole <= 100 ? whole : GIFT_LIMIT_PCT_DEFAULT;
+}
 
 /**
  * The gift never goes above 50,000 credits (owner 2026-09-09). CREDITS, not pesos.
@@ -208,13 +224,15 @@ export function giftChargeAtGiftPrice(credits: number, ladder: readonly GiftRung
  * @param ladder the LIVE gift ladder (`giftLadderFrom`).
  * @param opts.giftPrice 💝 the shop is Verified-and-up (owner 2026-11-04): the SAME credits, charged at the gift
  *   price (`giftChargeAtGiftPrice`), never above the list charge. Free (or absent) pays the list charge.
+ * @param opts.limitPct the live gift limit (`platform_settings.gift_limit_pct`, `getGiftLimitPct`) — the same
+ *   column the SQL mirror reads. Absent → the ruled default.
  */
 export function setnayanGiftForFee(
   feeCentavos: number,
   ladder: readonly GiftRung[],
-  opts?: { giftPrice?: boolean },
+  opts?: { giftPrice?: boolean; limitPct?: number },
 ): SetnayanGift {
-  const listed = setnayanGiftAtListPrice(feeCentavos, ladder);
+  const listed = setnayanGiftAtListPrice(feeCentavos, ladder, giftLimitPctOrDefault(opts?.limitPct));
   if (!opts?.giftPrice || listed.credits <= 0) return listed;
   const gift = giftChargeAtGiftPrice(listed.credits, ladder);
   return gift === null ? listed : { ...listed, chargeCentavos: Math.min(listed.chargeCentavos, gift) };
@@ -223,6 +241,7 @@ export function setnayanGiftForFee(
 function setnayanGiftAtListPrice(
   feeCentavos: number,
   ladder: readonly GiftRung[],
+  limitPct: number,
 ): SetnayanGift {
   if (!Number.isFinite(feeCentavos) || feeCentavos <= 0) return NO_GIFT;
   if (!giftLadderIsPriceable(ladder)) return NO_GIFT;
@@ -233,7 +252,7 @@ function setnayanGiftAtListPrice(
   const capRung = giftCapRung(ladder);
   if (!capRung) return NO_GIFT;
 
-  const budget = Math.floor((Math.round(feeCentavos) * GIFT_SHARE_OF_FEE_PCT) / 100);
+  const budget = Math.floor((Math.round(feeCentavos) * limitPct) / 100);
   const capped = budget >= capRung.priceCentavos;
   const charge = capped ? capRung.priceCentavos : budget;
 
@@ -353,6 +372,8 @@ export type GiftQuoteBasis = {
   ladder: GiftRung[];
   /** 💝 This shop pays the gift price (Verified-and-up, owner 2026-11-04) — the same answer the bill uses. */
   giftPrice?: boolean;
+  /** 🎁 The live gift limit (`getGiftLimitPct`, Admin › Gifts) — the % of the fee the gift is sized at. Never typed. */
+  limitPct: number;
 };
 
 /**
@@ -368,7 +389,10 @@ export function previewGiftForTotal(
 ): SetnayanGift | null {
   if (!basis || !Number.isFinite(totalCentavos) || totalCentavos <= 0) return null;
   const feeCentavos = Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100);
-  const gift = setnayanGiftForFee(feeCentavos, basis.ladder, { giftPrice: basis.giftPrice === true });
+  const gift = setnayanGiftForFee(feeCentavos, basis.ladder, {
+    giftPrice: basis.giftPrice === true,
+    limitPct: basis.limitPct,
+  });
   return gift.credits > 0 ? gift : null;
 }
 

@@ -1,18 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
+import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
+import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
-import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking } from '@/lib/vendor-dates';
+import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
-import { DayOpenSwitch } from './day-open-switch';
+import { DayBar } from './day-bar';
 import { DATES_FIGURES_EVENT, DATES_JUMP_EVENT } from './customers-figures';
 import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figures';
 
@@ -55,6 +56,13 @@ type MonthInputs = { dayStates: VendorCalendarDayState[]; waitlist: WaitlistDate
 
 const ym = (m: CalendarMonth) => `${m.y}-${String(m.m).padStart(2, '0')}`;
 
+/**
+ * 🔘 LET THE PICKED DAY GO, from outside the month (Build 2 #43): the ONE Clients screen's tiles sit under the month, and
+ * pressing one while a day is picked shows its whole list — so the day is let go first. A window event, like
+ * `DATES_JUMP_EVENT`, because the tiles and the month are siblings, not parent and child.
+ */
+export const CLIENTS_LET_GO_DAY_EVENT = 'sn:clients-let-go-day';
+
 export function CustomersCalendar({
   initialDayStates,
   initialWaitlist,
@@ -72,7 +80,35 @@ export function CustomersCalendar({
   dayActions = null,
   closuresComplete = true,
   after = null,
+  place = 'clients',
+  oneScreen = false,
+  between = null,
+  onPicked,
+  asksRead = false,
 }: {
+  /** Schedule place: the asks were read in the month's one request (Build 2 #43g) — the legend may say "Asking". */
+  asksRead?: boolean;
+  /**
+   * 📅 THE ONE CLIENTS SCREEN (Build 2 row #43a, v113): the month heads Clients itself — calendar → tiles →
+   * Overdue/Unread → the day-headed list. The month then draws no list of its own when no day is picked (the clients'
+   * list below IS the list), no legend (the tiles' dots name the marks), writes `?m=` (not `?seg=dates`), and the picked
+   * day's head gets an × that lets the day go. Off = Clients › Dates as it shipped (the dev lab still mounts it).
+   */
+  oneScreen?: boolean;
+  /** Drawn right under the month (and its week strip) — the one screen's tiles and quick buttons. */
+  between?: ReactNode;
+  /** Told whenever the picked day changes (null = let go) — the one screen hides the full list while a day is picked. */
+  onPicked?: (day: CalendarDay | null) => void;
+  /**
+   * 📅 WHERE THIS MONTH IS DRAWN — one part, two places (controller 2026-11-08: the picked client's Schedule draws "the
+   * Clients calendar component, not a second calendar"; v113 `calC`):
+   *   · 'clients'  — Clients › Dates: the Schedules dropdown, the pinned row's figures, the URL, the day bar, every day
+   *                  still to come when none is picked.
+   *   · 'schedule' — the picked client's Schedule page: the same month, week strip and toggle, its event's day picked
+   *                  on arrival; no dropdown, no figures, no URL writes (the picked client owns the URL), no day bar;
+   *                  the picked day's rows only, and nothing listed when none is picked (the schedule follows).
+   */
+  place?: 'clients' | 'schedule';
   /** False ⇒ some closures did not load — "days off" says "—", never a short count. */
   closuresComplete?: boolean;
   /** What follows the picked day (the Dates folds) — inside this block, so the week strip stays pinned over it. */
@@ -91,8 +127,8 @@ export function CustomersCalendar({
   inquiries?: { requestedDate: string; count: number }[];
   /** 'YYYY-MM' of the first-painted month. */
   initialMonth: string;
-  /** The day picked on arrival. */
-  initialDay: CalendarDay;
+  /** The day picked on arrival; null = none (the one Clients screen opens on its whole list, v113). */
+  initialDay: CalendarDay | null;
   /** PH civil "today" (YYYY-MM-DD). */
   todayIso: string;
   pools: SchedulePool[];
@@ -107,7 +143,14 @@ export function CustomersCalendar({
   fetchMonth?: ((month: string) => Promise<MonthInputs | null>) | null;
 }) {
   const [month, setMonth] = useState(initialMonth);
-  const [picked, setPicked] = useState<CalendarDay>(initialDay);
+  /*
+    🔘 A PICKED DAY CAN BE LET GO (v113, B1 step 1): tapping the picked day again — on the month or the week strip —
+    clears it, and the rows under the month become EVERY day still to come in it, each under its own pinned heading.
+    Null = no day picked.
+  */
+  const onClients = place === 'clients';
+  const [picked, setPicked] = useState<CalendarDay | null>(initialDay);
+  const toggleDay = (d: CalendarDay) => setPicked((was) => (was === d ? null : d));
   const [scope, setScope] = useState('all');
   const [pending, startTransition] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
@@ -143,7 +186,7 @@ export function CustomersCalendar({
     );
   }, [month, monthInputs, shownPools, bookings, blocks, todayIso, inquiries]);
 
-  const states = useMemo(() => {
+  const readStates = useMemo(() => {
     const out = new Map<CalendarDay, CalendarDayState>();
     for (const d of data.days) {
       const st = dayStateOf(d);
@@ -152,15 +195,56 @@ export function CustomersCalendar({
     return out;
   }, [data.days]);
 
+  // 🎉 #29 ACCEPT BOOKINGS IS FELT: the day bar's switch is flipped → the day's cell (month + week strip) is struck /
+  // un-struck AT ONCE, in the picked fill too, from what the switch now SHOWS — not when the write's re-read lands.
+  // The overlay goes when the re-read arrives (`blocks` changes: the read is the truth again) or the write is
+  // refused. Then the mark moves (`feelDay`: squash off · pop + confetti on; nothing under reduced motion).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [flipped, setFlipped] = useState<ReadonlyMap<CalendarDay, boolean>>(() => new Map());
+  useEffect(() => setFlipped((f) => (f.size ? new Map() : f)), [blocks]);
+  const states = useMemo(() => {
+    if (flipped.size === 0) return readStates;
+    const out = new Map(readStates);
+    for (const [d, open] of flipped) out.set(d, { ...(out.get(d) ?? {}), blocked: !open });
+    return out;
+  }, [readStates, flipped]);
+  const feel = useRef<{ day: CalendarDay; off: boolean } | null>(null);
+  const onFlip = useCallback((day: string, open: boolean, how: 'flip' | 'refused') => {
+    feel.current = how === 'flip' ? { day, off: !open } : null;
+    setFlipped((f) => {
+      const next = new Map(f);
+      if (how === 'flip') next.set(day, open);
+      else next.delete(day);
+      return next;
+    });
+  }, []);
+  useLayoutEffect(() => {
+    const f = feel.current;
+    feel.current = null;
+    if (!f || !rootRef.current) return;
+    const marks = rootRef.current.querySelectorAll<HTMLElement>(
+      `[data-calendar-day="${f.day}"] [data-calendar-dn], [data-dates-week-day="${f.day}"] [data-calendar-dn]`,
+    );
+    feelDay([...marks], f.off);
+  }, [flipped]);
+
   const goToMonth = useCallback(
     (m: CalendarMonth, day?: CalendarDay) => {
       const next = ym(m);
-      const syncUrl = () => window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+      const syncUrl = () => {
+        if (!oneScreen) return window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+        // The one screen keeps everything else the address says (a search, a Show & sort choice) and names the month.
+        const u = new URL(window.location.href);
+        u.searchParams.set('m', next);
+        u.searchParams.delete('seg');
+        window.history.replaceState(null, '', `${u.pathname}${u.search}`);
+      };
       setMonth(next);
       // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
       // A step of the week strip names the day itself (the 31st's next day is the 1st of the next month).
-      setPicked(day ?? (todayIso.startsWith(next) ? todayIso : `${next}-01`));
-      syncUrl();
+      // With no day picked, the month changes and still no day is picked (every day of the new month is listed).
+      setPicked((was) => day ?? (was === null ? null : todayIso.startsWith(next) ? todayIso : `${next}-01`));
+      if (onClients) syncUrl();
       if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
         const res = await fetchMonth(next);
@@ -168,15 +252,28 @@ export function CustomersCalendar({
         setMonthInputs((prev) => new Map(prev).set(next, { dayStates: res.dayStates, waitlist: res.waitlist }));
       });
     },
-    [monthInputs, fetchMonth, todayIso],
+    [monthInputs, fetchMonth, todayIso, onClients, oneScreen],
   );
+
+  // The one screen hears its picked day, and lets it go when a tile asks to show a whole list.
+  useEffect(() => {
+    onPicked?.(picked);
+  }, [picked, onPicked]);
+  useEffect(() => {
+    if (!oneScreen) return;
+    const letGo = () => setPicked(null);
+    window.addEventListener(CLIENTS_LET_GO_DAY_EVENT, letGo);
+    return () => window.removeEventListener(CLIENTS_LET_GO_DAY_EVENT, letGo);
+  }, [oneScreen]);
 
   /* 📌 THE FIGURES — counted here, for the month on show, and handed to the pinned row; a tap there picks a day here. */
   const figures = useMemo(() => datesFiguresOf(data.days, closuresComplete), [data.days, closuresComplete]);
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent(DATES_FIGURES_EVENT, { detail: figures }));
-  }, [figures]);
+    // The Schedule page's month never speaks for Clients' pinned row (the list is still mounted under it).
+    if (onClients) window.dispatchEvent(new CustomEvent(DATES_FIGURES_EVENT, { detail: figures }));
+  }, [figures, onClients]);
   useEffect(() => {
+    if (!onClients) return;
     const onJump = (e: Event) => {
       const key = (e as CustomEvent<DatesFigureKey>).detail;
       const first = data.days.find((d) => datesDayIs(key, d));
@@ -184,12 +281,14 @@ export function CustomersCalendar({
     };
     window.addEventListener(DATES_JUMP_EVENT, onJump);
     return () => window.removeEventListener(DATES_JUMP_EVENT, onJump);
-  }, [data.days]);
+  }, [data.days, onClients]);
 
   /* 📌 THE WEEK STRIP — shown once the month is up under the pinned row; it pins right under that row. */
   const monthRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const [folded, setFolded] = useState(false);
+  /** The pinned row's height — the week strip pins under it, and the day headings under both. */
+  const [pinH, setPinH] = useState(0);
   useEffect(() => {
     let raf = 0;
     const read = () => {
@@ -197,9 +296,13 @@ export function CustomersCalendar({
       const grid = monthRef.current;
       const strip = stripRef.current;
       if (!grid || !strip) return;
-      const pin = document.querySelector<HTMLElement>('[data-customers-pin]');
-      const under = pin ? pin.getBoundingClientRect().bottom : 0;
+      // Clients: under the Customers pinned row. Schedule: the picked client's pinned row sits OUTSIDE its scroller, so
+      // the strip pins at the scroller's own top.
+      const pin = onClients ? document.querySelector<HTMLElement>('[data-customers-pin]') : null;
+      const box = onClients ? null : grid.closest<HTMLElement>('[data-picked-body]');
+      const under = pin ? pin.getBoundingClientRect().bottom : box ? box.getBoundingClientRect().top : 0;
       strip.style.top = `${pin ? pin.offsetHeight : 0}px`;
+      setPinH(pin ? pin.offsetHeight : 0);
       // Hysteresis: fold once the month's last week is under the row, unfold as soon as a week of it shows again.
       const bottom = grid.getBoundingClientRect().bottom;
       setFolded((was) => (was ? bottom < under + 48 : bottom < under));
@@ -215,16 +318,23 @@ export function CustomersCalendar({
       document.removeEventListener('scroll', soon, { capture: true });
       window.removeEventListener('resize', soon);
     };
-  }, []);
+  }, [onClients]);
+  // The week the strip draws: the picked day's, or — none picked — today's when it is in this month, else the 1st's.
+  const anchor: CalendarDay = picked ?? (todayIso.startsWith(month) ? todayIso : `${month}-01`);
+  // #37: a swipe on the strip moves the WEEK on show (± 7 days), never the picked day; the next pick or ‹ › re-centres it.
+  const [weekShift, setWeekShift] = useState<{ at: CalendarDay; by: number }>({ at: anchor, by: 0 });
+  const shift = weekShift.at === anchor ? weekShift.by : 0;
   const stepDay = (by: number) => {
-    const at = new Date(`${picked}T00:00:00Z`);
+    setWeekShift({ at: anchor, by: 0 });
+    const at = new Date(`${anchor}T00:00:00Z`);
     at.setUTCDate(at.getUTCDate() + by);
     const next = at.toISOString().slice(0, 10);
     if (next.slice(0, 7) === month) setPicked(next);
     else goToMonth({ y: Number(next.slice(0, 4)), m: Number(next.slice(5, 7)) }, next);
   };
   const week = useMemo(() => {
-    const at = new Date(`${picked}T00:00:00Z`);
+    const at = new Date(`${anchor}T00:00:00Z`);
+    at.setUTCDate(at.getUTCDate() + 7 * shift);
     const sunday = new Date(at);
     sunday.setUTCDate(at.getUTCDate() - at.getUTCDay());
     return Array.from({ length: 7 }, (_, i) => {
@@ -232,25 +342,101 @@ export function CustomersCalendar({
       d.setUTCDate(sunday.getUTCDate() + i);
       return d.toISOString().slice(0, 10);
     });
+  }, [anchor, shift]);
+
+  // 👆 #37 THE ONE SWIPE: the month's days and the week's days, sideways — old and new slide together (320 ms).
+  const slideMonth = useCalendarSwipe(
+    monthRef,
+    (side) => goToMonth(stepMonth({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) }, side)),
+    '[data-calendar-days]',
+  );
+  const slideWeek = useCalendarSwipe(stripRef, (side) => setWeekShift({ at: anchor, by: shift + side }), '[data-dates-week-days]');
+  useLayoutEffect(() => {
+    slideMonth();
+  }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    slideWeek();
+  }, [week]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ↩ #27 THE RETURN RULE: picking a day (from none) remembers where the scroller stood; letting it go — ×, the day
+  // tapped again, a tile — glides back there (and so to the month's open/compact state), 520 ms, never a jump. Stepping
+  // from one day to another keeps the first memory, so the return is to the state before ANY day opened.
+  const scroller = useRef<HTMLElement | null>(null);
+  const lastTop = useRef(0);
+  const returnTop = useRef<number | null>(null);
+  useEffect(() => {
+    const sc = scrollerOf(monthRef.current);
+    scroller.current = sc;
+    const target: HTMLElement | Window = sc === document.scrollingElement ? window : sc;
+    const read = () => {
+      lastTop.current = sc.scrollTop;
+    };
+    read();
+    target.addEventListener('scroll', read, { passive: true });
+    return () => target.removeEventListener('scroll', read);
+  }, []);
+  const wasPicked = useRef(picked);
+  useLayoutEffect(() => {
+    const was = wasPicked.current;
+    wasPicked.current = picked;
+    if (was === null && picked !== null) returnTop.current = lastTop.current;
+    else if (was !== null && picked === null && returnTop.current !== null && scroller.current) {
+      const top = returnTop.current;
+      returnTop.current = null;
+      return glideScrollTo(scroller.current, top);
+    }
   }, [picked]);
 
-  const pickedDay = data.days.find((d) => d.date === picked) ?? null;
-  const holds = (monthInputs.get(picked.slice(0, 7))?.dayStates ?? []).map((s) => ({
+  const holds = (monthInputs.get(month)?.dayStates ?? []).map((s) => ({
     poolId: s.poolId,
     stateDate: s.stateDate,
     dayState: s.dayState,
   }));
-  const rows = dayRowsOf(picked, {
-    today: todayIso,
-    poolIds: shownIds,
-    poolLabel,
-    namePools: pools.length > 1,
-    bookings,
-    blocks,
-    holds,
-    asking: pickedDay?.inquiryCount ?? 0,
-    waiting: pickedDay?.waitlistCount ?? 0,
-  });
+  const rowsOf = (day: CalendarDay) => {
+    const at = data.days.find((d) => d.date === day) ?? null;
+    return dayRowsOf(day, {
+      today: todayIso,
+      poolIds: shownIds,
+      poolLabel,
+      namePools: pools.length > 1,
+      bookings,
+      blocks,
+      holds,
+      asking: at?.inquiryCount ?? 0,
+      waiting: at?.waitlistCount ?? 0,
+    });
+  };
+  /* No day picked: every day of the month still to come that has something on it, in order (v113 `listAll`). */
+  const allDays = picked || !onClients || oneScreen
+    ? []
+    : data.days
+        .filter((d) => d.date >= todayIso)
+        .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
+        .filter((g) => g.rows.length > 0);
+  const drawRow = (r: DayRow, day: CalendarDay) => (
+    <DatesRow
+      key={r.key}
+      data={r.kind}
+      title={r.title}
+      line={r.line || undefined}
+      badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
+      href={onClients ? daySheetHref(day) : undefined}
+      lead={
+        r.kind === 'blocked' || r.kind === 'held' ? (
+          // #28: the calendar draws a closure as the day's struck number (no hatch, no soft fill) — so does its row.
+          <b
+            aria-hidden
+            className={`grid h-6 w-7 shrink-0 place-items-center text-[13px] font-semibold tabular-nums text-ink/45 ${r.hours ? '' : 'line-through decoration-2'}`}
+            data-dates-row-day={r.hours ? 'part' : 'struck'}
+          >
+            {Number(day.slice(8))}
+          </b>
+        ) : undefined
+      }
+    />
+  );
+  // 📌 A day heading pins under the pinned row, and under the week strip once it shows.
+  const headTop = pinH + (folded ? 54 : 0);
 
   const options = [
     { key: 'all', label: halls ? 'All halls' : 'All schedules' },
@@ -260,28 +446,32 @@ export function CustomersCalendar({
   // The month dropdown: last month to a year ahead (prototype: the month as a dropdown with ‹ ›).
   const base = { y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) };
   const monthsOffered = Array.from({ length: 14 }, (_, i) => stepMonth(base, i - 1));
-  const near = nearWord(todayIso, picked);
+  const near = picked ? nearWord(todayIso, picked) : '';
 
   return (
-    <div data-dates-month="" aria-busy={pending}>
+    <div ref={rootRef} data-dates-month={place} aria-busy={pending}>
       {/* "All schedules ▾" — the ONE dropdown, above the month (prototype datesBody). One schedule: its one line. */}
-      {options.length > 2 ? (
+      {!onClients ? null : options.length > 2 ? (
         <div className="mb-2 mt-1 flex min-h-11 items-center" data-dates-eyebrow="">
           <PickMenu label="Schedules" value={scope} options={options} onPick={setScope} dataAttr="data-dates-scope" className="!min-h-11" />
         </div>
-      ) : pools.length === 1 ? (
+      ) : pools.length === 1 && !oneScreen ? (
         <p className="mb-2 mt-1 text-[14px] font-medium text-ink" data-dates-one-schedule="">
           {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
         </p>
       ) : null}
       {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
-      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
+      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="relative touch-pan-y overflow-x-clip transition-opacity" data-tour="dates-calendar">
+        {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
+            (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}
         <CalendarGrid
+          key={month}
+          mark="box"
           value={picked}
           today={todayIso}
-          startAt={`${initialMonth}-01`}
+          startAt={`${month}-01`}
           states={states}
-          onPick={(d) => setPicked(d)}
+          onPick={toggleDay}
           onMonth={goToMonth}
           monthPicker={(view, go) => (
             <PickMenu
@@ -299,14 +489,15 @@ export function CustomersCalendar({
           data="dates"
         />
       </div>
-      <CalendarLegend dots={['booked', 'outside', 'asking']} blocked full />
+      {/* The Schedule month has no "asking" marks (its one read skips the shop's threads) — its legend says only what it draws. */}
+      {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />}
 
       {/* 📌 THE WEEK STRIP (v13 `.weekstrip`): the picked day's week, ‹ › a day. Drawn always, shown only once folded —
           height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}
       <div
         ref={stripRef}
-        className={`sticky z-[4] -mx-4 flex items-center gap-1 overflow-hidden border-ink/10 px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
-          folded ? 'h-[54px] border-b opacity-100' : 'pointer-events-none h-0 opacity-0'
+        className={`sticky z-[4] -mx-4 flex touch-pan-y items-center gap-1 overflow-hidden px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
+          folded ? 'h-[54px] sn-pin-hair opacity-100' : 'pointer-events-none h-0 opacity-0'
         }`}
         style={{ background: 'var(--sn-canvas)' }}
         aria-hidden={!folded}
@@ -316,6 +507,7 @@ export function CustomersCalendar({
         <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day earlier" onClick={() => stepDay(-1)} data-dates-step="-1">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
+        <div className="relative flex min-w-0 flex-1 gap-1" data-dates-week-days="">
         {week.map((d) => {
           const inMonth = d.slice(0, 7) === month;
           const st = inMonth ? states.get(d) : undefined;
@@ -325,54 +517,93 @@ export function CustomersCalendar({
             <button
               key={d}
               type="button"
-              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-full text-[13.5px] leading-tight tabular-nums ${on ? 'bg-sn-accent text-[rgb(var(--sn-on-accent))]' : 'text-ink'}`}
-              style={!on && st?.blocked ? { backgroundImage: CALENDAR_HATCH } : undefined}
+              // #37: the ONE picked mark (the number's ink box) — today's thin ring, a blocked day struck through.
+              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-md text-[13.5px] leading-tight tabular-nums text-ink ${
+                d === todayIso && !on ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''
+              } ${st?.blocked && !on ? 'text-ink/45' : ''}`}
               aria-pressed={on}
               aria-label={dayLongWords(d)}
-              onClick={() => (inMonth ? setPicked(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
+              onClick={() => (inMonth ? toggleDay(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
               data-dates-week-day={d}
             >
-              <small className={`text-[9.5px] leading-none ${on ? '' : 'text-ink/55'}`}>{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
-              <span className={st?.full ? 'font-bold' : undefined}>{Number(d.slice(8))}</span>
-              {dot && !on ? <i aria-hidden className="absolute bottom-0.5 block h-1 w-1 rounded-full" style={{ background: dot }} /> : null}
+              <small className="text-[9.5px] leading-none text-ink/55">{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
+              <span className={`justify-self-center ${st?.full || on ? 'font-bold' : ''}`}>
+                <DayBox on={on} struck={st?.blocked === true}>
+                  {Number(d.slice(8))}
+                </DayBox>
+              </span>
+              {dot ? <i aria-hidden className="absolute bottom-0.5 block h-1 w-1 rounded-full" style={{ background: dot }} /> : null}
             </button>
           );
         })}
+        </div>
         <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day later" onClick={() => stepDay(1)} data-dates-step="1">
           <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
       </div>
 
-      {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
-      <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
-        <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
-          {dayLongWords(picked).replace(/, \d{4}$/, '')}
-          {near === 'Today' ? ' · today' : ''}
-        </span>
-        <Link href={daySheetHref(picked)} scroll className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent" data-dates-open-day="">
-          Open the day
-          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-      </div>
-      <div data-dates-rows="">
-        {rows.map((r) => (
-          <DatesRow
-            key={r.key}
-            data={r.kind}
-            title={r.title}
-            line={r.line || undefined}
-            badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
-            href={daySheetHref(picked)}
-            lead={
-              r.kind === 'blocked' || r.kind === 'held' ? (
-                <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={r.hours ? CALENDAR_PART_STYLE : { backgroundImage: CALENDAR_HATCH }} />
-              ) : undefined
-            }
-          />
-        ))}
-      </div>
-      {dayActions ? <DayOpenSwitch day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
+      {between}
+
+      {/* Schedule (v113 `calC`): the month marks the event's day; the schedule follows — no day rows of the shop here. */}
+      {!onClients ? null : picked ? (
+        <>
+          {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
+          <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
+            <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
+              {dayHeadWords(picked, todayIso)}
+              {near === 'Today' ? ' · today' : ''}
+            </span>
+            {onClients ? (
+              <Link href={daySheetHref(picked)} scroll className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent" data-dates-open-day="">
+                Open the day
+                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </Link>
+            ) : null}
+            {oneScreen ? (
+              // v118 `.dh1 .dx`: the × lets the day go — back to the whole list (tapping the day again does too).
+              <button
+                type="button"
+                className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70"
+                aria-label="Back to every day"
+                onClick={() => setPicked(null)}
+                data-dates-let-go=""
+              >
+                <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </button>
+            ) : null}
+          </div>
+          {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
+          {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} onFlip={onFlip} /> : null}
+          <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
+        </>
+      ) : oneScreen ? null : (
+        <div className="mt-4" data-dates-all-days="">
+          {allDays.length === 0 ? (
+            <p className="py-3 text-[14px] text-ink/70" data-dates-all-empty="">
+              Nothing booked, asked or closed for the rest of {monthTitle({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) })}.
+            </p>
+          ) : (
+            allDays.map((g) => (
+              <section key={g.day} data-dates-day-group={g.day}>
+                {/* 📌 STICKY DAY HEADING (v113): the day's name stays at the top while its rows scroll under it. */}
+                <h3
+                  className="sticky z-[3] -mx-4 my-0 flex min-h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/60 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+                  style={{ top: headTop, background: 'var(--sn-canvas)' }}
+                  data-dates-day-heading={g.day}
+                >
+                  <button type="button" className="sn-press min-h-10 text-left" onClick={() => setPicked(g.day)} data-dates-heading-pick={g.day}>
+                    {dayHeadWords(g.day, todayIso)}
+                    {nearWord(todayIso, g.day) === 'Today' ? ' · today' : ''}
+                  </button>
+                </h3>
+                {g.rows.map((r) => drawRow(r, g.day))}
+              </section>
+            ))
+          )}
+        </div>
+      )}
       {after}
     </div>
   );
 }
+

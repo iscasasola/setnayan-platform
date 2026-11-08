@@ -64,7 +64,12 @@ const mountCount = (src: string, component: string) =>
  * test pass is the exact failure the drawing's "nothing removed" is about.
  */
 const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
-  ['<HeroCard', 'hero'],
+  // ['<HeroCard', 'hero'] — MOVED, not retired, by the owner's approval of THE ONE BUILD (8 Nov 2026, prototype v113:
+  // *"Approved suuplier dashboard"*): the hero became the Shop tab's cover band. Every control it held is on the cover
+  // (`shop/_components/shop-cover.tsx`): the logo (now opening its viewer + the shipped framer), Verified / "Get
+  // verified · N of 2", the address (Share › Copy your link), View shop ↗; "Finish profile" is Your details' row with its
+  // "N fields left". Pinned below, exactly once.
+  ['<ShopCover', 'the cover band (was the hero)'],
   // ['<ManageTiles', 'door 1 — shop information'] and ['<VerifySection', 'door 1 — your papers'] — MOVED, not
   // retired, by the owner's approval of the simpler supplier dashboard (DECISION_LOG 2026-10-14 "✅ APPROVE: THE
   // SIMPLER …", prototype moments 6–8): the tiles' panels and the papers are now Your details · Your page · Your
@@ -98,10 +103,12 @@ const MOVED_MOUNTS: ReadonlyArray<readonly [string, string, number]> = [
   ['RequestCorrectionCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
   ['BranchPanel', '../app/vendor-dashboard/profile/page.tsx', 1],
   ['PaymentOptionsSurface', '../app/vendor-dashboard/profile/page.tsx', 1],
-  // Your page — the website editor's controls are its parts; the domain manager and the auto-reply card are mounted.
+  // Your page — the website editor's controls are its parts; the domain manager is mounted.
   ['PageParts', '../app/vendor-dashboard/website/page.tsx', 1],
   ['DomainManager', '../app/vendor-dashboard/website/page.tsx', 1],
-  ['AutoReplySection', '../app/vendor-dashboard/website/page.tsx', 1],
+  // The auto-reply card's ONE home is Clients settings since THE ONE BUILD (8 Nov 2026, spec §9 #6 —
+  // `customers/the-auto-reply-lives-in-clients-settings.test.ts`); Your page and Shop no longer mount it.
+  ['AutoReplySection', '../app/vendor-dashboard/customers/_components/customers-settings-body.tsx', 1],
   // Your collections — the gallery editors (portfolio photos · featured videos · Instagram).
   ['GalleryMedia', '../app/vendor-dashboard/collections/page.tsx', 1],
 ];
@@ -162,22 +169,27 @@ test('🔑 BOTH DEEP-LINK ANCHORS STILL RESOLVE, AND EXACTLY ONCE EACH', () => {
 
 test('door 1 holds BOTH the shop information and the papers', () => {
   /*
-    The whole point of door 1: "fix my shop information and verification,
-    branches, team" is ONE errand. Since step 5 the room is rows into the screens
-    that hold it — Your details, Your page, Your collections, Helpers — plus the
-    papers' own row. A door that lost one of them would look completely fine.
+    The whole point of door 1: "fix my shop information and verification, branches, team" is ONE errand.
+    THE ONE BUILD (owner-approved v113, 8 Nov 2026) kept every room and moved the doors under the cover.
+    🔁 UPDATED ON PURPOSE 2026-11-08 (Build 2 §10 #31, owner: *"these menu are lost. isn't your details inside the upper
+    right menu? isn't your page inside the shop settings?"*): the two loose rows under the cover moved to the homes the
+    owner named — Your page is the Shop ⚙'s FIRST row, Your details is the top-right account sheet's row. NOT WEAKENED:
+    each is pinned at its new home, exactly once, and the old loose rows are pinned ABSENT.
   */
   const src = PAGE();
-  const open = src.indexOf('<ShopDoorSection');
-  assert.ok(open > -1, 'door 1 is not mounted at all');
-  const close = src.indexOf('</ShopDoorSection>', open);
-  assert.ok(close > open, 'the door shell is never closed');
-  const inside = src.slice(open, close);
-  for (const href of ['"/vendor-dashboard/profile"', '"/vendor-dashboard/website"', '"/vendor-dashboard/collections"', '"/vendor-dashboard/team"', '{DOCS_HREF}']) {
-    assert.ok(inside.includes(`href=${href}`), `door 1 has no row to ${href}`);
-  }
-  assert.match(inside, /id="get-verified"/, 'the papers row is not inside door 1');
-  assert.match(inside, /id="d1"/, 'door 1 does not carry the anchor the rail points at');
+  assert.equal(count(src, 'data-shop-doors=""'), 0, 'loose door rows are back under the cover (§10 #31)');
+  const gear = read('_components/shop-settings-rows.tsx');
+  assert.equal(count(gear, 'href={YOUR_PAGE_HREF}'), 1, 'Your page is not the Shop ⚙ row');
+  assert.ok(gear.indexOf('data-shop-gear-page') > -1 && gear.indexOf('data-shop-gear-page') < gear.indexOf('anchor="team"'), 'Your page is not the Shop ⚙’s first row');
+  assert.match(read('_components/shop-gear-sections.ts'), /export const YOUR_PAGE_HREF = '\/vendor-dashboard\/website';/);
+  const avatar = stripComments(readFileSync(resolve(HERE, '../app/vendor-dashboard/_components/supplier-avatar-rows.ts'), 'utf8'));
+  assert.match(avatar, /key: 'details'/, 'Your details left the account sheet');
+  assert.match(avatar, /'\/vendor-dashboard\/profile'/, 'the account sheet’s Your details goes nowhere');
+  assert.match(read('_components/shop-cover.tsx'), /const REVIEWS_HREF = `\$\{YOUR_PAGE_HREF\}#reviews`;/, 'the cover’s ★ does not open Your page › Reviews');
+  assert.match(gear, /anchor="team"/, 'Helpers (Team) left the Shop ⚙');
+  assert.match(gear, /anchor="docs"/, 'the papers left the Shop ⚙');
+  assert.match(read('_components/shop-cover.tsx'), /href="#docs"/, 'the Verified chip does not open the papers');
+  assert.match(src, /id="get-verified"/, 'the papers anchor no longer resolves');
 });
 
 /*
@@ -201,7 +213,10 @@ test('the rooms the retired rail pointed at still carry their anchors', () => {
   const surface = [PAGE(), ...readdirSync(resolve(SHOP, '_components'))
     .filter((f) => f.endsWith('.tsx'))
     .map((f) => read(`_components/${f}`))].join('\n');
-  for (const id of ['d1', 'manage-shop', 'packages', 'auto-reply', 'getting-paid', 'shop-folds']) {
+  for (const id of ['d1', 'manage-shop', 'packages', 'getting-paid', 'shop-folds']) {
     assert.ok(count(surface, `id="${id}"`) > 0, `#${id} no longer resolves on My Shop — a sent link lands nowhere`);
   }
+  // #auto-reply moved with its card to Clients settings (THE ONE BUILD, 8 Nov 2026); no link in the tree names it on Shop.
+  const clientsSettings = readFileSync(resolve(SHOP, '..', 'customers', '_components', 'customers-settings-body.tsx'), 'utf8');
+  assert.ok(count(clientsSettings, 'id="auto-reply"') > 0, '#auto-reply resolves nowhere — the card lost its anchor in Clients settings');
 });

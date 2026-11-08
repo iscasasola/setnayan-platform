@@ -31,10 +31,54 @@ test('the scan read the builder', () => {
   assert.ok(maker.length > 30_000, `proposal-maker.tsx read as ${maker.length} chars`);
 });
 
-test('the sections, once each, in the prototype order', () => {
+test('the sections, once each, in the owner\'s eleven-step order (THE ONE BUILD, v113)', () => {
+  // ⚖ 8 Nov 2026 (owner, THE ONE BUILD item 17; contract prototype v113): Start from · 1 Name · 2–4 Pick service
+  // cards (content placed, inclusions) · From your catalogue · 5 Gift · 6 Travel and crew meal · 7 Discount ·
+  // 8 Payment schedule · 9 Payment method · 10 Quote effectivity — and 11, Total + Save + Send, pinned below them.
+  // (Was ['start','lines','catalogue','money'], 2026-10-14 — the same controls, re-grouped, none dropped.)
   const ids = [...maker.matchAll(/<QuoteSection id="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['start', 'lines', 'catalogue', 'money']);
-  assert.equal(count(maker, /<\/QuoteSection>/g), 4);
+  assert.deepEqual(ids, [
+    'start',
+    'name',
+    'cards',
+    'catalogue',
+    'gift',
+    'travel',
+    'discount',
+    'plan',
+    'methods',
+    'effectivity',
+  ]);
+  assert.equal(count(maker, /<\/QuoteSection>/g), 10);
+});
+
+test('11 · the total, Save and the ONE Send ride a pinned bar; the name is the first field', () => {
+  const bar = maker.slice(maker.indexOf('data-quote-pinned-bar'));
+  assert.ok(maker.indexOf('data-quote-pinned-bar') > 0, 'the pinned bar is gone');
+  assert.match(bar.slice(0, 900), /className="sticky z-sn-sticky\b/, 'the bar is not pinned on the page layer token (spec §10 #23)');
+  assert.match(bar.slice(0, 900), /bottom: 'max\(var\(--sn-bottomdock-h, 0px\), var\(--sn-thumb-room, 0px\)\)'/, 'the bar sits UNDER the dock / thumb row');
+  // `sticky` only pins when no ancestor inside the form is a scroll box: the form clips, it does not scroll.
+  assert.match(maker, /className="overflow-clip rounded-2xl border border-ink\/10 bg-cream shadow-sm"/, 'an overflow-hidden form makes the bar inert');
+  assert.match(bar, /data-quote-answer=""[\s\S]{0,300}formatCentavos\(netPayable\)/, 'the total left the bar');
+  assert.ok(bar.indexOf('<SubmitButton') > 0, 'Send is not in the pinned bar');
+  assert.match(bar.slice(0, bar.indexOf('<SubmitButton')), />\s*Save\s*</, 'Save is not beside Send');
+  // Name of the quotation is the FIRST input after Start from (owner step 1).
+  const nameAt = maker.indexOf('<QuoteSection id="name"');
+  assert.match(maker.slice(nameAt, nameAt + 900), /maxLength=\{160\}[\s\S]*placeholder=\{cardTitle \|\| 'Auto-titled if blank'\}/);
+  // No floating pen / FAB on the quote (prototype-only; v113 "floating pen" removed by the owner).
+  assert.doesNotMatch(maker, /fixed[^"]*bottom[^"]*"[\s\S]{0,200}Pencil/);
+});
+
+test('2 and 9 are ONE multi-pick dropdown each — cards and payment methods (house rule: a set of choices is one PickMenu)', () => {
+  const cards = maker.slice(maker.indexOf('data-testid="quote-card-picker"'), maker.indexOf('data-quote-card-pick'));
+  assert.match(cards, /<PickMenu[\s\S]*picked=\{cards\.filter/, 'cards are not one multi-pick PickMenu');
+  const methods = maker.slice(maker.indexOf('data-quote-methods=""'), maker.indexOf('data-quote-methods-pick'));
+  assert.match(methods, /<PickMenu[\s\S]*picked=\{paymentMethods\.filter/, 'payment methods are not one multi-pick PickMenu');
+  assert.doesNotMatch(maker, /setSelectedMethods\(\(s\) => \(\{ \.\.\.s, \[m\.id\]/, 'the old method chips are back');
+  // Crew size / per head only under Charge / Offset — the crew stepper is not always on (map WRONG row).
+  const travel = maker.slice(maker.indexOf('<QuoteSection id="travel"'), maker.indexOf('<QuoteSection id="discount"'));
+  assert.match(travel, /\{crew\.mode === 'included' \? \(/, 'the crew size / per-head fields show even when the meal is Included');
+  assert.ok(travel.indexOf("crew.mode === 'included'") < travel.indexOf('crew.perHeadPhp'), 'per head is not behind Charge / Offset');
 });
 
 test('nothing is folded behind a step — no step strip, no hidden body, no Next', () => {
@@ -49,7 +93,8 @@ test('ONE Send, last — after "As they see it"', () => {
   const asThey = maker.indexOf('data-quote-as-they-see');
   const send = maker.indexOf('<SubmitButton');
   assert.ok(asThey > 0 && send > asThey, 'Send is not after "As they see it"');
-  assert.ok(send > maker.indexOf('<QuoteSection id="money"'), 'Send is not after the money');
+  assert.ok(send > maker.indexOf('<QuoteSection id="effectivity"'), 'Send is not after the last step');
+  assert.ok(maker.indexOf('<QuoteSection id="effectivity"') > 0);
 });
 
 test('Start from: card · a saved quote (only when there is one) · blank — and blank fills no discount', () => {

@@ -306,6 +306,7 @@ function AddBranchForm({
           City {detecting ? <span className="font-normal text-ink/45">· detecting…</span> : <span className="font-normal text-ink/45">· auto-detected, edit if needed</span>}
         </span>
         <input
+          autoComplete="address-level2"
           name="branch_city"
           required
           maxLength={BRANCH_CITY_MAX}

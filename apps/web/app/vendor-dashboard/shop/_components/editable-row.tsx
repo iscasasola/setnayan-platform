@@ -669,6 +669,8 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
         currentValue={data.logo_url}
         initialDisplayUrls={data.logoDisplayMap}
         maxSizeMB={2}
+        // 🗜 Compressed in the browser before it is sent (owner rule 2026-09-25; THE ONE BUILD A3 W16).
+        compressImage
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         variant="square"
         roundPreview
@@ -896,6 +898,7 @@ function PlainInput({
     case 'business_owner_name':
       return (
         <input
+          autoComplete="name"
           id="business_owner_name"
           name="business_owner_name"
           onInput={onDirty}
@@ -908,6 +911,8 @@ function PlainInput({
     case 'contact_phone':
       return (
         <input
+          autoComplete="tel"
+          inputMode="tel"
           id="contact_phone"
           name="contact_phone"
           type="tel"
@@ -920,6 +925,7 @@ function PlainInput({
     case 'contact_email':
       return (
         <input
+          autoComplete="email"
           id="contact_email"
           name="contact_email"
           type="email"
@@ -1117,6 +1123,7 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
   return (
     <div className="space-y-2">
       <input
+        autoComplete="street-address"
         ref={addressRef}
         id="hq_address"
         name="hq_address"
@@ -1147,6 +1154,7 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
           A vendor who typed their street here at signup vanished from every
           city search, permanently. */}
       <input
+        autoComplete="address-level2"
         name="location_city"
         defaultValue={data.location_city}
         onChange={onDirty}

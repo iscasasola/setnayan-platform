@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
@@ -241,16 +242,17 @@ export async function fetchShopGiftQuoteBasis(
   vendorProfileId: string,
   eventId: string | null,
 ): Promise<ShopGiftQuoteBasis | null> {
-  const [packs, schedule, stock, eventHas, reward] = await Promise.all([
+  const [packs, schedule, limitPct, stock, eventHas, reward] = await Promise.all([
     fetchShopGiftPacks(admin),
     getBookingFeeSchedule(admin),
+    getGiftLimitPct(admin),
     fetchShopGiftStock(admin, vendorProfileId, eventId),
     eventId ? fetchEventGiftHolds(admin, eventId, 'owned') : Promise.resolve<EventHolds>('none'),
     fetchShopGiftRewardStock(admin, vendorProfileId, eventId),
   ]);
   if (!packs || packs.length === 0) return null;
   const free = freeByKind(stock);
-  return { packs, schedule, free, eventHas, rewardFree: rewardFreeByKind(reward, free) };
+  return { packs, schedule, limitPct, free, eventHas, rewardFree: rewardFreeByKind(reward, free) };
 }
 
 /** Why a quote's gifts were refused, as the supplier reads it. */
@@ -286,6 +288,7 @@ export async function writeQuoteShopGifts(
     basis.packs,
     args.totalCentavos,
     basis.schedule,
+    basis.limitPct,
     basis.free,
     basis.eventHas,
     basis.rewardFree ?? null,

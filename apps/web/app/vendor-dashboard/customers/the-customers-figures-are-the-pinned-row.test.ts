@@ -10,7 +10,8 @@
  *   3 · A figure renders as the shared pinned-row tile (`data-pin-door` · `data-pin-n` · `data-pin-w`), so the shared
  *       fold folds it; an unread one says so in words.
  *   4 · The page wires them: Dates hands the month its closures' completeness, Money hands the pin `picture.totals`.
- *   5 · The week strip: sticky, ‹ › a day, a flex row (no second month grid), and the day switch says "Open for bookings".
+ *   5 · The week strip: sticky, ‹ › a day, a flex row (no second month grid), and the day switch says "Accept bookings"
+ *       (v113 `.dayact`, 2026-11-08 — "Open for bookings" until then).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -90,16 +91,17 @@ test('3 · a figure is the shared pinned-row tile; an unread one says so', async
 
 test('4 · the page wires the figures to the pinned row', () => {
   const PAGE = code('page.tsx');
-  assert.match(PAGE, /<CustomersPin\s+seg="dates"[\s\S]{0,200}figures=\{<CustomersFigures live figures=\{firstFigures\}/);
-  assert.match(PAGE, /datesFiguresOf\(\s*buildCustomerCalendarMonth\(/, 'the first paint counts with a second rule');
-  assert.match(PAGE, /closuresComplete=\{!blocksIncomplete\}/, 'the month is not told its closures fell short');
+  // Build 2 #43b: Dates is no view of its own — the one Clients screen's row reads "Clients · N booked · ₱X to collect"
+  // (people-is-rows 3c), so no month figures ride a row any more. The month is still told its closures fell short.
+  assert.doesNotMatch(PAGE, /<CustomersPin\s+seg="dates"/, 'a second (Dates) pinned row is back');
+  assert.match(PAGE, /closuresComplete: !blocksIncomplete/, 'the month is not told its closures fell short');
   const MONEY = code('_components/money-segment.tsx');
   assert.match(MONEY, /figures=\{<CustomersFigures figures=\{moneyFiguresOf\(picture\.totals\)\}/);
   const VIEW = code('_components/money-view.tsx');
   assert.doesNotMatch(VIEW, /<PesoCount\b/, 'Money draws its figures twice — on the row and again under it');
 });
 
-test('5 · the week strip pins under the row; the day switch is "Open for bookings"', () => {
+test('5 · the week strip pins under the row; the day switch is "Accept bookings"', () => {
   const MONTH = code('_components/customers-calendar.tsx');
   assert.match(MONTH, /data-dates-week-strip=/);
   assert.match(MONTH, /className=\{`sticky /, 'the week strip does not pin');
@@ -108,6 +110,6 @@ test('5 · the week strip pins under the row; the day switch is "Open for bookin
   assert.match(MONTH, /datesFiguresOf\(data\.days, closuresComplete\)/, 'the month stopped counting its own figures');
   assert.match(MONTH, /\{after\}\s*<\/div>/, 'the Dates folds left the block the strip pins over');
   const SWITCH = code('_components/day-open-switch.tsx');
-  assert.match(SWITCH, /name="Open for bookings"/);
+  assert.match(SWITCH, /name="Accept bookings"/);
   assert.doesNotMatch(SWITCH, /You can take bookings/);
 });

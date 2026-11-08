@@ -66,25 +66,8 @@ const ALLOW: Record<string, { count: number; why: string }> = {
       'The "bad" toast fill is color-mix(--color-danger 68%, black): in dark #A5584F. Deleted, text-cream is #17160F ' +
       'there → 3.54:1 (fails AA). With dark:text-ink (#FBFAF7) → 4.90:1.',
   },
-  'app/_components/next-card.tsx|dark:!text-ink': {
-    count: 1,
-    why:
-      'The day card: in dark its fill is re-set on purpose (dark:![background:color-mix(ink 12%, cream)] = #32312B) ' +
-      'so it is not a glaring white slab on the dark Home. On that fill text-ink reads 12.44:1; deleting the ' +
-      'override would put text-cream #17160F on it → 1.40:1. The words follow the fill.',
-  },
-  'app/_components/next-card.tsx|dark:[&_.home-card-body]:!text-ink/70': {
-    count: 1,
-    why: 'Body words on the same re-set day-card fill (#32312B): ink/70 → 6.97:1; deleted (cream/70) → 1.28:1.',
-  },
-  'app/_components/next-card.tsx|dark:[&_.home-eyebrow]:!text-ink/70': {
-    count: 1,
-    why: 'Eyebrow on the same re-set day-card fill (#32312B): ink/70 → 6.97:1; deleted (cream/70) → 1.28:1.',
-  },
-  'app/_components/next-card.tsx|dark:text-ink/70': {
-    count: 2,
-    why: 'Counter + note on the same re-set day-card fill (#32312B): ink/70 → 6.97:1; deleted (cream/70) → 1.28:1.',
-  },
+  // ✂ next-card.tsx's four day-card overrides left with the file (THE ONE BUILD, 8 Nov — the supplier Today's Next card,
+  // its last mount, is retired; `ugat-both-ends` said: mount it or delete it).
   'app/dashboard/[eventId]/vendors/_components/build-cart.tsx|dark:bg-raised': {
     count: 1,
     why:

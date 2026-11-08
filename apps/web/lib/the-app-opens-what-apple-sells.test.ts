@@ -265,7 +265,9 @@ test('2 · the page hands `open` and `goLive` ONLY inside the Apple branch (appl
   assert.match(branch, /^apple=\{\s*appleFacts\s*\?/, 'the Apple prop is no longer behind appleFacts');
   // 📷 2026-10-26: the Papic page is gone — the couple's Papic is the one card on Today (Add more = Apple's sheet), so
   // the app row is drawn only where no card is (a coordinator), and opens nothing.
-  assert.match(branch, /canViewPapicCounts && !papicCard[\s\S]{0,160}open: null/, 'the app draws a second Papic beside the card, or the row opens a page');
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD): the card moved to Memories — the row still stands down wherever
+  // the card is drawn (`papicInMemories`), and opens nothing. NOT WEAKENED.
+  assert.match(branch, /canViewPapicCounts && !papicInMemories[\s\S]{0,160}open: null/, 'the app draws a second Papic beside the card, or the row opens a page');
   assert.match(branch, /goLive: appleFacts\.liveActive && liveStudioRoamEnabled\(\) \? liveStudioControlPath\(eventId\) : null/);
   assert.equal((page.match(/studio\/papic`/g) ?? []).length, 0, 'a door to the gone Papic page');
 });
@@ -321,8 +323,9 @@ function asksAppleIap(src: string, at: number): boolean {
 }
 
 test('3 · the Papic card reads the gate once, and every web-only offer on it asks it', () => {
-  // 📷 2026-10-26: the Papic page is gone — Home draws its card (the app's Papic door too, where Apple sells).
-  const src = code('app/dashboard/[eventId]/page.tsx');
+  // 📷 2026-10-26: the Papic page is gone — Home drew its card; since THE ONE BUILD (8 Nov 2026) Memories draws it.
+  // 🔁 UPDATED ON PURPOSE 2026-11-08: the same gate checks, read where the card is built now — NOT WEAKENED.
+  const src = code('app/dashboard/[eventId]/memories/page.tsx');
   const settings = code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx');
   // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE — not gated,
   //  removed; Papic sells credits only. They may not come back on either platform.)
@@ -330,14 +333,16 @@ test('3 · the Papic card reads the gate once, and every web-only offer on it as
     assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(settings), `${gone} is on the Papic card again`);
   }
   // The card's Add more: Apple's sheet where Apple sells, none in the bare store shell, the web's sheet elsewhere.
-  assert.match(src, /const papicBuy = iap \? \(\s*<IapPapicSheet\b[\s\S]{0,120}?\) : storeShell \? null : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
-  // The card is drawn in the app only where Apple sells (the page opened only there, `IAP_OPENED_ROUTE`).
-  assert.match(src, /viewerMemberType === 'couple' && \(!storeShell \|\| iap\)/, 'the card reaches the bare store shell');
+  // (The bare store shell never reaches the branch: the card is not drawn there — the line below.)
+  assert.match(src, /const cardBuy = iap\.iap \? \(\s*<IapPapicSheet\b[\s\S]{0,120}?\) : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
+  // The card is drawn in the app only where Apple sells (the page opened only there, `IAP_OPENED_ROUTE`) — the couple's.
+  assert.match(src, /const papicCardShown = !iap\.storeShell \|\| iap\.iap;/, 'the card reaches the bare store shell');
+  assert.match(src, /const host = membershipRes\.data\?\.member_type === 'couple';/, 'the card is no longer the couple’s');
   // Every part that could speak of the web is handed the gate.
   for (const mount of ['<PapicOutcomeBanners', '<PapicCameraHelp']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
-    assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{iap\}/, `${mount} is not handed the gate`);
+    assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{iap\.iap\}/, `${mount} is not handed the gate`);
   }
   assert.match(code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-help.tsx'), /\{appleIap \? null : \(/, 'DSLR pairing is said in the app');
   // 🗂 The files' web-only offers moved to the Memories ⚙ sheet with the files — gated there.

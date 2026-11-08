@@ -10,9 +10,11 @@
  *      PORTALED into the right column (`SupplierColumns`) and NOT also drawn under the row — one copy, no second form;
  *      the right column is never empty (the first row on screen, else the scope's `rest`); the row's one action sits
  *      BESIDE the head, never nested in it.
- *   2. Today and Customers › Events both use it — Today's three lists (asks · week · money) inside `TodayCounts`' scope,
- *      the Events rows inside `CustomersPin`'s; and the chat draws the same lines + answers at its top for a pending
- *      inquiry. No page draws a second accordion.
+ *   2. Customers › Events uses it — the Events rows inside `CustomersPin`'s scope; and the chat draws the same lines +
+ *      answers at its top for a pending inquiry. No page draws a second accordion.
+ *      ⤴ TODAY LEFT THIS RULE on 2026-11-08 (THE ONE BUILD A7 — owner v112 HOLD answer *"Jump"*: a Today row JUMPS to
+ *      its page, never opens in place; `today-rows-jump.test.ts` holds that). Test 2 now also holds that Today draws
+ *      no open-in-place row, so the two rules can never both be on one page.
  *   3. The opened event says the fixed lines IN ORDER, marks the host who asked, names the service asked for, offers
  *      only this shop's services in categories the event added (and only while asking), and says "couldn't load" for a
  *      refused read — never an empty list that reads as "nobody".
@@ -57,22 +59,24 @@ test('1 · one mechanism: the shared fold, the body portaled right from 701 and 
   assert.match(fold, /\{head\}\s*\{endPress \? \(\s*<span className="flex flex-none items-center" data-fold-end="">/, 'the row’s action is not beside its head');
 });
 
-test('2 · Today and Customers › Events open their rows with it; the chat draws the same lines at its top', () => {
-  assert.match(code('app/vendor-dashboard/_components/today-counts.tsx'), /<SupplierOpenScope name="today"[\s\S]*?\{panels\[key\]\}[\s\S]*?\{after\}\s*<\/SupplierOpenScope>/, 'Today’s lists are not in the two columns');
+test('2 · Customers › Events opens its rows with it; the chat draws the same lines at its top; Today jumps instead', () => {
+  // ⤴ Today's rows JUMP (THE ONE BUILD A7): no open-in-place row, no two columns, no event-lines read on Today.
+  const today = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
+  assert.doesNotMatch(today, /<SupplierOpenRow\b|<SupplierOpenScope\b|<OpenedRow\b/, 'a Today row opens in place again — it jumps (owner v112)');
   const feed = code('app/vendor-dashboard/_components/overview-sections.tsx');
   const desk = feed.slice(feed.indexOf('export function WhatsNewFeed('), feed.indexOf('export function NothingToAnswerFeed('));
-  assert.match(desk, /<SupplierOpenRow\b[\s\S]*?endPress=\{rowAct\(card, confirmLock\)\}/, 'a waiting row does not open, or lost its one action');
+  assert.match(desk, /<SupplierOpenRow\b[\s\S]*?endPress=\{rowAct\(card, confirmLock\)\}/, 'the shipped desk row lost its one action (unmounted since THE ONE BUILD — its bodies serve the client page)');
   assert.doesNotMatch(desk, /<Fold\b/, 'a waiting row draws a second accordion of its own');
-  const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
-  assert.equal((first.match(/<OpenedRow\b/g) ?? []).length, 2, 'a week or money row does not open');
   assert.match(code('app/vendor-dashboard/customers/_components/customers-roster.tsx'), /<SupplierOpenRow\b[\s\S]*?<EventLinesBody lines=\{lines\} \/>/, 'an Events row does not open to its lines');
   assert.match(code('app/vendor-dashboard/customers/page.tsx'), /<CustomersPin[\s\S]*?columns=\{\{ rest:/, 'Customers › Events is not in the two columns');
   const chat = code('app/vendor-dashboard/messages/[threadId]/page.tsx');
   assert.match(chat, /data-chat-inquiry-card=""[\s\S]*?<EventLinesBody lines=\{askLines\} \/>[\s\S]*?<InquiryAnswers\b/, 'the chat has no inquiry card at its top');
   // The one batched read, on every surface — never a read per row.
-  for (const rel of ['app/vendor-dashboard/page.tsx', 'app/vendor-dashboard/customers/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
+  for (const rel of ['app/vendor-dashboard/customers/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
     assert.equal((code(rel).match(/readSupplierEventLines\(/g) ?? []).length, 1, `${rel} reads the lines more than once (or not at all)`);
   }
+  // Today no longer opens an inquiry in place, so it reads no event lines (one request fewer).
+  assert.equal((code('app/vendor-dashboard/page.tsx').match(/readSupplierEventLines\(/g) ?? []).length, 0, 'Today reads event lines it no longer draws');
 });
 
 const LINES: EventLines = {

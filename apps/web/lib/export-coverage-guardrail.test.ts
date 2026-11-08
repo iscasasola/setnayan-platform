@@ -84,6 +84,8 @@ import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED } from './export-payment-le
 import {
   VENDOR_PROFILE_EXPORT_COLUMNS,
   VENDOR_PROFILE_EXPORT_OMITTED,
+  VENDOR_PROFILE_EXPORT_STAFF_LABELS,
+  vendorProfileForExport,
 } from './export-vendor-profile-columns';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
@@ -351,6 +353,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   concierge_response_cache:
     'Setnayan-authored cached content; the *_by stamp is an internal editor, not a data subject.',
   setnayan_pay_methods: 'Platform payment configuration — Setnayan’s own rails, not subject data.',
+  hub_tools: 'Setnayan-authored Hub tool library; updated_by is an internal admin editor, not a data subject.',
+  category_hub_settings: 'Setnayan per-category configuration; updated_by is an internal admin editor, not a data subject.',
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
@@ -384,6 +388,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'reason, not because the table exists.',
   reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
   site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  form_templates:
+    'Admin-authored "Suggested for your service" form templates — updated_by is a staff actor; a template holds no user’s data.',
   platform_compliance_facts:
     'Setnayan’s OWN PIC/DPO compliance record (singleton row) — updated_by is a staff actor; the personal data in it is Setnayan’s officers, disclosed on /privacy, not a user’s.',
   platform_expenses: 'Setnayan’s own books — created_by is the staff member who logged the expense.',
@@ -462,6 +468,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_manual_vendors: 'TODO(RA10173-backlog): vendor contact details the subject typed in themselves.',
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
+  event_vendor_refunds:
+    'TODO(RA10173-backlog): refunds a supplier recorded giving the couple money back (Supplier Build 2 lane E, 2026-11-08). The couple READS them in-app (booked-supplier workspace › Payments) but the export does not carry them yet; belongs beside payment_ledger, couple-grain on the session client. Its two *_user_id columns are supplier-side actor stamps (erasure nulls them).',
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
@@ -594,7 +602,9 @@ const KNOWN_GAPS: Record<string, string> = {
 // Lowered 90 → 68 on 2026-11-05: 19 gaps moved into the export (the sort of the
 // 39 undecided tables in lib/export-completeness.ts), and the ceiling is pinned
 // to the real count so the slack cannot be spent on a new gap.
-const KNOWN_GAP_CEILING = 68;
+// Raised 68 → 69 on 2026-11-08, deliberately: event_vendor_refunds (Supplier Build 2
+// lane E) is a new couple-readable money record the export does not carry yet.
+const KNOWN_GAP_CEILING = 69;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -892,6 +902,30 @@ test('T12 · the vendor_profiles export projection is COMPLETE (no column silent
         'Withholding a column from a subject-access response is a decision someone must defend.',
     );
   }
+});
+
+test('T12b · a staff uid on the vendor_profile leaves as a label, never the uid (STAFF_ACTOR rule, Build 2)', () => {
+  // `find_lock_lifted_by` holds the uid of the Setnayan staff member who lifted the shop's find-lock. It stays in the
+  // projection (T12's equality is untouched, so the subject still learns THAT it was lifted) and is swapped for its
+  // label by `vendorProfileForExport` — the one function `personal-data-export.ts` writes the row through.
+  // SABOTAGE (seen red, 8 Nov 2026): `vendorProfileForExport` returning the row unchanged → red ("the staff uid left").
+  const table = readSchema().get('vendor_profiles');
+  assert.ok(table, 'vendor_profiles not parsed');
+  assert.ok(Object.keys(VENDOR_PROFILE_EXPORT_STAFF_LABELS).length > 0, 'the staff-label map is empty');
+  const uid = '6f1c2a40-0000-4000-8000-00000000abcd';
+  for (const [col, label] of Object.entries(VENDOR_PROFILE_EXPORT_STAFF_LABELS)) {
+    assert.ok(table.cols.has(col), `${col} is not a vendor_profiles column — a stale staff label`);
+    assert.ok(VENDOR_PROFILE_EXPORT_COLUMNS.includes(col), `${col} left the projection — the subject would not learn it was set`);
+    assert.ok(!(col in VENDOR_PROFILE_EXPORT_OMITTED), `${col} is both withheld and labelled`);
+    const out: Record<string, unknown> = vendorProfileForExport({ [col]: uid, business_name: 'Shop' } as Record<string, unknown>);
+    assert.equal(out[col], label, `the staff uid left in ${col}`);
+    assert.ok(!JSON.stringify(out).includes(uid), 'the staff uid left the export');
+    assert.equal(out.business_name, 'Shop', 'the label swap touched a subject column');
+    assert.equal(vendorProfileForExport({ [col]: null } as Record<string, unknown>)[col], null, `${col}: nobody acted must stay null`);
+  }
+  assert.equal(VENDOR_PROFILE_EXPORT_STAFF_LABELS.find_lock_lifted_by, 'Setnayan staff');
+  const route = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'personal-data-export.ts'), 'utf8');
+  assert.match(route, /vendor_profile:\s*vendorProfileForExport\(vendorProfile\.row\)/, 'the export writes the vendor_profile row without the label swap');
 });
 
 test('T14 · the payment_ledger projection is COMPLETE (no ledger column silently drops out)', () => {

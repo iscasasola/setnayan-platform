@@ -23,6 +23,8 @@ import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effect
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
+import { refundRefusalWords, type RefundAnswer } from '@/lib/client-refunds';
 import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
@@ -372,4 +374,62 @@ export async function getVendorPaymentState(threadId: string): Promise<{
     console.error('[getVendorPaymentState] threw', e);
     return null;
   }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 💸 RECORD A REFUND THE SUPPLIER GAVE THIS CLIENT (Supplier Build 2 lane E) — the Payment page's "Record a refund"
+ * sheet, after its confirm step. NO MONEY MOVES: a record, like a logged payment. Everything is re-checked in
+ * `vendor_record_client_refund` (SECURITY DEFINER, the shop's OWN booking only, never above what it confirmed
+ * receiving less earlier refunds, a double tap is one row via `request_id`) — this action only shapes the form.
+ *
+ * ⚖ ONE ACTION, TWO MODES (the server-action budget, `scripts/lint-server-action-budget.mjs`): `remove_refund_id` is
+ * the swipe-left's delayed commit (`deleteWithUndo`) — it THROWS on any refusal, which the row reads as "it's back".
+ *
+ * The proof photo rides the Booked QR's own uploader and prefix (`locked-qr-proof/`, public media — the supplier's
+ * own payment proof, same class); the ref is pinned by `lockedQrProofPolicy` before it is stored.
+ */
+export async function recordClientRefund(formData: FormData): Promise<RefundAnswer> {
+  const supabase = await createClient();
+  const back = payConfirmReturnTo(formData.get('return_to'));
+
+  const removeId = String(formData.get('remove_refund_id') ?? '').trim();
+  if (removeId) {
+    if (!UUID_RE.test(removeId)) throw new Error('remove: not a refund');
+    const { data, error } = await supabase.rpc('vendor_remove_client_refund', { p_refund_id: removeId });
+    if (error || (data !== 'removed' && data !== 'already_removed')) throw new Error(`remove: ${error ? 'refused' : String(data)}`);
+    if (back) revalidatePath(back);
+    return { ok: true };
+  }
+
+  const eventVendorId = String(formData.get('event_vendor_id') ?? '').trim();
+  if (!UUID_RE.test(eventVendorId)) return { ok: false, message: refundRefusalWords('not_your_client') };
+  const amount = Number(String(formData.get('amount_php') ?? '').replace(/,/g, '').trim());
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, message: refundRefusalWords('amount') };
+  const on = String(formData.get('refunded_on') ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) return { ok: false, message: refundRefusalWords('date') };
+  const reason = String(formData.get('reason') ?? '').trim();
+  if (!reason) return { ok: false, message: refundRefusalWords('reason') };
+  const proofRaw = String(formData.get('proof_r2_ref') ?? '').trim() || null;
+  const proof = proofRaw && parseClientRef(proofRaw, lockedQrProofPolicy()) ? proofRaw : null;
+  if (proofRaw && !proof) return { ok: false, message: refundRefusalWords('proof') };
+  const requestRaw = String(formData.get('request_id') ?? '').trim();
+
+  const { data, error } = await supabase.rpc('vendor_record_client_refund', {
+    p_event_vendor_id: eventVendorId,
+    p_amount_php: Math.round(amount * 100) / 100,
+    p_refunded_on: on,
+    p_reason: reason.slice(0, 240),
+    p_proof_r2_key: proof,
+    p_request_id: UUID_RE.test(requestRaw) ? requestRaw : null,
+  });
+  if (error) {
+    console.error('[refund] vendor_record_client_refund failed:', error.message);
+    return { ok: false, message: refundRefusalWords(null) };
+  }
+  const env = (data ?? {}) as { status?: string };
+  if (env.status !== 'ok') return { ok: false, message: refundRefusalWords(env.status) };
+  if (back) revalidatePath(back);
+  return { ok: true };
 }

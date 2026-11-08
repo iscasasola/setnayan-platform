@@ -736,7 +736,7 @@ export function resolveHubRoleView(input: {
         name: 'You',
         headline: 'Your own page, as yourself.',
         blurb:
-          'Never "scan your QR" on your own wedding. Nothing of the editor sits on top — you edit from Home and preview each stage in the Maker.',
+          'Never "scan your QR" on your own wedding. Nothing of the editor sits on top — you edit from Today and preview each stage in the Maker.',
         cells: [
           { mark: 'full', text: 'Everything a guest sees, at any stage', known: true },
           { mark: 'full', text: 'The print sheet, the four channels', known: true },

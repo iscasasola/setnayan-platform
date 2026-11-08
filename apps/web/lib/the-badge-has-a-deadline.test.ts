@@ -103,6 +103,10 @@ const FILES = scannedFiles();
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'lib/admin/supplier-work.server.ts',
+    { count: 1, why: 'Admin › Work only: marks a flagged card from a shop that is not yet listed as verified (public_visibility) — a moderation note for staff, never a rendered Verified badge.' },
+  ],
+  [
     'app/dashboard/(account)/library/_data/saved-vendors.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only — SavedVendorCard has no verified field, no badge renders here.' },
   ],
@@ -129,6 +133,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   [
     'app/tour/vendors/page.tsx',
     { count: 1, why: 'Feeds computeCompatScore (a ranking input). The badge field (isVerified) now calls hasVerifiedBadge separately.' },
+  ],
+  [
+    'lib/shop-permit-line.ts',
+    { count: 1, why: 'Only inside badgeDeadline()\'s "none" branch (no renewal date on file): it picks the Shop ⚙ permit line\'s COPY — "No renewal date on file" once Setnayan has checked the papers, "Setnayan reads its date when it checks your papers" before. No "Verified" badge renders from it; the line\'s state itself comes from badgeDeadline (THE ONE BUILD, C4).' },
   ],
   [
     'app/(shell)/explore/compare/page.tsx',

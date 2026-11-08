@@ -17,8 +17,9 @@
  *
  *   1. `<ChatMessageStream` is mounted in exactly the two thread pages
  *   2. the two embedding pages import none of the frame's parts
- *   3. …and each redirects a chat landing to its thread page, under the flag
- *   4. …and each keeps "Chat" in its strip as a LINK tab, with no Call tab
+ *   3. the couple workspace redirects a chat landing to its thread page; the supplier's client draws Chat IN PLACE
+ *      (THE ONE BUILD, 8 Nov 2026 · v111) with no second stream
+ *   4. Chat is a page of the picked client / a LINK tab on the couple strip, with no Call tab anywhere
  *   5. the shell renders a link tab as an anchor and never selects it
  *   6. each thread frame's ⋮ carries the embedding page's sections
  *   7. the supplier's notice is addressed to the supplier; the couple's
@@ -38,6 +39,8 @@ const COUPLE_THREAD = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const WORKSPACE = 'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx';
 const SHELL = 'app/_components/relationship-tab-shell.tsx';
+const PICKED_CHAT_PAGE = 'app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx';
+const PICKED_MENU = 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu.ts';
 const NOTICE = 'app/_components/chat-privacy-notice.tsx';
 
 const supplierThread = read(SUPPLIER_THREAD);
@@ -107,13 +110,17 @@ test('2 · the two embedding pages hold no piece of the frame', () => {
   }
 });
 
-test('3 · each embedding page sends a chat landing to its thread page, behind the shell flag', () => {
+test('3 · the couple workspace sends a chat landing to its thread page; the supplier client draws Chat in place', () => {
+  // 🗂 THE ONE BUILD (8 Nov 2026 · v111/v113; spec §4: "Chat lives in the client … guard tests 3–4 updated
+  // honestly"). The supplier's client page no longer forwards a chat landing — its Chat page draws the ONE
+  // conversation in place (`_pages/chat.tsx`, which mounts no stream of its own: test 1 still counts every mount).
   assert.equal(
-    count(client, /relationshipShellEnabled && threadId && \(!rawTab \|\| rawTab === 'chat' \|\| rawTab === 'call'\)/g),
-    1,
-    'the client page no longer redirects a chat landing',
+    count(client, /redirect\(`\/vendor-dashboard\/messages\/\$\{threadId\}`\)/g),
+    0,
+    'the client page forwards a chat landing again — the Chat page lives in the client now',
   );
-  assert.equal(count(client, /redirect\(`\/vendor-dashboard\/messages\/\$\{threadId\}`\)/g), 1);
+  const chatPage = read(PICKED_CHAT_PAGE);
+  assert.equal(count(chatPage, /<ChatMessageStream\b/g), 0, 'the Chat page mounts a second chat box');
   assert.equal(
     count(workspace, /relationshipShellEnabled && chatThread/g),
     1,
@@ -126,17 +133,21 @@ test('3 · each embedding page sends a chat landing to its thread page, behind t
   assert.equal(count(workspace, /rawLanding === 'chat' \|\| rawLanding === 'call'/g), 1);
 });
 
-test('4 · "Chat" stays in each strip as a door (href), and there is no Call tab', () => {
-  for (const [rel, src] of [
-    [CLIENT_PAGE, client],
-    [WORKSPACE, workspace],
-  ] as const) {
-    const chatTab = src.match(/id: 'chat',[\s\S]{0,400}?\},/);
-    assert.ok(chatTab, `${rel} lost its Chat tab`);
-    assert.match(chatTab![0], /href:/, `${rel}: the Chat tab must be a link, not a panel`);
-    assert.doesNotMatch(chatTab![0], /node: [^n]/, `${rel}: a link tab renders no panel`);
-    assert.equal(count(src, /id: 'call'/g), 0, `${rel} still has a Call tab — the call lives on the composer row`);
-  }
+test('4 · "Chat" is a page of the picked client and a door on the couple strip; there is no Call tab', () => {
+  // Supplier: Chat is one of the picked client's nine pages (read back from the menu), and `call` only resolves TO
+  // Chat — never a page of its own (the call lives on the composer row; `the-chat-has-no-calls`).
+  const menu = read(PICKED_MENU);
+  const pages = menu.slice(menu.indexOf('export const PICKED_CLIENT_PAGES'), menu.indexOf('] as const;'));
+  assert.match(pages, /\{ id: 'chat', label: 'Chat'/, 'the picked client lost its Chat page');
+  assert.equal(count(pages, /id: 'call'/g), 0, 'the picked client has a Call page — the call lives on the composer row');
+  assert.match(menu, /call: 'chat'/, '`?tab=call` must land on Chat');
+  assert.equal(count(client, /id: 'call'/g), 0, `${CLIENT_PAGE} still has a Call tab`);
+  // Couple: unchanged — Chat stays a link tab in the workspace strip.
+  const chatTab = workspace.match(/id: 'chat',[\s\S]{0,400}?\},/);
+  assert.ok(chatTab, `${WORKSPACE} lost its Chat tab`);
+  assert.match(chatTab![0], /href:/, `${WORKSPACE}: the Chat tab must be a link, not a panel`);
+  assert.doesNotMatch(chatTab![0], /node: [^n]/, `${WORKSPACE}: a link tab renders no panel`);
+  assert.equal(count(workspace, /id: 'call'/g), 0, `${WORKSPACE} still has a Call tab — the call lives on the composer row`);
 });
 
 test('5 · the shell draws a link tab as an anchor and never selects it', () => {
@@ -181,4 +192,23 @@ test('7 · the supplier reads a notice addressed to the supplier; the couple’s
   assert.match(notice, /report: 'If a supplier asks for these, report it via Help\.',/);
   // The default reader is the couple, so an unlabelled mount cannot show a shop the supplier line.
   assert.match(notice, /viewer = 'couple',/);
+});
+
+test('9 · THE ONE BUILD · the picked client\'s Chat and Quotation pages draw the ONE thread body — no frame part of their own', () => {
+  // v111 (owner 8 Nov 2026): Chat lives in the client. Still ONE chat body: each client page renders
+  // `SupplierThreadBody`, which renders the supplier thread page itself (test 1's one mount site) — nothing else.
+  const body = read('app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body.tsx');
+  assert.match(body, /import VendorThreadPage from '\.\.\/page';/, 'the body is not the thread page');
+  assert.match(body, /<VendorThreadPage\b/);
+  for (const rel of ['app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx', 'app/vendor-dashboard/clients/[eventId]/_pages/quotation.tsx']) {
+    const src = read(rel);
+    assert.equal(count(src, /<SupplierThreadBody\b/g), 1, `${rel} does not draw the one thread body`);
+    for (const part of ['ChatMessageStream', 'ChatSendForm', 'ChatThreadMenu', 'ChatBox', 'ChatThreadFrame', 'ChatPrivacyNotice']) {
+      assert.equal(count(src, new RegExp(`\\b${part}\\b`, 'g')), 0, `${rel} carries ${part} of its own`);
+    }
+  }
+  // The full-screen route keeps working for the envelope doors (6 Nov ruling): the embed is opt-in, internal.
+  // Build 2 · B2-D: every embed (chat · quotation · decisions) goes through the ONE shared draw; anything else is full.
+  assert.match(supplierThread, /sp\?\.__embed === 'chat' \|\| sp\?\.__embed === 'quotation' \|\| sp\?\.__embed === 'decisions'/);
+  assert.match(supplierThread, /return \(await drawVendorThread\(threadId, sp, false\)\)\.full;/);
 });

@@ -8,7 +8,7 @@ import type { DatesBlock } from '@/lib/vendor-dates';
 type Action = (formData: FormData) => void | Promise<void>;
 
 /**
- * "OPEN FOR BOOKINGS" (v13 2026-10-29; "You can take bookings" until then) — the picked day's availability, one switch under its rows (owner 2026-10-28, prototype
+ * "ACCEPT BOOKINGS" (v113 `.dayact`, 2026-11-08; "Open for bookings" from v13 2026-10-29 until then) — the picked day's availability, one switch under its rows (owner 2026-10-28, prototype
  * `supplier_in_place_2026-10-28` Customers › Dates: "tap a day → its list below; a switch marks the day not available").
  *
  * The SHIPPED writes, in place (`return_to=inplace` — nothing redirects, the month and the picked day stay):
@@ -25,7 +25,17 @@ export function DayOpenSwitch({
   today,
   blocks,
   actions,
+  onOpen,
+  onFlip,
 }: {
+  /** Told whenever the switch's shown state changes (the day bar greys "Book a client" on a closed day). */
+  onOpen?: (open: boolean) => void;
+  /**
+   * #29 FELT: told the moment the PERSON flips it (`'flip'` — the calendar strikes / un-strikes the day at once and
+   * moves it) and when a refused write puts it back (`'refused'` — the calendar drops its overlay, no motion). Never
+   * told for a re-read or a change of day: only a flip is felt.
+   */
+  onFlip?: (day: string, open: boolean, how: 'flip' | 'refused') => void;
   day: string;
   today: string;
   /** The shop's blocks as the month reads them — a closure carries its `blockId`. */
@@ -41,6 +51,9 @@ export function DayOpenSwitch({
     setOn(read);
     setProblem(null);
   }, [read, day]);
+  useEffect(() => {
+    onOpen?.(on);
+  }, [on, onOpen]);
 
   if (day < today) return null;
   const only = closing.length === 1 ? closing[0]! : null;
@@ -50,7 +63,7 @@ export function DayOpenSwitch({
   return (
     <div className="mt-2 border-t border-ink/10" data-dates-day-open={read ? 'open' : 'closed'}>
       <SwitchRow
-        name="Open for bookings"
+        name="Accept bookings"
         on={on}
         disabled={pending || Boolean(lockedBy)}
         data="dates-day-open"
@@ -60,6 +73,7 @@ export function DayOpenSwitch({
         onChange={(next) => {
           setOn(next);
           setProblem(null);
+          onFlip?.(day, next, 'flip');
           const fd = new FormData();
           fd.set('return_to', 'inplace');
           if (!next) {
@@ -78,6 +92,7 @@ export function DayOpenSwitch({
               await (next ? actions.removeBlock(fd) : actions.addManualBlock(fd));
             } catch {
               setOn(!next);
+              onFlip?.(day, !next, 'refused');
               setProblem('That didn’t save — nothing changed. Try again.');
             }
           });

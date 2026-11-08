@@ -29,7 +29,9 @@ const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`)) ?? []).length;
 
-const HOME = 'app/dashboard/[eventId]/page.tsx';
+// 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, owner: "Papic + Thank You into Memories"): the card moved whole
+// from Home to Memories; the one-dropdown rule is read where the card is built now — NOT WEAKENED.
+const HOME = 'app/dashboard/[eventId]/memories/page.tsx';
 const COMPONENTS = 'app/dashboard/[eventId]/studio/papic/_components';
 const SETTINGS = `${COMPONENTS}/papic-camera-settings.tsx`;
 const PICKER = `${COMPONENTS}/papic-head-picker.tsx`;
@@ -48,9 +50,9 @@ function fn(src: string, name: string): string {
 
 /** Home's Papic card input — the block the card is built from. */
 function homeCard(src = code(HOME)): string {
-  const at = src.indexOf('const papicCard: PapicCardInput | null =');
-  assert.ok(at > 0, 'premise: Home builds the Papic card');
-  return src.slice(at, src.indexOf(': null;', at));
+  const at = src.indexOf('const card: PapicCardInput = {');
+  assert.ok(at > 0, 'premise: Memories builds the Papic card');
+  return src.slice(at, src.indexOf('papicCard = <PapicCard', at));
 }
 
 test('(1) three positions → two columns, and an honest line (executed)', () => {

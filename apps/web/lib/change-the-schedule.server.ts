@@ -7,6 +7,8 @@ import { isTimeTba } from './time-tba';
 import { checkRetime } from './floor-command';
 import { notifyScheduleShifted } from './schedule-shift-notify.server';
 import { notifyScheduleRequest } from './schedule-request-notify.server';
+import { emitNotification } from './notification-emit';
+import { fetchOwnVendorProfile } from './vendor-profile';
 import {
   changedWords,
   guestNotice,
@@ -14,6 +16,7 @@ import {
   partsThatFollow,
   requestWords,
   type ChangeablePart,
+  type CrewSkipAsk,
   type ScheduleChange,
 } from './change-the-schedule';
 
@@ -26,8 +29,10 @@ import {
  *     `mayAdvance` that "Done · next" asks (`lib/run-of-show-advance.ts`); then RLS decides the write. A move is the
  *     shipped running-late write (`running_late_shift_schedule`, all or nothing), a skip an UPDATE of `run_state`.
  *   · `crew`  — a crew Member's phone ASKS, never writes (D): `crew_request_schedule_move` files the shipped requests
- *     (`event_schedule_suggestions`) and the coordinator / hosts approve them with one tap. Only a move: the shipped
- *     request carries times, not a skip. The phone cannot read the schedule under RLS, so the parts are read here on the
+ *     (`event_schedule_suggestions`) and the coordinator / hosts approve them with one tap. A SKIP is asked too (owner
+ *     2026-11-05, *"yes they can request"*): `crew_request_schedule_skip` files one ask of kind 'skip', the coordinator
+ *     is told in the app and answers it on the floor, and an approved skip runs THIS function's own floor Skip (the ONE
+ *     accept path, `decideSuggestion`). The phone cannot read the schedule under RLS, so the parts are read here on the
  *     service role, fenced exactly as the crew phone's own read is (`onlyWhatABookedShopMaySee`) — and nothing read here
  *     goes back to the caller before the database said yes.
  *
@@ -109,8 +114,9 @@ export async function changeTheSchedule(
   }
 
   // ── a crew phone ASKS (owner 2026-11-05 (D)): requests the coordinator / hosts approve with one tap ──
+  if (via === 'crew' && change.op === 'skip') return askToSkip(supabase, eventId, part);
   if (via === 'crew') {
-    if (change.op !== 'move') return { ok: false, error: 'From the crew phone you can ask to move a part. Ask the coordinator to skip one.' };
+    if (change.op !== 'move') return { ok: false, error: 'From the crew phone you can ask to move or skip a part.' };
     const { data: n, error: crewErr } = await supabase.rpc('crew_request_schedule_move', {
       p_event_id: eventId,
       p_block_ids: ids,
@@ -188,4 +194,90 @@ export async function changeTheSchedule(
   });
 
   return { ok: true, message: changedWords(change, part, ids.length), moved: ids };
+}
+
+/**
+ * 🗓 A crew Member asks to skip a part (owner 2026-11-05, *"yes they can request"*). The database files the ask (gates,
+ * the lock's line, one open ask per part); the coordinator is told IN THE APP only (`schedule_ask` — not emailed: no new
+ * emails), opening the floor, where they approve or decline with one tap.
+ */
+async function askToSkip(supabase: SupabaseClient, eventId: string, part: PartRow): Promise<ChangeAnswer> {
+  const { data: n, error } = await supabase.rpc('crew_request_schedule_skip', { p_event_id: eventId, p_block_id: part.block_id });
+  if (error) {
+    const locked = lockedShopOf(error);
+    if (locked) return { ok: false, error: error.message, locked };
+    if (error.code === 'P0002') return { ok: false, error: 'Nothing sent — that part has started or is no longer on the schedule.' };
+    return { ok: false, error: crewRefusal(error.message) };
+  }
+  if (n === 0) return { ok: true, message: 'Already asked — the coordinator has it.', moved: [], requested: true };
+  // Tell the coordinator's shop — best-effort: the ask is filed; a failed notice never undoes it.
+  try {
+    const admin = createAdminClient();
+    const { data: ask } = await admin
+      .from('event_schedule_suggestions')
+      .select('suggested_by_name, vendor_profile_id')
+      .eq('block_id', part.block_id)
+      .eq('kind', 'skip')
+      .eq('status', 'open')
+      .maybeSingle();
+    const row = ask as { suggested_by_name: string | null; vendor_profile_id: string | null } | null;
+    if (row?.vendor_profile_id) {
+      const { data: shop } = await admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', row.vendor_profile_id).maybeSingle();
+      const owner = (shop as { user_id: string | null } | null)?.user_id;
+      if (owner) {
+        const who = row.suggested_by_name?.split(' · ')[0]?.trim() || 'Your crew';
+        await emitNotification({
+          userId: owner,
+          type: 'schedule_ask',
+          title: `${who} asks to skip ${part.label}`.slice(0, 160),
+          body: 'Approve or decline it on your floor.',
+          relatedUrl: `/vendor-dashboard/on-the-day/live/${eventId}`,
+        });
+      }
+    }
+  } catch (e) {
+    logQueryError('changeTheSchedule.skipAskNotice', { message: String(e) }, { eventId }, 'graceful_degrade');
+  }
+  return { ok: true, message: 'Sent to the coordinator — they approve it with one tap.', moved: [], requested: true };
+}
+
+/**
+ * 🗓 The floor's list: the open skip asks of THIS coordinator's own crew on this event, oldest first. The caller's own
+ * session names their shop; the asks are read on the service role, scoped to that shop and this event (the floor shows
+ * only its own crew's asks). A refused read is logged and lists none — the hosts still see every ask on their Schedule.
+ */
+export async function readCrewSkipAsks(supabase: SupabaseClient, eventId: string): Promise<CrewSkipAsk[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) return [];
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('event_schedule_suggestions')
+    .select('suggestion_id, block_id, suggested_by_name, created_at')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .eq('kind', 'skip')
+    .eq('status', 'open')
+    .order('created_at', { ascending: true });
+  if (error) {
+    logQueryError('readCrewSkipAsks', error, { eventId }, 'graceful_degrade');
+    return [];
+  }
+  const rows = (data ?? []) as { suggestion_id: string; block_id: string | null; suggested_by_name: string | null }[];
+  const ids = rows.flatMap((r) => (r.block_id ? [r.block_id] : []));
+  if (ids.length === 0) return [];
+  const { data: blocks, error: bErr } = await admin.from('event_schedule_blocks').select('block_id, label, start_at, time_tba').in('block_id', ids);
+  if (bErr) {
+    logQueryError('readCrewSkipAsks.parts', bErr, { eventId }, 'graceful_degrade');
+    return [];
+  }
+  const byId = new Map(((blocks ?? []) as { block_id: string; label: string; start_at: string }[]).map((b) => [b.block_id, b]));
+  return rows.flatMap((r) => {
+    const b = r.block_id ? byId.get(r.block_id) : null;
+    if (!b) return [];
+    return [{ suggestionId: r.suggestion_id, blockId: b.block_id, who: r.suggested_by_name?.split(' · ')[0]?.trim() || 'Your crew', label: b.label, startAt: b.start_at }];
+  });
 }

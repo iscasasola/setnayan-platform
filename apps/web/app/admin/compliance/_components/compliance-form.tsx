@@ -191,6 +191,7 @@ export function ComplianceForm({ initial }: { initial: ComplianceFormState }) {
           </Field>
           <Field label="DPO email">
             <input
+              autoComplete="off"
               type="email"
               className={INPUT}
               value={form.dpo_email}

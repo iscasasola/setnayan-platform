@@ -8,6 +8,9 @@ import { stripComments } from '@/lib/strip-comments';
 /**
  * ↔ TODAY'S PINNED ROW NEVER BLEEDS PAST THE GUTTER IT SITS IN (walk 2026-11-01).
  *
+ * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD A5): `TodayCounts` is retired; the element that pulls out to the page edge now
+ * is Today's COVER (`today-cover.tsx`, `data-today-cover`) — the same negative margins, the same property.
+ *
  * `TodayCounts` (the sticky "Today · 7 waiting · 2 this week…" row) pulls itself out to the page edge with negative
  * margins (`-mx-4 sm:-mx-6`). That is right only while the box around it pads at least as much at every width. The
  * spotlight tour's supplier Today (`/dev/spotlight-lab/vendor-dashboard`, drawn through `/dev/supplier-lab?easy=…`)
@@ -41,7 +44,7 @@ function classOf(src: string, marker: RegExp, what: string): string {
   return m[1]!;
 }
 
-const pin = classOf(read('today-counts.tsx'), /className="([^"]*\bsticky\b[^"]*)"[^>]*?data-today-numbers/, 'TodayCounts’ sticky row');
+const pin = classOf(read('today-cover.tsx'), /data-today-cover=""[\s\S]{0,80}?className="([^"]*)"/, 'Today’s cover');
 const bleed = cascade(pin, '-mx');
 
 const HOSTS = [
@@ -56,8 +59,8 @@ const HOSTS = [
   },
 ];
 
-test('TodayCounts bleeds at all (or this guard is aimed at nothing)', () => {
-  assert.ok(bleed[0]! > 0, `expected a negative margin on the sticky row, got "${pin}"`);
+test('Today’s cover bleeds at all (or this guard is aimed at nothing)', () => {
+  assert.ok(bleed[0]! > 0, `expected a negative margin on the cover, got "${pin}"`);
 });
 
 for (const host of HOSTS) {

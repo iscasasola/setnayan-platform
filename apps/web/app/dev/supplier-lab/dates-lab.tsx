@@ -317,9 +317,9 @@ export async function DatesLab({
         />
       ),
       ledger: [
-        { token: 'tk-1', title: 'Photo & video', line: `${formatPhp(45_000)} · ${formatPhp(15_000)} paid · claimed Oct 1`, status: 'claimed' as const, showHref: null },
-        { token: 'tk-2', title: 'Photo & video', line: `${formatPhp(60_000)} · ${formatPhp(20_000)} paid · issued Sep 28`, status: 'pending' as const, showHref: '/dev/supplier-lab?s=qr-issued' },
-        { token: 'tk-3', title: 'Styling', line: `${formatPhp(30_000)} · ${formatPhp(10_000)} paid · issued Sep 20`, status: 'void' as const, showHref: null },
+        { token: 'tk-1', title: 'Photo & video', line: `${formatPhp(45_000)} · ${formatPhp(15_000)} paid · claimed Oct 1`, status: 'claimed' as const, showHref: null, openHref: null },
+        { token: 'tk-2', title: 'Photo & video', line: `${formatPhp(60_000)} · ${formatPhp(20_000)} paid · issued Sep 28`, status: 'pending' as const, showHref: '/dev/supplier-lab?s=qr-issued', openHref: '/dev/supplier-lab?s=qr-issued' },
+        { token: 'tk-3', title: 'Styling', line: `${formatPhp(30_000)} · ${formatPhp(10_000)} paid · issued Sep 20`, status: 'void' as const, showHref: null, openHref: null },
       ],
       ledgerOpen: open === 'issued',
       newHref: '/dev/supplier-lab?s=qr-booked',

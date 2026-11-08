@@ -1,0 +1,45 @@
+/*
+ * analytics-growing.css — Shop › Analytics, harvested from #7338 for THE ONE BUILD carousel (only the strip, rail and ghost track it uses). The prototype's sizes,
+ * one for one, in the app's own tokens (globals.css) — no :root of its own. Everything is scoped under
+ * `[data-growth]`, so nothing here reaches another page. The ink alphas are aliases of `--color-ink`, not new colours.
+ */
+[data-growth] {
+  --ag-ink-6: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent);
+  --ag-ink-10: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent);
+  --ag-ink-22: color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent);
+  --ag-ink-45: color-mix(in srgb, rgb(var(--color-ink)) 45%, transparent);
+  --ag-ink-55: color-mix(in srgb, rgb(var(--color-ink)) 55%, transparent);
+  --ag-ink-62: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent);
+  --ag-ink-75: color-mix(in srgb, rgb(var(--color-ink)) 75%, transparent);
+  font-size: 15px;
+  line-height: 1.4;
+}
+[data-growth] .ag-track { height: 10px; border-radius: var(--m-r-full); background: var(--ag-ink-6); overflow: hidden; position: relative; }
+[data-growth] .ag-track > .meter-fill { height: 100%; border-radius: var(--m-r-full); background: var(--m-orange); }
+[data-growth] .ag-track.ag-thin { height: 6px; }
+[data-growth] .ag-track.ag-dashed { background: none; border: 1.5px dashed var(--ag-ink-22); overflow: visible; }
+[data-growth] .ag-ghost-t { font-size: 12.5px; color: var(--ag-ink-45); }
+[data-growth] .ag-cal-m { display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; font-size: 10.5px; color: var(--ag-ink-55); margin: 0 0 4px; font-weight: 600; }
+[data-growth] .ag-cal { display: grid; grid-template-columns: repeat(13, 1fr); grid-template-rows: repeat(7, 1fr); grid-auto-flow: column; gap: 3px; }
+[data-growth] .ag-cc { aspect-ratio: 1; border-radius: var(--m-r-xs); background: var(--ag-ink-6); position: relative; }
+[data-growth] .ag-cc.ag-on { background: var(--m-orange); }
+[data-growth] .ag-cc.ag-on2 { background: var(--m-orange-2); }
+[data-growth] .ag-cc.ag-wait::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; border: 2.2px solid rgb(var(--sn-accent)); }
+[data-growth] .ag-cc.ag-today::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: rgb(var(--sn-accent)); }
+[data-growth] .ag-cal-k { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ag-ink-55); margin-top: 8px; }
+[data-growth] .ag-cal-k i { display: inline-block; width: 10px; height: 10px; border-radius: var(--m-r-xs); background: var(--m-orange); vertical-align: -1px; margin-right: 5px; }
+[data-growth] .ag-cal-k i.ag-w { background: none; border: 2px solid rgb(var(--sn-accent)); border-radius: 50%; }
+[data-growth] .ag-cal-k i.ag-t { background: none; position: relative; }
+[data-growth] .ag-cal-k i.ag-t::before { content: ''; position: absolute; left: 3px; bottom: 0; width: 4px; height: 4px; border-radius: 50%; background: rgb(var(--sn-accent)); }
+[data-growth] .ag-rail { position: relative; height: 10px; border-radius: var(--m-r-full); margin: 18px 0 6px; background: linear-gradient(90deg, color-mix(in srgb, var(--m-orange) 25%, transparent), var(--m-orange), color-mix(in srgb, var(--m-orange) 25%, transparent)); }
+[data-growth] .ag-rail.ag-ghost { background: none; border: 1.5px dashed var(--ag-ink-22); }
+[data-growth] .ag-rail .ag-me { position: absolute; top: -5px; left: 0; width: 20px; height: 20px; border-radius: 50%; background: rgb(var(--sn-accent)); border: 3px solid rgb(var(--color-raised)); transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+[data-growth] .ag-rail-l { display: flex; justify-content: space-between; font-size: 12px; color: var(--ag-ink-62); }
+/* Motion without a JS engine: a marked day pops in, the price marker slides on. Off under reduced motion. */
+@keyframes ag-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes ag-slide { from { left: 0; } }
+[data-growth] .ag-pop { animation: ag-pop 450ms cubic-bezier(0.215, 0.61, 0.355, 1) both; }
+[data-growth] .ag-slide { animation: ag-slide 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 100ms both; }
+@media (prefers-reduced-motion: reduce) {
+  [data-growth] .ag-pop, [data-growth] .ag-slide { animation: none; }
+}

@@ -47,12 +47,32 @@ const PIECES = [
   ['ChatSendForm', "@/app/_components/chat-send-form"],
 ] as const;
 
+/**
+ * True when `rel` takes `piece` from its own `_components/on-demand.tsx`, and that file loads it from the ONE shared
+ * source under the same name (code split, not a copy). Anything else is false — the direct import must then hold.
+ */
+function onDemand(rel: string, piece: string, from: string): boolean {
+  const s = read(rel);
+  if (!new RegExp(`import \\{[^}]*\\b${piece}\\b[^}]*\\} from '\\./_components/on-demand';`).test(s)) return false;
+  const wrap = read(rel.replace(/page\.tsx$/, '_components/on-demand.tsx'));
+  const esc = from.replace(/[/.]/g, '\\$&');
+  assert.match(
+    wrap,
+    new RegExp(`export const ${piece} = dynamic\\(\\s*\\(\\) => import\\(\\s*(?:\\/\\*[^*]*\\*\\/\\s*)?'${esc}'\\)\\.then\\(\\(m\\) => m\\.${piece}\\)`),
+    `${rel}: the on-demand ${piece} is not the shared one`,
+  );
+  return true;
+}
+
 test('both thread routes mount the SAME shared pieces, once each, imported from the one source', () => {
   for (const rel of ROUTES) {
     const s = read(rel);
     assert.ok(s.length > 10_000, `${rel} read short`);
     for (const [piece, from] of PIECES) {
       assert.equal((s.match(new RegExp(`<${piece}\\b`, 'g')) ?? []).length, 1, `${rel}: <${piece}> is not mounted exactly once`);
+      // ⚡ The supplier thread loads its heavy parts on demand: the SAME shared component, re-exported under its own name
+      // by the page's `_components/on-demand.tsx` (`dynamic(() => import('<the one source>').then((m) => m.<piece>))`).
+      if (onDemand(rel, piece, from)) continue;
       assert.match(s, new RegExp(`import \\{[^}]*\\b${piece}\\b[^}]*\\} from '${from.replace(/[/.]/g, '\\$&')}';`), `${rel}: ${piece} is not the shared one`);
     }
     // Nothing page-local draws a head or bubbles beside them.
@@ -99,24 +119,62 @@ function el(node: ts.Node, sf: ts.SourceFile): El | null {
   return null;
 }
 
+/**
+ * A `{name}` child that is a `const name = (<…/>)` of the SAME page function, expanded to its element. THE ONE BUILD
+ * (8 Nov 2026, v111 "Chat lives in the client"): the supplier's page defines its ONE `<ChatBox>` once as `chatBox` and
+ * draws it in the frame (full screen) or, inside the picked client, without the frame — so the frame's child is read
+ * through that one const, never two boxes.
+ */
+function expandConst(k: El, fn: ts.FunctionDeclaration, sf: ts.SourceFile): El {
+  const m = /^\{([A-Za-z_$][\w$]*)\}$/.exec(k.tag);
+  if (!m) return k;
+  for (const st of fn.body!.statements) {
+    if (!ts.isVariableStatement(st)) continue;
+    for (const d of st.declarationList.declarations) {
+      if (ts.isIdentifier(d.name) && d.name.text === m[1] && d.initializer) {
+        const e = el(d.initializer, sf);
+        if (e) return e;
+      }
+    }
+  }
+  return k;
+}
+
 /** The JSX the route's default export returns LAST — its normal render, after every early `redirect` / `notFound`. */
-function returnedTree(rel: string): { tree: El; sf: ts.SourceFile } {
+function returnedTree(rel: string): { tree: El; sf: ts.SourceFile; fn: ts.FunctionDeclaration } {
   const sf = ts.createSourceFile(rel, raw(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = sf.statements.find(
     (s): s is ts.FunctionDeclaration =>
       ts.isFunctionDeclaration(s) && !!s.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) && !!s.body,
   );
   assert.ok(fn?.body, `${rel}: no default-exported page function`);
-  const last = [...fn.body.statements].reverse().find((s): s is ts.ReturnStatement => ts.isReturnStatement(s) && !!s.expression);
+  /*
+    Build 2 · B2-D (8 Nov 2026): the supplier page's default export routes to ONE draw, `drawVendorThread`, which
+    returns every node it drew — `full` for the full-screen route, `chat` / `quotation` / `decisions` for the picked
+    client's embeds (one draw per open). The full-screen route's tree is that draw's `full`.
+  */
+  const draw = sf.statements.find(
+    (s): s is ts.FunctionDeclaration => ts.isFunctionDeclaration(s) && s.name?.text === 'drawVendorThread' && !!s.body,
+  );
+  const body = (draw ?? fn).body!;
+  const last = [...body.statements].reverse().find((s): s is ts.ReturnStatement => ts.isReturnStatement(s) && !!s.expression);
   assert.ok(last?.expression, `${rel}: the page function has no final return`);
-  const tree = el(last.expression, sf);
+  let returned: ts.Expression = last.expression;
+  if (draw && ts.isObjectLiteralExpression(returned)) {
+    const full = returned.properties.find(
+      (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(sf) === 'full',
+    );
+    assert.ok(full, `${rel}: the draw returns no \`full\` tree`);
+    returned = full.initializer;
+  }
+  const tree = el(returned, sf);
   assert.ok(tree, `${rel}: the page's final return is not JSX`);
-  return { tree, sf };
+  return { tree, sf, fn: draw ?? fn };
 }
 
 test('🔒 each thread route RETURNS the one thread frame holding one ChatBox — nothing drawn beside it', () => {
   for (const rel of ROUTES) {
-    const { tree, sf } = returnedTree(rel);
+    const { tree, sf, fn } = returnedTree(rel);
     let t = tree;
     // At most ONE plain gutter around it (the supplier tree has no event-layout column, so its page draws that column).
     if (t.tag === 'div') {
@@ -125,7 +183,7 @@ test('🔒 each thread route RETURNS the one thread frame holding one ChatBox �
     }
     assert.equal(t.tag, 'ChatThreadFrame', `${rel}: the page returns <${t.tag}>, not the one thread frame`);
     assert.deepEqual(
-      t.kids.map((k) => k.tag),
+      t.kids.map((k) => expandConst(k, fn, sf).tag),
       ['ChatBox'],
       `${rel}: the thread frame holds more than one ChatBox — everything a side adds belongs INSIDE the box's slots`,
     );
@@ -133,6 +191,27 @@ test('🔒 each thread route RETURNS the one thread frame holding one ChatBox �
     const list = t.attrs.get('list');
     if (list) assert.equal(el(list, sf)?.tag, 'ConversationColumn', `${rel}: the frame's list is not the shared ConversationColumn`);
   }
+});
+
+test('🔒 THE ONE BUILD · inside the picked client the supplier page draws the SAME box — no frame, no list, nothing beside it', () => {
+  // v111 (owner 8 Nov 2026): Chat lives in the client. The supplier's page returns early for `embed === 'chat'` with
+  // the one `chatBox` and nothing else — the client's pinned row is the head, so no frame (a phone takeover) and no
+  // conversation list. Still ONE <ChatBox> in the file (test 1), and the frame's child is that same const.
+  const rel = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
+  const src = read(rel);
+  assert.equal((src.match(/<ChatBox\b/g) ?? []).length, 1, 'a second ChatBox was drawn for the client page');
+  assert.match(src, /const chatBox = \(\s*<ChatBox\b/, 'the one box is no longer the shared const');
+  // Build 2 · B2-D: the picked client's ONE draw builds its Chat node as `const chat = (…)` beside Quotation + Decisions.
+  // Comments are blanked first (a JSX `{/* … */}` note sits inside the node); `{ }` left by a blanked JSX comment is allowed.
+  const bare = stripComments(src);
+  const embed = bare.slice(bare.indexOf('const chat = ('), bare.indexOf('const chat = (') + 600);
+  // The read marker rides beside the box but DRAWS NOTHING (it renders null — asserted below), so the page still shows
+  // only the box: the chat is marked read when this node is on screen, never from Details or Quotation.
+  assert.match(embed, /^const chat = \(\s*<div data-picked-client-page="chat"[^>]*>\s*(?:\{\s*\}\s*)?(?:<MarkReadWhenShown threadId=\{threadId\} \/>\s*)?\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
+  const marker = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8'));
+  assert.match(marker, /return null;/, 'the read marker must draw nothing');
+  assert.doesNotMatch(marker, /return\s*\(?\s*</, 'the read marker must draw nothing');
+  assert.doesNotMatch(embed, /ChatThreadFrame|ConversationColumn/, 'the client chat must not draw the full-screen frame or the list');
 });
 
 test('the frame, RENDERED: one takeover, and the page column holds nothing but the list and the box', async () => {

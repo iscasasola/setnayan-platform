@@ -934,8 +934,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-ink/[0.03] px-2">
         <Link
           href={exitHref}
-          aria-label={appleIap ? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'}
-          title={appleIap ? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'}
+          aria-label={appleIap ? 'Leave the controller — back to Today' : 'Leave the controller — back to Live Watch'}
+          title={appleIap ? 'Leave the controller — back to Today' : 'Leave the controller — back to Live Watch'}
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />

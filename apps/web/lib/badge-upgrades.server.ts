@@ -18,7 +18,7 @@ import {
  *
  *   grantOwedBadgeUpgrades  gives every earned upgrade not yet given, through the ONE door `shop_badge_upgrade_grant`
  *                           — run inside `grantOwedBadgeRewards`, so every place that pays a badge's gift-stock reward
- *                           (the badge page, Today's badge read, the admin's manual award) also gives its upgrade
+ *                           (the badge-facts door after Today · Shop · Performance draw, the admin's manual award) also gives its upgrade
  *   readBadgeUpgrades       the shop's upgrades, each resolved for its plan (what Start may begin today)
  *   startBadgeUpgradeCore   Start: the catalogue product must be on sale, then `shop_badge_upgrade_start` extends the
  *                           add-on's own entitlement by its own period
@@ -100,17 +100,20 @@ function toRow(r: UpgradeDbRow, tier: string | null | undefined): BadgeUpgradeRo
   };
 }
 
-/** The shop's upgrades, ready ones first then newest. Null on a read failure (never "none"). */
+/**
+ * The shop's upgrades, ready ones first then newest. Null on a read failure (never "none").
+ * `tier` may be a promise: the rows are read at once, BESIDE the plan read, and the plan only shapes them after —
+ * so a caller still reading the plan pays one round trip, not two (Shop render, 8 Nov).
+ */
 export async function readBadgeUpgrades(
   admin: SupabaseClient,
   vendorProfileId: string,
-  tier: string | null | undefined,
+  tierIn: string | null | undefined | PromiseLike<string | null | undefined>,
 ): Promise<BadgeUpgradeRow[] | null> {
-  const { data, error } = await admin
-    .from('shop_badge_upgrades')
-    .select(SELECT)
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('granted_at', { ascending: false });
+  const [{ data, error }, tier] = await Promise.all([
+    admin.from('shop_badge_upgrades').select(SELECT).eq('vendor_profile_id', vendorProfileId).order('granted_at', { ascending: false }),
+    tierIn,
+  ]);
   if (error) {
     logQueryError('badgeUpgrades.read', error, { vendorProfileId }, 'graceful_degrade');
     return null;

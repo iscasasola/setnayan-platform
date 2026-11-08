@@ -2,6 +2,7 @@ import { CheckCircle2, Banknote, CalendarClock, Trophy } from 'lucide-react';
 import { formatPhp } from '@/lib/orders';
 import { formatDuration, type ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import { CountUp } from './count-up';
+import { CardFace } from './card-face';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -41,7 +42,43 @@ function Tile({
   );
 }
 
-export function ConversionDealsCard({ data }: { data: ConversionAnalytics }) {
+export function ConversionDealsCard({
+  data,
+  compact = false,
+}: {
+  data: ConversionAnalytics | null;
+  /**
+   * 🃏 Shop › Analytics' "deals" face (THE ONE BUILD A3 W8): the quote-acceptance gauge and "X of Y quotes accepted".
+   * ✂ No "first quote in 5h" — nothing measures a time to the first quote (map row 28). `data === null` = unread.
+   */
+  compact?: boolean;
+}) {
+  if (compact) {
+    const q = data?.quote ?? null;
+    const pct = q && q.acceptancePct !== null ? Math.max(0, Math.min(100, Math.round(q.acceptancePct))) : null;
+    const line =
+      q === null
+        ? 'Couldn’t load'
+        : q.sentCount > 0
+          ? `${formatCount(q.acceptedCount)} of ${formatCount(q.sentCount)} quotes accepted`
+          : 'No quotes sent yet';
+    // A half-ring: 0% at the left, 100% at the right (the arc's own length, so no number is invented).
+    const ARC = Math.PI * 40;
+    return (
+      <CardFace title="Quotes that turn into bookings" window="Last 12 months" line={line} data="deals">
+        <svg viewBox="0 0 100 58" className="mx-auto block w-[150px]" role="img" aria-label={pct === null ? 'No acceptance rate yet' : `${pct}% of quotes accepted`}>
+          <path d="M10,50 A40,40 0 0 1 90,50" fill="none" stroke="color-mix(in srgb, var(--m-ink) 8%, transparent)" strokeWidth="9" strokeLinecap="round" />
+          {pct !== null && pct > 0 ? (
+            <path d="M10,50 A40,40 0 0 1 90,50" fill="none" stroke="var(--m-orange)" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${(ARC * pct) / 100} ${ARC}`} />
+          ) : null}
+          <text x="50" y="48" textAnchor="middle" fontSize="17" fontWeight="600" fill="currentColor">
+            {pct === null ? '—' : `${pct}%`}
+          </text>
+        </svg>
+      </CardFace>
+    );
+  }
+  if (!data) return null;
   const { quote, deal, lead, winLoss } = data;
 
   const acceptanceValue =

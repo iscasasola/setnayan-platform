@@ -33,13 +33,18 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { InfoTip } from '@/app/_components/info-tip';
-import { Count, Fill } from '@/components/count';
 import { onTabReturn } from '@/lib/tab-return';
-import { formatPhp } from '@/lib/orders';
 import { keepPesoTyping } from '@/lib/peso-as-you-type';
-import { budgetMeter, shortDate, type NextPayment } from '@/lib/budget-page-view';
+import { budgetMeter, type NextPayment } from '@/lib/budget-page-view';
 import { setEventBudget } from '../actions';
 import styles from './budget-page.module.css';
+import { BUDGET_NEXT_GO_CLASS, BudgetFigures, BudgetLegendRight, BudgetNextLink, Peso } from './budget-figures';
+
+/* ✂ THE FIGURES ARE `BudgetFigures` (THE ONE BUILD, 8 Nov 2026 — B2 §2.3): the grid, the meter, the legend and the Next
+   line moved, unchanged, into `budget-figures.tsx` so the supplier's Payment page draws them the same way. This file
+   keeps what is the COUPLE'S: the Target edited in place, its save, and coming back current. `Peso` lives there too and
+   is re-exported here for the files that import it from here. */
+export { Peso };
 
 const SAVE_DEBOUNCE_MS = 500;
 const SAVED_FLASH_MS = 1400;
@@ -57,22 +62,6 @@ function parseTarget(raw: string): number | null | undefined {
   if (digits.length === 0) return raw.trim().length === 0 ? null : undefined;
   const n = Number.parseInt(digits, 10);
   return Number.isFinite(n) ? n : undefined;
-}
-
-/**
- * A peso figure. Whole pesos count to their value (Rule 2 of the button rule);
- * a figure carrying centavos is printed exact and still, because `Count` steps
- * through whole numbers and this page is the couple's books.
- */
-export function Peso({ value, id, className }: { value: number; id?: string; className?: string }) {
-  if (Number.isInteger(value)) {
-    return <Count value={value} format={formatPhp} id={id} className={className} />;
-  }
-  return (
-    <span className={className} style={{ fontVariantNumeric: 'tabular-nums' }}>
-      {formatPhp(value)}
-    </span>
-  );
 }
 
 export function BudgetSummary({
@@ -190,157 +179,122 @@ export function BudgetSummary({
   const meter = budgetMeter({ targetPhp, agreedPhp, paidPhp });
   const left = targetPhp !== null && agreedPhp !== null ? targetPhp - agreedPhp : null;
 
-  return (
-    <section className={`${styles.page} ${styles.sum}`} aria-label="Budget summary" data-budget-summary="" data-tour="budget-summary">
-      <div className={styles.grid}>
-        <div className={styles.cell} data-budget-cell="target">
-          <div className={styles.k}>
-            <InfoTip label="Target" align="start">
-              What you plan to spend in all.{canEdit ? ' Tap the number to change it; it saves as you type.' : ''}
-              {targetNote}
-            </InfoTip>
-            <span
-              className={styles.saved}
-              data-on={flash !== null}
-              data-tone={flash === 'bad' ? 'bad' : 'ok'}
-              role="status"
-              aria-live="polite"
-            >
-              {/* Empty until there is something to say: a live region that always
-                  held the word would have a screen reader announce "saved" on load. */}
-              {flash === 'bad' ? 'not saved' : flash === 'saved' ? 'saved' : ''}
-            </span>
-          </div>
-          {targetUnread ? (
-            <div role="alert" className={`${styles.v} ${styles.vMuted}`} data-budget-target-unread="">
-              <a href={`/dashboard/${eventId}/budget`} className="text-[13px] font-semibold">Couldn’t load the target · Reload</a>
-            </div>
-          ) : canEdit ? (
-            <div className={`${styles.v} ${styles.target}`}>
-              <span className={styles.pencil} aria-hidden="true">
-                ₱
-              </span>
-              <input
-                className={styles.num}
-                inputMode="numeric"
-                autoComplete="off"
-                aria-label="Target"
-                /* 💱 Whole pesos only, commas as typed — the one money keeper (`keepPesoTyping`). A letter never stands
-                   in the Target ("2,250,000abc", walk 2026-11-01). */
-                onInput={(e) => void keepPesoTyping(e.currentTarget, 0)}
-                value={text}
-                onFocus={() => {
-                  focused.current = true;
-                }}
-                onBlur={() => {
-                  focused.current = false;
-                  setText(targetText(targetPhp));
-                }}
-                onChange={(e) => onType(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className={`${styles.v} ${styles.num}${targetPhp === null ? ` ${styles.vMuted}` : ''}`}>
-              {targetPhp === null ? '—' : <Peso value={targetPhp} id="budget-target" />}
-            </div>
-          )}
+  const targetCell = (
+    <>
+      {targetUnread ? (
+        <div role="alert" className={`${styles.v} ${styles.vMuted}`} data-budget-target-unread="">
+          <a href={`/dashboard/${eventId}/budget`} className="text-[13px] font-semibold">Couldn’t load the target · Reload</a>
         </div>
-        <div className={styles.cell} data-budget-cell="agreed">
-          <div className={styles.k}>
+      ) : canEdit ? (
+        <div className={`${styles.v} ${styles.target}`}>
+          <span className={styles.pencil} aria-hidden="true">
+            ₱
+          </span>
+          <input
+            className={styles.num}
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label="Target"
+            /* 💱 Whole pesos only, commas as typed — the one money keeper (`keepPesoTyping`). A letter never stands
+               in the Target ("2,250,000abc", walk 2026-11-01). */
+            onInput={(e) => void keepPesoTyping(e.currentTarget, 0)}
+            value={text}
+            onFocus={() => {
+              focused.current = true;
+            }}
+            onBlur={() => {
+              focused.current = false;
+              setText(targetText(targetPhp));
+            }}
+            onChange={(e) => onType(e.target.value)}
+          />
+        </div>
+      ) : (
+        <div className={`${styles.v} ${styles.num}${targetPhp === null ? ` ${styles.vMuted}` : ''}`}>
+          {targetPhp === null ? '—' : <Peso value={targetPhp} id="budget-target" />}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <BudgetFigures
+      label="Budget summary"
+      tour="budget-summary"
+      marks={{ 'data-budget-summary': '' }}
+      cells={[
+        {
+          key: 'target',
+          label: (
+            <>
+              <InfoTip label="Target" align="start">
+                What you plan to spend in all.{canEdit ? ' Tap the number to change it; it saves as you type.' : ''}
+                {targetNote}
+              </InfoTip>
+              <span
+                className={styles.saved}
+                data-on={flash !== null}
+                data-tone={flash === 'bad' ? 'bad' : 'ok'}
+                role="status"
+                aria-live="polite"
+              >
+                {/* Empty until there is something to say: a live region that always
+                    held the word would have a screen reader announce "saved" on load. */}
+                {flash === 'bad' ? 'not saved' : flash === 'saved' ? 'saved' : ''}
+              </span>
+            </>
+          ),
+          body: targetCell,
+        },
+        {
+          key: 'agreed',
+          label: (
             <InfoTip label="Agreed" align="end">
               Everything booked, bought or added below, at the price agreed.
             </InfoTip>
-          </div>
-          <Figure value={agreedPhp} id="budget-agreed" />
-        </div>
-        <div className={styles.cell} data-budget-cell="paid">
-          <div className={styles.k}>Paid</div>
-          <Figure value={paidPhp} id="budget-paid" tone={styles.vOk} />
-        </div>
-        <div className={styles.cell} data-budget-cell="owed">
-          <div className={styles.k}>Owed</div>
-          <Figure value={owedPhp} id="budget-owed" tone={styles.vWine} atLeast={owedAtLeast} />
-        </div>
-      </div>
-
-      <div className={styles.meter} role="presentation">
-        <Fill value={meter.agreedPct} id="budget-agreed" className={styles.meterAgreed} />
-        <Fill value={meter.paidPct} id="budget-paid" className={styles.meterPaid} />
-        <Fill value={meter.overPct} id="budget-over" className={styles.meterOver} />
-      </div>
-      <div className={styles.legend}>
-        <span>
-          <i className={styles.swPaid} />
-          paid
-        </span>
-        <span>
-          <i className={styles.swAgreed} />
-          agreed
-        </span>
-        <span>
-          <i className={styles.swTarget} />
-          target
-        </span>
-        {partial ? (
-          <span className={`${styles.left} ${styles.wine}`} data-budget-partial="">
+          ),
+          value: agreedPhp,
+          id: 'budget-agreed',
+        },
+        { key: 'paid', label: 'Paid', value: paidPhp, id: 'budget-paid', tone: 'ok' },
+        { key: 'owed', label: 'Owed', value: owedPhp, id: 'budget-owed', tone: 'wine', atLeast: owedAtLeast },
+      ]}
+      meter={meter}
+      swatches={['paid', 'agreed', 'target']}
+      right={
+        partial ? (
+          <BudgetLegendRight wine partial>
             part of this couldn&rsquo;t load
-          </span>
+          </BudgetLegendRight>
         ) : left === null ? null : left >= 0 ? (
-          <span className={`${styles.left} ${styles.num}`}>
+          <BudgetLegendRight>
             <Peso value={left} id="budget-left" /> left of target
-          </span>
+          </BudgetLegendRight>
         ) : (
-          <span className={`${styles.left} ${styles.num} ${styles.wine}`}>
+          <BudgetLegendRight wine>
             <Peso value={-left} id="budget-over-by" /> over target
-          </span>
-        )}
-      </div>
-
-      {next ? (
-        <div className={styles.nextdue} data-budget-next="">
-          <span className={styles.mute}>Next</span>
-          <span className={styles.nextTxt}>
-            <b className={styles.num}>
-              <Peso value={next.amountPhp} id="budget-next" />
-            </b>{' '}
-            · {next.name} · {shortDate(next.dueDate)}
-          </span>
-          {onPay ? (
-            <button type="button" className={styles.go} onClick={() => onPay(next)}>
-              Pay ›
-            </button>
-          ) : (
-            <a className={styles.go} href={payHref}>
-              Pay ›
-            </a>
-          )}
-        </div>
-      ) : partial ? (
-        <div className={styles.nextdue} data-budget-next="unread">
-          <span className={styles.mute}>Next</span>
-          <span className={`${styles.nextTxt} ${styles.mute}`}>couldn&rsquo;t check</span>
-        </div>
-      ) : null}
-    </section>
+          </BudgetLegendRight>
+        )
+      }
+      next={
+        next
+          ? {
+              amountPhp: next.amountPhp,
+              name: next.name,
+              dueDate: next.dueDate,
+              action: onPay ? (
+                <button type="button" className={BUDGET_NEXT_GO_CLASS} onClick={() => onPay(next)}>
+                  Pay ›
+                </button>
+              ) : (
+                <BudgetNextLink href={payHref}>Pay ›</BudgetNextLink>
+              ),
+            }
+          : partial
+            ? 'unread'
+            : null
+      }
+    />
   );
 }
 
-/**
- * One summary figure — or "—" when nobody measured it. Never ₱0 for unknown.
- * `atLeast`: a floor, drawn with a "+" ("₱994,400+ — at least this").
- */
-function Figure({ value, id, tone, atLeast = false }: { value: number | null; id: string; tone?: string; atLeast?: boolean }) {
-  if (value === null) {
-    return <div className={`${styles.v} ${styles.vMuted}`}>—</div>;
-  }
-  return (
-    <div
-      className={`${styles.v} ${styles.num}${tone ? ` ${tone}` : ''}`}
-      data-budget-owed={atLeast ? 'at-least' : undefined}
-      title={atLeast ? 'At least this. Part of your budget could not load, so there may be more.' : undefined}
-    >
-      <Peso value={value} id={id} />
-      {atLeast ? '+' : null}
-    </div>
-  );
-}

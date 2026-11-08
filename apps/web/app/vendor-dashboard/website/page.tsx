@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { micrositeCan } from '@/lib/vendor-microsite';
 import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
@@ -11,7 +10,6 @@ import { PageParts } from './_components/page-parts';
 import { ReviewReplies } from './_components/review-replies';
 import { ShopSegments } from '../shop/_components/shop-segments';
 import { pageFigures } from '@/lib/shop-section-figures';
-import { AutoReplySection } from '../shop/_components/autoreply-section';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const dynamic = 'force-dynamic';
@@ -107,7 +105,6 @@ export default async function YourPage({
             {d.slug ? <DomainManager initial={d.domains} proAsks={ownAddressAsks} /> : <p className="text-sm text-ink/60">Name your shop first — your address is made from it.</p>}
           </>
         }
-        autoReplyBody={vendorAutoReplyEnabled() ? <AutoReplySection vendorProfileId={d.vendorId} /> : null}
         reviewsBody={<ReviewReplies reviews={d.replyRows} vendorName={d.businessName || 'Your business'} capped={d.replyCapped} guestReviews={d.guestReviews} />}
       />
     </section>

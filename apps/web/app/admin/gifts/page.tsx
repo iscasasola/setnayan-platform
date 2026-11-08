@@ -47,6 +47,9 @@ import { BadgeRewardsLedger } from './_components/badge-rewards-ledger';
 import { BadgeUpgradesLedger } from './_components/badge-upgrades-ledger';
 import { fetchBadgeUpgradeLedger } from '@/lib/badge-upgrades.server';
 import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
+import { GiftLimitForm } from './_components/gift-limit-form';
+import { saveGiftLimitPct } from './gift-limit-actions';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 
 /**
  * One row of the vendor list — a single comped vendor, or one cohort DEAL
@@ -205,12 +208,13 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // ── Supplier gifts (owner 2026-11-04) — every bought / given / reversed credit, and what live quotes promise ──
   // ── Badge rewards (owner 2026-11-05) — what each badge gave, and every free booking fee with its history ──
   // ── Badge upgrades (owner, 6 Nov) — every 4-week personal upgrade a badge gave, and whether it has started ──
-  const [shopGiftLedger, shopGiftHolds, badgeRewards, badgeRewardNames, badgeUpgrades] = await Promise.all([
+  const [shopGiftLedger, shopGiftHolds, badgeRewards, badgeRewardNames, badgeUpgrades, giftLimitPct] = await Promise.all([
     fetchShopGiftLedger(admin),
     fetchShopGiftHolds(admin),
     fetchBadgeRewardLedger(admin),
     readRewardNames(admin),
     fetchBadgeUpgradeLedger(admin),
+    getGiftLimitPct(admin),
   ]);
   const badgeUpgradesError = badgeUpgrades ? null : { message: 'the badge upgrades read was refused' };
   const badgeRewardsError = badgeRewards ? null : { message: 'the badge rewards read was refused' };
@@ -962,7 +966,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       {/* 🎁 SUPPLIER GIFTS (owner 2026-11-04) — shops buy gifts as stock, put them on quotes, and they leave the stock
           for the couple's event when that couple's first payment clears. Read-only here: the money moves through the
           order (approve / refund on Orders) and the one delivery door. */}
+      {/* 🎁 GIFT LIMIT (owner v112, 8 Nov 2026) — one setting for the Setnayan gift and shop gifts. Audited save. */}
+      <GiftLimitForm action={saveGiftLimitPct} giftLimitPct={giftLimitPct} />
       <ShopGiftsLedger
+        giftLimitPct={giftLimitPct}
         ledger={shopGiftLedger}
         ledgerError={shopGiftLedgerError}
         holds={shopGiftHolds}

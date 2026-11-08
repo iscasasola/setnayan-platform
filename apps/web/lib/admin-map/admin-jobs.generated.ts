@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 327 jobs, 208 of them form-driven, as of 1322d72223.
+// that performs it. 329 jobs, 211 of them form-driven, as of c4708829dc.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -221,15 +221,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "applyApplicationDecision",
-    "phrase": "apply application decision",
-    "ownerPath": "/admin/verify",
-    "resolvedPath": "/admin/verify",
-    "fields": [],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "applyCorrectionRequest",
     "phrase": "apply correction request",
     "ownerPath": "/admin/corrections",
@@ -393,18 +384,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/verify",
     "resolvedPath": "/admin/verify",
     "fields": [],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "approveVerificationFromWorkList",
-    "phrase": "approve verification from work list",
-    "ownerPath": "/admin/work",
-    "resolvedPath": "/admin/work",
-    "fields": [
-      "application_id",
-      "back"
-    ],
     "refusedWhenEmpty": [],
     "destructive": false
   },
@@ -758,7 +737,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/corrections",
     "resolvedPath": "/admin/corrections",
     "fields": [
-      "request_id"
+      "request_id",
+      "reason"
     ],
     "refusedWhenEmpty": [
       "request_id"
@@ -1088,6 +1068,25 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [],
     "destructive": true
+  },
+  {
+    "name": "formSuggestionsAction",
+    "phrase": "form suggestions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "op",
+      "category_id",
+      "title",
+      "lines",
+      "template_key"
+    ],
+    "refusedWhenEmpty": [
+      "category_id",
+      "title",
+      "template_key"
+    ],
+    "destructive": false
   },
   {
     "name": "getDeepSearchChatPromptAction",
@@ -2212,9 +2211,13 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "flag_id",
       "action",
-      "note"
+      "note",
+      "back",
+      "reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {
@@ -2510,6 +2513,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/booking-fees",
     "fields": [
       "fee_review_unsettled_events_min"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveGiftLimitPct",
+    "phrase": "save gift limit pct",
+    "ownerPath": "/admin/gifts",
+    "resolvedPath": "/admin/gifts",
+    "fields": [
+      "gift_limit_pct"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2841,6 +2855,18 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "category_id"
     ],
+    "destructive": false
+  },
+  {
+    "name": "setCategoryHubTools",
+    "phrase": "set category hub tools",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "category_id",
+      "scan_default"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -3319,7 +3345,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/work",
     "resolvedPath": "/admin/work",
     "fields": [
-      "decision"
+      "decision",
+      "reason"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3387,6 +3414,20 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "decision"
     ],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "settleVerificationFromWorkList",
+    "phrase": "settle verification from work list",
+    "ownerPath": "/admin/verify",
+    "resolvedPath": "/admin/verify",
+    "fields": [
+      "back",
+      "reason"
+    ],
+    "refusedWhenEmpty": [
+      "reason"
+    ],
     "destructive": false
   },
   {

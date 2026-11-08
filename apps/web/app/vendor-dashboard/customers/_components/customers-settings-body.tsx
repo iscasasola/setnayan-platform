@@ -10,7 +10,15 @@ import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import PaymentOptionsSurface from '../../payment-options/surface';
 import { createCalendar, editCalendar, reassignCategoryPool, updatePoolCapacity } from '../../calendar/actions';
 import { DaysSettings } from './dates-folds';
+import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
+import { AutoReplySection } from '../../shop/_components/autoreply-section';
 import type { CustomersSegment } from '../segments';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
+import { DatesRow } from './dates-row';
+
+/** 🎟 The Booked QRs list — the QR codes page with its ledger open (Waiting · Used · Deleted). */
+export const BOOKED_QRS_HREF = '/vendor-dashboard/invite?mode=locked&ledger=1';
 
 /**
  * ⚙ CUSTOMERS SETTINGS — the sheet's rows (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
@@ -23,6 +31,12 @@ import type { CustomersSegment } from '../segments';
  *                    clients pay you mounts), its saves coming back here (`return_to=customers`).
  *   TEAMS AND DAYS   Your halls · How many a day (each schedule's counter, its name and services, a new schedule) ·
  *                    Exact time slots · Phone calendar — the rows Dates used to fold (`DaysSettings`), moved.
+ *   BOOKED QRs       one row (Supplier Build 2 lane E; prototype v118 `custSettings` "Booked QRs · One-time codes ·
+ *                    waiting · used · deleted"): it opens the shipped Booked QRs list (the QR codes page, ledger open).
+ *                    Its count is ONE head read of this shop's waiting codes; refused, the row says no number.
+ *   AUTO-REPLY       the shipped `AutoReplySection`, mounted UNCHANGED (THE ONE BUILD, 8 Nov 2026 · spec §9 #6): it
+ *                    answers a client's first message, so it lives with Clients. Still behind its own switch
+ *                    (`vendorAutoReplyEnabled`, zero reads when off). C4 removes the Your-page mount once this lands.
  *
  * ⏳ BOOKING TERMS (owner 2026-10-28: shop defaults — a downpayment as a % OR an exact ₱, the refund window, the
  * wording — that pre-fill every new service card and quote) has NO column to save to: today each card carries its own
@@ -68,11 +82,19 @@ export async function CustomersSettingsBody({
   const thisMonth = manilaTodayIso().slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
   const namedCalendars = process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
-  const [pools, services, pickerServices] = await Promise.all([
+  const [pools, services, pickerServices, waitingRead] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     fetchVendorServices(supabase, vendorProfileId),
     namedCalendars ? fetchVendorServicesForPicker(supabase, vendorProfileId) : Promise.resolve([]),
+    supabase
+      .from('vendor_locked_qr_tokens')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('status', 'pending'),
   ]);
+  // ⚠ A refused count is not "0 waiting" — the row then carries no number at all.
+  if (waitingRead.error) logQueryError('CustomersSettingsBody.bookedQrsWaiting', waitingRead.error, { vendorProfileId }, 'graceful_degrade');
+  const waiting = waitingRead.error ? null : (waitingRead.count ?? null);
   const venue = pools.some((p) => p.isHall) || services.some((s) => VENUE_KINDS.has(String(s.category ?? '')));
   const notice = search.gnotice ? GEAR_NOTICES[search.gnotice] : undefined;
 
@@ -125,6 +147,28 @@ export async function CustomersSettingsBody({
         venue={venue}
         actions={{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool }}
       />
+
+      <p className="home-k2 pt-4" data-customers-settings-section="booked-qrs">
+        Booked QRs
+      </p>
+      <DatesRow
+        data="customers-gear-booked-qrs"
+        title="Booked QRs"
+        line="One-time codes · waiting · used · deleted"
+        badge={waiting ? { tone: 'wait', word: `${formatCount(waiting)} waiting` } : null}
+        href={BOOKED_QRS_HREF}
+      />
+
+      {vendorAutoReplyEnabled() ? (
+        <>
+          <p className="home-k2 pt-4" data-customers-settings-section="auto-reply">
+            Auto-reply
+          </p>
+          <div id="auto-reply" className="scroll-mt-24">
+            <AutoReplySection vendorProfileId={vendorProfileId} />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

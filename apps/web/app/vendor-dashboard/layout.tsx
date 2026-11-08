@@ -31,11 +31,8 @@ import { BasicSetupHold } from './_components/basic-setup-hold';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { readEventsYouRun } from '@/lib/events-you-run.server';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
-import { hasDayToday, phTodayIso } from '@/lib/vendor-day-picker';
 import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -208,13 +205,9 @@ export default async function VendorDashboardLayout({
     })
     .catch(() => 0);
 
-  // 🗂 THE COORDINATOR'S DOOR (owner "approved", 2026-10-28): does this person run any event, live, as the hosts'
-  // coordinator? One read of their OWN seats (`lib/events-you-run.server.ts`, cache()d — Today, the Events page and
-  // the customer card reuse it). Started here, beside the batch, so it adds no trip. FAILS CLOSED: a refused read is
-  // no tab, never a dead one.
-  const runsEventsPromise = readEventsYouRun(supabase, user.id)
-    .then((r) => r.events.length > 0)
-    .catch(() => false);
+  // 🗂 THE COORDINATOR'S DOOR is no longer read here (THE ONE BUILD, 8 Nov 2026): it fed only the Hub TAB, and the Hub
+  // left the bar (owner 7 Nov, "remove hub"). The door is Today's "Events you run" (`lib/events-you-run.server.ts`,
+  // read by Today itself) and the client's Hub page — one read fewer on every supplier page.
 
   // Single parallel batch for all chrome data with no inter-dependency. The
   // nav-registry overrides (getNavSlotMap) used to run sequentially near the
@@ -230,7 +223,6 @@ export default async function VendorDashboardLayout({
     tierProbe,
     threadsUnread,
     bookingsPending,
-    runsEvents,
   ] =
     await timer.track('chrome', () => Promise.all([
       supabase
@@ -266,31 +258,17 @@ export default async function VendorDashboardLayout({
       countUnreadMessages(supabase, user.id),
       // Bookings badge — pending-inquiry count (chained on the vendor profile).
       bookingsPendingPromise,
-      // The Events tab — at least one LIVE coordinator seat (started above).
-      runsEventsPromise,
     ]));
   const profile = profileRes.data;
   // 🔁 Asked once when the agreement on record is not to the Terms in force; a failed read is not asked.
   const termsAsk = needsTermsAgreement(profile, { isAnonymous: !!user.is_anonymous });
 
   /*
-    🧑‍🔧 A HELPER'S HUB TAB (owner "Yes to all", 2026-10-21, item 6). A scoped
-    teammate (agent / viewer) gets the Hub — the scanner — on a day this shop
-    has an event, beside Today and Customers. Asked ONLY for a teammate (an
-    owner always has the Hub, so they pay nothing), with the Hub's own reader
-    and its own rule, so the tab appears exactly when the Hub shows the live
-    console. It reads one boolean for the bar: no row reaches the client.
-
-    FAILS CLOSED: an unreadable day hides the tab, and Today's "Run the day"
-    card — the door a helper had before — is still there. Failing open would put
-    the Hub's set-up list (owner rooms) one tap from a helper on a normal day.
+    🧑‍🔧 A HELPER'S HUB TAB IS GONE (THE ONE BUILD, 8 Nov 2026 — the Hub left the bar). A scoped teammate gets Today ·
+    Clients on every day; the sequential day read that decided their Hub tab (`fetchVendorRoomEvents`) is deleted with
+    it — one trip fewer, in single file, on every page a helper opens. Their door to the scanner is Today's next-event
+    card and their client's Hub page, both scoped by the per-event grant.
   */
-  const eventToday =
-    vendorProfile?.vendor_profile_id && !canManageVendor(vendorRole)
-      ? await fetchVendorRoomEvents(supabase, vendorProfile.vendor_profile_id)
-          .then((days) => hasDayToday(days, phTodayIso()))
-          .catch(() => false)
-      : false;
   /*
     ⚠ `showRepertoire` (isMusicVendor) WAS COMPUTED HERE AND IS GONE
     (One Shell slice 2, 2026-08-14). It gated a NESTED 'repertoire' child row,
@@ -614,8 +592,6 @@ export default async function VendorDashboardLayout({
             threadsBadge={threadsUnread}
             planHref={storeShell ? null : '/vendor-dashboard/subscription'}
             tier={vendorTier}
-            eventToday={eventToday}
-            runsEvents={runsEvents}
           />
         }
         topBarSlot={topBar}
@@ -707,8 +683,6 @@ export default async function VendorDashboardLayout({
           navSlots={navSlots}
           bookingsBadge={bookingsPending}
           threadsBadge={threadsUnread}
-          eventToday={eventToday}
-          runsEvents={runsEvents}
         />
       </BottomDock>
       {/* 📲 What the account has, preloaded once the page is idle — the supplier

@@ -45,3 +45,17 @@
  * URL, not the bare word), extended to every path by ruling 2026-09-05.
  */
 export const WATERMARK_TEXT = 'WWW.SETNAYAN.COM';
+
+/**
+ * THE SEAL-AND-PLATE LINES (owner-approved 2026-11-04, supplier_photo_mark
+ * direction A). The address strings live HERE for the same MB27 reason as
+ * `WATERMARK_TEXT`: the browser painter, the server painter and the geometry
+ * that sizes them must not each carry their own copy of the address a viewer
+ * types into a browser. Slugs are drawn as stored (lowercase).
+ */
+export const MARK_CAPS = 'SETNAYAN';
+export const MARK_CAPS_VERIFIED = 'SETNAYAN VERIFIED';
+export const MARK_ADDRESS = 'setnayan.com';
+export function markVerifiedAddress(slug: string): string {
+  return `${MARK_ADDRESS}/v/${slug}`;
+}

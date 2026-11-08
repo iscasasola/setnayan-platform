@@ -77,8 +77,13 @@ test('BOTH renders mount it — the ask must not depend on an environment flag',
   // list depended on a variable whose production value is not readable from a
   // session, and this guard said it was fine.
   const src = code(CLIENT_CARD);
-  const split = src.indexOf('<RelationshipTabShell');
+  // THE ONE BUILD (8 Nov 2026): the flag-ON render is the picked client; its Details body (`detailsShipped`) is
+  // composed after the flag-OFF return and handed to `PickedClientShell` as the `details` page.
+  const split = src.indexOf('const detailsShipped =');
   assert.ok(split > 0, 'the flag-ON render moved — re-derive this split before trusting it');
+  assert.ok(src.indexOf('if (!relationshipShellEnabled)') < split, 'the flag-OFF render must come first');
+  assert.match(src, /details: detailsShipped,/, 'the Details page must be the body that carries the ask');
+  assert.ok(src.indexOf('<PickedClientShell') > split, 'the flag-ON render must draw the picked client');
 
   const uses = [...src.matchAll(/\{\s*askBlock\s*\}|\?\s*askBlock/g)].map((m) => m.index ?? 0);
   const before = uses.filter((i) => i < split).length;

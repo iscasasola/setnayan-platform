@@ -90,7 +90,8 @@ test('the engine: settles a copy onto its real card, advances ≈3 s, pauses 6 s
   for (const ev of ['pointerdown', 'touchstart', 'wheel', 'pointerenter', 'focusin']) {
     assert.match(SRC, new RegExp(`track\\.addEventListener\\('${ev}'`), `"${ev}" does not pause it`);
   }
-  const tick = SRC.slice(SRC.indexOf('const tick = window.setInterval('), SRC.indexOf('}, advanceMs);'));
+  const tick = SRC.slice(SRC.indexOf('const tick = advanceMs > 0 ? window.setInterval('), SRC.indexOf('}, advanceMs) : undefined;'));
+  assert.ok(tick.length > 0, 'the tick is not found — it no longer reads "advanceMs > 0 ? window.setInterval(…)"');
   assert.match(tick, /if \(reduce\.matches \|\| !looping \|\| !onScreen \|\| hovering \|\| focused\) return;/, 'it advances under reduced motion, off screen or while held');
   assert.match(tick, /if \(document\.visibilityState === 'hidden'\) return;/);
   // The touch pause and the hold both go through the one decision (`carouselMove`, held by a-held-carousel-card-stays-put).
@@ -101,4 +102,28 @@ test('the engine: settles a copy onto its real card, advances ≈3 s, pauses 6 s
   // Dots are attributes, never state — a scroll re-renders nothing.
   assert.match(SRC, /dots\[i\]!\.toggleAttribute\('data-on', i === at\)/);
   assert.doesNotMatch(SRC, /set[A-Z]\w*\(\s*(?:at|slot|nearest)/, 'the position is React state — every scroll would re-render the cards');
+});
+
+/**
+ * THE ONE BUILD (8 Nov 2026): Shop's Analytics and Today's next events wear the one carousel WITHOUT auto-advance and
+ * WITHOUT dots (v110 "No dot pagers"; spec §4 "the shared carousel's continuous loop KEPT, advanceMs={0} and
+ * dots={false}"). The loop and the centre snap stay; nothing moves by itself; nothing is drawn under it.
+ * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): `advanceMs > 0 ?` → `advanceMs >= 0 ?`; `n > 1 && dots` → `n > 1`.
+ */
+test('advanceMs 0 = no auto-advance (the loop stays); dots={false} draws no dots', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { SnapCarousel } = await load();
+  const cards = ['a', 'b', 'c'].map((k) => ({ key: k, label: `Card ${k}`, node: React.createElement('p', null, k) }));
+  const without = renderToStaticMarkup(React.createElement(SnapCarousel, { cards, label: 'Analytics', dots: false, advanceMs: 0 }));
+  assert.doesNotMatch(without, /data-snap-dots/, 'dots={false} still draws the dots');
+  assert.equal((without.match(/<i\b/g) ?? []).length, 0);
+  assert.match(without, /aria-label="1 of 3: Card a"/, 'without dots each card still says where it is');
+  const withDots = renderToStaticMarkup(React.createElement(SnapCarousel, { cards, label: 'Summary' }));
+  assert.match(withDots, /data-snap-dots=""/, 'the default lost its dots');
+  // No interval at all when advanceMs is 0 — a 0-ms interval would spin the page.
+  assert.match(SRC, /const tick = advanceMs > 0 \? window\.setInterval\(/, 'advanceMs 0 still starts a ticking interval');
+  assert.match(SRC, /if \(tick !== undefined\) window\.clearInterval\(tick\);/);
+  // The loop does not depend on the tick.
+  assert.match(SRC, /useEffect\(\(\) => setLooping\(n > 1\), \[n\]\);/, 'the loop was tied to auto-advance');
+  assert.match(SRC, /\{n > 1 && dots \? \(/);
 });

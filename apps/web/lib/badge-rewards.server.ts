@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { readShopBookedLoopCount } from '@/lib/shop-booked-loops.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/lib/badge-upgrades.server';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -27,8 +28,13 @@ import {
  *   readGrantedRewards     what the shop was given, with each free booking fee's history
  *
  * 🔑 WHEN A REWARD IS GRANTED: badges are not stored — they are worked out live from real counts — so "earning" one is
- * the moment a read finds it. `readBadgeRewardTracker` (the badge page) and Today run the grant sweep; the admin's
- * manual award runs it for that shop. A step reached and lost and reached again is the SAME key: it never pays twice.
+ * the moment a read finds it. The sweep runs in ONE request door, `GET /api/vendor/badges?view=facts`, fetched AFTER a
+ * page has drawn — by Today (`badge-earned-line.tsx`, owner 2026-11-05) and by the badge pages, Shop and Performance
+ * (`badge-reward-sweep.tsx`) — and the admin's manual award runs it for that shop. A step reached and lost and reached
+ * again is the SAME key: it never pays twice.
+ * 🛑 A PAGE RENDER NEVER WRITES (8 Nov release gate): `readBadgeRewardTracker` only READS. It used to pay the sweep
+ * inside the Shop/Performance render — a service-role write of real Event Plus / Papic stock on a GET, and two round
+ * trips in a row before the page could draw. The same pages still pay at the same visit, a beat later, from the door.
  *
  * Every function here takes the SERVICE-ROLE client, called only after the caller proved `vendorProfileId` is the
  * signed-in supplier's own shop (or the caller is an admin).
@@ -43,12 +49,16 @@ export const AWARD_TYPE_BY_TITLE: Readonly<Record<string, SpotlightAwardType>> =
  * What the shop's measured badges count. `badge` = the facts `readShopBadgeFacts` already read for the same page
  * (verified · completed events · trusted reviews), so nothing is read twice.
  */
+type BadgeIn = Pick<ShopBadgeFacts, 'verified' | 'completedEvents' | 'trusted'>;
+
 export async function readBadgeRewardFacts(
   admin: SupabaseClient,
   vendorProfileId: string,
-  badge: Pick<ShopBadgeFacts, 'verified' | 'completedEvents' | 'trusted'>,
+  /** The page's badge facts — or the promise of them: this function's own reads start at once, beside that read. */
+  badgeIn: BadgeIn | PromiseLike<BadgeIn>,
 ): Promise<BadgeRewardFacts> {
-  const [sourced, branches, serviceCards, inspirationPhotos, awards] = await Promise.all([
+  const [badge, sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops] = await Promise.all([
+    badgeIn,
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
       .from('booking_fee_ledger')
@@ -124,6 +134,8 @@ export async function readBadgeRewardFacts(
           periodMonth: String(a.period_month),
         }));
       }),
+    // 🔁 Booked Loop (THE ONE BUILD spec §9 #11): C2's counter, on the admin client (service_role only). null = unread.
+    readShopBookedLoopCount(admin, vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -136,6 +148,7 @@ export async function readBadgeRewardFacts(
     serviceCards,
     inspirationPhotos,
     awards,
+    bookedLoops,
   };
 }
 
@@ -303,20 +316,26 @@ async function readUsedOn(
 }
 
 /**
- * The badge page's reward input: measure, pay what is owed, then read what was given — so the page shows a reward
- * the moment its badge is earned. `badge` = the facts the page already read with `readShopBadgeFacts`.
+ * The badge page's reward input — READ ONLY: what the badges count, what was given, the products' names, the plan and
+ * the upgrades, every read started at once (one wave; the plan shapes the upgrade rows after). It never pays: paying is
+ * the sweep's door (`GET /api/vendor/badges?view=facts`, after the page draws — see the header). `badge` = the facts
+ * the page reads with `readShopTrackerFacts`, or the promise of them, so these reads ride beside that one.
  */
 export async function readBadgeRewardTracker(
   admin: SupabaseClient,
   vendorProfileId: string,
-  badge: Pick<ShopBadgeFacts, 'verified' | 'completedEvents' | 'trusted'>,
+  badge: BadgeIn | PromiseLike<BadgeIn>,
   now: Date = new Date(),
 ): Promise<TrackerRewardInput> {
-  const facts = await readBadgeRewardFacts(admin, vendorProfileId, badge);
-  await grantOwedBadgeRewards(admin, vendorProfileId, facts);
-  const [granted, names, tier] = await Promise.all([readGrantedRewards(admin, vendorProfileId), readRewardNames(admin), readTier(admin, vendorProfileId)]);
-  // ⏱ …and the badge upgrades (owner, 6 Nov), resolved for the shop's plan.
-  const upgrades = await readBadgeUpgrades(admin, vendorProfileId, tier);
+  const tierRead = readTier(admin, vendorProfileId);
+  const [facts, granted, names, tier, upgrades] = await Promise.all([
+    readBadgeRewardFacts(admin, vendorProfileId, badge),
+    readGrantedRewards(admin, vendorProfileId),
+    readRewardNames(admin),
+    tierRead,
+    // ⏱ …and the badge upgrades (owner, 6 Nov), resolved for the shop's plan.
+    readBadgeUpgrades(admin, vendorProfileId, tierRead),
+  ]);
   return { facts, granted, names, awardTypeByTitle: AWARD_TYPE_BY_TITLE, periodMonth: currentPeriodMonth(now), upgrades, tier };
 }
 

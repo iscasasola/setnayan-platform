@@ -26,7 +26,7 @@ import { SHOP_SEGMENT_HREF, type ShopSegment } from '../shop/_components/shop-se
 import { bottomNavItemMatches } from '@/app/_components/nav/bottom-nav';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import { VENDOR_BOTTOM_NAV_ITEMS } from './vendor-bottom-nav';
-import { resolveVendorDestinations, vendorRailCandidates, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
+import { resolveVendorDestinations, vendorRailCandidates, VENDOR_PORTFOLIO_EXTRA_MATCH, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 import { stripComments } from '@/lib/strip-comments';
 
 const VD = join(import.meta.dirname, '..');
@@ -39,7 +39,20 @@ const barLit = (path: string) => VENDOR_BOTTOM_NAV_ITEMS.filter((i) => bottomNav
 const railLit = (path: string) =>
   activeRailKey(vendorRailCandidates(resolveVendorDestinations({ role: 'admin' }), { key: '__plan', href: '/vendor-dashboard/subscription' }), path);
 
-const SEGMENT_ROUTES = [...new Set([...Object.values(SHOP_SEGMENT_HREF), ...VENDOR_SHOP_EXTRA_MATCH].map(pathOf))];
+/* 🖼 THE ONE BUILD (owner 7 Nov 2026): the photos are the PORTFOLIO tab now. Until the Shop lane drops its gallery
+   segment, that segment's address (`/collections`) is Portfolio's — it lights Portfolio, and is held there instead. */
+const PORTFOLIO_ROUTES = ['/vendor-dashboard/collections', ...VENDOR_PORTFOLIO_EXTRA_MATCH].map(pathOf);
+const isPortfolio = (p: string) => PORTFOLIO_ROUTES.some((r) => p === r || p.startsWith(`${r}/`));
+const SEGMENT_ROUTES = [...new Set([...Object.values(SHOP_SEGMENT_HREF), ...VENDOR_SHOP_EXTRA_MATCH].map(pathOf))].filter(
+  (p) => !isPortfolio(p),
+);
+
+test('the Portfolio addresses light Portfolio, and only Portfolio, on the bar and the rail', () => {
+  for (const path of PORTFOLIO_ROUTES) {
+    assert.deepEqual(barLit(path), ['portfolio'], `${path} lights ${JSON.stringify(barLit(path))} on the bar`);
+    assert.equal(railLit(path), 'portfolio', `${path} lights "${railLit(path)}" on the rail`);
+  }
+});
 
 test('every Shop segment lights Shop, and only Shop, on the phone bar', () => {
   assert.ok(SEGMENT_ROUTES.includes('/vendor-dashboard/performance'), 'premise: How it is going is /performance');
@@ -67,8 +80,17 @@ const SCREEN_FOR: Partial<Record<ShopSegment, string>> = {
   details: join(VD, 'profile', '_components', 'details-screen.tsx'),
 };
 
+/*
+  THE ONE BUILD (C4, v113 — integration 8 Nov): two segment addresses are no longer Shop SUB-screens, so they carry no
+  switcher back to Shop: `services` IS the Shop tab (`/vendor-dashboard/shop` — one scroll, cover + rows + ⚙, its ▾ row
+  dropped; `shop/the-shop-sections-are-v13.test.ts` pins that), and `gallery` is the Portfolio TAB (its own bar tab and
+  pinned row — the test above holds it lighting Portfolio). Every other segment is still a sub-screen and keeps it.
+*/
+const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery'];
+
 test('every page a Shop segment opens draws the Shop switcher with that segment on', () => {
   for (const [seg, href] of Object.entries(SHOP_SEGMENT_HREF) as [ShopSegment, string][]) {
+    if (TABS_NOT_SUBSCREENS.includes(seg)) continue;
     const src = stripComments(readFileSync(SCREEN_FOR[seg] ?? pageFor(pathOf(href)), 'utf8'));
     const on = (src.match(new RegExp(`<ShopSegments\\s+on="${seg}"`, 'g')) ?? []).length;
     assert.ok(on >= 1, `${href} draws no <ShopSegments on="${seg}"> — the supplier lands with no way back to Shop`);

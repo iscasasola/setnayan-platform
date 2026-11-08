@@ -11,7 +11,7 @@
  * that every field door outside the record has a forward here and that each forward names a place that edits it.
  */
 import { detailsItemHref } from '@/lib/maker-details-items';
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 import type { RecordRowKey } from '@/lib/event-details-record';
 
 type Forward = (eventId: string, makerOn: boolean) => string;
@@ -23,7 +23,7 @@ type Forward = (eventId: string, makerOn: boolean) => string;
  *     whose head is the same `papic_on` switch (`PapicHeadPicker`).
  */
 export const COUPLE_RECORD_FIELD_FORWARD: Readonly<Partial<Record<RecordRowKey, Forward>>> = {
-  'papic-answer': (eventId, makerOn) => (makerOn ? detailsItemHref(eventId, 'papic') : papicHomeHref(eventId)),
+  'papic-answer': (eventId, makerOn) => (makerOn ? detailsItemHref(eventId, 'papic') : papicCardHref(eventId)),
 };
 
 /** Where a couple who opened `/details/field/<row>` belongs, or null (no forward — the sheet holds it). */

@@ -42,13 +42,15 @@ test('🧭 the Supplier line on /features names the supplier bar, tab for tab', 
   }
 });
 
-test('🧭 the Host line on /features names the couple bar, Home through Hub, tab for tab', () => {
+/* 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov; THE ONE BUILD spec §9 #3): the couple
+   bar is Today · Guests · Suppliers · Memories · Hub — Hub is now the LAST tab, so the line names all five, then " —". */
+test('🧭 the Host line on /features names the couple bar, Today through Hub, tab for tab', () => {
   const tree = buildCustomerMenuTree('S89E-TESTEVENT', { websiteEnabled: true, phase: 'plan' });
-  const upToHub = tree.slice(0, tree.findIndex((m) => m.key === 'launch') + 1).map((m) => m.label);
-  assert.ok(upToHub.length === 4 && upToHub[0] === 'Home', `premise: the couple bar opens Home … Hub (got ${upToHub.join(SEP)})`);
-  const want = `${upToHub.join(SEP)}${SEP}`;
+  const bar = tree.map((m) => m.label);
+  assert.ok(bar.length === 5 && bar[0] === 'Today' && bar[4] === 'Hub', `premise: the couple bar opens Today … Hub (got ${bar.join(SEP)})`);
+  const want = `${bar.join(SEP)} —`;
   for (const locale of Object.keys(HOW_IT_WORKS_COPY)) {
     const line = firstLineOf('Host', locale);
-    assert.ok(line.startsWith(want), `${locale}: /features says "${line.split(' —')[0]}", the couple bar is "${upToHub.join(SEP)} · …"`);
+    assert.ok(line.startsWith(want), `${locale}: /features says "${line.split(' —')[0]}", the couple bar is "${bar.join(SEP)}"`);
   }
 });

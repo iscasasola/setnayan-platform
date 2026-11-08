@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { readLogoFrame } from '@/lib/open-shop-logo';
+import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
@@ -96,6 +97,11 @@ export type DetailsData = {
   pendingCoverageSuggestion: PendingCoverageSuggestion | null;
   verify: VerifySummary;
   verifyMeasured: boolean;
+  /**
+   * 🧾 The four required papers, one row each (Today's step 5 — `lib/setup-papers.ts`). NULL when the application
+   * read was refused — the step then says it could not load them, never "none sent".
+   */
+  papers: SetupPaper[] | null;
   /** Required papers in, of how many — the documents row's line ("1 of 4 in"). */
   docsIn: number;
   docsTotal: number;
@@ -409,6 +415,7 @@ export async function loadDetailsData(
     pendingCoverageSuggestion: suggestion,
     verify,
     verifyMeasured,
+    papers: setupPapers({ measured: verifyMeasured, status: (app?.status as string | null) ?? null, uploads }),
     docsIn: requiredIn,
     docsTotal: REQUIRED_DOC_SLOT_KEYS.size,
     branch: {

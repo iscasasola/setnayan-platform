@@ -98,10 +98,21 @@ test('Your year and Your Story are retired as MENUS, not as places', () => {
   // The real, visible door is the account switcher in the top bar. So this now
   // checks the link AND that the component carrying it is actually mounted on
   // the board's own layout — the two halves that together make it reachable.
+  //
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD; DECISION_LOG 2026-11-07 "Account sheet tiles": Help · Show me
+  // around · Sign out — "on event, that also becomes help"): the sheet's Your Story tile became Help, and Your Story's
+  // door is inside the help centre. The chain is still read end to end — the mounted switcher's Help tile opens
+  // `/help`, and the help centre links `/dashboard/creator` — NOT WEAKENED.
   const switcher = read('app/_components/account-switcher/account-switcher.tsx');
   assert.ok(
-    /href="\/dashboard\/creator"/.test(switcher),
-    'the account switcher no longer links /dashboard/creator — that is now the ' +
+    /<Link href=\{helpHref\} onClick=\{close\} data-sheet-tile="help"/.test(switcher) &&
+      /: referEvent \? `\/help\?refer=\$\{referEvent\}` : '\/help';/.test(switcher),
+    'the account switcher no longer opens the help centre — the only door to Your Story a person can see.',
+  );
+  const help = read('app/(shell)/help/page.tsx');
+  assert.ok(
+    /href="\/dashboard\/creator"/.test(help),
+    'the help centre no longer links /dashboard/creator — that is now the ' +
       'only door to Your Story a person can see, so removing it strands the desk.',
   );
   const launcherLayout = read('app/dashboard/(launcher)/layout.tsx');

@@ -139,16 +139,14 @@ test('the spotlight never draws the old centred card', () => {
  * a step that points at nothing; a home left behind after a stop is cut fails too.
  */
 const ANCHOR_HOME: Record<string, string | string[]> = {
-  'shop-segments': 'app/vendor-dashboard/shop/_components/shop-segments.tsx',
-  'shop-page-list': 'app/vendor-dashboard/website/_components/page-parts.tsx',
-  'shop-details-row': 'app/vendor-dashboard/website/_components/page-parts.tsx',
+  // THE ONE BUILD (8 Nov, C4): the v113 Shop tab's two parts.
+  'shop-analytics': 'app/vendor-dashboard/shop/_components/shop-analytics-carousel.tsx',
+  'shop-badges': 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx',
   'hub-next-days': 'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx',
   'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',
   'hub-day-launch': 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx',
   'hub-setup': 'app/vendor-dashboard/on-the-day/page.tsx',
   'dates-calendar': 'app/vendor-dashboard/customers/_components/customers-calendar.tsx',
-  'dates-check': 'app/vendor-dashboard/customers/_components/check-a-date.tsx',
-  'dates-add': 'app/vendor-dashboard/customers/page.tsx',
   'money-summary': 'app/vendor-dashboard/customers/_components/money-view.tsx',
   'money-next': 'app/vendor-dashboard/customers/_components/money-view.tsx',
   'money-log': 'app/vendor-dashboard/customers/_components/money-log.tsx',
@@ -162,12 +160,14 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'day-planning': 'app/dashboard/[eventId]/page.tsx',
   'post-story': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
   'post-photos': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
-  'today-next': ['app/_components/next-card.tsx', 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'],
+  // THE ONE BUILD (8 Nov): Today's Next card (`next-card.tsx`) is retired and deleted — its stop lights the Needs-you
+  // heading.
+  'today-next': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'shop-details': 'app/vendor-dashboard/shop/page.tsx',
   'shop-add-service': 'app/vendor-dashboard/services/_components/services-manager.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   // 📌 The money count is the pinned row's filter since 2026-10-28 — drawn by `TodayCounts`.
-  'today-money': 'app/vendor-dashboard/_components/today-counts.tsx',
+  'today-money': 'app/vendor-dashboard/_components/today-stats.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
@@ -191,6 +191,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'home-switch-on': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
   'memories-albums': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-settings': 'app/_components/memories/event-memories-gallery.tsx',
+  'memories-papic': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-grid': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-search': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-add': 'app/_components/memories/event-memories-gallery.tsx',
@@ -213,9 +214,16 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'library-show': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'library-search': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'supplier-messages': 'app/vendor-dashboard/layout.tsx',
-  'today-numbers': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // THE ONE BUILD A13 — Today's own tour (`vendor_today_v3`).
+  'today-cover': 'app/vendor-dashboard/_components/today-cover.tsx',
+  'today-next-events': 'app/vendor-dashboard/_components/today-next-events.tsx',
+  'today-stats': 'app/vendor-dashboard/_components/today-stats.tsx',
+  'today-needs': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  'today-show': 'app/vendor-dashboard/_components/today-thumb-row.tsx',
   'today-coming-up': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-shop': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // A new shop's "Get your shop live" — the first stop of the tour after step 6 (7 Nov 2026).
+  'today-setup': 'app/vendor-dashboard/_components/supplier-setup-folds.tsx',
   'customers-segments': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-filter': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',
@@ -223,7 +231,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-add': 'app/vendor-dashboard/customers/page.tsx',
   'collections-filter': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
   'collections-list': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
-  'collections-add': 'app/vendor-dashboard/collections/page.tsx',
+  // THE ONE BUILD (C4): the Portfolio tab's thumb row draws it (`portfolio-view.tsx`).
+  'collections-add': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
   'camera-credits': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-challenge': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-mode': 'app/papic/guest/_components/papic-guest-capture.tsx',

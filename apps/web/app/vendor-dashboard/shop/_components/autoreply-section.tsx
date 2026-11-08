@@ -7,8 +7,8 @@ import { VoiceMatchSection } from './voice-match-section';
 
 /*
  * AUTO-REPLY — MOVED, NOT REWRITTEN, from `shop/page.tsx` (simpler supplier dashboard step 5, 2026-10-14). It sat at
- * the foot of My Shop; it is now Your page › Auto-reply (the prototype's row "Auto-reply · Answers the first
- * message"), still behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1, still `#auto-reply`.
+ * the foot of My Shop; it was Your page › Auto-reply, and since THE ONE BUILD (spec §9 #6, 8 Nov 2026) it is in the
+ * Clients ⚙ sheet — it answers a client's first message. Still behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1.
  */
 /** Loads the vendor's Auto-Reply config for the Phase-4 card. Soft probe (the
  *  My Shop pattern): a pre-migration DB or a vendor with no row yet degrades
@@ -52,7 +52,7 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
     // defaults above
   }
   return (
-    // `#auto-reply` is carried by the Your-page fold that holds this section (one id per page).
+    // Mounted once, in the Clients ⚙ sheet (`customers-settings-body.tsx`, spec §9 #6) — no longer on Your page or Shop.
     <section aria-labelledby="auto-reply-heading">
       <AutoReplyCard
         initialEnabled={enabled}

@@ -26,6 +26,7 @@ import { PapicHeadPicker } from './papic-head-picker';
 import { FaceTaggingChoice } from './face-tagging-choice';
 import { FaceBlockingCount } from './face-blocking-count';
 import { GuestAllotmentsChoice } from './guest-allotments-choice';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -54,8 +55,9 @@ export async function PapicCameraSettings({
   buy = null,
 }: {
   eventId: string;
-  /** 'home' — under Home's Papic card (saves land back on Home); 'page' — `/studio/papic` (saves land there). */
-  seat?: 'home' | 'page';
+  /** 'memories' — under the Papic card in Memories (its seat since 2026-11-08; saves land back there); 'home' — Today
+   *  (kept for the old seat); 'page' — `/studio/papic` (saves land there). */
+  seat?: PapicCardSeat | 'page';
   /** The filled "+ Add more" — the shipped sheet, built by the caller (web, or Apple's in the app); null: not offered. */
   buy?: ReactNode;
   /** What the pot holds and has left — null when not measured (the counter then says "—", never 0). */
@@ -113,7 +115,7 @@ export async function PapicCameraSettings({
           <div className="flex items-center gap-2" data-papic-dates="">
             <SettingRow label={spanWords} value="" sheetTitle="Change dates" bare>
               <PapicWindowPicker
-                returnTo={seat === 'home' ? 'home' : null}
+                returnTo={seat === 'page' ? null : seat}
                 eventId={eventId}
                 eventType={(ev.event_type as string | null) ?? null}
                 eventDate={(ev.event_date as string | null) ?? null}
@@ -182,13 +184,13 @@ export async function PapicCameraSettings({
             </InfoTip>
             <span className="truncate text-[12.5px] text-ink/60" data-papic-filter-now="">{papicStyleLabel} · every camera</span>
           </div>
-          <StylePicker variant="strip" returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
+          <StylePicker variant="strip" returnTo={seat === 'page' ? null : seat} eventId={eventId} current={papicStyle} />
         </div>
         {/* In the approved sketch's order (owner "Yes", 2026-10-24): Credits per guest (event-wide) · the one door to
             the guest cards · the event's Face tagging switch · Face blocking. "When guests can shoot" is NOT a row here
             any more (owner 2026-10-30): it is the card's head switch once Papic is on — one control per fact. */}
         <div className="divide-y divide-ink/10">
-          <GuestAllotmentsChoice eventId={eventId} variant="row" eventWide returnTo={seat === 'home' ? 'home' : null} />
+          <GuestAllotmentsChoice eventId={eventId} variant="row" eventWide returnTo={seat === 'page' ? null : seat} />
           <Link
             href={`/dashboard/${eventId}/guests`}
             className="flex min-h-11 items-center justify-between gap-3 py-3 text-[15px] text-ink"
@@ -200,7 +202,7 @@ export async function PapicCameraSettings({
             </span>
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
           </Link>
-          <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} subLine="set per guest on their guest card" />
+          <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'page' ? null : seat} subLine="set per guest on their guest card" />
           {/* Face blocking — a COUNT, never a switch (owner 2026-10-24: "each guest's wish is always honoured"). */}
           <FaceBlockingCount eventId={eventId} />
         </div>
@@ -208,7 +210,7 @@ export async function PapicCameraSettings({
 
       {/* (4) CHALLENGES — the board guests see, and what a supplier asks to add. */}
       <div className="border-t border-ink/10 pt-1">
-        <CoupleChallengesManager eventId={eventId} inCard returnTo={seat === 'home' ? 'home' : null} />
+        <CoupleChallengesManager eventId={eventId} inCard returnTo={seat === 'page' ? null : seat} />
       </div>
       <VendorChallengesApproval eventId={eventId} />
     </div>

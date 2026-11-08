@@ -208,8 +208,13 @@ export type TourKey =
   | 'customer_suppliers_v1'
   | 'customer_library_v1'
   | 'vendor_today_v2'
+  | 'vendor_today_v3'
   | 'vendor_people_v1'
   | 'vendor_collections_v1'
+  // 🔦 A new shop's Today, once its QR is downloaded (step 6 of "Get your shop live" — owner 7 Nov 2026, prototype
+  // `open-shop-redesign.html` v21 "the spotlight tour … starts once after step 6"). Recorded when it ends or is
+  // skipped, and that record is step 6's ✓ (`lib/supplier-setup.ts`).
+  | 'vendor_setup_tour_v1'
   | 'guest_papic_camera_v2'
   | 'guest_papic_me_v2'
   // 🔦 /pricing — a first-visit spotlight (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25`): Why Setnayan →
@@ -275,8 +280,10 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_suppliers_v1',
   'customer_library_v1',
   'vendor_today_v2',
+  'vendor_today_v3',
   'vendor_people_v1',
   'vendor_collections_v1',
+  'vendor_setup_tour_v1',
   'guest_papic_camera_v2',
   'guest_papic_me_v2',
   'pricing_page_v1',
@@ -1252,7 +1259,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Five places for your whole event',
-        body: 'Home, Guests, Suppliers, Hub and Memories. The same five sit at the bottom of your phone and down the side of your laptop.',
+        body: 'Today, Guests, Suppliers, Memories and Hub. The same five sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
@@ -1267,7 +1274,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wand2,
         title: 'Hub',
-        body: 'Where you make your Event Hub and its invitation. Its Studio holds the look and the words — logo, palette and dress code, love story. Your schedule, budget and prints open from Home.',
+        body: 'Where you make your Event Hub and its invitation. Its Studio holds the look and the words — logo, palette and dress code, love story. Your schedule, budget and prints open from Today.',
       },
       {
         Icon: Images,
@@ -1277,8 +1284,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your services',
-        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok live on Home, under Your services &mdash; add the ones you want for your day.',
-        // 🍎 Five paid web extras (More left the bar 22 Oct 2026 — they live on Home › Your services); the
+        body: 'Setnayan AI, Live Watch, Music Maker and Patiktok live on Today, under Your services, and Papic is in Memories &mdash; add the ones you want for your day.',
+        // 🍎 Five paid web extras (More left the bar 22 Oct 2026 — four live on Today › Your services, Papic in Memories since 2026-11-08); the
         // iPhone app shows none of them (#6725), so this slide is dropped there.
         sells: true,
       },
@@ -1401,13 +1408,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Settings,
         title: 'Four places, nothing hidden',
-        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, Analytics is in Shop, and Settings is under your profile picture.',
+        body: 'The bar is Today, Clients, Shop and Portfolio. Messages open from the envelope at the top, Analytics is in Shop, your event days open from Clients, and Settings is under your profile picture.',
       },
     ],
   },
   vendor_customers_v1: {
     key: 'vendor_customers_v1',
-    label: 'Supplier — Customers mini-tour',
+    label: 'Supplier — Clients mini-tour',
     blurb: 'One row per customer, one next step each, and the round +.',
     slides: [
       {
@@ -1437,7 +1444,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Details, Services, Page, Portfolio and Analytics — the five parts of Shop.',
+    blurb: 'How your shop is going, and the badges it has earned.',
     slides: [
       {
         Icon: Briefcase,
@@ -1452,23 +1459,19 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     // `lib/supplier-page-tours.ts`, after `supplier_spotlight_v1`.
     spotlight: {
       steps: [
+        // THE ONE BUILD (8 Nov 2026, C4 · integration): the Shop tab is v113 now — Your details row, How it is going,
+        // Your badges — and the old ▾ (`shop-segments`) and Page's list are no longer on it, so the old three stops
+        // would wait on parts that are not drawn. `shop-details` ("Your details") is NOT repeated here: the Today
+        // journey (`supplier_spotlight_v1`) already lands on it, and no page tour repeats a journey stop.
         {
-          // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
-          // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
-          anchor: 'shop-segments',
-          title: 'Details · Services · Page · Portfolio · Analytics',
-          body: 'Every part of your shop is in this one menu. Open it and pick Page.',
-          hint: 'Pick Page — or press Next',
+          anchor: 'shop-analytics',
+          title: 'How it is going',
+          body: 'What’s ahead, your quotes that turn into bookings, where your price sits — swipe, and tap one to see what it tells you.',
         },
         {
-          anchor: 'shop-page-list',
-          title: 'Tap a part to change it',
-          body: 'Your cover, your About, which services show first. “View my page” shows it exactly as a couple sees it.',
-        },
-        {
-          anchor: 'shop-details-row',
-          title: 'Your documents live in Your details',
-          body: 'DTI or SEC, BIR 2303, Mayor’s permit, bank proof. Setnayan checks them in 5 working days, then your shop goes live.',
+          anchor: 'shop-badges',
+          title: 'Your badges',
+          body: 'What your shop has earned, and what the next one asks of you.',
         },
       ],
       finale: {
@@ -1532,15 +1535,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'dates-calendar',
           title: 'Your month at a glance',
-          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Striped days are off.',
+          // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
+          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Struck-through days are off. Tap a day to see what is on it — or block it off.',
         },
         {
-          anchor: 'dates-check',
-          title: 'Check a date',
-          body: 'Tap a day to see what is on it — or block it off so nobody asks for it.',
-        },
-        {
-          anchor: 'dates-add',
+          // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.
+          anchor: 'customers-add',
           title: 'Add what you already have',
           body: 'Bookings from outside Setnayan go here too, so a couple never asks for a day you have given away.',
         },
@@ -1658,7 +1658,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Whenever you’re unsure, the Next card on Home shows the one thing to do. To see this again, open your account menu and tap Show me around.',
+        body: 'Whenever you’re unsure, Today shows the one thing to do. To see this again, open your account menu and tap Show me around.',
         button: 'Done',
       },
     },
@@ -1666,7 +1666,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   host_day_spotlight_v1: {
     key: 'host_day_spotlight_v1',
     label: 'Host — event day and Post Event spotlight',
-    blurb: 'Home on the day, then the story after it.',
+    blurb: 'Today on the day, then the story after it.',
     slides: [],
     spotlight: {
       steps: [
@@ -1693,7 +1693,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'That’s the whole journey 🎉',
-        body: 'From creating your event to the story after it. The Next card on Home still shows the one thing to do.',
+        body: 'From creating your event to the story after it. Today still shows the one thing to do.',
         button: 'Done',
       },
     },
@@ -1707,8 +1707,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'today-next',
-          title: 'One thing at a time',
-          body: 'The Next card is the most urgent thing waiting on you. Answer it and the next one takes its place.',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you, the most urgent first. Tap a row to open where it is answered.',
         },
         {
           anchor: 'tab-shop',
@@ -1728,7 +1728,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'tab-customers',
-          title: 'Customers',
+          title: 'Clients',
           body: 'Requests and bookings land here, and replying costs nothing on any plan.',
           go: true,
         },
@@ -1751,7 +1751,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        body: 'Needs you today on Today always lists what is waiting on you. To see this again, open your account menu and tap Show me around.',
         button: 'Done',
       },
     },
@@ -1823,7 +1823,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'When a payment is due, the Next card on Home says so.',
+        body: 'When a payment is due, Today says so.',
         button: 'Done',
       },
     },
@@ -1867,16 +1867,16 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // service cards (not yet merged when this replaced its steps — nobody has seen the old three). No price.
   customer_home_widgets_v1: {
     key: 'customer_home_widgets_v1',
-    label: 'Home — first visit',
-    blurb: 'Today, the parts of your event, and your services — on one screen.',
+    label: 'Today — first visit',
+    blurb: 'The one thing now, the parts of your event, and your services — on one screen.',
     slides: [],
     spotlight: {
       steps: [
         {
           anchor: 'home-today',
           hint: 'Press Next',
-          title: 'Today',
-          body: 'The one thing to do now. Tap it and Home jumps to that tile.',
+          title: 'Now',
+          body: 'The one thing to do now. Tap it and Today jumps to that tile.',
         },
         {
           anchor: 'home-faces',
@@ -1893,7 +1893,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'home-services',
           title: 'Your services',
-          body: 'Tap one to open its controls right here — Home moves down. Tap its head to fold it.',
+          body: 'Tap one to open its controls right here — the page moves down. Tap its head to fold it.',
         },
         {
           // (2026-10-25) Only while the event has parts left off — dropped where it is not drawn (`lib/spotlight-drops.ts`).
@@ -1904,7 +1904,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Home always starts with Today.',
+        body: 'Today always starts with the one thing to do now.',
         button: 'Done',
       },
     },
@@ -1934,6 +1934,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'memories-settings',
           title: 'Memories settings',
           body: '⚙ holds the photo wall, who sees what, and saving to Google Drive.',
+        },
+        {
+          // 📷 (2026-11-08, THE ONE BUILD) Papic's card moved here from Today, under the keepsakes. Only where it is drawn
+          // (the couple's; in the app only where Apple sells) — dropped elsewhere, as every undrawn anchor is.
+          anchor: 'memories-papic',
+          title: 'Papic',
+          body: 'Your guests’ camera. Switch it on, see what is left, and tap › for every setting.',
         },
         {
           anchor: 'memories-grid',
@@ -2143,11 +2150,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Every customer chat, in one place.',
         },
         {
-          anchor: 'today-numbers',
-          title: 'Three numbers',
-          body: 'Waiting on you, events this week, and what is still to come in. Tap one for its list.',
-        },
-        {
           anchor: 'today-coming-up',
           title: 'Coming up',
           body: 'Your next booked events, from Setnayan and outside. All dates opens your month.',
@@ -2165,10 +2167,105 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
+  /* 🔦 TODAY'S PAGE TOUR, THE ONE BUILD (8 Nov 2026 — v113 Today; spec A2 A13, owner Q10 default "bump so every
+     supplier sees the new Today once"): Messages → the cover → Next events → the stats → Needs you today → Show. A stop
+     not drawn on this screen (no event ahead) is dropped by the engine. Mounted by the supplier frame through
+     `lib/supplier-page-tours.ts`; `vendor_today_v2` (the Next card's tour) is kept only as the seen mark it is. */
+  vendor_today_v3: {
+    key: 'vendor_today_v3',
+    label: 'Supplier — Today page spotlight',
+    blurb: 'Messages, your greeting, the next events, your numbers, what needs you and Show.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every customer chat, in one place.',
+        },
+        {
+          anchor: 'today-cover',
+          title: 'Your day',
+          body: 'Today’s date and how many things need you. Your Today settings are on the ⚙.',
+        },
+        {
+          anchor: 'today-next-events',
+          title: 'Next events',
+          body: 'Your next booked event. Tap it to open that client’s Hub.',
+        },
+        {
+          anchor: 'today-stats',
+          title: 'Your numbers',
+          body: 'Views, inquiries, bookings, photos and money to come in. Each one opens where it is counted.',
+        },
+        {
+          anchor: 'today-needs',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you. Tap a row to open where it is answered.',
+        },
+        {
+          anchor: 'today-show',
+          title: 'Show',
+          body: 'Show only inquiries, bookings, payments and more — or search with the box beside it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Needs you today always lists what is waiting on you, most urgent first.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 A NEW SHOP'S TODAY, AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21 `TOUR_COPY`): it
+     starts once, the moment the shop's QR is downloaded, and lights Today top → bottom. The words are the prototype's;
+     the last stop says the bar THE ONE BUILD ships (Today · Clients · Shop · Portfolio — v113, BARS LOCKED 7 Nov). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
+  vendor_setup_tour_v1: {
+    key: 'vendor_setup_tour_v1',
+    label: 'Supplier — a new shop’s Today, after the QR',
+    blurb: 'Get your shop live, Coming up, your shop, Messages and the bar.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'today-setup',
+          title: 'Get your shop live',
+          body: 'Six rows — each opens right here. Any order.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-coming-up',
+          title: 'Coming up',
+          body: 'Bookings land here as couples say yes.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-shop',
+          title: 'Your shop',
+          body: 'Your page, your cards, your logo — what couples see.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every request and chat with a couple, in one place.',
+        },
+        {
+          anchor: 'tab-vendor-dashboard',
+          title: 'The menu',
+          body: 'The bar is Today, Clients, Shop and Portfolio.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Get your shop live stays on Today until every step is done.',
+        button: 'Done',
+      },
+    },
+  },
   /* 🔦 CUSTOMERS › EVENTS (People until 2026-10-30) — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. The key keeps its old name: it is the "seen" mark a supplier already holds. */
   vendor_people_v1: {
     key: 'vendor_people_v1',
-    label: 'Supplier — Customers page spotlight',
+    label: 'Supplier — Clients page spotlight',
     blurb: 'Events ▾, the three counts, ⚙, search and ＋ an outside booking.',
     slides: [],
     spotlight: {
@@ -2185,7 +2282,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'customers-gear',
-          title: 'Customers settings',
+          title: 'Clients settings',
           body: 'How you get paid, how many a day, your schedules and your phone calendar.',
         },
         {

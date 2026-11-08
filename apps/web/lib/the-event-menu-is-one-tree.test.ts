@@ -99,7 +99,10 @@ function rail(profile: EventTypeProfile, phase: 'plan' | 'dayof' | 'after' = 'pl
 
 /* ══ 1 · THE OWNER'S LIST ═════════════════════════════════════════════════ */
 
-test('the rail is the owner’s five — no More Services, Memories after Hub (23 Oct 2026) (owner 22 Oct 2026, "Yes remove more") — in every phase', () => {
+/* 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov 2026; THE ONE BUILD spec §9 #3): the
+   event bar is Today · Guests · Suppliers · Memories · Hub — "Home" is called Today (the word only; key `home`, route
+   unchanged) and Memories comes before Hub. Same strictness: the exact five, the exact order, every phase. */
+test('the rail is the owner’s five — Today · Guests · Suppliers · Memories · Hub (THE ONE BUILD, 7 Nov 2026) — in every phase', () => {
   /*
     Counted the way the drawing counts: row 1 is the "Events" focus row above
     the event, row 2 is the event's name (Details), then every menu row.
@@ -110,7 +113,7 @@ test('the rail is the owner’s five — no More Services, Memories after Hub (2
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub', 'Memories'],
+      ['Events', 'Event Details', 'Today', 'Guests', 'Suppliers', 'Memories', 'Hub'],
       `${phase}: ${labels.join(' · ')}`,
     );
   }
@@ -131,14 +134,14 @@ test('the rows that left are gone from every phase — their homes hold them', (
 
 /** The rail's (and ☰'s) words — the full names. */
 const FIVE = [
-  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'], ['memories', 'Memories'],
+  ['home', 'Today'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['memories', 'Memories'], ['launch', 'Hub'],
 ] as const;
-/** The phone bar's words — the rail's, save "More" (owner 2026-10-01: "Home -
- *  Guests - Suppliers - Hub - More"). */
+/** The phone bar's words — the rail's (owner 2026-10-01 "Home - Guests - Suppliers - Hub - More"; More left 22 Oct;
+ *  THE ONE BUILD 7 Nov: Today · Guests · Suppliers · Memories · Hub). */
 const BAR_FIVE = [
-  ['home', 'Home'], ['guests', 'Guests'], ['explore', 'Suppliers'],
-  ['launch', 'Hub'], ['memories', 'Memories'],
+  ['home', 'Today'], ['guests', 'Guests'], ['explore', 'Suppliers'],
+  ['memories', 'Memories'], ['launch', 'Hub'],
 ] as const;
 const BARS = { plan: BAR_FIVE, dayof: BAR_FIVE, after: BAR_FIVE } as const;
 
@@ -289,13 +292,15 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
   }
 });
 
-test('the Refer a couple row went to the account menu, behind the programme toggle', () => {
-  const layout = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/layout.tsx'), 'utf8'));
-  assert.match(layout, /referHref=\{referralEnabled \? `\/dashboard\/\$\{eventId\}\/refer` : null\}/);
+/* 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. Owner, DECISION_LOG 2026-11-07 "no Refer a couple tile": "NO NEED".
+   The row left the menu (22 Oct) and now the account sheet too: its tiles are Help · Show me around · Sign out on every
+   sheet (held by app/_components/account-switcher/the-supplier-sheet-order.test.ts). It stays out of the menu. */
+test('Refer a couple is in neither the menu nor the account sheet (owner 7 Nov 2026, "NO NEED")', () => {
   const switcher = stripComments(
     readFileSync(join(WEB, 'app/_components/account-switcher/account-switcher.tsx'), 'utf8'),
   );
-  assert.match(switcher, /referHref \? \(\s*<Link\s+href=\{referHref\}/, 'the account menu draws no Refer a couple link');
+  assert.doesNotMatch(switcher, /href=\{referHref\}/, 'the account sheet draws a Refer a couple link again');
+  assert.doesNotMatch(switcher, /Refer a couple/, 'the account sheet names Refer a couple again');
 });
 
 /* ══ 6 · 3D PLAN LIVES IN SEAT PLAN — WHICH LIVES IN GUESTS › SEATS (R4) ══ */

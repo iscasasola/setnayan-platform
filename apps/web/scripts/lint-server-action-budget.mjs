@@ -80,7 +80,29 @@ import { fileURLToPath } from 'node:url';
 // train tree (never the sum of the arrows).
 // TRAIN 1 (2026-11-08, #7394 merging main after 2B): train 1's two (+2 on 1230) and 2B's venue check (+1) meet;
 // CEILING = the count measured on the merged tree (never the sum of the arrows).
-export const CEILING = 1233;
+// 1232 → 1233 (2026-11-08, THE ONE BUILD lane C2, owner v112 "Gift limit · % of the booking fee" in Admin › Gifts):
+// `admin/gifts/gift-limit-actions.ts` · `saveGiftLimitPct`, the setting's ONE audited writer (spec B2 §4 sanctions
+// "raise once with the reasoned line"). No unimported export was found in the lane's files to retire; message hearts
+// write through the browser client under their own RLS, so they spend no route. ⚠ Other lanes raise this too — the
+// controller reconciles the ONE number on the merged tree (sum of the lanes' +n), checked by check-vercel-route-count.
+// 1233 → 1237 (INTEGRATION, 2026-11-08, claude/supplier-1build — THE ONE BUILD): measured on the merged tree against
+// origin/main's 1233 (both counted by this script). The four new exports, each imported by its one caller:
+// C2 `admin/gifts/gift-limit-actions.ts` · `saveGiftLimitPct` (the gift limit's one audited writer, above);
+// C3 `vendor-dashboard/forms/actions.ts` · `formsAction` (ONE dispatcher for the Form Maker — save · use · send · retire),
+// C3 `vendor-dashboard/clients/[eventId]/report-actions.ts` · `submitSupplierReport` (the picked client's Report page),
+// C3 `admin/categories/form-suggestion-actions.ts` · `formSuggestionsAction` (ONE dispatcher for Admin › Categories' new template ·
+// suggest · unsuggest). No unimported export was found to retire. No fresh `vercel build` count — 2026-11-07 measured
+// 1835 routes, 165 under check-vercel-route-count's 2000, so +4 fits; the SUM stays gated by that job on the PR build.
+// 1237 → 1238 (2026-11-08, Supplier Build 2 lane E, owner OK 8 Nov "raise to the measured count"): `recordClientRefund`
+// in `vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts` — the Payment page's "Record a refund" AND its
+// swipe-left remove share this ONE export (a `remove_refund_id` field picks the mode), so the feature costs +1, not +2.
+// CEILING = the count measured on the lane tree; the integration re-measures on the merged tree.
+// 1238 → 1239 (2026-11-08, re-port lane R2 — #7246 Seal and plate, owner 8 Nov "Ok to raise it"): `photoMark` in
+// `app/_components/photo-mark-actions.ts` — ONE dispatcher for the marked upload's server halves ('mark' what to stamp ·
+// 'pair' the private clean copy · and, with #7247, 'original' to re-open a photo in the Frame step), so the whole photo
+// mark + frame costs +1, not +3. No unimported export was found to retire. CEILING = the count measured on the lane
+// tree; the integration re-measures on the merged tree, and check-vercel-route-count gates the sum on the PR build.
+export const CEILING = 1239;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

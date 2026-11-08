@@ -3024,3 +3024,52 @@ html.dark .fd {
     display: none;
   }
 }
+
+/* 🫥 THE CHROME STEPS AWAY (THE ONE BUILD F4, 8 Nov 2026 — v66/v71, owner: *"top nav and bottom nav hide"* while a
+   picked client fills the screen). `useChromeAway(on)` (`app/_components/nav/use-chrome-away.ts`) writes
+   `html[data-chrome-away]`; the top bar slides up, the bottom bar slides down, 0.32 s, and back the exact reverse.
+   The bar's clearance drops to the safe-area inset, so a ThumbRow that stood on the bar settles where the bar was.
+   The bottom bar: phone and tablet (below 1024; from 1024 the rail and the bar stay). The top bar: phone only (below
+   701; the tablet band's strip stays). Reduced motion: the bottom bar simply goes; the top bar slides for everybody.
+   🔒 app/_components/nav/the-chrome-steps-away.test.ts */
+@media (max-width: 1023.98px) {
+  html[data-chrome-away] [data-bottom-dock] {
+    transform: translateY(100%);
+    pointer-events: none;
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  html[data-chrome-away] {
+    --sn-bottomdock-h: env(safe-area-inset-bottom, 0px) !important;
+  }
+  /* The way back runs the same curve (the exact reverse) — held 320 ms by the hook. */
+  html[data-chrome-back] [data-bottom-dock] {
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  /* The thumb row glides to the bar's place with the bar, not a jump. */
+  html[data-chrome-away] [data-thumb-dock],
+  html[data-chrome-back] [data-thumb-dock] {
+    transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1), bottom 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+/* The TOP bar steps away on the phone only: from 701 px the app's top is the tablet band's 72-px strip, which stays
+   (🔒 app/_components/frontdoor/the-tablet-band-is-the-strip.test.ts — no phone-drawer rule may reach the strip). */
+@media (max-width: 700.98px) {
+  html[data-chrome-away] .fd[data-chrome='app'] .fd-topwrap {
+    transform: translateY(-100%);
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  html[data-chrome-back] .fd[data-chrome='app'] .fd-topwrap {
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+@media (max-width: 1023.98px) and (prefers-reduced-motion: reduce) {
+  html[data-chrome-away] [data-bottom-dock],
+  html[data-chrome-back] [data-bottom-dock],
+  html[data-chrome-away] [data-thumb-dock],
+  html[data-chrome-back] [data-thumb-dock] {
+    transition: none;
+  }
+}
+/* No reduced-motion stop for the TOP bar: it slides for everybody, as its scroll-hide does — the pinned block and the
+   pinned category head travel with it and carry no reduced-motion exception either
+   (🔒 app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts #2). */

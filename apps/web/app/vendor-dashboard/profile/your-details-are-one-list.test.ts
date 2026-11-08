@@ -50,7 +50,8 @@ test('3 · the account panel rows go somewhere real, and only for owners and adm
   const rows = supplierAvatarRows();
   assert.deepEqual(
     rows.map((r) => r.label),
-    ['Your details', 'Your page', 'Your collections', 'Helpers', 'Plan', 'Settings'],
+    // "Your collections" left the account sheet (THE ONE BUILD, 2026-11-08): the photos are the Portfolio TAB now.
+    ['Your details', 'Your page', 'Helpers', 'Plan', 'Settings'],
   );
   for (const r of rows) {
     const page = join(WEB, 'app', r.href.replace(/^\//, ''), 'page.tsx');

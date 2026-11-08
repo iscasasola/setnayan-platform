@@ -60,6 +60,7 @@ export function VideoLinksEditor({
           <div key={idx} className="space-y-1">
             <div className="flex items-center gap-2">
               <input
+                autoComplete="off"
                 name={name}
                 type="url"
                 inputMode="url"

@@ -62,6 +62,7 @@ export function ListField({
         {rows.map((r, i) => (
           <li key={r.id} className="flex items-center gap-2">
             <input
+              autoComplete="off"
               type="text"
               name={name}
               value={r.value}

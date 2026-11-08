@@ -14,6 +14,11 @@
 // Realtime, from every plain page of two whole trees — a websocket held open
 // all day in every tab, to move a badge. The conversation itself stays live:
 // an open thread streams its messages (`ChatMessageStream`).
+// ⚡ AMENDED 2026-10-29 (owner, "chat arrives instantly"): behind the kill
+// switch NEXT_PUBLIC_CHAT_LIVE_ENABLED (default OFF) the envelope may follow
+// ONE private broadcast channel per signed-in person — `user:<uid>`, joined
+// only while the tab is in view, no postgres_changes — so a reply moves the
+// badge in about a second. This file still opens nothing itself.
 //
 // 🧯 A burst of messages used to fire one count RPC per message (then one per
 // burst — `settleBurst`). A timer asks at most once per minute, whatever lands.
@@ -52,9 +57,11 @@ export function UnreadMessagesBadge({ userId, initialUnread, href, tour }: Props
     let gone = false;
     // Both chunks are asked for at once; the poll starts when both are in.
     const client = import('@/lib/supabase/client');
-    void import('@/lib/unread-polls').then(({ pollEnvelope }) =>
+    // ⚡ `followEnvelope` (owner 2026-10-29, "chat arrives instantly"): with NEXT_PUBLIC_CHAT_LIVE_ENABLED off it IS
+    // `pollEnvelope`; on, it follows the person's one private live channel and polls only while that is not live.
+    void import('@/lib/unread-polls').then(({ followEnvelope }) =>
       client.then(({ createClient }) => {
-        if (!gone) stop = pollEnvelope({ supabase: createClient(), onValue: setUnread });
+        if (!gone) stop = followEnvelope({ supabase: createClient(), userId, onValue: setUnread });
       }),
     );
     return () => {

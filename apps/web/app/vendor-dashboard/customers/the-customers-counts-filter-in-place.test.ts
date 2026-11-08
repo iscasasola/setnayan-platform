@@ -10,7 +10,10 @@
  * stripped) for what only the page decides:
  *   1 · one sticky pinned row, first row, the view ▾ is ONE PickMenu, the ⚙ is the row's LAST child;
  *   2 · each count is a BUTTON (aria-pressed) — never a link: pressing it reloads nothing;
- *   3 · all four lists are drawn, exactly one shown — the pressed door's;
+ *   3 · every list is drawn, exactly one shown — the pressed door's;
+ *
+ * 2026-11-08 (v113, spec §9 #7): the doors are the tiles Booked · Schedules · Asked · To collect (Done left the row and
+ * stays a list); Overdue (n) › and Unread (n) › sit under it — `the-clients-list-is-v113.test.ts` holds those.
  *   4 · honest: an unread count says "couldn't load", never 0; the page words a short read as "N+" or null;
  *   5 · one row per EVENT: one thread per event, every roster row keyed by its event, the chat title on the row.
  *
@@ -63,11 +66,19 @@ async function renderPin(over: Record<string, unknown> = {}): Promise<string> {
       // 2026-10-30 (controller call on the approved v13 + DECISION_LOG 2026-10-29 "Customers › Events → Asking · Booked ·
       // Done"): THREE counts, and the list opens on EVERY event — no count pressed.
       doors: [
-        { key: 'asking', value: '2', word: 'asking', hot: true },
         { key: 'booked', value: '4', word: 'booked' },
-        { key: 'done', value: '1', word: 'done' },
+        { key: 'schedules', value: '2', word: 'schedules' },
+        { key: 'asking', value: '2', word: 'asked', hot: true },
+        { key: 'collect', value: '₱40K', word: 'to collect' },
       ],
-      panels: { all: panel('all'), asking: panel('asking'), booked: panel('booked'), done: panel('done') },
+      panels: {
+        all: panel('all'),
+        asking: panel('asking'),
+        booked: panel('booked'),
+        done: panel('done'),
+        schedules: panel('schedules'),
+        collect: panel('collect'),
+      },
       gear: React.createElement('span', { 'data-menu-settings': 'customers' }, React.createElement('button', { type: 'button' }, '⚙')),
       ...over,
     } as never),
@@ -104,7 +115,7 @@ test('1 · one sticky pinned row — the view ▾ is one dropdown, the ⚙ ends 
 test('2 · each count is a press that filters in place — a button with aria-pressed, never a link', async () => {
   const html = await renderPin();
   const doors = html.match(/<(?:a|button)\b[^>]*data-customers-door="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(doors.length, 3, `expected 3 doors, found ${doors.length}`);
+  assert.equal(doors.length, 4, `expected 4 doors, found ${doors.length}`);
   for (const d of doors) {
     assert.match(d, /^<button\b/, `a door navigates instead of filtering: ${d}`);
     assert.match(d, /aria-pressed="(true|false)"/, `a door does not say whether it is filtering: ${d}`);
@@ -112,8 +123,8 @@ test('2 · each count is a press that filters in place — a button with aria-pr
   }
   assert.deepEqual(
     doors.map((d) => /data-customers-door="([a-z]+)"/.exec(d)![1]),
-    ['asking', 'booked', 'done'],
-    'the doors are not Asking · Booked · Done, in that order',
+    ['booked', 'schedules', 'asking', 'collect'],
+    'the doors are not Booked · Schedules · Asked · To collect, in that order (v113)',
   );
   // Opens with NO count pressed — every event listed (a supplier opening Customers must see their booked events too).
   assert.equal(count(html, /aria-pressed="true"/g), 0, 'a count is pressed on arrival — the list does not open on every event');
@@ -125,10 +136,10 @@ test('2 · each count is a press that filters in place — a button with aria-pr
   assert.match(PIN, /onTap=\{\(\) => setOn\(pressed \? null : d\.key\)\}/, 'pressing a pressed count does not go back to every event');
 });
 
-test('3 · every event + the three counts’ lists are drawn and exactly one shows — every event, or the pressed door’s', async () => {
+test('3 · every event + each door’s list are drawn and exactly one shows — every event, or the pressed door’s', async () => {
   const listsOf = (html: string) => [...html.matchAll(/<div id="customers-list-([a-z]+)" data-customers-list-for="[a-z]+"( hidden="")?>/g)];
   const atRest = listsOf(await renderPin());
-  assert.equal(atRest.length, 4, `expected 4 lists (all + 3 counts), found ${atRest.length}`);
+  assert.equal(atRest.length, 6, `expected 6 lists (all + asking · booked · done · schedules · collect), found ${atRest.length}`);
   assert.deepEqual(atRest.filter((m) => !m[2]).map((m) => m[1]), ['all'], 'the list does not open on every event');
   const lists = listsOf(await renderPin({ initial: 'booked' }));
   const shown = lists.filter((m) => !m[2]).map((m) => m[1]);
@@ -144,9 +155,10 @@ test('3 · every event + the three counts’ lists are drawn and exactly one sho
 test('4 · honest: an unread count says "couldn’t load", never 0 — and the page never words a short read as a plain number', async () => {
   const html = await renderPin({
     doors: [
-      { key: 'asking', value: null, word: 'asking' },
       { key: 'booked', value: '4+', word: 'booked' },
-      { key: 'done', value: '1', word: 'done' },
+      { key: 'schedules', value: '1', word: 'schedules' },
+      { key: 'asking', value: null, word: 'asked' },
+      { key: 'collect', value: null, word: 'to collect' },
     ],
   });
   const asking = elementAround(html, html.indexOf('data-customers-door="asking"'));
@@ -186,8 +198,9 @@ test('5 · one row per EVENT — one thread per event, every row keyed by its ev
   );
   const links = html.match(/<div [^>]*data-customer-row="booked"[^>]*>/g) ?? [];
   assert.equal(links.length, 2, 'one couple with two events is not two rows');
-  assert.match(html, /href="\/vendor-dashboard\/messages\/t1"/);
-  assert.match(html, /href="\/vendor-dashboard\/messages\/t2"/, 'each event row does not open its own chat');
+  // Build 2 row #38: a row opens ITS event's client through the one open path (booked → Details), not the bare chat.
+  assert.match(html, /href="\/vendor-dashboard\/clients\/e1\?tab=details"/);
+  assert.match(html, /href="\/vendor-dashboard\/clients\/e2\?tab=details"/, 'each event row does not open its own client');
   // 2026-10-30: the row wears the EVENT's title — its whole name · kind · day (`eventRowTitle`, owner 2026-10-29 "Customers
   // are events, not people"); the chat it opens keeps its own words.
   assert.match(html, /Indalecio Casasola · Wedding · Dec 18/, 'the row does not wear the event’s title');

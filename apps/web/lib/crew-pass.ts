@@ -1,7 +1,7 @@
 /**
  * 📱 CREW PASSES — the words and the one rule for what a crew role opens (owner 2026-10-29, DECISION_LOG "CREW JOIN
  * THE SUPPLIER'S EVENT HUB BY QR — AND SEE ONLY THE EVENT HUB"; prototype `hubCrew`: "Member = run of show + scanner ·
- * Helper = scanner only. No Today, Customers, Shop or money. A new phone waits for your Allow; the pass ends after the
+ * Helper = scanner only. No Today, Clients, Shop or money. A new phone waits for your Allow; the pass ends after the
  * event."). The access itself is the database's (`vendor_crew_passes` · `current_vendor_crew_pass` ·
  * `crew_seat_by_guest_qr`); this file only names it. Pure — no imports.
  */
@@ -102,8 +102,8 @@ export function crewRoleGets(role: CrewRole, coordinator: boolean): { opens: str
   if (can.scanner) opens.push('Seat scanner — scan a guest’s QR to find their table.');
   if (can.runOfShow) opens.push('Run of show — every moment of the day, as it moves.');
   if (can.runOfShow && coordinator) {
-    opens.push('Ask to change the schedule — move a part earlier or later; the hosts approve it with one tap.');
+    opens.push('Ask to change the schedule — move a part earlier or later, or skip one; it is approved with one tap.');
   }
   if (opens.length === 0) opens.push('The event’s day and place, and their pass — no tools on this event.');
-  return { opens, never: 'Never Today, Customers, Shop or money — and only this event. The pass ends after the event.' };
+  return { opens, never: 'Never Today, Clients, Shop or money — and only this event. The pass ends after the event.' };
 }

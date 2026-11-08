@@ -6,6 +6,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { acquireSchedulePoolsForBooking } from '@/lib/schedule-pools';
 import { deliverShopGiftUnlocksForBooking, deliverShopGiftsForBooking } from '@/lib/shop-gifts.server';
+import { sendLinkedFormsForBooking } from '@/lib/vendor-forms-on-booking.server';
 import {
   judgeDepositEffects,
   type DepositEffectsDoor,
@@ -140,6 +141,10 @@ export async function runDepositAcknowledgedEffects(
         await deliverShopGiftUnlocksForBooking(admin, eventVendorId, outcome.eventId),
         'unlocks',
       );
+      // 📋 FORMS LINKED TO A BOOKED CARD (THE ONE BUILD · Forms, v111 item 18): "sent to the couple automatically when
+      // they book this service". Booked = this moment. Idempotent ((event, form) key); never throws; the outcome is
+      // logged like the gift door's — a form that did not land is a couple who was never asked.
+      recordFormsOnBooking(eventVendorId, door, await sendLinkedFormsForBooking(admin, { eventVendorId, eventId: outcome.eventId }));
     }
   } catch (e) {
     outcome.thrown = e instanceof Error ? e.message : String(e);
@@ -173,6 +178,25 @@ function recordShopGiftDelivery(
       tags: { feature: 'shop-gifts', door, which },
       extra: { eventVendorId, ...delivery },
     });
+  } catch {
+    // telemetry never breaks the money path
+  }
+}
+
+/** The forms door's own record: an error pages Sentry (a linked form that never reached the couple). */
+function recordFormsOnBooking(
+  eventVendorId: string,
+  door: DepositEffectsDoor,
+  outcome: Awaited<ReturnType<typeof sendLinkedFormsForBooking>>,
+): void {
+  try {
+    const summary = `[vendor-forms] on-booking ${outcome.status} · booking ${eventVendorId} · door ${door}`;
+    if (outcome.status !== 'error') {
+      console.info(summary, outcome);
+      return;
+    }
+    console.error(summary, outcome);
+    Sentry.captureMessage(summary, { level: 'error', tags: { feature: 'vendor-forms', door }, extra: { eventVendorId, ...outcome } });
   } catch {
     // telemetry never breaks the money path
   }

@@ -303,13 +303,18 @@ test('an unknown figure is drawn as a dash, and its meter draws no bar', () => {
   const summary = stripComments(
     readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'), 'utf8'),
   );
-  const figure = summary.slice(summary.indexOf('function Figure('));
+  // ✂ THE ONE BUILD (8 Nov, B2 §2.3): the figures are drawn by `budget-figures.tsx` (shared with the supplier's Payment
+  // page) — the null rule is asserted where the figure is drawn now.
+  const figures = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-figures.tsx'), 'utf8'),
+  );
+  const figure = figures.slice(figures.indexOf('function Figure('));
   assert.match(
     figure,
     /if \(value === null\) \{\s*return <div className=\{`\$\{styles\.v\} \$\{styles\.vMuted\}`\}>—<\/div>;/,
     'a null figure must print "—"; falling through to <Peso value={0}> is the defect',
   );
-  assert.doesNotMatch(summary, /\?\?\s*0\b/, 'no `?? 0` in the summary — that is how unknown becomes ₱0');
+  assert.doesNotMatch(summary + figures, /\?\?\s*0\b/, 'no `?? 0` in the summary — that is how unknown becomes ₱0');
   assert.match(summary, /budgetMeter\(\{ targetPhp, agreedPhp, paidPhp \}\)/, 'the meter is handed the same nullable figures');
 });
 
@@ -384,9 +389,14 @@ test('an Owed floor is drawn with its "+", and a partial ledger says so where "l
   const summary = stripComments(
     readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-summary.tsx'), 'utf8'),
   );
-  assert.match(summary, /<Figure value=\{owedPhp\} id="budget-owed" tone=\{styles\.vWine\} atLeast=\{owedAtLeast\} \/>/);
-  const figure = summary.slice(summary.indexOf('function Figure('));
+  // ✂ THE ONE BUILD (8 Nov): the Owed cell is handed to `BudgetFigures`, which draws the floor's "+".
+  assert.match(summary, /\{ key: 'owed', label: 'Owed', value: owedPhp, id: 'budget-owed', tone: 'wine', atLeast: owedAtLeast \}/);
+  const figures = stripComments(
+    readFileSync(join(HERE, '..', 'app/dashboard/[eventId]/budget/_components/budget-figures.tsx'), 'utf8'),
+  );
+  const figure = figures.slice(figures.indexOf('function Figure('));
   assert.match(figure, /<Peso value=\{value\} id=\{id\} \/>\s*\{atLeast \? '\+' : null\}/, 'a floor printed without its "+" reads as the whole');
-  assert.match(summary, /\{partial \? \(\s*<span[^>]*>\s*part of this couldn&rsquo;t load/, 'the legend must say the ledger is partial');
-  assert.match(summary, /couldn&rsquo;t check/, 'a partial ledger draws "couldn\'t check" for Next — an absent line reads "nothing due"');
+  assert.match(summary, /partial \? \(\s*<BudgetLegendRight wine partial>\s*part of this couldn&rsquo;t load/, 'the legend must say the ledger is partial');
+  assert.match(summary, /: partial\s*\? 'unread'/, 'a partial ledger hands the Next line "unread"');
+  assert.match(figures, /couldn&rsquo;t check/, 'a partial ledger draws "couldn\'t check" for Next — an absent line reads "nothing due"');
 });

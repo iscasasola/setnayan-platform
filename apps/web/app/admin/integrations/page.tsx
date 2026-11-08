@@ -268,6 +268,7 @@ export default async function AdminIntegrationsPage({
               From address
             </span>
             <input
+              autoComplete="off"
               type="text"
               name="resend_from_address"
               defaultValue={fromAddress}

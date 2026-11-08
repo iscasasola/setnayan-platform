@@ -16,3 +16,7 @@ export const SHOP_GEAR_TITLE: Readonly<Record<ShopGearSection, string>> = {
   docs: 'Verification and documents',
   notifications: 'Notifications',
 };
+
+/** 🧭 Your page — the ⚙'s FIRST row (Build 2 §10 #31: no loose rows on the Shop page), and where the cover's
+ *  "★ · N reviews" lands (`#reviews`, its Reviews and stories fold). */
+export const YOUR_PAGE_HREF = '/vendor-dashboard/website';

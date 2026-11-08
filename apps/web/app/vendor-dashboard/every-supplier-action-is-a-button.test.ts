@@ -47,7 +47,12 @@ export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly s
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
   // S-PR1 · Today.
   ['app/vendor-dashboard/page.tsx', ['AgentHome', 'VendorOverviewPage']],
-  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'Figure']],
+  // THE ONE BUILD (8 Nov): `Figure` left with the retired counts row; Today's new parts join the sweep.
+  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen']],
+  ['app/vendor-dashboard/_components/today-cover.tsx', ['TodayCover', 'TodayPinnedRow']],
+  ['app/vendor-dashboard/_components/today-next-events.tsx', ['TodayNextEvents', 'EventCard']],
+  ['app/vendor-dashboard/_components/today-stats.tsx', ['TodayStats']],
+  ['app/vendor-dashboard/_components/today-thumb-row.tsx', ['TodayThumbRow']],
   ['app/vendor-dashboard/_components/supplier-toast.tsx', ['SupplierToast']],
   // 2026-10-12 (look audit of #6443/#6450): the answers inside the Also-waiting folds wear the rule too — every
   // door an `ActionButton`, every form's submit a `SupplierSubmit`; the one bare `<button>` (MarkCompleteBody) is gone.

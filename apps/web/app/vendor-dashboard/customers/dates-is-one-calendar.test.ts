@@ -210,10 +210,13 @@ test('3 · "Free" only where a schedule says so; a shop with no schedule is "Not
 
 test('4 · Holding is read from events (admin, this shop’s threads) — never the thread embed, which is null for a supplier', () => {
   assert.doesNotMatch(PAGE, /pendingInquiryDates\(/, 'the month counts the always-null thread embed again');
-  const read = body(PAGE, 'readOpenAsks');
+  // Build 2 #43g: ONE reader, shared by the one Clients screen and the picked client's Schedule month (`open-asks.ts`).
+  const ASKS = readFileSync(join(HERE, 'open-asks.ts'), 'utf8');
+  assert.match(PAGE, /import \{ readOpenAsks \} from '\.\/open-asks'/, 'the one screen reads asks some other way');
+  const read = body(ASKS, 'readOpenAsks');
   assert.match(read, /createAdminClient\(\)\.from\('events'\)\.select\('event_id, display_name, event_date'\)\.in\('event_id', part\)/);
   assert.match(read, /readInChunks\(/, 'one in.() over every thread is a URL the gateway refuses past ~600');
-  assert.match(body(PAGE, 'CustomersDates'), /inquiries=\{asksByDate\(asks\)\}/, 'the month is not handed the holding counts');
+  assert.match(body(PAGE, 'customersMonth'), /inquiries: asksByDate\(asks\)/, 'the month is not handed the holding counts');
   // Executed: open + dated + unbooked only; one per event; a count is all that crosses.
   const asks = openAsksOf(
     [
@@ -349,14 +352,18 @@ test('8 · the shop’s codes are ONE list — a row per code, the QR card (Shar
   // row per code (`QrCodeList`), each opening its own sheet. Customers' rows link by `CUSTOMERS_QR_MODES`; Promote opens
   // a sheet only for a code in `PROMOTE_QR_MODES`.
   assert.match(page, /CUSTOMERS_QR_MODES\.map\(/);
-  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/);
+  // THE ONE BUILD (8 Nov, C4): Promote's body moved into `promote-body.tsx` (one body for the Promote route and the Shop tab) — the
+  // check follows the code, the page only mounts it.
+  assert.match(code(join(VD, 'shop', 'promote', '_components', 'promote-body.tsx')), /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/);
+  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /<PromoteBody\b/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /\['shortlist', 'locked',[^\]]*\]/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /shortlist: 'Shortlist · free',\s*locked: 'Booked · one-use'/);
   assert.doesNotMatch(view + page, /<CustomersPick label="Which code"/, 'the one-code dropdown is back — Option B is one list');
   assert.match(view, /<QrCodeList rows=\{rows\}/, 'the codes are not ONE list');
   assert.doesNotMatch(view + page, /<PillTrack|role="tablist"/, 'the QR type is a pill track again');
   assert.match(code(join(VD, 'locked-qr', 'page.tsx')), /redirect\('\/vendor-dashboard\/invite\?mode=locked&ledger=1#issued'\)/, '/locked-qr does not land on the Issued fold');
-  assert.match(view, /<Fold\s+title="Issued"/);
+  // B2-A #34: the Issued fold is the Booked QRs list (Waiting · Used · Deleted) — same fold, same `#issued` landing.
+  assert.match(view, /<Fold\s+title="Booked QRs"/);
   assert.equal(existsSync(join(VD, '_components', 'qr-section.tsx')), false, 'the second QR card is back on Dates');
   assert.match(FOLDS, /title="QR codes"[\s\S]{0,80}href=\{qrHref\}/, 'Dates lost its QR codes row');
   const { QrCard } = await import('../../_components/qr-card');

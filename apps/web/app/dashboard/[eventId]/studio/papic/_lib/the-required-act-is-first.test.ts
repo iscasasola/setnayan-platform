@@ -38,11 +38,13 @@ import { fileURLToPath } from 'node:url';
 */
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 // 📷 2026-10-26: the Papic page is gone — Home draws the card and opens these settings from its ›.
-const PAGE_SRC = readFileSync(join(PAPIC, '..', '..', 'page.tsx'), 'utf8');
+// 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): the Papic card moved from Home (Today) into Memories, so the page that
+// draws the settings is Memories now. Every rule below reads it unchanged — NOT WEAKENED.
+const PAGE_SRC = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
 const SRC = readFileSync(join(PAPIC, '_components', 'papic-camera-settings.tsx'), 'utf8');
 
 test('the page draws the camera settings — otherwise every rule here is vacuous', () => {
-  assert.match(PAGE_SRC, /<PapicCameraSettings\b/, 'Home no longer draws the camera settings');
+  assert.match(PAGE_SRC, /<PapicCameraSettings\b/, 'Memories no longer draws the camera settings');
   assert.ok(SRC.includes('data-papic-settings=""'), 'the settings section is gone; the order rule would pass on nothing');
 });
 

@@ -41,8 +41,31 @@
  * is exactly the bug it was written to remove.
  */
 
-/** The client-card sections both shells resolve (never 'chat' / 'call'). */
-export type CardSection = 'details' | 'quote' | 'schedule' | 'files';
+/**
+ * 🗂 THE PICKED CLIENT'S NINE PAGES (THE ONE BUILD, 8 Nov 2026 · v113) — the `?tab=` id of each, in menu order:
+ * Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub · Report. The labels and the legacy-id
+ * map live beside the shell (`clients/[eventId]/_components/picked-client-menu.ts`); the ids live HERE because
+ * every door into a client (Today's rows, the Coming-up rows, notifications) builds its link through
+ * `customerCardHref`, and a door may only name a page that exists.
+ *
+ * Since the chat moved INTO the client (v111), a bare landing opens Details and `?tab=chat` opens the Chat page in
+ * place — the old "a bare route IS the chat" redirect is gone. Doors still name the page they mean.
+ */
+export const PICKED_CLIENT_PAGE_IDS = [
+  'details',
+  'chat',
+  'schedule',
+  'quote',
+  'payments',
+  'forms',
+  'files',
+  'hub',
+  'report',
+] as const;
+export type PickedClientPage = (typeof PICKED_CLIENT_PAGE_IDS)[number];
+
+/** Kept as the older name every caller already imports. */
+export type CardSection = PickedClientPage;
 
 /**
  * The section an Upcoming row opens on: the brief, the returning-client marker,
@@ -50,8 +73,58 @@ export type CardSection = 'details' | 'quote' | 'schedule' | 'files';
  */
 export const UPCOMING_CARD_SECTION: CardSection = 'details';
 
-export function customerCardHref(eventId: string, section: CardSection): string {
-  return `/vendor-dashboard/clients/${eventId}?tab=${section}`;
+export function customerCardHref(eventId: string, page: PickedClientPage): string {
+  return `/vendor-dashboard/clients/${eventId}?tab=${page}`;
+}
+
+/**
+ * 🚪 THE ONE OPEN PATH — which page a client opens on (Build 2 row #38, prototype v116 `startPage`). Every row that
+ * stands for a client (the Clients list and its views, Today's Needs-you rows) asks THIS, then builds its link with
+ * `customerCardHref`. A door passes what it knows; the first true fact wins, in the prototype's order:
+ *
+ *   an explicit page (a tile's row, a Payment line) → that page
+ *   money due / overdue                             → Payment (Quotation before booking — there is no Payment yet)
+ *   unread messages                                 → Chat
+ *   asking (an open ask, a booking ask, a hold)     → Chat
+ *   quoted / talking                                → Quotation
+ *   booked and the event is today                   → Hub
+ *   anything else (booked, done, an access request) → Details
+ *
+ * 🔑 Chat is chosen only when a thread exists (`hasChat`): a manual client has no chat, and Chat without one lands on
+ * the inbox — a door may only name a page that has something on it. Pure; held by `customers/one-open-path.test.ts`.
+ */
+export type ClientDoorFacts = {
+  page?: PickedClientPage | null;
+  booked?: boolean;
+  hasChat?: boolean;
+  payDue?: boolean;
+  unread?: boolean;
+  asking?: boolean;
+  quoted?: boolean;
+  eventToday?: boolean;
+};
+
+export function clientLandingPage(f: ClientDoorFacts): PickedClientPage {
+  const booked = f.booked === true;
+  const chat = f.hasChat === true;
+  if (f.page) {
+    // Payment and Hub show only once booked: an unbooked Payment door lands on the Quotation (#38), a Hub door on Details.
+    if (f.page === 'payments' && !booked) return 'quote';
+    if (f.page === 'hub' && !booked) return 'details';
+    if (f.page === 'chat' && !chat) return 'details';
+    return f.page;
+  }
+  if (f.payDue) return booked ? 'payments' : 'quote';
+  if (f.unread && chat) return 'chat';
+  if (f.asking && chat) return 'chat';
+  if (f.quoted) return 'quote';
+  if (f.eventToday && booked) return 'hub';
+  return 'details';
+}
+
+/** A client's link through the one open path: the landing page, then the one door function. */
+export function openClientHref(eventId: string, f: ClientDoorFacts): string {
+  return customerCardHref(eventId, clientLandingPage(f));
 }
 
 export function vendorThreadHref(threadId: string): string {

@@ -41,6 +41,10 @@ import {
 const WEB = join(import.meta.dirname, '..');
 const CARD = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const cardSrc = stripComments(readFileSync(join(WEB, CARD), 'utf8'));
+// THE ONE BUILD (8 Nov 2026): the Files tab body moved, verbatim, into the picked client's Files page. The card
+// still reads and builds the rows; the page renders them.
+const FILES_PAGE = 'app/vendor-dashboard/clients/[eventId]/_pages/files.tsx';
+const filesSrc = stripComments(readFileSync(join(WEB, FILES_PAGE), 'utf8'));
 
 function occurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
@@ -216,6 +220,7 @@ test('the customer card never builds a chat-file link of its own', () => {
     /(?:href|src)=\{[^}]*attachment/,
     'no href or src on the customer card may be built from an attachment column',
   );
+  assert.doesNotMatch(filesSrc, /(?:href|src)=\{[^}]*attachment/, 'nor on the Files page it moved into');
 });
 
 test('the Files tab is fed by the shared builder, once', () => {
@@ -224,10 +229,11 @@ test('the Files tab is fed by the shared builder, once', () => {
     1,
     'one call site; a second would be a second wording of the same list',
   );
+  assert.match(cardSrc, /<FilesPage\b[^>]*files=\{sharedFiles\}/, 'the Files page is fed the built rows');
   assert.doesNotMatch(
     cardSrc,
-    /<FilesTab[^>]*chatFiles=/,
-    'FilesTab receives built rows, never raw chat_messages rows to interpret itself',
+    /<FilesPage[^>]*chatFiles=/,
+    'FilesPage receives built rows, never raw chat_messages rows to interpret itself',
   );
 });
 
@@ -248,16 +254,16 @@ test('a refused read of the conversation files is distinguished from an empty on
   );
   assert.match(cardSrc, /chatFilesMeasured=\{chatFilesMeasured\}/, 'and it must reach the tab');
   assert.match(
-    cardSrc,
+    filesSrc,
     /\{!chatFilesMeasured \?/,
     'and the tab must render something different when it is false',
   );
 });
 
 test('the empty state no longer points the supplier at the chat it is now reading', () => {
-  assert.match(cardSrc, /No files shared yet\./);
+  assert.match(filesSrc, /No files shared yet\./);
   assert.doesNotMatch(
-    cardSrc,
+    filesSrc,
     /share other files\s*\n?\s*in your chat/,
     'the old copy sent suppliers to look for files in the place this list now covers',
   );

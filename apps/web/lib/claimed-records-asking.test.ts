@@ -83,5 +83,6 @@ test('the supplier’s month counts a claimed couple as asking until their date 
   assert.deepEqual(openAsksOf(threads, events, new Set(['e-own'])), [], 'a date already held is not asking');
   const page = code('app/vendor-dashboard/customers/page.tsx');
   assert.match(page, /const bookedEventIds = new Set\(bookings\.map\(\(b\) => b\.eventId\)\);/);
-  assert.match(page, /await readOpenAsks\(threadsRead\.threads, bookedEventIds\)/);
+  // Build 2 #43: the month's asks are read once in `customersMonth`, with the list's threads handed in.
+  assert.match(page, /await readOpenAsks\(threads, bookedEventIds\)/);
 });

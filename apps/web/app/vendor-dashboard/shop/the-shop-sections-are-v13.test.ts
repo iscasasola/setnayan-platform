@@ -34,7 +34,9 @@ test('1 · the v13 sections + Promote, in the approved order and words — and t
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
     ['Details', 'Services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
   );
-  for (const s of SHOP_SEGMENT_ORDER) {
+  // 🖼 THE ONE BUILD (L1, 2026-11-08): the gallery's address is the PORTFOLIO tab now — it names Portfolio until the Shop
+  // lane drops the segment (C4), which then also drops 'Portfolio' from the list above and this filter.
+  for (const s of SHOP_SEGMENT_ORDER.filter((x) => x !== 'gallery')) {
     const m = supplierPageMenuOf(SHOP_SEGMENT_HREF[s], null);
     assert.equal(m?.tab, 'Shop', `${s} does not name Shop`);
     assert.equal(m?.section, SHOP_SEGMENT_LABEL[s], `${s}: the bar menu names "${m?.section}"`);
@@ -60,12 +62,15 @@ test('2 · the row is ONE dropdown on a pinned, folding row — never pills; onl
 
 const SCREENS: Array<[seg: string, file: string, maker: RegExp]> = [
   ['details', 'profile/_components/details-screen.tsx', /figures=\{detailsFigures\(/],
-  ['services', 'shop/page.tsx', /figures=\{servicesFigures\(/],
+  // ✂ THE ONE BUILD (v113, owner-approved 8 Nov): the Shop TAB itself (`shop/page.tsx`) no longer draws the ▾ row — it
+  // is ONE scroll whose pinned row is the cover's ("Shop · ★ · events · View shop ↗ · ⚙", `shop-cover.tsx`); the
+  // sub-screens below keep their row. Held by `shop/the-shop-tab-is-v113.test.ts`.
   ['page', 'website/page.tsx', /figures=\{pageFigures\(/],
   // 📣 Promote (2026-11-05) — part 1 drew its row WITHOUT figures (only the QR codes, nothing counted). Part 2 brought
   // the gift stock, and with it the row's one figure: `promoteFigures(` fed by the gifts section's own read.
   ['promote', 'shop/promote/page.tsx', /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock\b/],
-  ['gallery', 'collections/page.tsx', /figures=\{galleryFigures\(/],
+  // ✂ THE ONE BUILD (v113/v114): Portfolio is its OWN bar tab (`collections/page.tsx` → `portfolio-view.tsx`, pinned row
+  // "Portfolio · N of 50 free photos · Show · ⚙"); its ▾ entry still opens it from the Shop sub-screens.
   ['insights', 'performance/page.tsx', /figures=\{pinFigures\}/],
 ];
 
@@ -78,7 +83,10 @@ test('3 · every Shop screen hands its row its own section and its own figures',
     assert.ok(rows.some((r) => maker.test(r)), `${file}: the row carries no ${seg} figures`);
     n += 1;
   }
-  assert.equal(n, SHOP_SEGMENT_ORDER.length, 'a section has no screen in this check');
+  assert.equal(n, SHOP_SEGMENT_ORDER.length - 2, 'a section has no screen in this check');
+  assert.match(read('collections/_components/portfolio-view.tsx'), /<PinWord barAbove>Portfolio<\/PinWord>/, 'the Portfolio tab lost its pinned row');
+  assert.doesNotMatch(read('shop/page.tsx'), /<ShopSegments\b/, 'the Shop tab draws the retired ▾ row again (v113)');
+  assert.match(read('shop/_components/shop-cover.tsx'), /data-shop-pin="shop"/, 'the Shop tab lost its pinned row');
   assert.match(read('performance/page.tsx'), /const pinFigures = analyticsFigures\(/, 'Analytics figures are not the funnel’s own counts');
   // The albums screen is Gallery's sub-screen: it lights Gallery.
   assert.match(read('collections/albums/page.tsx'), /<ShopSegments\s+on="gallery"/);

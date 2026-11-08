@@ -113,7 +113,7 @@ export function HelpersView({
       <header className="space-y-1">
         {embedded ? null : <h1 className="sn-h1">Helpers</h1>}
         <p className="text-[14px] text-ink/65">
-          Helpers and team members see Today and Customers only. Admins run the shop with you.
+          Helpers and team members see Today and Clients only. Admins run the shop with you.
         </p>
       </header>
 

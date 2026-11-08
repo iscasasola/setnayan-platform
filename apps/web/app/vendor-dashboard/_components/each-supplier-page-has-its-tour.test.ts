@@ -35,13 +35,17 @@ const WEB = join(HERE, '..', '..', '..');
 
 /** The drawn stops, prototype word for word on the anchors (§ Supplier 3). */
 const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
-  vendor_shop_v1: ['shop-segments', 'shop-page-list', 'shop-details-row'],
-  vendor_dates_v1: ['dates-calendar', 'dates-check', 'dates-add'],
+  // THE ONE BUILD (8 Nov, C4): the v113 Shop tab — the ▾ and Page's list left it; Your details is the journey's stop.
+  vendor_shop_v1: ['shop-analytics', 'shop-badges'],
+  // Build 2 #43: Clients is one screen — Check a date folded into the day bar (its stop into the month's), and the
+  // screen's one ＋ is `customers-add`.
+  vendor_dates_v1: ['dates-calendar', 'customers-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
   vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
-  vendor_today_v2: ['supplier-messages', 'today-numbers', 'today-coming-up', 'today-shop'],
+  // THE ONE BUILD A13 (8 Nov): the new Today's stops (v2 was the Next card's).
+  vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],
   // 2026-10-28: People ▾ · the four counts · ⚙ are the pinned row now — the ⚙ is its own stop.
   vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-gear', 'customers-search', 'customers-add'],
   vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
@@ -56,13 +60,10 @@ test('1 · each page tour is a spotlight with the drawn stops, in order', () => 
     assert.deepEqual(s.steps.map((x) => x.anchor), DRAWN[key], `${key}: not the drawn stops`);
     assert.ok(s.finale.title.startsWith('You’re set'), `${key}: the finale is not the shipped "You're set"`);
   }
-  // The Shop tour's first stop leads into Page. v13 (S5, owner-approved 2026-10-29): Shop's sections are ONE ▾ now, and a
-  // dropdown is not a doorway Next can click through (`go` would press a closed menu and stall) — so the stop ASKS the
-  // supplier to pick Page, and the next two stops light on Page when they do.
+  // The Shop tour no longer starts on a ▾ (v113, THE ONE BUILD): the old "pick Page" stop asked the supplier to open a
+  // menu the Shop tab no longer draws. Its first stop is a plain part on the page, so it must not be a `go` doorway.
   const first = TOURS.vendor_shop_v1.spotlight!.steps[0]!;
-  assert.notEqual(first.go, true, 'Shop stop 1 is a `go` doorway on a dropdown — Next would press a closed menu and stall');
-  assert.match(first.body, /pick Page/i, 'Shop stop 1 no longer leads into Page');
-  assert.ok(first.hint, 'Shop stop 1 asks something else than "tap it" and does not say so');
+  assert.notEqual(first.go, true, 'Shop stop 1 is a `go` doorway — it is a part of the Shop tab, not a door');
 });
 
 test('2 · no page tour repeats a stop the Today journey makes', () => {
@@ -80,7 +81,7 @@ test('3 · the address decides which tour is on screen', () => {
     assert.equal(on(p), 'vendor_shop_v1', `${p} is a Shop segment`);
   }
   // Since 2026-10-25 Today, Customers › People and Your collections have their own (the albums sub-page none).
-  assert.equal(on('/vendor-dashboard'), 'vendor_today_v2');
+  assert.equal(on('/vendor-dashboard'), 'vendor_today_v3');
   assert.equal(on('/vendor-dashboard/customers'), 'vendor_people_v1');
   assert.equal(on('/vendor-dashboard/customers', { seg: 'people' }), 'vendor_people_v1');
   assert.equal(on('/vendor-dashboard/collections'), 'vendor_collections_v1');

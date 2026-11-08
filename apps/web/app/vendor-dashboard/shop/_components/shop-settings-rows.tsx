@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Bell, Gem, Users, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Bell, ExternalLink, Gem, Users, type LucideIcon } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { formatCount } from '@/lib/format-number';
 import type { DetailsRow } from '@/lib/supplier-details';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { PushToggle } from '../../notifications/push-toggle';
-import { SHOP_GEAR_TITLE } from './shop-gear-sections';
+import { SHOP_GEAR_TITLE, YOUR_PAGE_HREF } from './shop-gear-sections';
 
 /**
  * 🏪 THE SHOP ⚙'S FOLDS, drawn (owner 2026-10-31, verbatim *"Yes follow your recommendation"* — DECISION_LOG "SHOP ⚙ —
@@ -19,27 +19,54 @@ import { SHOP_GEAR_TITLE } from './shop-gear-sections';
  *     and status badge (owner 2026-10-31, "Come back to shop"): both show only while the documents are in review;
  *   · Notifications — this phone's push switch and what email carries, moved here from the account menu's Settings.
  * ⏳ Shop status (open or pause bookings, transfer or close) is NOT drawn: nothing stores it yet (`shop-gear-sections.ts`).
+ *
+ * 🧭 YOUR PAGE LEADS THE SHEET (Build 2 §10 #31, owner 8 Nov: *"these menu are lost… isn't your page inside the shop
+ * settings?"*): the Shop page has no loose rows under its cover any more — Your page is the ⚙'s first row ("what couples
+ * see · all your reviews inside", its own door to `/vendor-dashboard/website`), and Your details is the top-right
+ * account sheet's (`supplier-avatar-rows.ts`). 🔒 lib/my-shop-doors-keep-every-control.test.ts
  */
+
 const ic = (Icon: LucideIcon) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const lead = (Icon: LucideIcon) => <span className="mr-1 flex">{ic(Icon)}</span>;
 
 export function ShopSettingsRows({
+  pageLive = true,
   planLine,
   wallet,
   plan,
   team,
   docs,
 }: {
+  /** Your page is shown to couples (a slug + a public visibility) — else its line says it is not shown yet. */
+  pageLive?: boolean;
   planLine: string;
   /** The shop wallet's row, worded by `lib/shop-wallet.ts` (an unread balance says so, never 0). */
   wallet: { title: string; line: string };
   plan: ReactNode;
   team: ReactNode;
-  docs: { isVerified: boolean; docsIn: number; docsTotal: number; measured: boolean; row: Pick<DetailsRow, 'state' | 'badge'>; section: ReactNode };
+  docs: {
+    isVerified: boolean;
+    docsIn: number;
+    docsTotal: number;
+    measured: boolean;
+    row: Pick<DetailsRow, 'state' | 'badge'>;
+    section: ReactNode;
+    /** 🗓 The Mayor's Permit renewal line (`shopPermitLine`, THE ONE BUILD) — where Today's "permit renews" row lands. */
+    permit?: { line: string; badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null };
+  };
 }) {
   const docsChecking = docs.row.state === 'checking';
   return (
     <div className="divide-y divide-ink/10" data-shop-settings-body="">
+      <div data-shop-gear-page="">
+        <DatesRow
+          data="shop-gear-page"
+          lead={lead(ExternalLink)}
+          title="Your page"
+          line={pageLive ? 'What couples see, part by part · all your reviews inside' : 'What couples will see · not shown yet · all your reviews inside'}
+          href={YOUR_PAGE_HREF}
+        />
+      </div>
       <Fold anchor="plan" lead={lead(Gem)} data="shop-gear-plan" title={SHOP_GEAR_TITLE.plan} line={planLine}>
         <div className="space-y-3 pb-4" data-shop-gear="plan">
           <DatesRow data="shop-gear-wallet" title={wallet.title} line={wallet.line} />
@@ -78,6 +105,11 @@ export function ShopSettingsRows({
             <p role="status" className="text-[13.5px] text-ink/70" data-shop-gear-docs-unread="">
               Your documents couldn&rsquo;t load just now — nothing was lost. Close and open this again.
             </p>
+          ) : null}
+          {docs.permit ? (
+            <div id="permit" className="scroll-mt-24">
+              <DatesRow data="shop-gear-permit" title="Business permit" line={docs.permit.line} badge={docs.permit.badge} />
+            </div>
           ) : null}
           <p className="text-xs text-ink/55">Kept private — only Setnayan sees them.</p>
           {docs.section}

@@ -482,6 +482,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Display name" htmlFor="display_name">
               <input
+                autoComplete="name"
                 id="display_name"
                 name="display_name"
                 maxLength={128}
@@ -500,6 +501,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                   Account name
                 </label>
                 <input
+                  autoComplete="off"
                   id="account_name_shown"
                   value={tag}
                   readOnly
@@ -569,6 +571,9 @@ export default async function ProfilePage({ searchParams }: Props) {
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Phone" htmlFor="phone">
               <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 id="phone"
                 name="phone"
                 maxLength={32}
@@ -1247,7 +1252,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             on={remindersOn}
             id="planning-reminders"
             label="Planning reminders"
-            help="Nudges on Home for when to book each supplier."
+            help="Nudges on Today for when to book each supplier."
           >
             <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
           </SwitchRow>

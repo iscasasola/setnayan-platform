@@ -14,7 +14,8 @@
  *   3 · NO hand-drawn count tile: the fold-door mark `data-pin-door` is written by ONE file in the whole app,
  *       `app/_components/pinned-row/pin-door.tsx` (`PinDoor`) — every supplier count and figure, and the People row,
  *       draw that door (Q3: "number + word, underlined when it filters");
- *   4 · on what RENDERS: Today's row is `Today` · the three doors · ⚙ at the right end, no tile fill.
+ *   4 · on what RENDERS: Today's row is the greeting · the task count · ⚙ at the right end, no count tile (THE ONE BUILD,
+ *       8 Nov — the counts row `Today · three doors` is retired, A5; Today's row is a heading, one reasoned baseline line).
  * A row the owner keeps as an exception is ONE reasoned line in `every-supplier-top-row-is-one-selector.baseline.txt` —
  * never a weakened check; a baseline line whose file no longer breaks the rule fails too (it must be deleted).
  *
@@ -111,8 +112,7 @@ function faults(code: string): string[] {
 test('0 · the walk finds the supplier top rows it is meant to hold', () => {
   const paths = TOP_ROWS.map((f) => f.path);
   for (const must of [
-    'app/vendor-dashboard/_components/today-counts.tsx',
-    'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+    'app/vendor-dashboard/_components/today-cover.tsx',
     'app/vendor-dashboard/customers/_components/customers-pin.tsx',
     'app/vendor-dashboard/shop/_components/shop-segments.tsx',
     ...KNOWN_TOP_ROWS,
@@ -149,36 +149,28 @@ test('3 · ONE door in the whole app writes the fold-door mark — PinDoor; the 
   assert.deepEqual(writers, ['app/_components/pinned-row/pin-door.tsx'], `more than one file draws a count door: ${writers.join(', ')}`);
   const row = app.find((f) => f.path === 'app/_components/pinned-row/pinned-row.tsx')!.code;
   assert.match(row, /<PinDoor\b/, 'PinnedRow (People) no longer draws the shared door');
-  for (const f of ['customers/_components/customers-figures.tsx', '_components/pin-figures.tsx', 'customers/_components/customers-pin.tsx', '_components/today-counts.tsx']) {
+  for (const f of ['customers/_components/customers-figures.tsx', '_components/pin-figures.tsx', 'customers/_components/customers-pin.tsx']) {
     assert.match(src(join(SUPPLIER, f)), /<PinDoor\b/, `${f} does not draw its counts with PinDoor`);
   }
 });
 
-test('1 · Customers and Shop say `Page · View ▾` — the page word on the phone too', () => {
-  assert.match(src(join(SUPPLIER, 'customers/_components/customers-pin.tsx')), /buttonText=\{`Customers · \$\{CUSTOMER_SEGMENT_LABEL\[seg\]\}`\}/);
+test('1 · Clients and Shop say `Page · View ▾` — the page word on the phone too', () => {
+  // The tab is called Clients since THE ONE BUILD (owner 7 Nov; `the-tab-is-called-clients.test.ts`).
+  assert.match(src(join(SUPPLIER, 'customers/_components/customers-pin.tsx')), /buttonText=\{`Clients · \$\{CUSTOMER_SEGMENT_LABEL\[seg\]\}`\}/);
   assert.match(src(join(SUPPLIER, 'shop/_components/shop-segments.tsx')), /buttonText=\{`Shop · \$\{SHOP_SEGMENT_LABEL\[on\]\}`\}/);
 });
 
-test('4 · Today RENDERS `Today` · three doors · ⚙ at the right end — no tile fill', async () => {
+test('4 · Today RENDERS the greeting · the task count · ⚙ — no count tile, no second control', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { TodayCounts } = await import('./_components/today-counts');
-  const html = renderToStaticMarkup(
-    React.createElement(TodayCounts, {
-      waiting: '3',
-      waitingNow: true,
-      thisWeek: '2',
-      toComeIn: null,
-      panels: { waiting: 'w', week: 'k', money: 'm' },
-      gear: React.createElement('span', { 'data-menu-settings': 'today' }),
-    }),
+  const { TodayCover, TodayPinnedRow } = await import('./_components/today-cover');
+  const now = Date.UTC(2026, 10, 7, 1, 0); // 9:00 AM in Manila
+  const cover = renderToStaticMarkup(
+    React.createElement(TodayCover, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now, gear: React.createElement('button', { 'data-menu-settings': 'today' }) }),
   );
-  const row = html.slice(html.indexOf('data-today-numbers'), html.indexOf('today-list-waiting" data-today-list'));
-  const word = row.indexOf('data-today-word');
-  const doors = [...row.matchAll(/data-today-number="(\w+)"[^>]*data-pin-door=""/g)].map((m) => m[1]);
-  assert.ok(word > 0 && word < row.indexOf('data-today-number='), 'the row does not start with the word "Today"');
-  assert.match(row.slice(word), /^[^>]*>Today</, 'the word is not "Today"');
-  assert.deepEqual(doors, ['waiting', 'week', 'money'], 'the three doors are not the shared door, in order');
-  assert.ok(row.lastIndexOf('data-pin-door') < row.indexOf('data-menu-settings="today"'), 'the ⚙ is not at the right end');
-  assert.doesNotMatch(row, /bg-sn-accent|text-\[20px\]/, 'a count is drawn as the old round tile');
-  assert.match(row, /couldn’t load/, 'an unread count does not say so');
+  const text = cover.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  assert.match(text, /Good morning, SetnaProd Sat 7 Nov 9 tasks today/, `the cover does not greet the shop with its day and count: ${text}`);
+  assert.equal((cover.match(/<(?:a|button)\b/g) ?? []).length, 1, 'the cover holds another control besides its ⚙');
+  assert.doesNotMatch(cover, /data-pin-door|aria-pressed/, 'a count tile or filter is back on Today’s top');
+  const row = renderToStaticMarkup(React.createElement(TodayPinnedRow, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now }));
+  assert.match(row.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '), /Good morning, SetnaProd 9 tasks · 7 Nov/, 'the pinned row is not "Good morning, <Shop> · 9 tasks · 7 Nov"');
 });

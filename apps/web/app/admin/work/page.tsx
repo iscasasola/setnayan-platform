@@ -36,6 +36,10 @@ import {
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { peekQueue } from '@/lib/admin/queue-peek';
+import { loadSupplierWork } from '@/lib/admin/supplier-work.server';
+import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { SupplierInbox } from './_components/supplier-inbox';
 
 export const metadata = { title: 'Work · Admin' };
 
@@ -148,6 +152,22 @@ export default async function AdminWorkLanding({
       )
     : ordered;
 
+  // ➕ WHAT SUPPLIERS SENT (admin supplier slice, owner 2026-10-28: "A") — every row done in place, above the queues.
+  // `?kind=` is its chip, `?item=` its open row; both ride the same address as `?lane=` / `?open=`.
+  const supplierKind = coerceSupplierWorkKind(sp?.kind);
+  const itemRaw = sp?.item;
+  const itemKey = Array.isArray(itemRaw) ? itemRaw[0] : itemRaw;
+  const admin = createAdminClient();
+  const [supplierRead, typesRead] = await Promise.all([
+    loadSupplierWork(),
+    admin.from('event_type_vocab').select('event_type, label_en, sort_order').eq('status', 'active').order('sort_order'),
+  ]);
+  const keep = new URLSearchParams();
+  if (lane) keep.set('lane', lane);
+  if (openKey) keep.set('open', openKey);
+  if (supplierKind) keep.set('kind', supplierKind);
+  const basePath = keep.toString() ? `/admin/work?${keep.toString()}` : '/admin/work';
+
   // `totalOpen` stays the FULL total even when a lane is chosen — the subtitle
   // and the triage strip describe the whole day; only the rows below narrow.
   return (
@@ -160,6 +180,16 @@ export default async function AdminWorkLanding({
       lane={lane}
       basePath="/admin/work"
       openKey={openKey}
+      lead={
+        <SupplierInbox
+          read={supplierRead}
+          kind={supplierKind}
+          itemKey={itemKey}
+          basePath={basePath}
+          eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
+          nowMs={nowMs}
+        />
+      }
     />
   );
 }

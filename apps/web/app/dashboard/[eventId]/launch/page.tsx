@@ -1,4 +1,4 @@
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 import { PRINTS_PAGE_SURFACE, isPrintsPageSurface, printsForward, printsForwardHref } from '@/lib/prints-page';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { startAhead } from '@/lib/start-ahead';
@@ -775,7 +775,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       owned: hasPapic,
       launchLabel: 'Hand out cameras',
       launchHref: `${base}/studio/papic/crew`,
-      addHref: papicHomeHref(eventId),
+      addHref: papicCardHref(eventId),
       Icon: Camera,
     },
   ];

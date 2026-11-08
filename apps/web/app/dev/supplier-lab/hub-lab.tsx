@@ -41,6 +41,7 @@ import QRCode from 'qrcode';
 import { CrewPanel } from '@/app/vendor-dashboard/on-the-day/_components/crew-panel';
 import { CrewEventHub, CrewNameForm, CrewStatus } from '@/app/join/crew/[token]/_components/crew-screens';
 import { CREW_STATUS_WORDS } from '@/lib/crew-pass';
+import { ChangeTheSchedule } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule';
 
 export const HUB_LAB_TODAY = '2026-12-18';
 
@@ -247,7 +248,16 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
  * of a shop that is NOT the coordinator trade: no scanner (its door would refuse them), the words instead.
  */
 export const CREW_PHONE_STATES = ['name', 'waiting', 'member', 'helper', 'helper-shop', 'ended'] as const;
-export function CrewPhoneLab({ state }: { state?: string }) {
+/**
+ * 🗓 The crew Member's Change the schedule (owner 2026-11-05 — Ask to skip): the run of show as the day stands (call time
+ * done, the walk-through live, the rest to come). &skip=locked — Bloom & Vine is on the Processional and has locked
+ * their part (the lock's line, no ask) · &skip=asked — Ceremony ends already waits on an ask. Nothing is sent from here.
+ */
+const DAY_PARTS: RunOfShowBlock[] = BLOCKS.map((b, i) => ({
+  ...b,
+  run_state: (i === 0 ? 'done' : i === 1 ? 'live' : 'upcoming') as RunOfShowBlock['run_state'],
+}));
+export function CrewPhoneLab({ state, skip }: { state?: string; skip?: string }) {
   if (state === 'name') return <CrewNameForm token={'0'.repeat(32)} shopWords="The Wedding Project" anonymous={false} />;
   if (state === 'waiting') return <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting />;
   if (state === 'ended') return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
@@ -267,6 +277,17 @@ export function CrewPhoneLab({ state }: { state?: string }) {
       role={role}
       coordinator={state !== 'helper-shop'}
       blocks={BLOCKS}
+      changer={
+        role === 'member' && state !== 'helper-shop' ? (
+          <ChangeTheSchedule
+            eventId="ic"
+            parts={DAY_PARTS}
+            via="crew"
+            lockedBy={skip === 'locked' ? { b4: 'Bloom & Vine Styling' } : undefined}
+            asked={skip === 'asked' ? ['b5'] : undefined}
+          />
+        ) : undefined
+      }
       endsWords="ends Dec 19, 12:00 AM"
     />
   );

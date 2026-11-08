@@ -2316,7 +2316,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by the badge page, Today’s badge-facts read and the admin’s manual award; the one reward table is lib/badge-rewards.ts) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by ONE request door, GET /api/vendor/badges?view=facts, fetched after Today, Shop and Performance draw (never inside a page render, since 2026-11-08), and by the admin’s manual award; the one reward table is lib/badge-rewards.ts) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
@@ -2701,6 +2701,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'vendor_coverages', column: 'region_slug' },
       { kind: 'fk', table: 'vendor_branches', column: 'parent_vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'vendor_coverages', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      // THE SEAL AND PLATE's private clean copy (owner 2026-11-04 "perfect applt that watermark"): one row per MARKED
+      // public photo a shop published on its cards / portfolio, paired with its unmarked original in the PRIVATE
+      // verification bucket so the shop can be re-marked when it gains or loses Verified. Owner/admin RLS, no anon.
+      { kind: 'table', table: 'supplier_photo_originals' },
+      { kind: 'fk', table: 'supplier_photo_originals', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'unique', table: 'supplier_photo_originals', columns: ['public_ref'] },
+      { kind: 'column', table: 'supplier_photo_originals', column: 'frame' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_refs_chk', mentions: 'original_ref' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_mark_kind_chk', mentions: 'mark_kind' },
     ],
     chain: 2,
     pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
@@ -3802,7 +3811,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
-    title: 'Event ↔ Guest (who is viewing the Event Hub — Home › Who’s here)',
+    title: 'Event ↔ Guest (who is viewing the Event Hub — Today › Who’s here)',
     joint: 'hub_guest_views',
     cardinality:
       'One row per guest (their last open, moved at most once per 30 minutes) · one counter per event per quarter-hour for everyone else · both kept a day',
@@ -3911,6 +3920,158 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:
       'A guest’s review after “received” is NOT a scanner table: the pop-up writes through the one guest-review writer (submitGuestReview → vendor_guest_review_submit, which admits a received supplier_scan_claims row for that shop) into vendor_guest_reviews — one store, one “From guests” section, public at once, admin Hide/Show (owner 2026-11-06). The scanner keeps only supplier_scan_review_skips (“Not now”, service role). A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
+  },
+  {
+    /**
+     * 📝 A SHOP'S FORMS REACH ONE EVENT'S ANSWERS (THE ONE BUILD lane C3, migration 20271325118550). A shop keeps a
+     * library of forms; a form is sent to ONE event (by hand from the client's Forms page, or on booking for the cards
+     * it is linked to), and the couple answers in the shipped `event_question_answers`.
+     */
+    id: 'J62',
+    claims: [
+      { kind: 'table', table: 'vendor_forms' },
+      { kind: 'fk', table: 'vendor_forms', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_forms', column: 'retired_at' },
+      { kind: 'fk', table: 'vendor_questions', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'column', table: 'vendor_questions', column: 'item_kind' },
+      { kind: 'column', table: 'vendor_questions', column: 'answer_type' },
+      { kind: 'column', table: 'vendor_questions', column: 'is_required' },
+      { kind: 'check', table: 'vendor_questions', name: 'vendor_questions_item_kind_chk', mentions: 'item_kind' },
+      { kind: 'check', table: 'vendor_questions', name: 'vendor_questions_answer_type_chk', mentions: 'answer_type' },
+      { kind: 'table', table: 'vendor_form_service_links' },
+      { kind: 'fk', table: 'vendor_form_service_links', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'fk', table: 'vendor_form_service_links', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'table', table: 'event_form_sends' },
+      { kind: 'fk', table: 'event_form_sends', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_form_sends', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'fk', table: 'event_form_sends', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_form_sends', column: 'thread_id', references: 'chat_threads' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → its forms → the event’s answers',
+    joint: 'event_form_sends',
+    cardinality: 'A shop has many forms (vendor_forms); a form is many vendor_questions rows (form_id); a form is sent to an event at most once (PK event_id, form_id) and linked to many of the shop’s cards (vendor_form_service_links)',
+    implementedBy:
+      'vendor_forms (the library, one per shop row) · vendor_questions.form_id (the form’s items, with item_kind · answer_type · is_required) · vendor_form_service_links (form ↔ card) · event_form_sends (which forms reached which event, and by whom)',
+    writtenBy:
+      'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking — lib/vendor-forms-on-booking.server.ts, reached only through runDepositAcknowledgedEffects once the deposit is acknowledged — service role, for the forms linked to the booked cards',
+    guardedBy:
+      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts',
+    traps:
+      'vendor_questions.form_id NULL is the SHIPPED question set (the pre-forms questions) — every shipped reader filters it, and a reader that forgets returns a form’s items as if they were the shop’s standing questions. A retired form (retired_at set) leaves the library and is never sent on booking — both readers filter retired_at IS NULL (lib/vendor-forms.server.ts, lib/vendor-forms-on-booking.server.ts).',
+  },
+  {
+    /**
+     * 🗂 THE TAXONOMY SUGGESTS FORMS (THE ONE BUILD lane C3, migration 20271325118550). Admin keeps form templates and
+     * which category suggests which; a shop starts a form from one (`vendor_forms.from_template_key`).
+     */
+    id: 'J63',
+    claims: [
+      { kind: 'table', table: 'form_templates' },
+      { kind: 'fk', table: 'form_templates', column: 'updated_by', references: 'users' },
+      { kind: 'table', table: 'category_form_suggestions' },
+      { kind: 'fk', table: 'category_form_suggestions', column: 'category_id', references: 'service_categories' },
+      { kind: 'fk', table: 'category_form_suggestions', column: 'template_key', references: 'form_templates' },
+      { kind: 'column', table: 'vendor_forms', column: 'from_template_key' },
+    ],
+    chain: 8,
+    pair: ['TYPE-SERVICES', 'TYPE-TAXONOMY'],
+    title: 'Category → suggested forms',
+    joint: 'category_form_suggestions',
+    cardinality: 'Many-to-many · PK (category_id, template_key) — a category suggests many templates; a template is suggested by many categories',
+    implementedBy: 'form_templates (template_key PK, items, is_active) · category_form_suggestions (category ↔ template, sort_order)',
+    writtenBy: 'formSuggestionsAction (app/admin/categories/form-suggestion-actions.ts — op template_new · suggest_add · suggest_remove), admin only, service role',
+    guardedBy: 'form_templates_admin_write / category_form_suggestions_admin_write (is_admin) · authenticated holds SELECT only (INSERT/UPDATE/DELETE revoked)',
+    traps:
+      'vendor_forms.from_template_key is a plain TEXT copy, not an FK — a shop’s form keeps its items when the template changes or is retired; nothing reads it back yet (Root map never-read).',
+  },
+  {
+    /**
+     * 🚩 A SUPPLIER'S REPORT SAYS WHERE IT CAME FROM (THE ONE BUILD lane C3, migration 20271325290605). The client's
+     * Report page writes into the ONE admin inbox (`help_messages`), with the shop and the event it was sent from.
+     */
+    id: 'J64',
+    claims: [
+      { kind: 'fk', table: 'help_messages', column: 'origin_vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'help_messages', column: 'origin_event_id', references: 'events' },
+      { kind: 'column', table: 'help_messages', column: 'origin_page' },
+      { kind: 'check', table: 'help_messages', name: 'help_messages_origin_page_chk', mentions: 'origin_page' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → report on an event → admin inbox',
+    joint: 'help_messages',
+    cardinality: 'Many reports per shop per event; each one help_messages row (origin_* NULL for a /help message)',
+    implementedBy: 'help_messages.origin_vendor_profile_id · origin_event_id · origin_page (both FKs ON DELETE SET NULL)',
+    writtenBy: 'submitSupplierReport (app/vendor-dashboard/clients/[eventId]/report-actions.ts), with an in-app supplier_report notice to admins (no email)',
+    guardedBy:
+      'the help_messages_origin_guard trigger (guard_help_message_origin): a row WITH an origin must name the caller’s OWN shop and an event that shop has a chat_threads row with, and its user_id is forced to the signed-in caller · help_messages_origin_page_chk · tests/db/a-report-names-only-your-shop.db.test.ts',
+    traps:
+      'help_messages is also the public /help inbox: help_messages_anyone_insert (WITH CHECK true, admits anon) is load-bearing, so a POLICY cannot guard the new columns (policies are OR’ed) — the trigger is the guard. A row with no origin (every /help insert) passes it untouched.',
+  },
+  {
+    /**
+     * 🔖 A BOOKED QR CARRIES THE WHOLE PURCHASE (Supplier Build 2 lane E, migration 20271328327292; DECISION_LOG
+     * 2026-11-03). A shop issues a Booked QR (`vendor_locked_qr_tokens`) with its quote lines; the couple's scan
+     * (`vendor_claim_locked_qr`) books the shop onto the event AND copies those lines, as stored, into ONE accepted
+     * `vendor_proposals` row that names the code it came from. That FK is what made the token table spine-referenced.
+     */
+    id: 'J65',
+    claims: [
+      { kind: 'table', table: 'vendor_locked_qr_tokens' },
+      { kind: 'fk', table: 'vendor_locked_qr_tokens', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_locked_qr_tokens', column: 'quote_line_items' },
+      { kind: 'column', table: 'vendor_locked_qr_tokens', column: 'client_name' },
+      { kind: 'fk', table: 'vendor_proposals', column: 'locked_qr_token_id', references: 'vendor_locked_qr_tokens' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-PROPOSAL'],
+    title: 'Shop → Booked QR → accepted quote (copied at the scan)',
+    joint: 'vendor_locked_qr_tokens',
+    cardinality: 'A shop issues many codes; each code is claimed once and writes at most ONE accepted quote (vendor_proposals.locked_qr_token_id is UNIQUE)',
+    implementedBy:
+      'vendor_locked_qr_tokens.vendor_profile_id · .quote_line_items · vendor_proposals.locked_qr_token_id (ON DELETE SET NULL), written by vendor_claim_locked_qr step (c2)',
+    writtenBy: 'the shop’s Booked QR generator (issueLockedQr) writes the code; vendor_claim_locked_qr (SECURITY DEFINER) writes the quote',
+    guardedBy:
+      'vendor_proposals_locked_qr_token_uniq (one code, one quote) · the a_quote_names_its_booked_qr_only_by_the_claim trigger (a browser role may not set or change locked_qr_token_id) · tests/db/booked-qr-claim-copies-the-quote.db.test.ts',
+    traps:
+      'A code issued before #34 has no lines and writes NO quote — never invent one from the Total. The claim supersedes the shop’s earlier live quotes on the event first, so exactly one accepted quote states the deal; a reader that assumes the conversation wrote the accepted quote is wrong for a QR booking.',
+  },
+  {
+    /**
+     * 🔔 A NOTICE IS ADDRESSED TO A PERSON, AND MAY KNOW ITS EVENT (iteration 0028; event_id from migration
+     * 20271238868040 "notifications know their event"). Before this joint `notifications` was on no node, so both
+     * notification screens — the couple's /dashboard/notifications and the supplier's /vendor-dashboard/notifications —
+     * sat unmapped on the Root map.
+     *
+     * 🔑 CLAIMED AS AN ABSENCE TOO: there is no vendor_id. A supplier's notices are their own as a PERSON (read by
+     * user_id = auth.uid()), never the shop's — a team member does not see another member's bell.
+     */
+    id: 'J66',
+    claims: [
+      { kind: 'table', table: 'notifications' },
+      { kind: 'fk', table: 'notifications', column: 'user_id', references: 'users' },
+      { kind: 'fk', table: 'notifications', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'notifications', column: 'type' },
+      { kind: 'column', table: 'notifications', column: 'related_url' },
+      { kind: 'column', table: 'notifications', column: 'read_at' },
+      { kind: 'no_column', table: 'notifications', column: 'vendor_id' },
+      { kind: 'no_column', table: 'notifications', column: 'thread_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-USERS', 'TYPE-EVENTS'],
+    title: 'User ↔ Event (a notice to one person, about one event or none)',
+    joint: 'notifications',
+    cardinality: 'Many notices per person; each names at most one event (event_id is NULL for a notice about no event)',
+    implementedBy:
+      'notifications (user_id → users ON DELETE CASCADE · event_id → events ON DELETE SET NULL · type · title · body · related_url · read_at). Read by fetchOwnNotifications (lib/notifications.ts) on both notification screens',
+    writtenBy:
+      'ONLY emitNotification (lib/notification-emit.ts), on the service role — there is no INSERT policy. The recipient flips read_at (notification-actions.ts: mark one / mark all read)',
+    guardedBy:
+      'RLS: notifications_recipient_read (SELECT) and notifications_recipient_update (UPDATE), both user_id = auth.uid(); no INSERT or DELETE policy for any browser role',
+    traps:
+      'event_id is SET NULL, not CASCADE, on purpose — deleting an event keeps its order and payment notices (sever_event_connections avoided exactly that sweep). Rows from before 20271238868040 got event_id only where related_url carried a real event uuid, so a NULL event_id does not prove a notice is about no event.',
   },
 ];
 

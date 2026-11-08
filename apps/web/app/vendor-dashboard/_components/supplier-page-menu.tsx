@@ -4,10 +4,10 @@
  * 📌 THE PAGE MENU ▾ — the LEFT of the supplier's pinned row from 701 (supplier dashboard v13, owner 2026-10-29 "desktop
  * mode is wrong" · "and tablet"; prototype approved "Approved."; DECISION_LOG 2026-10-29 "SUPPLIER DASHBOARD — LAST
  * ROUND OF OWNER NOTES" item 12). The house contract: pinned row = LEFT one menu, RIGHT action rounds only, NO centre
- * title — the ▾ names the page ("Customers · Dates ▾").
+ * title — the ▾ names the page ("Clients · Dates ▾").
  *
  * It names the four tabs' OWN sections from their ONE source each — never a copied list:
- *   · Customers — `CUSTOMER_SEGMENTS` / `CUSTOMER_SEGMENT_HREFS` (`customers/segments.ts`);
+ *   · Clients   — `CUSTOMER_SEGMENTS` / `CUSTOMER_SEGMENT_HREFS` (`customers/segments.ts`);
  *   · Shop      — `SHOP_SEGMENT_ORDER` / `SHOP_SEGMENT_HREF` / `SHOP_SEGMENT_LABEL` (`shop/_components/shop-sections.ts`,
  *                 v13: Details · Services · Page · Gallery · Analytics).
  * Today has no sections in an address yet, so it is a plain word — no ▾, no frame (a ▾ that opens nothing
@@ -23,10 +23,16 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL, customersSegmentOf } from '../customers/segments';
 import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER } from '../shop/_components/shop-sections';
-import { VENDOR_DESTINATIONS, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
+import { VENDOR_CLIENTS_EXTRA_MATCH, VENDOR_PORTFOLIO_EXTRA_MATCH, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 
 type MenuSection = { key: string; label: string; href: string };
-export type SupplierPageMenuModel = { tab: string; section: string | null; sections: readonly MenuSection[] | null };
+export type SupplierPageMenuModel = {
+  tab: string;
+  section: string | null;
+  sections: readonly MenuSection[] | null;
+  /** The Event Hub room — its ▾ is its EVENTS, which only the page has read (it portals `HubEventMenu` here). */
+  hub?: boolean;
+};
 
 const startsWith = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 
@@ -39,10 +45,15 @@ export function supplierPageMenuOf(path: string, seg: string | null): SupplierPa
   if (startsWith(path, '/vendor-dashboard/customers')) {
     const on = customersSegmentOf({ seg: seg ?? undefined });
     return {
-      tab: 'Customers',
+      tab: 'Clients',
       section: CUSTOMER_SEGMENT_LABEL[on],
       sections: CUSTOMER_SEGMENTS.map((s) => ({ key: s, label: CUSTOMER_SEGMENT_LABEL[s], href: CUSTOMER_SEGMENT_HREFS[s] })),
     };
+  }
+  // 🖼 Portfolio (THE ONE BUILD, 8 Nov 2026) — Your collections and the inspiration library. Asked BEFORE Shop: until
+  // the Portfolio lane drops Shop's `gallery` segment, /collections is still in Shop's segment list.
+  if (startsWith(path, '/vendor-dashboard/collections') || VENDOR_PORTFOLIO_EXTRA_MATCH.some((p) => startsWith(path, p))) {
+    return { tab: 'Portfolio', section: null, sections: null };
   }
   const shopOn = SHOP_SEGMENT_ORDER.find((s) => path === SHOP_SEGMENT_HREF[s]) ?? null;
   if (shopOn || startsWith(path, '/vendor-dashboard/shop') || VENDOR_SHOP_EXTRA_MATCH.some((p) => startsWith(path, p))) {
@@ -53,12 +64,11 @@ export function supplierPageMenuOf(path: string, seg: string | null): SupplierPa
     };
   }
   if (path === '/vendor-dashboard') return { tab: 'Today', section: null, sections: null };
-  const hub = VENDOR_DESTINATIONS.find((d) => d.key === 'on-the-day');
-  if (hub && startsWith(path, hub.href)) return { tab: hub.label, section: null, sections: null };
+  // 🗓 The Event Hub room lives under a picked client now (THE ONE BUILD, 8 Nov 2026 — the Hub left the bar): it is
+  // Clients' room, and its own ▾ (its events) still portals in from the page.
+  if (VENDOR_CLIENTS_EXTRA_MATCH.some((p) => startsWith(path, p))) return { tab: 'Clients', section: 'Hub', sections: null, hub: true };
   return null;
 }
-
-const hubLabel = () => VENDOR_DESTINATIONS.find((d) => d.key === 'on-the-day')?.label ?? null;
 
 export function SupplierPageMenu({
   path: pathOverride,
@@ -77,7 +87,7 @@ export function SupplierPageMenu({
   const face = model.section ? `${model.tab} · ${model.section}` : model.tab;
   // 🗓 The Hub's ▾ is its EVENTS, which only the page has read: the page's own `HubEventMenu` portals into this slot
   // from 701 and the plain word steps aside (`supplier-frame.css`). No event, no menu — the word stays.
-  if (model.tab === hubLabel()) {
+  if (model.hub) {
     return (
       <span className="min-w-0" data-pin-lead-hub="">
         <PinWord mark={{ 'data-supplier-page-menu': 'word' }}>{face}</PinWord>

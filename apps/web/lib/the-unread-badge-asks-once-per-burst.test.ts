@@ -58,8 +58,12 @@ test('the badge reads through the poll and holds no channel', () => {
     fs.readFileSync(path.join(__dirname, '..', 'app', '_components', 'unread-messages-badge.tsx'), 'utf8'),
   );
   const polls = stripComments(fs.readFileSync(path.join(__dirname, 'unread-polls.ts'), 'utf8'));
-  const envelope = polls.slice(polls.indexOf('export function pollEnvelope('));
-  assert.match(badge, /pollEnvelope\(\{/, 'the badge no longer reads through pollEnvelope');
+  const envelope = polls.slice(polls.indexOf('export function pollEnvelope('), polls.indexOf('export function followEnvelope('));
+  const follow = polls.slice(polls.indexOf('export function followEnvelope('));
+  // ⚡ 2026-10-29 ("chat arrives instantly"): the badge calls followEnvelope, which IS pollEnvelope with the kill
+  // switch off, and with it on polls whenever the live channel is not live (lib/chat-arrives-instantly.test.ts).
+  assert.match(badge, /followEnvelope\(\{/, 'the badge no longer reads through followEnvelope');
+  assert.match(follow, /if \(!live\) return pollEnvelope\(\{/, 'followEnvelope must be the plain poll with the switch off');
   assert.match(envelope, /return startCountPoll\(\{/, 'pollEnvelope no longer reads through startCountPoll');
   assert.equal((polls.match(/readUnreadMessageThreads\(/g) ?? []).length, 1, 'the count is read from exactly one place');
   for (const src of [badge, polls]) {

@@ -36,12 +36,14 @@ const COVER = 'app/dashboard/[eventId]/_components/home-cover-band.tsx';
 const HOME = 'app/dashboard/[eventId]/_components/home-first-screen.tsx';
 const ACCOUNT_BAR = 'app/dashboard/(launcher)/_components/account-bottom-nav.tsx';
 
-test('1 · the fifth tab is Memories, after Hub, opening this event’s Memories, in the account bar’s glyph', () => {
+// 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113: Today · Guests · Suppliers · Memories · Hub): Memories is the
+// FOURTH tab now, before Hub — found by key, not position; the same checks, NOT WEAKENED.
+test('1 · Memories is a tab, before Hub, opening this event’s Memories, in the account bar’s glyph', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     for (const storeShell of [false, true]) {
       const bar = buildCustomerMenuTree('ev', { phase, websiteEnabled: true, storeShell });
-      assert.deepEqual(bar.map((m) => m.label), ['Home', 'Guests', 'Suppliers', 'Hub', 'Memories'], `${phase} · ${storeShell ? 'app' : 'web'}`);
-      const mem = bar.at(-1)!;
+      assert.deepEqual(bar.map((m) => m.label), ['Today', 'Guests', 'Suppliers', 'Memories', 'Hub'], `${phase} · ${storeShell ? 'app' : 'web'}`);
+      const mem = bar.find((m) => m.key === 'memories')!;
       assert.equal(mem.href, '/dashboard/ev/memories');
       assert.ok((mem.activeMatch as string[]).includes('/dashboard/ev/memories'), 'the Memories page lights no tab');
     }
@@ -52,7 +54,7 @@ test('1 · the fifth tab is Memories, after Hub, opening this event’s Memories
   assert.ok(at > 0, 'premise: the account bar has a Memories tab');
   const icon = account.slice(at, at + 200).match(/icon:\s*(\w+)/)?.[1];
   assert.ok(icon, 'premise: the account bar’s Memories tab names its icon');
-  const tab = buildCustomerMenuTree('ev', { websiteEnabled: true }).at(-1)!;
+  const tab = buildCustomerMenuTree('ev', { websiteEnabled: true }).find((m) => m.key === 'memories')!;
   assert.equal((tab.icon as { displayName?: string }).displayName ?? tab.icon.name, icon, 'the event bar’s Memories wears another glyph');
   assert.equal(EVENT_MENU_ICONS.memories, tab.icon);
 });

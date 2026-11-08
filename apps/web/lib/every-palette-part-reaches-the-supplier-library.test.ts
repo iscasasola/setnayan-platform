@@ -36,6 +36,7 @@ import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { canonicalServicesForTile } from './vendor-counts';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
+import { pageHome } from './page-home';
 import type { VendorProfileRow } from './vendor-profile';
 import { fallbackInspirationParts } from './inspiration-parts';
 
@@ -164,7 +165,7 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
   }
 });
 
-test('4 · the way in: Today and Shop draw “Add to the inspiration library” for a shop the library lets in, and Shop’s tab stays lit', async () => {
+test('4 · the way in: Today and Portfolio draw “Add to the inspiration library” for a shop the library lets in, and Portfolio’s tab stays lit', async () => {
   assert.equal(INSPIRATION_LIBRARY_HREF, '/vendor-dashboard/moodboard-library');
   assert.equal(INSPIRATION_LIBRARY_ROW.label, 'Add to the inspiration library');
 
@@ -197,14 +198,10 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
     now: NOW,
     since: () => new Date(NOW),
   } as unknown as Parameters<typeof assembleSupplierToday>[0]);
-  const noop = async () => {};
-  const actions = {
-    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
-    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
-  };
+  // THE ONE BUILD (8 Nov): Today answers nothing in place, so the screen takes no actions — the cover greets the shop.
   const draw = (library: boolean) =>
     renderToStaticMarkup(
-      React.createElement(SupplierTodayScreen, { view, outcome: null, feeForecasts: {}, cards: [], askStatus: '', deskIncomplete: false, actions, library }),
+      React.createElement(SupplierTodayScreen, { view, outcome: null, shopName: 'Bloom & Vine', todayIso: '2026-10-19', now: NOW, library }),
     );
   const on = draw(true);
   const shop = on.slice(on.indexOf('data-today-shop'));
@@ -223,17 +220,30 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
   assert.match(screen, /library=\{library\}/, 'the Today screen drops the flag');
 
-  /* Shop — Your shop, beside Your collections, behind the same predicate (one row per component, counted). */
+  /* Portfolio — under "Inspiration you curated", behind the same predicate (one row, counted).
+     🔁 UPDATED ON PURPOSE 2026-11-08 (Build 2 §10 #31 + #35): the row was one of Shop's loose door rows, which the owner
+     moved off the Shop page (*"these menu are lost"*); the library is Portfolio's already (spec A1 — its tab lights,
+     below), so its door went with it, beside the looks it fills. NOT WEAKENED: still drawn exactly once, still behind
+     the shared predicate asked of the LIVE parts, and Shop is pinned to draw it zero times (no second door). */
   const shopSrc = code('app/vendor-dashboard/shop/page.tsx');
-  assert.equal((shopSrc.match(/href=\{INSPIRATION_LIBRARY_HREF\}/g) ?? []).length, 1, 'Shop must draw the library row exactly once');
-  const at = shopSrc.indexOf('data="shop-inspiration-library"');
-  assert.ok(at > shopSrc.indexOf('data="shop-collections"'), 'the library row is not under Your collections');
-  assert.match(shopSrc.slice(at - 200, at), /\{data\.libraryOpen \? \(/, 'Shop draws the row without asking whether the library lets the shop in');
-  assert.match(shopSrc, /libraryOpen: moodboardLibraryAccessForProfile\(profile, await getInspirationParts\(\)\)\.allowed/);
+  assert.equal((shopSrc.match(/INSPIRATION_LIBRARY_HREF/g) ?? []).length, 0, 'Shop draws a second library door');
+  const groupsSrc = code('app/vendor-dashboard/collections/_components/portfolio-groups.tsx');
+  assert.equal((groupsSrc.match(/href=\{INSPIRATION_LIBRARY_HREF\}/g) ?? []).length, 1, 'Portfolio must draw the library row exactly once');
+  const at = groupsSrc.indexOf('data="portfolio-inspiration-library"');
+  assert.ok(at > groupsSrc.indexOf("'Inspiration you curated'"), 'the library row is not under Inspiration you curated');
+  assert.match(groupsSrc.slice(at - 200, at), /libraryOpen \? \(/, 'Portfolio draws the row without asking whether the library lets the shop in');
+  const dataSrc = code('app/vendor-dashboard/collections/collections-data.ts');
+  assert.match(dataSrc, /const parts = await getInspirationParts\(\);/, 'Portfolio does not read the live parts');
+  assert.match(dataSrc, /const access = moodboardLibraryAccessForProfile\(profile, parts\);/, 'Portfolio does not ask the shared predicate');
+  assert.match(dataSrc, /libraryOpen: access\.allowed,/);
+  assert.match(code('app/vendor-dashboard/collections/page.tsx'), /libraryOpen=\{d\.libraryOpen\}/, 'the Portfolio page drops the flag');
 
-  /* The bottom nav lights Shop on the library's page (a door that leaves the tab unlit reads as lost). */
-  const nav = code('app/vendor-dashboard/_components/vendor-bottom-nav.tsx');
-  assert.match(nav, /'\/vendor-dashboard\/moodboard-library'/);
+  /* The bottom nav lights a tab on the library's page (a door that leaves the tab unlit reads as lost).
+     🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, spec A1): the library is Portfolio's now — Portfolio lights, and
+     its ‹ goes to Portfolio. Still a lit tab, NOT WEAKENED. */
+  const dest = code('app/vendor-dashboard/_components/vendor-nav-destinations.ts');
+  assert.match(dest, /VENDOR_PORTFOLIO_EXTRA_MATCH: readonly string\[\] = \['\/vendor-dashboard\/moodboard-library'\]/);
+  assert.deepEqual(pageHome('/vendor-dashboard/moodboard-library'), { kind: 'home', home: '/vendor-dashboard/collections', label: 'Portfolio' });
 });
 
 /* 🤝🖼 THE SAME CHAIN, ON AN EVENT (owner 2026-10-19, "SUPPLIERS ADD INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE

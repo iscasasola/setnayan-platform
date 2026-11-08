@@ -12,7 +12,7 @@
  * in a page file.
  */
 
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 import {
   Receipt,
   Globe2,
@@ -239,7 +239,7 @@ export function addOnHref(key: string, eventId: string): string {
   // Home (`lib/legacy-redirects.ts`), but the address stays `/studio/papic` here ON PURPOSE — the store shell refuses
   // that path in the app without Apple's shop (`lib/store-shell.ts`), and pointing every menu row at Home would show a
   // Papic door there that App Review must not find.
-  if (key === 'papic-guest') return papicHomeHref(eventId);
+  if (key === 'papic-guest') return papicCardHref(eventId);
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
   // 🎬 The Thank-You Video maker lives in Memories (owner 2026-10-27, reorg R3) — `/studio/thank-you` forwards there.
   if (key === 'thank-you') return thankYouVideoHref(eventId);

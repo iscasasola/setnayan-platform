@@ -121,7 +121,9 @@ test('A2 · the logo surfaces draw through logoFrameStyle (the framer through pi
   }
   assert.match(FRAME, /pictureFrameStyle\(frame\)/);
   assert.match(read('lib/open-shop-logo.ts'), /return pictureFrameStyle\(frame\);/);
-  assert.match(read('app/vendor-dashboard/shop/page.tsx'), /frame=\{data\.logoFrame\}/);
+  // THE ONE BUILD (C4): Shop's logo now sits on the cover (`shop-cover.tsx`), handed the frame by the page.
+  assert.match(read('app/vendor-dashboard/shop/page.tsx'), /logoFrame: data\.logoFrame/);
+  assert.match(read('app/vendor-dashboard/shop/_components/shop-cover.tsx'), /frame=\{d\.logoFrame\}/);
 });
 
 /* ── A3 · primary service, simpler ───────────────────────────────────────────────────────────────────────────── */

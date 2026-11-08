@@ -136,6 +136,7 @@ export function EventMemoriesGallery({
   addPhotos = null,
   addCell = null,
   keepsakes = null,
+  papic = null,
   blockedGuests = [],
   suppliers = [],
   canTag = false,
@@ -170,6 +171,9 @@ export function EventMemoriesGallery({
   addCell?: { line: string; tip: string } | null;
   /** The keepsake row (Magazine · Recap · Flash · Thank You), drawn by the server — the host's. */
   keepsakes?: ReactNode;
+  /** 📷 The ONE Papic card (THE ONE BUILD, owner 8 Nov 2026: Papic moved into Memories), drawn by the server — the
+   *  host's, under the keepsake row and before the grid (v112/v113). Null = not drawn for this viewer. */
+  papic?: ReactNode;
   blockedGuests?: string[];
   suppliers?: MemoriesSupplier[];
   /** Tag in the viewer — the server's `memoriesManagerRole` answer (hosts + the coordinator); re-checked on every write. */
@@ -430,6 +434,9 @@ export function EventMemoriesGallery({
       </div>
       {/* THE KEEPSAKE ROW — directly under the top row, the host's (the server draws it inside its host branch too). */}
       {host ? keepsakes : null}
+      {/* 📷 PAPIC — ONE card, under the keepsakes, before the grid (2026-11-08: it left Today for Memories). */}
+      {/* 📷 The Memories tour's Papic stop lights this slot (`customer_memories_v2` → `memories-papic`). */}
+      {host && papic ? <div data-tour="memories-papic">{papic}</div> : null}
       {needsLook ? (
         <p className="pb-1.5 text-[13px] text-ink/60">Only photos to review — screened or reported. Tap one to approve, hide, report or stop that guest shooting.</p>
       ) : null}
@@ -714,7 +721,7 @@ function MemoriesThumbRow({
           data-memories-thumb=""
           data-on={up && !away && !adding ? 'true' : 'false'}
           inert={!up || away || adding}
-          className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform duration-300 ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
+          className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-sn-thumb pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform duration-300 ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
             up && !away && !adding ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
           }`}
         >

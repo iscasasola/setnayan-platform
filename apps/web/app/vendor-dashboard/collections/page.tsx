@@ -1,16 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { ShopSegments } from '../shop/_components/shop-segments';
-import { galleryFigures } from '@/lib/shop-section-figures';
 import { GalleryMedia } from '../shop/_components/gallery-media';
-import { SupplierThumbRow } from '../_components/supplier-thumb-row';
-import { OpenFoldButton } from '../_components/open-fold-button';
 import { loadCollectionsData } from './collections-data';
-import { CollectionsList } from './_components/collections-list';
-import { shopGearBody } from '../shop/_components/shop-settings-body';
+import { PortfolioView } from './_components/portfolio-view';
 
-export const metadata = { title: 'Your collections' };
+export const metadata = { title: 'Portfolio' };
 
 // Map the Instagram OAuth-callback error codes to friendly one-line copy for the
 // IG card. Mirrors the retired /profile page's IG_ERROR_COPY (2026-07-05); moved here from My Shop with the
@@ -42,7 +37,7 @@ const IG_ERROR_COPY: Record<string, string> = {
 export default async function YourCollectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ig_connected?: string; ig_error?: string; gear?: string; gsec?: string }>;
+  searchParams: Promise<{ ig_connected?: string; ig_error?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -61,36 +56,51 @@ export default async function YourCollectionsPage({
       ? { kind: 'error', message: IG_ERROR_COPY[sp.ig_error] ?? 'Instagram connection could not be completed. Try again.' }
       : null;
 
+  const showAlbums = {
+    page: { title: 'Photos on my page', urls: d.portfolioRefs.map((k) => d.portfolioDisplayMap[k]).filter((u): u is string => Boolean(u)) },
+    ...(d.previews.cards ? { cards: { title: 'Service card photos', urls: d.previews.cards.urls } } : {}),
+    ...(d.previews.instagram
+      ? { instagram: { title: 'Instagram', urls: d.igMedia.map((m) => m.displayUrl).filter((u): u is string => Boolean(u)) } }
+      : {}),
+  };
+
   return (
-    <>
-      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="gallery" figures={galleryFigures({ photos: d.portfolioRefs.length, videos: d.galleryVideoLinks.length, credits: d.walletBalance })} gearBody={shopGearBody(sp)} />
-        <h1 className="sn-h1">Your collections</h1>
-        <CollectionsList
-          vendorId={d.vendorId}
-          input={d.input}
-          saved={d.saved}
-          gallery={
-            <GalleryMedia
-              vendorProfileId={d.vendorId}
-              portfolioRefs={d.portfolioRefs}
-              portfolioDisplayMap={d.portfolioDisplayMap}
-              portfolioMax={d.portfolioMax}
-              portfolioAllowanceUnread={d.portfolioAllowanceUnread}
-              walletBalance={d.walletBalance}
-              galleryVideoLinks={d.galleryVideoLinks}
-              igConfigured={d.igConfigured}
-              igConnection={d.igConnection}
-              igUnavailable={d.igUnavailable}
-              igMedia={d.igMedia}
-              igFlash={igFlash}
-            />
-          }
-        />
-      </section>
-      <SupplierThumbRow name="collections" label="Your collections">
-        <OpenFoldButton anchor="gallery-media" label="Add photos" icon="photo" tour="collections-add" />
-      </SupplierThumbRow>
-    </>
+    <div className="mx-auto w-full max-w-3xl pb-32" data-portfolio-tab="">
+      <h1 className="sr-only">Portfolio</h1>
+      <PortfolioView
+        vendorId={d.vendorId}
+        input={d.input}
+        saved={d.saved}
+        previews={d.previews}
+        showAlbums={showAlbums}
+        photos={d.portfolioRefs.length}
+        videoLinks={d.galleryVideoLinks.length}
+        free={d.portfolioMax}
+        allowanceUnread={d.portfolioAllowanceUnread}
+        walletBalance={d.walletBalance}
+        igFlash={null}
+        groups={d.groups}
+        allPhotos={[...showAlbums.page.urls].reverse()}
+        libraryOpen={d.libraryOpen}
+        videoLinkUrls={d.galleryVideoLinks}
+        gallery={
+          <GalleryMedia
+            vendorProfileId={d.vendorId}
+            portfolioRefs={d.portfolioRefs}
+            portfolioDisplayMap={d.portfolioDisplayMap}
+            portfolioMax={d.portfolioMax}
+            portfolioAllowanceUnread={d.portfolioAllowanceUnread}
+            walletBalance={d.walletBalance}
+            galleryVideoLinks={d.galleryVideoLinks}
+            videosHere={false}
+            igConfigured={d.igConfigured}
+            igConnection={d.igConnection}
+            igUnavailable={d.igUnavailable}
+            igMedia={d.igMedia}
+            igFlash={igFlash}
+          />
+        }
+      />
+    </div>
   );
 }

@@ -2,8 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorDayStates, type VendorCalendarDayState } from '@/lib/vendor-schedule';
+import {
+  fetchVendorBlocksDetailed,
+  fetchVendorDayStates,
+  fetchVendorPoolBookings,
+  fetchVendorPools,
+  type SchedulePool,
+  type VendorCalendarDayState,
+} from '@/lib/vendor-schedule';
+import type { DatesBlock, DatesBooking } from '@/lib/vendor-dates';
+import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitlist';
+import { fetchVendorThreadsDetailed } from '@/lib/chat';
+import { asksByDate } from '@/lib/vendor-dates';
+import { readOpenAsks } from './open-asks';
 
 /**
  * The ONLY two datasets that change when the "My Customers" calendar pages to a
@@ -13,13 +25,33 @@ import { fetchVendorWaitlist, type WaitlistDateGroup } from '@/lib/vendor-waitli
  * customer list — is month-independent and is shipped to the client once on
  * first paint, so the arrow buttons never re-fetch it.
  *
+ * 📅 `{ whole: true }` — THE PICKED CLIENT'S SCHEDULE CALENDAR (v113 `calC`, controller 2026-11-08: "the Clients
+ * calendar component — one part, not a second calendar"). The picked client reads none of the month's inputs at load
+ * (its page switch is 0 requests), so its Schedule page asks ONCE, on first view, for the month-independent part too —
+ * pools · bookings · blocks, the same reads and the same wire trim as Clients › Dates — in this one round trip. It is
+ * THIS action with one option, not a second export (lint-server-action-budget: reuse before adding).
+ *
+ * 🟠 ASKING MARKS, IN THE SAME ROUND TRIP (Build 2 row #43g): the shop's threads ride the same `Promise.all`, then ONE
+ * events read for the asked-about dates (`readOpenAsks`, the reader the Clients month uses) — still ONE request from the
+ * browser. A refused threads or events read sends `inquiries: null` and the month draws no asking mark and no "Asking"
+ * in its legend — never a month that looks un-asked because the question could not be read.
+ *
  * Returns null when the caller isn't a signed-in vendor (the client falls back
- * to a full server navigation in that case). The vendor is resolved from the
- * session — the client never passes a vendor id.
+ * to a full server navigation in that case), or — for `whole` — when the read
+ * failed: the Schedule calendar SAYS so, never an empty month. The vendor is
+ * resolved from the session — the client never passes a vendor id.
  */
-export async function fetchCustomerCalendarMonth(month: string): Promise<{
+export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?: boolean }): Promise<{
   dayStates: VendorCalendarDayState[];
   waitlist: WaitlistDateGroup[];
+  whole?: {
+    pools: SchedulePool[];
+    bookings: DatesBooking[];
+    blocks: DatesBlock[];
+    closuresComplete: boolean;
+    /** The asked-about dates, counted; null = not read (no marks drawn, none claimed). */
+    inquiries: { requestedDate: string; count: number }[] | null;
+  };
 } | null> {
   if (!/^\d{4}-\d{2}$/.test(month)) return null;
 
@@ -33,10 +65,39 @@ export async function fetchCustomerCalendarMonth(month: string): Promise<{
   if (!profile) return null;
 
   const vendorProfileId = profile.vendor_profile_id;
-  const [dayStates, waitlist] = await Promise.all([
-    fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
-    fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-  ]);
-
-  return { dayStates, waitlist };
+  if (!opts?.whole) {
+    const [dayStates, waitlist] = await Promise.all([
+      fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+      fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
+    ]);
+    return { dayStates, waitlist };
+  }
+  try {
+    const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead] = await Promise.all([
+      fetchVendorPools(supabase, vendorProfileId),
+      fetchVendorPoolBookings(supabase, vendorProfileId),
+      fetchVendorBlocksDetailed(supabase, vendorProfileId),
+      fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+      fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
+      // A refused threads read is not "nobody asked" — it becomes `inquiries: null` below.
+      fetchVendorThreadsDetailed(supabase, vendorProfileId).catch(() => null),
+    ]);
+    const asks =
+      threadsRead && threadsRead.complete
+        ? await readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId))).catch(() => null)
+        : null;
+    return {
+      dayStates,
+      waitlist,
+      whole: {
+        pools,
+        bookings: datesBookingsForWire(bookings),
+        blocks: datesBlocksForWire(blocksRead.blocks),
+        closuresComplete: blocksRead.complete,
+        inquiries: asks && asks.measured ? asksByDate(asks.asks) : null,
+      },
+    };
+  } catch {
+    return null;
+  }
 }

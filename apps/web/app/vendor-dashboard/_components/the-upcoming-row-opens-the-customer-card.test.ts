@@ -35,6 +35,7 @@ import { stripComments } from '@/lib/strip-comments';
 import {
   UPCOMING_CARD_SECTION,
   customerCardHref,
+  PICKED_CLIENT_PAGE_IDS,
   upcomingScheduleDoor,
 } from '@/lib/upcoming-schedule-door';
 
@@ -89,15 +90,17 @@ test('1 · a booked row with a live thread opens the CARD, not the thread', () =
   );
 });
 
-test('2 · the card link always names a section (a bare route IS the chat)', () => {
-  // The redirect this depends on must still be there, or the guard is theatre.
+test('2 · the card link always names a page (the chat now lives IN the client)', () => {
+  // 🗂 THE ONE BUILD (8 Nov 2026 · v111): the redirect that made a bare route a chat landing is GONE — a bare landing
+  // opens Details and `?tab=chat` opens the Chat page in place. The row still names the page it means, so it can
+  // never depend on what a bare landing happens to draw.
   assert.equal(
-    count(clientPage, /rawTab === 'chat'/g),
-    1,
-    'the client page no longer treats a bare landing as a chat landing — re-check this whole file',
+    count(clientPage, /redirect\(`\/vendor-dashboard\/messages\/\$\{threadId\}`\)/g),
+    0,
+    'the client page forwards a landing to the thread again — the chat is a page of the client now',
   );
-  for (const section of ['details', 'quote', 'schedule', 'files'] as const) {
-    assert.equal(customerCardHref(EVENT, section), `/vendor-dashboard/clients/${EVENT}?tab=${section}`);
+  for (const page of PICKED_CLIENT_PAGE_IDS) {
+    assert.equal(customerCardHref(EVENT, page), `/vendor-dashboard/clients/${EVENT}?tab=${page}`);
   }
   assert.equal(UPCOMING_CARD_SECTION, 'details');
 });
@@ -203,10 +206,8 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
     0,
     'the Customers roster points every row at the chat again',
   );
-  assert.equal(
-    count(customersRoster, /const href = `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=details`/g),
-    1,
-  );
+  // Build 2 row #38: the roster's one door is the one open path — never a bare client link, never a hand-built one.
+  assert.equal(count(customersRoster, /const href = openClientHref\(r\.eventId, rosterLandingFacts\(r, today\)\);/g), 1);
   // Each fixed door names the section its own words promise.
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');
@@ -233,10 +234,11 @@ test('7 · a Coming-up row is one link to its own door; the conversation is the 
   // v13 (owner 2026-10-29, "where is the expand look of these rows?"): the week and money rows OPEN (`OpenedRow`), and
   // their one door — inside — is still the row's own (`row.href`).
   assert.equal(count(firstScreen, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g), 1, 'the Coming-up row no longer opens the row’s own door');
-  assert.equal(count(firstScreen, /<OpenedRow\b[\s\S]{0,400}?href: row\.href \}\}/g), 2, 'a week / money row no longer carries the row’s own door');
+  // ⤴ THE ONE BUILD A5: the week and money lists left Today with the counts row (the stats JUMP to Clients instead).
+  assert.equal(count(firstScreen, /<OpenedRow\b/g), 0, 'a week / money list that opened in place is back on Today');
   const coming = firstScreen.slice(firstScreen.indexOf('data-today-coming-up'));
   assert.equal(count(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g), 1, 'the Coming-up row no longer opens its own door');
-  const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export type SupplierTodayNumbers'));
+  const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export function TodayNoteRow('));
   assert.equal(count(rowFn, /<Link\b/g), 1, 'a row holds more than one link — nested anchors do not work');
   assert.equal(count(sections, /row\.threadHref/g), 0, 'the old Upcoming list is back in the desk file');
 

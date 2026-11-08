@@ -9,6 +9,7 @@ import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 /**
  * "Finding people in photos" — the couple's own say over face tagging.
@@ -48,8 +49,8 @@ export async function FaceTaggingChoice({
    * its ⓘ, and the sub-line "On/Off · <subLine>" (each guest's own answer is on their guest card).
    */
   subLine?: string | null;
-  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
-  returnTo?: 'home' | null;
+  /** 🖼 The Papic card's seat ('memories' since 2026-11-08) when drawn inside it — the save lands back there (`return_to`). */
+  returnTo?: PapicCardSeat | null;
 }) {
   // The caller's own client checks the row is theirs to read (RLS)…
   const supabase = await createClient();

@@ -15,6 +15,7 @@
 # ── TEXT: a string property whose digits were grouped where it was built ──
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — a string built by formatCount(PORTFOLIO_FREE_BASE) in supplier-front-data.ts
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — the second render of the same grouped string
+app/vendor-dashboard/customers/_components/customers-pin.tsx :: title.counts :: TEXT — the Clients title line, built in customers/page.tsx (`pinCounts`) from formatCount (`doorValue`) and formatPhp
 app/for-suppliers/_components/supplier-front-page.tsx :: BADGE_FIRST :: TEXT — a string built by formatCount(MILESTONE_THRESHOLDS[0]) in supplier-front-data.ts
 app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx :: photosHead :: TEXT — RowSheet's "Photos · N" heading, a string whose count was grouped by formatCount where the sheet builds it
 app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
@@ -58,3 +59,4 @@ lib/guests-views.ts :: GUESTS_TOP_LABEL.guests :: TEXT — the word "Guests" (th
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
+app/dashboard/(account)/billing/_components/billing-list.tsx :: amount :: TEXT — BillingRow's amount is a ReactNode every caller already built with formatPhp() or manilaDay() (billing-list Row, supplier-billing-sections); never a raw number

@@ -50,6 +50,7 @@ import { INFO_TEXT_MAX } from './taxonomy-writes';
 import { SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
 import { ServiceInfo } from '@/app/_components/service-info';
 import { LevelIcon } from './map-rows';
+import { FormSuggestionsPane } from './form-suggestions-pane';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
 
@@ -431,6 +432,10 @@ export function CategoryPanel({
             <WhatCouplesChoose tile={{ id: category.id, label: category.label }} refinements={cards} />
           </>
         )}
+      </PanelFold>
+
+      <PanelFold id="forms" title="Suggested forms" summary="Suggested for your service">
+        <FormSuggestionsPane categoryId={category.id} categoryLabel={category.label} />
       </PanelFold>
 
       <PanelFold id="vis" title="Visibility" summary={`${shows} · ${category.hidden ? 'hidden' : 'shown'}`}>

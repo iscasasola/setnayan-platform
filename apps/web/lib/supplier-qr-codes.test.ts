@@ -33,7 +33,8 @@ import { SHOP_SEGMENT_HREF } from '../app/vendor-dashboard/shop/_components/shop
 const ROOT = path.resolve(__dirname, '..');
 const PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/invite/page.tsx'), 'utf8'));
 // 📣 Shop › Promote (owner 2026-11-05): the marketing codes' home.
-const PROMOTE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/promote/page.tsx'), 'utf8'));
+// THE ONE BUILD (C4): Promote's codes are drawn by its ONE body (`promote-body.tsx`), mounted by the page and Shop's QR sheet.
+const PROMOTE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), 'utf8'));
 const VIEW = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dashboard/invite/_components/qr-codes.tsx'), 'utf8'));
 
 // Retargeted 2026-11-06 (QR codes Option B, owner "B"): the dropdown became ONE LIST, a row per code, and Reviews joined

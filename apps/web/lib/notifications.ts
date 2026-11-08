@@ -474,6 +474,10 @@ export type NotificationType =
      booking is made by the couple's ask and the supplier's yes. */
   | 'quote_accepted'
   | 'quote_declined'
+  /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28). → the SHOP owner, in the app only (NOT on the email allowlist — owner
+     2026-10-11): Setnayan answered a name / web-address request (approved · declined + reason) or sent a flagged
+     service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271329965074. */
+  | 'supplier_request_answered'
   /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
      "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT
      on the email allowlist — owner 2026-10-11). Emitted when the event type they
@@ -587,7 +591,12 @@ export type NotificationType =
      question set into the event from the chat ＋; each host is told, linking to that supplier's room where they answer.
      Sent by `app/vendor-dashboard/messages/[threadId]/questions-actions.ts`. ⚠ IN-APP ONLY (no new emails): NOT on
      EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271315529466. */
-  | 'supplier_questions_sent';
+  | 'supplier_questions_sent'
+  /* 🚩 A SUPPLIER'S REPORT (owner 2026-11-08 "REPORT = SUBJECT · NOTE · ORIGIN"; THE ONE BUILD §5.4): a supplier filed a
+     Report from a picked client — subject, note and where it came from — into /admin/help; every admin is told. Sent by
+     `app/vendor-dashboard/clients/[eventId]/report-actions.ts`. ⚠ IN-APP ONLY ("admin in-app notice only, no email"):
+     NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271325510297. */
+  | 'supplier_report';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -706,6 +715,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_change_requested: 'Schedule request',
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
+  supplier_request_answered: 'Setnayan answered your request',
   event_type_added: 'Your event type was added',
   service_became_credits: 'Papic credits added',
   service_moved_to_event: 'Service moved',
@@ -725,6 +735,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   supplier_where_asked: 'A supplier picked their chapters',
   papic_originals_reminder: 'Keep your original photos',
   supplier_questions_sent: 'A supplier sent you questions',
+  supplier_report: 'A supplier sent a report',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -939,6 +950,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_accepted: 'bg-success-100 text-success-900',
   // A no the supplier can answer with another quote → amber, like every other no.
   quote_declined: 'bg-warn-100 text-warn-900',
+  // An answer that can be yes or no (a decline carries its reason) → the neutral info tone, never a verdict colour.
+  supplier_request_answered: 'bg-sky-100 text-sky-800',
   // What they asked for is ready — a settled good thing, like an agreement.
   event_type_added: 'bg-success-100 text-success-800',
   // What we promised on /refunds, done — settled, like an agreement.
@@ -969,6 +982,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   papic_originals_reminder: 'bg-warn-100 text-warn-900',
   // A supplier waits on the couple's answers → the action-needed amber, like every other ask.
   supplier_questions_sent: 'bg-warn-100 text-warn-900',
+  // A report waits on an admin → the action-needed amber, like every other ask.
+  supplier_report: 'bg-warn-100 text-warn-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1218,6 +1233,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   guest_claim_rejected: 'user-plus',
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
+  supplier_request_answered: 'message',
   event_type_added: 'sparkle',
   service_became_credits: 'image',
   service_moved_to_event: 'receipt',
@@ -1268,6 +1284,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   supplier_where_asked: 'calendar',
   papic_originals_reminder: 'image',
   supplier_questions_sent: 'message',
+  supplier_report: 'message',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

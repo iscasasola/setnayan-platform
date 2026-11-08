@@ -387,7 +387,9 @@ test('every installment surface routes its centavos through a named helper', () 
     // The quote decision card in the thread. It builds a NUMBER for a prop
     // (`totalPhp:`), so the inline conversion is the whole expression there and
     // there is no rendered string for a formatter to own.
-    [CHAT_STREAM, /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
+    // Build 2 #42 (8 Nov 2026): the merge moved out of the stream into the ONE pure `threadDecisionFacts`, which the
+    // stream AND the picked client's Details page both call — the conversion moved with it, unchanged.
+    ['lib/thread-decisions.ts', /Math\.round\(card\.totalCentavos\) \/ 100/g, 1],
     // Same card on the vendor overview — PR #5772 ("one peso formatter")
     // removed this caller's own rounding: `formatPhp(Math.round(c) / 100)` was
     // INERT because `formatPhp` in this file ALSO rounded

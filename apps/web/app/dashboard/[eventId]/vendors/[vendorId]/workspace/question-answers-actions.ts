@@ -43,12 +43,33 @@ export async function saveSupplierAnswers(
   } = await supabase.auth.getUser();
   if (!user) return { status: 'error', message: 'Please sign in again.' };
 
-  const { data: own, error: ownError } = await supabase
-    .from('vendor_questions')
-    .select('question_id')
-    .eq('vendor_profile_id', vendorProfileId);
-  if (ownError) return { status: 'error', message: 'We couldn’t save your answers. Please try again.' };
+  // The supplier's shipped set (form_id NULL) OR an item of one of its forms SENT into this event
+  // (`event_form_sends`, THE ONE BUILD Forms). A form never sent here is not answerable here.
+  const [{ data: own, error: ownError }, { data: sent, error: sentError }] = await Promise.all([
+    supabase
+      .from('vendor_questions')
+      .select('question_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .is('form_id', null),
+    supabase
+      .from('event_form_sends')
+      .select('form_id')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', vendorProfileId),
+  ]);
+  if (ownError || sentError) return { status: 'error', message: 'We couldn’t save your answers. Please try again.' };
   const theirs = new Set(((own ?? []) as { question_id: string }[]).map((q) => q.question_id));
+  const sentFormIds = ((sent ?? []) as { form_id: string }[]).map((s) => s.form_id);
+  if (sentFormIds.length > 0) {
+    const { data: items, error: itemsError } = await supabase
+      .from('vendor_questions')
+      .select('question_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('form_id', sentFormIds)
+      .eq('item_kind', 'question');
+    if (itemsError) return { status: 'error', message: 'We couldn’t save your answers. Please try again.' };
+    for (const q of (items ?? []) as { question_id: string }[]) theirs.add(q.question_id);
+  }
 
   const changed = hostAnswersThisScreenChanged(formData.entries());
   const now = new Date().toISOString();

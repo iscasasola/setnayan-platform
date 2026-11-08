@@ -48,7 +48,7 @@ export function TraditionNotes({
           ) : (
             <>
               <b>Mahr</b> · The groom&rsquo;s gift to the bride, hers alone. It isn&rsquo;t a Setnayan or supplier
-              charge, so it stays out of these totals. Record yours from the Nikah card on Home.
+              charge, so it stays out of these totals. Record yours from the Nikah card on Today.
             </>
           )}
         </span>

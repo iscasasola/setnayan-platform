@@ -92,7 +92,8 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'extra_bookings_per_date, extra_parent_categories, extra_services_per_leaf, extra_waitlist_acceptances, ' +
   // find_lock_* · is_findable (migration 20271320303985, #7373) — whether the shop can be found, and the lock its first
   // unverified inquiry put on that (when, why, when lifted). The shop's own state, exported like fraud_* below.
-  // find_lock_lifted_by is a staff uid — the SAME open DPO question as created_by_admin_user_id above, not decided here.
+  // find_lock_lifted_by is a staff uid: it is READ (so T12 stays complete) and then EXPORTED AS A LABEL, never the uid
+  // (`VENDOR_PROFILE_EXPORT_STAFF_LABELS` below, Build 2 8 Nov 2026, the STAFF_ACTOR rule).
   'find_lock_lifted_at, find_lock_lifted_by, find_lock_reason, find_locked_at, ' +
   'fraud_banned_at, ' +
   'fraud_suspended_at, fraud_tombstoned, gallery_video_links, hq_address, hq_country, hq_latitude, ' +
@@ -140,3 +141,30 @@ export const VENDOR_PROFILE_EXPORT_COLUMNS: readonly string[] = VENDOR_PROFILE_E
 )
   .map((c) => c.trim())
   .filter((c) => c.length > 0);
+
+/**
+ * 🪪 COLUMNS THAT HOLD A SETNAYAN STAFF MEMBER'S UID — exported as WHO KIND OF PERSON acted, never which one
+ * (Build 2, 8 Nov 2026; the STAFF_ACTOR rule in `lib/export-coverage-guardrail.test.ts`: an operator's stamp is not the
+ * subject's data, and naming the admin who acted is the third-party disclosure the route's `not_included` copy already
+ * argues against for `admin_data_access_log`).
+ *
+ * The column stays IN the projection — T12's completeness equality still holds and the subject still learns THAT the
+ * lock was lifted and by Setnayan — and `vendorProfileForExport` swaps the uid for the label before the row is written.
+ * A null stays null (nobody lifted it). Held by T12b.
+ *
+ * Only `find_lock_lifted_by` here. `created_by_admin_user_id` and `experience_verified_by` remain the open DPO question
+ * above — not decided by this change.
+ */
+export const VENDOR_PROFILE_EXPORT_STAFF_LABELS: Readonly<Record<string, string>> = {
+  find_lock_lifted_by: 'Setnayan staff',
+};
+
+/** The subject's own vendor_profile row as it is exported: every staff uid replaced by its label. Pure. */
+export function vendorProfileForExport<T extends Record<string, unknown> | null>(row: T): T {
+  if (!row) return row;
+  const out: Record<string, unknown> = { ...row };
+  for (const [col, label] of Object.entries(VENDOR_PROFILE_EXPORT_STAFF_LABELS)) {
+    if (col in out) out[col] = out[col] == null ? null : label;
+  }
+  return out as T;
+}

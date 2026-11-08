@@ -9,6 +9,7 @@ import {
 } from '@/lib/papic-photo-styles';
 import { papicLookSampleSrc } from '@/lib/papic-look-samples';
 import { setPapicStyle, setPapicStyleInPlace } from './actions';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 /**
  * Papic event-look picker (couple-side setup).
@@ -37,8 +38,8 @@ export default function StylePicker({
 }: {
   eventId: string;
   current: string;
-  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
-  returnTo?: 'home' | null;
+  /** 🖼 The Papic card's seat ('memories' since 2026-11-08) when drawn inside it — the save lands back there (`return_to`). */
+  returnTo?: PapicCardSeat | null;
   /**
    * 'strip' — the approved one-page controller's Filter A (`prototypes/papic_controller_one_page_2026-10-23.html`,
    * "a look is chosen by eye: five thumbnails … fit across 375 in one thumb-width row, all visible, one tap saves"):

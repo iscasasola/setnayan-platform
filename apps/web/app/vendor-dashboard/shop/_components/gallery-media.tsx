@@ -49,6 +49,7 @@ export function GalleryMedia({
   walletBalance = null,
   labPicked,
   galleryVideoLinks,
+  videosHere = true,
   igConfigured,
   igConnection,
   igUnavailable,
@@ -66,6 +67,9 @@ export function GalleryMedia({
   /** Dev lab only: refs already picked but not saved (frame port-spend). Production never passes it. */
   labPicked?: string[];
   galleryVideoLinks: string[];
+  /** 🎬 false where the page edits the same links row by row (Portfolio › Video links, Build 2 §10 #35) — one column,
+   *  one editor on a screen, so two forms never race to overwrite it. Default true: every other caller as before. */
+  videosHere?: boolean;
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
   /* `connection: null` is ALSO what "never connected" looks like, so the card
@@ -107,15 +111,17 @@ export function GalleryMedia({
 
       {/* Featured videos — same <VideoLinksEditor> (all tiers · gallery_video_links).
           Paste YouTube/Vimeo (inline players) or Instagram/Facebook/TikTok (link-out). */}
-      <GalleryForm
-        field="gallery_videos"
-        toast={toast}
-        successToast="Videos saved."
-        title="Featured videos"
-        hint="YouTube, Vimeo, Instagram, Facebook or TikTok"
-      >
-        <VideoLinksEditor name="gallery_video_links" initial={galleryVideoLinks} />
-      </GalleryForm>
+      {videosHere ? (
+        <GalleryForm
+          field="gallery_videos"
+          toast={toast}
+          successToast="Videos saved."
+          title="Featured videos"
+          hint="YouTube, Vimeo, Instagram, Facebook or TikTok"
+        >
+          <VideoLinksEditor name="gallery_video_links" initial={galleryVideoLinks} />
+        </GalleryForm>
+      ) : null}
 
       {/* Instagram — same card + OAuth flow (unchanged routes under
           /api/vendor/instagram/**). Hidden until the Meta App env is set (it
@@ -258,9 +264,14 @@ function PortfolioForm({
               : `That’s all your shop wallet covers (${n(walletBalance)} credits). Buy a pack on Money to add more.`
           }
           maxSizeMB={5}
+          // 🗜 Uploads compress in the browser (owner rule 2026-09-25; THE ONE BUILD A3 W16) — after the watermark,
+          // inside FileUpload's own order (`file-upload-compress-first.test.ts`).
+          compressImage
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"
-          watermark
+          mark="supplier"
+          frame="square"
+          previews="portfolio"
           qrGuard
           stallMs={20000}
         />

@@ -39,7 +39,9 @@ const SERVICES: EventMenuChild[] = [
   { key: 'papic', label: 'Papic', href: '#papic', icon: 'papic' },
 ];
 // Memories joined after Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
-const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
+// 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov; THE ONE BUILD spec §9 #3): Memories
+// comes before Hub — Today · Guests · Suppliers · Memories · Hub. Same strictness: the exact five, the exact order.
+const FIVE = ['home', 'guests', 'explore', 'memories', 'launch'];
 
 /** A type's profile as `resolveProfile` builds it from a row with the Simple Event's one seeded difference. */
 function profileOf(t: string) {
@@ -176,7 +178,8 @@ test('Papic switched off says so, with the door to switch it on', () => {
   // arms the free pool (`papic-self-heal.tsx`).
   const none = dayView(false, null);
   assert.equal(none.face, 'none');
-  assert.equal(none.view.kind === 'say' && none.view.door?.href, `/dashboard/${E}?papic=open#papic`);
+  // The door opens Papic's card where it lives — Memories (THE ONE BUILD, 2026-11-08; was Today).
+  assert.equal(none.view.kind === 'say' && none.view.door?.href, `/dashboard/${E}/memories?papic=open#papic`);
 });
 
 test('the day row paints the view — the say line never draws a meter', () => {
@@ -204,11 +207,13 @@ test('with More gone, Home draws Your services in every phase — first screen, 
   const day = page.slice(page.indexOf('{dayOfActive ? (\n        <>'), page.indexOf(') : afterActive && afterSummary ? ('));
   assert.match(day, /<YourServices[\s\S]*?services=\{homeServiceRowAll\.filter\(\(s\) => s\.key !== 'papic'\)\}/, 'the event day lost Your services');
   const after = page.slice(page.indexOf(') : afterActive && afterSummary ? ('));
-  assert.match(after, /<YourServices eventId=\{eventId\} services=\{homeServiceRowAll\}/, 'after the day lost Your services');
+  // 📷 Papic's row stands down where its card is drawn in Memories (THE ONE BUILD, 2026-11-08).
+  assert.match(after, /<YourServices\s+eventId=\{eventId\}\s+services=\{homeServiceRowAll\.filter\(\(s\) => !\(papicInMemories && s\.key === 'papic'\)\)\}/, 'after the day lost Your services');
   const first = code('app/dashboard/[eventId]/_components/home-first-screen.tsx');
   // (The Event Hub rose into the control row on the first screen, owner-approved 2026-10-24.)
-  // 📷 …and Papic is not in it where its card is drawn on Today (owner 2026-10-26: "it should be on the today").
-  assert.match(first, /<YourServices\s+eventId=\{eventId\}\s+services=\{services\.filter\(\(s\) => s\.key !== 'hub' && !\(papicCard && s\.key === 'papic'\)\)\}/, 'the first screen lost Your services');
+  // 📷 …and Papic is not in it where its card is drawn — in Memories since THE ONE BUILD (2026-11-08; it was Today's
+  // from 2026-10-26).
+  assert.match(first, /<YourServices\s+eventId=\{eventId\}\s+services=\{services\.filter\(\(s\) => s\.key !== 'hub' && !\(papicInMemories && s\.key === 'papic'\)\)\}/, 'the first screen lost Your services');
   assert.match(first, /id="your-services"/, 'Your services has no address for a door to scroll to');
   // No Next card is on screen in any phase (owner-approved 2026-10-24) — one list, nothing stands down: the input
   // itself names no service (`next: 'plan'`).

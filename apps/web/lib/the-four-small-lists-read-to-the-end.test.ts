@@ -330,7 +330,9 @@ test('screens: an unfinished payday read is said, and its rows are never summed'
   assert.match(customers, /(?:\{|between=\{\s*)paydayIncomplete \? \(\s*<p role="status"[^>]*>\s*Some payments couldn&rsquo;t load/);
 
   const client = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
-  assert.equal((client.match(/<LedgerUnreadableNote \/>/g) ?? []).length, 2, 'Quote + Payments tabs');
+  // + THE ONE BUILD (8 Nov 2026): the Payment page draws the money from what the page read (`payment.money`), and its
+  // unreadable note is the same component — the Payments node, the flag-off card's money fold, and the Payment page.
+  assert.equal((client.match(/<LedgerUnreadableNote \/>/g) ?? []).length, 3, 'Payments node + flag-off money fold + Payment page');
 });
 
 test('screens: blocks, unread and booked each say so when their read comes up short', () => {
@@ -551,7 +553,8 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
     lib,
     /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
   );
-  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds \};/);
+  // 📸 + nextDay, bookedThisMonth (THE ONE BUILD A3/A4) — read off the same room read, no read of their own.
+  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds, nextDay, bookedThisMonth \};/);
   const page = read('app/vendor-dashboard/page.tsx');
   // 🧩 Since the simpler Today (2026-10-14) the page hands the desk to the one drawing (`SupplierTodayScreen`),
   // which mounts the feed; the properties below are asserted where each now lives.
@@ -570,19 +573,16 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
       3. the two halves come from ONE `splitDesk` call, so they cannot disagree
          about which card went where.
   */
-  const feedMount = screen.match(/<WhatsNewFeed\b[\s\S]*?\/>/)?.[0] ?? '';
-  assert.ok(feedMount, 'the Overview no longer mounts <WhatsNewFeed>');
-  assert.match(
-    feedMount,
-    /incomplete=\{deskIncomplete\}/,
-    'the short-read flag no longer reaches the feed — a partial read would render as an empty desk',
-  );
-  assert.match(page, /deskIncomplete=\{deskIncomplete\}/, 'the page does not hand the short-read flag to the drawing');
-  assert.match(feedMount, /asks=\{view\.askRows\}/, 'the feed is no longer fed the rows');
-  // BOTH halves reach the rows: the asks (`supplierWaiting`) and the closed lines, one list since 2026-10-14.
-  assert.match(page, /needsAnswer,\s*closed: nothingToAnswer,/, 'the news half is computed and never handed on — those cards would vanish');
-  assert.match(view, /\.\.\.waiting\.asks\.map\([\s\S]*?\.\.\.closed\.map\(/, 'the rows lost one half of the desk');
-  assert.match(page, /cards=\{\[\.\.\.needsAnswer, \.\.\.nothingToAnswer\]\}/, 'the drawing is not handed both halves');
+  // 🔁 THE ONE BUILD (8 Nov): the feed is retired from Today; the desk is ONE Needs-you list (`view.needs`). The same
+  // properties, where they live now:
+  //   1. the short-read flag REACHES the list — a partial read draws "Some answers couldn't load", never an empty desk;
+  assert.match(page, /needsAnswer,\s*closed: nothingToAnswer,\s*deskIncomplete,/, 'the page does not hand the short-read flag to the assembly');
+  assert.match(view, /if \(input\.deskIncomplete\) \{\s*needs\.push\(\{\s*key: 'unread',/, 'a short read no longer reaches the list — it would render as an empty desk');
+  //   2. BOTH halves are drawn — the asks and the closed lines, in one list;
+  assert.match(view, /const needs: TodayNeed\[\] = askOrder\.map\(/, 'the asks are no longer rows');
+  assert.match(view, /needs\.push\(\.\.\.closed\.map\(\(card\) => todayNeedOf\(card, now\)\)\);/, 'the closed half is computed and never drawn — those cards would vanish');
+  assert.match(screen, /needs=\{view\.needs\}/, 'the drawing is not handed the list');
+  //   3. the two halves come from ONE `splitDesk` call.
   assert.equal(
     (page.match(/splitDesk\(whatsNew\)/g) ?? []).length,
     1,

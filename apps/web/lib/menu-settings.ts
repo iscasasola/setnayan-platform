@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio' | 'client';
 
 export type SettingsEntry = {
   /**
@@ -54,7 +54,7 @@ export type SettingsEntry = {
 
 /** The ⓘ every menu sheet carries, word for word (prototype § 1). */
 export const MENU_SETTINGS_TIP =
-  'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
+  'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Today.';
 
 /**
  * 🪪 HOME'S ⚙ FOR A HELPER (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙
@@ -145,15 +145,16 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     tip: 'Settings for Today only. Your shop’s own settings stay with your shop.',
   },
   /**
-   * 👥 THE SUPPLIER'S CUSTOMERS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days").
-   * It ends Customers' pinned row on People, Dates and Money (one component, `CustomersSettings`, one mount).
+   * 👥 THE SUPPLIER'S CLIENTS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days";
+   * the tab is called CLIENTS since THE ONE BUILD, 8 Nov 2026 — the key stays `customers`: it is the guard's handle and
+   * `return_to=customers`). It ends the Clients pinned row (one component, `CustomersSettings`, one mount).
    */
   customers: {
     door: 'first-row-gear',
-    sheet: 'Customers settings',
+    sheet: 'Clients settings',
     line: 'How you get paid, your schedules and days.',
     live: true,
-    tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
+    tip: 'Settings for Clients only. What couples see on your page stays with your Shop.',
   },
   /**
    * 🗓 THE SUPPLIER'S HUB ⚙ (supplier dashboard v13, prototype `renderViewrow` "Hub ▾ · ⓘ · ⚙"; DECISION_LOG 2026-10-31
@@ -179,6 +180,33 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'Your plan, who helps run the shop, your papers, how we reach you.',
     live: true,
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
+  },
+  /**
+   * 🖼 PORTFOLIO ⚙ (THE ONE BUILD, lane C4 — spec §9 #12: "portfolio-settings.tsx and the portfolio menu-settings entry →
+   * C4 only"; L1 adds the `portfolio` key to `SettingsMenu`): the right end of the Portfolio tab's pinned row
+   * (`collections/_components/portfolio-settings.tsx`, one mount). Your free photos and what past them costs. Storage
+   * purchase is out of this build (spec §1, owner 8 Nov: "later") — the sheet says "not on sale yet", never a price.
+   * No "what Show includes" switches (map row 70: INVENTED; spec §9 #18).
+   */
+  portfolio: {
+    door: 'first-row-gear',
+    sheet: 'Portfolio settings',
+    line: 'Your free photos, and what comes after them.',
+    live: true,
+    tip: 'Rare, shop-wide things about your portfolio. Adding, sorting and showing your photos stays on the Portfolio page.',
+  },
+  /**
+   * 🧑‍🤝‍🧑 THE PICKED CLIENT'S ⚙ (THE ONE BUILD, 8 Nov 2026 — spec B1 step 5: the picked client's pinned row is
+   * "‹✕› [initials] Event name · lane badge ⚙", built with `MenuSettingsButton`). LIVE since the integration (8 Nov):
+   * mounted once, in `PickedClientShell`'s pinned row. Its one row today is the shipped "agree to their requests"
+   * switch (`PickedClientSettings`, moved by L2); any further row is an owner call — the spec names the door, not its rows.
+   */
+  client: {
+    door: 'first-row-gear',
+    sheet: 'Client settings',
+    line: 'Settings for this client only.',
+    live: true,
+    tip: 'Settings for this client only. What you set for every client stays in Clients settings.',
   },
 };
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import { Fragment } from 'react';
@@ -21,6 +22,7 @@ import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readPlanHolds } from '@/lib/service-plan-hold.server';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { StayOnSection } from './stay-on-section';
 import { PlanHoldTag } from './plan-hold-tag';
@@ -178,9 +180,11 @@ export async function VendorServicesManager({
 
   // 🧭 Which cards the PLAN holds (owner 2026-11-06, SERVICES LIFE CYCLE) — its own read, so a database without the
   // columns degrades to "every card as it always was" (null), never to a claim that nothing is held.
-  const [services, planHolds] = await Promise.all([
+  // 🎁 The gift limit is the admin setting (C2 → C4, THE ONE BUILD spec §5 #3) — read beside the list, never typed.
+  const [services, planHolds, giftLimitPct] = await Promise.all([
     fetchVendorServices(supabase, profile.vendor_profile_id),
     readPlanHolds(supabase, profile.vendor_profile_id),
+    getGiftLimitPct(createAdminClient()),
   ]);
 
   // Only the canvas maker can open pre-filled, so "start a new card from this
@@ -774,6 +778,7 @@ export async function VendorServicesManager({
               vendorProfileId={profile.vendor_profile_id}
               refinements={refinementsByCategory.get(addCategory) ?? null}
               refinementInitial={refinementPayloadByCategory.get(addCategory) ?? {}}
+              giftLimitPct={giftLimitPct}
             />
           </div>
         ) : null}
@@ -838,7 +843,7 @@ export async function VendorServicesManager({
             </Link>
           </div>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="space-y-2.5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const prevCov = i > 0 ? listedServices[i - 1]?.coverage_id ?? null : null;
               const showCovHeader = i === 0 || prevCov !== (svc.coverage_id ?? null);
@@ -880,7 +885,7 @@ export async function VendorServicesManager({
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
-                    <li className="px-1 pb-1 pt-3 first:pt-1">
+                    <li className="px-1 pb-1 pt-3 first:pt-1" data-shop-card-group="">
                       <p
                         className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]"
                         style={{ color: 'var(--m-slate-3)' }}
@@ -891,6 +896,11 @@ export async function VendorServicesManager({
                   ) : null}
                 <li
                   id={`svc-${svc.vendor_service_id}`}
+                  // 🔎 Shop's thumb row narrows these in place (THE ONE BUILD, `shop-services-thumb.tsx`): its words,
+                  // whether it is live, and its name for "Sort · Name".
+                  data-shop-card=""
+                  data-shop-card-live={svc.is_active ? '1' : '0'}
+                  data-shop-card-name={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
                   className="scroll-mt-24 overflow-hidden rounded-2xl border"
                   style={{
                     borderColor:
@@ -1298,6 +1308,7 @@ function AddServiceForm({
   vendorProfileId,
   refinements,
   refinementInitial,
+  giftLimitPct,
 }: {
   addCategory: VendorCategory;
   labelFor: (cat: VendorCategory) => string;
@@ -1307,6 +1318,8 @@ function AddServiceForm({
   vendorProfileId: string;
   refinements: CategoryRefinements | null;
   refinementInitial: Record<string, unknown>;
+  /** 🎁 `platform_settings.gift_limit_pct`, read once by the manager. */
+  giftLimitPct: number;
 }) {
   return (
     <>
@@ -1328,7 +1341,9 @@ function AddServiceForm({
           unsavedHint="press Add service below"
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-          watermark
+          mark="supplier"
+          frame="square"
+          previews="service-card"
           compressImage
           variant="square"
         />
@@ -1402,7 +1417,7 @@ function AddServiceForm({
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
       <ShowcaseMediaFields vendorProfileId={vendorProfileId} unsavedHint="press Add service below" />
-      <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} />
+      <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} limitPct={giftLimitPct} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Cancel
@@ -1592,11 +1607,18 @@ function SetnayanGiftField({
   idPrefix,
   giftOn,
   legacyPerkText,
+  limitPct,
 }: {
   idPrefix: string;
   giftOn: boolean;
   legacyPerkText?: string;
+  /**
+   * 🎁 The gift limit, % of the booking fee — the ADMIN SETTING `platform_settings.gift_limit_pct` (C2, THE ONE BUILD
+   * spec §5 #3). Absent → its ruled default (`giftLimitPctOrDefault`), never a typed "40".
+   */
+  limitPct?: number | null;
 }) {
+  const cap = giftLimitPctOrDefault(limitPct);
   return (
     <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}>
       <div className="flex items-center gap-2">
@@ -1615,7 +1637,7 @@ function SetnayanGiftField({
         Say yes and every couple who books this card gets free Papic photos for their
         event — a real Setnayan product, given in your name. How many is worked out from
         your booking fee and appears on the quote, so there is nothing here to set. It is added
-        to your lock bill beside the fee, capped at 40% of it.
+        to your lock bill beside the fee, capped at {cap}% of it.
       </p>
       <fieldset className="flex gap-2">
         <legend className="sr-only">Include a Setnayan gift</legend>

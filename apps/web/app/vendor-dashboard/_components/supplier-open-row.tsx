@@ -120,7 +120,7 @@ function PaneBody({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div data-open-pane-body="">
       <h2
-        className="sticky top-0 z-[2] border-b border-ink/10 px-4 py-3 text-[17px] font-semibold leading-snug text-ink sm:px-6"
+        className="sticky top-0 z-[2] sn-pin-hair px-4 py-3 text-[17px] font-semibold leading-snug text-ink sm:px-6"
         style={{ background: 'var(--sn-canvas)' }}
       >
         {title}

@@ -1,4 +1,4 @@
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
@@ -749,7 +749,7 @@ export default async function PapicModerationPage({
             Photo Notes add words to your Papic photos, so set up your Papic crew
             first.{' '}
             <Link
-              href={papicHomeHref(eventId)}
+              href={papicCardHref(eventId)}
               className="font-medium text-mulberry underline-offset-2 hover:underline"
             >
               Set up Papic

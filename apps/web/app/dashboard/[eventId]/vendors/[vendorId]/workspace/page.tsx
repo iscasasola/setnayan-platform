@@ -38,6 +38,7 @@ import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { CLIENT_REFUND_SELECT, clientRefundOf, refundDayWords, refundedTotalPhp, type ClientRefund, type ClientRefundDbRow } from '@/lib/client-refunds';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import { paidToVendorPhp } from '@/lib/paid-to-vendor';
@@ -131,6 +132,7 @@ import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-orde
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
+import { SupplierFormsCard } from './_components/supplier-forms-card';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -849,6 +851,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     });
   } catch {
     planProgress = { steps: null, clearedAt: null };
+  }
+
+  // 💸 B2-E · REFUNDS THIS SUPPLIER GAVE YOU (`event_vendor_refunds`, the couple's own RLS arm). The supplier records
+  // them; nothing moves on Setnayan. ONE request. Refused → said in words, never "no refunds".
+  let supplierRefunds: { measured: boolean; rows: ClientRefund[] } = { measured: true, rows: [] };
+  {
+    const { data: refundRows, error: refundErr } = await supabase
+      .from('event_vendor_refunds')
+      .select(CLIENT_REFUND_SELECT)
+      .eq('event_vendor_id', ev.vendor_id)
+      .is('removed_at', null)
+      .order('refunded_on', { ascending: false });
+    if (refundErr) {
+      logQueryError('VendorWorkspacePage.refunds', refundErr, { eventId }, 'graceful_degrade');
+      supplierRefunds = { measured: false, rows: [] };
+    } else {
+      supplierRefunds = { measured: true, rows: ((refundRows ?? []) as ClientRefundDbRow[]).map(clientRefundOf) };
+    }
   }
 
   // No-Show Downpayment Protection — the frozen reservation-terms acknowledgement
@@ -1830,6 +1850,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
           ) : null}
 
+          {/* 💸 B2-E: refunds this supplier recorded giving you — beside your payments, in their words. */}
+          {!supplierRefunds.measured ? (
+            <p role="status" className="text-[12.5px] text-ink/60" data-workspace-refunds-unread="">
+              Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.
+            </p>
+          ) : supplierRefunds.rows.length > 0 ? (
+            <div className="space-y-1.5 border-t border-ink/10 pt-3" data-workspace-refunds={supplierRefunds.rows.length}>
+              <p className="text-xs font-semibold text-ink">
+                Refunds from {displayName} · ₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}
+              </p>
+              <ul className="divide-y divide-ink/10">
+                {supplierRefunds.rows.map((r) => (
+                  <li key={r.refundId} className="py-1.5 text-[13px] text-ink" data-workspace-refund={r.refundId}>
+                    <span className="font-semibold tabular-nums">₱{r.amountPhp.toLocaleString('en-PH')}</span>
+                    <span className="text-ink/55"> · {refundDayWords(r.refundedOn)} · </span>
+                    {r.reason}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-ink/55">{displayName} recorded giving this back to you. Paid amounts above are what you sent; this is what came back.</p>
+            </div>
+          ) : null}
+
           {/*
             No-Show Downpayment Protection — the frozen reservation terms the
             couple acknowledged at lock, rendered read-only beside the plan. The
@@ -2607,14 +2650,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // ❓ "{SHOP} ASKS" — every supplier's questions for the couple, answered here (owner 2026-11-04, verbatim "Yes,
   // every supplier"). Only a supplier with a Setnayan shop can ask; the card renders nothing unless they ask something
   // AND are booked or sent their set from the chat. Lives on Details (flag-on) / after the inclusions (flag-off).
+  // 📋 …and every form the shop SENT into this event (THE ONE BUILD · Forms), each its own section under it.
   const supplierQuestionsSection = ev.marketplace_vendor_id ? (
-    <SupplierQuestionsCard
-      supabase={supabase}
-      eventId={eventId}
-      eventVendorId={ev.vendor_id}
-      vendorProfileId={ev.marketplace_vendor_id}
-      shopName={displayName}
-    />
+    <>
+      <SupplierQuestionsCard
+        supabase={supabase}
+        eventId={eventId}
+        eventVendorId={ev.vendor_id}
+        vendorProfileId={ev.marketplace_vendor_id}
+        shopName={displayName}
+      />
+      <SupplierFormsCard
+        supabase={supabase}
+        eventId={eventId}
+        eventVendorId={ev.vendor_id}
+        vendorProfileId={ev.marketplace_vendor_id}
+        shopName={displayName}
+      />
+    </>
   ) : null;
 
   // ------------------------------------------------------------------------

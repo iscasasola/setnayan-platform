@@ -60,7 +60,8 @@
  *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
- *                     · &state=moved|skipped (the run of show after a Change the schedule, 2026-11-04)
+ *                     · &state=moved|skipped (the run of show after a Change the schedule, 2026-11-04) · asks (the crew's
+ *                     skip asks waiting on the floor, 2026-11-05)
  *                     🎟 &scan=on|two|fresh|unread the supplier claim scanner · &answer=claimed|already|souvenir-desk|not|
  *                     nosignal|name its result line (2026-11-04)
  *   ?s=scan-guest     🎟 the guest's "Your number #0042" card (&two=1) · ?s=scan-couple the couple's Suppliers' scans
@@ -68,6 +69,7 @@
  *   ?s=schedule       🤝 the supplier's part of the schedule (Step 4b, `schedule-lab.tsx`): + My moment · My times · Suggest ·
  *                     Take back · Seen · Confirm my times; &state=week|confirmed|auto|seen|unlinked|fail · 🏛 venue|held (venue hours) · 🚗 clash|clashfail
  *   ?s=crew-phone     📱 the crew phone (`hub-lab.tsx` CrewPhoneLab): &state=name|waiting|member|helper|helper-shop|ended
+ *                     · &skip=locked|asked (a Member's Ask to skip, 2026-11-05: a locked part · a part already asked)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -109,6 +111,11 @@ import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { CrewPhoneLab, HubLab } from './hub-lab';
 import { EventHubLab } from './event-hub-lab';
 import { ScanLab } from './scan-lab';
+import { PhotoMarkLab } from './photo-mark-lab';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { TOURS } from '@/lib/tours';
+import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
+import { LAB_SHOP_QR_URL } from './today-easy-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
@@ -313,11 +320,9 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
-        feeForecasts={{}}
-        cards={state.whatsNew}
-        askStatus=""
-        deskIncomplete={state.deskIncomplete}
-        actions={ACTIONS}
+        shopName="Lumina Studio"
+        todayIso={LAB_TODAY}
+        now={NOW}
       />
     </div>
   );
@@ -326,7 +331,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; verified?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -358,7 +363,7 @@ export default async function SupplierLabPage({
     );
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} />, 'today');
   }
   if (q.s === 'hub') {
     /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */
@@ -368,13 +373,17 @@ export default async function SupplierLabPage({
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
     return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} numbers={q.numbers} state={q.state} />, 'own');
   }
+  if (q.s === 'photo-mark') {
+    /* 🔏 The Seal and plate + the Frame step on the REAL uploader (#7246 · #7247) — `photo-mark-lab.tsx`; &verified=1. */
+    return <PhotoMarkLab verified={q.verified === '1'} />;
+  }
   if (q.s === 'scan-guest' || q.s === 'scan-couple') {
     /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */
     return <ScanLab side={q.s === 'scan-couple' ? 'couple' : 'guest'} two={q.two} state={q.state} review={q.review} />;
   }
   if (q.s === 'crew-phone') {
     /* 📱 The crew phone's screens (owner 2026-10-29) — no shell: crew never see the supplier's frame. */
-    return <CrewPhoneLab state={q.state} />;
+    return <CrewPhoneLab state={q.state} skip={q.skip} />;
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */

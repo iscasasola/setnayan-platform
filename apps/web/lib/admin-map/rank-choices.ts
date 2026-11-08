@@ -69,10 +69,15 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // 146 since 2026-10-26: Admin › Event types gains "Who it's for" (`updateEventTypeForWhom`, owner 2026-10-26 —
 // the create grid's "For ▾" rule), a job that shares a word with the flagship sentence — one more scoring job, so
 // the last zero-hit page fell off at 145. The rule above, raised by one.
-// 147 since 2026-11-05: Admin › a supplier gains `moderateServiceCard` (take down a service card · put it back ·
-// remove a photo — the 7 Nov supplier registration minimum), a job that shares a word with the flagship sentence —
-// one more scoring job, so the last zero-hit page fell off at 146. The rule above, raised by one.
-export const MODEL_CHOICE_CAP = 147;
+// 147 since 2026-10-28: Admin › Categories › Hub tools (`setCategoryHubTools`, admin supplier slice) is a job that
+// shares a word with the flagship sentence — one more scoring job, so the last zero-hit page fell off at 146. The rule
+// above, raised by one.
+// 147 since 2026-11-05 (on main): Admin › a supplier gains `moderateServiceCard` (take down a service card · put it
+// back · remove a photo — the 7 Nov supplier registration minimum), a job that shares a word with the flagship
+// sentence — one more scoring job, so the last zero-hit page fell off at 146. The rule above, raised by one.
+// 148 since the two met in one tree (merge of main into the admin supplier slice, 2026-11-05): both jobs score, so
+// the rule above is raised by one for each — re-measure with the probe below, never trust this number.
+export const MODEL_CHOICE_CAP = 148;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

@@ -1,6 +1,6 @@
 'use server';
 
-import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
+import { papicCardHref, papicSeatBack, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -85,7 +85,7 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
   if (!membership || membership.member_type !== 'couple') {
     return {
       ok: false,
-      redirectTo: papicHomeHref(eventId, `papic_access_error=not_a_couple`),
+      redirectTo: papicCardHref(eventId, `papic_access_error=not_a_couple`),
     };
   }
 
@@ -116,7 +116,7 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     missionId.length === 0 ||
     (decision !== 'approve' && decision !== 'reject')
   ) {
-    redirect(papicHomeHref(eventId));
+    redirect(papicCardHref(eventId));
   }
 
   const supabase = await createClient();
@@ -126,7 +126,7 @@ export async function reviewVendorChallengeAction(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/${eventId}`);
-  redirect(papicHomeHref(eventId));
+  redirect(papicCardHref(eventId));
 }
 
 // ==========================================================================
@@ -272,9 +272,11 @@ export async function createCoupleChallengeAction(formData: FormData) {
  * 🔑 The guard was right that something was wrong; it was wrong about what.
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
-  // 🏠 'home' — pressed inside Home's open Papic card (owner 2026-10-23: the card "expands on home"); a fixed word
-  // picks a fixed path, never a URL from the form. The two others are the Papic page's children, still pages.
-  if (raw === 'home') return `/dashboard/${eventId}`;
+  // 🖼 'memories' — pressed inside the open Papic card, which lives in Memories since 2026-11-08 ('home' = Today, kept
+  // for a form already open); a fixed word picks a fixed path, never a URL from the form (`papicSeatBack`). The two
+  // others are the Papic page's children, still pages.
+  const seat = papicSeatBack(eventId, raw);
+  if (seat) return seat;
   return raw === 'run-of-show' ? `/dashboard/${eventId}/studio/papic/run-of-show` : `/dashboard/${eventId}/studio/papic/challenges`;
 }
 
@@ -591,8 +593,9 @@ export async function setChallengesPausedAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  // 🏠 The Papic card's Challenges switch (owner 2026-10-24) saves back to Home; the run of show keeps its own page.
-  const returnTo = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic/run-of-show`;
+  // 🖼 The Papic card's Challenges switch (owner 2026-10-24) saves back to the card's seat (Memories since 2026-11-08);
+  // the run of show keeps its own page.
+  const returnTo = papicSeatBack(eventId, formData.get('return_to')) ?? `/dashboard/${eventId}/studio/papic/run-of-show`;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }
@@ -850,7 +853,7 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * there), else the Papic page. A fixed word picks a fixed path — never a URL from the form.
  */
 function papicBack(formData: FormData, eventId: string): string {
-  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : papicHomeHref(eventId);
+  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : papicCardHref(eventId);
 }
 
 export async function setPapicUploadsOpen(formData: FormData) {
@@ -948,7 +951,7 @@ export async function setPapicStyle(formData: FormData) {
   const raw = formData.get('style');
   const style = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) {
-    redirect(papicHomeHref(eventId, `style_error=invalid`));
+    redirect(papicCardHref(eventId, `style_error=invalid`));
   }
 
   const admin = createAdminClient();
@@ -959,18 +962,20 @@ export async function setPapicStyle(formData: FormData) {
 
   if (error) {
     redirect(
-      papicHomeHref(eventId, `style_error=${encodeURIComponent(
+      papicCardHref(eventId, `style_error=${encodeURIComponent(
         error.message.slice(0, 64),
       )}`),
     );
   }
 
   revalidatePath(`/dashboard/${eventId}`);
-  if (savedFromHome(formData)) {
+  const seatBack = savedInCard(eventId, formData);
+  if (seatBack) {
     revalidatePath(`/dashboard/${eventId}`);
-    redirect(`/dashboard/${eventId}`);
+    revalidatePath(seatBack);
+    redirect(seatBack);
   }
-  redirect(papicHomeHref(eventId, `style_set=${style}`));
+  redirect(papicCardHref(eventId, `style_set=${style}`));
 }
 
 /**
@@ -1051,7 +1056,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
   const rawPhotoId = formData.get('photo_id');
   const photoId = typeof rawPhotoId === 'string' ? rawPhotoId.trim() : '';
   if (!photoId) {
-    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
+    redirect(papicCardHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -1065,7 +1070,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
+      papicCardHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
       )}`),
     );
@@ -1076,7 +1081,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
+    papicCardHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
@@ -1108,7 +1113,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
   const rawCaptureId = formData.get('photo_id');
   const captureId = typeof rawCaptureId === 'string' ? rawCaptureId.trim() : '';
   if (!captureId) {
-    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
+    redirect(papicCardHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -1122,7 +1127,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
+      papicCardHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
       )}`),
     );
@@ -1131,7 +1136,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
+    papicCardHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
@@ -1232,7 +1237,7 @@ export async function setPapicWindow(formData: FormData) {
   });
   if (!resolved.ok) {
     redirect(
-      papicHomeHref(eventId, `papic_window_error=${resolved.error}`),
+      papicCardHref(eventId, `papic_window_error=${resolved.error}`),
     );
   }
   const { window: win } = resolved;
@@ -1246,7 +1251,7 @@ export async function setPapicWindow(formData: FormData) {
     .eq('event_id', eventId);
   if (updErr) {
     redirect(
-      papicHomeHref(eventId, `papic_window_error=${encodeURIComponent(
+      papicCardHref(eventId, `papic_window_error=${encodeURIComponent(
         updErr.message.slice(0, 48),
       )}`),
     );
@@ -1269,23 +1274,26 @@ export async function setPapicWindow(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}`);
-  // 🏠 Saved from Home's Papic card: land back on Home, the card still open (a failure still lands on the Papic
+  // 🖼 Saved from inside the Papic card: land back on its seat (Memories), the card still open (a failure still lands on the Papic
   // page above, where its banner is read).
-  if (savedFromHome(formData)) {
+  const seatBack = savedInCard(eventId, formData);
+  if (seatBack) {
     revalidatePath(`/dashboard/${eventId}`);
-    redirect(`/dashboard/${eventId}`);
+    revalidatePath(seatBack);
+    redirect(seatBack);
   }
   redirect(
-    papicHomeHref(eventId, `papic_window_saved=${win.days}`),
+    papicCardHref(eventId, `papic_window_saved=${win.days}`),
   );
 }
 
 /**
- * 🏠 Was this saved from Home's Papic card (owner 2026-10-23: the card *"expands on home"*, the URL unchanged)?
- * 🔒 A fixed word (`return_to=home`) picks a fixed path — never a URL from the form.
+ * 🖼 Was this saved from inside the Papic card — and so, which page does it land back on? The card lives in Memories
+ * since 2026-11-08 (`return_to=memories`); `return_to=home` (Today) is still honoured for a form already open.
+ * 🔒 A fixed word picks a fixed path — never a URL from the form (`papicSeatBack`). Null = not from the card.
  */
-function savedFromHome(formData: FormData): boolean {
-  return formData.get('return_to') === 'home';
+function savedInCard(eventId: string, formData: FormData): string | null {
+  return papicSeatBack(eventId, formData.get('return_to'));
 }
 
 // ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────
@@ -1366,14 +1374,14 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   }
 
   const fail = (code: string): never =>
-    redirect(papicHomeHref(eventId, `papic_pool_error=${code}`));
+    redirect(papicCardHref(eventId, `papic_pool_error=${code}`));
 
   const admin = createAdminClient();
 
   // The celebration is over — no sale. See the note above this file's
   // purchase actions, and lib/event-is-over.server.ts.
   if (await eventIsOver(admin, eventId)) {
-    redirect(papicHomeHref(eventId, `papic_pool_error=event_over`));
+    redirect(papicCardHref(eventId, `papic_pool_error=event_over`));
   }
 
   // The rung must be a LIVE, NON-TOPUP Pool rung. Read from the table, never an
@@ -1487,7 +1495,7 @@ export async function setCapturePreserved(formData: FormData) {
     redirect(result.redirectTo);
   }
   const { eventId } = result;
-  const back = papicHomeHref(eventId);
+  const back = papicCardHref(eventId);
 
   const captureId = String(formData.get('capture_id') ?? '').trim();
   const source = String(formData.get('source') ?? '').trim();
@@ -1581,7 +1589,7 @@ export async function setGuestAllotments(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = papicHomeHref(eventId);
+  const back = papicCardHref(eventId);
 
   const fail = (code: string): never =>
     redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
@@ -1652,10 +1660,12 @@ export async function setGuestAllotments(formData: FormData) {
   }
 
   revalidatePath(hrefPath(back));
-  // 🏠 Saved inside Home's Papic card — land back on Home (a failure above still lands here, where its banner is read).
-  if (savedFromHome(formData)) {
+  // 🖼 Saved inside the Papic card — land back on its seat (Memories) (a failure above still lands here, where its banner is read).
+  const seatBack = savedInCard(eventId, formData);
+  if (seatBack) {
     revalidatePath(`/dashboard/${eventId}`);
-    redirect(`/dashboard/${eventId}`);
+    revalidatePath(seatBack);
+    redirect(seatBack);
   }
   redirect(withQuery(back, `allotment_set=${enabled ? '1' : '0'}`));
 }
@@ -1685,7 +1695,7 @@ export async function setGuestAllotment(formData: FormData): Promise<void | { ok
     redirect(result.redirectTo);
   }
   const { eventId } = result;
-  const back = papicHomeHref(eventId);
+  const back = papicCardHref(eventId);
 
   const fail = (code: string): never =>
     redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
@@ -1797,7 +1807,7 @@ export async function releaseTheRest(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = papicHomeHref(eventId);
+  const back = papicCardHref(eventId);
 
   const supabase = await createClient();
   const {
@@ -1821,9 +1831,11 @@ export async function releaseTheRest(formData: FormData) {
   }
 
   revalidatePath(hrefPath(back));
-  if (savedFromHome(formData)) {
+  const seatBack = savedInCard(eventId, formData);
+  if (seatBack) {
     revalidatePath(`/dashboard/${eventId}`);
-    redirect(`/dashboard/${eventId}`);
+    revalidatePath(seatBack);
+    redirect(seatBack);
   }
   redirect(withQuery(back, `allotment_set=released`));
 }

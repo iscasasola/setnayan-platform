@@ -55,6 +55,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   supplier_where_asked: 'normal', // a booked supplier asks to serve these chapters — the host OKs it
   papic_originals_reminder: 'normal', // day 60 · 80 · 89 of the 3 months a host's originals are kept (photo rule)
   supplier_questions_sent: 'normal', // a supplier sent their questions into the event from the chat ＋ (every supplier)
+  supplier_report: 'normal', // a supplier filed a Report from a picked client into /admin/help (admins)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   vendor_inquiry_received: 'normal',
@@ -125,6 +126,11 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   booking_fee_waived: 'low',
   guest_takedown_honored: 'low',
   service_card_moderated: 'low',
+  // Admin supplier slice — Setnayan answered the shop's name / web-address request, or sent a flagged service-card
+  // photo back. Owner, 8 Nov 2026, verbatim: *"Buzz (Normal)"* (reverses the controller's 'low'; same as his 5 Nov
+  // "Let us make it buzz") — the supplier is waiting on this answer, so it pushes now (Normal: buzzes, waits for
+  // 7 am during quiet hours). Still in the app only, no email (it is not on the email allowlist).
+  supplier_request_answered: 'normal',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',
@@ -171,7 +177,8 @@ export const QUIET_END_HOUR = 7;
 /** When the one evening summary may go out: from 7 pm until quiet hours begin. */
 export const EVENING_SUMMARY_HOUR = 19;
 
-function manilaHour(nowMs: number): number {
+/** The hour of day (0–23) in Manila at `nowMs` — read by quiet hours and by the supplier Today greeting. */
+export function manilaHour(nowMs: number): number {
   return new Date(nowMs + MANILA_OFFSET_MS).getUTCHours();
 }
 

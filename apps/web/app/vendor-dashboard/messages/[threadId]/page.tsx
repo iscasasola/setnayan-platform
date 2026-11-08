@@ -53,19 +53,21 @@ import { formatLongDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
-import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
-import { ChatSendForm } from '@/app/_components/chat-send-form';
-import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
-import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchAddonsByService } from '@/lib/vendor-service-addons';
 import type { QuoteCardOption } from '@/app/_components/proposal-maker';
 import { briefForQuote } from '@/lib/quote-event-brief';
+import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
+import { QUOTE_VERSION_SELECT, type QuoteVersionRow } from '@/lib/quote-versions';
+import { askedOnce } from '@/lib/request-once';
+import { MarkReadWhenShown } from './_components/mark-read-when-shown';
+import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
+import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
 import { bandMedianPerHeadPhp } from '@/lib/budget-band-money';
 import { isFeeUnlocksEventEnabled } from '@/lib/event-access-stage';
@@ -95,13 +97,26 @@ import {
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
+// ⚡ The heavy client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
+// each in its own chunk — server-rendered and preloaded where they are on screen, so this page paints as before, and
+// out of the picked client's first load (Details' Decisions renders this page).
 import {
+  ChatInfoRailTrigger,
+  ChatMessageStream,
+  ChatPrivacyNotice,
+  ChatSendForm,
+  ChatThreadMenu,
+  ConversationColumn,
+  InquiryOutcomeCapture,
+  NegotiationComposerMenu,
+  ProposalMaker,
+  QuoteVersionLine,
+  SendProposalCard,
+  ThreadToolsSheet,
+  VendorEventDayPrepCta,
   VendorOfferService,
-  type VendorOfferOption,
-} from './_components/vendor-offer-service';
-import { SendProposalCard } from './_components/send-proposal-card';
-import { ProposalMaker } from '@/app/_components/proposal-maker';
-import { ChatInfoRailTrigger } from './_components/chat-info-rail';
+} from './_components/on-demand';
+import type { VendorOfferOption } from './_components/vendor-offer-service';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
@@ -118,7 +133,6 @@ import {
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
-import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
   initialsFor,
@@ -126,7 +140,6 @@ import {
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { QuestionsSendPanel } from './_components/questions-send-panel';
-import { ThreadToolsSheet } from './_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
@@ -134,7 +147,6 @@ import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import {
   deriveThreadStage,
@@ -145,10 +157,7 @@ import { closingCopy } from '@/lib/thread-closing-copy';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
 import { regionLabel } from '@/lib/region-source';
 import { eventTypeLabel } from '@/lib/demand-radar';
-import {
-  InquiryOutcomeCapture,
-  type OutcomeReasonOption,
-} from './_components/inquiry-outcome-capture';
+import type { OutcomeReasonOption } from './_components/inquiry-outcome-capture';
 import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,
@@ -178,6 +187,14 @@ type Props = {
     taken?: string;
     free?: string;
     competing?: string;
+    /**
+     * THE ONE BUILD (8 Nov 2026) — INTERNAL, set only by `SupplierThreadBody` (`_components/supplier-thread-body.tsx`):
+     * the SAME thread, drawn inside the picked client's page instead of full screen. `chat` = the conversation
+     * without the full-screen frame (no conversation list, the client's pinned row is the head); `quotation` = the
+     * quote builder alone, seeded from the live quote. One body, one read path — never a second copy of these reads.
+     * Build 2 #42: `decisions` = the Decisions list on the picked client's Details page, from the SAME one draw.
+     */
+    __embed?: string;
   }>;
 };
 
@@ -203,9 +220,41 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   outcome_failed: 'Couldn’t save that outcome. Please try again.',
 };
 
+/** The picked client's three embeds of this thread (Chat · Quotation · Details' Decisions), drawn together. */
+type ThreadDrawn = { full: React.ReactNode; chat: React.ReactNode; quotation: React.ReactNode; decisions: React.ReactNode };
+type ThreadSearch = Awaited<NonNullable<Props['searchParams']>> | undefined;
+type ThreadEmbedView = 'chat' | 'quotation' | 'decisions';
+
+/** `askedOnce`'s name for "the picked client's draw of this thread" — one per render, per viewer, per thread. */
+const THREAD_EMBEDS_DRAW = 'vendor-thread.embeds-draw';
+
+/*
+  ⚡ ONE CLIENT OPEN, ONE THREAD DRAW (Build 2 · lane D, 8 Nov 2026 — a Build-1 bug).
+  The picked client builds EVERY page body on each request (`pickedPageBodies`) and only shows one, so Chat and
+  Quotation — which both render THIS page — ran every read below TWICE per open, whichever page was on screen. Every
+  embed now asks for the SAME draw (`askedOnce`, the repo's one-per-render memory — `lib/request-once.ts`): the first
+  embed starts it, the others are handed its answer, and the draw returns all three embeds' nodes at once. Keyed by
+  the viewer's session client (WHO) · the thread (ABOUT) — never shared across viewers or requests. The full-screen
+  route draws alone, exactly as before. Held by `clients/[eventId]/a-client-open-draws-the-thread-once.test.ts`.
+*/
 export default async function VendorThreadPage({ params, searchParams }: Props) {
   const { threadId } = await params;
   const sp = await searchParams;
+  const view: ThreadEmbedView | null =
+    sp?.__embed === 'chat' || sp?.__embed === 'quotation' || sp?.__embed === 'decisions' ? sp.__embed : null;
+  if (view) {
+    const viewer = await createClient();
+    const drawn = await askedOnce(viewer, THREAD_EMBEDS_DRAW, [threadId], () => drawVendorThread(threadId, undefined, true));
+    return drawn[view];
+  }
+  return (await drawVendorThread(threadId, sp, false)).full;
+}
+
+/**
+ * The thread page's ONE draw. `embedded` = the picked client's draw (no search params of its own): it returns the
+ * Chat, Quotation and Details-Decisions nodes together; otherwise the full-screen page.
+ */
+async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: boolean): Promise<ThreadDrawn> {
   const noticeKey = sp?.notice;
   // Read on the server so a Decisions link paints Decisions, not the chat.
   const initialView = parseThreadView(sp?.view);
@@ -217,7 +266,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // card. Opens the Build-a-quote panel on the server AND seeds the builder
   // from the quote being replaced (see `quoteRevision` below), so the supplier
   // edits what they sent rather than retyping it. Same mechanism as `deal`.
-  const composeMode =
+  // The picked client's Quotation opens the builder ON the live quote, exactly as "Update this quote" does
+  // (`compose=quote`) — its node is drawn with `'quote'` below (`toolNodesFor`); the Chat embed's tray with none.
+  const composeMode: 'deal' | 'quote' | null =
     sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   // The answer to a booking ask given from the accepted quote card lands back
@@ -394,6 +445,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // for it (that column reads the `chat_thread_reads` row this writes).
   const markedRead = (async () => {
     await writesWaitFor;
+    // ONLY THE CHAT VIEW MARKS READ (coordinator ruling, 8 Nov 2026). The picked client's draw is shared by Chat,
+    // Quotation and Details at once, so a mark HERE ran whichever page was on screen — opening Details or Quotation
+    // marked the chat read. The embedded draw therefore writes nothing; its Chat node mounts `MarkReadWhenShown`,
+    // which the shell mounts only while Chat is shown (and on a swipe to Chat, which makes no request). The
+    // full-screen route is the Chat view itself, so it marks here — before its conversation column reads the row.
+    if (embedded) return;
     await markThreadRead(threadId).catch(() => undefined);
   })();
   const batchRead = msgTimer.track('thread', () => Promise.all([
@@ -472,17 +529,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // degrades field by field rather than costing the page.
     (async (): Promise<{
       hostName: string | null;
+      /** THE ONE BUILD (8 Nov 2026): every host in this chat (`event_chat_hosts`). NULL = unread, never "no hosts". */
+      hosts: ChatHost[] | null;
       locked: number | null;
       total: number | null;
       lockedCategories: string[];
     }> => {
       try {
         const [members, vendors] = await Promise.all([
-          paxAdmin
-            .from('event_members')
-            .select('user_id')
-            .eq('event_id', thread.event_id)
-            .limit(1),
+          // WHO THE HOSTS ARE — one source for the brief and this page (`event_chat_hosts`, 20271324946509): every
+          // couple member, keyed by auth uid. Was `event_members … limit(1)` + a `users` read for one name.
+          paxAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id }),
           paxAdmin
             // `category` rides along on a query this page already makes — the
             // locked-category chips cost no extra round trip. ⚠ `vendor_name`
@@ -506,20 +563,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         const lockedCategories = lockedRows
           .map((r) => (r.category ? displayServiceLabel(r.category) : null))
           .filter((c): c is string => !!c);
-        const hostId = (members.data ?? [])[0]?.user_id as string | undefined;
-        let hostName: string | null = null;
-        if (hostId) {
-          // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
-          const { data: u } = await paxAdmin
-            .from('users')
-            .select('display_name')
-            .eq('user_id', hostId)
-            .maybeSingle();
-          hostName = (u as { display_name: string | null } | null)?.display_name ?? null;
-        }
-        return { hostName, locked, total: rows.length, lockedCategories };
+        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
+        const hosts = members.error ? null : chatHostsFrom(members.data);
+        const hostName = hosts?.[0]?.name ?? null;
+        return { hostName, hosts, locked, total: rows.length, lockedCategories };
       } catch {
-        return { hostName: null, locked: null, total: null, lockedCategories: [] };
+        return { hostName: null, hosts: null, locked: null, total: null, lockedCategories: [] };
       }
     })(),
     // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
@@ -565,7 +614,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    */
   const quoteRevisionRead = (async () => {
     let quoteRevision: QuoteRevisionSeed | null = null;
-    if (composeMode === 'quote') {
+    // The picked client's draw always seeds it: its Quotation node opens on the live quote.
+    if (composeMode === 'quote' || embedded) {
       const { data: liveQuote, error: liveQuoteErr } = await supabase
         .from('vendor_proposals')
         // The column list is a constant in lib/quote-revision-seed.ts so a unit
@@ -832,7 +882,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // The column reads `chat_thread_reads` (the unread dots, and the archived
     // embed on the thread list) — the row `markThreadRead` writes. It waits for
     // that write, as it did when the batch that held it was awaited first.
+    // (Awaited FIRST, even for the embedded draw that reads nothing: the page's one wait holds `markedRead`
+    // anyway, so this costs no time, and it keeps "the marker before any read" true for every branch below.)
     await markedRead;
+    // The picked client draws no conversation list (its own Clients list is the list) — nothing is read for it.
+    if (embedded) return [] as Awaited<ReturnType<typeof buildVendorConversationRows>>;
     const listThreads = await fetchVendorThreads(supabase, profile.vendor_profile_id).catch(
       (caught: unknown) => {
         logQueryError(
@@ -1245,7 +1299,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
    * and every anchor id. The rail carries LAUNCHERS (cheap, safe to duplicate);
    * the heavy tools live here, once, and the launchers open them by id.
    */
-  const toolNodes: Record<string, React.ReactNode> = {
+  // `cm` = which compose mode the node is drawn for: the full screen's `?compose=`, the picked client's Quotation
+  // (`'quote'`) or its Chat tray (none) — one draw serves both embeds, so the nodes are built per mode (no reads here).
+  const toolNodesFor = (cm: 'deal' | 'quote' | null): Record<string, React.ReactNode> => ({
     /*
       ONE QUOTE TOOL (SUP-H · AREA-CHAT, 2026-09-19). `send-proposal` and
       `build-quote` were two panels and two launchers for one job; a supplier
@@ -1284,7 +1340,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           cards={quoteCards}
           brief={quoteBrief}
           paymentMethods={proposalPaymentMethods}
-          revision={quoteRevision}
+          // Seeded only where the builder opens ON the live quote; the chat tray's builder opens empty, as before.
+          revision={cm === 'quote' ? quoteRevision : null}
           // Start from · a saved quote — hidden when the shop has none (owner 2026-10-14).
           savedQuotes={proposalTemplates.map((t) => ({ id: t.id, name: t.name }))}
           // The card this couple asked about, when it is one of the shop's active cards — the quote starts from it.
@@ -1337,7 +1394,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           embedded
           entry={dealEntry}
           // `quote` is the Build-a-quote panel's mode, not this menu's.
-          initialMode={composeMode === 'deal' ? 'deal' : null}
+          initialMode={cm === 'deal' ? 'deal' : null}
           threadId={threadId}
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
@@ -1355,7 +1412,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       />
     ),
     'log-outcome': outcomeCapture,
-  };
+  });
+  const toolNodes = toolNodesFor(composeMode);
 
   const toolsMounted = thread.inquiry_status === 'accepted';
 
@@ -1370,10 +1428,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      only when it is summoned from the list on the right, one at a time, with a
      way to put it away again. The components still mount ONCE, here, which is
      what keeps the rail cheap and every anchor id unique. */
-  const vendorTools = toolsMounted ? (
+  const vendorToolsFor = (cm: 'deal' | 'quote' | null) => {
+    const nodes = cm === composeMode ? toolNodes : toolNodesFor(cm);
+    return toolsMounted ? (
       <div>
         {/* A panel whose body is null (the booking ask, while none is open) is not drawn at all. */}
-        {VENDOR_THREAD_PANELS.map((t) => toolNodes[t.id] == null ? null : (
+        {VENDOR_THREAD_PANELS.map((t) => nodes[t.id] == null ? null : (
           <ThreadToolPanel
             key={t.id}
             id={t.id}
@@ -1383,15 +1443,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             // Build a quote, seeded from the live quote — both on the server,
             // so the link lands on an OPEN panel, never a page that looks unchanged.
             open={
-              (t.id === affordancePanelId('deal') && composeMode === 'deal') ||
-              (t.id === 'build-quote' && composeMode === 'quote')
+              (t.id === affordancePanelId('deal') && cm === 'deal') ||
+              (t.id === 'build-quote' && cm === 'quote')
             }
           >
-            {toolNodes[t.id]}
+            {nodes[t.id]}
           </ThreadToolPanel>
         ))}
       </div>
     ) : null;
+  };
+  const vendorTools = vendorToolsFor(composeMode);
 
   // ⚠ ONE derivation of a couple's two letters, shared with the conversation
   // column. Two copies is how one screen comes to show `CI` beside another
@@ -1523,6 +1585,24 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     row — the shop's own marker (RLS scopes it), archived ⇔ marked no earlier than the last message (`lib/chat.ts`).
     ⚠ Unread → no archive item at all, never one that claims the wrong state.
   */
+  /*
+    THE PICKED CLIENT'S OWN TWO READS (Build 2 #42) — only in its draw, started together before the archive read:
+    the quote versions (the Quotation's version line, as before — now also carrying each quote's title and decided
+    date, so the SAME rows answer Details' quote decisions) and the meeting / adjustment rows the messages announce
+    (what the stream reads in the browser; read here only when a message carries one — most threads read nothing).
+  */
+  const versionRowsRead = embedded
+    ? supabase
+        .from('vendor_proposals')
+        .select(`${QUOTE_VERSION_SELECT}, title, resolved_at`)
+        .eq('event_id', thread.event_id)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .neq('status', 'draft')
+        .order('created_at', { ascending: true })
+        .limit(50)
+    : null;
+  const decisionCardsRead = embedded ? readDecisionCards(supabase, initialMessages) : null;
+
   await markedRead;
   const { data: archiveMark, error: archiveMarkError } = await supabase
     .from('chat_thread_reads')
@@ -1541,26 +1621,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         returnTo: '/vendor-dashboard/customers',
       };
 
-  return (
-    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
-    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
-    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
-    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
-    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
-    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
-    <ChatThreadFrame
-      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
-      list={
-        <ConversationColumn
-          rows={conversationRows}
-          activeThreadId={threadId}
-          side="vendor"
-          hrefBase="/vendor-dashboard/messages"
-        />
-      }
-    >
+  // The SAME three actions this page's own sections post to — the payment-confirm row and the guest-count surcharge
+  // card. One way to answer each request; the stream's Decisions AND Details' Decisions (Build 2 #42) are doors to it.
+  const decisionReplyActions = {
+    confirmPayment: confirmVendorPayment,
+    refusePayment: refuseVendorPayment,
+    applySurcharge: acceptPaxSurcharge,
+    holdPrice: declinePaxSurcharge,
+    // The answer to a booking ask — the SAME two actions the Overview and the client page post (2026-09-19).
+    agreeLock: vendorAgreeToLock,
+    declineLock: vendorDeclineLock,
+  };
+
+  /*
+    THE CHAT PAGE (THE ONE BUILD, v111/v113 · B1 step 7) — the SAME box, drawn inside the picked client: no
+    conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
+  */
+  const chatBox = (
         <ChatBox
+          // THE ONE BUILD · inside the picked client the client's pinned row IS the head (and the hosts strip sits
+          // in the stream), so the full-screen head is drawn only on the full-screen route.
           header={
+            embedded ? null : (
             <ChatThreadHead
               back={<BackButton route="/vendor-dashboard/messages/[threadId]" params={{ threadId }} variant="chat" />}
               // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
@@ -1622,6 +1704,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 </>
               }
             />
+            )
           }
           notice={
             <>
@@ -2015,6 +2098,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         >
           <ChatMessageStream
             flush
+            // THE ONE BUILD · the client's Chat page names every host (strip + run labels); full screen is unchanged.
+            {...(embedded ? { hosts: customerPlan.hosts } : {})}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.
@@ -2032,16 +2117,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.
-            supplierReplyActions={{
-              confirmPayment: confirmVendorPayment,
-              refusePayment: refuseVendorPayment,
-              applySurcharge: acceptPaxSurcharge,
-              holdPrice: declinePaxSurcharge,
-              // The answer to a booking ask — the SAME two actions the Overview
-              // and the client page post (2026-09-19).
-              agreeLock: vendorAgreeToLock,
-              declineLock: vendorDeclineLock,
-            }}
+            supplierReplyActions={decisionReplyActions}
             lockHandshake={lockHandshake}
             feeForecast={chatFeeForecast}
             bookedStep={bookedMoney.step}
@@ -2059,7 +2135,187 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             }}
           />
         </ChatBox>
+  );
+  if (embedded) {
+    const [versionRows, decisionCards] = await Promise.all([versionRowsRead!, decisionCardsRead!]);
+    if (versionRows.error) console.error('[supplier quotation page] version rows read refused', versionRows.error);
+    type VersionCardRow = QuoteVersionRow & { title: string | null; resolved_at: string | null };
+    const versions = versionRows.error ? null : ((versionRows.data ?? []) as unknown as VersionCardRow[]);
+
+    /*
+      THE QUOTATION PAGE (THE ONE BUILD, v113 · B2 §2.2) — the picked client's "Quotation": the version line, then the
+      SAME quote tool this page mounts in its tools panel (ProposalMaker in the owner's eleven steps + the saved-template
+      shortcut), opened ON the live quote (`toolNodesFor('quote')`). Nothing re-read for it except the version rows.
+    */
+    const quotation = (
+      <div data-picked-client-page="quotation" className="space-y-3">
+        <QuoteVersionLine rows={versions} counterpartyLabel={coupleLabel} />
+        {toolNodesFor('quote')['build-quote']}
+      </div>
+    );
+
+    /*
+      THE CHAT PAGE (THE ONE BUILD, v111/v113 · B1 step 7) — the SAME box, drawn inside the picked client: no
+      conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
+    */
+    const chat = (
+      <div data-picked-client-page="chat" className="flex min-h-[70dvh] flex-col">
+        {/* The ONE place the picked client marks the conversation read — mounted only while Chat is shown. */}
+        <MarkReadWhenShown threadId={threadId} />
+        {chatBox}
+      </div>
+    );
+
+    /*
+      🤝 DETAILS' DECISIONS (Build 2 #42, v118 `dec`) — the list the conversation's Decisions view shows, on the picked
+      client's Details page, from THIS draw: the SAME messages, the SAME live card rows, through the SAME merge
+      (`threadDecisionFacts`) — 0 requests of Details' own. A refused card read is SAID (`partial`), never a shorter
+      list that reads as "nothing else was decided".
+    */
+    const quoteCards: Record<string, DecisionQuoteCard> = {}; // filled here, then handed on as the read-only DecisionCards['quotes']
+    for (const v of versions ?? []) {
+      quoteCards[v.proposal_id] = {
+        publicId: v.public_id,
+        title: v.title ?? 'Quote',
+        totalCentavos: Number(v.total_centavos) || 0,
+        status: v.status,
+        resolvedAt: v.resolved_at ?? null,
+      };
+    }
+    const decisions = (
+      <DetailsDecisionsList
+        facts={threadDecisionFacts({
+          viewer: 'vendor',
+          messages: initialMessages,
+          cards: {
+            quotes: quoteCards,
+            meetings: decisionCards.meetings,
+            meetingPreviousAt: decisionCards.meetingPreviousAt,
+            adjustments: decisionCards.adjustments,
+          },
+          payments: decisionPayments,
+          guestCounts: decisionGuestCounts,
+        })}
+        partial={versions == null || decisionCards.refused}
+        reply={{
+          threadId,
+          eventId: thread.event_id,
+          vendorProfileId: profile.vendor_profile_id,
+          // An answer given on Details lands back on Details (the actions revalidate the pathname, redirect here).
+          returnPath: `/vendor-dashboard/clients/${thread.event_id}?tab=details`,
+          eventDate: event?.event_date ?? null,
+          supplierActions: decisionReplyActions,
+        }}
+      />
+    );
+    return { full: null, chat, quotation, decisions };
+  }
+
+  return { full: (
+    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
+    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
+    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
+    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
+    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
+    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="vendor"
+          hrefBase="/vendor-dashboard/messages"
+        />
+      }
+    >
+        {chatBox}
     </ChatThreadFrame>
     </div>
-  );
+  ), chat: null, quotation: null, decisions: null };
+}
+
+/**
+ * The meeting and adjustment rows the messages announce — the SAME columns the stream reads in the browser for its
+ * cards (`chat-message-stream.tsx`), read here only for the picked client's draw (Details' Decisions), under the
+ * supplier's OWN session (RLS: the same rows the stream would see). Nothing is read when no message carries one, or
+ * while the negotiation cards are switched off (the stream reads none then either). `refused` = a read failed: the
+ * caller SAYS so rather than drawing a shorter list as if it were whole.
+ */
+async function readDecisionCards(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  messages: ReadonlyArray<{ appointment_id?: string | null; amendment_id?: string | null }>,
+): Promise<Pick<DecisionCards, 'meetings' | 'meetingPreviousAt' | 'adjustments'> & { refused: boolean }> {
+  const out: Pick<DecisionCards, 'meetings' | 'meetingPreviousAt' | 'adjustments'> & { refused: boolean } = {
+    meetings: {},
+    meetingPreviousAt: {},
+    adjustments: {},
+    refused: false,
+  };
+  if (!chatNegotiationEnabled()) return out;
+  const apptIds = [...new Set(messages.map((m) => m.appointment_id).filter((x): x is string => !!x))];
+  const amIds = [...new Set(messages.map((m) => m.amendment_id).filter((x): x is string => !!x))];
+  const none = Promise.resolve({ data: [] as unknown[], error: null });
+  const [appts, ams, items] = await Promise.all([
+    apptIds.length > 0
+      ? supabase
+          .from('event_appointments')
+          .select('appointment_id, custom_label, scheduled_at, status, initiated_by, previous_scheduled_at')
+          .in('appointment_id', apptIds)
+      : none,
+    amIds.length > 0
+      ? supabase
+          .from('proposal_amendments')
+          .select('amendment_id, status, raised_by, note, locked_at')
+          .in('amendment_id', amIds)
+      : none,
+    amIds.length > 0
+      ? supabase.from('proposal_amendment_items').select('amendment_id, amount_php').in('amendment_id', amIds)
+      : none,
+  ]);
+  for (const [label, res] of [
+    ['appointments', appts],
+    ['amendments', ams],
+    ['amendment items', items],
+  ] as const) {
+    if (res.error) {
+      out.refused = true;
+      logQueryError(`VendorThreadPage.decisionCards.${label}`, res.error, {}, 'graceful_degrade');
+    }
+  }
+  for (const a of (appts.data ?? []) as Array<{
+    appointment_id: string;
+    custom_label: string | null;
+    scheduled_at: string | null;
+    status: string;
+    initiated_by: 'couple' | 'vendor' | null;
+    previous_scheduled_at: string | null;
+  }>) {
+    (out.meetings as Record<string, DecisionCards['meetings'][string]>)[a.appointment_id] = {
+      label: a.custom_label?.trim() || 'Meeting',
+      scheduled_at: a.scheduled_at,
+      status: a.status,
+      initiated_by: a.initiated_by,
+    };
+    (out.meetingPreviousAt as Record<string, string | null>)[a.appointment_id] = a.previous_scheduled_at;
+  }
+  const itemsByAm = new Map<string, Array<{ amount_php: number | null }>>();
+  for (const it of (items.data ?? []) as Array<{ amendment_id: string; amount_php: number | string | null }>) {
+    const arr = itemsByAm.get(it.amendment_id) ?? [];
+    arr.push({ amount_php: it.amount_php == null ? null : Number(it.amount_php) });
+    itemsByAm.set(it.amendment_id, arr);
+  }
+  for (const a of (ams.data ?? []) as Array<{
+    amendment_id: string;
+    status: string;
+    raised_by: 'couple' | 'vendor' | null;
+    note: string | null;
+    locked_at: string | null;
+  }>) {
+    (out.adjustments as Record<string, DecisionCards['adjustments'][string]>)[a.amendment_id] = {
+      data: { note: a.note, status: a.status, lockedAt: a.locked_at, raised_by: a.raised_by },
+      items: itemsByAm.get(a.amendment_id) ?? [],
+    };
+  }
+  return out;
 }

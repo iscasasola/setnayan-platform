@@ -61,3 +61,37 @@ export function sanitizeLockSchedule(
   }
   return out;
 }
+
+/**
+ * 🧾 THE BOOKED QR'S QUOTATION (Supplier Build 2 row #34) — one line as it is stored on the token
+ * (`vendor_locked_qr_tokens.quote_line_items`, migration 20271327929301). The SAME shape as every other quote,
+ * `vendor_proposals.line_items` (`{label, detail, amount_centavos}`), read by `lib/accepted-quote-terms.ts` — never a
+ * second line shape.
+ */
+export type LockQuoteLine = { label: string; detail: string | null; amount_centavos: number };
+
+/**
+ * The generator's lines, cleaned for storage — the same rules `readLines` (accepted-quote-terms) reads with: a line
+ * needs a label; the detail is optional; the amount is whole centavos, never negative. Junk is dropped, never guessed.
+ */
+export function sanitizeLockQuoteLines(raw: unknown, max = 40): LockQuoteLine[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LockQuoteLine[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== 'object') continue;
+    const o = r as Record<string, unknown>;
+    const label = typeof o.label === 'string' ? o.label.trim().slice(0, 120) : '';
+    if (!label) continue;
+    const detail = typeof o.detail === 'string' && o.detail.trim() ? o.detail.trim().slice(0, 240) : null;
+    const c = Number(o.amount_centavos);
+    if (!Number.isFinite(c) || c < 0) continue;
+    out.push({ label, detail, amount_centavos: Math.round(c) });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** The quotation's Total in pesos — what `total_php` holds when the code carries lines. */
+export function lockQuoteTotalPhp(lines: readonly LockQuoteLine[]): number {
+  return lines.reduce((t, l) => t + l.amount_centavos, 0) / 100;
+}

@@ -45,7 +45,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import {
   GIFT_CAP_CREDITS,
-  GIFT_SHARE_OF_FEE_PCT,
+  GIFT_LIMIT_PCT_DEFAULT,
   giftLadderIsPriceable,
   giftQuoteCopy,
   previewGiftForTotal,
@@ -87,7 +87,7 @@ const LADDER: GiftRung[] = [
 ];
 
 /** The live owner-set fee schedule, as `getBookingFeeSchedule` returns it. */
-const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER };
+const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER, limitPct: GIFT_LIMIT_PCT_DEFAULT };
 
 /** The owner's own booking, to the centavo: ₱16,750 → ₱837.50 fee. */
 const OWNERS_TOTAL_CENTAVOS = 1_675_000;
@@ -205,11 +205,15 @@ test('the percentage and the cap are read from their constants, never typed', ()
   assert.doesNotMatch(
     src,
     /\b(?:0\.4|50000|50_000|50,000)\b/,
-    'the ceiling must come from GIFT_CAP_CREDITS / GIFT_SHARE_OF_FEE_PCT',
+    'the ceiling must come from GIFT_CAP_CREDITS / the basis’s live limitPct',
   );
   // And the rendered sentence really carries them.
   const notice = papicTopUpForQuote({ kind: 'available', basis: BASIS }, OWNERS_TOTAL_CENTAVOS)!;
-  assert.match(notice.detail, new RegExp(`${GIFT_SHARE_OF_FEE_PCT}%`));
+  assert.match(notice.detail, new RegExp(`${GIFT_LIMIT_PCT_DEFAULT}%`));
+  // ⚖ 8 Nov 2026: the % is the ADMIN SETTING the basis carries — a basis at 25 says 25%, never a typed 40.
+  const at25 = papicTopUpForQuote({ kind: 'available', basis: { ...BASIS, limitPct: 25 } }, OWNERS_TOTAL_CENTAVOS)!;
+  assert.match(at25.detail, /\b25%/);
+  assert.doesNotMatch(at25.detail, /\b40%/);
 
   // At the cap, the copy names the 50,000-photo ceiling — from the constant.
   const huge = papicTopUpForQuote({ kind: 'available', basis: BASIS }, 900_000_000)!;

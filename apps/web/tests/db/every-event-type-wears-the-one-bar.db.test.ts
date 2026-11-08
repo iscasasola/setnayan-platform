@@ -40,7 +40,9 @@ after(async () => {
 const PHASES: MenuLifecyclePhase[] = ['plan', 'dayof', 'after'];
 const SERVICES: EventMenuChild[] = [{ key: 'papic', label: 'Papic', href: '#papic', icon: 'papic' }];
 // Memories joined after Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
-const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
+// 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): Today · Guests · Suppliers · Memories · Hub — Memories before Hub. Still
+// the one bar for every type — NOT WEAKENED.
+const FIVE = ['home', 'guests', 'explore', 'memories', 'launch'];
 const WORD: Record<string, string> = { home: 'Home', guests: 'Guests', explore: 'Suppliers', launch: 'Hub', studio: 'More' };
 
 async function everyProfile(): Promise<EventTypeProfile[]> {

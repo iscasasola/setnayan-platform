@@ -12,7 +12,11 @@
  *
  * Sabotage log (2026-11-08, each reverted): `setPicked((was) => (was === d ? null : d))` → `setPicked(d)` → 1 red ·
  * the Book a client href → `/vendor-dashboard/customers?add=outside` → 2 red · `zero: overdue?.n === 0` → `zero: false`
- * → 5 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red.
+ * → 5 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red · `seatChosen` ignoring `ctx.agent` → 6
+ * red · Handled by without "Me" → 7 red.
+ *   6 · Show & sort narrows the WHOLE roster by Service · Status · Client · Handled by (an agent held to their own seat),
+ *       then Group by / Sort order it, under sticky headings;
+ *   7 · the sheet is the Guests sheet's extracted frame (Guests re-mounted on it), with the Clients rows.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

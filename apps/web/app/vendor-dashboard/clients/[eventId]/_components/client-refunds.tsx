@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -65,7 +64,6 @@ export function ClientRefunds({
   refunds: readonly ClientRefundView[];
   measured: boolean;
 }) {
-  const router = useRouter();
   const { confirm, dialog } = useConfirm();
   const headId = useId();
   const viewId = useId();
@@ -149,8 +147,8 @@ export function ClientRefunds({
         setError(answer.message);
         return;
       }
+      // No router.refresh(): recordClientRefund revalidates this page, so its answer already carries the new render.
       setOpen(false);
-      router.refresh();
     } catch {
       setError('That did not go through. Nothing was recorded — please try again.');
     } finally {

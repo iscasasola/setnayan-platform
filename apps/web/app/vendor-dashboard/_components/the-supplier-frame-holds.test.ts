@@ -60,8 +60,9 @@ test('2 · from 701 the bar sits over the content column, the rail runs the wind
 
 test('3 · the page menu reads each tab from its own source and invents nothing', () => {
   const c = supplierPageMenuOf('/vendor-dashboard/customers', null);
-  assert.ok(c, 'Customers has no menu');
-  assert.equal(c!.tab, 'Customers');
+  assert.ok(c, 'Clients has no menu');
+  // The tab is called Clients (BARS LOCKED BY OWNER, 7 Nov 2026 — THE ONE BUILD); the route and key stay `customers`.
+  assert.equal(c!.tab, 'Clients');
   // 2026-10-30: Customers' first section is EVENTS (owner 2026-10-29, "Customers are events, not people").
   assert.equal(c!.section, CUSTOMER_SEGMENT_LABEL.events);
   assert.equal(c!.section, 'Events');
@@ -73,7 +74,10 @@ test('3 · the page menu reads each tab from its own source and invents nothing'
   assert.equal(shop!.tab, 'Shop');
   assert.equal(shop!.section, SHOP_SEGMENT_LABEL.page);
   assert.deepEqual(new Set(shop!.sections!.map((s) => s.href)), new Set(Object.values(SHOP_SEGMENT_HREF)));
-  assert.equal(supplierPageMenuOf('/vendor-dashboard/collections', null)!.tab, 'Shop', 'a Shop page off the segments still names its tab');
+  // The photos are the Portfolio TAB (THE ONE BUILD, 2026-11-08): their page names Portfolio, not Shop.
+  assert.equal(supplierPageMenuOf('/vendor-dashboard/collections', null)!.tab, 'Portfolio', 'the Portfolio page does not name its tab');
+  // The Hub room has no tab of its own — it names Clients, where it is opened from.
+  assert.equal(supplierPageMenuOf('/vendor-dashboard/on-the-day', null)!.tab, 'Clients');
 
   // A tab with nothing to pick is a word — no ▾ (a ▾ that opens nothing is a fake door).
   assert.deepEqual(supplierPageMenuOf('/vendor-dashboard', null), { tab: 'Today', section: null, sections: null });

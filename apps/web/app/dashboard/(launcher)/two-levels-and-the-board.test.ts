@@ -860,7 +860,8 @@ test('the event rail is the one tree — five rows (Stage D; More left 22 Oct 20
   assert.deepEqual(keysByGroup.event, ['personalization']);
   // More Services left the rail with the bar's More (owner 22 Oct 2026, "Yes remove more"); Memories joined after
   // Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
-  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'memories']);
+  // Memories before Hub (THE ONE BUILD, owner 7 Nov 2026 — spec §9 #3).
+  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'memories', 'launch']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —

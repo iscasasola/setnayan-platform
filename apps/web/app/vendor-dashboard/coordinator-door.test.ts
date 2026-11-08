@@ -6,10 +6,9 @@
  * THE EVENTS THEY RUN"; prototype `prototypes/coordinator_door_2026-10-28/`).
  *
  * The properties (the rule itself — which seat is LIVE — is held in `lib/events-you-run.test.ts`):
- *   1 · "EVENTS" FOLDED INTO HUB (owner 2026-10-29, DECISION_LOG "THE SUPPLIER'S BOTTOM BAR = TODAY · CUSTOMERS · SHOP
- *       · HUB"): the bar and the rail are the four for everyone — no fifth tab; a scoped helper who runs an event gets
- *       the Hub (where "Events you run" now lives) exactly as on an event day; `/vendor-dashboard/events` forwards to the
- *       Hub; and `runsEvents` is still the layout's read of LIVE seats, failing closed;
+ *   1 · NO TAB FOR RUNNING AN EVENT (owner 2026-10-29 folded "Events" into the Hub; BARS LOCKED 7 Nov 2026 took the Hub
+ *       off the bar — Today · Clients · Shop · Portfolio): no fifth tab, no Events or Hub tab or slot, the Hub room
+ *       (where "Events you run" lives) lights Clients, and `/vendor-dashboard/events` forwards to it;
  *   2 · Today's "Events you run" is drawn only from that read and only when it has a row;
  *   3 · "Open their event" (and the Coordinator pill) on the customer card show only when THIS event is one they run;
  *   4 · the "Coordinating … · Back to your shop" line renders only for a viewer the event layout admitted through the
@@ -54,55 +53,51 @@ const DEFAULT_SLOTS: Record<string, NavSlotLite> = Object.fromEntries(
 
 /* ══ 1 · the tab — only while they run an event ══════════════════════════════ */
 
-test('1 · Events folded into Hub — four tabs for everyone; a helper who runs an event gets the Hub', () => {
+/*
+ * 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov 2026; THE ONE BUILD): the bar is Today ·
+ * Clients · Shop · Portfolio for an owner and Today · Clients for a helper, on EVERY day. The Hub left the bar, so
+ * "running an event" no longer adds a tab — it never could add more than the Hub, and there is no Hub tab now. "Events
+ * you run" still lives in the Hub ROOM, whose pages light Clients; Today draws the rows (section 2 below). The layout no
+ * longer reads seats for the bar (−1 read per supplier page). Same strictness on what must never come back: no fifth
+ * tab, no Events tab or slot, and the old Events address still forwards to the room.
+ */
+test('1 · no tab is added for running an event — the four for an owner, Today · Clients for a helper, every day', () => {
   const roles: (VendorTeamRole | null)[] = ['owner', 'admin', 'agent', 'viewer', null];
   for (const role of roles) {
     for (const navSlots of [undefined, DEFAULT_SLOTS]) {
       for (const shell of [false, true]) {
-        const without = barItemsForShell(vendorBarItems({ role, navSlots }), shell);
-        const withIt = barItemsForShell(vendorBarItems({ role, navSlots, runsEvents: true }), shell);
-        const onDay = barItemsForShell(vendorBarItems({ role, navSlots, eventToday: true }), shell);
-        assert.ok(![...without, ...withIt].some((i) => i.key === 'events'), `${role}: a fifth Events tab came back`);
-        assert.ok(withIt.length <= 4, `${role}: more than four tabs`);
-        // Running an event opens the SAME door an event day does — the Hub — and nothing more.
-        assert.deepEqual(withIt.map((i) => i.key), onDay.map((i) => i.key), `${role}: running an event is not the Hub door`);
-        assert.ok(withIt.some((i) => i.key === 'onday'), `${role}: a coordinator has no Hub`);
+        const items = barItemsForShell(vendorBarItems({ role, navSlots }), shell);
+        assert.ok(!items.some((i) => i.key === 'events' || i.key === 'onday'), `${role}: an Events or Hub tab came back`);
+        assert.ok(items.length <= 4, `${role}: more than four tabs`);
       }
     }
   }
   assert.equal(VENDOR_BOTTOM_NAV_ITEMS.length, 4);
-  const hub = VENDOR_BOTTOM_NAV_ITEMS.find((i) => i.key === 'onday');
-  assert.equal(EVENTS_YOU_RUN_HREF, hub?.href, '"Events you run" does not live in the Hub');
-  assert.ok([hub?.activeMatch].flat().includes('/vendor-dashboard/events'), 'the old Events address does not light the Hub');
+  const clients = VENDOR_BOTTOM_NAV_ITEMS.find((i) => i.key === 'customers');
+  assert.ok([clients?.activeMatch].flat().includes(EVENTS_YOU_RUN_HREF), '"Events you run" (the Hub room) does not light Clients');
+  assert.ok([clients?.activeMatch].flat().includes('/vendor-dashboard/events'), 'the old Events address does not light Clients');
   assert.equal(isStoreShellWebOnlyPath(EVENTS_YOU_RUN_HREF), false, 'the Hub is refused in the iPhone app');
   assert.match(src('app/vendor-dashboard/events/page.tsx'), /redirect\('\/vendor-dashboard\/on-the-day'\)/, 'an old Events link does not forward to the Hub');
 });
 
-test('1 · the rail says the same: no Events row; a helper who runs an event gets the Hub row', () => {
+test('1 · the rail says the same: no Events row and no Hub row, for any role', () => {
   for (const role of ['owner', 'viewer', null] as const) {
     for (const navSlots of [undefined, DEFAULT_SLOTS]) {
-      const withIt = resolveVendorDestinations({ role, navSlots, runsEvents: true });
-      const onDay = resolveVendorDestinations({ role, navSlots, eventToday: true });
-      assert.ok(!withIt.some((r) => r.key === 'events'), `${role}: the rail kept an Events row`);
-      assert.deepEqual(withIt.map((r) => r.key), onDay.map((r) => r.key), `${role}: the rail and the bar disagree on the Hub`);
+      const rows = resolveVendorDestinations({ role, navSlots });
+      assert.ok(!rows.some((r) => r.key === 'events' || r.key === 'on-the-day'), `${role}: the rail kept an Events or Hub row`);
     }
   }
   // Neither registry carries an Events slot any more — an admin cannot rename a tab that is gone.
-  for (const key of ['vendor.bottom-nav.events', 'vendor.sidebar.events']) {
+  for (const key of ['vendor.bottom-nav.events', 'vendor.sidebar.events', 'vendor.bottom-nav.onday', 'vendor.sidebar.on-the-day']) {
     assert.equal(NAV_SLOT_DEFAULTS.find((d) => d.key === key), undefined, `${key} is still in the nav registry`);
   }
 });
 
-test('1 · the layout reads LIVE seats, fails closed, and tells the bar AND the rail', () => {
+test('1 · the layout no longer reads seats for the bar — the bar and the rail take no runsEvents', () => {
   const layout = src('app/vendor-dashboard/layout.tsx');
-  assert.match(
-    layout,
-    /readEventsYouRun\(supabase, user\.id\)\s*\.then\(\(r\) => r\.events\.length > 0\)\s*\.catch\(\(\) => false\)/,
-    'the tab must come from the live-seat read and HIDE on a refused read — never a dead tab',
-  );
-  assert.match(layout, /<VendorBottomNav[\s\S]*?runsEvents=\{runsEvents\}/, 'the bar is not told');
-  assert.match(layout, /<VendorRailContext[\s\S]*?runsEvents=\{runsEvents\}/, 'the rail is not told');
-  assert.match(src('app/vendor-dashboard/_components/vendor-rail-context.tsx'), /resolveVendorDestinations\(\{[\s\S]*?runsEvents,?[\s\S]*?\}\)/);
+  assert.doesNotMatch(layout, /runsEvents=\{/, 'the layout still hands the bar or the rail a runsEvents it no longer reads');
+  assert.doesNotMatch(layout, /readEventsYouRun\(supabase, user\.id\)/, 'the layout still spends a read on a tab that is gone');
+  assert.doesNotMatch(src('app/vendor-dashboard/_components/vendor-rail-context.tsx'), /runsEvents/);
 });
 
 /* ══ 2 · Today — "Events you run" only from that read ═════════════════════════ */

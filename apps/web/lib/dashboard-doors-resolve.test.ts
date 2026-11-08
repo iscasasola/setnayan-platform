@@ -107,7 +107,7 @@ test('every Details-field door drawn OUTSIDE the record has a couple forward (th
   }
 });
 
-test('the papic-answer forward opens the Maker’s Papic answer — the papic_on switch — or Home’s Papic card head', () => {
+test('the papic-answer forward opens the Maker’s Papic answer — the papic_on switch — or the Papic card head in Memories', () => {
   const day = dayPapicView('off', { key: 'papic', name: 'Papic', status: '' } satisfies HomeService, E);
   assert.equal(day.kind, 'say');
   const door = (day as { door: { href: string } | null }).door!.href;
@@ -123,7 +123,9 @@ test('the papic-answer forward opens the Maker’s Papic answer — the papic_on
 
   const home = coupleRecordFieldForward(E, row, false)!;
   assert.ok(eventPageFor(home), `${home} is no page`);
-  assert.match(read(join(DASH, 'page.tsx')), /<PapicHeadControl\b/, "Home's Papic card no longer carries the papic_on head");
+  // Papic's card lives in Memories since THE ONE BUILD (2026-11-08) — the door lands there, and the card carries the head.
+  assert.match(home, /\/memories\?papic=open#papic$/, `${home} does not open the Papic card in Memories`);
+  assert.match(read(join(DASH, 'memories', 'page.tsx')), /<PapicHeadControl\b/, "Memories' Papic card no longer carries the papic_on head");
 });
 
 test('the field page asks the forward BEFORE it draws the record (which would redirect the couple to Settings)', () => {

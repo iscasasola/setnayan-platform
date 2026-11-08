@@ -51,6 +51,7 @@ function AskRow({ ask, types, back }: { ask: EventTypeAsk; types: readonly Choic
               Name for the new event type
             </label>
             <input
+              autoComplete="off"
               id={`ask-name-${ask.requestId}`}
               name="label_en"
               value={name}

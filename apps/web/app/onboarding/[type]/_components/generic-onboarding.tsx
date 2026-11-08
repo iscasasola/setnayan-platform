@@ -79,6 +79,7 @@ import {
   type SetupView,
 } from '@/lib/onboarding/setup-answers';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
+import { SelfCelebrantLock } from '@/app/_components/self-celebrant-lock';
 import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
 import {
   defaultPresetFor,
@@ -310,15 +311,13 @@ export function GenericOnboarding(props: Props) {
    */
   const [momentDayISO, setMomentDayISO] = useState<string | null>(null);
   const [momentAge, setMomentAge] = useState<number | null>(null);
-  /**
-   * "Actually, it's for someone else" — the celebrant field is folded away when
-   * we already know the answer, and this opens it.
-   *
-   * 🔑 HIDING IS A DEFAULT, NEVER A WALL (the project rule, and the shipped
-   * `For <name> · Change` chip on the create picker is its precedent). The
-   * answer stays on screen and stays reversible in one tap; nothing is removed.
+  /*
+   * "Actually, it's for someone else" used to unfold the box in place. Owner
+   * 2026-11-08: for you, the celebrant is LOCKED to your name, and someone else
+   * is chosen on the shipped For ▾ row (name a person or link one on file) — so
+   * the screen's one way out is "Change who it's for", back to that row. Still
+   * a default, never a wall: the answer stays reversible in one tap.
    */
-  const [honoreeRevealed, setHonoreeRevealed] = useState(false);
   /**
    * The age-bracket answer we filled in for them, if any. A ref, not state: it
    * is written inside the hydrate effect, and feeding it back into `screens`
@@ -605,16 +604,16 @@ export function GenericOnboarding(props: Props) {
    * Do we already know who this is for?
    *
    * Blank `honoree` has always MEANT "the account holder", so there is nothing
-   * to prefill — only a question to stop asking. Three things reopen the field,
-   * and the third is the one that matters:
-   *   • they typed a name (it is no longer theirs),
-   *   • they tapped Change,
+   * to prefill — only a question to stop asking. Two things reopen the field,
+   * and the second is the one that matters (a different celebrant is chosen on
+   * the For ▾ row — "Change who it's for" — owner 2026-11-08):
+   *   • a name arrived with the carry (it is not theirs),
    *   • `blockedBy` — they already have one of these in planning, and the
    *     refusal below tells them to put a name in. Showing a folded-away field
    *     next to "put their name above" would be a dead end, which is the exact
    *     defect that screen exists to fix.
    */
-  const knowsCelebrant = momentForSelf && !honoree && !honoreeRevealed && !blockedBy;
+  const knowsCelebrant = momentForSelf && !honoree && !blockedBy;
 
   /**
    * The day this event is ABOUT, from either source: an anchor the person typed
@@ -1377,23 +1376,19 @@ export function GenericOnboarding(props: Props) {
               <p className="mt-2 text-ink/55">
                 We’ll keep this {label.toLowerCase()} under your name.
               </p>
-              <div className="mt-6 flex max-w-lg items-center gap-3 rounded-[var(--m-r-md)] border border-ink/10 bg-ink/[0.02] px-4 py-3">
-                <span className="min-w-0 text-sm text-ink/70">
-                  {/* The celebrant IS the account holder — by name (owner 2026-10-26). */}
-                  For <span className="font-medium text-ink" data-self-celebrant>{selfName?.trim() || 'you'}</span>
-                  {momentAge != null ? (
-                    <span className="block truncate text-xs text-ink/50">
-                      Turning {momentAge}
-                    </span>
-                  ) : null}
-                </span>
-                <button
-                  className="ml-auto shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
-                  onClick={() => setHonoreeRevealed(true)}
-                  type="button"
-                >
-                  Change
-                </button>
+              {/* 🔒 "FOR · YOU" LOCKS THE CELEBRANT (owner 2026-11-08: "if it's for me, it cannot be
+                  edited out … unless they pick someone else"). Their own name in the field, read-only,
+                  and the way out is the shipped For ▾ row — the one control that can name someone else
+                  or link a person on file. The field posts nothing: blank IS the account holder. */}
+              <div className="mt-6 max-w-lg">
+                <SelfCelebrantLock
+                  name={selfName}
+                  inputClassName="w-full rounded-[var(--m-r-md)] border border-ink/10 px-4 py-3 text-lg outline-none"
+                  changeHref={
+                    nextPath ? `/dashboard/create-event?next=${encodeURIComponent(nextPath)}` : '/dashboard/create-event'
+                  }
+                  note={momentAge != null ? `Turning ${momentAge}` : null}
+                />
               </div>
             </>
           ) : (
@@ -1411,7 +1406,7 @@ export function GenericOnboarding(props: Props) {
               <input
                 // Focus the field only when it was OPENED on purpose or was
                 // always the question — never when it merely happens to render.
-                autoFocus={!momentForSelf || honoreeRevealed}
+                autoFocus={!momentForSelf}
                 value={honoree}
                 onChange={(e) => {
                   setHonoree(e.target.value);

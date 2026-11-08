@@ -43,8 +43,9 @@ test('when we know the celebrant, no empty box is rendered under the answer', ()
     /\{knowsCelebrant \? \(/,
     'the celebrant screen must BRANCH on it, not merely re-word a heading over a field',
   );
-  // The reversible way back — hiding is a default, never a wall.
-  assert.match(src, /setHonoreeRevealed\(true\)/, 'the folded field must have a way open');
+  // The reversible way back — hiding is a default, never a wall. Since 2026-11-08 (owner: "for me"
+  // is locked "unless they pick someone else") the way back is the For ▾ row, not an in-place box.
+  assert.match(src, /<SelfCelebrantLock[\s\S]{0,400}?changeHref=/, 'the locked celebrant must have a way back to For ▾');
 });
 
 test('the refusal reopens the field it tells you to type in', () => {
@@ -54,7 +55,6 @@ test('the refusal reopens the field it tells you to type in', () => {
   const src = stripComments(read(WIZARD));
   const decl = /const knowsCelebrant = ([^;]+);/.exec(src)?.[1] ?? '';
   assert.match(decl, /!blockedBy/, 'a blocked celebrant must always see the field');
-  assert.match(decl, /!honoreeRevealed/, 'tapping Change must open it');
   assert.match(decl, /!honoree\b/, 'a typed name means it is no longer theirs');
 });
 

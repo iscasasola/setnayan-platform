@@ -286,7 +286,7 @@ export default function GiftRecordSheet({
               ) : (
                 <label data-gift-from="typed" className="mt-3 block border-t border-ink/10 pt-3">
                   <span className={LABEL}>Your name</span>
-                  <input data-gift-name="" value={name} onChange={(e) => setName(e.target.value)} maxLength={GIFT_GIVER_NAME_MAX} placeholder={GIFT_NAME_PLACEHOLDER} className={FIELD} />
+                  <input autoComplete="name" data-gift-name="" value={name} onChange={(e) => setName(e.target.value)} maxLength={GIFT_GIVER_NAME_MAX} placeholder={GIFT_NAME_PLACEHOLDER} className={FIELD} />
                 </label>
               )}
 

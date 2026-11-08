@@ -223,6 +223,7 @@ export async function VenuesSurface({
             City contains
           </span>
           <input
+            autoComplete="off"
             type="text"
             name="city"
             defaultValue={cityFilter}

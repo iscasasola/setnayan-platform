@@ -694,6 +694,7 @@ export function StdBuilderClient({
                   City or area
                 </label>
                 <input
+                  autoComplete="off"
                   id="film_venue_city"
                   type="text"
                   value={venueCity}

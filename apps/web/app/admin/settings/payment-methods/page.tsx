@@ -641,6 +641,7 @@ function AccountFields({ account }: { account?: ReceivingAccount }) {
       </fieldset>
       <Field label="Account name" htmlFor={`account_name-${key}`}>
         <input
+          autoComplete="off"
           id={`account_name-${key}`}
           name="account_name"
           maxLength={120}

@@ -3,6 +3,7 @@ import { MessageSquare, Mail, Heart, Briefcase, Mailbox, HelpCircle } from 'luci
 import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, helpTopicsFor, type HelpRole } from '@/lib/help';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
+import { getSelfPersonalization } from '@/lib/self-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { submitHelpMessage } from '@/app/help/actions';
@@ -109,6 +110,8 @@ export default async function HelpPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   const prefilledEmail = user?.email ?? '';
+  // …and their own name (owner 2026-11-08: a form asking for YOUR details starts filled, stays editable).
+  const prefilledName = user ? (await getSelfPersonalization()).displayName ?? '' : '';
 
   // 🔎 One search for help, features and guides (owner 2026-10-25) — the words
   // ride in this page's `?q=`, the results draw here, under the head.
@@ -139,6 +142,7 @@ export default async function HelpPage({ searchParams }: Props) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Your email" htmlFor="sender_email">
             <input
+              autoComplete="email"
               id="sender_email"
               name="sender_email"
               type="email"
@@ -150,9 +154,11 @@ export default async function HelpPage({ searchParams }: Props) {
           </Field>
           <Field label="Your name (optional)" htmlFor="sender_name">
             <input
+              autoComplete="name"
               id="sender_name"
               name="sender_name"
               maxLength={128}
+              defaultValue={prefilledName}
               className="input-field"
             />
           </Field>

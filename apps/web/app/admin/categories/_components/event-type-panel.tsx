@@ -320,7 +320,7 @@ export async function EventTypePanel({
           ).map(([name, label, value]) => (
             <label key={name} className="text-xs font-medium text-ink/70">
               {label}
-              <input name={name} form={formId} defaultValue={value} className={`mt-1 block w-full ${INPUT}`} />
+              <input autoComplete="off" name={name} form={formId} defaultValue={value} className={`mt-1 block w-full ${INPUT}`} />
             </label>
           ))}
         </div>

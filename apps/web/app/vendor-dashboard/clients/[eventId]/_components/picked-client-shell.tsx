@@ -50,6 +50,7 @@ import { PickedNavContext, type PickedNav } from './picked-client-nav';
 import {
   PICKED_EASE,
   PICKED_OPEN_MS,
+  PICKED_PAGE_SLIDE_EASE,
   PICKED_PAGE_SLIDE_MS,
   forgetPickedOrigin,
   pickedMotion,
@@ -129,10 +130,18 @@ export function PickedClientShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
 
-  // The active menu item stays in view (the menu scrolls sideways on a phone).
+  // The active menu item stays in view — by scrolling ONLY the menu strip (§10 #26: `scrollIntoView` also moved the
+  // page body sideways).
   useEffect(() => {
-    const btn = menuRef.current?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`);
-    btn?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const strip = menuRef.current;
+    const btn = strip?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`);
+    if (!strip || !btn) return;
+    const left = btn.offsetLeft - strip.offsetLeft;
+    const right = left + btn.offsetWidth;
+    if (left < strip.scrollLeft) strip.scrollTo({ left: Math.max(0, left - 12), behavior: 'smooth' });
+    else if (right > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollTo({ left: right - strip.clientWidth + 12, behavior: 'smooth' });
+    }
   }, [page]);
 
   // `?tab=script` → Schedule, scrolled to the Script fold.
@@ -158,14 +167,17 @@ export function PickedClientShell({
         /* a URL that cannot be written still shows the right page */
       }
       bodyRef.current?.scrollTo({ top: 0 });
-      const el = bodyRef.current;
+      // §10 #26: a 0.7 s slide of the PAGE (not the scroller), 44 px, opacity full at 45 %; the scroller keeps
+      // overflow-x hidden, so no white edge shows while it travels.
+      const el = bodyRef.current?.querySelector<HTMLElement>('#picked-page');
       if (el && !prefersReducedMotion()) {
         el.animate(
           [
-            { transform: 'translateX(24px)', opacity: 0.4 },
+            { transform: 'translateX(44px)', opacity: 0 },
+            { opacity: 1, offset: 0.45 },
             { transform: 'translateX(0)', opacity: 1 },
           ],
-          { duration: PICKED_PAGE_SLIDE_MS, easing: PICKED_EASE },
+          { duration: PICKED_PAGE_SLIDE_MS, easing: PICKED_PAGE_SLIDE_EASE },
         );
       }
     },
@@ -266,7 +278,7 @@ export function PickedClientShell({
           })}
         </div>
       </div>
-      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white" data-picked-body="">
+      <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-white" data-picked-body="">
         <div
           id="picked-page"
           role="tabpanel"

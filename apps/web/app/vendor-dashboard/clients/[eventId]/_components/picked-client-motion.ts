@@ -12,7 +12,9 @@
 export const PICKED_OPEN_MS = 520;
 export const PICKED_EASE = 'cubic-bezier(.2,.8,.2,1)';
 export const PICKED_FADE_MS = 120;
-export const PICKED_PAGE_SLIDE_MS = 300;
+/** §10 #26 (owner 8 Nov: "make the animation run 0.7 seconds"): 700 ms, 44 px, this ease, opacity full at 45 %. */
+export const PICKED_PAGE_SLIDE_MS = 700;
+export const PICKED_PAGE_SLIDE_EASE = 'cubic-bezier(.33,1,.68,1)';
 
 const KEY = 'sn:picked-client-origin';
 

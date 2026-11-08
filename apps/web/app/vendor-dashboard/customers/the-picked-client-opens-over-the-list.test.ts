@@ -26,6 +26,7 @@ import {
   PICKED_EASE,
   PICKED_FADE_MS,
   PICKED_OPEN_MS,
+  PICKED_PAGE_SLIDE_EASE,
   PICKED_PAGE_SLIDE_MS,
 } from '../clients/[eventId]/_components/picked-client-motion';
 
@@ -62,7 +63,8 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
 test('3 · the close is the open played backwards', () => {
   assert.equal(PICKED_OPEN_MS, 520);
   assert.equal(PICKED_FADE_MS, 120);
-  assert.equal(PICKED_PAGE_SLIDE_MS, 300);
+  assert.equal(PICKED_PAGE_SLIDE_MS, 700, '§10 #26: the page slide is 0.7 s');
+  assert.equal(PICKED_PAGE_SLIDE_EASE, 'cubic-bezier(.33,1,.68,1)');
   assert.equal(PICKED_EASE, 'cubic-bezier(.2,.8,.2,1)');
   const motion = read(MOTION);
   assert.match(motion, /export function pickedMotion\(/);
@@ -82,4 +84,11 @@ test('4 · a page switch costs no request', () => {
   const select = shell.slice(shell.indexOf('const select = useCallback('), shell.indexOf('const close = useCallback('));
   assert.match(select, /window\.history\.replaceState\(/);
   assert.doesNotMatch(select, /router\.(push|replace|refresh)\(/, 'a page switch must not go to the server');
+  // §10 #26: the PAGE slides 44 px (never the scroller), the scroller hides x-overflow, and no scrollIntoView anywhere.
+  assert.match(select, /querySelector<HTMLElement>\('#picked-page'\)/);
+  assert.match(select, /translateX\(44px\)/);
+  assert.match(select, /\{ opacity: 1, offset: 0\.45 \}/);
+  assert.match(shell, /data-picked-body[^>]*|overflow-x-hidden[^"]*data-picked-body/);
+  assert.match(shell, /overflow-x-hidden overscroll-contain \[overscroll-behavior-x:none\]/);
+  assert.equal((shell.match(/scrollIntoView\(/g) ?? []).length, 1, 'only the Script fold may scrollIntoView (vertical, on open)');
 });

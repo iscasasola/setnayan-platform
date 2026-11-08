@@ -347,6 +347,8 @@ test('10 · the page does not grow: one shop-row read for three, the schedules i
   assert.equal((next.match(/\.from\('event_schedule_blocks'\)/g) ?? []).length, 1);
   assert.equal((next.match(/\.from\('vendor_dayof_configs'\)/g) ?? []).length, 1);
   assert.equal((next.match(/\.in\('event_id', ids\)/g) ?? []).length, 2, 'a next-event read is per event');
+  // 👥 The hosts are the brief's own list (`event_chat_hosts`, C2) — one call per card, the only per-card read beside the cover.
+  assert.equal((next.match(/\.rpc\('event_chat_hosts', \{ p_event_id: id \}\)/g) ?? []).length, 1);
   // The renewal date (A9) is NOT on the table read — a session may not SELECT it there; it is its own read off the
   // shop's self view, started beside the shop row.
   assert.doesNotMatch(server, /\.from\('vendor_profiles'\)[\s\S]{0,400}next_renewal_due_at/, 'the renewal date is on the table read — Postgres refuses the whole row for a session');

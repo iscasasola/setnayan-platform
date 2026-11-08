@@ -298,7 +298,8 @@ export async function readEventDayFacts(admin: SupabaseClient, eventId: string, 
  *     every call-time reader uses (`earliestTaggedBlock` on the moments their `event_vendors` row is tagged on); the
  *     programme time is the day's first timed chapter. Time-TBA chapters (and their moments) give no time.
  *   · ONE `vendor_dayof_configs` read: a saved Hub setup for the booking = "Hub ready", none = "Hub not set up".
- *   · the cover: `readEventCover` (Discover's own resolver — the LIVE hero), only a picture becomes the card's photo.
+ *   · the cover: `readEventCover` (Discover's own resolver — the LIVE hero), only a picture becomes the card's photo;
+ *   · the hosts: `event_chat_hosts(event)` (the brief's own host list, C2) — its length is "N hosts in chat".
  *
  * Read with the admin client for events the page already proved are THIS shop's bookings (the room read), scoped by
  * `vendor_profile_id` where the table has it. A refused read is said per fact (`scheduleUnread`, `hubReady: null`) —
@@ -311,13 +312,26 @@ export async function readNextEventFacts(
 ): Promise<Record<string, NextEventFacts>> {
   const ids = [...new Set(rows.map((r) => r.eventId))];
   if (ids.length === 0) return {};
-  const [blocksRes, configRes, covers] = await Promise.all([
+  const [blocksRes, configRes, covers, hostReads] = await Promise.all([
     admin
       .from('event_schedule_blocks')
       .select('block_id, event_id, parent_block_id, label, start_at, responsible_vendor_ids, time_tba')
       .in('event_id', ids),
     admin.from('vendor_dayof_configs').select('event_id').eq('vendor_profile_id', vendorProfileId).in('event_id', ids),
     Promise.all(ids.map((id) => readEventCover(admin, id).catch(() => null))),
+    // 👥 "N hosts in chat" (owner v112 HOLD: "Keep it") — the hosts the brief names (`event_chat_hosts`, THE ONE BUILD
+    // C2 `-data`), one call per next-day card (usually one or two). A refused read is no chip, never a guessed number.
+    Promise.all(
+      ids.map((id) =>
+        admin
+          .rpc('event_chat_hosts', { p_event_id: id })
+          .then(({ data, error }) => (error || !Array.isArray(data) ? null : data.length))
+          .then(
+            (n) => n,
+            () => null,
+          ),
+      ),
+    ),
   ]);
   if (blocksRes.error) logQueryError('supplier-today: next-event schedule', blocksRes.error, { events: ids.length }, 'graceful_degrade');
   if (configRes.error) logQueryError('supplier-today: next-event hub setup', configRes.error, { events: ids.length }, 'graceful_degrade');
@@ -354,6 +368,7 @@ export async function readNextEventFacts(
       programme: firstChapter ? [firstChapter.label || null, formatWallClock(firstChapter.start_at)].filter(Boolean).join(' ') : null,
       hubReady: configRes.error ? null : configured.has(eventId),
       photo: cover?.kind === 'image' ? cover.src : null,
+      hosts: hostReads[i] ?? null,
     };
   });
   return out;

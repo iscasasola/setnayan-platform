@@ -103,12 +103,19 @@ function labChatsRead(state: string): SupplierChatsRead {
 
 /** The picked client's pages in the lab: Chat is the embedded thread on fixture messages; the rest are lab lines (the
  * real bodies are proven in /dev/clients-lab). */
+/** The lab chat's stand-in send — it writes nothing. */
+async function labChatSend(formData: FormData): Promise<void> {
+  'use server';
+  void formData;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+
 function labPickedClientBodies(threadId: string, name: string, mode: LabChatMode): Record<PickedClientPage, React.ReactNode> {
   const later = (label: string) => (
     <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} for {name} — drawn in /dev/clients-lab.</p>
   );
   const bodies = Object.fromEntries(PICKED_CLIENT_PAGES.map((p) => [p.id, later(p.label)])) as Record<PickedClientPage, React.ReactNode>;
-  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} {...mode} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} actions={{ send: labChatSend }} {...mode} />;
   return bodies;
 }
 
@@ -148,7 +155,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1' })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
           />

@@ -51,7 +51,7 @@ export function usePrivateTo(threadId: string): PrivateTo | null {
 /** The strip's people (you excluded), for the composer's 🔒 list. Only emits when the list actually changed. */
 export function setChatPeople(threadId: string, people: readonly PrivateTo[]): void {
   const was = peopleByThread.get(threadId) ?? NOBODY;
-  if (was.length === people.length && was.every((p, i) => p.userId === people[i].userId && p.name === people[i].name)) return;
+  if (was.length === people.length && was.every((p, i) => p.userId === people[i]?.userId && p.name === people[i]?.name)) return;
   if (people.length) peopleByThread.set(threadId, people);
   else peopleByThread.delete(threadId);
   emit();

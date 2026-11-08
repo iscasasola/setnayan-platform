@@ -16,29 +16,26 @@
 import { useState } from 'react';
 import { LogIn, LogOut } from 'lucide-react';
 import { ConfirmDialog } from '@/app/_components/confirm-dialog';
+import { TypedRow } from '@/app/_components/form-row';
 import { LEAVE_NOTE_MAX, leaveNoteFrom, leftOnLine, type ChatLeftRead } from '@/lib/chat-members';
 
-export function LeaveNoteField({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: () => void }) {
+/** "Your note for leaving" — the house Field template (`TypedRow`, `lint:field-template`), one line, ≤ 200; Enter keeps
+ *  the words AND leaves (owner: "Enter = Leave"). Only the writer ever sees it. */
+export function LeaveNoteField({ value, onChange, onEnter }: { value: string; onChange: (v: string) => void; onEnter: (text: string) => void }) {
   return (
-    <label className="mt-1 block text-left" data-chat-leave-note="">
-      <span className="text-[13px] text-ink/70">Your note for leaving <span className="text-ink/45">(optional)</span></span>
-      <input
-        type="text"
-        maxLength={LEAVE_NOTE_MAX}
+    <div className="mt-1 text-left" data-chat-leave-note="">
+      <TypedRow
+        name="Your note for leaving"
         value={value}
-        onChange={(e) => onChange(e.currentTarget.value)}
-        onKeyDown={(e) => {
-          // Enter = Leave (owner); the IME's confirming Enter is not a send.
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            onEnter();
-          }
-        }}
-        enterKeyHint="done"
-        className="mt-1 block h-11 w-full rounded-xl border-0 bg-ink/[0.06] px-3 text-[15px] text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
+        empty="Optional"
         placeholder="Only you will see this"
+        maxLength={LEAVE_NOTE_MAX}
+        onType={onChange}
+        onKeep={(t) => onChange(t)}
+        onEnter={onEnter}
+        data="chat-leave-note"
       />
-    </label>
+    </div>
   );
 }
 
@@ -52,8 +49,9 @@ export function LeaveChatDialog({
   onCancel: () => void;
 }) {
   const [note, setNote] = useState('');
-  const leave = () => {
-    const n = leaveNoteFrom(note);
+  // Enter in the note hands its words straight in (the kept value may not have rendered yet); the Leave button reads state.
+  const leave = (typed?: string) => {
+    const n = leaveNoteFrom(typeof typed === 'string' ? typed : note);
     setNote('');
     void onLeave(n);
   };

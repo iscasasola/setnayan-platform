@@ -305,7 +305,7 @@ export function PickedShell<P extends string>({
           data-picked-menu=""
         >
           {menu.map((m) => {
-            const Icon = icons[m.id];
+            const Icon: LucideIcon = icons[m.id];
             const on = m.id === page;
             return (
               <button

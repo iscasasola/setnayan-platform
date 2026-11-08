@@ -33,6 +33,7 @@ import {
   canLeaveChat,
   everyoneAddedLine,
   leaveNoteFrom,
+  LEAVE_NOTE_MAX,
   memberAddedLine,
   memberJoinedLine,
   memberLeftLine,
@@ -61,7 +62,7 @@ test('1 · the supplier never sees the ＋', () => {
   const supplierThread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
   assert.doesNotMatch(supplierThread, /memberAdd|memberLeave/, 'the supplier\'s chat was handed the ＋ or Leave');
   // …and the labs only hand them to the event side.
-  assert.match(read('app/dev/_components/lab-picked-chat.tsx'), /side === 'couple' \? \{ memberAdd:/);
+  assert.match(read('app/dev/_components/lab-picked-chat.tsx'), /side === 'couple' && actions\.add && actions\.leave \? \{ memberAdd:/);
 });
 
 test('2 · the faces: someone else → private mode at once; your own face as a host → "Leave this chat?"; else nothing', () => {
@@ -92,8 +93,10 @@ test('2 · the faces: someone else → private mode at once; your own face as a 
   // The note: optional, ≤ 200, Enter = Leave.
   const field = renderToStaticMarkup(h(LeaveNoteField, { value: '', onChange: () => {}, onEnter: () => {} }));
   assert.match(field, /Your note for leaving/);
-  assert.match(field, /maxLength="200"/);
-  assert.match(dlg, /if \(e\.key === 'Enter' && !e\.nativeEvent\.isComposing\) \{\s*e\.preventDefault\(\);\s*onEnter\(\);/, 'Enter does not leave');
+  // The house Field template (TypedRow, lint:field-template): ≤ 200, and its Enter hands the words to Leave.
+  assert.match(dlg, /<TypedRow\b[\s\S]*?maxLength=\{LEAVE_NOTE_MAX\}[\s\S]*?onEnter=\{onEnter\}/, 'the note is not the Field template, ≤ 200, Enter = Leave');
+  assert.equal(LEAVE_NOTE_MAX, 200);
+  assert.match(dlg, /<LeaveNoteField value=\{note\} onChange=\{setNote\} onEnter=\{leave\} \/>/, 'Enter does not leave');
   assert.equal(leaveNoteFrom('   '), null);
   assert.equal(leaveNoteFrom('x'.repeat(250))?.length, 200);
 });

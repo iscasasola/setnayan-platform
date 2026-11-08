@@ -4,8 +4,12 @@
  * 📐 EVERYTHING PINNED ABOVE THE MESSAGES IS ONE STACK, CAPPED AT 4/9 OF THE SCREEN (owner, 9 Nov — corpus fb2217b6).
  *
  * The head, the host strip (`ChatHostStrip`), the Chat · Decisions · Files switch, the file-expiry line and Lane B's
- * pins + Waiting line (the `pins` slot) together never take more than `calc(100dvh * 4 / 9)`; past that the stack
- * scrolls INSIDE ITSELF, so the messages and the composer always keep at least 5/9.
+ * pins + Waiting line (the `pins` slot) together never take more than `calc(100dvh * 4 / 9)`, so the messages and the
+ * composer always keep at least 5/9.
+ *
+ * 📌 PINNED STAYS PINNED (owner, 9 Nov, "the pinned on top should stay pinned" — 03-FINAL-RULINGS): the `fixed` part
+ * (the who's-here strip and the switch) NEVER scrolls — not with the messages, not inside the stack. Over the cap, only
+ * the region BELOW it (`children`: the pins, the Waiting line, the expiry line) scrolls; the messages scroll underneath.
  *
  * The head is not inside this box (it holds ✕ / ‹ and must never scroll away), so the box measures how far its own top
  * sits below the top of the screen — the head and anything else above it — and caps ITSELF at 4/9 minus that, keeping
@@ -26,7 +30,7 @@ export function pinnedStackMaxHeight(aboveTopPx: number): string {
   return above > 0 ? `max(${PINNED_STACK_FLOOR}, calc(${PINNED_STACK_CAP} - ${above}px))` : PINNED_STACK_CAP;
 }
 
-export function ChatPinnedStack({ children }: { children: ReactNode }) {
+export function ChatPinnedStack({ fixed, children }: { fixed: ReactNode; children?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [above, setAbove] = useState(0);
   useLayoutEffect(() => {
@@ -51,11 +55,18 @@ export function ChatPinnedStack({ children }: { children: ReactNode }) {
   return (
     <div
       ref={ref}
-      className="isolate shrink-0 overflow-y-auto overscroll-contain"
+      className="isolate flex shrink-0 flex-col overflow-hidden"
       style={{ maxHeight: pinnedStackMaxHeight(above) }}
       data-chat-pinned-stack=""
     >
-      {children}
+      <div className="shrink-0" data-chat-pinned-fixed="">
+        {fixed}
+      </div>
+      {children ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-chat-pinned-scroll="">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

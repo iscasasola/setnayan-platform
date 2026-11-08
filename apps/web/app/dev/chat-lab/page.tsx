@@ -37,11 +37,29 @@ function labPickedSupplierBodies(threadId: string, name: string, mode: LabChatMo
       <p className="text-sm text-ink">Quote sent · ₱85,000 · prep + reception + same-day edit</p>
     </section>
   );
-  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} {...mode} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} actions={{ send: labSend, add: labAdd, leave: labLeave }} {...mode} />;
   return bodies;
 }
 
 /** 🚪 Lab stand-in for Lane B's join write (posts "[name] joined" for real) — writes nothing. */
+/** The lab chat's stand-in writes — they write nothing (the real ones are Lane B's / the shipped send). */
+async function labSend(formData: FormData): Promise<void> {
+  'use server';
+  void formData;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+async function labAdd(userIds: string[], how: 'all' | 'picked'): Promise<void> {
+  'use server';
+  void userIds;
+  void how;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+async function labLeave(note: string | null): Promise<void> {
+  'use server';
+  void note;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+
 async function labJoin(threadId: string): Promise<void> {
   'use server';
   void threadId;
@@ -112,7 +130,7 @@ export default async function ChatLabInboxPage({
           supplierName={picked.name}
           menu={pickedSupplierMenuFor({ quote: true, chat: true })}
           initialPage={page}
-          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1' })}
+          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
         />
       ) : null}
     </LabShell>

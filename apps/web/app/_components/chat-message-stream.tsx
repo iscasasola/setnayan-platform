@@ -1221,23 +1221,29 @@ export function ChatMessageStream({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 📐 ONE PINNED STACK (owner, 9 Nov): the strip, Lane B's pins, the switch and the expiry line — capped at 4/9 of
-          the screen with the head, scrolling inside itself; the messages + composer keep ≥ 5/9. */}
-      <ChatPinnedStack>
-      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={headCalls} /> : null}
+      {/* 📐 ONE PINNED STACK (owner, 9 Nov): capped at 4/9 of the screen with the head; the messages + composer keep ≥ 5/9.
+          📌 PINNED STAYS PINNED: the strip and the switch are `fixed` — they never scroll; over the cap only Lane B's pins
+          and the expiry line below them scroll, inside the stack. */}
+      <ChatPinnedStack
+        fixed={
+          <>
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={headCalls} /> : null}
+            {/*
+              THE SWITCH — above the conversation, at every width. On a phone this
+              row may be the most useful thing on the screen: the whole standing of a
+              booking without scrolling a month of chat. It is never breakpoint-hidden.
+            */}
+            <ThreadViewSwitch
+              view={view}
+              onChange={setView}
+              decisionsCount={decisions.length}
+              needsYouCount={needsYouCount}
+              filesCount={files.length}
+            />
+          </>
+        }
+      >
       {pins}
-      {/*
-        THE SWITCH — above the conversation, at every width. On a phone this
-        row may be the most useful thing on the screen: the whole standing of a
-        booking without scrolling a month of chat. It is never breakpoint-hidden.
-      */}
-      <ThreadViewSwitch
-        view={view}
-        onChange={setView}
-        decisionsCount={decisions.length}
-        needsYouCount={needsYouCount}
-        filesCount={files.length}
-      />
       {(() => {
         // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
         if (!fileExpiry?.eventDate) return null;

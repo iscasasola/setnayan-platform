@@ -37,6 +37,8 @@ import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MA
 import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
+import { pressMs } from './press-feel';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
@@ -95,6 +97,39 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const chatPeople = useChatPeople(threadId);
   const [pickingPrivate, setPickingPrivate] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  /* ↔ THE COMPOSER SLIDES (owner, 9 Nov: "fully animate the message when the text box expands and the buttons move to the
+     side away from the screen" — 03-FINAL-RULINGS). Typing, or a private recipient, sends the ＋ · 🔒 · 📎 · 📷 · 🖼 out to the
+     LEFT while the box grows into their room in the same motion; an empty box, or × out of private, brings them back. One
+     movement at the house speed (`--sn-pill-dur`, the family spring — `.sn-composer-tools` in globals.css); Send stays put.
+     While private they also LEAVE the page once they are out (words only: no ＋, no file input) — and a composer drawn
+     already private never draws them at all. Reduced motion: the same end states, no movement. */
+  const toolsOut = Boolean(privateTo) || hasDraft;
+  const reduceMotion = usePrefersReducedMotion();
+  const [toolsMounted, setToolsMounted] = useState(!privateTo);
+  const [toolsShown, setToolsShown] = useState(!toolsOut);
+  useEffect(() => {
+    if (!toolsOut) {
+      setToolsMounted(true);
+      // One frame drawn "out" first, so the way back in is a slide, not a jump.
+      let inner = 0;
+      const outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(() => setToolsShown(true));
+      });
+      return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+      };
+    }
+    setToolsShown(false);
+    if (!privateTo) return;
+    if (reduceMotion) {
+      setToolsMounted(false);
+      return;
+    }
+    const ms = pressMs(getComputedStyle(document.documentElement).getPropertyValue('--sn-pill-dur'));
+    const t = window.setTimeout(() => setToolsMounted(false), ms);
+    return () => window.clearTimeout(t);
+  }, [toolsOut, privateTo, reduceMotion]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Any door (a face · the 🔒 · Reply privately) turning private mode on puts the cursor in the box.
   const privateUserId = privateTo?.userId ?? null;
@@ -341,7 +376,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       ) : null}
 
       <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
-        {privateTo ? null : <>
+        {toolsMounted ? (
+        <div
+          className="sn-composer-tools"
+          data-chat-composer-tools={toolsShown ? 'in' : 'out'}
+          {...(toolsShown ? {} : { 'aria-hidden': true, inert: true })}
+        >
+        <div className="flex min-w-0 items-end gap-0.5">
         {lead ?? null}
         {/* 🔒 Message someone privately, any time (owner, 9 Nov) — beside the ＋; only when someone else is in the chat. */}
         {chatPeople.length > 0 ? (
@@ -383,9 +424,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             }}
           />
         </label>
-        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). They step aside while a message is being written,
-            so the field takes their room; both hand the file to the ONE input above. */}
-        {!hasDraft ? (
+        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). They slide out with the rest while a message is being
+            written, so the field takes their room; both hand the file to the ONE input above. */}
           <>
             <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Camera" data-chat-camera="">
               <span className="sr-only">Camera</span>
@@ -398,14 +438,17 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
               <input ref={photoRef} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
           </>
+        </div>
+        </div>
         ) : null}
-        </>}
 
+        {/* 📏 While private the ＋ and attach are gone, so the box widens into their room — its outline stands 16 px in
+            from the screen edge (ChatBox's 6 px + 10), matching Send's icon on the right (6 px + its 11 px inset). */}
         {/* 🔒 PRIVATE MODE LIVES INSIDE THE BOX (owner, 9 Nov) — the same box, never a second row: an info outline, a 🔒 at its
             left, "Private message to Jose" while empty, and an × inside at its right that returns it to "Message"
             (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
         <div
-          className={`relative mx-1 my-[3px] flex min-w-0 flex-1 rounded-2xl ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
+          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${privateTo ? `ml-2.5 mr-1 ${PRIVATE_BOX_OUTLINE}` : 'mx-1'}`}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
         >

@@ -29,18 +29,16 @@ const LAB_ADDABLE = [
   { userId: '00000000-0000-4000-8000-0000000000f2', firstName: 'Tita Lu', name: 'Lourdes Santos', role: 'ninang', label: null, left: false },
 ];
 
-/** Stand-ins: they write nothing (the real writes are Lane B's). */
-async function labAdd(userIds: string[], how: 'all' | 'picked'): Promise<void> {
-  'use server';
-  void userIds;
-  void how;
-  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
-}
-async function labLeave(note: string | null): Promise<void> {
-  'use server';
-  void note;
-  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
-}
+/**
+ * The lab's stand-in writes (they write nothing; the real ones are Lane B's) are handed IN by the two lab pages: a
+ * `'use server'` inside THIS file would make its exported `LabPickedChat` count as a server action in
+ * `lint-server-action-budget.mjs` (one more Vercel route for a dev lab). The pages export nothing it counts.
+ */
+export type LabChatActions = {
+  send: (formData: FormData) => Promise<void>;
+  add?: (userIds: string[], how: 'all' | 'picked') => Promise<void>;
+  leave?: (note: string | null) => Promise<void>;
+};
 
 /**
  * 🔒 One private sample per side (lab only; the shared fixtures stay as they are): a host ↔ host line on the event's
@@ -51,8 +49,8 @@ function labPrivate(threadId: string, side: 'couple' | 'vendor') {
   return {
     message_id: '00000000-0000-4000-8000-0000000000b1',
     thread_id: threadId,
-    event_id: LAB_MESSAGES[0].event_id,
-    vendor_profile_id: LAB_MESSAGES[0].vendor_profile_id,
+    event_id: LAB_MESSAGES[0]!.event_id,
+    vendor_profile_id: LAB_MESSAGES[0]!.vendor_profile_id,
     sender_user_id: fromJose ? JOSE.userId : LAB_STAFF,
     sender_role: fromJose ? ('couple' as const) : ('vendor' as const),
     recipient_user_id: LAB_USER,
@@ -61,17 +59,27 @@ function labPrivate(threadId: string, side: 'couple' | 'vendor') {
   } as (typeof LAB_MESSAGES)[number];
 }
 
-async function labSend(formData: FormData): Promise<void> {
-  'use server';
-  void formData;
-  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
-}
 
 /** Empty modes (Build 3 · Lane A, "empty modes are part of done"): `noMessages` = a chat nobody has written in yet;
  *  `solo` = a single member on the event side (only you — the strip's ＋ shows for the missing hosts). */
-export type LabChatMode = { hostsFail?: boolean; noMessages?: boolean; solo?: boolean };
+export type LabChatMode = { hostsFail?: boolean; noMessages?: boolean; solo?: boolean; tallPins?: boolean };
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = false, noMessages = false, solo = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string } & LabChatMode) {
+/** `tallPins`: lab stand-ins for Lane B's pins (due-now rows + the Waiting line), tall enough to pass the 4/9 cap at
+ *  320 × 568 — so the "pinned stays pinned" measurement has a pin region to scroll. Not Lane B's design. */
+function LabPins() {
+  const rows = ['Booking fee due in 2 days', 'Call time not set · 6 days to go', 'Quotation expires Friday', 'Change waiting for you', 'Forms: 2 questions open', 'Waiting on Lumière · their reply'];
+  return (
+    <div className="space-y-1 px-1 py-1" data-lab-pins="">
+      {rows.map((r) => (
+        <p key={r} className="rounded-xl bg-ink/[0.05] px-3 py-2.5 text-[13px] text-ink/80">
+          (lab pin) {r}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
@@ -81,7 +89,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = f
       <ChatBox
         header={null}
         notice={<ChatSafetyBanner inBox />}
-        composer={<ChatSendForm threadId={threadId} sendAction={labSend} attachInputId={CHAT_ATTACH_INPUT_ID} userId={side === 'couple' ? LAB_USER : LAB_STAFF} />}
+        composer={<ChatSendForm threadId={threadId} sendAction={actions.send} attachInputId={CHAT_ATTACH_INPUT_ID} userId={side === 'couple' ? LAB_USER : LAB_STAFF} />}
       >
         <ChatMessageStream
           flush
@@ -95,8 +103,9 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = f
           // dummy number (no real person) — the pages pass the ONE booking check (`shopIsBookedOnEvent`), never a literal.
           headCalls={<BookedCallButtons booked phone="0917 000 0000" who={counterpartyLabel} />}
           // 👥 The ＋ and Leave are the event side's only — the supplier's chat passes neither.
-          {...(side === 'couple' ? { memberAdd: { candidates: LAB_ADDABLE, add: labAdd }, memberLeave: labLeave } : {})}
+          {...(side === 'couple' && actions.add && actions.leave ? { memberAdd: { candidates: LAB_ADDABLE, add: actions.add }, memberLeave: actions.leave } : {})}
           counterpartyLabel={counterpartyLabel}
+          {...(tallPins ? { pins: <LabPins /> } : {})}
           senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
           lockHandshake={null}
           fileExpiry={{ eventDate: '2026-12-18', precision: 'day' }}

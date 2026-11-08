@@ -10179,6 +10179,30 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
 [data-chat-private-box] :is(button, a).ab.ab-info.quiet:not(.ab-main) { border-color: transparent; }
 [data-chat-words-only] :focus-visible,
 [data-chat-words-only] .ab:focus-visible { outline-color: rgb(var(--color-private)); }
+/* ↔ THE COMPOSER SLIDES (owner 9 Nov 2026, "fully animate the message when the text box expands and the buttons move to
+ * the side away from the screen"; 03-FINAL-RULINGS). The tools group (＋ · 🔒 · 📎 · 📷 · 🖼, `chat-send-form.tsx`) shrinks its
+ * one grid column to nothing while its row slides LEFT off the edge — the message box (flex 1) grows into the room in the
+ * SAME motion; Send stays put. The house speed and spring, never a hand-typed duration ("0.7 second animation is our
+ * default"). Reduced motion: the same end states, no movement. Held by lib/the-composer-slides-its-tools-away.test.ts. */
+.sn-composer-tools {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+  transition: grid-template-columns var(--sn-pill-dur) var(--sn-pill-spring);
+}
+.sn-composer-tools > * {
+  min-width: 0;
+  transition: transform var(--sn-pill-dur) var(--sn-pill-spring);
+}
+.sn-composer-tools[data-chat-composer-tools='out'] { grid-template-columns: 0fr; }
+.sn-composer-tools[data-chat-composer-tools='out'] > * { transform: translateX(-100%); }
+.sn-composer-box { transition: margin var(--sn-pill-dur) var(--sn-pill-spring); }
+@media (prefers-reduced-motion: reduce) {
+  .sn-composer-tools,
+  .sn-composer-tools > *,
+  .sn-composer-box { transition: none; }
+}
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
  * the component; this only owns the slide. Reduced motion → jump. */

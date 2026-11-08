@@ -16,14 +16,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { seatSelf } from '@/lib/onboarding/couple-handoff';
+import { stripComments as stripShared } from '@/lib/strip-comments';
 
 const web = process.cwd();
 const read = (rel: string) => readFileSync(join(web, rel), 'utf8');
-const stripComments = (src: string) =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+// The shared stripper blanks a comment with spaces (it keeps positions); collapse them so the anchors' windows hold.
+const stripComments = (src: string) => stripShared(src).replace(/\s+/g, ' ');
 
 const LOCK = 'app/_components/self-celebrant-lock.tsx';
 const WIZARD = 'app/onboarding/[type]/_components/generic-onboarding.tsx';

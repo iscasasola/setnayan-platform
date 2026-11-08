@@ -21,7 +21,7 @@ export function GiftLimitForm({
   const [pct, setPct] = useState(String(giftLimitPct));
 
   return (
-    <form action={formAction} className="mb-4 rounded-2xl border border-ink/10 p-4" data-admin-gift-limit="">
+    <form action={formAction} className="mb-6 pt-1" data-admin-gift-limit="">
       <InfoTip
         label="Gift limit · % of the booking fee"
         labelClassName="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text"

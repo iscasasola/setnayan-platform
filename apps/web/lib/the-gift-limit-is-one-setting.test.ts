@@ -19,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const WEB = join(import.meta.dirname, '..');
 const REPO = join(WEB, '..', '..');
@@ -37,10 +38,8 @@ const SOURCES = [...walk(join(WEB, 'app')), ...walk(join(WEB, 'lib')), ...walk(j
   relative(WEB, p),
 );
 
-/** Strip comments so a docblock that explains the history ("used to be 40%") is not a rendered string. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
+/** Comments stripped (the ONE stripper) so a docblock that explains the history ("used to be 40%") is not a rendered string. */
+const code = (src: string): string => stripComments(src);
 
 /**
  * A typed gift percentage in code: the ruled default typed as a literal ("40%" / "40 %") whose surroundings (±300

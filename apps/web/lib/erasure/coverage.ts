@@ -1097,6 +1097,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     why: 'CASCADE + NOT NULL — a membership row is the record of THIS person belonging to a community.',
   },
   {
+    table: 'chat_message_hearts',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — a ♥ is this person\u2019s own act on a message (THE ONE BUILD, 2026-11-08). It goes with them; the message it was on stays its sender\u2019s.',
+  },
+  {
     table: 'samahan_messages',
     column: 'user_id',
     why: 'CASCADE + NOT NULL — a message is the person\u2019s own words in a group they chose to join. Mirrors chat_messages authored-body erasure; the soft `deleted_at` take-down is a PRODUCT act, not an erasure one, so erasure deletes the row outright rather than trusting a flag readers filter on.',

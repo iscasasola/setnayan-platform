@@ -312,6 +312,7 @@ export async function buildPersonalDataExport(
     ownSuggestionsRes,
     couplePhotoSharesRes,
     ownCrewPassesRes,
+    ownHeartsRes,
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
   ] = await Promise.all([
@@ -825,6 +826,14 @@ export async function buildPersonalDataExport(
       .select('event_id, display_name, crew_role, status, requested_at, decided_at')
       .eq('crew_user_id', user.id)
       .order('requested_at', { ascending: true }),
+    // RA 10173 (2026-11-08, THE ONE BUILD) — the ♥ this subject put on chat messages (migration
+    // …_a_message_can_be_hearted). AUTHOR-scoped on user_id: whose heart it is. Which message, and whether it is
+    // still on — never the message's text (that is its sender's, exported to them as chat_messages_authored).
+    supabase
+      .from('chat_message_hearts')
+      .select('message_id, thread_id, hearted, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-10-30) — THE MOOD BOARD CHANGES THIS SUBJECT MADE on somebody's board under Mood Board Edit
     // (migration 20271299051148). AUTHOR-scoped on actor_user_id, exactly like event_colour_changes above: an
     // event-scoped read would disclose what the other people on that board did. `undone_at` rides with it — "I made
@@ -1120,6 +1129,7 @@ export async function buildPersonalDataExport(
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
   const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
   const ownCrewPasses = listOutcome('vendor_crew_passes', ownCrewPassesRes);
+  const ownHearts = listOutcome('chat_message_hearts', ownHeartsRes);
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const workingNotes = listOutcome(
@@ -1405,6 +1415,7 @@ export async function buildPersonalDataExport(
     // 📸 Photos the subject shared to suppliers' service cards (author-scoped; consent · credit · who sees it).
     photos_shared_to_suppliers: couplePhotoShares.rows,
     crew_passes: ownCrewPasses.rows,
+    chat_message_hearts: ownHearts.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
     // Read privileged so a coordinator whose grant was later revoked still

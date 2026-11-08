@@ -73,6 +73,7 @@ const ANCHORS: Record<string, RegExp> = {
   couple_photo_shares: eqUid('shared_by_user_id'),
   // the subject's OWN crew passes (2026-10-29) — the crew member is the row's person; the deciding shop is not
   vendor_crew_passes: eqUid('crew_user_id'),
+  chat_message_hearts: eqUid('user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),

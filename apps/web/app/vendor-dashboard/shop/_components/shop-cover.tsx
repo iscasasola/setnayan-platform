@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Pencil, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
@@ -26,12 +26,17 @@ const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
  *   pill · View shop ↗ · Share · Promote · QR · ⚙.
  *   pinned row — "Shop · ★ 4.8 · 120 events · View shop ↗ · ⚙", fading in over the last 48 px as the cover leaves.
  *
- * 🔑 Every sheet is the SHIPPED body, opened by the URL (`?sheet=promote|qr`, `?view=logo|cover`) so the page streams
- * it only when it is opened — the Shop ⚙'s own pattern (`?gear=1`). Share is browser-only (copy · photo card · the
- * phone's share sheet) and needs no read.
+ * 🔑 Every sheet is the SHIPPED body, and every body comes WITH the page (`shop/page.tsx` streams Promote · QR · ⚙ in
+ * their own <Suspense>; Logo · Cover are drawn from what the page already read) — the picked client's pattern
+ * (`clients/[eventId]/_pages/switch.tsx`). Opening or closing a sheet is CLIENT STATE plus `history.replaceState` of
+ * its address (`?sheet=promote|qr`, `?view=logo|cover`, `?gear=1`) — NO request, never `router.replace` (8 Nov release
+ * gate: each tap used to re-run the whole Shop read; Promote showed 8.4 s after the tap). The address still opens the
+ * sheet on arrival (a deep link, a reload). Share is browser-only (copy · photo card · the phone's share sheet).
+ * 🔒 the-shop-sheets-open-without-a-request.test.ts.
  *
  * ⚙ ONE settings door: `ShopSettings` (the shipped `MenuSettingsButton` sheet) sits on the pinned row; the cover's ⚙
- * opens the SAME sheet through the URL — never a second sheet.
+ * opens the SAME sheet through the address (`replaceAddressParam` keeps `useSearchParams` in step) — never a second
+ * sheet.
  * L1's `CollapsingTop` (foundation) replaces the fade below when it lands — the content stays.
  */
 export type CoverData = {
@@ -59,28 +64,44 @@ export type CoverData = {
   shareUrl: string | null;
 };
 
-function useParamSheet(key: string, value: string) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const open = params.get(key) === value;
-  const set = (next: boolean) => {
-    const q = new URLSearchParams(params.toString());
-    if (next) q.set(key, value);
-    else q.delete(key);
-    const qs = q.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
-  };
-  return [open, set] as const;
+/**
+ * Write one address param WITHOUT a request: `history.replaceState` with a fresh state (`null`), so Next.js copies its
+ * own history state and keeps `useSearchParams` in step (a restore, never a fetch) — the cover's ⚙ opens the pinned
+ * row's `ShopSettings` this way. `value === null` removes it. The hash is dropped, as the old `router.replace` did.
+ */
+export function replaceAddressParam(key: string, value: string | null) {
+  try {
+    const url = new URL(window.location.href);
+    if (value === null) url.searchParams.delete(key);
+    else url.searchParams.set(key, value);
+    const qs = url.searchParams.toString();
+    window.history.replaceState(null, '', `${url.pathname}${qs ? `?${qs}` : ''}`);
+  } catch {
+    /* an address that cannot be written still shows the right sheet (the state below is what draws it) */
+  }
 }
 
-/** A sheet whose body the SERVER draws while the URL names it (null = still on its way). */
-function ParamSheet({ param, value, title, body, data }: { param: string; value: string; title: string; body: ReactNode | null; data: string }) {
-  const [open, set] = useParamSheet(param, value);
+/** The cover's four sheets and the address param that names each (a deep link, a reload, a save coming back). */
+type CoverSheet = 'promote' | 'qr' | 'logo' | 'cover';
+const SHEET_ADDRESS: Readonly<Record<CoverSheet, readonly [param: string, value: string]>> = {
+  promote: ['sheet', 'promote'],
+  qr: ['sheet', 'qr'],
+  logo: ['view', 'logo'],
+  cover: ['view', 'cover'],
+};
+function sheetInAddress(params: { get(k: string): string | null }): CoverSheet | null {
+  for (const [id, [param, value]] of Object.entries(SHEET_ADDRESS) as Array<[CoverSheet, readonly [string, string]]>) {
+    if (params.get(param) === value) return id;
+  }
+  return null;
+}
+
+/** A sheet whose body came with the page (null = still on its way). */
+function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
   const hid = useId();
   if (!open) return null;
   return (
-    <Sheet open onClose={() => set(false)} labelledById={hid} title={title} rise>
+    <Sheet open onClose={onClose} labelledById={hid} title={title} rise>
       <div className="px-4 pb-6 pt-1" data-shop-sheet={data}>
         <h2 id={hid} className="sr-only">
           {title}
@@ -110,9 +131,6 @@ export function ShopCover({
   logoBody: ReactNode | null;
   coverBody: ReactNode | null;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
   const coverRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
@@ -141,11 +159,22 @@ export function ShopCover({
     };
   }, []);
 
-  const go = (key: string, value: string) => {
-    const q = new URLSearchParams(params.toString());
-    q.set(key, value);
-    router.replace(`${pathname}?${q.toString()}`, { scroll: false });
+  // 🗂 Which sheet is open: the address on arrival, then client state — a tap never asks the server (see the header).
+  const params = useSearchParams();
+  const inAddress = sheetInAddress(params);
+  const [sheet, setSheet] = useState<CoverSheet | null>(inAddress);
+  // The address changed under us (a save that came back to `?view=logo`, back/forward): follow it.
+  useEffect(() => setSheet(inAddress), [inAddress]);
+  const openSheet = (id: CoverSheet) => {
+    setSheet(id);
+    replaceAddressParam(...SHEET_ADDRESS[id]);
   };
+  const closeSheet = (id: CoverSheet) => {
+    setSheet(null);
+    replaceAddressParam(SHEET_ADDRESS[id][0], null);
+  };
+  // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
+  const openGear = () => replaceAddressParam('gear', '1');
   const counts = [d.rating ? `★ ${d.rating}` : null, d.events].filter(Boolean).join(' · ') || '—';
 
   return (
@@ -164,7 +193,7 @@ export function ShopCover({
               <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             </a>
           ) : null}
-          <ShopSettings body={gearBody} />
+          <ShopSettings body={gearBody} local />
         </div>
       </div>
 
@@ -176,7 +205,7 @@ export function ShopCover({
         <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(20,14,8,.15) 0%, rgba(20,14,8,.35) 45%, rgba(20,14,8,.82) 100%)' }} aria-hidden />
         <div className="relative px-4 pb-5 pt-4">
           <div className="flex items-start justify-between">
-            <button type="button" onClick={() => go('view', 'logo')} className="relative rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
+            <button type="button" onClick={() => openSheet('logo')} className="relative rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
               <VendorAvatar
                 logoUrl={d.logoUrl}
                 frame={d.logoFrame}
@@ -189,7 +218,7 @@ export function ShopCover({
             </button>
             <button
               type="button"
-              onClick={() => go('view', 'cover')}
+              onClick={() => openSheet('cover')}
               className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-[12.5px] font-medium backdrop-blur"
               data-shop-cover-edit=""
             >
@@ -259,11 +288,11 @@ export function ShopCover({
               </Link>
             )}
             <CoverIcon label="Share" icon={<Share2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
-            <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => go('sheet', 'promote')} data="promote" />
-            <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => go('sheet', 'qr')} data="qr" />
+            <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => openSheet('promote')} data="promote" />
+            <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => openSheet('qr')} data="qr" />
             <button
               type="button"
-              onClick={() => go('gear', '1')}
+              onClick={openGear}
               aria-label="Shop settings"
               className="grid h-11 w-11 shrink-0 place-items-center self-center rounded-full border border-white/35 bg-white/10 backdrop-blur"
               data-shop-cover-gear=""
@@ -275,10 +304,10 @@ export function ShopCover({
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
-      <ParamSheet param="sheet" value="promote" title="Promote" body={promoteBody} data="promote" />
-      <ParamSheet param="sheet" value="qr" title="QR · scan or tap" body={qrBody} data="qr" />
-      <ParamSheet param="view" value="logo" title="Logo" body={logoBody} data="logo" />
-      <ParamSheet param="view" value="cover" title="Cover photo" body={coverBody} data="cover" />
+      <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
+      <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
+      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody} data="logo" />
+      <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
     </>
   );
 }

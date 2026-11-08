@@ -97,8 +97,10 @@ test('Customers — Events and Dates are the wide stage, Money reads, and the fo
   // 2026-10-29 (owner, "remember to always maximize the screen use"): People takes the whole width from a tablet up
   // (list + side panel at lg); Dates keeps the wide stage, Money the reading column.
   // 2026-10-30: the first view is Events (People until then — "Customers are events, not people").
-  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : seg === 'events' \? 'tab:max-w-none' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
-  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for Dates and the full width for Events');
+  // Build 2 #43: Events and Dates are ONE Clients screen — it takes the full width; only a Dates DAY page keeps the wide
+  // stage (64 rem), Money the reading column.
+  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : search\.day \? 'tab:max-w-5xl' : 'tab:max-w-none'\}`\}/.exec(src);
+  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for a Dates day and the full width for Clients');
   assert.doesNotMatch(col![0], /\blg:max-w-/, 'a second (lg) cap fights the system measure');
   assert.match(src, /<FeatureAccordion sections=\{sections\} openKey=\{open\} measure=\{seg === 'money' \? 'reading' : 'wide'\}>/);
   const acc = read('_components/feature-accordion.tsx');

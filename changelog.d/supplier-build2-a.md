@@ -7,5 +7,8 @@
 - **#38** One open path: every Clients row, tile row and Today Reply card opens that client through
   `clientLandingPage` → `customerCardHref`, on the page its kind means (Asking → Chat · Quoted → Quotation · Booked →
   Details · Hub on the day). An unbooked client's Payment door draws the Quotation. Guard: `customers/one-open-path.test.ts`.
+- **#37** One picked mark on the Clients month, the week strip and the client's Schedule month — the day's number in
+  an ink box that pops in — and one swipe (month and week, 40 px, 320 ms, never picks a day). Blocked days are struck
+  through. The Dates tour's stops follow the one screen. Guard: `app/_components/calendar-day-box.test.ts`.
 
 SPEC IMPACT: None — builds the approved v113/v118 prototype (corpus prototypes/supplier_clients_2026-11-07).

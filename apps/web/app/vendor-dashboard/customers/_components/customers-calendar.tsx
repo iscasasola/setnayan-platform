@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
+import { DayBox, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
@@ -287,7 +288,11 @@ export function CustomersCalendar({
   }, [onClients]);
   // The week the strip draws: the picked day's, or — none picked — today's when it is in this month, else the 1st's.
   const anchor: CalendarDay = picked ?? (todayIso.startsWith(month) ? todayIso : `${month}-01`);
+  // #37: a swipe on the strip moves the WEEK on show (± 7 days), never the picked day; the next pick or ‹ › re-centres it.
+  const [weekShift, setWeekShift] = useState<{ at: CalendarDay; by: number }>({ at: anchor, by: 0 });
+  const shift = weekShift.at === anchor ? weekShift.by : 0;
   const stepDay = (by: number) => {
+    setWeekShift({ at: anchor, by: 0 });
     const at = new Date(`${anchor}T00:00:00Z`);
     at.setUTCDate(at.getUTCDate() + by);
     const next = at.toISOString().slice(0, 10);
@@ -296,6 +301,7 @@ export function CustomersCalendar({
   };
   const week = useMemo(() => {
     const at = new Date(`${anchor}T00:00:00Z`);
+    at.setUTCDate(at.getUTCDate() + 7 * shift);
     const sunday = new Date(at);
     sunday.setUTCDate(at.getUTCDate() - at.getUTCDay());
     return Array.from({ length: 7 }, (_, i) => {
@@ -303,7 +309,21 @@ export function CustomersCalendar({
       d.setUTCDate(sunday.getUTCDate() + i);
       return d.toISOString().slice(0, 10);
     });
-  }, [anchor]);
+  }, [anchor, shift]);
+
+  // 👆 #37 THE ONE SWIPE: the month's days and the week's days, sideways — old and new slide together (320 ms).
+  const slideMonth = useCalendarSwipe(
+    monthRef,
+    (side) => goToMonth(stepMonth({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) }, side)),
+    '[data-calendar-days]',
+  );
+  const slideWeek = useCalendarSwipe(stripRef, (side) => setWeekShift({ at: anchor, by: shift + side }), '[data-dates-week-days]');
+  useLayoutEffect(() => {
+    slideMonth();
+  }, [month]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    slideWeek();
+  }, [week]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const holds = (monthInputs.get(month)?.dayStates ?? []).map((s) => ({
     poolId: s.poolId,
@@ -372,11 +392,12 @@ export function CustomersCalendar({
         </p>
       ) : null}
       {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
-      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
+      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="relative touch-pan-y overflow-x-clip transition-opacity" data-tour="dates-calendar">
         {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
             (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}
         <CalendarGrid
           key={month}
+          mark="box"
           value={picked}
           today={todayIso}
           startAt={`${month}-01`}
@@ -400,13 +421,13 @@ export function CustomersCalendar({
         />
       </div>
       {/* The Schedule month has no "asking" marks (its one read skips the shop's threads) — its legend says only what it draws. */}
-      {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full />}
+      {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />}
 
       {/* 📌 THE WEEK STRIP (v13 `.weekstrip`): the picked day's week, ‹ › a day. Drawn always, shown only once folded —
           height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}
       <div
         ref={stripRef}
-        className={`sticky z-[4] -mx-4 flex items-center gap-1 overflow-hidden px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
+        className={`sticky z-[4] -mx-4 flex touch-pan-y items-center gap-1 overflow-hidden px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
           folded ? 'h-[54px] sn-pin-hair opacity-100' : 'pointer-events-none h-0 opacity-0'
         }`}
         style={{ background: 'var(--sn-canvas)' }}
@@ -417,6 +438,7 @@ export function CustomersCalendar({
         <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day earlier" onClick={() => stepDay(-1)} data-dates-step="-1">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
+        <div className="relative flex min-w-0 flex-1 gap-1" data-dates-week-days="">
         {week.map((d) => {
           const inMonth = d.slice(0, 7) === month;
           const st = inMonth ? states.get(d) : undefined;
@@ -426,19 +448,26 @@ export function CustomersCalendar({
             <button
               key={d}
               type="button"
-              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-full text-[13.5px] leading-tight tabular-nums ${on ? 'bg-sn-accent text-[rgb(var(--sn-on-accent))]' : 'text-ink'}`}
-              style={!on && st?.blocked ? { backgroundImage: CALENDAR_HATCH } : undefined}
+              // #37: the ONE picked mark (the number's ink box) — today's thin ring, a blocked day struck through.
+              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-[10px] text-[13.5px] leading-tight tabular-nums text-ink ${
+                d === todayIso && !on ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''
+              } ${st?.blocked && !on ? 'text-ink/45' : ''}`}
               aria-pressed={on}
               aria-label={dayLongWords(d)}
               onClick={() => (inMonth ? toggleDay(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
               data-dates-week-day={d}
             >
-              <small className={`text-[9.5px] leading-none ${on ? '' : 'text-ink/55'}`}>{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
-              <span className={st?.full ? 'font-bold' : undefined}>{Number(d.slice(8))}</span>
-              {dot && !on ? <i aria-hidden className="absolute bottom-0.5 block h-1 w-1 rounded-full" style={{ background: dot }} /> : null}
+              <small className="text-[9.5px] leading-none text-ink/55">{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
+              <span className={`justify-self-center ${st?.full || on ? 'font-bold' : ''}`}>
+                <DayBox on={on} struck={st?.blocked === true}>
+                  {Number(d.slice(8))}
+                </DayBox>
+              </span>
+              {dot ? <i aria-hidden className="absolute bottom-0.5 block h-1 w-1 rounded-full" style={{ background: dot }} /> : null}
             </button>
           );
         })}
+        </div>
         <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day later" onClick={() => stepDay(1)} data-dates-step="1">
           <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>

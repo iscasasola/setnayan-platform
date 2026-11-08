@@ -57,6 +57,28 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - **Requests:** 0 added — the landing is decided from what each row already carries.
 - Shots: `sbs-38-asking-opens-chat`, `sbs-38-booked-opens-details` (lab's picked client is always its stand-in).
 
+### #37 — one picked mark + one swipe
+- `app/_components/calendar-day-box.tsx` (new): `DayBox` — the v118 `.dn` mark (30×30, 10 px corners, ink fill, paper
+  text, pops .55→1 in 0.3 s, fades out 0.22 s, no motion under reduced motion) — and `useCalendarSwipe` (sideways only,
+  past 40 px old + new days slide together 320 ms, under 40 px snap back, the release's click swallowed so a swipe
+  never picks a day; reduced motion = instant).
+- `CalendarGrid` gains an opt-in `mark="box"` (dots keep their colours on the box, a blocked day is struck instead of
+  hatched, today's ring 1.5 px); every other calendar in the app keeps its circle. `CalendarLegend mark="box"` says
+  "struck" instead of the hatch.
+- `CustomersCalendar` (the Clients month, the week strip AND the client's Schedule page — one component): the month
+  wears the box; the week strip draws the same `DayBox` (no accent fill, no hatch, today ringed, dots kept on the picked
+  day); both swipe. A week swipe moves the week on show (± 7 days), never the picked day.
+- Picking in another month: a week-strip day outside the month goes to that month with that day picked (already so);
+  the day head reads that month.
+- Tour: the Dates tour's "Check a date" stop pointed at nothing after #43 — folded into the month stop; its "Add" stop
+  now points at the one ＋ (`customers-add`); copy "Striped days are off" → "Struck-through days are off".
+- Guard: `app/_components/calendar-day-box.test.ts` (renders both modes). Sabotaged: the month without `mark="box"`,
+  a hatched blocked day in box mode, the swallowed click removed — each caught. Pins re-anchored with reasons:
+  each-supplier-page-has-its-tour, the-columns-are-the-system, claimed-records-asking, spotlight-anchors-exist.
+  Every test reading a touched file: **906 pass · 0 fail**.
+- **Requests:** 0 added (a swipe to a month not yet read uses the month's existing one `fetchMonth`).
+- Shots: `sbs-37-month-picked` (+ reduced), `sbs-37-month-picked-12`, `sbs-37-swiped-to-december`, `sbs-37-schedule`.
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
@@ -83,4 +105,5 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43 and #38 committed + pushed. Next: #37 (one picked mark on all three calendars + swipe between months).
+- #43, #38, #37 committed + pushed. Next: #28 (one filled day only — the part-booked soft fill and the closures
+  list's hatch swatch are the last fills).

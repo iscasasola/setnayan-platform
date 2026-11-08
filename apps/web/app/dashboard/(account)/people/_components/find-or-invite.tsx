@@ -245,6 +245,7 @@ export function InviteSheet({ f, open, onClose }: { f: FindOrInviteState; open: 
           />
           <input
             type="email"
+            autoComplete="off"
             inputMode="email"
             value={f.draft.email || f.email}
             onChange={(e) => f.setEmail(e.target.value)}
@@ -298,6 +299,7 @@ export function InviteCard({ f }: { f: FindOrInviteState }) {
         ) : (
           <input
             type="email"
+            autoComplete="off"
             inputMode="email"
             value={f.email}
             onChange={(e) => f.setEmail(e.target.value)}

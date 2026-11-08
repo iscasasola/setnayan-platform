@@ -46,6 +46,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickArrowClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
+import { SelfCelebrantLock } from '@/app/_components/self-celebrant-lock';
 import { stashCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { formatCount } from '@/lib/format-number';
 
@@ -202,6 +203,13 @@ export function EventTypePicker({
   function withNext(href: string): string {
     if (!next) return href;
     return `${href}${href.includes('?') ? '&' : '?'}next=${encodeURIComponent(next)}`;
+  }
+
+  /** "Change who it's for" on the inline form: bring the For ▾ row into view and open it. */
+  function openForMenu() {
+    const row = document.querySelector<HTMLElement>('[data-create-for-row]');
+    row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row?.querySelector<HTMLButtonElement>('[data-create-for]')?.click();
   }
 
   function handleSelect(type: EventTypeRow) {
@@ -521,10 +529,14 @@ export function EventTypePicker({
               the celebrant should automatically be me … only time it needs to be identified is when you picked for
               someone else"). Said, not asked — and the posted label stays blank, the account holder's own slot. */}
           {subject?.kind === 'self' && pickerAsksHonoree(selected.key, 'self') && !communityId ? (
-            <p className="text-sm text-ink/70" data-self-celebrant>
-              For <span className="font-medium text-ink">{selfCelebrantName(subject) || 'you'}</span> — this one’s
-              yours.
-            </p>
+            /* 🔒 Locked to their own name (owner 2026-11-08) — the shared part every create path draws. The
+               way out re-opens the For ▾ row above, the one control that names someone else or links a person. */
+            <SelfCelebrantLock
+              inputClassName="input-field mt-1.5"
+              label="For whom?"
+              name={selfCelebrantName(subject)}
+              onChange={openForMenu}
+            />
           ) : pickerAsksHonoree(selected.key, subject?.kind) && !communityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">

@@ -163,6 +163,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
           <label htmlFor="account_name" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">Account name</span>
             <input
+              autoComplete="name"
               id="account_name"
               name="account_name"
               maxLength={96}

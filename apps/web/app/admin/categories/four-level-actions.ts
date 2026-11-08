@@ -39,6 +39,7 @@ import {
   setDefaultChapterCore,
   setInfoTextCore,
   setPartServicesCore,
+  setServiceInfoTextCore,
   type WriteResult,
 } from './_components/taxonomy-writes';
 import {
@@ -208,6 +209,10 @@ async function answerOf(run: () => Promise<unknown>): Promise<WriteResult> {
 export async function mapWriteForm(kind: 'part-services' | 'coarse' | 'rename-part' | 'info-text' | ShippedFormKind, formData: FormData): Promise<WriteResult> {
   if (kind === 'info-text') {
     const admin = createAdminClient();
+    // ONE door for every ⓘ text (+0 exported actions): a SERVICE row posts `canonical_service` (plan D4,
+    // `canonical_service_schemas.hint_en`); a group or a category posts `id` (`service_categories.hint_en`).
+    const canonical = str(formData.get('canonical_service'));
+    if (canonical) return asAdmin((a) => setServiceInfoTextCore(admin, a, canonical, str(formData.get('hint_en'))));
     return asAdmin((a) => setInfoTextCore(admin, a, str(formData.get('id')), str(formData.get('hint_en'))));
   }
   if (kind === 'rename-part') {

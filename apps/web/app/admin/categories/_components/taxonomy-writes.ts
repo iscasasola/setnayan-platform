@@ -24,6 +24,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
 import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-db';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { cleanServiceDefinition, SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
 
 // The service-role client is untyped in this repo (`createAdminClient()`), and the test adapter is
 // supabase-js-SHAPED, not supabase-js — so the cores take the loose shape both satisfy.
@@ -653,4 +654,33 @@ export async function setInfoTextCore(admin: AdminDb, actorId: string, id: strin
   if (error) return { ok: false, error: error.message };
   await audit(admin, { action: 'taxonomy.set_info_text', target_table: 'service_categories', target_id: id, before_json: { hint_en: b.hint_en }, after_json: { hint_en: next }, actor_user_id: actorId });
   return { ok: true, message: next ? 'Saved — couples see it in the ⓘ.' : 'Cleared — the ⓘ shows the default line.' };
+}
+
+/**
+ * "ⓘ text" on a SERVICE — its one-line definition (plan D4; DECISION_LOG 2026-11-06 "EVERY CATEGORY AND SERVICE IN
+ * THE SIGN-UP PICKER GETS AN ⓘ WITH A ONE-LINE DEFINITION"). `canonical_service_schemas.hint_en`, beside the
+ * service's names. Blank clears it, and then there is NO ⓘ — a service has no fallback line (lib/service-definitions.ts).
+ * A combined service (a tombstone that only forwards links) is refused: its ⓘ would never be seen.
+ */
+export async function setServiceInfoTextCore(admin: AdminDb, actorId: string, canonical: string, raw: string): Promise<WriteResult> {
+  const next = cleanServiceDefinition(raw);
+  if (next && next.length > SERVICE_DEFINITION_MAX) {
+    return { ok: false, error: `Keep it to ${SERVICE_DEFINITION_MAX} characters — it is one line under the service.` };
+  }
+  const key = String(canonical ?? '').trim();
+  const [{ data: before, error: readErr }, { data: place }] = await Promise.all([
+    admin.from('canonical_service_schemas').select('canonical_service, hint_en').eq('canonical_service', key).maybeSingle(),
+    admin.from('canonical_service_taxonomy').select('canonical_service, merged_into').eq('canonical_service', key).maybeSingle(),
+  ]);
+  if (readErr) return { ok: false, error: readErr.message };
+  const b = before as { canonical_service: string; hint_en: string | null } | null;
+  if (!b) return { ok: false, error: 'That service no longer exists.' };
+  if ((place as { merged_into: string | null } | null)?.merged_into) {
+    return { ok: false, error: 'That service was combined into another — write the ⓘ on the one it was combined into.' };
+  }
+  if ((b.hint_en ?? null) === next) return { ok: true, message: 'No change.' };
+  const { error } = await admin.from('canonical_service_schemas').update({ hint_en: next, updated_at: now() }).eq('canonical_service', key);
+  if (error) return { ok: false, error: error.message };
+  await audit(admin, { action: 'taxonomy.set_service_info_text', target_table: 'canonical_service_schemas', target_id: key, before_json: { hint_en: b.hint_en }, after_json: { hint_en: next }, actor_user_id: actorId });
+  return { ok: true, message: next ? 'Saved — suppliers see it in the ⓘ.' : 'Cleared — this service shows no ⓘ.' };
 }

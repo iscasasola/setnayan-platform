@@ -47,6 +47,8 @@ import { CategoryCards, CategoryParts, FilesShopsAs, ServiceCards, ServiceParts 
 import { DrawerAddRow, ChipPress, DeadlineInPlace, InPlaceFields, InPlaceSwitch, LastMinuteInPlace, Row } from './drawer-kit';
 import { PanelFold, PanelHead, Quiet, Says } from './panel-kit';
 import { INFO_TEXT_MAX } from './taxonomy-writes';
+import { SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
+import { ServiceInfo } from '@/app/_components/service-info';
 import { LevelIcon } from './map-rows';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
@@ -150,6 +152,56 @@ function InfoTextField({ id, written, fallback }: { id: string; written: string 
         },
       ]}
     />
+  );
+}
+
+/**
+ * "ⓘ text" on a SERVICE — its one-line definition (plan D4; DECISION_LOG 2026-11-06 "EVERY CATEGORY AND SERVICE IN THE
+ * SIGN-UP PICKER GETS AN ⓘ WITH A ONE-LINE DEFINITION"). `canonical_service_schemas.hint_en`, saved in place through
+ * the same `info-text` door as a category's. Unlike a category, an empty line has NO fallback: the service shows no ⓘ.
+ * An unreadable line (`written === undefined`) is said, never drawn as an empty box a save would write over.
+ */
+function ServiceInfoTextField({ canonical, label, written }: { canonical: string; label: string; written: string | null | undefined }) {
+  if (written === undefined) {
+    return (
+      <Row label="ⓘ text">
+        <Says>Couldn’t read this service’s ⓘ text just now — reload to edit it.</Says>
+      </Row>
+    );
+  }
+  return (
+    <>
+      <InPlaceFields
+        kind="info-text"
+        hidden={{ canonical_service: canonical }}
+        fields={[
+          {
+            name: 'hint_en',
+            label: 'ⓘ text',
+            value: written ?? '',
+            what: 'ⓘ text',
+            placeholder: `One line: what ${label} is`,
+            maxLength: SERVICE_DEFINITION_MAX,
+            multiline: true,
+            tip: (
+              <InfoTip label="" ariaLabel="About the service ⓘ text" align="start">
+                The one line suppliers read when they press ⓘ beside this service — in the sign-up picker and the service
+                card maker. Left empty, the service shows no ⓘ at all. At most {SERVICE_DEFINITION_MAX} characters.
+              </InfoTip>
+            ),
+          },
+        ]}
+      />
+      {written ? (
+        /* Always show the result: the SAME component the sign-up picker and the card maker draw. */
+        /* Its own full-width line, not a two-column Row: in the right column the popover ran off a 390-px screen
+           whichever edge it hung from (measured: start → off the right, end → off the left). */
+        <div className="flex flex-col gap-1" data-service-info-preview="">
+          <span className="text-[12.5px] font-medium text-ink/70">Suppliers see</span>
+          <ServiceInfo name={label} line={written} labelClassName="text-[14px] text-ink" align="start" />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -509,8 +561,13 @@ export function ServicePanel({
         keyNote="A developer key — what a shop’s card (vendor_services.category) and every link point at. It never changes, even when the name does."
       />
 
-      <PanelFold id="name" title="Name" summary={service.tl && service.tl !== service.en ? `${service.en} · ${service.tl}` : service.en}>
+      <PanelFold
+        id="name"
+        title="Name"
+        summary={`${service.tl && service.tl !== service.en ? `${service.en} · ${service.tl}` : service.en}${service.hint === null ? ' · ⓘ not written' : ''}`}
+      >
         <InPlaceFields kind="rename-service" hidden={{ canonical_service: service.canonical }} fields={nameFields} />
+        <ServiceInfoTextField canonical={service.canonical} label={service.en} written={service.hint} />
       </PanelFold>
 
       <PanelFold

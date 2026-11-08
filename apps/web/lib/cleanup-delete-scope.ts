@@ -376,6 +376,18 @@ export function couplePhotoLookScope(shareId: unknown): CleanupScope {
   ]);
 }
 
+/**
+ * 📶 A Live Watch venue-check TEST UPLOAD — `venue-check/<event_id>/<check_id>.bin` in thread-files (`probeKey`,
+ * lib/venue-check.ts). Pure test bytes, never a person's file. Deleted when the check finishes or stops
+ * (`venue-check/actions.ts`) and, for a phone that left mid-run, by the venue-probe sweep — which reads the event id
+ * out of the LISTED key, so this folder is the only thing it can ever reach.
+ */
+export function venueCheckProbeScope(eventId: unknown): CleanupScope {
+  const e = safeId(eventId);
+  if (!e) return emptyScope('live_watch_venue_checks');
+  return mintScope(`live_watch_venue_checks:${e}`, [{ bucket: THREAD_FILES, prefixes: [`venue-check/${e}/`] }]);
+}
+
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */
 export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);

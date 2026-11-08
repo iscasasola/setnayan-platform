@@ -27,6 +27,11 @@ import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
+import { getCreatableEventTypes, type EventTypeRow } from '@/lib/event-types-db';
+import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
+import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -78,6 +83,25 @@ export async function FrontDoor({ q }: { q?: string }) {
   const [shellSearch, discoverEvents]: [ShellSearchContext | null, Awaited<ReturnType<typeof searchDiscoverEvents>> | null] = user
     ? await Promise.all([resolveShellSearchContext(searchQuery, user.id, commandItems), searchDiscoverEvents(searchQuery)])
     : [null, null];
+
+  /*
+    🏠 SIGNED OUT, `/` IS THE 4 NOV FRONT PAGE (prototypes/front_page_2026-11-04.html; DECISION_LOG 2026-11-04).
+    Two more reads, for a stranger only: the event types the strip shows (`event_type_vocab`, the roster /start
+    reads, remembered across requests), and the plan prices below. A typed search still replaces every section
+    below the hero, as it always has, and pays for neither. The Maria and Jose section draws from fixtures (no read)
+    and carries NO button into /sample (owner, CLOUD_BOARD 5 Nov: "just do not add buttons").
+  */
+  /*
+    💰 …and the two plan prices, from `platform_retail_catalog_v2` — the price list Admin edits — never typed:
+    Event Pro is Event Hub Pro (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
+    PR (#7262) puts on sale. A row that is not on sale or not readable draws no figure. Named cost: one catalogue
+    read per signed-out view (prices are read live everywhere, never remembered).
+  */
+  const signedOut = !account.signedIn;
+  const landing = signedOut && !searchQuery;
+  const [eventTypes, planPrices]: [ReadonlyArray<Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>>, PlanPrices] = landing
+    ? await Promise.all([getCreatableEventTypes(), fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([]))])
+    : [[], planPricesFrom([])];
 
   return (
     <>
@@ -132,6 +156,11 @@ export async function FrontDoor({ q }: { q?: string }) {
         than on five of them.
       */
       search={account.signedIn ? false : undefined}
+      /*
+        Signed out, the front page runs edge to edge: the hero's photo fills the content column and each
+        section keeps its own gutter (front-door-landing.css). Signed in, Discover keeps the measured column.
+      */
+      bleed={signedOut}
     >
       {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
       {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
@@ -150,7 +179,9 @@ export async function FrontDoor({ q }: { q?: string }) {
         className={
           account.signedIn
             ? 'sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]'
-            : undefined
+            : searchQuery
+              ? 'fl-gutter'
+              : undefined
         }
       >
       {searchQuery ? (
@@ -175,6 +206,23 @@ export async function FrontDoor({ q }: { q?: string }) {
             commandItems={commandItems}
           />
         )
+      ) : signedOut ? (
+        /* The 4 Nov front page — the shipped shelves ride inside it, unchanged, as #shelves. */
+        <FrontDoorLanding
+          eventTypes={eventTypes}
+          planPrices={planPrices}
+          /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
+          floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
+          sample={frontPageSample(new Date())}
+          shelves={
+            <FrontDoorFeed
+              data={data}
+              storeShell={await isStoreShellRequest()}
+              beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
+              afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
+            />
+          }
+        />
       ) : (
         <>
           <FrontDoorFeed

@@ -53,28 +53,28 @@ test('free booking: a 0 / negative ordinal is not "free" (defensive)', () => {
 // ── decideLockFee — the pure rule the RPC mirrors ────────────────────────────
 
 test('flag OFF → no charge, no order (byte-identical to today)', () => {
-  const d = decideLockFee({ flagEnabled: false, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000 });
+  const d = decideLockFee({ flagEnabled: false, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
   assert.deepEqual(d, { charge: false, free: false, feePhp: 0, createOrder: false });
 });
 
 test('not verified (off-platform) → no charge even with flag on', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: false, bookingOrdinal: 6, agreedTotalPhp: 100_000 });
+  const d = decideLockFee({ flagEnabled: true, verified: false, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
   assert.deepEqual(d, { charge: false, free: false, feePhp: 0, createOrder: false });
 });
 
 test('1st lock → free: a waived charge, no money, no order', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000 });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000, businessFree: 'available' });
   assert.deepEqual(d, { charge: true, free: true, feePhp: 0, createOrder: false });
 });
 
 test('6th lock → head-band 5% of a ₱100,000 confirmed total, order issued', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000 });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 100_000, businessFree: 'available' });
   // 5% × ₱100,000 = ₱5,000
   assert.deepEqual(d, { charge: true, free: false, feePhp: 5_000, createOrder: true });
 });
 
 test('fee base is the confirmed total, tapered, with no ceiling', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 1_000_000 });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 1_000_000, businessFree: 'available' });
   // Taper (owner-locked 2026-07-25): 5% of the first ₱100,000 = ₱5,000, then
   // 1% of the remaining ₱900,000 = ₱9,000 → ₱14,000. Uncapped, but no longer
   // the punitive flat ₱50,000.
@@ -83,20 +83,20 @@ test('fee base is the confirmed total, tapered, with no ceiling', () => {
 });
 
 test('6th lock with a ₱0 / barter total → charge cleared, NO order', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 0 });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 0, businessFree: 'available' });
   assert.equal(d.free, false);
   assert.equal(d.feePhp, 0);
   assert.equal(d.createOrder, false);
 });
 
 test('6th lock with a null total → no order (nothing to charge on)', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: null });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: null, businessFree: 'available' });
   assert.equal(d.createOrder, false);
   assert.equal(d.feePhp, 0);
 });
 
 test('floor: a tiny 6th booking still floors at ₱50', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 500 });
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 6, agreedTotalPhp: 500, businessFree: 'available' });
   assert.equal(d.feePhp, 50); // 5% × 500 = 25 → floored to ₱50
   assert.equal(d.createOrder, true);
 });

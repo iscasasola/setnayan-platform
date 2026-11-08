@@ -27,12 +27,14 @@
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/group-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/hero-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/home-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/iap-doors-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/inquire-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -47,11 +49,11 @@
 /dev/pro-parts-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/questions-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/receipt-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/review-lab	# 2026-11-06 · internal (dev, prototypes) · the reviews proof lab — a page nobody can reach without typing its address
+/dev/review-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/selfie-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
-/dev/shop-back-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page back-door proof lab — a page nobody can reach without typing its address
+/dev/shop-back-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -69,11 +71,11 @@
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/verify-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/you-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
 /papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
-/dev/favorites-lab	# 2026-11-06 · internal (dev, prototypes) · the favorites proof lab — a page nobody can reach without typing its address
-/dev/inquire-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page Inquire pop-up proof lab — a page nobody can reach without typing its address

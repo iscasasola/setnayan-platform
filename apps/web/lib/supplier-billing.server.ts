@@ -25,8 +25,9 @@ import {
  *     4 · `event_vendor_payments` (`event_vendor_payments_vendor_read`: the login's bookings, every shop)
  *   ADMIN client, SCOPED BY THE SHOP THE SESSION RESOLVED (the sanctioned shape — `a-shop-cannot-read-its-own-booking`:
  *   a supplier holds no RLS on `event_vendors` or on `events`). These only NAME and SCOPE rows the session read:
- *     5 · `event_vendors` of this shop + `events(display_name, event_date)` — which payments are THIS shop's, and names
- *     6 · `vendor_proposals` of this shop that carry a gift + `events(display_name, event_date)` — the gift's client
+ *     5 · `event_vendors` of this shop + `events!event_vendors_event_id_fkey(display_name, event_date)` (the FK is NAMED:
+ *         a bare `events(` is refused with PGRST201 — `the-cure-was-already-written-down.test.ts`) — which payments are THIS shop's, and names
+ *     6 · `vendor_proposals` of this shop that carry a gift + `events!vendor_proposals_event_id_fkey(display_name, event_date)` — the gift's client
  *     7 · the gift catalogue (`readRewardNames`) — "Papic 150", never a typed pack name
  *
  * 🔒 EVERY SESSION READ IS ALSO FILTERED BY THE SHOP (`vendor_profile_id = shop`, or the shop's booking ids). RLS alone
@@ -112,12 +113,12 @@ export async function fetchSupplierBillingMeasured(
       .limit(SUPPLIER_BILLING_ROW_LIMIT),
     admin
       .from('event_vendors')
-      .select('vendor_id, event_id, events(display_name, event_date)')
+      .select('vendor_id, event_id, events!event_vendors_event_id_fkey(display_name, event_date)')
       .eq('marketplace_vendor_id', vendorProfileId)
       .eq('voided_by_fraud', false),
     admin
       .from('vendor_proposals')
-      .select('proposal_id, event_id, events(display_name, event_date), vendor_proposal_shop_gifts!inner(gift_line_id)')
+      .select('proposal_id, event_id, events!vendor_proposals_event_id_fkey(display_name, event_date), vendor_proposal_shop_gifts!inner(gift_line_id)')
       .eq('vendor_profile_id', vendorProfileId),
     readRewardNames(admin).catch(() => FALLBACK_REWARD_NAMES),
   ]);

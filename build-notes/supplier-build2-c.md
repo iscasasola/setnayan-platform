@@ -70,12 +70,30 @@ Two caveats on the shots:
 3. **Refunds you gave a client.** There is no data source for supplier → client refunds; `event_vendor_payments` has no refund state. The list shows Setnayan → you refunds only, and the ⓘ says so. A ruling is needed if suppliers should log refunds.
 4. **Corpus.** The Build 2 plan's #39 row says "badge rewards (no table found yet)", but `shop_badge_rewards` exists. Flagged, not edited.
 
-## Generated-file needs (none edited)
-- None known to need regenerating: no new route (both `/dashboard/billing` and `/dev/billing-lab` already exist), no migration, and no new nav slot. If the controller's integrate run flags `lib/ugat/screens*` / port / admin-map / `design-rules.baseline.json` drift from these files, regenerate there.
-- Result of the full `pnpm test:unit` and typecheck on the merged head: see "Where I stopped".
+## Generated-file needs (none edited — list for the controller)
+- **`apps/web/lib/ugat/screens.generated.json`** — `screens-are-generated.test.ts` is red on the merged head. A fresh scan
+  (run, diffed, then restored byte-for-byte — not committed) changes TWO rows:
+  - `/dashboard/billing` — **this lane**: the page now reads the shop's gift/stock/reward/payment tables, so its
+    `nodes`/`tables` grow (TYPE-GALLERY, TYPE-P…). Regenerate with `pnpm --filter @setnayan/web ugat:screens`.
+  - `/vendor-dashboard/shop` — **not this lane** (nothing under `app/vendor-dashboard/shop` changed here); it came with
+    the `origin/claude/supplier-1build` merge.
 
 ## Where I stopped
 - All five scope items: done or listed, as above.
 - `origin/claude/supplier-1build` was merged at `cb79313a3a` (20 commits, clean).
-- Full typecheck + `pnpm test:unit` on the merged head under the heavy lock: RESULT_PENDING.
+- **Typecheck** on the merged head (heavy lock): **clean** — no errors, no OOM (10 GB heap).
+- **`pnpm test:unit`** on the merged head: 30,992 tests · 30,977 pass · **11 fail**. Of those:
+  - **3 were this lane's and are fixed** (15c5dbedfd + the FK commit; each re-run green):
+    - `every-back-goes-home` raw-hex 1 → 2: the stamp's exported paper constant is gone, and the ink test now reads the paper from
+      `.sn-slip`'s own background (sabotaged: grey paper → PAID 2.12:1, red).
+    - `numbers-carry-commas` T4: `BillingRow`'s `{amount}` gets a reasoned TEXT row (every caller passes formatPhp/manilaDay).
+    - **`the-cure-was-already-written-down` (a real bug)**: my bookings read embedded a bare `events(` from `event_vendors`.
+      PostgREST refuses that with PGRST201, so in production "Payments received" would always have said "didn't load".
+      Now `events!event_vendors_event_id_fkey(…)`, and the gift-client embed names `events!vendor_proposals_event_id_fkey(…)`.
+  - **1 is a generated file:** the screens map (above).
+  - **7 are not this lane's** (no file of theirs is touched here; they arrived with the supplier-1build merge):
+    `the-skeleton-promises-only-what-the-page-draws` (clients/[eventId] intercept borrows vendor-dashboard/loading) ·
+    `canvas-field-parity` (giftLimitPct) · `couple-face-choice` THE HANDLE · `forms-send-on-booking-from-every-door`
+    (lib/ugat/graph.ts) · `papic-pool-buyable` · `the-badge-has-a-deadline` (lib/shop-permit-line.ts) ·
+    `the-hub-settings-sheet-holds-the-rest`.
 - No PR opened, nothing merged or deployed, no migration applied, `.env.local` never read.

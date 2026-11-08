@@ -68,12 +68,22 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
   INTEGRATION**: those anchors exist only on `claude/supplier-1build-c4`, so on L1 alone `lib/spotlight-anchors-exist.test.ts`
   would go red. Ready edit: `vendor_shop_v1.spotlight.steps` = [shop-details "Your details", shop-analytics "How it is going",
   shop-badges "Your badges"], dropping `shop-segments` / `shop-page-list` / `shop-details-row`.
-- L2, C1: no registry requests in their notes (as of 07:40).
+- L2 (`lib/menu-settings.ts`): a `client` key — ADDED, `reserved` + `live: false` ("Client settings"). The spec (B1 step 5)
+  names the picked client's ⚙ but not its rows; whoever rules them flips it live. QUESTION below.
+- C3 (`lib/page-home.ts`): Form Maker sheet + Forms/Report bodies, back = Clients list — ALREADY COVERED: they render inside
+  `/vendor-dashboard/clients/[eventId]` (`_pages/*`, not routes), whose home is `/vendor-dashboard/customers`. A sheet has no
+  route; there is no `/vendor-dashboard/forms` page.
+- C4 (`lib/menu-settings.ts`): C4 also adds the `portfolio` ENTRY + `| 'portfolio'` — at integration keep ONE of each.
+- C1: keep C1's `lib/tours.ts` edits at integration (`vendor_today_v3`, re-pointed stops, `vendor_setup_tour_v1`). The
+  "Today, Customers, Shop and Hub" wording C1 flagged is already swept on L1 (help `supplier-dashboard-tabs`; crew pass copy).
 
 ## Questions (not guessed)
 
-- `/dashboard/[eventId]/refer` now has no door (Refer tile removed per DL 2026-11-07 "NO NEED"). Keep the page or retire it?
-- Supplier "Your page" avatar row kept (A1 S3: drop only if Shop keeps a `/vendor-dashboard/website` door — C4's call).
+- `/dashboard/[eventId]/refer`: its tile left (DL 2026-11-07 "NO NEED"); per spec §215 its door is now INSIDE Help — an event's
+  sheet opens `/help?refer=<event>` and the help centre draws "Refer a couple ›" (programme on, signed in). Retire the page
+  instead? Owner call; built as "reachable inside Help" meanwhile.
+- The picked client's ⚙ (`client` key): what does its sheet hold? Spec B1 step 5 shows the ⚙ but no rows.
+- Supplier "Your page" avatar row kept (A1 S3: drop only if Shop keeps a website door — that is §10 #31, held for Build 2).
 
 ## Deviations (reported)
 
@@ -110,7 +120,7 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
 
 ## Where I stopped
 
-- All L1 work items done (F1–F5, S1–S3, event side, registry requests, both controller rulings §10 #30/#31). Every changed test
+- All L1 work items done (F1–F5, S1–S3, event side, registry requests, §10 #30 respected; §10 #31 held for Build 2 and reverted). Every changed test
   file run singly: green. `origin/claude/supplier-1build-base` (ee8c4867e9) merged into l1 — it fixes the inherited
   `the-since-line-and-check-a-date` red. Foundation branch NOT changed since 0d9c7c4217 (nothing in it needed a fix).
 - Base-inherited reds seen on the foundation preflight (not L1's): export-coverage-guardrail, shop-name-hold, ugat-both-ends

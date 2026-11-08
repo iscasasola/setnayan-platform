@@ -57,8 +57,8 @@ SPEC IMPACT: corpus `DECISION_LOG.md` — a BUILT row under "ADMIN SUPPLIER SLIC
 **Carried onto `claude/supplier-1build` (lane R1, 8 Nov), PR #7006.** Migrations re-allocated (SQL unchanged):
 `20271320070113` → `20271329965074_notification_type_supplier_request_answered.sql` and `20271320088321` →
 `20271330825868_admin_supplier_slice.sql`.
-- **Push level `low`, no email** (DECISION_LOG 2026-11-08 controller call, "Owner may reverse"). ⚠ This reverses the
-  owner's 5 Nov *"Let us make it buzz"* (Normal) that the PR had shipped — flagged for the owner.
+- **Push level `normal` (buzzes), no email.** Owner 2026-11-08: *"Buzz (Normal)"*, reverses the controller's low
+  (the 8 Nov controller call had set `low`; the owner's ruling matches his 5 Nov *"Let us make it buzz"*).
 - **`/admin/help` resolved by hand on top of B2's report subject · note · origin.** The page is #7006's Messages
   (`HelpMessenger`); its read also selects B2's `origin_*` columns, and an open conversation that is a supplier Report
   shows "Report from ‹shop› · ‹event (date)› · Clients › ‹page›" (`data-help-report-origin`) above the message. The

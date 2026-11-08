@@ -97,7 +97,12 @@ import { fileURLToPath } from 'node:url';
 // in `vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts` — the Payment page's "Record a refund" AND its
 // swipe-left remove share this ONE export (a `remove_refund_id` field picks the mode), so the feature costs +1, not +2.
 // CEILING = the count measured on the lane tree; the integration re-measures on the merged tree.
-export const CEILING = 1238;
+// 1238 → 1239 (2026-11-08, re-port lane R2 — #7246 Seal and plate, owner 8 Nov "Ok to raise it"): `photoMark` in
+// `app/_components/photo-mark-actions.ts` — ONE dispatcher for the marked upload's server halves ('mark' what to stamp ·
+// 'pair' the private clean copy · and, with #7247, 'original' to re-open a photo in the Frame step), so the whole photo
+// mark + frame costs +1, not +3. No unimported export was found to retire. CEILING = the count measured on the lane
+// tree; the integration re-measures on the merged tree, and check-vercel-route-count gates the sum on the PR build.
+export const CEILING = 1239;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

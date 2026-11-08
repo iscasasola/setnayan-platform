@@ -111,6 +111,7 @@ import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { CrewPhoneLab, HubLab } from './hub-lab';
 import { EventHubLab } from './event-hub-lab';
 import { ScanLab } from './scan-lab';
+import { PhotoMarkLab } from './photo-mark-lab';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { TOURS } from '@/lib/tours';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
@@ -330,7 +331,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; verified?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -371,6 +372,10 @@ export default async function SupplierLabPage({
   if (q.s === 'event-hub') {
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
     return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} numbers={q.numbers} state={q.state} />, 'own');
+  }
+  if (q.s === 'photo-mark') {
+    /* 🔏 The Seal and plate + the Frame step on the REAL uploader (#7246 · #7247) — `photo-mark-lab.tsx`; &verified=1. */
+    return <PhotoMarkLab verified={q.verified === '1'} />;
   }
   if (q.s === 'scan-guest' || q.s === 'scan-couple') {
     /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */

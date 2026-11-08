@@ -21,7 +21,18 @@ import { SHOP_GEAR_SECTIONS } from './shop-gear-sections';
  * named the Your-documents fold that lived on Shop › Details. That fold lives HERE now — an address that names one of
  * the ⚙'s folds (`#plan` · `#team` · `#docs` · `#notifications`) opens the sheet on it.
  */
-export function ShopSettings({ body }: { body: ReactNode | null }) {
+export function ShopSettings({
+  body,
+  local = false,
+}: {
+  body: ReactNode | null;
+  /**
+   * The body came WITH the page (the Shop tab, `shopGearBodyAlways`): open/close is client state + `history.replaceState`
+   * — no request (8 Nov release gate). Without it (the other Shop section pages) the server draws the rows for `?gear=1`,
+   * so the address must be NAVIGATED to (`router.replace`).
+   */
+  local?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -37,7 +48,10 @@ export function ShopSettings({ body }: { body: ReactNode | null }) {
     if (next) q.set('gear', '1');
     else q.delete('gear');
     const qs = q.toString();
-    router.replace(`${pathname}${qs ? `?${qs}` : ''}${next && fold ? `#${fold}` : ''}`, { scroll: false });
+    const href = `${pathname}${qs ? `?${qs}` : ''}${next && fold ? `#${fold}` : ''}`;
+    // `null` state: Next.js copies its own history state and keeps `useSearchParams` in step — a restore, never a fetch.
+    if (local) window.history.replaceState(null, '', href);
+    else router.replace(href, { scroll: false });
   };
 
   // An old link names a fold that moved in here (`#docs`) — on arrival, or from this same page (a figure, Get verified):

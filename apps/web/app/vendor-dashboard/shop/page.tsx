@@ -109,14 +109,17 @@ type ShopData = {
   /** "38 reviews" beside the ★ — the cover's link into Your page › Reviews and stories (§10 #31). */
   reviews: string | null;
   events: string | null;
-  /** 📊 The five Analytics cards. */
-  analytics: ShopAnalytics | null;
+  /** 📊 The five Analytics cards — a started read, streamed by `ShopAnalyticsSection` (never part of the one wait). */
+  analytics: Promise<ShopAnalytics | null>;
   /** Fields of the business profile still empty (Your details' row) — the logo is its own first step (`profileGaps`). */
   fieldsLeft: number;
   /** The logo row's editor data (Your details' own close-save row). */
   logoItem: BusinessProfileItem | null;
   logoFields: ProfileFieldData;
 };
+
+/** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
+const FACTS_UNREAD = Symbol('badge facts unread');
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
 
@@ -199,19 +202,23 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     return null;
   });
 
-  // 🏅 THE BADGES — the shipped tracker's facts, then #7298's reward engine (measured, paid once if newly earned, read —
-  // exactly as Performance does), chained on the facts so it adds no round trip beside the batch.
+  // 🏅 THE BADGES — the shipped tracker's facts, and #7298's reward engine READ beside them (its reads start now; only
+  // the final merge waits for the facts). 🛑 READ ONLY: this render never pays a reward — `<BadgeRewardSweep />` asks
+  // the paying door after the page has drawn (`lib/badge-rewards.server.ts` header; guard: the-shop-render-never-writes).
   const factsRead: Promise<TrackerFacts | null> = readShopTrackerFacts(vendorId).catch((err: unknown) => {
     logQueryError('VendorShopPage.badgeFacts', err, { vendorId });
     return null;
   });
   const rewardsRead: Promise<TrackerRewardInput | null> = (async () => {
-    const facts = await factsRead;
-    if (!facts) return null;
     try {
-      return await readBadgeRewardTracker(createAdminClient(), vendorId, facts);
+      return await readBadgeRewardTracker(
+        createAdminClient(),
+        vendorId,
+        factsRead.then((f) => (f ? f : Promise.reject(FACTS_UNREAD))),
+      );
     } catch (err) {
-      logQueryError('VendorShopPage.badgeRewards', err, { vendorId });
+      // Unread facts were already logged above — no reward lines then, as before.
+      if (err !== FACTS_UNREAD) logQueryError('VendorShopPage.badgeRewards', err, { vendorId });
       return null;
     }
   })();
@@ -231,16 +238,20 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
-  // 📊 Analytics — the five cards, gated by the plan (chained on the shop's own row only).
-  const analyticsRead = ownRead
-    .then((own) => loadShopAnalytics(supabase, profile, user.id, own?.tier_state ?? null))
-    .catch((err: unknown) => {
-      logQueryError('VendorShopPage.analytics', err, { vendorId });
-      return null;
-    });
+  // 📊 Analytics — the five cards, gated by the plan (its role read starts now, beside the shop's own row). NOT in the
+  // one wait: the cards STREAM in their own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for them.
+  const analyticsRead: Promise<ShopAnalytics | null> = loadShopAnalytics(
+    supabase,
+    profile,
+    user.id,
+    ownRead.then((own) => own?.tier_state ?? null),
+  ).catch((err: unknown) => {
+    logQueryError('VendorShopPage.analytics', err, { vendorId });
+    return null;
+  });
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, analytics, coverUrl] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -248,7 +259,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     scanSettingsRead,
     factsRead,
     rewardsRead,
-    analyticsRead,
     coverRead,
   ]);
 
@@ -294,7 +304,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
-    analytics,
+    analytics: analyticsRead,
     // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
     fieldsLeft: profileGaps(completion).fieldsLeft,
     logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
@@ -325,6 +335,49 @@ function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): Profi
     extraServiceLeaves: [],
     vendorProfileId: profile.vendor_profile_id,
   };
+}
+
+/** 📊 The Analytics section, once its read lands — unread says so, never empty cards. */
+async function ShopAnalyticsSection({ read }: { read: Promise<ShopAnalytics | null> }) {
+  const analytics = await read;
+  if (analytics === null) {
+    return (
+      <p role="status" className="px-4 pt-5 text-[13.5px] text-ink/65" data-shop-analytics-unread="">
+        Couldn&rsquo;t load your analytics just now.
+      </p>
+    );
+  }
+  if (analytics.access === 'ok') {
+    return <ShopAnalyticsCarousel cards={analyticsCards(analytics)} recs={analytics.recs} nowMs={Date.now()} />;
+  }
+  return (
+    <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
+      Analytics are for the shop&rsquo;s owner and admins.
+    </p>
+  );
+}
+
+/** A sheet opened before its streamed body landed — the same words the sheet says for a body still on its way. */
+function SheetOpening({ line = 'Opening…' }: { line?: string }) {
+  return (
+    <p role="status" className="py-4 text-[13.5px] text-ink/60">
+      {line}
+    </p>
+  );
+}
+
+/** The streaming stand-in: the section's own heading and one card's height, so nothing jumps when the cards land. */
+function AnalyticsPlaceholder() {
+  return (
+    <section aria-busy="true" aria-label="Analytics, loading" data-shop-analytics-loading="" className="scroll-mt-24">
+      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
+        <span className="sn-eye">Analytics</span>
+      </div>
+      <div className="px-4">
+        <div className="h-[196px] animate-pulse rounded-2xl bg-ink/[0.05]" />
+      </div>
+    </section>
+  );
 }
 
 /** The five faces — each the SHIPPED card's `compact` variant; a plan-locked card says which plan shows it. */
@@ -450,25 +503,34 @@ async function ShopHome({
   return (
     <>
       <div className="mx-auto w-full max-w-3xl pb-32" data-shop-tab="">
+        {/* 🗂 Every cover sheet's body comes WITH the page (the picked client's pattern, `clients/[eventId]/_pages/switch.tsx`):
+            Promote · QR · ⚙ stream in their own <Suspense> (the cover never waits for them), Logo · Cover are drawn from
+            what the page already read. Opening or closing one is client state + `history.replaceState` — no request
+            (guard: the-shop-sheets-open-without-a-request). The address still opens a sheet on arrival. */}
         <ShopCover
           d={cover}
-          gearBody={shopGearBody(sp)}
-          promoteBody={one('sheet') === 'promote' ? <PromoteBody search={qrSearch} part="promote" /> : null}
-          qrBody={one('sheet') === 'qr' ? <PromoteBody search={qrSearch} part="qr" /> : null}
+          gearBody={<Suspense fallback={<SheetOpening line="Opening your settings…" />}>{shopGearBodyAlways(sp)}</Suspense>}
+          promoteBody={
+            <Suspense fallback={<SheetOpening />}>
+              <PromoteBody search={qrSearch} part="promote" />
+            </Suspense>
+          }
+          qrBody={
+            <Suspense fallback={<SheetOpening />}>
+              <PromoteBody search={qrSearch} part="qr" />
+            </Suspense>
+          }
           logoBody={
-            one('view') === 'logo' ? (
-              <div className="space-y-3" data-shop-logo-view="">
+            <div className="space-y-3" data-shop-logo-view="">
                 <p className="text-[13px] text-ink/65">Your logo · shows on your page, cards and chat. Drag to move, pinch to zoom.</p>
                 {data.logoUnavailable ? <CouldNotLoad what="your logo" /> : null}
                 {data.logoItem ? (
                   <ProfileChecklistEditor items={[data.logoItem]} data={data.logoFields} isVerified={data.isVerified} showProgress={false} flat />
                 ) : null}
               </div>
-            ) : null
           }
           coverBody={
-            one('view') === 'cover' ? (
-              <div className="space-y-3" data-shop-cover-view="">
+            <div className="space-y-3" data-shop-cover-view="">
                 {data.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL
                   <img src={data.coverUrl} alt="Your cover photo" className="aspect-[16/10] w-full rounded-2xl object-cover" />
@@ -485,9 +547,10 @@ async function ShopHome({
                   </li>
                 </ul>
               </div>
-            ) : null
           }
         />
+        {/* 🎁 Pays a newly earned badge's reward AFTER this page has drawn — the render itself only reads. */}
+        <BadgeRewardSweep />
         {/* The old anchors still land here, once each (links already sent: notifications, bookmarks). */}
         <span id="d1" className="block scroll-mt-24" aria-hidden />
         <span id="get-verified" className="block scroll-mt-24" aria-hidden />
@@ -504,18 +567,11 @@ async function ShopHome({
           </Suspense>
         </div>
 
-        {/* 📊 ANALYTICS — five cards (spec §4). Owners and admins only (the cards carry booking revenue). */}
-        {data.analytics === null ? (
-          <p role="status" className="px-4 pt-5 text-[13.5px] text-ink/65" data-shop-analytics-unread="">
-            Couldn&rsquo;t load your analytics just now.
-          </p>
-        ) : data.analytics.access === 'ok' ? (
-          <ShopAnalyticsCarousel cards={analyticsCards(data.analytics)} recs={data.analytics.recs} nowMs={Date.now()} />
-        ) : (
-          <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
-            Analytics are for the shop&rsquo;s owner and admins.
-          </p>
-        )}
+        {/* 📊 ANALYTICS — five cards (spec §4). Owners and admins only (the cards carry booking revenue). Streamed: the
+            cover and the badges draw first, the cards arrive in place of a same-height placeholder. */}
+        <Suspense fallback={<AnalyticsPlaceholder />}>
+          <ShopAnalyticsSection read={data.analytics} />
+        </Suspense>
 
         {/* 🏅 BADGES — ONE row, the closest goal first. */}
         <ShopBadgeRow tiles={data.badges} />
@@ -576,7 +632,8 @@ import {
   type AccordionSection,
 } from '../_components/feature-accordion';
 import ManpowerSurface from '../manpower/surface';
-import { shopGearBody } from './_components/shop-settings-body';
+import { shopGearBodyAlways } from './_components/shop-settings-body';
+import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
 
 // The folded feature sections, in strategic order below the shop home. Each

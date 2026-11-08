@@ -89,11 +89,12 @@ export async function loadShopAnalytics(
   supabase: SupabaseClient,
   profile: VendorProfileRow,
   userId: string,
-  tier: string | null,
+  /** The shop's plan — or the promise of it: the role read starts at once, beside the plan read (one round trip). */
+  tierIn: string | null | PromiseLike<string | null>,
   nowMs: number = Date.now(),
 ): Promise<ShopAnalytics> {
   const vendorId = profile.vendor_profile_id;
-  const role = await soft(resolveVendorRole(supabase, userId), null, 'role', vendorId);
+  const [role, tier] = await Promise.all([soft(resolveVendorRole(supabase, userId), null, 'role', vendorId), tierIn]);
   // A team member who is not an owner/admin: the cards carry booking revenue (Performance's own rule).
   if (role && !canManageVendor(role)) return { access: 'not_manager' };
 

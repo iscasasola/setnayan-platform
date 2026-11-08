@@ -14,7 +14,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { DETAILS_CHECKLIST_KEYS } from '@/lib/supplier-details';
-import { SHOP_SETTINGS_FIRST } from '@/lib/menu-settings';
 import { scopedMemberAvatarRows, supplierAvatarRows } from '../_components/supplier-avatar-rows';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -52,16 +51,8 @@ test('3 · the account panel rows go somewhere real, and only for owners and adm
   assert.deepEqual(
     rows.map((r) => r.label),
     // "Your collections" left the account sheet (THE ONE BUILD, 2026-11-08): the photos are the Portfolio TAB now.
-    // 🔁 UPDATED ON PURPOSE 2026-11-08 (spec §10 #31): "Your page" left too — its one home is the Shop ⚙'s FIRST entry
-    // (asserted just below, so the page is never doorless); "Your details" stays here only. NOT WEAKENED.
-    ['Your details', 'Helpers', 'Plan', 'Settings'],
+    ['Your details', 'Your page', 'Helpers', 'Plan', 'Settings'],
   );
-  assert.equal(SHOP_SETTINGS_FIRST.href, '/vendor-dashboard/website');
-  assert.ok(existsSync(join(WEB, 'app/vendor-dashboard/website/page.tsx')), 'the Shop ⚙’s Your page has no page');
-  const gear = src('app/vendor-dashboard/shop/_components/shop-settings.tsx');
-  const first = gear.indexOf('href={SHOP_SETTINGS_FIRST.href}');
-  assert.ok(first > 0 && first < gear.indexOf('{body ??'), 'Your page is not the Shop ⚙’s first entry');
-  assert.ok(!/label: 'Your details'|title=\{?['"]Your details/.test(gear), 'Your details is in the Shop ⚙ — it lives in the account sheet only');
   for (const r of rows) {
     const page = join(WEB, 'app', r.href.replace(/^\//, ''), 'page.tsx');
     assert.ok(existsSync(page), `${r.label} goes to ${r.href}, which has no page`);

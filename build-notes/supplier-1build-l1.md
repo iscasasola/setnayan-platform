@@ -68,22 +68,12 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
   INTEGRATION**: those anchors exist only on `claude/supplier-1build-c4`, so on L1 alone `lib/spotlight-anchors-exist.test.ts`
   would go red. Ready edit: `vendor_shop_v1.spotlight.steps` = [shop-details "Your details", shop-analytics "How it is going",
   shop-badges "Your badges"], dropping `shop-segments` / `shop-page-list` / `shop-details-row`.
-- L2 (`lib/menu-settings.ts`): a `client` key — ADDED, `reserved` + `live: false` ("Client settings"). The spec (B1 step 5)
-  names the picked client's ⚙ but not its rows; whoever rules them flips it live. QUESTION below.
-- C3 (`lib/page-home.ts`): Form Maker sheet + Forms/Report bodies, back = Clients list — ALREADY COVERED: they render inside
-  `/vendor-dashboard/clients/[eventId]` (`_pages/*`, not routes), whose home is `/vendor-dashboard/customers`. A sheet has no
-  route; there is no `/vendor-dashboard/forms` page.
-- C4 (`lib/menu-settings.ts`): C4 also adds the `portfolio` ENTRY + `| 'portfolio'` — at integration keep ONE of each.
-- C1: keep C1's `lib/tours.ts` edits at integration (`vendor_today_v3`, re-pointed stops, `vendor_setup_tour_v1`). The
-  "Today, Customers, Shop and Hub" wording C1 flagged is already swept on L1 (help `supplier-dashboard-tabs`; crew pass copy).
+- L2, C1: no registry requests in their notes (as of 07:40).
 
 ## Questions (not guessed)
 
-- `/dashboard/[eventId]/refer`: its tile left (DL 2026-11-07 "NO NEED"); per spec §215 its door is now INSIDE Help — an event's
-  sheet opens `/help?refer=<event>` and the help centre draws "Refer a couple ›" (programme on, signed in). Retire the page
-  instead? Owner call; built as "reachable inside Help" meanwhile.
-- The picked client's ⚙ (`client` key): what does its sheet hold? Spec B1 step 5 shows the ⚙ but no rows.
-- ~~Supplier "Your page" avatar row~~ — dropped per §10 #31 (above).
+- `/dashboard/[eventId]/refer` now has no door (Refer tile removed per DL 2026-11-07 "NO NEED"). Keep the page or retire it?
+- Supplier "Your page" avatar row kept (A1 S3: drop only if Shop keeps a `/vendor-dashboard/website` door — C4's call).
 
 ## Deviations (reported)
 
@@ -91,21 +81,6 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
   thumb 25 < nav 30 < pop 40 ≤ modal 50.
 - Chrome-away attribute sits on `<html>` (the dock can live outside `.fd`).
 - ~~Supplier "Sign out of…" opens IN PLACE under the tiles~~ — REMOVED. **OWNER RULING 8 Nov (S3), via coordinator:** *"this menu pop up from the upper right already has a design and i like the design. only the content is what you change."* The sheet keeps the shipped look (white grouped cards, serif name header + "Profile & settings ›", round icon tiles, pill badges, Appearance pill, red Sign out tile, quiet "Sign out of all accounts" line). No styling was changed: every card/row/tile uses the shipped classes. The one non-content addition — the spec's "Sign out of…" choice card (A1 S3 item 7), which also hid the quiet line on the supplier sheet — was reverted to the shipped tile + quiet line on EVERY sheet. G10 test 4 now pins that (sabotaged: `!supplierSheet` back on the quiet line → red).
-
-## Controller rulings applied (8 Nov, corpus Setnayan-specs main 0413f2bd)
-
-- **§10 #30 — the account sheet keeps the SHIPPED design; only its content changes** (owner: *"this menu pop up from the upper
-  right already has a design and i like the design. only the content is what you change."*). Done: no styling touched; the
-  spec's "Sign out of…" choice card reverted to the shipped red Sign out tile + quiet "Sign out of all accounts" line on every
-  sheet (G10 test 4 pins it). Content deltas kept: tiles Help · Show me around · Sign out; "You are in" card (the shipped
-  "Your shop" card, relabelled); Your collections and Your page rows out.
-- **§10 #31 — Shop ⚙'s FIRST entry is "Your page · what couples see, all your reviews inside" (→ /vendor-dashboard/website);
-  "Your details" stays only in the top-right account sheet.** Done: `SHOP_SETTINGS_FIRST` in `lib/menu-settings.ts`, drawn by
-  `shop/_components/shop-settings.tsx` above the folds (that file is untouched by C4, so no collision with C4's
-  `shop-settings-rows.tsx` permit edit); the Shop entry's line now starts "Your page, …". The account sheet's "Your page"
-  row is DROPPED (A1 S3: "drop only if Shop keeps a website door" — it now does; v113's sheet has no Your page row).
-  Guard: `profile/your-details-are-one-list.test.ts` test 3 (sabotaged: the first entry pointed elsewhere → red).
-  **C4** removes the loose Your page · Your details rows from the Shop page.
 
 ## Risks
 

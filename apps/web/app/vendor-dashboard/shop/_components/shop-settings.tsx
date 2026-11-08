@@ -3,9 +3,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
-import { Globe } from 'lucide-react';
-import { SHOP_SETTINGS_FIRST } from '@/lib/menu-settings';
-import { DatesRow } from '../../customers/_components/dates-row';
 import { SHOP_GEAR_SECTIONS } from './shop-gear-sections';
 
 /**
@@ -67,20 +64,6 @@ export function ShopSettings({ body }: { body: ReactNode | null }) {
   return (
     <MenuSettingsButton menu="shop" open={open} onOpenChange={(next) => go(next)}>
       <div className="px-4 pb-6 pt-2" data-shop-settings="">
-        {/* 🏪 FIRST: Your page (spec §10 #31) — the shipped row, one tap to the page editor. */}
-        <div className="border-b border-ink/10">
-          <DatesRow
-            data="shop-gear-your-page"
-            href={SHOP_SETTINGS_FIRST.href}
-            title={SHOP_SETTINGS_FIRST.title}
-            line={SHOP_SETTINGS_FIRST.line}
-            lead={
-              <span className="mr-1 flex">
-                <Globe aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />
-              </span>
-            }
-          />
-        </div>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60" data-shop-settings-loading="">
             Opening your settings…

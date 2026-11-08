@@ -51,6 +51,7 @@ import type { PickedClientPage } from './picked-client-menu';
 import { SCRIPT_FOLD_ID } from './picked-client-menu';
 import { PickedNavContext, type PickedNav } from './picked-client-nav';
 import { ThumbLayerContext, type ThumbLayer } from '../../../_components/thumb-layer';
+import { warmPickedPages } from '../_pages/lazy';
 import {
   PICKED_EASE,
   PICKED_OPEN_MS,
@@ -152,6 +153,23 @@ export function PickedClientShell({
     if (centreInStrip(strip, strip?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`) ?? null, first) !== null) centredOnce.current = true;
     if (bodyRef.current?.scrollLeft) bodyRef.current.scrollLeft = 0;
   }, [page, host]);
+
+  // ⚡ The other pages' code loads on demand (`_pages/lazy.tsx`); once the open has settled, warm it at idle so a later
+  // tap finds it already here. Code only — no data, no request to our server.
+  useEffect(() => {
+    if (!host) return;
+    let idle = 0;
+    const t = window.setTimeout(() => {
+      const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+      if (ric) idle = ric(warmPickedPages);
+      else warmPickedPages();
+    }, PICKED_OPEN_MS);
+    return () => {
+      window.clearTimeout(t);
+      const cic = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
+      if (idle && cic) cic(idle);
+    };
+  }, [host]);
 
   // `?tab=script` → Schedule, scrolled to the Script fold.
   useEffect(() => {

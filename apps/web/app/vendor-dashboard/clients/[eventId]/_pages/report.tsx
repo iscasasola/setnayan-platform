@@ -13,7 +13,8 @@
  */
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { ReportForm } from './report-form';
+// ⚡ On-demand code (`./lazy`): the shipped `ReportForm`, loaded with this page rather than the route's first load.
+import { ReportForm } from './lazy';
 import type { PickedPageProps } from './context';
 
 export async function ReportPage({ ctx, shipped }: PickedPageProps) {

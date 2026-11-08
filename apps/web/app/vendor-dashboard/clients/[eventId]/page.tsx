@@ -147,6 +147,9 @@ import { ClientDeskAnswersBlock, readClientDeskAnswers } from './_components/cli
 import { detailsNumbers } from './_components/details-numbers';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
+import { SuppliersList } from './_components/suppliers-list';
+import { supplierRows } from './_components/suppliers-rows';
+import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows, type BriefHost } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
@@ -2063,22 +2066,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         changeOrders={changeOrders}
         changeOrdersMeasured={changeOrdersMeasured}
         search={search}
+        // 🗓 v113's Schedule order (owner 2026-11-08): your part (Where · Hours · Asked of you · the chapters) and then
+        // Appointments, BEFORE the handover and change requests — so the meetings sit with the day, not under the paperwork.
+        appointments={
+          isBooked ? (
+            <div className="mt-5 border-t border-ink/10 pt-4" data-schedule-appointments="">
+              <AppointmentsSection
+                role="vendor"
+                eventId={eventId}
+                vendorProfileId={profile.vendor_profile_id}
+                returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+                threadId={threadId}
+                currentUserId={user.id}
+                counterpartyName={eventName}
+                presets={appointmentPresets}
+                appointments={appointmentViews}
+              />
+            </div>
+          ) : null
+        }
       />
-      {isBooked ? (
-        <div className="mt-4">
-          <AppointmentsSection
-            role="vendor"
-            eventId={eventId}
-            vendorProfileId={profile.vendor_profile_id}
-            returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-            threadId={threadId}
-            currentUserId={user.id}
-            counterpartyName={eventName}
-            presets={appointmentPresets}
-            appointments={appointmentViews}
-          />
-        </div>
-      ) : null}
     </>
   );
 
@@ -2328,8 +2335,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     </div>
   );
 
+  /*
+    📋 DETAILS, IN v113's ORDER (owner 2026-11-08; v113 `strip+three+hosts+det+acc+sups+dec+forms`; B1 step 6):
+    the stage strip · the three numbers · Hosts · the brief's details · the access request · Suppliers on this event ·
+    Decisions · Forms sent. The answers waiting on the shop (an inquiry, a date change, a removal) sit right under the
+    numbers — they are the next thing to do. ⏳ Decisions is not drawn yet: it needs the chat's facts built once on the
+    server (B1 step 6.7) — see build-notes.
+  */
   const detailsShipped = (
     <div className="space-y-4" data-details-shipped="">
+      {pipelineBlock}
+      <DetailsNumbersRow cells={numbersCells} />
       {askAnswerBlock}
       {deskAnswers ? <ClientDeskAnswersBlock answers={deskAnswers} /> : null}
       {badgesRow}
@@ -2339,15 +2355,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           <OpenTheirEvent eventId={eventId} />
         </div>
       ) : null}
-      {pipelineBlock}
-      <DetailsNumbersRow cells={numbersCells} />
       {nextMoveCard}
       {/* ⏳ `brief.hosts` arrives with C2's -data (spec §9 #1); until then the key is absent and nothing is drawn. */}
       <HostsList hosts={hostRows((brief as { hosts?: BriefHost[] }).hosts)} />
+      {/* The brief, from the REDACTED payload at every locked stage. */}
+      {overviewNode}
       {feeLockPanel}
       {/* Item 2 of the ruling — "the request to access features". The panel
           above already says why, so this withholds rather than repeating it. */}
       {feeUnlocked ? askBlock : null}
+      {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
+      {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
       {isBooked && feeUnlocked ? (
         <VendorCompletionCard
           eventId={eventId}
@@ -2357,9 +2375,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {/* The brief, from the REDACTED payload at every locked stage. */}
-      {overviewNode}
       {coupleAnswersNode}
+      <DetailsFormsDoor />
     </div>
   );
 
@@ -3443,6 +3460,8 @@ function ScheduleTab(props: {
   /** false = the change-order read was refused, so "none raised" is not a fact. */
   changeOrdersMeasured: boolean;
   search: { suggest?: string; handover?: string; change_order?: string; change_order_resp?: string };
+  /** Appointments, drawn right after the supplier's part (v113 Schedule order); null before booking. */
+  appointments?: React.ReactNode;
 }) {
   const {
     eventId,
@@ -3590,6 +3609,8 @@ function ScheduleTab(props: {
         <div className="mt-4">
           <SupplierSchedule eventId={eventId} {...supplierPart} />
         </div>
+
+        {props.appointments ?? null}
 
         {/* Delivery handover (Wave 4). */}
         <div className="mt-5 border-t border-ink/10 pt-4">

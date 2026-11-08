@@ -149,6 +149,7 @@ import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
+import { ScheduleCalendar } from './_components/schedule-calendar';
 import { DetailsDecisionsDoor } from './_components/details-decisions-door';
 import { decisionsLine } from './_components/details-decisions';
 import { DetailsFormsDoor } from './_components/details-forms-door';
@@ -2396,6 +2397,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       details: detailsShipped,
       schedule: (
         <>
+          {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
+              on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
+          {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
           {gated(scheduleNode)}
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (

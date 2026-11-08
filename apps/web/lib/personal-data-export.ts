@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
-import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
+import { VENDOR_PROFILE_EXPORT_SELECT, vendorProfileForExport } from '@/lib/export-vendor-profile-columns';
 import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
 import { readOwnGiftRecords } from '@/lib/export-own-gift-records';
 import { readOwnHubViews } from '@/lib/export-own-hub-views';
@@ -1368,7 +1368,8 @@ export async function buildPersonalDataExport(
         bazi_birthdata_consent_at: (ev?.bazi_birthdata_consent_at as string | null) ?? null,
       };
     }),
-    vendor_profile: vendorProfile.row,
+    // 🪪 A staff uid leaves as a label ("Setnayan staff"), never the uid — `VENDOR_PROFILE_EXPORT_STAFF_LABELS`.
+    vendor_profile: vendorProfileForExport(vendorProfile.row),
     vendor_portfolio_media: vendorPortfolioMedia,
     vendor_submitted_media: vendorSubmittedMedia,
     // 🔒 An ADMIN-PREPARED file carries no message text: Setnayan staff never

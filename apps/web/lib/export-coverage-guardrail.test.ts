@@ -84,6 +84,8 @@ import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED } from './export-payment-le
 import {
   VENDOR_PROFILE_EXPORT_COLUMNS,
   VENDOR_PROFILE_EXPORT_OMITTED,
+  VENDOR_PROFILE_EXPORT_STAFF_LABELS,
+  vendorProfileForExport,
 } from './export-vendor-profile-columns';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
@@ -894,6 +896,30 @@ test('T12 · the vendor_profiles export projection is COMPLETE (no column silent
         'Withholding a column from a subject-access response is a decision someone must defend.',
     );
   }
+});
+
+test('T12b · a staff uid on the vendor_profile leaves as a label, never the uid (STAFF_ACTOR rule, Build 2)', () => {
+  // `find_lock_lifted_by` holds the uid of the Setnayan staff member who lifted the shop's find-lock. It stays in the
+  // projection (T12's equality is untouched, so the subject still learns THAT it was lifted) and is swapped for its
+  // label by `vendorProfileForExport` — the one function `personal-data-export.ts` writes the row through.
+  // SABOTAGE (seen red, 8 Nov 2026): `vendorProfileForExport` returning the row unchanged → red ("the staff uid left").
+  const table = readSchema().get('vendor_profiles');
+  assert.ok(table, 'vendor_profiles not parsed');
+  assert.ok(Object.keys(VENDOR_PROFILE_EXPORT_STAFF_LABELS).length > 0, 'the staff-label map is empty');
+  const uid = '6f1c2a40-0000-4000-8000-00000000abcd';
+  for (const [col, label] of Object.entries(VENDOR_PROFILE_EXPORT_STAFF_LABELS)) {
+    assert.ok(table.cols.has(col), `${col} is not a vendor_profiles column — a stale staff label`);
+    assert.ok(VENDOR_PROFILE_EXPORT_COLUMNS.includes(col), `${col} left the projection — the subject would not learn it was set`);
+    assert.ok(!(col in VENDOR_PROFILE_EXPORT_OMITTED), `${col} is both withheld and labelled`);
+    const out = vendorProfileForExport({ [col]: uid, business_name: 'Shop' } as Record<string, unknown>);
+    assert.equal(out[col], label, `the staff uid left in ${col}`);
+    assert.ok(!JSON.stringify(out).includes(uid), 'the staff uid left the export');
+    assert.equal(out.business_name, 'Shop', 'the label swap touched a subject column');
+    assert.equal(vendorProfileForExport({ [col]: null } as Record<string, unknown>)[col], null, `${col}: nobody acted must stay null`);
+  }
+  assert.equal(VENDOR_PROFILE_EXPORT_STAFF_LABELS.find_lock_lifted_by, 'Setnayan staff');
+  const route = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'personal-data-export.ts'), 'utf8');
+  assert.match(route, /vendor_profile:\s*vendorProfileForExport\(vendorProfile\.row\)/, 'the export writes the vendor_profile row without the label swap');
 });
 
 test('T14 · the payment_ledger projection is COMPLETE (no ledger column silently drops out)', () => {

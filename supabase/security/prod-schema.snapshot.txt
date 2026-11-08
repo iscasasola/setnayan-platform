@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1787
-# tables: 464
-# columns: 5732
-# notnull: 3450
+# ledger: 1803
+# tables: 475
+# columns: 5820
+# notnull: 3511
 [ledger]
 20260512000000
 20260513000000
@@ -1797,8 +1797,24 @@
 20271323347634
 20271323363853
 20271324259202
+20271324946509
+20271325118550
 20271325152313
+20271325290605
+20271325510297
 20271325516180
+20271325581544
+20271326463501
+20271327129110
+20271327631190
+20271327929301
+20271328327292
+20271328682743
+20271329241008
+20271329352320
+20271329965074
+20271330825868
+20271331290778
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2127,6 +2143,16 @@ canonical_service_taxonomy.secondary_tiles
 canonical_service_taxonomy.sort_order
 canonical_service_taxonomy.tile_id
 canonical_service_taxonomy.updated_at
+category_form_suggestions.category_id
+category_form_suggestions.sort_order
+category_form_suggestions.template_key
+category_hub_settings.category_id
+category_hub_settings.scan_default
+category_hub_settings.updated_at
+category_hub_settings.updated_by
+category_hub_tool_switches.category_id
+category_hub_tool_switches.created_at
+category_hub_tool_switches.tool_key
 chat_message_flags.action_taken
 chat_message_flags.categories
 chat_message_flags.created_at
@@ -2144,6 +2170,14 @@ chat_message_flags.sender_user_id
 chat_message_flags.status
 chat_message_flags.thread_id
 chat_message_flags.vendor_profile_id
+chat_message_hearts.created_at
+chat_message_hearts.event_id
+chat_message_hearts.hearted
+chat_message_hearts.message_id
+chat_message_hearts.thread_id
+chat_message_hearts.updated_at
+chat_message_hearts.user_id
+chat_message_hearts.vendor_profile_id
 chat_messages.amendment_id
 chat_messages.appointment_id
 chat_messages.attachment_mime
@@ -2858,6 +2892,13 @@ event_floor_signs.sort_order
 event_floor_signs.updated_at
 event_floor_signs.x_pos
 event_floor_signs.y_pos
+event_form_sends.event_id
+event_form_sends.first_sent_at
+event_form_sends.form_id
+event_form_sends.sent_at
+event_form_sends.sent_by
+event_form_sends.thread_id
+event_form_sends.vendor_profile_id
 event_gift_records.amount_php
 event_gift_records.client_ref
 event_gift_records.created_at
@@ -3427,6 +3468,19 @@ event_vendor_preferences.event_id
 event_vendor_preferences.schema_version_at_capture
 event_vendor_preferences.special_request
 event_vendor_preferences.updated_at
+event_vendor_refunds.amount_php
+event_vendor_refunds.created_at
+event_vendor_refunds.event_id
+event_vendor_refunds.event_vendor_id
+event_vendor_refunds.proof_r2_key
+event_vendor_refunds.reason
+event_vendor_refunds.recorded_by_user_id
+event_vendor_refunds.refund_id
+event_vendor_refunds.refunded_on
+event_vendor_refunds.removed_at
+event_vendor_refunds.removed_by_user_id
+event_vendor_refunds.request_id
+event_vendor_refunds.vendor_profile_id
 event_vendor_working_notes.author_role
 event_vendor_working_notes.author_user_id
 event_vendor_working_notes.body
@@ -3837,6 +3891,12 @@ force_majeure_flags.resolution_notes
 force_majeure_flags.resolved_at
 force_majeure_flags.status
 force_majeure_flags.updated_at
+form_templates.is_active
+form_templates.items
+form_templates.template_key
+form_templates.title
+form_templates.updated_at
+form_templates.updated_by
 founder_seats.granted_at
 founder_seats.granted_by
 founder_seats.label
@@ -4112,6 +4172,9 @@ help_messages.body
 help_messages.created_at
 help_messages.handled_by_user_id
 help_messages.message_id
+help_messages.origin_event_id
+help_messages.origin_page
+help_messages.origin_vendor_profile_id
 help_messages.priority_rank
 help_messages.public_id
 help_messages.resolved_at
@@ -4160,6 +4223,14 @@ hub_music_tracks.sort_order
 hub_music_tracks.title
 hub_music_tracks.track_id
 hub_music_tracks.updated_at
+hub_tools.created_at
+hub_tools.is_active
+hub_tools.label
+hub_tools.sort_order
+hub_tools.template
+hub_tools.tool_key
+hub_tools.updated_at
+hub_tools.updated_by
 hub_visitor_buckets.bucket_start
 hub_visitor_buckets.event_id
 hub_visitor_buckets.opens
@@ -5396,6 +5467,7 @@ platform_settings.business_address
 platform_settings.business_email
 platform_settings.business_name
 platform_settings.business_tin
+platform_settings.chat_live_pings_live
 platform_settings.creator_offer_sweep_last_run_at
 platform_settings.default_vat_rate_pct
 platform_settings.drive_speed_kmh
@@ -5413,6 +5485,7 @@ platform_settings.gcash_monthly_cap_php
 platform_settings.gcash_number
 platform_settings.gcash_qr_payload
 platform_settings.gcash_qr_url
+platform_settings.gift_limit_pct
 platform_settings.google_drive_oauth_client_id
 platform_settings.google_drive_oauth_redirect_uri
 platform_settings.google_picker_api_key
@@ -5922,6 +5995,14 @@ supplier_page_photo_notices.published_at
 supplier_page_photo_notices.removed_at
 supplier_page_photo_notices.removed_by
 supplier_page_photo_notices.vendor_profile_id
+supplier_photo_originals.created_at
+supplier_photo_originals.frame
+supplier_photo_originals.id
+supplier_photo_originals.mark_kind
+supplier_photo_originals.marked_at
+supplier_photo_originals.original_ref
+supplier_photo_originals.public_ref
+supplier_photo_originals.vendor_profile_id
 supplier_scan_claims.claim_id
 supplier_scan_claims.claimed_at
 supplier_scan_claims.coverage_id
@@ -6349,6 +6430,7 @@ vendor_contracts.uploaded_by_user_id
 vendor_contracts.vendor_profile_id
 vendor_correction_requests.created_at
 vendor_correction_requests.current_value
+vendor_correction_requests.decline_reason
 vendor_correction_requests.field_key
 vendor_correction_requests.id
 vendor_correction_requests.note
@@ -6491,6 +6573,17 @@ vendor_feature_recommendations.vendor_profile_id
 vendor_follows.followed_at
 vendor_follows.follower_user_id
 vendor_follows.vendor_profile_id
+vendor_form_service_links.created_at
+vendor_form_service_links.form_id
+vendor_form_service_links.vendor_service_id
+vendor_forms.created_at
+vendor_forms.form_id
+vendor_forms.from_template_key
+vendor_forms.public_id
+vendor_forms.retired_at
+vendor_forms.title
+vendor_forms.updated_at
+vendor_forms.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivered_by
@@ -6614,6 +6707,7 @@ vendor_locked_qr_tokens.claimed_at
 vendor_locked_qr_tokens.claimed_by_user_id
 vendor_locked_qr_tokens.claimed_event_id
 vendor_locked_qr_tokens.claimed_event_vendor_id
+vendor_locked_qr_tokens.client_name
 vendor_locked_qr_tokens.created_at
 vendor_locked_qr_tokens.created_by_user_id
 vendor_locked_qr_tokens.event_date
@@ -6622,6 +6716,7 @@ vendor_locked_qr_tokens.id
 vendor_locked_qr_tokens.initial_paid_php
 vendor_locked_qr_tokens.proof_r2_key
 vendor_locked_qr_tokens.public_id
+vendor_locked_qr_tokens.quote_line_items
 vendor_locked_qr_tokens.remembrance_r2_key
 vendor_locked_qr_tokens.schedule_json
 vendor_locked_qr_tokens.service_description
@@ -6632,6 +6727,7 @@ vendor_locked_qr_tokens.total_php
 vendor_locked_qr_tokens.vendor_profile_id
 vendor_locked_qr_tokens.vendor_service_id
 vendor_locked_qr_tokens.vendor_service_ids
+vendor_locked_qr_tokens.voided_at
 vendor_member_token_wallets.purchased_tokens
 vendor_member_token_wallets.updated_at
 vendor_member_token_wallets.user_id
@@ -6976,6 +7072,7 @@ vendor_proposals.created_at
 vendor_proposals.event_id
 vendor_proposals.includes_setnayan_gift
 vendor_proposals.line_items
+vendor_proposals.locked_qr_token_id
 vendor_proposals.merge_snapshot
 vendor_proposals.payment_method_ids
 vendor_proposals.payment_schedule
@@ -7013,14 +7110,21 @@ vendor_qr_media_flags.reviewed_by
 vendor_qr_media_flags.status
 vendor_qr_media_flags.surface
 vendor_qr_media_flags.vendor_profile_id
+vendor_questions.answer_type
 vendor_questions.created_at
 vendor_questions.display_order
+vendor_questions.form_id
 vendor_questions.hint
 vendor_questions.is_asked
+vendor_questions.is_required
+vendor_questions.item_kind
+vendor_questions.media_keys
+vendor_questions.options
 vendor_questions.prompt
 vendor_questions.question_id
 vendor_questions.updated_at
 vendor_questions.vendor_profile_id
+vendor_questions.video_url
 vendor_recommendation_feedback.created_at
 vendor_recommendation_feedback.feedback_type
 vendor_recommendation_feedback.id
@@ -7737,6 +7841,15 @@ canonical_service_taxonomy.phase
 canonical_service_taxonomy.secondary_tiles
 canonical_service_taxonomy.sort_order
 canonical_service_taxonomy.updated_at
+category_form_suggestions.category_id
+category_form_suggestions.sort_order
+category_form_suggestions.template_key
+category_hub_settings.category_id
+category_hub_settings.scan_default
+category_hub_settings.updated_at
+category_hub_tool_switches.category_id
+category_hub_tool_switches.created_at
+category_hub_tool_switches.tool_key
 chat_message_flags.categories
 chat_message_flags.created_at
 chat_message_flags.flag_id
@@ -7747,6 +7860,13 @@ chat_message_flags.public_id
 chat_message_flags.sender_role
 chat_message_flags.status
 chat_message_flags.thread_id
+chat_message_hearts.created_at
+chat_message_hearts.event_id
+chat_message_hearts.hearted
+chat_message_hearts.message_id
+chat_message_hearts.thread_id
+chat_message_hearts.updated_at
+chat_message_hearts.user_id
 chat_messages.body
 chat_messages.created_at
 chat_messages.event_id
@@ -8215,6 +8335,12 @@ event_floor_signs.sort_order
 event_floor_signs.updated_at
 event_floor_signs.x_pos
 event_floor_signs.y_pos
+event_form_sends.event_id
+event_form_sends.first_sent_at
+event_form_sends.form_id
+event_form_sends.sent_at
+event_form_sends.sent_by
+event_form_sends.vendor_profile_id
 event_gift_records.amount_php
 event_gift_records.created_at
 event_gift_records.event_id
@@ -8548,6 +8674,13 @@ event_vendor_preferences.created_at
 event_vendor_preferences.event_id
 event_vendor_preferences.schema_version_at_capture
 event_vendor_preferences.updated_at
+event_vendor_refunds.amount_php
+event_vendor_refunds.created_at
+event_vendor_refunds.event_vendor_id
+event_vendor_refunds.reason
+event_vendor_refunds.refund_id
+event_vendor_refunds.refunded_on
+event_vendor_refunds.vendor_profile_id
 event_vendor_working_notes.author_role
 event_vendor_working_notes.author_user_id
 event_vendor_working_notes.body
@@ -8693,6 +8826,11 @@ force_majeure_flags.flag_type
 force_majeure_flags.public_id
 force_majeure_flags.status
 force_majeure_flags.updated_at
+form_templates.is_active
+form_templates.items
+form_templates.template_key
+form_templates.title
+form_templates.updated_at
 founder_seats.granted_at
 founder_seats.seat_no
 founder_seats.user_id
@@ -8898,6 +9036,13 @@ hub_music_tracks.sort_order
 hub_music_tracks.title
 hub_music_tracks.track_id
 hub_music_tracks.updated_at
+hub_tools.created_at
+hub_tools.is_active
+hub_tools.label
+hub_tools.sort_order
+hub_tools.template
+hub_tools.tool_key
+hub_tools.updated_at
 hub_visitor_buckets.bucket_start
 hub_visitor_buckets.event_id
 hub_visitor_buckets.opens
@@ -9655,6 +9800,7 @@ platform_settings.fee_leak_price_tolerance
 platform_settings.firstlook_boost_weight
 platform_settings.firstlook_sla_hours
 platform_settings.gcash_enabled
+platform_settings.gift_limit_pct
 platform_settings.id
 platform_settings.load_time_targets
 platform_settings.loader_pop_enabled
@@ -10002,6 +10148,13 @@ supplier_page_photo_notices.page_ref
 supplier_page_photo_notices.photo_id
 supplier_page_photo_notices.public_from
 supplier_page_photo_notices.vendor_profile_id
+supplier_photo_originals.created_at
+supplier_photo_originals.id
+supplier_photo_originals.mark_kind
+supplier_photo_originals.marked_at
+supplier_photo_originals.original_ref
+supplier_photo_originals.public_ref
+supplier_photo_originals.vendor_profile_id
 supplier_scan_claims.claim_id
 supplier_scan_claims.claimed_at
 supplier_scan_claims.coverage_id
@@ -10366,6 +10519,15 @@ vendor_feature_recommendations.vendor_profile_id
 vendor_follows.followed_at
 vendor_follows.follower_user_id
 vendor_follows.vendor_profile_id
+vendor_form_service_links.created_at
+vendor_form_service_links.form_id
+vendor_form_service_links.vendor_service_id
+vendor_forms.created_at
+vendor_forms.form_id
+vendor_forms.public_id
+vendor_forms.title
+vendor_forms.updated_at
+vendor_forms.vendor_profile_id
 vendor_guest_deliveries.created_at
 vendor_guest_deliveries.delivered_at
 vendor_guest_deliveries.delivery_id
@@ -10659,9 +10821,12 @@ vendor_qr_media_flags.r2_ref
 vendor_qr_media_flags.status
 vendor_qr_media_flags.surface
 vendor_qr_media_flags.vendor_profile_id
+vendor_questions.answer_type
 vendor_questions.created_at
 vendor_questions.display_order
 vendor_questions.is_asked
+vendor_questions.is_required
+vendor_questions.item_kind
 vendor_questions.prompt
 vendor_questions.question_id
 vendor_questions.updated_at

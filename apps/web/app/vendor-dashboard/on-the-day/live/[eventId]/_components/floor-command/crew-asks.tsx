@@ -59,7 +59,7 @@ export function CrewAsks({ eventId, asks }: { eventId: string; asks: readonly Cr
               </button>
             </div>
             {problem?.id === a.suggestionId ? (
-              <p role="alert" className="mt-1.5 text-right text-[12.5px] font-semibold text-danger-700 dark:text-danger-300">
+              <p role="alert" className="mt-1.5 text-right text-[12.5px] font-semibold text-danger-700">
                 {problem.text}
               </p>
             ) : null}

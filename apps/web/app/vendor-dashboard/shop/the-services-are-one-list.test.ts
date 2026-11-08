@@ -35,8 +35,10 @@ test('2 · bundles first, then services grouped Group › Category', () => {
 });
 
 test('3 · one add control: New bundle · New service — nothing else', () => {
-  assert.match(HEAD, /label: 'New bundle'/);
-  assert.match(HEAD, /label: 'New service'/);
+  const CHOICES = stripComments(readFileSync(join(process.cwd(), 'lib/shop-add-choices.ts'), 'utf8'));
+  assert.match(CHOICES, /label: 'New bundle'/);
+  assert.match(CHOICES, /label: 'New service'/);
+  assert.match(HEAD, /addChoices\(bundlesOn\)/, 'the head’s ＋ is not the two choices');
   assert.match(THUMB, /addChoices\(bundlesOn\)/, 'the thumb row’s ＋ is not the same two choices');
   assert.doesNotMatch(MANAGER + PAGE, /Add a service or coverage|data-shop-add-service=""/, 'the old add doors are back');
   assert.doesNotMatch(MANAGER, />\s*Add a service\s*</, 'the "+ Add a service" link is back in the list');

@@ -17,6 +17,7 @@ import { ShopBundles } from '@/app/vendor-dashboard/shop/_components/shop-bundle
 import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
 import { ShopServicesThumb } from '@/app/vendor-dashboard/shop/_components/shop-services-thumb';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
+import { php } from '@/lib/service-card-snapshot';
 import { CapacityCard } from '@/app/vendor-dashboard/performance/_components/capacity-card';
 import { ConversionDealsCard } from '@/app/vendor-dashboard/performance/_components/conversion-deals-card';
 import { PricePositionCard } from '@/app/vendor-dashboard/performance/_components/price-position-card';
@@ -199,7 +200,7 @@ function shopLab(fail: boolean, none: boolean) {
               </li>
               <li className="overflow-hidden rounded-2xl p-4" style={{ background: 'var(--m-paper)' }} data-shop-card="">
                 <ServiceCardFace
-                  snap={{ name: 'Mobile Bar by SetnaProd', priceText: 'from ₱110,000', discountBadge: null, includesLine: null, notIncluded: ['Crew meal', 'Transport'], hasExclusive: false, givesSetnayanGift: false, hasCover: false }}
+                  snap={{ name: 'Mobile Bar by SetnaProd', priceText: `from ${php(110_000)}`, discountBadge: null, includesLine: null, notIncluded: ['Crew meal', 'Transport'], hasExclusive: false, givesSetnayanGift: false, hasCover: false }}
                   leafPathLabel="Mobile Bar · Booths, carts & bars"
                 />
               </li>

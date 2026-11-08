@@ -22,6 +22,7 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { hashViewer } from '@/lib/vendor-funnel';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /** The same opaque per-browser id the shop view count dedupes signed-out visitors on. */
 const ANON_VIEWER_COOKIE = 'sn_vw';
@@ -58,12 +59,14 @@ export async function recordPortfolioPhotoView(vendorProfileId: string, photoKey
     }
     if (!raw) return;
 
-    await createAdminClient().rpc('record_portfolio_photo_view', {
+    const { error } = await createAdminClient().rpc('record_portfolio_photo_view', {
       p_vendor_profile_id: vendorProfileId,
       p_photo_key: photoKey,
       p_viewer_hash: hashViewer(raw),
       p_viewer_user_id: userId,
     });
+    // A refused count is recorded for us (never for the visitor): the photo still opens.
+    if (error) logQueryError('recordPortfolioPhotoView.rpc', error, { vendorProfileId }, 'graceful_degrade');
   } catch {
     /* fully best-effort — a dropped view never breaks the page */
   }

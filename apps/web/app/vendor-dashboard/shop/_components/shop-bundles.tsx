@@ -3,7 +3,7 @@ import { ChevronRight, Info, Package } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { NEW_BUNDLE_HREF } from './shop-services-head';
+import { NEW_BUNDLE_HREF } from '@/lib/shop-add-choices';
 
 /**
  * 📦 SHOP › YOUR SERVICES › BUNDLES — first in the list (Build 3 Lane E item 7, owner: *"Bundles should be first"*).

@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { addChoices, NEW_BUNDLE_HREF } from '@/lib/shop-add-choices';
 
 /**
  * 🧰 SHOP › YOUR SERVICES — the section's head (Build 3 Lane E items 5–6; prototype § 4, approved v3).
@@ -17,11 +18,6 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
  *     and the "+ Add a service" link are gone; the thumb row's ＋ is the same control (`shop-services-thumb.tsx`).
  * 🔒 shop/the-services-are-one-list.test.ts
  */
-export const NEW_BUNDLE_HREF = '/vendor-dashboard/packages/new';
-
-export function addChoices(bundlesOn: boolean): { key: 'bundle' | 'service'; label: string }[] {
-  return [...(bundlesOn ? [{ key: 'bundle' as const, label: 'New bundle' }] : []), { key: 'service' as const, label: 'New service' }];
-}
 
 export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { line: string; compact: string; serviceHref: string; bundlesOn: boolean }) {
   const router = useRouter();
@@ -82,7 +78,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
             compact
             dataAttr="data-shop-services-add"
             trigger={
-              <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-[color:var(--m-orange)] text-white">
+              <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-[rgb(var(--sn-accent))] text-[rgb(var(--sn-on-accent))]">
                 <Plus className="h-5 w-5" strokeWidth={2} />
               </span>
             }
@@ -92,6 +88,3 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
     </>
   );
 }
-
-/** The bundles' icon, shared by the list's rows. */
-export const BundleIcon = Package;

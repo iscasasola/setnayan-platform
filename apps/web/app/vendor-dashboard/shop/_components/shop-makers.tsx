@@ -146,7 +146,7 @@ export function ShopMakers({
           {cur.k === 'tools' ? (
             <div data-specialized-tools="">
               {/* 🎠 THE CAROUSEL — swipe · tap one. Scanner first, then suggested, then the rest; all open. */}
-              <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
+              <ul className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
                 {tools.map(({ tool: t, suggested }) => {
                   const Icon = toolIcon(t.key);
                   const on = t.key === picked.key;

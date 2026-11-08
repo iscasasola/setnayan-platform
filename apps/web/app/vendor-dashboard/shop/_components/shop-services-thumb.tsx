@@ -6,7 +6,7 @@ import { ListFilter } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
-import { addChoices, NEW_BUNDLE_HREF } from './shop-services-head';
+import { addChoices, NEW_BUNDLE_HREF } from '@/lib/shop-add-choices';
 
 /**
  * 👍 SHOP'S THUMB ROW — Search services · Show & sort · ＋ (New bundle · New service — Build 3 Lane E item 6: the one add

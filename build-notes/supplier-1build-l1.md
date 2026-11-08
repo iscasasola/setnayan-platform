@@ -60,6 +60,8 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
   (the `/dashboard/[eventId]/refer` page lost its account-sheet tile — owner "NO NEED", DL 2026-11-07).
 - `scripts/port-control-baseline.json` (`node scripts/gen-port-baseline.mjs`): Papic's controls moved Today → Memories.
 - `lib/design-rules.baseline.json` only if a back/adhoc entry DROPS.
+- `scripts/port-control-baseline.json` (`pnpm -C apps/web port:baseline`) — the full preflight's "Lint port keeps every control" is red
+  for exactly that move; `lib/ugat/screens.generated.json` makes "Root map is current" + `lib/ugat/screens-are-generated.test.ts` red.
 - `lib/ugat/graph.ts` hub-viewers title "… Home › Who's here" → "… Today › Who's here" (I do not edit graph.ts).
 
 ## Registry requests from other lanes
@@ -90,6 +92,12 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
 - `--sn-z-pop` stays **40** (not 50): existing pop-ups keep their layer; the Sheet is `--sn-z-modal: 50`. Order holds:
   thumb 25 < nav 30 < pop 40 ≤ modal 50.
 - Chrome-away attribute sits on `<html>` (the dock can live outside `.fd`).
+- The TOP bar's away-slide keeps **no** reduced-motion stop (the bottom bar's does): the existing lock
+  `vendors/find-walk-fixes.test.ts` #2 says the top bar slides for everybody, and the pinned block / category head carry no
+  reduced-motion exception. My own guard (`the-chrome-steps-away.test.ts`) now asserts that instead.
+- Memories now imports `../_components/open-event-settings` (side effect): the Papic card's settings open Event Settings,
+  whose action answers drawn editors — without it Memories would crash exactly as Home did on 29 Oct
+  (`the-settings-sheet-is-in-homes-graph.test.ts` was red, now green).
 - ~~Supplier "Sign out of…" opens IN PLACE under the tiles~~ — REMOVED. **OWNER RULING 8 Nov (S3), via coordinator:** *"this menu pop up from the upper right already has a design and i like the design. only the content is what you change."* The sheet keeps the shipped look (white grouped cards, serif name header + "Profile & settings ›", round icon tiles, pill badges, Appearance pill, red Sign out tile, quiet "Sign out of all accounts" line). No styling was changed: every card/row/tile uses the shipped classes. The one non-content addition — the spec's "Sign out of…" choice card (A1 S3 item 7), which also hid the quiet line on the supplier sheet — was reverted to the shipped tile + quiet line on EVERY sheet. G10 test 4 now pins that (sabotaged: `!supplierSheet` back on the quiet line → red).
 
 ## Controller rulings (8 Nov)
@@ -120,10 +128,11 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
 
 ## Where I stopped
 
-- All L1 work items done (F1–F5, S1–S3, event side, registry requests, §10 #30 respected; §10 #31 held for Build 2 and reverted). Every changed test
-  file run singly: green. `origin/claude/supplier-1build-base` (ee8c4867e9) merged into l1 — it fixes the inherited
-  `the-since-line-and-check-a-date` red. Foundation branch NOT changed since 0d9c7c4217 (nothing in it needed a fix).
-- Base-inherited reds seen on the foundation preflight (not L1's): export-coverage-guardrail, shop-name-hold, ugat-both-ends
-  `shop_name_is_held` rpc-no-caller; the stale generated root map (`screens.generated.json`, a controller need above).
-- Pending: `preflight --only lint,types` under the heavy lock (queued behind 4 jobs), then push `claude/supplier-1build-l1`.
-- `wt-l1-fnd` worktree to prune at the end.
+- All L1 work items done (F1–F5, S1–S3, event side, registry requests, §10 #23; §10 #30 respected; §10 #31 held for Build 2
+  and reverted — re-apply with `git revert 4f0a72c258`). Built to v113 + §10 #23 only (#24/#25 are C4's).
+- `origin/claude/supplier-1build-base` (train 2A) merged in: one conflict (`the-room-is-called-the-event-hub.test.ts`) —
+  kept L1's no-tab assertions under base's name "Hub"; the page-home label for `/vendor-dashboard/on-the-day` is "Hub".
+- Full preflight on 79ff08adf7 had 15 red; every non-generated red is fixed in 8b17d4ee82 (each run singly, green).
+  Left red, NOT L1's to fix: the two generated maps above (port baseline, ugat screens) and base-inherited
+  export-coverage-guardrail, shop-name-hold, ugat-both-ends `shop_name_is_held`.
+- `wt-l1-fnd` worktree pruned.

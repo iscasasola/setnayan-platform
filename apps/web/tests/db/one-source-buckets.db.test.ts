@@ -186,7 +186,7 @@ test('an admin adds a category and a service under it → the category, its grou
       [NEW_SERVICE],
       'a plan group pointing at the new category resolves to nothing',
     );
-    const counts = rollUpCountsToTile(new Map([[NEW_SERVICE, { verified: 2, coming_soon: 0, total: 2 }]]), live);
+    const counts = rollUpCountsToTile(new Map([[NEW_SERVICE, { verified: 2, coming_soon: 0, unverified: 0, total: 2 }]]), live);
     assert.equal(counts.get(NEW_TILE as never)?.total, 2, 'the supplier count for the new category is lost');
 
     // …and this is why the consumers moved: the const is blind to it.

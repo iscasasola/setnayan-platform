@@ -9,7 +9,9 @@
  * One component, both doors: the coordinator's floor and the emcee's desk (`ScheduleUpdater`, `via="floor"`) and a crew
  * Member's phone (`app/join/crew/[token]`, `via="crew"`). The rule and the words are `lib/change-the-schedule.ts`; the
  * write is `floorChangeSchedule` (one action — every export is a route). On the crew phone the sheet ASKS (owner
- * 2026-11-05 (D)): **Ask the hosts** files requests the coordinator / hosts approve with one tap; no Skip, no Undo.
+ * 2026-11-05 (D)): **Ask the hosts** files requests the coordinator / hosts approve with one tap, and **Ask to skip**
+ * (owner 2026-11-05, *"yes they can request"*) asks the coordinator, who approves it on the floor; no Undo. A part a
+ * LOCKED supplier is on says the lock's line instead and offers no ask; a part already asked says it waits.
  *
  * 🔒 A skip of a locked supplier's part is refused by the database with the lock's own line (#7253's words) — said here,
  * never "try again".
@@ -22,6 +24,7 @@ import { ChosenRow, FormRows } from '@/app/_components/form-row';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { guestToast, pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { lockedHead } from '@/lib/supplier-schedule-marks';
 import {
   MOVE_MINUTES,
   moveLead,
@@ -40,12 +43,18 @@ export function ChangeTheSchedule({
   eventId,
   parts,
   via = 'floor',
+  lockedBy,
+  asked,
   className,
 }: {
   eventId: string;
   /** The run of show as the page already read it — never read again here. */
   parts: readonly ChangeablePart[];
   via?: 'floor' | 'crew';
+  /** Crew phone: the parts a LOCKED supplier is on → that shop's name (the page's lock read). */
+  lockedBy?: Readonly<Record<string, string>>;
+  /** Crew phone: the parts that already wait on a skip ask. */
+  asked?: readonly string[];
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -64,9 +73,12 @@ export function ChangeTheSchedule({
   const part = movable.find((p) => p.block_id === partId) ?? first;
   const signed = later ? minutes : -minutes;
   const following = part ? Math.max(0, partsThatFollow(parts, part.block_id).length - 1) : 0;
-  /** A crew phone asks (owner 2026-11-05 (D)): a request to move — there is no skip request. */
+  /** A crew phone asks (owner 2026-11-05 (D)) — a move, or a skip (owner 2026-11-05, "yes they can request"). */
   const ask = via === 'crew';
-  const canSkip = !ask && part ? skippable.has(part.block_id) : false;
+  const skippableHere = part ? skippable.has(part.block_id) : false;
+  const lockedShop = ask && part ? (lockedBy?.[part.block_id] ?? null) : null;
+  const alreadyAsked = ask && part ? (asked ?? []).includes(part.block_id) : false;
+  const canSkip = skippableHere && !lockedShop && !alreadyAsked;
 
   const show = () => {
     setPartId(first?.block_id ?? null);
@@ -151,7 +163,18 @@ export function ChangeTheSchedule({
         ) : null}
         {part && canSkip ? (
           <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-lead="">
-            Skip: {skipLead(part)}
+            {ask ? 'Ask to skip' : 'Skip'}: {skipLead(part)}
+            {ask ? ' Nothing changes until the coordinator approves it.' : ''}
+          </p>
+        ) : null}
+        {part && skippableHere && lockedShop ? (
+          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-locked="">
+            {lockedHead(lockedShop)}
+          </p>
+        ) : null}
+        {part && skippableHere && !lockedShop && alreadyAsked ? (
+          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/55" data-change-skip-asked="">
+            Skip asked — waiting for the coordinator.
           </p>
         ) : null}
         {error ? (
@@ -173,7 +196,7 @@ export function ChangeTheSchedule({
             <ActionButton
               tone="neutral"
               icon={SkipForward}
-              label="Skip this part"
+              label={ask ? 'Ask to skip' : 'Skip this part'}
               disabled={pending}
               onClick={() => part && run({ op: 'skip', blockId: part.block_id })}
             />

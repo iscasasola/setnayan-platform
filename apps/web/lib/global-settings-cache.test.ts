@@ -159,6 +159,7 @@ const BOOKKEEPING_ONLY: Record<string, readonly string[]> = {
   platform_settings: [
     'admin_digest_last_sent_at',
     'booking_fee_minting_live',
+    'chat_live_pings_live',
     'creator_offer_sweep_last_run_at',
     'fraud_cluster_sweep_last_run_at',
     'vendor_credit_warning_sweep_last_run_at',

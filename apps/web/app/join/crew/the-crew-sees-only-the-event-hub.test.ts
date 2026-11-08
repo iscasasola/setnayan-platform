@@ -54,7 +54,9 @@ test('2 · the event is read only after the pass is proven effective — and onl
   assert.ok(admin > fee, 'the admin client is made before the pass and the fee are proven');
   assert.equal([...s.matchAll(/createAdminClient\(\)/g)].length, 1, 'a second admin client appeared');
   const reads = [...s.matchAll(/admin\s*\.from\('([a-z_]+)'\)([\s\S]*?)(?=admin\s*\.from|\]\);)/g)];
-  assert.deepEqual(reads.map((m) => m[1]).sort(), ['event_schedule_blocks', 'events', 'vendor_profiles']);
+  // event_schedule_suggestions — which parts already wait on a crew skip ask (owner 2026-11-05, "yes they can request"),
+  // read for a phone the crew door said 'ok' to, scoped to this event like every other read here.
+  assert.deepEqual(reads.map((m) => m[1]).sort(), ['event_schedule_blocks', 'event_schedule_suggestions', 'events', 'vendor_profiles']);
   for (const [, table, rest] of reads) {
     const scoped = table === 'vendor_profiles' ? /\.eq\('vendor_profile_id', pass\.vendor_profile_id\)/ : /\.eq\('event_id', eventId\)/;
     assert.match(rest!, scoped, `${table} is read without its one-event scope`);

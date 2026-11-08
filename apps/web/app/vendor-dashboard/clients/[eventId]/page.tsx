@@ -472,7 +472,7 @@ type HandoverRow = {
 type SuggestionRow = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where' | 'skip';
   /** 📍 A Where request (migration 20271308641275): their booking and the chapters asked. */
   where_vendor_id?: string | null;
   proposed_block_ids?: string[] | null;
@@ -1629,7 +1629,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ? 'Suggested a new timeline entry'
           : s.kind === 'remove'
             ? 'Asked to remove a timeline entry'
-            : 'Requested a schedule change',
+            : s.kind === 'skip'
+              ? 'Your crew asked to skip a part'
+              : 'Requested a schedule change',
       detail: `${s.note.slice(0, 90)}${s.note.length > 90 ? '…' : ''} · ${s.status}`,
       at: s.created_at,
       sortAt: Date.parse(s.created_at),

@@ -8,6 +8,10 @@
  *   · `pollBell` — the unread-notification count, re-asked through `startCountPoll` (lib/tab-return.ts). When it goes UP
  *     it asks whether a notification of `refreshOn` arrived (made a host · invited) and calls `onArrival` once per new one.
  *   · `pollEnvelope` — the unread-thread count, the same way.
+ *   · `followEnvelope` — what the envelope calls. With `NEXT_PUBLIC_CHAT_LIVE_ENABLED` OFF (the default) its first line
+ *     returns `pollEnvelope` itself: the same reads, the same timer, nothing else fetched. ON, it loads
+ *     lib/unread-follow.ts, which follows the person's ONE private live channel (lib/user-live-channel.ts) and polls
+ *     only while that channel is not live (owner 2026-10-29, "chat arrives instantly").
  *
  * 🔒 A FAILED READ CHANGES NOTHING: the honest reads answer `null`, and `startCountPoll` never draws `null`. The first
  * refusal per mount is reported to Connection Logs (not one a minute).
@@ -16,6 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { readRecentUnreadOfTypes, readUnreadNotificationCount, type NotificationType } from '@/lib/notifications';
 import { readUnreadMessageThreads } from '@/lib/chat';
 import { startCountPoll } from '@/lib/tab-return';
+import { isChatLiveEnabled } from '@/lib/chat-live-flag';
 import { trackFailure } from '@/lib/telemetry/track-error';
 
 /** How far back "arrived" looks — comfortably longer than one poll plus a hidden stretch's catch-up ask. */
@@ -85,4 +90,41 @@ export function pollEnvelope({
     read: async () => report(await readUnreadMessageThreads(supabase)),
     onValue,
   });
+}
+
+export function followEnvelope({
+  supabase,
+  userId,
+  onValue,
+  live = isChatLiveEnabled(),
+}: {
+  supabase: SupabaseClient;
+  userId: string;
+  onValue: (n: number) => void;
+  /** The kill switch (lib/chat-live-flag.ts) — a parameter only so the tests can hold both sides. */
+  live?: boolean;
+}): () => void {
+  // 🔌 OFF: exactly the envelope as it was — the same poll, and no channel module is even fetched.
+  if (!live) return pollEnvelope({ supabase, onValue });
+
+  // ON: poll as before until the live half has loaded; it then takes over (and polls whenever the channel is not live).
+  let gone = false;
+  let interim: (() => void) | null = pollEnvelope({ supabase, onValue });
+  let stop: (() => void) | null = null;
+  const report = reportOnce('Unread messages badge', 'app/_components/unread-messages-badge.tsx', 'readUnreadMessageThreads');
+  void Promise.all([import('@/lib/unread-follow'), import('@/lib/user-live-channel')])
+    .then(([{ followEnvelopeLive }, { subscribeUserLive }]) => {
+      if (gone) return;
+      interim?.();
+      interim = null;
+      stop = followEnvelopeLive({ supabase, userId, onValue, report, subscribe: subscribeUserLive });
+    })
+    .catch(() => {
+      /* the live half did not load (offline, a stale deploy's chunk): the poll above carries on alone */
+    });
+  return () => {
+    gone = true;
+    interim?.();
+    stop?.();
+  };
 }

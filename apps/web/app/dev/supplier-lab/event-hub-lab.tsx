@@ -170,6 +170,14 @@ export function EventHubLab({ view: rawView, scan, answer, numbers, state }: { v
               remaining={remainingBlockCount(blocks)}
               driftMinutes={null}
               parts={blocks}
+              crewAsks={
+                state === 'asks'
+                  ? [
+                      { suggestionId: 's1', blockId: 'b4', who: 'Ate Joy Mendoza', label: 'Processional', startAt: at('15:00') },
+                      { suggestionId: 's2', blockId: 'b5', who: 'Kuya Ben', label: 'Dinner is served', startAt: at('18:30') },
+                    ]
+                  : []
+              }
             />
             <p className="text-[13px] text-ink/60" data-lab-standin="">
               Below this on the live page: Floor Command&rsquo;s requests and seat finder, the headcount, your tools and live

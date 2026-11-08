@@ -7,6 +7,7 @@ import { isNoteOnlySuggestion } from './schedule-ros';
 import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
 import { directionOf, proposedPatch, sideMayDecide } from './schedule-ask';
 import { whereAskRefusalWords } from './supplier-where';
+import { changeTheSchedule } from './change-the-schedule.server';
 
 /**
  * ✅ THE ONE ACCEPT PATH for a supplier's schedule request (`event_schedule_suggestions`) — shared by the host's Approve,
@@ -17,7 +18,10 @@ import { whereAskRefusalWords } from './supplier-where';
  *   · adjust → the block takes the proposed name · time · place; a proposed crew replaces THEIR crew tasks on it;
  *   · new    → a private moment lands INSIDE the chapter it named (`proposed_parent_block_id`), tagged to their
  *              booking (`responsible_vendor_ids`, so it is theirs to change later), with one task per crew name;
- *   · remove → the block goes (the request outlives it — ON DELETE SET NULL, 20271263061583).
+ *   · remove → the block goes (the request outlives it — ON DELETE SET NULL, 20271263061583);
+ *   · skip   → a crew Member's ask (owner 2026-11-05, *"yes they can request"*; migration 20271331290778): the part is
+ *              skipped EXACTLY as the floor's own Skip skips it — the same `changeTheSchedule` call on the answerer's own
+ *              session (RLS, the skip lock's line, ONE notice to the suppliers and the guests).
  * The status flips AFTER the change lands, so a refused write never reads 'accepted' over an unchanged schedule.
  *
  * 🔁 BOTH WAYS (owner 2026-11-02, supplier gate audit D2; migration 20271303655108). The same row also carries a HOST'S
@@ -126,6 +130,12 @@ export async function decideSuggestion(
     as?: 'host' | 'supplier';
     /** The supplier's reason on a No to a host's ask. */
     answerNote?: string | null;
+    /**
+     * 🗓 The client that writes the ANSWER on the request row, when it is not `db`: the booked coordinator answering
+     * their own crew's ask on the floor may change the schedule (their session, RLS) but holds no UPDATE on the request
+     * row — the floor action checked the ask is their crew's before passing the service role here.
+     */
+    answerAs?: Db;
   } = {},
 ): Promise<SuggestionOutcome> {
   const { data } = await db
@@ -143,7 +153,7 @@ export async function decideSuggestion(
   if (onlyChanges && isNoteOnlySuggestion(suggestion)) return 'words';
 
   const flip = async () => {
-    const { error: resolveError } = await db
+    const { error: resolveError } = await (opts.answerAs ?? db)
       .from('event_schedule_suggestions')
       .update({
         status: decision === 'accept' ? 'accepted' : 'declined',
@@ -230,6 +240,11 @@ export async function decideSuggestion(
         await setCrewTasks(db, blockId, tags[0], crew, suggestion.proposed_label ?? 'Their part', []);
       }
       await flip();
+    } else if (suggestion.kind === 'skip' && suggestion.block_id) {
+      // 🗓 The floor's own Skip, never a second copy of it: same rule, same write, same lock line, same notices.
+      const res = await changeTheSchedule(db, userId ?? '', eventId, { op: 'skip', blockId: suggestion.block_id }, 'floor');
+      if (!res.ok) throw new Error(res.error);
+      await flip();
     } else if (suggestion.kind === 'remove') {
       if (suggestion.block_id) {
         const { error } = await db
@@ -262,7 +277,8 @@ export async function decideSuggestion(
         admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', suggestion.vendor_profile_id).maybeSingle(),
         admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
       ]);
-      if (vendorRes.data?.user_id) {
+      // The coordinator answering their own crew's ask on the floor is not told what they just did.
+      if (vendorRes.data?.user_id && vendorRes.data.user_id !== userId) {
         const eventName = eventRes.data?.display_name?.trim() || 'the couple';
         const accepted = decision === 'accept';
         const chaptersAsked = suggestion.kind === 'where' ? await chapterNames(suggestion.proposed_block_ids) : null;
@@ -283,6 +299,8 @@ export async function decideSuggestion(
               ? `You’re on ${chaptersAsked}.`
               : suggestion.kind === 'remove'
                 ? 'That moment is off their schedule.'
+                : suggestion.kind === 'skip'
+                  ? 'That part is skipped.'
                 : isNoteOnlySuggestion(suggestion)
                   ? 'They read your note — nothing on the schedule moved.'
                   : 'Your proposed change is now on their schedule.'

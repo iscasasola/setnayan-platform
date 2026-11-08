@@ -16,6 +16,7 @@
  */
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { Check, ChevronRight, ShieldAlert, type LucideIcon } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
@@ -67,6 +68,11 @@ type Props = {
   basePath?: string;
   /** The queue currently expanded via `?open=`, if any. */
   openKey?: string;
+  /**
+   * ➕ What suppliers sent (admin supplier slice, owner 2026-10-28) — drawn under the masthead and the outcome line,
+   * above the queue rows. Each of its rows is done in place; the queue rows below stay exactly as they were.
+   */
+  lead?: ReactNode;
 };
 
 const LANE_LABEL: Record<AdminQueueLane, string> = {
@@ -322,6 +328,12 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
      doing nothing — the exact failure `guards-can-actually-fire` exists to
      catch, and it caught this one before it left the branch. */
   saved: { tone: 'ok', headline: 'Saved' },
+  /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28) — every outcome a supplier row can end in, said. */
+  approved: { tone: 'ok', headline: 'Approved — the shop is told in the app' },
+  'sent-back': { tone: 'ok', headline: 'Sent back with the reason — the shop sees it on its setup' },
+  declined: { tone: 'ok', headline: 'Declined with the reason — the shop is told in the app' },
+  'type-added': { tone: 'ok', headline: 'Event type added' },
+  replied: { tone: 'ok', headline: 'Reply sent — they see it in the app' },
 };
 
 export function QueuesTriageFeed({
@@ -333,6 +345,7 @@ export function QueuesTriageFeed({
   openKey,
   settle,
   why,
+  lead,
 }: Props & { settle?: string; why?: string }) {
   // Derived from the rows this page actually renders — never a typed number, so
   // adding or removing a queue cannot leave the sentence below saying something
@@ -443,6 +456,8 @@ export function QueuesTriageFeed({
           );
         })()
       ) : null}
+
+      {lead}
 
       <TriageStrip items={items} />
       <LaneChips items={items} lane={lane} basePath={basePath} />

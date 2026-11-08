@@ -143,7 +143,7 @@ import {
 // Workspace. Otherwise the current tabbed page renders byte-for-byte unchanged.
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
-import { ClientDeskAnswersBlock, readClientDeskAnswers } from './_components/client-desk-answers';
+import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
@@ -2285,15 +2285,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     peso: (php) => fmtPeso(php),
   });
 
-  // 🗓 The two answers Today used to own (date change · removal request), on THIS client — read only for a booked
-  // client (both ask a booked/paid shop), with Today's own reads narrowed to this event (A2 A8).
-  const deskAnswers = isBooked
-    ? await readClientDeskAnswers(admin, profile.vendor_profile_id, eventId, {
-        coupleName: eventName,
-        eventDate: brief.event.event_date,
-      })
-    : null;
-
   // ------------------------------------------------------------------------
   // "Your next move" — decided in lib/supplier-next-move.ts and EXECUTED by its test. It was the desktop context
   // rail of the old tab shell (lg+ only); THE ONE BUILD keeps it, still desktop-only, on Details beside the stage
@@ -2347,7 +2338,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       {pipelineBlock}
       <DetailsNumbersRow cells={numbersCells} />
       {askAnswerBlock}
-      {deskAnswers ? <ClientDeskAnswersBlock answers={deskAnswers} /> : null}
+      {/* 🗓 The two answers Today used to own (date change · removal request), on THIS client — C1's ONE mount (A2 A8),
+          read only for a booked client (both ask a booked/paid shop); an answer given here lands back here. */}
+      {isBooked ? (
+        <ClientDayAnswers
+          eventId={eventId}
+          vendorProfileId={profile.vendor_profile_id}
+          coupleName={eventName}
+          eventDate={brief.event.event_date}
+        />
+      ) : null}
       {badgesRow}
       {/* 🗂 The coordinator's door (owner 2026-10-28). */}
       {runsThisEvent ? (

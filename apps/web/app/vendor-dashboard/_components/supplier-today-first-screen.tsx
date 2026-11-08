@@ -27,6 +27,7 @@ import { formatCount } from '@/lib/format-number';
 import type { ShopPill, SupplierNextTarget, TodayNeed, TodayRowIcon } from '@/lib/supplier-today';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { EventsYouRunRows } from './events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
@@ -49,7 +50,8 @@ export function nextHref(t: SupplierNextTarget): string {
       return href;
     }
     case 'card': {
-      const href = `/vendor-dashboard/clients/${t.eventId}?tab=${t.tab}`;
+      // THE ONE BUILD integration: every door into a client is built by ONE function (`customerCardHref`).
+      const href = customerCardHref(t.eventId, t.tab);
       return href;
     }
     case 'review': {

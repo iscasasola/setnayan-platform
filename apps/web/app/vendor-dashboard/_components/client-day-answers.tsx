@@ -49,6 +49,8 @@ export function ClientDayAnswersBody({
   complete: boolean;
 }) {
   const read = { cards, complete };
+  // An answer given here stays here (`dayAnswerBack` in clients/[eventId]/actions.ts) — never thrown back to Today.
+  const back = `/vendor-dashboard/clients/${eventId}`;
   if (read.cards.length === 0 && read.complete) return null;
   return (
     <section data-client-day-answers={eventId} aria-label="Waiting on your answer" className="space-y-4">
@@ -62,9 +64,9 @@ export function ClientDayAnswersBody({
           // `data-today-row-item`: the row the Undo holder hides at the press (`undoable-answers.tsx`), then shows again on Undo.
           <div key={card.id} data-client-day-answer={card.kind} data-today-row-item="" className="py-2">
             {card.kind === 'date_change' ? (
-              <DateChangeBody card={card} answerDateChange={vendorAnswerDateChange} />
+              <DateChangeBody card={card} answerDateChange={vendorAnswerDateChange} returnTo={back} />
             ) : (
-              <DeleteRequestBody card={card} agreeDeletion={vendorAgreeToDeletion} declineDeletion={vendorDeclineDeletion} />
+              <DeleteRequestBody card={card} agreeDeletion={vendorAgreeToDeletion} declineDeletion={vendorDeclineDeletion} returnTo={back} />
             )}
           </div>
         ))}

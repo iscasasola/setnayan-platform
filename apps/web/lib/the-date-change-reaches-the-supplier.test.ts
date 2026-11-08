@@ -95,7 +95,7 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   const page = code('app/vendor-dashboard/page.tsx');
   assert.equal((page.match(/vendorAnswerDateChange/g) ?? []).length, 0, 'Today answers a date change in place again');
   const details = code('app/vendor-dashboard/_components/client-day-answers.tsx');
-  assert.equal((details.match(/<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} \/>/g) ?? []).length, 1, 'Details lost the answer');
+  assert.equal((details.match(/<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} returnTo=\{back\} \/>/g) ?? []).length, 1, 'Details lost the answer');
   assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2, 'the shipped feed lost a binding');
   // The action exists, reads the answer from the form, and asks the database.
   const actions = code('app/vendor-dashboard/clients/[eventId]/actions.ts');

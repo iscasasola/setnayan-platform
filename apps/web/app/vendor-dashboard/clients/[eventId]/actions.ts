@@ -1605,6 +1605,18 @@ export async function vendorDeclineLock(formData: FormData) {
 }
 
 /**
+ * 🗓 WHERE A DATE-CHANGE OR REMOVAL ANSWER LANDS (THE ONE BUILD integration, 8 Nov 2026). Today's rows JUMP to the
+ * client's Details now (`ANSWERED_ONLY_ON_TODAY` is empty), so an answer given there stays there: the form posts
+ * `return_to` = the bare client card path, and the outcome flag rides `?tab=details&…`. Anything else — no field, a
+ * thread path, an absolute URL — lands on Today as these actions always did (`lockAnswerReturnTo`'s one-shape
+ * allowlist, narrowed here to the client card).
+ */
+function dayAnswerBack(formData: FormData, flag: string): string {
+  const back = lockAnswerReturnTo(formData.get('return_to'));
+  return back.startsWith('/vendor-dashboard/clients/') ? `${back}?tab=details&${flag}` : `/vendor-dashboard?${flag}`;
+}
+
+/**
  * The supplier answers a deletion ask — agree, or decline with an optional
  * reason. Owner 2026-08-21: a celebration a supplier was PAID for cannot be
  * removed until they say so.
@@ -1642,7 +1654,7 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
 
   if (error) {
     console.error('[deletion-answer] rpc failed', error);
-    redirect('/vendor-dashboard?deletion=failed');
+    redirect(dayAnswerBack(formData, 'deletion=failed'));
   }
 
   const env = (data ?? {}) as { ok?: boolean; reason?: string };
@@ -1662,7 +1674,7 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
         : state === 'agreed' || state === 'declined'
           ? 'already'
           : 'failed';
-    redirect(`/vendor-dashboard?deletion=${outcome}`);
+    redirect(dayAnswerBack(formData, `deletion=${outcome}`));
   }
 
   /*
@@ -1706,7 +1718,8 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
   }
 
   revalidatePath('/vendor-dashboard');
-  redirect(`/vendor-dashboard?deletion=${agree ? 'agreed' : 'declined'}`);
+  if (eventId) revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  redirect(dayAnswerBack(formData, `deletion=${agree ? 'agreed' : 'declined'}`));
 }
 
 /**
@@ -1724,7 +1737,7 @@ export async function vendorAnswerDateChange(formData: FormData) {
   const eventVendorId = formData.get('vendor_id');
   const answer = formData.get('answer');
   if (typeof eventVendorId !== 'string' || !eventVendorId || !isSupplierDateAnswer(answer)) {
-    redirect('/vendor-dashboard?date_answer=failed');
+    redirect(dayAnswerBack(formData, 'date_answer=failed'));
   }
   const supabase = await createClient();
   const {
@@ -1740,11 +1753,11 @@ export async function vendorAnswerDateChange(formData: FormData) {
   });
   if (!r.ok) {
     const flag = r.reason === 'no_pending_request' ? 'already' : r.reason === 'not_yours' ? 'not_yours' : 'failed';
-    redirect(`/vendor-dashboard?date_answer=${flag}`);
+    redirect(dayAnswerBack(formData, `date_answer=${flag}`));
   }
   revalidatePath('/vendor-dashboard');
   revalidatePath(`/vendor-dashboard/clients/${r.eventId}`);
-  redirect(`/vendor-dashboard?date_answer=${answer}`);
+  redirect(dayAnswerBack(formData, `date_answer=${answer}`));
 }
 
 export async function vendorAgreeToDeletion(formData: FormData) {

@@ -265,8 +265,8 @@ test('2c · the date change and the delete request JUMP to the client’s Detail
   assert.equal(rows.get('dc1'), '/vendor-dashboard/clients/e-cruz?tab=details');
   assert.equal(rows.get('d1'), '/vendor-dashboard/clients/e-x?tab=details');
   const body = code('app/vendor-dashboard/_components/client-day-answers.tsx');
-  assert.match(body, /<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} \/>/, 'Details does not draw the shipped Move · Unlock');
-  assert.match(body, /<DeleteRequestBody card=\{card\} agreeDeletion=\{vendorAgreeToDeletion\} declineDeletion=\{vendorDeclineDeletion\} \/>/);
+  assert.match(body, /<DateChangeBody card=\{card\} answerDateChange=\{vendorAnswerDateChange\} returnTo=\{back\} \/>/, 'Details does not draw the shipped Move · Unlock');
+  assert.match(body, /<DeleteRequestBody card=\{card\} agreeDeletion=\{vendorAgreeToDeletion\} declineDeletion=\{vendorDeclineDeletion\} returnTo=\{back\} \/>/);
   assert.match(body, /<UndoableAnswers>/, 'the answers lost the Undo holder');
   // The refund sentence is still said before the press — it travels with the shipped body.
   assert.match(code('app/vendor-dashboard/_components/overview-sections.tsx'), /Setnayan\s+never decides a refund/);

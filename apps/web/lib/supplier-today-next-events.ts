@@ -22,14 +22,11 @@ import { formatPhp } from '@/lib/php';
 import { daysFrom } from '@/lib/vendor-dates';
 import { initialsOf, shortDay } from '@/lib/supplier-today';
 import type { UpcomingEventRow } from '@/lib/vendor-overview';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
 
-/**
- * The picked client's Hub page. ⏳ TYPED STUB until L2's hour-0 push gives `customerCardHref(id, page)` the nine page
- * ids (spec §9 #17); the address is the one B1 §6 fixes (`/vendor-dashboard/clients/<id>?tab=hub`), so the swap is a
- * one-line change and the href does not move.
- */
+/** The picked client's Hub page — built by the ONE door function (`customerCardHref`, swapped in at integration). */
 export function clientHubHref(eventId: string): string {
-  return `/vendor-dashboard/clients/${eventId}?tab=hub`;
+  return customerCardHref(eventId, 'hub');
 }
 
 /** What the page read for ONE booking on the next event day. `undefined` = not read; `null` = the read was refused. */

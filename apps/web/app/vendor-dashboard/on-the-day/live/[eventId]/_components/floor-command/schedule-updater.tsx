@@ -24,10 +24,11 @@ import { useState, useTransition } from 'react';
 import { Clock, Loader2, PlayCircle, SkipForward } from 'lucide-react';
 
 import type { AdvanceAction } from '@/lib/floor-command';
-import type { ChangeablePart } from '@/lib/change-the-schedule';
+import type { ChangeablePart, CrewSkipAsk } from '@/lib/change-the-schedule';
 import { driftLabel } from '@/lib/run-of-show';
 import { floorAdvanceBlock } from './actions';
 import { ChangeTheSchedule } from './change-the-schedule';
+import { CrewAsks } from './crew-asks';
 
 type Props = {
   eventId: string;
@@ -36,6 +37,8 @@ type Props = {
   driftMinutes: number | null;
   /** The run of show as the page already read it — the sheet's Part ▾ list. */
   parts: readonly ChangeablePart[];
+  /** 🗓 The coordinator's crew's open skip asks — Decline · Approve, one tap each (owner 2026-11-05). */
+  crewAsks?: readonly CrewSkipAsk[];
   /**
    * DAY-8 · say whose schedule this is, to somebody it is not.
    *
@@ -54,6 +57,7 @@ export function ScheduleUpdater({
   remaining,
   driftMinutes,
   parts,
+  crewAsks = [],
   onLoan = false,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -127,6 +131,7 @@ export function ScheduleUpdater({
           </button>
 
           <ChangeTheSchedule eventId={eventId} parts={parts} className="w-full" />
+          <CrewAsks eventId={eventId} asks={crewAsks} />
         </>
       )}
 

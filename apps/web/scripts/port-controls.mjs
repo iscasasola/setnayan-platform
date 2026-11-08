@@ -266,6 +266,8 @@ const PRIVATE_SUBDIRS = new Set([
   '_sections', // 10 files, 4 carrying a literal destination (+3 after the fix)
   '_actions', //  15 files · see the correction below — contributes ZERO
   '_shared', //   2 files · same, contributes zero
+  // Added 2026-11-08 (THE ONE BUILD): a picked client's nine page bodies — they carry links, forms and actions.
+  '_pages', // clients/[eventId]/_pages/*.tsx
   //
   // 🛑 A CORRECTION TO MY OWN REASONING, LEFT HERE BECAUSE THE MISTAKE IS THE
   // USEFUL PART. I added `_actions` believing 15 files of `'use server'` were

@@ -57,7 +57,7 @@ export function TodayCover({
           {dateChip(todayIso)}
         </span>
         {tasksChip ? (
-          <span className="inline-flex min-h-8 items-center rounded-full bg-white px-3 text-[13px] font-semibold text-ink" data-today-tasks-chip="">
+          <span className="inline-flex min-h-8 items-center rounded-full bg-white px-3 text-[13px] font-semibold text-[rgb(var(--color-ink-on-plate,var(--color-ink)))]" data-today-tasks-chip="">
             {tasksChip}
           </span>
         ) : null}

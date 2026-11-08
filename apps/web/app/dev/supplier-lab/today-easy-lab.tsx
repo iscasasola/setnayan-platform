@@ -25,8 +25,10 @@ import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { TodayNextEvents } from '@/app/vendor-dashboard/_components/today-next-events';
 import { TodayThumbRow } from '@/app/vendor-dashboard/_components/today-thumb-row';
+import { formatPhp } from '@/lib/php';
 import { PaymentPage } from '@/app/vendor-dashboard/clients/[eventId]/_pages/payment';
 import { FilesPage } from '@/app/vendor-dashboard/clients/[eventId]/_pages/files';
+import { ClientDayAnswersBody } from '@/app/vendor-dashboard/_components/client-day-answers';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
@@ -40,9 +42,9 @@ import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
-// 🗂 + `payment` / `files` — lane C1's two picked-client page bodies (B2 §2.3 · §2.4), drawn on fixtures for the
+// 🗂 + `payment` / `files` / `answers` — lane C1's picked-client page bodies and the two answers moved to Details (B2 §2.3 · §2.4), drawn on fixtures for the
 // v113 side-by-side (the client page itself is L2's; the bodies are this lane's).
-export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock', 'two', 'empty', 'unread', 'payment', 'files'] as const;
+export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock', 'two', 'empty', 'unread', 'payment', 'files', 'answers'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
 export const EASY_SUPPLIERS = ['parish', 'caterer', 'studio', 'venue'] as const;
 export type EasySupplier = (typeof EASY_SUPPLIERS)[number];
@@ -377,7 +379,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
         }}
         asks={
           <p className="py-2 text-[14px] text-ink" data-lab-asks="">
-            <b className="font-semibold">₱30,000 · Balance</b>
+            <b className="font-semibold">{formatPhp(30000)} · Balance</b>
             <span className="block text-[12.5px] text-ink/55">by 1 Nov · asked 28 Oct · the shipped panel, with Take it back, on the real page</span>
           </p>
         }
@@ -406,6 +408,15 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
 }
 
 export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+  if (moment === 'answers') {
+    // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
+    const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab="client-answers">
+        <ClientDayAnswersBody eventId="lab-rs" cards={cards} complete />
+      </div>
+    );
+  }
   if (moment === 'payment' || moment === 'files') {
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab="client-page" data-client-page={moment}>

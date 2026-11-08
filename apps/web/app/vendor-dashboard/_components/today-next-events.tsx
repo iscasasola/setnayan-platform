@@ -10,7 +10,7 @@ import type { NextEventCard, NextEvents } from '@/lib/supplier-today-next-events
  * adds the prop to the shared carousel (spec §9 #4) — until then the shared part still draws its own decorative dots.
  *
  * A card is ONE link: that client's Hub page in Clients (`clientHubHref`), never the live console.
- * The photo is the event's live Hub hero; with none, the event's initials on the plain ground (`next-card.tsx`'s rule).
+ * The photo is the event's live Hub hero; with none, the event's initials on the plain ground (`initialsOf`).
  * 🔒 lib/supplier-today-next-events.test.ts
  */
 export function TodayNextEvents({ next }: { next: NextEvents | null }) {
@@ -52,7 +52,7 @@ function EventCard({ card }: { card: NextEventCard }) {
             {card.initials}
           </span>
         ) : null}
-        <span className="absolute left-3 top-3 inline-flex min-h-7 items-center rounded-full bg-white px-3 text-[13px] font-semibold text-ink" data-today-next-when="">
+        <span className="absolute left-3 top-3 inline-flex min-h-7 items-center rounded-full bg-white px-3 text-[13px] font-semibold text-[rgb(var(--color-ink-on-plate,var(--color-ink)))]" data-today-next-when="">
           {card.when}
         </span>
         {card.position ? (

@@ -162,9 +162,9 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'day-planning': 'app/dashboard/[eventId]/page.tsx',
   'post-story': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
   'post-photos': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
-  // THE ONE BUILD (8 Nov): Today's Next card is retired — its stop lights the Needs-you heading; the event Home's card
-  // still carries the token for itself.
-  'today-next': ['app/_components/next-card.tsx', 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'],
+  // THE ONE BUILD (8 Nov): Today's Next card (`next-card.tsx`) is retired and deleted — its stop lights the Needs-you
+  // heading.
+  'today-next': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'shop-details': 'app/vendor-dashboard/shop/page.tsx',
   'shop-add-service': 'app/vendor-dashboard/services/_components/services-manager.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',

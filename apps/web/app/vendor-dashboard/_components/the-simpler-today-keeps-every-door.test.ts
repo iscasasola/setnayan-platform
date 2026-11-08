@@ -347,6 +347,9 @@ test('10 · the page does not grow: one shop-row read for three, the schedules i
   assert.equal((next.match(/\.from\('event_schedule_blocks'\)/g) ?? []).length, 1);
   assert.equal((next.match(/\.from\('vendor_dayof_configs'\)/g) ?? []).length, 1);
   assert.equal((next.match(/\.in\('event_id', ids\)/g) ?? []).length, 2, 'a next-event read is per event');
-  // The renewal date rides the one shop-row read (A9) — no read of its own.
-  assert.match(server, /fraud_tombstoned, next_renewal_due_at'\)/);
+  // The renewal date (A9) is NOT on the table read — a session may not SELECT it there; it is its own read off the
+  // shop's self view, started beside the shop row.
+  assert.doesNotMatch(server, /\.from\('vendor_profiles'\)[\s\S]{0,400}next_renewal_due_at/, 'the renewal date is on the table read — Postgres refuses the whole row for a session');
+  assert.match(server, /\.from\('vendor_profiles_self'\)\s*\.select\('next_renewal_due_at'\)/);
+  assert.match(page, /const renewalP = readTodayRenewal\(supabase, vendorProfileId\);/);
 });

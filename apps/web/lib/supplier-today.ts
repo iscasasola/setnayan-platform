@@ -8,7 +8,7 @@
  * ₱ owed to you) → the next three events. Nothing else above the fold.
  *
  * 🔑 THE SAME METHOD AS THE HOST'S PHONE HOME (`lib/home-first-screen.ts`), and
- * the card itself is the SAME component (`app/_components/next-card.tsx`) — this
+ * the card itself was the SAME component (`next-card.tsx`, deleted with the Next card by THE ONE BUILD) — this
  * file only decides which of the Today page's EXISTING things is first:
  *
  *   run_day  → a booked event is TODAY (owner answer 2: "Run the day" is a

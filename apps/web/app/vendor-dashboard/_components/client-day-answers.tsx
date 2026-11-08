@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readClientDayAnswers } from '@/lib/client-day-answers.server';
+import { readClientDayAnswers, type ClientDayAnswerCard } from '@/lib/client-day-answers.server';
 import { vendorAgreeToDeletion, vendorAnswerDateChange, vendorDeclineDeletion } from '../clients/[eventId]/actions';
 import { DateChangeBody, DeleteRequestBody } from './overview-sections';
 import { UndoableAnswers } from './undoable-answers';
@@ -32,6 +32,23 @@ export async function ClientDayAnswers({
   eventDate?: string | null;
 }) {
   const read = await readClientDayAnswers(createAdminClient(), vendorProfileId, eventId, { coupleName, eventDate });
+  return <ClientDayAnswersBody eventId={eventId} cards={read.cards} complete={read.complete} />;
+}
+
+/**
+ * The answers, drawn from what was read — the loader above on the client's Details, a fixture in the dev lab
+ * (`/dev/supplier-lab?easy=answers`). With nothing open and the read complete it draws nothing.
+ */
+export function ClientDayAnswersBody({
+  eventId,
+  cards,
+  complete,
+}: {
+  eventId: string;
+  cards: readonly ClientDayAnswerCard[];
+  complete: boolean;
+}) {
+  const read = { cards, complete };
   if (read.cards.length === 0 && read.complete) return null;
   return (
     <section data-client-day-answers={eventId} aria-label="Waiting on your answer" className="space-y-4">

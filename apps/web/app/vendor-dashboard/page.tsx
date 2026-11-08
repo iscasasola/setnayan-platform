@@ -18,6 +18,7 @@ import {
   readEventDayFacts,
   readNextEventFacts,
   readTodaySchedules,
+  readTodayRenewal,
   readTodayShopRow,
   readTodayViews,
   type EventDayFacts,
@@ -300,6 +301,8 @@ export default async function VendorOverviewPage({
     (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
+  // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
+  const renewalP = readTodayRenewal(supabase, vendorProfileId);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -597,8 +600,8 @@ export default async function VendorOverviewPage({
     inquiries28: data.inquiries28 ?? null,
     askDayHolds: data.askDayHolds,
     dayFacts,
-    // 📄 The badge's papers deadline, off the one shop-row read (A9) — undefined when that read was refused.
-    renewalDueAt: shopRow ? (shopRow.renewalDueAt ?? null) : undefined,
+    // 📄 The badge's papers deadline (A9), read off the self view beside the shop row — undefined when refused.
+    renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     portfolio: await getPortfolioCountStub(vendorProfileId),

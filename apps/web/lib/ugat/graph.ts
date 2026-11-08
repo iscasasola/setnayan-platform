@@ -3912,6 +3912,95 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'A guest’s review after “received” is NOT a scanner table: the pop-up writes through the one guest-review writer (submitGuestReview → vendor_guest_review_submit, which admits a received supplier_scan_claims row for that shop) into vendor_guest_reviews — one store, one “From guests” section, public at once, admin Hide/Show (owner 2026-11-06). The scanner keeps only supplier_scan_review_skips (“Not now”, service role). A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
   },
+  {
+    /**
+     * 📝 A SHOP'S FORMS REACH ONE EVENT'S ANSWERS (THE ONE BUILD lane C3, migration 20271325118550). A shop keeps a
+     * library of forms; a form is sent to ONE event (by hand from the client's Forms page, or on booking for the cards
+     * it is linked to), and the couple answers in the shipped `event_question_answers`.
+     */
+    id: 'J62',
+    claims: [
+      { kind: 'table', table: 'vendor_forms' },
+      { kind: 'fk', table: 'vendor_forms', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_forms', column: 'retired_at' },
+      { kind: 'fk', table: 'vendor_questions', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'column', table: 'vendor_questions', column: 'item_kind' },
+      { kind: 'column', table: 'vendor_questions', column: 'answer_type' },
+      { kind: 'column', table: 'vendor_questions', column: 'is_required' },
+      { kind: 'check', table: 'vendor_questions', name: 'vendor_questions_item_kind_chk', mentions: 'item_kind' },
+      { kind: 'check', table: 'vendor_questions', name: 'vendor_questions_answer_type_chk', mentions: 'answer_type' },
+      { kind: 'table', table: 'vendor_form_service_links' },
+      { kind: 'fk', table: 'vendor_form_service_links', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'fk', table: 'vendor_form_service_links', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'table', table: 'event_form_sends' },
+      { kind: 'fk', table: 'event_form_sends', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_form_sends', column: 'form_id', references: 'vendor_forms' },
+      { kind: 'fk', table: 'event_form_sends', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_form_sends', column: 'thread_id', references: 'chat_threads' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → its forms → the event’s answers',
+    joint: 'event_form_sends',
+    cardinality: 'A shop has many forms (vendor_forms); a form is many vendor_questions rows (form_id); a form is sent to an event at most once (PK event_id, form_id) and linked to many of the shop’s cards (vendor_form_service_links)',
+    implementedBy:
+      'vendor_forms (the library, one per shop row) · vendor_questions.form_id (the form’s items, with item_kind · answer_type · is_required) · vendor_form_service_links (form ↔ card) · event_form_sends (which forms reached which event, and by whom)',
+    writtenBy:
+      'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking (lib/vendor-forms-on-booking.server.ts) on booking, service role, for the forms linked to the booked cards',
+    guardedBy:
+      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts',
+    traps:
+      'vendor_questions.form_id NULL is the SHIPPED question set (the pre-forms questions) — every shipped reader filters it, and a reader that forgets returns a form’s items as if they were the shop’s standing questions. A retired form (retired_at set) leaves the library and is never sent on booking — both readers filter retired_at IS NULL (lib/vendor-forms.server.ts, lib/vendor-forms-on-booking.server.ts).',
+  },
+  {
+    /**
+     * 🗂 THE TAXONOMY SUGGESTS FORMS (THE ONE BUILD lane C3, migration 20271325118550). Admin keeps form templates and
+     * which category suggests which; a shop starts a form from one (`vendor_forms.from_template_key`).
+     */
+    id: 'J63',
+    claims: [
+      { kind: 'table', table: 'form_templates' },
+      { kind: 'fk', table: 'form_templates', column: 'updated_by', references: 'users' },
+      { kind: 'table', table: 'category_form_suggestions' },
+      { kind: 'fk', table: 'category_form_suggestions', column: 'category_id', references: 'service_categories' },
+      { kind: 'fk', table: 'category_form_suggestions', column: 'template_key', references: 'form_templates' },
+      { kind: 'column', table: 'vendor_forms', column: 'from_template_key' },
+    ],
+    chain: 8,
+    pair: ['TYPE-SERVICES', 'TYPE-TAXONOMY'],
+    title: 'Category → suggested forms',
+    joint: 'category_form_suggestions',
+    cardinality: 'Many-to-many · PK (category_id, template_key) — a category suggests many templates; a template is suggested by many categories',
+    implementedBy: 'form_templates (template_key PK, items, is_active) · category_form_suggestions (category ↔ template, sort_order)',
+    writtenBy: 'formSuggestionsAction (app/admin/categories/form-suggestion-actions.ts — op template_new · suggest_add · suggest_remove), admin only, service role',
+    guardedBy: 'form_templates_admin_write / category_form_suggestions_admin_write (is_admin) · authenticated holds SELECT only (INSERT/UPDATE/DELETE revoked)',
+    traps:
+      'vendor_forms.from_template_key is a plain TEXT copy, not an FK — a shop’s form keeps its items when the template changes or is retired; nothing reads it back yet (Root map never-read).',
+  },
+  {
+    /**
+     * 🚩 A SUPPLIER'S REPORT SAYS WHERE IT CAME FROM (THE ONE BUILD lane C3, migration 20271325290605). The client's
+     * Report page writes into the ONE admin inbox (`help_messages`), with the shop and the event it was sent from.
+     */
+    id: 'J64',
+    claims: [
+      { kind: 'fk', table: 'help_messages', column: 'origin_vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'help_messages', column: 'origin_event_id', references: 'events' },
+      { kind: 'column', table: 'help_messages', column: 'origin_page' },
+      { kind: 'check', table: 'help_messages', name: 'help_messages_origin_page_chk', mentions: 'origin_page' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → report on an event → admin inbox',
+    joint: 'help_messages',
+    cardinality: 'Many reports per shop per event; each one help_messages row (origin_* NULL for a /help message)',
+    implementedBy: 'help_messages.origin_vendor_profile_id · origin_event_id · origin_page (both FKs ON DELETE SET NULL)',
+    writtenBy: 'submitSupplierReport (app/vendor-dashboard/clients/[eventId]/report-actions.ts), with an in-app supplier_report notice to admins (no email)',
+    guardedBy:
+      'the help_messages_origin_guard trigger (guard_help_message_origin): a row WITH an origin must name the caller’s OWN shop and an event that shop has a chat_threads row with, and its user_id is forced to the signed-in caller · help_messages_origin_page_chk · tests/db/a-report-names-only-your-shop.db.test.ts',
+    traps:
+      'help_messages is also the public /help inbox: help_messages_anyone_insert (WITH CHECK true, admits anon) is load-bearing, so a POLICY cannot guard the new columns (policies are OR’ed) — the trigger is the guard. A row with no origin (every /help insert) passes it untouched.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

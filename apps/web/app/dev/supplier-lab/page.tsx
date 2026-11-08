@@ -109,6 +109,10 @@ import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { CrewPhoneLab, HubLab } from './hub-lab';
 import { EventHubLab } from './event-hub-lab';
 import { ScanLab } from './scan-lab';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { TOURS } from '@/lib/tours';
+import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
+import { LAB_SHOP_QR_URL } from './today-easy-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
@@ -313,11 +317,9 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
-        feeForecasts={{}}
-        cards={state.whatsNew}
-        askStatus=""
-        deskIncomplete={state.deskIncomplete}
-        actions={ACTIONS}
+        shopName="Lumina Studio"
+        todayIso={LAB_TODAY}
+        now={NOW}
       />
     </div>
   );
@@ -358,7 +360,7 @@ export default async function SupplierLabPage({
     );
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} />, 'today');
   }
   if (q.s === 'hub') {
     /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */

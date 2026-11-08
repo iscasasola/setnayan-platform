@@ -25,7 +25,8 @@ export const SUPPLIER_PAGE_TOURS = [
   'vendor_hub_v1',
   // Owner 2026-10-25, "the spotlight tour is missing so many parts for each page": Today's other parts, Customers ›
   // People, and Your collections.
-  'vendor_today_v2',
+  // THE ONE BUILD (8 Nov 2026, A13): the new Today's tour — bumped so every supplier sees it once.
+  'vendor_today_v3',
   'vendor_people_v1',
   'vendor_collections_v1',
 ] as const;
@@ -45,7 +46,7 @@ export function supplierPageTourOn(
   search: Record<string, string | string[] | undefined>,
 ): SupplierPageTourKey | null {
   const path = pathname.replace(/\/+$/, '') || '/';
-  if (path === '/vendor-dashboard') return 'vendor_today_v2';
+  if (path === '/vendor-dashboard') return 'vendor_today_v3';
   if (path === '/vendor-dashboard/collections') return 'vendor_collections_v1';
   if (SHOP_PATHS.some((p) => under(path, p))) return 'vendor_shop_v1';
   if (path === '/vendor-dashboard/customers') {

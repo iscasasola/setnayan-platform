@@ -162,12 +162,14 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'day-planning': 'app/dashboard/[eventId]/page.tsx',
   'post-story': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
   'post-photos': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
-  'today-next': ['app/_components/next-card.tsx', 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'],
+  // THE ONE BUILD (8 Nov): Today's Next card (`next-card.tsx`) is retired and deleted — its stop lights the Needs-you
+  // heading.
+  'today-next': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'shop-details': 'app/vendor-dashboard/shop/page.tsx',
   'shop-add-service': 'app/vendor-dashboard/services/_components/services-manager.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   // 📌 The money count is the pinned row's filter since 2026-10-28 — drawn by `TodayCounts`.
-  'today-money': 'app/vendor-dashboard/_components/today-counts.tsx',
+  'today-money': 'app/vendor-dashboard/_components/today-stats.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
@@ -214,9 +216,16 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'library-show': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'library-search': 'app/dashboard/(account)/library/_components/memories-thumb.tsx',
   'supplier-messages': 'app/vendor-dashboard/layout.tsx',
-  'today-numbers': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // THE ONE BUILD A13 — Today's own tour (`vendor_today_v3`).
+  'today-cover': 'app/vendor-dashboard/_components/today-cover.tsx',
+  'today-next-events': 'app/vendor-dashboard/_components/today-next-events.tsx',
+  'today-stats': 'app/vendor-dashboard/_components/today-stats.tsx',
+  'today-needs': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  'today-show': 'app/vendor-dashboard/_components/today-thumb-row.tsx',
   'today-coming-up': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-shop': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // A new shop's "Get your shop live" — the first stop of the tour after step 6 (7 Nov 2026).
+  'today-setup': 'app/vendor-dashboard/_components/supplier-setup-folds.tsx',
   'customers-segments': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-filter': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',

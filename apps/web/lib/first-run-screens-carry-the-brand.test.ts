@@ -155,8 +155,9 @@ test('4 · "Then" is the rail’s next two steps, then the approval', () => {
   assert.deepEqual(firstStepsThen(null), []);
   const view = read('lib/supplier-today-view.ts');
   assert.match(view, /then: next\.kind === 'setup' \? firstStepsThen\(input\.firstSteps\) : \[\],/);
-  const screen = read('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
-  const at = screen.indexOf('data-today-then');
-  assert.ok(at > screen.indexOf('<NextCard') && at < screen.indexOf('data-today-numbers'), '"Then" is not right under the Next card');
-  assert.match(read('app/vendor-dashboard/_components/supplier-today-screen.tsx'), /then=\{view\.then\}/);
+  // ⤴ THE ONE BUILD (v103): the setup Next card and its "Then" are retired — a new shop's road is the six steps drawn on
+  // top of Today (`SupplierSetupScreen`); when that screen could not load, the rail's current step is a Needs-you row
+  // (the door it was), so the road is never lost.
+  assert.match(view, /setupStep: input\.setupDrawn \? null : setupStep,/, 'the setup step is lost when the six steps are not drawn');
+  assert.match(read('app/vendor-dashboard/page.tsx'), /setupDrawn: setup !== null,/, 'the page does not say whether the six steps are drawn');
 });

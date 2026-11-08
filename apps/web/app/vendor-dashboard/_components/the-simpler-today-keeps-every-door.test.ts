@@ -22,6 +22,11 @@
  *  10 · the read census — the page must not grow (three shop-row reads are one; earnings skipped on an event day)
  *
  * SABOTAGE (each seen red before this shipped — the PR body lists the runs).
+ *
+ * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD, v103 + owner v112 *"Jump"*; A2 §3 table): the Next card is retired and every
+ * Today row jumps, so each door is asserted WHERE IT LIVES NOW — the booking ask's fee-before-Agree on the client's
+ * booking-ask panel; "Pay the booking fee" on the bill row; the event day on today's photo card (its chips) and the
+ * Also-today rows; "every kind keeps its answer" becomes "every kind keeps a PAGE". Tests 7 and 8 are unchanged.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -131,112 +136,79 @@ async function draw(o: Opt = {}): Promise<{ html: string; view: import('@/lib/su
     since,
     ...o,
   });
-  const forecasts = o.forecast
-    ? { 'ev-rc': bookingFeeForecast({ kind: 'billable', ordinal: 6, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 85_000) }
-    : {};
-  const actions = {
-    acceptInquiry: noop, declineInquiry: noop, confirmLock: noop, rejectLock: noop, agreeLock: noop, declineLock: noop,
-    agreeDeletion: noop, declineDeletion: noop, answerDateChange: noop, postReviewReply: noop, respondMeeting: noop, markServiceComplete: noop,
-  };
   const html = renderToStaticMarkup(
-    React.createElement(SupplierTodayScreen, {
-      view, outcome: o.outcome ?? null, feeForecasts: forecasts as Record<string, import('@/lib/booking-fee-disclosure').FeeDisclosure | null>, cards: o.desk ?? [], askStatus: '', deskIncomplete: false, actions,
-    }),
+    React.createElement(SupplierTodayScreen, { view, outcome: o.outcome ?? null, shopName: 'Lumina Studio', todayIso: TODAY, now: NOW }),
   );
   return { html, view };
 }
-const cardOf = (html: string) => html.slice(html.indexOf('data-today-next'), html.indexOf('data-today-after-next'));
+/** The Needs-you list, as drawn. */
+const needsOf = (html: string) => html.slice(html.indexOf('data-today-needs='), html.indexOf('data-today-coming-up'));
+/** A Needs-you row's href by its key. */
+const hrefOf = (html: string, key: string) => (needsOf(html).match(new RegExp(`<a[^>]*data-today-need="${key}"[^>]*>`))?.[0].match(/href="([^"]+)"/)?.[1] ?? '').replace(/&amp;/g, '&');
 
-/* ═══ 1 · LIVE's NINE RULES ═══════════════════════════════════════════════ */
+/* ═══ 1 · LIVE's NINE RULES — NOW THE ROW ORDER ══════════════════════════ */
 
-// SABOTAGE: move `if (input.fee)` above `if (input.answer)` in pickSupplierNext → RED.
-test('1 · the Next order is LIVE’s nine rules — an overdue fee never jumps ahead of a couple’s ask', async () => {
+// SABOTAGE: move `if (input.fee)` above `if (input.answer)` in pickSupplierNext → RED (the order constant).
+test('1 · the order is LIVE’s nine rules — a couple’s ask comes before a fee, and the fee is still on the page', async () => {
   const { SUPPLIER_NEXT_ORDER } = await import('@/lib/supplier-today');
   assert.deepEqual([...SUPPLIER_NEXT_ORDER], ['run_day', 'answer', 'unread', 'setup', 'findable', 'tomorrow', 'fee', 'payday', 'clear']);
-  const { view, html } = await draw({ desk: [INQUIRY], feeBills: [bill('cruz', 'Cruz wedding', '2026-10-10')] });
-  assert.equal(view.next.kind, 'answer', 'an overdue fee took the card from a couple’s ask');
-  assert.match(text(cardOf(html)), /Reply to Ana & Miguel/);
-  // …and the fee is still on the page, with its Pay, under Also waiting.
-  assert.match(html, /data-fee-bill-today=""/);
-  // With nothing else waiting, the fee IS the card.
-  const alone = await draw({ feeBills: [bill('cruz', 'Cruz wedding', '2026-10-10')], earnings: null });
-  assert.equal(alone.view.next.kind, 'fee');
+  const { html } = await draw({ desk: [INQUIRY], feeBills: [bill('cruz', 'Cruz wedding', '2026-10-10')] });
+  const needs = needsOf(html);
+  const ask = needs.indexOf('data-today-need="inq-am"');
+  const fee = needs.indexOf('data-fee-bill-today=""');
+  assert.ok(ask > 0 && fee > ask, 'an overdue fee is drawn ahead of a couple’s ask');
 });
 
-/* ═══ 2 · THE ASK, ANSWERED ON THE CARD ═══════════════════════════════════ */
+/* ═══ 2 · THE ASK — ITS ROW JUMPS TO THE CLIENT, WHERE THE FEE IS NAMED BEFORE AGREE ═══════════════════ */
 
-// SABOTAGE: drop `<BookingFeeNotice disclosure={feeForecast} />` from LockRequestBody → RED (no fee above Agree).
-// SABOTAGE: `askOnCard` set to null in the assembly → RED (the card links away again).
-test('2 · a booking ask is answered ON the card — fee above Agree, the shipped form, Turn it down, Chat, the initials', async () => {
-  const { html, view } = await draw({ desk: [ASK], forecast: true });
-  assert.equal(view.askOnCard?.id, 'lockreq-ev-rc');
-  const card = cardOf(html);
-  const t = text(card);
-  assert.match(card, /data-next-who=""[^>]*>RC</, 'the couple’s initials are not on the card');
-  assert.match(t, /Agree to this booking/);
-  const fee = card.indexOf('data-testid="booking-fee-notice"') >= 0 ? card.indexOf('data-testid="booking-fee-notice"') : card.search(/Booking fee ₱/);
-  const agree = card.search(/<form[^>]*>[\s\S]*?name="vendor_id" value="ev-rc"/);
-  assert.ok(fee > 0, `the booking fee is not named on the card: ${t.slice(0, 400)}`);
-  assert.ok(agree > fee, 'the fee is named AFTER Agree — a fee named after the press is a receipt');
-  assert.match(card.slice(agree), /class="ab ab-brand ab-main[^"]*"[\s\S]*?Agree to this booking/, 'Agree is not the card’s terracotta answer');
-  assert.match(card, /data-fold="answer-no"[\s\S]*Turn it down[\s\S]*name="reason"/, 'Turn it down lost its reason');
-  assert.match(card, /href="\/vendor-dashboard\/messages\/t-rc"[^>]*>|<a[^>]*href="\/vendor-dashboard\/messages\/t-rc"/, 'no Chat to the couple');
-  // The ask is not drawn a second time under Also waiting.
-  assert.doesNotMatch(html, /data-today-ask="lock_request"/);
-  // The answer the card posts is the shipped one, mounted by the page.
-  assert.match(code('app/vendor-dashboard/page.tsx'), /agreeLock: vendorAgreeToLock,/);
-  assert.match(code('app/vendor-dashboard/_components/supplier-today-screen.tsx'), /<LockRequestBody\s+onCard\s+card=\{view\.askOnCard\}\s+agreeLock=\{actions\.agreeLock\}/);
+// SABOTAGE: drop `<BookingFeeNotice disclosure={feeForecast} />` from booking-ask-panel.tsx → RED (no fee above Agree).
+test('2 · a booking ask jumps to the client’s Details — and there the fee is named BEFORE Agree, the shipped form, Turn it down', async () => {
+  const { html } = await draw({ desk: [ASK] });
+  assert.equal(hrefOf(html, 'lockreq-ev-rc'), '/vendor-dashboard/clients/rc?tab=details', 'the ask does not open the client');
+  assert.doesNotMatch(needsOf(html), /<form/, 'the ask is answered on Today again');
+  const panel = code('app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx');
+  const fee = panel.indexOf('<BookingFeeNotice disclosure={feeForecast} />');
+  const agree = panel.indexOf('<form action={agreeLock}>');
+  assert.ok(fee > 0 && agree > fee, 'on the client page the fee is not named before Agree — a fee named after the press is a receipt');
+  assert.match(panel, /label="Turn it down"/);
 });
 
 // SABOTAGE: `if (names.length > 0)` → `if (false)` → RED.
-test('2b · before Agree: a hall already booked that day, and an unapproved shop, are said on the card', async () => {
+test('2b · before the tap: a hall already booked that day, and an unapproved shop, are said on the ask’s row', async () => {
   const halls = { pools: [{ id: 'A', name: 'Hall A' }, { id: 'B', name: 'Hall B' }, { id: 'C', name: 'Hall C' }], outside: [{ blockId: 'o', date: '2026-12-12', clientName: 'Rotary', poolId: 'C' }], complete: true };
+  const row = (h: string) => text(needsOf(h).slice(needsOf(h).indexOf('data-today-need="lockreq-ev-rc"'), needsOf(h).indexOf('</a>', needsOf(h).indexOf('data-today-need="lockreq-ev-rc"'))));
   const { html } = await draw({ desk: [ASK], schedules: halls, askDayHolds: { 'ev-rc': ['A'] } });
-  const t = text(cardOf(html));
-  assert.match(t, /Hall A and Hall C are booked that day/, `the taken halls are not said: ${t.slice(0, 300)}`);
-  assert.match(cardOf(html), /data-badge="no"[^>]*>Taken</);
-  // A schedule that takes two a day is not "taken" by one booking.
+  assert.match(row(html), /Hall A and Hall C are booked that day/, `the taken halls are not said: ${row(html)}`);
+  assert.match(needsOf(html), /data-badge="no"[^>]*>Taken</);
   const two = { ...halls, pools: halls.pools.map((p) => ({ ...p, cap: 2 })) };
-  assert.doesNotMatch(text(cardOf((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A'] } })).html)), /booked that day|full that day/);
-  assert.match(text(cardOf((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A', 'A'] } })).html)), /Hall A is full that day/);
-  // One schedule: there is no hall to name.
-  assert.doesNotMatch(text(cardOf((await draw({ desk: [ASK], askDayHolds: { 'ev-rc': ['main'] } })).html)), /booked that day/);
-  // Not approved: a yes is refused until the documents are in.
-  assert.match(text(cardOf((await draw({ desk: [ASK], verified: false })).html)), /Not verified yet.*Send your documents first/);
+  assert.doesNotMatch(row((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A'] } })).html), /booked that day|full that day/);
+  assert.match(row((await draw({ desk: [ASK], schedules: two, askDayHolds: { 'ev-rc': ['A', 'A'] } })).html), /Hall A is full that day/);
+  assert.doesNotMatch(row((await draw({ desk: [ASK], askDayHolds: { 'ev-rc': ['main'] } })).html), /booked that day/);
+  assert.match(row((await draw({ desk: [ASK], verified: false })).html), /Not verified yet/);
 });
 
-/* ═══ 3 · EVERY ANSWER UNDER "ALSO WAITING" ═══════════════════════════════ */
+/* ═══ 3 · EVERY KIND KEEPS A PAGE ═════════════════════════════════════════ */
 
-// SABOTAGE: DeleteRequestBody's Agree to remove it `tone="danger"` → `tone="brand"` → RED.
-test('3 · every Also-waiting kind keeps its answer — and the doors go somewhere', async () => {
+test('3 · every kind keeps a page — each row jumps to where its answer is given', async () => {
   const { html } = await draw({ desk: [INQUIRY, MOVE, REMOVE, DONE, REVIEW, QUOTE, CONTRACT, LAPSED, DISPUTE] });
-  const rowOf = (kind: string) => {
-    const at = html.indexOf(`data-today-ask="${kind}"`);
-    assert.ok(at > 0, `${kind}: no row`);
-    const nextAt = html.indexOf('data-today-ask="', at + 20);
-    return html.slice(at, nextAt > 0 ? nextAt : undefined);
+  const want: Record<string, string> = {
+    [INQUIRY.id]: '/vendor-dashboard/messages/t-am',
+    dc: '/vendor-dashboard/clients/cruz?tab=details',
+    del: '/vendor-dashboard/clients/dz?tab=details',
+    done: '/vendor-dashboard/clients/rd?tab=details',
+    rev: '/vendor-dashboard/website#reply_r1',
+    q: '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools',
+    k: '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools',
+    lap: '/vendor-dashboard/clients/dp?tab=details',
+    disp: '/vendor-dashboard/messages/t-pz',
   };
-  // The date change is the Next card whenever one waits (live `nextAnswerOf`): Move to <date> · Unlock my service.
-  const card = cardOf(html);
-  assert.match(text(card), /Move to Sun 25 Oct/);
-  assert.match(text(card), /Unlock my service/);
-  // Cancel request — the delete look on the destructive answer, and Keep it for now.
-  const del = rowOf('delete_request');
-  assert.match(text(del), /Cancel request.*Dizon debut/);
-  assert.match(del, /class="ab ab-danger ab-main[^"]*"[\s\S]*?Agree to remove it/, 'Agree to remove it lost its danger look');
-  assert.match(del, /Keep it for now/);
-  assert.match(text(rowOf('mark_complete')), /Mark it done.*Reyes debut[\s\S]*I delivered this service/);
-  assert.match(text(rowOf('review')), /Reply to a review.*Cruz · 5 ★[\s\S]*Post reply/);
-  assert.match(rowOf('quote_draft'), /href="\/vendor-dashboard\/customers\?seg=money&amp;open=proposals#customer-tools"/);
-  assert.match(text(rowOf('quote_draft')), /Finish quote draft.*Rolando & Carmen · ₱45,000/);
-  assert.match(rowOf('contract_draft'), /href="\/vendor-dashboard\/customers\?seg=money&amp;open=contracts#customer-tools"/);
-  assert.match(text(rowOf('lock_request_lapsed')), /Ask lapsed.*Dela Peña/);
-  assert.match(rowOf('lock_request_lapsed'), /data-badge="quiet"[^>]*>Lapsed</);
-  assert.match(rowOf('dispute'), /href="\/vendor-dashboard\/messages\/t-pz"/);
-  assert.match(text(rowOf('dispute')), /Dispute open.*Setnayan is looking/);
-  // One "Also waiting", no second "Nothing to answer" heading — the closed lines are rows of the same list.
-  assert.equal((text(html).match(/Also waiting/g) ?? []).length, 1);
-  assert.doesNotMatch(text(html), /Nothing to answer/);
+  for (const [key, href] of Object.entries(want)) assert.equal(hrefOf(html, key), href, `${key}: the row goes to ${hrefOf(html, key) || 'nowhere'}`);
+  const t = text(needsOf(html));
+  assert.match(t, /Cancel request.*Dizon debut/);
+  assert.match(t, /Ask lapsed.*Dela Peña/);
+  assert.match(needsOf(html), /data-badge="quiet"[^>]*>Lapsed</);
+  assert.match(t, /Dispute open.*Setnayan is looking/);
+  assert.equal((text(html).match(/Needs you today/g) ?? []).length, 1, 'the closed lines grew a heading of their own');
 });
 
 /* ═══ 4 · THE FEE ROWS AND THE LOCK ═══════════════════════════════════════ */
@@ -250,40 +222,31 @@ test('4 · every unpaid fee has its Pay and its introduced line; the lock is sai
   assert.equal(rows.length, 2, 'not every unpaid fee is a row');
   for (const b of bills) assert.ok(html.includes(`href="${vendorBookingFeePayPath(b.orderId)}"`), `${b.coupleName}: no Pay`);
   const t = text(html);
-  // Title + ONE short line visible (2026-10-28 review): the amount and the due day under the title; who introduced
-  // the couple is said in the title's ⓘ — still on the row, never dropped.
   assert.match(t, /Booking fee · Lim & Tan wedding i Setnayan introduced this couple to you on Oct 12, 2026\. ₱4,250\.00 · due Tue 20 Oct/);
   assert.match(rows[0]!, /role="tooltip"[^>]*>[\s\S]*?data-fee-introduced=""/, 'the introduced line is not in the title’s ⓘ');
-  const visibleLine = rows[0]!.match(/<span class="block truncate text-\[13px\][^"]*"[^>]*>([\s\S]*?)<\/span>/)?.[1] ?? '';
-  assert.match(visibleLine, /^₱4,250\.00 · due Tue 20 Oct$/, `the row's one visible line is more than the amount and the day: ${visibleLine}`);
   assert.match(t, /Booking fee · Cruz wedding ₱4,250\.00 · overdue since Sat 10 Oct/);
-  // The lock: once, the gate's own sentence.
   assert.equal((html.match(/data-fee-lock-line=""/g) ?? []).length, 1);
   assert.match(t, /this event’s details and day-of tools stay locked until the fee is settled/);
-  // …as one short line, the whole sentence in its ⓘ.
   assert.match(html, /data-fee-lock-line=""[^>]*>[\s\S]*?Locked until the fee is paid[\s\S]*?role="tooltip"/, 'the lock sentence is not behind its ⓘ');
-  // Enforced → said for a bill that is only due.
   assert.match(text((await draw({ desk: [INQUIRY], feeBills: [bills[0]!] })).html), /stay locked until the fee is settled/);
-  // Not enforced → said only once a bill is overdue.
   assert.doesNotMatch((await draw({ desk: [INQUIRY], feeBills: [bills[0]!], feeEnforced: false })).html, /data-fee-lock-line/);
   assert.match((await draw({ desk: [INQUIRY], feeBills: bills, feeEnforced: false })).html, /data-fee-lock-line/);
-  // The fee as the Next card says the lock BEFORE Pay when its own words do not.
-  const card = cardOf((await draw({ feeBills: [bills[0]!], earnings: null })).html);
-  assert.match(text(card), /stay locked until the fee is settled/);
-  assert.match(card, new RegExp(`href="${vendorBookingFeePayPath(bills[0]!.orderId).replace(/[?/.]/g, '\\$&')}"`));
+  // With nothing else waiting the lone fee is still a row with its Pay (the Next card that showed it is retired).
+  const alone = (await draw({ feeBills: [bills[0]!], earnings: null })).html;
+  assert.match(alone, new RegExp(`href="${vendorBookingFeePayPath(bills[0]!.orderId).replace(/[?/.]/g, '\\$&')}"`));
 });
 
 /* ═══ 5 · AFTER AGREE, THE FEE HELD ═══════════════════════════════════════ */
 
 // SABOTAGE: drop `door: lockAnswer.door ?? null` from the page's outcome → RED (page anchor).
-test('5 · after Agree with the news held: the shipped sentence and "Pay the booking fee", right under the card', async () => {
+test('5 · after Agree with the news held: the shipped sentence and "Pay the booking fee", right above Needs you today', async () => {
   const { lockAgreeNotice } = await import('@/lib/lock-answer-notice');
   const said = lockAgreeNotice('ok', { feeHeld: true })!;
   assert.equal(said.text, 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.');
   const { html } = await draw({ desk: [INQUIRY], outcome: { text: said.text, tone: 'ok', door: said.door ?? null } });
   const at = html.indexOf('role="status" data-supplier-outcome="ok"');
-  assert.ok(at > html.indexOf('data-today-next') && at < html.indexOf('data-today-after-next'), 'the status line is not under the card');
-  const line = html.slice(at, html.indexOf('data-today-after-next'));
+  assert.ok(at > 0 && at < html.indexOf('data-today-needs='), 'the status line is not above Needs you today');
+  const line = html.slice(at, html.indexOf('data-today-needs='));
   assert.match(text(line), /You said yes\. Pay the booking fee and we’ll tell the couple/);
   assert.match(line, /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/);
   assert.match(code('app/vendor-dashboard/page.tsx'), /door: lockAnswer\.door \?\? null,/);
@@ -292,29 +255,26 @@ test('5 · after Agree with the news held: the shipped sentence and "Pay the boo
 
 /* ═══ 6 · THE EVENT DAY ═══════════════════════════════════════════════════ */
 
-// SABOTAGE: `dayLocked` forced false → RED (a locked day shows its day-of numbers).
-test('6 · the event day: Run the day · Chat, waiting · next moment · checked in, Also today — and nothing of the day while it is locked', async () => {
+// SABOTAGE: `dayLocked` forced false → RED (a locked day shows its day-of rows).
+test('6 · the event day: the photo card says Today with next moment · checked in, Also today — and nothing of the day while it is locked', async () => {
   const day = [up('cruz', 'Jun & Liza Cruz', TODAY, 'main', 0), ...UPCOMING];
   const facts = { startedAt: '12:00', next: { time: '3:30', label: 'Reception' }, line: '12:00 Ceremony · 3:30 Reception', checkedIn: 118 };
-  const { html, view } = await draw({ desk: [INQUIRY], upcoming: day, dayFacts: facts, earnings: null });
-  assert.equal(view.next.kind, 'run_day');
-  const card = cardOf(html);
-  assert.match(card, /data-next-day=""/);
-  assert.match(text(card), /Today · live since 12:00 Jun & Liza Cruz Makati · 150 guests/);
-  assert.match(text(card), /Run the day.*Chat/);
-  // The pinned row comes FIRST, the day's card under it (approved prototype, 2026-10-28).
-  const nums = text(html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-next')));
-  assert.match(nums, /waiting on you.*3:30 next moment.*118 checked in/);
+  const { html } = await draw({ desk: [INQUIRY], upcoming: day, dayFacts: facts, earnings: null });
   assert.match(text(html), /Also today Schedule 12:00 Ceremony · 3:30 Reception Hub/);
-  // Today's event is on the card, not again under Coming up.
-  assert.doesNotMatch(text(html.slice(html.indexOf('data-today-coming-up'))), /Jun & Liza Cruz/);
-  // 🔒 An unpaid fee on today's event keeps the day locked: no day numbers, no Also today — the bill says why.
-  const locked = await draw({ desk: [INQUIRY], upcoming: day, dayFacts: facts, earnings: null, feeBills: [bill('cruz', 'Jun & Liza Cruz', '2026-10-16')] });
-  assert.doesNotMatch(locked.html, /next moment|checked in|data-today-also-today/);
-  assert.match(locked.html, /data-fee-bill-today=""/);
-  // The page skips the money read on an event day and reads the day instead — the screen does not grow.
+  assert.doesNotMatch(text(html.slice(html.indexOf('data-today-coming-up'))), /Jun & Liza Cruz/, 'today’s event is under Coming up too');
+  // The photo card: Today, and the day's own two as chips (owner Q8) — assembled by the same picker the page uses.
+  const { assembleNextEvents, nextEventDay } = await import('@/lib/supplier-today-next-events');
+  const card = assembleNextEvents(nextEventDay(day, TODAY), { cruz: { dayNext: '3:30 Reception', checkedIn: 118 } }, TODAY)!.cards[0]!;
+  assert.equal(card.when, 'Today');
+  assert.deepEqual(card.chips.map((c) => c.word), ['Next 3:30 Reception', '118 checked in']);
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.match(page, /eventToday \? Promise\.resolve\(null\) : fetchVendorEarningsSummary\(/);
+  assert.match(page, /dayNext: dayFacts\.next \? `\$\{dayFacts\.next\.time\} \$\{dayFacts\.next\.label\}` : null, checkedIn: dayFacts\.checkedIn/, 'the page does not hand the day’s two to the photo card');
+  // 🔒 An unpaid fee on today's event keeps the day locked: no Also today — the bill says why.
+  const locked = await draw({ desk: [INQUIRY], upcoming: day, dayFacts: facts, earnings: null, feeBills: [bill('cruz', 'Jun & Liza Cruz', '2026-10-16')] });
+  assert.doesNotMatch(locked.html, /data-today-also-today/);
+  assert.match(locked.html, /data-fee-bill-today=""/);
+  // The money read now runs every day (the Money stat is always on Today, A4); the day is read only on the day.
+  assert.match(page, /fetchVendorEarningsSummary\(supabase, vendorProfileId\)\.catch\(\(\) => null\),/);
   assert.match(page, /eventToday \? readEventDayFacts\(/);
 });
 
@@ -349,14 +309,20 @@ test('8 · the Shop row says Checking · Live · Not yet, what is left of the de
 
 /* ═══ 9 · SETUP ════════════════════════════════════════════════════════════ */
 
-// ⚠ "N of 7" SINCE 2026-10-22 — the logo is its own step (owner "Yes to all", journey_fixes Supplier 2 · A).
-test('9 · a new shop’s card is "N of 7" — the seven steps, the approval not one of them', async () => {
+// ⚠ The setup Next card ("N of 7") is retired with the Next card (v103): a new shop's six steps are the top of Today.
+test('9 · a new shop: the six steps on top, no cover row, and no "finish setting up" row repeating them', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { SupplierTodayScreen } = await import('./supplier-today-screen');
   const { buildFirstStepsRail } = await import('@/lib/vendor-first-steps');
+  const { assembleSupplierToday } = await import('@/lib/supplier-today-view');
   const rail = buildFirstStepsRail({ verified: false, profileDone: 4, profileTotal: 6, serviceCount: 0, docsStatus: 'none', docsIn: 0, docsTotal: 4, submitMissing: [], customerCount: 0 });
-  const { html } = await draw({ firstSteps: rail, verified: false, findable: false, upcoming: [], earnings: null, views: null });
-  const card = text(cardOf(html));
-  assert.match(card, /1 of 7 Your next step Your details/);
-  assert.match(card, /Fill them in/);
+  const base = { needsAnswer: [], closed: [], deskIncomplete: false, upcoming: [], schedules: { pools: [], outside: [], complete: true }, firstSteps: rail, verified: false, findable: false, findability: null, feeBills: [], feeEnforced: true, earnings: null, credit: null, payoutReadiness: 'unreadable' as const, payoutHref: '/x', shop: { name: 'S', categoryWord: null, details: { done: 4, total: 6, complete: false }, awardWord: null, milestoneWord: null }, views: null, inquiries28: null, dayFacts: null, todayIso: TODAY, now: NOW, since };
+  const drawn = assembleSupplierToday({ ...base, setupDrawn: true });
+  assert.ok(!drawn.needs.some((n) => n.key === 'door-setup'), 'the six steps are on top AND a row repeats them');
+  assert.ok(assembleSupplierToday({ ...base, setupDrawn: false }).needs.some((n) => n.key === 'door-setup'), 'with no steps drawn, setup lost its door');
+  const html = renderToStaticMarkup(React.createElement(SupplierTodayScreen, { view: drawn, outcome: null, shopName: 'S', todayIso: TODAY, now: NOW, setup: React.createElement('div', { 'data-setup-stub': '' }) }));
+  assert.ok(html.indexOf('data-setup-stub') >= 0 && html.indexOf('data-setup-stub') < html.indexOf('data-today-needs='), 'the six steps are not the top of Today');
+  assert.doesNotMatch(html, /data-today-cover|data-today-stats/, 'a new shop draws the cover row (as shipped it has none)');
 });
 
 /* ═══ 10 · THE READ CENSUS ════════════════════════════════════════════════ */
@@ -375,4 +341,17 @@ test('10 · the page does not grow: one shop-row read for three, the schedules i
   assert.equal((server.match(/\.from\('vendor_calendar_blocks'\)/g) ?? []).length, 0, 'the blocks grew a read of their own');
   // Views only once couples can see the shop.
   assert.match(page, /shopRow\?\.verified \? readTodayViews\(/);
+  // 📸 THE ONE BUILD A3: the next event day's facts are ONE batched round — one schedule read and one Hub-setup read for
+  // every event (`.in('event_id', …)`), never a read per card.
+  const next = server.slice(server.indexOf('export async function readNextEventFacts('));
+  assert.equal((next.match(/\.from\('event_schedule_blocks'\)/g) ?? []).length, 1);
+  assert.equal((next.match(/\.from\('vendor_dayof_configs'\)/g) ?? []).length, 1);
+  assert.equal((next.match(/\.in\('event_id', ids\)/g) ?? []).length, 2, 'a next-event read is per event');
+  // 👥 The hosts are the brief's own list (`event_chat_hosts`, C2) — one call per card, the only per-card read beside the cover.
+  assert.equal((next.match(/\.rpc\('event_chat_hosts', \{ p_event_id: id \}\)/g) ?? []).length, 1);
+  // The renewal date (A9) is NOT on the table read — a session may not SELECT it there; it is its own read off the
+  // shop's self view, started beside the shop row.
+  assert.doesNotMatch(server, /\.from\('vendor_profiles'\)[\s\S]{0,400}next_renewal_due_at/, 'the renewal date is on the table read — Postgres refuses the whole row for a session');
+  assert.match(server, /\.from\('vendor_profiles_self'\)\s*\.select\('next_renewal_due_at'\)/);
+  assert.match(page, /const renewalP = readTodayRenewal\(supabase, vendorProfileId\);/);
 });

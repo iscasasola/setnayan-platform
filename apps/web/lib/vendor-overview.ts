@@ -8,7 +8,7 @@ import { fetchVendorThreads } from '@/lib/chat';
 import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 // 🔒 EVERY DOOR ONTO A CUSTOMER CARD NAMES ITS SECTION. A bare
 // /vendor-dashboard/clients/<id> is a CHAT landing since #5614, so "open the
 // customer card" and "open the chat" are the same URL unless `?tab=` is there.
@@ -343,6 +343,8 @@ export type UpcomingEventRow = {
    * Setnayan bookings on Today's Coming up with "from outside" (simpler supplier dashboard 2026-10-14).
    */
   outside?: boolean;
+  /** The booking's `event_vendors` row (null for a schedule-pool booking) — Today's call time is tagged on it. */
+  eventVendorId?: string | null;
 };
 
 export type VendorOverviewData = {
@@ -366,6 +368,18 @@ export type VendorOverviewData = {
    * before Agree (prototype moment "9 · hallask").
    */
   askDayHolds?: Record<string, string[]>;
+  /**
+   * 📸 THE NEXT EVENT DAY (THE ONE BUILD A3, v113 Today "Next events"): EVERY booking on the earliest booked date today
+   * or later — never capped at five, so two weddings on one Saturday are both on Today's carousel. Same rows, same
+   * doors as `upcoming`.
+   */
+  nextDay?: UpcomingEventRow[];
+  /**
+   * 📊 Booked "this month" (THE ONE BUILD A4, owner Q2 default): distinct booked events DATED in this Manila month, from
+   * the room read this loader already holds (no query of its own). `null` when that read was refused or short — the stat
+   * then says "couldn't load", never a smaller number.
+   */
+  bookedThisMonth?: number | null;
 };
 
 /**
@@ -455,7 +469,9 @@ export async function fetchVendorOverviewData(
     // answer every day-of screen already uses. What held it back was the row
     // id (keyed on `poolBookingId`, which those bookings lack); it is now keyed
     // on (event, date), which `dedupe` makes unique by construction.
-    fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => []),
+    // 📊 THE ONE BUILD (Today's "Booked · this month" stat): the DETAILED read, so a refused or short read says
+    // "couldn't load" on the stat instead of counting fewer bookings than the shop has.
+    fetchVendorRoomEventsDetailed(supabase, vendorProfileId).catch(() => ({ events: [], complete: false })),
     fetchDisputedHandovers(supabase, vendorProfileId),
     // Both read under the vendor's OWN session: event_appointments carries a
     // vendor-read policy keyed on vendor_profile_id, and vendor_proposals is the
@@ -486,10 +502,12 @@ export async function fetchVendorOverviewData(
   ]);
 
   const [
-    [threads, reviews, contracts, roomBookings, disputes, meetingProposals, draftQuotes],
+    [threads, reviews, contracts, roomRead, disputes, meetingProposals, draftQuotes],
     [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting, dateChangeRead],
   ] = await Promise.all([ownReads, adminReads]);
 
+  const roomBookings = roomRead.events;
+  const bookingsComplete = roomRead.complete;
   const pendingThreads = threads.filter((t) => t.inquiry_status === 'pending');
   /*
     THE ACCEPTED LANE — where a reply is actually owed.
@@ -702,33 +720,12 @@ export async function fetchVendorOverviewData(
   */
   for (const dc of dateChangeRead.rows) {
     const meta = eventMeta.get(dc.event_id);
-    const precisionOf = (p: string | null): 'day' | 'month' | 'year' => (p === 'month' || p === 'year' ? p : 'day');
-    whatsNew.push({
-      kind: 'date_change',
-      id: `datechange-${dc.request_id}`,
-      eventId: dc.event_id,
-      eventVendorId: dc.event_vendor_id,
-      coupleName: meta?.displayName ?? 'A couple',
-      fromDate: dc.from_date,
-      fromPrecision: precisionOf(dc.from_precision),
-      proposedDate: dc.proposed_date,
-      proposedPrecision: precisionOf(dc.proposed_precision),
-      askedAt: dc.asked_at,
-      dueAt: dc.due_at,
-    });
+    whatsNew.push(dateChangeCardOf(dc, meta?.displayName ?? null));
   }
 
   for (const dr of deletionRequests) {
     const meta = eventMeta.get(dr.eventId);
-    whatsNew.push({
-      kind: 'delete_request',
-      id: `delreq-${dr.eventVendorId}`,
-      eventId: dr.eventId,
-      eventVendorId: dr.eventVendorId,
-      eventDate: meta?.eventDate ?? null,
-      requestedAt: dr.requestedAt,
-      coupleName: meta?.displayName ?? 'A couple',
-    });
+    whatsNew.push(deleteRequestCardOf(dr, { coupleName: meta?.displayName ?? null, eventDate: meta?.eventDate ?? null }));
   }
 
   for (const lr of lockRequests) {
@@ -974,11 +971,11 @@ export async function fetchVendorOverviewData(
 
   // --- Assemble UPCOMING (next 5 booked events by date) ----------------------
   const today = todayManila();
-  const upcoming: UpcomingEventRow[] = roomBookings
+  const ahead = roomBookings
     .filter((b) => new Date(`${b.bookedDate}T00:00:00`).getTime() >= today.getTime())
-    .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate))
-    .slice(0, 5)
-    .map((b) => {
+    .sort((a, b) => a.bookedDate.localeCompare(b.bookedDate));
+  const firstDate = ahead[0]?.bookedDate ?? null;
+  const toRow = (b: (typeof roomBookings)[number]): UpcomingEventRow => {
       const meta = eventMeta.get(b.eventId);
       const inDays = daysUntil(b.bookedDate) ?? 0;
       /*
@@ -1009,8 +1006,16 @@ export async function fetchVendorOverviewData(
         opensCard: door.opensCard,
         guests: meta?.guests ?? null,
         poolId: b.poolId ?? null,
+        eventVendorId: b.eventVendorId ?? null,
       };
-    });
+  };
+  const upcoming: UpcomingEventRow[] = ahead.slice(0, 5).map(toRow);
+  const nextDay: UpcomingEventRow[] = firstDate ? ahead.filter((b) => b.bookedDate === firstDate).map(toRow) : [];
+  // 📊 "Booked · this month" — distinct events dated in this Manila month (past days of the month included).
+  const monthPrefix = manilaTodayIso().slice(0, 7);
+  const bookedThisMonth = bookingsComplete
+    ? new Set(roomBookings.filter((b) => b.bookedDate.slice(0, 7) === monthPrefix).map((b) => b.eventId)).size
+    : null;
 
   const since28 = Date.now() - 28 * 86_400_000;
   const inquiries28 = threads.filter((t) => {
@@ -1029,7 +1034,7 @@ export async function fetchVendorOverviewData(
       .map((b) => b.poolId as string);
   }
 
-  return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds };
+  return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds, nextDay, bookedThisMonth };
 }
 
 // ---------------------------------------------------------------------------
@@ -1692,4 +1697,44 @@ async function fetchDisputedHandovers(
   } catch {
     return [];
   }
+}
+
+/**
+ * 🗓 ONE SHAPE FOR THE TWO ANSWERS THAT LEFT TODAY (THE ONE BUILD A8) — the desk (`fetchVendorOverviewData`) and the
+ * client's Details (`lib/client-day-answers.server.ts`) build the date-change and delete-request cards with these, so
+ * the card a supplier answers on Details is byte-for-byte the one Today used to hold.
+ */
+export function dateChangeCardOf(
+  dc: { request_id: string; event_id: string; event_vendor_id: string; from_date: string | null; from_precision: string | null; proposed_date: string; proposed_precision: string; asked_at: string; due_at: string },
+  coupleName: string | null,
+): Extract<WhatsNewCard, { kind: 'date_change' }> {
+  const precisionOf = (p: string | null): 'day' | 'month' | 'year' => (p === 'month' || p === 'year' ? p : 'day');
+  return {
+    kind: 'date_change',
+    id: `datechange-${dc.request_id}`,
+    eventId: dc.event_id,
+    eventVendorId: dc.event_vendor_id,
+    coupleName: coupleName ?? 'A couple',
+    fromDate: dc.from_date,
+    fromPrecision: precisionOf(dc.from_precision),
+    proposedDate: dc.proposed_date,
+    proposedPrecision: precisionOf(dc.proposed_precision),
+    askedAt: dc.asked_at,
+    dueAt: dc.due_at,
+  };
+}
+
+export function deleteRequestCardOf(
+  dr: { eventId: string; eventVendorId: string; requestedAt: string },
+  meta: { coupleName: string | null; eventDate: string | null },
+): Extract<WhatsNewCard, { kind: 'delete_request' }> {
+  return {
+    kind: 'delete_request',
+    id: `delreq-${dr.eventVendorId}`,
+    eventId: dr.eventId,
+    eventVendorId: dr.eventVendorId,
+    eventDate: meta.eventDate,
+    requestedAt: dr.requestedAt,
+    coupleName: meta.coupleName ?? 'A couple',
+  };
 }

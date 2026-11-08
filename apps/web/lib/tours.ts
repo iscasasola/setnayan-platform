@@ -208,8 +208,13 @@ export type TourKey =
   | 'customer_suppliers_v1'
   | 'customer_library_v1'
   | 'vendor_today_v2'
+  | 'vendor_today_v3'
   | 'vendor_people_v1'
   | 'vendor_collections_v1'
+  // 🔦 A new shop's Today, once its QR is downloaded (step 6 of "Get your shop live" — owner 7 Nov 2026, prototype
+  // `open-shop-redesign.html` v21 "the spotlight tour … starts once after step 6"). Recorded when it ends or is
+  // skipped, and that record is step 6's ✓ (`lib/supplier-setup.ts`).
+  | 'vendor_setup_tour_v1'
   | 'guest_papic_camera_v2'
   | 'guest_papic_me_v2'
   // 🔦 /pricing — a first-visit spotlight (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25`): Why Setnayan →
@@ -275,8 +280,10 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_suppliers_v1',
   'customer_library_v1',
   'vendor_today_v2',
+  'vendor_today_v3',
   'vendor_people_v1',
   'vendor_collections_v1',
+  'vendor_setup_tour_v1',
   'guest_papic_camera_v2',
   'guest_papic_me_v2',
   'pricing_page_v1',
@@ -1707,8 +1714,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'today-next',
-          title: 'One thing at a time',
-          body: 'The Next card is the most urgent thing waiting on you. Answer it and the next one takes its place.',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you, the most urgent first. Tap a row to open where it is answered.',
         },
         {
           anchor: 'tab-shop',
@@ -1751,7 +1758,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        body: 'Needs you today on Today always lists what is waiting on you. To see this again, open your account menu and tap Show me around.',
         button: 'Done',
       },
     },
@@ -2150,11 +2157,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Every customer chat, in one place.',
         },
         {
-          anchor: 'today-numbers',
-          title: 'Three numbers',
-          body: 'Waiting on you, events this week, and what is still to come in. Tap one for its list.',
-        },
-        {
           anchor: 'today-coming-up',
           title: 'Coming up',
           body: 'Your next booked events, from Setnayan and outside. All dates opens your month.',
@@ -2168,6 +2170,101 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'The Next card on top always shows the one thing waiting on you.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 TODAY'S PAGE TOUR, THE ONE BUILD (8 Nov 2026 — v113 Today; spec A2 A13, owner Q10 default "bump so every
+     supplier sees the new Today once"): Messages → the cover → Next events → the stats → Needs you today → Show. A stop
+     not drawn on this screen (no event ahead) is dropped by the engine. Mounted by the supplier frame through
+     `lib/supplier-page-tours.ts`; `vendor_today_v2` (the Next card's tour) is kept only as the seen mark it is. */
+  vendor_today_v3: {
+    key: 'vendor_today_v3',
+    label: 'Supplier — Today page spotlight',
+    blurb: 'Messages, your greeting, the next events, your numbers, what needs you and Show.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every customer chat, in one place.',
+        },
+        {
+          anchor: 'today-cover',
+          title: 'Your day',
+          body: 'Today’s date and how many things need you. Your Today settings are on the ⚙.',
+        },
+        {
+          anchor: 'today-next-events',
+          title: 'Next events',
+          body: 'Your next booked event. Tap it to open that client’s Hub.',
+        },
+        {
+          anchor: 'today-stats',
+          title: 'Your numbers',
+          body: 'Views, inquiries, bookings, photos and money to come in. Each one opens where it is counted.',
+        },
+        {
+          anchor: 'today-needs',
+          title: 'Needs you today',
+          body: 'One row for each thing waiting on you. Tap a row to open where it is answered.',
+        },
+        {
+          anchor: 'today-show',
+          title: 'Show',
+          body: 'Show only inquiries, bookings, payments and more — or search with the box beside it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Needs you today always lists what is waiting on you, most urgent first.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 A NEW SHOP'S TODAY, AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21 `TOUR_COPY`): it
+     starts once, the moment the shop's QR is downloaded, and lights Today top → bottom. The words are the prototype's;
+     the last stop says the bar THE ONE BUILD ships (Today · Clients · Shop · Portfolio — v113, BARS LOCKED 7 Nov). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
+  vendor_setup_tour_v1: {
+    key: 'vendor_setup_tour_v1',
+    label: 'Supplier — a new shop’s Today, after the QR',
+    blurb: 'Get your shop live, Coming up, your shop, Messages and the bar.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'today-setup',
+          title: 'Get your shop live',
+          body: 'Six rows — each opens right here. Any order.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-coming-up',
+          title: 'Coming up',
+          body: 'Bookings land here as couples say yes.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-shop',
+          title: 'Your shop',
+          body: 'Your page, your cards, your logo — what couples see.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every request and chat with a couple, in one place.',
+        },
+        {
+          anchor: 'tab-vendor-dashboard',
+          title: 'The menu',
+          body: 'The bar is Today, Clients, Shop and Portfolio.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Get your shop live stays on Today until every step is done.',
         button: 'Done',
       },
     },

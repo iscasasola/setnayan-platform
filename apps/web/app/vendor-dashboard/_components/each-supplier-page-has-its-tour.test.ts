@@ -41,7 +41,8 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
   vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
-  vendor_today_v2: ['supplier-messages', 'today-numbers', 'today-coming-up', 'today-shop'],
+  // THE ONE BUILD A13 (8 Nov): the new Today's stops (v2 was the Next card's).
+  vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],
   // 2026-10-28: People ▾ · the four counts · ⚙ are the pinned row now — the ⚙ is its own stop.
   vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-gear', 'customers-search', 'customers-add'],
   vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
@@ -80,7 +81,7 @@ test('3 · the address decides which tour is on screen', () => {
     assert.equal(on(p), 'vendor_shop_v1', `${p} is a Shop segment`);
   }
   // Since 2026-10-25 Today, Customers › People and Your collections have their own (the albums sub-page none).
-  assert.equal(on('/vendor-dashboard'), 'vendor_today_v2');
+  assert.equal(on('/vendor-dashboard'), 'vendor_today_v3');
   assert.equal(on('/vendor-dashboard/customers'), 'vendor_people_v1');
   assert.equal(on('/vendor-dashboard/customers', { seg: 'people' }), 'vendor_people_v1');
   assert.equal(on('/vendor-dashboard/collections'), 'vendor_collections_v1');

@@ -1,3 +1,4 @@
 # every-supplier-top-row-is-one-selector.test.ts — the rows the owner keeps off the one selector, one reasoned line each.
 # Format: <path> — <reason>. A line whose file now holds the rule FAILS the test: delete it.
 app/vendor-dashboard/_components/supplier-setup-folds.tsx — a NEW shop's head "Get your shop live" + ⚙ (owner 2026-10-28, six steps in place): no view to pick and no counts yet; the row is a heading, not a page selector
+app/vendor-dashboard/_components/today-cover.tsx — Today's row 1 is the GREETING (owner v112 HOLD answer "Name of shop name": "Good morning, <Shop>") + "N tasks · 7 Nov" + ⚙ (THE ONE BUILD v113, 8 Nov): Today has no view to pick — the counts row that was its selector is retired (A5) — so the row is a heading, not a page selector

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, resolve, relative } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { customerLandingHref } from './customers/anchors';
@@ -24,59 +24,36 @@ import { customerLandingHref } from './customers/anchors';
  * (DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED
  * ANSWERS": new inquiries · events this week · ₱ owed to you). The property did
  * not change; the scan moved to `supplier-today-first-screen.tsx`.
+ *
+ * 📊 2026-11-08 — THE ONE BUILD (A4, v103/v104 "stats jump"): the counts row is retired; Today's headline counts are
+ * the FIVE STATS (`today-stats.tsx`), each a link. The property is unchanged; the scan moved again.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '../..');
-const src = () =>
-  stripComments(
-    readFileSync(join(WEB, 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'), 'utf8'),
-  );
+const stats = () => stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-stats.tsx'), 'utf8'));
 
-/** The three-numbers block, from its marker to the Coming-up block after it. */
-function numbersBlock(): string {
-  const s = src();
-  const a = s.indexOf('data-today-numbers');
-  // v13: Coming up now rides in the left column's tail (declared above the render), so the block ends at the first
-  // helper after the render instead.
-  const b = s.indexOf('function OpenedRow(', a);
-  assert.ok(a > 0 && b > a, 'the three-numbers block could not be found — the scan has gone blind');
-  return s.slice(a, b);
-}
-
-test('every headline count on Today has a destination', () => {
-  const block = numbersBlock();
-  // 📌 2026-10-28 (owner: "the counts … are the pinned row and they FILTER the list in place"): on a normal day the
-  // three counts are FILTER buttons (`TodayCounts`) — pressing one shows ITS list right under the row — and each list
-  // ends with the door to the whole of it. So a count still goes somewhere twice over: to its list, and through it.
-  const counts = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-counts.tsx'), 'utf8'));
-  assert.equal((counts.match(/on=\{on === key\}/g) ?? []).length, 1, 'a count is no longer a filter (aria-pressed via PinDoor)');
-  for (const word of ["'waiting'", "'this week'", "'to come in'"]) assert.ok(counts.includes(word), `the ${word} count is gone`);
-  // Each filtered list ends with its door: the week → Dates, the money → Money in · Payday (here), waiting → Customers (below).
-  assert.match(block, /<ListDoor label="All dates" href="\/vendor-dashboard\/customers\?seg=dates" \/>/, 'the week list lost its door');
-  assert.match(block, /<ListDoor label="Money in" href=\{customerLandingHref\('payday'\)\} \/>/, 'the money list lost its door');
-  assert.match(src(), /<ListDoor label="All customers" href="\/vendor-dashboard\/customers\?lane=waiting#customers" \/>/, 'the waiting list lost its door');
-  // 🌑 On an event day the row is the day's own: waiting · next moment · checked in — each a link, as before.
-  // 📌 2026-10-31: each is the shared door as a link (`<PinDoor … href=…>`, ONE SELECTOR Q3).
-  const links = block.match(/<PinDoor\b[\s\S]*?'data-today-number'/g) ?? [];
-  assert.equal(links.filter((l) => /\bhref=/.test(l)).length, 3, `${links.length} of the event day's three numbers are links`);
-  for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
-  for (const word of ['waiting on you', 'next moment', 'checked in']) {
-    assert.ok(block.includes(word), `the "${word}" number is gone`);
+test('every headline count on Today has a destination', async () => {
+  const { TODAY_STAT_HREFS, todayStatsOf } = await import('./_components/today-stats');
+  const ids = todayStatsOf({ views: 1, inquiries: 1, booked: 1, portfolio: { used: 1, free: 50 }, toComeInPhp: 1 }).map((x) => x.id);
+  assert.deepEqual(ids, ['views', 'inquiries', 'booked', 'portfolio', 'money']);
+  for (const id of ids) assert.ok(TODAY_STAT_HREFS[id], `the ${id} stat goes nowhere`);
+  // Each is drawn as ONE link to its own place — never a button that does nothing, never a tile with no door.
+  assert.match(stats(), /<Link\s+href=\{TODAY_STAT_HREFS\[s\.id\]\}/, 'a stat is not a link to its place');
+  assert.doesNotMatch(stats(), /<button\b/, 'a stat became a button');
+  // A number that could not be read says so IN PLACE — "couldn't load", never a dead 0.
+  for (const s of todayStatsOf({ views: null, inquiries: null, booked: null, portfolio: null, toComeInPhp: null })) {
+    assert.equal(s.figure, null, `${s.id}: a figure over an unread read`);
+    assert.equal(s.line, 'couldn’t load');
   }
-  // A number that could not be read says so IN PLACE — "couldn't load", never a dead 0 (the day row's own <Unread />;
-  // the pinned counts' own line in `today-counts.tsx`).
-  assert.match(block, /value=\{numbers\.waiting === null \? null :/, 'the event day\'s waiting number no longer says when it could not read');
-  assert.match(counts, /value=\{value === null \? null :/, 'a pinned count that could not read no longer hands the null to the door');
-  assert.match(stripComments(readFileSync(join(WEB, 'app/_components/pinned-row/pin-door.tsx'), 'utf8')), /value === null \?[\s\S]{0,400}couldn&rsquo;t load/, 'the shared door that could not read no longer says so');
+  // The page hands the stats in from the one view.
+  assert.match(stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/supplier-today-screen.tsx'), 'utf8')), /<TodayStats stats=\{view\.stats\} \/>/);
 });
 
-test('the destinations exist as routes', () => {
-  const hrefs = [...numbersBlock().matchAll(/href=(?:"([^"]+)"|\{customerLandingHref\('(\w+)'\)\})/g)].map((m) =>
-    m[1] ?? customerLandingHref(m[2] as Parameters<typeof customerLandingHref>[0]),
-  );
-  // The event day's three links + the week's and the money's list doors (2026-10-28).
-  assert.equal(hrefs.length, 5, `found ${hrefs.length} number hrefs`);
+test('the destinations exist as routes', async () => {
+  const { TODAY_STAT_HREFS } = await import('./_components/today-stats');
+  const hrefs = Object.values(TODAY_STAT_HREFS);
+  assert.equal(hrefs.length, 5, `found ${hrefs.length} stat hrefs`);
   for (const h of hrefs) {
     const rel = h.replace(/^\//, '').split(/[?#]/)[0]!;
     const page = join(WEB, 'app', rel, 'page.tsx');
@@ -88,12 +65,13 @@ test('the destinations exist as routes', () => {
   }
 });
 
-test('the money number goes to the money — Payday', () => {
-  assert.match(numbersBlock(), /href=\{customerLandingHref\('payday'\)\}/);
+test('the money number goes to the money — Payday', async () => {
+  const { TODAY_STAT_HREFS } = await import('./_components/today-stats');
+  assert.equal(TODAY_STAT_HREFS.money, customerLandingHref('payday'));
 });
 
 test('each Coming-up row opens its customer — the list under the numbers links too', () => {
-  const s = src();
+  const s = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'), 'utf8'));
   const coming = s.slice(s.indexOf('data-today-coming-up'));
   // The row is the shared hairline row now (`TodayRow`, one <Link>).
   assert.match(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');

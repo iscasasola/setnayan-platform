@@ -789,7 +789,7 @@ export function LockRequestBody({
  * ⏳ The deadline is said: after 3 days without an answer the couple may keep
  * waiting, release the booking themselves, or cancel the change.
  */
-function DateChangeBody({
+export function DateChangeBody({
   card,
   answerDateChange,
 }: {
@@ -853,7 +853,7 @@ function DateChangeBody({
  * fuse — anything that auto-agreed would manufacture a consent nobody gave.
  * The card therefore says what silence means: nothing happens.
  */
-function DeleteRequestBody({
+export function DeleteRequestBody({
   card,
   agreeDeletion,
   declineDeletion,

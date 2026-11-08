@@ -145,22 +145,14 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
   // 🧩 Since the simpler Today (2026-10-14) the Overview hands its answers to the one drawing (`SupplierTodayScreen`)
   // as an `actions` object (`agreeLock: vendorAgreeToLock,`), and the drawing binds only what it is handed
   // (`agreeLock={actions.agreeLock}` on the Next card, `{...actions}` on the rows). Both halves are asserted.
-  const overviewAgreeBindings = overview.match(/agreeLock(?:=\{[^}]*\}|: [A-Za-z.]+,)/g) ?? [];
-  assert.ok(
-    overviewAgreeBindings.length >= 1,
-    'the Overview stopped posting the same action — no agreeLock binding at all',
-  );
-  assert.deepEqual(
-    [...new Set(overviewAgreeBindings)],
-    ['agreeLock: vendorAgreeToLock,'],
-    `the Overview posts an agree action the chat card does not: ${[...new Set(overviewAgreeBindings)].join(' · ')}`,
-  );
-  const screen = read('app/vendor-dashboard/_components/supplier-today-screen.tsx');
-  assert.deepEqual(
-    [...new Set(screen.match(/agreeLock=\{[^}]*\}/g) ?? [])],
-    ['agreeLock={actions.agreeLock}'],
-    'the Today drawing binds an agree action it was not handed',
-  );
+  // 🦘 THE ONE BUILD (8 Nov, owner v112 "Jump"): Today answers nothing in place — its booking-ask row JUMPS to the client
+  // page, which answers through `LockRequestAnswer` (`booking-ask-panel.tsx`) with the SAME two actions the chat card
+  // posts. So the claim moved with the answer: the client page binds exactly the shipped actions, and Today binds none.
+  assert.equal(count(overview, /agreeLock|vendorAgreeToLock/g), 0, 'Today answers a booking ask in place again — its row jumps');
+  const clientPage = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  const clientBindings = clientPage.match(/agreeLock=\{[^}]*\}/g) ?? [];
+  assert.ok(clientBindings.length >= 1, 'the client page the ask lands on stopped posting the agree action');
+  assert.deepEqual([...new Set(clientBindings)], ['agreeLock={vendorAgreeToLock}'], `the client page posts an agree action the chat card does not: ${[...new Set(clientBindings)].join(' · ')}`);
   // Exactly one definition of each answer.
   const defs = (name: string) => count(actions, new RegExp(`export async function ${name}\\(`, 'g'));
   assert.equal(defs('vendorAgreeToLock'), 1);

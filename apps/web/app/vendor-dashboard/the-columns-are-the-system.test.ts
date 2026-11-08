@@ -51,14 +51,15 @@ test('Today reads — every side path is the 48-rem column; the working Today fi
   const cols = columns(read('page.tsx'));
   assert.ok(cols.length >= 4, `read ${cols.length} Today columns — the four render paths each carry one`);
   /*
-    🖥 v13 (owner "Approved.", 2026-10-29): the working Today is the TWO COLUMNS from 701 — the lists left, the opened row
-    right (`SupplierOpenScope` in `TodayCounts`) — so its one column gives up the 48-rem cap there (`tab:max-w-none`), as
+    🖥 v13 (owner "Approved.", 2026-10-29): the working Today gives up the 48-rem cap from 701 (`tab:max-w-none`), as
     Customers › People does. Every other render path (the team member's landing, the unavailable page) still reads.
+    (Its two columns — the opened row on the right — left with the open-in-place rows, THE ONE BUILD 8 Nov.)
   */
   const wide = cols.filter((c) => /\btab:max-w-none\b/.test(c));
   assert.equal(wide.length, 1, `exactly the working Today fills the frame — found ${wide.length}: ${wide.join(' | ')}`);
   for (const c of cols.filter((x) => !wide.includes(x))) assert.match(c, /\btab:max-w-3xl\b/, `a Today side path is not the reading column: "${c}"`);
-  assert.match(read('_components/today-counts.tsx'), /<SupplierOpenScope name="today"/, 'the working Today lost its two columns');
+  // ⤴ THE ONE BUILD A5/A7: the counts row and its open-in-place right column are retired (rows jump now), so Today is
+  // one column that fills the frame from 701 — still exactly one wide render path.
   // The first screen kept its phone 36 rem below 701 and gives it up from 701, so the measure IS the column.
   assert.match(
     read('_components/supplier-today-first-screen.tsx'),

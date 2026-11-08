@@ -49,6 +49,7 @@ const view = (missing: readonly string[]) =>
     shopName: 'Banawe Florals',
     slug: 'banaweflorals',
     serviceLabel: 'Photography',
+    qrSaved: false,
   });
 
 test('a just-named shop sees "Name your shop" ✓ — the year it was never asked does not hold it open', () => {
@@ -81,7 +82,10 @@ test('the prototype’s words on the other steps', () => {
   assert.equal(at('offer').line, 'Photography · no card yet');
   assert.equal(at('docs').line, 'Setnayan checks them before you go live');
   assert.equal(at('docs').badge?.word, 'none sent yet');
-  assert.equal(at('qr').line, 'Show your QR to the next couple · mark days you are not available');
+    // Step 6 follows open-shop v21 (#7369, folded into THE ONE BUILD by lane C1): "Download your QR"; the days-off row
+  // still sits under the QR in the step's body.
+  assert.equal(at('qr').title, 'Download your QR');
+  assert.equal(at('qr').line, 'Scan it → your page · put it on your photos, posts and cards');
 });
 
 test('"Since 2021" — the ordinal only on the anniversary itself', () => {

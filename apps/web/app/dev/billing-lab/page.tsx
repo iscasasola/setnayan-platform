@@ -57,11 +57,17 @@ const SUPPLIER: SupplierBillingRead = {
       reward('w3', 'first_booking', 'papic', '2026-10-21T00:00:00Z'),
     ],
   },
+  // 💸 B2-E: a refund the shop gave a client.
+  clientRefunds: {
+    measured: true,
+    rows: [{ refundId: 'x1', eventId: 'e5', client: 'Villanueva debut', amountPhp: 3000, refundedOn: '2026-11-06', reason: 'Drone coverage dropped from the package' }],
+  },
 };
 const SUPPLIER_UNREAD: SupplierBillingRead = {
   gifts: { measured: false, rows: [] },
   payments: { measured: false, rows: [] },
   rewards: { measured: false, rows: [] },
+  clientRefunds: { measured: false, rows: [] },
 };
 
 export default async function BillingLabPage({

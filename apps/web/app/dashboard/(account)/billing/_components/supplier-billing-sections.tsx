@@ -6,6 +6,7 @@ import {
   BILLING_SECTION_LABEL,
   PAYMENT_STATE_WORD,
   REWARDS_HREF,
+  clientRefundHref,
   giftHref,
   manilaDay,
   paymentHref,
@@ -32,7 +33,8 @@ const TIPS: Readonly<Record<Exclude<BillingSection, 'purchases'>, string>> = {
     'A gift lives on the client’s quote. Held = waiting on their answer; given = theirs once their first payment clears; refunded = back in your stock when the quote ended without it. Tap a row to open the quote.',
   payments:
     'Every payment clients logged to you, across all your clients. Confirmed = you said it arrived; proof to check = their receipt waits for your word. Tap a row to open that client’s Payment page.',
-  refunds: 'Money Setnayan sent back to you, for a plan, a booking fee or a gift pack. Tap a row for the slip it reverses.',
+  refunds:
+    'Money that went back, both ways: from Setnayan to you (a plan, a booking fee or a gift pack — tap for the slip it reverses), and from you to a client, as you recorded it on their Payment page (tap to open it there). No money moves on Setnayan for your own refunds — they are your record.',
   rewards:
     'What each badge earned you. A Papic or Event Plus reward sits in your gift stock until you give it on a quote; a free booking fee pays your next customer’s fee. Tap to open your badges.',
 };
@@ -171,10 +173,10 @@ export function SupplierBillingSections({
       key: 'refunds',
       node: (
         <section aria-label="Refunds" className="pb-4">
-          <Heading section="refunds" line={purchases.measured ? sectionSummary('refunds', supplier, refunds) : 'Couldn’t load'} />
-          {!purchases.measured ? (
+          <Heading section="refunds" line={purchases.measured || supplier.clientRefunds.measured ? sectionSummary('refunds', supplier, refunds) : 'Couldn’t load'} />
+          {!purchases.measured && !supplier.clientRefunds.measured ? (
             <Unread what="Your refunds" />
-          ) : refunds.length === 0 ? (
+          ) : refunds.length === 0 && supplier.clientRefunds.rows.length === 0 ? (
             <Empty>No refunds yet</Empty>
           ) : (
             <ul className="divide-y divide-ink/10 border-y border-ink/10">
@@ -188,8 +190,21 @@ export function SupplierBillingSections({
                   amount={formatPhp(r.grossPhp)}
                 />
               ))}
+              {/* 💸 B2-E: the refunds this shop gave its own clients — "you → client · day · why". */}
+              {supplier.clientRefunds.rows.map((x) => (
+                <BillingRow
+                  key={x.refundId}
+                  mark="refund"
+                  href={clientRefundHref(x)}
+                  title={x.client ?? 'A client'}
+                  sub={<>You → {x.client ?? 'your client'} · {manilaDay(x.refundedOn)} · {x.reason}</>}
+                  amount={formatPhp(x.amountPhp)}
+                />
+              ))}
             </ul>
           )}
+          {!purchases.measured && supplier.clientRefunds.measured ? <Unread what="Setnayan’s refunds to you" /> : null}
+          {purchases.measured && !supplier.clientRefunds.measured ? <Unread what="The refunds you gave your clients" /> : null}
         </section>
       ),
     },

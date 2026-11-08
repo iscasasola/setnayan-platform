@@ -14,7 +14,7 @@ import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import type { PickedClientPage } from '../_components/picked-client-menu';
 import { pickedMenuFor } from '../_components/picked-client-menu';
 import type { PickedPageContext } from './context';
-import type { PaymentMoney } from './payment';
+import type { PaymentMoney, PaymentPageProps } from './payment';
 import { DetailsPage } from './details';
 import { ChatPage } from './chat';
 import { SchedulePage } from './schedule';
@@ -31,7 +31,7 @@ export type PickedPageInputs = {
   shipped: Partial<Record<PickedClientPage, ReactNode>>;
   files: { files: SharedFileEntry[]; chatFilesMeasured: boolean };
   /** C1's Payment page inputs — all already read by the client page (integration, 8 Nov: `money` + `asks` handed in). */
-  payment: { reservationAcknowledgedAt: string | null; money?: PaymentMoney; asks?: ReactNode };
+  payment: { reservationAcknowledgedAt: string | null; money?: PaymentMoney; asks?: ReactNode; refunds?: PaymentPageProps['refunds'] };
 };
 
 export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, ReactNode> {
@@ -51,6 +51,7 @@ export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, 
         reservationAcknowledgedAt={i.payment.reservationAcknowledgedAt}
         money={i.payment.money}
         asks={i.payment.asks}
+        refunds={i.payment.refunds}
       />,
     ),
     forms: only('forms', <FormsPage ctx={ctx} shipped={shipped.forms} />),

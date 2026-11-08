@@ -125,6 +125,8 @@ import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } 
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
+import type { ClientRefundView } from './_components/client-refunds';
+import { CLIENT_REFUND_SELECT, clientRefundOf, type ClientRefundDbRow } from '@/lib/client-refunds';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, manilaTodayIso, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -150,8 +152,7 @@ import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleCalendar } from './_components/schedule-calendar';
-import { DetailsDecisionsDoor } from './_components/details-decisions-door';
-import { decisionsLine } from './_components/details-decisions';
+import { DetailsDecisions } from './_components/details-decisions';
 import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
@@ -1190,6 +1191,34 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
     pendingPayments = pending;
   }
+  // 💸 B2-E · THE REFUNDS THIS SHOP GAVE THIS CLIENT (`event_vendor_refunds`, read under the shop's own RLS and scoped to
+  // this booking). Booked-only, like the Payment page that draws them. ONE request (plus a signed link per proof photo,
+  // in parallel, only when a refund carries one). Refused → `measured: false`: the page says so and Paid is "part of
+  // this couldn't load" — never a Paid figure that silently ignores a refund.
+  let clientRefunds: { measured: boolean; rows: ClientRefundView[] } | null = null;
+  if (isBooked && eventVendorId) {
+    const { data: refundRows, error: refundErr } = await supabase
+      .from('event_vendor_refunds')
+      .select(CLIENT_REFUND_SELECT)
+      .eq('event_vendor_id', eventVendorId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .is('removed_at', null)
+      .order('refunded_on', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (refundErr) {
+      logQueryError('VendorClientPage.refunds', refundErr, { eventId }, 'graceful_degrade');
+      clientRefunds = { measured: false, rows: [] };
+    } else {
+      const shaped = ((refundRows ?? []) as ClientRefundDbRow[]).map(clientRefundOf);
+      clientRefunds = {
+        measured: true,
+        rows: await Promise.all(
+          shaped.map(async (r) => ({ ...r, proofUrl: r.proofRef ? await displayUrlForStoredAsset(r.proofRef).catch(() => null) : null })),
+        ),
+      };
+    }
+  }
+
   // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
   // Setnayan's to referee, so no "awaiting your confirmation" count includes it;
   // the live payment section still shows it, with where it stands.
@@ -2335,8 +2364,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     📋 DETAILS, IN v113's ORDER (owner 2026-11-08; v113 `strip+three+hosts+det+acc+sups+dec+forms`; B1 step 6):
     the stage strip · the three numbers · Hosts · the brief's details · the access request · Suppliers on this event ·
     Decisions · Forms sent. The answers waiting on the shop (an inquiry, a date change, a removal) sit right under the
-    numbers — they are the next thing to do. Decisions is a DOOR to Chat in Build 1 (one line from the quote already
-    read; controller 2026-11-08) — the list assembled on Details is Build 2.
+    numbers — they are the next thing to do. Decisions is the LIST, in place (Build 2 #42): drawn by the thread page
+    from the ONE draw Chat and Quotation share — 0 requests of Details' own.
   */
   const detailsShipped = (
     <div className="space-y-4" data-details-shipped="">
@@ -2381,14 +2410,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {/* Decisions — Build 1 is a door to Chat, where they live (no new read; the list itself is Build 2). */}
-      <DetailsDecisionsDoor
-        line={decisionsLine(
-          sentQuote ? { status: sentQuote.status, totalPhp: sentQuote.total_centavos / 100 } : null,
-          Boolean(proposalRowsError),
-          (php) => fmtPeso(php),
-        )}
-      />
+      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
+      <DetailsDecisions threadId={threadId} eventId={eventId} />
       <DetailsFormsDoor />
     </div>
   );
@@ -2433,6 +2456,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           }
         : undefined,
       asks: askPanel,
+      refunds:
+        isBooked && eventVendorId && clientRefunds
+          ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
+          : undefined,
     },
   });
 

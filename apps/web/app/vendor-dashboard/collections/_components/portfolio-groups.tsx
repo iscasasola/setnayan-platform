@@ -9,6 +9,7 @@ import type { KeepAnswer } from '@/lib/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { BodyPanel } from '../../_components/body-panel';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { updateVendorProfileField } from '../../actions';
 import { formatCount } from '@/lib/format-number';
 import { parseVideoLink } from '@/lib/video-embed';
@@ -207,7 +208,7 @@ function AlbumRow({
 }) {
   return (
     <div ref={rowRef} className="flex items-center gap-1" data-album-row={a.key}>
-      <button type="button" onClick={onOpen} aria-expanded={open} className="sn-press flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
+      <button type="button" onClick={onOpen} aria-expanded={open} aria-haspopup="dialog" className="sn-press flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
         <Cover urls={a.urls} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-medium leading-tight text-ink">{a.title}</span>
@@ -315,6 +316,9 @@ function VideoLinks({ initial }: { initial: string[] }) {
   const toast = useToast();
   const [links, setLinks] = useState<string[]>(initial);
   const [editing, setEditing] = useState<number | null>(null);
+  // A link opens its editor IN PLACE — the app-wide reveal-on-open rule: its head glides to the pin line if it runs low.
+  const editHead = useRef<HTMLLIElement | null>(null);
+  const intendEdit = useRevealOnOpen(editing !== null, () => ({ head: editHead.current }));
   const [playing, setPlaying] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const playerTitle = useId();
@@ -362,9 +366,9 @@ function VideoLinks({ initial }: { initial: string[] }) {
           const p = l ? parseVideoLink(l) : null;
           const isOpen = editing === i;
           return (
-            <li key={`${i}-${l}`} data-video-link={i}>
+            <li key={`${i}-${l}`} ref={isOpen ? editHead : undefined} data-video-link={i}>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setEditing((cur) => (cur === i ? null : i))} aria-expanded={isOpen} className="sn-press flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
+                <button type="button" onClick={() => { intendEdit(); setEditing((cur) => (cur === i ? null : i)); }} aria-expanded={isOpen} className="sn-press flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
                   <Link2 aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={2} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium text-ink">{p ? `${p.label} video` : 'New video link'}</span>
@@ -418,7 +422,7 @@ function VideoLinks({ initial }: { initial: string[] }) {
       {links.length < MAX_LINKS ? (
         <button
           type="button"
-          onClick={() => setEditing(links.length)}
+          onClick={() => { intendEdit(); setEditing(links.length); }}
           className="mt-3 flex w-full items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-ink/20 px-3 py-3.5 text-left"
           data-video-add=""
         >
@@ -432,7 +436,7 @@ function VideoLinks({ initial }: { initial: string[] }) {
           <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />
         </button>
       ) : (
-        <p className="pt-3 text-[12.5px] text-ink/60">Up to {MAX_LINKS} video links.</p>
+        <p className="pt-3 text-[12.5px] text-ink/60">Up to {formatCount(MAX_LINKS)} video links.</p>
       )}
 
       <Sheet open={playing !== null} onClose={() => setPlaying(null)} labelledById={playerTitle} rise>

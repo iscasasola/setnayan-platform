@@ -93,7 +93,11 @@ import { fileURLToPath } from 'node:url';
 // C3 `admin/categories/form-suggestion-actions.ts` · `formSuggestionsAction` (ONE dispatcher for Admin › Categories' new template ·
 // suggest · unsuggest). No unimported export was found to retire. No fresh `vercel build` count — 2026-11-07 measured
 // 1835 routes, 165 under check-vercel-route-count's 2000, so +4 fits; the SUM stays gated by that job on the PR build.
-export const CEILING = 1237;
+// 1237 → 1238 (2026-11-08, Supplier Build 2 lane E, owner OK 8 Nov "raise to the measured count"): `recordClientRefund`
+// in `vendor-dashboard/messages/[threadId]/pay-confirm-actions.ts` — the Payment page's "Record a refund" AND its
+// swipe-left remove share this ONE export (a `remove_refund_id` field picks the mode), so the feature costs +1, not +2.
+// CEILING = the count measured on the lane tree; the integration re-measures on the merged tree.
+export const CEILING = 1238;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

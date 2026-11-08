@@ -151,6 +151,8 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   // Owner 2026-07: a Locked QR must carry WHAT the couple availed + the AGREED
   // wedding date. Both required at issue (legacy tokens predate them).
   const serviceDescription = String(formData.get('service_description') ?? '').trim();
+  // 👤 Who the code is for (B2-E). Optional — blank is NULL, the "never said" the column documents, never ''.
+  const clientName = String(formData.get('client_name') ?? '').trim().slice(0, 120) || null;
   if (serviceDescription.length === 0) fail('description');
   const rawDate = String(formData.get('event_date') ?? '').trim();
   const eventDate =
@@ -273,6 +275,7 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
     .insert({
       vendor_profile_id: vendorProfileId,
       created_by_user_id: user.id,
+      client_name: clientName,
       event_type: eventType,
       category,
       vendor_service_id: vendorServiceId,
@@ -301,7 +304,12 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (/^[0-9a-f]{16,64}$/i.test(replaces)) {
     const { data: gone, error: voidError } = await supabase.rpc('vendor_void_locked_qr', { p_token: replaces });
     if (voidError || (gone !== 'void' && gone !== 'already_void')) {
-      await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
+      // Withdraw the NEW code. If THAT refuses too, two live codes now stand for one deal — never say "nothing new
+      // was made": send the shop to its list with words that tell it to delete the one it does not want.
+      const { data: rolledBack, error: rollbackError } = await supabase.rpc('vendor_void_locked_qr', {
+        p_token: inserted.token,
+      });
+      if (rollbackError || rolledBack !== 'void') fail('replace_both_live');
       fail(gone === 'claimed' ? 'replaced_claimed' : 'issue');
     }
   }

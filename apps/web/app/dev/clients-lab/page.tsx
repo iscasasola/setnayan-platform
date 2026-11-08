@@ -9,7 +9,9 @@
  *     &show=overdue|unread|schedules|collect   that list open, in place ("Viewing all …").
  *     &agent=1                  the sheet as a seat sees it ("Your clients only").
  *   ?v=pick&page=details      the picked client (`PickedClientShell`) on its Details page, v113 order: numbers · Hosts ·
- *                             the brief · Suppliers on this event · Decisions (a door to Chat) · Forms sent.
+ *                             the brief · Suppliers on this event · Decisions (Build 2 #42: the list, v118's five rows) ·
+ *                             Forms sent.
+ *     &decisions=none|partial   Decisions empty · a refused card read said in one line.
  *   ?v=pick&page=schedule     its Schedule page: the Clients month itself (`ScheduleCalendar` → `CustomersCalendar`
  *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
  *     &cal=fail                 the month's one read refused — said, never an empty month.
@@ -42,8 +44,7 @@ import { HostsList } from '@/app/vendor-dashboard/clients/[eventId]/_components/
 import { hostRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/hosts-rows';
 import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-list';
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
-import { DetailsDecisionsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-decisions-door';
-import { decisionsLine } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-decisions';
+import { LabDetailsDecisions } from './lab-decisions';
 import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
 import { ScheduleCalendar } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-calendar';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -54,6 +55,8 @@ import type { MoneyRow } from '@/lib/vendor-money';
 import { LAB_CALENDAR, LAB_TODAY } from './lab-calendar';
 import { BookedQrsList, type BookedQrRow } from '@/app/vendor-dashboard/invite/_components/booked-qrs-list';
 import { LockedQrGenerator, type LockedQrInitial } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
+import { PaymentPage, type PaymentMoney } from '@/app/vendor-dashboard/clients/[eventId]/_pages/payment';
+import type { ClientRefundView } from '@/app/vendor-dashboard/clients/[eventId]/_components/client-refunds';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -130,7 +133,12 @@ const ASKED: ScheduleAsk[] = [
   { suggestion_id: 'ask1', block_id: 'c1', vendor_profile_id: 'vp-lab', suggested_by_name: 'Maria', asked_as: 'host', proposed_start_at: T('05:30'), proposed_end_at: T('06:00'), note: 'Arrive 30 min early · entourage photos', status: 'open', answer_note: null, created_at: T('00:00', '2026-11-05') },
 ];
 
-function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedClientPage, ReactNode> {
+function pickedBodies(
+  page: PickedClientPage,
+  calFail: boolean,
+  decisions: 'full' | 'none' | 'partial' = 'full',
+  refundsFail = false,
+): Record<PickedClientPage, ReactNode> {
   const day = buildSupplierDay({ blocks: BLOCKS, myBookingIds: [ME], venueBookingIds: [], tasks: [], requests: [] });
   const where = supplierOwnWhere({
     bookings: [{ vendorId: ME, category: 'photographer', status: 'contracted', label: 'Lumina Studio' }],
@@ -164,7 +172,7 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
             { vendor_name: 'Kusina ni Lola', category: 'caterer' },
           ])}
         />
-        <DetailsDecisionsDoor line={decisionsLine({ status: 'accepted', totalPhp: 38000 }, false, peso)} />
+        <LabDetailsDecisions mode={decisions} />
         <DetailsFormsDoor />
       </div>
     ),
@@ -191,7 +199,27 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
     ),
     chat: later('Chat'),
     quote: later('Quotation'),
-    payments: later('Payment'),
+    // 💸 B2-E: the Payment page with two refunds recorded (?v=pick&page=payments; &refunds=fail = the refused read). Lab
+    // rows; the "Record a refund" sheet opens, but its save is never pressed here (it would call the server action).
+    payments: (
+      <PaymentPage
+        ctx={{
+          eventId: 'ev-reyes',
+          vendorProfileId: 'lab-shop',
+          viewerUserId: 'lab-viewer',
+          threadId: null,
+          eventName: 'Reyes & Santos wedding',
+          stage: 'booked',
+          isBooked: true,
+          feeUnlocked: true,
+          eventVendorId: ME,
+          eventDate: '2026-12-12',
+        }}
+        reservationAcknowledgedAt={null}
+        money={LAB_PAYMENT_MONEY}
+        refunds={{ eventVendorId: ME, clientName: 'Reyes & Santos', measured: !refundsFail, rows: refundsFail ? [] : LAB_REFUNDS }}
+      />
+    ),
     forms: later('Forms'),
     files: later('Files'),
     hub: later('Hub'),
@@ -199,14 +227,35 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
   };
 }
 
+/** 💸 B2-E lab money: ₱120,000 agreed, ₱50,000 confirmed received, two refunds (₱5,000 + ₱2,500) → Paid ₱42,500. */
+const LAB_PAYMENT_MONEY: PaymentMoney = {
+  steps: null,
+  clearedAt: null,
+  pending: [],
+  ledgerMoney: {
+    rows: [
+      { event_vendor_id: ME, event_id: 'ev-reyes', event_name: 'Reyes & Santos wedding', event_date: '2026-12-12', seq: 1, label: 'Downpayment', amount_php: 30_000, due_date: null, confirmed: true },
+      { event_vendor_id: ME, event_id: 'ev-reyes', event_name: 'Reyes & Santos wedding', event_date: '2026-12-12', seq: 2, label: 'Second payment', amount_php: 20_000, due_date: null, confirmed: true },
+    ],
+    receivedPhp: 50_000,
+    expectedPhp: 120_000,
+  },
+  ledgerUnreadable: false,
+};
+const LAB_REFUNDS: ClientRefundView[] = [
+  { refundId: 'rf-1', eventId: 'ev-reyes', eventVendorId: ME, amountPhp: 5_000, refundedOn: '2026-11-03', reason: 'Drone coverage dropped from the package', proofRef: null, proofUrl: null },
+  { refundId: 'rf-2', eventId: 'ev-reyes', eventVendorId: ME, amountPhp: 2_500, refundedOn: '2026-10-28', reason: 'Overtime not used', proofRef: null, proofUrl: null },
+];
+
 /** #34 lab rows — one per group. */
 const LAB_BOOKED_QRS: BookedQrRow[] = [
-  { token: 'a1b2c3d4e5f60718', title: 'Full-day coverage', line: 'Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
+  { token: 'a1b2c3d4e5f60718', title: 'Ana & Ben', line: 'Full-day coverage · Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
   { token: 'b1b2c3d4e5f60718', title: 'Same-day edit', line: 'Sun 10 Jan · ₱15,000 · ₱5,000 paid · used 2 Nov', status: 'claimed', openHref: '/dev/clients-lab?v=pick&page=details' },
   { token: 'c1b2c3d4e5f60718', title: 'Prenup shoot', line: 'Sat 6 Feb · ₱30,000 · ₱10,000 paid · deleted 1 Nov', status: 'void', openHref: null },
 ];
 const LAB_BOOKED_CHANGE: LockedQrInitial = {
   replaces: 'a1b2c3d4e5f60718',
+  clientName: 'Ana & Ben',
   eventType: 'wedding',
   eventDate: '2026-12-19',
   description: 'Full-day coverage, two shooters',
@@ -251,6 +300,17 @@ export default async function ClientsLabPage({ searchParams }: Props) {
     return (
       <div className="min-h-screen bg-cream" data-clients-lab="booked">
         <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-24 pt-4">
+          {/* 💸 B2-E: the row Clients ⚙ now carries (customers-settings-body.tsx) — same part, same words, lab count. */}
+          <section data-clients-lab="gear-booked-qrs">
+            <p className="home-k2 pt-1">Clients ⚙ · Booked QRs</p>
+            <DatesRow
+              data="customers-gear-booked-qrs"
+              title="Booked QRs"
+              line="One-time codes · waiting · used · deleted"
+              badge={{ tone: 'wait', word: '1 waiting' }}
+              href="/dev/clients-lab?v=booked"
+            />
+          </section>
           <h1 className="text-lg font-semibold text-ink">Booked QRs</h1>
           <BookedQrsList rows={LAB_BOOKED_QRS} />
           <LockedQrGenerator
@@ -278,7 +338,12 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           eventName="Reyes & Santos wedding"
           menu={pickedMenuFor(true)}
           initialPage={page}
-          bodies={pickedBodies(page, one(sp.cal) === 'fail')}
+          bodies={pickedBodies(
+            page,
+            one(sp.cal) === 'fail',
+            one(sp.decisions) === 'none' ? 'none' : one(sp.decisions) === 'partial' ? 'partial' : 'full',
+            one(sp.refunds) === 'fail',
+          )}
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
         />

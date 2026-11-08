@@ -76,7 +76,8 @@ test('the head is ‹ · avatar · name · event line · the chat menu — ONE h
     // client's pinned row is the head — so the supplier page may say `embed === 'chat' ? null :` first, and only that.
     assert.match(
       h,
-      /^header=\{\s*(?:embed === 'chat' \? null : \(\s*)?<ChatThreadHead\b/,
+      // Build 2 · B2-D: the picked client's ONE draw serves every embed, so the condition reads `embedded`.
+      /^header=\{\s*(?:embedded \? null : \(\s*)?<ChatThreadHead\b/,
       `${p}: the head is not the shared ChatThreadHead`,
     );
     assert.equal((h.match(/<ChatThreadMenu\b/g) ?? []).length, 1, `${p}: the chat menu is not the head's action`);

@@ -466,6 +466,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_manual_vendors: 'TODO(RA10173-backlog): vendor contact details the subject typed in themselves.',
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
+  event_vendor_refunds:
+    'TODO(RA10173-backlog): refunds a supplier recorded giving the couple money back (Supplier Build 2 lane E, 2026-11-08). The couple READS them in-app (booked-supplier workspace › Payments) but the export does not carry them yet; belongs beside payment_ledger, couple-grain on the session client. Its two *_user_id columns are supplier-side actor stamps (erasure nulls them).',
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
@@ -598,7 +600,9 @@ const KNOWN_GAPS: Record<string, string> = {
 // Lowered 90 → 68 on 2026-11-05: 19 gaps moved into the export (the sort of the
 // 39 undecided tables in lib/export-completeness.ts), and the ceiling is pinned
 // to the real count so the slack cannot be spent on a new gap.
-const KNOWN_GAP_CEILING = 68;
+// Raised 68 → 69 on 2026-11-08, deliberately: event_vendor_refunds (Supplier Build 2
+// lane E) is a new couple-readable money record the export does not carry yet.
+const KNOWN_GAP_CEILING = 69;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

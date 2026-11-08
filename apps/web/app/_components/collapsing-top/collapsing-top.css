@@ -1,0 +1,44 @@
+/*
+ * collapsing-top.css — 📌 THE ONE COLLAPSING TOP's drawing (THE ONE BUILD F2, v108/v110, 8 Nov 2026). Loaded once by the
+ * root layout, beside pin-fold.css. The numbers come from `collapsing-top.tsx` as CSS variables:
+ *   --ct-bar    the shell bar's height while it shows (else the safe-area top)
+ *   --ct-before the rows of the tops locked above this one (T without the bar)
+ *   --ct-row    this top's pinned row (R, 44 = --sn-pin-h)
+ *   --ct-h      this top's own height (H)
+ *   --q         0 at rest → 1 locked; it moves only in the last 48 px
+ * With no script --ct-bar / --ct-h are unset, so `top` is invalid and the block simply scrolls.
+ * 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts
+ */
+.sn-ct {
+  position: sticky;
+  top: calc(var(--ct-bar) + var(--ct-before, 0px) + var(--ct-row, var(--sn-pin-h, 44px)) - var(--ct-h));
+  z-index: 5;
+  background: rgb(var(--color-cream));
+}
+/* The big content fades as the row comes in — only in the last 48 px (the progress is linear in scroll). */
+.sn-ct-full {
+  opacity: calc(1 - var(--q, 0));
+}
+.sn-ct-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--ct-row, var(--sn-pin-h, 44px));
+  display: flex;
+  align-items: center;
+  background: rgb(var(--color-cream));
+  opacity: var(--q, 0);
+  pointer-events: none;
+}
+.sn-ct[data-pinned] > .sn-ct-row {
+  pointer-events: auto;
+}
+.sn-ct[data-pinned] > .sn-ct-full {
+  pointer-events: none;
+}
+/* No cut line (v110): the locked top says it is above the page with the soft hairline, never a border. */
+.sn-ct[data-pinned] {
+  box-shadow: 0 1px 0 var(--sn-hair);
+}
+/* Reduced motion: no cross-fade — the script writes --q as 0 or 1, so the row simply shows once it has stuck. */

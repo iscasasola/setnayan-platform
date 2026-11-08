@@ -140,6 +140,7 @@ const config: Config = {
       zIndex: {
         'sn-raised': 'var(--sn-z-raised)',
         'sn-sticky': 'var(--sn-z-sticky)',
+        'sn-thumb': 'var(--sn-z-thumb)',
         'sn-nav': 'var(--sn-z-nav)',
         'sn-pop': 'var(--sn-z-pop)',
         'sn-modal': 'var(--sn-z-modal)',
@@ -331,6 +332,15 @@ const config: Config = {
         // swap changes no light pixel; in Dark it is the approved card
         // #232019 on the #17160F page.
         raised: 'rgb(var(--color-raised) / <alpha-value>)',
+        // 🎨 The four category colours (THE ONE BUILD F1, 8 Nov 2026): Booked · Schedules · Asked · To collect —
+        // `text-cat-booked`, `bg-cat-asked/10`. Values + dark pairs live in globals.css (`--sn-cat-*`).
+        // 🔒 lib/category-colours-are-tokens.test.ts
+        cat: {
+          booked: 'rgb(var(--sn-cat-booked) / <alpha-value>)',
+          schedule: 'rgb(var(--sn-cat-schedule) / <alpha-value>)',
+          asked: 'rgb(var(--sn-cat-asked) / <alpha-value>)',
+          collect: 'rgb(var(--sn-cat-collect) / <alpha-value>)',
+        },
         'surface-soft': 'var(--surface-soft)',
         // ─────────────────────────────────────────────────────────────────
         // SEMANTIC STATUS FAMILIES (Wave-3 token swap · 2026-06-19)

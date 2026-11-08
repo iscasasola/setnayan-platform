@@ -15,6 +15,7 @@ import './globals.css';
    components that write the attributes stay free of style imports (their unit tests load them under plain Node). */
 import './_components/pinned-row/pin-glide.css';
 import './_components/pinned-row/pin-fold.css';
+import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';

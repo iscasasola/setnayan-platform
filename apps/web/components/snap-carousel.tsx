@@ -18,7 +18,8 @@
  *     there until the picked item … is unpicked"*): while a card is held — it carries the filter the list is showing —
  *     the carousel brings it to the centre and NEVER advances. A swipe still works; after the touch pause it comes back
  *     and rests on the held card. Cleared, the rotation resumes. With no `holdKey` nothing changes.
- *   · Dots show the position (decorative — each card is labelled "N of M").
+ *   · Dots show the position (decorative — each card is labelled "N of M"); `dots={false}` draws none.
+ *   · `advanceMs={0}` = no auto-advance (THE ONE BUILD 8 Nov: Shop's Analytics, Today's next events) — the loop stays.
  *   · Reduced motion: no auto-advance and no smooth scrolling; a swipe still loops.
  *
  * Writes the dots and the settled index as ATTRIBUTES, never React state: a scroll never re-renders the cards.
@@ -72,13 +73,19 @@ export function SnapCarousel({
   pauseMs = CAROUSEL_PAUSE_MS,
   attrs,
   holdKey = null,
+  dots = true,
 }: {
   cards: CarouselCard[];
   /** The region's name ("Guest summary"). */
   label: string;
   className?: string;
+  /** ⏱ One card every this many ms. `0` = NO auto-advance (THE ONE BUILD, 8 Nov 2026 — Shop's Analytics and Today's
+   *  next events); the loop, the centre snap and the hold stay. */
   advanceMs?: number;
   pauseMs?: number;
+  /** The position dots — on by default. `false` draws none (v110 "No dot pagers" on Today and Shop; each card still
+   *  says "N of M" to assistive tech). */
+  dots?: boolean;
   /** Data hooks for the host's own guards (`data-…`). */
   attrs?: Record<string, string>;
   /** ✋ The card to hold in the centre (its `key`) — no rotation while set. `null`/absent: the usual rotation. */
@@ -212,7 +219,8 @@ export function SnapCarousel({
     io?.observe(track);
     // ⏱ One card every `advanceMs`, onward round the loop — never under reduced motion, off screen or on a hidden page;
     // ✋ never while a card is held: then the tick only brings the held card back after a swipe (`carouselMove`).
-    const tick = window.setInterval(() => {
+    // `advanceMs` 0 = no tick at all: the loop stays (a swipe still goes round), nothing moves by itself.
+    const tick = advanceMs > 0 ? window.setInterval(() => {
       if (reduce.matches || !looping || !onScreen || hovering || focused) return;
       if (document.visibilityState === 'hidden') return;
       const slot = nearest(track);
@@ -222,10 +230,10 @@ export function SnapCarousel({
       const to = (move === 'return' ? track.children[held! + CAROUSEL_COPIES] : track.children[slot + 1]) as HTMLElement | undefined;
       if (!to) return;
       track.scrollTo({ left: to.offsetLeft + to.offsetWidth / 2 - track.clientWidth / 2, behavior: 'smooth' });
-    }, advanceMs);
+    }, advanceMs) : undefined;
     paint();
     return () => {
-      window.clearInterval(tick);
+      if (tick !== undefined) window.clearInterval(tick);
       if (raf) cancelAnimationFrame(raf);
       if (settle) clearTimeout(settle);
       io?.disconnect();
@@ -273,7 +281,7 @@ export function SnapCarousel({
           );
         })}
       </div>
-      {n > 1 ? (
+      {n > 1 && dots ? (
         <div ref={dotsRef} className={styles.dots} aria-hidden data-snap-dots="">
           {cards.map((c, i) => (
             <i key={c.key} data-on={i === 0 ? '' : undefined} />

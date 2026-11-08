@@ -263,8 +263,8 @@ export function FormMaker({
       }
     >
       <UndoToastHost />
-      <div className="space-y-4 px-1 pb-4" data-form-maker>
-        <h2 id={titleId} className="text-[19px] font-semibold text-ink">
+      <div className="space-y-4 px-4 pb-4 pt-3" data-form-maker>
+        <h2 id={titleId} className="pr-12 text-[19px] font-semibold text-ink">
           {formId ? 'Edit form' : 'New form'}
         </h2>
         <TypedRow name="Title" value={title} empty="Name this form" placeholder="Name this form" maxLength={120} onKeep={(t) => setTitle(t)} data="form-maker-title" />

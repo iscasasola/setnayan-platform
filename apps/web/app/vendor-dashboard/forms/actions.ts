@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { notifyHostsOfForm } from '@/lib/vendor-forms-on-booking.server';
@@ -64,7 +65,10 @@ async function planRefusal(
   const wantsVideo = items.some((i) => i.kind === 'video_link');
   if (!wantsMedia && !wantsVideo) return null;
   const { data, error } = await supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle();
-  if (error) return 'We couldn’t read your plan. Nothing was saved — please try again.';
+  if (error) {
+    logQueryError('formsAction.planRefusal', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return 'We couldn’t read your plan. Nothing was saved — please try again.';
+  }
   const caps = tierCaps(asVendorTier((data as { tier_state: string | null } | null)?.tier_state));
   if (wantsMedia && !caps.formMediaUploads) {
     const plan = firstPlanWith((c) => c.formMediaUploads);

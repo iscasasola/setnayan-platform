@@ -3,6 +3,7 @@
 import { useActionState, useId } from 'react';
 import { CalendarDays, Flag, Home, Store } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
+import { ActionButton } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { REPORT_BODY_MAX, REPORT_SUBJECT_MAX, reportOriginWords } from '@/lib/supplier-report';
@@ -96,11 +97,17 @@ export function ReportForm({
           <ThumbRow
             name="client-report"
             action={{
-              icon: Flag,
-              label: 'Submit report',
-              onClick: () => (document.getElementById(formId) as HTMLFormElement | null)?.requestSubmit(),
-              waiting: pending,
-              testId: 'report-submit',
+              node: (
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={Flag}
+                  label="Submit report"
+                  waiting={pending}
+                  onClick={() => (document.getElementById(formId) as HTMLFormElement | null)?.requestSubmit()}
+                  data-testid="report-submit"
+                />
+              ),
             }}
           />
         }

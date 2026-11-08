@@ -196,14 +196,14 @@ export function FormsPageBody({
           <ThumbRow
             name="client-forms"
             right={[{ icon: FolderOpen, label: 'Load a form', onClick: () => setLoadOpen(true), testId: 'forms-load' }]}
-            action={{ icon: Plus, label: '＋ New form', onClick: fresh, testId: 'forms-new' }}
+            action={{ node: <ActionButton tone="brand" main icon={Plus} label="New form" onClick={fresh} data-testid="forms-new" /> }}
           />
         }
       />
 
       <Sheet open={loadOpen} onClose={() => setLoadOpen(false)} labelledById={loadTitle} rise page>
-        <div className="space-y-5 px-1 pb-4" data-forms-load>
-          <h2 id={loadTitle} className="text-[19px] font-semibold text-ink">
+        <div className="space-y-5 px-4 pb-4 pt-3" data-forms-load>
+          <h2 id={loadTitle} className="pr-12 text-[19px] font-semibold text-ink">
             Forms Maker
           </h2>
           <div className="space-y-2">

@@ -35,6 +35,8 @@
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
  *   ?view=papic&need=1               the sheet reads its sizes on the tap, as the page does
  *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
+ *   ?view=guests-see[&page=save_the_date|rsvp|event|editorial]  🗓 Home's "Parts of the page" switches (the REAL
+ *                                    `HubPartsSwitches` over the REAL What-guests-see table) — "The day's program" row
  *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
@@ -162,6 +164,7 @@ import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-car
 import { EventTeamPresenceLab } from '@/app/dashboard/[eventId]/_components/event-team-presence';
 import { labOpenMarchCard } from '@/app/dev/details-lab/lab-march-cards';
 import type { HubViewers } from '@/lib/whos-here';
+import { LabGuestsSee } from './lab-guests-see';
 
 /**
  * 👀 `?whos=live|alone|joining|failed|unread|nonames|off|busy` — Home › Who's here (owner 2026-10-29) on fixtures: the
@@ -373,7 +376,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; page?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -435,6 +438,8 @@ export default async function HomeLab({
     ? { guide: null, hasDate: true, guests: { total: 14, unsent: 3 }, noun: 'wedding' as const, papicReady: false, aiOffer: false }
     : STATES[q.next ?? 'guide'] ?? STATES.guide!;
   const E = '00000000-0000-4000-8000-000000000000';
+  // 🗓 Home's "Parts of the page" switches over the real What-guests-see table — "The day's program" row (2026-11-06).
+  if (q.view === 'guests-see') return <LabGuestsSee page={q.page} eventId={E} />;
   // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Hub Pro's.
   if (q.view === 'pro') {
     const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });

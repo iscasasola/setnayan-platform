@@ -254,6 +254,8 @@ export function ServiceDetailsSheet({
             ) : (
               <a
                 href="#get-in-touch"
+                // The shop's Inquire pop-up (inquire-sheet.tsx) catches this press and opens with THIS card picked.
+                data-inquire-service={c.id}
                 onClick={onClose}
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
               >

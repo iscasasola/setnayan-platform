@@ -69,6 +69,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // 2026-05-28 row PR #574).
   { path: '/for-suppliers', lastmod: '2026-09-30', changefreq: 'monthly', priority: '0.8' },
 
+  // /for-coordinators — new 2026-11-04, ported from the approved 4 Nov prototype.
+  { path: '/for-coordinators', lastmod: '2026-11-04', changefreq: 'monthly', priority: '0.7' },
+
   // /open-shop — the supplier funnel. A short history, because it moved twice
   // in one day and the reasoning matters more than the line.
   //

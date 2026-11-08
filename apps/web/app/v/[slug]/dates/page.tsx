@@ -24,12 +24,13 @@ import { fetchUserEvents } from '@/lib/events';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { readCheckADate } from '@/lib/check-a-date.server';
 import { CheckADateCalendar, type CheckDateEvent } from './_components/check-a-date-calendar';
+import { arrivalParams, withShopArrival } from '@/lib/shop-back';
 
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ d?: string; s?: string; step?: string }>;
+  searchParams: Promise<{ d?: string; s?: string; step?: string; src?: string; event?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -75,6 +76,10 @@ export default async function CheckADatePage({ params, searchParams }: Props) {
   }
 
   const day = typeof search.d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(search.d) ? search.d : null;
+  // 🧭 Where the shop visit came from, carried back onto the shop by "See the shop" — so the shop's back door is still
+  // right after checking a date (lib/shop-back.ts). The event stays unchecked here; the shop page checks it.
+  const arrival = arrivalParams(search);
+  const shopHref = withShopArrival(`/v/${encodeURIComponent(slug)}`, arrival);
   const picked = typeof search.s === 'string' ? search.s.split(',').map((x) => x.trim()).filter(Boolean) : [];
 
   return (
@@ -86,12 +91,13 @@ export default async function CheckADatePage({ params, searchParams }: Props) {
             We couldn&rsquo;t load this shop&rsquo;s dates just now, so we won&rsquo;t guess which days are free. Please try again in a moment.
           </p>
           <div className="mt-4">
-            <ActionButton tone="neutral" icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} />} label="Try again" href={`/v/${encodeURIComponent(slug)}/dates`} />
+            <ActionButton tone="neutral" icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} />} label="Try again" href={withShopArrival(`/v/${encodeURIComponent(slug)}/dates`, arrival)} />
           </div>
         </div>
       ) : (
         <CheckADateCalendar
           shop={read.shop}
+          shopHref={shopHref}
           services={read.services}
           today={read.today}
           to={read.to}

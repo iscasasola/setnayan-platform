@@ -19,6 +19,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
+import { arrivalParams, withShopArrival } from '@/lib/shop-back';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -32,11 +33,15 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
   // Bare root is the canonical vendor URL (PR5) — redirect + revalidate there,
   // not the legacy /v/{slug}, so the couple stays on the page they were on.
   const backTo = slug ? `/${slug}` : '/explore';
+  // Where the visit came from rides back onto the page, so its back door is unchanged (lib/shop-back.ts). The event
+  // is re-checked by the page on arrival, exactly as on any other visit.
+  const arrival = arrivalParams({ src: str(formData, 'src'), event: str(formData, 'event') });
+  const back = (wl: string) => withShopArrival(backTo, arrival, { wl });
 
   const vendorProfileId = str(formData, 'vendor_profile_id');
   const requestedDate = str(formData, 'requested_date');
   if (!vendorProfileId || !DATE_RE.test(requestedDate)) {
-    redirect(`${backTo}?wl=error`);
+    redirect(back('error'));
   }
 
   const supabase = await createClient();
@@ -54,7 +59,7 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!(vprof as { waitlist_enabled?: boolean } | null)?.waitlist_enabled) {
-    redirect(`${backTo}?wl=closed`);
+    redirect(back('closed'));
   }
 
   // Resolve the couple's primary event so the waitlist row is event-anchored
@@ -78,9 +83,9 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
   // 23505 = unique_violation → the couple is already on this date's waitlist.
   // Treat as success (idempotent join).
   if (error && error.code !== '23505') {
-    redirect(`${backTo}?wl=error`);
+    redirect(back('error'));
   }
 
   revalidatePath(backTo);
-  redirect(`${backTo}?wl=joined`);
+  redirect(back('joined'));
 }

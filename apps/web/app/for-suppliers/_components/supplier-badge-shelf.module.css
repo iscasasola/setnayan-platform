@@ -1,0 +1,70 @@
+/*
+ * The badge shelf's materials — the owner-approved prototype's image badges (seal · hexagon · star · rosette),
+ * prototypes/for_suppliers_2026-11-06/index.html "Badges". The app ships no image-badge drawing (ShopBadgePill is the
+ * long pill, which DECISION_LOG 2026-11-06 keeps OFF marketing), so the art is drawn here and its colours are tokens:
+ * declared once, read by name from supplier-badge-shelf.tsx. Metals are the same in light and dark (they are metals).
+ */
+.shelf {
+  --bdg-face-black-0: #3E4047;
+  --bdg-face-black-1: #08080A;
+  --bdg-face-bronze-0: #F9E8D8;
+  --bdg-face-bronze-1: #D09A70;
+  --bdg-face-first-0: #FFFCF0;
+  --bdg-face-first-1: #EDD08A;
+  --bdg-face-gold-0: #FFF9E4;
+  --bdg-face-gold-1: #E3BF68;
+  --bdg-face-ivory-0: #FFFEFA;
+  --bdg-face-ivory-1: #ECE1CB;
+  --bdg-face-month-0: #AA2539;
+  --bdg-face-month-1: #520A18;
+  --bdg-face-navy-0: #335282;
+  --bdg-face-navy-1: #101C36;
+  --bdg-face-plat-0: #F5F8FB;
+  --bdg-face-plat-1: #B2C0CB;
+  --bdg-face-ruby-0: #CF3552;
+  --bdg-face-ruby-1: #560817;
+  --bdg-face-silver-0: #FBFCFD;
+  --bdg-face-silver-1: #C0C6CC;
+  --bdg-rim-black-0: #8E949A;
+  --bdg-white: #FFFFFF;
+  --bdg-rim-black-1: #5C6269;
+  --bdg-rim-black-2: #F0F2F4;
+  --bdg-rim-bronze-0: #4E2A10;
+  --bdg-rim-bronze-1: #E8B088;
+  --bdg-rim-bronze-2: #8C4F22;
+  --bdg-rim-bronze-3: #D08C5A;
+  --bdg-rim-gold-0: #7A5C22;
+  --bdg-rim-gold-1: #FBEFC4;
+  --bdg-rim-gold-2: #B88D3B;
+  --bdg-rim-gold-3: #EBD08A;
+  --bdg-rim-plat-0: #35404A;
+  --bdg-rim-plat-1: #F4F8FA;
+  --bdg-rim-plat-2: #8A98A4;
+  --bdg-rim-plat-3: #D8E0E6;
+  --bdg-rim-ruby-0: #4E0A16;
+  --bdg-rim-ruby-1: #F7B9C3;
+  --bdg-rim-ruby-2: #A0203A;
+  --bdg-rim-ruby-3: #DC607A;
+  --bdg-rim-silver-0: #4F555C;
+  --bdg-rim-silver-1: #F7F9FB;
+  --bdg-rim-silver-2: #8E959C;
+  --bdg-rim-silver-3: #DCE0E4;
+  --bdg-tail-0: #B8324A;
+  --bdg-tail-1: #7A1426;
+  --bdg-foil-1: #D9B463;
+  --bdg-foil-2: #F6E4A6;
+  --bdg-shadow: #2C2A29;
+  --bdg-black: #000000;
+  --bdg-years-ink: #7F5F20;
+  --bdg-bronze-ink: #4A2810;
+  --bdg-bronze-glow: #FFF3E6;
+  --bdg-silver-ink: #363C43;
+  --bdg-first-ink: #5A400E;
+  --bdg-first-glow: #FFFBEA;
+  --bdg-plat-ink: #1F2A33;
+  --bdg-ruby-ink: #FFE6EA;
+  --bdg-ruby-glow: #2A0309;
+  --bdg-black-ink: #F4F6F8;
+  --bdg-rosette-ink: #4A2E08;
+  --bdg-rosette-line: #6B4D14;
+}

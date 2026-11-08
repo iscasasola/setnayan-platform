@@ -175,8 +175,11 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/papic/pool': { home: '/papic/me/[token]', label: 'My photos' },
 
   /* ── public ──────────────────────────────────────────────────────────────────────────────────────── */
-  // A supplier's public page is listed on the suppliers marketplace (audit ❌ "goes to the front page").
-  '/v/[slug]': { home: '/explore' },
+  // A supplier's shop page goes back to WHERE THE VISIT CAME FROM — Discover, the marketplace, an event's Suppliers, a
+  // saved supplier — read from the arrival (`?src=` / a checked `?event=`). Was a fixed `/explore` (the 28 Oct audit ❌
+  // "goes to the front page" fixed one arrival and broke the rest — owner 2026-11-07: "back to suppliers? it went to a
+  // wrong shell"). With no arrival it says "See more suppliers" → /explore, never "Back".
+  '/v/[slug]': { none: 'computed', by: 'lib/shop-back.ts' },
   '/suppliers/[event]/[category]': { home: '/suppliers' },
   '/tl/*': { home: '/' },
   // The API reference is read by whoever holds a key, made in Settings › API keys.

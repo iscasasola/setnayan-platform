@@ -120,7 +120,7 @@ export function HubEventCard({
             tone="brand"
             main
             icon={<Play aria-hidden strokeWidth={1.9} />}
-            label="Open the Event Hub"
+            label="Open the Hub"
             href={`/vendor-dashboard/on-the-day/live/${event.eventId}`}
             tour="hub-day-launch"
           />
@@ -133,11 +133,11 @@ export function HubEventCard({
               ? 'Your shop is not booked for a day on it — set up happens in their event.'
               : event.when === 'past'
                 ? 'This day is over.'
-                : `The Event Hub opens here on ${day ?? 'the day'} — ${HUB_OPEN_WINDOW_PLAIN}.`}
+                : `The Hub opens here on ${day ?? 'the day'} — ${HUB_OPEN_WINDOW_PLAIN}.`}
         </p>
       )}
       <p className="text-[13px] leading-relaxed text-ink/60">
-        The Event Hub is its own page for this event — only your tools for the day. Set up here feeds it.
+        The Hub is its own page for this event — only your tools for the day. Set up here feeds it.
       </p>
     </div>
   );

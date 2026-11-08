@@ -1,3 +1,4 @@
+import { shopHrefForEvent } from '@/lib/shop-back';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ShieldOff } from 'lucide-react';
@@ -827,8 +828,8 @@ function AlreadyReviewedState({
         landing page to see how it surfaces publicly.
       </p>
       {slug ? (
-        <Link className="button-secondary inline-flex" href={`/v/${slug}`}>
-          Open supplier profile
+        <Link className="button-secondary inline-flex" href={shopHrefForEvent(slug, eventId)}>
+          Open their shop page
         </Link>
       ) : null}
 

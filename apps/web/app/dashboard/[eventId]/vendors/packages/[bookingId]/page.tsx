@@ -1,3 +1,4 @@
+import { shopHrefForEvent } from '@/lib/shop-back';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -147,7 +148,7 @@ export default async function PackageBookingPage({ params }: Props) {
   }
 
   const vendorPublicHref =
-    vendor?.business_slug ? `/v/${vendor.business_slug}` : null;
+    vendor?.business_slug ? shopHrefForEvent(vendor.business_slug, eventId) : null;
   const eventHomeHref = `/dashboard/${eventId}`;
 
   // 🧾 THREE lists, not two — and none of them re-derives the inclusion rule

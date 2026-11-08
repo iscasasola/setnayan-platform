@@ -392,6 +392,7 @@ function ClientReferencesInput({
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input
+                autoComplete="off"
                 type="text"
                 value={row.name}
                 onChange={(e) => update(idx, { name: e.target.value })}
@@ -399,6 +400,7 @@ function ClientReferencesInput({
                 className="input-field h-9 w-full text-sm"
               />
               <input
+                autoComplete="off"
                 type="tel"
                 inputMode="tel"
                 value={row.contact_number}

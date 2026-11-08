@@ -180,6 +180,7 @@ export function VenueScreensSection({
         <StayForm door="pubPanood.addLiveScreen" action={addLiveScreen} className="flex flex-col gap-2 sm:flex-row">
           <input type="hidden" name="event_id" value={eventId} />
           <input
+            autoComplete="off"
             type="text"
             name="name"
             maxLength={40}
@@ -250,6 +251,7 @@ function ScreenRow({
             Screen name
           </label>
           <input
+            autoComplete="off"
             id={`screen-name-${screen.id}`}
             name="name"
             defaultValue={screen.name ?? ''}

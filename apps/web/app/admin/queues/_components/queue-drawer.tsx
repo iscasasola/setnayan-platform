@@ -184,6 +184,7 @@ export function QueueDrawer({
                         </select>
                       ) : (
                         <input
+                          autoComplete="off"
                           key={fl.name}
                           name={fl.name}
                           required={fl.required}

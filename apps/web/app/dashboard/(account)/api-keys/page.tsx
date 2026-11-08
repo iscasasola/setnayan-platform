@@ -102,6 +102,7 @@ export default async function ApiKeysPage({ searchParams }: Props) {
           <label className="block space-y-1">
             <span className="block text-xs font-medium text-ink">Key name</span>
             <input
+              autoComplete="off"
               name="name"
               required
               maxLength={80}

@@ -147,7 +147,7 @@ export function ClientRefunds({
         setError(answer.message);
         return;
       }
-      // ⚡ One render: `recordClientRefund` revalidates this card (`return_to`), so its answer already carries it.
+      // No router.refresh(): recordClientRefund revalidates this page, so its answer already carries the new render.
       setOpen(false);
     } catch {
       setError('That did not go through. Nothing was recorded — please try again.');

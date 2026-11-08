@@ -14,7 +14,8 @@
  * render scope (`withRenderScopeForTest`, the stand-in `lib/request-once.ts` provides for a request).
  *
  *   1 · one open reads the thread row ONCE (one draw), whichever page is shown;
- *   2 · one open writes the read marker (`markThreadRead`) at most ONCE;
+ *   2 · the open's shared draw writes NO read marker — only the Chat view marks read, on the client, when shown
+ *       (`MarkReadWhenShown`; coordinator ruling 8 Nov 2026: opening Details or Quotation must not mark the chat read);
  *   3 · Details' Decisions add ZERO requests — the open costs exactly what Chat + Quotation alone cost;
  *   4 · two opens are two draws (the memory is per render, never across requests);
  *   5 · the Details decisions body holds no read of its own (no client, no fetcher) — it only mounts the embed.
@@ -231,11 +232,26 @@ function tally(rs: Array<{ method: string; path: string; search: string }>): str
   return [...m].map(([k, v]) => `${v}× ${k}`).join('\n');
 }
 
-test('1 · 2 · one client open draws the thread once and marks it read at most once', async () => {
+test('1 · 2 · one client open draws the thread once and the shared draw marks nothing read', async () => {
   const open = await openClient({ withDetailsDecisions: true });
   if (process.env.B2D_PRINT) console.log(`[open] total=${open.total} threadReads=${open.threadReads} markRead=${open.markRead}\n${tally(open.requests)}`);
   assert.equal(open.threadReads, 1, `the thread page was drawn ${open.threadReads}× for one open:\n${tally(open.requests)}`);
-  assert.ok(open.markRead <= 1, `markThreadRead ran ${open.markRead}× for one open`);
+  assert.equal(open.markRead, 0, `the shared draw marked the chat read ${open.markRead}× — Details and Quotation would mark it too`);
+});
+
+test('2 · only the Chat view marks the conversation read — and only once it is shown', () => {
+  const page = stripComments(readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', 'page.tsx'), 'utf8'));
+  // The embedded draw returns before the server write.
+  assert.match(page, /const markedRead = \(async \(\) => \{\s*await writesWaitFor;\s*if \(embedded\) return;\s*await markThreadRead\(threadId\)/, 'the shared draw still marks read on the server');
+  // The marker component sits in the Chat node, and nowhere else.
+  assert.equal((page.match(/<MarkReadWhenShown /g) ?? []).length, 1, 'MarkReadWhenShown is mounted more than once (or not at all)');
+  const chatNode = page.slice(page.indexOf('data-picked-client-page="chat"'), page.indexOf('data-picked-client-page="chat"') + 400);
+  assert.match(chatNode, /<MarkReadWhenShown threadId=\{threadId\} \/>/, 'the Chat node does not mount the marker');
+  // The shell mounts only the page on screen — the reason a mount means "Chat is shown".
+  const shell = readFileSync(join(__dirname, '_components', 'picked-client-shell.tsx'), 'utf8');
+  assert.match(shell, /\{bodies\[page\]\}/, 'the shell no longer mounts only the shown page — a mount would not mean "shown"');
+  const marker = readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8');
+  assert.match(marker, /useEffect\(\(\) => \{\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount');
 });
 
 test('3 · Details’ Decisions cost zero requests — the open costs what Chat + Quotation alone cost', async () => {

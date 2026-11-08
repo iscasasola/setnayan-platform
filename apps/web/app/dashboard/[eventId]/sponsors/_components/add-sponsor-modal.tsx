@@ -113,6 +113,7 @@ export function AddSponsorModal({
                   Full name
                 </span>
                 <input
+                  autoComplete="off"
                   type="text"
                   name="full_name"
                   required
@@ -143,6 +144,7 @@ export function AddSponsorModal({
                   Email (optional)
                 </span>
                 <input
+                  autoComplete="off"
                   type="email"
                   name="email"
                   maxLength={200}
@@ -159,6 +161,7 @@ export function AddSponsorModal({
                   Phone (optional)
                 </span>
                 <input
+                  autoComplete="off"
                   type="tel"
                   name="phone"
                   maxLength={40}

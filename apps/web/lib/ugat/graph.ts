@@ -2701,6 +2701,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'vendor_coverages', column: 'region_slug' },
       { kind: 'fk', table: 'vendor_branches', column: 'parent_vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'vendor_coverages', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      // THE SEAL AND PLATE's private clean copy (owner 2026-11-04 "perfect applt that watermark"): one row per MARKED
+      // public photo a shop published on its cards / portfolio, paired with its unmarked original in the PRIVATE
+      // verification bucket so the shop can be re-marked when it gains or loses Verified. Owner/admin RLS, no anon.
+      { kind: 'table', table: 'supplier_photo_originals' },
+      { kind: 'fk', table: 'supplier_photo_originals', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'unique', table: 'supplier_photo_originals', columns: ['public_ref'] },
+      { kind: 'column', table: 'supplier_photo_originals', column: 'frame' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_refs_chk', mentions: 'original_ref' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_mark_kind_chk', mentions: 'mark_kind' },
     ],
     chain: 2,
     pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
@@ -4000,6 +4009,34 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'the help_messages_origin_guard trigger (guard_help_message_origin): a row WITH an origin must name the caller’s OWN shop and an event that shop has a chat_threads row with, and its user_id is forced to the signed-in caller · help_messages_origin_page_chk · tests/db/a-report-names-only-your-shop.db.test.ts',
     traps:
       'help_messages is also the public /help inbox: help_messages_anyone_insert (WITH CHECK true, admits anon) is load-bearing, so a POLICY cannot guard the new columns (policies are OR’ed) — the trigger is the guard. A row with no origin (every /help insert) passes it untouched.',
+  },
+  {
+    /**
+     * 🔖 A BOOKED QR CARRIES THE WHOLE PURCHASE (Supplier Build 2 lane E, migration 20271328327292; DECISION_LOG
+     * 2026-11-03). A shop issues a Booked QR (`vendor_locked_qr_tokens`) with its quote lines; the couple's scan
+     * (`vendor_claim_locked_qr`) books the shop onto the event AND copies those lines, as stored, into ONE accepted
+     * `vendor_proposals` row that names the code it came from. That FK is what made the token table spine-referenced.
+     */
+    id: 'J65',
+    claims: [
+      { kind: 'table', table: 'vendor_locked_qr_tokens' },
+      { kind: 'fk', table: 'vendor_locked_qr_tokens', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_locked_qr_tokens', column: 'quote_line_items' },
+      { kind: 'column', table: 'vendor_locked_qr_tokens', column: 'client_name' },
+      { kind: 'fk', table: 'vendor_proposals', column: 'locked_qr_token_id', references: 'vendor_locked_qr_tokens' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-PROPOSAL'],
+    title: 'Shop → Booked QR → accepted quote (copied at the scan)',
+    joint: 'vendor_locked_qr_tokens',
+    cardinality: 'A shop issues many codes; each code is claimed once and writes at most ONE accepted quote (vendor_proposals.locked_qr_token_id is UNIQUE)',
+    implementedBy:
+      'vendor_locked_qr_tokens.vendor_profile_id · .quote_line_items · vendor_proposals.locked_qr_token_id (ON DELETE SET NULL), written by vendor_claim_locked_qr step (c2)',
+    writtenBy: 'the shop’s Booked QR generator (issueLockedQr) writes the code; vendor_claim_locked_qr (SECURITY DEFINER) writes the quote',
+    guardedBy:
+      'vendor_proposals_locked_qr_token_uniq (one code, one quote) · the a_quote_names_its_booked_qr_only_by_the_claim trigger (a browser role may not set or change locked_qr_token_id) · tests/db/booked-qr-claim-copies-the-quote.db.test.ts',
+    traps:
+      'A code issued before #34 has no lines and writes NO quote — never invent one from the Total. The claim supersedes the shop’s earlier live quotes on the event first, so exactly one accepted quote states the deal; a reader that assumes the conversation wrote the accepted quote is wrong for a QR booking.',
   },
 ];
 

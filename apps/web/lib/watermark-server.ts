@@ -124,6 +124,8 @@
 
 import sharp from 'sharp';
 import { WATERMARK_TEXT } from './watermark-text';
+import type { MarkSpec } from './photo-mark-geometry';
+import { markOverlaySvgForLayout, serverMarkLayout } from './photo-mark-server';
 
 /**
  * The URL every marked photograph carries. Owner directive 2026-09-04; MB27
@@ -225,6 +227,14 @@ export function markVariantForSource(
 export async function watermarkImageBytes(
   input: Uint8Array | Buffer,
   variant: WatermarkVariant = 'stamp',
+  /**
+   * A SUPPLIER's photo (owner-approved 2026-11-04, supplier_photo_mark A):
+   * where the `stamp` would go, the Seal and plate goes instead — the shop's
+   * own spec (read on the server, `lib/supplier-mark-spec.server.ts`) laid out
+   * by the shared `lib/photo-mark-geometry.ts`. The `seal` variant (a photo from
+   * a celebration Setnayan ran) is unchanged.
+   */
+  supplierMark: { spec: MarkSpec; logoPng: Buffer | null } | null = null,
 ): Promise<ServerWatermarkResult> {
   assertNotVideoBytes(input);
 
@@ -239,6 +249,22 @@ export async function watermarkImageBytes(
     .toBuffer({ resolveWithObject: true });
 
   const { width, height } = resized.info;
+  if (variant === 'stamp' && supplierMark) {
+    const layout = serverMarkLayout(width, height, supplierMark.spec);
+    const svg = markOverlaySvgForLayout(width, height, layout, supplierMark.logoPng);
+    const bytes = await sharp(resized.data)
+      .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
+      .jpeg({ quality: 86 })
+      .toBuffer();
+    const plate = layout.plate;
+    return {
+      bytes,
+      contentType: 'image/jpeg',
+      width,
+      height,
+      geometry: { variant, plate, ink: layout.lines.map((l) => ({ left: l.x, top: l.y, width: Math.min(l.width, plate.width), height: l.px })) },
+    };
+  }
   const mark =
     variant === 'seal'
       ? await sealLayers(width, height)

@@ -1,6 +1,7 @@
 /**
  * Minimal ambient types for opentype.js (no @types package published).
- * Declares only the surface lib/glyph-path.ts uses: parse(), Font.getPath /
+ * Declares only the surface lib/glyph-path.ts and lib/photo-mark-server.ts use:
+ * parse(), Font.unitsPerEm / ascender / getPath /
  * getAdvanceWidth, and Path.commands / toPathData / getBoundingBox.
  *
  * ⛔ THERE IS NO DEFAULT EXPORT, AND THIS FILE USED TO CLAIM THERE WAS.
@@ -36,6 +37,8 @@ declare module 'opentype.js' {
 
   export interface Font {
     unitsPerEm: number;
+    /** hhea ascender in font units — set by parse() (`font.ascender = font.tables.hhea.ascender`). lib/photo-mark-server.ts places each baseline with it. */
+    ascender: number;
     getPath(text: string, x: number, y: number, fontSize: number): Path;
     getAdvanceWidth(text: string, fontSize: number): number;
   }

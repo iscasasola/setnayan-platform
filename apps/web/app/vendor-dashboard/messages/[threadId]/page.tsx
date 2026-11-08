@@ -69,6 +69,7 @@ import { briefForQuote } from '@/lib/quote-event-brief';
 import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
 import { QUOTE_VERSION_SELECT, type QuoteVersionRow } from '@/lib/quote-versions';
 import { askedOnce } from '@/lib/request-once';
+import { MarkReadWhenShown } from './_components/mark-read-when-shown';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
@@ -441,9 +442,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // for it (that column reads the `chat_thread_reads` row this writes).
   const markedRead = (async () => {
     await writesWaitFor;
-    // ONE mark per open. The picked client's draw serves Chat, Quotation and Details at once, and the Chat page is
-    // reached from any of them WITHOUT a request (the shell switches in place) — so the open marks once, as the Chat
-    // body always did. (Build 1's "Quotation does not mark" never held: the Chat body was built on the same request.)
+    // ONLY THE CHAT VIEW MARKS READ (coordinator ruling, 8 Nov 2026). The picked client's draw is shared by Chat,
+    // Quotation and Details at once, so a mark HERE ran whichever page was on screen — opening Details or Quotation
+    // marked the chat read. The embedded draw therefore writes nothing; its Chat node mounts `MarkReadWhenShown`,
+    // which the shell mounts only while Chat is shown (and on a swipe to Chat, which makes no request). The
+    // full-screen route is the Chat view itself, so it marks here — before its conversation column reads the row.
+    if (embedded) return;
     await markThreadRead(threadId).catch(() => undefined);
   })();
   const batchRead = msgTimer.track('thread', () => Promise.all([
@@ -872,12 +876,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
      refused read must leave the conversation itself readable, so each degrades
      to an empty map and the row falls back to what it can still say. */
   const conversationRowsRead = (async () => {
-    // The picked client draws no conversation list (its own Clients list is the list) — nothing is read for it.
-    if (embedded) return [] as Awaited<ReturnType<typeof buildVendorConversationRows>>;
     // The column reads `chat_thread_reads` (the unread dots, and the archived
     // embed on the thread list) — the row `markThreadRead` writes. It waits for
     // that write, as it did when the batch that held it was awaited first.
+    // (Awaited FIRST, even for the embedded draw that reads nothing: the page's one wait holds `markedRead`
+    // anyway, so this costs no time, and it keeps "the marker before any read" true for every branch below.)
     await markedRead;
+    // The picked client draws no conversation list (its own Clients list is the list) — nothing is read for it.
+    if (embedded) return [] as Awaited<ReturnType<typeof buildVendorConversationRows>>;
     const listThreads = await fetchVendorThreads(supabase, profile.vendor_profile_id).catch(
       (caught: unknown) => {
         logQueryError(
@@ -2151,6 +2157,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     */
     const chat = (
       <div data-picked-client-page="chat" className="flex min-h-[70dvh] flex-col">
+        {/* The ONE place the picked client marks the conversation read — mounted only while Chat is shown. */}
+        <MarkReadWhenShown threadId={threadId} />
         {chatBox}
       </div>
     );

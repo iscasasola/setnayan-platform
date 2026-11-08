@@ -116,6 +116,7 @@ export function VenueForm({
           Name *
         </span>
         <input
+          autoComplete="off"
           type="text"
           name="name"
           defaultValue={initial?.name ?? ''}
@@ -133,6 +134,7 @@ export function VenueForm({
             Location city *
           </span>
           <input
+            autoComplete="off"
             type="text"
             name="location_city"
             defaultValue={initial?.location_city ?? ''}
@@ -149,6 +151,7 @@ export function VenueForm({
             Address (optional)
           </span>
           <input
+            autoComplete="off"
             type="text"
             name="hq_address"
             defaultValue={initial?.hq_address ?? ''}

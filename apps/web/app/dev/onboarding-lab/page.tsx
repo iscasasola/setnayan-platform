@@ -15,9 +15,16 @@
  *                        Setnayan AI card can be seen following the needs screen's Suppliers row (owner
  *                        2026-10-26, `setnayanAiOffered`). ⚠ Its peso figure is a lab placeholder, NOT a
  *                        price — the real card reads `readServicesStepView` (the catalogue).
+ *   ?self=<name>         the signed-in account's display name (owner 2026-11-08, "for me" locks the celebrant).
+ *                        Seed the create grid's carry in sessionStorage before load to walk For · You / someone
+ *                        else: `setnayan_create_honoree_v1` = {"s":1,"t":<now>} (you) or {"n":"Maria","t":<now>}.
+ *   ?type=wedding        the wedding's own wizard (`OnboardingShell`) on an empty catalogue — to walk the
+ *                        names step's own-slot prefill. Never press its final create here either.
  */
 import { notFound } from 'next/navigation';
 import { GenericOnboarding } from '@/app/onboarding/[type]/_components/generic-onboarding';
+import { OnboardingShell } from '@/app/onboarding/wedding/_components/onboarding-shell';
+import type { OnboardingPricing } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { SimpleSetupFlow } from '@/app/onboarding/simple/_components/simple-setup-flow';
 import { toProfile, type ProfileRow } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/onboarding/flow-config';
@@ -27,6 +34,9 @@ import { manilaToday } from '@/lib/std-views';
 import { buildServicesStepView } from '@/lib/onboarding/services-step-data';
 
 export const dynamic = 'force-dynamic';
+
+/** The wedding wizard on NO catalogue: nothing priced exists here, so no figure can be drawn. */
+const EMPTY_CATALOGUE: OnboardingPricing = { svc: {}, bundles: { essentials: null, complete: null }, setnayanAi: null, promo: 0 };
 
 /** The twenty labels as production's `event_type_vocab` names them (measured 2026-10-18). */
 const LABEL: Record<string, { label: string; emoji: string }> = {
@@ -55,12 +65,18 @@ const LABEL: Record<string, { label: string; emoji: string }> = {
 export default async function OnboardingLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; services?: string }>;
+  searchParams: Promise<{ type?: string; services?: string; self?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  const selfName = sp.self?.trim().slice(0, 80) || null;
+  // The wedding is its own wizard (matrix §3) — mounted as itself, on an empty catalogue.
+  if (sp.type === 'wedding') {
+    return (
+      <OnboardingShell authed resume={false} pricing={EMPTY_CATALOGUE} selfName={selfName} />
+    );
+  }
   const type = sp.type && sp.type in DEFAULT_PRESET_BY_TYPE ? sp.type : 'hangout';
-  if (type === 'wedding') notFound(); // its own wizard — not this screen (matrix §3)
   // The real reader over a row shaped like the seed (a look set admits the type to the engine); every
   // other field takes the type's own code fallback (a wake stays solemn). A vendor-free kind stays
   // vendor-free; everything else has a marketplace (prod, measured 2026-10-18).
@@ -116,6 +132,7 @@ export default async function OnboardingLabPage({
       anonEnabled={false}
       resume={false}
       nextPath={null}
+      selfName={selfName}
       todayISO={manilaToday()}
       setupView={view}
       setupSteps={resolveSetupSteps(view, CREATION_ASKS.generic)}

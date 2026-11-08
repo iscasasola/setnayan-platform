@@ -149,6 +149,7 @@ export function ClusterTools({
             Group name
           </label>
           <input
+            autoComplete="off"
             id="rename-cluster"
             name="display_name"
             defaultValue={clusterName}

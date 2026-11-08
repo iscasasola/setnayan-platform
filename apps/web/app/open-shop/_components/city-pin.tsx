@@ -604,6 +604,7 @@ export function CityPin({
       {/* The city is what the marketplace actually filters on. It rides with the pin's answer; a box to type it
           appears only when the lookup could not name the spot (or named it without a city). */}
       <input
+        autoComplete="address-level2"
         type={askCity ? 'text' : 'hidden'}
         name="location_city"
         value={city}

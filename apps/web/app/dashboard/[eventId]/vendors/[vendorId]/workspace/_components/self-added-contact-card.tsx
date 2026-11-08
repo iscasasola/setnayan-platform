@@ -198,6 +198,7 @@ export function SelfAddedContactCard({
           {addressRequired ? <span className="text-terracotta-700">*</span> : null}
         </label>
         <textarea
+          autoComplete="off"
           id="self-added-address"
           rows={2}
           maxLength={MANUAL_VENUE_ADDRESS_MAX}

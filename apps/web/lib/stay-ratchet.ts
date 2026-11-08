@@ -26,7 +26,9 @@ import ts from 'typescript';
 export const WEB = resolve(__dirname, '..');
 export const BASELINE_FILE = join(WEB, 'lib/a-save-never-resets-the-screen.baseline.txt');
 const ROOTS = ['app', 'lib', 'components'];
-const SKIP = /(^|\/)(node_modules|\.next)(\/|$)|\.test\.tsx?$|\.d\.ts$|^app\/dev\//;
+/* `app/admin/` is OUT of this rule for now — the owner's order puts admin screens last (2026-10-26 brief: "Admin screens
+   are excluded (handled last)"). Ratcheting it here would fail every admin PR on a new redirect before that pass. */
+const SKIP = /(^|\/)(node_modules|\.next)(\/|$)|\.test\.tsx?$|\.d\.ts$|^app\/dev\/|^app\/admin\//;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

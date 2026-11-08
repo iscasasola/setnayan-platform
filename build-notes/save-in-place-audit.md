@@ -2,7 +2,7 @@
 
 Owner, 2026-10-26 (DECISION_LOG "A SAVE NEVER RESETS THE SCREEN — APP-WIDE"): *"saving minimum and maximum on papic resets the whole screen. this should not happen"* · *"and same to the rest of the buttons and functions"* · *"same to the rest of the website. avoid resetting the whole screen"*.
 
-**How this list is made — never typed.** `lib/stay-ratchet.ts` reads every `'use server'` module under `app/ lib/ components/` with the TypeScript parser and lists each exported action whose body (or a same-file helper it calls) reaches a `redirect()` that is not a bare sign-in (`/login…`, `/sign…`) or not-on-the-event (`/dashboard`) guard. `app/dev/` and `app/admin/` are outside this audit (admin is handled last). The BEFORE list is that scan on `origin/claude/supplier-1build` at `1604c6b8d`; the AFTER column is the same scan on this branch.
+**How this list is made — never typed.** `lib/stay-ratchet.ts` reads every `'use server'` module under `app/ lib/ components/` with the TypeScript parser and lists each exported action whose body (or a same-file helper it calls) reaches a `redirect()` that is not a bare sign-in (`/login…`, `/sign…`) or not-on-the-event (`/dashboard`) guard. `app/dev/` and `app/admin/` are outside this audit and outside the guard (admin is handled last). The BEFORE list is that scan on `origin/claude/supplier-1build` at `1604c6b8d`; the AFTER column is the same scan on this branch.
 
 Re-measure: `pnpm tsx lib/stay-ratchet.ts --json` (from `apps/web`).
 
@@ -16,7 +16,7 @@ Re-measure: `pnpm tsx lib/stay-ratchet.ts --json` (from `apps/web`).
 | **… of which a save that redirects back and resets the screen** | **293** | **91** |
 | converted to a stay door in this change | — | 175 |
 | found to be navigation or a gate-only bounce, reason added | — | 27 |
-| admin (out of scope, ratcheted in the baseline) | 190 | 190 |
+| admin — outside this rule until the admin pass (owner: admin last); not scanned by the guard | 190 | not scanned |
 
 Every action still in the last row is in `lib/a-save-never-resets-the-screen.baseline.txt`, which may only shrink — a NEW redirecting action fails `lib/a-save-never-resets-the-screen.test.ts`.
 

@@ -13,6 +13,7 @@ import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_component
 import { CrewWaitingRefresh } from './_components/crew-waiting-refresh';
 import { SeatScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner';
 import { ChangeTheSchedule } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule';
+import { readPartLocks } from '@/lib/supplier-part-lock.server';
 
 export const metadata: Metadata = { title: 'Crew · Event Hub', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -97,7 +98,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
       ? onlyWhatABookedShopMaySee(
           admin
             .from('event_schedule_blocks')
-            .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
+            .select('block_id, label, start_at, end_at, location, run_state, actual_start_at, responsible_vendor_ids')
             .eq('event_id', eventId)
             // ⏰ No Time-TBA chapter on the crew's run of show: its 00:00 is only its day. Same fence as onlyTimedBlocks.
             .eq('time_tba', false),
@@ -117,6 +118,23 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
   // its own refusal — while hiding it would take a coordinator crew's one tool away on a blip.
   const coordinator = shopRes.error ? true : isCoordinatorTrade(shop?.services);
   const blocks = blocksRes.error ? null : ((blocksRes.data ?? []) as RunOfShowBlock[]);
+  /* 🗓 ASK TO SKIP (owner 2026-11-05, "yes they can request"): which parts a LOCKED supplier is on — the sheet says the
+     lock's line there and offers no ask (the database refuses the ask the same way) — and which parts already wait on
+     an ask. Read only for a phone that may ask; a refused read offers the ask, and the database still refuses it. */
+  const lockedBy: Record<string, string> = {};
+  let skipAsked: string[] = [];
+  if (doorRes.data === 'ok' && blocks && blocks.length > 0) {
+    const [locks, asksRes] = await Promise.all([
+      readPartLocks(admin, eventId),
+      admin.from('event_schedule_suggestions').select('block_id').eq('event_id', eventId).eq('kind', 'skip').eq('status', 'open'),
+    ]);
+    if (asksRes.error) logQueryError('CrewJoin.skipAsks', asksRes.error, { eventId }, 'graceful_degrade');
+    for (const b of blocks as (RunOfShowBlock & { responsible_vendor_ids?: string[] | null })[]) {
+      const shop = (b.responsible_vendor_ids ?? []).map((v) => locks.get(v)).find(Boolean);
+      if (shop) lockedBy[b.block_id] = shop;
+    }
+    skipAsked = ((asksRes.data ?? []) as { block_id: string | null }[]).flatMap((a) => (a.block_id ? [a.block_id] : []));
+  }
   const ev = eventRes.data as { display_name: string | null; event_date: string | null; venue_name: string | null } | null;
   const ends = new Date(pass.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return (
@@ -130,7 +148,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
       role={role}
       coordinator={coordinator}
       blocks={blocks}
-      changer={doorRes.data === 'ok' && blocks ? <ChangeTheSchedule eventId={eventId} parts={blocks} via="crew" /> : null}
+      changer={doorRes.data === 'ok' && blocks ? <ChangeTheSchedule eventId={eventId} parts={blocks} via="crew" lockedBy={lockedBy} asked={skipAsked} /> : null}
       endsWords={`ends ${ends}`}
     />
   );

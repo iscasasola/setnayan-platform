@@ -228,6 +228,7 @@
         "Link",
         "LocalState",
         "LockDayButton",
+        "MarkedPhoto",
         "MiniBadge",
         "NoticeBanner",
         "NotifyResult",
@@ -2769,6 +2770,7 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
+        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2897,6 +2899,8 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "Hidden",
+        "HubToolsPane",
+        "HubToolsSection",
         "Icon",
         "InPlaceFields",
         "InPlaceSwitch",
@@ -2966,6 +2970,7 @@
         "Say",
         "SayContext.Provider",
         "Says",
+        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2981,6 +2986,7 @@
         "SubmitOnChange",
         "SwipeToDelete",
         "SwitchForm",
+        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3585,22 +3591,27 @@
     },
     "/admin/help": {
       "files": [
+        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
       "destinations": [
         "/admin/events/[seg]",
-        "/admin/help?status=[seg]",
         "/admin/vendors/[seg]"
       ],
       "actions": [
+        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "FilterChip",
-        "PageMasthead",
-        "SubmitButton"
+        "ActionButton",
+        "ChatBox",
+        "ChatThreadHead",
+        "HelpMessageRow",
+        "HelpMessenger",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/hub-music": {
@@ -5086,13 +5097,48 @@
     },
     "/admin/work": {
       "files": [
+        "admin/work/_components/event-type-name-row.tsx",
+        "admin/work/_components/form-pick.tsx",
+        "admin/work/_components/supplier-inbox.tsx",
+        "admin/work/_components/work-row-head.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/help?m=[seg]"
+      ],
+      "actions": [
+        "createEventTypeRoster",
+        "openApplicationDocument",
+        "resolveRepostFlag",
+        "setEventTypeStatus",
+        "setFolderEventTypeOffered",
+        "settleCorrectionFromWorkList",
+        "settleHelpFromWorkList",
+        "settleVerificationFromWorkList"
+      ],
       "blocks": [
-        "QueuesTriageFeed"
+        "ActionButton",
+        "CardsBody",
+        "DocsBody",
+        "EventTypeNameRow",
+        "Fact",
+        "FormPick",
+        "FormRows",
+        "HTMLAnchorElement",
+        "Icon",
+        "InfoTip",
+        "Link",
+        "MsgsBody",
+        "NamesBody",
+        "PickMenu",
+        "Preview",
+        "QueuesTriageFeed",
+        "ReasonPick",
+        "SupplierInbox",
+        "TypedRow",
+        "TypesBody",
+        "WorkRowHead"
       ]
     },
     "/api/v1": {
@@ -5328,7 +5374,9 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
+        "HTMLButtonElement",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Image",
@@ -5340,6 +5388,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "SelfCelebrantLock",
         "Sheet",
         "SubmitButton"
       ]
@@ -8507,6 +8556,7 @@
         "Filter",
         "HTMLDivElement",
         "Link",
+        "LiveInboxRefresh",
         "PageMasthead",
         "PickMenu",
         "PillThumb",
@@ -10538,6 +10588,7 @@
         "FormRow",
         "FormRows",
         "Fragment",
+        "FramedImg",
         "GoToFind",
         "GuestPopup",
         "HTMLAnchorElement",
@@ -11610,6 +11661,28 @@
         "UpdateSelfAddedSupplierResult"
       ]
     },
+    "/dev/admin-supplier-lab": {
+      "files": [
+        "dev/admin-supplier-lab/fixtures.ts",
+        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
+        "dev/admin-supplier-lab/page.tsx"
+      ],
+      "destinations": [
+        "/admin/verify",
+        "/dev/admin-supplier-lab?view=[seg]"
+      ],
+      "actions": [
+        "setHelpMessageStatus"
+      ],
+      "blocks": [
+        "HelpMessenger",
+        "HubToolsPane",
+        "LabSubmitCatcher",
+        "QueuesTriageFeed",
+        "SP",
+        "SupplierInbox"
+      ]
+    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -12476,6 +12549,7 @@
       "actions": [],
       "blocks": [
         "GenericOnboarding",
+        "OnboardingShell",
         "SimpleSetupFlow"
       ]
     },
@@ -12898,6 +12972,7 @@
         "dev/supplier-lab/page-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx",
+        "dev/supplier-lab/photo-mark-lab.tsx",
         "dev/supplier-lab/scan-lab.tsx",
         "dev/supplier-lab/schedule-lab.tsx",
         "dev/supplier-lab/shop-tab-lab.tsx",
@@ -12935,11 +13010,13 @@
         "Badge",
         "BadgeEarnedLine",
         "BasicSetupHold",
+        "Blob",
         "BlockDateAdd",
         "BottomDock",
         "BottomNav",
         "BranchPanel",
         "CapacityCard",
+        "ChangeTheSchedule",
         "ChatAskLab",
         "ChatBox",
         "ChatOriginMark",
@@ -12979,11 +13056,14 @@
         "EventLinesBody",
         "EventsHeading",
         "EventsYouRunScreen",
+        "File",
+        "FileUpload",
         "FilesPage",
         "Fix",
         "FloorClock",
         "FunnelBenchmarkCard",
         "GalleryMedia",
+        "HTMLInputElement",
         "HubDoorRow",
         "HubEventCard",
         "HubEventInfo",
@@ -13019,6 +13099,7 @@
         "PageParts",
         "PaymentPage",
         "PeopleLab",
+        "PhotoMarkLab",
         "PortfolioView",
         "PricePositionCard",
         "PromoteBridge",
@@ -13063,6 +13144,7 @@
         "TodayNextEvents",
         "TodaySettings",
         "TodayThumbRow",
+        "VerifiedSample",
         "VerifySection",
         "YourBadges",
         "YourNumberCardView"
@@ -13647,6 +13729,7 @@
         "NeedsStep",
         "OpenMultiselect",
         "Roster",
+        "SelfCelebrantLock",
         "ServicesStep",
         "ServicesStepSelection",
         "SetnayanAiValue",
@@ -14821,6 +14904,7 @@
         "Link",
         "LockPackageModal",
         "Logo",
+        "MarkedPhoto",
         "MessageDelivery",
         "ModalState",
         "NotYetVerifiedNotice",
@@ -14956,6 +15040,7 @@
     "/vendor-dashboard": {
       "files": [
         "vendor-dashboard/_components/badge-earned-line.tsx",
+        "vendor-dashboard/_components/badge-reward-sweep.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
         "vendor-dashboard/_components/body-panel.tsx",
         "vendor-dashboard/_components/branch-manager.tsx",
@@ -15001,6 +15086,7 @@
         "vendor-dashboard/_components/supplier-toast.tsx",
         "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/supplier-today-screen.tsx",
+        "vendor-dashboard/_components/thumb-layer.ts",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/today-cover.tsx",
         "vendor-dashboard/_components/today-next-events.tsx",
@@ -15207,6 +15293,7 @@
         "SyncResult",
         "TermsReacceptSheet",
         "ThumbFit",
+        "ThumbLayer",
         "ThumbRow",
         "Tile",
         "TodayCover",
@@ -15448,6 +15535,7 @@
         "vendor-dashboard/clients/[eventId]/_pages/files.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/forms.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/hub.tsx",
+        "vendor-dashboard/clients/[eventId]/_pages/lazy.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/payment.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/quotation.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/report-form.tsx",
@@ -15571,6 +15659,7 @@
         "InfoTip",
         "Inputs",
         "InspirationCardPick",
+        "Lazy",
         "LedgerUnreadableNote",
         "Link",
         "LockAnswerLine",
@@ -15582,6 +15671,7 @@
         "NamedColourDot",
         "OpenTheirEvent",
         "OverviewTab",
+        "P",
         "PaymentAsksPanel",
         "PaymentHistoryList",
         "PaymentPage",
@@ -15602,6 +15692,7 @@
         "ProofImage",
         "QuestionsSection",
         "QuestionsSendPanel",
+        "Quiet",
         "QuotationPage",
         "QuoteTab",
         "ReplyControls",
@@ -15641,6 +15732,8 @@
         "Suspense",
         "SwipeToDelete",
         "TheyToldYou",
+        "ThumbLayer",
+        "ThumbLayerContext.Provider",
         "ThumbRow",
         "TimeRow",
         "TypedRow",
@@ -16294,6 +16387,7 @@
         "BackButton",
         "ChatInbox",
         "Icon",
+        "LiveInboxRefresh",
         "PageMasthead",
         "SupplierChats",
         "SupplierChatsRead",
@@ -16305,6 +16399,8 @@
       "files": [
         "vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx",
         "vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown.tsx",
+        "vendor-dashboard/messages/[threadId]/_components/on-demand.tsx",
         "vendor-dashboard/messages/[threadId]/_components/questions-send-panel.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx",
         "vendor-dashboard/messages/[threadId]/_components/send-questions-button.tsx",
@@ -16369,6 +16465,7 @@
         "InquiryOutcomeCapture",
         "Link",
         "LockRequestAnswer",
+        "MarkReadWhenShown",
         "NegotiationComposerMenu",
         "NotReceivedForm",
         "OfferServiceResult",
@@ -16381,6 +16478,7 @@
         "QuestionsSendBody",
         "QuestionsSendPanel",
         "QuickReplies",
+        "Quiet",
         "QuoteSeed",
         "QuoteVersionLine",
         "RailBody",
@@ -16480,6 +16578,7 @@
         "vendor-dashboard/on-the-day/_components/issues-log.tsx",
         "vendor-dashboard/on-the-day/_components/live-reviews.tsx",
         "vendor-dashboard/on-the-day/_components/module-configurator.tsx",
+        "vendor-dashboard/on-the-day/_components/on-demand.tsx",
         "vendor-dashboard/on-the-day/_components/pahina-console.tsx",
         "vendor-dashboard/on-the-day/_components/requests-inbox.tsx",
         "vendor-dashboard/on-the-day/_components/shot-list.tsx",
@@ -16577,6 +16676,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/crew-asks.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
@@ -16634,6 +16734,7 @@
         "ConsolePlate",
         "ConsoleRule",
         "Coverage",
+        "CrewAsks",
         "CueCard",
         "EventHubAnnounce",
         "EventHubBar",
@@ -16784,6 +16885,7 @@
         "withdrawPartnership"
       ],
       "blocks": [
+        "Fold",
         "FormFlash",
         "ListPageSkeleton",
         "PageMasthead",
@@ -16871,6 +16973,7 @@
         "ActivityStatsRow",
         "AttributionBar",
         "Badge",
+        "BadgeRewardSweep",
         "BandRail",
         "BookingsBars",
         "BusinessDoing",
@@ -17167,6 +17270,7 @@
         "Fold",
         "FormRows",
         "Fragment",
+        "FramedImg",
         "GiftPick",
         "GiftPickRow",
         "GridCard",
@@ -17390,11 +17494,13 @@
         "ActionButton",
         "AnalyticsCardData",
         "AnalyticsPeriod",
+        "AnalyticsPlaceholder",
         "AnalyticsSheet",
         "ApplicationStatus",
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
+        "BadgeRewardSweep",
         "BadgeRing",
         "BadgeSheet",
         "BadgeTile",
@@ -17415,6 +17521,7 @@
         "CouplePhotosList",
         "CouplePhotosToAnswer",
         "CoverIcon",
+        "CoverSheet",
         "DatesRow",
         "DocSlotCard",
         "DocSlotSaveResult",
@@ -17502,7 +17609,10 @@
         "ServicesManagerSearch",
         "ShareSheet",
         "Sheet",
+        "SheetOpening",
+        "ShopAnalytics",
         "ShopAnalyticsCarousel",
+        "ShopAnalyticsSection",
         "ShopBadgeRow",
         "ShopCover",
         "ShopData",

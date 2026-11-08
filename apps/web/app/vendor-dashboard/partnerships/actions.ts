@@ -28,6 +28,10 @@ import {
   isPartnershipKind,
   type PartnershipKind,
 } from '@/lib/vendor-partnership-kinds';
+import {
+  NOT_SERVED_TOGETHER_MESSAGE,
+  servedTogetherWith,
+} from '@/lib/partners-you-served-with.server';
 
 const PANEL_PATH = '/vendor-dashboard/partnerships';
 
@@ -51,6 +55,11 @@ async function ensureProfile() {
 function readString(fd: FormData, key: string): string {
   const v = fd.get(key);
   return typeof v === 'string' ? v.trim() : '';
+}
+
+/** The insert trigger's refusal (migration 20271329352320) — said in words, never the raw code. */
+function isNotServedTogether(error: { message?: string } | null): boolean {
+  return /NOT_SERVED_TOGETHER/.test(error?.message ?? '');
 }
 
 function back(msg: string): never {
@@ -79,6 +88,17 @@ export async function proposePartnership(formData: FormData) {
     back('You cannot propose a partnership with yourself.');
   }
 
+  // 🤝 OWNER 2026-11-06: "cannot link until they have served the same event." Asked of the one shared reader (the same
+  // database definition the insert trigger enforces), so the words below and the trigger can never disagree. A read
+  // that FAILED is not a "no" — it says so, rather than telling a supplier they never worked with someone they did.
+  const servedTogether = await servedTogetherWith(supabase, vendorProfileId, recommendedId);
+  if (servedTogether === null) {
+    back("We couldn't check the events you've served together. Try again in a moment.");
+  }
+  if (!servedTogether) {
+    back(NOT_SERVED_TOGETHER_MESSAGE);
+  }
+
   const { error } = await supabase.from('vendor_partnerships').insert({
     recommending_vendor_id: vendorProfileId, // resolved server-side, never from form
     recommended_vendor_id: recommendedId,
@@ -93,6 +113,7 @@ export async function proposePartnership(formData: FormData) {
     if (error.code === '23505') {
       back('A partnership of this type already exists between you two.');
     }
+    if (isNotServedTogether(error)) back(NOT_SERVED_TOGETHER_MESSAGE);
     back(error.message);
   }
 
@@ -274,6 +295,7 @@ export async function changePartnershipKind(formData: FormData) {
     if (insertErr.code === '23505') {
       back('You already have that kind of partnership with this supplier.');
     }
+    if (isNotServedTogether(insertErr)) back(NOT_SERVED_TOGETHER_MESSAGE);
     back(insertErr.message);
   }
 

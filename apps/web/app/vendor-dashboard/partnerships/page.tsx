@@ -1,11 +1,19 @@
 import { redirect } from 'next/navigation';
-import { Handshake, CheckCircle2, Inbox, Send, Sparkles } from 'lucide-react';
+import { Handshake, CheckCircle2, Inbox, Send } from 'lucide-react';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Fold } from '@/app/_components/fold';
+import { eventTypeLabel } from '@/lib/demand-radar';
+import {
+  NO_PARTNERS_YET,
+  proposableShops,
+  readPartnersYouServedWith,
+  servedTogetherLine,
+} from '@/lib/partners-you-served-with.server';
 import {
   proposePartnership,
   acceptPartnership,
@@ -39,11 +47,6 @@ type PartnershipRow = {
   status: string;
   is_active: boolean;
   created_at: string;
-};
-
-type VendorOption = {
-  vendor_profile_id: string;
-  business_name: string;
 };
 
 // Shared with the public page and Explore — one set of words, one rank order.
@@ -128,71 +131,14 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   );
   const accepted = partnerships.filter((p) => p.status === 'accepted' && p.is_active);
 
-  // "Worked together" hints — vendor_profile_ids this vendor has shared an
-  // event with (marketplace co-occurrence). Surfaced as an eligibility hint in
-  // the propose picker; NOT a hard block. SECURITY DEFINER RPC, scoped to my id.
-  const { data: workedRows, error: workedRowsError } = await supabase.rpc(
-    'vendor_worked_with_ids',
-    { for_vendor: myId },
-  );
-  // ⚠ THE MILDEST ONE ON THIS PAGE, AND IT IS STILL WORTH BINDING. This only
-  // ⚠ floats shops they have worked with to the top of the picker, so a refusal
-  // ⚠ costs an ordering, not a fact. Nothing is claimed falsely, so there is no
-  // ⚠ notice — but the reason still has to reach the logs, or the ranking
-  // ⚠ quietly stops working and nobody ever learns why.
-  if (workedRowsError) {
-    logQueryError(
-      'VendorPartnershipsPage.workedWith',
-      workedRowsError,
-      { myId },
-      'graceful_degrade',
-    );
-  }
-  const workedWith = new Set(
-    ((workedRows ?? []) as (string | { vendor_worked_with_ids: string })[]).map((r) =>
-      typeof r === 'string' ? r : r.vendor_worked_with_ids,
-    ),
-  );
-
-  // All other LIVE vendors for the propose picker.
-  // ⚠ Was `.eq('is_active', true)` — `vendor_profiles` HAS NO `is_active`
-  // column, so PostgREST answered 42703 and this picker was ALWAYS EMPTY: no
-  // vendor could ever propose a partnership. "Active" is expressed by the
-  // marketplace's own liveness pair (the same one /explore and the public
-  // counts use), not by a column that never existed — proposing to a shop that
-  // is not live is pointless, and after the 2026-07-27 ruling `verified` is the
-  // only publicly-real state.
-  const { data: allVendors, error: allVendorsError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_name')
-    .eq('public_visibility', 'verified')
-    .eq('verification_state', 'verified')
-    .neq('vendor_profile_id', myId)
-    .order('business_name', { ascending: true })
-    .limit(300);
-  // ⚠ THIS PICKER HAS ALREADY SHIPPED PERMANENTLY EMPTY ONCE — see the note
-  // ⚠ above: a column that did not exist made PostgREST answer 42703 and no
-  // ⚠ supplier could propose a partnership to anybody. `?? []` is what made
-  // ⚠ that look like an empty marketplace rather than a broken query, and it is
-  // ⚠ still what would hide the next one.
-  if (allVendorsError) {
-    logQueryError(
-      'VendorPartnershipsPage.allVendors',
-      allVendorsError,
-      { myId },
-      'graceful_degrade',
-    );
-  }
-  const vendorOptionsMeasured = !allVendorsError && allVendors !== null;
-  const vendorOptions = (allVendors ?? []) as VendorOption[];
-
-  // Sort the picker so vendors you've worked with float to the top.
-  const sortedOptions = [...vendorOptions].sort((a, b) => {
-    const aw = workedWith.has(a.vendor_profile_id) ? 0 : 1;
-    const bw = workedWith.has(b.vendor_profile_id) ? 0 : 1;
-    if (aw !== bw) return aw - bw;
-    return a.business_name.localeCompare(b.business_name);
-  });
+  // 🤝 WHO THEY MAY PROPOSE TO — owner 2026-11-06: "cannot link until they have served the same event." Only shops
+  // this supplier was BOOKED alongside on an event whose date has passed (and that are live on the marketplace). The
+  // one shared reader asks the database, the same definition the vendor_partnerships insert trigger enforces — so a
+  // shop offered here is never refused on Send, and one refused is never offered. Replaces the old "all suppliers"
+  // picker and its "worked together" ordering hint (vendor_worked_with_ids, dropped in the same migration).
+  // ⚠ A refused read is `measured: false` and says so — it must never draw the "nobody yet" sentence.
+  const served = await readPartnersYouServedWith(supabase, myId);
+  const proposable = proposableShops(served);
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
@@ -284,60 +230,78 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <ul className="space-y-3">
             {accepted.map((p) => {
               const iProposed = p.recommending_vendor_id === myId;
+              const kindLabel = RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type;
               return (
-                <li key={p.id} className="m-card flex items-center gap-3 p-4">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-success-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">{otherName(p)}</p>
-                    <p className="text-xs text-ink/55">
-                      {RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type}
-                      {' · '}
-                      {iProposed ? 'You proposed' : 'They proposed'}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-success-50 px-2 py-0.5 text-[10px] font-semibold text-success-700">
-                    Live
-                  </span>
-                  {/* RE-PROPOSE UNDER A DIFFERENT KIND. Only the vendor who
-                      made the recommendation sees this, because the claim is
-                      theirs to restate.
+                // 🤝 THE HOUSE ROW (coordinator 2026-11-06, from the 390 px proof): name + Live on one line, one quiet
+                // line under it, NO buttons on the closed row. It used to carry the kind dropdown and Re-propose
+                // beside the name, which crushed the name to one word per line on a phone. Tapping opens the row in
+                // place (the shared Fold) — same pattern as the propose list below.
+                <li key={p.id} className="m-card px-4">
+                  <Fold
+                    title={otherName(p)}
+                    titleNode={
+                      <>
+                        {otherName(p)}{' '}
+                        <span className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-[10px] font-semibold text-success-700">
+                          Live
+                        </span>
+                      </>
+                    }
+                    line={`${kindLabel} · ${iProposed ? 'You proposed' : 'They proposed'}`}
+                    wrap
+                    lead={<CheckCircle2 className="h-5 w-5 text-success-600" />}
+                    data="partner-accepted"
+                  >
+                    {/* RE-PROPOSE UNDER A DIFFERENT KIND. Only the vendor who
+                        made the recommendation sees this, because the claim is
+                        theirs to restate.
 
-                      ⚠ It withdraws and re-proposes rather than editing in
-                      place: the database FORBIDS changing an accepted
-                      partnership's terms (trg_vendor_partnerships_lock_immutable),
-                      and it is right to — the terms must not change under the
-                      partner who agreed to them. The badge therefore comes down
-                      at the withdrawal and returns only when they accept the new
-                      wording, which is the consent behaviour we wanted, enforced
-                      by the schema instead of by an action remembering to do
-                      it. */}
-                  {iProposed ? (
-                    <StayForm door="svPartnerships.changePartnershipKind" action={changePartnershipKind} className="flex items-center gap-1.5">
-                      <input type="hidden" name="partnership_id" value={p.id} />
-                      <label className="sr-only" htmlFor={`kind-${p.id}`}>
-                        Change this partnership
-                      </label>
-                      <select
-                        id={`kind-${p.id}`}
-                        name="relationship_type"
-                        defaultValue={p.relationship_type}
-                        className="rounded-md border border-ink/20 bg-cream px-2 py-1.5 text-xs text-ink"
-                      >
-                        {PARTNERSHIP_KINDS.map((k) => (
-                          <option key={k} value={k}>
-                            {PARTNERSHIP_VENDOR_LABEL_SHORT[k]}
-                          </option>
-                        ))}
-                      </select>
-                      <SubmitButton
-                        pendingLabel="Sending…"
-                        title="Withdraws this partnership and sends the new wording to them to accept."
-                        className="rounded-md border border-ink/20 px-2.5 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
-                      >
-                        Re-propose
-                      </SubmitButton>
-                    </StayForm>
-                  ) : null}
+                        ⚠ It withdraws and re-proposes rather than editing in
+                        place: the database FORBIDS changing an accepted
+                        partnership's terms (trg_vendor_partnerships_lock_immutable),
+                        and it is right to — the terms must not change under the
+                        partner who agreed to them. The badge therefore comes down
+                        at the withdrawal and returns only when they accept the new
+                        wording, which is the consent behaviour we wanted, enforced
+                        by the schema instead of by an action remembering to do
+                        it. */}
+                    {iProposed ? (
+                      <StayForm door="svPartnerships.changePartnershipKind" action={changePartnershipKind} className="flex flex-col gap-3 pb-4">
+                        <input type="hidden" name="partnership_id" value={p.id} />
+                        <label className="flex flex-col gap-1 text-sm" htmlFor={`kind-${p.id}`}>
+                          <span className="font-semibold text-ink">Change this partnership</span>
+                          <select
+                            id={`kind-${p.id}`}
+                            name="relationship_type"
+                            defaultValue={p.relationship_type}
+                            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                          >
+                            {PARTNERSHIP_KINDS.map((k) => (
+                              <option key={k} value={k}>
+                                {PARTNERSHIP_VENDOR_LABEL_SHORT[k]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div>
+                          <SubmitButton
+                            pendingLabel="Sending…"
+                            className="rounded-md border border-ink/20 px-4 py-2 text-sm font-semibold text-ink/70 transition-colors hover:bg-ink/5"
+                          >
+                            Re-propose
+                          </SubmitButton>
+                          <p className="mt-2 text-xs text-ink/45">
+                            Withdraws this partnership and sends the new wording for them to accept — the
+                            badge returns once they do.
+                          </p>
+                        </div>
+                      </StayForm>
+                    ) : (
+                      <p className="pb-4 text-sm text-ink/55">
+                        They proposed this partnership, so only they can change how it&rsquo;s described.
+                      </p>
+                    )}
+                  </Fold>
                 </li>
               );
             })}
@@ -384,95 +348,74 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <div>
             <h2 className="text-base font-semibold text-ink">Propose a partnership</h2>
             <p className="text-xs text-ink/55">
-              Pick a supplier and a partnership type. They&apos;ll get a request to accept —
-              once they do, the badge goes live on both profiles.
+              Suppliers you&apos;ve served an event with. Tap one and pick a partnership
+              type — once they accept, the badge goes live on both profiles.
             </p>
           </div>
         </div>
 
-        {!vendorOptionsMeasured ? (
+        {!served.measured ? (
           <p
             role="alert"
-            className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
+            className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
+            data-served-with="unreadable"
           >
-            <strong className="text-ink">We couldn&rsquo;t load the supplier list.</strong>{' '}
-            The picker below is empty because the read failed, not because there
-            is nobody to partner with. Reload in a moment.
+            <strong className="text-ink">We couldn&rsquo;t load the suppliers you&rsquo;ve served with.</strong>{' '}
+            The list is empty because the read failed, not because there is nobody
+            to partner with. Reload in a moment.
           </p>
-        ) : null}
-
-        {/* Keyed on the "Sent" count: a request that lands joins that list in place and starts this form empty. */}
-        <StayForm
-          key={`propose-${outgoing.length}`}
-          door="svPartnerships.proposePartnership"
-          action={proposePartnership}
-          className="grid gap-4 sm:grid-cols-2"
-        >
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">Which supplier?</span>
-            <select
-              name="recommended_vendor_id"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Search for a supplier…</option>
-              {workedWith.size > 0 ? (
-                <optgroup label="Suppliers you've worked with">
-                  {sortedOptions
-                    .filter((v) => workedWith.has(v.vendor_profile_id))
-                    .map((v) => (
-                      <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                        {v.business_name}
-                      </option>
-                    ))}
-                </optgroup>
-              ) : null}
-              <optgroup label="All suppliers">
-                {sortedOptions
-                  .filter((v) => !workedWith.has(v.vendor_profile_id))
-                  .map((v) => (
-                    <option key={v.vendor_profile_id} value={v.vendor_profile_id}>
-                      {v.business_name}
-                    </option>
-                  ))}
-              </optgroup>
-            </select>
-            {workedWith.size > 0 ? (
-              <span className="flex items-center gap-1 text-[11px] text-ink/45">
-                <Sparkles className="h-3 w-3" /> Suppliers you&apos;ve shared an event with are
-                listed first — they&apos;re the most likely to accept.
-              </span>
-            ) : null}
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">What kind of partnership?</span>
-            <select
-              name="relationship_type"
-              required
-              className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">Select a type…</option>
-              {Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="sm:col-span-2">
-            <SubmitButton
-              pendingLabel="Sending…"
-              className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
-            >
-              Send request
-            </SubmitButton>
-            <p className="mt-2 text-xs text-ink/45">
-              The other supplier decides whether to accept. Nothing goes public until they do.
-            </p>
-          </div>
-        </StayForm>
+        ) : proposable.length === 0 ? (
+          <p
+            className="px-4 py-6 text-center text-sm text-ink/55"
+            data-served-with="none"
+          >
+            {NO_PARTNERS_YET}
+          </p>
+        ) : (
+          <ul className="space-y-3" data-served-with="list">
+            {proposable.map((v) => (
+              <li key={v.vendorProfileId} className="m-card px-4">
+                <Fold
+                  title={v.businessName}
+                  line={servedTogetherLine(v, eventTypeLabel)}
+                  wrap
+                  lineWrap
+                  data="partner-served-with"
+                >
+                  <StayForm door="svPartnerships.proposePartnership" action={proposePartnership} className="flex flex-col gap-3 pb-4">
+                    <input type="hidden" name="recommended_vendor_id" value={v.vendorProfileId} />
+                    <label className="flex flex-col gap-1 text-sm">
+                      <span className="font-semibold text-ink">What kind of partnership?</span>
+                      <select
+                        name="relationship_type"
+                        required
+                        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">Select a type…</option>
+                        {Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => (
+                          <option key={k} value={k}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div>
+                      <SubmitButton
+                        pendingLabel="Sending…"
+                        className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
+                      >
+                        Send request
+                      </SubmitButton>
+                      <p className="mt-2 text-xs text-ink/45">
+                        They decide whether to accept. Nothing goes public until they do.
+                      </p>
+                    </div>
+                  </StayForm>
+                </Fold>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

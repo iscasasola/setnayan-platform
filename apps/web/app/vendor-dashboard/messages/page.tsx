@@ -14,6 +14,7 @@ import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggl
 import type { InboxRow } from '@/app/dashboard/[eventId]/messages/_components/chat-inbox';
 import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
 import { SupplierChats, type SupplierChatsRead } from './_components/supplier-chats';
+import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
 
 /**
  * /vendor-dashboard/messages — THE SUPPLIER'S CHATS, a full-screen page of its own (owner 2026-11-06: *"The chat page
@@ -37,7 +38,13 @@ export default async function SupplierChatsPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const read = await readSupplierChats(supabase, profile.vendor_profile_id, user.id);
-  return <SupplierChats read={read} viewerId={user.id} />;
+  return (
+    <>
+      <SupplierChats read={read} viewerId={user.id} />
+      {/* ⚡ Re-renders when a message arrives — only with NEXT_PUBLIC_CHAT_LIVE_ENABLED on (renders nothing). */}
+      <LiveInboxRefresh userId={user.id} />
+    </>
+  );
 }
 
 /**

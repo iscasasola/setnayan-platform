@@ -62,3 +62,32 @@ export function isBookedCoordinator(input: {
     (input.bookingStatuses ?? []).some((s) => typeof s === 'string' && BOOKED_EVENT_VENDOR_STATUSES.includes(s));
   return booked && isCoordinatorTrade(input.services);
 }
+
+/** One booked row's shop, as the people who act for it — the owner and every team member. */
+export type ShopBookingOnEvent = {
+  status: string | null | undefined;
+  services: readonly string[] | null | undefined;
+  /** The shop owner's and team members' account ids. */
+  userIds: readonly (string | null | undefined)[];
+};
+
+/**
+ * For each person acting for a shop on the event: are they a BOOKED supplier here, and are they the BOOKED
+ * COORDINATOR (`isBookedCoordinator`)? The per-user input the supplier cap (`supplierProposesOnly`) needs — the TS
+ * twin of `public.supplier_proposes_only_for(event, user)`. A person on two shops is the coordinator if either is.
+ */
+export function bookedSupplierFacts(
+  rows: readonly ShopBookingOnEvent[],
+): Map<string, { bookedSupplier: boolean; bookedCoordinator: boolean }> {
+  const out = new Map<string, { bookedSupplier: boolean; bookedCoordinator: boolean }>();
+  for (const row of rows) {
+    if (typeof row.status !== 'string' || !BOOKED_EVENT_VENDOR_STATUSES.includes(row.status)) continue;
+    const coordinator = isCoordinatorTrade(row.services);
+    for (const id of row.userIds) {
+      if (!id) continue;
+      const prev = out.get(id);
+      out.set(id, { bookedSupplier: true, bookedCoordinator: (prev?.bookedCoordinator ?? false) || coordinator });
+    }
+  }
+  return out;
+}

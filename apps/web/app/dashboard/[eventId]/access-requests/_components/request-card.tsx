@@ -13,7 +13,7 @@ import { useState, useTransition } from 'react';
 import { Check, Loader2, ShieldCheck, X } from 'lucide-react';
 
 import type { DelegateArea } from '@/lib/event-moderators';
-import { FLOOR_AREA_LABEL, grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
+import { FLOOR_AREA_LABEL, GRANT_WORDS, grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
 import { answerAccessRequest } from '../actions';
 import { formatCount } from '@/lib/format-number';
 
@@ -23,14 +23,21 @@ export type PendingRequest = {
   requestedAreas: DelegateArea[];
   note: string | null;
   createdAt: string;
+  /**
+   * 🧭 Is the asker the BOOKED COORDINATOR (owner 8 Nov 2026)? Then a share gives Edit; any other supplier sees the
+   * part and proposes changes (`grantLevelFor`). The database decides either way — this only words the line.
+   */
+  askerIsCoordinator: boolean;
 };
 
 /** Plain-English consequence of sharing this line. */
 const AREA_MEANING: Partial<Record<DelegateArea, string>> = {
   seat_plan: 'Look up where a guest is sitting.',
-  schedule: 'Start each part of the day and push the timings when you run late.',
+  schedule: 'The schedule of the day, the emcee script and the songs.',
   guest_list: 'See who is coming.',
-  vendors: 'See your other suppliers and their contact details.',
+  vendors: 'See your other suppliers, their prices and their contact details.',
+  mood_board: 'See your Mood Board photos.',
+  budget: 'See your budget and payments. Never more than view.',
 };
 
 export function RequestCard({ eventId, request }: { eventId: string; request: PendingRequest }) {
@@ -77,10 +84,10 @@ export function RequestCard({ eventId, request }: { eventId: string; request: Pe
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium text-ink">
                   {FLOOR_AREA_LABEL[area]}
-                  {grantLevelFor(area) === 'view' ? (
-                    <span className="ml-2 font-normal text-xs text-ink/45">view only</span>
+                  {grantLevelFor(area, { coordinator: request.askerIsCoordinator }) === 'view' ? (
+                    <span className="ml-2 font-normal text-xs text-ink/45">{GRANT_WORDS.view}</span>
                   ) : (
-                    <span className="ml-2 font-normal text-xs text-terracotta">can make changes</span>
+                    <span className="ml-2 font-normal text-xs text-terracotta">{GRANT_WORDS.edit}</span>
                   )}
                 </span>
                 <span className="mt-0.5 block text-xs text-ink/60">{AREA_MEANING[area]}</span>

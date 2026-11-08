@@ -25,7 +25,7 @@
 
 import type { RunOfShowBlock, RunState } from './run-of-show';
 import { deriveRunOfShow } from './run-of-show';
-import { DELEGATE_AREA_LABEL, type DelegateArea } from './delegate-areas';
+import { DELEGATE_AREA_LABEL, areaChoices, type DelegateArea } from './delegate-areas';
 import { MAX_RETIME_MINUTES } from './schedule-ros';
 import { parsePapicTagScan } from './papic-tag';
 import { DEFAULT_EVENT_TZ } from './schedule';
@@ -199,14 +199,29 @@ export function normalizeRequestedAreas(
 }
 
 /**
- * The level an approval grants. `schedule` is the only floor area whose tools
- * WRITE (advance, retime), so it is the only one that needs `edit`; everything
- * else is a read and gets `view`. Granting edit where view suffices is the
- * quiet way permissions creep.
+ * The level an approval grants (owner 8 Nov 2026: *"only coordinator and hosts has the final say. so any supplier
+ * that is not a coordinator still has to request a host or coordinator to accept the change"*).
+ *
+ *   · THE BOOKED COORDINATOR → `edit` on every part a host can set to Edit (`areaChoices`), `view` where Edit is never
+ *     offered (Budget & payments). Their own changes apply.
+ *   · ANY OTHER SUPPLIER → `view`, always: they SEE the part and PROPOSE changes — the schedule's request path, the
+ *     mood board's suggestion path, `event_change_requests` for the guest list, the seat plan and the suppliers. A host
+ *     or the coordinator accepts.
+ *
+ * 🚨 THIS USED TO GIVE `schedule: 'edit'` TO EVERY SUPPLIER, which let a florist move the ceremony straight past the
+ * schedule request path. The database now caps a supplier's seat at `view` whatever is stored
+ * (`moderator_area_level`, migration 20271329978605), so this and the database say the same thing.
  */
-export function grantLevelFor(area: DelegateArea): 'edit' | 'view' {
-  return area === 'schedule' ? 'edit' : 'view';
+export function grantLevelFor(area: DelegateArea, asker: { coordinator: boolean }): 'edit' | 'view' {
+  if (!asker.coordinator) return 'view';
+  return areaChoices(area)?.includes('edit') ? 'edit' : 'view';
 }
+
+/** What a granted level lets a supplier DO, in the words the ask and the answer both use. */
+export const GRANT_WORDS: Readonly<Record<'edit' | 'view', string>> = {
+  edit: 'can make changes',
+  view: 'can see it and propose changes',
+};
 
 export type RequestOutcome = 'all_granted' | 'partly_granted' | 'all_declined' | 'unanswered';
 

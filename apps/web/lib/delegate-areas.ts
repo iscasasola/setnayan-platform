@@ -232,6 +232,38 @@ export function withArea(
   return { ...perms, areas: { ...materializeAreas(perms), [area]: level } };
 }
 
+/** The role a supplier's seat is written with (the access answer, the claim approval, the couple's planner invite). */
+export const SUPPLIER_SEAT_ROLE = 'wedding_planner_external';
+
+/**
+ * ✋ A SUPPLIER WHO SEES AND PROPOSES, NEVER WRITES (owner 8 Nov 2026: *"any supplier that is not a coordinator still
+ * has to request a host or coordinator to accept the change"*). TS mirror of the cap inside
+ * `public.moderator_area_level` (migration 20271329978605): the seat is a supplier's seat
+ * ({@link SUPPLIER_SEAT_ROLE}) AND its holder is booked on the event AND is not the booked coordinator
+ * (`isBookedCoordinator`, lib/coordinator-trade.ts). A seat held by somebody who is not a booked supplier — the
+ * couple's own planner, a co-host — is the hosts' own delegate and is never capped.
+ */
+export function supplierProposesOnly(seat: {
+  roleSubtype: string | null | undefined;
+  bookedSupplier: boolean;
+  bookedCoordinator: boolean;
+}): boolean {
+  return seat.roleSubtype === SUPPLIER_SEAT_ROLE && seat.bookedSupplier && !seat.bookedCoordinator;
+}
+
+/**
+ * What a seat REALLY gives on one area: {@link resolveAreaLevel}, then the supplier cap — 'edit' becomes 'view' for a
+ * supplier who proposes. Mirrors `moderator_area_level` exactly; where they differ the database wins.
+ */
+export function seatAreaLevel(
+  perms: ModeratorPermissions | null | undefined,
+  area: DelegateArea,
+  proposesOnly: boolean,
+): AreaLevel {
+  const level = resolveAreaLevel(perms, area);
+  return proposesOnly && level === 'edit' ? 'view' : level;
+}
+
 /**
  * TS mirror of public.moderator_area_level (migration 20261129000000).
  * areas[k] wins when the key is present; legacy flags fall back. Budget

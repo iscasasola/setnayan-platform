@@ -34,6 +34,7 @@ import {
   type ModeratorPermissions,
 } from '@/lib/event-moderators';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { isBookedCoordinator } from '@/lib/coordinator-trade';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { emitNotification } from '@/lib/notification-emit';
 import { foundYouLeadNotice, readFoundYou } from '@/lib/found-you';
@@ -44,6 +45,22 @@ export type AnswerResult = { ok: boolean; error?: string };
 
 function isArea(v: string): v is DelegateArea {
   return (DELEGATE_AREAS as readonly string[]).includes(v);
+}
+
+/** Is the asking shop the BOOKED COORDINATOR of this event? `isBookedCoordinator` over its services + its rows here. */
+async function askerIsBookedCoordinator(eventId: string, vendorProfileId: string | null): Promise<boolean> {
+  if (!vendorProfileId) return false;
+  const admin = createAdminClient();
+  const [shop, rows] = await Promise.all([
+    admin.from('vendor_profiles').select('services').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    admin.from('event_vendors').select('status').eq('event_id', eventId).eq('marketplace_vendor_id', vendorProfileId),
+  ]);
+  // A refused read answers "not the coordinator" — the narrower grant (view), never the wider one.
+  if (shop.error || rows.error) return false;
+  return isBookedCoordinator({
+    services: (shop.data as { services?: string[] | null } | null)?.services ?? null,
+    bookingStatuses: ((rows.data ?? []) as { status: string | null }[]).map((r) => r.status),
+  });
 }
 
 /**
@@ -72,7 +89,7 @@ export async function answerAccessRequest(
 
   const { data: reqRow, error: reqErr } = await supabase
     .from('event_access_requests')
-    .select('request_id, requester_user_id, requested_areas, status, kind')
+    .select('request_id, requester_user_id, requested_areas, status, kind, vendor_profile_id')
     .eq('request_id', requestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -136,9 +153,13 @@ export async function answerAccessRequest(
     // and since 2026-08-25 an area a map does not name resolves to nothing. The
     // host would have answered "yes, share the schedule" and taken away five
     // other things they never mentioned.
+    // 🧭 WHO ASKED decides the level (owner 8 Nov 2026): the booked coordinator gets Edit; any other supplier
+    // sees and proposes (`grantLevelFor`). The asker's shop + its booking on THIS event, read with the service role
+    // (a host cannot read another account's shop rows) — the TS mirror of `is_booked_coordinator`.
+    const askerIsCoordinator = await askerIsBookedCoordinator(eventId, (reqRow as { vendor_profile_id?: string | null }).vendor_profile_id ?? null);
     let merged: ModeratorPermissions = { ...base, areas: materializeAreas(base) };
     for (const area of granting) {
-      merged = withArea(merged, area, grantLevelFor(area));
+      merged = withArea(merged, area, grantLevelFor(area, { coordinator: askerIsCoordinator }));
     }
 
     const { data: granted, error: modErr } = await supabase.from('event_moderators').upsert(

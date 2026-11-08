@@ -318,11 +318,19 @@ test('an empty or junk ask normalizes to nothing rather than everything', () => 
   assert.deepEqual(normalizeRequestedAreas(['../etc/passwd']), []);
 });
 
-test('only the schedule is granted EDIT — everything else is read-only', () => {
-  assert.equal(grantLevelFor('schedule'), 'edit', 'advance and retime are writes');
-  assert.equal(grantLevelFor('seat_plan'), 'view');
-  assert.equal(grantLevelFor('guest_list'), 'view');
-  assert.equal(grantLevelFor('vendors'), 'view');
+test('a supplier who is not the coordinator is granted VIEW on every part — they see and propose (owner 8 Nov 2026)', () => {
+  const supplier = { coordinator: false };
+  for (const a of ['schedule', 'seat_plan', 'guest_list', 'vendors', 'mood_board', 'budget'] as DelegateArea[]) {
+    assert.equal(grantLevelFor(a, supplier), 'view', `${a}: a non-coordinator never writes directly`);
+  }
+});
+
+test('the booked coordinator is granted EDIT where a host can set Edit — never on the budget', () => {
+  const coordinator = { coordinator: true };
+  for (const a of ['schedule', 'seat_plan', 'guest_list', 'vendors', 'mood_board'] as DelegateArea[]) {
+    assert.equal(grantLevelFor(a, coordinator), 'edit', `${a}: the coordinator's own changes apply`);
+  }
+  assert.equal(grantLevelFor('budget', coordinator), 'view', 'Budget & payments is never Edit (locked D1)');
 });
 
 test('a partial yes is reported as partial, never as a full yes', () => {

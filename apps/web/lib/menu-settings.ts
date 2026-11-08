@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio' | 'client';
 
 export type SettingsEntry = {
   /**
@@ -193,6 +193,19 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'What Show includes.',
     live: false,
     tip: 'Settings for Portfolio only. Your shop’s own settings stay with your Shop.',
+  },
+  /**
+   * 🧑‍🤝‍🧑 THE PICKED CLIENT'S ⚙ (THE ONE BUILD, 8 Nov 2026 — spec B1 step 5: the picked client's pinned row is
+   * "‹✕› [initials] Event name · lane badge ⚙", built with `MenuSettingsButton`). HELD (`reserved`, not live): the spec
+   * names the door but not what its sheet holds, so the key exists for the Clients lane to name it and nothing is drawn
+   * behind it yet. Whoever rules its rows flips this to `first-row-gear` + `live: true` in the change that mounts it.
+   */
+  client: {
+    door: 'reserved',
+    sheet: 'Client settings',
+    line: 'Settings for this client only.',
+    live: false,
+    tip: 'Settings for this client only. What you set for every client stays in Clients settings.',
   },
 };
 

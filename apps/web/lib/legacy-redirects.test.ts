@@ -60,7 +60,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
   [`/dashboard/${EID}/website/dress-code`, `/dashboard/${EID}/studio/mood-board`],
   // 📷 THE PAPIC PAGE (owner 2026-10-26: "place that on home and remove that page") — its card is on Home › Today.
-  [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}?papic=open#papic`],
+  // 🔁 UPDATED ON PURPOSE 2026-11-08: the Papic card moved to Memories (THE ONE BUILD) — the retired page follows it.
+  [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}/memories?papic=open#papic`],
   // 🎬 R3 · THE THANK-YOU VIDEO MOVED TO MEMORIES (owner 2026-10-27; "all mapping will be kept", 2026-10-28).
   [`/dashboard/${EID}/studio/thank-you`, `/dashboard/${EID}/memories/thank-you`],
 ];

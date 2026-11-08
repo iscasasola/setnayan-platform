@@ -191,6 +191,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'home-switch-on': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
   'memories-albums': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-settings': 'app/_components/memories/event-memories-gallery.tsx',
+  'memories-papic': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-grid': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-search': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-add': 'app/_components/memories/event-memories-gallery.tsx',

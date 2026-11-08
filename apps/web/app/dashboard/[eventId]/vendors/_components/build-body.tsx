@@ -660,7 +660,7 @@ function BuildFigures({ view }: { view: BuildView }) {
       ) : null}
       <span className="pt-1 text-left text-[13px]">
         A line picks only from that category’s Yours — suppliers you asked who gave a price. A supplier without a price
-        can’t join a build; ask them first. Your budget is set on Home › Budget.
+        can’t join a build; ask them first. Your budget is set on Today › Budget.
       </span>
     </span>
   );

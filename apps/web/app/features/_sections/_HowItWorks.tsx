@@ -86,7 +86,7 @@ const COPY: Record<
         label: 'Host',
         who: 'You’re planning an event — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
         where: [
-          'Home · Guests · Suppliers · Hub · More — the guest list, seat plan, budget, schedule and mood board live here',
+          'Today · Guests · Suppliers · Memories · Hub — the guest list, seat plan, budget, schedule and mood board live here',
           'The Event Hub Maker: five stages, drafted until you press Apply',
           'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, more)',
         ],
@@ -95,7 +95,7 @@ const COPY: Record<
         label: 'Supplier',
         who: 'You sell to hosts. Free profile, optional paid tier for more reach.',
         where: [
-          'Today · Customers · Shop · Hub — the next thing to answer, your people and dates, your services and page, your event days',
+          'Today · Clients · Shop · Portfolio — the next thing to answer, your people, dates and event days, your services and page, your photos and videos',
           'Reply-only chat — hosts reach out, you reply with quotes + files',
           'Verification badge, reviews from completed events',
         ],
@@ -181,7 +181,7 @@ const COPY: Record<
         label: 'Host',
         who: 'Nagpaplano ka ng event — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
         where: [
-          'Home · Guests · Suppliers · Hub · More — nandito ang guest list, seat plan, budget, schedule at mood board',
+          'Today · Guests · Suppliers · Memories · Hub — nandito ang guest list, seat plan, budget, schedule at mood board',
           'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
           'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, at iba pa)',
         ],
@@ -190,7 +190,7 @@ const COPY: Record<
         label: 'Supplier',
         who: 'Nagbebenta ka sa mga host. Free profile, optional na bayad na tier para sa mas maraming reach.',
         where: [
-          'Today · Customers · Shop · Hub — ang susunod na sasagutin, ang mga tao at petsa mo, ang services at page mo, ang mga event day mo',
+          'Today · Clients · Shop · Portfolio — ang susunod na sasagutin, ang mga tao, petsa at event day mo, ang services at page mo, ang mga larawan at video mo',
           'Reply-only chat — ang host ang lalapit, ikaw ang sasagot with quotes + files',
           'Verification badge, reviews from completed events',
         ],

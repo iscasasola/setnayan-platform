@@ -470,7 +470,7 @@ function CreationsSection({
       />
       {rows.length === 0 ? (
         <SectionEmpty
-          message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Home."
+          message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Today."
           ctaLabel="Browse add-ons"
           href={studioHubHref(eventId)}
         />

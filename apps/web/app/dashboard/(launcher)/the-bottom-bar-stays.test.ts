@@ -123,7 +123,9 @@ test('the doors those rows carried are still on the account switcher', () => {
   // Deleting a component is only safe if the destination survives elsewhere.
   const switcher = code('app/_components/account-switcher/account-switcher.tsx');
   assert.match(switcher, /href="\/open-shop"/);
-  assert.match(switcher, /href="\/dashboard\/creator"/);
+  // Your Story's door moved from the sheet's tiles into the help centre (THE ONE BUILD, 2026-11-08 — the tiles are
+  // Help · Show me around · Sign out, DECISION_LOG 2026-11-07); the destination survives there.
+  assert.match(code('app/(shell)/help/page.tsx'), /href="\/dashboard\/creator"/);
 });
 
 test('the couple has no floating button over the bar (owner 2026-10-01)', () => {

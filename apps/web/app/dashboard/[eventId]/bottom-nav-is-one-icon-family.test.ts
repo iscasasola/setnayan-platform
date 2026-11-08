@@ -49,10 +49,12 @@ const FAMILY: ReadonlyArray<[CustomerMenuKey, LucideIcon, string]> = [
   ['home', House, 'lucide-house'],
   ['guests', BookUser, 'lucide-book-user'],
   ['explore', Store, 'lucide-store'],
-  ['launch', AppWindow, 'lucide-app-window'],
   // `studio` (More, Grip) left the bar and the rail 22 Oct 2026 — owner, verbatim "Yes remove more".
   // Memories joined after Hub 23 Oct 2026, wearing the account bar's Memories glyph (Sparkles).
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113: Today · Guests · Suppliers · Memories · Hub) — Memories
+  // now sits BEFORE Hub; the same five glyphs, NOT WEAKENED.
   ['memories', Sparkles, 'lucide-sparkles'],
+  ['launch', AppWindow, 'lucide-app-window'],
 ];
 
 /** The slot map production serves when nobody has overridden anything —

@@ -167,7 +167,7 @@ export default async function PakantaPage({ params }: Props) {
         href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> {appleIap ? 'Back to Home' : 'Back to services'}
+        <ArrowLeft aria-hidden className="h-4 w-4" /> {appleIap ? 'Back to Today' : 'Back to services'}
       </Link>
 
       <PageMasthead

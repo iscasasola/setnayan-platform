@@ -30,12 +30,6 @@ import path from 'node:path';
 
 const WEB = path.resolve(__dirname, '../../..');
 const NAME = 'Hub';
-/**
- * The TAB's word since 2026-10-21 (owner "Yes to all": the bar is Today ·
- * Customers · Shop · Hub — the couple's fourth word in the couple's slot). Since
- * 2026-11-05 the ROOM says the same word: its title, its headings, its back links.
- */
-const TAB_WORD = 'Hub';
 const OLD = /On the Day/;
 
 /** Every file that renders the room's NAME to a supplier. */
@@ -107,40 +101,36 @@ test('NO RENDERED SITE STILL SAYS "On the Day"', () => {
   }
 });
 
-test('the room and its tab — on the bar and the rail — both say Hub', () => {
+/*
+ * 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov 2026; THE ONE BUILD): the supplier bar is
+ * Today · Clients · Shop · Portfolio. The Event Hub ROOM stays — its name, its title, its address — but it has NO TAB:
+ * its pages light Clients (held in `the-hub-has-doors-without-a-tab.test.ts`). So the two tab assertions became:
+ * no bar or rail slot carries the room any more, and the ROUTE — the thing four systems read — is untouched.
+ */
+test('the room says Hub; it has no tab — no bar or rail slot carries it', () => {
   const registry = read('lib/nav-registry-defaults.ts');
-  // Both registry slots — the rail row AND the bar tab. The registry label wins
-  // over the word in the code, so a slot still saying "Event Hub" would put the
-  // old word back on a renamed tab with no error to notice.
-  const slots = [...registry.matchAll(/route: "\/vendor-dashboard\/on-the-day",\s*\n\s*label: "([^"]+)"/g)];
-  assert.equal(slots.length, 2, 'both registry slots must be found — a missed one is a stale label');
-  for (const m of slots) assert.equal(m[1], TAB_WORD);
-  // …and the code's own words agree with the registry's, on both menus.
-  assert.match(
-    stripComments(read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx')),
-    /key: 'onday',\s*\n\s*label: 'Hub',\s*\n\s*href: '\/vendor-dashboard\/on-the-day'/,
-  );
-  assert.match(
-    stripComments(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts')),
-    /key: 'on-the-day',\s*\n\s*label: 'Hub',\s*\n\s*href: '\/vendor-dashboard\/on-the-day'/,
-  );
-  // The room itself says the same word (and never the couple's "Event Hub" — suppliers-read-hub-not-event-hub.test.ts).
+  const slots = [...registry.matchAll(/key: "vendor\.(?:sidebar|bottom-nav)\.[^"]+",[\s\S]{0,400}?route: "\/vendor-dashboard\/on-the-day"/g)];
+  assert.equal(slots.length, 0, 'a registry slot still puts the Hub room on the bar or the rail');
+  assert.doesNotMatch(stripComments(read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx')), /key: 'onday'/);
+  assert.doesNotMatch(stripComments(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts')), /key: 'on-the-day'/);
+  // The room itself keeps its name.
   assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), new RegExp(`title: '${NAME} · Supplier'`));
 });
 
-test('🔒 THE KEY AND THE ROUTE ARE UNCHANGED — four systems read them, three silently', () => {
-  assert.match(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts'), /key: 'on-the-day',/);
-  assert.match(read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx'), /key: 'onday',/);
-  assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.sidebar\.on-the-day",/);
-  assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.bottom-nav\.onday",/);
+test('🔒 THE ROUTE IS UNCHANGED — the room is still where every door points', () => {
   for (const rel of [
     'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
     'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
-    'lib/nav-registry-defaults.ts',
+    'lib/page-home.ts',
   ]) {
     assert.ok(
       read(rel).includes('/vendor-dashboard/on-the-day'),
-      `${rel} must still point at the shipped route — the rename never moves the address`,
+      `${rel} must still point at the shipped route — the room never moves address`,
     );
   }
+  assert.match(
+    stripComments(read('app/vendor-dashboard/_components/vendor-nav-destinations.ts')),
+    /VENDOR_CLIENTS_EXTRA_MATCH: readonly string\[\] = \['\/vendor-dashboard\/on-the-day'/,
+    'the room no longer lights Clients',
+  );
 });

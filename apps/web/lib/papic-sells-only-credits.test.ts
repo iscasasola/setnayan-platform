@@ -118,7 +118,8 @@ test('🚨 the three retired camera sales REFUSE — couple-checked, and nothing
   for (const key of RETIRED_PAPIC_CAMERA_SALE_KEYS) {
     assert.ok(!new RegExp(`service_key:\\s*'${key}'`).test(src), `an order is minted under ${key} again`);
   }
-  assert.equal(papicCameraSaleRefusedPath('E'), `/dashboard/E?papic=open&papic_error=${PAPIC_CAMERA_SALE_REFUSED}#papic`);
+  // 🔁 UPDATED ON PURPOSE 2026-11-08: the refusal lands on the Papic card, which moved to Memories (THE ONE BUILD).
+  assert.equal(papicCameraSaleRefusedPath('E'), `/dashboard/E/memories?papic=open&papic_error=${PAPIC_CAMERA_SALE_REFUSED}#papic`);
 });
 
 test('the refusal is spoken on the page, once, and historical camera money is untouched', () => {

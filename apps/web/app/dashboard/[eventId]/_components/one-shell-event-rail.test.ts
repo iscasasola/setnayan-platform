@@ -255,7 +255,9 @@ test('the rail reproduces the five rows, from the shipped SSOT (More Services le
     groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
     // Owner 22 Oct 2026, verbatim "Yes remove more": the More Services row left with the bar's More.
     // Owner 23 Oct 2026: Memories — this event's photos — after Hub.
-    ['home', 'guests', 'explore', 'launch', 'memories'],
+    // 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): Today · Guests · Suppliers · Memories · Hub — Memories before Hub.
+    // Same five rows, no heading, no More — NOT WEAKENED.
+    ['home', 'guests', 'explore', 'memories', 'launch'],
   );
 });
 

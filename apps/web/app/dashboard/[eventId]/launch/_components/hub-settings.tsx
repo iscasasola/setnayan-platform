@@ -148,7 +148,7 @@ export function HubSettingsGear({
         {children}
 
         <p className="pt-4 text-[12.5px] leading-snug text-ink/55" data-hub-settings-elsewhere="">
-          Names, date, venues and parents are in Home › Event settings.
+          Names, date, venues and parents are in Today › Event settings.
         </p>
       </div>
     </MenuSettingsButton>

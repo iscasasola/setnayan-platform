@@ -41,7 +41,8 @@ test('(a) the chrome steps away (the bar below 1024, the top below 701) — 0.32
   assert.match(top, /html\[data-chrome-away\] \.fd\[data-chrome='app'\] \.fd-topwrap \{\s*transform: translateY\(-100%\);\s*transition: transform 0\.32s/);
   assert.match(top, /html\[data-chrome-back\] \.fd\[data-chrome='app'\] \.fd-topwrap \{\s*transition: transform 0\.32s cubic-bezier\(0\.2, 0\.8, 0\.2, 1\);/, 'the top bar’s way back is not the same curve');
   assert.match(FD, /@media \(max-width: 1023\.98px\) and \(prefers-reduced-motion: reduce\)/);
-  assert.match(FD, /@media \(max-width: 700\.98px\) and \(prefers-reduced-motion: reduce\)/);
+  // The top bar slides for everybody (find-walk-fixes #2: the pinned block and head carry no reduced-motion stop).
+  assert.doesNotMatch(FD, /prefers-reduced-motion[^}]*\{[^}]*\.fd-topwrap/);
 });
 
 test('(b) a re-tap on the ACTIVE tab tells the page; a handled one skips the tab’s own navigation', () => {

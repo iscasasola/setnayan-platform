@@ -3030,7 +3030,7 @@ html.dark .fd {
    `html[data-chrome-away]`; the top bar slides up, the bottom bar slides down, 0.32 s, and back the exact reverse.
    The bar's clearance drops to the safe-area inset, so a ThumbRow that stood on the bar settles where the bar was.
    The bottom bar: phone and tablet (below 1024; from 1024 the rail and the bar stay). The top bar: phone only (below
-   701; the tablet band's strip stays). Reduced motion: no slide, they simply go.
+   701; the tablet band's strip stays). Reduced motion: the bottom bar simply goes; the top bar slides for everybody.
    🔒 app/_components/nav/the-chrome-steps-away.test.ts */
 @media (max-width: 1023.98px) {
   html[data-chrome-away] [data-bottom-dock] {
@@ -3070,9 +3070,6 @@ html.dark .fd {
     transition: none;
   }
 }
-@media (max-width: 700.98px) and (prefers-reduced-motion: reduce) {
-  html[data-chrome-away] .fd[data-chrome='app'] .fd-topwrap,
-  html[data-chrome-back] .fd[data-chrome='app'] .fd-topwrap {
-    transition: none;
-  }
-}
+/* No reduced-motion stop for the TOP bar: it slides for everybody, as its scroll-hide does — the pinned block and the
+   pinned category head travel with it and carry no reduced-motion exception either
+   (🔒 app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts #2). */

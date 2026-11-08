@@ -2,6 +2,7 @@ import { PapicStayForm } from './papic-stay-form';
 import { ChallengeAddSheet } from './challenge-add-sheet';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { setCoupleChallengeActiveAction } from '../actions';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 type SlotMission = { mission_id: string; prompt: string; is_active: boolean; capture_kind?: string | null };
 
@@ -32,7 +33,7 @@ export function ChallengeCardRow({
   taken: readonly number[];
   mission: SlotMission | null;
   full: boolean;
-  returnTo?: 'home' | null;
+  returnTo?: PapicCardSeat | null;
 }) {
   const m = mission;
   return (

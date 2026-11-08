@@ -1,32 +1,22 @@
 /**
- * vendor-bar-is-four.test.ts — the supplier's bar is **Today · Customers · Shop ·
- * Hub**, and nothing More used to hold was lost on the way.
+ * supplier-bar-is-today-clients-shop-portfolio.test.ts — G1 of THE ONE BUILD (renamed with `git mv` from
+ * `vendor-bar-is-four.test.ts`, whose four-word part it replaces). The supplier's bar is **Today · Clients · Shop ·
+ * Portfolio**, and nothing More (or the Hub tab) used to reach was lost on the way.
  *
  * ── THE RULING ──────────────────────────────────────────────────────────────
- * Owner, verbatim, 2026-10-21: *"Yes to all"* — to the supplier-dashboard audit
- * (`shots-2026-10-21/supplier-dash-audit/AUDIT.md`), items 5 and 6:
- *   5. the bar becomes Today · Customers · Shop · Hub, NO More (the couple's four,
- *      #6725); Settings lives under the profile picture; Hub = the Event Hub;
- *   6. a crew helper gets the Hub on the day (the scanner), beside Today and
- *      Customers — a door, not wider data.
- * It supersedes DECISION_LOG 2026-10-01 answer 1 and 2026-10-08 answer 1.
+ * BARS LOCKED BY OWNER, 7 Nov 2026 (`SUPPLIER_DASHBOARD_BUILD_PLAN_2026-11-08.md`; THE ONE BUILD spec §1/§4): the bar is
+ * Today · Clients · Shop · Portfolio. The Hub leaves the bar — its room stays, opened from Today's next event, "Events you
+ * run" and the client page, and on the bar it lights Clients. "Customers" is called "Clients" (URL kept). Supersedes the
+ * 2026-10-21 "Today · Customers · Shop · Hub" and its helper-gets-the-Hub-on-the-day rule.
  *
  * ── THE PROPERTIES (each asked of the code's OWN resolvers, never a copy) ───
- *   1. An owner's bar is exactly those four, in that order, in the web AND in the
- *      iPhone app (the store shell's `barItemsForShell` drops none of them), and
- *      with the admin registry's default words applied (the registry wins over
- *      the code, so its words are the ones a supplier reads).
- *   2. The laptop rail says the same four words in the same order.
- *   3. A helper (agent / viewer, or a role that could not be read) gets Today ·
- *      Customers on a normal day and Today · Customers · Hub on an event day —
- *      on the bar and the rail alike.
- *   4. EVERY ROUTE THE OLD MORE REACHED IS STILL REACHABLE from the new shape:
- *      in one tap from what is always on screen (the bar, the top bar's envelope
- *      and bell, the profile picture's sheet) or in two (a Shop segment, a
- *      Settings row) — a redirect stub counting only if it lands on one of them.
- *      The old map is FROZEN below as it stood on `origin/main` before the cut —
- *      it is the thing being checked against, so it must not be derived from the
- *      code that replaced it.
+ *   1. An owner's bar is exactly those four, in that order, in the web AND in the iPhone app, with the registry's
+ *      default words applied (the registry wins over the code).
+ *   2. The laptop rail says the same four words in the same order and opens the same rooms.
+ *   3. No bar item, no rail row and no vendor registry slot routes to `/vendor-dashboard/on-the-day` any more.
+ *   4. A helper (agent / viewer, or a role that could not be read) gets Today · Clients on EVERY day.
+ *   5. EVERY ROUTE THE OLD MORE REACHED IS STILL REACHABLE (the frozen map below), now including the Hub through
+ *      Today's own doors.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,8 +41,9 @@ const VD = join(import.meta.dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(VD, rel), 'utf8'));
 const pathOf = (href: string) => href.split('#')[0]!.split('?')[0]!;
 
-const WORDS = ['Today', 'Customers', 'Shop', 'Hub'];
-const BAR_KEYS = ['profile', 'customers', 'shop', 'onday'];
+const WORDS = ['Today', 'Clients', 'Shop', 'Portfolio'];
+const BAR_KEYS = ['profile', 'customers', 'shop', 'portfolio'];
+const RAIL_KEYS = ['overview', 'customers', 'shop', 'portfolio'];
 
 /** The registry's default words, as the layout hands them to the bar (`getNavSlotMap` with no overrides). */
 const DEFAULT_SLOTS: Record<string, NavSlotLite> = Object.fromEntries(
@@ -64,7 +55,7 @@ const DEFAULT_SLOTS: Record<string, NavSlotLite> = Object.fromEntries(
 
 /* ══ 1 · the bar is the four — web, app shell, registry words ══════════════ */
 
-test('an owner’s bar is Today · Customers · Shop · Hub — on the web and in the iPhone app', () => {
+test('an owner’s bar is Today · Clients · Shop · Portfolio — on the web and in the iPhone app', () => {
   for (const role of ['owner', 'admin'] as const) {
     for (const navSlots of [undefined, DEFAULT_SLOTS]) {
       const items = vendorBarItems({ role, navSlots });
@@ -90,6 +81,7 @@ test('the laptop rail says the same four words, in the same order', () => {
   for (const navSlots of [undefined, DEFAULT_SLOTS]) {
     const rows = resolveVendorDestinations({ role: 'admin', navSlots });
     assert.deepEqual(rows.map((r) => r.label), WORDS, `the rail${navSlots ? ' (registry words)' : ''} disagrees with the bar`);
+    assert.deepEqual(rows.map((r) => r.key), RAIL_KEYS, 'the rail’s keys');
   }
   // Each tab and its rail row open the same room.
   const bar = vendorBarItems({ role: 'admin' }).map((i) => pathOf(i.href));
@@ -120,31 +112,43 @@ test('Today wears the storefront (Store), not a house — bar and rail, code and
   assert.equal(VENDOR_BOTTOM_NAV_ITEMS.find((i) => i.key === 'shop')?.icon, ShoppingBag);
 });
 
-/* ══ 3 · a helper: Today · Customers, plus the Hub on the day ══════════════ */
+/* ══ 3 · the Hub has no tab — anywhere ════════════════════════════════════ */
 
-test('a helper gets Today · Customers — and the Hub on an event day only, on the bar and the rail', () => {
+test('no bar item, no rail row and no vendor registry slot routes to the Hub room', () => {
+  const HUB = /\/vendor-dashboard\/on-the-day/;
+  for (const role of ['owner', 'admin', 'agent', 'viewer', null] as const) {
+    for (const i of vendorBarItems({ role, navSlots: DEFAULT_SLOTS })) {
+      assert.ok(!HUB.test(i.href) && i.key !== 'onday', `${role ?? 'unread role'}: the bar still carries the Hub (${i.key})`);
+    }
+    for (const r of resolveVendorDestinations({ role })) {
+      assert.ok(!HUB.test(r.href) && r.key !== 'on-the-day', `${role ?? 'unread role'}: the rail still carries the Hub (${r.key})`);
+    }
+  }
+  const slots = NAV_SLOT_DEFAULTS.filter((d) => d.key.startsWith('vendor.') && HUB.test(d.route ?? ''));
+  assert.deepEqual(slots.map((d) => d.key), [], 'a vendor registry slot still routes to the Hub room');
+  assert.ok(NAV_SLOT_DEFAULTS.some((d) => d.key === 'vendor.sidebar.portfolio'), 'the Portfolio rail slot is missing');
+  assert.ok(NAV_SLOT_DEFAULTS.some((d) => d.key === 'vendor.bottom-nav.portfolio'), 'the Portfolio bar slot is missing');
+});
+
+/* ══ 4 · a helper: Today · Clients, every day ══════════════════════════════ */
+
+test('a helper gets Today · Clients — on every day, on the bar and the rail', () => {
   const roles: (VendorTeamRole | null)[] = ['agent', 'viewer', null];
   for (const role of roles) {
     for (const storeShell of [false, true]) {
-      const plain = barItemsForShell(vendorBarItems({ role, navSlots: DEFAULT_SLOTS }), storeShell);
-      const day = barItemsForShell(vendorBarItems({ role, navSlots: DEFAULT_SLOTS, eventToday: true }), storeShell);
-      assert.deepEqual(plain.map((i) => i.label), ['Today', 'Customers'], `${role ?? 'unread role'}: a normal day`);
-      assert.deepEqual(day.map((i) => i.label), ['Today', 'Customers', 'Hub'], `${role ?? 'unread role'}: an event day — the scanner is in the Hub`);
+      const bar = barItemsForShell(vendorBarItems({ role, navSlots: DEFAULT_SLOTS }), storeShell);
+      assert.deepEqual(bar.map((i) => i.label), ['Today', 'Clients'], `${role ?? 'unread role'}: the helper's bar`);
     }
-    assert.deepEqual(resolveVendorDestinations({ role }).map((r) => r.label), ['Today', 'Customers']);
-    assert.deepEqual(resolveVendorDestinations({ role, eventToday: true }).map((r) => r.label), ['Today', 'Customers', 'Hub']);
+    assert.deepEqual(resolveVendorDestinations({ role }).map((r) => r.label), ['Today', 'Clients']);
   }
-  // The day never takes anything from an owner, and never adds Shop for a helper.
-  assert.deepEqual(vendorBarItems({ role: 'owner', eventToday: true }).map((i) => i.key), BAR_KEYS);
-  assert.ok(!vendorBarItems({ role: 'viewer', eventToday: true }).some((i) => i.key === 'shop'), 'a helper got Shop');
+  assert.ok(!vendorBarItems({ role: 'viewer' }).some((i) => i.key === 'shop' || i.key === 'portfolio'), 'a helper got Shop or Portfolio');
 });
 
-test('wiring: the layout asks the day for a helper only, fails closed, and hands it to the bar AND the rail', () => {
+test('wiring: the layout no longer reads the event day or the events you run for the nav', () => {
   const layout = read('layout.tsx');
-  assert.match(layout, /const eventToday =\s*vendorProfile\?\.vendor_profile_id && !canManageVendor\(vendorRole\)/, 'the day is read for owners too (they pay a read for nothing) or not gated on the role');
-  assert.match(layout, /hasDayToday\(days, phTodayIso\(\)\)\)\s*\.catch\(\(\) => false\)/, 'an unreadable day must hide the helper’s Hub, not show it');
-  assert.match(layout, /<VendorBottomNav[\s\S]*?eventToday=\{eventToday\}/, 'the bar is not told the day');
-  assert.match(layout, /<VendorRailContext[\s\S]*?eventToday=\{eventToday\}/, 'the rail is not told the day');
+  assert.doesNotMatch(layout, /eventToday|hasDayToday|runsEvents/, 'the layout still pays a read for a Hub tab that is gone');
+  assert.match(layout, /<VendorBottomNav\b/, 'premise: the layout still draws the bar');
+  assert.match(layout, /<VendorRailContext\b/, 'premise: the layout still draws the rail');
 });
 
 /* ══ 4 · every route the old More reached is still reachable ═══════════════ */
@@ -192,6 +196,13 @@ function oneTap(): Set<string> {
 function twoTaps(one: ReadonlySet<string>): Set<string> {
   const onePaths = new Set([...one].map(pathOf));
   const out = new Set<string>();
+  // Today's own doors (the bar's first tab): its next-event / event-day links and "Events you run" open the Hub room —
+  // the Hub's doors since it left the bar (THE ONE BUILD; `the-hub-has-doors-without-a-tab.test.ts` holds them).
+  if (onePaths.has('/vendor-dashboard')) {
+    for (const f of ['_components/supplier-today-first-screen.tsx', '_components/events-you-run-rows.tsx']) {
+      for (const m of read(f).matchAll(/['"`](\/vendor-dashboard\/[a-z-]+)(?=['"`/?#$])/g)) out.add(m[1]!);
+    }
+  }
   if (onePaths.has(pathOf(SHOP_SEGMENT_HREF.services))) for (const h of Object.values(SHOP_SEGMENT_HREF)) out.add(h);
   if (onePaths.has('/vendor-dashboard/settings')) {
     const settings = read('settings/settings-view.tsx') + read('settings/page.tsx');
@@ -215,7 +226,7 @@ function stubTarget(path: string): string | null {
   return /redirect\(\s*[`'"]([^`'"$]+)/.exec(src)?.[1] ?? null;
 }
 
-test('🔑 every route the old More reached is reachable from Today · Customers · Shop · Hub', () => {
+test('🔑 every route the old More reached is reachable from Today · Clients · Shop · Portfolio', () => {
   const one = oneTap();
   const near = new Set([...one, ...twoTaps(one)]);
   const nearPaths = new Set([...near].map(pathOf));

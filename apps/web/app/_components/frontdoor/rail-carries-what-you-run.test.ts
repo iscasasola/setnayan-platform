@@ -135,6 +135,13 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
     ("creator = user", owner-locked 2026-07-16), so the door that replaced the
     retired rail row must not be capability-gated.
   */
+  /*
+    🔁 RE-ANCHORED ON PURPOSE (THE ONE BUILD, 2026-11-08) — NOT WEAKENED. The account sheet's bottom tiles are
+    Help · Show me around · Sign out now (DECISION_LOG 2026-11-07 "Account sheet tiles"; §9 #5: "their destinations
+    stay reachable inside Help"). So the mounted chain is: the switcher's Help tile → /help → the Your Story link.
+    Both hops are held, and the property is unchanged: the door is open to every signed-in person, never gated on a
+    capability.
+  */
   const switcher = code(
     readFileSync(
       join(HERE, '../account-switcher/account-switcher.tsx'),
@@ -143,16 +150,25 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
   );
   assert.match(
     switcher,
-    /href="\/dashboard\/creator"/,
+    /const helpHref = supplierSheet \? '\/vendor-dashboard\/help' : referEvent \? `\/help\?refer=\$\{referEvent\}` : '\/help';/,
+    'the account sheet no longer opens Help — and Help is where Your Story moved.',
+  );
+  assert.match(switcher, /href=\{helpHref\}/, 'the Help tile is not drawn from helpHref');
+  const help = code(readFileSync(join(HERE, '../../(shell)/help/page.tsx'), 'utf8'));
+  assert.match(
+    help,
+    /\{user && !user\.is_anonymous \? \(\s*<p[^>]*data-help-your-story[\s\S]{0,200}?href="\/dashboard\/creator"/,
     'nothing anywhere opens Your Story, and the rail row that used to be one ' +
       'was retired on the promise that something does.',
   );
-  assert.doesNotMatch(
-    switcher,
-    /(isStoryteller|hasStory|chapterCount|hasVendor|isAdmin)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
-    'Your Story became capability-gated. Writing is open to every signed-in ' +
-      'person; gating it hides a desk they are entitled to.',
-  );
+  for (const [name, file] of [['switcher', switcher], ['help', help]] as const) {
+    assert.doesNotMatch(
+      file,
+      /(isStoryteller|hasStory|chapterCount|hasVendor|isAdmin)\s*(\?|&&)[\s\S]{0,200}?dashboard\/creator/,
+      `${name}: Your Story became capability-gated. Writing is open to every signed-in ` +
+        'person; gating it hides a desk they are entitled to.',
+    );
+  }
 });
 
 test('Shop and HQ sit inside My Home — no second group, no "What you run"', () => {

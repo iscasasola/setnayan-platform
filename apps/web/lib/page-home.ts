@@ -30,7 +30,7 @@
  *   account  Events `/dashboard` · Discover `/` · Memories `/dashboard/library` · People `/dashboard/people`
  *            (`app/dashboard/(launcher)/_components/account-bottom-nav.tsx`)
  *   event    Home · Guests · Suppliers · Hub · Memories (`lib/customer-menu.ts` `buildEventMenuSections`)
- *   supplier Today · Customers · Shop · Hub (`app/vendor-dashboard/_components/vendor-nav-destinations.ts`)
+ *   supplier Today · Clients · Shop · Portfolio (`app/vendor-dashboard/_components/vendor-nav-destinations.ts`, THE ONE BUILD 8 Nov)
  *   admin    Today · People · Money · More (`app/admin/_components/admin-bottom-nav.tsx`)
  *
  * Pure and dependency-free: a server page, a client component and the guard all ask the same function.
@@ -61,14 +61,14 @@ export const BAR_ROOTS = {
     '/dashboard/[eventId]',
     '/dashboard/[eventId]/guests',
     '/dashboard/[eventId]/vendors',
-    '/dashboard/[eventId]/launch',
     '/dashboard/[eventId]/memories',
+    '/dashboard/[eventId]/launch',
   ],
   supplier: [
     '/vendor-dashboard',
     '/vendor-dashboard/customers',
     '/vendor-dashboard/shop',
-    '/vendor-dashboard/on-the-day',
+    '/vendor-dashboard/collections',
   ],
   admin: ['/admin', '/admin/directory', '/admin/money', '/admin/more'],
 } as const;
@@ -85,7 +85,7 @@ const LABELS: Record<string, string> = {
   '/dashboard/people?view=samahan': 'Groups',
   '/dashboard/profile': 'Settings',
   '/dashboard/create-event': 'New event',
-  '/dashboard/[eventId]': 'Home',
+  '/dashboard/[eventId]': 'Today',
   '/dashboard/[eventId]/guests': 'Guests',
   '/dashboard/[eventId]/vendors': 'Suppliers',
   '/dashboard/[eventId]/launch': 'Hub',
@@ -93,8 +93,11 @@ const LABELS: Record<string, string> = {
   '/dashboard/[eventId]/galleries': 'Memories',
   '/[slug]': 'Event Hub',
   '/vendor-dashboard': 'Today',
-  '/vendor-dashboard/customers': 'Customers',
+  '/vendor-dashboard/customers': 'Clients',
   '/vendor-dashboard/shop': 'Shop',
+  '/vendor-dashboard/collections': 'Portfolio',
+  // The supplier's Hub room is no tab any more (THE ONE BUILD) — its own heading's word ("Hub", never the couple's
+  // "Event Hub" — owner 2026-11-05), for the live console's ‹.
   '/vendor-dashboard/on-the-day': 'Hub',
   '/admin': 'Today',
   '/admin/more': 'All surfaces',
@@ -216,6 +219,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // `/services` is a redirect into the Shop (audit ⚠, kept).
   '/vendor-dashboard/services/*': { home: '/vendor-dashboard/shop' },
   '/vendor-dashboard/on-the-day/live/[eventId]': { home: '/vendor-dashboard/on-the-day' },
+  // THE ONE BUILD (8 Nov 2026): the Event Hub room left the bar — it lives under a picked client, so ‹ goes to Clients;
+  // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
+  '/vendor-dashboard/on-the-day': { home: '/vendor-dashboard/customers' },
+  '/vendor-dashboard/moodboard-library': { home: '/vendor-dashboard/collections' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).

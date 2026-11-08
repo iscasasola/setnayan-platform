@@ -1247,7 +1247,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             on={remindersOn}
             id="planning-reminders"
             label="Planning reminders"
-            help="Nudges on Home for when to book each supplier."
+            help="Nudges on Today for when to book each supplier."
           >
             <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
           </SwitchRow>

@@ -19,14 +19,17 @@ const STUDIO = [
   { key: 'mood-board', href: `${BASE}/studio/mood-board`, name: 'Mood Board' },
 ];
 
-const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
+// 🔁 UPDATED ON PURPOSE, 2026-11-08 — NOT WEAKENED. BARS LOCKED BY OWNER (7 Nov; THE ONE BUILD spec §9 #3): Memories
+// comes before Hub — Today · Guests · Suppliers · Memories · Hub. Same strictness: the exact five, the exact order.
+const FIVE = ['home', 'guests', 'explore', 'memories', 'launch'];
 
 test('the bar is the owner’s five, in the owner’s order, in every phase', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
     assert.deepEqual(tree.map((m) => m.key), FIVE, `${phase}: the bar rearranged itself`);
-    // The rail's words (owner 2026-10-01 "Home - Guests - Suppliers - Hub", More gone 22 Oct 2026, Memories 23 Oct).
-    assert.deepEqual(tree.map((m) => m.label), ['Home', 'Guests', 'Suppliers', 'Hub', 'Memories']);
+    // The rail's words (owner 2026-10-01 "Home - Guests - Suppliers - Hub", More gone 22 Oct 2026, Memories 23 Oct;
+    // THE ONE BUILD 7 Nov 2026: Home is called Today, Memories before Hub).
+    assert.deepEqual(tree.map((m) => m.label), ['Today', 'Guests', 'Suppliers', 'Memories', 'Hub']);
   }
 });
 
@@ -44,7 +47,7 @@ test('a product is never a tab — Papic is a row on Home › Your services', ()
 test('hideKeys drops Your Team for a vendor-free kind — in every phase', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const keys = buildCustomerMenuTree(EVENT_ID, { phase, hideKeys: ['explore'], websiteEnabled: true }).map((m) => m.key);
-    assert.deepEqual(keys, ['home', 'guests', 'launch', 'memories']);
+    assert.deepEqual(keys, ['home', 'guests', 'memories', 'launch']);
   }
   // Empty hideKeys is a no-op.
   assert.deepEqual(

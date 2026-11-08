@@ -34,6 +34,7 @@ import { fetchPickerRows, sanitizeQuery, type PickerRow } from '@/lib/papic-chal
 import { CATEGORY_LABELS, CATEGORY_ORDER, type ChallengeCategory } from '@/lib/papic-challenge-categories';
 import { formatCount } from '@/lib/format-number';
 import { addLibraryChallengeAction, createCoupleChallengeAction } from '../actions';
+import type { PapicCardSeat } from '@/lib/papic-home-href';
 
 type Read = { rows: PickerRow[]; total: number } | 'loading' | 'unread';
 
@@ -51,7 +52,7 @@ export function ChallengeAddSheet({
   taken: readonly number[];
   /** 10 already running — nothing more may be turned on. */
   full: boolean;
-  returnTo: 'home' | null;
+  returnTo: PapicCardSeat | null;
   /**
    * 🎚 One of the card's ten rows: `mission` is the challenge in it now (null = a slot still to choose). The trigger is
    * the row's name; a pick replaces it in place.

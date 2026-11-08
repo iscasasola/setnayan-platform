@@ -287,7 +287,8 @@ test('WAVE 8 — removing the chrome did not strand the operator', () => {
   // strip's exit link is now the only one, so it must be labelled and reachable.
   /* RE-AIMED 2026-10-21 (iPhone 1.1, `lib/the-app-opens-what-apple-sells.test.ts`): where Apple sells in the app the
      same exit goes Home (the web's buy page stays refused there) and says so. Same property — one labelled way out. */
-  assert.match(src, /aria-label=\{appleIap \? 'Leave the controller — back to Home' : 'Leave the controller — back to Live Watch'\}/);
+  // 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): the event's first tab is named Today now; the label follows it — NOT WEAKENED.
+  assert.match(src, /aria-label=\{appleIap \? 'Leave the controller — back to Today' : 'Leave the controller — back to Live Watch'\}/);
   assert.match(src, /const exitHref = appleIap \? `\/dashboard\/\$\{eventId\}` : detailHref;/);
   assert.match(src, /href=\{exitHref\}/);
 });

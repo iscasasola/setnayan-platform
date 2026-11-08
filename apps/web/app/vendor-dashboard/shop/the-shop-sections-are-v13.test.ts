@@ -34,7 +34,9 @@ test('1 · the v13 sections + Promote, in the approved order and words — and t
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
     ['Details', 'Services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
   );
-  for (const s of SHOP_SEGMENT_ORDER) {
+  // 🖼 THE ONE BUILD (L1, 2026-11-08): the gallery's address is the PORTFOLIO tab now — it names Portfolio until the Shop
+  // lane drops the segment (C4), which then also drops 'Portfolio' from the list above and this filter.
+  for (const s of SHOP_SEGMENT_ORDER.filter((x) => x !== 'gallery')) {
     const m = supplierPageMenuOf(SHOP_SEGMENT_HREF[s], null);
     assert.equal(m?.tab, 'Shop', `${s} does not name Shop`);
     assert.equal(m?.section, SHOP_SEGMENT_LABEL[s], `${s}: the bar menu names "${m?.section}"`);

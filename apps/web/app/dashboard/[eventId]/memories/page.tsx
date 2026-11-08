@@ -33,6 +33,38 @@ import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
 import { memoriesNotice } from '@/lib/memories-notice';
 import { memoriesManagerRole } from '@/lib/memories-rules.server';
+import { Suspense } from 'react';
+import { SERVICE_NAMES } from '@/lib/service-names';
+import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
+import { papicGlance } from '@/lib/papic-glance';
+import { papicCardPhase } from '@/lib/papic-home-card';
+import { papicIsOn } from '@/lib/event-answers';
+import { PapicCard, type PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { PapicChapterRead } from '@/app/dashboard/[eventId]/_components/papic-chapter-read';
+import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PAPIC_OUTCOME_KEYS, PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-outcome-banners';
+import { PapicSelfHeal } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-self-heal';
+import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
+/* 🛑 KEEP. The Papic card moved here from Home (THE ONE BUILD, v113), and its settings open Event Settings with the
+   server action `openEventSettings`, which RETURNS RENDERED ROWS (the Maker's editors). Next can only send those when
+   THIS ROUTE's server files reach them — the same crash Home fixed on 2026-10-29 (see the matching import in
+   `../page.tsx`). This side-effect import puts the action, and so the editors it draws, in Memories' server graph.
+   🔒 `../_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
+import '../_components/open-event-settings';
+
+/**
+ * The outcome keys this page's OWN notice line already says (`memoriesNotice`: Google Drive, adding photos, a
+ * supplier's photos) — never said twice, so the Papic card is handed every OTHER Papic outcome only.
+ */
+const SAID_BY_THE_NOTICE: ReadonlySet<string> = new Set([
+  'drive_connected',
+  'drive_disconnected',
+  'drive_error',
+  'uploads_ready',
+  'uploads_error',
+  'uploads_open_set',
+  'vendorMedia',
+]);
 import type { MemoriesManagerRole } from '@/lib/memories-rules';
 
 export const metadata = { title: 'Memories' };
@@ -68,7 +100,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   const [eventRes, membershipRes, seesAll, count, iap] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, papic_window_start, papic_window_end, papic_uploads_open, venue_latitude, venue_longitude')
+      .select('event_id, event_date, papic_on, papic_window_start, papic_window_end, papic_uploads_open, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
     supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
@@ -82,6 +114,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   const ev = eventRes.data as
     | {
         event_date: string | null;
+        papic_on?: unknown;
         papic_window_start: string | null;
         papic_window_end: string | null;
         papic_uploads_open: boolean | null;
@@ -129,6 +162,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   let addPhotos: React.ReactNode = null;
   let addCell: { line: string; tip: string } | null = null;
   let keepsakes: React.ReactNode = null;
+  let papicCard: React.ReactNode = null;
   if (host) {
     /* 📖 THE KEEPSAKE ROW'S READS (owner 2026-10-31, "Build both") — each card's OWN read, started now so they run beside
        the camera work below, and read ONCE: the answer sizes the row's button AND is handed to the card in its sheet.
@@ -140,6 +174,13 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       readServicePart(eventId, 'papic'),
     ]);
     keepsakeReads.catch(() => undefined);
+    /* 📷 THE PAPIC CARD'S ONE READ (2026-11-08, Papic moved here from Today) — the SAME reader Today uses
+       (`resolvePapicHomeTile`), started now beside the keepsakes. A refusal is 'failed' → the card's counts say "—",
+       never 0. Drawn where Today drew it: the couple's, on the web, and in the app only where Apple sells. */
+    const papicCardShown = !iap.storeShell || iap.iap;
+    const papicTileRead = papicCardShown
+      ? resolvePapicHomeTile(createAdminClient(), eventId, true).catch((): 'failed' => 'failed')
+      : null;
     // ⚠ ABSENT MEANS OPEN — the switch's own rule (`the-uploads-switch-is-real.test.ts`), read off the one event select.
     const uploadsRow = ev;
     const uploadsOpen = uploadsRow?.papic_uploads_open ?? true;
@@ -209,6 +250,86 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     /* 🔑 Keyed: its props carry ASYNC server cards, so the element reaches the client still resolving, and React (dev)
        then asks it for a list key where the gallery draws it among its siblings (measured in the lab, 2026-10-31). */
     keepsakes = <MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />;
+
+    /*
+      📷 PAPIC — ONE CARD, IN MEMORIES (THE ONE BUILD, owner 8 Nov 2026: *"Papic + Thank You into Memories"*; supersedes
+      2026-10-26 "THE PAPIC CARD LIVES ON HOME › TODAY"). The card Today drew, moved whole: the head switch, Total ·
+      Taken · Remaining, Add more, the chapter row, and every Papic setting in place under its › (`seat="memories"`,
+      so each save lands back HERE). Thank You is already this page's keepsake door — never two doors (`thankYouHref:
+      null`). Old links (`/studio/papic…`, `/dashboard/<id>?papic=open…`) forward here (`lib/legacy-redirects.ts`).
+    */
+    if (papicCardShown) {
+      const tile = papicTileRead ? await papicTileRead : 'failed';
+      const papicSwitch = ev?.papic_on;
+      const papicOn = papicSwitch === undefined ? null : papicIsOn(papicSwitch);
+      const now = papicGlance({
+        permitted: true,
+        tile,
+        window: { startDate: win?.startDate ?? null, endIso: win?.endIso ?? null },
+        eventDate: ev?.event_date ?? null,
+        papicOn,
+      });
+      const outcomes: PapicOutcomes = {};
+      for (const k of PAPIC_OUTCOME_KEYS) {
+        const v = search[k];
+        if (!SAID_BY_THE_NOTICE.has(k) && typeof v === 'string') outcomes[k] = v;
+      }
+      const poolError = typeof search.papic_pool_error === 'string' ? search.papic_pool_error : null;
+      // The Add more is this page's own, exactly: Apple's sheet in the app · the web's sheet on the web — opened on
+      // arrival when a purchase answered with an error or `?buy=1`.
+      const cardBuy = iap.iap ? (
+        <IapPapicSheet eventId={eventId} left={now.count} label="Add more" />
+      ) : (
+        <PapicBuySheet
+          eventId={eventId}
+          left={now.count}
+          tone="brand"
+          main
+          label="Add more"
+          defaultOpen={Boolean(poolError) || search.buy === '1'}
+          error={poolError}
+        />
+      );
+      const card: PapicCardInput = {
+        phase: win ? papicCardPhase(win.startIso, win.endIso, Date.now()) : null,
+        thankYouHref: null,
+        headControl: (
+          <Suspense fallback={null}>
+            <PapicHeadControl eventId={eventId} papicOn={papicOn} />
+          </Suspense>
+        ),
+        headLine: (
+          <Suspense fallback={SERVICE_NAMES.papic.brand}>
+            <PapicHeadLine eventId={eventId} papicOn={papicOn} />
+          </Suspense>
+        ),
+        counts: { total: now.total, left: now.count },
+        buy: cardBuy,
+        chapter: (
+          <Suspense fallback={null}>
+            <PapicChapterRead eventId={eventId} />
+          </Suspense>
+        ),
+        defaultOpen: hasPapicOutcome(outcomes) || Boolean(poolError),
+        settings: (
+          <>
+            {hasPapicOutcome(outcomes) ? (
+              <div className="pb-4" data-papic-card-outcome="">
+                <PapicOutcomeBanners eventId={eventId} search={outcomes} appleIap={iap.iap} />
+              </div>
+            ) : null}
+            <Suspense fallback={null}>
+              <PapicCameraSettings eventId={eventId} seat="memories" />
+            </Suspense>
+            <PapicCameraHelp appleIap={iap.iap} />
+            <Suspense fallback={null}>
+              <PapicSelfHeal eventId={eventId} />
+            </Suspense>
+          </>
+        ),
+      };
+      papicCard = <PapicCard key="papic" card={card} />;
+    }
   }
 
   return (
@@ -257,6 +378,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       addPhotos={addPhotos}
       addCell={addCell}
       keepsakes={keepsakes}
+      papic={papicCard}
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
       // 🏷 Tag in the viewer — the hosts and the coordinator (the 2026-10-30 Memories ruling); the action re-checks.

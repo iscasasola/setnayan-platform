@@ -32,7 +32,7 @@
  * `lib/guests-read-is-honest.test.ts`): a couple with 180 names must never be
  * told "0 coming" because a query was refused.
  */
-import { papicHomeHref } from '@/lib/papic-home-href';
+import { papicCardHref } from '@/lib/papic-home-href';
 import { recordFieldHref } from '@/lib/event-details-record';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
@@ -687,7 +687,7 @@ export type DayPapicView =
 
 export function dayPapicView(face: DayPapicFace, svc: HomeService | undefined, eventId: string): DayPapicView {
   if (face === 'hidden' || !svc) return { kind: 'hidden' };
-  const papicHref = papicHomeHref(eventId);
+  const papicHref = papicCardHref(eventId);
   if (face === 'row' && svc.papic) return { kind: 'row', doors: { ...svc.papic, whileNext: undefined } };
   if (face === 'off' || face === 'none' || face === 'failed') {
     const href = face === 'off' ? recordFieldHref(eventId, 'papic-answer') : papicHref;

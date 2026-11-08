@@ -53,7 +53,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
   `PAGE` is that component, its "render" is its final `return null`, and Home is checked for drawing it unconditionally.
 */
 const PAGE = readFileSync(resolve(HERE, '..', '_components', 'papic-self-heal.tsx'), 'utf8');
-const HOME = readFileSync(resolve(HERE, '..', '..', '..', 'page.tsx'), 'utf8');
+const MEMORIES = readFileSync(resolve(HERE, '..', '..', '..', 'memories', 'page.tsx'), 'utf8');
 
 /** Comments stripped — a guard must never pass on the prose explaining it. */
 const CODE = PAGE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
@@ -141,14 +141,17 @@ test('the page still renders (this guard is about ORDER, not absence)', () => {
   assert.ok(prologue().length < CODE.length, 'the prologue is the whole file — there is no render');
 });
 
-test('🚨 Home draws the self-heal on every couple render — never behind the open state or an answer from the URL', () => {
-  const at = HOME.indexOf('const papicCard: PapicCardInput | null =');
-  const card = HOME.slice(at, HOME.indexOf(': null;', at));
-  assert.ok(at > 0, 'premise: Home builds the Papic card');
+// 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, owner: "Papic + Thank You into Memories"): the card moved whole from
+// Home to Memories, so the heal is read where the card is built now — the same three checks, NOT WEAKENED.
+test('🚨 Memories draws the self-heal on every couple render — never behind the open state or an answer from the URL', () => {
+  const at = MEMORIES.indexOf('const card: PapicCardInput = {');
+  const card = MEMORIES.slice(at, MEMORIES.indexOf('papicCard = <PapicCard', at));
+  assert.ok(at > 0, 'premise: Memories builds the Papic card');
   const heal = card.indexOf('<PapicSelfHeal eventId={eventId} />');
   assert.ok(heal > 0, 'the self-heal left the Papic card');
   // Not inside the outcome branch (`hasPapicOutcome(search) ? (…) : null`), which only a save's answer opens.
-  const outcome = card.indexOf('hasPapicOutcome(search) ? (');
+  const outcome = card.indexOf('hasPapicOutcome(outcomes) ? (');
+  assert.ok(outcome > 0, 'premise: the card has its outcome branch');
   const outcomeEnd = card.indexOf(') : null}', outcome);
   assert.ok(!(heal > outcome && heal < outcomeEnd), 'the self-heal runs only when the URL carries an outcome');
   // The card's settings are drawn closed too (the region is `inert`, never unmounted), so the heal runs folded.

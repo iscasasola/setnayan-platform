@@ -52,7 +52,7 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
       role="dialog"
       aria-modal="true"
       aria-label={`${title} — Show`}
-      className="fixed inset-0 z-50 flex flex-col bg-black text-white"
+      className="fixed inset-0 z-sn-modal flex flex-col bg-black text-white"
       data-portfolio-show=""
     >
       <div className="flex items-center justify-between px-4 pb-2 pt-[max(env(safe-area-inset-top),12px)]">

@@ -467,6 +467,21 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'payment_dispute_settled_by_user_id',
     why: 'Which Setnayan admin settled the dispute. The permanent history of that decision is admin_audit_log; the stamp on the couple’s row goes with the admin’s account.',
   },
+  // Supplier Build 2 lane E (2026-11-08) — a refund a supplier records giving a
+  // client money back. Plain uuids, no foreign key, nullable (migration
+  // 20271328327292). The row is the shop's record AND the couple's (they read
+  // it with their payments); erasing the staffer who typed it must not erase
+  // what was given back.
+  {
+    table: 'event_vendor_refunds',
+    column: 'recorded_by_user_id',
+    why: 'Which supplier-side account recorded the refund. An actor stamp on a money record both the shop and the couple read — the stamp goes, the refund stays.',
+  },
+  {
+    table: 'event_vendor_refunds',
+    column: 'removed_by_user_id',
+    why: 'Which supplier-side account took the refund back (swipe-left remove). An actor stamp; the removal time stays.',
+  },
   {
     table: 'vendor_reuse_requests',
     column: 'requested_by_user_id',

@@ -201,12 +201,13 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
 
 /** #34 lab rows — one per group. */
 const LAB_BOOKED_QRS: BookedQrRow[] = [
-  { token: 'a1b2c3d4e5f60718', title: 'Full-day coverage', line: 'Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
+  { token: 'a1b2c3d4e5f60718', title: 'Ana & Ben', line: 'Full-day coverage · Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
   { token: 'b1b2c3d4e5f60718', title: 'Same-day edit', line: 'Sun 10 Jan · ₱15,000 · ₱5,000 paid · used 2 Nov', status: 'claimed', openHref: '/dev/clients-lab?v=pick&page=details' },
   { token: 'c1b2c3d4e5f60718', title: 'Prenup shoot', line: 'Sat 6 Feb · ₱30,000 · ₱10,000 paid · deleted 1 Nov', status: 'void', openHref: null },
 ];
 const LAB_BOOKED_CHANGE: LockedQrInitial = {
   replaces: 'a1b2c3d4e5f60718',
+  clientName: 'Ana & Ben',
   eventType: 'wedding',
   eventDate: '2026-12-19',
   description: 'Full-day coverage, two shooters',

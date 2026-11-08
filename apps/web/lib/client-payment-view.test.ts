@@ -50,3 +50,15 @@ test('4 · booked, no plan, nothing logged: no figures — never "₱0 · all pa
   assert.deepEqual([v.agreedPhp, v.paidPhp, v.collectPhp, v.next], [null, null, null, null]);
   assert.equal(v.partial, false);
 });
+
+test('5 · B2-E refunds the shop gave: Paid drops by them, To collect is Agreed less that; refused refunds are partial', () => {
+  const steps = [step(1, 'Downpayment', 8000, '2026-10-01', 'paid'), step(2, 'Balance', 30000, '2026-11-01', 'due')];
+  const none = clientPaymentView({ steps, clearedAt: null, ledgerMoney: NO_LEDGER, ledgerUnreadable: false, today: '2026-11-07' });
+  const v = clientPaymentView({ steps, clearedAt: null, ledgerMoney: NO_LEDGER, ledgerUnreadable: false, today: '2026-11-07', refundedPhp: 3000 });
+  assert.deepEqual([v.agreedPhp, v.paidPhp, v.collectPhp], [38000, 5000, 33000]);
+  assert.equal(Math.round(v.meter.paidPct), 13);
+  assert.equal(v.partial, false);
+  assert.deepEqual(clientPaymentView({ steps, clearedAt: null, ledgerMoney: NO_LEDGER, ledgerUnreadable: false, today: '2026-11-07', refundedPhp: 0 }), none, 'no refund changed a figure');
+  const unread = clientPaymentView({ steps, clearedAt: null, ledgerMoney: NO_LEDGER, ledgerUnreadable: false, today: '2026-11-07', refundedPhp: null });
+  assert.equal(unread.partial, true, 'a refused refunds read drew a Paid figure that ignores them, silently');
+});

@@ -23,6 +23,8 @@ type QuoteLineDraft = { key: string; label: string; amount: string; fromRef: str
 /** A waiting code being CHANGED (void + reissue — a printed code cannot change): everything it said, filled in. */
 export type LockedQrInitial = {
   replaces: string;
+  /** Who the code is for (`client_name`) — '' when the code never said. */
+  clientName: string;
   eventType: string;
   eventDate: string;
   description: string;
@@ -222,6 +224,8 @@ export function LockedQrGenerator({
     initial?.eventDate ?? (/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : ''),
   );
   const [serviceDescription, setServiceDescription] = useState(initial?.description ?? '');
+  // 👤 Who the code is for (lane B2-E, row #34's leftover): the Booked QRs list names the code by it.
+  const [clientName, setClientName] = useState(initial?.clientName ?? '');
   const [contractId, setContractId] = useState(initial?.contractId ?? '');
   // Clean numeric strings (no separators) — displayed with thousands commas.
   const [total, setTotal] = useState(initial?.total ?? '');
@@ -407,6 +411,23 @@ export function LockedQrGenerator({
       <input type="hidden" name="initial_paid_php" value={initialPaid} />
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-ink/10 bg-white/60 p-5 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2" data-locked-qr-client="">
+          <label htmlFor="client_name" className="block text-sm font-medium text-ink/80">
+            Client name
+          </label>
+          <input
+            id="client_name"
+            name="client_name"
+            type="text"
+            maxLength={120}
+            autoComplete="off"
+            className="input-field w-full"
+            placeholder="e.g. Ana & Ben"
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+          />
+          <p className="text-xs text-ink/50">Who this code is for — your Booked QRs list names it by this.</p>
+        </div>
         <div className="space-y-1.5">
           <label htmlFor="event_type" className="block text-sm font-medium text-ink/80">
             Event

@@ -9,6 +9,8 @@
  *   PAYMENT PLAN · FROZEN ON BOOKING — the shipped kind-26 rows (`PriceSummary` over `priceSummaryOf`);
  *   PAYMENTS THE COUPLE LOGGED — each answered here with the shipped `PendingPaymentAnswer`
  *     (**Confirm received** · **Not received** → `confirmVendorPayment` / `refuseVendorPayment`);
+ *   REFUNDS YOU GAVE — B2-E: each refund the shop recorded for this client (tap opens · swipe left removes + Undo) and
+ *     **Record a refund** (`ClientRefunds` → `recordClientRefund`, confirmed before it writes). Paid drops by them;
  *   ASKS — the shipped `PaymentAsksPanel` (amount · note · by date · asked day · Take it back), handed in by the page;
  *   the reservation-policy line (moved here from the client page, spec §9 #2) and one footer line.
  *
@@ -38,6 +40,8 @@ import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/v
 import { SupplierThumbRow } from '../../../_components/supplier-thumb-row';
 import { BookingMoneySummary } from '../_components/booking-money-summary';
 import { customerLandingHref } from '../../../customers/anchors';
+import { ClientRefunds, type ClientRefundView } from '../_components/client-refunds';
+import { refundedTotalPhp } from '@/lib/client-refunds';
 import type { PickedPageProps } from './context';
 
 function fmtShortDate(iso: string | null): string {
@@ -84,11 +88,13 @@ export type PaymentPageProps = PickedPageProps & {
   money?: PaymentMoney;
   /** The shipped `PaymentAsksPanel`, drawn by the page (it posts the shipped `vendorAskForPayment`). */
   asks?: ReactNode;
+  /** 💸 B2-E: the refunds this shop recorded for this booking (one read by the page). Absent → no refunds section. */
+  refunds?: { eventVendorId: string; clientName: string; measured: boolean; rows: ClientRefundView[] };
 };
 
 const H = 'text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55';
 
-export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, asks }: PaymentPageProps) {
+export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, asks, refunds }: PaymentPageProps) {
   if (!money) {
     return (
       <>
@@ -97,7 +103,11 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
       </>
     );
   }
-  const view = clientPaymentView(money);
+  const view = clientPaymentView({
+    ...money,
+    // Paid is what they paid LESS what the shop gave back; a refused refunds read is "part of this couldn't load".
+    refundedPhp: refunds ? (refunds.measured ? refundedTotalPhp(refunds.rows) : null) : 0,
+  });
   const cardPath = `/vendor-dashboard/clients/${ctx.eventId}?tab=payments`;
   const nothing = view.plan === null && !view.partial && money.ledgerMoney.rows.length === 0;
   return (
@@ -190,6 +200,16 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {refunds ? (
+        <ClientRefunds
+          eventId={ctx.eventId}
+          eventVendorId={refunds.eventVendorId}
+          clientName={refunds.clientName}
+          refunds={refunds.rows}
+          measured={refunds.measured}
+        />
       ) : null}
 
       {asks ? (

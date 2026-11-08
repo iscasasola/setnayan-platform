@@ -82,12 +82,14 @@ type TokenRow = {
   service_description: string | null;
   event_date: string | null;
   voided_at: string | null;
+  client_name: string | null;
 };
 
 const DATES_HREF = '/vendor-dashboard/customers?seg=dates';
 
 type EditTokenRow = {
   token: string;
+  client_name: string | null;
   event_type: string | null;
   event_date: string | null;
   service_description: string | null;
@@ -107,6 +109,7 @@ function lockedQrInitialOf(t: EditTokenRow | null): LockedQrInitial | null {
   const peso = (v: number | string | null) => (v == null ? '' : String(Number(v)));
   return {
     replaces: t.token,
+    clientName: t.client_name ?? '',
     eventType: t.event_type ?? '',
     eventDate: t.event_date ?? '',
     description: t.service_description ?? '',
@@ -213,7 +216,7 @@ export default async function VendorQrCodesPage({
   const [ledgerRead, issuedRead] = await Promise.all([
     supabase
       .from('vendor_locked_qr_tokens')
-      .select('token, public_id, category, total_php, initial_paid_php, status, created_at, claimed_at, claimed_event_id, service_description, event_date, voided_at')
+      .select('token, public_id, category, total_php, initial_paid_php, status, created_at, claimed_at, claimed_event_id, service_description, event_date, voided_at, client_name')
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false }),
     search.issued
@@ -236,9 +239,11 @@ export default async function VendorQrCodesPage({
         const total = t.total_php != null ? Number(t.total_php) : null;
         return {
           token: t.token,
-          // #34: the deal's own words first ("Full-day coverage"), its kind when it has none (older codes).
-          title: t.service_description?.trim() || kindLabel(t.category),
+          // 👤 B2-E: who the code is for first ("Ana & Ben"); then #34's deal words ("Full-day coverage"); its kind when it
+          // has neither (older codes).
+          title: t.client_name?.trim() || t.service_description?.trim() || kindLabel(t.category),
           line: [
+            t.client_name?.trim() ? t.service_description?.trim() || kindLabel(t.category) : null,
             t.event_date ? day(t.event_date) : null,
             total != null ? formatPhp(total) : 'No total',
             `${formatPhp(Number(t.initial_paid_php ?? 0))} paid`,
@@ -304,7 +309,7 @@ export default async function VendorQrCodesPage({
       search.edit
         ? supabase
             .from('vendor_locked_qr_tokens')
-            .select('token, event_type, event_date, service_description, vendor_service_ids, source_contract_id, total_php, initial_paid_php, schedule_json, quote_line_items, proof_r2_key, remembrance_r2_key')
+            .select('token, client_name, event_type, event_date, service_description, vendor_service_ids, source_contract_id, total_php, initial_paid_php, schedule_json, quote_line_items, proof_r2_key, remembrance_r2_key')
             .eq('token', search.edit)
             .eq('vendor_profile_id', vendorProfileId)
             .eq('status', 'pending')

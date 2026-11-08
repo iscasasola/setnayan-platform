@@ -14,6 +14,11 @@
  *     and never ₱0.
  * A plan with an amount not resolved yet has no honest total: Agreed is `null` ("—") and To collect is a floor ("+").
  *
+ * 💸 REFUNDS THE SUPPLIER GAVE (lane B2-E, `event_vendor_refunds`): Paid is what they paid LESS what went back — the
+ * money the shop actually holds of theirs — and To collect is Agreed less that. A refund never edits the Agreed price
+ * (that is the quote's job); the refund rows say what went back. Refunds refused → `partial` ("part of this couldn't
+ * load"), never a Paid figure that silently ignores them.
+ *
  * 🔒 lib/client-payment-view.test.ts
  */
 import { priceSummaryOf, priceToday, type PriceSummary } from '@/lib/price-summary';
@@ -30,6 +35,8 @@ export type ClientPaymentInput = {
   ledgerUnreadable: boolean;
   /** `YYYY-MM-DD` in Manila (`priceToday`). */
   today?: string;
+  /** What the shop recorded giving back (`refundedTotalPhp`); `null` = the refunds read was refused. Absent = 0. */
+  refundedPhp?: number | null;
 };
 
 export type ClientPaymentView = {
@@ -47,6 +54,22 @@ export type ClientPaymentView = {
 };
 
 export function clientPaymentView(input: ClientPaymentInput): ClientPaymentView {
+  const base = grossPaymentView(input);
+  const refunded = input.refundedPhp;
+  if (refunded === null) return base.plan === null && base.paidPhp === null ? base : { ...base, partial: true };
+  if (!refunded || refunded <= 0 || base.paidPhp === null) return base;
+  const paid = Math.max(0, Math.round((base.paidPhp - refunded) * 100) / 100);
+  const agreed = base.agreedPhp;
+  return {
+    ...base,
+    paidPhp: paid,
+    collectPhp: base.collectPhp === null ? null : agreed === null ? Math.round((base.collectPhp + refunded) * 100) / 100 : Math.max(0, Math.round((agreed - paid) * 100) / 100),
+    meter: { ...base.meter, paidPct: agreed && agreed > 0 ? Math.min(100, (paid / agreed) * 100) : 0 },
+  };
+}
+
+/** The figures before any refund — the plan's fold, else the payday ledger. */
+function grossPaymentView(input: ClientPaymentInput): ClientPaymentView {
   const today = input.today ?? priceToday();
   const plan = input.steps && input.steps.length > 0 ? priceSummaryOf(input.steps, 'supplier', { clearedAt: input.clearedAt, today }) : null;
   if (plan) {

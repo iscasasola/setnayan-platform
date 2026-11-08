@@ -274,6 +274,7 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'app/admin/website-media/actions.ts': 'admin-only, named bucket',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx': 'the vendor’s own captures',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx': 'the vendor’s own album',
+  'app/vendor-dashboard/collections/collections-data.ts': 'R2_BUCKETS.media constant — the vendor’s own Papic portfolio album (server-written r2_object_key, admin-read for this vendor), the same rows and signing as portfolio-album-section',
 };
 
 test('only the known files call a raw signer', () => {

@@ -1,6 +1,8 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isR2Configured, r2Delete, r2List } from '@/lib/r2';
+import { isR2Configured, r2List } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { vendorFormMediaScope } from '@/lib/cleanup-delete-scope';
 import { runClaimedJob } from '@/lib/periodic-jobs';
 import { DAILY_GAP_MS } from '@/lib/periodic-job-registry';
 import { FORM_MEDIA_BUCKET, formMediaFolder, formMediaOrphans } from '@/lib/form-media-sweep-core';
@@ -33,9 +35,10 @@ export async function maybeRunFormMediaSweep(): Promise<void> {
       const refs = ((rows ?? []) as { media_keys: string[] | null }[]).flatMap((r) => r.media_keys ?? []);
       const folder = formMediaFolder(shop);
       const listed = await r2List({ bucket: FORM_MEDIA_BUCKET, prefix: folder });
+      // Through the ONE delete choke point, pinned to this shop's forms folder (lib/cleanup-delete-scope.ts).
+      const scope = vendorFormMediaScope(shop);
       for (const key of formMediaOrphans(listed.objects, refs, folder, Date.now())) {
-        await r2Delete({ bucket: FORM_MEDIA_BUCKET, key });
-        deleted += 1;
+        if ((await cleanupDelete(`r2://${FORM_MEDIA_BUCKET}/${key}`, scope)) === 'deleted') deleted += 1;
       }
     }
     return deleted;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useId, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useId, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { formatCount } from '@/lib/format-number';
 import { ChevronRight, ClipboardList, FolderOpen, Plus } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ThumbRow } from '@/components/thumb-row';
@@ -53,7 +54,6 @@ export function FormsPageBody({
   answersOpen: boolean;
   shopId: string;
 }) {
-  const router = useRouter();
   const loadTitle = useId();
   const [maker, setMaker] = useState<{ open: boolean; draft: FormDraft | null }>({ open: false, draft: null });
   const [loadOpen, setLoadOpen] = useState(false);
@@ -64,15 +64,15 @@ export function FormsPageBody({
   const edit = (f: ShopForm) =>
     setMaker({ open: true, draft: { formId: f.formId, title: f.title, items: f.items.map(draftItemOf), serviceIds: f.serviceIds } });
   const fresh = () => setMaker({ open: true, draft: null });
-  const useSuggestion = (templateKey: string) =>
+  const copySuggestion = (templateKey: string) =>
     startUse(async () => {
       const fd = new FormData();
       fd.set('op', 'use');
       fd.set('template_key', templateKey);
       fd.set('return_path', returnPath);
       const r = await formsAction({ status: 'idle' }, fd);
+      // The action revalidated this page — its answer already carries the new render (no second refresh).
       setSaid(r.status === 'error' ? r.message : r.status === 'saved' ? r.message : null);
-      router.refresh();
     });
 
   return (
@@ -90,7 +90,7 @@ export function FormsPageBody({
             <ul className="space-y-2" data-forms-sent>
               {event.sent.map((s) => (
                 <li key={s.formId}>
-                  <button type="button" className={ROW} aria-expanded={openSent === s.formId} onClick={() => setOpenSent((k) => (k === s.formId ? null : s.formId))}>
+                  <SentHead open={openSent === s.formId} onToggle={() => setOpenSent((k) => (k === s.formId ? null : s.formId))}>
                     <span className="min-w-0">
                       <span className="block truncate text-[15px] font-medium text-ink">{s.title}</span>
                       <span className="block text-[12px] text-ink/60">
@@ -102,9 +102,9 @@ export function FormsPageBody({
                         s.total > 0 && s.answered === s.total ? 'bg-success-100 text-success-800' : 'bg-warn-100 text-warn-900'
                       }`}
                     >
-                      {s.total === 0 ? 'No questions' : `${s.answered} of ${s.total} answered`}
+                      {s.total === 0 ? 'No questions' : `${formatCount(s.answered)} of ${formatCount(s.total)} answered`}
                     </span>
-                  </button>
+                  </SentHead>
                   {openSent === s.formId ? (
                     <div className="mt-1 space-y-2 rounded-xl bg-ink/[0.03] px-3.5 py-3" data-forms-answers={s.formId}>
                       {!answersOpen ? (
@@ -240,7 +240,7 @@ export function FormsPageBody({
             heading={`Suggested for ${suggestions?.serviceLabel ?? 'your service'}`}
             items={suggestions?.own ?? null}
             emptyLine="No suggested forms for this service yet"
-            onUse={useSuggestion}
+            onUse={copySuggestion}
             busy={using}
           />
           {suggestions && suggestions.alsoUseful.length > 0 ? (
@@ -248,7 +248,7 @@ export function FormsPageBody({
               heading={`Also useful for ${suggestions.groupLabel ?? 'your service'}`}
               items={suggestions.alsoUseful}
               emptyLine=""
-              onUse={useSuggestion}
+              onUse={copySuggestion}
               busy={using}
             />
           ) : null}
@@ -269,10 +269,7 @@ export function FormsPageBody({
 
       <FormMaker
         open={maker.open}
-        onClose={() => {
-          setMaker((m) => ({ ...m, open: false }));
-          router.refresh();
-        }}
+        onClose={() => setMaker((m) => ({ ...m, open: false }))}
         initial={maker.draft}
         cards={cards}
         locks={locks}
@@ -310,7 +307,7 @@ function SuggestionList({
             <span className="min-w-0">
               <span className="block truncate text-[15px] font-medium text-ink">{s.title}</span>
               <span className="block text-[12px] text-ink/60">
-                {s.itemCount} question{s.itemCount === 1 ? '' : 's'}
+                {formatCount(s.itemCount)} question{s.itemCount === 1 ? '' : 's'}
               </span>
             </span>
             <button
@@ -340,4 +337,24 @@ function Unread({ what }: { what: string }) {
 function formatDay(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
+}
+
+/** A sent form's head — opens its answers in place and glides them into view (the shared reveal-on-open). */
+function SentHead({ open, onToggle, children }: { open: boolean; onToggle: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: ref.current, end: ref.current?.nextElementSibling ?? null }));
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={ROW}
+      aria-expanded={open}
+      onClick={() => {
+        intend();
+        onToggle();
+      }}
+    >
+      {children}
+    </button>
+  );
 }

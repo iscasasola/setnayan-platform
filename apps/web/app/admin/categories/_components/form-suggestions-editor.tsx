@@ -5,6 +5,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { ChosenRow, TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { Plus } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 import { formSuggestionsAction, type FormSuggestionsState } from '../form-suggestion-actions';
 
 type Template = { key: string; title: string; count: number; active: boolean };
@@ -48,7 +49,7 @@ export function FormSuggestionsEditor({
               <SwipeToDelete key={k} as="li" label={`Stop suggesting ${t?.title ?? k}`} word="Remove" onDelete={() => run({ op: 'suggest_remove', template_key: k })}>
                 <div className="flex min-h-12 items-center justify-between gap-3 px-1">
                   <span className="text-[15px] text-ink">{t?.title ?? k}</span>
-                  <span className="text-[12px] text-ink/60">{t ? `${t.count} question${t.count === 1 ? '' : 's'}` : ''}</span>
+                  <span className="text-[12px] text-ink/60">{t ? `${formatCount(t.count)} question${t.count === 1 ? '' : 's'}` : ''}</span>
                 </div>
               </SwipeToDelete>
             );

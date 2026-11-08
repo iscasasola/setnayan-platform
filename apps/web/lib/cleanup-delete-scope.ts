@@ -376,6 +376,17 @@ export function couplePhotoLookScope(shareId: unknown): CleanupScope {
   ]);
 }
 
+/**
+ * 📋 `vendor_questions.media_keys` — a Form Maker media file (THE ONE BUILD · Forms): `vendors/<vendor_profile_id>/forms/…`
+ * in media. Only that shop's forms folder — its logo, portfolio and showcase beside it are never this cleanup's.
+ * Deleted by the form-media sweep (lib/form-media-sweep.server.ts) when no item references the file.
+ */
+export function vendorFormMediaScope(vendorProfileId: unknown): CleanupScope {
+  const v = safeId(vendorProfileId);
+  if (!v) return emptyScope('vendor_questions');
+  return mintScope(`vendor_questions:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/forms/`] }]);
+}
+
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */
 export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);

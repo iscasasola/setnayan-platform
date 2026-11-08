@@ -68,7 +68,7 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
       .from('form_templates')
       .insert({ template_key: key, title, items, updated_by: user.userId, updated_at: new Date().toISOString() });
     if (error) return { status: 'error', message: error.message };
-    await admin.from('admin_audit_log').insert({
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action: 'forms.template_new',
       target_table: 'form_templates',
       target_id: key,
@@ -76,6 +76,7 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
       after_json: { title, items: items.length },
       actor_user_id: user.userId,
     });
+    if (auditErr) console.error('[formSuggestionsAction] audit row not written:', auditErr.message);
     if (categoryId) {
       const { error: sErr } = await admin.from('category_form_suggestions').insert({ category_id: categoryId, template_key: key, sort_order: 0 });
       if (sErr) return { status: 'error', message: `Saved the form, but couldn’t suggest it here: ${sErr.message}` };
@@ -88,13 +89,14 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
     const key = String(formData.get('template_key') ?? '');
     if (!categoryId || !key) return { status: 'error', message: 'Missing form.' };
     if (op === 'suggest_add') {
-      const { data: last } = await admin
+      const { data: last, error: lastErr } = await admin
         .from('category_form_suggestions')
         .select('sort_order')
         .eq('category_id', categoryId)
         .order('sort_order', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (lastErr) return { status: 'error', message: lastErr.message };
       const sort_order = ((last as { sort_order: number } | null)?.sort_order ?? -1) + 1;
       const { error } = await admin.from('category_form_suggestions').insert({ category_id: categoryId, template_key: key, sort_order });
       if (error) return { status: 'error', message: error.message };
@@ -102,7 +104,7 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
       const { error } = await admin.from('category_form_suggestions').delete().eq('category_id', categoryId).eq('template_key', key);
       if (error) return { status: 'error', message: error.message };
     }
-    await admin.from('admin_audit_log').insert({
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
       action: `forms.${op}`,
       target_table: 'category_form_suggestions',
       target_id: `${categoryId}:${key}`,
@@ -110,6 +112,7 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
       after_json: { category_id: categoryId, template_key: key },
       actor_user_id: user.userId,
     });
+    if (auditErr) console.error('[formSuggestionsAction] audit row not written:', auditErr.message);
     revalidatePath(CATEGORIES_PATH);
     return { status: 'ok', message: op === 'suggest_add' ? 'Suggested here.' : 'No longer suggested here.' };
   }

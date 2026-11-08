@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useId, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { formatCount } from '@/lib/format-number';
 import { GripVertical, ListChecks, Plus, Send, Video } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
@@ -113,6 +115,8 @@ export function FormMaker({
       fd.set('return_path', returnPath);
       const saved = await formsAction({ status: 'idle' }, fd);
       if (saved.status !== 'saved') {
+        // A half-saved NEW form keeps its id, so the next Save updates it instead of making a second one.
+        if (saved.status === 'error' && saved.formId) setFormId(saved.formId);
         setState(saved);
         return;
       }
@@ -326,19 +330,13 @@ export function FormMaker({
                       >
                         <GripVertical className="h-4 w-4" aria-hidden />
                       </button>
-                      <button
-                        type="button"
-                        className="flex min-h-14 min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-3 text-left"
-                        aria-expanded={openKey === r.key}
-                        onClick={() => setOpenKey((k) => (k === r.key ? null : r.key))}
-                        data-fm-open={i}
-                      >
+                      <RevealHead open={openKey === r.key} onToggle={() => setOpenKey((k) => (k === r.key ? null : r.key))} index={i}>
                         <span className="min-w-0">
                           <span className="block truncate text-[15px] font-medium text-ink">{rowName(r) || 'Untitled'}</span>
                           <span className="block text-[12px] text-ink/60">{rowLine(r)}</span>
                         </span>
                         {r.kind === 'video_link' ? <Video className="h-4 w-4 flex-none text-ink/50" aria-hidden /> : null}
-                      </button>
+                      </RevealHead>
                     </div>
                     {openKey === r.key ? <ItemEditor row={r} shopId={shopId} onChange={(p) => patch(r.key, p)} /> : null}
                   </div>
@@ -358,7 +356,7 @@ export function FormMaker({
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
           <div className="min-w-0">
             <InfoTip label="Link to service card" labelAs="p" labelClassName="text-[15px] font-medium text-ink" align="start">
-              Sent to the couple automatically when they book this service — once their deposit is confirmed.
+              Sent to the couple automatically when they book this service — once their first payment is confirmed.
             </InfoTip>
             <p className="text-[12px] text-ink/60">Pick as many</p>
           </div>
@@ -396,7 +394,7 @@ function rowName(r: FormItemDraft): string {
 
 function rowLine(r: FormItemDraft): string {
   if (r.kind === 'question') return `Question line · ${answerTypeLabel(r.answerType)}${r.required ? ' · required' : ''}`;
-  if (r.kind === 'media') return `Media files · ${r.mediaKeys.length} file${r.mediaKeys.length === 1 ? '' : 's'}`;
+  if (r.kind === 'media') return `Media files · ${formatCount(r.mediaKeys.length)} file${r.mediaKeys.length === 1 ? '' : 's'}`;
   return `Video link${r.url.trim() ? ' · preview' : ''}`;
 }
 
@@ -479,12 +477,32 @@ function ItemEditor({ row, shopId, onChange }: { row: FormItemDraft; shopId: str
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']}
         compressImage
         compressVideo
-        variant="gallery"
         label="Files"
         help="Photos, short videos or a PDF — up to 10."
         currentValue={row.mediaKeys.length ? row.mediaKeys : null}
         onChange={(v) => onChange({ mediaKeys: Array.isArray(v) ? v : v ? [v] : [] })}
       />
     </div>
+  );
+}
+
+/** A row's head that opens the item IN PLACE — and, like every fold, glides it into view (the shared reveal-on-open). */
+function RevealHead({ open, onToggle, index, children }: { open: boolean; onToggle: () => void; index: number; children: ReactNode }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: ref.current, end: ref.current?.parentElement?.nextElementSibling ?? null }));
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="flex min-h-14 min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-3 text-left"
+      aria-expanded={open}
+      onClick={() => {
+        intend();
+        onToggle();
+      }}
+      data-fm-open={index}
+    >
+      {children}
+    </button>
   );
 }

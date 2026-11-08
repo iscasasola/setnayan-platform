@@ -11,6 +11,7 @@
  * read ONE copy of the rules.
  */
 import { parseVideoLink } from '@/lib/video-embed';
+import { formatCount } from '@/lib/format-number';
 import { ANSWER_MAX, QUESTION_HINT_MAX, QUESTION_PROMPT_MAX } from '@/lib/emcee-questions';
 
 export const FORM_TITLE_MAX = 120;
@@ -217,8 +218,8 @@ export function liveItems<T extends { is_asked: boolean; display_order: number }
 /** How the library row reads its size: "8 questions" / "2 items". */
 export function formSizeLine(items: readonly { item_kind: string }[]): string {
   const q = items.filter((i) => i.item_kind === 'question').length;
-  if (q === items.length) return `${q} question${q === 1 ? '' : 's'}`;
-  return `${items.length} item${items.length === 1 ? '' : 's'}`;
+  if (q === items.length) return `${formatCount(q)} question${q === 1 ? '' : 's'}`;
+  return `${formatCount(items.length)} item${items.length === 1 ? '' : 's'}`;
 }
 
 /** "used with N" — how many events a form has been sent into. */

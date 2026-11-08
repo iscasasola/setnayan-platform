@@ -41,7 +41,8 @@ export type FormsActionState =
   | { status: 'saved'; formId: string; message: string }
   | { status: 'sent'; formId: string; message: string }
   | { status: 'retired'; formId: string }
-  | { status: 'error'; message: string };
+  /** `formId` set when the form row exists although a later step failed — the next save updates it, never duplicates. */
+  | { status: 'error'; message: string; formId?: string };
 
 const NOT_SAVED = 'We couldn’t save this form. Nothing you typed was lost — please try again.';
 
@@ -121,7 +122,7 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
       }
     }
     const saved = await saveDraft(supabase, shop, draft);
-    if ('error' in saved) return { status: 'error', message: saved.error };
+    if ('error' in saved) return { status: 'error', message: saved.error, formId: saved.formId };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
     return { status: 'saved', formId: saved.formId, message: 'Saved to your library' };
   }
@@ -176,7 +177,7 @@ async function saveDraft(
   shop: string,
   draft: FormDraft,
   fromTemplateKey?: string,
-): Promise<{ formId: string } | { error: string }> {
+): Promise<{ formId: string } | { error: string; formId?: string }> {
   const now = new Date().toISOString();
   const title = draft.title.trim();
   let formId = draft.formId;
@@ -206,7 +207,7 @@ async function saveDraft(
     .eq('vendor_profile_id', shop)
     .eq('form_id', formId)
     .eq('is_asked', true);
-  if (exErr) return { error: NOT_SAVED };
+  if (exErr) return { error: NOT_SAVED, formId };
   const keep = new Set<string>();
   for (const [i, it] of draft.items.entries()) {
     const base = itemRow(it, i);
@@ -220,10 +221,10 @@ async function saveDraft(
         .eq('question_id', it.id)
         .eq('form_id', formId)
         .select('question_id');
-      if (error || !data || data.length !== 1) return { error: NOT_SAVED };
+      if (error || !data || data.length !== 1) return { error: NOT_SAVED, formId };
     } else {
       const { error } = await supabase.from('vendor_questions').insert({ ...row, vendor_profile_id: shop, form_id: formId });
-      if (error) return { error: NOT_SAVED };
+      if (error) return { error: NOT_SAVED, formId };
     }
   }
   const dropped = ((existing ?? []) as { question_id: string }[]).map((r) => r.question_id).filter((id) => !keep.has(id));
@@ -233,13 +234,13 @@ async function saveDraft(
       .update({ is_asked: false, updated_at: now })
       .eq('form_id', formId)
       .in('question_id', dropped);
-    if (error) return { error: NOT_SAVED };
+    if (error) return { error: NOT_SAVED, formId };
   }
 
   // Links: exactly the picked cards.
   const want = new Set(draft.serviceIds);
   const { data: links, error: lErr } = await supabase.from('vendor_form_service_links').select('vendor_service_id').eq('form_id', formId);
-  if (lErr) return { error: NOT_SAVED };
+  if (lErr) return { error: NOT_SAVED, formId };
   const have = new Set(((links ?? []) as { vendor_service_id: string }[]).map((l) => l.vendor_service_id));
   const add = [...want].filter((s) => !have.has(s));
   const remove = [...have].filter((s) => !want.has(s));
@@ -247,11 +248,11 @@ async function saveDraft(
     const { error } = await supabase
       .from('vendor_form_service_links')
       .insert(add.map((vendor_service_id) => ({ form_id: formId, vendor_service_id })));
-    if (error) return { error: 'Saved — but a service card could not be linked. Please try again.' };
+    if (error) return { error: 'Saved — but a service card could not be linked. Please try again.', formId };
   }
   if (remove.length) {
     const { error } = await supabase.from('vendor_form_service_links').delete().eq('form_id', formId).in('vendor_service_id', remove);
-    if (error) return { error: 'Saved — but a service card could not be unlinked. Please try again.' };
+    if (error) return { error: 'Saved — but a service card could not be unlinked. Please try again.', formId };
   }
   return { formId: formId! };
 }

@@ -47,7 +47,8 @@ export function questionChains(src: string): string[] {
 
 export function chainScopesTheForm(chain: string): boolean {
   if (/\.insert\(/.test(chain)) return true;
-  return /\.(is|in|eq)\(\s*['"]form_id['"]/.test(chain);
+  // `.not('form_id', 'is', null)` names the library explicitly (the form-media sweep) — scoped, not the shipped set.
+  return /\.(is|in|eq|not)\(\s*['"]form_id['"]/.test(chain);
 }
 
 test('every vendor_questions chain outside the Forms code scopes form_id', () => {

@@ -331,10 +331,13 @@ export function CustomersCalendar({
       ) : null}
       {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
       <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
+        {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
+            (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}
         <CalendarGrid
+          key={month}
           value={picked}
           today={todayIso}
-          startAt={`${initialMonth}-01`}
+          startAt={`${month}-01`}
           states={states}
           onPick={toggleDay}
           onMonth={goToMonth}

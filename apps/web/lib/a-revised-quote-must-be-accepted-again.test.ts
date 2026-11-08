@@ -250,8 +250,11 @@ test('the supplier’s page sends the revise destination, opens the panel for it
   const v = read(VENDOR);
   assert.equal(count(v, /reviseHref=\{`\?compose=quote`\}/g), 1, 'reviseHref not passed exactly once');
   assert.match(v, /sp\?\.compose === 'quote' \? 'quote'/, '?compose=quote is not parsed on the server');
-  assert.match(v, /t\.id === 'build-quote' && composeMode === 'quote'/, 'the Build-a-quote panel does not open for ?compose=quote');
-  assert.equal(count(v, /revision=\{quoteRevision\}/g), 1, 'ProposalMaker is not handed the revision seed exactly once');
+  /* The panels are drawn by `vendorToolsFor(cm)`, called with the page's parsed `composeMode` (renamed in the drawer,
+     2026-11-07 — same rule). */
+  assert.match(v, /t\.id === 'build-quote' && cm === 'quote'/, 'the Build-a-quote panel does not open for ?compose=quote');
+  assert.match(v, /const vendorTools = vendorToolsFor\(composeMode\);/, 'the panels are not drawn for the parsed ?compose=');
+  assert.equal(count(v, /revision=\{cm === 'quote' \? quoteRevision : null\}/g), 1, 'ProposalMaker is not handed the revision seed exactly once');
   assert.match(v, /seedQuoteRevision\(/, 'the seed is not built from the live quote');
   assert.match(v, /\.in\('status', \['sent', 'viewed', 'accepted'\]\)/, 'the live quote is not selected by the live statuses');
   // The couple's page never offers Update this quote — it has no builder.

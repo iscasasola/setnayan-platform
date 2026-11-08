@@ -267,8 +267,11 @@ test('4 · an unread payday says "couldn’t load" on a booked row — never "No
 
 test('5 · an outside client opens in place and its Remove asks once, posts the shipped action, and comes back to Events', () => {
   assert.match(MORE, /<Fold\b[\s\S]{0,400}data="outside-client"/, 'an outside client does not open in place');
-  const remove = MORE.slice(MORE.indexOf('<ConfirmForm'), MORE.indexOf('</ConfirmForm>'));
+  // It asks first and saves in place (owner 2026-10-26 "a save never resets the screen") — `StayConfirmForm`, the confirm
+  // whose yes goes through the stay door.
+  const remove = MORE.slice(MORE.indexOf('<StayConfirmForm'), MORE.indexOf('</StayConfirmForm>'));
   assert.ok(remove.length > 0, 'Remove no longer asks first');
+  assert.match(remove, /door="supCalendar\.removeBlock"/, 'Remove does not save in place through its door');
   assert.match(remove, /action=\{removeBlock\}/);
   assert.match(remove, /name="return_to" value="events"/);
   assert.match(remove, /<SupplierSubmit tone="danger"/, 'Remove is not the delete look');

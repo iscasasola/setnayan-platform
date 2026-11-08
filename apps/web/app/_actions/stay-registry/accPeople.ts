@@ -29,7 +29,7 @@ const ACC_PEOPLE_WORDS: StayWords = {
     return q.has('saved') || q.has('removed') ? null : NOTHING_CHANGED;
   },
 };
-const accPeople = kind(ACC_PEOPLE_WORDS, null);
+const accPeople = kind(ACC_PEOPLE_WORDS, false);
 
 export const ACC_PEOPLE: Readonly<Record<AccPeopleStayDoor, Door>> = {
   'accPeople.addDependent': accPeople(addDependent),

@@ -15,7 +15,6 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { formatCount } from '@/lib/format-number';
 import { crewMealLines, crewMealTotal, mealsWords } from '@/lib/crew-meals';
 import { StayForm } from '@/app/_components/stay-form';
-import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 export const metadata = { title: 'Production Sheet · Supplier' };
 
@@ -411,7 +410,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
           <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold">
             <Plus aria-hidden className="h-4 w-4" /> Add a portion rule
           </summary>
-          <StayResetForm door="supClients.addPortionRule" action={addPortionRule} className="mt-3 grid gap-2">
+          <StayForm door="supClients.addPortionRule" action={addPortionRule} className="mt-3 grid gap-2">
             <input type="hidden" name="event_id" value={eventId} />
             <div className="grid gap-2 sm:grid-cols-3">
               <input type="text" name="label" required maxLength={120} placeholder="Item, e.g. Rice" className={shopInputClass} />
@@ -453,7 +452,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Save rule
             </SubmitButton>
-          </StayResetForm>
+          </StayForm>
         </details>
       </div>
 

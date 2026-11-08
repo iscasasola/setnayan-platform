@@ -21,7 +21,7 @@ const groupRefusal = (q: URLSearchParams): string | null => {
 
 /** The chat: a message lands back on the bare page (an empty box is a no-op that lands there too). */
 const ACC_GROUP_CHAT_WORDS: StayWords = { within: [GROUP_PAGE], refuse: groupRefusal };
-const accGroupChat = kind(ACC_GROUP_CHAT_WORDS, null);
+const accGroupChat = kind(ACC_GROUP_CHAT_WORDS, false);
 
 /** Rename / photo · rotate the link · an organizer's Remove: each save lands with its own news (`?updated=1`,
  *  `?rotated=1`, `?removed=1`). A not-an-organizer bounce lands on the page with none — nothing saved, said so. */
@@ -29,7 +29,7 @@ const ACC_GROUP_WORDS: StayWords = {
   within: [GROUP_PAGE],
   refuse: (q) => groupRefusal(q) ?? (q.has('updated') || q.has('rotated') || q.has('removed') ? null : NOTHING_CHANGED),
 };
-const accGroup = kind(ACC_GROUP_WORDS, null);
+const accGroup = kind(ACC_GROUP_WORDS, false);
 
 export const ACC_GROUP: Readonly<Record<AccGroupStayDoor, Door>> = {
   'accGroup.postSamahanMessage': accGroupChat(postSamahanMessage),

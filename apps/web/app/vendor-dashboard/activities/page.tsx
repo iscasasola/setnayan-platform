@@ -14,7 +14,6 @@ import {
   updateActivity,
 } from './actions';
 import { StayForm } from '@/app/_components/stay-form';
-import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 export const metadata = { title: 'Your segments · Supplier' };
 
@@ -98,7 +97,7 @@ export default async function VendorActivitiesPage({
       ) : null}
 
       {/* Add */}
-      <StayResetForm door="supActivities.addActivity" action={addActivity} className="space-y-3 border border-ink/10 bg-paper-deep p-4">
+      <StayForm door="supActivities.addActivity" action={addActivity} className="space-y-3 border border-ink/10 bg-paper-deep p-4">
         <h2 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
           Add a segment
         </h2>
@@ -158,7 +157,7 @@ export default async function VendorActivitiesPage({
         >
           Add segment
         </button>
-      </StayResetForm>
+      </StayForm>
 
       {/* The list */}
       <div className="space-y-3">

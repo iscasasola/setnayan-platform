@@ -53,7 +53,7 @@ const SUP_CLIENT_CARD_WORDS: StayWords = {
     return null;
   },
 };
-const supClientCard = kind(SUP_CLIENT_CARD_WORDS, null);
+const supClientCard = kind(SUP_CLIENT_CARD_WORDS, false);
 
 /** The production sheet's own two refusals (`production-sheet/page.tsx`). */
 const SUP_PRODUCTION_SHEET_WORDS: StayWords = {
@@ -65,7 +65,7 @@ const SUP_PRODUCTION_SHEET_WORDS: StayWords = {
         ? 'That didn’t save — try again.'
         : null,
 };
-const supProductionSheet = kind(SUP_PRODUCTION_SHEET_WORDS, null);
+const supProductionSheet = kind(SUP_PRODUCTION_SHEET_WORDS, false);
 
 export const SUP_CLIENTS: Readonly<Record<SupClientsStayDoor, Door>> = {
   'supClients.createClientNote': supClientCard(createClientNote),

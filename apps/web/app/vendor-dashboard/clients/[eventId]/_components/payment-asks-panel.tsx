@@ -2,7 +2,6 @@ import { Wallet, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { vendorAskForPayment, vendorWithdrawPaymentAsk } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
-import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 /**
  * "Ask for a payment" — on the customer, next to what they owe.
@@ -161,7 +160,7 @@ export function PaymentAsksPanel({
       )}
 
       {canAsk ? (
-      <StayResetForm
+      <StayForm
         door="supClients.vendorAskForPayment"
         action={vendorAskForPayment}
         className="rounded-xl border border-ink/10 bg-white px-3 py-3"
@@ -216,7 +215,7 @@ export function PaymentAsksPanel({
           They pay you directly, the way they always have. Setnayan never holds
           this money — this just tells them what you are waiting for.
         </p>
-      </StayResetForm>
+      </StayForm>
       ) : (
         <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
           <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> You can

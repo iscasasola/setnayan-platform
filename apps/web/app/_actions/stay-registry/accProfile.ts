@@ -23,7 +23,7 @@ const ACC_PROFILE_WORDS: StayWords = {
   within: [/^\/dashboard\/profile$/],
   refuse: (q) => q.get('error') ?? q.get('slug_error'),
 };
-const accProfile = kind(ACC_PROFILE_WORDS, null);
+const accProfile = kind(ACC_PROFILE_WORDS, false);
 
 /** The face-profile switches: the same words, and their "switched off" bounce (`redirect('/dashboard/profile')` with no
  *  news at all, when the feature flag is off) is a refusal — nothing was saved — never "saved". */
@@ -31,7 +31,7 @@ const ACC_FACE_WORDS: StayWords = {
   within: [/^\/dashboard\/profile$/],
   refuse: (q) => q.get('error') ?? (q.toString() === '' ? NOTHING_CHANGED : null),
 };
-const accFace = kind(ACC_FACE_WORDS, null);
+const accFace = kind(ACC_FACE_WORDS, false);
 
 export const ACC_PROFILE: Readonly<Record<AccProfileStayDoor, Door>> = {
   'accProfile.updatePersonalInfo': accProfile(updatePersonalInfo),

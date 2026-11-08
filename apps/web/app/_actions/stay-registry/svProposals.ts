@@ -15,7 +15,7 @@ const SV_TEMPLATES_WORDS: StayWords = {
     return n && n.tone === 'warn' ? n.text : null;
   },
 };
-const svTemplates = kind(SV_TEMPLATES_WORDS, null);
+const svTemplates = kind(SV_TEMPLATES_WORDS, false);
 
 /** The couple's Accept / Decline lands back on the quote (`/proposals/<id>`), or — "Accept the update" in a chat — on
  *  that thread (`return_to`, only this app's own thread paths). `?notice=respond_failed` is said in the quote page's own
@@ -24,7 +24,7 @@ const SV_QUOTE_ANSWER_WORDS: StayWords = {
   within: [/^\/proposals\/[^/]+$/, /^\/dashboard\/[^/]+\/messages\/[^/]+$/, /^\/vendor-dashboard\/messages\/[^/]+$/],
   refuse: (q) => (q.get('notice') === 'respond_failed' ? 'That didn’t go through — refresh and try again.' : null),
 };
-const svQuoteAnswer = kind(SV_QUOTE_ANSWER_WORDS, null);
+const svQuoteAnswer = kind(SV_QUOTE_ANSWER_WORDS, false);
 
 export const SV_PROPOSALS: Readonly<Record<SvProposalsStayDoor, Door>> = {
   'svProposals.saveTemplate': svTemplates(saveTemplate),

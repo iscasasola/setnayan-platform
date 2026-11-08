@@ -2,7 +2,6 @@ import { Check, Clock3, Lock, RotateCcw, Trash2 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClientNote, toggleClientNoteDone, deleteClientNote } from '../actions';
 import { StayForm } from '@/app/_components/stay-form';
-import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 /**
  * Private, team-shared CRM notes on the Customer Card's Activity tab.
@@ -119,7 +118,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
       })}
 
       {/* Composer — textarea + optional remind date, plain form + server action. */}
-      <StayResetForm
+      <StayForm
         door="supClients.createClientNote"
         action={createClientNote}
         className="rounded-xl border border-ink/10 bg-white p-3 sm:p-4"
@@ -153,7 +152,7 @@ export function ClientNotes({ eventId, notes, failed = false }: { eventId: strin
             <Check aria-hidden className="h-3.5 w-3.5" /> Save note
           </SubmitButton>
         </div>
-      </StayResetForm>
+      </StayForm>
     </div>
   );
 }

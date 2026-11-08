@@ -14,7 +14,7 @@ const SUP_ATTRIBUTES_WORDS: StayWords = {
     return e ? `Couldn’t save: ${e}` : null;
   },
 };
-const supAttributes = kind(SUP_ATTRIBUTES_WORDS, null);
+const supAttributes = kind(SUP_ATTRIBUTES_WORDS, false);
 
 export const SUP_ATTRIBUTES: Readonly<Record<SupAttributesStayDoor, Door>> = {
   'supAttributes.saveVendorServiceAttribute': supAttributes(saveVendorServiceAttribute),

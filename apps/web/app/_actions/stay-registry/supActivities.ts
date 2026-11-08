@@ -8,7 +8,7 @@ import { kind, type Door } from './_door';
 /** Activities' `?error=` already carries the page's own sentence (`activities/page.tsx` prints it as given). Signed out
  *  → `/login`, no shop → bare `/vendor-dashboard`: both navigate. A supplier door carries no event, so `null`. */
 const SUP_ACTIVITIES_WORDS: StayWords = { within: [supplierScreen('activities')], refuse: (q) => q.get('error') };
-const supActivities = kind(SUP_ACTIVITIES_WORDS, null);
+const supActivities = kind(SUP_ACTIVITIES_WORDS, false);
 
 export const SUP_ACTIVITIES: Readonly<Record<SupActivitiesStayDoor, Door>> = {
   'supActivities.addActivity': supActivities(addActivity),

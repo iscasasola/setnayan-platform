@@ -19,7 +19,7 @@ const SUP_PAYMENTS_WORDS: StayWords = {
   within: [supplierScreen('profile'), supplierScreen('customers')],
   refuse: (q) => q.get('error') ?? q.get('gerror'),
 };
-const supPayments = kind(SUP_PAYMENTS_WORDS, null);
+const supPayments = kind(SUP_PAYMENTS_WORDS, false);
 
 export const SUP_PAYMENTS: Readonly<Record<SupPaymentsStayDoor, Door>> = {
   'supPayments.addPaymentMethod': supPayments(addPaymentMethod),

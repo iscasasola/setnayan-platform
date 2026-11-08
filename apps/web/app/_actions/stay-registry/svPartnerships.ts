@@ -13,7 +13,7 @@ import { kind, type Door } from './_door';
 /** A refusal is `?error=<the sentence>`, which `partnerships/page.tsx` prints as given. `?proposed|accepted|declined|
  *  withdrawn=1` re-draws the lists in place. No shop → bare `/vendor-dashboard`: navigates. */
 const SV_PARTNERSHIPS_WORDS: StayWords = { within: [supplierScreen('partnerships')], refuse: (q) => q.get('error') };
-const svPartnerships = kind(SV_PARTNERSHIPS_WORDS, null);
+const svPartnerships = kind(SV_PARTNERSHIPS_WORDS, false);
 
 export const SV_PARTNERSHIPS: Readonly<Record<SvPartnershipsStayDoor, Door>> = {
   'svPartnerships.proposePartnership': svPartnerships(proposePartnership),

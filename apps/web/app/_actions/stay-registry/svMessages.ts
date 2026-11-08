@@ -14,7 +14,7 @@ const SV_MESSAGES_WORDS: StayWords = {
     return OUTCOME_REFUSALS.includes(n) ? (OUTCOME_NOTICE[n] ?? null) : null;
   },
 };
-const svMessages = kind(SV_MESSAGES_WORDS, null);
+const svMessages = kind(SV_MESSAGES_WORDS, false);
 
 export const SV_MESSAGES: Readonly<Record<SvMessagesStayDoor, Door>> = {
   'svMessages.recordInquiryOutcome': svMessages(recordInquiryOutcome),

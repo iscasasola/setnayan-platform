@@ -130,7 +130,7 @@ test('supplier Settings, rendered, carries every policy and the Account row — 
 test('the account sheet and the Account row land on the page that deletes the account, and a supplier is let in', () => {
   assert.ok(src('app/_components/account-switcher/account-switcher.tsx').includes(`href="${DELETION_PAGE}"`), 'the account sheet lost "Profile & settings"');
   const profile = src('app/dashboard/(account)/profile/page.tsx');
-  assert.match(profile, /<form action=\{requestAccountDeletion\}/, 'the profile page no longer holds the deletion request');
+  assert.match(profile, /<StayForm door="accProfile\.requestAccountDeletion" action=\{requestAccountDeletion\}/, 'the profile page no longer holds the deletion request');
   for (const layout of ['app/dashboard/layout.tsx', 'app/dashboard/(account)/layout.tsx']) {
     assert.doesNotMatch(src(layout), /redirect\(\s*['"`]\/vendor-dashboard/, `${layout} sends a supplier away from the deletion page`);
   }

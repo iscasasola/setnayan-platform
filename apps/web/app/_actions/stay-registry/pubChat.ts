@@ -12,11 +12,11 @@ import { kind, type Door } from './_door';
  * `/login`. No event gate of its own (a thread is the gate) — `null`.
  */
 const PUB_CHAT_INBOX_WORDS: StayWords = { within: [/^\/dashboard\/[^/]+\/messages$/, /^\/vendor-dashboard\/messages$/] };
-const pubChatInbox = kind(PUB_CHAT_INBOX_WORDS, null);
+const pubChatInbox = kind(PUB_CHAT_INBOX_WORDS, false);
 
 /** Report / Block / Unblock come back to the conversation they were pressed in (`?reported=1`, `?blocked=1`, …). */
 const PUB_CHAT_THREAD_WORDS: StayWords = { within: [/^\/dashboard\/[^/]+\/messages\/[^/]+$/, /^\/vendor-dashboard\/messages\/[^/]+$/] };
-const pubChatThread = kind(PUB_CHAT_THREAD_WORDS, null);
+const pubChatThread = kind(PUB_CHAT_THREAD_WORDS, false);
 
 export const PUB_CHAT: Readonly<Record<PubChatStayDoor, Door>> = {
   'pubChat.archiveThread': pubChatInbox(archiveThread),

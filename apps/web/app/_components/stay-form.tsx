@@ -41,7 +41,9 @@ export function StayForm({
   ref?: Ref<HTMLFormElement>;
   action: (fd: FormData) => unknown;
   onSaved?: () => void;
-  /** Clear what was typed once the save lands (a "send a note" / "add one more" box) — the page no longer re-draws it. */
+  /** Clear what was typed once the save lands — what React does itself after a plain form action (React 19 resets an
+   *  uncontrolled form when its action succeeds; a prevented submit skips that). On by default; an edit form's boxes
+   *  then show the saved values, which the re-render hands them as their defaults. `false` keeps what was typed. */
   resetOnSaved?: boolean;
   /** The saver — `saveInPlace` itself, unless a screen's actions context hands in its own (the Guests lab's stand-ins). */
   save?: StaySave;
@@ -82,7 +84,7 @@ export function StayConfirmForm({
  */
 export type StaySave = (door: StayDoor, fd: FormData) => Promise<StayResult>;
 
-export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved?: boolean, save: StaySave = saveInPlace) {
+export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved = true, save: StaySave = saveInPlace) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {

@@ -12,7 +12,6 @@ import {
 import { InfoTip } from '@/app/_components/info-tip';
 import { addQuestion, toggleQuestionAsked, updateQuestion } from './question-actions';
 import { StayForm } from '@/app/_components/stay-form';
-import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 /**
  * QUESTIONS FOR THE COUPLE — the supplier's reusable question set. (DAY-7.)
@@ -180,7 +179,7 @@ export function QuestionsSectionBody({
         </div>
       ) : null}
 
-      <StayResetForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2 border border-ink/10 bg-paper-deep p-4">
+      <StayForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2 border border-ink/10 bg-paper-deep p-4">
         <h3 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
           Write your own
         </h3>
@@ -205,7 +204,7 @@ export function QuestionsSectionBody({
         >
           Add question
         </button>
-      </StayResetForm>
+      </StayForm>
 
       {retired.length > 0 ? (
         <details className="border border-ink/10 bg-paper-deep p-4">

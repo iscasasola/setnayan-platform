@@ -8,7 +8,7 @@ import { kind, type Door } from './_door';
  *  short sentence ("Contract not found.", "Cancelled contracts cannot be re-published.") — the door says it on the row.
  *  Their only redirect is the gate: signed out → `/login`, no shop → bare `/vendor-dashboard` — both navigate. */
 const SV_CONTRACTS_WORDS: StayWords = { within: [/^\/vendor-dashboard\/contracts\/[^/]+$/] };
-const svContracts = kind(SV_CONTRACTS_WORDS, null);
+const svContracts = kind(SV_CONTRACTS_WORDS, false);
 
 export const SV_CONTRACTS: Readonly<Record<SvContractsStayDoor, Door>> = {
   'svContracts.publishContractToCouple': svContracts(publishContractToCouple),

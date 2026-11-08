@@ -8,7 +8,7 @@ import { kind, type Door } from './_door';
  *  the plan screen prints as given. The plan screen is also drawn in Shop settings — the redirect still names the Plan
  *  page, so it reads as saved and the page the press is on re-renders. Signed out → `/login`: navigates. */
 const SV_SUBSCRIPTION_WORDS: StayWords = { within: [supplierScreen('subscription')], refuse: (q) => q.get('error') };
-const svSubscription = kind(SV_SUBSCRIPTION_WORDS, null);
+const svSubscription = kind(SV_SUBSCRIPTION_WORDS, false);
 
 export const SV_SUBSCRIPTION: Readonly<Record<SvSubscriptionStayDoor, Door>> = {
   'svSubscription.cancelScheduledPlanChange': svSubscription(cancelScheduledPlanChange),

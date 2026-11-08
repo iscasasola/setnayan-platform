@@ -147,18 +147,24 @@ test('(3) the registry is the allow-list — each name runs the action it names;
   assert.match(door, /if \(!isStayDoor\(door\) \|\| !Object\.hasOwn\(DOORS, door\)\) return \{ ok: false/, 'an unknown door name is no longer refused first');
   assert.match(door, /if \(answer === 'navigate'\) throw e;/, 'a redirect that must navigate is swallowed');
   /* 🔒 the limited-helper gate runs BEFORE the action */
+  assert.match(door, /if \(area !== false\) \{\s*const eventId/, 'the event gate is skipped for more than the no-event doors');
   const gate = door.indexOf('await limitedHelperRefusal(');
   assert.ok(gate > -1 && gate < door.indexOf('await run(formData)'), 'the door runs an action before asking the limited-helper gate');
   assert.match(door, /if \(helperRefusal\) return \{ ok: false, error: helperRefusal \};/, "a limited helper's refusal is not said");
   /* …with the SAME area the action's own gate names (whose area `every-action-refuses-a-limited-helper.test.ts` pins). */
   const wrong: string[] = [];
   for (const r of rows) {
-    const kindArea = new RegExp(`const ${r.kind} = kind(?:Read)?\\([^\\n]*, ('[\\w]+'|null)\\);`).exec(r.src)?.[1];
+    const kindArea = new RegExp(`const ${r.kind} = kind(?:Read)?\\([^\\n]*, ('[\\w]+'|null|false)\\);`).exec(r.src)?.[1];
     assert.ok(kindArea, `${r.file}: door kind ${r.kind} names no area`);
     const target = namedImports(r.file).get(r.fn);
     assert.ok(target, `${r.file}: ${r.fn} is not imported`);
     const [fileRel] = target.split(' › ');
     if (!fileRel!.startsWith('app/dashboard/[eventId]/')) continue;
+    /* An event's write never skips the event gate. */
+    if (kindArea === 'false') {
+      wrong.push(`${r.door}: an event action's door skips the limited-helper gate`);
+      continue;
+    }
     const own = ownGateArea(fileRel!, r.fn);
     if (own === undefined) continue; /* a server-only helper with no gate of its own (Papic's chapter doors) */
     const want = own === null ? 'null' : `'${own}'`;

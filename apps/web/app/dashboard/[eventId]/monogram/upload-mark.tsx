@@ -331,12 +331,15 @@ function MarkTools({
         <StayForm
           door="monogram.clearUploadedMarkAction"
           action={clearUploadedMarkAction}
-          onSubmit={(e) => {
-            if (!window.confirm('Remove your uploaded logo? This cannot be undone.')) e.preventDefault();
-          }}
         >
           <input type="hidden" name="event_id" value={eventId} />
-          <button type="submit" aria-label="Remove uploaded logo" title="Remove uploaded logo" className={ICON}>
+          {/* The same question, asked on the press (the stay form answers the submit itself). */}
+          <button
+            type="submit"
+            onClick={(e) => {
+              if (!window.confirm('Remove your uploaded logo? This cannot be undone.')) e.preventDefault();
+            }}
+            aria-label="Remove uploaded logo" title="Remove uploaded logo" className={ICON}>
             <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         </StayForm>

@@ -37,7 +37,7 @@ import { kind, type Door } from './_door';
  * Panood actions already do (`studio/panood/setup/actions.ts`).
  */
 const PUB_PANOOD_WORDS: StayWords = { within: [/^\/panood\/control\/[^/]+$/], refuse: (q) => panoodRefusal(q) };
-const pubPanood = kind(PUB_PANOOD_WORDS, null);
+const pubPanood = kind(PUB_PANOOD_WORDS, false);
 
 export const PUB_PANOOD: Readonly<Record<PubPanoodStayDoor, Door>> = {
   'pubPanood.addRoamZone': pubPanood(addRoamZone),

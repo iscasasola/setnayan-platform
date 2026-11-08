@@ -31,7 +31,7 @@ const SUP_CALENDAR_WORDS: StayWords = {
   within: [supplierScreen('customers'), supplierScreen('calendar'), /^\/vendor-dashboard\/calendar\/\d{4}-\d{2}-\d{2}$/, supplierScreen('clients')],
   refuse: refuseDates,
 };
-const supCalendar = kind(SUP_CALENDAR_WORDS, null);
+const supCalendar = kind(SUP_CALENDAR_WORDS, false);
 
 /**
  * A venue card's "Uses" (`/vendor-dashboard/services/<card>`, `halls-uses-pick.tsx`) saves with `return_to=shop`, which
@@ -39,7 +39,7 @@ const supCalendar = kind(SUP_CALENDAR_WORDS, null);
  * being swapped for the Shop list. Its refusals fall through to `/vendor-dashboard/calendar?notice=<code>`.
  */
 const SUP_HALLS_WORDS: StayWords = { within: [supplierScreen('shop'), supplierScreen('calendar')], refuse: refuseDates };
-const supHalls = kind(SUP_HALLS_WORDS, null);
+const supHalls = kind(SUP_HALLS_WORDS, false);
 
 export const SUP_CALENDAR: Readonly<Record<SupCalendarStayDoor, Door>> = {
   'supCalendar.addManualBlock': supCalendar(addManualBlock),

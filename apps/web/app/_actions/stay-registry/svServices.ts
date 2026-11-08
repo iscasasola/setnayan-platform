@@ -16,7 +16,7 @@ import { kind, type Door } from './_door';
  * where it is paid).
  */
 const SV_SERVICES_WORDS: StayWords = { within: [supplierScreen('shop')], refuse: (q) => q.get('error') };
-const svServices = kind(SV_SERVICES_WORDS, null);
+const svServices = kind(SV_SERVICES_WORDS, false);
 
 export const SV_SERVICES: Readonly<Record<SvServicesStayDoor, Door>> = {
   'svServices.toggleVendorServiceActive': svServices(toggleVendorServiceActive),

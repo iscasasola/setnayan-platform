@@ -19,7 +19,7 @@ import { kind, type Door } from './_door';
  * prints as given. Not a shop admin → bare `/vendor-dashboard`, signed out → `/login`: both navigate.
  */
 const SUP_TEAM_WORDS: StayWords = { within: [supplierScreen('team'), supplierScreen('shop')], refuse: (q) => q.get('error') };
-const supTeam = kind(SUP_TEAM_WORDS, null);
+const supTeam = kind(SUP_TEAM_WORDS, false);
 
 export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.inviteVendorTeamMember': supTeam(inviteVendorTeamMember),

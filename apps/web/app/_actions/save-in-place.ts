@@ -28,10 +28,13 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
   if (!isStayDoor(door) || !Object.hasOwn(DOORS, door)) return { ok: false, error: COULD_NOT_SAVE };
   const { run, read, area } = DOORS[door];
   /* 🔒 The limited-helper gate, before anything runs (owner 2026-10-26: a limited helper changes only the areas the
-     host set to Edit). An event door's form carries `event_id`; a supplier door's carries none, and passes here. */
-  const eventId = formData.get('event_id');
-  const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
-  if (helperRefusal) return { ok: false, error: helperRefusal };
+     host set to Edit) — on every event door. `false` = not an event's write (supplier, account, Panood control, chat):
+     no event gate, exactly as the action itself asks none. */
+  if (area !== false) {
+    const eventId = formData.get('event_id');
+    const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
+    if (helperRefusal) return { ok: false, error: helperRefusal };
+  }
   try {
     await run(formData);
     return { ok: true };

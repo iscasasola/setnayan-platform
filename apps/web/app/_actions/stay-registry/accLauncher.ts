@@ -17,7 +17,7 @@ function readLauncher(url: string): StayResult | 'navigate' {
   if (q.get('request_declined') === '1' || q.get('inviter_muted') === '1') return { ok: true };
   return 'navigate';
 }
-const accLauncher = kindRead(readLauncher, null);
+const accLauncher = kindRead(readLauncher, false);
 
 export const ACC_LAUNCHER: Readonly<Record<AccLauncherStayDoor, Door>> = {
   'accLauncher.answerIncomingRequest': accLauncher(answerIncomingRequest),

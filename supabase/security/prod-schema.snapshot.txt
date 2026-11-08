@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1766
-# tables: 460
-# columns: 5657
-# notnull: 3425
+# ledger: 1775
+# tables: 462
+# columns: 5680
+# notnull: 3434
 [ledger]
 20260512000000
 20260513000000
@@ -1752,12 +1752,16 @@
 20271308471868
 20271308555594
 20271308641275
+20271308786674
+20271308955287
 20271309169686
 20271309178198
 20271309211124
+20271309226989
 20271309260178
 20271309403755
 20271309527923
+20271309539718
 20271310256381
 20271311598756
 20271311895322
@@ -1772,10 +1776,15 @@
 20271316625547
 20271316933967
 20271319497337
+20271319689851
+20271319712279
+20271320021260
 20271320245383
 20271320327933
+20271320476390
 20271320900784
 20271321530399
+20271321738256
 20271322360315
 20271323347634
 [columns]
@@ -1988,6 +1997,7 @@ booking_fee_ledger.cap_reached_at
 booking_fee_ledger.created_at
 booking_fee_ledger.event_id
 booking_fee_ledger.fee_paid_total_centavos
+booking_fee_ledger.free_booking_withheld_reason
 booking_fee_ledger.highest_declared_centavos
 booking_fee_ledger.is_free_booking
 booking_fee_ledger.launch_offer
@@ -2081,6 +2091,7 @@ canonical_service_schemas.display_name_ceb
 canonical_service_schemas.display_name_en
 canonical_service_schemas.display_name_tl
 canonical_service_schemas.filter_facets
+canonical_service_schemas.hint_en
 canonical_service_schemas.ranking_signal_weights
 canonical_service_schemas.required_for_visibility
 canonical_service_schemas.schema_version
@@ -4333,6 +4344,16 @@ live_studio_roam_zones.status
 live_studio_roam_zones.updated_at
 live_studio_roam_zones.venue_label
 live_studio_roam_zones.zone_index
+live_watch_venue_checks.average_kbps
+live_watch_venue_checks.check_id
+live_watch_venue_checks.delay_ms
+live_watch_venue_checks.event_id
+live_watch_venue_checks.finished_at
+live_watch_venue_checks.place_name
+live_watch_venue_checks.slowest_kbps
+live_watch_venue_checks.started_at
+live_watch_venue_checks.verdict
+live_watch_venue_checks.worst_rung
 manpower_gigs.accepted_at
 manpower_gigs.bir_exempt_note
 manpower_gigs.cancellation_reason
@@ -4583,6 +4604,17 @@ order_refunds.refunded_at
 order_refunds.refunded_by_admin_id
 order_refunds.status
 order_refunds.updated_at
+order_service_remedies.admin_user_id
+order_service_remedies.created_at
+order_service_remedies.from_event_id
+order_service_remedies.grant_id
+order_service_remedies.kind
+order_service_remedies.order_id
+order_service_remedies.paid_php
+order_service_remedies.papic_credits
+order_service_remedies.reason
+order_service_remedies.remedy_id
+order_service_remedies.to_event_id
 orders.admin_notes
 orders.bir_withholding_centavos
 orders.comp_grant_id
@@ -8952,6 +8984,9 @@ live_studio_roam_zones.sort_order
 live_studio_roam_zones.status
 live_studio_roam_zones.updated_at
 live_studio_roam_zones.zone_index
+live_watch_venue_checks.check_id
+live_watch_venue_checks.event_id
+live_watch_venue_checks.started_at
 manpower_gigs.bir_exempt_note
 manpower_gigs.cash_amount_php_centavos
 manpower_gigs.event_id
@@ -9117,6 +9152,12 @@ order_refunds.refunded_at
 order_refunds.refunded_by_admin_id
 order_refunds.status
 order_refunds.updated_at
+order_service_remedies.created_at
+order_service_remedies.kind
+order_service_remedies.order_id
+order_service_remedies.paid_php
+order_service_remedies.reason
+order_service_remedies.remedy_id
 orders.bir_withholding_centavos
 orders.created_at
 orders.description

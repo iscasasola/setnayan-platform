@@ -1,16 +1,11 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
-import {
-  CUSTOMER_SEGMENTS,
-  CUSTOMER_SEGMENT_LABEL,
-  type CustomersDoorKey,
-  type CustomersListKey,
-  type CustomersSegment,
-} from '../segments';
+import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersSegment } from '../segments';
 import { SupplierOpenScope } from '../../_components/supplier-open-row';
 import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 
@@ -19,12 +14,28 @@ import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 export type { CustomersDoorKey, CustomersListKey } from '../segments';
 
 export type CustomersDoor = {
-  key: CustomersDoorKey;
+  /** The list it shows (`panels[key]`). */
+  key: string;
   /** Already worded ("3", "12+"), or null = the roster could not be read — "couldn't load", never 0. */
   value: string | null;
   word: string;
   /** The brand colour — the count that waits on the shop. */
   hot?: boolean;
+};
+
+/**
+ * ⏩ OVERDUE (n) › · UNREAD (n) › (v113 `.qrow`, 2026-11-08) — two buttons under the row, each showing ITS list in place
+ * ("Viewing all overdue · 3 ×"); the × (or pressing it again) goes back to every event. Not drawn at 0 — there is nothing
+ * to view; a count the page could not read says so and opens nothing.
+ */
+export type CustomersQuick = {
+  key: string;
+  /** Already worded, or null = not read — "couldn't load", never 0. */
+  value: string | null;
+  /** "Overdue" · "Unread". */
+  word: string;
+  /** Hidden when the count is a real 0. */
+  zero: boolean;
 };
 
 /**
@@ -61,7 +72,10 @@ export function CustomersPin({
   after = null,
   columns = null,
   figures = null,
+  quick = null,
 }: {
+  /** Overdue (n) › · Unread (n) › — under the row (v113). */
+  quick?: readonly CustomersQuick[] | null;
   /**
    * 📌 Dates · Money · QR's own figures on this row, in the doors' place (`customers-figures.tsx`, v13 2026-10-29) — the
    * same tiles, folded by the same `usePinFold`. Null on Events (its doors are the figures).
@@ -80,20 +94,20 @@ export function CustomersPin({
   /** Each view's own address (a fixture page — the dev lab — hands its own). Strings, not a function: a server page
    *  cannot hand a client row a function. */
   hrefs: Readonly<Record<CustomersSegment, string>>;
-  /** Events' three counts (Asking · Booked · Done); null on Dates and Money. */
+  /** Events' tiles (v113: Booked · Schedules · Asked · To collect); null on Dates and Money. */
   doors?: readonly CustomersDoor[] | null;
-  /** Every event (`all`) and each count's list, drawn by the server. */
-  panels?: Readonly<Record<CustomersListKey, ReactNode>> | null;
-  /** The count an address names; null (the default) = no count pressed — every event (approved v13). */
-  initial?: CustomersDoorKey | null;
+  /** Every event (`all`) and each door's / quick button's / Show filter's list, drawn by the server. */
+  panels?: Readonly<Record<string, ReactNode>> | null;
+  /** The list an address names; null (the default) = no count pressed — every event (approved v13). */
+  initial?: string | null;
   /** Customers ⚙ (`CustomersSettings`) — the row's right end. */
   gear: ReactNode;
 }) {
   const router = useRouter();
   // 🔑 Null = no count pressed: EVERY event is listed (controller call 2026-10-30, the approved v13). A count filters in
   // place; pressing it again shows them all — opening on Asking alone made a supplier's booked events look gone.
-  const [on, setOn] = useState<CustomersDoorKey | null>(initial);
-  const showing: CustomersListKey = on ?? 'all';
+  const [on, setOn] = useState<string | null>(initial);
+  const showing: string = on ?? 'all';
   // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);
@@ -118,12 +132,52 @@ export function CustomersPin({
   };
 
   const lists = panels
-    ? (['all', 'asking', 'booked', 'done'] as const).map((key) => (
+    ? ['all', ...Object.keys(panels).filter((k) => k !== 'all')].map((key) => (
         <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={showing !== key}>
           {panels[key]}
         </div>
       ))
     : null;
+
+  // ⏩ The quick buttons — or, while one is viewed, its "Viewing all … ×" head (v113 `.vhd`).
+  const viewing = quick?.find((q) => q.key === on) ?? null;
+  const quickRow = quick ? (
+    viewing ? (
+      <div className="mb-2 flex min-h-11 items-center gap-2" data-customers-viewing={viewing.key}>
+        <span className="home-k2 min-w-0 flex-1 truncate">
+          Viewing all {viewing.word.toLowerCase()} · {viewing.value ?? 'couldn’t load'}
+        </span>
+        <button
+          type="button"
+          className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink/70"
+          aria-label={`Close ${viewing.word.toLowerCase()}`}
+          onClick={() => setOn(null)}
+          data-customers-viewing-close=""
+        >
+          <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+      </div>
+    ) : quick.some((q) => !q.zero) ? (
+      <div className="mb-2 grid auto-cols-fr grid-flow-col gap-2" data-customers-quick-row="">
+        {quick
+          .filter((q) => !q.zero)
+          .map((q) => (
+            <button
+              key={q.key}
+              type="button"
+              className="sn-press min-h-11 truncate rounded-xl border border-ink/15 px-3 text-[13px] font-semibold text-ink disabled:text-ink/55"
+              aria-pressed={false}
+              aria-controls={`customers-list-${q.key}`}
+              disabled={q.value === null}
+              onClick={() => setOn(q.key)}
+              data-customers-quick={q.key}
+            >
+              {q.word} {q.value ?? 'couldn’t load'} ›
+            </button>
+          ))}
+      </div>
+    ) : null
+  ) : null;
 
   return (
     <>
@@ -167,12 +221,14 @@ export function CustomersPin({
       </div>
       {columns ? (
         <SupplierOpenScope name={`customers-${seg}`} paneLabel="The opened event" rest={columns.rest} watch={showing}>
+          {quickRow}
           {between}
           {lists}
           {after}
         </SupplierOpenScope>
       ) : (
         <>
+          {quickRow}
           {between}
           {lists}
           {after}

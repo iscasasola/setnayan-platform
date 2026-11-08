@@ -225,7 +225,7 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
 // v13 (2026-10-29): Dates and Money carry their OWN figures on the row (booked · asking · days off · Received · To come
 // in · Overdue), so each view draws the row over what it read — the hub draws none (S4,
 // `the-customers-figures-are-the-pinned-row.test.ts` holds the figures themselves).
-test('3c · one pinned row on every view: Events with the three counts; Dates and Money with their own figures', () => {
+test('3c · one pinned row on every view: Events with its tiles (v113); Dates and Money with their own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
   assert.match(body(PAGE, 'CustomersDates'), /<CustomersPin\s+seg="dates"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Dates lost its pinned row');

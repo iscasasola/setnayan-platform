@@ -67,7 +67,12 @@ import {
   type OutsideClient,
   type OutsideCode,
 } from './_components/people-more';
-import { CustomersPin, type CustomersDoor } from './_components/customers-pin';
+import { CustomersPin, type CustomersDoor, type CustomersQuick } from './_components/customers-pin';
+import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-tile-lists';
+import { countWords, overdueRead, toCollectWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
+import { moneyPicture } from '@/lib/vendor-money';
+import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
+import { resolveAppointmentLabel } from '@/lib/appointments';
 import {
   CUSTOMERS_DOORS,
   CUSTOMERS_LISTS,
@@ -240,7 +245,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     .is('event_id', null)
     .order('created_at', { ascending: false })
     .limit(50);
-  const [pools, bookings, blocksRead, threadsRead, paydayRes] = await Promise.all([
+  const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
     // LEFT ON THE POOL READ — CAPACITY, not the room: `poolBooked` below is the
@@ -255,9 +260,45 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // Frozen installment plan across all booked events (ownership-gated RPC),
     // paged to the server's exact count — see `lib/vendor-payday-read.ts`.
     readVendorPaydayInstallments(supabase),
+    /*
+      🗓 SCHEDULES (v113 tile, spec §9 #7) — the shop's meetings still to come: tastings, ocular visits, run-throughs
+      (`event_appointments`, its own vendor-read policy). Counted exactly; the first 200 are listed.
+    */
+    supabase
+      .from('event_appointments')
+      .select('appointment_id, event_id, type, custom_label, scheduled_at, status', { count: 'exact' })
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('status', ['proposed', 'confirmed'])
+      .or(`scheduled_at.gte.${new Date(`${todayIso}T00:00:00+08:00`).toISOString()},scheduled_at.is.null`)
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .limit(200),
+    // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
+    readUnreadChatCountsByThread(supabase, user.id),
   ]);
 
   const threads = threadsRead.threads;
+  if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
+  if (unreadRead.error) logQueryError('VendorCustomersPage.unread', { message: unreadRead.error }, { vendorProfileId }, 'graceful_degrade');
+  const meetings: ClientMeeting[] = ((meetingsRead.data ?? []) as {
+    appointment_id: string;
+    event_id: string;
+    type: string;
+    custom_label: string | null;
+    scheduled_at: string | null;
+    status: 'proposed' | 'confirmed';
+  }[]).map((a) => ({
+    appointmentId: a.appointment_id,
+    eventId: a.event_id,
+    label: resolveAppointmentLabel(a, {}),
+    scheduledAt: a.scheduled_at,
+    status: a.status,
+  }));
+  const meetingsFailed = Boolean(meetingsRead.error);
+  const meetingsCount: CountRead = {
+    n: meetingsFailed ? meetings.length : (meetingsRead.count ?? meetings.length),
+    complete: !meetingsFailed && meetingsRead.count !== null,
+    failed: meetingsFailed,
+  };
 
   // ⚠ MONEY. A payday read that did not reach the server's count is NOT added
   // up: the status line says some payments couldn't load and every booked
@@ -668,7 +709,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       .join('&');
   const doorTotal = (k: CustomersListKey) => (k === 'all' ? allTotal : doorCount(k));
 
-  const panels = Object.fromEntries(
+  const rosterPanels = Object.fromEntries(
     CUSTOMERS_LISTS.map((k) => {
       const v = views[k];
       // The outside bookings are booked events: under Booked, and on the every-event list after the Setnayan rows.
@@ -770,11 +811,59 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const keptNotes = (keptNoteRows ?? []) as Array<{ note_id: string; body: string; created_at: string }>;
 
   const notice = search.notice ? EVENTS_NOTICES[search.notice] : undefined;
+  /*
+    🧮 THE TILES (v113, spec §9 #7; owner 2026-11-08): Booked · Schedules · Asked · To collect, then Overdue (n) › and
+    Unread (n) › under the row. Each shows its list IN PLACE. "Done" left the row and stays a list — Show & sort's Done
+    (spec §10). Money's figures are Money's own picture (`moneyPicture`), never re-added here.
+  */
+  const picture = moneyPicture(paydayIncomplete ? null : paydayRows, 'all', todayIso);
+  const unreadRows = unreadEvents(listed, unreadRead.countByThread);
+  const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
-    { key: 'asking', value: doorValue('asking'), word: 'asking', hot: doorCount('asking') > 0 },
     { key: 'booked', value: doorValue('booked'), word: 'booked' },
-    { key: 'done', value: doorValue('done'), word: 'done' },
+    { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
+    { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0 },
+    { key: 'collect', value: toCollectWords(picture.totals), word: 'to collect' },
   ];
+  const overdue = overdueRead(picture.totals);
+  const quick: CustomersQuick[] = [
+    { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
+    {
+      key: 'unread',
+      word: 'Unread',
+      value: countWords({ n: unreadRows.length, complete: !unreadFailed, failed: unreadFailed }),
+      zero: !unreadFailed && unreadRows.length === 0,
+    },
+  ];
+  const nameOfEvent = (eventId: string) =>
+    listed.find((r) => r.eventId === eventId)?.title ?? eventNameByEvent.get(eventId) ?? 'A client';
+  const tilePanels: Record<string, ReactNode> = {
+    schedules: <MeetingsList meetings={meetings} nameOf={nameOfEvent} failed={meetingsFailed} />,
+    collect: (
+      <PaymentsList
+        rows={picture.rows}
+        failed={picture.totals === null}
+        data="collect"
+        empty="Nothing to collect — every payment is in."
+      />
+    ),
+    overdue: (
+      <PaymentsList
+        rows={picture.rows.filter((r) => r.badge?.word === 'Overdue')}
+        failed={picture.totals === null}
+        data="overdue"
+        empty="Nothing overdue."
+      />
+    ),
+    unread: (
+      <UnreadList
+        rows={unreadRows}
+        countOf={(t) => unreadRead.countByThread.get(t) ?? 0}
+        failed={unreadFailed}
+      />
+    ),
+  };
+  const panels: Record<string, ReactNode> = { ...rosterPanels, ...tilePanels };
 
   return (
     <>
@@ -791,6 +880,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           hrefs={CUSTOMER_SEGMENT_HREFS}
           doors={doors}
           panels={panels}
+          quick={quick}
           initial={initialDoor}
           gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}

@@ -77,6 +77,9 @@ const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'us
   vendors: 'vendor',
   // A supplier's payment QR (2026-09-17) — its own root, still a vendor id.
   'vendor-payment-qr': 'vendor',
+  // The PRIVATE clean copy of every marked supplier photo (Seal and plate, 2026-11-04) — a vendor id;
+  // in the resolver's VENDOR_ROOTS and the verification bucket's roots in lib/r2-client-ref.ts.
+  'vendor-originals': 'vendor',
   'profile-photo': 'user',
   samahan: 'community',
   // No UUID in the prefix at all, so this module says nothing about them.

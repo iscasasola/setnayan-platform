@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchShopWallet } from '@/lib/shop-wallet.server';
@@ -70,6 +71,7 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
 
   return (
     <ShopSettingsRows
+      pageLive={Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility)}
       planLine={`${planWord(tier)} · Papic credits · receipts`}
       wallet={{ title: walletRowTitle(wallet.balance), line: walletRowSubline(wallet, formatPhp) }}
       plan={

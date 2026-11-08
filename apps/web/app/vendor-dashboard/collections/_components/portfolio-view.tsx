@@ -12,6 +12,8 @@ import { portfolioCountLabel } from '@/lib/portfolio-count-label';
 import { CollectionsList, type AlbumPreview } from './collections-list';
 import { PortfolioShow } from './portfolio-show';
 import { PortfolioSettings } from './portfolio-settings';
+import { PortfolioGroupsView } from './portfolio-groups';
+import type { PortfolioGroups } from '@/lib/portfolio-groups';
 
 /**
  * 🖼 THE PORTFOLIO TAB (THE ONE BUILD A3 W13–W15 Phase A, lane C4; v114 `?tab=portfolio`; spec §10 #24).
@@ -25,6 +27,11 @@ import { PortfolioSettings } from './portfolio-settings';
  *   Show       — greyed until an album is picked; full screen, swipe, no edit / price / caption (`PortfolioShow`)
  *   thumb row  — Sort ▾ (As listed · By name) · Show ▶ · ＋ Add photos (the shipped uploader's fold, `#gallery-media`).
  *                No "Search portfolio" (map row 69 INVENTED).
+ *
+ * Build 2 (lane B2-B, §10 #35/#40): ABOVE the shipped collection rows, the three groups the owner named — All your
+ * events · Your services · Inspiration you curated — then Stories couples published, All photos and Video links
+ * (`PortfolioGroupsView`). An album there opens INTO THE BODY (the shared in-body panel); its ✓ picks it for Show
+ * exactly like a collection's. The collection rows stay below (the switch, Instagram, your shots, the uploader).
  * 🔒 collections/the-portfolio-is-all-media.test.ts
  */
 export type ShowAlbum = { title: string; urls: string[] };
@@ -42,6 +49,10 @@ export function PortfolioView({
   allowanceUnread,
   walletBalance,
   igFlash,
+  groups,
+  allPhotos,
+  libraryOpen,
+  videoLinkUrls,
 }: {
   vendorId: string;
   input: CollectionsInput;
@@ -56,8 +67,17 @@ export function PortfolioView({
   allowanceUnread: boolean;
   walletBalance: number | null;
   igFlash: ReactNode;
+  /** The three groups + stories (`collections-data.ts`); absent in callers that draw only the collections. */
+  groups?: PortfolioGroups;
+  /** The page gallery's photos, newest first. */
+  allPhotos?: string[];
+  libraryOpen?: boolean;
+  /** The shipped `gallery_video_links`, edited row by row under Video links. */
+  videoLinkUrls?: string[];
 }) {
-  const [picked, setPicked] = useState<CollectionKey | null>(null);
+  // One pick for Show across both lists: a collection's key, or a group album's "<group>:<key>".
+  const [picked, setPicked] = useState<string | null>(null);
+  const [groupAlbum, setGroupAlbum] = useState<ShowAlbum | null>(null);
   const [showing, setShowing] = useState(false);
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
   const bandRef = useRef<HTMLDivElement>(null);
@@ -86,7 +106,7 @@ export function PortfolioView({
   const count = allowanceUnread ? 'Couldn’t read your photo allowance' : portfolioCountLabel(photos, free);
   const n = (x: number, one: string, many: string) => `${x.toLocaleString('en-PH')} ${x === 1 ? one : many}`;
   const collections = collectionRows(input).length;
-  const album = picked ? showAlbums[picked] : undefined;
+  const album = !picked ? undefined : picked in showAlbums ? showAlbums[picked as CollectionKey] : (groupAlbum ?? undefined);
   const canShow = Boolean(album && album.urls.length > 0);
   const settings = (cover: boolean) => <PortfolioSettings cover={cover} photos={photos} free={free} allowanceUnread={allowanceUnread} walletBalance={walletBalance} />;
   const showButton = (
@@ -139,14 +159,27 @@ export function PortfolioView({
 
       <section className="space-y-3 px-4 pt-4" data-supplier-collections="">
         {igFlash}
-        <p className="sn-eye">Collections · tap one to open it · ✓ to pick it for Show</p>
+        {groups ? (
+          <PortfolioGroupsView
+            groups={groups}
+            allPhotos={allPhotos ?? []}
+            libraryOpen={libraryOpen ?? false}
+            videoLinks={videoLinkUrls ?? []}
+            picked={picked}
+            onPick={(k, a) => {
+              setGroupAlbum(a);
+              setPicked((cur) => (cur === k ? null : k));
+            }}
+          />
+        ) : null}
+        <p className="sn-eye pt-4">Collections · tap one to open it · ✓ to pick it for Show</p>
         <CollectionsList
           vendorId={vendorId}
           input={input}
           saved={saved}
           gallery={gallery}
           previews={previews}
-          picked={picked}
+          picked={picked as CollectionKey | null}
           onPick={(k) => setPicked((cur) => (cur === k ? null : k))}
           order={order}
         />

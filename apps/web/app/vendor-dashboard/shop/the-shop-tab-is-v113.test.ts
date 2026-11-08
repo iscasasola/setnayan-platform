@@ -1,9 +1,16 @@
 /**
  * 🔒 THE SHOP TAB IS v113 (THE ONE BUILD, lane C4 — A3 §5 guard 1, as cut by spec §9 #8).
- *   1 · ONE scroll, in the ruled order: the cover → Your page · Your details → Analytics → Badges → Makers → Services.
+ *   1 · ONE scroll, in the ruled order: the cover → Analytics → Badges → Makers → Services.
+ *       🔁 UPDATED ON PURPOSE 2026-11-08 (Build 2 §10 #31, owner: *"these menu are lost. isn't your details inside the
+ *       upper right menu? isn't your page inside the shop settings?"*): the two door rows under the cover are gone —
+ *       Your page is the Shop ⚙'s first row, Your details the account sheet's (`lib/my-shop-doors-keep-every-control`
+ *       pins both). The order is still pinned, one part shorter, and the doors are pinned ABSENT.
  *   2 · The app's words, never the prototype's WRONG/INVENTED ones: no Explore / Boost / Approve first / Owner ID /
  *       Enterprise / Custom plan / Take a photo / Request a name change; the unverified chip is "Get verified · N of 2".
- *   3 · Makers = Scanner (the shipped ServiceScannerPick) + the Forms door; NO Tools Maker in this build.
+ *   3 · Makers = ONE row of tiles — Forms Maker + Scanner (the shipped ServiceScannerPick), each opening into the body
+ *       (§10 #33); NO Tools Maker in this build. 🔁 UPDATED ON PURPOSE 2026-11-08: the Forms door was a link to the Forms
+ *       page (`formsHref ? (`); it is now a tile whose body is the server's, drawn while `?maker=forms` — pinned below
+ *       so it can never be a tile with nothing behind it.
  *   4 · The Booked Loop stays HIDDEN until C2's counter is read (spec §9 #11).
  */
 import test from 'node:test';
@@ -21,9 +28,10 @@ const MAKERS = read('_components/shop-makers.tsx');
 
 test('1 · one scroll, in the ruled order', () => {
   const at = (re: RegExp) => PAGE.search(re);
-  const order = [at(/<ShopCover\b/), at(/data-shop-doors=""/), at(/<ShopAnalyticsCarousel\b/), at(/<ShopBadgeRow\b/), at(/<ShopMakers\b/), at(/id="services"/)];
+  const order = [at(/<ShopCover\b/), at(/<ShopAnalyticsCarousel\b/), at(/<ShopBadgeRow\b/), at(/<ShopMakers\b/), at(/id="services"/)];
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · doors · Analytics · Badges · Makers · Services)');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · Analytics · Badges · Makers · Services)');
+  assert.doesNotMatch(PAGE, /data-shop-doors=""/, 'loose door rows are back under the cover (§10 #31)');
   assert.doesNotMatch(PAGE, /<ShopSegments\b/, 'the retired Shop ▾ row is back on the Shop tab');
 });
 
@@ -36,10 +44,13 @@ test('2 · the app’s words, never the WRONG or INVENTED ones', () => {
   assert.match(COVER, /View shop/);
 });
 
-test('3 · Makers = Scanner + the Forms door; no Tools Maker', () => {
+test('3 · Makers = one row of tiles (Forms Maker + Scanner); no Tools Maker', () => {
   assert.match(MAKERS, /<ServiceScannerPick\b/);
-  assert.match(MAKERS, /data-maker="scanner"/);
-  assert.match(MAKERS, /formsHref \? \(/, 'the Forms door is drawn with no address (a dead door)');
+  assert.match(MAKERS, /data-maker=\{t\.k\}/, 'the Makers are not one row of tiles');
+  assert.match(MAKERS, /k: 'scanner', title: 'Scanner'/);
+  assert.match(MAKERS, /k: 'forms' as const, title: 'Forms Maker'/);
+  assert.match(PAGE, /<ShopMakers scanners=\{scanners\} formsBody=\{shopFormsBody\(sp\)\} \/>/, 'the Forms tile has no body behind it (a dead tile)');
+  assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');
   assert.doesNotMatch(MAKERS + PAGE, /Tools Maker|data-maker="tools"/, 'the Tools Maker is back — out of this build (spec §9 #8)');
 });
 

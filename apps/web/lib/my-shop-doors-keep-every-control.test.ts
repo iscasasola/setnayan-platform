@@ -170,20 +170,22 @@ test('🔑 BOTH DEEP-LINK ANCHORS STILL RESOLVE, AND EXACTLY ONCE EACH', () => {
 test('door 1 holds BOTH the shop information and the papers', () => {
   /*
     The whole point of door 1: "fix my shop information and verification, branches, team" is ONE errand.
-    THE ONE BUILD (owner-approved v113, 8 Nov 2026) keeps every room and moves the doors: Your page and Your details
-    are the two rows under the cover; Your collections IS the Portfolio tab; Helpers and the papers are the Shop ⚙'s
-    Team and Verification folds (one tap from the cover's ⚙ and from the Verified chip). A door that lost one of them
-    would look completely fine — so each is pinned at its new home.
+    THE ONE BUILD (owner-approved v113, 8 Nov 2026) kept every room and moved the doors under the cover.
+    🔁 UPDATED ON PURPOSE 2026-11-08 (Build 2 §10 #31, owner: *"these menu are lost. isn't your details inside the upper
+    right menu? isn't your page inside the shop settings?"*): the two loose rows under the cover moved to the homes the
+    owner named — Your page is the Shop ⚙'s FIRST row, Your details is the top-right account sheet's row. NOT WEAKENED:
+    each is pinned at its new home, exactly once, and the old loose rows are pinned ABSENT.
   */
   const src = PAGE();
-  const open = src.indexOf('data-shop-doors=""');
-  assert.ok(open > -1, 'the doors under the cover are not mounted at all');
-  const inside = src.slice(open, src.indexOf('</ul>', open));
-  for (const href of ['{PAGE_HREF}', '{DETAILS_HREF}']) assert.ok(inside.includes(`href=${href}`), `the doors have no row to ${href}`);
-  assert.match(src, /const PAGE_HREF = '\/vendor-dashboard\/website';/);
-  assert.match(src, /const DETAILS_HREF = '\/vendor-dashboard\/profile';/);
-  assert.match(inside, /id="d1"|data-shop-doors=""/);
+  assert.equal(count(src, 'data-shop-doors=""'), 0, 'loose door rows are back under the cover (§10 #31)');
   const gear = read('_components/shop-settings-rows.tsx');
+  assert.equal(count(gear, 'href={YOUR_PAGE_HREF}'), 1, 'Your page is not the Shop ⚙ row');
+  assert.ok(gear.indexOf('data-shop-gear-page') > -1 && gear.indexOf('data-shop-gear-page') < gear.indexOf('anchor="team"'), 'Your page is not the Shop ⚙’s first row');
+  assert.match(read('_components/shop-gear-sections.ts'), /export const YOUR_PAGE_HREF = '\/vendor-dashboard\/website';/);
+  const avatar = stripComments(readFileSync(resolve(HERE, '../app/vendor-dashboard/_components/supplier-avatar-rows.ts'), 'utf8'));
+  assert.match(avatar, /key: 'details'/, 'Your details left the account sheet');
+  assert.match(avatar, /'\/vendor-dashboard\/profile'/, 'the account sheet’s Your details goes nowhere');
+  assert.match(read('_components/shop-cover.tsx'), /const REVIEWS_HREF = `\$\{YOUR_PAGE_HREF\}#reviews`;/, 'the cover’s ★ does not open Your page › Reviews');
   assert.match(gear, /anchor="team"/, 'Helpers (Team) left the Shop ⚙');
   assert.match(gear, /anchor="docs"/, 'the papers left the Shop ⚙');
   assert.match(read('_components/shop-cover.tsx'), /href="#docs"/, 'the Verified chip does not open the papers');

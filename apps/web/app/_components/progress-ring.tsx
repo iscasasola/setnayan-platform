@@ -42,8 +42,9 @@ export function ProgressRing({
    *  ring 0→pct via the `sn-ring-sweep` keyframe (1.3s, sn-ease-out, `both`)
    *  after `delayMs`. Off by default so the ring's other mounts (couple
    *  countdown, vendor completeness) render exactly as before. The global
-   *  prefers-reduced-motion freeze snaps it to the final state. */
-  sweep?: { delayMs?: number };
+   *  prefers-reduced-motion freeze snaps it to the final state. `durationMs` /
+   *  `easing` are opt-in too (default 1.3 s, sn-ease-out). */
+  sweep?: { delayMs?: number; durationMs?: number; easing?: string };
 }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
@@ -85,7 +86,8 @@ export function ProgressRing({
               ...(sweep
                 ? {
                     '--sn-ring-circ': `${circ}px`,
-                    animation: 'sn-ring-sweep 1.3s var(--sn-ease-out) both',
+                    // Opt-in timing (Shop badges, Build 2 §10 #32: 1.1 s on the house page ease); default as before.
+                    animation: `sn-ring-sweep ${sweep.durationMs ?? 1300}ms ${sweep.easing ?? 'var(--sn-ease-out)'} both`,
                     animationDelay: `${sweep.delayMs ?? 0}ms`,
                   }
                 : {}),

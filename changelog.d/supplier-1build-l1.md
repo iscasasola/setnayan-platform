@@ -25,6 +25,10 @@ key `home` and the route unchanged). Papic's one card moves to **Memories**, und
 from `papicHomeHref`) → `/dashboard/<id>/memories?papic=open#papic`; the old `/dashboard/<id>?papic=open…` forwards there; the
 card's saves land back on Memories (`return_to=memories`); Today draws no card. Copy that named "Home" says "Today".
 Guards: `papic-lives-on-home` → `papic-lives-in-memories`, `papic-opens-on-home` → `papic-opens-in-memories` (git mv).
+Memories imports `open-event-settings` for its server graph, so the card's settings can draw the Maker's editors (the
+Home crash of 29 Oct, held by `the-settings-sheet-is-in-homes-graph`). The top bar's chrome-away slide keeps no
+reduced-motion stop — it slides for everybody, as `find-walk-fixes` #2 holds; the bottom bar simply goes under reduced motion.
+Your Story's door now runs account sheet → Help tile → `/help` (signed-in, never capability-gated).
 
 SPEC IMPACT: Corpus DECISION_LOG rows — event tab Home → Today (word only); "THE PAPIC CARD LIVES IN MEMORIES" (supersedes
 2026-10-26 "…LIVES ON HOME › TODAY"); supplier bar Today · Clients · Shop · Portfolio; account-sheet tiles Help · Show me

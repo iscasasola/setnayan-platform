@@ -27,7 +27,8 @@ import { readBookedCardIds, readEventForms, readFormSuggestions, readShopForms }
 import { QuestionsSection } from '@/app/vendor-dashboard/activities/questions-section';
 import { QuestionsSendPanel } from '@/app/vendor-dashboard/messages/[threadId]/_components/questions-send-panel';
 import { CoupleAnswers } from '../_components/couple-answers';
-import { FormsPageBody } from '@/app/vendor-dashboard/forms/_components/forms-page-body';
+// ⚡ On-demand code (`./lazy`): the shipped `FormsPageBody`, loaded with this page rather than the route's first load.
+import { FormsPageBody } from './lazy';
 import type { PickedPageProps } from './context';
 
 export async function FormsPage({ ctx }: PickedPageProps) {

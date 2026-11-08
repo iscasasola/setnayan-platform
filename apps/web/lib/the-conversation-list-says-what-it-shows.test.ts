@@ -304,8 +304,15 @@ test('🔑 12 · ONE column renders both sides, and it knows both vocabularies',
   const vendorPage = read(PAGE);
   const couplePage = read(COUPLE_PAGE);
   for (const [name, src] of [['supplier', vendorPage], ['couple', couplePage]] as const) {
+    // ⚡ The supplier thread takes it through its on-demand module — the same shared column, its code split off
+    // (`messages/[threadId]/_components/on-demand.tsx`), never a copy.
+    const viaOnDemand =
+      /import \{[^}]*\bConversationColumn\b[^}]*\} from '\.\/_components\/on-demand'/.test(src) &&
+      /export const ConversationColumn = dynamic\(\s*\(\) => import\(\s*(?:\/\*[^*]*\*\/\s*)?'@\/app\/_components\/chat\/conversation-column'\)/.test(
+        read(PAGE.replace(/page\.tsx$/, '_components/on-demand.tsx')),
+      );
     assert.ok(
-      src.includes("from '@/app/_components/chat/conversation-column'"),
+      viaOnDemand || src.includes("from '@/app/_components/chat/conversation-column'"),
       `the ${name} page stopped mounting the shared column`,
     );
     assert.ok(/<ConversationColumn/.test(src), `the ${name} page stopped rendering the column`);

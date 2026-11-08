@@ -53,13 +53,8 @@ import { formatLongDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
-import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
-import { ChatSendForm } from '@/app/_components/chat-send-form';
-import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
-import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { fetchThreadInterests } from '@/lib/thread-interests';
 import { fetchVendorServices } from '@/lib/vendor-services';
@@ -73,7 +68,6 @@ import { MarkReadWhenShown } from './_components/mark-read-when-shown';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
-import { QuoteVersionLine } from '@/app/_components/quote-version-line';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
 import { bandMedianPerHeadPhp } from '@/lib/budget-band-money';
 import { isFeeUnlocksEventEnabled } from '@/lib/event-access-stage';
@@ -103,14 +97,27 @@ import {
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
+// ⚡ The heavy client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
+// each in its own chunk — server-rendered and preloaded where they are on screen, so this page paints as before, and
+// out of the picked client's first load (Details' Decisions renders this page).
 import {
+  ChatInfoRailTrigger,
+  ChatMessageStream,
+  ChatPrivacyNotice,
+  ChatSendForm,
+  ChatThreadMenu,
+  ConversationColumn,
+  InquiryOutcomeCapture,
+  NegotiationComposerMenu,
+  ProposalMaker,
+  QuoteVersionLine,
+  SendProposalCard,
+  ThreadToolsSheet,
+  VendorEventDayPrepCta,
   VendorOfferService,
-  type VendorOfferOption,
-} from './_components/vendor-offer-service';
-import { SendProposalCard } from './_components/send-proposal-card';
-import { ProposalMaker } from '@/app/_components/proposal-maker';
+} from './_components/on-demand';
+import type { VendorOfferOption } from './_components/vendor-offer-service';
 import { OUTCOME_NOTICE } from './_lib/outcome-notice';
-import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
@@ -127,7 +134,6 @@ import {
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
-import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
   initialsFor,
@@ -135,7 +141,6 @@ import {
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import { QuestionsSendPanel } from './_components/questions-send-panel';
-import { ThreadToolsSheet } from './_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
@@ -143,7 +148,6 @@ import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import {
   deriveThreadStage,
@@ -154,10 +158,7 @@ import { closingCopy } from '@/lib/thread-closing-copy';
 import { fetchReasonCodes } from '@/lib/inquiry-outcomes';
 import { regionLabel } from '@/lib/region-source';
 import { eventTypeLabel } from '@/lib/demand-radar';
-import {
-  InquiryOutcomeCapture,
-  type OutcomeReasonOption,
-} from './_components/inquiry-outcome-capture';
+import type { OutcomeReasonOption } from './_components/inquiry-outcome-capture';
 import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,

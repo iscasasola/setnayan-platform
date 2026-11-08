@@ -94,6 +94,7 @@ import { readShopTrackerFacts } from '@/lib/shop-badges.server';
 import { badgeShelf, badgeTracker, type TrackerFacts, type TrackerRow } from '@/lib/shop-badges';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
+import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import {
   barHeights,
@@ -228,9 +229,9 @@ export default async function PerformanceHome({
     null,
     'badges',
   );
-  // 🎁 …and each badge's reward + 4-week upgrade (owner 2026-11-05 · table approved 2026-11-06): measured, paid once
-  // if newly earned, then read — so a reward shows the moment its badge does. Chained on the facts (no extra wait
-  // beside Batch A). A failure leaves the rows without reward lines; it never fails the page.
+  // 🎁 …and each badge's reward + 4-week upgrade (owner 2026-11-05 · table approved 2026-11-06): READ only — this render
+  // never pays (8 Nov release gate); `<BadgeRewardSweep />` asks the paying door after the page draws and redraws once
+  // if it paid. Chained on the facts (no extra wait beside Batch A). A failure leaves the rows without reward lines.
   const badgeRewardsRead: Promise<TrackerRewardInput | null> = badgeFactsRead.then((facts) =>
     facts
       ? readBadgeRewardTracker(createAdminClient(), profile.vendor_profile_id, facts).catch((err: unknown) => {
@@ -252,6 +253,8 @@ export default async function PerformanceHome({
             2026-10-21, item 2). */}
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
+          {/* 🎁 Pays a newly earned badge's reward after the page draws — the render only reads (8 Nov). */}
+          <BadgeRewardSweep />
           <div className="mt-6">
             <YourBadges shelf={gatedShelf} rows={trackerRows(gatedFacts, gatedRewards)} />
           </div>
@@ -847,6 +850,8 @@ export default async function PerformanceHome({
           bar lights Shop here — it used to draw no segments and light More, so
           a supplier who tapped Shop landed on a page that said More. */}
       <ShopSegments on="insights" figures={pinFigures} gearBody={shopGearBody(sp)} />
+      {/* 🎁 Pays a newly earned badge's reward after the page draws — the render only reads (8 Nov). */}
+      <BadgeRewardSweep />
       {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
           the full cards, unchanged ("only the words change"). */}
       <div className="mx-auto w-full max-w-xl tab:max-w-none">

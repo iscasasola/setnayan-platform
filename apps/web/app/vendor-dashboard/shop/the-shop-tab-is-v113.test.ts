@@ -28,7 +28,10 @@ const MAKERS = read('_components/shop-makers.tsx');
 
 test('1 · one scroll, in the ruled order', () => {
   const at = (re: RegExp) => PAGE.search(re);
-  const order = [at(/<ShopCover\b/), at(/<ShopAnalyticsCarousel\b/), at(/<ShopBadgeRow\b/), at(/<ShopMakers\b/), at(/id="services"/)];
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (release gate): Analytics STREAMS — the page draws `<ShopAnalyticsSection` in a
+  // <Suspense>, and that section draws the carousel. The order is still pinned at the place it is drawn.
+  const order = [at(/<ShopCover\b/), at(/<ShopAnalyticsSection\b/), at(/<ShopBadgeRow\b/), at(/<ShopMakers\b/), at(/id="services"/)];
+  assert.match(PAGE, /async function ShopAnalyticsSection\b[\s\S]*?<ShopAnalyticsCarousel\b/, 'the Analytics section no longer draws the five cards');
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop tab is out of the ruled order (cover · Analytics · Badges · Makers · Services)');
   assert.doesNotMatch(PAGE, /data-shop-doors=""/, 'loose door rows are back under the cover (§10 #31)');

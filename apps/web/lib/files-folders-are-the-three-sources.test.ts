@@ -65,10 +65,23 @@ test('3 · the sorts — an unknown size sorts last, never as 0', () => {
   assert.deepEqual(filesFor(FILES, 'all', 'kind').map((f) => f.kind), ['contract', 'chat', 'chat', 'handover', 'gallery_link']);
 });
 
+/**
+ * Render with every on-demand part's code loaded, as the server does before its HTML is final. The finder's code loads
+ * on demand (`_pages/lazy.tsx`, `React.lazy`), so a one-pass `renderToStaticMarkup` would only ever see its loading
+ * line: a first streaming pass (waited out to `onAllReady`) fetches the code, then the markup is drawn in one pass.
+ */
+async function rendered(el: React.ReactElement): Promise<string> {
+  const { renderToPipeableStream, renderToStaticMarkup } = await import('react-dom/server');
+  await new Promise<void>((done, fail) => {
+    const stream = renderToPipeableStream(el, { onAllReady: () => (stream.abort(), done()), onShellError: fail });
+  });
+  return renderToStaticMarkup(el);
+}
+
 test('4 · rendered: folders with counts, the root list, each row its own href, one dropdown each, the chat’s own limits', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FilesPage } = await import('../app/vendor-dashboard/clients/[eventId]/_pages/files');
-  const html = renderToStaticMarkup(
+  const html = await rendered(
     React.createElement(FilesPage, {
       ctx: { eventId: 'e1', vendorProfileId: 'v', viewerUserId: 'u', threadId: 't1', eventName: 'E', stage: 'booked', isBooked: true, feeUnlocked: true, eventVendorId: 'ev', eventDate: null },
       files: FILES,

@@ -65,6 +65,20 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 ## Request counts
 (pending)
 
+## Owner rulings §10 (v115) — status
+- #26 page slide 700 ms / 44 px / cubic-bezier(.33,1,.68,1) / opacity full at 45 %, scroller overflow-x hidden,
+  menu scrolls only its strip: DONE (3d3000e64d), guarded in `the-picked-client-opens-over-the-list` test 3–4.
+- #27 return rule (picked day · day bar · schedule day → exact prior state, 520 ms): NOT BUILT — belongs to the list
+  calendar/day bar (item 3), which is not built yet.
+- #28 only the picked day filled · event days dots · today thin ring: NOT BUILT (item 3 calendar).
+- #29 Accept-bookings switch animates the cell (squash+strike / pop+confetti, none under reduced motion): NOT BUILT.
+- #34 ONE Booked QR form on `invite/_components/locked-qr-generator.tsx` + Booked QRs list (Waiting · Used · Deleted):
+  NOT BUILT. Needs from C2: the void action + quote-line storage.
+
 ## Where I stopped
-Item 2 (client page cleanup) written + guards; waiting on the heavy lock for install → tsc → tests → preflight → push.
+Items 2, 4 (shell/motion), Auto-reply, Clients wording, Details numbers/answers/hosts DONE + guarded. NEXT: item 3
+(Clients list: calendar week strip + #27/#28/#29, tiles Booked · Schedules · Asked · To collect + Overdue/Unread buttons,
+day bar + Book a client → #34 Booked QR form, sticky day headings, Show & sort + Handled by), then Details v113 order
+(Suppliers · Decisions · Forms sent), then Schedule v113 order. No browser proof at 375 px yet.
+tsc: clean for L2; ONE pre-existing error inherited from the base: `tests/db/one-source-buckets.db.test.ts(189)` (TS2345).
 ⚠ Hour-0 push 1fd157a8fd went out WITHOUT tsc (node_modules not installed; lock held by 'preflight train-base').

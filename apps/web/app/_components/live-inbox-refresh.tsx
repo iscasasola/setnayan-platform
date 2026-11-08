@@ -26,6 +26,7 @@ export function LiveInboxRefresh({ userId }: { userId: string }) {
         stop = followInboxLive({
           supabase: createClient(),
           userId,
+          // one-render: keep (realtime) — a chat ping (or the channel coming back) means the server list is stale; coalesced to one per 5 s
           refresh: () => router.refresh(),
           subscribe: subscribeUserLive,
         });

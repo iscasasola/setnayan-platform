@@ -218,6 +218,7 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -768,12 +769,16 @@ async function fetchVendorHidesPricesPublicly(
 }
 
 async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
+  return (await resolvePortfolioPhotos(keys)).map((p) => p.url);
+}
+
+/** 👁 The portfolio's photos WITH their stored keys — a tap opens one and counts its view (Lane E item 11). */
+async function resolvePortfolioPhotos(keys: string[] | null): Promise<{ key: string; url: string }[]> {
   if (!keys || keys.length === 0) return [];
   try {
-    const resolved = await Promise.all(
-      keys.slice(0, 12).map((k) => displayUrlForStoredAsset(k)),
-    );
-    return resolved.filter((u): u is string => Boolean(u));
+    const shown = keys.slice(0, 12);
+    const resolved = await Promise.all(shown.map((k) => displayUrlForStoredAsset(k)));
+    return shown.flatMap((key, i) => (resolved[i] ? [{ key, url: resolved[i]! }] : []));
   } catch {
     return [];
   }
@@ -1354,9 +1359,9 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls, microsite, igMedia, repertoire] = await Promise.all([
+  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioUrls(vendor.portfolio_r2_keys),
+    resolvePortfolioPhotos(vendor.portfolio_r2_keys),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1407,6 +1412,7 @@ export async function renderVendorBySlug({
   // set and fall back to defaults (all baseline sections visible).
   const pageSections = canPersonalizePage ? microsite.sections : {};
 
+  const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
   const orderedServices = orderFeaturedFirst(
@@ -2967,20 +2973,14 @@ export async function renderVendorBySlug({
               Portfolio
             </h2>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {portfolioUrls.map((url, idx) => (
-                <div
-                  key={url}
-                  className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
-                >
-                  <Image
-                    src={url}
-                    alt={`${displayLabel} portfolio ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 640px) 50vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
+              {/* 👁 Each photo opens full size on a tap, and that open is ONE view of that photo (Lane E item 11) — the
+                  shop's own people and admins never count (the RPC refuses them; a team preview counts nothing). */}
+              <PortfolioPhotoTiles
+                vendorProfileId={vendor.vendor_profile_id}
+                photos={portfolioPhotos}
+                label={displayLabel}
+                count={!isDemoVendor && teamPreview === null}
+              />
               {featuredVideos.map((v, idx) =>
                 v.embedUrl ? (
                   // Inline player spans two grid columns so its 16:9 frame reads

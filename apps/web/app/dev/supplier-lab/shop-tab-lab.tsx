@@ -2,7 +2,9 @@
  * 🧪 THE SHOP + PORTFOLIO TABS, from fixtures (THE ONE BUILD, lane C4 — the side-by-side proof against v113/v114 at
  * 375 px). `/dev/supplier-lab?s=shop-tab` · `?s=portfolio-tab` (dispatched through `coord-lab.tsx`, C4's lab file).
  * No database: the SAME components the two pages mount, handed v113's own sample shop (SetnaProd · 120 events · ★ 4.8 ·
- * 38 reviews · 18 inspiration photos · 4 cards · 1 branch). `&fail=1` = every read refused (the honest words).
+ * 38 reviews · 18 inspiration photos · 4 cards · 1 branch). `&unread=1` = every read refused (the honest words).
+ * `&none=1` = a NEW shop with nothing in it (Build 3 Lane E: "even the empty modes … should always look good") — no
+ * photo (the hero wears the placeholder), no badge earned, no bundle, no card, no booked event, an empty Portfolio.
  * Dev only (the lab page 404s in production).
  */
 import { ShopCover, type CoverData } from '@/app/vendor-dashboard/shop/_components/shop-cover';
@@ -10,18 +12,19 @@ import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
 import { ShopAnalyticsCarousel, type AnalyticsCardData } from '@/app/vendor-dashboard/shop/_components/shop-analytics-carousel';
-import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
+import { ShopServicesHead } from '@/app/vendor-dashboard/shop/_components/shop-services-head';
+import { ShopBundles } from '@/app/vendor-dashboard/shop/_components/shop-bundles';
+import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
+import { ShopServicesThumb } from '@/app/vendor-dashboard/shop/_components/shop-services-thumb';
+import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { CapacityCard } from '@/app/vendor-dashboard/performance/_components/capacity-card';
 import { ConversionDealsCard } from '@/app/vendor-dashboard/performance/_components/conversion-deals-card';
 import { PricePositionCard } from '@/app/vendor-dashboard/performance/_components/price-position-card';
 import { RoiAttributionCard } from '@/app/vendor-dashboard/performance/_components/roi-attribution-card';
 import { FunnelBenchmarkCard } from '@/app/vendor-dashboard/performance/_components/funnel-benchmark-card';
 import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/portfolio-view';
-import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
-import { ActionButton } from '@/components/action-button';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
-import { Plus } from 'lucide-react';
 import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { badgeRowsWithRewards, FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
 import { shopBadgeRow } from '@/lib/shop-badge-row';
@@ -60,13 +63,17 @@ const bar = (
   </BottomDock>
 );
 
-function shopLab(fail: boolean) {
+function shopLab(fail: boolean, none: boolean) {
   const facts: TrackerFacts | null = fail
     ? null
-    : { verified: true, completedEvents: 120, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 38 }, inBusinessSinceYear: 2020, awards: [], nowYear: 2026, unreviewed: 2 };
+    : none
+      ? { verified: true, completedEvents: 0, trusted: { trusted_avg_rating: null, trusted_review_count: 0 }, inBusinessSinceYear: null, awards: [], nowYear: 2026, unreviewed: 0 }
+      : { verified: true, completedEvents: 120, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 38 }, inBusinessSinceYear: 2020, awards: [], nowYear: 2026, unreviewed: 2 };
   const counts: BadgeRewardFacts | null = fail
     ? null
-    : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3 };
+    : none
+      ? { verified: true, completedEvents: 0, trustedReviews: 0, firstSourcedBooking: false, branchIds: ['hq'], serviceCards: 1, inspirationPhotos: 0, awards: [], bookedLoops: 0 }
+      : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3 };
   const rows = facts && counts ? badgeRowsWithRewards(badgeTracker(facts), { facts: counts, granted: [], names: FALLBACK_REWARD_NAMES, awardTypeByTitle: {}, periodMonth: '2026-11-01' }) : null;
   const tiles = shopBadgeRow({
     rows,
@@ -74,7 +81,7 @@ function shopLab(fail: boolean) {
     completedEvents: facts?.completedEvents ?? null,
     trusted: facts?.trusted ?? null,
     inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
-    founding: fail ? null : { isFounder: true, joinedYear: 2026 },
+    founding: fail || none ? null : { isFounder: true, joinedYear: 2026 },
   });
 
   const capacity: CapacityAnalytics | null = fail
@@ -126,12 +133,14 @@ function shopLab(fail: boolean) {
     logoUrl: null,
     logoFrame: { x: 50, y: 50, zoom: 100 } as CoverData['logoFrame'],
     logoUnavailable: false,
-    coverUrl: PHOTOS[0]!,
+    coverUrl: none ? null : PHOTOS[0]!,
+    hero: none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[0]!, kind: 'photo' },
+    heroCaption: none ? null : 'Cover · Your page',
     city: 'Batangas',
     verified: { isVerified: true, inReview: false, stepsDone: 2 },
-    rating: fail ? null : '4.8',
-    reviews: fail ? null : '38 reviews',
-    events: fail ? null : '120 events',
+    rating: fail || none ? null : '4.8',
+    reviews: fail || none ? null : '38 reviews',
+    events: fail ? null : none ? '0 events' : '120 events',
     planLabel: 'Pro',
     publicPath: '/setnaprod',
     websiteLive: true,
@@ -162,30 +171,51 @@ function shopLab(fail: boolean) {
         <ShopAnalyticsCarousel cards={cards} recs={buildGrowthRecs(null, { askedInWindow: 4 })} nowMs={NOW} />
         <ShopBadgeRow tiles={tiles} />
         <ShopMakers
-          scanners={fail ? null : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
+          scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
+          categories={none ? [] : ['Live Band', 'Photo Booth']}
+          services={none ? [] : ['live_band']}
+          booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
         />
-        <section className="px-4 pt-3" id="services">
-          <ShopServiceRows
-            rows={fail ? null : [
-              { key: 'photo', label: 'Photo & Video', coverageId: 1, cards: 2, fromPhp: 45000, live: true, tools: ['Shot list'], scanner: null, firstCardId: null },
-              { key: 'booth', label: 'Photo booth', coverageId: 2, cards: 1, fromPhp: null, live: false, tools: [], scanner: null, firstCardId: null },
-            ] as never}
-            scan={null}
+        <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
+          <ShopServicesHead
+            line={none ? 'Bundles first, then every service you do, by category' : 'Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live'}
+            compact={none ? '' : '1 bundle · 2 cards · 1 live'}
+            serviceHref="#services"
+            bundlesOn
           />
+          <ShopBundles bundles={fail ? null : none ? [] : [{ id: 'b1', name: 'Bar & mocktail night', priceCentavos: 15_000_000, live: true, cards: 2 }]} cards={none ? 0 : 2} />
+          {none ? (
+            <ServicesEmptyCard />
+          ) : (
+            <ul className="space-y-2.5 pt-2" data-shop-card-list="">
+              <li className="px-1 pb-1 pt-1" data-shop-card-group="">
+                <p className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
+                  Booths, carts &amp; bars › Mobile Bar
+                </p>
+                <p className="mt-1 text-[12px] leading-snug text-ink/60">
+                  <span className="font-medium text-ink/75">Tools on every event · </span>Run of show &amp; countdown · Headcount · Review QR
+                </p>
+              </li>
+              <li className="overflow-hidden rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }} data-shop-card="">
+                <ServiceCardFace
+                  snap={{ name: 'Mobile Bar by SetnaProd', priceText: 'from ₱110,000', discountBadge: null, includesLine: null, notIncluded: ['Crew meal', 'Transport'], hasExclusive: false, givesSetnayanGift: false, hasCover: false }}
+                  leafPathLabel="Mobile Bar · Booths, carts & bars"
+                />
+              </li>
+            </ul>
+          )}
         </section>
       </div>
-      <SupplierThumbRow name="services" label="Service actions">
-        <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add a service" href="#services" />
-      </SupplierThumbRow>
+      <ShopServicesThumb bundlesOn />
       {bar}
     </div>
   );
 }
 
-function portfolioLab(fail: boolean) {
+function portfolioLab(fail: boolean, none: boolean) {
   const input: CollectionsInput = {
-    page: { photos: 38, videos: 12, shown: true },
+    page: { photos: none ? 0 : 38, videos: none ? 0 : 12, shown: true },
     cards: fail ? null : { cards: 4, photos: 12, videos: 1 },
     albums: fail ? null : { photos: 180, events: 1 },
     own: fail ? null : { items: 18 },
@@ -197,7 +227,9 @@ function portfolioLab(fail: boolean) {
   // Build 2 §10 #35 — v118's own sample groups, through the SAME pure builders the loader uses.
   const groups: PortfolioGroups = fail
     ? { events: null, services: null, inspiration: null, stories: null }
-    : {
+    : none
+      ? { events: [], services: [], inspiration: [], stories: [] }
+      : {
         events: eventAlbums(
           [
             ...PHOTOS.map((url, i) => ({ eventId: 'ev-santos', url, createdAt: `2026-11-07T0${i}:00:00Z` })),
@@ -231,18 +263,21 @@ function portfolioLab(fail: boolean) {
           vendorId="lab"
           input={input}
           saved={saved}
-          previews={{ page: { urls: PHOTOS.slice(0, 9), total: 38 }, ...(fail ? {} : { cards: { urls: PHOTOS.slice(3, 9), total: 12 } }) }}
-          showAlbums={{ page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
-          photos={38}
-          videoLinks={12}
+          previews={none ? {} : { page: { urls: PHOTOS.slice(0, 9), total: 38 }, ...(fail ? {} : { cards: { urls: PHOTOS.slice(3, 9), total: 12 } }) }}
+          showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
+          photos={none ? 0 : 38}
+          videoLinks={none ? 0 : 12}
+          hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
+          moodboard={fail ? null : { looks: none ? 0 : 5, declined: 0 }}
+          songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
           allowanceUnread={fail}
           walletBalance={fail ? null : 128}
           igFlash={null}
           groups={groups}
-          allPhotos={[...PHOTOS].reverse()}
+          allPhotos={none ? [] : [...PHOTOS].reverse()}
           libraryOpen={!fail}
-          videoLinkUrls={fail ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
+          videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
         />
       </div>
@@ -251,6 +286,6 @@ function portfolioLab(fail: boolean) {
   );
 }
 
-export function ShopTabLab({ state, fail = false }: { state: ShopTabState; fail?: boolean }) {
-  return state === 'shop-tab' ? shopLab(fail) : portfolioLab(fail);
+export function ShopTabLab({ state, fail = false, none = false }: { state: ShopTabState; fail?: boolean; none?: boolean }) {
+  return state === 'shop-tab' ? shopLab(fail, none) : portfolioLab(fail, none);
 }

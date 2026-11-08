@@ -143,7 +143,7 @@ const WIRED: ReadonlyArray<{ file: string; scope: boolean; calls?: number }> = [
   { file: 'app/_components/info-tip.tsx', scope: false },
   { file: 'app/_components/chat-thread-menu.tsx', scope: false },
   { file: 'app/_components/frontdoor/front-door-shell.tsx', scope: false },
-  { file: 'app/vendor-dashboard/shop/_components/services-disclosure.tsx', scope: true },
+  // services-disclosure.tsx retired 2026-11-09 (Build 3 Lane E: Shop's services are one list, no fold).
 ];
 
 const read = (rel: string) => stripComments(readFileSync(join(process.cwd(), ...rel.split('/')), 'utf8'));

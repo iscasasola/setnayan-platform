@@ -188,7 +188,7 @@ export type MakerEditing = {
   legacyPromise: string | null;
 };
 
-type SheetKey = 'kind' | 'audience' | 'ask' | 'delete' | 'preview';
+type SheetKey = 'kind' | 'audience' | 'ask' | 'delete';
 
 const line = 'var(--m-line)';
 const paper = 'var(--m-paper)';
@@ -956,7 +956,6 @@ export function CanvasMaker({
             </span>
           )}
         </div>
-        <ActionButton tone="neutral" iconOnly icon={Eye} label="As couples see it" onClick={() => setSheet('preview')} aria-haspopup="dialog" />
         <ActionButton tone="neutral" iconOnly icon={Info} label="About this card" onClick={() => setAboutOpen((v) => !v)} aria-expanded={aboutOpen} />
       </div>
       {canChooseKind && !category ? (
@@ -965,7 +964,19 @@ export function CanvasMaker({
         <p className="-mt-2 text-[13px] text-ink/55" data-maker-kind-line="">From your shop · change</p>
       ) : null}
 
-      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the preview is the Eye's sheet ═══ */}
+      {/* ═══ AS COUPLES SEE IT, PINNED (Build 3 Lane E items 8–9; owner ✅ 9 Nov: "the service maker's 👁 preview button
+          goes; the card preview is always pinned at the top"). On a phone the card sits under the pinned row and stays
+          on screen while the fields scroll under it, redrawing as you type. It IS the card a host sees in Suppliers ›
+          Find — `ServiceCardFace`, the one face `supplier-sheet.tsx` renders; never a second drawing. ═══ */}
+      <div className="sticky top-0 z-[3] -mx-4 border-b px-4 pb-3 pt-1 md:hidden" style={{ borderColor: line, background: 'var(--sn-canvas)' }} data-maker-card-pinned="">
+        <div className="flex items-baseline justify-between gap-2 pb-1.5">
+          <span className="sn-eye">As couples see it</span>
+          <span className="text-[11.5px] text-ink/50">updates as you type</span>
+        </div>
+        {cardFace}
+      </div>
+
+      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the card is pinned above ═══ */}
       <div className="md:grid md:grid-cols-2 md:items-start md:gap-8" data-maker-split="">
         {/* noValidate: some fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
             show focuses nothing and says nothing — the press just does nothing. commitVendorService re-validates
@@ -1702,25 +1713,6 @@ export function CanvasMaker({
           </div>
         </CanvasSheet>
       ) : null}
-
-      {/* Preview — the card as couples meet it. */}
-      <CanvasSheet id="canvas-preview" title="As couples see it" open={sheet === 'preview'} onClose={() => setSheet(null)} confirmLabel="Back to the card">
-        {face ? (
-          <ServiceCardFace
-            snap={{ ...face, name: faceName }}
-            leafPathLabel={activeCategoryLabel}
-            packLine={packLine}
-          />
-        ) : null}
-        {snap.inclusionLabels.length ? (
-          <ul className="space-y-1.5 text-[14px] text-ink/80">
-            {snap.inclusionLabels.map((l) => (
-              <li key={l} className="flex gap-2"><Check aria-hidden className="mt-0.5 h-4 w-4 flex-none" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2} />{l}</li>
-            ))}
-          </ul>
-        ) : null}
-        <p className="text-[13px] text-ink/55">The final figure is your quote in the chat.</p>
-      </CanvasSheet>
 
       {/* Delete — its own form; a card anyone booked hides instead (said before the tap). */}
       {editing ? (

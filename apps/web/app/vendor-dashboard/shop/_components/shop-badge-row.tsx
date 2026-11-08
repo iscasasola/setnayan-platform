@@ -10,7 +10,7 @@ import { nextGoalLine, nowLine, type BadgeTile } from '@/lib/shop-badge-row';
 import { RING_COLOUR, RING_EASE, RING_MS, ringDelay, ringGroup, ringPct } from '@/lib/badge-ring';
 
 /**
- * 🏅 SHOP › BADGES — ONE row of image badges, the closest goal first with "N to go" (owner v110/v112; spec §1). Tap a
+ * 🏅 SHOP › BADGES — ONE row of image badges: completed far left, then in progress (the closest saying "N to go"), then not yet (Lane E, 9 Nov). Tap a
  * badge → its sheet: Now · the bar (ladders only) · "Next goal: N — M to go" · the reward box from the ONE reward table
  * (`lib/badge-rewards.ts`, #7298 with the APPROVED 8 Nov table). No graph (v112). Rating has no goal.
  *
@@ -31,7 +31,7 @@ export function ShopBadgeRow({ tiles }: { tiles: BadgeTile[] | null }) {
         <h2 id="shop-badges-h" className="sn-eye">
           Badges
         </h2>
-        <span className="text-[11.5px] text-ink/50">grey = not yet · tap one</span>
+        <span className="text-[11.5px] text-ink/50">earned · in progress · not yet · tap one</span>
       </div>
       {tiles === null ? (
         <p role="status" className="px-4 text-[13.5px] text-ink/65" data-shop-badges-unread="">

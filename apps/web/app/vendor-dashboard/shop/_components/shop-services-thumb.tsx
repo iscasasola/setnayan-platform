@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { ListFilter, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ListFilter } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
+import { addChoices, NEW_BUNDLE_HREF } from './shop-services-head';
 
 /**
- * 👍 SHOP'S THUMB ROW — Search services · Show & sort · ＋ Add a service (owner v95: "Thumb row: search · Show & sort
+ * 👍 SHOP'S THUMB ROW — Search services · Show & sort · ＋ (New bundle · New service — Build 3 Lane E item 6: the one add
+ * control, the same two choices as the services head's ＋) (owner v95: "Thumb row: search · Show & sort
  * (Show All/Live/Draft; Sort Most viewed/Most asked/Name) · ＋"; THE ONE BUILD A3 W12, lane C4).
  *
  *   · Search narrows the shipped card list IN PLACE by its words (the house move — Hub's crew search), no request.
@@ -56,7 +59,8 @@ function apply(words: string, show: Show, sort: Sort) {
   if (none) none.hidden = shown > 0;
 }
 
-export function ShopServicesThumb() {
+export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean } = {}) {
+  const router = useRouter();
   const [show, setShow] = useState<Show>('all');
   const [sort, setSort] = useState<Sort>('listed');
   const [words, setWords] = useState('');
@@ -109,7 +113,13 @@ export function ShopServicesThumb() {
               ),
             },
           ]}
-          action={{ icon: Plus, label: 'Add a service', href: SERVICE_MAKER_HREF }}
+          action={{
+            menu: addChoices(bundlesOn).map((c) => ({ key: c.key, label: c.label })),
+            label: 'Add',
+            value: null,
+            onPick: (k: string) => router.push(k === 'bundle' ? NEW_BUNDLE_HREF : SERVICE_MAKER_HREF),
+            mark: 'data-shop-services-add-thumb',
+          }}
         />
       }
     />

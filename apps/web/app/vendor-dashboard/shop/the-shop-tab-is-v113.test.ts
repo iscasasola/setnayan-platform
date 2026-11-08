@@ -7,7 +7,8 @@
  *       pins both). The order is still pinned, one part shorter, and the doors are pinned ABSENT.
  *   2 · The app's words, never the prototype's WRONG/INVENTED ones: no Explore / Boost / Approve first / Owner ID /
  *       Enterprise / Custom plan / Take a photo / Request a name change; the unverified chip is "Get verified · N of 2".
- *   3 · Makers = ONE row of tiles — Forms Maker + Scanner (the shipped ServiceScannerPick), each opening into the body
+ *   3 · Makers = ONE row of tiles — Forms Maker + Specialized tools (Lane E, 9 Nov: Scanner = its first tile, the shipped
+ *       ServiceScannerPick), each opening into the body
  *       (§10 #33); NO Tools Maker in this build. 🔁 UPDATED ON PURPOSE 2026-11-08: the Forms door was a link to the Forms
  *       page (`formsHref ? (`); it is now a tile whose body is the server's, drawn while `?maker=forms` — pinned below
  *       so it can never be a tile with nothing behind it.
@@ -47,16 +48,19 @@ test('2 · the app’s words, never the WRONG or INVENTED ones', () => {
   assert.match(COVER, /View shop/);
 });
 
-test('3 · Makers = one row of tiles (Forms Maker + Scanner); no Tools Maker', () => {
+test('3 · Makers = one row of tiles (Forms Maker + Specialized tools, Scanner first inside); no Tools Maker', () => {
+  // 🔁 UPDATED ON PURPOSE 2026-11-09 (Build 3 Lane E item 13, owner: "our scanner will live inside the specialized
+  // tools"): the Scanner tile left the row and is the FIRST tile of the Specialized tools carousel, same shipped body.
   assert.match(MAKERS, /<ServiceScannerPick\b/);
   assert.match(MAKERS, /data-maker=\{t\.k\}/, 'the Makers are not one row of tiles');
-  assert.match(MAKERS, /k: 'scanner', title: 'Scanner'/);
+  assert.match(MAKERS, /k: 'tools', title: 'Specialized tools'/);
   assert.match(MAKERS, /k: 'forms' as const, title: 'Forms Maker'/);
-  assert.match(PAGE, /<ShopMakers scanners=\{scanners\} formsBody=\{shopFormsBody\(sp\)\} \/>/, 'the Forms tile has no body behind it (a dead tile)');
+  assert.match(PAGE, /<ShopMakers\s+scanners=\{scanners\}\s+formsBody=\{shopFormsBody\(sp\)\}/, 'the Forms tile has no body behind it (a dead tile)');
   assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');
-  // The Scanner's lines are already on the page — opening it must not touch the address (a server re-draw of the Shop).
-  assert.match(MAKERS, /if \(k !== 'forms' && !params\.get\('maker'\)\) return;/, 'opening the Scanner costs a server round-trip');
-  assert.doesNotMatch(MAKERS + PAGE, /Tools Maker|data-maker="tools"/, 'the Tools Maker is back — out of this build (spec §9 #8)');
+  // The tools' lines are already on the page — opening them must not touch the address (a server re-draw of the Shop).
+  assert.match(MAKERS, /if \(k !== 'forms' && !params\.get\('maker'\)\) return;/, 'opening the tools costs a server round-trip');
+  // A tile with no door is not drawn: no Tools Maker and no "Make your own" until the Tools Maker exists.
+  assert.doesNotMatch(MAKERS + PAGE, /Tools Maker'|data-maker="tools-maker"|Make your own/, 'a Tools Maker tile is drawn with no maker behind it');
 });
 
 test('4 · the Booked Loop is C2’s counter, hidden whenever it was not read', () => {

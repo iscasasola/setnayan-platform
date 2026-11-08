@@ -13,7 +13,7 @@ import { stripComments } from '@/lib/strip-comments';
 const SRC = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/collections/_components/portfolio-groups.tsx'), 'utf8'));
 
 test('every section is the one card shape', () => {
-  for (const id of ['moodboard', 'songs', 'all', 'stories']) {
+  for (const id of ['songs', 'all', 'stories']) {
     assert.match(SRC, new RegExp(`<PortfolioCard\\s+id="${id}"`), `${id} is not drawn as a card`);
   }
   assert.match(SRC, /<PortfolioCard id=\{id\}/, 'the album groups (events · services · inspiration) are not cards');
@@ -22,7 +22,7 @@ test('every section is the one card shape', () => {
 });
 
 test('each empty card says one line and offers its one door', () => {
-  for (const door of ['Open Clients', 'Add a cover to a card', 'Open Moodboard library', 'Add a song']) {
+  for (const door of ['Open Clients', 'Add a cover to a card', 'Add a song']) {
     assert.match(SRC, new RegExp(`label: '${door}'`), `the empty door "${door}" is gone`);
   }
   assert.match(SRC, /INSPIRATION_LIBRARY_ROW\.label, href: INSPIRATION_LIBRARY_HREF/, 'the inspiration card lost its door');
@@ -37,7 +37,8 @@ test('a refused read says so — events · services · inspiration · stories ·
   assert.match(SRC, /data-portfolio-group-unread="songs"/);
 });
 
-test('Moodboard library and Song bank are Portfolio sections, for their own shops only', () => {
+test('Moodboard library (on the library row — one door) and Song bank are in Portfolio, for their own shops only', () => {
+  assert.match(SRC, /Moodboard library · \$\{formatCount\(moodboard\.looks\)\}/, 'the library row no longer counts the sets');
   const page = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/collections/page.tsx'), 'utf8'));
   assert.match(page, /isMusicToolCategory\(services\)/, 'the Song bank section is shown to non-music shops');
   assert.match(page, /d\.input\.moodboard && d\.input\.moodboard\.allowed/, 'the Moodboard library section ignores its access rule');

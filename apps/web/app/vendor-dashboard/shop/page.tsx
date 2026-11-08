@@ -47,6 +47,7 @@ import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type ScannerLine } from './_components/shop-makers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
 import { ShopAnalyticsCarousel, type AnalyticsCardData } from './_components/shop-analytics-carousel';
@@ -251,9 +252,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   })();
 
   // 🖼 The hero's placeholder (Lane E item 12) — read only when there is no cover photo to wear.
-  const heroRead = coverRead.then(async (url) =>
-    url ? { url, kind: 'photo' as const } : { url: await heroPlaceholderUrl(profile.services as string[] | null), kind: 'placeholder' as const },
-  );
+  const heroRead = (async (): Promise<{ url: string; kind: 'photo' | 'placeholder' }> => {
+    const url = await coverRead;
+    return url ? { url, kind: 'photo' } : { url: await heroPlaceholderUrl(profile.services as string[] | null), kind: 'placeholder' };
+  })();
 
   // 📦 Bundles — the shipped packages (flag-dark until NEXT_PUBLIC_PACKAGE_AUTHORING), listed FIRST (Lane E item 7).
   const bundlesRead: Promise<ShopBundle[] | null> = packageAuthoringEnabled()
@@ -261,7 +263,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         try {
           const { data, error } = await supabase
             .from('vendor_packages')
-            .select('package_id, package_name, total_price_centavos, is_active, vendor_package_items(vendor_service_id)')
+            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id)`)
             .eq('vendor_profile_id', vendorId)
             .order('updated_at', { ascending: false });
           if (error) {
@@ -283,16 +285,17 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     : Promise.resolve([]);
 
   // 🧰 The booked days the per-event Specialized tools run on — the same days the Hub picks from (`on-the-day/page.tsx`).
-  const bookedRead: Promise<BookedDay[] | null> = fetchVendorRoomEvents(supabase, vendorId)
-    .then((rows) =>
-      collapseToPickerDays(rows, phTodayIso())
+  const bookedRead: Promise<BookedDay[] | null> = (async () => {
+    try {
+      const rows = await fetchVendorRoomEvents(supabase, vendorId);
+      return collapseToPickerDays(rows, phTodayIso())
         .filter((b) => b.when !== 'past')
-        .map((b) => ({ eventId: b.eventId, eventName: b.eventName, bookedDate: b.bookedDate })),
-    )
-    .catch((err: unknown) => {
+        .map((b) => ({ eventId: b.eventId, eventName: b.eventName, bookedDate: b.bookedDate }));
+    } catch (err) {
       logQueryError('VendorShopPage.bookedDays', err, { vendorId });
       return null;
-    });
+    }
+  })();
 
   // 📊 Analytics — the five cards, gated by the plan (its role read starts now, beside the shop's own row). NOT in the
   // one wait: the cards STREAM in their own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for them.

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, ExternalLink, Image as ImageIcon, Info, Link2, Music, Palette, Play, Plus, Sparkles, Users } from 'lucide-react';
+import { Check, ChevronRight, ExternalLink, Image as ImageIcon, Info, Link2, Music, Play, Plus, Sparkles, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
@@ -54,8 +54,8 @@ export function PortfolioGroupsView({
   videoLinks: string[];
   picked: PickKey | null;
   onPick: (key: PickKey, album: { title: string; urls: string[] }) => void;
-  /** 🎨 Moodboard library (Lane E: "Moodboard library lives inside portfolio") — stylists/decorators only (the shipped
-   *  `moodboard-library-access` rule); `null` = not theirs or unread → the section is not drawn. */
+  /** 🎨 Moodboard library counts (Lane E: "Moodboard library lives inside portfolio") — said on the inspiration card's
+   *  library row (the same page); `null` = not theirs or unread. */
   moodboard?: { looks: number; declined: number } | null;
   /** 🎵 Song bank (Lane E: a Portfolio section, music categories only) — 'off' = not a music shop; null = unread. */
   songs?: { count: number; withVideo: number } | null | 'off';
@@ -129,28 +129,22 @@ export function PortfolioGroupsView({
             libraryOpen ? 'None approved yet · your photos help couples find you' : 'None approved yet',
             // The empty card's door IS the shipped library row; with looks the row sits under them, as shipped.
             libraryOpen ? { label: INSPIRATION_LIBRARY_ROW.label, href: INSPIRATION_LIBRARY_HREF, icon: <Sparkles aria-hidden strokeWidth={1.9} /> } : null,
-            libraryOpen && groups.inspiration && groups.inspiration.length > 0 ? (
+            // 🎨 "Moodboard library lives inside portfolio" (owner 9 Nov): the library IS this door's page
+            // (`INSPIRATION_LIBRARY_HREF` = /vendor-dashboard/moodboard-library), so it is said here, once — with its
+            // sets counted — never as a second card to the same page.
+            libraryOpen ? (
+              groups.inspiration?.length ? (
               <div className="mt-1 border-t border-ink/10">
-                <DatesRow data="portfolio-inspiration-library" title={INSPIRATION_LIBRARY_ROW.label} line={INSPIRATION_LIBRARY_ROW.line} href={INSPIRATION_LIBRARY_HREF} />
+                <DatesRow
+                  data="portfolio-inspiration-library"
+                  title={INSPIRATION_LIBRARY_ROW.label}
+                  line={moodboard && moodboard.looks > 0 ? `Moodboard library · ${formatCount(moodboard.looks)} ${moodboard.looks === 1 ? 'set' : 'sets'}${moodboard.declined > 0 ? ` · ${formatCount(moodboard.declined)} declined` : ''}` : INSPIRATION_LIBRARY_ROW.line}
+                  href={INSPIRATION_LIBRARY_HREF}
+                />
               </div>
+              ) : null
             ) : null,
           )}
-
-      {/* 🎨 MOODBOARD LIBRARY — its main page is the shipped library; Portfolio shows it as a section (owner 9 Nov). */}
-      {moodboard ? (
-        <PortfolioCard id="moodboard" title={<>Moodboard library{moodboard.looks > 0 ? ` · ${formatCount(moodboard.looks)}` : ''}</>} sub="stylists & decorators">
-          {moodboard.looks === 0 ? (
-            <EmptyLine line="No sets yet · couples match your sets to their palette" door={{ label: 'Open Moodboard library', href: INSPIRATION_LIBRARY_HREF, icon: <Palette aria-hidden strokeWidth={1.9} /> }} data="moodboard" />
-          ) : (
-            <DatesRow
-              data="portfolio-moodboard"
-              title={`${formatCount(moodboard.looks)} ${moodboard.looks === 1 ? 'set' : 'sets'}`}
-              line={moodboard.declined > 0 ? `${formatCount(moodboard.declined)} declined · open the library` : 'couples match them to their palette'}
-              href={INSPIRATION_LIBRARY_HREF}
-            />
-          )}
-        </PortfolioCard>
-      ) : null}
 
       {/* 🎵 SONG BANK — music categories only (its main page is Shop › Makers › Specialized tools › Song bank). */}
       {songs !== 'off' ? (
@@ -355,8 +349,8 @@ function PortfolioCard({ id, title, sub, right = null, children }: { id: string;
   return (
     <section
       aria-labelledby={`pf-${id}-h`}
-      className="rounded-2xl border px-4 pb-3 pt-3"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}
+      className="rounded-2xl px-4 pb-3 pt-3"
+      style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }}
       data-portfolio-group={id}
       data-portfolio-card=""
     >
@@ -443,8 +437,8 @@ function VideoLinks({ initial }: { initial: string[] }) {
   return (
     <section
       aria-labelledby="pf-video-h"
-      className="rounded-2xl border px-4 pb-3 pt-3"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}
+      className="rounded-2xl px-4 pb-3 pt-3"
+      style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }}
       data-portfolio-group="video"
       data-portfolio-card=""
     >

@@ -3,12 +3,12 @@
 import { useId, useState } from 'react';
 import Image from 'next/image';
 import { Sheet } from '@/app/_components/sheet';
-import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
+import { recordVendorProfileView } from '@/lib/record-vendor-view';
 
 /**
  * 👁 THE SHOP PAGE'S PORTFOLIO PHOTOS — each opens full size on a tap, and that open is ONE view of that photo (Build 3
  * Lane E item 11, owner: *"Add it. Count the views"*). The count is written by the ONE door
- * (`recordPortfolioPhotoView` → the service-role RPC `record_portfolio_photo_view`), which refuses the shop's own people
+ * (`recordVendorProfileView({ photoKey })` → `recordPortfolioPhotoView` → the service-role RPC `record_portfolio_photo_view`), which refuses the shop's own people
  * and admins and keeps one per viewer per photo per day. Fire-and-forget: the photo opens the same whether or not it
  * was counted. `count = false` (a demo shop, a team preview) opens without counting.
  * 🔒 lib/portfolio-photo-views.test.ts
@@ -35,7 +35,7 @@ export function PortfolioPhotoTiles({
           type="button"
           onClick={() => {
             setOpen(idx);
-            if (count) void recordPortfolioPhotoView(vendorProfileId, p.key);
+            if (count) void recordVendorProfileView({ vendorProfileId, photoKey: p.key });
           }}
           className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
           aria-label={`Open ${label} portfolio photo ${idx + 1}`}

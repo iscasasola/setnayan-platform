@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 629 files · 1690 lines
+# 628 files · 1688 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -605,7 +605,7 @@
 1 apps/web/app/vendor-dashboard/services/_components/service-card-face.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
-12 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
+11 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
 1 apps/web/app/vendor-dashboard/services/_components/showcase-media-fields.tsx
 1 apps/web/app/vendor-dashboard/services/new/[category]/page.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx
@@ -619,7 +619,6 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-1 apps/web/app/vendor-dashboard/shop/page.tsx
 2 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
 2 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
 1 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx

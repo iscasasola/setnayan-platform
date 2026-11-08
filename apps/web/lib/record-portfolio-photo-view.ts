@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 /**
  * 👁 recordPortfolioPhotoView — a couple or guest OPENED one portfolio photo (Build 3 Lane E, item 11; DECISION_LOG
@@ -11,6 +11,11 @@
  *
  * Best-effort, like every view capture: a failure is swallowed and never reaches the visitor. It returns nothing a
  * caller could draw — a photo opens the same whether or not it was counted.
+ *
+ * ⚖ NOT ITS OWN SERVER ACTION: the export budget is at its ceiling (`scripts/lint-server-action-budget.mjs` — every
+ * action is a Vercel route). The browser reaches this through the EXISTING view action, `recordVendorProfileView({
+ * vendorProfileId, photoKey })` (`lib/record-vendor-view.ts`), which hands a photo open here instead of counting a shop
+ * view.
  */
 
 import { cookies } from 'next/headers';

@@ -197,7 +197,7 @@ function shopLab(fail: boolean, none: boolean) {
                   <span className="font-medium text-ink/75">Tools on every event · </span>Run of show &amp; countdown · Headcount · Review QR
                 </p>
               </li>
-              <li className="overflow-hidden rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }} data-shop-card="">
+              <li className="overflow-hidden rounded-2xl p-4" style={{ background: 'var(--m-paper)' }} data-shop-card="">
                 <ServiceCardFace
                   snap={{ name: 'Mobile Bar by SetnaProd', priceText: 'from ₱110,000', discountBadge: null, includesLine: null, notIncluded: ['Crew meal', 'Transport'], hasExclusive: false, givesSetnayanGift: false, hasCover: false }}
                   leafPathLabel="Mobile Bar · Booths, carts & bars"
@@ -268,7 +268,7 @@ function portfolioLab(fail: boolean, none: boolean) {
           photos={none ? 0 : 38}
           videoLinks={none ? 0 : 12}
           hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
-          moodboard={fail ? null : { looks: none ? 0 : 5, declined: 0 }}
+          moodboard={fail || none ? null : { looks: 5, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
           allowanceUnread={fail}

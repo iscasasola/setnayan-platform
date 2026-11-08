@@ -24,11 +24,11 @@ export function ShopBundles({ bundles, cards }: { bundles: readonly ShopBundle[]
         <span className="text-[11.5px] text-ink/50">several cards as one price</span>
       </div>
       {bundles === null ? (
-        <p role="status" className="rounded-2xl border px-4 py-3 text-[13.5px] text-ink/70" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }} data-shop-bundles-unread="">
+        <p role="status" className="rounded-2xl px-4 py-3 text-[13.5px] text-ink/70" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-bundles-unread="">
           Couldn&rsquo;t load your bundles just now — they are still on your page.
         </p>
       ) : bundles.length === 0 ? (
-        <div className="space-y-2.5 rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }} data-shop-bundles-empty="">
+        <div className="space-y-2.5 rounded-2xl px-4 py-3" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-bundles-empty="">
           <p className="flex items-start gap-2 text-[14px] leading-snug text-ink/75">
             <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
             <span>{cards !== null && cards < 2 ? 'No bundles yet · a bundle needs two service cards first' : 'No bundles yet · several cards as one price'}</span>
@@ -38,7 +38,7 @@ export function ShopBundles({ bundles, cards }: { bundles: readonly ShopBundle[]
           </span>
         </div>
       ) : (
-        <ul className="divide-y divide-ink/10 rounded-2xl border px-4" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }} data-shop-bundle-list="">
+        <ul className="divide-y divide-ink/10 rounded-2xl px-4" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-bundle-list="">
           {bundles.map((b) => (
             <li key={b.id}>
               <Link href={`/vendor-dashboard/packages/${b.id}`} className="sn-press flex min-h-[64px] items-center gap-3 py-2.5" data-shop-bundle={b.id}>

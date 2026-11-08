@@ -9,7 +9,7 @@ import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
  */
 export function ServicesEmptyCard() {
   return (
-    <div className="space-y-2.5 rounded-2xl border px-4 py-3" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }} data-shop-services-empty="">
+    <div className="space-y-2.5 rounded-2xl px-4 py-3" style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }} data-shop-services-empty="">
       <div className="flex items-baseline justify-between">
         <p className="sn-eye">Services</p>
         <span className="text-[11.5px] text-ink/50">one card a host can book</span>

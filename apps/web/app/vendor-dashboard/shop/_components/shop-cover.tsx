@@ -151,10 +151,10 @@ export function ShopCover({
   return (
     <>
       {/* 📌 THE PINNED ROW — one row, 44 px, a soft hairline; sticky, fading in as the cover leaves. */}
-      <div className="sticky top-0 z-[6] -mb-11 h-11" aria-hidden={pin < 0.5 ? true : undefined} data-shop-pin="shop" data-pinned-row="">
+      <div className="pointer-events-none sticky top-0 z-[6] -mb-11 h-11" aria-hidden={pin < 0.5 ? true : undefined} data-shop-pin="shop" data-pinned-row="">
         <div
           className="flex h-11 items-center gap-2 px-4"
-          style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : undefined, background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
+          style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : 'auto', background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
         >
           <PinWord barAbove>Shop</PinWord>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{counts}</span>

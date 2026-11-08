@@ -9,9 +9,6 @@ app/_components/paper-picker.tsx 1
 app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1
 app/dashboard/(account)/people/_components/people-roster-view.tsx 2
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx 1
-app/dashboard/[eventId]/_components/payment-plan-rows.tsx 1
-app/dashboard/[eventId]/_components/vendor-itemization-card.tsx 2
-app/dashboard/[eventId]/budget/_components/budget-sheets.tsx 1
 app/dashboard/[eventId]/guests/_components/guest-group-picker.tsx 1
 app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx 1
 app/dashboard/[eventId]/guests/_components/guests-screen.tsx 1
@@ -23,7 +20,6 @@ app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
 app/dashboard/[eventId]/monogram/studio.tsx 1
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
-app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
 app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
 app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1

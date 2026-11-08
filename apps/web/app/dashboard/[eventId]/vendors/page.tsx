@@ -39,6 +39,7 @@ import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { claimReveals, invitedCoupleName, revealFor, type AnsweredClaimAsk, type ClaimReveal } from '@/lib/supplier-corrections';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import type { BookedFacts } from '@/lib/booked-rows';
@@ -616,6 +617,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     { name: string | null; logo: string | null; city: string | null }
   >();
   const enrichmentByVendorId = new Map<string, VendorEnrichment>();
+  // ✏️ THE SUPPLIERS WHO JOINED FROM THIS COUPLE'S LINK AND WERE LET IN (DECISION_LOG 2026-11-07) — the row they were
+  // approved onto, their shop, and what they corrected. Read on the couple's OWN session: the ask is couple-scoped
+  // (`event_access_requests_host_read`), so for any other viewer this stays empty and every name stays anonymous.
+  let claimRevealByRow: Map<string, ClaimReveal> = new Map();
   // "Waiting for quotes" strip (inquiry-accepted-visibility 2026-06-16) — the
   // marketplace picks whose inquiry is still `pending` (couple reached out, no
   // acceptance/quote yet), built inside the enrichment pass below and rendered
@@ -703,7 +708,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -780,7 +785,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             .in('vendor_profile_id', marketplaceIds)
             .eq('to_state', 'verified')
         : Promise.resolve({ data: null }),
+      // ✏️ Same round trip, the couple's own session (see `claimRevealByRow`).
+      supabase
+        .from('event_access_requests')
+        .select('event_vendor_id, vendor_profile_id, decisions')
+        .eq('event_id', eventId)
+        .eq('kind', 'claim')
+        .eq('status', 'answered'),
     ]);
+    if (claimAsksRes.error) {
+      // Refused → nobody is revealed and nothing is marked: the anonymous name is the safe side to fail on.
+      logQueryError('dashboard/[eventId]/vendors/page.tsx: answered claim asks', claimAsksRes.error, { event_id: eventId });
+    }
+    claimRevealByRow = claimReveals((claimAsksRes.data as AnsweredClaimAsk[] | null) ?? []);
 
     type StatsRow = {
       vendor_profile_id: string;
@@ -922,9 +939,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         is_verified: a?.verification_state === 'verified',
         services: s.services,
       });
+      // 🔓 The couple who invited this supplier and let them in already knows who it is: their row reads the shop's
+      // REAL name (and logo) even while the shop is anonymous to everyone else (DECISION_LOG 2026-11-07).
+      const invitedBy = revealFor(claimRevealByRow, v.vendor_id, pid);
       marketplaceCardByVendorId.set(v.vendor_id, {
-        name: resolvedName,
-        logo: nameRevealed ? s.logo_url : null,
+        name: invitedCoupleName(invitedBy, s.business_name, resolvedName),
+        logo: nameRevealed || invitedBy ? s.logo_url : null,
         city: s.location_city,
       });
 
@@ -2238,6 +2258,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // groups whose chapters the host changed (owner 2026-11-01, `lib/supplier-where.ts`).
         covered: (ext?.linked_services ?? []).map((c) => ({ key: coveredKeyOf(c), label: c.label })),
         coveredWhere: row.covered_where ?? null,
+        corrections: revealFor(claimRevealByRow, row.vendor_id, row.marketplace_vendor_id)?.corrections ?? null,
       });
       return {
         vendorId: row.vendor_id,

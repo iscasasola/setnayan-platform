@@ -5,7 +5,7 @@
  * `ShopSinceLine` (and its events-by-kind sheet), `CheckADateLink`, `ShareButton`, `ShopBadgePill` — inside the page's
  * own markup, so what it shows is what ships. The Inquire link is the page's own anchor, which goes nowhere here.
  *
- *   ?exp=verified|self|none     "In business since 2019" ✓ DTI · self-reported · never said
+ *   ?exp=verified|self|none     "In business since 2019" ✓ DTI · year alone · never said
  *   ?events=full|declared|none  receipt-backed rows by kind + the shop's own wedding count · the own count only · nothing
  *   ?sample=1                   the shop is a demo shop (`is_demo`): "(DEMO ONLY)" + its ⓘ beside the name (owner, 6 Nov 2026)
  *   ?view=card                  the shop's marketplace card instead (the REAL `VendorCard` from /explore), same `?sample`

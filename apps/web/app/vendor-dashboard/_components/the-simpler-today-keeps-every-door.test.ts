@@ -305,7 +305,7 @@ test('6 · the event day: Run the day · Chat, waiting · next moment · checked
   // The pinned row comes FIRST, the day's card under it (approved prototype, 2026-10-28).
   const nums = text(html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-next')));
   assert.match(nums, /waiting on you.*3:30 next moment.*118 checked in/);
-  assert.match(text(html), /Also today Schedule 12:00 Ceremony · 3:30 Reception Event Hub/);
+  assert.match(text(html), /Also today Schedule 12:00 Ceremony · 3:30 Reception Hub/);
   // Today's event is on the card, not again under Coming up.
   assert.doesNotMatch(text(html.slice(html.indexOf('data-today-coming-up'))), /Jun & Liza Cruz/);
   // 🔒 An unpaid fee on today's event keeps the day locked: no day numbers, no Also today — the bill says why.

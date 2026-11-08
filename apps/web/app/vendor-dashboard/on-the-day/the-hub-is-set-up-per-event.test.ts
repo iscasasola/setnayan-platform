@@ -11,7 +11,7 @@
  *   3. NO PRICE IN CODE — the words and the amount are the shipped gate's (`resolveEventFeeGates` → `feeLockCopy`).
  *   4. THE EVENT OPENS on `?event=` when it is theirs, else today's, else the next — an id that is not theirs falls
  *      back, never an error.
- *   5. "Open the Event Hub" is drawn only on the day, for a booked and unlocked event.
+ *   5. "Open the Hub" is drawn only on the day, for a booked and unlocked event.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -96,12 +96,12 @@ test('4 · the event opens on ?event= when it is theirs, else today’s — a st
   assert.equal(hubHref('e1'), '/vendor-dashboard/on-the-day?event=e1');
 });
 
-test('5 · "Open the Event Hub" only on the day, for a booked and unlocked event', () => {
+test('5 · "Open the Hub" only on the day, for a booked and unlocked event', () => {
   const l = list();
   const card = (e: HubEvent) => renderToStaticMarkup(React.createElement(HubEventCard, { event: e, title: e.name, place: null }));
-  assert.match(card(l.find((e) => e.eventId === 'e-today')!), /href="\/vendor-dashboard\/on-the-day\/live\/e-today"[^>]*>[\s\S]*Open the Event Hub/);
+  assert.match(card(l.find((e) => e.eventId === 'e-today')!), /href="\/vendor-dashboard\/on-the-day\/live\/e-today"[^>]*>[\s\S]*Open the Hub/);
   for (const id of ['e-locked', 'e-far', 'e-run', 'e-past']) {
-    assert.doesNotMatch(card(l.find((e) => e.eventId === id)!), /data-hub-open=""/, `${id} offers the Event Hub before (or after) its day`);
+    assert.doesNotMatch(card(l.find((e) => e.eventId === id)!), /data-hub-open=""/, `${id} offers the Hub before (or after) its day`);
   }
 });
 

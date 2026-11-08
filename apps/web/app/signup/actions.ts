@@ -14,7 +14,7 @@ import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
-import { isEventSignup, signupLanding, welcomeEmailKind } from '@/lib/signup-landing';
+import { isEventSignup, signupLanding } from '@/lib/signup-landing';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -76,8 +76,8 @@ export async function signUp(formData: FormData) {
   // `ref=guest` — set by the guest-page CTA, carried through the form as a
   // hidden input — marks a sign-up made from an invitation (below).
   const guestHostRef = String(formData.get('ref') ?? '') === 'guest' ? 'guest' : '';
-  // An account made FROM AN INVITATION (owner 2026-09-25): no You card, no
-  // couple welcome email, straight back to the event. lib/signup-landing.ts.
+  // An account made FROM AN INVITATION (owner 2026-09-25): no You card,
+  // straight back to the event. lib/signup-landing.ts.
   const fromEvent = accountType === 'customer' && isEventSignup({ ref: guestHostRef, next });
   // Couple referral rewards — a new account arriving via a shared ?refc=<code>
   // link. Carried through the form as a hidden input. Only couples can be
@@ -246,7 +246,15 @@ export async function signUp(formData: FormData) {
       emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
       // The trigger reads raw_user_meta_data->>'account_type' to pick the
       // public.account_type enum value for the new public.users row.
-      data: { account_type: accountType },
+      // `signup_door` is read by the Supabase "Confirm signup" template
+      // (supabase/templates/confirm-signup.html), which IS the welcome email
+      // since 2026-11-07 (DECISION_LOG "ONE EMAIL AT SIGN-UP"). /signup is the
+      // couple door; its `?as=vendor` form is a supplier's. JSON metadata —
+      // no column, no migration.
+      data: {
+        account_type: accountType,
+        signup_door: accountType === 'vendor' ? 'supplier' : 'couple',
+      },
       // Empty token → {} → identical to the pre-captcha call.
       ...captchaOptions(captchaToken),
     },
@@ -261,7 +269,11 @@ export async function signUp(formData: FormData) {
   // V1 work-around: Supabase's built-in email sender drops into spam folders
   // and free-tier rate limits are tight. Auto-confirm every new signup with
   // the admin API so the user can sign in immediately without waiting on a
-  // confirmation link, and fire a Resend-backed welcome email on the side.
+  // confirmation link. The ONE email a new account gets is Supabase's own
+  // "Confirm signup", whose template is the per-door welcome (owner
+  // 2026-11-07, DECISION_LOG "ONE EMAIL AT SIGN-UP" ·
+  // supabase/templates/confirm-signup.html). This action sends no welcome of
+  // its own — two emails at one sign-up was the defect.
   // Real email-based verification returns when Supabase's SMTP is pointed at
   // Resend (separate dashboard config).
   let autoConfirmed = false;
@@ -273,38 +285,31 @@ export async function signUp(formData: FormData) {
       // 2026-05-30 perceived-signup-lag fix (CLAUDE.md decision-log
       // row · sibling to PRs #674 + #676 OAuth button + dashboard-root
       // skeleton). Owner's "Sequential Await Bottleneck (The Silent
-      // Killer)" principle applied here: the three side-effects of a
+      // Killer)" principle applied here: the side-effects of a
       // successful auth.signUp — admin updateUserById to flip
-      // email_confirm, the RA 10173 public summary consent write for
-      // couples who opted in, and the Resend welcome email — are
-      // INDEPENDENT. None reads what another writes. Pre-fix they ran
+      // email_confirm, and the profile write (name · RA 10173 public
+      // summary consent · Terms) — are INDEPENDENT. (A third, the Resend
+      // welcome email, was removed 2026-11-07: Supabase's confirm email
+      // is the welcome now.) None reads what another writes. Pre-fix they ran
       // serially, blocking the redirect for ~400-1400ms after
       // auth.signUp returned. Parallelize via Promise.allSettled so
       // the total wait collapses to the slowest single operation
       // (~600ms worst case · ~250ms typical).
       //
       // allSettled (not .all): a failure in one operation doesn't
-      // cancel the other two. Matches the existing per-operation
+      // cancel the other. Matches the existing per-operation
       // error semantics:
       //   • updateUserById is load-bearing for autoConfirmed (user
       //     can't sign in immediately if email_confirm didn't land);
       //   • consent write was already explicitly "non-blocking" per
       //     the 2026-05-19 RA 10173 lock — signup still completes if
-      //     it fails;
-      //   • sendEmail has a fallback ("check your email" redirect
-      //     branch) if the auto-confirm path can't activate.
+      //     it fails.
       //
       // The consent IIFE keeps poll → update sequential WITHIN itself
       // (the DB-trigger race against public.users row creation hasn't
       // gone away · we still need to wait for the row before UPDATEing
-      // its column). The IIFE itself runs in parallel with the other
-      // two operations.
-
-      const accountKindLabel = accountType === 'vendor' ? 'vendor' : 'couple';
-      // Vendors land on the onboarding wizard (shop name · primary service ·
-      // location · contacts · socials); it forwards to My Shop once the shop
-      // is named (owner 2026-07-03).
-      const landingPath = accountType === 'vendor' ? '/open-shop' : '/dashboard';
+      // its column). The IIFE itself runs in parallel with the
+      // confirm flip.
 
       // 🪤 UNCONDITIONAL since 2026-09-25. This used to run only when a name or
       // the Stories consent was posted — and on 2026-09-22 both left /signup for
@@ -352,7 +357,7 @@ export async function signUp(formData: FormData) {
         }
       })();
 
-      const [updateResult, profileResult, emailResult] = await Promise.allSettled([
+      const [updateResult, profileResult] = await Promise.allSettled([
         // 🔒 L3 — same gate as the conversion path above. BOTH doors, or the
         // one that is missed becomes the way in: a bypass on either door
         // confirms the address just as completely.
@@ -360,30 +365,6 @@ export async function signUp(formData: FormData) {
           ? Promise.resolve(null)
           : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
         profilePromise,
-        // A guest from an invitation is sent no "your couple account is ready"
-        // email — see welcomeEmailKind.
-        welcomeEmailKind({ accountType, fromEvent }) === null
-          ? Promise.resolve(null)
-          : sendEmail({
-          to: email,
-          subject: 'Welcome to Setnayan',
-          text: [
-            `Welcome to Setnayan.`,
-            ``,
-            `Your ${accountKindLabel} account is ready. Sign in here:`,
-            `${appUrl}/login`,
-            ``,
-            `What's next:`,
-            accountType === 'vendor'
-              ? `• Open ${appUrl}${landingPath} and fill in your business profile — couples find you on Setnayan and message you there.`
-              : `• Open ${appUrl}${landingPath} and create your event.`,
-            ``,
-            `Need help? ${appUrl}/help`,
-            ``,
-            `—`,
-            `Set na 'yan.`,
-          ].join('\n'),
-        }),
       ]);
 
       // Per-operation observability (best-effort — none of these
@@ -393,9 +374,6 @@ export async function signUp(formData: FormData) {
       }
       if (profileResult.status === 'rejected') {
         console.warn('[signup] profile (name/consent) IIFE threw:', profileResult.reason);
-      }
-      if (emailResult.status === 'rejected') {
-        console.warn('[signup] welcome email failed:', emailResult.reason);
       }
 
       // updateUserById is the load-bearing operation for autoConfirmed —

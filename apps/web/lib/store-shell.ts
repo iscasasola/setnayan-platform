@@ -199,6 +199,9 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // `lib/the-supplier-page-lives-at-for-suppliers.test.ts` — so it needs no
   // entry of its own here.)
   '/for-suppliers',
+  // The coordinator door (6 Nov 2026 page) quotes the same supplier plan prices from
+  // vendor_billing_catalog (Solo / Pro / Ultra, +1 branch, +1 seat), so it is refused the same way.
+  '/for-coordinators',
   // The Tagalog /features hub. Every feature row carries its live price
   // ("Free · upgrades from ₱…", "₱2,500"). The English hub was bounced by the
   // native brochure rule in middleware, which never listed its twin — so

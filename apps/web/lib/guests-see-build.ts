@@ -86,14 +86,20 @@ const SHOWN_TODAY: Partial<Record<FixedKey, string>> = {
   announce: 'TOTTX', live: 'XOTTT', camera: 'OOOTX', reveal: 'TOTTX',
 };
 
-type RowSpec = { scene: WidgetType; label: string } | { fixed: FixedKey };
+type RowSpec = { scene: WidgetType; label: string; note?: string } | { fixed: FixedKey };
 const GROUPS: ReadonlyArray<{ title: string; rows: readonly RowSpec[] }> = [
   { title: 'The basics', rows: [{ fixed: 'names' }, { fixed: 'place' }, { scene: 'countdown', label: 'Countdown' }] },
   { title: 'The story', rows: [{ scene: 'special_message', label: 'Message' }, { scene: 'our_love_story', label: 'Love Story' }, { scene: 'our_photos', label: 'Our photos' }] },
   {
     title: 'The details',
     rows: [
-      { scene: 'schedule', label: 'Schedule' },
+      /* 🗓 THE DAY'S PROGRAM (owner 2026-10-27 "…THE INSPIRATION BOX MOVES TO SUPPLIERS": *"A guest-facing 'The day's
+         program' row joins Home's ONE 'What guests see' table — no second mechanism"*; who decides, 2026-10-28
+         *"coordinator and couple only"*). It IS the Schedule scene's row, renamed — never a second row for the same
+         part. Its note carries the rule the schedule's own writes enforce (`mayShowToGuests`): only the hosts and the
+         coordinator turn a moment on for guests; payments and meetings live in Planning Stage and never reach a guest
+         page. Held by `lib/the-days-program-is-the-hosts-call.test.ts`. */
+      { scene: 'schedule', label: GUESTS_SEE_WORDS.programLabel, note: GUESTS_SEE_WORDS.programNote },
       { scene: 'venue_map', label: 'Map' },
       { scene: 'dress_code', label: 'Dress code' },
       { scene: 'what_to_bring', label: 'What to bring' },
@@ -230,7 +236,7 @@ function asIfWritten<T extends Pick<GuestsSeeTableInput, 'content'>>(input: T, t
  */
 const OFF_LIST_ONLY: readonly string[] = ['stdShows', 'DAY_WELCOME_SCENES'];
 
-function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput): GuestsSeeRow | null {
+function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput, note: string | null = null): GuestsSeeRow | null {
   const row = given.widgets.find((w) => w.widget_type === type && !w.is_always_on);
   if (!row) return null;
   const empty = given.content?.[type] === false;
@@ -249,7 +255,7 @@ function sceneRow(type: WidgetType, label: string, given: GuestsSeeTableInput): 
     }
     return { kind: 'box', on: v.drawn, ourPick: v.ourPick, base: bare.drawn, choice: v.choice };
   });
-  return { key: type, scene: type, write: type, label, note: null, empty, cells };
+  return { key: type, scene: type, write: type, label, note, empty, cells };
 }
 
 /** THE TABLE for one event — every cell read from `sceneOnStage`, or from the page's own gates for a fixed row. */
@@ -257,7 +263,7 @@ export function buildGuestsSeeTable(input: GuestsSeeTableInput): GuestsSeeTable 
   const groups: GuestsSeeGroup[] = GROUPS.map((g) => ({
     title: g.title,
     rows: g.rows.flatMap((r) => {
-      const row = 'fixed' in r ? fixedRow(r.fixed, input) : sceneRow(r.scene, r.label, input);
+      const row = 'fixed' in r ? fixedRow(r.fixed, input) : sceneRow(r.scene, r.label, input, r.note ?? null);
       return row ? [row] : [];
     }),
   })).filter((g) => g.rows.length > 0);

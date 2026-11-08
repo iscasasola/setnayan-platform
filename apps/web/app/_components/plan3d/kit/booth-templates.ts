@@ -618,6 +618,18 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Jewelry & Accessories',
     cardKind: 'inclusions',
   },
+  ceremony_essentials: {
+    chassis: 'DISPLAY',
+    // The same display stand as Jewelleries & accessories — a cord, veil and
+    // arrhae set is shown the way the jeweller's pieces are.
+    props: [
+      { kind: 'glass_case', position: [-0.45, 0, 0.62] },
+      { kind: 'glass_case', position: [0.15, 0, 0.6], scale: 0.85 },
+    ],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Ceremony Essentials',
+    cardKind: 'inclusions',
+  },
   // ── BOOTHS ─────────────────────────────────────────────────────────────────
   mocktail: {
     chassis: 'COUNTER',

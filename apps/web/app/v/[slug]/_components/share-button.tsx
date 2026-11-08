@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Share2, Check } from 'lucide-react';
+import { shareableShopUrl } from '@/lib/shop-back';
 
 /**
  * Share the vendor page. Uses the native share sheet where available
@@ -19,7 +20,8 @@ export function ShareButton({
   const [copied, setCopied] = useState(false);
 
   async function onShare() {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
+    // The shop page — never where THIS visitor came from (`?src=` / `?event=`): a friend's copy is a fresh arrival.
+    const url = typeof window !== 'undefined' ? shareableShopUrl(window.location.href) : '';
     const nav = typeof navigator !== 'undefined' ? navigator : undefined;
     if (nav?.share) {
       try {

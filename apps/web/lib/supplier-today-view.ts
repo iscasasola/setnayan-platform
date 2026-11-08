@@ -343,7 +343,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
               href: `/vendor-dashboard/on-the-day/live/${eventToday.eventId}`,
               icon: 'calendar',
             },
-            { id: 'hub', label: 'Event Hub', line: 'Check-in · shot list · your tools for today', href: '/vendor-dashboard/on-the-day', icon: 'scan' },
+            { id: 'hub', label: 'Hub', line: 'Check-in · shot list · your tools for today', href: '/vendor-dashboard/on-the-day', icon: 'scan' },
           ]
         : [],
     comingUp: ahead.slice(0, 3).map((a) => a.row),

@@ -77,7 +77,11 @@ const NAV_ROUTES = new Set<string>([
   // renders its OWN nav instance (HomeReskin), which carries the cinematic
   // gate state (white glass on the closed gate → ink glass once opened).
   // Mounting this chrome on top of it would double the nav.
-  '/for-suppliers',
+  /* 2026-11-04 — /for-suppliers LEFT THIS SET (owner, on his phone: "the page
+     is on the wrong shell"). Its page.tsx now lives in app/(shell)/ and wears
+     the front-door bar + rail like every other public page; listing it here
+     would draw this glass nav ON TOP of that bar. Held by
+     app/(shell)/for-suppliers/for-suppliers-wears-the-shell.test.ts. */
   // /creators — the public storyteller marketing page (2026-07-16); joins the
   // marketing shell alongside its /vendors sibling.
   '/creators',

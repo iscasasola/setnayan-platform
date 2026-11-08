@@ -82,7 +82,8 @@ test('the commission promise has no default schedule, and NULL prints no rate', 
 
 test('the pages that quote the rate read the live schedule', () => {
   const READERS: Record<string, RegExp> = {
-    'app/for-suppliers/page.tsx': /getLiveBookingFeeSchedule\(\)/,
+    'app/(shell)/for-suppliers/page.tsx': /getLiveBookingFeeSchedule\(\)/,
+    'app/vendor-dashboard/booking-fees/page.tsx': /getLiveBookingFeeSchedule\(\)/,
     'app/_components/frontdoor/data.ts': /getLiveBookingFeeSchedule\(\)/,
     'app/_components/home/pricing-data.ts': /getLiveBookingFeeSchedule\(\)/,
     // S-PR4 (batch 5 join): the old Earnings blurb is Customers › Money's locked-year line.

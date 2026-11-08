@@ -39,6 +39,13 @@ import { tierCaps, VENDOR_TIERS } from './vendor-tier-caps';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+/** The approved /for-suppliers page (2026-11-06) — where the public plans are drawn now. */
+const SUPPLIER_PAGE_FILES = [
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/for-suppliers/_components/supplier-front-client.tsx',
+  'app/for-suppliers/_components/supplier-front-data.ts',
+] as const;
+
 test('every tier — including no tier at all — shows stars and written reviews', () => {
   // `null` is the pre-migration / unknown case and resolves to the free tier.
   const tiers: Array<string | null> = [null, ...VENDOR_TIERS];
@@ -69,7 +76,9 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
   for (const rel of [
     'app/v/[slug]/page.tsx',
     'app/(shell)/explore/page.tsx',
-    'app/for-suppliers/_components/vendor-tier-matrix.tsx',
+    // The approved /for-suppliers page of 2026-11-06 replaced the tier matrix
+    // (vendor-tier-matrix.tsx, deleted); its plans are drawn by these files.
+    ...SUPPLIER_PAGE_FILES,
   ]) {
     const src = readFileSync(join(WEB, rel), 'utf8');
     // Strip comments: this file's own history is described in them on purpose.
@@ -85,14 +94,16 @@ test('no surface tells a couple that reviews unlock on upgrade', () => {
 });
 
 test('the public tier table does not advertise reviews as a paid perk', () => {
-  const src = readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-matrix.tsx'), 'utf8');
-  const code = src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\/.*/g, '');
-  assert.ok(
-    !/reviewCommentsViewable|reviewStarsCounted/.test(code),
-    'the tier comparison table reads a review cap again — that presents a ' +
-      "vendor's own reviews as something they can buy.",
-  );
+  for (const rel of SUPPLIER_PAGE_FILES) {
+    const src = readFileSync(join(WEB, rel), 'utf8');
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/\/\/.*/g, '');
+    assert.ok(
+      !/reviewCommentsViewable|reviewStarsCounted/.test(code),
+      `${rel}: the public plans read a review cap again — that presents a ` +
+        "vendor's own reviews as something they can buy.",
+    );
+  }
 });

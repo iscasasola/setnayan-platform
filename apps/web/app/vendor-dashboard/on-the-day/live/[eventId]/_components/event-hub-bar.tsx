@@ -40,19 +40,19 @@ export function EventHubBar({
 }) {
   const router = useRouter();
   const slot = usePinLeadSlot();
-  const face = `Event Hub · ${name}${dayWords ? ` · ${dayWords}` : ''}`;
+  const face = `Hub · ${name}${dayWords ? ` · ${dayWords}` : ''}`;
   const row = (
     <span className="flex min-w-0 items-center gap-1.5" data-event-hub-bar="">
       <Link
         href={exitHref}
-        aria-label="Exit the Event Hub"
+        aria-label="Exit the Hub"
         className="sn-press grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink"
       >
         <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
       </Link>
       <span className="min-w-0">
         <PickMenu
-          label="The Event Hub — show"
+          label="The Hub — show"
           value={view}
           buttonText={face}
           options={EVENT_HUB_VIEWS.map((v) => ({ key: v, label: EVENT_HUB_VIEW_LABEL[v] }))}

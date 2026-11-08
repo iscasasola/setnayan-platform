@@ -30,6 +30,19 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
+import {
+  FREE_PHOTOS,
+  GROW_TIERS,
+  VERIFIED_REACH,
+  addonsFine,
+  foldGroups,
+  freeSpec,
+  growLines,
+  growSpec,
+  helperLine,
+  reachSentence,
+  verifiedSpec,
+} from './supplier-front-data';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -101,23 +114,35 @@ test('every limit that CAN be infinite is actually exercised here', () => {
   );
 });
 
-test('the component routes EVERY limit row through the one formatter', () => {
-  // The rendered-value test above proves the RULES are right; this proves the
-  // component still obeys them. Testing the primitive is not testing the caller.
-  const src = readFileSync(resolve(HERE, 'vendor-tier-deltas.tsx'), 'utf8')
+/*
+ * 2026-11-06: the limit rows this test read lived in `vendor-tier-deltas.tsx`, which was deleted with the old
+ * /for-suppliers page. The approved page draws every cap through `supplier-front-data.ts` — a pure module — so the
+ * check below reads what a person would actually see on it (the same property: no cap reaches the page as a raw
+ * JavaScript value), and pins that the module never interpolates a cap without its formatter.
+ */
+test('the approved page routes EVERY cap it shows through a formatter', () => {
+  const rendered: Array<[string, string]> = [
+    ['freeSpec', freeSpec()],
+    ['verifiedSpec', verifiedSpec()],
+    ['reachSentence', reachSentence()],
+    ['VERIFIED_REACH', VERIFIED_REACH],
+    ['FREE_PHOTOS', FREE_PHOTOS],
+    ['helperLine', helperLine() ?? ''],
+    ['addonsFine', addonsFine()],
+    ...GROW_TIERS.map((t) => [`growSpec(${t})`, growSpec(t)] as [string, string]),
+    ...GROW_TIERS.flatMap((t) => growLines(t).map((l) => [`growLines(${t})`, `${l.text}${l.tail ?? ''}`] as [string, string])),
+    ...foldGroups().flatMap((g) => g.lines.map((l) => [`fold · ${g.title}`, `${l.text} · ${l.pill}`] as [string, string])),
+  ];
+  assert.ok(rendered.length > 20, `only ${rendered.length} strings rendered — the module moved or emptied`);
+  const leaks = rendered.filter(([, out]) => LEAKS.test(out)).map(([where, out]) => `${where} → "${out}"`);
+  assert.deepEqual(leaks, [], `The page would print a JavaScript value:\n  ${leaks.join('\n  ')}`);
+
+  // The rendered check covers today's caps; this covers tomorrow's. A cap may only reach a string through
+  // reach() / countNoun() / formatCount(), each of which turns Infinity into words or a dash.
+  const src = readFileSync(resolve(HERE, 'supplier-front-data.ts'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
-  const block = src.slice(src.indexOf('const LIMITS'), src.indexOf('function movedLimits'));
-  assert.ok(block.length > 100, 'the LIMITS table moved or was renamed');
-
-  const rows = [...block.matchAll(/of:\s*\(c\)\s*=>\s*([^\n]+)/g)].map((m) => m[1] ?? '');
-  assert.equal(rows.length, Object.keys(RENDER).length, 'row count drifted from this test');
-  const unrouted = rows.filter((r) => !/\bcap\(/.test(r));
-  assert.deepEqual(
-    unrouted,
-    [],
-    `A limit row interpolates its cap directly instead of calling cap():\n  ` +
-      unrouted.join('\n  ') +
-      `\n\nThat is exactly how "Infinity" reached the public page.`,
-  );
+  const raw = src.match(/\$\{\s*(?:c|caps|TIER_CAPS(?:\[[^\]]+\])?)\.\w+\s*\}/g) ?? [];
+  assert.deepEqual(raw, [], 'supplier-front-data.ts interpolates a cap directly — that is how "Infinity" reached the page');
+  assert.match(src, /function reach\(km: number[^)]*\)[^{]*\{[^}]*Number\.isFinite\(km\)/, 'reach() no longer handles an infinite radius');
 });

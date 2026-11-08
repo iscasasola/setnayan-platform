@@ -22,9 +22,12 @@ test('the page draws the since line, fed by the by-kind counter', () => {
 test('Check a date sits in the action row, after Share, inside the bookable gate', () => {
   const row = PAGE.indexOf('<ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />');
   assert.ok(row > 0, 'the action row moved — update this test with the markup');
-  const gate = PAGE.lastIndexOf('{bookable ? (', row);
   const door = PAGE.indexOf('<CheckADateLink', row);
-  assert.ok(gate > 0 && door > row && door - row < 800, 'Check a date is not beside Share in the action row');
+  assert.ok(door > row && door - row < 800, 'Check a date is not beside Share in the action row');
+  // The row itself opens on `canMessage` since an unverified shop takes messages (DECISION_LOG 2026-11-07, #7373), so
+  // the `bookable` gate is no longer the ROW's — it is the door's own, and it must sit between Share and the door.
+  const gate = PAGE.lastIndexOf('{bookable ? (', door);
+  assert.ok(gate > row && gate < door, 'Check a date is not inside its own bookable gate — an unverified shop would show it');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
 });

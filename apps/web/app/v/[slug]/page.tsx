@@ -604,7 +604,9 @@ export async function vendorMetadataBySlug(slug: string) {
   return {
     title: titleText,
     description: descText,
-    ...(isDemoShop || notYetVerified ? { robots: { index: false, follow: false } } : {}),
+    // Two rules, two lines — each is its own ruling and its own guard (demo: 2026-11-06; not yet verified: 2026-11-07).
+    ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),
+    ...(notYetVerified ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'profile',

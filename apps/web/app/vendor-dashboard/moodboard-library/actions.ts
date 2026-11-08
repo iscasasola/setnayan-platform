@@ -293,7 +293,7 @@ async function storeScreenedAsset(args: {
   // coin, read from the shop's row here on the server, never from the client.
   // The service role inline: the renewal date that decides Verified is not readable by a signed-in session.
   const shopMark = await shopMarkFacts(createAdminClient(), profile.vendor_profile_id);
-  const coin = shopMark.spec.hasLogo && logoBytes ? await logoCoinPng(logoBytes) : null;
+  const coin = shopMark.spec.hasLogo && logoBytes ? await logoCoinPng(logoBytes, shopMark.logoRef) : null;
   const supplierMark = { spec: { ...shopMark.spec, hasLogo: coin !== null }, logoPng: coin };
   const marked = await watermarkImageBytes(
     args.bytes,

@@ -1,9 +1,10 @@
 /**
- * ONE lazy door for a supplier upload's mark (Seal and plate, owner-approved 2026-11-04).
+ * ONE lazy door for a supplier upload's mark and frame (Seal and plate + Photo Frame Template, owner-approved
+ * 2026-11-04).
  *
  * FileUpload `import()`s THIS module — never the parts — and only after a file is picked with `mark` set, so
  * the mark pipeline (asking the server what to stamp, painting the photo, burning the clip, the private clean
- * copy and its pairing) is NOT in FileUpload's own chunk. 🔑 Why it matters: about a dozen Maker panels
+ * copy and its pairing), the Frame step and its framing math are NOT in FileUpload's own chunk. 🔑 Why it matters: about a dozen Maker panels
  * import FileUpload eagerly, so every byte written inline in `uploadOne` lands in the Maker's FIRST load
  * (`scripts/check-maker-js-budget.mjs`); #7246 wrote it inline and went 0.5 KB over that budget. Why ONE
  * door: every separate lazy chunk is one more entry in the webpack runtime that EVERY page loads, and the
@@ -15,7 +16,11 @@
  */
 import { photoMark } from './photo-mark-actions';
 import type { PhotoMarkInput } from '@/lib/watermark';
+import { FRAME_ASPECT, frameRect, type FrameShape, type Framing } from '@/lib/photo-frame';
 import { uploadTypeOf } from '@/lib/upload-type-names';
+
+export { FrameStep } from './frame-step';
+export { framedFileName, framingFromRef } from '@/lib/photo-frame';
 
 export type MarkKind = 'supplier' | 'setnayan';
 export type Optimizing = { label: string; pct: number } | null;
@@ -33,26 +38,33 @@ const isImage = (t: string) => t.startsWith('image/');
 const isVideo = (t: string) => t.startsWith('video/');
 
 /** What to stamp, decided on the SERVER from the shop the login is standing in — never from props. */
-async function askMark(kind: MarkKind, pathPrefix: string): Promise<PhotoMarkInput> {
+export async function markSpec(kind: MarkKind, pathPrefix: string): Promise<PhotoMarkInput> {
   const answer = await photoMark('mark', { kind, pathPrefix });
   if (!answer.ok) throw new MarkRefused(answer.error);
   return { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
 }
 
+/** What the Frame step chose: the framing, and the picked file's display size it was chosen on. */
+export type Framed = { framing: Framing; size: { width: number; height: number }; shape: FrameShape };
+
 /**
- * The marked file: a photo painted with the Seal and plate, or a clip re-encoded at 720p with it burned in.
- * Anything else comes back untouched (a PDF is never marked). THROWS on any failure.
+ * The marked file: a photo painted with the Seal and plate (inside the chosen frame, when framed), or a clip
+ * re-encoded at 720p with it burned in (cropped to the chosen square, when framed). Anything else comes back
+ * untouched (a PDF is never marked) — and only BEFORE anything is painted. THROWS on any failure.
  */
 export async function markFile(
   rawFile: File,
-  opts: { kind: MarkKind; pathPrefix: string; contentType: string; maxVideoDurationS?: number; onOptimizing: (o: Optimizing) => void },
+  input: PhotoMarkInput,
+  opts: { contentType: string; framed: Framed | null; maxVideoDurationS?: number; onOptimizing: (o: Optimizing) => void },
 ): Promise<File> {
-  const { kind, pathPrefix, contentType } = opts;
+  const { contentType, framed } = opts;
   if (!isImage(contentType) && !isVideo(contentType)) return rawFile;
-  const input = await askMark(kind, pathPrefix);
   if (isImage(contentType)) {
     const { markPhotoFile } = await import('@/lib/watermark');
-    return markPhotoFile(rawFile, input);
+    const inFrame = framed
+      ? { frame: frameRect(framed.size.width, framed.size.height, FRAME_ASPECT[framed.shape], framed.framing), shape: framed.shape }
+      : null;
+    return markPhotoFile(rawFile, inFrame ? { ...input, framed: inFrame } : input);
   }
   // The marked clip: `markAndCompressVideo` throws rather than hand back the unmarked original
   // that `compressVideoForWeb` would.
@@ -62,6 +74,7 @@ export async function markFile(
   try {
     return await markAndCompressVideo(rawFile, {
       markPng: (w, h) => markOverlayPng(w, h, input),
+      crop: framed ? (w, h) => frameRect(w, h, FRAME_ASPECT[framed.shape], framed.framing) : undefined,
       maxDurationS: opts.maxVideoDurationS,
       onProgress: (p) => opts.onOptimizing({ label, pct: Math.round(p.ratio * 100) }),
     });
@@ -99,4 +112,15 @@ export async function keepCleanCopy(
 export async function pairWithOriginal(publicRef: string, originalRef: string): Promise<void> {
   const paired = await photoMark('pair', { publicRef, originalRef });
   if (!paired.ok) throw new MarkRefused(paired.error);
+}
+
+/**
+ * RE-OPEN (Photo Frame Template · "Tapping the photo on its row opens the same step with the saved framing"):
+ * a 10-minute address of the PRIVATE clean copy behind a marked supplier photo, so the Frame step re-frames
+ * the original — never the marked copy, which would carry two marks. THROWS (MarkRefused) when there is none.
+ */
+export async function originalUrl(publicRef: string): Promise<string> {
+  const got = await photoMark('original', { publicRef });
+  if (!got.ok) throw new MarkRefused(got.error);
+  return got.url;
 }

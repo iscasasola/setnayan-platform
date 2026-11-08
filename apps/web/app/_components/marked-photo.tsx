@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { displayAspectAllowed, type FrameShape } from '@/lib/photo-mark-geometry';
+import { framedImageStyle } from '@/lib/photo-frame-display';
 
 /**
  * A MARKED supplier photo, drawn so its mark is never cropped off (controller
@@ -34,6 +35,14 @@ export function MarkedPhoto({
   priority?: boolean;
   className?: string;
 }) {
+  // A photo framed in the Frame step carries its framing in its own name: the
+  // place is DERIVED from it (keep the frame, widen; cut from the top when the
+  // original runs out), which keeps the frame's mark square in view at any
+  // aspect — no blurred fill needed.
+  const framed = framedImageStyle(src, frame, displayAspect);
+  if (framed) {
+    return <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} style={framed} data-framed="" />;
+  }
   if (displayAspectAllowed(frame, displayAspect)) {
     return <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
   }

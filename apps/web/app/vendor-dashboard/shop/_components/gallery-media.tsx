@@ -270,6 +270,8 @@ function PortfolioForm({
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"
           mark="supplier"
+          frame="square"
+          previews="portfolio"
           qrGuard
           stallMs={20000}
         />

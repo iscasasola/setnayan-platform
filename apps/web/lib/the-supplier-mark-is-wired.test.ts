@@ -82,7 +82,7 @@ test('SABOTAGE-PROVEN: FileUpload FAILS CLOSED — a mark failure refuses, never
   const src = code('app/_components/file-upload.tsx');
   assert.doesNotMatch(src, /uploading original', err\);\s*void trackFailure\(\{\s*eventType: 'BLANK_FALLBACK'/);
   // The legacy painter, the mark door and the clean copy each route a throw to the refusal.
-  for (const call of ['watermarkFile(rawFile', 'door.markFile(rawFile', 'door.keepCleanCopy(rawFile']) {
+  for (const call of ['door.markSpec(mark', 'watermarkFile(rawFile', 'door.markFile(rawFile', 'door.keepCleanCopy(rawFile']) {
     const at = src.indexOf(call);
     assert.notEqual(at, -1, `FileUpload must call ${call}`);
     // The FIRST catch after the call — not merely some later one (a sabotage that
@@ -107,10 +107,10 @@ test('SABOTAGE-PROVEN: the mark door never swallows a failure — it THROWS, and
   assert.match(door, /if \(!answer\.ok\) throw new MarkRefused\(answer\.error\)/);
   assert.match(door, /if \(!out\.ok\) throw new Error\(/);
   assert.match(door, /if \(!paired\.ok\) throw new MarkRefused\(paired\.error\)/);
-  // The only untouched hand-back is for a file that is neither a photo nor a clip — BEFORE the mark is asked.
+  // The only untouched hand-back is for a file that is neither a photo nor a clip — BEFORE anything is painted.
   const untouched = [...door.matchAll(/return rawFile;/g)].map((m) => m.index ?? 0);
   assert.equal(untouched.length, 1);
-  assert.ok(untouched[0] < door.indexOf('await askMark('), 'a marked file must never be handed back unmarked');
+  assert.ok((untouched[0] ?? Infinity) < door.indexOf('markPhotoFile(rawFile'), 'a marked file must never be handed back unmarked');
 });
 
 test('SABOTAGE-PROVEN: the mark pipeline stays OUT of the Maker first load — FileUpload reaches it only through import()', () => {
@@ -118,7 +118,7 @@ test('SABOTAGE-PROVEN: the mark pipeline stays OUT of the Maker first load — F
   assert.doesNotMatch(src, /from '\.\/(upload-mark|photo-mark-actions)'/, 'a static import puts the mark in every FileUpload page');
   assert.doesNotMatch(src, /from '@\/lib\/(watermark|photo-mark-[a-z]+|video-compress)'/);
   assert.doesNotMatch(src, /import\('\.\/photo-mark-actions'\)/, 'one door: FileUpload reaches the action through ./upload-mark');
-  assert.ok((src.match(/import\('\.\/upload-mark'\)/g) ?? []).length >= 3);
+  assert.ok((src.match(/import\('\.\/upload-mark'\)/g) ?? []).length >= 4);
   // The heavy parts are behind a dynamic import inside the door too (watermark / video / compress / send).
   const door = code('app/_components/upload-mark.ts');
   assert.doesNotMatch(door, /^import (?!type )[^;]*from '@\/lib\/(watermark|video-compress|image-compress|upload-send)'/m);

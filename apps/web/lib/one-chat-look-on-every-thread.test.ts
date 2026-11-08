@@ -182,10 +182,12 @@ test('🔒 THE ONE BUILD · inside the picked client the supplier page draws the
   assert.equal((src.match(/<ChatBox\b/g) ?? []).length, 1, 'a second ChatBox was drawn for the client page');
   assert.match(src, /const chatBox = \(\s*<ChatBox\b/, 'the one box is no longer the shared const');
   // Build 2 · B2-D: the picked client's ONE draw builds its Chat node as `const chat = (…)` beside Quotation + Decisions.
-  const embed = src.slice(src.indexOf('const chat = ('), src.indexOf('const chat = (') + 260);
+  // Comments are blanked first (a JSX `{/* … */}` note sits inside the node); `{ }` left by a blanked JSX comment is allowed.
+  const bare = stripComments(src);
+  const embed = bare.slice(bare.indexOf('const chat = ('), bare.indexOf('const chat = (') + 600);
   // The read marker rides beside the box but DRAWS NOTHING (it renders null — asserted below), so the page still shows
   // only the box: the chat is marked read when this node is on screen, never from Details or Quotation.
-  assert.match(embed, /^const chat = \(\s*<div data-picked-client-page="chat"[^>]*>\s*(?:<MarkReadWhenShown threadId=\{threadId\} \/>\s*)?\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
+  assert.match(embed, /^const chat = \(\s*<div data-picked-client-page="chat"[^>]*>\s*(?:\{\s*\}\s*)?(?:<MarkReadWhenShown threadId=\{threadId\} \/>\s*)?\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
   const marker = stripComments(readFileSync(join(WEB, 'app', 'vendor-dashboard', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8'));
   assert.match(marker, /return null;/, 'the read marker must draw nothing');
   assert.doesNotMatch(marker, /return\s*\(?\s*</, 'the read marker must draw nothing');

@@ -67,7 +67,6 @@ import {
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
-  Receipt,
   Sparkles,
   UserCheck,
   Upload,

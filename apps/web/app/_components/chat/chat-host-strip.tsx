@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, Lock, LogOut, Plus, UserPlus, Users } from 'lucide-react';
+import { Check, Plus, UserPlus, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { showsAddAll, stripOrder } from '@/lib/chat-members';
 import { setChatPeople, setPrivateTo } from './private-to';
+import { LeaveChatDialog } from './leave-chat-dialogs';
 
 /**
  * WHO IS IN THIS CHAT — the avatar strip under the picked client's pinned row (THE ONE BUILD, v111/v113: "Shared chat ·
@@ -17,16 +18,18 @@ import { setChatPeople, setPrivateTo } from './private-to';
  * elsewhere" / "N min ago" have no source in the app and are not drawn (spec §4: presence = the ring only).
  *
  * TAPPING A FACE (Supplier Build 3 · Lane A, every face a 44 px target, every action an `ActionButton`):
- *   🔒 someone else's face → **Message privately** (DECISION_LOG 2026-11-09 🔒) — the composer for this thread takes the
- *      chip (`private-to.ts`). Needs the `threadId`; without it the faces are pictures, as before.
- *   👥 YOUR OWN face, as a host → **Leave chat**, which asks first (DECISION_LOG 2026-11-09 👥, owner: the way to leave is
- *      your own face). The supplier and the coordinator have no Leave: the page passes no `leave`.
+ *   🔒 someone else's face → PRIVATE MODE AT ONCE (DECISION_LOG 2026-11-09 🔒; owner, 9 Nov: no menu, no extra row) —
+ *      the message box reads "Private message to Jose" with the info outline (`private-to.ts`). Needs the `threadId`;
+ *      without it the faces are pictures, as before.
+ *   👥 YOUR OWN face, as a host → the house confirm box "Leave this chat?" with an optional note (owner, 9 Nov — it
+ *      replaced the inline "Leave chat | Cancel" row; `leave-chat-dialogs.tsx`). The supplier and the coordinator have
+ *      no Leave: the page passes no `leave`, and their own face is not a button.
  *   👥 the ＋ after the faces — hosts and the coordinator only, NEVER the supplier (the page passes no `addable`): every
  *      event host not in this chat now, those who left included (never a coordinator or planner — always in), each with a
  *      tick; pick one or several, then Add. "Add all" sits on top when more than one is missing — ONE system line,
  *      "Lea added everyone". The rules are `lib/chat-members.ts`.
  *
- * `HostFaceMenu` and `AddHostsList` are exported only so a guard can draw each state without a click.
+ * `AddHostsList` is exported only so a guard can draw each state without a click.
  */
 
 export type AddableHost = ChatHost & {
@@ -54,12 +57,12 @@ export function ChatHostStrip({
   hosts: readonly ChatHost[] | null;
   presentIds: ReadonlySet<string>;
   youId: string;
-  /** Given → the other faces open "Message privately" (the composer for this thread takes the chip). */
+  /** Given → tapping another face puts this thread's message box in private mode for them. */
   threadId?: string;
   /** 👥 Hosts and the coordinator only — the supplier's page never passes it, so the ＋ is never drawn for them. */
   addable?: ChatHostAdd | null;
-  /** 👥 A host only — your own face offers "Leave chat". */
-  leave?: (() => void | Promise<void>) | null;
+  /** 👥 A host only — your own face asks "Leave this chat?" (with the optional note, shown to nobody else). */
+  leave?: ((note: string | null) => void | Promise<void>) | null;
   /** Whose strip this is — the supplier's "You" stands first; a host's after the coordinator(s). */
   viewerSide?: 'vendor' | 'couple';
   /**
@@ -70,7 +73,7 @@ export function ChatHostStrip({
    */
   calls?: ReactNode;
 }) {
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [adding, setAdding] = useState(false);
   // 🔒 The composer's 🔒 lists exactly these faces (you excluded) — published, never read twice. `setChatPeople`
   // emits only when the list changed, so running after every render is cheap.
@@ -100,7 +103,6 @@ export function ChatHostStrip({
   // The ＋ comes last, and only while at least one event host is not in this chat.
   const canAdd = Boolean(addable && addable.candidates.length > 0);
   const inNow = people.filter((p) => presentIds.has(p.id)).length;
-  const open = menuFor ? people.find((p) => p.id === menuFor) ?? null : null;
   return (
     <div className="border-b border-ink/10 px-4 py-2" data-chat-host-strip="">
       {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
@@ -131,12 +133,16 @@ export function ChatHostStrip({
                 <button
                   type="button"
                   className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
-                  aria-label={isYou ? 'You — options' : `${p.name} — options`}
-                  aria-controls="chat-host-menu"
-                  aria-expanded={menuFor === p.id}
+                  aria-label={isYou ? 'Leave this chat' : `Message ${p.name} privately`}
+                  {...(isYou ? { 'aria-haspopup': 'dialog' as const } : {})}
                   onClick={() => {
                     setAdding(false);
-                    setMenuFor((was) => (was === p.id ? null : p.id));
+                    if (isYou) {
+                      setLeaving(true);
+                      return;
+                    }
+                    // 🔒 Straight into private mode — the message box takes them (owner, 9 Nov).
+                    if (threadId) setPrivateTo(threadId, { userId: p.id, name: p.name });
                   }}
                   data-chat-host-face={isYou ? 'you' : p.id}
                 >
@@ -161,7 +167,6 @@ export function ChatHostStrip({
               aria-controls="chat-host-add"
               aria-expanded={adding}
               onClick={() => {
-                setMenuFor(null);
                 setAdding((was) => !was);
               }}
               data-chat-host-add-open=""
@@ -183,86 +188,17 @@ export function ChatHostStrip({
       <p className="text-[11px] text-ink/55">
         Shared chat · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}
       </p>
-      {open ? (
-        <HostFaceMenu
-          who={open}
-          isYou={open.id === youId}
-          canMessage={Boolean(threadId)}
-          leave={leave}
-          onPrivate={() => {
-            if (threadId) setPrivateTo(threadId, { userId: open.id, name: open.name });
-            setMenuFor(null);
+      {leave ? (
+        <LeaveChatDialog
+          open={leaving}
+          onCancel={() => setLeaving(false)}
+          onLeave={async (note) => {
+            setLeaving(false);
+            await leave(note);
           }}
-          onDone={() => setMenuFor(null)}
         />
       ) : null}
       {addable && canAdd && adding ? <AddHostsList addable={addable} onDone={() => setAdding(false)} /> : null}
-    </div>
-  );
-}
-
-/** The menu one face opens: someone else → Message privately; you (a host) → Leave chat, confirmed first. */
-export function HostFaceMenu({
-  who,
-  isYou,
-  canMessage,
-  leave,
-  onPrivate,
-  onDone,
-  initiallyConfirming = false,
-}: {
-  who: { id: string; name: string };
-  isYou: boolean;
-  canMessage: boolean;
-  leave: (() => void | Promise<void>) | null;
-  onPrivate: () => void;
-  onDone: () => void;
-  /** Guards only — draws the confirm step without a click. */
-  initiallyConfirming?: boolean;
-}) {
-  const [confirming, setConfirming] = useState(initiallyConfirming);
-  const [busy, setBusy] = useState(false);
-  if (isYou) {
-    if (!leave) return null;
-    return (
-      <div role="group" id="chat-host-menu" aria-label="You — options" className="mt-1.5 space-y-1.5" data-chat-host-menu="you">
-        {confirming ? (
-          <>
-            <p className="text-[13px] text-ink" data-chat-leave-confirm="">
-              Leave this chat? You stop seeing it until a host adds you back.
-            </p>
-            {/* Two equal choices, one row, equal widths. */}
-            <div className="grid grid-cols-2 gap-2">
-              <ActionButton tone="neutral" icon={Check} label="Stay" onClick={onDone} className="w-full" />
-              <ActionButton
-                tone="danger"
-                main
-                icon={LogOut}
-                label="Leave"
-                disabled={busy}
-                className="w-full"
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    await leave();
-                  } finally {
-                    setBusy(false);
-                    onDone();
-                  }
-                }}
-              />
-            </div>
-          </>
-        ) : (
-          <ActionButton tone="danger" icon={LogOut} label="Leave chat" onClick={() => setConfirming(true)} />
-        )}
-      </div>
-    );
-  }
-  if (!canMessage) return null;
-  return (
-    <div role="group" id="chat-host-menu" aria-label={`${who.name} — options`} className="mt-1.5 flex" data-chat-host-menu="other">
-      <ActionButton tone="info" icon={Lock} label="Message privately" name={`Message ${who.name} privately`} onClick={onPrivate} />
     </div>
   );
 }

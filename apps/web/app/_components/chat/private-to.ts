@@ -3,7 +3,7 @@
 /**
  * 🔒 WHO THE NEXT MESSAGE IS PRIVATE TO, per thread — the one piece of state the host strip (inside the stream) and the
  * composer (`ChatSendForm`, a sibling in the `ChatBox`) share. A tiny external store, so neither the server pages nor the
- * box need a provider: the strip's **Message privately** sets it, the composer's chip × clears it. It stays on until
+ * box need a provider: a face in the strip (or the composer’s 🔒, or Reply privately) sets it, the × inside the message box clears it. It stays on until
  * cleared (DECISION_LOG 2026-11-09 🔒: "until cleared"); a reload starts with everyone.
  *
  * 🔒 THREE DOORS, ONE CHIP (owner, 9 Nov: "they can also send private message anytime"): a face in the strip · the

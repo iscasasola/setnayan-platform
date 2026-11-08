@@ -3,8 +3,8 @@
 /**
  * ✋ A MESSAGE'S PRESS-AND-HOLD MENU (Supplier Build 3 · Lane A). Hold a bubble (≈ half a second; right-click on a
  * desktop) and a small menu opens under it. One item today — **Reply privately** (owner, 9 Nov: "they can also send
- * private message anytime"), which pre-picks that message's SENDER and sets the composer's chip "Messaging [name]
- * privately ×". Offered only on someone else's message that a person wrote (never yours, never the auto-reply).
+ * private message anytime"), which pre-picks that message's SENDER and puts the message box in private mode
+ * ("Private message to [name]"). Offered only on someone else's message that a person wrote (never yours, never the auto-reply).
  *
  * The hold never toggles the heart: the tap that ends a hold is swallowed (`consumeTap`), so ♥ stays ONE TAP.
  * 🔒 lib/a-private-message-looks-private.test.ts

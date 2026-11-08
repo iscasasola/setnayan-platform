@@ -8,21 +8,23 @@ Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the
 - **Messenger order in the shared inbox.** `ChatInbox` groups rows under "Unread · pinned" and then "Recent", using `messengerOrder`. It gains `opensPicked` (records the row as the open origin) and `needsYou` (🚦 dot: blocker stronger than due-now). The level is read from Lane B's `needsYouLevel()`; until that lands no row passes one, so no dot is drawn (TODO in `lib/chats-by-event.ts`).
 - **The host strip on every chat.** The host's picked Chat now draws the shipped `ChatHostStrip` under the pinned row, as the supplier's does. It has one source (`event_chat_hosts` plus the shop's owner, `lib/chat-strip-people.server.ts`), keeps the green ring and "Shared chat · N inside · M in the chat now", and says "Couldn't load" when the read is refused. Strip order (owner, 9 Nov): Supplier · coordinator(s) · You · the other hosts. "You" sits in your own slot and is never shown twice (`stripOrder`, `lib/chat-members.ts`). Faces are 44 px, and the no-clip `p-1 -mx-1 scroll-px-1` stays.
 - **🔒 Private messages (DECISION_LOG 2026-11-09 🔒).**
-  - Three doors open one composer chip, "Messaging [name] privately ×":
-    - tap someone else's face → Message privately;
+  - Private mode lives INSIDE the message box, with no extra row (owner, 9 Nov). The empty box reads "Private message to [name]" with a `--color-info` outline, a 🔒 at its left, and an × inside at its right that returns it to "Message". This replaces the "Messaging [name] privately ×" chip.
+  - Three doors open it:
+    - tap someone else's face (straight in, no menu);
     - the composer's 🔒 beside the ＋, which lists the strip's people;
     - press and hold a message → Reply privately, which pre-picks the sender.
   - Any pair can message privately, host↔host included.
-  - Private messages are words only: while the chip is on, the ＋ and every attach control step aside, and the server refuses a file (`private_words_only`).
-  - They are BLUE. The bubble fill, its strip "🔒 Private · only you and [name]", the 🔒 in the time row and the chip all use the `--color-info` token. Measured contrast: AA in light and dark. No normal bubble uses that token.
+  - Words only: the ＋ and every attach control step aside, and the server refuses a file (`private_words_only`).
+  - Private is BLUE (`--color-info`): the bubble wash, its strip "🔒 Private · only you and [name]", and the 🔒 in the time row. Measured contrast: AA in light and dark. No normal bubble uses the token.
   - No auto-reply; only the one recipient is notified.
-  - The recipient column is `CHAT_PRIVATE_RECIPIENT_COLUMN` (`lib/chat-private.ts`) — Lane B's migration owns the column and its RLS rule; `fetchMessages` falls back to today's select until it lands.
+  - The recipient column is `CHAT_PRIVATE_RECIPIENT_COLUMN` (`lib/chat-private.ts`). Lane B's migration owns it and its RLS rule; `fetchMessages` falls back to today's select until it lands.
 - **👥 A supplier chat starts small (DECISION_LOG 2026-11-09 👥).**
-  - The strip's ＋ comes last, only for hosts and coordinators, never the supplier, and only while an event host is missing.
-  - It lists every missing host, including those who left, with ticks, plus "Add all" when two or more are missing.
-  - The system lines are "Lea added Marco (back)", "Lea added everyone" and "Marco left".
-  - A host leaves by tapping their own face (Leave chat, confirmed). Coordinators and planners never leave and are never listed.
-  - Rules: `lib/chat-members.ts`. The writes (`memberAdd` / `memberLeave`) and the thread-scoped members read are Lane B's; the pages carry TODOs, and the labs draw stand-ins.
+  - The strip's ＋ comes last, for hosts and coordinators only, never the supplier, and only while an event host is missing. It lists every missing host (those who left included) with ticks, plus "Add all" when two or more are missing.
+  - **Leave** = tap your OWN face (hosts only). It opens the house `ConfirmDialog`, "Leave this chat?", with an optional "Your note for leaving" (≤200, Enter = Leave) and **Leave | Not now** at equal widths. `ConfirmDialog` gains an opt-in `equalRow` plus `confirmIcon`; every other caller is unchanged.
+  - A chat you left stays in your Chats list, greyed. Tapping it asks "Join this chat again?" with "You left on [date] — “[note]”" (the note part only when one exists; "Couldn't load" for a refused read), and **Join chat | Not now**.
+  - System lines: "Lea added Marco (back)", "Lea added everyone", "Marco left" (never the note), "Marco joined".
+  - Coordinators and planners never leave and are never listed. Rules: `lib/chat-members.ts`.
+  - The writes (`memberAdd`, `memberLeave(note)`, `join`), the thread-scoped members read and `left_at`/`left_note` are Lane B's. The pages carry TODOs and the labs use stand-ins.
 - **📞 Call · Video call in the picked chat head.** Inside a picked page the routed head is not drawn, so `BookedCallButtons` now stands at the strip's end. It uses the same component and props, `booked={shopBooked}` and the existing phone helper, with no new gate.
 - **🚦 Needs-you dot** on a Chats row's avatar corner. Blocker is stronger than due-now. It is prop-driven until Lane B's `needsYouLevel()`.
 - No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
@@ -43,5 +45,5 @@ SPEC IMPACT: None to the corpus. This implements the 2026-11-08 ✉️/🪞 rows
 - the host list title stays "Chats";
 - Lane B must supply, in the integration:
   - the recipient column name and its INSERT grant and SELECT rule;
-  - the thread-scoped members read and the add/leave writes with their system lines;
+  - the thread-scoped members read; the add, leave(note) and join writes with their system lines; `left_at` / `left_note` on the member row;
   - `needsYouLevel()`.

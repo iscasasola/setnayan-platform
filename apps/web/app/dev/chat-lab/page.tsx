@@ -40,6 +40,13 @@ function labPickedSupplierBodies(threadId: string, name: string, hostsFail: bool
   return bodies;
 }
 
+/** 🚪 Lab stand-in for Lane B's join write (posts "[name] joined" for real) — writes nothing. */
+async function labJoin(threadId: string): Promise<void> {
+  'use server';
+  void threadId;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+
 export default async function ChatLabInboxPage({
   searchParams,
 }: {
@@ -64,6 +71,13 @@ export default async function ChatLabInboxPage({
     eventLine: 'Dec 18 · Ana & Miguel',
     archived: false,
     archive: <ThreadArchiveToggle threadId={t.id} returnTo="/dev/chat-lab" archived={false} />,
+    // 🚪 Build 3 · Lane A: one chat you LEFT (greyed, tap → "Join this chat again?"); `?left=fail` = the refused read.
+    left:
+      i === 3
+        ? sp.left === 'fail'
+          ? ('unread' as const)
+          : { at: '2026-11-08T09:30:00Z', note: 'Mama is handling the flowers now.' }
+        : null,
   }));
   const picked = typeof sp.pick === 'string' ? LAB_THREADS.find((t) => t.id === sp.pick) ?? null : null;
   const page = ((PICKED_SUPPLIER_PAGE_IDS as readonly string[]).includes(String(sp.page)) ? sp.page : 'chat') as PickedSupplierPage;
@@ -76,6 +90,7 @@ export default async function ChatLabInboxPage({
         <ChatInbox
           rows={rows}
           viewerId={LAB_USER}
+          join={labJoin}
           empty={<p>No chats yet.</p>}
           newMessage={
             <>

@@ -15,6 +15,8 @@ import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { formatCount } from '@/lib/format-number';
 import { messengerOrder, NEEDS_YOU_DOT_LABEL, type ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { rememberPickedOrigin } from '@/app/_components/picked/picked-motion';
+import type { ChatLeftRead } from '@/lib/chat-members';
+import { LeftChatRow } from '@/app/_components/chat/left-chat-row';
 
 /**
  * THE CHATS INBOX, MESSENGER-SHAPED (owner 2026-10-27, *"look and feel like Messenger"*; chat prototype 2026-10-28,
@@ -64,6 +66,12 @@ export type InboxRow = {
   opensPicked?: boolean;
   /** 🚦 Lane B's `needsYouLevel()` for this row's client — absent/null draws no dot (never a guessed one). */
   needsYou?: ChatsRowNeedsYou | null;
+  /**
+   * 🚪 You LEFT this chat (owner, 9 Nov): the row stays, greyed, never removed; a tap asks "Join this chat again?".
+   * Lane B's thread-member `left_at` / `left_note`; `'unread'` = that read was refused (the pop-up says so). Drawn only
+   * when the inbox is handed `join`.
+   */
+  left?: ChatLeftRead | null;
 };
 
 type Filter = 'all' | 'unread' | 'suppliers';
@@ -79,8 +87,11 @@ export function ChatInbox({
   unreadMeasured = true,
   peerFilter = 'Suppliers',
   dock = 'float',
+  join = null,
 }: {
   rows: InboxRow[];
+  /** 🚪 Join a chat you left again — the writer posts "[name] joined". Absent → a left row is drawn as any other. */
+  join?: ((threadId: string) => Promise<void>) | null;
   /** 🔌 False when the unread read was refused — the Unread filter then says it could not check, never "Nothing unread." */
   unreadMeasured?: boolean;
   viewerId: string;
@@ -145,7 +156,10 @@ export function ChatInbox({
     </button>
   );
 
-  const renderRow = (r: InboxRow) => (
+  const renderRow = (r: InboxRow) =>
+    r.left && join ? (
+      <LeftChatRow key={r.threadId} threadId={r.threadId} href={r.href} name={r.name} logoUrl={r.logoUrl} preview={r.preview} timeLabel={r.timeLabel} left={r.left} join={join} />
+    ) : (
     <li
       key={r.threadId}
       className="flex items-center"
@@ -188,7 +202,7 @@ export function ChatInbox({
       </Link>
       {r.archive}
     </li>
-  );
+    );
 
   const sheet = (
     <Sheet open={composing} onClose={() => setComposing(false)} labelledById={headingId} rise>

@@ -182,8 +182,9 @@ type Props = {
    * `add` is a server action. Absent → no ＋.
    */
   memberAdd?: ChatHostAdd | null;
-  /** 👥 "Leave chat" on your own face — a host only (never the supplier, coordinator or planner). Absent → no Leave. */
-  memberLeave?: (() => Promise<void>) | null;
+  /** 👥 Your own face → "Leave this chat?" — a host only (never the supplier, coordinator or planner). Absent → no
+   *  Leave. A host leaving (the optional note is stored for them only — never in the "left" line). Lane B's write. */
+  memberLeave?: ((note: string | null) => Promise<void>) | null;
   /** 📞 The page's `BookedCallButtons`, drawn at the end of the host strip (the picked page's head). */
   headCalls?: React.ReactNode;
   /**

@@ -59,8 +59,40 @@ export function everyoneAddedLine(by: string): string {
   return `${by} added everyone`;
 }
 
+/** "Marco left" — the note is NEVER in it (owner, 9 Nov: the leaving note is shown to nobody else). */
 export function memberLeftLine(who: string): string {
   return `${who} left`;
+}
+
+/** "Marco joined" — a host who left and joined again from their greyed-out Chats row (owner, 9 Nov). */
+export function memberJoinedLine(who: string): string {
+  return `${who} joined`;
+}
+
+/**
+ * 🚪 LEAVING AND JOINING AGAIN (owner, 9 Nov). Leaving takes an optional note (≤ 200) that only the leaver ever sees
+ * again; the chat stays in their Chats list, greyed, never removed, and tapping it asks "Join this chat again?" with
+ * "You left on Nov 9 — “note”". The date and note are Lane B's thread-member `left_at` / `left_note`.
+ * `'unread'` = that read was refused: the pop-up says it could not load, never an invented date.
+ */
+export const LEAVE_NOTE_MAX = 200;
+export type ChatLeft = { at: string; note: string | null };
+export type ChatLeftRead = ChatLeft | 'unread';
+
+const LEFT_DAY = new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
+
+/** The leave note as stored: trimmed, at most 200 characters, blank → null. */
+export function leaveNoteFrom(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').trim().slice(0, LEAVE_NOTE_MAX);
+  return v ? v : null;
+}
+
+/** "You left on Nov 9, 2026 — “Too many messages”" — the note part only when there is one. */
+export function leftOnLine(left: ChatLeft): string {
+  const d = new Date(left.at);
+  const day = Number.isNaN(d.getTime()) ? null : LEFT_DAY.format(d);
+  const head = day ? `You left on ${day}` : 'You left this chat';
+  return left.note ? `${head} — “${left.note}”` : head;
 }
 
 /** The supplier's own entry in a strip (the host side adds the shop under the label the page shows for it). */

@@ -36,8 +36,9 @@ async function labAdd(userIds: string[], how: 'all' | 'picked'): Promise<void> {
   void how;
   if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
 }
-async function labLeave(): Promise<void> {
+async function labLeave(note: string | null): Promise<void> {
   'use server';
+  void note;
   if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
 }
 

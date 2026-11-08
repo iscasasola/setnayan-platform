@@ -33,7 +33,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { CHAT_PRIVATE_FIELD, PRIVATE_CHIP_FILL, PRIVATE_STRIP_TEXT, PRIVATE_WORDS_ONLY_MESSAGE, privateChipLabel } from '@/lib/chat-private';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_STRIP_TEXT, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
 import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
@@ -96,6 +96,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const [pickingPrivate, setPickingPrivate] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Any door (a face · the 🔒 · Reply privately) turning private mode on puts the cursor in the box.
+  const privateUserId = privateTo?.userId ?? null;
+  useEffect(() => {
+    if (privateUserId) textareaRef.current?.focus();
+  }, [privateUserId]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -294,26 +299,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       <input type="hidden" name="thread_id" value={threadId} />
       {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
 
-      {/* 🔒 The private chip — "Messaging Jose privately ×" (owner wording). × sends the next message to everyone again. */}
-      {privateTo ? (
-        <div
-          className={`flex max-w-full items-center gap-1.5 self-start rounded-full py-0.5 pl-3 pr-0.5 text-[13px] font-semibold ${PRIVATE_CHIP_FILL} ${PRIVATE_STRIP_TEXT}`}
-          data-chat-private-chip=""
-        >
-          <span className="min-w-0 truncate">{privateChipLabel(privateTo.name)}</span>
-          <ActionButton
-            tone="neutral"
-            quiet
-            iconOnly
-            icon={X}
-            label="To everyone"
-            name={`Stop writing privately to ${privateTo.name} — the next message goes to everyone`}
-            onClick={() => setPrivateTo(threadId, null)}
-          />
-        </div>
-      ) : null}
-
-      {/* 🔒 The 🔒's list — pick one person, the chip above takes them. */}
+      {/* 🔒 The 🔒's list — pick one person, the message box goes private for them. */}
       {!privateTo && pickingPrivate && chatPeople.length > 0 ? (
         <PrivatePeopleList
           people={chatPeople}
@@ -415,14 +401,25 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         ) : null}
         </>}
 
+        {/* 🔒 PRIVATE MODE LIVES INSIDE THE BOX (owner, 9 Nov) — the same box, never a second row: an info outline, a 🔒 at its
+            left, "Private message to Jose" while empty, and an × inside at its right that returns it to "Message"
+            (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
+        <div
+          className={`relative mx-1 my-[3px] flex min-w-0 flex-1 rounded-2xl ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
+          data-chat-message-box=""
+          {...(privateTo ? { 'data-chat-private-box': '' } : {})}
+        >
+          {privateTo ? (
+            <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_STRIP_TEXT}`} strokeWidth={2.2} />
+          ) : null}
         <textarea
           ref={textareaRef}
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder="Message"
-          aria-label={privateTo ? `Private message to ${privateTo.name}` : 'Message'}
-          className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
+          placeholder={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
+          aria-label={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
+          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] ${privateTo ? 'pl-9 pr-11' : 'px-3.5'} py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 ${privateTo ? '' : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}
@@ -462,6 +459,23 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             e.currentTarget.form?.requestSubmit();
           }}
         />
+          {privateTo ? (
+            <ActionButton
+              tone="info"
+              quiet
+              iconOnly
+              icon={X}
+              label="To everyone"
+              name={`Stop the private message to ${privateTo.name} — the next message goes to everyone`}
+              className="absolute -bottom-[3px] right-0"
+              onClick={() => {
+                setPrivateTo(threadId, null);
+                textareaRef.current?.focus();
+              }}
+              data-testid="chat-private-clear"
+            />
+          ) : null}
+        </div>
         <SubmitButton
           aria-label="Send"
           pendingLabel=""

@@ -35,8 +35,8 @@ export const PRIVATE_WORDS_ONLY_MESSAGE = 'A private message is words only — s
 export const PRIVATE_BUBBLE_FILL = 'bg-[rgb(var(--color-info)/0.14)] text-ink ring-1 ring-inset ring-[rgb(var(--color-info)/0.45)]';
 /** The private strip's (and the chip's) words — the info token itself. */
 export const PRIVATE_STRIP_TEXT = 'text-[rgb(var(--color-info))]';
-/** The composer chip — the same blue as the bubble, so the chip and what it sends look alike. */
-export const PRIVATE_CHIP_FILL = 'bg-[rgb(var(--color-info)/0.14)] ring-1 ring-inset ring-[rgb(var(--color-info)/0.45)]';
+/** The message box in private mode — the info OUTLINE (owner, 9 Nov: inside the box, no extra row). */
+export const PRIVATE_BOX_OUTLINE = 'ring-2 ring-inset ring-[rgb(var(--color-info))]';
 
 /** The person a private chip is addressed to. */
 export type PrivateTo = { userId: string; name: string };
@@ -46,9 +46,13 @@ export function privateStripLabel(name: string): string {
   return `Private · only you and ${name}`;
 }
 
-/** The composer chip while it is on (owner wording, 9 Nov: "Messaging [name] privately ×"). */
-export function privateChipLabel(name: string): string {
-  return `Messaging ${name} privately`;
+/**
+ * The EMPTY message box in private mode (owner, 9 Nov: private messaging happens INSIDE the message box — no chip row,
+ * no "Message privately | Cancel" row; a 🔒 at its left, an × inside at its right, back to "Message" for everyone).
+ * Replaces the earlier "Messaging [name] privately ×" chip.
+ */
+export function privateBoxPlaceholder(name: string): string {
+  return `Private message to ${name}`;
 }
 
 /**

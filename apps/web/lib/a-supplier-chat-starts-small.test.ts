@@ -3,14 +3,18 @@
  *
  *   1. The supplier NEVER sees the strip's ＋ — the strip draws it only when handed `addable`, and the supplier's thread
  *      page never hands it (nor `memberLeave`).
- *   2. Both face menus: someone else's face → "Message privately"; your own face as a host → "Leave chat", which asks
- *      first (Stay · Leave, one row, equal widths); no `leave` (supplier · coordinator · planner) → nothing.
+ *   2. The faces: someone else's face → private mode AT ONCE (no menu — owner, 9 Nov); your own face as a host → the
+ *      house confirm box "Leave this chat?" with an optional note (≤ 200, Enter = Leave) and Leave · Not now at equal
+ *      widths; no `leave` (supplier · coordinator · planner) → their face is not a button.
+ *   6. A chat you left stays in your Chats list, greyed; a tap asks "Join this chat again?" ("You left on … — “note”",
+ *      or "Couldn't load" for a refused read); joining posts "[name] joined"; the leave note is in no line.
  *   3. The ＋ list: "Add all" on top only when more than one host is missing; ticks; a host who left says so.
  *   4. The rules: only hosts leave; coordinators and planners are always in (never listed, never leave); the lines.
  *   5. The strip's order — Supplier · coordinator(s) · You · the other hosts; "You" in your own slot, never twice — and
  *      the ＋ last, only while an event host is missing.
  *
- * Sabotage (9 Nov 2026): the ＋ drawn without `addable` → 1 RED; "Leave chat" offered with no `leave` → 2 RED;
+ * Sabotage (9 Nov 2026): the ＋ drawn without `addable` → 1 RED; "Leave chat" offered with no `leave` → 2 RED (and,
+ * after the in-box ruling, another face given `aria-controls` again → 2 RED);
  * "Add all" shown for one missing host → 3 RED; a planner allowed to leave → 4 RED; the ＋ drawn with
  * no host missing → 5 RED.
  */
@@ -21,13 +25,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { AddHostsList, ChatHostStrip, HostFaceMenu } from '@/app/_components/chat/chat-host-strip';
+import { AddHostsList, ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
+import { LeaveNoteField, joinChatBody } from '@/app/_components/chat/leave-chat-dialogs';
 import {
   addableHosts,
   canAddToChat,
   canLeaveChat,
   everyoneAddedLine,
+  leaveNoteFrom,
   memberAddedLine,
+  memberJoinedLine,
   memberLeftLine,
   stripOrder,
 } from './chat-members';
@@ -57,29 +64,38 @@ test('1 · the supplier never sees the ＋', () => {
   assert.match(read('app/dev/_components/lab-picked-chat.tsx'), /side === 'couple' \? \{ memberAdd:/);
 });
 
-test('2 · the face menus: someone else → Message privately; you as a host → Leave chat (asked first); else nothing', () => {
-  const props = { onPrivate: () => {}, onDone: () => {} };
-  const other = renderToStaticMarkup(h(HostFaceMenu, { ...props, who: { id: 'u-jose', name: 'Jose' }, isYou: false, canMessage: true, leave: null }));
-  assert.match(other, /Message privately/);
-  assert.doesNotMatch(other, /Leave/);
-  const you = renderToStaticMarkup(h(HostFaceMenu, { ...props, who: { id: 'u-maria', name: 'You' }, isYou: true, canMessage: true, leave: noop }));
-  assert.match(you, /Leave chat/);
-  assert.doesNotMatch(you, /Message privately/);
-  const confirm = renderToStaticMarkup(
-    h(HostFaceMenu, { ...props, who: { id: 'u-maria', name: 'You' }, isYou: true, canMessage: true, leave: noop, initiallyConfirming: true }),
-  );
-  assert.match(confirm, /data-chat-leave-confirm=""/);
-  assert.match(confirm, /grid grid-cols-2 gap-2/, 'Stay and Leave are not one row at equal widths');
-  assert.match(confirm, />Stay</);
-  assert.match(confirm, />Leave</);
-  // The supplier, a coordinator or a planner: the page passes no `leave` → nothing on their own face.
-  const noLeave = renderToStaticMarkup(h(HostFaceMenu, { ...props, who: { id: 'u-shop', name: 'You' }, isYou: true, canMessage: true, leave: null }));
-  assert.equal(noLeave, '', '"Leave chat" is offered to someone who may not leave');
-  // And their own face is not even a button.
+test('2 · the faces: someone else → private mode at once; your own face as a host → "Leave this chat?"; else nothing', () => {
+  // The supplier, a coordinator or a planner: no `leave` → their own face is not even a button.
   const strip = renderToStaticMarkup(h(ChatHostStrip, { hosts: [MARIA], presentIds: new Set<string>(), youId: 'u-shop', threadId: 't1' }));
   assert.doesNotMatch(strip, /data-chat-host-face="you"/);
   const hostStrip = renderToStaticMarkup(h(ChatHostStrip, { hosts: [JOSE], presentIds: new Set<string>(), youId: 'u-maria', threadId: 't1', leave: noop }));
-  assert.match(hostStrip, /data-chat-host-face="you"/);
+  const you = hostStrip.match(/<button[^>]*data-chat-host-face="you"[^>]*>/)?.[0] ?? '';
+  assert.match(you, /aria-haspopup="dialog"/, 'your own face does not open the Leave pop-up');
+  assert.match(you, /aria-label="Leave this chat"/);
+  // Another face is ONE tap into private mode — no menu, named for what it does.
+  const other = hostStrip.match(/<button[^>]*data-chat-host-face="u-jose"[^>]*>/)?.[0] ?? '';
+  assert.match(other, /aria-label="Message Jose privately"/);
+  assert.doesNotMatch(other, /aria-controls|aria-haspopup/, 'another face opens a menu again');
+  const src = read('app/_components/chat/chat-host-strip.tsx');
+  assert.match(src, /if \(threadId\) setPrivateTo\(threadId, \{ userId: p\.id, name: p\.name \}\);/, 'a face no longer goes straight into private mode');
+  assert.match(src, /\{leave \? \(\s*<LeaveChatDialog/, 'Leave is not the pop-up');
+  assert.doesNotMatch(src, /data-chat-leave-confirm|HostFaceMenu/, 'the retired inline Leave row came back');
+
+  // The pop-up IS the house confirm box — no new modal — with the answer first, both halves equal.
+  const dlg = read('app/_components/chat/leave-chat-dialogs.tsx');
+  const leave = dlg.slice(dlg.indexOf('export function LeaveChatDialog'), dlg.indexOf('export function joinChatBody'));
+  for (const want of [/<ConfirmDialog\b/, /title="Leave this chat\?"/, /confirmLabel="Leave"/, /cancelLabel="Not now"/, /\bdestructive\b/, /\bequalRow\b/]) {
+    assert.match(leave, want, `the Leave pop-up lost ${want}`);
+  }
+  const box = read('app/_components/confirm-dialog.tsx');
+  assert.match(box, /\{equalRow \? \(\s*<div className="mt-5 grid grid-cols-2 gap-2"[^>]*>\s*<ActionButton\s+tone=\{destructive \? 'danger' : 'brand'\}/, 'the equal row is not answer-first at equal widths');
+  // The note: optional, ≤ 200, Enter = Leave.
+  const field = renderToStaticMarkup(h(LeaveNoteField, { value: '', onChange: () => {}, onEnter: () => {} }));
+  assert.match(field, /Your note for leaving/);
+  assert.match(field, /maxLength="200"/);
+  assert.match(dlg, /if \(e\.key === 'Enter' && !e\.nativeEvent\.isComposing\) \{\s*e\.preventDefault\(\);\s*onEnter\(\);/, 'Enter does not leave');
+  assert.equal(leaveNoteFrom('   '), null);
+  assert.equal(leaveNoteFrom('x'.repeat(250))?.length, 200);
 });
 
 test('3 · the ＋ list: Add all only when more than one is missing; ticks; who left says so', () => {
@@ -113,6 +129,27 @@ test('4 · only hosts leave; coordinators and planners are always in; the system
   assert.equal(memberAddedLine('Lea', 'Marco', true), 'Lea added Marco back');
   assert.equal(everyoneAddedLine('Lea'), 'Lea added everyone');
   assert.equal(memberLeftLine('Marco'), 'Marco left');
+});
+
+test('6 · a chat you left stays greyed in Chats; "Join this chat again?"; the note is in no line', () => {
+  assert.equal(joinChatBody({ at: '2026-11-08T09:30:00Z', note: 'Mama is on it' }), 'You left on Nov 8, 2026 — “Mama is on it”');
+  assert.equal(joinChatBody({ at: '2026-11-08T09:30:00Z', note: null }), 'You left on Nov 8, 2026', 'a blank note still draws its dash');
+  assert.match(joinChatBody('unread'), /Couldn.t load/, 'a refused read invents a date');
+  assert.equal(memberJoinedLine('Marco'), 'Marco joined');
+  assert.equal(memberLeftLine.length, 1, 'the "left" line takes the note — it is shown to nobody else');
+  const dlg = read('app/_components/chat/leave-chat-dialogs.tsx');
+  const join = dlg.slice(dlg.indexOf('export function JoinChatDialog'));
+  for (const want of [/<ConfirmDialog\b/, /title="Join this chat again\?"/, /confirmLabel="Join chat"/, /cancelLabel="Not now"/, /\bequalRow\b/]) {
+    assert.match(join, want, `the Join pop-up lost ${want}`);
+  }
+  assert.doesNotMatch(join, /\bdestructive\b/, 'joining is drawn as a delete');
+  // The Chats list keeps the row — greyed, never removed — and a tap asks first.
+  const inbox = read('app/dashboard/[eventId]/messages/_components/chat-inbox.tsx');
+  assert.match(inbox, /r\.left && join \? \(\s*<LeftChatRow\b/, 'a chat you left is not drawn as one');
+  const row = read('app/_components/chat/left-chat-row.tsx');
+  assert.match(row, /opacity-55/, 'a left chat is not greyed');
+  assert.match(row, /<JoinChatDialog\b/);
+  assert.match(row, /await join\(threadId\);\s*router\.push\(href\);/, 'joining does not open the chat');
 });
 
 test('5 · the strip\'s order, "You" never twice, and the ＋ last only while a host is missing', () => {

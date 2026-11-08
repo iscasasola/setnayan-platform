@@ -5,11 +5,12 @@
  *   1. The strip — "🔒 Private · only you and Jose" — draws for a private message and NEVER for a normal one (the one
  *      part, `PrivateMark`, renders nothing for `null`), and the time row repeats the lock.
  *   2. The stream's bubble wears the private fill + strip exactly when the message is private — stored and pending alike.
- *   3. The composer, while the chip is on: the chip, the hidden recipient, and NO ＋ and NO attach (paperclip · camera ·
- *      photo). Off: everything back.
+ *   3. The composer in PRIVATE MODE — inside the message box, no extra row (owner, 9 Nov): the box reads "Private
+ *      message to Jose" with the info outline, a 🔒 at its left and an × inside at its right (back to "Message"); the
+ *      hidden recipient; NO chip row; and NO ＋ and NO attach (paperclip · camera · photo). Off: everything back.
  *   4. The server is the net: a private message with a file is refused; it never wakes the auto-reply; only the one
  *      person is notified.
- *   6. THREE DOORS to the one chip (owner, 9 Nov: "they can also send private message anytime"): a face · the
+ *   6. THREE DOORS to the one private mode (owner, 9 Nov: "they can also send private message anytime"): a face · the
  *      composer's 🔒 beside the ＋ (a list of exactly the strip's people, you excluded) · "Reply privately" on a held
  *      message, which pre-picks its SENDER — any other person, by user not by side (another host's message too).
  *   5. ANY pair (owner, 9 Nov): host → host included — every face but your own is a button, and the server takes a host
@@ -71,7 +72,7 @@ test('2 · the stream draws the private look exactly when the message is private
   assert.equal(privateOtherId({ sender_user_id: 'a', recipient_user_id: null }, 'a'), null);
 });
 
-test('3 · while the private chip is on the composer is WORDS ONLY: no ＋, no attach', () => {
+test('3 · private mode lives inside the message box, and the composer is WORDS ONLY: no ＋, no attach', () => {
   const lead = h('button', { type: 'button', 'data-lab-plus': '' }, '+');
   const send = async () => {};
   const T = 'thread-words-only';
@@ -81,13 +82,21 @@ test('3 · while the private chip is on the composer is WORDS ONLY: no ＋, no a
   assert.match(open, /data-chat-camera=""/);
   assert.match(open, /data-chat-photo=""/);
   assert.match(open, /name="attachment"/);
-  assert.doesNotMatch(open, /data-chat-private-chip/);
+  assert.doesNotMatch(open, /data-chat-private-box/);
+  assert.match(open, /placeholder="Message"/);
 
   setPrivateTo(T, { userId: '00000000-0000-4000-8000-0000000000ee', name: 'Jose' });
   const priv = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
   setPrivateTo(T, null);
-  assert.match(priv, /data-chat-private-chip=""/);
-  assert.match(priv, />Messaging Jose privately</, 'the chip lost the owner\'s words');
+  assert.match(priv, /data-chat-private-box=""/, 'private mode is not in the message box');
+  assert.match(priv, /placeholder="Private message to Jose"/, 'the box lost the owner\'s words');
+  assert.doesNotMatch(priv, /data-chat-private-chip|Messaging Jose privately/, 'the retired chip row came back');
+  // The box: the info outline, a 🔒 at its left, the × inside it (all within data-chat-message-box).
+  const box = priv.slice(priv.lastIndexOf('<div', priv.indexOf('data-chat-message-box')), priv.indexOf('</div>', priv.indexOf('data-testid="chat-private-clear"')));
+  assert.match(box, /ring-\[rgb\(var\(--color-info\)\)\]/, 'the private box has no info outline');
+  assert.ok(box.indexOf('<svg') < box.indexOf('<textarea'), 'the 🔒 is not at the box\'s left');
+  assert.ok(box.indexOf('<textarea') < box.indexOf('data-testid="chat-private-clear"'), 'the × is not inside the box, after the words');
+  assert.match(box, /aria-label="Stop the private message to Jose/);
   assert.match(priv, new RegExp(`name="${CHAT_PRIVATE_FIELD}" value="00000000-0000-4000-8000-0000000000ee"`));
   assert.match(priv, /data-chat-words-only=""/);
   assert.doesNotMatch(priv, /data-lab-plus/, 'the ＋ (cards) is open while private');

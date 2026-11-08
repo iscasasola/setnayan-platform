@@ -245,6 +245,7 @@ function Field({
       </span>
       {textarea ? (
         <textarea
+          autoComplete="off"
           name={name}
           rows={2}
           placeholder={placeholder}
@@ -253,6 +254,7 @@ function Field({
         />
       ) : (
         <input
+          autoComplete="off"
           name={name}
           type="text"
           placeholder={placeholder}

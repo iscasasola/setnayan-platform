@@ -282,6 +282,7 @@ export async function DependentsSection() {
                         <form action={emailHandoverLink} className="flex w-full items-center gap-2 sm:w-auto">
                           <input type="hidden" name="dependent_id" value={d.dependent_id} />
                           <input
+                            autoComplete="off"
                             type="email"
                             name="recipient"
                             required
@@ -390,6 +391,7 @@ export async function DependentsSection() {
                           <option value="ninang">Ninang</option>
                         </select>
                         <input
+                          autoComplete="off"
                           name="godparent_email"
                           type="email"
                           className="input-field h-9 flex-1 py-1 text-sm sm:max-w-[13rem]"

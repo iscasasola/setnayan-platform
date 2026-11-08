@@ -125,6 +125,8 @@ import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } 
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
+import type { ClientRefundView } from './_components/client-refunds';
+import { CLIENT_REFUND_SELECT, clientRefundOf, type ClientRefundDbRow } from '@/lib/client-refunds';
 import { BookingMoneySummary } from './_components/booking-money-summary';
 import { bookingMoney, manilaTodayIso, type BookingMoney } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -1189,6 +1191,34 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
     pendingPayments = pending;
   }
+  // 💸 B2-E · THE REFUNDS THIS SHOP GAVE THIS CLIENT (`event_vendor_refunds`, read under the shop's own RLS and scoped to
+  // this booking). Booked-only, like the Payment page that draws them. ONE request (plus a signed link per proof photo,
+  // in parallel, only when a refund carries one). Refused → `measured: false`: the page says so and Paid is "part of
+  // this couldn't load" — never a Paid figure that silently ignores a refund.
+  let clientRefunds: { measured: boolean; rows: ClientRefundView[] } | null = null;
+  if (isBooked && eventVendorId) {
+    const { data: refundRows, error: refundErr } = await supabase
+      .from('event_vendor_refunds')
+      .select(CLIENT_REFUND_SELECT)
+      .eq('event_vendor_id', eventVendorId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .is('removed_at', null)
+      .order('refunded_on', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (refundErr) {
+      logQueryError('VendorClientPage.refunds', refundErr, { eventId }, 'graceful_degrade');
+      clientRefunds = { measured: false, rows: [] };
+    } else {
+      const shaped = ((refundRows ?? []) as ClientRefundDbRow[]).map(clientRefundOf);
+      clientRefunds = {
+        measured: true,
+        rows: await Promise.all(
+          shaped.map(async (r) => ({ ...r, proofUrl: r.proofRef ? await displayUrlForStoredAsset(r.proofRef).catch(() => null) : null })),
+        ),
+      };
+    }
+  }
+
   // H4 — what still waits on the SUPPLIER. A payment they said never arrived is
   // Setnayan's to referee, so no "awaiting your confirmation" count includes it;
   // the live payment section still shows it, with where it stands.
@@ -2428,6 +2458,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           }
         : undefined,
       asks: askPanel,
+      refunds:
+        isBooked && eventVendorId && clientRefunds
+          ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
+          : undefined,
     },
   });
 

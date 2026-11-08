@@ -117,7 +117,7 @@ import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
-import { seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
+import { seatCouple, seatSelf, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
@@ -1137,6 +1137,7 @@ export function OnboardingShell({
   dynamicTiles = [],
   budgetBands = BUDGET_BANDS_FALLBACK,
   nextPath = null,
+  selfName = null,
   servicesStepView = null,
   servicesStepAiValue = null,
   storeShell = false,
@@ -1205,6 +1206,8 @@ export function OnboardingShell({
    * keep precedence. Already safeNext()-validated in page.tsx.
    */
   nextPath?: string | null;
+  /** The signed-in account's own display name — seats THEIR slot once they say bride or groom. */
+  selfName?: string | null;
   /**
    * Services-step view-model (Papic + Setnayan AI), resolved server-side in
    * page.tsx. NULL = the flag is off; the screen is already filtered out of the
@@ -1997,12 +2000,17 @@ export function OnboardingShell({
   }, []);
   const selectRole = (r: OnboardingRole) =>
     setState((s) => {
-      const seated = seatCouple(r, coupleCarry.current, s);
+      // A carried couple wins; otherwise the person's OWN slot starts from their account name
+      // (owner 2026-11-08 — own data starts filled, stays editable; the partner's slot never is).
+      const seated: { brideFirstName?: string; groomFirstName?: string; brideLastName?: string; groomLastName?: string } =
+        coupleCarry.current ? seatCouple(r, coupleCarry.current, s) : seatSelf(r, selfName, s);
       return {
         ...s,
         role: r,
         ...(seated.brideFirstName !== undefined ? { brideFirstName: sanitizeName(seated.brideFirstName) } : {}),
         ...(seated.groomFirstName !== undefined ? { groomFirstName: sanitizeName(seated.groomFirstName) } : {}),
+        ...(seated.brideLastName !== undefined ? { brideLastName: sanitizeName(seated.brideLastName) } : {}),
+        ...(seated.groomLastName !== undefined ? { groomLastName: sanitizeName(seated.groomLastName) } : {}),
       };
     });
 
@@ -3264,7 +3272,7 @@ export function OnboardingShell({
                   <input
                     className="field nf"
                     placeholder="First"
-                    autoComplete="off"
+                    autoComplete={state.role === 'bride' ? 'given-name' : 'off'}
                     autoCapitalize="words"
                     inputMode="text"
                     required
@@ -3279,7 +3287,7 @@ export function OnboardingShell({
                   <input
                     className="field nf"
                     placeholder="Last"
-                    autoComplete="off"
+                    autoComplete={state.role === 'bride' ? 'family-name' : 'off'}
                     autoCapitalize="words"
                     inputMode="text"
                     required
@@ -3293,7 +3301,7 @@ export function OnboardingShell({
                   <input
                     className="field nf"
                     placeholder="First"
-                    autoComplete="off"
+                    autoComplete={state.role === 'groom' ? 'given-name' : 'off'}
                     autoCapitalize="words"
                     inputMode="text"
                     required
@@ -3308,7 +3316,7 @@ export function OnboardingShell({
                   <input
                     className="field nf"
                     placeholder="Last"
-                    autoComplete="off"
+                    autoComplete={state.role === 'groom' ? 'family-name' : 'off'}
                     autoCapitalize="words"
                     inputMode="text"
                     required
@@ -4708,9 +4716,9 @@ export function OnboardingShell({
           <div className="sheet-handle" />
           <div className="sheet-h">Add your own supplier</div>
           <div className="sheet-sub">We&apos;ll connect you to them on Setnayan.</div>
-          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
-          <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
-          <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
+          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" autoComplete="off" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
+          <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" autoComplete="off" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
+          <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" autoComplete="off" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
           <button className="byo-send" type="button" onClick={sendByo}>Send invite &amp; connect</button>
           <button className="sheet-cancel" type="button" onClick={() => setByoOpen(false)}>Cancel</button>
         </div>

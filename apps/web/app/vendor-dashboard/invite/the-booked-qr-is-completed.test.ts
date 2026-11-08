@@ -59,7 +59,10 @@ test('change = void + reissue: the new code first, the old one voided after, the
   const insert = at('quote_line_items: quoteLines.length');
   const voidOld = at("supabase.rpc('vendor_void_locked_qr', { p_token: replaces })");
   assert.ok(insert > 0 && voidOld > insert, 'the old code is voided before the new one exists — a refusal leaves no code');
-  assert.match(ACTIONS, /if \(voidError \|\| \(gone !== 'void' && gone !== 'already_void'\)\) \{\s*await supabase\.rpc\('vendor_void_locked_qr', \{ p_token: inserted\.token \}\);/);
+  // The withdraw of the NEW code is read (a Supabase call resolves with { error }): if THAT refuses too, both codes
+  // stand and the shop is told so (`replace_both_live`) — never "nothing new was made".
+  assert.match(ACTIONS, /if \(voidError \|\| \(gone !== 'void' && gone !== 'already_void'\)\) \{[\s\S]{0,400}?const \{ data: rolledBack, error: rollbackError \} = await supabase\.rpc\('vendor_void_locked_qr', \{\s*p_token: inserted\.token,\s*\}\);\s*if \(rollbackError \|\| rolledBack !== 'void'\) fail\('replace_both_live'\);/);
+  assert.match(PAGE, /replace_both_live:\s*'The change didn’t go through/, 'the both-live refusal has its own words');
   assert.match(ACTIONS, /fail\(gone === 'claimed' \? 'replaced_claimed' : 'issue'\);/);
   assert.match(PAGE, /replaced_claimed:/, 'the refusal has no words');
   // The form carries what it replaces, and opens filled from the waiting code (this shop's, still waiting).

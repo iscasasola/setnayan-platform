@@ -13,8 +13,9 @@ import type { Purchase } from '@/lib/billing';
  *     the stock is free again). A badge-reward line says so. Tap → that client on Quotation.
  *   · PAYMENTS RECEIVED — every payment a client logged to the shop (`event_vendor_payments`): confirmed · proof to
  *     check · not received. Tap → that client on Payment (where "Their receipt" and the answer live).
- *   · REFUNDS — the shop's own Setnayan orders that were refunded (plan, booking fee, gift pack — they are all `orders`
- *     rows, read once by the shipped Purchases read). Tap → the slip it reverses.
+ *   · REFUNDS — both directions: the shop's own Setnayan orders that were refunded (plan, booking fee, gift pack — they
+ *     are all `orders` rows, read once by the shipped Purchases read; tap → the slip it reverses), AND (B2-E) the refunds
+ *     the shop recorded giving its own clients (`event_vendor_refunds`; tap → that client's Payment page).
  *   · REWARDS EARNED — `shop_badge_rewards` (RULE 0: the badge rewards already have their table; nothing new). The badge,
  *     what it gave, and where it stands. Tap → the shop's badges.
  *
@@ -69,10 +70,24 @@ export type RewardEarnedRow = {
 /** One supplier list as read: `measured: false` = the read was refused and `rows` means nothing. */
 export type Measured<T> = { measured: boolean; rows: T[] };
 
+/** 💸 B2-E: a refund the shop recorded giving one of its clients (`event_vendor_refunds`). */
+export type ClientRefundGivenRow = {
+  refundId: string;
+  eventId: string | null;
+  /** The client — the event's own name; null when it could not be read ("A client", never a wrong name). */
+  client: string | null;
+  amountPhp: number;
+  /** 'YYYY-MM-DD' — read as that day. */
+  refundedOn: string;
+  reason: string;
+};
+
 export type SupplierBillingRead = {
   gifts: Measured<GiftGivenRow>;
   payments: Measured<PaymentReceivedRow>;
   rewards: Measured<RewardEarnedRow>;
+  /** B2-E: refunds this shop gave its clients. */
+  clientRefunds: Measured<ClientRefundGivenRow>;
 };
 
 export { BILLING_SECTIONS, BILLING_SECTION_LABEL, billingShowOf, type BillingSection, type BillingShow } from '@/lib/billing-sections';
@@ -153,6 +168,11 @@ export function paymentHref(p: Pick<PaymentReceivedRow, 'eventId'>): string {
   return customerCardHref(p.eventId, 'payments');
 }
 
+/** A refund the shop gave opens that client on Payment, where it lives. */
+export function clientRefundHref(r: Pick<ClientRefundGivenRow, 'eventId'>): string | null {
+  return r.eventId ? customerCardHref(r.eventId, 'payments') : null;
+}
+
 /** A reward opens the shop's badges. */
 export const REWARDS_HREF = '/vendor-dashboard/shop#badges';
 
@@ -170,9 +190,15 @@ const PESO = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 /** The one short line under each heading (v118 `BLDEF` sub). Never a figure from an unread list. */
 export function sectionSummary(section: Exclude<BillingSection, 'purchases'>, read: SupplierBillingRead, refunds: readonly Purchase[]): string {
   if (section === 'refunds') {
-    return refunds.length === 0
-      ? 'Nothing has gone back'
-      : `${refunds.length} refund${refunds.length > 1 ? 's' : ''} · ${PESO(refunds.reduce((n, r) => n + r.grossPhp, 0))} back to you`;
+    // Both directions (B2-E): Setnayan → you, and you → a client. A refused client list never reads as "nothing".
+    const given = read.clientRefunds?.measured ? read.clientRefunds.rows : [];
+    const n = refunds.length + given.length;
+    const parts = [
+      refunds.length ? `${PESO(refunds.reduce((t, r) => t + r.grossPhp, 0))} back to you` : null,
+      given.length ? `${PESO(given.reduce((t, r) => t + r.amountPhp, 0))} you gave back` : null,
+    ].filter(Boolean);
+    const head = n === 0 ? 'Nothing has gone back' : `${n} refund${n > 1 ? 's' : ''} · ${parts.join(' · ')}`;
+    return read.clientRefunds && !read.clientRefunds.measured ? `${head} · your clients’ refunds didn’t load` : head;
   }
   if (section === 'gifts') {
     if (!read.gifts.measured) return 'Couldn’t load';

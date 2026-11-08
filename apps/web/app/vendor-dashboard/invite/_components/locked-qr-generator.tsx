@@ -4,6 +4,7 @@ import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from
 import { useEffect, useRef, useState } from 'react';
 import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info, Plus } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockQuoteLine, LockScheduleRow } from '@/lib/vendor-locked-qr';
 import { issueLockedQr } from '../actions';
@@ -23,6 +24,8 @@ type QuoteLineDraft = { key: string; label: string; amount: string; fromRef: str
 /** A waiting code being CHANGED (void + reissue — a printed code cannot change): everything it said, filled in. */
 export type LockedQrInitial = {
   replaces: string;
+  /** Who the code is for (`client_name`) — '' when the code never said. */
+  clientName: string;
   eventType: string;
   eventDate: string;
   description: string;
@@ -222,6 +225,8 @@ export function LockedQrGenerator({
     initial?.eventDate ?? (/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : ''),
   );
   const [serviceDescription, setServiceDescription] = useState(initial?.description ?? '');
+  // 👤 Who the code is for (lane B2-E, row #34's leftover): the Booked QRs list names the code by it.
+  const [clientName, setClientName] = useState(initial?.clientName ?? '');
   const [contractId, setContractId] = useState(initial?.contractId ?? '');
   // Clean numeric strings (no separators) — displayed with thousands commas.
   const [total, setTotal] = useState(initial?.total ?? '');
@@ -407,6 +412,22 @@ export function LockedQrGenerator({
       <input type="hidden" name="initial_paid_php" value={initialPaid} />
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-ink/10 bg-white/60 p-5 sm:grid-cols-2">
+        <div className="sm:col-span-2" data-locked-qr-client="">
+          {/* The shared one-line row (lint:field-template): inside this <form> it posts its kept words as `client_name`. */}
+          <FormRows width="wide">
+            <TypedRow
+              name="Client name"
+              value={clientName}
+              maxLength={120}
+              fieldName="client_name"
+              autoCapitalize="words"
+              empty="Who it’s for"
+              placeholder="e.g. Ana & Ben"
+              note="Your Booked QRs list names the code by this."
+              onKeep={(t) => setClientName(t)}
+            />
+          </FormRows>
+        </div>
         <div className="space-y-1.5">
           <label htmlFor="event_type" className="block text-sm font-medium text-ink/80">
             Event

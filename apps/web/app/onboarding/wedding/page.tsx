@@ -165,11 +165,14 @@ export default async function OnboardingWeddingPage({
   // The shell applies this only on the "Religious" kind and never overrides a
   // resumed draft.
   let religionDefault: string | null = null;
+  // Their own name, for THEIR slot once they say bride or groom (owner 2026-11-08). Same self read.
+  let selfName: string | null = null;
   if (user) {
     // Shared self-profile reader (2026-07-13) — same religion value as the prior
     // inline `users` select, now via one canonical helper reused across flows.
-    const { religion } = await getSelfPersonalization();
+    const { religion, displayName } = await getSelfPersonalization();
     if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
+    selfName = displayName;
   }
 
   // The services step (Papic + Setnayan AI), resolved server-side because the
@@ -228,6 +231,7 @@ export default async function OnboardingWeddingPage({
       dynamicTiles={dynamicTiles}
       budgetBands={budgetBands}
       nextPath={nextPath !== '/' ? nextPath : null}
+      selfName={selfName}
     />
   );
 }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { CLIENT_REFUND_SELECT } from '@/lib/client-refunds';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -10,19 +11,22 @@ import {
   rewardRowOf,
   type GiftGivenRow,
   type PaymentReceivedRow,
+  type ClientRefundGivenRow,
   type SupplierBillingRead,
 } from '@/lib/supplier-billing';
 
 /**
  * 🧾 THE SUPPLIER'S BILLING LISTS — the reads (Build 2 #39). Shapes and words: `lib/supplier-billing.ts`.
  *
- * ONE ROUND TRIP, SEVEN REQUESTS, all in one `Promise.all`, for the shop the page already resolved:
+ * ONE ROUND TRIP, EIGHT REQUESTS, all in one `Promise.all`, for the shop the page already resolved:
  *
  *   SESSION client (RLS is the proof — a row these do not return is not drawn):
  *     1 · `vendor_proposal_shop_gifts` (+ its quote's status and event, embedded — `vendor_proposals_org_read`)
  *     2 · `shop_gift_stock_entries` kind 'given' — which events this shop's stock already reached
  *     3 · `shop_badge_rewards`
  *     4 · `event_vendor_payments` (`event_vendor_payments_vendor_read`: the login's bookings, every shop)
+ *     8 · `event_vendor_refunds` (B2-E — refunds THIS shop gave its clients; `event_vendor_refunds_vendor_read`), filtered
+ *         by the shop and by `removed_at is null`
  *   ADMIN client, SCOPED BY THE SHOP THE SESSION RESOLVED (the sanctioned shape — `a-shop-cannot-read-its-own-booking`:
  *   a supplier holds no RLS on `event_vendors` or on `events`). These only NAME and SCOPE rows the session read:
  *     5 · `event_vendors` of this shop + `events!event_vendors_event_id_fkey(display_name, event_date)` (the FK is NAMED:
@@ -87,7 +91,7 @@ export async function fetchSupplierBillingMeasured(
   /** Injected by the tests; the page leaves it out. */
   admin: SupabaseClient = createAdminClient(),
 ): Promise<SupplierBillingRead> {
-  const [linesRes, givenRes, rewardsRes, paymentsRes, bookingsRes, quotesRes, names] = await Promise.all([
+  const [linesRes, givenRes, rewardsRes, paymentsRes, bookingsRes, quotesRes, names, clientRefundsRes] = await Promise.all([
     supabase
       .from('vendor_proposal_shop_gifts')
       .select('gift_line_id, proposal_id, title, gift_kind, srp_php, from_badge_reward, created_at, vendor_proposals(status, event_id)')
@@ -121,6 +125,14 @@ export async function fetchSupplierBillingMeasured(
       .select('proposal_id, event_id, events!vendor_proposals_event_id_fkey(display_name, event_date), vendor_proposal_shop_gifts!inner(gift_line_id)')
       .eq('vendor_profile_id', vendorProfileId),
     readRewardNames(admin).catch(() => FALLBACK_REWARD_NAMES),
+    supabase
+      .from('event_vendor_refunds')
+      .select(CLIENT_REFUND_SELECT)
+      .eq('vendor_profile_id', vendorProfileId)
+      .is('removed_at', null)
+      .order('refunded_on', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(SUPPLIER_BILLING_ROW_LIMIT),
   ]);
 
   // ── names (a refusal names nothing; it never empties a list) ──
@@ -205,5 +217,28 @@ export async function fetchSupplierBillingMeasured(
     rewards = { measured: true, rows: (rewardsRes.data as RewardRow[]).map((r) => rewardRowOf(r, names)) };
   }
 
-  return { gifts, payments, rewards };
+  // ── refunds this shop gave its clients (B2-E) ──
+  let clientRefunds: SupplierBillingRead['clientRefunds'] = { measured: false, rows: [] };
+  if (clientRefundsRes.error || !Array.isArray(clientRefundsRes.data)) {
+    logQueryError('lib/supplier-billing: client refunds', clientRefundsRes.error, {}, 'graceful_degrade');
+  } else {
+    clientRefunds = {
+      measured: true,
+      rows: (clientRefundsRes.data as Array<{ refund_id: string; event_id: string | null; amount_php: number | string; refunded_on: string; reason: string }>).map(
+        (r): ClientRefundGivenRow => {
+          const ev = r.event_id ? nameOf.get(r.event_id) : undefined;
+          return {
+            refundId: r.refund_id,
+            eventId: r.event_id,
+            client: ev?.display_name?.trim() || null,
+            amountPhp: Number(r.amount_php) || 0,
+            refundedOn: r.refunded_on,
+            reason: r.reason,
+          };
+        },
+      ),
+    };
+  }
+
+  return { gifts, payments, rewards, clientRefunds };
 }

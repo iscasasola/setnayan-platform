@@ -28,7 +28,7 @@ import { coupleThreadTools } from '@/lib/chat-box-tools';
 import { hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { PLUS_CARD_TOPIC } from '@/lib/chat-plus';
+import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
 
 /**
  * THE ＋ BESIDE THE MESSAGE FIELD — and the ONE sheet of every tool the conversation has (simpler supplier dashboard,
@@ -112,7 +112,7 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: SheetRow[]; she
   // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
   // answer — the (+) is shut; a tap says which and jumps to it.
   const running = plus.draft
-    ? { key: 'draft', card: plus.draft.kind, title: 'your card', by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
+    ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
     : plus.sent;
   const gate = plusGate(running ?? null);
   const [mounted, setMounted] = useState(false);

@@ -105,7 +105,7 @@ const ROWS: Record<string, unknown[]> = {
     },
   ],
   get vendor_profiles_self() {
-    return ROWS.vendor_profiles;
+    return ROWS.vendor_profiles ?? [];
   },
   chat_threads: [
     {

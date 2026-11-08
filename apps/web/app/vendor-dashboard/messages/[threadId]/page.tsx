@@ -70,7 +70,7 @@ import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
 import { QUOTE_VERSION_SELECT, type QuoteVersionRow } from '@/lib/quote-versions';
 import { askedOnce } from '@/lib/request-once';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
-import { threadDecisionFacts, type DecisionCards } from '@/lib/thread-decisions';
+import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
 import { QuoteVersionLine } from '@/app/_components/quote-version-line';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
@@ -2163,7 +2163,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       (`threadDecisionFacts`) — 0 requests of Details' own. A refused card read is SAID (`partial`), never a shorter
       list that reads as "nothing else was decided".
     */
-    const quoteCards: DecisionCards['quotes'] = {};
+    const quoteCards: Record<string, DecisionQuoteCard> = {}; // filled here, then handed on as the read-only DecisionCards['quotes']
     for (const v of versions ?? []) {
       quoteCards[v.proposal_id] = {
         publicId: v.public_id,

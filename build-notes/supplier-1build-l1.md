@@ -7,25 +7,32 @@ Early-push branch for the foundation: `claude/supplier-1build-foundation`.
 
 ## Done (code written; proved = tests green + lab screenshot at 375 px)
 
+Screenshots (375 px, dummy env, `scrollWidth === 375` on every one) in `build-notes/l1-shots/`:
+v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/dev/avatar-sheet-lab?who=supplier) ·
+`build-sheet-couple.png` · `build-bar-supplier.png` (Today · Clients · Shop · Portfolio) · `build-bar-event.png`
+(Today · Guests · Suppliers · Memories · Hub) · `build-memories.png` · `build-today-papic-in-memories.png`
+(/dev/home-lab?card=1: Today draws no Papic row; the card in Memories' seat) · `build-collapsing-top.png`.
+(The red "3 Issues" pill on the dev shots is Next's dev overlay for the dummy-env fetches — not part of the page.)
+
 | Item | What | Proved |
 |---|---|---|
-| F1 | `--sn-cat-{booked,schedule,asked,collect}` light + dark, `--sn-hair`, `.sn-pin-hair`, `--sn-pin-h: 44px`, 520 ms rise (`--sn-dur-rise`, `--sn-ease-rise`, `lib/rise-motion.ts`), Tailwind `cat.*` | tests pending |
-| §10 #23 | z-scale `--sn-z-thumb: 25` < `--sn-z-nav: 30` < `--sn-z-pop: 40` ≤ `--sn-z-modal: 50`; thumb rows + dock use the tokens; guard `app/_components/the-layers-are-ruled.test.ts` | tests pending |
-| F2 | `CollapsingTop` / `CollapsingTopStack` (`app/_components/collapsing-top/`), Home's band on the shared `useStuck` | tests pending |
-| F3 | hairline on L1-owned sticky rows; ratchet guard lists the other lanes' rows | tests pending |
-| F4 | `useChromeAway` / `useTabReselect` / `dispatchTabReselect`, bar dispatches reselect | tests pending |
-| carousel | `dots` prop (default true), `advanceMs={0}` = no auto-advance, loop + guard kept | tests pending |
-| F5 | `SettingsMenu` gains `portfolio` (reserved, `live: false` — C4 flips it); customers ⚙ = "Clients settings" | tests pending |
-| S1 | supplier bar Today · Clients · Shop · Portfolio; `portfolio` key + `vendor.sidebar.portfolio` / `vendor.bottom-nav.portfolio` slots; on-the-day + events light Clients; moodboard-library lights Portfolio; layout drops two reads | tests pending |
-| S2 | "Clients" in L1 files (tours, help, helpers line, HowItWorks en + tl) | tests pending |
+| F1 | `--sn-cat-{booked,schedule,asked,collect}` light + dark, `--sn-hair`, `.sn-pin-hair`, `--sn-pin-h: 44px`, 520 ms rise (`--sn-dur-rise`, `--sn-ease-rise`, `lib/rise-motion.ts`), Tailwind `cat.*` | tests green (run singly) |
+| §10 #23 | z-scale `--sn-z-thumb: 25` < `--sn-z-nav: 30` < `--sn-z-pop: 40` ≤ `--sn-z-modal: 50`; thumb rows + dock use the tokens; guard `app/_components/the-layers-are-ruled.test.ts` | tests green (run singly) |
+| F2 | `CollapsingTop` / `CollapsingTopStack` (`app/_components/collapsing-top/`), Home's band on the shared `useStuck` | tests green (run singly) |
+| F3 | hairline on L1-owned sticky rows; ratchet guard lists the other lanes' rows | tests green (run singly) |
+| F4 | `useChromeAway` / `useTabReselect` / `dispatchTabReselect`, bar dispatches reselect | tests green (run singly) |
+| carousel | `dots` prop (default true), `advanceMs={0}` = no auto-advance, loop + guard kept | tests green (run singly) |
+| F5 | `SettingsMenu` gains `portfolio` (reserved, `live: false` — C4 flips it); customers ⚙ = "Clients settings" | tests green (run singly) |
+| S1 | supplier bar Today · Clients · Shop · Portfolio; `portfolio` key + `vendor.sidebar.portfolio` / `vendor.bottom-nav.portfolio` slots; on-the-day + events light Clients; moodboard-library lights Portfolio; layout drops two reads | tests green (run singly) |
+| S2 | "Clients" in L1 files (tours, help, helpers line, HowItWorks en + tl) | tests green (run singly) |
 | S3 | avatar sheet — CONTENT ONLY (owner ruling 8 Nov, below): tiles Help · Show me around · Sign out on every sheet; supplier sheet "You are in" card (the shipped "Your shop" card, relabelled); Your collections row dropped; Your Story's door → help centre; Refer a couple's door → Help (`/help?refer=<event>` → "Refer a couple ›", programme on only) | G10 6/6 + reachable-without-typing 3/3 |
-| Event B1/B2 | Today · Guests · Suppliers · Memories · Hub; Home → Today (word only; key `home`) in menu, registry, page-home, route-meta | tests pending |
-| Event B3 | copy sweep "on/from Home" → Today (see changelog fragment for the list) | tests pending |
-| Event B4/B5 | `papicCardHref` → `/dashboard/<id>/memories?papic=open#papic`; old `/dashboard/<id>?papic=open…` forwards to Memories | tests pending |
-| Event B6/B7 | the Papic card on Memories, under the keepsakes, before the grid (`papic` slot in `EventMemoriesGallery`) | tests pending |
-| Event B8 | card saves land on Memories (`return_to=memories`, `papicSeatBack`; `home` still honoured) | tests pending |
-| Event B9 | Today draws no card; Papic row stands down where the card is in Memories; day console row opens the card | tests pending |
-| Event B10 | tours: menu tour (Today first, Memories before Hub), Memories tour gains the Papic stop | tests pending |
+| Event B1/B2 | Today · Guests · Suppliers · Memories · Hub; Home → Today (word only; key `home`) in menu, registry, page-home, route-meta | tests green (run singly) |
+| Event B3 | copy sweep "on/from Home" → Today (see changelog fragment for the list) | tests green (run singly) |
+| Event B4/B5 | `papicCardHref` → `/dashboard/<id>/memories?papic=open#papic`; old `/dashboard/<id>?papic=open…` forwards to Memories | tests green (run singly) |
+| Event B6/B7 | the Papic card on Memories, under the keepsakes, before the grid (`papic` slot in `EventMemoriesGallery`) | tests green (run singly) |
+| Event B8 | card saves land on Memories (`return_to=memories`, `papicSeatBack`; `home` still honoured) | tests green (run singly) |
+| Event B9 | Today draws no card; Papic row stands down where the card is in Memories; day console row opens the card | tests green (run singly) |
+| Event B10 | tours: menu tour (Today first, Memories before Hub), Memories tour gains the Papic stop | tests green (run singly) |
 | Guards | NEW: G1 `supplier-bar-is-today-clients-shop-portfolio` (git mv of vendor-bar-is-four), G2 `nav/the-bar-is-laid-out-by-its-tabs`, G3 `vendor-dashboard/the-tab-is-called-clients` (ratchet), G4 `no-cut-line-under-a-pinned-row` (ratchet), G5 `the-top-scrolls-up-and-locks`, G6 `the-chrome-steps-away`, G8 `the-hub-has-doors-without-a-tab`, G10 `account-switcher/the-supplier-sheet-order`, §10 #23 `the-layers-are-ruled`, `category-colours-are-tokens`. Each NEW guard sabotaged once, seen red, restored (recorded in its docblock). G9 (sheet above thumb row) is held inside `the-layers-are-ruled`. | green (run singly) |
 
 ## NEEDS FROM OTHER LANES

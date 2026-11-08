@@ -17,4 +17,8 @@
   `the-conversation-list-says-what-it-shows` (accept the on-demand re-export of the ONE shared component),
   `files-folders-are-the-three-sources` (renders after the finder's code has loaded).
 
+- Shared-bundle budget 202 → 202.3KB (`apps/web/scripts/check-bundle-size.mjs`), owner-approved 2026-11-08 ("ok"):
+  the only shared chunk that grew is the webpack runtime's lazy-chunk list (4.8 → 5.1KB, ~26 on-demand chunks);
+  it buys picked client 510 → 359 kB, messages 396 → 262 kB, on-the-day 286 → 181 kB First Load JS. Precedent 2026-08-15.
+
 SPEC IMPACT: None

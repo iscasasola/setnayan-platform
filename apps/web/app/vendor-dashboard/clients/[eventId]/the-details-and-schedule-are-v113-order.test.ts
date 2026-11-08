@@ -16,7 +16,8 @@
  * Sabotage log (2026-11-08, each reverted): Suppliers moved above the overview → 1 red · `supplierRows` returning [] for a
  * missing roster → 2 red · Appointments back after `<ScheduleTab` → 3 red · a refused quote read worded "No quote sent yet"
  * → 4 red · the Schedule month writing the Clients URL (`syncUrl()` unconditional) → 5 red · Asked of you moved back
- * above Where → 6 red.
+ * above Where → 6 red · a missing `whole` drawn as an empty month → 5 red · a second export
+ * beside `fetchCustomerCalendarMonth` → 5 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -73,7 +74,12 @@ test('5 · Schedule’s month is the Clients calendar — one part, its own plac
   assert.match(cal, /<CustomersCalendar\s+place="schedule"/, 'Schedule draws a calendar that is not the Clients one');
   assert.doesNotMatch(cal, /CalendarGrid|calendar-grid/, 'a second month grid');
   assert.match(cal, /initialDay=\{day\}/, 'the event’s day is not picked on arrival');
-  assert.match(cal, /fetchScheduleCalendar\(month\)/);
+  // One request on first view = the Clients month action with `whole` (no second server action, budget-lint rule 1),
+  // and a read that comes back without its `whole` part is a refused read (null), never an empty month.
+  assert.match(cal, /fetchCustomerCalendarMonth\(month, \{ whole: true \}\)/, 'Schedule does not ask the Clients month action');
+  assert.match(cal, /setInputs\(r\?\.whole \? \{ \.\.\.r\.whole, dayStates: r\.dayStates, waitlist: r\.waitlist \} : null\)/, 'a read missing its whole part is drawn as a month');
+  const acts = stripComments(readFileSync(join(HERE, '../../customers/actions.ts'), 'utf8'));
+  assert.equal((acts.match(/^export async function /gm) ?? []).length, 1, 'the customers actions grew a second export (reuse fetchCustomerCalendarMonth)');
   assert.match(cal, /Your calendar couldn’t load just now/, 'a refused month is not said');
   const body = PAGE.slice(PAGE.indexOf('      schedule: (\n'));
   const at = body.indexOf('<ScheduleCalendar eventDate={brief.event.event_date}');

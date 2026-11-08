@@ -28,7 +28,7 @@ import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row
 import { clientsChoiceOf } from '@/app/vendor-dashboard/customers/clients-show-sort';
 import type { ClientMeeting } from '@/app/vendor-dashboard/customers/clients-tiles';
 import { ThumbRow } from '@/components/thumb-row';
-import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
+import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
@@ -66,7 +66,7 @@ const MEETINGS: ClientMeeting[] = [
 ];
 const MONEY: MoneyRow[] = [
   { key: 'm1', eventId: 'ev-reyes', title: 'Reyes & Santos wedding', line: 'Final payment · due today', amountPhp: 8000, badge: { tone: 'wait', word: 'Due today' } },
-  { key: 'm2', eventId: 'ev-lim', title: 'Lim christening', line: 'Downpayment · due 1 Nov', amountPhp: 5000, badge: { tone: 'no', word: 'Overdue' } },
+  { key: 'm2', eventId: 'ev-lim', title: 'Lim christening', line: 'First payment · due 1 Nov', amountPhp: 5000, badge: { tone: 'no', word: 'Overdue' } },
   { key: 'm3', eventId: 'ev-villa', title: 'Villanueva debut', line: 'Balance · due 30 Oct', amountPhp: 5000, badge: { tone: 'no', word: 'Overdue' } },
 ];
 const UNREAD = [
@@ -201,7 +201,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
     { key: 'booked', value: '4', word: 'booked' },
     { key: 'schedules', value: String(MEETINGS.length), word: 'schedules' },
     { key: 'asking', value: '3', word: 'asked', hot: true },
-    { key: 'collect', value: '₱18K', word: 'to collect' },
+    { key: 'collect', value: formatPesoCompact(18000 * 100), word: 'to collect' },
   ];
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: '2', zero: false },
@@ -236,10 +236,9 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           </div>
         </div>
       </main>
-      <SupplierThumbRow
-        name="events"
-        label="Customer tools"
-        row={
+      {/* The supplier's thumb-row plumbing (SupplierThumbRow) is a supplier-route foundation and must not load with a
+          /dev route (the-supplier-foundations-hold test 3) — the lab pins the same shared ThumbRow at the foot itself. */}
+      <div role="toolbar" aria-label="Customer tools" className="fixed inset-x-0 bottom-0 px-3 pb-4" style={{ zIndex: 'var(--sn-z-nav, 30)' }}>
           <ThumbRow
             name="customers"
             field={null}
@@ -264,8 +263,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
             ]}
             action={null}
           />
-        }
-      />
+      </div>
     </div>
   );
 }

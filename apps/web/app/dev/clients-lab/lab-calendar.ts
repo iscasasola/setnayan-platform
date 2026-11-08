@@ -2,7 +2,7 @@ import type { SchedulePool } from '@/lib/vendor-schedule';
 import type { DatesBlock, DatesBooking } from '@/lib/vendor-dates';
 
 /**
- * The lab shop's month (November 2026, v113's own month) in the exact shape `fetchScheduleCalendar` returns — so the
+ * The lab shop's month (November 2026, v113's own month) in the exact shape the Schedule calendar draws (`ScheduleCalendarInputs`) — so the
  * Schedule page's calendar draws from a fixture and asks for nothing. Reyes & Santos is the 8th; the 16th is closed.
  */
 export const LAB_TODAY = '2026-11-08';

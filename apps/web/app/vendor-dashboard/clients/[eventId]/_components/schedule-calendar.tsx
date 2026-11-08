@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
-import { fetchScheduleCalendar } from '@/app/vendor-dashboard/customers/actions';
+import { fetchCustomerCalendarMonth } from '@/app/vendor-dashboard/customers/actions';
 
-type Inputs = NonNullable<Awaited<ReturnType<typeof fetchScheduleCalendar>>>;
+type Read = NonNullable<Awaited<ReturnType<typeof fetchCustomerCalendarMonth>>>;
+/** The month's inputs, flat: the month-dependent half plus the `whole` part (pools · bookings · blocks). */
+export type ScheduleCalendarInputs = Pick<Read, 'dayStates' | 'waitlist'> & NonNullable<Read['whole']>;
+type Inputs = ScheduleCalendarInputs;
 
 /**
  * 📅 THE SCHEDULE PAGE'S CALENDAR (v113 `calC`; controller 2026-11-08) — the Clients calendar itself
@@ -12,7 +15,8 @@ type Inputs = NonNullable<Awaited<ReturnType<typeof fetchScheduleCalendar>>>;
  * arrival, the same week strip and the same tap-again-to-let-go.
  *
  * 🔢 One request, on first view: the picked client reads none of the month at load (its page switch stays 0
- * requests); this page asks `fetchScheduleCalendar` once. While it is out the month is "Loading…"; refused, it SAYS so
+ * requests); this page asks `fetchCustomerCalendarMonth(month, { whole: true })` once (the
+ * Clients month action with one option — not a second export). While it is out the month is "Loading…"; refused, it SAYS so
  * — an empty month would read as a free month, which is the one lie a calendar must never tell.
  *
  * `lab` hands the inputs in (the dev lab has no database) and asks for nothing.
@@ -33,8 +37,9 @@ export function ScheduleCalendar({
   useEffect(() => {
     if (lab !== undefined) return;
     let live = true;
-    fetchScheduleCalendar(month).then(
-      (r) => live && setInputs(r),
+    fetchCustomerCalendarMonth(month, { whole: true }).then(
+      // A read without its `whole` part is a refused read, said as one — never drawn as an empty month.
+      (r) => live && setInputs(r?.whole ? { ...r.whole, dayStates: r.dayStates, waitlist: r.waitlist } : null),
       () => live && setInputs(null),
     );
     return () => {

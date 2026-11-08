@@ -81,6 +81,7 @@ export function scheduleRequestRecipients(input: {
       roleSubtype: seat.role_subtype ?? null,
       bookedSupplier: facts?.bookedSupplier ?? false,
       bookedCoordinator: facts?.bookedCoordinator ?? false,
+      isHost: seen.has(seat.user_id),
     });
     if (seatAreaLevel(perms, 'schedule', proposesOnly) === 'edit') add(seat.user_id);
   }

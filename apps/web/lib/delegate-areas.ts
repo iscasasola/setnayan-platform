@@ -247,8 +247,10 @@ export function supplierProposesOnly(seat: {
   roleSubtype: string | null | undefined;
   bookedSupplier: boolean;
   bookedCoordinator: boolean;
+  /** A host of the event (a couple member) is never capped — even with their own shop booked on their own event. */
+  isHost?: boolean;
 }): boolean {
-  return seat.roleSubtype === SUPPLIER_SEAT_ROLE && seat.bookedSupplier && !seat.bookedCoordinator;
+  return seat.roleSubtype === SUPPLIER_SEAT_ROLE && seat.bookedSupplier && !seat.bookedCoordinator && seat.isHost !== true;
 }
 
 /**

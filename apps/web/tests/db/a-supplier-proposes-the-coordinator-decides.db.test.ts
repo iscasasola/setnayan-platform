@@ -357,6 +357,18 @@ test('🔒 3 · per part — the granted photographer reads and cannot write, ev
   const cs = await as(W.coordinator, `UPDATE public.event_schedule_blocks SET label = 'Ceremony (church)' WHERE block_id = $1 RETURNING 1`, [W.blockId]);
   assert.equal(cs.rows.length, 1, `the coordinator could not write the schedule: ${cs.error}`);
 
+  // …a HOST whose own shop is booked on their own event is never "a supplier who proposes".
+  await owner(
+    `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via) VALUES ($1, $2, 'couple', 'invited')
+     ON CONFLICT (event_id, user_id) DO UPDATE SET member_type = 'couple'`,
+    [W.eventId, W.florist],
+  );
+  const hostSupplier = await as<{ p: boolean }>(W.florist, `SELECT public.supplier_proposes_only($1) AS p`, [W.eventId]);
+  assert.equal(hostSupplier.rows[0]!.p, false, 'a host with a booked shop on their own event was told to propose');
+  await owner(`DELETE FROM public.event_members WHERE event_id = $1 AND user_id = $2`, [W.eventId, W.florist]);
+  const plainSupplier = await as<{ p: boolean }>(W.florist, `SELECT public.supplier_proposes_only($1) AS p`, [W.eventId]);
+  assert.equal(plainSupplier.rows[0]!.p, true);
+
   // …and a seat the couple gave a booked supplier in ANOTHER role (best man) keeps its Edit — the hosts' own choice.
   await seat(W.florist, { ...NARROW, areas: { guest_list: 'edit' } }, 'best_man');
   assert.equal(await levelOf(W.florist, 'guest_list'), 'edit', 'a co-host seat held by a supplier was capped');

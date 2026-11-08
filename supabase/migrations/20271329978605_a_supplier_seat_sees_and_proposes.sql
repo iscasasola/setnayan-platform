@@ -68,11 +68,17 @@ AS $$
   SELECT p_event_id IS NOT NULL
      AND p_user_id IS NOT NULL
      AND EXISTS (SELECT 1 FROM booked)
-     AND NOT EXISTS (SELECT 1 FROM booked b WHERE public.services_make_a_coordinator(b.services));
+     AND NOT EXISTS (SELECT 1 FROM booked b WHERE public.services_make_a_coordinator(b.services))
+     -- A HOST is never "a supplier who proposes", even when their own shop is booked on their own event (the groom's
+     -- studio at his wedding, a co-host who runs the caterer): the hosts have the final say.
+     AND NOT EXISTS (
+       SELECT 1 FROM public.event_members em
+        WHERE em.event_id = p_event_id AND em.user_id = p_user_id AND em.member_type = 'couple'
+     );
 $$;
 
 COMMENT ON FUNCTION public.supplier_proposes_only_for(UUID, UUID) IS
-  'True when p_user_id is a booked supplier on the event whose shop is NOT the coordinator trade (owner 8 Nov 2026). Such a supplier sees what they were granted and proposes changes; only hosts and the booked coordinator write. Internal — asked by moderator_area_level(_of) of the seat holder.';
+  'True when p_user_id is a booked supplier on the event whose shop is NOT the coordinator trade, and is not a host of it (owner 8 Nov 2026). Such a supplier sees what they were granted and proposes changes; only hosts and the booked coordinator write. Internal — asked by moderator_area_level(_of) of the seat holder.';
 
 REVOKE ALL ON FUNCTION public.supplier_proposes_only_for(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.supplier_proposes_only_for(UUID, UUID) TO service_role;

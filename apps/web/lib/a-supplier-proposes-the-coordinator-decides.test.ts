@@ -70,6 +70,8 @@ test('1 · a supplier seat is capped at view — never a host’s own delegate, 
     'the couple’s own planner, invited by email, is the hosts’ delegate');
   assert.equal(supplierProposesOnly({ roleSubtype: 'best_man', bookedSupplier: true, bookedCoordinator: false }), false,
     'a supplier the couple also seated as best man keeps what they gave him');
+  assert.equal(supplierProposesOnly({ roleSubtype: SUPPLIER_SEAT_ROLE, bookedSupplier: true, bookedCoordinator: false, isHost: true }), false,
+    'a host whose own shop is booked on their own event');
   assert.equal(seatAreaLevel(perms, 'guest_list', false), 'edit');
   assert.equal(seatAreaLevel(perms, 'seat_plan', true), null, 'the cap never grants');
 });

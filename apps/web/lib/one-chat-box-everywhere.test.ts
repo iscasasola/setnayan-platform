@@ -208,5 +208,7 @@ test('9 · THE ONE BUILD · the picked client\'s Chat and Quotation pages draw t
     }
   }
   // The full-screen route keeps working for the envelope doors (6 Nov ruling): the embed is opt-in, internal.
-  assert.match(supplierThread, /sp\?\.__embed === 'chat' \? 'chat'/);
+  // Build 2 · B2-D: every embed (chat · quotation · decisions) goes through the ONE shared draw; anything else is full.
+  assert.match(supplierThread, /sp\?\.__embed === 'chat' \|\| sp\?\.__embed === 'quotation' \|\| sp\?\.__embed === 'decisions'/);
+  assert.match(supplierThread, /return \(await drawVendorThread\(threadId, sp, false\)\)\.full;/);
 });

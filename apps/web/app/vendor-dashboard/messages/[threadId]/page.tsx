@@ -1614,6 +1614,18 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         returnTo: '/vendor-dashboard/customers',
       };
 
+  // The SAME three actions this page's own sections post to — the payment-confirm row and the guest-count surcharge
+  // card. One way to answer each request; the stream's Decisions AND Details' Decisions (Build 2 #42) are doors to it.
+  const decisionReplyActions = {
+    confirmPayment: confirmVendorPayment,
+    refusePayment: refuseVendorPayment,
+    applySurcharge: acceptPaxSurcharge,
+    holdPrice: declinePaxSurcharge,
+    // The answer to a booking ask — the SAME two actions the Overview and the client page post (2026-09-19).
+    agreeLock: vendorAgreeToLock,
+    declineLock: vendorDeclineLock,
+  };
+
   /*
     THE CHAT PAGE (THE ONE BUILD, v111/v113 · B1 step 7) — the SAME box, drawn inside the picked client: no
     conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
@@ -2098,16 +2110,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.
-            supplierReplyActions={{
-              confirmPayment: confirmVendorPayment,
-              refusePayment: refuseVendorPayment,
-              applySurcharge: acceptPaxSurcharge,
-              holdPrice: declinePaxSurcharge,
-              // The answer to a booking ask — the SAME two actions the Overview
-              // and the client page post (2026-09-19).
-              agreeLock: vendorAgreeToLock,
-              declineLock: vendorDeclineLock,
-            }}
+            supplierReplyActions={decisionReplyActions}
             lockHandshake={lockHandshake}
             feeForecast={chatFeeForecast}
             bookedStep={bookedMoney.step}
@@ -2126,16 +2129,6 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           />
         </ChatBox>
   );
-  // The SAME three actions the stream's Decisions post to — one way to answer each request, from either list.
-  const decisionReplyActions = {
-    confirmPayment: confirmVendorPayment,
-    refusePayment: refuseVendorPayment,
-    applySurcharge: acceptPaxSurcharge,
-    holdPrice: declinePaxSurcharge,
-    agreeLock: vendorAgreeToLock,
-    declineLock: vendorDeclineLock,
-  };
-
   if (embedded) {
     const [versionRows, decisionCards] = await Promise.all([versionRowsRead!, decisionCardsRead!]);
     if (versionRows.error) console.error('[supplier quotation page] version rows read refused', versionRows.error);

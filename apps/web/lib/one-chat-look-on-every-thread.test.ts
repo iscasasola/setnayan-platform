@@ -128,11 +128,28 @@ function returnedTree(rel: string): { tree: El; sf: ts.SourceFile; fn: ts.Functi
       ts.isFunctionDeclaration(s) && !!s.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) && !!s.body,
   );
   assert.ok(fn?.body, `${rel}: no default-exported page function`);
-  const last = [...fn.body.statements].reverse().find((s): s is ts.ReturnStatement => ts.isReturnStatement(s) && !!s.expression);
+  /*
+    Build 2 · B2-D (8 Nov 2026): the supplier page's default export routes to ONE draw, `drawVendorThread`, which
+    returns every node it drew — `full` for the full-screen route, `chat` / `quotation` / `decisions` for the picked
+    client's embeds (one draw per open). The full-screen route's tree is that draw's `full`.
+  */
+  const draw = sf.statements.find(
+    (s): s is ts.FunctionDeclaration => ts.isFunctionDeclaration(s) && s.name?.text === 'drawVendorThread' && !!s.body,
+  );
+  const body = (draw ?? fn).body!;
+  const last = [...body.statements].reverse().find((s): s is ts.ReturnStatement => ts.isReturnStatement(s) && !!s.expression);
   assert.ok(last?.expression, `${rel}: the page function has no final return`);
-  const tree = el(last.expression, sf);
+  let returned: ts.Expression = last.expression;
+  if (draw && ts.isObjectLiteralExpression(returned)) {
+    const full = returned.properties.find(
+      (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(sf) === 'full',
+    );
+    assert.ok(full, `${rel}: the draw returns no \`full\` tree`);
+    returned = full.initializer;
+  }
+  const tree = el(returned, sf);
   assert.ok(tree, `${rel}: the page's final return is not JSX`);
-  return { tree, sf, fn };
+  return { tree, sf, fn: draw ?? fn };
 }
 
 test('🔒 each thread route RETURNS the one thread frame holding one ChatBox — nothing drawn beside it', () => {
@@ -164,8 +181,9 @@ test('🔒 THE ONE BUILD · inside the picked client the supplier page draws the
   const src = read(rel);
   assert.equal((src.match(/<ChatBox\b/g) ?? []).length, 1, 'a second ChatBox was drawn for the client page');
   assert.match(src, /const chatBox = \(\s*<ChatBox\b/, 'the one box is no longer the shared const');
-  const embed = src.slice(src.indexOf("if (embed === 'chat') {"), src.indexOf("if (embed === 'chat') {") + 260);
-  assert.match(embed, /return \(\s*<div data-picked-client-page="chat"[^>]*>\s*\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
+  // Build 2 · B2-D: the picked client's ONE draw builds its Chat node as `const chat = (…)` beside Quotation + Decisions.
+  const embed = src.slice(src.indexOf('const chat = ('), src.indexOf('const chat = (') + 260);
+  assert.match(embed, /^const chat = \(\s*<div data-picked-client-page="chat"[^>]*>\s*\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
   assert.doesNotMatch(embed, /ChatThreadFrame|ConversationColumn/, 'the client chat must not draw the full-screen frame or the list');
 });
 

@@ -121,6 +121,8 @@ const ROWS: Record<string, unknown[]> = {
   ],
   vendor_org_members: [{ vendor_profile_id: VENDOR, user_id: USER, role: 'owner' }],
 };
+/** A table the dummy database refuses (RLS-style 401), to prove a refused read is SAID. */
+let refuse = new Set<string>();
 let requests: Array<{ method: string; path: string; search: string }> = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -139,6 +141,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.pathname.startsWith('/rest/v1/rpc/')) return json(null);
   const table = url.pathname.replace('/rest/v1/', '');
   if (method !== 'GET' && method !== 'HEAD') return json([]);
+  if (refuse.has(table)) return json({ code: '42501', message: `permission denied for table ${table}` }, 401);
   const rows = ROWS[table] ?? [];
   const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
   if ((headers.get('accept') ?? '').includes('vnd.pgrst.object')) {
@@ -164,6 +167,8 @@ const DetailsDecisions = details.DetailsDecisions as ((p: { threadId: string | n
  * page is called (and awaited); the thread page's own output is the end of the walk. Client components are not
  * server work and are not called.
  */
+/** What the thread page handed back for each embed, in render order (Details · Chat · Quotation). */
+let drawnOut: ReactNode[] = [];
 const SERVER = new Set<unknown>([ChatPage, QuotationPage, DetailsPage, SupplierThreadBody, VendorThreadPage, ...(DetailsDecisions ? [DetailsDecisions] : [])]);
 async function render(node: ReactNode): Promise<void> {
   if (Array.isArray(node)) {
@@ -175,7 +180,10 @@ async function render(node: ReactNode): Promise<void> {
   if (el.type === Suspense || el.type === Fragment) return render(el.props.children);
   if (typeof el.type === 'function' && SERVER.has(el.type)) {
     const out = await (el.type as (p: unknown) => unknown)(el.props);
-    if (el.type === VendorThreadPage) return; // the drawn thread — its reads are what is counted
+    if (el.type === VendorThreadPage) {
+      drawnOut.push(out as ReactNode);
+      return; // the drawn thread — its reads are what is counted
+    }
     return render(out as ReactNode);
   }
 }
@@ -196,6 +204,7 @@ const ctx = {
 /** One open of the picked client: every body built, as `clients/[eventId]/page.tsx` builds them. */
 async function openClient(opts: { withDetailsDecisions: boolean }) {
   requests = [];
+  drawnOut = [];
   perOpenClient = undefined;
   const bodies = pickedPageBodies({
     ctx,
@@ -213,7 +222,7 @@ async function openClient(opts: { withDetailsDecisions: boolean }) {
     (r) => r.method === 'GET' && r.path === '/rest/v1/chat_threads' && r.search.includes(`thread_id=eq.${THREAD}`),
   ).length;
   const markRead = requests.filter((r) => r.method === 'POST' && r.path === '/rest/v1/chat_thread_reads').length;
-  return { total: requests.length, threadReads, markRead, requests: [...requests] };
+  return { total: requests.length, threadReads, markRead, requests: [...requests], drawn: [...drawnOut] };
 }
 
 function tally(rs: Array<{ method: string; path: string; search: string }>): string {
@@ -251,4 +260,37 @@ test('5 · the Details decisions body has no read of its own — it mounts the s
   const src = stripComments(readFileSync(join(__dirname, '_components', 'details-decisions.tsx'), 'utf8'));
   assert.doesNotMatch(src, /createClient|createAdminClient|\.from\(|\.rpc\(|fetch[A-Z]\w*\(|supabase/, 'no client, no fetcher');
   assert.match(src, /<SupplierThreadBody[^>]*view="decisions"/, 'the list is drawn by the thread page, from its one load');
+});
+
+test('6 · Details\u2019 Decisions are the thread\u2019s own messages and quote rows; a refused read is said, not shortened', async () => {
+  const QUOTE = '00000000-0000-4000-8000-0000000000f1';
+  ROWS.chat_messages = [
+    { message_id: 'm1', thread_id: THREAD, event_id: EVENT, vendor_profile_id: VENDOR, sender_user_id: USER, sender_role: 'vendor', body: 'Here is our quote', created_at: '2026-10-05T02:00:00Z', proposal_id: QUOTE },
+  ];
+  ROWS.vendor_proposals = [
+    { proposal_id: QUOTE, public_id: 'S89Q-ABCDEFGHJK', event_id: EVENT, vendor_profile_id: VENDOR, status: 'accepted', sent_at: '2026-10-05T02:00:00Z', created_at: '2026-10-05T02:00:00Z', total_centavos: 4_000_050, line_items: [], payment_schedule: null, title: 'Wedding coverage', resolved_at: '2026-10-10T02:00:00Z' },
+  ];
+  try {
+    const decisionsOf = (drawn: ReactNode[]) => {
+      // The Details embed is the first drawn (Details renders before Chat and Quotation).
+      const el = drawn[0] as ReactElement<{ facts: { quotes: Array<{ title: string; totalPhp: number | null; status: string }> }; partial: boolean }>;
+      assert.ok(isValidElement(el), 'Details got no Decisions node from the draw');
+      return el.props;
+    };
+    const ok = decisionsOf((await openClient({ withDetailsDecisions: true })).drawn);
+    assert.equal(ok.partial, false);
+    assert.deepEqual(
+      ok.facts.quotes.map((q) => [q.title, q.totalPhp, q.status]),
+      [['Wedding coverage', 40000.5, 'accepted']],
+      'the quote decision is not the thread\u2019s own quote row (centavo-exact)',
+    );
+
+    refuse = new Set(['vendor_proposals']);
+    const refused = decisionsOf((await openClient({ withDetailsDecisions: true })).drawn);
+    assert.equal(refused.partial, true, 'a refused quote read drew a shorter list as if it were whole');
+  } finally {
+    refuse = new Set();
+    delete ROWS.chat_messages;
+    delete ROWS.vendor_proposals;
+  }
 });

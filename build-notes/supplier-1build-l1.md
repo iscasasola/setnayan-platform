@@ -82,6 +82,21 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
 - Chrome-away attribute sits on `<html>` (the dock can live outside `.fd`).
 - ~~Supplier "Sign out of…" opens IN PLACE under the tiles~~ — REMOVED. **OWNER RULING 8 Nov (S3), via coordinator:** *"this menu pop up from the upper right already has a design and i like the design. only the content is what you change."* The sheet keeps the shipped look (white grouped cards, serif name header + "Profile & settings ›", round icon tiles, pill badges, Appearance pill, red Sign out tile, quiet "Sign out of all accounts" line). No styling was changed: every card/row/tile uses the shipped classes. The one non-content addition — the spec's "Sign out of…" choice card (A1 S3 item 7), which also hid the quiet line on the supplier sheet — was reverted to the shipped tile + quiet line on EVERY sheet. G10 test 4 now pins that (sabotaged: `!supplierSheet` back on the quiet line → red).
 
+## Controller rulings (8 Nov)
+
+- **NEW OWNER RULE — BUILD 2.** Small adjustments (moves, animations) no longer go into this build; they are collected into
+  BUILD 2, which runs after this one ships. This build = v113 + spec §10 #23–#25 only.
+- **§10 #30 — RESPECTED.** The account sheet keeps the SHIPPED design (owner: *"this menu pop up from the upper right already
+  has a design and i like the design. only the content is what you change."*). No styling touched; the spec's "Sign out of…"
+  choice card was reverted to the shipped red Sign out tile + quiet "Sign out of all accounts" line on every sheet (G10 test 4
+  pins it). Content deltas kept: tiles Help · Show me around · Sign out; "You are in" card (the shipped "Your shop" card,
+  relabelled); Your collections row out.
+- **§10 #31 — HELD FOR BUILD 2, NOT IN THIS BUILD.** (Shop ⚙'s FIRST entry "Your page · what couples see, all your reviews
+  inside" → /vendor-dashboard/website; "Your details" only in the account sheet.) It was built (421dfaef1a) and then REVERTED
+  (4f0a72c258 + the changelog and the sheet reshoot) on the controller's Build-2 rule. Ready to re-apply in Build 2:
+  `git revert 4f0a72c258` (adds `SHOP_SETTINGS_FIRST` in `lib/menu-settings.ts`, its row in `shop/_components/shop-settings.tsx`,
+  drops the account sheet's Your page row, guard in `profile/your-details-are-one-list.test.ts` test 3).
+
 ## Risks
 
 - R1: prod `nav_slot_override` rows can override the registry labels ("Customers", "Home") — read-only check before "live".

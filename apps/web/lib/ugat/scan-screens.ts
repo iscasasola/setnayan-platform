@@ -46,7 +46,9 @@
  * imports, two hops deep), mapped through the SAME table → node binding
  * `concept-coverage` uses: a node's own `table`, then each joint's table and
  * claim tables onto the joint's pair. No table, no node: "unmapped" is
- * reported, never guessed.
+ * reported, never guessed. The one exception is a doorway screen listed in
+ * `DECLARED_SCREEN_NODES` (screens.ts) — applied only when the scan placed it
+ * nowhere, recorded as `declared`, and fenced by declared-screen-nodes.test.ts.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -58,8 +60,10 @@ import { routes as ROUTE_BUILDERS } from '@/lib/routes';
 
 import { UGAT_JOINTS, UGAT_TYPES } from './graph';
 import {
+  DECLARED_SCREEN_NODES,
   NON_CONNECTING_DOORS,
   areaForRoute,
+  type DeclaredScreenNodes,
   type BrokenDoor,
   type DoorKind,
   type DoorSurface,
@@ -557,6 +561,8 @@ export interface ScanScreensOptions {
   builders?: Map<string, string>;
   /** Override the table → node index (tests). */
   tableNodes?: Map<string, string[]>;
+  /** Override the declared nodes of doorway screens (tests). Default `DECLARED_SCREEN_NODES`. */
+  declared?: Readonly<Record<string, DeclaredScreenNodes>>;
   /**
    * Called for every door that resolved to at least one screen — the Landing
    * check (part 2) reads its #section and its words from here. `at` indexes
@@ -570,6 +576,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
   const appRoot = join(webRoot, 'app');
   const builders = opts.builders ?? builderPatterns();
   const tableNodes = opts.tableNodes ?? tableNodeIndex();
+  const declaredNodes = opts.declared ?? DECLARED_SCREEN_NODES;
 
   /* ── 1. the route tree ── */
   const tree = walkApp(appRoot);
@@ -876,7 +883,10 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
     }
     const tables = [...new Set([...seen].flatMap(tablesIn))].sort();
     const mapped = tables.filter((t) => tableNodes.has(t));
-    const nodes = [...new Set(mapped.flatMap((t) => tableNodes.get(t)!))].sort();
+    const scanned = [...new Set(mapped.flatMap((t) => tableNodes.get(t)!))].sort();
+    // A declaration fills ONLY a screen the scan placed nowhere — a table read always wins.
+    const declared = scanned.length === 0 ? declaredNodes[route] : undefined;
+    const nodes = declared ? [...declared.nodes].sort() : scanned;
 
     const doors = [...(doorsByRoute.get(route)?.values() ?? [])].sort(
       (a, b) => a.from.localeCompare(b.from) || a.kind.localeCompare(b.kind),
@@ -891,6 +901,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
       redirectsTo: isStub ? target : null,
       nodes,
       tables: mapped.sort(),
+      ...(declared ? { declared: declared.why } : {}),
       doors,
     };
   });

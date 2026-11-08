@@ -675,16 +675,15 @@ export async function fetchMessages(
   // plain human bubble. The thread page must never crash ahead of a migration.
   // 🔒 The private-message recipient (Lane B's column, Build 3) rides first; until that migration is live the select
   // errors and the next one — exactly today's — answers, so a thread never breaks ahead of the column.
-  const MARKERS = 'is_bot,appointment_id,change_order_id,amendment_id,offered_service_id';
   const withPrivate = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},${MARKERS},${CHAT_PRIVATE_RECIPIENT_COLUMN}`)
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN}`)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withPrivate.error) return (withPrivate.data ?? []) as unknown as ChatMessageRow[];
   const withBot = await supabase
     .from('chat_messages')
-    .select(`${MESSAGE_SELECT},${MARKERS}`)
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];

@@ -86,8 +86,18 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   // allowed only because it 404s in production as its FIRST statement (checked here, not assumed).
   // The supplier's chat lab (`/dev/supplier-chat-lab`) draws it too since 2026-10-29, on the same terms.
   const LABS = ['app/dev/chat-lab/t/[threadId]/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
-  const product = mounts.filter((m) => !LABS.includes(m));
-  for (const LAB of LABS.filter((l) => mounts.includes(l))) {
+  // 🪞 Supplier Build 3 · Lane A (9 Nov 2026): the picked-page labs draw the stream through ONE lab part,
+  // `app/dev/_components/lab-picked-chat.tsx` — not a page, so it cannot 404 itself. It is allowed only while EVERY
+  // file that imports it is a lab page that 404s in production as its first statement (checked here, not assumed).
+  const LAB_PART = 'app/dev/_components/lab-picked-chat.tsx';
+  const LAB_PART_PAGES = ['app/dev/chat-lab/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const partImporters = files
+    .filter((f) => /lab-picked-chat['"]/.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => f.slice(WEB.length + 1))
+    .filter((f) => !/\.test\.tsx?$/.test(f));
+  assert.deepEqual(partImporters.sort(), [...LAB_PART_PAGES].sort(), `the lab chat part is imported outside the two lab pages: ${partImporters.join(', ')}`);
+  const product = mounts.filter((m) => !LABS.includes(m) && m !== LAB_PART);
+  for (const LAB of [...LABS.filter((l) => mounts.includes(l)), ...(mounts.includes(LAB_PART) ? LAB_PART_PAGES : [])]) {
     const lab = stripComments(readFileSync(join(WEB, LAB), 'utf8'));
     const body = lab.slice(lab.indexOf('{', lab.indexOf(')', lab.indexOf('export default async function'))) + 1).trimStart();
     assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, `${LAB} can render on the live site`);

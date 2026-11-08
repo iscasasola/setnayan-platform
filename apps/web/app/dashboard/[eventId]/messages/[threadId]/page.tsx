@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
-import { SUPPLIER_STRIP_ROLE } from '@/lib/chat-members';
+import type { ChatHost } from '@/lib/chat-hosts';
+import { readCoupleChatStripPeople } from '@/lib/chat-strip-people.server';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -535,23 +535,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // thread-scoped hosts read, and pass `memberAdd` / `memberLeave` (its writes) to the stream; `lib/chat-members.ts`
   // holds who may add, leave and be added.
   const hostsRead: Promise<ChatHost[] | null | undefined> = embedded
-    ? (async () => {
-        const [res, shop, label] = await Promise.all([
-          decisionAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id }),
-          decisionAdmin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', thread.vendor_profile_id).maybeSingle(),
-          vendorLabelRead,
-        ]);
-        if (res.error) {
-          logQueryError('coupleThread.chatHosts', res.error, { eventId: thread.event_id }, 'graceful_degrade');
-          return null;
-        }
-        const hosts = chatHostsFrom(res.data);
-        if (hosts === null) return null;
-        const shopUser = (shop.data as { user_id?: string | null } | null)?.user_id ?? null;
-        return shopUser && shopUser !== user.id
-          ? [{ userId: shopUser, firstName: label, name: label, role: SUPPLIER_STRIP_ROLE, label: null }, ...hosts]
-          : hosts;
-      })().catch(() => null)
+    ? readCoupleChatStripPeople(decisionAdmin, {
+        eventId: thread.event_id,
+        vendorProfileId: thread.vendor_profile_id,
+        viewerId: user.id,
+        shopLabel: vendorLabelRead,
+      })
     : Promise.resolve(undefined);
 
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
@@ -573,8 +562,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDay,
     shopBooked,
     shopPhone,
-    shopNotYetVerified,
     hosts,
+    shopNotYetVerified,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -593,8 +582,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDayRead,
     shopBookedRead,
     shopPhoneRead,
-    shopNotYetVerifiedRead,
     hostsRead,
+    shopNotYetVerifiedRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -894,6 +883,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             currentUserId={user.id}
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
+            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand at the strip's end.
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} /> } : {})}
             counterpartyLabel={vendorLabel}
             eventDate={eventDate}
             standing={threadStanding}

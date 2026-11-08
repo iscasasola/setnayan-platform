@@ -11817,14 +11817,15 @@
         "dev/chat-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/chat-lab",
-        "/dev/chat-lab/t/[seg][seg]"
+        "/dev/chat-lab"
       ],
       "actions": [],
       "blocks": [
         "ChatInbox",
         "CoupleThreadSupplierRow",
+        "LabPickedChat",
         "LabShell",
+        "PickedSupplierShell",
         "StartThreadPicker",
         "ThreadArchiveToggle"
       ]
@@ -12852,13 +12853,14 @@
       "destinations": [
         "/dev/supplier-chat-lab",
         "/dev/supplier-chat-lab?m=chats",
-        "/dev/supplier-chat-lab?m=tools",
+        "/dev/supplier-chat-lab?m=chats&pick=[seg]&page=chat",
         "/dev/supplier-lab",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [],
       "blocks": [
         "BackButton",
+        "BookedCallButtons",
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
@@ -12867,7 +12869,9 @@
         "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
+        "LabPickedChat",
         "LockRequestAnswer",
+        "PickedClientShell",
         "ProposalMaker",
         "QuestionsSendBody",
         "QuickReplies",

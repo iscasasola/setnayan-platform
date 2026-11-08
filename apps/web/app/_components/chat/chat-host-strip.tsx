@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Check, Lock, LogOut, Plus, UserPlus, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { showsAddAll, stripOrder } from '@/lib/chat-members';
-import { setPrivateTo } from './private-to';
+import { setChatPeople, setPrivateTo } from './private-to';
 
 /**
  * WHO IS IN THIS CHAT — the avatar strip under the picked client's pinned row (THE ONE BUILD, v111/v113: "Shared chat ·
@@ -48,6 +48,7 @@ export function ChatHostStrip({
   addable = null,
   leave = null,
   viewerSide = 'vendor',
+  calls = null,
 }: {
   /** NULL = the hosts read was refused: said as such, never as an empty chat. */
   hosts: readonly ChatHost[] | null;
@@ -61,14 +62,33 @@ export function ChatHostStrip({
   leave?: (() => void | Promise<void>) | null;
   /** Whose strip this is — the supplier's "You" stands first; a host's after the coordinator(s). */
   viewerSide?: 'vendor' | 'couple';
+  /**
+   * 📞 THE CHAT HEAD'S CALL · VIDEO CALL (`BookedCallButtons`) — inside a picked page the pinned row + this strip ARE the
+   * head (the routed head is not drawn), so the page hands its booked call buttons here and they stand at the strip's
+   * end, the same component and props as the routed head. Renders nothing for an unbooked shop (its own gate).
+   * 🔒 lib/every-chat-head-has-its-calls.test.ts
+   */
+  calls?: ReactNode;
 }) {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // 🔒 The composer's 🔒 lists exactly these faces (you excluded) — published, never read twice. `setChatPeople`
+  // emits only when the list changed, so running after every render is cheap.
+  const others =
+    hosts === null
+      ? []
+      : stripOrder(hosts, youId, viewerSide).flatMap((p) => (!p.isYou && p.host ? [{ userId: p.userId, name: hostFirstName(p.host) }] : []));
+  useEffect(() => {
+    if (threadId) setChatPeople(threadId, others);
+  });
   if (hosts === null) {
     return (
-      <p className="px-4 py-2 text-xs text-ink/55" role="status" data-chat-host-strip="unread">
-        Couldn&rsquo;t load who is in this chat just now.
-      </p>
+      <div className="flex items-center gap-2 border-b border-ink/10 px-4 py-2" data-chat-host-strip="unread">
+        <p className="min-w-0 flex-1 text-xs text-ink/55" role="status">
+          Couldn&rsquo;t load who is in this chat just now.
+        </p>
+        {calls ? <div className="shrink-0" data-chat-head-calls="">{calls}</div> : null}
+      </div>
     );
   }
   // 👥 Supplier · coordinator/planner(s) · You · the other hosts — "You" in your own slot, never twice (`stripOrder`).
@@ -86,8 +106,9 @@ export function ChatHostStrip({
       {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
           the avatar: ring-2 + ring-offset-2 = 4 px. So the list pads 4 px all round (`p-1`, pulled back with `-mx-1` so
           the first avatar still lines up with the line below) and snaps inside that padding (`scroll-px-1`). */}
+      <div className="flex items-start gap-2">
       <ul
-        className="-mx-1 flex snap-x snap-mandatory scroll-px-1 gap-2 overflow-x-auto p-1 [scrollbar-width:none]"
+        className="-mx-1 flex min-w-0 flex-1 snap-x snap-mandatory scroll-px-1 gap-2 overflow-x-auto p-1 [scrollbar-width:none]"
         aria-label={`Shared chat · ${people.length} inside`}
       >
         {people.map((p) => {
@@ -153,6 +174,12 @@ export function ChatHostStrip({
           </li>
         ) : null}
       </ul>
+      {calls ? (
+        <div className="flex shrink-0 items-center pt-1.5" data-chat-head-calls="">
+          {calls}
+        </div>
+      ) : null}
+      </div>
       <p className="text-[11px] text-ink/55">
         Shared chat · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}
       </p>

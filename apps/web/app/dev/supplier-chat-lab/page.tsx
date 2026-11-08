@@ -43,6 +43,7 @@ import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage
 import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { VendorOfferService } from '@/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service';
@@ -368,6 +369,8 @@ export default async function SupplierChatLabPage({
                     { userId: LAB_USER, firstName: 'Maria', name: 'Maria Reyes', role: 'bride', label: null },
                     { userId: '00000000-0000-4000-8000-0000000000ee', firstName: 'Jose', name: 'Jose Santos', role: 'groom', label: null },
                   ],
+                  // 📞 A lab stand-in: a booked sample with a dummy number (the pages pass the ONE booking check).
+                  headCalls: <BookedCallButtons booked phone="0917 000 0000" who="Ana & Miguel" />,
                 }
               : {})}
             dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}

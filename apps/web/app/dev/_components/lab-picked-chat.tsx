@@ -9,6 +9,7 @@ import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
@@ -40,6 +41,25 @@ async function labLeave(): Promise<void> {
   if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
 }
 
+/**
+ * 🔒 One private sample per side (lab only; the shared fixtures stay as they are): a host ↔ host line on the event's
+ * side (Jose → Maria — the supplier can never read one), and supplier → Maria on the supplier's. Blue, with its strip.
+ */
+function labPrivate(threadId: string, side: 'couple' | 'vendor') {
+  const fromJose = side === 'couple';
+  return {
+    message_id: '00000000-0000-4000-8000-0000000000b1',
+    thread_id: threadId,
+    event_id: LAB_MESSAGES[0].event_id,
+    vendor_profile_id: LAB_MESSAGES[0].vendor_profile_id,
+    sender_user_id: fromJose ? JOSE.userId : LAB_STAFF,
+    sender_role: fromJose ? ('couple' as const) : ('vendor' as const),
+    recipient_user_id: LAB_USER,
+    body: fromJose ? 'Between us — let’s keep the same-day edit a surprise for Mama.' : 'I can hold Dec 12 for you until Friday.',
+    created_at: new Date(Date.UTC(2026, 9, 26, 10, 40)).toISOString(),
+  } as (typeof LAB_MESSAGES)[number];
+}
+
 async function labSend(formData: FormData): Promise<void> {
   'use server';
   void formData;
@@ -62,10 +82,13 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = f
           flush
           dealEntry={dealEntryFor({ side, hasQuote: true })}
           threadId={threadId}
-          initialMessages={LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId }))}
+          initialMessages={[...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)]}
           currentUserId={side === 'couple' ? LAB_USER : LAB_STAFF}
           viewerRole={side}
           hosts={hosts}
+          // 📞 The picked page's head calls, as the two thread pages pass them. A LAB stand-in: a booked sample with a
+          // dummy number (no real person) — the pages pass the ONE booking check (`shopIsBookedOnEvent`), never a literal.
+          headCalls={<BookedCallButtons booked phone="0917 000 0000" who={counterpartyLabel} />}
           // 👥 The ＋ and Leave are the event side's only — the supplier's chat passes neither.
           {...(side === 'couple' ? { memberAdd: { candidates: LAB_ADDABLE, add: labAdd }, memberLeave: labLeave } : {})}
           counterpartyLabel={counterpartyLabel}

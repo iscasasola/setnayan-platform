@@ -114,6 +114,8 @@ import { privateOtherId } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
+import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
+import { setPrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -182,6 +184,8 @@ type Props = {
   memberAdd?: ChatHostAdd | null;
   /** 👥 "Leave chat" on your own face — a host only (never the supplier, coordinator or planner). Absent → no Leave. */
   memberLeave?: (() => Promise<void>) | null;
+  /** 📞 The page's `BookedCallButtons`, drawn at the end of the host strip (the picked page's head). */
+  headCalls?: React.ReactNode;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -382,6 +386,7 @@ export function ChatMessageStream({
   hosts,
   memberAdd = null,
   memberLeave = null,
+  headCalls = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -395,6 +400,8 @@ export function ChatMessageStream({
    * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
+  // ✋ Press-and-hold on a bubble → "Reply privately" (pre-picks the sender for the composer's chip).
+  const hold = useMessageHold();
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
   // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
   // other side's label.
@@ -1206,7 +1213,7 @@ export function ChatMessageStream({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} /> : null}
+      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={headCalls} /> : null}
       {/*
         THE SWITCH — above the conversation, at every width. On a phone this
         row may be the most useful thing on the screen: the whole standing of a
@@ -1766,6 +1773,10 @@ export function ChatMessageStream({
           const privateWith = privateWithId === null ? null : personName(privateWithId);
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
+          // ✋ "Reply privately" — any OTHER PERSON's message (by user, not by side: another host's message sits on your
+          // side of the chat and is still someone else's), never yours, never the auto-reply.
+          const replyTo = !m.is_bot && m.sender_user_id && m.sender_user_id !== currentUserId ? m.sender_user_id : null;
+          const canReplyPrivately = replyTo !== null;
           const corner = mine
             ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
             : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
@@ -1796,8 +1807,10 @@ export function ChatMessageStream({
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
                 onClick={(e) => {
+                  if (hold.consumeTap()) return;
                   if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
                 }}
+                {...(canReplyPrivately ? hold.holdProps(m.message_id) : {})}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   privateWith !== null
@@ -1851,6 +1864,16 @@ export function ChatMessageStream({
               </div>
               </div>
               {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
+              {replyTo !== null && hold.openId === m.message_id ? (
+                <MessageHoldMenu
+                  senderName={personName(replyTo)}
+                  alignEnd={mine}
+                  onReplyPrivately={() => {
+                    setPrivateTo(threadId, { userId: replyTo, name: personName(replyTo) });
+                    hold.close();
+                  }}
+                />
+              ) : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}

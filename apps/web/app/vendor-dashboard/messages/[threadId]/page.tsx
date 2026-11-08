@@ -2100,6 +2100,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             flush
             // THE ONE BUILD · the client's Chat page names every host (strip + run labels); full screen is unchanged.
             {...(embedded ? { hosts: customerPlan.hosts } : {})}
+            // 📞 Inside the picked client the routed head is not drawn — its Call · Video call stand at the strip's end.
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} /> } : {})}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.

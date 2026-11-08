@@ -9,12 +9,16 @@
  *      photo). Off: everything back.
  *   4. The server is the net: a private message with a file is refused; it never wakes the auto-reply; only the one
  *      person is notified.
+ *   6. THREE DOORS to the one chip (owner, 9 Nov: "they can also send private message anytime"): a face · the
+ *      composer's 🔒 beside the ＋ (a list of exactly the strip's people, you excluded) · "Reply privately" on a held
+ *      message, which pre-picks its SENDER — any other person, by user not by side (another host's message too).
  *   5. ANY pair (owner, 9 Nov): host → host included — every face but your own is a button, and the server takes a host
  *      as the recipient. The supplier cannot read a host ↔ host message: the thread is read ONLY through the caller's
  *      RLS-scoped client (Lane B's SELECT rule hides it), never the admin client.
  *
  * Sabotage (9 Nov 2026): `PrivateMark` drawing its strip for `null` → 1 RED; the composer drawing `lead` while private →
- * 3 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED.
+ * 3 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED; "Reply privately" gated on the side
+ * (`!mine`) again → 6 RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,9 +27,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { PrivateMark, PrivateTime, PRIVATE_BUBBLE_FILL } from '@/app/_components/chat/private-message';
+import { PrivateMark, PrivateTime, PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT } from '@/app/_components/chat/private-message';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
-import { setPrivateTo } from '@/app/_components/chat/private-to';
+import { setChatPeople, setPrivateTo } from '@/app/_components/chat/private-to';
+import { PrivatePeopleList } from '@/app/_components/chat/private-people';
+import { MessageHoldMenu } from '@/app/_components/chat/message-hold-menu';
 import { CHAT_PRIVATE_FIELD, privateOtherId, privateToFromForm } from './chat-private';
 import { ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
 
@@ -44,7 +50,10 @@ test('1 · the strip draws for a private message and never for a normal one; the
   assert.match(time, /data-chat-private-time=""/);
   assert.match(time, /<svg/, 'the time row lost its lock');
   assert.match(time, /10:05 AM/);
-  assert.match(PRIVATE_BUBBLE_FILL, /bg-info-100/, 'the private fill left the app\'s info ramp');
+  // 🔵 Private is BLUE (owner, 9 Nov): the fill, its ring and the strip's words are the --color-info token.
+  assert.match(PRIVATE_BUBBLE_FILL, /bg-\[rgb\(var\(--color-info\)\/0\.14\)\]/, 'the private fill is not the info token');
+  assert.match(PRIVATE_STRIP_TEXT, /--color-info/);
+  assert.ok(priv.includes(PRIVATE_STRIP_TEXT), 'the strip is not written in the info token');
 });
 
 test('2 · the stream draws the private look exactly when the message is private — stored and pending', () => {
@@ -54,6 +63,8 @@ test('2 · the stream draws the private look exactly when the message is private
   assert.match(s, /<PrivateMark privateWith=\{privateWith\} \/>/);
   assert.match(s, /\{privateWith !== null \? <PrivateTime at=\{m\.created_at\} alignEnd=\{mine\} \/> : null\}/);
   assert.match(s, /<PrivateMark privateWith=\{p\.privateTo \?\? null\} \/>/, 'a pending private message is drawn as a normal one');
+  // No NORMAL bubble wears the private blue: the only place the stream names it is through PRIVATE_BUBBLE_FILL.
+  assert.doesNotMatch(s, /--color-info|\b(?:bg|ring)-link\b|\bbg-info-/, 'a normal bubble uses the private blue');
   // The other person, as each side sees it.
   assert.equal(privateOtherId({ sender_user_id: 'a', recipient_user_id: 'b' }, 'a'), 'b');
   assert.equal(privateOtherId({ sender_user_id: 'a', recipient_user_id: 'b' }, 'b'), 'a');
@@ -76,7 +87,7 @@ test('3 · while the private chip is on the composer is WORDS ONLY: no ＋, no a
   const priv = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
   setPrivateTo(T, null);
   assert.match(priv, /data-chat-private-chip=""/);
-  assert.match(priv, /Private to Jose/);
+  assert.match(priv, />Messaging Jose privately</, 'the chip lost the owner\'s words');
   assert.match(priv, new RegExp(`name="${CHAT_PRIVATE_FIELD}" value="00000000-0000-4000-8000-0000000000ee"`));
   assert.match(priv, /data-chat-words-only=""/);
   assert.doesNotMatch(priv, /data-lab-plus/, 'the ＋ (cards) is open while private');
@@ -139,4 +150,43 @@ test('5 · any pair, host → host included; the thread is read only through the
   for (const rel of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx', 'app/_components/chat-message-stream.tsx']) {
     assert.doesNotMatch(read(rel), /fetchMessages\((?:admin|createAdminClient\(\)|decisionAdmin|paxAdmin)/, `${rel} reads the thread with the admin client`);
   }
+});
+
+test('6 · three doors to the one chip: a face, the composer\'s 🔒, and Reply privately on a held message', () => {
+  const send = async () => {};
+  const lead = h('button', { type: 'button', 'data-lab-plus': '' }, '+');
+  const T = 'thread-doors';
+  // Nobody else in the chat → no 🔒 (nothing to pick).
+  setChatPeople(T, []);
+  setPrivateTo(T, null);
+  assert.doesNotMatch(renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead })), /chat-private-open/);
+  // Someone else in the chat → the 🔒 stands beside the ＋, an info ActionButton.
+  setChatPeople(T, [{ userId: '00000000-0000-4000-8000-0000000000ee', name: 'Jose' }]);
+  const open = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
+  assert.match(open, /data-testid="chat-private-open"/, 'the composer has no 🔒 door');
+  assert.ok(open.indexOf('data-lab-plus') < open.indexOf('chat-private-open'), 'the 🔒 is not beside the ＋');
+  assert.match(open, /class="ab ab-info[^"]*"[^>]*data-testid="chat-private-open"|data-testid="chat-private-open"[^>]*class="ab ab-info/, 'the 🔒 is not tone info');
+  // While the chip is on, the 🔒 steps aside with the rest (words only).
+  setPrivateTo(T, { userId: '00000000-0000-4000-8000-0000000000ee', name: 'Jose' });
+  const priv = renderToStaticMarkup(h(ChatSendForm, { threadId: T, sendAction: send, lead }));
+  setPrivateTo(T, null);
+  setChatPeople(T, []);
+  assert.doesNotMatch(priv, /chat-private-open/);
+  // The 🔒's list: one info button per person, equal width.
+  const list = renderToStaticMarkup(
+    h(PrivatePeopleList, { people: [{ userId: 'u-shop', name: 'Lumière' }, { userId: 'u-jose', name: 'Jose' }], onPick: () => {} }),
+  );
+  assert.equal((list.match(/class="ab ab-info[^"]*w-full/g) ?? []).length, 2, 'a person is not one full-width info button');
+  assert.match(list, /aria-label="Message Jose privately"/);
+  // The strip publishes exactly its faces (you excluded) for that list.
+  assert.match(read('app/_components/chat/chat-host-strip.tsx'), /if \(threadId\) setChatPeople\(threadId, others\);/);
+  // Reply privately: an info button; offered on any OTHER person's message (by user, not side), pre-picking the sender.
+  const menu = renderToStaticMarkup(h(MessageHoldMenu, { senderName: 'Jose', alignEnd: true, onReplyPrivately: () => {} }));
+  assert.match(menu, /class="ab ab-info/);
+  assert.match(menu, />Reply privately</);
+  assert.match(menu, /aria-label="Reply to Jose privately"/);
+  const stream = read('app/_components/chat-message-stream.tsx');
+  assert.match(stream, /const replyTo = !m\.is_bot && m\.sender_user_id && m\.sender_user_id !== currentUserId \? m\.sender_user_id : null;/, 'Reply privately is gated on the wrong thing');
+  assert.match(stream, /setPrivateTo\(threadId, \{ userId: replyTo, name: personName\(replyTo\) \}\)/);
+  assert.match(stream, /if \(hold\.consumeTap\(\)\) return;/, 'the hold also toggles the heart');
 });

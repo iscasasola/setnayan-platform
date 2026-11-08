@@ -33,8 +33,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { CHAT_PRIVATE_FIELD, PRIVATE_WORDS_ONLY_MESSAGE, privateChipLabel } from '@/lib/chat-private';
-import { setPrivateTo, usePrivateTo } from '@/app/_components/chat/private-to';
+import { CHAT_PRIVATE_FIELD, PRIVATE_CHIP_FILL, PRIVATE_STRIP_TEXT, PRIVATE_WORDS_ONLY_MESSAGE, privateChipLabel } from '@/lib/chat-private';
+import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
+import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
@@ -86,10 +87,13 @@ type Props = {
 // that simply will not send as the only symptom.
 
 export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId }: Props) {
-  // 🔒 PRIVATE TO ONE PERSON (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
+  // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
   // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
   const privateTo = usePrivateTo(threadId);
+  // 🔒 The composer's own door: the people in this chat (the strip's faces, you excluded); none → no 🔒.
+  const chatPeople = useChatPeople(threadId);
+  const [pickingPrivate, setPickingPrivate] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -290,14 +294,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       <input type="hidden" name="thread_id" value={threadId} />
       {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
 
-      {/* 🔒 The private chip — "Private to Jose 🔒 ×". × sends the next message to everyone again. */}
+      {/* 🔒 The private chip — "Messaging Jose privately ×" (owner wording). × sends the next message to everyone again. */}
       {privateTo ? (
         <div
-          className="flex items-center gap-1.5 self-start rounded-full bg-info-100 py-0.5 pl-3 pr-0.5 text-[13px] font-semibold text-info-800 ring-1 ring-inset ring-info-300"
+          className={`flex max-w-full items-center gap-1.5 self-start rounded-full py-0.5 pl-3 pr-0.5 text-[13px] font-semibold ${PRIVATE_CHIP_FILL} ${PRIVATE_STRIP_TEXT}`}
           data-chat-private-chip=""
         >
-          <span>{privateChipLabel(privateTo.name)}</span>
-          <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
+          <span className="min-w-0 truncate">{privateChipLabel(privateTo.name)}</span>
           <ActionButton
             tone="neutral"
             quiet
@@ -308,6 +311,18 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             onClick={() => setPrivateTo(threadId, null)}
           />
         </div>
+      ) : null}
+
+      {/* 🔒 The 🔒's list — pick one person, the chip above takes them. */}
+      {!privateTo && pickingPrivate && chatPeople.length > 0 ? (
+        <PrivatePeopleList
+          people={chatPeople}
+          onPick={(to) => {
+            setPickingPrivate(false);
+            setPrivateTo(threadId, to);
+            textareaRef.current?.focus();
+          }}
+        />
       ) : null}
 
       {/* Chosen-file chip — shown once a file is picked, before send. */}
@@ -342,6 +357,22 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
         {privateTo ? null : <>
         {lead ?? null}
+        {/* 🔒 Message someone privately, any time (owner, 9 Nov) — beside the ＋; only when someone else is in the chat. */}
+        {chatPeople.length > 0 ? (
+          <ActionButton
+            tone="info"
+            quiet
+            iconOnly
+            icon={Lock}
+            label="Privately"
+            name="Message someone in this chat privately"
+            aria-expanded={pickingPrivate}
+            aria-haspopup={true}
+            className="h-11 w-11 shrink-0"
+            onClick={() => setPickingPrivate((was) => !was)}
+            data-testid="chat-private-open"
+          />
+        ) : null}
         {/* Paperclip attach button — opens the OS file picker. With `attachInputId` the button is gone (the ＋ sheet's
             "Share a file" opens the picker) but the input stays, clipped, so the picked file still rides this form. */}
         <label
@@ -389,7 +420,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder={privateTo ? `Private to ${privateTo.name}` : 'Message'}
+          placeholder="Message"
           aria-label={privateTo ? `Private message to ${privateTo.name}` : 'Message'}
           className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
           data-rides=""

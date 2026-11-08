@@ -25,6 +25,19 @@ export const CHAT_PRIVATE_FIELD = 'private_to' as const;
 /** The one refusal a private message with a file gets — the composer's line and the server's net say the same words. */
 export const PRIVATE_WORDS_ONLY_MESSAGE = 'A private message is words only — send the file to everyone instead.';
 
+/**
+ * 🔵 PRIVATE IS BLUE (owner ruling, 9 Nov): the `--color-info` token (= `--color-link`, slate indigo #3B4E67 light,
+ * #9DB2CE dark) — a 14 % wash with an info ring for the bubble and the composer chip, the token itself for the words.
+ * No normal bubble uses it. MEASURED (WCAG relative luminance):
+ *   light · ink #2C2A29 on the wash 11.43 · info #3B4E67 on the wash 6.80 — AA
+ *   dark  · ink #FBFAF7 on the wash 13.52 · info #9DB2CE on the wash 6.51 — AA
+ */
+export const PRIVATE_BUBBLE_FILL = 'bg-[rgb(var(--color-info)/0.14)] text-ink ring-1 ring-inset ring-[rgb(var(--color-info)/0.45)]';
+/** The private strip's (and the chip's) words — the info token itself. */
+export const PRIVATE_STRIP_TEXT = 'text-[rgb(var(--color-info))]';
+/** The composer chip — the same blue as the bubble, so the chip and what it sends look alike. */
+export const PRIVATE_CHIP_FILL = 'bg-[rgb(var(--color-info)/0.14)] ring-1 ring-inset ring-[rgb(var(--color-info)/0.45)]';
+
 /** The person a private chip is addressed to. */
 export type PrivateTo = { userId: string; name: string };
 
@@ -33,9 +46,9 @@ export function privateStripLabel(name: string): string {
   return `Private · only you and ${name}`;
 }
 
-/** The composer chip while it is on. */
+/** The composer chip while it is on (owner wording, 9 Nov: "Messaging [name] privately ×"). */
 export function privateChipLabel(name: string): string {
-  return `Private to ${name}`;
+  return `Messaging ${name} privately`;
 }
 
 /**

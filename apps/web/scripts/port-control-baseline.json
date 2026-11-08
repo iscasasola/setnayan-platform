@@ -5235,16 +5235,27 @@
     },
     "/dashboard/(account)/billing": {
       "files": [
+        "dashboard/(account)/billing/_components/billing-filter.tsx",
         "dashboard/(account)/billing/_components/billing-list.tsx",
+        "dashboard/(account)/billing/_components/supplier-billing-sections.tsx",
         "dashboard/(account)/billing/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
+        "BillingFilter",
         "BillingList",
+        "BillingRow",
+        "BillingShow",
+        "Empty",
+        "Heading",
+        "InfoTip",
         "Link",
         "PageMasthead",
-        "Row"
+        "PickMenu",
+        "Row",
+        "SupplierBillingSections",
+        "Unread"
       ]
     },
     "/dashboard/(account)/clusters": {
@@ -11643,7 +11654,8 @@
       "actions": [],
       "blocks": [
         "BillingList",
-        "PageMasthead"
+        "PageMasthead",
+        "SupplierBillingSections"
       ]
     },
     "/dev/booking-ask-lab": {
@@ -11829,12 +11841,13 @@
         "dev/clients-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/clients-lab?v=pick&page=details"
+        "/dev/clients-lab?v=events",
+        "/dev/clients-lab?v=pick&page=[seg] : { booked: true, hasChat: true })}"
       ],
-      "actions": [
-        "null"
-      ],
+      "actions": [],
       "blocks": [
+        "ActionButton",
+        "BookedQrsList",
         "ClientsShowSort",
         "CustomersPin",
         "DatesRow",
@@ -11842,10 +11855,12 @@
         "DetailsFormsDoor",
         "DetailsNumbersRow",
         "HostsList",
+        "LockedQrGenerator",
         "MeetingsList",
         "PaymentsList",
         "PickedClientShell",
         "ScheduleCalendar",
+        "SearchBox",
         "SupplierBlockRow",
         "SupplierSchedule",
         "SuppliersList",
@@ -14911,6 +14926,7 @@
       "files": [
         "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/basic-setup-hold.tsx",
+        "vendor-dashboard/_components/body-panel.tsx",
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
@@ -15067,6 +15083,7 @@
         "FormRow",
         "FormRows",
         "GuidedTour",
+        "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -15098,6 +15115,7 @@
         "PageMasthead",
         "PaidMark",
         "PaneBody",
+        "PanelBox",
         "PaperRow",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
@@ -15703,6 +15721,7 @@
     "/vendor-dashboard/collections": {
       "files": [
         "vendor-dashboard/collections/_components/collections-list.tsx",
+        "vendor-dashboard/collections/_components/portfolio-groups.tsx",
         "vendor-dashboard/collections/_components/portfolio-settings.tsx",
         "vendor-dashboard/collections/_components/portfolio-show.tsx",
         "vendor-dashboard/collections/_components/portfolio-view.tsx",
@@ -15713,6 +15732,8 @@
         "vendor-dashboard/collections/page.tsx"
       ],
       "destinations": [
+        "/[seg]",
+        "/vendor-dashboard/shop/promote",
         "/vendor-dashboard/website"
       ],
       "actions": [
@@ -15720,31 +15741,44 @@
       ],
       "blocks": [
         "ActionButton",
+        "AlbumGrid",
+        "AlbumRow",
         "Badge",
+        "BodyPanel",
         "CollectionKey",
         "CollectionRowView",
         "CollectionsData",
         "CollectionsFilter",
         "CollectionsList",
+        "Cover",
         "DatesRow",
         "Fold",
+        "FormRows",
         "GalleryMedia",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "Icon",
+        "KeepAnswer",
         "Link",
         "MenuSettingsButton",
+        "PickCircle",
         "PickMenu",
         "PinWord",
+        "PortfolioGroupsView",
         "PortfolioSettings",
         "PortfolioShow",
         "PortfolioView",
         "PutOnPageResult",
+        "Sheet",
+        "ShowAlbum",
+        "StoriesGroup",
         "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
-        "SwitchTrack"
+        "SwitchTrack",
+        "TypedRow",
+        "VideoLinks"
       ]
     },
     "/vendor-dashboard/collections/albums": {
@@ -15875,13 +15909,13 @@
         "vendor-dashboard/customers/dates-wire.ts",
         "vendor-dashboard/customers/layout.tsx",
         "vendor-dashboard/customers/money-pin-figures.ts",
+        "vendor-dashboard/customers/open-asks.ts",
         "vendor-dashboard/customers/page.tsx",
         "vendor-dashboard/customers/roster-view.ts",
         "vendor-dashboard/customers/segments.ts"
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
@@ -15916,7 +15950,6 @@
         "CalendarLegend",
         "CalendarSheet",
         "ChatOriginMark",
-        "CheckADate",
         "ChosenRow",
         "ClientsShowSort",
         "ConfirmForm",
@@ -15925,7 +15958,6 @@
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
-        "CustomersDates",
         "CustomersDay",
         "CustomersFigures",
         "CustomersMoney",
@@ -15940,6 +15972,7 @@
         "DatesFolds",
         "DatesRow",
         "DayBar",
+        "DayBox",
         "DayOpenSwitch",
         "DayPart",
         "DaySheet",
@@ -16018,6 +16051,7 @@
     },
     "/vendor-dashboard/customers/@client/(..)clients/[eventId]": {
       "files": [
+        "vendor-dashboard/customers/@client/(..)clients/[eventId]/loading.tsx",
         "vendor-dashboard/customers/@client/(..)clients/[eventId]/page.tsx"
       ],
       "destinations": [],
@@ -16110,6 +16144,7 @@
     },
     "/vendor-dashboard/invite": {
       "files": [
+        "vendor-dashboard/invite/_components/booked-qrs-list.tsx",
         "vendor-dashboard/invite/_components/locked-qr-generator.tsx",
         "vendor-dashboard/invite/_components/qr-code-list.tsx",
         "vendor-dashboard/invite/_components/qr-codes.tsx",
@@ -16125,6 +16160,7 @@
       ],
       "blocks": [
         "BookedBody",
+        "BookedQrsList",
         "CrewCode",
         "CrewQr",
         "CustomersPick",
@@ -16142,7 +16178,9 @@
         "QrThumb",
         "Row",
         "Sheet",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/lines": {
@@ -17232,6 +17270,7 @@
         "vendor-dashboard/shop/_components/shop-analytics-carousel.tsx",
         "vendor-dashboard/shop/_components/shop-badge-row.tsx",
         "vendor-dashboard/shop/_components/shop-cover.tsx",
+        "vendor-dashboard/shop/_components/shop-forms-body.tsx",
         "vendor-dashboard/shop/_components/shop-gear-sections.ts",
         "vendor-dashboard/shop/_components/shop-makers.tsx",
         "vendor-dashboard/shop/_components/shop-sections.ts",
@@ -17291,8 +17330,10 @@
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
+        "BadgeRing",
         "BadgeSheet",
         "BadgeTile",
+        "BodyPanel",
         "BranchManager",
         "CallerVendorProfile",
         "CapacityCard",
@@ -17333,6 +17374,7 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLLIElement",
+        "HTMLSpanElement",
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
@@ -17352,6 +17394,7 @@
         "LockedLine",
         "LogoFrame",
         "LogoRowControl",
+        "MakerKey",
         "ManpowerSurface",
         "MenuSettingsButton",
         "OneOpenScope",
@@ -17371,6 +17414,7 @@
         "PortfolioForm",
         "PricePositionCard",
         "ProfileChecklistEditor",
+        "ProgressRing",
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
@@ -17397,6 +17441,8 @@
         "ShopBadgeRow",
         "ShopCover",
         "ShopData",
+        "ShopFormsBody",
+        "ShopFormsMaker",
         "ShopHome",
         "ShopMakers",
         "ShopNameInput",

@@ -227,7 +227,7 @@ export function CalendarGrid({
               style={box ? undefined : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 box
-                  ? `rounded-[10px] ${look.out ? 'pointer-events-none text-ink/25' : blocked ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`
+                  ? `rounded-md ${look.out ? 'pointer-events-none text-ink/25' : blocked ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`
                   : look.picked
                   ? `rounded-full ${PILL_ON_CLASS} font-bold`
                   : look.out

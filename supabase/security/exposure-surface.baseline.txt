@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7383
+# facts: 7386
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     610
-#   col       5363
+#   col       5365
 #   policy    1074
 #   view      9
-#   func      323
+#   func      324
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -5092,6 +5092,7 @@ col	public.vendor_locked_qr_tokens.id	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.initial_paid_php	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.proof_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.public_id	anon=SIU authenticated=SIU
+col	public.vendor_locked_qr_tokens.quote_line_items	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.remembrance_r2_key	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.schedule_json	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.service_description	anon=SIU authenticated=SIU
@@ -5102,6 +5103,7 @@ col	public.vendor_locked_qr_tokens.total_php	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.vendor_service_id	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.vendor_service_ids	anon=SIU authenticated=SIU
+col	public.vendor_locked_qr_tokens.voided_at	anon=SIU authenticated=SIU
 col	public.vendor_member_token_wallets.purchased_tokens	anon=- authenticated=SIU
 col	public.vendor_member_token_wallets.updated_at	anon=- authenticated=SIU
 col	public.vendor_member_token_wallets.user_id	anon=- authenticated=SIU
@@ -7385,6 +7387,7 @@ func	public.vendor_upcoming_load(p_vendor_profile_id uuid)	secdef=yes exec=anon,
 func	public.vendor_upsert_cocktail_booth(p_event_id uuid, p_booth_id uuid, p_booth_type text, p_label text, p_x numeric, p_y numeric)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_upsert_cocktail_booth(p_event_id uuid, p_booth_id uuid, p_booth_type text, p_label text, p_x numeric, p_y numeric, p_offerings text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_upsert_sign(p_event_id uuid, p_sign_id uuid, p_label text, p_x numeric, p_y numeric, p_rotation numeric)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_void_locked_qr(p_token text)	secdef=no exec=authenticated search_path=public
 func	public.vendor_vote_admin_motion(p_motion_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_waitlist_depth(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_waitlist_the_ask(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public

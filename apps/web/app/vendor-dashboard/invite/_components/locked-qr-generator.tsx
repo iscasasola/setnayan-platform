@@ -593,11 +593,12 @@ export function LockedQrGenerator({
         <p className="text-xs text-ink/45">
           {serviceRefs.length} selected · {services.length} total
         </p>
-      </div>
 
       {/* 🧾 #34 THE QUOTATION, BUILT IN PLACE: a line per picked service (priced from its card), the shop's own lines,
-          every price editable — the Total above is their sum. Stored with the code (`quote_line_items`). */}
-      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-5" data-locked-qr-quote="">
+          every price editable — the Total above is their sum. Stored with the code (`quote_line_items`).
+          It lives INSIDE the Services box, under a divider — not a box of its own (lint:no-card): the lines ARE the
+          picks above, priced, so one box holds the pick and the quotation it makes. */}
+      <div className="space-y-3 border-t border-ink/10 pt-4" data-locked-qr-quote="">
         <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-medium text-ink/80">Quotation</p>
           <p className="text-sm font-semibold tabular-nums text-ink" data-locked-qr-quote-total="">
@@ -610,7 +611,7 @@ export function LockedQrGenerator({
           <ul className="divide-y divide-ink/10">
             {lines.map((l, i) => (
               <li key={l.key} className="flex items-center gap-2 py-2" data-locked-qr-quote-line={i}>
-                <input
+                <input // field-ok: one cell of a quotation LINE (what · ₱) — a two-cell line the one-line Form row cannot draw; same shape as the payment rows below
                   type="text"
                   className="input-field min-w-0 flex-1"
                   aria-label="Line"
@@ -618,7 +619,7 @@ export function LockedQrGenerator({
                   value={l.label}
                   onChange={(e) => setLines((prev) => prev.map((x) => (x.key === l.key ? { ...x, label: e.target.value } : x)))}
                 />
-                <input
+                <input // field-ok: the ₱ cell of the same quotation line — typed as text + inputMode decimal (the §6 number exception)
                   type="text"
                   inputMode="decimal"
                   className="input-field w-28 text-right tabular-nums"
@@ -648,6 +649,7 @@ export function LockedQrGenerator({
         >
           <Plus className="h-4 w-4" strokeWidth={2} aria-hidden /> Add a line
         </button>
+      </div>
       </div>
 
       {/* What the couple availed — the scope of work frozen onto the couple's plan. */}

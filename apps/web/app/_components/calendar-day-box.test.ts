@@ -57,7 +57,7 @@ test('box: ONE picked mark — the number in its ink box, dots kept, a blocked d
   const html = grid('box');
   assert.equal((html.match(/data-calendar-dn="on"/g) ?? []).length, 1, 'not exactly one picked mark');
   const picked = cell(html, '2026-11-12');
-  assert.match(picked, /h-\[30px\] w-\[30px\][^"]*rounded-\[10px\][^"]*bg-ink text-cream/);
+  assert.match(picked, /h-\[30px\] w-\[30px\][^"]*rounded-md[^"]*bg-ink text-cream/); // the box rides the --m-r-sm token (lint:radius), not an ad-hoc 10px
   assert.doesNotMatch(picked, /rounded-full bg-sn-accent|data-pill-on/, 'the picked day is a circle again');
   assert.match(picked, /data-calendar-dot="booked"[^>]*style="background:/, 'the dots lost their colours on the picked day');
   const blocked = cell(html, '2026-11-16');

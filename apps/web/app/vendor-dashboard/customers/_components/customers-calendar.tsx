@@ -518,7 +518,7 @@ export function CustomersCalendar({
               key={d}
               type="button"
               // #37: the ONE picked mark (the number's ink box) — today's thin ring, a blocked day struck through.
-              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-[10px] text-[13.5px] leading-tight tabular-nums text-ink ${
+              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-md text-[13.5px] leading-tight tabular-nums text-ink ${
                 d === todayIso && !on ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''
               } ${st?.blocked && !on ? 'text-ink/45' : ''}`}
               aria-pressed={on}

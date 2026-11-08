@@ -35,7 +35,7 @@ export function DayBox({ on, struck = false, children }: { on: boolean; struck?:
     <span
       ref={ref}
       data-calendar-dn={on ? 'on' : ''}
-      className={`grid h-[30px] w-[30px] place-items-center rounded-[10px] transition-colors ease-out motion-reduce:transition-none ${
+      className={`grid h-[30px] w-[30px] place-items-center rounded-md transition-colors ease-out motion-reduce:transition-none ${
         on ? 'bg-ink text-cream' : ''
       } ${struck ? 'line-through decoration-2' : ''}`}
       style={{ transitionDuration: `${DAY_BOX_MOTION.outMs}ms` }}
@@ -347,7 +347,7 @@ function confettiFrom(cx: number, cy: number): number {
       top: `${cy - 3.5}px`,
       width: '7px',
       height: '7px',
-      borderRadius: '2px',
+      borderRadius: '28%', // ≈2px on the 7px piece — a confetti shape, relative to its own fixed size (lint:radius allows %)
       pointerEvents: 'none',
       zIndex: 'var(--sn-z-sticky)',
       background: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length]!,

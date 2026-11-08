@@ -217,3 +217,59 @@ Code head: **`9ffe418a9b`** (the seven unit-red fixes). This note and `changelog
 commit on top of it; that commit's SHA is the branch head reported with the push (a file cannot name its own commit).
 No lane branch or origin/main had moved when this was written (`git rev-list --count HEAD..origin/<each>` = 0 for main
 and all ten `supplier-1build*` branches).
+
+## 10 · Build 2 merge (8 Nov)
+
+Base `1af050b236`. Three lanes merged with `--no-ff`, in order: **C** `4b25df09f6` → **B** `047ea2fbbf` → **A**
+`607e037fa9`.
+
+### Conflicts
+- **Textual: none.** The three lanes touched disjoint files (checked with `git diff --name-only` per lane, outside
+  `build-notes/shots`); each merge was clean.
+- **Semantic (found by the guards, all from lane A's code, fixed by root cause, no guard weakened, no baseline raised):**
+  1. `lint-radius` (strict) — 4 ad-hoc radii: `rounded-[10px]` in `calendar-day-box.tsx`, `calendar.tsx`,
+     `customers-calendar.tsx` → `rounded-md` (the `--m-r-sm` token, 8px — nearest step on the scale); the 7px confetti
+     piece's `borderRadius: '2px'` → `'28%'` (same ≈2px, relative to its own fixed size; the guard allows %).
+     `calendar-day-box.test.ts` pinned the literal `rounded-[10px]`; re-pinned to `rounded-md` (same assertion: a
+     rounded box, not a circle).
+  2. `lint:no-card` — `locked-qr-generator.tsx` 11 card lines vs 10 allowed: the #34 Quotation was its own bordered box.
+     It now sits INSIDE the Services box under a divider (its lines are the picks above, priced) — 10 again.
+  3. `lint:field-template` — same file, 8 raw boxes vs 6: the two cells of a quotation line get `// field-ok:` with
+     the precedent's reason (`payment-plan-rows.tsx` / `new-manual-vendor-modal.tsx`: a two-cell line a one-line Form row
+     cannot draw). Count is exactly the baseline.
+
+### Generated files (regenerated, never hand-merged)
+- `scripts/port-control-baseline.json` — the lint first listed exactly the removals lane A's notes call deliberate
+  (`/vendor-dashboard/customers`: `<CheckADate>`, `<CustomersDates>` (#43), `/vendor-dashboard/clients/[seg]?tab=details`
+  (#38); `/dev/clients-lab`: `?v=pick&page=details`, runs `null`). Regenerated.
+- `lib/ugat/screens.generated.json` — regenerated (`ugat:screens`; `check-ugat-screens` green).
+- `supabase/migrations.manifest.txt` — +2 rows: `20271327929301` (lane A) **and `20271327631190`**, which was already
+  missing on the Build 1 head (chat-block migration from `9c467d0eb9`).
+- `supabase/security/exposure-surface.baseline.txt` — **accepted, ruled #34**: `+col vendor_locked_qr_tokens.quote_line_items`
+  and `+col …voided_at` (same `anon=SIU authenticated=SIU` as every sibling column; rows still gated by the shop's
+  `vendor_locked_qr_vendor_all` RLS) and `+func vendor_void_locked_qr(text) secdef=no exec=authenticated` (invoker
+  rights, PUBLIC revoked). No unruled widening.
+- `ugat:fields`, `ugat:code-map`, `admin:jobs` — no content change (admin-jobs differed only in its "as of" ref; left as is).
+
+### Budgets
+- Server actions: **1237 / 1237** after all three merges — not over; ceiling unchanged (the owner's 8 Nov "Ok to raise
+  it" was not needed). #34's delete stays the `void_token` mode of `issueLockedQr`, as built.
+
+### Checks run locally
+- Every `node …/lint-*.mjs` step in `ci.yml` green (page-masthead is `continue-on-error` and green from `apps/web`).
+- Unit (`tsx --test`): 64 files — every changed/added test plus the guards touching the edited files — 591 tests, 0 fail
+  after the re-pin.
+- DB: `exposure-freeze`, `ugat-schema-claims`, `ugat-concept-coverage`, `ugat-both-ends`,
+  `booked-qr-quote-lines-and-void`, `a-supplier-reads-only-its-own-billing`, `locked-qr-date-precision` — 34/34.
+- tsc: not run locally (CI on #7399 is the typecheck). Lane A's one tsc error (`dates-lab.tsx` `openHref`) was fixed on
+  its lane and never re-run — CI is its first full run.
+
+### Request counts (from the lanes' measurements)
+- **Billing & receipts (C):** couple 3–4 requests in ≤2 round trips, unchanged; supplier +7 reads in ONE `Promise.all`
+  beside the purchases read (≈13 requests, 2 round trips, never one per list).
+- **Shop (B):** tab load 3; scanner open/close 0; Forms Maker open 1; no added server read on load (the inspiration
+  access read moved to Portfolio). **Portfolio (B):** one `Promise.all` wave adds pool bookings (1) → featured stories
+  (1, chained), approved looks (1), Papic capture flag (1); album open/close 0.
+- **Clients (A):** the list's reads unchanged + the month's 5 reads in parallel + 1 asks-events read (fewer than Events +
+  Dates together); Schedule month still 1 request; #27/#28/#29/#36/#37/#38 add 0. **Booked QR (A):** ledger read gains 4
+  columns (0 new requests); `?edit=` adds 1 read inside the generator's existing `Promise.all`.

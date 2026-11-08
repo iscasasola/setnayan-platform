@@ -8,6 +8,7 @@
 import { ShopCover, type CoverData } from '@/app/vendor-dashboard/shop/_components/shop-cover';
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
+import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
 import { ShopAnalyticsCarousel, type AnalyticsCardData } from '@/app/vendor-dashboard/shop/_components/shop-analytics-carousel';
 import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
 import { CapacityCard } from '@/app/vendor-dashboard/performance/_components/capacity-card';
@@ -141,7 +142,23 @@ function shopLab(fail: boolean) {
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-shop-tab-lab="">
       <div className="mx-auto w-full max-w-3xl">
-        <ShopCover d={cover} gearBody={null} promoteBody={null} qrBody={null} logoBody={null} coverBody={null} />
+        <ShopCover
+          d={cover}
+          gearBody={
+            /* Build 2 §10 #31 — the ⚙'s rows from fixtures (Your page first); the folds' editors mount on the real page. */
+            <ShopSettingsRows
+              planLine="Pro · renews 1 Dec"
+              wallet={{ title: 'Shop wallet', line: '₱128 left' }}
+              plan={<p className="text-[13px] text-ink/60">The shipped Plan screen mounts here.</p>}
+              team={<p className="text-[13px] text-ink/60">The shipped Helpers screen mounts here.</p>}
+              docs={{ isVerified: true, docsIn: 2, docsTotal: 2, measured: true, row: { state: 'done', badge: null } as never, section: <p className="text-[13px] text-ink/60">The papers mount here.</p> }}
+            />
+          }
+          promoteBody={null}
+          qrBody={null}
+          logoBody={null}
+          coverBody={null}
+        />
         <ShopAnalyticsCarousel cards={cards} recs={buildGrowthRecs(null, { askedInWindow: 4 })} nowMs={NOW} />
         <ShopBadgeRow tiles={tiles} />
         <ShopMakers

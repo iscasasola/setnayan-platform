@@ -18,7 +18,8 @@ leaves, owner "NO NEED" — its page stays reachable from Help: an event's sheet
 centre draws "Refer a couple ›" while the programme is on); on the supplier sheet the shop you are in heads a "You are in"
 card; "Your collections" leaves the supplier rows. **The sheet's look is the shipped one** (owner 8 Nov: "only the content is
 what you change") — Sign out stays the red tile plus the quiet "Sign out of all accounts" line on every sheet; the spec's
-"Sign out of…" choice card was not kept. A reserved `client` key joins `SettingsMenu` for the picked client's ⚙.
+"Sign out of…" choice card was not kept. A reserved `client` key joins `SettingsMenu` for the picked client's ⚙. The Shop ⚙'s first entry is **Your page** — what couples
+see, all your reviews inside (→ the page editor); the account sheet's Your page row leaves, "Your details" stays only there.
 
 **Event side (repositioning only).** The bar is **Today · Guests · Suppliers · Memories · Hub** (Home → Today, the word only;
 key `home` and the route unchanged). Papic's one card moves to **Memories**, under the keepsake row: `papicCardHref` (renamed

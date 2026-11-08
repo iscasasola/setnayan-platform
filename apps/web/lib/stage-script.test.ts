@@ -419,25 +419,27 @@ test('a host/MC vendor AT the tier floor gets the built desk (ready)', () => {
   assert.equal(model.upsell, null);
 });
 
-test('an unsubscribed host/MC gets LOCKED — registering the surface grants nothing', () => {
+test('🆓 an unsubscribed host/MC gets the built desk — Emcee script is in the free tier', () => {
+  // ⚠ REVERSED 2026-11-09 BY AN OWNER RULING (Build 4, DECISION_LOG "BUILD 4 ANSWERS"): the free tier of
+  // Specialized tools is *Scanner + Headcount · Run of show · Emcee script · Song Desk · Floor Command + March ·
+  // Live Watch* — every supplier, no purchase. This test said LOCKED until then. Registering the surface still
+  // grants nothing by itself: the entitlement is the gate's `free_set`, not the registry.
   const model = buildDayOfFrame({
     access: hostAccess('free'),
     genericModuleIds: [],
-    registeredSets: REGISTERED, // built and registered, and still locked
+    registeredSets: REGISTERED,
   });
-  assert.equal(model.specialization?.state, 'locked');
-  assert.notEqual(model.specialization?.state, 'ready');
-  assert.equal(model.upsell?.set, 'stage_script');
+  assert.equal(model.specialization?.state, 'ready');
+  assert.equal(model.upsell, null);
 });
 
-test('a LAPSED host/MC gets LOCKED with a renew-flavoured upsell', () => {
+test('🆓 a LAPSED host/MC keeps the desk — a free tool cannot lapse', () => {
   const model = buildDayOfFrame({
     access: hostAccess('pro', '2020-01-01T00:00:00Z'),
     genericModuleIds: [],
     registeredSets: REGISTERED,
   });
-  assert.equal(model.specialization?.state, 'locked');
-  assert.equal(model.upsell?.lapsed, true);
+  assert.equal(model.specialization?.state, 'ready');
 });
 
 test('registering stage_script does not touch any OTHER category', () => {

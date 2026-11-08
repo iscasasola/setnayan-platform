@@ -1506,3 +1506,24 @@ function askedTogether<T>(ask: () => Promise<T>): Promise<T> {
   asked.catch(() => undefined);
   return asked;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧰 SPECIALIZED TOOLS — THE SUPPLIER'S UNLOCK (Build 4, owner 2026-11-09)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Everything above is the COUPLE's side (an event owning a SKU). The SUPPLIER's
+// side — may this shop use the PAID specialized tools (Papic challenge, the
+// branded 3D plan booth, every future tool) at this event? — is answered by the
+// database (`vendor_specialized_tools_unlocked`, migration 20271331982978) and
+// read through these two, re-exported here so every entitlement read is found in
+// one place. They live in lib/specialized-tools.ts because this module reaches
+// server-only code and `lib/vendor-photo-challenge.ts` (bundled into client
+// components) must call them without pulling it in.
+//
+// ⛔ The FREE tier (Scanner, Headcount, Run of show, Emcee script, Song Desk,
+// Floor Command + March, Live Watch) never calls them —
+// `lib/specialized-tools-free-tier.test.ts` holds that.
+export {
+  fetchVendorSpecializedToolsUnlocked,
+  recordSpecializedToolUse,
+} from '@/lib/specialized-tools';

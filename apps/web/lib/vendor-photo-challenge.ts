@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTierAtLeast } from './vendor-tier-caps';
+import { fetchVendorSpecializedToolsUnlocked } from '@/lib/specialized-tools';
 
 /**
  * vendor-photo-challenge.ts — Papic Challenges pricing + eligibility.
@@ -289,16 +290,23 @@ export async function fetchPhotoChallengeExpiry(
  * never be true**, and leaving it in made the gate say there were two ways to be
  * entitled when there is one. (The table itself was dropped 2026-09-18.)
  *
- * `eventId` is accepted and IGNORED, matching the SQL signature: a subscription
- * covers every celebration the shop is booked for, and the per-celebration
- * questions (booked? Papic on?) are {@link photoChallengeEventReady}'s.
+ * `eventId` WAS accepted and ignored (a subscription covers every celebration the
+ * shop is booked for). Since 2026-11-09 it is read for the Specialized tools
+ * trial, which is per event. The other per-celebration questions (booked? Papic
+ * on?) are still {@link photoChallengeEventReady}'s.
  */
 export async function fetchPhotoChallengeEntitled(
   supabase: SupabaseClient,
-  _eventId: string,
+  eventId: string,
   vendorProfileId: string,
   nowMs: number = Date.now(),
 ): Promise<boolean> {
   const expiry = await fetchPhotoChallengeExpiry(supabase, vendorProfileId);
-  return isPhotoChallengeSubscriptionActive(expiry, nowMs);
+  if (isPhotoChallengeSubscriptionActive(expiry, nowMs)) return true;
+  // 🧰 Build 4 (owner 2026-11-09): the retired subscription above still counts until its paid time
+  // ends; the Specialized tools unlock is the way in now — paid, Pro / Ultra, or the first-booked-event
+  // trial, which is why `eventId` is read again. The SQL gate asks the same question
+  // (`vendor_papic_challenge_entitled` → `vendor_specialized_tools_unlocked`). Service role only: the
+  // one caller passes the admin client, and a refusal reads as "not entitled".
+  return fetchVendorSpecializedToolsUnlocked(supabase, vendorProfileId, eventId);
 }

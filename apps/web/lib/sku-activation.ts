@@ -52,6 +52,14 @@ import {
 } from '@/lib/vendor-photo-challenge';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
+  SPECIALIZED_TOOLS_ANNUAL_SKU_CODE,
+  SPECIALIZED_TOOLS_MIN_TIER,
+  SPECIALIZED_TOOLS_SKU_CODE,
+  isSpecializedToolsSku,
+  nextSpecializedToolsExpiry,
+  specializedToolsPeriodDays,
+} from '@/lib/specialized-tools';
+import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
   shopPapicPackCodeOf,
@@ -1223,6 +1231,136 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
 }
 
 /**
+ * 🧰 Specialized tools (Build 4, owner 2026-11-09) — stamp the shop's unlock window on approval.
+ * ₱499 / 4 weeks (`vendor_specialized_tools`) or ₱4,990 / year (`vendor_specialized_tools_annual`):
+ * every paid specialized tool — Papic challenge, the branded 3D plan booth, every future tool.
+ *
+ * The window lives on `vendor_specialized_tools_access.unlock_expires_at` (its own table, service-role
+ * writes only), stacking from the LATER of now / the current end so an early renewal keeps the time
+ * already paid for. It REPLACES the three retired add-ons, so it grants what they granted: the SQL gates
+ * `vendor_papic_challenge_entitled` and `event_branded_booth_vendor_ids` read
+ * `vendor_specialized_tools_unlocked`, which reads this window.
+ *
+ * The floor re-asserted here is the BUY gate's (Verified and up, verified) — it must match exactly, or a
+ * shop pays and this throws on approval. A Pro / Ultra shop is never sold it (its plan includes it), but
+ * if one has paid anyway the window is still stamped: refusing would keep the money and grant nothing.
+ *
+ * IDEMPOTENT via this order's prior 'service_activated' ledger row (extending twice would be free time).
+ * Throws only on the write, so activateOrderSku's outer catch logs it and the order stays 'paid'
+ * (recoverable). (Function declaration → hoisted, so the frozen EXACT_HOOKS map can reference it.)
+ */
+async function activateSpecializedToolsOrder(ctx: ActivationContext): Promise<void> {
+  const periodDays = specializedToolsPeriodDays(ctx.serviceKey);
+  if (!periodDays) return;
+
+  // (1) Idempotency — already activated this order?
+  const { data: prior } = await ctx.admin
+    .from('order_ledger')
+    .select('order_id')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .limit(1)
+    .maybeSingle();
+  if (prior) return;
+
+  // (2) The paying shop is on the order.
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  // (2b) Verified and up, verified — the buy gate, re-asserted.
+  await assertVendorAddonActivationEligible(ctx, vendorProfileId, SPECIALIZED_TOOLS_MIN_TIER);
+
+  // (3) Extend the window.
+  const { data: row } = await ctx.admin
+    .from('vendor_specialized_tools_access')
+    .select('unlock_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (row as { unlock_expires_at?: string | null } | null)?.unlock_expires_at ?? null;
+  const newExpiry = nextSpecializedToolsExpiry(currentExpiry, periodDays, Date.now());
+
+  const { error } = await ctx.admin
+    .from('vendor_specialized_tools_access')
+    .upsert(
+      { vendor_profile_id: vendorProfileId, unlock_expires_at: newExpiry, updated_at: new Date().toISOString() },
+      { onConflict: 'vendor_profile_id' },
+    );
+  if (error) throw new Error(`${ctx.serviceKey} activation write failed: ${error.message}`);
+
+  // The order's own billing window, so the renewal reminder reaches the shop before it lapses —
+  // the same best-effort stamp every add-on hook makes.
+  await ctx.admin
+    .from('orders')
+    .update({ expires_at: newExpiry, updated_at: new Date().toISOString() })
+    .eq('order_id', ctx.orderId);
+
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: {
+      service_key: ctx.serviceKey,
+      vendor_profile_id: vendorProfileId,
+      period_days: periodDays,
+      unlock_expires_at: newExpiry,
+    },
+  });
+}
+
+/**
+ * Reverse a Specialized tools order (rejected / refunded): expire the window THIS order stamped, but
+ * only while it is still the current one — a later renewal keeps its time
+ * (`resolveAddonDeactivationExpiry`, the same rule as the AI and booth add-ons). Throws only on the write.
+ */
+async function deactivateSpecializedToolsOrder(ctx: ActivationContext): Promise<void> {
+  const { data: order } = await ctx.admin
+    .from('orders')
+    .select('vendor_profile_id')
+    .eq('order_id', ctx.orderId)
+    .maybeSingle();
+  const vendorProfileId =
+    (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+
+  const { data: ledgerRow } = await ctx.admin
+    .from('order_ledger')
+    .select('metadata')
+    .eq('order_id', ctx.orderId)
+    .eq('event_type', 'service_activated')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const meta =
+    (ledgerRow as { metadata?: Record<string, unknown> | null } | null)?.metadata ?? null;
+  const stampedExpiry = (meta?.unlock_expires_at as string | undefined) ?? null;
+
+  const { data: row } = await ctx.admin
+    .from('vendor_specialized_tools_access')
+    .select('unlock_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  const currentExpiry =
+    (row as { unlock_expires_at?: string | null } | null)?.unlock_expires_at ?? null;
+
+  const newExpiry = resolveAddonDeactivationExpiry(currentExpiry, stampedExpiry, Date.now());
+  if (newExpiry === currentExpiry) return;
+
+  const { error } = await ctx.admin
+    .from('vendor_specialized_tools_access')
+    .update({ unlock_expires_at: newExpiry, updated_at: new Date().toISOString() })
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) throw new Error(`${ctx.serviceKey} deactivation write failed: ${error.message}`);
+}
+
+/**
  * Deep Search (vendor-facing) — on approval of a ₱500 apply-then-pay order, RUN
  * the web-research deep search on the paying vendor's OWN business and record it
  * (owner 2026-07-22). Pay-then-run: there is no pre-paid credit ledger to draw
@@ -1414,6 +1552,11 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // hook derives which level to stamp from the order's own service_key. A second
   // map entry (rather than a renamed key) keeps every historical order valid.
   [VENDOR_AI_ADVANCED_SKU_CODE]: activateVendorAiAddonOrder,
+
+  // 🧰 Specialized tools (owner 2026-11-09) → the shop's unlock window, 4 weeks or 1 year. It
+  // replaces the three retired add-ons below, whose hooks stay so orders already paid still activate.
+  [SPECIALIZED_TOOLS_SKU_CODE]: activateSpecializedToolsOrder,
+  [SPECIALIZED_TOOLS_ANNUAL_SKU_CODE]: activateSpecializedToolsOrder,
 
   // 'vendor_3d_booth' → paid 3D Booth 28-day renewal. Stamps
   // vendor_profiles.booth_addon_expires_at on the paying vendor (the free first
@@ -2552,6 +2695,12 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       });
     } catch (e) {
       reportActivationFault('deactivate:vendor_3d_booth', ctx, e);
+    }
+  } else if (isSpecializedToolsSku(ctx.serviceKey)) {
+    try {
+      await deactivateSpecializedToolsOrder(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_specialized_tools', ctx, e);
     }
   } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.

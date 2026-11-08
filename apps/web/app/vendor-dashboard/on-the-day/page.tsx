@@ -57,12 +57,7 @@ import {
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { forYourServicePages } from '@/lib/supplier-event-lines';
 import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
-import { GuestReviewQr } from './_components/guest-review-qr';
-import { ShotList } from './_components/shot-list';
-import { IssuesLog } from './_components/issues-log';
-import { VendorStatusUpdates } from './_components/vendor-status-updates';
-import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
-import { HubEventMenu } from './_components/hub-event-menu';
+import type { ConfiguratorModule } from './_components/module-configurator';
 import {
   HubDoorRow,
   HubEventCard,
@@ -74,12 +69,25 @@ import {
   HubRunOfShow,
   HubScreen,
 } from './_components/hub-screen';
-import { HubThumbRow } from './_components/hub-thumb-row';
-import { HubSettings } from './_components/hub-settings';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
-import { AccessGrants, type GrantableMember } from './_components/access-grants';
-import { CrewPanel, type CrewPanelPass, type CrewPanelQr } from './_components/crew-panel';
+import type { GrantableMember } from './_components/access-grants';
+import type { CrewPanelPass, CrewPanelQr } from './_components/crew-panel';
+// ⚡ The Hub's client parts load on demand (`./_components/on-demand.tsx`): the same components under the same names,
+// each in its own chunk — server-rendered and preloaded here, and out of the picked client's first load (its Hub page
+// renders this page).
+import {
+  AccessGrants,
+  CrewPanel,
+  GuestReviewQr,
+  HubEventMenu,
+  HubSettings,
+  HubThumbRow,
+  IssuesLog,
+  ModuleConfigurator,
+  ShotList,
+  VendorStatusUpdates,
+} from './_components/on-demand';
 import { crewJoinPath, crewRoleOf } from '@/lib/crew-pass';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';

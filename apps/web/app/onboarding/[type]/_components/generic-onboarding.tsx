@@ -1729,8 +1729,7 @@ export function GenericOnboarding(props: Props) {
             prefilledKeys={prefilledSpecialtyKeys}
             answered={askedElsewhere}
             onChangeAnswered={() => {
-              // Back to the one place the name is asked — with its field open, not the "This one's yours" line.
-              setHonoreeRevealed(true);
+              // Back to the one place the name is asked (its field, or the "for you" lock with its way out).
               setStep(Math.max(0, screens.indexOf('honoree')));
             }}
           />

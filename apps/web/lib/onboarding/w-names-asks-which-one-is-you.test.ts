@@ -12,7 +12,7 @@
  *   · a re-pick moves the untouched prefill to the new own row, and never overwrites or clears typed text.
  *
  * Executed where it can be (the pure rules); read as source only for the wiring between them.
- * SABOTAGE (2026-11-08): see the build notes `build-notes/w-names-which-one-is-you.md`.
+ * SABOTAGE (2026-11-08), four ways, each RED then GREEN: `build-notes/w-names-which-one-is-you.md`.
  *
  * Run from apps/web:  npx tsx --test lib/onboarding/w-names-asks-which-one-is-you.test.ts
  */

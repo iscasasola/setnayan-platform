@@ -93,7 +93,9 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 - `lint:no-card` baseline: the 3 bordered lines of the shipped FilesTab MOVED verbatim from `clients/[eventId]/page.tsx`
   into `_pages/files.tsx` (net 0; page.tsx count drops by 3). C1 rebuilds that body as the Finder view anyway.
 
-## Preflight (b34fa5db90 + fixes), honest reading
+## Preflight (latest: b2e6bccb4e — 7 FAILED · 46 passed, every red below is baseline or inherited; tsc: only the
+## inherited `one-source-buckets.db.test.ts(189)`; the server-action budget is 1232/1232 after folding the Schedule read)
+## Earlier reading (b34fa5db90 + fixes)
 - RED, baseline-only (controller regenerates; I may not): `port:baseline` (deliberate removals above) · `lint:no-card`
   (moved FilesTab lines) · `ugat:screens` stale (new intercept route + `_pages`).
 - RED, inherited from the base (no L2 file involved): `lib/export-coverage-guardrail.test.ts` T12 (vendor_profiles

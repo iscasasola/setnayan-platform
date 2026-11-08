@@ -45,6 +45,12 @@ import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from '@/app/dash
 import { PAPIC_OUTCOME_KEYS, PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
+/* 🛑 KEEP. The Papic card moved here from Home (THE ONE BUILD, v113), and its settings open Event Settings with the
+   server action `openEventSettings`, which RETURNS RENDERED ROWS (the Maker's editors). Next can only send those when
+   THIS ROUTE's server files reach them — the same crash Home fixed on 2026-10-29 (see the matching import in
+   `../page.tsx`). This side-effect import puts the action, and so the editors it draws, in Memories' server graph.
+   🔒 `../_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
+import '../_components/open-event-settings';
 
 /**
  * The outcome keys this page's OWN notice line already says (`memoriesNotice`: Google Drive, adding photos, a

@@ -44,7 +44,7 @@ export function hostAppRoutes(eventId: string, ctx: EventMenuCtx = {}): string[]
   const base = `/dashboard/${eventId}`;
   const rows = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const own = rows.map((r) => r.href).filter((h) => h === base || h.startsWith(`${base}/`) || h.startsWith(`${base}?`));
-  const bar = ['home', 'guests', 'explore', 'launch', 'memories'];
+  const bar = ['home', 'guests', 'explore', 'memories', 'launch']; // the bar's order (THE ONE BUILD v113: Memories before Hub)
   const byKey = new Map(rows.map((r) => [r.key, r.href]));
   const first = bar.map((k) => byKey.get(k)).filter((h): h is string => !!h);
   return unique([base, ...first, ...own]);

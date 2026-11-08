@@ -106,8 +106,10 @@ test('a person is told where they stand before anything asks them to decide', ()
   // settings, comes before the first decision (the Settings heading).
   // 📷 2026-10-26 (owner: "the count of the total, taken, remaining and a button to add more"; the Papic page removed):
   // the balance is on the card's FACE — Total · Taken · Remaining — drawn before the settings region it opens.
-  const page = readFileSync(join(PAPIC_DIR, '..', '..', 'page.tsx'), 'utf8');
-  assert.match(page, /counts: \{ total: papicNow\.total, left: papicNow\.count \}/, 'Home hands the card no balance — it tells nobody where they stand');
+  // 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): the Papic card moved from Home (Today) into Memories; the balance is
+  // read where the card is built now — NOT WEAKENED.
+  const page = readFileSync(join(PAPIC_DIR, '..', '..', 'memories', 'page.tsx'), 'utf8');
+  assert.match(page, /counts: \{ total: now\.total, left: now\.count \}/, 'Memories hands the card no balance — it tells nobody where they stand');
   const card = readFileSync(join(PAPIC_DIR, '..', '..', '_components', 'papic-home-card.tsx'), 'utf8');
   const face = card.indexOf('data-papic-card-face=""');
   const settings = card.indexOf('data-papic-home-settings=');

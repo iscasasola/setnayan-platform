@@ -131,7 +131,9 @@ test('🌐 the web has no More either — five tabs, no More Services row in the
     assert.equal(rail.some((i) => i.key === 'studio' || i.href.includes('more=services')), false, `${ctx.name}: the desktop rail / ☰ keeps More Services`);
     if (ctx.websiteEnabled && !ctx.hideKeys?.length) {
       // Memories joined after Hub on 23 Oct 2026 — a tab of its own, never More's door.
-      assert.deepEqual(bar.map((m) => m.key), ['home', 'guests', 'explore', 'launch', 'memories'], `${ctx.name}: the web bar is not the five`);
+      // 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): the bar reads Today · Guests · Suppliers · Memories · Hub — Memories
+      // sits before Hub now. Still exactly five, still no More — NOT WEAKENED.
+      assert.deepEqual(bar.map((m) => m.key), ['home', 'guests', 'explore', 'memories', 'launch'], `${ctx.name}: the web bar is not the five`);
     }
   }
   assert.equal(n, 24, 'premise: the shape sweep shrank');

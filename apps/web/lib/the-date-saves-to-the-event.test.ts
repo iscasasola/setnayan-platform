@@ -145,11 +145,13 @@ test('3b · the one draft door REFUSES a save that still carries a date — in w
 
 /* ═══ 4 · the date-change flow ends at the same door ═══ */
 
-test('4 · every supplier answered → the couple uses the date from Home; nothing puts it back into a draft', () => {
+test('4 · every supplier answered → the couple uses the date from Today; nothing puts it back into a draft', () => {
   const flow = code('lib/date-change.server.ts');
   assert.doesNotMatch(flow, /enterReadyDateIntoDraft|takeAskedDateOutOfDraft|updateHubDraft|mergeHubDraft/, 'the date-change flow still writes the draft');
   assert.doesNotMatch(flow, /Apply it in your Event Hub|in your draft/, 'the date-change flow still sends the couple to Apply');
-  assert.match(flow, /use \$\{when\} on Home/);
+  // 🔁 UPDATED ON PURPOSE (THE ONE BUILD, v113): the couple's first tab is named Today now — the copy follows the
+  // tab's name. Same door, same assertion — NOT WEAKENED.
+  assert.match(flow, /use \$\{when\} on Today/);
   assert.doesNotMatch(dateChangeRefusalText('fits'), /draft|Apply/);
 });
 

@@ -28,7 +28,7 @@
  *
  * 🔒 ./the-picked-pages-load-their-code-on-demand.test.ts
  */
-import { Suspense, lazy, type ComponentProps, type ComponentType, type ReactNode } from 'react';
+import { Suspense, lazy, type ComponentType, type ReactNode } from 'react';
 
 /** The house's quiet loading line — the same words and look the bodies' own <Suspense> fallbacks use. */
 function Quiet({ what }: { what: string }) {
@@ -40,10 +40,9 @@ function Quiet({ what }: { what: string }) {
 }
 
 /** A component whose code is fetched the first time it renders (its own chunk), drawn with `loading` until then. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function onDemand<C extends ComponentType<any>>(load: () => Promise<C>, loading: ReactNode) {
+function onDemand<P extends object>(load: () => Promise<ComponentType<P>>, loading: ReactNode) {
   const Lazy = lazy(() => load().then((Component) => ({ default: Component })));
-  function OnDemand(props: ComponentProps<C>) {
+  function OnDemand(props: P) {
     return (
       <Suspense fallback={loading}>
         <Lazy {...props} />

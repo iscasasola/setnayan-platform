@@ -4,7 +4,7 @@
  * The three supplier calendars (Clients month · Clients week strip · the client's Schedule page) draw ONE picked mark —
  * the day's number in a 30×30 ink box with 10 px corners that pops in 0.3 s and fades out 0.22 s, dots kept on it, a
  * blocked day struck through, today's thin ring — and step by ONE swipe (sideways only, 40 px, 320 ms, never a pick).
- * Every other calendar in the app keeps its circle: `mark` is opt-in.
+ * Every other calendar in the app keeps its circle: `mark` is opt-in. #28: on these calendars ONLY the picked day is filled.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,11 +31,17 @@ const grid = (mark?: 'box' | 'circle') =>
       states: new Map([
         ['2026-11-12', { dots: ['booked', 'asking'] }],
         ['2026-11-16', { blocked: true }],
+        ['2026-11-20', { part: true, dots: ['booked'] }],
       ]) as never,
       onPick: () => {},
       ...(mark ? { mark } : {}),
     }),
   );
+/** The day's own <button …> tag — its fill, never its dots' colours. */
+const tag = (html: string, day: string) => {
+  const at = html.indexOf(`data-calendar-day="${day}"`);
+  return html.slice(html.lastIndexOf('<button', at), html.indexOf('>', at) + 1);
+};
 const cell = (html: string, day: string) => html.slice(html.indexOf(`data-calendar-day="${day}"`) - 400, html.indexOf('</button>', html.indexOf(`data-calendar-day="${day}"`)));
 
 test('the motion is the prototype’s: pop .3 s, out .22 s, swipe 40 px / 320 ms, one ease', () => {
@@ -58,6 +64,13 @@ test('box: ONE picked mark — the number in its ink box, dots kept, a blocked d
   assert.match(blocked, /line-through/);
   assert.doesNotMatch(blocked, /background-image/, 'a blocked day is hatched again — a second filled day');
   assert.match(cell(html, '2026-11-08'), /ring-\[1\.5px\] ring-inset/);
+  // #28 ONE FILLED DAY ONLY: no other day carries a fill — not today, not a part-booked day, not a blocked one.
+  for (const day of ['2026-11-08', '2026-11-16', '2026-11-20']) {
+    const t = tag(html, day);
+    assert.ok(t.startsWith('<button') && t.includes(day), `could not read ${day}'s cell`);
+    assert.doesNotMatch(t, /style="[^"]*background|bg-sn-accent|bg-ink(?![/\w-])/, `${day} is filled — only the picked day may be`);
+    assert.doesNotMatch(cell(html, day), /data-calendar-dn="on"/);
+  }
 });
 
 test('circle (every other calendar) is untouched', () => {

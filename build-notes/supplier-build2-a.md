@@ -79,6 +79,15 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - **Requests:** 0 added (a swipe to a month not yet read uses the month's existing one `fetchMonth`).
 - Shots: `sbs-37-month-picked` (+ reduced), `sbs-37-month-picked-12`, `sbs-37-swiped-to-december`, `sbs-37-schedule`.
 
+### #28 — one filled day only
+- Box mode (the Clients month, week strip, Schedule month): the picked day is the ONLY fill — a part-booked day lost
+  its soft square (dots + words remain), a blocked day is struck (no hatch), today is a 1.5 px ring, nothing picked =
+  nothing filled. A closure row's lead is the day's struck number (was a hatched swatch), so the list says it the way
+  the calendar does. The couple's calendars (circle mode) are unchanged — #28 names the supplier calendars' lane (L2).
+- Guard: `calendar-day-box.test.ts` "only the picked day is filled" (reads each day's own button tag). Sabotaged
+  (the part fill back) — caught. Touched-file tests **906 pass · 0 fail**.
+- **Requests:** 0. Shots: `sbs-28-nothing-picked`, `sbs-28-blocked-day-picked`.
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
@@ -105,5 +114,4 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43, #38, #37 committed + pushed. Next: #28 (one filled day only — the part-booked soft fill and the closures
-  list's hatch swatch are the last fills).
+- #43, #38, #37, #28 committed + pushed. Next: #36 (the page menu centres the picked page).

@@ -10,5 +10,7 @@
 - **#37** One picked mark on the Clients month, the week strip and the client's Schedule month — the day's number in
   an ink box that pops in — and one swipe (month and week, 40 px, 320 ms, never picks a day). Blocked days are struck
   through. The Dates tour's stops follow the one screen. Guard: `app/_components/calendar-day-box.test.ts`.
+- **#28** One filled day only on the supplier calendars: the picked day; part-booked days keep their dots, blocked
+  days their strike, today its ring; a closure row's lead is the day's struck number.
 
 SPEC IMPACT: None — builds the approved v113/v118 prototype (corpus prototypes/supplier_clients_2026-11-07).

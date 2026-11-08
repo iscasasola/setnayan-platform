@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
+import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
@@ -361,7 +361,14 @@ export function CustomersCalendar({
       href={onClients ? daySheetHref(day) : undefined}
       lead={
         r.kind === 'blocked' || r.kind === 'held' ? (
-          <i aria-hidden className="block h-4 w-5 shrink-0 rounded-sm" style={r.hours ? CALENDAR_PART_STYLE : { backgroundImage: CALENDAR_HATCH }} />
+          // #28: the calendar draws a closure as the day's struck number (no hatch, no soft fill) — so does its row.
+          <b
+            aria-hidden
+            className={`grid h-6 w-7 shrink-0 place-items-center text-[13px] font-semibold tabular-nums text-ink/45 ${r.hours ? '' : 'line-through decoration-2'}`}
+            data-dates-row-day={r.hours ? 'part' : 'struck'}
+          >
+            {Number(day.slice(8))}
+          </b>
         ) : undefined
       }
     />

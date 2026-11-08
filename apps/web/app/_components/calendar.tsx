@@ -222,7 +222,9 @@ export function CalendarGrid({
               onClick={() => onPick(day)}
               /* ONE shape per day: a circle — or, strictly between a range's two ends, a square of the soft fill; or
                  (kind 31) a blocked day's hatched square. The picked day is always the one circle. */
-              style={box ? (part && !look.picked ? CALENDAR_PART_STYLE : undefined) : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
+              /* #28 ONE FILLED DAY ONLY (box): the picked day is the only fill — a part-booked day keeps its dots and its
+                 words (aria-label), a blocked day its strike; never a soft square of its own. */
+              style={box ? undefined : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 box
                   ? `rounded-[10px] ${look.out ? 'pointer-events-none text-ink/25' : blocked ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`

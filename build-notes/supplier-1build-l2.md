@@ -22,14 +22,29 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
   9-page menu (Payment/Hub booked-only), page switch = replaceState (0 requests), open rises from the row (520 ms),
   close = the same frames reversed, reduced motion 120 ms fade, Esc/✕. Guards: `the-picked-client-has-nine-pages`,
   `customers/the-picked-client-opens-over-the-list` (sabotaged once each). Proved in browser: NOT YET.
-- Details (partial, shipped parts relocated): ask answers · date-change/removal answers (`client-desk-answers.tsx`) ·
-  badges · Open their event · stage strip · THREE NUMBERS (`details-numbers.ts`; guard
-  `no-all-paid-without-a-booking.test.ts`) · next-move card (desktop only) · Hosts (typed stub) · fee panel · access
-  ask · completion · brief · couple answers. NOT YET in v113 order: Suppliers · Decisions · Forms sent rows.
-- Schedule: shipped schedule + the Script fold at its end (`?tab=script` scrolls there). v113 re-order NOT done.
-- Clients: tab title + sr-only h1 say "Clients"; Auto-reply in Clients ⚙ (guard
-  `customers/the-auto-reply-lives-in-clients-settings.test.ts`); list rows record their origin for the motion.
-
+- Details in v113 order (a347f18034): stage strip · THREE NUMBERS (`details-numbers.ts`; guard
+  `no-all-paid-without-a-booking.test.ts`) · ask answers · date-change/removal answers (`client-desk-answers.tsx`) ·
+  badges · Open their event · next-move card (desktop only, KEPT per controller) · Hosts (typed stub) · brief ·
+  fee panel · access ask · **Suppliers on this event** (`_components/suppliers-list.tsx`, from the brief's
+  `vendor_roster`, booked only; absent roster draws nothing) · completion · couple answers · **Forms · sent to this
+  couple** door (`details-forms-door.tsx` → the Forms page). Guard `clients/[eventId]/the-details-and-schedule-are-v113-order.test.ts`
+  (3 tests, each sabotaged once). **Decisions NOT built** — see Questions.
+- Schedule: Appointments moved INTO `ScheduleTab` right after `<SupplierSchedule>` (before the handover), drawn once;
+  Script fold at the end (`?tab=script`). NOT done: v113's own calendar on the Schedule page (calC) and the reorder
+  inside `SupplierSchedule` (Where · Hours · Asked) — that component is not an L2 file.
+- Clients list = item 3 (d655880253 · 05eb39d84a · 967d988e43): calendar folds to the week strip; a picked day can be
+  let go (tap again) → every coming day with something on it under sticky day headings (`z-[3]`, top = pin height +
+  folded strip); day bar = **Accept bookings** switch + **Book a client** → `/vendor-dashboard/invite?mode=locked&date=…`
+  (the SHIPPED `locked-qr-generator.tsx`, unchanged, date prefilled), hidden on past days, disabled while closed.
+  Tiles **Booked · Schedules · Asked · To collect** (filter in place) + **Overdue (n) ›** / **Unread (n) ›** buttons
+  (hidden at 0, "couldn't load" on a refused read, × closes "Viewing all …"). Show & sort (⇅ on the thumb row):
+  Show · Service · Status · Client · **Handled by** (owner/admin: All seats · Me · each seat · Not given to a seat;
+  an agent sees "Your clients only" and is held to his seat server-side) · Group by (status · day · seat) · Sort
+  (waiting · date · newest · name); applied server-side before counting/paging; sticky group headings. The sheet
+  frame is extracted to `app/_components/show-sort-sheet.tsx` and the Guests panel re-mounted on it (byte-identical,
+  probe-proved). Guard `customers/the-clients-list-is-v113.test.ts` (7 tests, each sabotaged once).
+  Limits: "Service" narrows on the BOOKED `event_vendors.service_id` only (an asking event has no service yet).
+  Proved in browser at 375 px: NOT YET.
 ## NEEDS FROM OTHER LANES
 - C1: DONE BY L2 (spec §3.2 — only L2 edits `overview-sections.tsx`): `DateChangeBody` + `DeleteRequestBody` are now
   EXPORTED from `app/vendor-dashboard/_components/overview-sections.tsx`, and mounted on Details via
@@ -46,6 +61,7 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
   + its own Sheet until then); the bottom-nav label "Clients".
 - C2: `brief.hosts` in `get_vendor_event_brief` (`-data`). L2 reads it through a typed stub until it lands.
 - L1: `--sn-pin-h` token + 520 ms motion primitive + CollapsingTop (`-foundation`). L2 builds behind shipped chrome until then.
+  The Clients group headings read `top: var(--sn-pin-h, 57px)`; the calendar's day headings measure the pin in JS.
 - §10 #23 layers: the picked client's overlay uses `zIndex: 'var(--sn-z-pop, 50)'` (fallback = the shipped Sheet's 50
   until `-foundation` lands); guarded by `customers/the-picked-client-opens-over-the-list.test.ts` (no raw z numbers).
 
@@ -54,6 +70,8 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 - `pnpm --filter @setnayan/web port:baseline` — DELIBERATE removals on `/vendor-dashboard/clients/[eventId]`:
   `<FilesTab>` → `_pages/files.tsx` `<FilesPage>` · `<RelationshipTabShell>` → `<PickedClientShell>` · `<ShopEmpty>`
   (moved with the Files body) · the old rail's `?tab=payments` link (Payment is a menu page now).
+- `port:baseline` also loses `TopicHead` + Guests' own sheet markup (moved to `app/_components/show-sort-sheet.tsx`,
+  byte-identical) and `CustomersDoorKey` (doors are string keys now).
 - `lint:no-card` baseline: the 3 bordered lines of the shipped FilesTab MOVED verbatim from `clients/[eventId]/page.tsx`
   into `_pages/files.tsx` (net 0; page.tsx count drops by 3). C1 rebuilds that body as the Finder view anyway.
 
@@ -68,27 +86,29 @@ STUBS PUSHED 1fd157a8fd (branch claude/supplier-1build-l2)
 - ~65 test files "timed out" under machine load 15; the supplier/chat/thread ones re-run alone: 68/68 pass.
 
 ## Questions
-- "Your next move" card (shipped desktop-only context rail, `lib/supplier-next-move.ts` + its guard) is NOT in v113.
+- Decisions on Details (v113 `dec`): not built. It needs the thread's decision facts built on the SERVER (proposal
+  cards → quotes, meetings, `proposal_amendments`, `fetchThreadPayments`, `paxProposalsToGuestCounts`,
+  `fetchLiveQuoteTotalPhp`) and a ReplyContext with the supplier's actions — ~6 more reads on Details and the
+  same reads the chat thread already makes. Controller: build it here, or wait for C2's in-place thread and read
+  its facts?
+- (ANSWERED by controller 8 Nov: KEEP) "Your next move" card (shipped desktop-only context rail, `lib/supplier-next-move.ts` + its guard) is NOT in v113.
   Kept, still `hidden lg:block`, on Details under the stage strip (reposition-only rule) — its two quick links
   (Chat · Payments) dropped since both are menu pages now. Owner: keep or retire?
 
 ## Request counts
-(pending)
+- Clients › Events (server, one Promise.all + one follow-up): adds `event_appointments` (Schedules, ≤200 rows),
+  `readUnreadChatCountsByThread`, then `fetchVendorTeam` · `fetchAgentServiceAssignments` · `fetchVendorServices`
+  (each `.catch → null`) + one users read for seat names. Show & sort / tiles / Overdue / Unread: 0 requests
+  (in place). A Show & sort choice = one navigation (URL params, scroll kept).
+- Details adds 0 reads (Suppliers come from the brief already read).
 
 ## Owner rulings §10 (v115) — status
 - #26 page slide 700 ms / 44 px / cubic-bezier(.33,1,.68,1) / opacity full at 45 %, scroller overflow-x hidden,
   menu scrolls only its strip: DONE (3d3000e64d), guarded in `the-picked-client-opens-over-the-list` test 3–4.
-- #27 return rule (picked day · day bar · schedule day → exact prior state, 520 ms): NOT BUILT — belongs to the list
-  calendar/day bar (item 3), which is not built yet.
-- #28 only the picked day filled · event days dots · today thin ring: NOT BUILT (item 3 calendar).
-- #29 Accept-bookings switch animates the cell (squash+strike / pop+confetti, none under reduced motion): NOT BUILT.
-- #34 ONE Booked QR form on `invite/_components/locked-qr-generator.tsx` + Booked QRs list (Waiting · Used · Deleted):
-  NOT BUILT. Needs from C2: the void action + quote-line storage.
+- #27 · #28 · #29 · #34: NOT BUILT — moved to BUILD 2 by the owner rule of 8 Nov (small adjustments after this build
+  ships). "Book a client" opens the shipped Locked QR generator unchanged, as instructed.
 
 ## Where I stopped
-Items 2, 4 (shell/motion), Auto-reply, Clients wording, Details numbers/answers/hosts DONE + guarded. NEXT: item 3
-(Clients list: calendar week strip + #27/#28/#29, tiles Booked · Schedules · Asked · To collect + Overdue/Unread buttons,
-day bar + Book a client → #34 Booked QR form, sticky day headings, Show & sort + Handled by), then Details v113 order
-(Suppliers · Decisions · Forms sent), then Schedule v113 order. No browser proof at 375 px yet.
-tsc: clean for L2; ONE pre-existing error inherited from the base: `tests/db/one-source-buckets.db.test.ts(189)` (TS2345).
-⚠ Hour-0 push 1fd157a8fd went out WITHOUT tsc (node_modules not installed; lock held by 'preflight train-base').
+Item 3 DONE + guarded; Details in v113 order (minus Decisions) + Schedule's Appointments placement DONE + guarded.
+NOT done: Decisions (question above) · Schedule page calendar + the inside-SupplierSchedule order · browser proof at
+375 px · baselines (controller's). tsc: L2 clean; the one inherited base error `tests/db/one-source-buckets.db.test.ts(189)`.

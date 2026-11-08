@@ -18,7 +18,7 @@
  *   4 · each on-demand module warms exactly the chunks it wraps, and the shell warms all three at idle.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): `import { ProposalMaker } from '@/app/_components/proposal-maker'`
- * put back in the thread page (red: 1 and 2); forms.tsx importing `FormsPageBody` from its shipped file again (red: 1,
+ * put back in the thread page (red: 1 — Details reaches that page too, so 2 counts it as shipping anyway); forms.tsx importing `FormsPageBody` from its shipped file again (red: 1,
  * 2); a wrapper dropped from `warmThreadParts` (red: 4).
  */
 import { test } from 'node:test';

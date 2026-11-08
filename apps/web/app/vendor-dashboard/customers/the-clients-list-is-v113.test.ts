@@ -12,7 +12,7 @@
  *
  * Sabotage log (2026-11-08, each reverted): `setPicked((was) => (was === d ? null : d))` → `setPicked(d)` → 1 red ·
  * the Book a client href → `/vendor-dashboard/customers?add=outside` → 2 red · `zero: overdue?.n === 0` → `zero: false`
- * → 4 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red.
+ * → 5 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -13,7 +13,7 @@
  * Sabotage log (2026-11-08, each reverted): `setPicked((was) => (was === d ? null : d))` → `setPicked(d)` → 1 red ·
  * the Book a client href → `/vendor-dashboard/customers?add=outside` → 2 red · `zero: overdue?.n === 0` → `zero: false`
  * → 5 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red · `seatChosen` ignoring `ctx.agent` → 6
- * red · Handled by without "Me" → 7 red.
+ * red · Handled by without "Me" → 7 red · the Service line back to "Clients who booked it" → 7 red.
  *   6 · Show & sort narrows the WHOLE roster by Service · Status · Client · Handled by (an agent held to their own seat),
  *       then Group by / Sort order it, under sticky headings;
  *   7 · the sheet is the Guests sheet's extracted frame (Guests re-mounted on it), with the Clients rows.
@@ -187,6 +187,7 @@ test('7 · the sheet is the Guests sheet’s frame, with the Clients rows — Ha
   for (const name of ['Show', 'Service', 'Status', 'Client', 'Handled by', 'Group by', 'Sort']) {
     assert.match(SHEET, new RegExp(`name="${name}"`), `the sheet has no ${name} row`);
   }
+  assert.match(SHEET, /name="Service"\s+line="Service shows booked clients only"/, 'Service does not say it reads booked clients only (an asking event has no service yet)');
   assert.match(SHEET, /\{ key: ALL, label: 'All seats' \}, \{ key: 'me', label: 'Me' \}, \.\.\.seats/, 'Handled by is not All seats · Me · each seat');
   assert.match(SHEET, /Your clients only/, 'an agent is not told why they see only theirs');
   assert.match(SHEET, /rootClassName="fixed inset-0 z-\[var\(--sn-z-pop,40\)\]"/, 'the sheet does not sit on the pop-up layer token');

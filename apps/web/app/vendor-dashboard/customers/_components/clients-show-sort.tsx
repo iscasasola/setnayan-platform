@@ -115,7 +115,7 @@ export function ClientsShowSort({
             <ChosenRow
               data="clients-service"
               name="Service"
-              line="Clients who booked it"
+              line="Service shows booked clients only"
               value={choice.svc ?? ALL}
               options={[{ key: ALL, label: 'All services' }, ...services]}
               onPick={(k) => go({ ...choice, svc: k === ALL ? null : k })}

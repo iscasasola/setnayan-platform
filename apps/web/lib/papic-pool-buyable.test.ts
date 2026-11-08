@@ -38,8 +38,10 @@ const ACTIONS = 'app/dashboard/[eventId]/studio/papic/actions.ts';
 const POOL_CARD = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx';
 const BAND = 'app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx';
 const SHEET = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet.tsx';
-// The Papic page is gone (2026-10-26): Home draws the one card, Add more on its face.
-const PAPIC_PAGE = 'app/dashboard/[eventId]/page.tsx';
+// The Papic page is gone (2026-10-26): Home drew the one card, Add more on its face. Since THE ONE BUILD (L1, 8 Nov
+// 2026) the card lives in Memories: `memories/page.tsx` builds it (`buy: cardBuy`) and draws it through `<PapicCard>`,
+// which is `home-first-screen.tsx`'s export and renders `<PapicHomeCard>` — so HOME_SCREEN below still holds the card.
+const PAPIC_PAGE = 'app/dashboard/[eventId]/memories/page.tsx';
 const HOME_SCREEN = 'app/dashboard/[eventId]/_components/home-first-screen.tsx';
 const ACTIVATION = 'lib/sku-activation.ts';
 
@@ -90,7 +92,8 @@ test('the Papic studio mounts the Pool card', () => {
   assert.match(read(HOME_SCREEN), /<PapicHomeCard\b/, `${HOME_SCREEN} must render the Papic card`);
   assert.match(read(HOME_SCREEN), /buy=\{card\.buy \?\? null\}/, `${HOME_SCREEN} must hand the card its Add more`);
   assert.match(read(PAPIC_PAGE), /<PapicBuySheet\b/, `${PAPIC_PAGE} must render the pool's Add more (<PapicBuySheet>)`);
-  assert.match(read(PAPIC_PAGE), /buy: papicBuy,/, `${PAPIC_PAGE} must hand the card its Add more`);
+  assert.match(read(PAPIC_PAGE), /buy: cardBuy,/, `${PAPIC_PAGE} must hand the card its Add more`);
+  assert.match(read(PAPIC_PAGE), /<PapicCard key="papic" card=\{card\} \/>/, `${PAPIC_PAGE} must draw the card it built`);
   assert.match(read(BAND), /<PapicBuySheet\b/, `${BAND} must render <PapicBuySheet>`);
   assert.match(read(SHEET), /<PapicBuyForm\b/, `${SHEET} must render <PapicBuyForm>`);
 });

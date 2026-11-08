@@ -131,6 +131,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds computeCompatScore (a ranking input). The badge field (isVerified) now calls hasVerifiedBadge separately.' },
   ],
   [
+    'lib/shop-permit-line.ts',
+    { count: 1, why: 'Only inside badgeDeadline()\'s "none" branch (no renewal date on file): it picks the Shop ⚙ permit line\'s COPY — "No renewal date on file" once Setnayan has checked the papers, "Setnayan reads its date when it checks your papers" before. No "Verified" badge renders from it; the line\'s state itself comes from badgeDeadline (THE ONE BUILD, C4).' },
+  ],
+  [
     'app/(shell)/explore/compare/page.tsx',
     { count: 1, why: 'A LISTING filter ("only compare verified shops") — Q5 leaves listing/bookability on the raw state; not a badge render.' },
   ],

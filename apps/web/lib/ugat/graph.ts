@@ -3946,7 +3946,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_forms (the library, one per shop row) · vendor_questions.form_id (the form’s items, with item_kind · answer_type · is_required) · vendor_form_service_links (form ↔ card) · event_form_sends (which forms reached which event, and by whom)',
     writtenBy:
-      'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking (lib/vendor-forms-on-booking.server.ts) on booking, service role, for the forms linked to the booked cards',
+      'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking — lib/vendor-forms-on-booking.server.ts, reached only through runDepositAcknowledgedEffects once the deposit is acknowledged — service role, for the forms linked to the booked cards',
     guardedBy:
       'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts',
     traps:

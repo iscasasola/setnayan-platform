@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS public.event_change_requests (
   -- What the supplier asked for, in words the hosts read ("Seat Tita Lorna at Table 4").
   summary             TEXT NOT NULL CHECK (char_length(btrim(summary)) BETWEEN 1 AND 240),
   note                TEXT CHECK (note IS NULL OR char_length(btrim(note)) BETWEEN 1 AND 240),
-  proposed_by_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  proposer_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   vendor_profile_id   UUID REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE SET NULL,
   status              TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'accepted', 'declined', 'withdrawn')),
   decided_by_user_id  UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -128,7 +128,7 @@ COMMENT ON TABLE public.event_change_requests IS
 CREATE INDEX IF NOT EXISTS event_change_requests_event_open_idx
   ON public.event_change_requests (event_id, created_at DESC) WHERE status = 'open';
 CREATE INDEX IF NOT EXISTS event_change_requests_proposer_idx
-  ON public.event_change_requests (proposed_by_user_id, created_at DESC);
+  ON public.event_change_requests (proposer_user_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION public.touch_event_change_requests()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
@@ -153,7 +153,7 @@ GRANT ALL ON public.event_change_requests TO service_role;
 DROP POLICY IF EXISTS event_change_requests_own_read ON public.event_change_requests;
 CREATE POLICY event_change_requests_own_read
   ON public.event_change_requests FOR SELECT TO authenticated
-  USING (proposed_by_user_id = (SELECT auth.uid()));
+  USING (proposer_user_id = (SELECT auth.uid()));
 
 -- 2b · The hosts read the event's (and admins).
 DROP POLICY IF EXISTS event_change_requests_host_read ON public.event_change_requests;
@@ -172,7 +172,7 @@ DROP POLICY IF EXISTS event_change_requests_supplier_insert ON public.event_chan
 CREATE POLICY event_change_requests_supplier_insert
   ON public.event_change_requests FOR INSERT TO authenticated
   WITH CHECK (
-    proposed_by_user_id = (SELECT auth.uid())
+    proposer_user_id = (SELECT auth.uid())
     AND status = 'open'
     AND decided_by_user_id IS NULL
     AND decided_at IS NULL
@@ -193,8 +193,8 @@ CREATE POLICY event_change_requests_supplier_insert
 DROP POLICY IF EXISTS event_change_requests_own_withdraw ON public.event_change_requests;
 CREATE POLICY event_change_requests_own_withdraw
   ON public.event_change_requests FOR UPDATE TO authenticated
-  USING (proposed_by_user_id = (SELECT auth.uid()) AND status = 'open')
-  WITH CHECK (proposed_by_user_id = (SELECT auth.uid()) AND status = 'withdrawn');
+  USING (proposer_user_id = (SELECT auth.uid()) AND status = 'open')
+  WITH CHECK (proposer_user_id = (SELECT auth.uid()) AND status = 'withdrawn');
 
 -- 3 · Accept (applied in place) or Decline.
 CREATE OR REPLACE FUNCTION public.answer_event_change_request(p_change_id UUID, p_accept BOOLEAN, p_note TEXT DEFAULT NULL)
@@ -224,7 +224,7 @@ BEGIN
   IF v_req.status <> 'open' THEN
     RAISE EXCEPTION 'answer_event_change_request: already answered' USING ERRCODE = '55000';
   END IF;
-  IF v_req.proposed_by_user_id = v_uid THEN
+  IF v_req.proposer_user_id = v_uid THEN
     RAISE EXCEPTION 'answer_event_change_request: nobody answers their own change' USING ERRCODE = '42501';
   END IF;
 
@@ -289,8 +289,8 @@ BEGIN
         DELETE FROM public.event_seat_assignments
          WHERE event_id = v_req.event_id AND guest_id = v_req.target_id;
         IF v_table IS NOT NULL THEN
-          INSERT INTO public.event_seat_assignments (event_id, table_id, guest_id, placed_by)
-          VALUES (v_req.event_id, v_table, v_req.target_id, 'couple');
+          INSERT INTO public.event_seat_assignments (event_id, table_id, guest_id)
+          VALUES (v_req.event_id, v_table, v_req.target_id);
         END IF;
         v_rows := 1;
       END IF;
@@ -324,7 +324,7 @@ BEGIN
   RETURN jsonb_build_object(
     'status', CASE WHEN p_accept THEN 'accepted' ELSE 'declined' END,
     'answered_as', v_as,
-    'proposed_by_user_id', v_req.proposed_by_user_id,
+    'proposer_user_id', v_req.proposer_user_id,
     'event_id', v_req.event_id,
     'summary', v_req.summary
   );

@@ -35,14 +35,15 @@ export const CHANGE_OPS: Readonly<Record<ChangeOp, { area: ChangeArea; label: st
 /** The guest fields a supplier may propose — the same six the database's whitelist names. */
 export const GUEST_EDIT_FIELDS = ['first_name', 'last_name', 'mobile', 'email', 'meal_preference', 'dietary_restrictions'] as const;
 export type GuestEditField = (typeof GUEST_EDIT_FIELDS)[number];
-export const GUEST_FIELD_LABEL: Readonly<Record<GuestEditField, string>> = {
-  first_name: 'First name',
-  last_name: 'Last name',
-  mobile: 'Mobile',
-  email: 'Email',
-  meal_preference: 'Meal',
-  dietary_restrictions: 'Dietary needs',
-};
+// A tuple list, not an object literal: `meal_preference: '…'` reads to the enum guard as a write of that value.
+export const GUEST_FIELD_LABEL: Readonly<Record<GuestEditField, string>> = Object.fromEntries([
+  ['first_name', 'First name'],
+  ['last_name', 'Last name'],
+  ['mobile', 'Mobile'],
+  ['email', 'Email'],
+  ['meal_preference', 'Meal'],
+  ['dietary_restrictions', 'Dietary needs'],
+] as const) as Record<GuestEditField, string>;
 
 /** The supplier-row fields a supplier may propose — never a price or a status. */
 export const SUPPLIER_EDIT_FIELDS = ['contact_phone', 'contact_email', 'crew_size'] as const;

@@ -78,7 +78,7 @@ const ANCHORS: Record<string, RegExp> = {
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),
   event_access_requests: eqUid('requester_user_id'),
-  event_change_requests: eqUid('proposed_by_user_id'),
+  event_change_requests: eqUid('proposer_user_id'),
   event_deletion_requests: eqUid('user_id'),
   event_clusters: eqUid('owner_user_id'),
   event_costs: eqUid('created_by_user_id'),

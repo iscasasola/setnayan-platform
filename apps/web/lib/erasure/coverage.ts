@@ -1516,7 +1516,7 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
   },
   {
     table: 'event_change_requests',
-    column: 'proposed_by_user_id',
+    column: 'proposer_user_id',
     why: 'The subject’s own proposed changes to a couple’s guest list, seat plan or suppliers (owner 8 Nov 2026), with a note they wrote. Their request, their words — ON DELETE CASCADE removes them with the account. An ACCEPTED change already lives in the couple’s list as the couple’s data. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s change is an action ON their record.',
   },
   {

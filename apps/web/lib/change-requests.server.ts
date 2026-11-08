@@ -91,7 +91,7 @@ export async function readMyChangeRequests(
     .from('event_change_requests')
     .select(COLUMNS)
     .eq('event_id', eventId)
-    .eq('proposed_by_user_id', userId)
+    .eq('proposer_user_id', userId)
     .order('created_at', { ascending: false })
     .limit(20);
   if (error) {

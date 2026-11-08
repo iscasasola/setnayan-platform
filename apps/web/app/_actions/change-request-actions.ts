@@ -62,6 +62,7 @@ async function answerersOf(eventId: string, area: ChangeArea): Promise<string[]>
       .select('user_id, permissions_json')
       .eq('event_id', eventId)
       .not('accepted_at', 'is', null)
+      .neq('role_subtype', 'viewer') // a limited helper views, never answers
       .is('removed_at', null),
     readBookedSupplierFacts(admin, eventId),
   ]);
@@ -100,7 +101,7 @@ export async function changeRequestAction(eventId: string, req: ChangeRequestOp)
       payload: built.payload,
       summary: built.summary,
       note,
-      proposed_by_user_id: user.id,
+      proposer_user_id: user.id,
       vendor_profile_id: profile.vendor_profile_id,
     });
     if (error) {
@@ -150,9 +151,9 @@ export async function changeRequestAction(eventId: string, req: ChangeRequestOp)
     logQueryError('changeRequest.answer', error, { eventId }, 'graceful_degrade');
     return { ok: false, error: changeAnswerRefusal(error.message) };
   }
-  const result = (answered ?? {}) as { proposed_by_user_id?: string; summary?: string };
+  const result = (answered ?? {}) as { proposer_user_id?: string; summary?: string };
   try {
-    if (result.proposed_by_user_id) {
+    if (result.proposer_user_id) {
       const { data: ev } = await createAdminClient().from('events').select('display_name').eq('event_id', eventId).maybeSingle();
       const notice = changeAnsweredNotice({
         eventId,
@@ -160,7 +161,7 @@ export async function changeRequestAction(eventId: string, req: ChangeRequestOp)
         summary: result.summary ?? 'Your change',
         eventName: (ev as { display_name?: string | null } | null)?.display_name ?? null,
       });
-      await emitNotification({ userId: result.proposed_by_user_id, type: 'change_answered', eventId, ...notice });
+      await emitNotification({ userId: result.proposer_user_id, type: 'change_answered', eventId, ...notice });
     }
   } catch (e) {
     console.error('[change-requests] answer notice failed:', e);

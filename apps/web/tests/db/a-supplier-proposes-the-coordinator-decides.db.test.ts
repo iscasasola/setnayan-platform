@@ -133,7 +133,7 @@ async function levelOf(uid: string, area: string): Promise<string | null> {
 async function propose(uid: string, shop: string, area: string, op: string, target: string | null, payload: unknown) {
   return as<{ change_id: string }>(
     uid,
-    `INSERT INTO public.event_change_requests (event_id, area, op, target_id, payload, summary, proposed_by_user_id, vendor_profile_id)
+    `INSERT INTO public.event_change_requests (event_id, area, op, target_id, payload, summary, proposer_user_id, vendor_profile_id)
      VALUES ($1, $2, $3, $4, $5::jsonb, 'A change', $6, $7) RETURNING change_id`,
     [W.eventId, area, op, target, JSON.stringify(payload), uid, shop],
   );

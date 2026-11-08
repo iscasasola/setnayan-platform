@@ -17,9 +17,14 @@ export function ChangeDecision({ eventId, changeId }: { eventId: string; changeI
   function decide(accept: boolean) {
     setError(null);
     startTransition(async () => {
-      const res = await changeRequestAction(eventId, { op: 'answer', changeId, accept });
-      if (!res.ok) setError(res.error ?? 'Could not record that.');
-      else setDone(accept ? 'accepted' : 'declined');
+      try {
+        const res = await changeRequestAction(eventId, { op: 'answer', changeId, accept });
+        if (!res.ok) setError(res.error ?? 'Could not record that.');
+        else setDone(accept ? 'accepted' : 'declined');
+      } catch {
+        // No answer at all (no signal, a 5xx): said here — never thrown into the page.
+        setError('We could not reach Setnayan. Nothing has changed. Please try again.');
+      }
     });
   }
 

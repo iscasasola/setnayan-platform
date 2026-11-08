@@ -89,7 +89,9 @@ export function ProposeChange({
     setError(null);
     const targetName = targets.find((t) => t.id === target)?.name ?? null;
     startTransition(async () => {
-      const res = await changeRequestAction(eventId, {
+      let res: Awaited<ReturnType<typeof changeRequestAction>>;
+      try {
+        res = await changeRequestAction(eventId, {
         op: 'propose',
         note: note || null,
         input: {
@@ -102,7 +104,11 @@ export function ProposeChange({
           tableId: table === NO_TABLE ? null : table,
           tableName: tables.find((t) => t.id === table)?.name ?? null,
         },
-      });
+        });
+      } catch {
+        setError('We could not reach Setnayan. Nothing was sent. Please try again.');
+        return;
+      }
       if (!res.ok) {
         setError(res.error ?? 'Could not send that.');
         return;

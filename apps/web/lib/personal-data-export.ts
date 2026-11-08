@@ -678,14 +678,14 @@ export async function buildPersonalDataExport(
       .eq('requester_user_id', user.id)
       .order('created_at', { ascending: true }),
     // RA 10173 (8 Nov 2026) — the changes the subject PROPOSED to a couple's guest list, seat plan or suppliers,
-    // scoped to proposed_by_user_id (the author), with their own note and the answer. ⚖ `payload` and `summary` are
+    // scoped to proposer_user_id (the author), with their own note and the answer. ⚖ `payload` and `summary` are
     // deliberately NOT selected: they hold the GUESTS' and other suppliers' details (a name, a phone, a meal) — other
     // people's data, which a subject-access export must not hand over. `decided_by_user_id` is not a second lane, the
     // same line drawn for event_access_requests above.
     supabase
       .from('event_change_requests')
       .select('change_id, event_id, area, op, note, status, answer_note, created_at, decided_at')
-      .eq('proposed_by_user_id', user.id)
+      .eq('proposer_user_id', user.id)
       .order('created_at', { ascending: true }),
     /*
       RA 10173 (2026-08-28) — why the subject removed a celebration, in their
@@ -1282,6 +1282,7 @@ export async function buildPersonalDataExport(
     broadcastsSent,
     dayRequests,
     accessRequests,
+    changeRequests,
     ownCosts,
     ownColourGrants,
     ownColourChanges,

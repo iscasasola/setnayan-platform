@@ -8,6 +8,7 @@
 import { ShopCover, type CoverData } from '@/app/vendor-dashboard/shop/_components/shop-cover';
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
+import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
 import { ShopAnalyticsCarousel, type AnalyticsCardData } from '@/app/vendor-dashboard/shop/_components/shop-analytics-carousel';
 import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
 import { CapacityCard } from '@/app/vendor-dashboard/performance/_components/capacity-card';
@@ -33,6 +34,7 @@ import type { FunnelBenchmark } from '@/lib/funnel-benchmark';
 import type { PricePositionResult } from '@/lib/price-position';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
+import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from '@/lib/portfolio-groups';
 
 export const SHOP_TAB_STATES = ['shop-tab', 'portfolio-tab'] as const;
 export type ShopTabState = (typeof SHOP_TAB_STATES)[number];
@@ -128,6 +130,7 @@ function shopLab(fail: boolean) {
     city: 'Batangas',
     verified: { isVerified: true, inReview: false, stepsDone: 2 },
     rating: fail ? null : '4.8',
+    reviews: fail ? null : '38 reviews',
     events: fail ? null : '120 events',
     planLabel: 'Pro',
     publicPath: '/setnaprod',
@@ -139,16 +142,28 @@ function shopLab(fail: boolean) {
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-shop-tab-lab="">
       <div className="mx-auto w-full max-w-3xl">
-        <ShopCover d={cover} gearBody={null} promoteBody={null} qrBody={null} logoBody={null} coverBody={null} />
-        <ul className="divide-y divide-ink/10 px-4 pt-2" data-shop-doors="">
-          <li className="flex min-h-[60px] items-center py-2.5 text-[15px] font-medium">Your page</li>
-          <li className="flex min-h-[60px] items-center py-2.5 text-[15px] font-medium">Your details</li>
-        </ul>
+        <ShopCover
+          d={cover}
+          gearBody={
+            /* Build 2 §10 #31 — the ⚙'s rows from fixtures (Your page first); the folds' editors mount on the real page. */
+            <ShopSettingsRows
+              planLine="Pro · renews 1 Dec"
+              wallet={{ title: 'Shop wallet', line: '₱128 left' }}
+              plan={<p className="text-[13px] text-ink/60">The shipped Plan screen mounts here.</p>}
+              team={<p className="text-[13px] text-ink/60">The shipped Helpers screen mounts here.</p>}
+              docs={{ isVerified: true, docsIn: 2, docsTotal: 2, measured: true, row: { state: 'done', badge: null } as never, section: <p className="text-[13px] text-ink/60">The papers mount here.</p> }}
+            />
+          }
+          promoteBody={null}
+          qrBody={null}
+          logoBody={null}
+          coverBody={null}
+        />
         <ShopAnalyticsCarousel cards={cards} recs={buildGrowthRecs(null, { askedInWindow: 4 })} nowMs={NOW} />
         <ShopBadgeRow tiles={tiles} />
         <ShopMakers
           scanners={fail ? null : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
-          formsHref={null}
+          formsBody={null}
         />
         <section className="px-4 pt-3" id="services">
           <ShopServiceRows
@@ -179,6 +194,36 @@ function portfolioLab(fail: boolean) {
     moodboard: fail ? null : { allowed: true, looks: 5, declined: 0 },
   };
   const saved = { sections: { portfolio: true } } as unknown as PageSaved;
+  // Build 2 §10 #35 — v118's own sample groups, through the SAME pure builders the loader uses.
+  const groups: PortfolioGroups = fail
+    ? { events: null, services: null, inspiration: null, stories: null }
+    : {
+        events: eventAlbums(
+          [
+            ...PHOTOS.map((url, i) => ({ eventId: 'ev-santos', url, createdAt: `2026-11-07T0${i}:00:00Z` })),
+            ...PHOTOS.slice(2, 8).map((url, i) => ({ eventId: 'ev-cruz', url, createdAt: `2026-10-18T0${i}:00:00Z` })),
+            ...PHOTOS.slice(4, 9).map((url, i) => ({ eventId: 'ev-reyes', url, createdAt: `2026-09-27T0${i}:00:00Z` })),
+          ],
+          [
+            { eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-07' },
+            { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-10-18' },
+            { eventId: 'ev-reyes', eventName: 'Reyes christening', bookedDate: '2026-09-27' },
+          ],
+          { thisYear: 2026, albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` },
+        ),
+        services: serviceAlbums([
+          { id: 'svc-photo', title: 'Wedding photo & video', urls: PHOTOS.slice(0, 8), total: 8 },
+          { id: 'svc-booth', title: 'Photo booth', urls: PHOTOS.slice(5, 9), total: 4 },
+        ]),
+        inspiration: inspirationAlbums([
+          ...PHOTOS.slice(0, 5).map((url, i) => ({ id: `l${i}`, url, part: 'Reception styling' })),
+          ...PHOTOS.slice(5, 8).map((url, i) => ({ id: `m${i}`, url, part: 'Bridal portraits' })),
+        ]),
+        stories: [
+          { eventId: 'ev-santos', slug: 'santos-delacruz', hostNames: 'Ana & Miguel', line: 'Tagaytay · Nov 2026' },
+          { eventId: 'ev-cruz', slug: 'bea-cruz-18', hostNames: 'Bea Cruz', line: 'Batangas · Oct 2026' },
+        ],
+      };
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-portfolio-tab-lab="">
       <div className="mx-auto w-full max-w-3xl">
@@ -194,6 +239,10 @@ function portfolioLab(fail: boolean) {
           allowanceUnread={fail}
           walletBalance={fail ? null : 128}
           igFlash={null}
+          groups={groups}
+          allPhotos={[...PHOTOS].reverse()}
+          libraryOpen={!fail}
+          videoLinkUrls={fail ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
         />
       </div>

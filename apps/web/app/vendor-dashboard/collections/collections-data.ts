@@ -20,6 +20,20 @@ import {
 } from '@/lib/vendor-instagram-status';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
+import { parseR2Ref } from '@/lib/nsfw-screen';
+import { visiblePortfolioPhotos } from '@/lib/vendor-papic-portfolio-album';
+import { fetchVendorPoolBookings, type PoolBookingEntry } from '@/lib/vendor-schedule';
+import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
+import { fetchShopInspirationLooks, type ShopInspirationClient } from '@/lib/shop-inspiration.server';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import {
+  ALBUM_OPEN_MAX,
+  eventAlbums,
+  inspirationAlbums,
+  serviceAlbums,
+  type PortfolioGroups,
+} from '@/lib/portfolio-groups';
 
 /**
  * YOUR COLLECTIONS — one count per store, read where each already lives (simpler supplier dashboard step 5;
@@ -58,6 +72,13 @@ export type CollectionsData = {
    * delivered, the mood board). A URL that could not be presigned is left out, never drawn broken.
    */
   previews: Partial<Record<'page' | 'cards' | 'instagram', { urls: string[]; total: number }>>;
+  /**
+   * 🖼 THE THREE GROUPS + the stories (Build 2 §10 #35 + the parity item "stories couples published"): every album a
+   * store that already exists (`lib/portfolio-groups.ts`). Each album opens into the body (§10 #40).
+   */
+  groups: PortfolioGroups;
+  /** 🌱 The shop's trades supply an inspiration part — Portfolio draws "Add to the inspiration library" (moved from Shop). */
+  libraryOpen: boolean;
 };
 
 /** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
@@ -91,7 +112,7 @@ export async function loadCollectionsData(
   const cardsRead = (async () => {
     const { data, error } = await supabase
       .from('vendor_services')
-      .select('primary_photo_r2_key, showcase_photo_r2_keys, showcase_video_r2_key')
+      .select('vendor_service_id, title, primary_photo_r2_key, showcase_photo_r2_keys, showcase_video_r2_key')
       .eq('vendor_profile_id', vendorId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -99,6 +120,8 @@ export async function loadCollectionsData(
       return null;
     }
     const rows = (data ?? []) as {
+      vendor_service_id: string;
+      title: string | null;
       primary_photo_r2_key: string | null;
       showcase_photo_r2_keys: string[] | null;
       showcase_video_r2_key: string | null;
@@ -109,6 +132,11 @@ export async function loadCollectionsData(
       photos: rows.reduce((a, r) => a + (r.primary_photo_r2_key ? 1 : 0) + (r.showcase_photo_r2_keys?.length ?? 0), 0),
       videos: rows.filter((r) => r.showcase_video_r2_key).length,
       previewKeys: keys.slice(0, ALBUM_PREVIEW),
+      // 🖼 Your services (§10 #35): one album per card, its own photos.
+      perCard: rows.map((r) => {
+        const own = [r.primary_photo_r2_key, ...(r.showcase_photo_r2_keys ?? [])].filter((k): k is string => Boolean(k));
+        return { id: r.vendor_service_id, title: r.title, keys: own.slice(0, ALBUM_OPEN_MAX), total: own.length };
+      }),
     };
   })().catch((err) => {
     logQueryError('VendorCollections.cards', err, { vendorId });
@@ -119,15 +147,17 @@ export async function loadCollectionsData(
   const albumsRead = (async () => {
     const { data, error } = await supabase
       .from('vendor_papic_portfolio_photos')
-      .select('event_id')
+      .select('photo_id, event_id, r2_object_key, credits_spent, created_at, hidden_at, nsfw_checked')
       .eq('vendor_profile_id', vendorId)
-      .is('hidden_at', null);
+      .is('hidden_at', null)
+      .order('created_at', { ascending: false });
     if (error) {
       logQueryError('VendorCollections.albums', error, { vendorId }, 'graceful_degrade');
       return null;
     }
-    const rows = (data ?? []) as { event_id: string }[];
-    return { photos: rows.length, events: new Set(rows.map((r) => r.event_id)).size };
+    const rows = (data ?? []) as Array<Parameters<typeof visiblePortfolioPhotos>[0][number]>;
+    // 🖼 All your events (§10 #35): the screened photos only — an unscreened or taken-down one is never drawn.
+    return { photos: rows.length, events: new Set(rows.map((r) => r.event_id)).size, shown: visiblePortfolioPhotos(rows) };
   })().catch((err) => {
     logQueryError('VendorCollections.albums', err, { vendorId });
     return null;
@@ -180,7 +210,8 @@ export async function loadCollectionsData(
     }
   })();
 
-  const access = moodboardLibraryAccessForProfile(profile, await getInspirationParts());
+  const parts = await getInspirationParts();
+  const access = moodboardLibraryAccessForProfile(profile, parts);
   const moodRead = (async () => {
     if (!access.allowed) return { allowed: false, looks: 0, declined: 0 };
     const { data, error } = await createAdminClient()
@@ -197,6 +228,76 @@ export async function loadCollectionsData(
   })().catch((err) => {
     logQueryError('VendorCollections.moodboard', err, { vendorId });
     return null;
+  });
+
+  // 🗓 The shop's bookings — ONE read for two answers: the event albums' titles and the stories' events (the same pool
+  // read Share your work uses, for the same reason: a story is only ever one of this shop's own booked events).
+  const poolRead: Promise<PoolBookingEntry[] | null> = fetchVendorPoolBookings(supabase, vendorId).catch((err) => {
+    logQueryError('VendorCollections.bookings', err, { vendorId }, 'graceful_degrade');
+    return null;
+  });
+  // 📣 Stories couples published with this shop credited (the parity item) — chained on the pool read.
+  const storiesRead = poolRead.then(async (pool) => {
+    if (pool === null) return null;
+    try {
+      return await loadVendorFeaturedStories(pool.map((b) => b.eventId));
+    } catch (err) {
+      logQueryError('VendorCollections.stories', err, { vendorId }, 'graceful_degrade');
+      return null;
+    }
+  });
+  // 🌱 Inspiration you curated — the approved looks its page shows, only for a shop that supplies looks.
+  const looksRead = access.allowed
+    ? fetchShopInspirationLooks(createAdminClient() as unknown as ShopInspirationClient, vendorId, parts).catch((err) => {
+          logQueryError('VendorCollections.looks', err, { vendorId }, 'graceful_degrade');
+          return null;
+        })
+    : Promise.resolve('off' as const);
+  // The flag only decides whether an album links to its own page; unread → no link (the album still shows), logged.
+  const papicRead = isVendorPapicCaptureEnabled().catch((err) => {
+    logQueryError('VendorCollections.papicFlag', err, { vendorId }, 'graceful_degrade');
+    return false;
+  });
+  // The event albums' photos, signed on the media bucket (the album page's own signer), at most one panel's worth each.
+  const albumUrlsRead = albumsRead.then(async (a) => {
+    if (!a) return null;
+    const perEvent = new Map<string, number>();
+    const signed = await Promise.all(
+      a.shown.map(async (p) => {
+        const n = perEvent.get(p.eventId) ?? 0;
+        perEvent.set(p.eventId, n + 1);
+        if (n >= ALBUM_OPEN_MAX) return { eventId: p.eventId, url: null, createdAt: p.importedAt ?? '' };
+        const { key } = parseR2Ref(p.r2Key);
+        // An unsigned photo still counts toward the album; an album with none to show says so (`AlbumGrid`).
+        const url = await r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: 3600 }).catch((err) => {
+          logQueryError('VendorCollections.albumSign', err, { vendorId, eventId: p.eventId }, 'graceful_degrade');
+          return null;
+        });
+        return { eventId: p.eventId, url, createdAt: p.importedAt ?? '' };
+      }),
+    );
+    return signed;
+  });
+  // Each card's own photos, signed the way the page gallery is.
+  const cardAlbumsRead = cardsRead.then(async (c) => {
+    if (!c) return null;
+    return Promise.all(
+      c.perCard.map(async (card) => ({
+        id: card.id,
+        title: card.title,
+        total: card.total,
+        urls: (
+          await Promise.all(
+            card.keys.map((key) =>
+              displayUrlForStoredAsset(key).catch((err) => {
+                logQueryError('VendorCollections.cardAlbum', err, { vendorId, key });
+                return null;
+              }),
+            ),
+          )
+        ).filter((u): u is string => Boolean(u)),
+      })),
+    );
   });
 
   const thumbsRead = Promise.all(
@@ -228,17 +329,26 @@ export async function loadCollectionsData(
     );
     return urls.filter((u): u is string => Boolean(u));
   });
-  const [own, cards, albums, ownShots, delivered, ig, moodboard, portfolioDisplayMap, cardThumbs] = await Promise.all([
-    ownRead,
-    cardsRead,
-    albumsRead,
-    ownRead2,
-    deliveredRead,
-    igRead,
-    moodRead,
-    thumbsRead,
-    cardThumbsRead,
-  ]);
+  const [own, cards, albumsFull, ownShots, delivered, ig, moodboard, portfolioDisplayMap, cardThumbs, pool, stories, looks, papicOn, albumUrls, cardAlbums] =
+    await Promise.all([
+      ownRead,
+      cardsRead,
+      albumsRead,
+      ownRead2,
+      deliveredRead,
+      igRead,
+      moodRead,
+      thumbsRead,
+      cardThumbsRead,
+      poolRead,
+      storiesRead,
+      looksRead,
+      papicRead,
+      albumUrlsRead,
+      cardAlbumsRead,
+    ]);
+  const albums = albumsFull ? { photos: albumsFull.photos, events: albumsFull.events } : null;
+  const thisYear = Number(new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 4));
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
@@ -278,6 +388,28 @@ export async function loadCollectionsData(
     igConnection: ig.connection,
     igMedia: ig.media,
     igUnavailable: ig.unavailable,
+    libraryOpen: access.allowed,
+    groups: {
+      events:
+        albumUrls === null
+          ? null
+          : eventAlbums(albumUrls, pool ?? [], {
+              thisYear,
+              // The album's own screen (Put on my page, import) opens only while the Papic flag is on.
+              albumHref: papicOn ? (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` : null,
+            }),
+      services: cardAlbums === null ? null : serviceAlbums(cardAlbums),
+      inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks),
+      stories:
+        stories === null
+          ? null
+          : stories.map((st) => ({
+              eventId: st.eventId,
+              slug: st.slug,
+              hostNames: st.hostNames,
+              line: [st.city, st.dateLabel].filter(Boolean).join(' · '),
+            })),
+    },
     previews: {
       page: { urls: portfolioRefs.map((k) => portfolioDisplayMap[k]).filter((u): u is string => Boolean(u)).slice(0, ALBUM_PREVIEW), total: portfolioRefs.length },
       ...(cards ? { cards: { urls: cardThumbs, total: cards.photos } } : {}),

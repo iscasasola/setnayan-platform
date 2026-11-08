@@ -13,6 +13,10 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import type { LogoFrame } from '@/lib/open-shop-logo';
 import { shareShopLink, shopPhotoCardPath } from '@/lib/share-shop-link';
 import { ShopSettings } from './shop-settings';
+import { YOUR_PAGE_HREF } from './shop-gear-sections';
+
+/** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
+const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
 
 /**
  * 🏪 SHOP'S COVER + PINNED ROW (THE ONE BUILD A3 W1–W6, lane C4; v113 `V.shop`).
@@ -41,6 +45,9 @@ export type CoverData = {
   verified: { isVerified: boolean; inReview: boolean; stepsDone: number };
   /** "★ 4.8 · 120 events" pieces — null = unread ("—", never 0). */
   rating: string | null;
+  /** "38 reviews" — the trusted-review count beside the ★ (null = unread or none); with `rating` it is the link into
+   *  Your page › Reviews and stories (Build 2 §10 #31). */
+  reviews?: string | null;
   events: string | null;
   planLabel: string;
   /** The public page — opened in a new tab; null before the shop has an address. */
@@ -161,7 +168,7 @@ export function ShopCover({
         </div>
       </div>
 
-      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" style={{ background: 'var(--m-ink)' }}>
+      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" data-tour="shop-details" style={{ background: 'var(--m-ink)' }}>
         {d.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL; next/image cannot optimise it
           <img src={d.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -212,7 +219,18 @@ export function ShopCover({
             )}
             <span aria-hidden>·</span>
             <Star aria-hidden className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
-            <span>{counts.replace(/^★ /, '')}</span>
+            {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
+            {d.rating ? (
+              <>
+                <Link href={REVIEWS_HREF} className="underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
+                  {d.rating}
+                  {d.reviews ? ` · ${d.reviews}` : ''}
+                </Link>
+                {d.events ? <span>· {d.events}</span> : null}
+              </>
+            ) : (
+              <span>{counts.replace(/^★ /, '')}</span>
+            )}
           </p>
           <a href="#plan" className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/35 bg-white/10 px-3 py-1.5 text-[13px] backdrop-blur" data-shop-plan="">
             <b className="font-semibold">{d.planLabel} plan</b>

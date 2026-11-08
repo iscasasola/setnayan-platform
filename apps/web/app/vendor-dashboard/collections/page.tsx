@@ -79,6 +79,10 @@ export default async function YourCollectionsPage({
         allowanceUnread={d.portfolioAllowanceUnread}
         walletBalance={d.walletBalance}
         igFlash={null}
+        groups={d.groups}
+        allPhotos={[...showAlbums.page.urls].reverse()}
+        libraryOpen={d.libraryOpen}
+        videoLinkUrls={d.galleryVideoLinks}
         gallery={
           <GalleryMedia
             vendorProfileId={d.vendorId}
@@ -88,6 +92,7 @@ export default async function YourCollectionsPage({
             portfolioAllowanceUnread={d.portfolioAllowanceUnread}
             walletBalance={d.walletBalance}
             galleryVideoLinks={d.galleryVideoLinks}
+            videosHere={false}
             igConfigured={d.igConfigured}
             igConnection={d.igConnection}
             igUnavailable={d.igUnavailable}

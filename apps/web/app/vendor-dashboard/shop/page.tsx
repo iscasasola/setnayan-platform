@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
-import { ArrowRight, ChevronRight, ExternalLink, Package as PackageIcon, Plus, UserRound } from 'lucide-react';
+import { ArrowRight, ChevronRight, Package as PackageIcon, Plus } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -19,9 +19,6 @@ import {
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { ServicesDisclosure } from './_components/services-disclosure';
-import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
-import { getInspirationParts } from '@/lib/inspiration-parts-db';
-import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
@@ -58,22 +55,23 @@ import { RoiAttributionCard } from '../performance/_components/roi-attribution-c
 import { FunnelBenchmarkCard } from '../performance/_components/funnel-benchmark-card';
 import { CardFace } from '../performance/_components/card-face';
 
-/** Your details, and its papers fold — where every "finish your profile" / "get verified" link on this page goes. */
-const DETAILS_HREF = '/vendor-dashboard/profile';
 const PAGE_HREF = '/vendor-dashboard/website';
 
 /**
  * /vendor-dashboard/shop — THE SHOP TAB (THE ONE BUILD, lane C4; owner-approved prototype v113/v114 `V.shop`).
  *
  * ONE scroll (v110 item 11): the cover (logo · name · Verified · ★ · events · plan · View shop ↗ · Share · Promote · QR ·
- * ⚙) → Your page · Your details → Analytics (five cards) → Badges (ONE row) → Makers (Scanner + Forms) → Services →
- * the thumb row (＋ Add a service). The `Shop ▾` section picker left this page: Analytics is in this scroll, Portfolio
+ * ⚙) → Analytics (five cards) → Badges (ONE row, each in its progress ring) → Makers (one row of tiles: Forms Maker ·
+ * Scanner, each opening into the body) → Services → the thumb row (＋ Add a service). Build 2 (§10 #31): no loose rows
+ * under the cover — Your page is the Shop ⚙'s first row, Your details the account sheet's; the cover's "★ · N reviews"
+ * opens Your page › Reviews and stories. The `Shop ▾` section picker left this page: Analytics is in this scroll, Portfolio
  * is its own tab (`/vendor-dashboard/collections`), Promote and the QR codes are sheets from the cover, Details and the
  * papers are Your details and Shop ⚙. Their own addresses still work (`/performance`, `/shop/promote`, `/profile`).
  *
  * DATA — every number is LIVE and every read is HONEST: an unread one is "—" / "Couldn't load", never 0. Every read
  * starts at once and is awaited once (the 2026-09-29 rule below); the sheets' bodies (Promote, QR, ⚙, logo, cover)
- * are drawn only while the URL opens them. Request count: see the C4 build notes.
+ * are drawn only while the URL opens them — and the Forms Maker's (`?maker=forms`). Request count: see the C4 + B2-B
+ * build notes (Build 2 drops the inspiration-parts read from this page: its door moved to Portfolio).
  */
 
 export const metadata = { title: 'Shop' };
@@ -100,8 +98,6 @@ type ShopData = {
     emailConfirmedAt: string | null;
     phoneConfirmedAt: string | null;
   };
-  /** 🌱🖼 The shop's trades supply an inspiration part — "Add to the inspiration library" is drawn (owner 2026-10-19). */
-  libraryOpen: boolean;
   /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
   /** 🎟 Each service's claim scanner (coverage id → setting) — `null` = unread. */
@@ -110,6 +106,8 @@ type ShopData = {
   badges: BadgeTile[] | null;
   /** The cover's "★ 4.8 · 120 events" — null = unread. */
   rating: string | null;
+  /** "38 reviews" beside the ★ — the cover's link into Your page › Reviews and stories (§10 #31). */
+  reviews: string | null;
   events: string | null;
   /** 📊 The five Analytics cards. */
   analytics: ShopAnalytics | null;
@@ -289,12 +287,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
       phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
     },
-    libraryOpen: moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed,
     serviceRows,
     scanSettings,
     badges,
     // Honest zero: no trusted review → no rating word; unread → "—" (null).
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
+    reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
     analytics,
     // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
@@ -435,6 +433,7 @@ async function ShopHome({
       stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
     },
     rating: data.rating,
+    reviews: data.reviews,
     events: data.events,
     planLabel: planWord(data.tier),
     publicPath,
@@ -490,50 +489,13 @@ async function ShopHome({
           }
         />
         {/* The old anchors still land here, once each (links already sent: notifications, bookmarks). */}
+        <span id="d1" className="block scroll-mt-24" aria-hidden />
         <span id="get-verified" className="block scroll-mt-24" aria-hidden />
         <span id="manage-shop" className="block scroll-mt-24" aria-hidden />
         <span id="getting-paid" className="block scroll-mt-24" aria-hidden />
 
-        {/* Your page · Your details — the two doors under the cover (v113). */}
-        <ul id="d1" className="divide-y divide-ink/10 px-4 pt-2" data-shop-doors="">
-          <li>
-            <Link href={PAGE_HREF} className="sn-press flex min-h-[60px] items-center gap-3 py-2.5" data-shop-door="page">
-              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-                <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-ink">Your page</span>
-                <span className="block truncate text-[13px] text-ink/60">
-                  {data.websiteLive ? 'What couples see, part by part' : 'What couples will see · not shown yet'}
-                </span>
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />
-            </Link>
-          </li>
-          <li>
-            <Link href={DETAILS_HREF} className="sn-press flex min-h-[60px] items-center gap-3 py-2.5" data-shop-door="details" data-tour="shop-details">
-              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-                <UserRound className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-medium text-ink">Your details</span>
-                <span className="block truncate text-[13px] text-ink/60">
-                  {data.fieldsLeft > 0
-                    ? `${data.fieldsLeft === 1 ? '1 field left' : `${data.fieldsLeft} fields left`} · name · documents · how clients pay you`
-                    : 'Name · documents · how clients pay you'}
-                </span>
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />
-            </Link>
-          </li>
-          {/* 🌱🖼 The inspiration library, findable (owner 2026-10-19). */}
-          {data.libraryOpen ? (
-            <li>
-              <DatesRow data="shop-inspiration-library" title={INSPIRATION_LIBRARY_ROW.label} line={INSPIRATION_LIBRARY_ROW.line} href={INSPIRATION_LIBRARY_HREF} />
-            </li>
-          ) : null}
-          {/* Auto-reply lives in Clients ⚙ now (spec §9 #6 — L2's mount, the integration commit took this row away). */}
-        </ul>
+        {/* 🧭 No loose rows under the cover (Build 2 §10 #31): Your page is the Shop ⚙'s first row, Your details is the
+            top-right account sheet's, and the inspiration library's door is Portfolio's (its tab, `pageHome`). */}
 
         {/* 📸 Photos couples shared for a service card, waiting for Approve — draws nothing when none. */}
         <div className="px-4">
@@ -558,8 +520,8 @@ async function ShopHome({
         {/* 🏅 BADGES — ONE row, the closest goal first. */}
         <ShopBadgeRow tiles={data.badges} />
 
-        {/* 🛠 MAKERS — Scanner + the Forms door (no Tools Maker in this build). */}
-        <ShopMakers scanners={scanners} formsHref={null} />
+        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Scanner), each opening into the body (Build 2 §10 #33). */}
+        <ShopMakers scanners={scanners} formsBody={shopFormsBody(sp)} />
 
         {/* 🧰 SERVICES — one row per service, then every card with its switches (the shipped manager, whole). */}
         {/* The shipped rows carry their own "Services ⓘ" heading. */}
@@ -615,6 +577,7 @@ import {
 } from '../_components/feature-accordion';
 import ManpowerSurface from '../manpower/surface';
 import { shopGearBody } from './_components/shop-settings-body';
+import { shopFormsBody } from './_components/shop-forms-body';
 
 // The folded feature sections, in strategic order below the shop home. Each
 // expands in place and loads its server body on open (owner one-page IA

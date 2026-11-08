@@ -208,51 +208,16 @@ export function FormsPageBody({
           <h2 id={loadTitle} className="pr-12 text-[19px] font-semibold text-ink">
             Forms Maker
           </h2>
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">Your forms · saved to your library</p>
-            {library === null ? (
-              <Unread what="your forms" />
-            ) : library.length === 0 ? (
-              <p className="text-sm text-ink/60">No forms yet.</p>
-            ) : (
-              library.map((f) => (
-                <button
-                  key={f.formId}
-                  type="button"
-                  className={ROW}
-                  onClick={() => {
-                    setLoadOpen(false);
-                    edit(f);
-                  }}
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
-                    <span className="block text-[12px] text-ink/60">
-                      {f.sizeLine} · {usedWithLine(f.usedWith)}
-                    </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
-                </button>
-              ))
-            )}
-          </div>
-          <SuggestionList
-            heading={`Suggested for ${suggestions?.serviceLabel ?? 'your service'}`}
-            items={suggestions?.own ?? null}
-            emptyLine="No suggested forms for this service yet"
+          <FormsLibraryList
+            library={library}
+            suggestions={suggestions}
+            onEdit={(f) => {
+              setLoadOpen(false);
+              edit(f);
+            }}
             onUse={copySuggestion}
             busy={using}
           />
-          {suggestions && suggestions.alsoUseful.length > 0 ? (
-            <SuggestionList
-              heading={`Also useful for ${suggestions.groupLabel ?? 'your service'}`}
-              items={suggestions.alsoUseful}
-              emptyLine=""
-              onUse={copySuggestion}
-              busy={using}
-            />
-          ) : null}
-          <p className="text-[13px] text-ink/60">Every form is open to every service. A form is sent to the couple from the chat; they answer in their event.</p>
           <ActionButton
             tone="brand"
             main
@@ -274,6 +239,133 @@ export function FormsPageBody({
         cards={cards}
         locks={locks}
         eventId={eventId && canSend ? eventId : null}
+        returnPath={returnPath}
+        shopId={shopId}
+      />
+    </div>
+  );
+}
+
+/**
+ * 📋 THE FORMS MAKER'S LIST — your forms (tap = open in the Form Maker) · Suggested for <service> · Also useful for
+ * <group> · the one-line rule. ONE drawing, mounted by the Load-a-form sheet above and by Shop › Makers' Forms Maker
+ * panel (`ShopFormsMaker`, Build 2 §10 #33), so the two never drift.
+ */
+export function FormsLibraryList({
+  library,
+  suggestions,
+  onEdit,
+  onUse,
+  busy,
+}: {
+  library: ShopForm[] | null;
+  suggestions: Suggestions | null;
+  onEdit: (f: ShopForm) => void;
+  onUse: (templateKey: string) => void;
+  busy: boolean;
+}) {
+  return (
+    <>
+      <div className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">Your forms · saved to your library</p>
+        {library === null ? (
+          <Unread what="your forms" />
+        ) : library.length === 0 ? (
+          <p className="text-sm text-ink/60">No forms yet.</p>
+        ) : (
+          library.map((f) => (
+            <button
+              key={f.formId}
+              type="button"
+              className={ROW}
+              onClick={() => onEdit(f)}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
+                <span className="block text-[12px] text-ink/60">
+                  {f.sizeLine} · {usedWithLine(f.usedWith)}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
+            </button>
+          ))
+        )}
+      </div>
+      <SuggestionList
+        heading={`Suggested for ${suggestions?.serviceLabel ?? 'your service'}`}
+        items={suggestions?.own ?? null}
+        emptyLine="No suggested forms for this service yet"
+        onUse={onUse}
+        busy={busy}
+      />
+      {suggestions && suggestions.alsoUseful.length > 0 ? (
+        <SuggestionList
+          heading={`Also useful for ${suggestions.groupLabel ?? 'your service'}`}
+          items={suggestions.alsoUseful}
+          emptyLine=""
+          onUse={onUse}
+          busy={busy}
+        />
+      ) : null}
+      <p className="text-[13px] text-ink/60">Every form is open to every service. A form is sent to the couple from the chat; they answer in their event.</p>
+    </>
+  );
+}
+
+/**
+ * 🛠 SHOP › MAKERS › FORMS MAKER (Build 2 §10 #33 — C3's Form Maker mounted inside the in-body panel): the shop's
+ * library with no client picked — the list above, ＋ New form, and the SAME `FormMaker` sheet (above the panel, as every
+ * pop-up opened from inside it). Nothing is sent from here: a form reaches a couple from their chat or with a card.
+ */
+export function ShopFormsMaker({
+  library,
+  cards,
+  suggestions,
+  locks,
+  returnPath,
+  shopId,
+}: {
+  library: ShopForm[] | null;
+  cards: FormMakerCard[];
+  suggestions: Suggestions | null;
+  locks: FormMakerLocks;
+  returnPath: string;
+  shopId: string;
+}) {
+  const [maker, setMaker] = useState<{ open: boolean; draft: FormDraft | null }>({ open: false, draft: null });
+  const [using, startUse] = useTransition();
+  const [said, setSaid] = useState<string | null>(null);
+  const copySuggestion = (templateKey: string) =>
+    startUse(async () => {
+      const fd = new FormData();
+      fd.set('op', 'use');
+      fd.set('template_key', templateKey);
+      fd.set('return_path', returnPath);
+      const r = await formsAction({ status: 'idle' }, fd);
+      setSaid(r.status === 'error' ? r.message : r.status === 'saved' ? r.message : null);
+    });
+  return (
+    <div className="space-y-5" data-shop-forms-maker="">
+      <FormsLibraryList
+        library={library}
+        suggestions={suggestions}
+        onEdit={(f) => setMaker({ open: true, draft: { formId: f.formId, title: f.title, items: f.items.map(draftItemOf), serviceIds: f.serviceIds } })}
+        onUse={copySuggestion}
+        busy={using}
+      />
+      {said ? (
+        <p role="status" className="text-sm text-ink/70">
+          {said}
+        </p>
+      ) : null}
+      <ActionButton tone="brand" main icon={Plus} label="New form" className="w-full" onClick={() => setMaker({ open: true, draft: null })} />
+      <FormMaker
+        open={maker.open}
+        onClose={() => setMaker((m) => ({ ...m, open: false }))}
+        initial={maker.draft}
+        cards={cards}
+        locks={locks}
+        eventId={null}
         returnPath={returnPath}
         shopId={shopId}
       />

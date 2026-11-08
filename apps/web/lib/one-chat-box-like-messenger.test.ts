@@ -152,7 +152,9 @@ test('the deal menu is a tool panel, not a card of its own — and no call launc
     // assertion is unchanged: ?compose=deal must open the deal panel, server-side.
     assert.match(
       s,
-      /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\)?\s*(\}|\|\|)/,
+      // Build 2 · B2-D: the supplier's panels are built per compose mode (`vendorToolsFor(cm)`, one draw serves the
+      // picked client's Chat tray AND its Quotation), so the supplier side reads `cm`; full screen passes `composeMode`.
+      /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && (?:composeMode|cm) === 'deal'\)?\s*(\}|\|\|)/,
       `${name}: ?compose=deal does not open the panel`,
     );
     // The hash opener is in the ONE thread frame both pages return (`ChatThreadFrame`, 2026-10-29).

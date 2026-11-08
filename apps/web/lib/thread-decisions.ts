@@ -663,6 +663,132 @@ function guestCountNow(g: GuestCountFact, f: ThreadDecisionFacts): DecisionNow {
  * Ties break by kind then key so the order is TOTAL: two rows written in the
  * same millisecond must not swap places between two renders of the same page.
  */
+/* ─────────────────────────────────────────────────────────────────────────────
+ * THE MERGE'S FIRST HALF — the cards the messages announce, turned into facts
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** A quote card's live row, as the stream keeps it (`proposalCards`). */
+export type DecisionQuoteCard = {
+  publicId: string;
+  title: string;
+  totalCentavos: number;
+  status: string;
+  resolvedAt: string | null;
+};
+/** A meeting card's live row, as the stream keeps it (`appointmentCards`). */
+export type DecisionMeetingCard = {
+  label: string;
+  scheduled_at: string | null;
+  status: string;
+  initiated_by: 'couple' | 'vendor' | null;
+};
+/** An adjustment card's live row + its items, as the stream keeps it (`amendmentCards`). */
+export type DecisionAdjustmentCard = {
+  data: { note: string | null; status: string; lockedAt: string | null; raised_by: 'couple' | 'vendor' | null };
+  items: ReadonlyArray<{ amount_php: number | null }>;
+};
+export type DecisionCards = {
+  quotes: Readonly<Record<string, DecisionQuoteCard>>;
+  meetings: Readonly<Record<string, DecisionMeetingCard>>;
+  /** The time each meeting moved FROM — beside the card, never inside it (the card shows the live time). */
+  meetingPreviousAt: Readonly<Record<string, string | null>>;
+  adjustments: Readonly<Record<string, DecisionAdjustmentCard>>;
+};
+/** The message fields the merge reads. */
+export type DecisionMessage = {
+  created_at: string;
+  proposal_id?: string | null;
+  appointment_id?: string | null;
+  amendment_id?: string | null;
+};
+
+/**
+ * 🔑 ONE MERGE, TWO READERS (Build 2 · #42, 8 Nov 2026). The conversation's Decisions view (in the stream, on the
+ * client) and the picked client's Details page (from the thread page's ONE load, on the server) turn the SAME messages
+ * and the SAME live card rows into the SAME facts — through this function, never two copies of it. It was the
+ * stream's `useMemo` body; it moved here unchanged.
+ *
+ * `nowMs` is NOT taken: "Waiting 4 days" is relative to the reader's present, so whoever renders the list reads the
+ * clock (`buildThreadDecisions({ ...facts, nowMs: Date.now() })`) — on the client, as the stream always did.
+ *
+ * A message whose card row is absent (not read yet, or refused) is left out — exactly as the stream drew it. Saying
+ * that a read was refused is the CALLER's job (the stream's `cardsDegraded`, Details' own line).
+ */
+export function threadDecisionFacts(input: {
+  viewer: DecisionViewer;
+  messages: readonly DecisionMessage[];
+  cards: DecisionCards;
+  payments: readonly PaymentFact[];
+  guestCounts: readonly GuestCountFact[];
+}): Omit<ThreadDecisionFacts, 'nowMs'> {
+  const { messages, cards } = input;
+  const ms = (iso: string | null | undefined) => {
+    const t = iso ? Date.parse(iso) : NaN;
+    return Number.isFinite(t) ? t : null;
+  };
+
+  const quotes: QuoteFact[] = [];
+  const meetings: MeetingFact[] = [];
+  const adjustments: AdjustmentFact[] = [];
+  for (const m of messages) {
+    if (m.proposal_id) {
+      const card = cards.quotes[m.proposal_id];
+      if (card) {
+        quotes.push({
+          proposalId: m.proposal_id,
+          publicId: card.publicId,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.title,
+          // Centavo-exact. `buildThreadDecisions` prints this through `formatPhp`, which keeps centavos only if they
+          // survive TO it — so a quote totalling ₱187,500.50 titled its own decision card "₱187,501": the figure the
+          // couple is being asked to accept, 50 centavos off, in the chat thread where they accept it.
+          totalPhp: Math.round(card.totalCentavos) / 100,
+          status: card.status,
+          decidedAtMs: ms(card.resolvedAt),
+        });
+      }
+    }
+    if (m.appointment_id) {
+      const card = cards.meetings[m.appointment_id];
+      if (card) {
+        meetings.push({
+          appointmentId: m.appointment_id,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.label,
+          scheduledAtMs: ms(card.scheduled_at),
+          previousScheduledAtMs: ms(cards.meetingPreviousAt[m.appointment_id]),
+          status: card.status,
+          initiatedBy: card.initiated_by,
+        });
+      }
+    }
+    if (m.amendment_id) {
+      const card = cards.adjustments[m.amendment_id];
+      if (card) {
+        const delta = card.items.reduce((sum, it) => sum + (it.amount_php ?? 0), 0);
+        adjustments.push({
+          amendmentId: m.amendment_id,
+          announcedAtMs: ms(m.created_at) ?? 0,
+          title: card.data.note?.trim() || 'Adjustment',
+          deltaPhp: card.items.length > 0 ? delta : null,
+          status: card.data.status,
+          decidedAtMs: ms(card.data.lockedAt),
+          raisedBy: card.data.raised_by,
+        });
+      }
+    }
+  }
+
+  return {
+    viewer: input.viewer,
+    quotes,
+    meetings,
+    adjustments,
+    payments: input.payments,
+    guestCounts: input.guestCounts,
+  };
+}
+
 export function buildThreadDecisions(facts: ThreadDecisionFacts): DecisionEntry[] {
   const entries: DecisionEntry[] = [];
 

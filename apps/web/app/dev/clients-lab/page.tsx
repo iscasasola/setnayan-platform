@@ -9,7 +9,9 @@
  *     &show=overdue|unread|schedules|collect   that list open, in place ("Viewing all …").
  *     &agent=1                  the sheet as a seat sees it ("Your clients only").
  *   ?v=pick&page=details      the picked client (`PickedClientShell`) on its Details page, v113 order: numbers · Hosts ·
- *                             the brief · Suppliers on this event · Decisions (a door to Chat) · Forms sent.
+ *                             the brief · Suppliers on this event · Decisions (Build 2 #42: the list, v118's five rows) ·
+ *                             Forms sent.
+ *     &decisions=none|partial   Decisions empty · a refused card read said in one line.
  *   ?v=pick&page=schedule     its Schedule page: the Clients month itself (`ScheduleCalendar` → `CustomersCalendar`
  *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
  *     &cal=fail                 the month's one read refused — said, never an empty month.
@@ -42,8 +44,7 @@ import { HostsList } from '@/app/vendor-dashboard/clients/[eventId]/_components/
 import { hostRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/hosts-rows';
 import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-list';
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
-import { DetailsDecisionsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-decisions-door';
-import { decisionsLine } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-decisions';
+import { LabDetailsDecisions } from './lab-decisions';
 import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
 import { ScheduleCalendar } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-calendar';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -132,7 +133,12 @@ const ASKED: ScheduleAsk[] = [
   { suggestion_id: 'ask1', block_id: 'c1', vendor_profile_id: 'vp-lab', suggested_by_name: 'Maria', asked_as: 'host', proposed_start_at: T('05:30'), proposed_end_at: T('06:00'), note: 'Arrive 30 min early · entourage photos', status: 'open', answer_note: null, created_at: T('00:00', '2026-11-05') },
 ];
 
-function pickedBodies(page: PickedClientPage, calFail: boolean, refundsFail = false): Record<PickedClientPage, ReactNode> {
+function pickedBodies(
+  page: PickedClientPage,
+  calFail: boolean,
+  decisions: 'full' | 'none' | 'partial' = 'full',
+  refundsFail = false,
+): Record<PickedClientPage, ReactNode> {
   const day = buildSupplierDay({ blocks: BLOCKS, myBookingIds: [ME], venueBookingIds: [], tasks: [], requests: [] });
   const where = supplierOwnWhere({
     bookings: [{ vendorId: ME, category: 'photographer', status: 'contracted', label: 'Lumina Studio' }],
@@ -166,7 +172,7 @@ function pickedBodies(page: PickedClientPage, calFail: boolean, refundsFail = fa
             { vendor_name: 'Kusina ni Lola', category: 'caterer' },
           ])}
         />
-        <DetailsDecisionsDoor line={decisionsLine({ status: 'accepted', totalPhp: 38000 }, false, peso)} />
+        <LabDetailsDecisions mode={decisions} />
         <DetailsFormsDoor />
       </div>
     ),
@@ -332,7 +338,12 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           eventName="Reyes & Santos wedding"
           menu={pickedMenuFor(true)}
           initialPage={page}
-          bodies={pickedBodies(page, one(sp.cal) === 'fail', one(sp.refunds) === 'fail')}
+          bodies={pickedBodies(
+            page,
+            one(sp.cal) === 'fail',
+            one(sp.decisions) === 'none' ? 'none' : one(sp.decisions) === 'partial' ? 'partial' : 'full',
+            one(sp.refunds) === 'fail',
+          )}
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
         />

@@ -312,7 +312,9 @@ const QUIET =
  * this view is only a second door to it. The action re-checks, server-side,
  * that the caller is the party allowed to answer.
  */
-function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext }) {
+// Exported for the picked client's Details page (Build 2 #42): its Decisions answer through THESE controls — the same
+// forms, the same actions — so there is still ONE way to answer each request.
+export function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext }) {
   switch (reply.kind) {
     case 'meeting':
       return <MeetingReply reply={reply} ctx={ctx} />;

@@ -65,7 +65,9 @@ test('the ask is mounted on a screen that is NOT day-gated', () => {
   );
   // It is offered to booked suppliers only — the server action re-checks this,
   // so the display rule must agree with it rather than contradict it.
-  assert.ok(src.includes('isBooked && (askableAreas.length > 0'));
+  // Since 8 Nov 2026 the block is drawn for every booked supplier — it also shows what they hold and what was
+  // answered, which matters with nothing left to ask for.
+  assert.ok(src.includes('const askBlock = isBooked ?'));
 });
 
 test('BOTH renders mount it — the ask must not depend on an environment flag', () => {
@@ -118,14 +120,15 @@ test('the ask component says nothing that only makes sense on the day', () => {
   }
 });
 
-test('the four askable areas are one list, not two', () => {
+test('the askable parts are one list, not two', () => {
   // Both mounts must offer the same set, or a coordinator sees different
   // options depending on which screen they opened.
   const { FLOOR_REQUESTABLE_AREAS } = require('./floor-command') as {
     FLOOR_REQUESTABLE_AREAS: readonly string[];
   };
   assert.ok(FLOOR_REQUESTABLE_AREAS.includes('guest_list'), 'the owner ruled on this one by name');
-  assert.equal(FLOOR_REQUESTABLE_AREAS.length, 4);
+  // Six since 8 Nov 2026: Mood Board and Budget & payments joined (owner: "request for access for different parts").
+  assert.equal(FLOOR_REQUESTABLE_AREAS.length, 6);
   // Derived, not typed out: BOTH mounts filter the same exported constant, so
   // a coordinator cannot be offered a different set depending on which screen
   // they opened. (The dead loop that used to sit here read a path that does

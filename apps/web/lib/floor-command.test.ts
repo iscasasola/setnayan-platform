@@ -293,12 +293,12 @@ test('an empty schedule closes the schedule panel rather than showing a dead but
 
 // ─── 5. Asking the host for access ─────────────────────────────────────────
 
-test('the floor can only ask for floor areas — never the budget', () => {
-  // Asking wide is a privacy cost with no operational benefit; a day-of ask
-  // must not put the couple's budget in front of a host to hand over.
-  assert.deepEqual([...FLOOR_REQUESTABLE_AREAS], ['seat_plan', 'schedule', 'guest_list', 'vendors']);
-  assert.deepEqual(normalizeRequestedAreas(['budget', 'mood_board']), [],
-    'neither is a floor tool');
+test('a supplier can ask for the six parts — never the Event Hub or the guests’ photos (owner 8 Nov 2026)', () => {
+  // Mood Board and Budget & payments joined on 8 Nov: the ask lives on the client page now, where a supplier plans
+  // for months. Budget is View at most for everybody; the Event Hub has no gate to grant; Photos stay the host's own.
+  assert.deepEqual([...FLOOR_REQUESTABLE_AREAS], ['seat_plan', 'schedule', 'guest_list', 'vendors', 'mood_board', 'budget']);
+  assert.deepEqual(normalizeRequestedAreas(['budget', 'mood_board']), ['mood_board', 'budget']);
+  assert.deepEqual(normalizeRequestedAreas(['invitations', 'photos']), [], 'neither can be asked for');
 });
 
 test('an ask drops what the coordinator already holds', () => {

@@ -87,6 +87,7 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
+import { readMyLastAccessAnswer } from '@/lib/my-access-ask.server';
 import { isBookedCoordinator as isBookedCoordinatorFact } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
@@ -684,9 +685,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // The component, the action and the host's answering screen are all reused
   // untouched. Only booked suppliers may ask (the action re-checks it server
   // side against the booking pool, so this is a display rule, not the gate).
-  const [myGrants, myPendingAsk] = isBooked
-    ? await Promise.all([fetchMyAreaGrants(eventId), fetchMyPendingAsk(eventId)])
-    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null];
+  // …and the last ANSWER (owner 8 Nov 2026: the supplier sees what they asked for and what they got) — the third read
+  // of the same round trip.
+  const [myGrants, myPendingAsk, myLastAnswer] = isBooked
+    ? await Promise.all([fetchMyAreaGrants(eventId), fetchMyPendingAsk(eventId), readMyLastAccessAnswer(supabase, eventId, user.id)])
+    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null];
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
@@ -1917,16 +1920,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
    * sentence is not a mechanism. Defined here, used twice, so the two cannot
    * drift again.
    */
-  const askBlock =
-    isBooked && (askableAreas.length > 0 || myPendingAsk) ? (
-      <div className="mt-4">
-        <AskAccess
-          eventId={eventId}
-          askable={askableAreas}
-          pendingAreas={myPendingAsk?.requestedAreas ?? null}
-        />
-      </div>
-    ) : null;
+  const askBlock = isBooked ? (
+    <div className="mt-4 space-y-4">
+      <AskAccess
+        eventId={eventId}
+        askable={askableAreas}
+        pendingAreas={myPendingAsk?.requestedAreas ?? null}
+        held={myGrants}
+        lastAnswer={myLastAnswer}
+        askerIsCoordinator={isBookedCoordinator}
+      />
+    </div>
+  ) : null;
 
   const pipelineBlock = (
     <div className="mt-3">

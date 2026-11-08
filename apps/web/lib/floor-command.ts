@@ -158,16 +158,22 @@ export function resolveSeatScan(
 // ─── 3b. Asking the host for access ────────────────────────────────────────
 
 /**
- * The areas a coordinator can ask for, in the order the ask is shown. A subset
- * of `DELEGATE_AREAS` on purpose: mood board and budget are not floor tools,
- * and putting them on a day-of ask invites a host to hand over the budget for
- * no reason. Asking wide is a privacy cost with no operational benefit.
+ * The parts a booked supplier can ask for, in the order the ask is shown (owner 8 Nov 2026: *"each supplier or
+ * coordinator can request for access for different parts of the event. they only see these specific parts"*).
+ *
+ * Mood Board and Budget & payments joined on 8 Nov — the ask now lives on the client page where a supplier plans for
+ * months, not only on the day-of floor. Both stay narrow by construction: Budget is View at most for everybody
+ * (`areaChoices`, locked D1), and the Mood Board's Edit is the coordinator's alone (a non-coordinator suggests photos).
+ * Still a subset of `DELEGATE_AREAS`: the Event Hub has no gate to grant (`areaChoices` → null), and Photos — the
+ * guests' likenesses — stay a host's own decision in People with access, never an ask.
  */
 export const FLOOR_REQUESTABLE_AREAS: readonly DelegateArea[] = [
   'seat_plan',
   'schedule',
   'guest_list',
   'vendors',
+  'mood_board',
+  'budget',
 ];
 
 /**

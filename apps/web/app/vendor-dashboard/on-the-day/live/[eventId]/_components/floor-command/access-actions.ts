@@ -16,13 +16,22 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
-import { normalizeRequestedAreas } from '@/lib/floor-command';
-import { resolveAreaLevel, type DelegateArea, type ModeratorPermissions } from '@/lib/event-moderators';
+import { FLOOR_REQUESTABLE_AREAS, normalizeRequestedAreas } from '@/lib/floor-command';
+import type { DelegateArea, ModeratorPermissions } from '@/lib/event-moderators';
+import { SUPPLIER_SEAT_ROLE, seatAreaLevel } from '@/lib/delegate-areas';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type AskAccessResult = { ok: boolean; error?: string; asked?: DelegateArea[] };
 
-/** What the host has already shared with this user on this event. */
+/**
+ * What the host has already shared with this user on this event — as the DATABASE resolves it.
+ *
+ * ✋ CAPPED LIKE THE DATABASE (owner 8 Nov 2026): a supplier's seat (`wedding_planner_external`) held by a booked
+ * supplier who is NOT the booked coordinator reads 'view' wherever the seat says 'edit' — `moderator_area_level` caps
+ * it (migration 20271329978605), so promising Edit here would draw a control the database refuses. The cap's fact is
+ * the database's own (`supplier_proposes_only`), never re-derived. A check that did not answer reads as capped — the
+ * narrower promise.
+ */
 export async function fetchMyAreaGrants(
   eventId: string,
 ): Promise<Partial<Record<DelegateArea, 'edit' | 'view' | null>>> {
@@ -39,26 +48,27 @@ export async function fetchMyAreaGrants(
   // it as "already held" and quietly dropped that area from what the
   // coordinator could ask for. They would have been unable to ask for a thing
   // they did not have, on both screens at once.
-  const { data } = await supabase
-    .from('event_moderators')
-    .select('permissions_json, removed_at')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
-    .is('removed_at', null)
-    .maybeSingle();
+  const [{ data }, proposes] = await Promise.all([
+    supabase
+      .from('event_moderators')
+      .select('permissions_json, role_subtype, removed_at')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .not('accepted_at', 'is', null)
+      .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
+      .is('removed_at', null)
+      .maybeSingle(),
+    supabase.rpc('supplier_proposes_only', { p_event_id: eventId }),
+  ]);
 
   if (!data) return {};
-  const perms = (data as { permissions_json: ModeratorPermissions }).permissions_json;
+  const seat = data as { permissions_json: ModeratorPermissions; role_subtype: string | null };
+  const proposesOnly = seat.role_subtype === SUPPLIER_SEAT_ROLE && (proposes.error ? true : proposes.data === true);
   // Resolve through the SAME helper the SQL gate mirrors, so the UI's idea of
   // "already held" cannot drift from what moderator_area_level() will say.
-  return {
-    seat_plan: resolveAreaLevel(perms, 'seat_plan'),
-    schedule: resolveAreaLevel(perms, 'schedule'),
-    guest_list: resolveAreaLevel(perms, 'guest_list'),
-    vendors: resolveAreaLevel(perms, 'vendors'),
-  };
+  const out: Partial<Record<DelegateArea, 'edit' | 'view' | null>> = {};
+  for (const area of FLOOR_REQUESTABLE_AREAS) out[area] = seatAreaLevel(seat.permissions_json, area, proposesOnly);
+  return out;
 }
 
 /** Whether this coordinator already has an unanswered ask outstanding. */
@@ -135,7 +145,7 @@ export async function askHostForAccess(
     // The partial unique index is the one collision worth naming: it means an
     // ask is already sitting with the host, not that anything went wrong.
     if (error.code === '23505') {
-      return { ok: false, error: 'You already have a request waiting with the host.' };
+      return { ok: false, error: 'You already have a request waiting with the host or the coordinator.' };
     }
     return { ok: false, error: error.message };
   }

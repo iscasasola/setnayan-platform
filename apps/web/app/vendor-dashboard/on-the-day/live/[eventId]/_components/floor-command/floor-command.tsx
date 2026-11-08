@@ -92,7 +92,14 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
       </p>
 
       {model.needsHostAccess ? (
-        <AskAccess eventId={eventId} askable={askable} pendingAreas={pendingAsk?.requestedAreas ?? null} />
+        // The floor console is the coordinator's specialization: their own ask is the hosts' to answer.
+        <AskAccess
+          eventId={eventId}
+          askable={askable}
+          pendingAreas={pendingAsk?.requestedAreas ?? null}
+          held={grants}
+          askerIsCoordinator
+        />
       ) : null}
 
       {model.schedule.state === 'ready' ? (

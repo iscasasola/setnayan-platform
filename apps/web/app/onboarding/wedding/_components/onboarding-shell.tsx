@@ -117,13 +117,13 @@ import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
-import { seatCouple, seatSelf, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
+import { moveSelf, seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { PasswordField } from '@/app/_components/password-field';
-import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
+import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -355,8 +355,8 @@ const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> =
   ) as Record<OnboardingFaith, { img: string; cap: string }>;
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
-  { value: 'bride', title: 'Bride', desc: 'Walking down the aisle.' },
-  { value: 'groom', title: 'Groom', desc: 'Waiting at the front.' },
+  // The couple's two rows are the names card's "Which one is you?" rows — one set of words.
+  ...WEDDING_SELF_SIDES.map((o) => ({ value: o.key, title: o.label, desc: o.hint })),
   { value: 'helper', title: 'Someone helping', desc: 'A parent, planner, or part of the entourage.' },
 ];
 
@@ -2002,7 +2002,8 @@ export function OnboardingShell({
     setState((s) => {
       // A carried couple wins; otherwise the person's OWN slot starts from their account name
       // (owner 2026-11-08 — own data starts filled, stays editable; the partner's slot never is).
-      const seated = coupleCarry.current ? seatCouple(r, coupleCarry.current, s) : seatSelf(r, selfName, s);
+      // A re-pick MOVES the untouched account name to the new own slot (moveSelf) — typed text never moves.
+      const seated = coupleCarry.current ? seatCouple(r, coupleCarry.current, s) : moveSelf(s.role, r, selfName, s);
       return {
         ...s,
         role: r,
@@ -2278,8 +2279,8 @@ export function OnboardingShell({
           state.monogramFinalized
         );
       case 'w_names':
-        // First names are required (they go on the invitation); last names are optional.
-        return state.brideFirstName.trim().length > 0 && state.groomFirstName.trim().length > 0;
+        // "Which one is you?" answered, and both first names (they go on the invitation); last names optional.
+        return weddingNamesReady(state);
       case 'w_kind':
         return state.kind !== null && (state.kind === 'civil' || state.faith.length >= 1);
       case 'w_area':
@@ -4410,6 +4411,7 @@ export function OnboardingShell({
                       card={card as WeddingCardId}
                       state={state}
                       patch={patch}
+                      pickSelf={selectRole}
                       n={questionN}
                       total={questionTotal}
                       activeFaiths={activeFaiths}

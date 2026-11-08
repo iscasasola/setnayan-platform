@@ -31,6 +31,7 @@ import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vend
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { DAILY_CAPACITY_MAX, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -1274,21 +1275,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           todayIso={todayIso}
           pools={pools}
           // Only what the month and the day's rows read — a block's contact and note never cross the wire.
-          bookings={bookings.map((b) => ({ poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName }))}
-          blocks={blocks.map((k) => ({
-            // A closure's id (the day switch reopens a one-day closure by it); an outside booking's never crosses.
-            blockId: k.source === 'manual' ? k.blockId : undefined,
-            poolId: k.poolId,
-            source: k.source,
-            startDate: k.startDate,
-            endDate: k.endDate,
-            label: k.source === 'external_client' ? null : k.label,
-            clientName: k.source === 'external_client' ? k.clientName : null,
-            clientTime: k.source === 'external_client' ? k.clientTime : null,
-            repeat: k.repeat,
-            repeatUntil: k.repeatUntil,
-            dayPart: k.dayPart,
-          }))}
+          bookings={datesBookingsForWire(bookings)}
+          blocks={datesBlocksForWire(blocks)}
           agents={agents}
           agentCategories={agentCategories}
           halls={pools.every((p) => p.isHall) && pools.length > 0}

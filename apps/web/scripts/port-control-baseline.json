@@ -11823,6 +11823,36 @@
         "ThreadToolsSheet"
       ]
     },
+    "/dev/clients-lab": {
+      "files": [
+        "dev/clients-lab/lab-calendar.ts",
+        "dev/clients-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/clients-lab?v=pick&page=details"
+      ],
+      "actions": [
+        "null"
+      ],
+      "blocks": [
+        "ClientsShowSort",
+        "CustomersPin",
+        "DatesRow",
+        "DetailsDecisionsDoor",
+        "DetailsFormsDoor",
+        "DetailsNumbersRow",
+        "HostsList",
+        "MeetingsList",
+        "PaymentsList",
+        "PickedClientShell",
+        "ScheduleCalendar",
+        "SupplierBlockRow",
+        "SupplierSchedule",
+        "SuppliersList",
+        "ThumbRow",
+        "UnreadList"
+      ]
+    },
     "/dev/collapsing-top-lab": {
       "files": [
         "dev/collapsing-top-lab/page.tsx"
@@ -15333,6 +15363,8 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-money-fold.tsx",
         "vendor-dashboard/clients/[eventId]/_components/day-check-line.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/details-decisions-door.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/details-decisions.ts",
         "vendor-dashboard/clients/[eventId]/_components/details-forms-door.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers-row.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
@@ -15345,6 +15377,7 @@
         "vendor-dashboard/clients/[eventId]/_components/picked-client-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-settings.tsx",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/schedule-calendar.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-count-tile.tsx",
@@ -15448,9 +15481,11 @@
         "CoupleAnswers",
         "CoupleLogo",
         "CustomerMoneyFold",
+        "CustomersCalendar",
         "DayCheckLine",
         "DaySheetBody",
         "DeclineReasonFields",
+        "DetailsDecisionsDoor",
         "DetailsFormsDoor",
         "DetailsNumbersRow",
         "DetailsPage",
@@ -15476,6 +15511,7 @@
         "Icon",
         "Image",
         "InfoTip",
+        "Inputs",
         "InspirationCardPick",
         "LedgerUnreadableNote",
         "Link",
@@ -15519,6 +15555,7 @@
         "Row",
         "RunOfShowHeader",
         "SaveFileLink",
+        "ScheduleCalendar",
         "SchedulePage",
         "ScheduleSavedMark",
         "ScheduleTab",
@@ -15835,6 +15872,7 @@
         "vendor-dashboard/customers/clients-show-sort.ts",
         "vendor-dashboard/customers/clients-tiles.ts",
         "vendor-dashboard/customers/dates-figures.ts",
+        "vendor-dashboard/customers/dates-wire.ts",
         "vendor-dashboard/customers/layout.tsx",
         "vendor-dashboard/customers/money-pin-figures.ts",
         "vendor-dashboard/customers/page.tsx",

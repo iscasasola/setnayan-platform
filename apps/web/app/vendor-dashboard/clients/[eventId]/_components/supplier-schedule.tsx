@@ -181,6 +181,8 @@ export function SupplierSchedule({
 
   return (
     <div data-supplier-schedule="" className="space-y-4">
+      {/* 🗓 v113 ORDER (B1 step 8, controller 2026-11-08): what needs you now · how changes go · Where · your hours
+          (the chapters) · Lock my times · Asked of you. A move, not a rewrite — every block is the shipped one. */}
       {/* Seen · Confirm my times — the two things that ask the supplier to act, first. */}
       {marks === null ? (
         <p className="text-xs text-ink/55">Whether you’ve seen the latest changes couldn’t be checked.</p>
@@ -198,79 +200,6 @@ export function SupplierSchedule({
       ) : confirmed ? (
         <p data-times-confirmed="" className="text-xs text-success-900">✓ You confirmed your times.</p>
       ) : null}
-      {/* 🔒 CHANGE LOCK — one line: what is true now, the one verb, the rest in the ⓘ. */}
-      {marks !== null ? (
-        <div data-times-lock={lockedAt ? 'locked' : 'open'} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <InfoTip
-            label={lockedAt ? `Your times are locked${markDay(lockedAt) ? ` · ${markDay(lockedAt)}` : ''}` : 'Your times are open to changes'}
-            labelClassName={lockedAt ? 'font-semibold text-ink' : 'text-ink/70'}
-          >
-            {lockedAt
-              ? 'The hosts and the coordinator can’t change your moments or your crew while this is on. They send you a request instead. Your own requests still go to them. Unlock any time.'
-              : 'Lock your times when your part is final. After that, the hosts and the coordinator can’t change your moments or your crew — they send you a request instead. You can unlock any time.'}
-          </InfoTip>
-          {lockedAt ? (
-            <ActionButton tone="neutral" icon={LockOpen} label={marking === 'unlock' ? 'Unlocking…' : 'Unlock'} disabled={marking !== null} onClick={() => void mark('unlock')} data-testid="unlock-times" />
-          ) : (
-            <ActionButton tone="neutral" icon={Lock} label={marking === 'lock' ? 'Locking…' : 'Lock my times'} disabled={marking !== null} onClick={() => void mark('lock')} data-testid="lock-times" />
-          )}
-        </div>
-      ) : null}
-
-      {/* 📍 WHERE — the chapters they serve: one dropdown, sent as a request; the details sit in the ⓘ. */}
-      {where === null ? (
-        <p role="alert" data-supplier-where="unread" className="text-sm font-semibold text-danger-700">
-          Your chapters couldn’t be read just now. Nothing is lost — pull to refresh.
-        </p>
-      ) : where.length > 0 && day.chapters.length > 0 ? (
-        <section data-supplier-where="" aria-label="Where you go">
-          <FormRows width="wide">
-            {where.map((w) => (
-              <SupplierWhereRow key={w.vendorId} w={w} send={send} autoAgree={autoAgree} locked={Boolean(lockedAt)} onSaid={setSaid} />
-            ))}
-          </FormRows>
-        </section>
-      ) : null}
-
-      {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place, above everything else to do. */}
-      {asked === null ? (
-        <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
-          What the hosts asked of you couldn’t be read just now. Nothing is lost — pull to refresh.
-        </p>
-      ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
-        <section data-asked-of-you="" aria-label="Asked of you">
-          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55" align="start">
-            The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
-            once; Decline tells them, with your reason.
-          </InfoTip>
-          <ul className="mt-1 divide-y divide-ink/10">
-            {asked
-              .filter((a) => !answeredNow.includes(a.suggestion_id))
-              .map((a) => (
-                <AskedRow
-                  key={a.suggestion_id}
-                  a={a}
-                  label={labelOf(day, a.block_id)}
-                  send={send}
-                  whereNames={a.kind === 'where' ? (a.proposed_block_ids ?? []).map((id) => labelOf(day, id) ?? 'a chapter that is gone').join(', ') : null}
-                  whereNow={linked.map((c) => c.label).join(', ') || 'no chapter yet'}
-                  onAnswered={(r, yes) => {
-                    if (r.ok) setAnsweredNow((l) => [...l, a.suggestion_id]);
-                    after(
-                      r,
-                      yes
-                        ? a.kind === 'where'
-                          ? 'Accepted. You’re on those chapters.'
-                          : 'Accepted. Their schedule has your new time.'
-                        : 'Declined. They’ve been told.',
-                    );
-                  }}
-                />
-              ))}
-          </ul>
-        </section>
-      ) : null}
-
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PickMenu
           label="Show"
@@ -290,6 +219,21 @@ export function SupplierSchedule({
           {whereItGoesWords(autoAgree)} Other people’s moments are theirs: you can suggest a change to one in words.
         </InfoTip>
       </div>
+
+      {/* 📍 WHERE — the chapters they serve: one dropdown, sent as a request; the details sit in the ⓘ. */}
+      {where === null ? (
+        <p role="alert" data-supplier-where="unread" className="text-sm font-semibold text-danger-700">
+          Your chapters couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : where.length > 0 && day.chapters.length > 0 ? (
+        <section data-supplier-where="" aria-label="Where you go">
+          <FormRows width="wide">
+            {where.map((w) => (
+              <SupplierWhereRow key={w.vendorId} w={w} send={send} autoAgree={autoAgree} locked={Boolean(lockedAt)} onSaid={setSaid} />
+            ))}
+          </FormRows>
+        </section>
+      ) : null}
 
       {/* 🚗 ONE CREW, TWO EVENTS (slice 5): said once here, and on each moment it touches. Only the supplier sees it. */}
       {elsewhere === null ? (
@@ -377,6 +321,64 @@ export function SupplierSchedule({
           ))}
         </ol>
       )}
+
+      {/* 🔒 CHANGE LOCK — one line under your times (v113): what is true now, the one verb, the rest in the ⓘ. */}
+      {marks !== null ? (
+        <div data-times-lock={lockedAt ? 'locked' : 'open'} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <InfoTip
+            label={lockedAt ? `Your times are locked${markDay(lockedAt) ? ` · ${markDay(lockedAt)}` : ''}` : 'Your times are open to changes'}
+            labelClassName={lockedAt ? 'font-semibold text-ink' : 'text-ink/70'}
+          >
+            {lockedAt
+              ? 'The hosts and the coordinator can’t change your moments or your crew while this is on. They send you a request instead. Your own requests still go to them. Unlock any time.'
+              : 'Lock your times when your part is final. After that, the hosts and the coordinator can’t change your moments or your crew — they send you a request instead. You can unlock any time.'}
+          </InfoTip>
+          {lockedAt ? (
+            <ActionButton tone="neutral" icon={LockOpen} label={marking === 'unlock' ? 'Unlocking…' : 'Unlock'} disabled={marking !== null} onClick={() => void mark('unlock')} data-testid="unlock-times" />
+          ) : (
+            <ActionButton tone="neutral" icon={Lock} label={marking === 'lock' ? 'Locking…' : 'Lock my times'} disabled={marking !== null} onClick={() => void mark('lock')} data-testid="lock-times" />
+          )}
+        </div>
+      ) : null}
+
+      {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place (v113: after your times and the lock). */}
+      {asked === null ? (
+        <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
+          What the hosts asked of you couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
+        <section data-asked-of-you="" aria-label="Asked of you">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55" align="start">
+            The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
+            once; Decline tells them, with your reason.
+          </InfoTip>
+          <ul className="mt-1 divide-y divide-ink/10">
+            {asked
+              .filter((a) => !answeredNow.includes(a.suggestion_id))
+              .map((a) => (
+                <AskedRow
+                  key={a.suggestion_id}
+                  a={a}
+                  label={labelOf(day, a.block_id)}
+                  send={send}
+                  whereNames={a.kind === 'where' ? (a.proposed_block_ids ?? []).map((id) => labelOf(day, id) ?? 'a chapter that is gone').join(', ') : null}
+                  whereNow={linked.map((c) => c.label).join(', ') || 'no chapter yet'}
+                  onAnswered={(r, yes) => {
+                    if (r.ok) setAnsweredNow((l) => [...l, a.suggestion_id]);
+                    after(
+                      r,
+                      yes
+                        ? a.kind === 'where'
+                          ? 'Accepted. You’re on those chapters.'
+                          : 'Accepted. Their schedule has your new time.'
+                        : 'Declined. They’ve been told.',
+                    );
+                  }}
+                />
+              ))}
+          </ul>
+        </section>
+      ) : null}
 
       {day.otherWaiting.length > 0 ? (
         <section aria-label="Also waiting for the host">

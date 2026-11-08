@@ -13,7 +13,7 @@
  * Sabotage log (2026-11-08, each reverted): `setPicked((was) => (was === d ? null : d))` → `setPicked(d)` → 1 red ·
  * the Book a client href → `/vendor-dashboard/customers?add=outside` → 2 red · `zero: overdue?.n === 0` → `zero: false`
  * → 5 red · `countWords` returning `formatCount(r.n)` for a failed read → 5 red · `seatChosen` ignoring `ctx.agent` → 6
- * red · Handled by without "Me" → 7 red.
+ * red · the grid un-keyed (`startAt={initialMonth}`) → 1 red · Handled by without "Me" → 7 red · the Service line back to "Clients who booked it" → 7 red.
  *   6 · Show & sort narrows the WHOLE roster by Service · Status · Client · Handled by (an agent held to their own seat),
  *       then Group by / Sort order it, under sticky headings;
  *   7 · the sheet is the Guests sheet's extracted frame (Guests re-mounted on it), with the Clients rows.
@@ -51,11 +51,14 @@ test('1 · a picked day can be let go — every day still to come, each under a 
   assert.match(MONTH, /const toggleDay = \(d: CalendarDay\) => setPicked\(\(was\) => \(was === d \? null : d\)\);/, 'tapping the picked day again does not let it go');
   assert.match(MONTH, /onPick=\{toggleDay\}/, 'the month does not let a day go');
   assert.match(MONTH, /inMonth \? toggleDay\(d\)/, 'the week strip does not let a day go');
+  // Found in the 375-px walk (2026-11-08): a strip step across a month's edge moved the rows to the new month while the
+  // uncontrolled grid stayed on the old one. The grid is keyed by the month on show.
+  assert.match(MONTH, /<CalendarGrid\s+key=\{month\}[\s\S]{0,120}startAt=\{`\$\{month\}-01`\}/, 'the month grid can show a different month from its rows');
   assert.match(MONTH, /data-dates-all-days=/, 'no list of every day when none is picked');
   assert.match(MONTH, /\.filter\(\(d\) => d\.date >= todayIso\)/, 'the every-day list shows days already gone');
   const head = MONTH.slice(MONTH.indexOf('data-dates-day-heading'), MONTH.indexOf('data-dates-day-heading') + 10);
   assert.ok(head.length > 0, 'no day heading');
-  assert.match(MONTH, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: headTop/, 'the day heading does not pin');
+  assert.match(MONTH, /className="sticky z-\[3\][^"]*"\s+style=\{\{ top: headTop/, 'the day heading does not pin');
   assert.match(MONTH, /const headTop = pinH \+ \(folded \? 54 : 0\);/, 'the day heading does not pin under the row and the week strip');
 });
 
@@ -173,7 +176,7 @@ test('6 · Show & sort narrows by Service · Status · Client · Handled by — 
   // The page applies it before counting and paging, and draws the headings sticky.
   assert.match(PAGE, /order: \(rows\) => orderClients\(rows, choice, clientsCtx, groupKey\)/);
   const ROSTER = code('_components', 'customers-roster.tsx');
-  assert.match(ROSTER, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h\)'/, 'the group heading does not pin');
+  assert.match(ROSTER, /className="sticky z-\[3\][^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h\)'/, 'the group heading does not pin');
   // A refused team read narrows nobody by a guess.
   assert.match(PAGE, /agent: teamKnown && viewerIsAgent,/);
 });
@@ -187,6 +190,7 @@ test('7 · the sheet is the Guests sheet’s frame, with the Clients rows — Ha
   for (const name of ['Show', 'Service', 'Status', 'Client', 'Handled by', 'Group by', 'Sort']) {
     assert.match(SHEET, new RegExp(`name="${name}"`), `the sheet has no ${name} row`);
   }
+  assert.match(SHEET, /name="Service"\s+line="Service shows booked clients only"/, 'Service does not say it reads booked clients only (an asking event has no service yet)');
   assert.match(SHEET, /\{ key: ALL, label: 'All seats' \}, \{ key: 'me', label: 'Me' \}, \.\.\.seats/, 'Handled by is not All seats · Me · each seat');
   assert.match(SHEET, /Your clients only/, 'an agent is not told why they see only theirs');
   assert.match(SHEET, /rootClassName="fixed inset-0 z-sn-pop"/, 'the sheet does not sit on the pop-up layer token');

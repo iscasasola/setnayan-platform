@@ -52,6 +52,8 @@ import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
 import type { ScheduleAsk } from '@/lib/schedule-ask';
 import type { MoneyRow } from '@/lib/vendor-money';
 import { LAB_CALENDAR, LAB_TODAY } from './lab-calendar';
+import { BookedQrsList, type BookedQrRow } from '@/app/vendor-dashboard/invite/_components/booked-qrs-list';
+import { LockedQrGenerator, type LockedQrInitial } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -197,6 +199,33 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
   };
 }
 
+/** #34 lab rows — one per group. */
+const LAB_BOOKED_QRS: BookedQrRow[] = [
+  { token: 'a1b2c3d4e5f60718', title: 'Full-day coverage', line: 'Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
+  { token: 'b1b2c3d4e5f60718', title: 'Same-day edit', line: 'Sun 10 Jan · ₱15,000 · ₱5,000 paid · used 2 Nov', status: 'claimed', openHref: '/dev/clients-lab?v=pick&page=details' },
+  { token: 'c1b2c3d4e5f60718', title: 'Prenup shoot', line: 'Sat 6 Feb · ₱30,000 · ₱10,000 paid · deleted 1 Nov', status: 'void', openHref: null },
+];
+const LAB_BOOKED_CHANGE: LockedQrInitial = {
+  replaces: 'a1b2c3d4e5f60718',
+  eventType: 'wedding',
+  eventDate: '2026-12-19',
+  description: 'Full-day coverage, two shooters',
+  serviceRefs: ['svc-full', 'svc-sde'],
+  contractId: '',
+  total: '80000',
+  initialPaid: '20000',
+  schedule: [
+    { label: 'First payment', amount: '20000', date: '2026-11-08' },
+    { label: 'Balance', amount: '60000', date: '2026-12-12' },
+  ],
+  lines: [
+    { label: 'Full-day coverage', detail: null, amount_centavos: 6_500_000 },
+    { label: 'Same-day edit', detail: null, amount_centavos: 1_500_000 },
+  ],
+  proofRef: '',
+  remembranceRef: '',
+};
+
 /**
  * #29 The lab's stand-ins for the day bar's two writes: they write NOTHING (no database) and answer, so "Accept
  * bookings" can be flipped and felt on a dummy env. `?refuse=1` hands the refusing one instead — the switch puts itself
@@ -215,6 +244,30 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const v = one(sp.v) ?? 'events';
+
+  // 🎟 #34 THE BOOKED QR, COMPLETED: the Booked QRs list (Waiting · Used · Deleted) and the shipped generator opened to
+  // CHANGE a waiting code — its quotation built in place, the Total following the lines. Lab rows; nothing is read.
+  if (v === 'booked') {
+    return (
+      <div className="min-h-screen bg-cream" data-clients-lab="booked">
+        <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-24 pt-4">
+          <h1 className="text-lg font-semibold text-ink">Booked QRs</h1>
+          <BookedQrsList rows={LAB_BOOKED_QRS} />
+          <LockedQrGenerator
+            eventTypes={[{ value: 'wedding', label: 'Wedding' }]}
+            services={[
+              { value: 'svc-full', label: 'Full-day coverage' },
+              { value: 'svc-sde', label: 'Same-day edit' },
+            ]}
+            servicePrices={{ 'svc-full': 65000, 'svc-sde': 15000 }}
+            contracts={[]}
+            dateExempt
+            initial={LAB_BOOKED_CHANGE}
+          />
+        </main>
+      </div>
+    );
+  }
 
   if (v === 'pick') {
     const page = (one(sp.page) ?? 'details') as PickedClientPage;

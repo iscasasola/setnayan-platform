@@ -362,7 +362,8 @@ test('8 · the shop’s codes are ONE list — a row per code, the QR card (Shar
   assert.match(view, /<QrCodeList rows=\{rows\}/, 'the codes are not ONE list');
   assert.doesNotMatch(view + page, /<PillTrack|role="tablist"/, 'the QR type is a pill track again');
   assert.match(code(join(VD, 'locked-qr', 'page.tsx')), /redirect\('\/vendor-dashboard\/invite\?mode=locked&ledger=1#issued'\)/, '/locked-qr does not land on the Issued fold');
-  assert.match(view, /<Fold\s+title="Issued"/);
+  // B2-A #34: the Issued fold is the Booked QRs list (Waiting · Used · Deleted) — same fold, same `#issued` landing.
+  assert.match(view, /<Fold\s+title="Booked QRs"/);
   assert.equal(existsSync(join(VD, '_components', 'qr-section.tsx')), false, 'the second QR card is back on Dates');
   assert.match(FOLDS, /title="QR codes"[\s\S]{0,80}href=\{qrHref\}/, 'Dates lost its QR codes row');
   const { QrCard } = await import('../../_components/qr-card');

@@ -19,5 +19,11 @@
 - **#29** Accept bookings is felt: flipping the day bar's switch strikes / un-strikes the day on the month and the week
   strip at once, then squashes it (off) or pops it with a small confetti burst (on); reduced motion keeps only the
   strike. Guard: `customers/accept-bookings-is-felt.test.ts`.
+- **#34** The Booked QR is the shipped Locked QR, completed: the quotation is built in place (a line per picked
+  service, the shop's own lines, editable prices; the Total is their sum, re-added on the server) and stored with the
+  code; a Booked QRs list (Waiting · Used · Deleted) — tap a waiting code to change it (void + reissue), swipe to delete
+  with Undo, tap a used one to open that client. Migration `20271327929301_booked_qr_quote_lines_and_void` (quote
+  lines, the shop's void, a status that only moves forward) — not applied. Guards: `invite/the-booked-qr-is-completed.test.ts`,
+  `tests/db/booked-qr-quote-lines-and-void.db.test.ts`.
 
 SPEC IMPACT: None — builds the approved v113/v118 prototype (corpus prototypes/supplier_clients_2026-11-07).

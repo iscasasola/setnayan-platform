@@ -138,6 +138,42 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - **Requests:** 0 (the switch's write is the shipped one; nothing is read for the feel). Shots: `sbs-29-off-squash`,
   `sbs-29-on-confetti` (+ reduced, light + dark).
 
+### #34 — the Booked QR is the shipped Locked QR, completed
+- **Migration `20271327929301_booked_qr_quote_lines_and_void.sql`** (via `pnpm migration:new`; **NOT applied anywhere**):
+  · `quote_line_items JSONB` (nullable, no default; must be an array) — the `vendor_proposals.line_items` shape
+    `[{label, detail, amount_centavos}]`, never a second line shape; NULL = "never said" (the `service_card_ids` rule);
+  · `voided_at TIMESTAMPTZ`;
+  · `vendor_void_locked_qr(token)` — SECURITY INVOKER, so the shop's own `vendor_locked_qr_vendor_all` RLS decides whose
+    (no new policy); pending → void only; answers `void · claimed · already_void · not_found`;
+  · trigger `vendor_locked_qr_status_forward` — a status only moves forward (pending → claimed | void). The FOR ALL
+    policy let a shop's session un-void a dead code or void a claimed one; measured first: the only status write
+    anywhere is the claim's pending → claimed, and the app never updates the table.
+  No new table → no new RLS; the column rides the existing vendor-org policy (asserted).
+- **db test** `tests/db/booked-qr-quote-lines-and-void.db.test.ts` (5): lines stored / NULL stays NULL / non-array
+  refused · void + its three refusals · as the signed-in shop another shop's code is `not_found` · forward-only for any
+  caller, the claim still goes · neutralised (trigger dropped → the un-void goes through).
+- **Issue** (`issueLockedQr`): stores the lines; with lines the Total is RE-ADDED on the server (`lockQuoteTotalPhp`),
+  never the typed figure. **Change = void + reissue**: the NEW code is made first, the old one voided after; if the old
+  was scanned meanwhile, the new one is voided back and the shop told (`replaced_claimed`) — never two live codes, never
+  none. **Delete**: a `void_token` MODE of `issueLockedQr` (see Needs: the action budget).
+- **Generator** (the shipped `locked-qr-generator.tsx`, delta only): a **Quotation** block under the services — each
+  picked service seeds its line (priced from its card's `starting_price_php`, blank when none), "Add a line", every
+  price editable, a line's ✕ (an editor field — allowed); the Total field reads the lines' sum and is read-only while
+  there are lines. `?edit=<token>` opens it filled from a waiting code (this shop's, still pending), proof and
+  remembrance kept.
+- **Booked QRs list** (`invite/_components/booked-qrs-list.tsx`, in the shipped Issued fold, now titled "Booked QRs"):
+  Waiting · Used · Deleted; tap waiting → change it; swipe waiting → Delete with Undo (`SwipeToDelete` +
+  `deleteWithUndo`, written when the window closes); tap used → that client's Details (`customerCardHref`, #38); a
+  deleted one has no door. Rows lead with the deal's own words, then the date · total · paid · made/used/deleted.
+- **Entry from Clients:** "Book a client" already opened this generator on the picked day (`bookAClientHref`) — unchanged.
+- Guard `invite/the-booked-qr-is-completed.test.ts` (5). Sabotaged (the typed Total trusted over the lines) — caught.
+  Pin re-anchored: `dates-is-one-calendar.test.ts` (`<Fold title="Issued"` → `"Booked QRs"`). Touched-file tests
+  **469 pass · 0 fail**; ESLint clean; server-action budget **1237 / 1237** (unchanged).
+- Lab: `/dev/clients-lab?v=booked` (the list's three groups + the generator changing a waiting code). Measured:
+  3 groups, 2 lines, Total ₱80,000 read-only; a price 65,000 → 70,000 moves the Total to ₱85,000; no page errors.
+- **Requests:** the page's existing ledger read gains 4 columns (0 new requests); `?edit=` adds ONE read, run inside the
+  generator's existing `Promise.all`. Shots: `sbs-34-booked-qrs-list`, `sbs-34-quotation-in-place`.
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
@@ -152,9 +188,19 @@ add the class by hand so the dark rules can be judged before the area is listed.
   · "While a client is open the list ignores the view filter" — on a phone the list is off screen while a client is
     open (a route). #27 covers the calendars' return; closing an opened CLIENT returns through the router (the
     @client intercept from the base), which keeps the list's scroll — not re-measured here.
+- #34 vs v118: v118 draws the Booked QR as a SHEET with a "Booked QRs · 1 waiting · track, change or delete" row at
+  its top and a **Client** name field; the build extends the shipped generator page (no sheet) and has no client name
+  — the token has no column for one (more schema: a controller call). The Booked QRs list lives in the page's fold, not
+  a row at the form's top. "Clients ⚙ → Booked QRs" is NOT added yet (the gear's sheet is another lane's).
+  The quote lines are stored but the CLAIM does not copy them onto the couple's quotation yet — a claim-function change.
+- Forced dark: the shipped generator's `bg-white/60` panels are not dark-swept (pre-existing, `sbs-34-*-dark`).
 - Forced dark: the opened-event pane (Schedule / Details) keeps a white ground — not dark-swept yet (not live).
 
 ## Needs
+- **Server-action budget is AT its ceiling (1237/1237).** #34's delete is therefore a `void_token` mode of the shipped
+  `issueLockedQr`, not its own action — an exported `voidLockedQr` made it 1238, and an inline page action made it 1239
+  (the lint counts every `export const` in any file with a `'use server'` line). A clean `voidLockedQr` needs a fresh
+  `vercel build` route count and a CEILING raise — a controller call.
 - tsc: the #43 run was green (rc 0, 0 errors). The #37 run was killed by a signal (exit 144) while QUEUED for the
   heavy lock — it never compiled. Not re-run; CI's typecheck is the gate on the controller's PR.
 
@@ -166,4 +212,4 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43, #38, #37, #28, #36, #27, #29 committed + pushed. Next: #34 (the Booked QR — one migration, never applied).
+- #43, #38, #37, #28, #36, #27, #29, #34 committed + pushed. Next: #42 (Decisions in place, from C2's batched read).

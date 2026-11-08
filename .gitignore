@@ -48,6 +48,10 @@
 # read a stale copy from one machine's disk.
 !/docs/
 
+# Added 2026-11-08 (THE ONE BUILD integration): every lane's `build-notes/supplier-1build-*.md` was added with
+# `git add -f` because this folder had no allowlist line — the FOURTH time this swallowing pattern bit (lane C2 caught it).
+!/build-notes/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml

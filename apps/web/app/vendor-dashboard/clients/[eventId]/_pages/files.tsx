@@ -24,7 +24,8 @@ import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import { CHAT_DOCUMENT_MAX_MB, CHAT_FILE_EXPIRY_DAYS, CHAT_PHOTO_MAX_MB, CHAT_VIDEO_MAX_MB } from '@/lib/chat-file-rules';
 import { formatCount } from '@/lib/format-number';
 import type { PickedPageProps } from './context';
-import { FilesFinder } from './files-finder';
+// ⚡ On-demand code (`./lazy`): the shipped `FilesFinder`, loaded with this page rather than the route's first load.
+import { FilesFinder } from './lazy';
 
 export type FilesPageProps = PickedPageProps & {
   /**

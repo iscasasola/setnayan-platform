@@ -39,7 +39,7 @@ test('the "in chat" ring is never clipped: the scrolling list pads at least the 
   const ringPx = Number(ring[1]) + Number(ring[2]);
   const ul = /<ul\s+className="([^"]+)"/.exec(src);
   assert.ok(ul, 'the strip lost its <ul>');
-  const cls = ul[1].split(/\s+/);
+  const cls = (ul[1] ?? '').split(/\s+/);
   assert.ok(cls.includes('overflow-x-auto'), 'the list no longer scrolls — re-read the clipping rule');
   const px = (side: 't' | 'b' | 'l' | 'r') => {
     let n = 0;

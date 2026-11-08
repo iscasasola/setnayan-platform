@@ -79,7 +79,7 @@ test('2 · the shipped parts: kind-26 rows, Confirm received · Not received, th
   // 💸 Build 2 parity: the money ledger has a tap path from Payment — Today's Money door, never a second ledger.
   const ledger = /<a (?=[^>]*data-client-payment-ledger="")[^>]*href="([^"]+)"/.exec(html);
   assert.ok(ledger, 'Payment lost its door to the money ledger');
-  assert.equal(ledger[1].replace(/&amp;/g, '&'), customerLandingHref('payday'), 'the ledger door is not the money ledger');
+  assert.equal((ledger[1] ?? '').replace(/&amp;/g, '&'), customerLandingHref('payday'), 'the ledger door is not the money ledger');
 });
 
 test('3 · a refused ledger: "part of this couldn’t load", Next "couldn’t check" — never ₱0', async () => {

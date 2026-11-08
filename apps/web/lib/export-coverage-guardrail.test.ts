@@ -911,7 +911,7 @@ test('T12b · a staff uid on the vendor_profile leaves as a label, never the uid
     assert.ok(table.cols.has(col), `${col} is not a vendor_profiles column — a stale staff label`);
     assert.ok(VENDOR_PROFILE_EXPORT_COLUMNS.includes(col), `${col} left the projection — the subject would not learn it was set`);
     assert.ok(!(col in VENDOR_PROFILE_EXPORT_OMITTED), `${col} is both withheld and labelled`);
-    const out = vendorProfileForExport({ [col]: uid, business_name: 'Shop' } as Record<string, unknown>);
+    const out: Record<string, unknown> = vendorProfileForExport({ [col]: uid, business_name: 'Shop' } as Record<string, unknown>);
     assert.equal(out[col], label, `the staff uid left in ${col}`);
     assert.ok(!JSON.stringify(out).includes(uid), 'the staff uid left the export');
     assert.equal(out.business_name, 'Shop', 'the label swap touched a subject column');

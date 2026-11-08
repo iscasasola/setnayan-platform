@@ -104,9 +104,12 @@ export function AskAccess({
 
       {!waiting && askable.length > 0 ? (
         <div className="mt-3">
+          <p className="text-sm font-medium text-ink">
+            {askerIsCoordinator ? 'Ask the host for access' : 'Ask the host or the coordinator for access'}
+          </p>
           <p className="text-xs text-ink/60">
-            Ask for more. {askerIsCoordinator ? 'The host decides' : 'The host or the coordinator decides'} each part,
-            and can take it back any time.
+            {askerIsCoordinator ? 'The host decides' : 'The host or the coordinator decides'} each part, and can take it
+            back any time.
           </p>
           <div className="mt-2">
             <PickMenu

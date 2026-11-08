@@ -23,7 +23,8 @@ const LIVE_CONSOLE = 'app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx';
 const CLIENT_CARD = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const ASK = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx';
 const ACCESS_ACTIONS =
-  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts';
+  // The reads moved to a server-only module on 8 Nov 2026 (the server-action budget) — the rule moved with them.
+  'lib/my-area-grants.server.ts';
 
 /** Source with comments stripped — a rule that matches a comment explaining
  *  the rule is a rule that cannot fail. */

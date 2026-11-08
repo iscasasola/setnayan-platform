@@ -14,7 +14,7 @@ import {
 import type { DelegateArea } from '@/lib/event-moderators';
 import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
-import { fetchMyAreaGrants, fetchMyPendingAsk } from './access-actions';
+import { fetchMyAreaGrants, fetchMyPendingAsk } from '@/lib/my-area-grants.server';
 import { decideRequestsPanel } from '@/lib/day-requests';
 import { getDayRequestsView } from '../../../../actions';
 import { RequestsInbox } from '../../../../_components/requests-inbox';

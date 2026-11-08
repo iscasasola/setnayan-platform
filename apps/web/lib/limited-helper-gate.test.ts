@@ -14,6 +14,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  supplierProposesRefusal,
   LIMITED_HELPER_CHECK_FAILED,
   LIMITED_HELPER_REFUSAL,
   isEventIdShape,
@@ -69,7 +70,8 @@ test('owner 2026-10-26: a helper the host set to guest list = Edit edits guests 
   assert.equal(await limitedHelperRefusalWith(c, EVENT, 'seat_plan'), 'You can view the seat plan but not change it.');
   assert.equal(await limitedHelperRefusalWith(c, EVENT, null), LIMITED_HELPER_REFUSAL, 'Edit on one area opens no area-less action');
   // The questions are asked of the ONE definition each, about THIS event and THIS area.
-  assert.deepEqual(calls.filter((x) => x.fn !== 'ownSeatLevel').slice(0, 2), [
+  // (`supplier_proposes_only` rides the same first round trip since 8 Nov 2026 — it is filtered out here.)
+  assert.deepEqual(calls.filter((x) => x.fn !== 'ownSeatLevel' && x.fn !== 'supplier_proposes_only').slice(0, 2), [
     { fn: 'is_limited_helper', args: { p_event_id: EVENT } },
     { fn: 'moderator_area_level', args: { p_event_id: EVENT, p_area: 'guest_list' } },
   ]);
@@ -116,5 +118,36 @@ test('a value that is not an event id asks nothing — the action’s own valida
 test('every refusal survives the guest list’s plainRefusal filter — the helper reads it, not "Try again"', () => {
   for (const s of [LIMITED_HELPER_REFUSAL, LIMITED_HELPER_CHECK_FAILED, limitedHelperAreaRefusal('guest_list'), limitedHelperAreaRefusal('schedule')]) {
     assert.equal(isPlainSentence(s), true, s);
+  }
+});
+
+test('✋ 8 Nov 2026: a booked supplier who is not the coordinator is told to PROPOSE — every area, and the area-less', async () => {
+  const calls: string[] = [];
+  const c: LimitedHelperRpcClient = {
+    rpc: (fn) => {
+      calls.push(fn);
+      if (fn === 'is_limited_helper') return Promise.resolve(no);
+      if (fn === 'supplier_proposes_only') return Promise.resolve(yes);
+      return Promise.resolve({ data: 'view', error: null });
+    },
+    ownSeatLevel: () => Promise.resolve({ data: null, error: null }),
+  };
+  for (const area of ['guest_list', 'seat_plan', 'schedule', 'vendors', 'mood_board'] as const) {
+    const said = await limitedHelperRefusalWith(c, EVENT, area);
+    assert.equal(said, supplierProposesRefusal(area), area);
+    assert.match(said ?? '', /propose it from your client page/);
+    assert.ok(isPlainSentence(said ?? ''), `${area}: not a plain sentence`);
+  }
+  assert.equal(await limitedHelperRefusalWith(c, EVENT, null), supplierProposesRefusal(null));
+  assert.ok(!calls.includes('moderator_area_level'), 'the supplier refusal needs no per-area question');
+});
+
+test('a host, a co-host or the coordinator (supplier_proposes_only false) passes — and an unanswered check never blocks a host', async () => {
+  for (const proposes of [no, { data: null, error: { message: 'boom' } }]) {
+    const c: LimitedHelperRpcClient = {
+      rpc: (fn) => Promise.resolve(fn === 'supplier_proposes_only' ? proposes : no),
+      ownSeatLevel: () => Promise.resolve({ data: null, error: null }),
+    };
+    assert.equal(await limitedHelperRefusalWith(c, EVENT, 'guest_list'), null);
   }
 });

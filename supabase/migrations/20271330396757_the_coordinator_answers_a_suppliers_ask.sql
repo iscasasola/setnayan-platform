@@ -168,7 +168,7 @@ BEGIN
   ) AND NOT public.is_limited_helper(v_req.event_id) THEN
     v_as := 'host';
   ELSIF v_req.answerable_by_coordinator
-        AND public.is_booked_coordinator_for(v_req.event_id, v_uid)
+        AND public.is_booked_coordinator(v_req.event_id)
         AND NOT public.is_limited_helper(v_req.event_id) THEN
     v_as := 'coordinator';
   ELSE

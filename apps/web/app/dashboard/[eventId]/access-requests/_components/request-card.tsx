@@ -113,14 +113,14 @@ export function RequestCard({
                 <button
                   type="button"
                   onClick={() => setVerdicts((p) => ({ ...p, [area]: 'granted' }))}
-                  disabled={!mayShare(area)}
-                  title={mayShare(area) ? undefined : 'Only the host can share this — you do not hold it.'}
                   aria-pressed={v === 'granted'}
                   className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-40 ${
                     v === 'granted'
                       ? 'border-success-400 bg-success-500 text-white'
                       : 'border-ink/15 bg-white text-ink/70 hover:border-success-400'
                   }`}
+                  disabled={!mayShare(area)}
+                  title={mayShare(area) ? undefined : 'Only the host can share this — you do not hold it.'}
                 >
                   <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /> Share
                 </button>

@@ -302,6 +302,7 @@ export async function buildPersonalDataExport(
     broadcastsSentRes,
     dayRequestsRes,
     accessRequestsRes,
+    changeRequestsRes,
     eventRemovalReasonsRes,
     eventClustersRes,
     ownCostsRes,
@@ -675,6 +676,16 @@ export async function buildPersonalDataExport(
       .from('event_access_requests')
       .select('request_id, event_id, kind, requested_areas, note, status, decisions, created_at')
       .eq('requester_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (8 Nov 2026) — the changes the subject PROPOSED to a couple's guest list, seat plan or suppliers,
+    // scoped to proposed_by_user_id (the author), with their own note and the answer. ⚖ `payload` and `summary` are
+    // deliberately NOT selected: they hold the GUESTS' and other suppliers' details (a name, a phone, a meal) — other
+    // people's data, which a subject-access export must not hand over. `decided_by_user_id` is not a second lane, the
+    // same line drawn for event_access_requests above.
+    supabase
+      .from('event_change_requests')
+      .select('change_id, event_id, area, op, note, status, answer_note, created_at, decided_at')
+      .eq('proposed_by_user_id', user.id)
       .order('created_at', { ascending: true }),
     /*
       RA 10173 (2026-08-28) — why the subject removed a celebration, in their
@@ -1144,6 +1155,7 @@ export async function buildPersonalDataExport(
   );
   const dayRequests = listOutcome('day_requests_authored', dayRequestsRes);
   const accessRequests = listOutcome('event_access_requests_made', accessRequestsRes);
+  const changeRequests = listOutcome('event_changes_proposed', changeRequestsRes);
   const eventRemovalReasons = listOutcome(
     'event_removals_asked_for',
     eventRemovalReasonsRes,
@@ -1429,6 +1441,8 @@ export async function buildPersonalDataExport(
     // Access the subject ASKED for (not what they were granted — that lives on
     // the moderator record).
     event_access_requests_made: accessRequests.rows,
+    // Changes the subject PROPOSED (8 Nov 2026) — their note and the answer; never the guests' details.
+    event_changes_proposed: changeRequests.rows,
     event_removals_asked_for: eventRemovalReasons.rows,
     // The costs the subject recorded themselves — author-scoped, so a shared
     // wedding budget never hands one partner the other's entries.

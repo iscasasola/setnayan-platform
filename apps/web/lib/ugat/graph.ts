@@ -2701,6 +2701,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'vendor_coverages', column: 'region_slug' },
       { kind: 'fk', table: 'vendor_branches', column: 'parent_vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'vendor_coverages', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      // THE SEAL AND PLATE's private clean copy (owner 2026-11-04 "perfect applt that watermark"): one row per MARKED
+      // public photo a shop published on its cards / portfolio, paired with its unmarked original in the PRIVATE
+      // verification bucket so the shop can be re-marked when it gains or loses Verified. Owner/admin RLS, no anon.
+      { kind: 'table', table: 'supplier_photo_originals' },
+      { kind: 'fk', table: 'supplier_photo_originals', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'unique', table: 'supplier_photo_originals', columns: ['public_ref'] },
+      { kind: 'column', table: 'supplier_photo_originals', column: 'frame' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_refs_chk', mentions: 'original_ref' },
+      { kind: 'check', table: 'supplier_photo_originals', name: 'supplier_photo_originals_mark_kind_chk', mentions: 'mark_kind' },
     ],
     chain: 2,
     pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],

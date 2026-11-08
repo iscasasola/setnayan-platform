@@ -53,7 +53,7 @@
  *   `vendor.business_name` → `${vendor.contact_person_name} (${vendor.business_name})`.
  */
 
-import Image from 'next/image';
+import { MarkedPhoto } from '@/app/_components/marked-photo';
 import Link from 'next/link';
 import { MapPin, Navigation, Star, ExternalLink, Zap, Clock, AlertCircle, Snowflake } from 'lucide-react';
 
@@ -782,12 +782,13 @@ function VendorHero({
   // scales with the card width when the marketplace grid widens.
   return (
     <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-ink/5 sm:h-40 lg:h-48">
-      <Image
+      {/* 🔏 A 358×128 banner (2.8:1) would crop a square cover's mark off — drawn whole on its own blur. */}
+      <MarkedPhoto
         src={src}
         alt={name}
-        fill
+        frame="square"
+        displayAspect={358 / 128}
         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        className="object-cover"
       />
     </div>
   );

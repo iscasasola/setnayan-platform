@@ -57,6 +57,8 @@ import {
 } from '@/lib/editorial-vendor-media';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { watermarkImageBytes, markVariantForSource } from '@/lib/watermark-server';
+import { logoCoinPng } from '@/lib/photo-mark-server';
+import { shopMarkFacts } from '@/lib/supplier-mark-spec.server';
 import { screenGalleryImage } from '@/lib/moodboard-gallery-screen.server';
 import {
   resolveMoodboardLibraryAccess,
@@ -285,9 +287,18 @@ async function storeScreenedAsset(args: {
   // Reading the COLUMN rather than branching on the caller is what keeps the
   // two upload routes from drifting apart — the same predicate that decides
   // the back-catalogue quota decides the mark.
+  //
+  // 🔏 2026-11-04 — the shop's OWN mark (Seal and plate) replaces the stamp on
+  // its uploads: Setnayan only, or Setnayan Verified + shop + address + logo
+  // coin, read from the shop's row here on the server, never from the client.
+  // The service role inline: the renewal date that decides Verified is not readable by a signed-in session.
+  const shopMark = await shopMarkFacts(createAdminClient(), profile.vendor_profile_id);
+  const coin = shopMark.spec.hasLogo && logoBytes ? await logoCoinPng(logoBytes, shopMark.logoRef) : null;
+  const supplierMark = { spec: { ...shopMark.spec, hasLogo: coin !== null }, logoPng: coin };
   const marked = await watermarkImageBytes(
     args.bytes,
     markVariantForSource(args.row.source_event_id),
+    supplierMark,
   );
   const ext = 'jpg';
 

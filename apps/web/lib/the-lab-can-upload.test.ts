@@ -197,7 +197,11 @@ test('(3) the seam is the lab’s alone: only app/dev provides the stand-in, onl
   assert.match(read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx'), /<FileUpload[\s\S]{0,600}?send=\{qrUploadSend\}/);
   assert.match(read('app/dashboard/[eventId]/launch/_components/studio-actions-context.tsx'), /qrUploadSend: undefined,/);
   /* …and Studio › E-Gifts' QR upload (2026-10-09), which hands on ONLY what its context holds (asserted above). */
-  assert.deepEqual(senders, ['app/dashboard/[eventId]/launch/_components/studio-tools.tsx', SLOTS], 'another uploader was handed a stand-in for storage');
+  /* …and the photo-mark lab (2026-11-08, #7246 · #7247): the Card Maker's cover uploader drawn in /dev/supplier-lab?s=photo-mark,
+     with storage stood in. It lives under app/dev, and its page refuses production first (asserted below). */
+  const LAB_SENDER = 'app/dev/supplier-lab/photo-mark-lab.tsx';
+  assert.deepEqual([...senders].sort(), ['app/dashboard/[eventId]/launch/_components/studio-tools.tsx', SLOTS, LAB_SENDER].sort(), 'another uploader was handed a stand-in for storage');
+  assert.match(read('app/dev/supplier-lab/page.tsx'), /export default async function SupplierLabPage\([\s\S]*?\}\) \{\s*if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/);
   // The slots hand on ONLY what the context holds — null (everywhere but the lab) means real storage.
   const slots = read(SLOTS);
   assert.match(slots, /export const SlotsUploadStandIn = createContext<UploadSend \| null>\(null\);/);

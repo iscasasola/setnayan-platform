@@ -11,6 +11,8 @@
  *   5. The couple reads the copied quote under their own session (the shipped `vendor_proposals_couple_read`).
  *   6. `client_name` is stored; a blank one is refused (NULL stays the "never said" answer).
  *   7. NEUTRALISED: put the claim back without step (c2) and case 1 finds no quote — it measures the step, not a fixture.
+ *   8. Only the claim names a quote’s Booked QR: a shop’s browser UPDATE of `locked_qr_token_id` is refused (it would
+ *      squat another code’s UNIQUE slot); the claim as `authenticated` still writes; neutralised by dropping the trigger.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -204,4 +206,64 @@ test('7 · NEUTRALISED: without step (c2) the claim writes no quote — case 1 m
   const back = await newEvent('Back Again');
   await claim(await newToken(), back);
   assert.equal((await quotesOf(back)).length, 1, 'the step did not come back after the rollback');
+});
+
+test('8 · only the claim names a quote’s Booked QR — a shop cannot squat another code’s id from the browser', async () => {
+  // A shop stamping a token id onto its own draft would make that code's real claim write NO quote (the UNIQUE
+  // index + ON CONFLICT DO NOTHING). The guard trigger refuses it for browser roles; the SECURITY DEFINER claim,
+  // called as `authenticated`, still writes.
+  const eventId = await newEvent('Squat Attempt');
+  const token = await newToken();
+  const tid = (await db.query<{ id: string }>(`SELECT id::text FROM public.vendor_locked_qr_tokens WHERE token = $1`, [token])).rows[0]!.id;
+  const draft = (
+    await db.query<{ proposal_id: string }>(
+      `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, line_items, total_centavos, status)
+       VALUES ($1, $2, 'A draft', '[]'::jsonb, 100, 'draft') RETURNING proposal_id`,
+      [shop, eventId],
+    )
+  ).rows[0]!.proposal_id;
+
+  await setAuthUid(db, vendorUid);
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    await assert.rejects(
+      db.query(`UPDATE public.vendor_proposals SET locked_qr_token_id = $1 WHERE proposal_id = $2`, [tid, draft]),
+      /Only a Booked QR claim/,
+      'a shop set a Booked QR id on its own draft from the browser',
+    );
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null);
+  }
+
+  // The claim, as the couple's browser role, is the one writer.
+  await setAuthUid(db, coupleUid);
+  await db.exec(`SET ROLE authenticated`);
+  let out: { status: string };
+  try {
+    out = (await db.query<{ out: { status: string } }>(`SELECT public.vendor_claim_locked_qr($1, $2) AS out`, [token, eventId])).rows[0]!.out;
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null);
+  }
+  assert.equal(out.status, 'ok');
+  const accepted = (await quotesOf(eventId)).filter((q) => q.status === 'accepted');
+  assert.equal(accepted.length, 1, 'the claim (as authenticated, through SECURITY DEFINER) did not write its quote');
+  assert.equal(accepted[0]!.locked_qr_token_id, tid);
+
+  // NEUTRALISED: with the trigger dropped, the same browser UPDATE lands — the refusal above is the guard's.
+  await db.query('BEGIN');
+  try {
+    await db.exec(`DROP TRIGGER a_quote_names_its_booked_qr_only_by_the_claim ON public.vendor_proposals`);
+    const other = await newToken();
+    const otherId = (await db.query<{ id: string }>(`SELECT id::text FROM public.vendor_locked_qr_tokens WHERE token = $1`, [other])).rows[0]!.id;
+    await setAuthUid(db, vendorUid);
+    await db.exec(`SET ROLE authenticated`);
+    const r = await db.query(`UPDATE public.vendor_proposals SET locked_qr_token_id = $1 WHERE proposal_id = $2`, [otherId, draft]);
+    assert.equal(r.affectedRows, 1, 'without the guard the shop’s UPDATE should land — the neutralisation measures nothing');
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null);
+    await db.query('ROLLBACK');
+  }
 });

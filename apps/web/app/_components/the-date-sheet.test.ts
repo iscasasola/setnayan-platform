@@ -210,7 +210,7 @@ test('(7) lazy: the sheet is its own chunk, reached through ONE door; the shared
     const src = stripComments(readFileSync(f, 'utf8'));
     /* An import of the sheet's module that is not `import type` pulls its code into that file's chunk. */
     /* (`lib/date-sheet.ts` is the pure rules — small, and meant to be imported anywhere.) */
-    for (const m of src.matchAll(/import\s+(type\s+)?[^;]*?from\s+'([^']*\/date-sheet)'/g)) if (!m[1] && !/lib\/date-sheet$/.test(m[2])) code.push(rel);
+    for (const m of src.matchAll(/import\s+(type\s+)?[^;]*?from\s+'([^']*\/date-sheet)'/g)) if (!m[1] && !/lib\/date-sheet$/.test(m[2] ?? '')) code.push(rel);
     if (/import\(\s*'[^']*\/date-sheet'\s*\)/.test(src)) code.push(rel);
   }
   assert.deepEqual(code, [], 'these files load the date sheet without its lazy door');

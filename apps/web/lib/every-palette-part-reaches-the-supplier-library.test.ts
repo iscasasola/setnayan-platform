@@ -237,7 +237,7 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
      its ‹ goes to Portfolio. Still a lit tab, NOT WEAKENED. */
   const dest = code('app/vendor-dashboard/_components/vendor-nav-destinations.ts');
   assert.match(dest, /VENDOR_PORTFOLIO_EXTRA_MATCH: readonly string\[\] = \['\/vendor-dashboard\/moodboard-library'\]/);
-  assert.equal(pageHome('/vendor-dashboard/moodboard-library').home, '/vendor-dashboard/collections');
+  assert.deepEqual(pageHome('/vendor-dashboard/moodboard-library'), { kind: 'home', home: '/vendor-dashboard/collections', label: 'Portfolio' });
 });
 
 /* 🤝🖼 THE SAME CHAIN, ON AN EVENT (owner 2026-10-19, "SUPPLIERS ADD INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE

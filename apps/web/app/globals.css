@@ -10578,6 +10578,15 @@ input[data-clearing] { padding-right: var(--sn-clear-room) !important; }
 input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
 
 
+/* ── NO CUT LINE UNDER A PINNED ROW (THE ONE BUILD F3, v110 "No cut line", 8 Nov 2026). A sticky row says it is above
+ * the page with the soft hairline token (`--sn-hair`, light ink at 8 % / paper at 10 % in dark) drawn as a shadow, never
+ * a `border-b border-ink/10` — a border is a hard line drawn INTO the row's box, so the row's height changes by 1 px and
+ * the line reads as a cut. Each owner swaps its own sticky row onto this class.
+ * 🔒 app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
+.sn-pin-hair {
+  box-shadow: 0 1px 0 var(--sn-hair);
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).
@@ -10724,12 +10733,3 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
   }
 }
 
-
-/* ── NO CUT LINE UNDER A PINNED ROW (THE ONE BUILD F3, v110 "No cut line", 8 Nov 2026). A sticky row says it is above
- * the page with the soft hairline token (`--sn-hair`, light ink at 8 % / paper at 10 % in dark) drawn as a shadow, never
- * a `border-b border-ink/10` — a border is a hard line drawn INTO the row's box, so the row's height changes by 1 px and
- * the line reads as a cut. Each owner swaps its own sticky row onto this class.
- * 🔒 app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
-.sn-pin-hair {
-  box-shadow: 0 1px 0 var(--sn-hair);
-}

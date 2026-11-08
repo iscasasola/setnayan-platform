@@ -56,7 +56,9 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
   assert.doesNotMatch(shell, /className="[^"]*\bz-\d/, 'a raw z-* class — use the layer tokens (§10 #23)');
   assert.match(shell, /role="dialog"/);
   assert.match(shell, /aria-modal="true"/);
-  assert.match(shell, /e\.key === 'Escape'[^\n]*close\(\)/, 'Esc must close');
+  // Integration (8 Nov): Esc through the house modal contract (`useModalA11y` — focus in, Tab trapped, only the top layer
+  // answers Esc), which `lib/modal-a11y-adoption.test.ts` requires of every aria-modal overlay.
+  assert.match(shell, /useModalA11y\(\{ open: Boolean\(host\), onClose: close, containerRef: rootRef/, 'Esc must close (the house modal contract)');
   assert.match(shell, /data-testid="picked-close"/, 'the ✕ is the one close');
 });
 

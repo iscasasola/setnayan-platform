@@ -39,6 +39,7 @@ import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
+import { shareShopLink } from '@/lib/share-shop-link';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
    (`lib/every-studio-colour-opens-the-one-picker.test.ts`). Loaded on the first press of the Look circle, so Your
@@ -160,17 +161,9 @@ export function PageParts({
 
   const share = async () => {
     if (!d.publicPath) return;
-    const url = `${window.location.origin}${d.publicPath}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: d.businessName, url });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      toast.success('Link copied.');
-    } catch {
-      /* the share sheet was closed — nothing to say */
-    }
+    // One implementation of "share the shop's link" (lib/share-shop-link.ts, THE ONE BUILD A3 W4).
+    const outcome = await shareShopLink(`${window.location.origin}${d.publicPath}`, d.businessName);
+    if (outcome === 'copied') toast.success('Link copied.');
   };
 
   const cover = shown.hero ? d.portfolio.find((p) => p.key === shown.hero)?.url : d.portfolio[0]?.url;

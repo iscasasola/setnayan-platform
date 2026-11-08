@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { slotsIn } from '@/lib/emcee-lines';
 import { updateLine, deleteLine, attachLineToActivity } from './actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'My lines · Supplier' };
 
@@ -140,7 +141,7 @@ export default async function VendorLinesPage({
                   {line.use_count > 0 ? ` · used ${line.use_count}×` : ''}
                 </p>
 
-                <form action={updateLine} className="mt-2 space-y-2">
+                <StayForm door="supLines.updateLine" action={updateLine} className="mt-2 space-y-2">
                   <input type="hidden" name="line_id" value={line.line_id} />
                   <label className="block">
                     <span className="sr-only">Your line</span>
@@ -169,12 +170,12 @@ export default async function VendorLinesPage({
                       Save
                     </button>
                   </div>
-                </form>
+                </StayForm>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-3">
                   {/* rung 2 → rung 1: make a by-name guess into an exact match. */}
                   {activities.length > 0 ? (
-                    <form action={attachLineToActivity} className="flex items-center gap-2">
+                    <StayForm door="supLines.attachLineToActivity" action={attachLineToActivity} className="flex items-center gap-2">
                       <input type="hidden" name="line_id" value={line.line_id} />
                       <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/45" />
                       <label className="sr-only" htmlFor={`act-${line.line_id}`}>
@@ -196,15 +197,15 @@ export default async function VendorLinesPage({
                       <button type="submit" className="text-xs font-semibold text-gild underline">
                         Update match
                       </button>
-                    </form>
+                    </StayForm>
                   ) : null}
 
-                  <form action={deleteLine} className="ml-auto">
+                  <StayForm door="supLines.deleteLine" action={deleteLine} className="ml-auto">
                     <input type="hidden" name="line_id" value={line.line_id} />
                     <button type="submit" className="text-xs text-ink/50 underline hover:text-terracotta-700">
                       Remove
                     </button>
-                  </form>
+                  </StayForm>
                 </div>
               </article>
             );
@@ -230,12 +231,12 @@ export default async function VendorLinesPage({
                 Never reused
               </p>
               <p className="mt-2 text-sm leading-relaxed text-ink/75">{line.body}</p>
-              <form action={deleteLine} className="mt-3 border-t border-ink/10 pt-3">
+              <StayForm door="supLines.deleteLine" action={deleteLine} className="mt-3 border-t border-ink/10 pt-3">
                 <input type="hidden" name="line_id" value={line.line_id} />
                 <button type="submit" className="text-xs text-ink/50 underline hover:text-terracotta-700">
                   Remove
                 </button>
-              </form>
+              </StayForm>
             </article>
           ))}
         </div>

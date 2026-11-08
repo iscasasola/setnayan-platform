@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react';
 import { Camera, Check, Loader2, Pencil, X } from 'lucide-react';
 import { updateCommunityIdentity } from '../../actions';
+import { saveInPlace } from '@/app/_actions/save-in-place';
+import { StayForm } from '@/app/_components/stay-form';
 import { formatCount } from '@/lib/format-number';
 
 // The samahan's face, edited WHERE IT IS (owner 2026-08-24, looking at the
@@ -39,8 +41,6 @@ export function SamahanIdentityHeader({
   metaLine: React.ReactNode;
 }) {
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const photoFormRef = useRef<HTMLFormElement>(null);
-  const photoRefField = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +89,18 @@ export function SamahanIdentityHeader({
         headers: { 'Content-Type': file.type },
       });
       if (!put.ok) throw new Error('put');
-      // Hand the ref to the server action — the same one the name uses.
-      if (photoRefField.current) photoRefField.current.value = data.r2Ref;
-      photoFormRef.current?.requestSubmit();
+      // Hand the ref to the server action — the same one the name uses — through its stay door, so the page
+      // re-renders IN PLACE (owner 2026-10-26, "a save never resets the screen").
+      const fd = new FormData();
+      fd.set('community_id', communityId);
+      fd.set('photo_url', data.r2Ref);
+      const saved = await saveInPlace('accGroup.updateCommunityIdentity', fd);
+      if (!saved.ok) {
+        URL.revokeObjectURL(localUrl);
+        setPreview(null);
+        setError(saved.error);
+      }
+      setUploading(false);
     } catch {
       URL.revokeObjectURL(localUrl);
       setPreview(null);
@@ -150,17 +159,14 @@ export function SamahanIdentityHeader({
             if (f) void onPickPhoto(f);
           }}
         />
-        <form ref={photoFormRef} action={updateCommunityIdentity} className="hidden">
-          <input type="hidden" name="community_id" value={communityId} />
-          <input ref={photoRefField} type="hidden" name="photo_url" defaultValue="" />
-        </form>
 
         <div className="min-w-0 flex-1">
           {editingName ? (
-            <form
+            <StayForm
+              door="accGroup.updateCommunityIdentity"
               action={updateCommunityIdentity}
               className="flex items-center gap-2"
-              onSubmit={() => setEditingName(false)}
+              onSaved={() => setEditingName(false)}
             >
               <input type="hidden" name="community_id" value={communityId} />
               <input
@@ -188,7 +194,7 @@ export function SamahanIdentityHeader({
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
-            </form>
+            </StayForm>
           ) : (
             <button
               type="button"

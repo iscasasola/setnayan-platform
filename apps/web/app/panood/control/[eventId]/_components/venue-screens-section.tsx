@@ -26,6 +26,7 @@ import {
 } from '../screens-actions';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * VENUE SCREENS (DAY-12) — the controller's screens manager.
@@ -145,14 +146,14 @@ export function VenueScreensSection({
           {LIVE_SCREEN_MODES.map((mode) => {
             const Icon = MODE_ICON[mode];
             return (
-              <form key={mode} action={setAllLiveScreensMode}>
+              <StayForm door="pubPanood.setAllLiveScreensMode" key={mode} action={setAllLiveScreensMode}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="mode" value={mode} />
                 <SubmitButton pendingLabel="…" className={`${BTN} ${BTN_IDLE}`}>
                   <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   {LIVE_SCREEN_MODE_LABEL[mode]}
                 </SubmitButton>
-              </form>
+              </StayForm>
             );
           })}
         </div>
@@ -176,7 +177,7 @@ export function VenueScreensSection({
       ) : null}
 
       {entitled && screens !== null && canAddScreen(active.length) ? (
-        <form action={addLiveScreen} className="flex flex-col gap-2 sm:flex-row">
+        <StayForm door="pubPanood.addLiveScreen" action={addLiveScreen} className="flex flex-col gap-2 sm:flex-row">
           <input type="hidden" name="event_id" value={eventId} />
           <input
             type="text"
@@ -192,7 +193,7 @@ export function VenueScreensSection({
             <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Add a screen
           </SubmitButton>
-        </form>
+        </StayForm>
       ) : null}
     </section>
   );
@@ -227,14 +228,14 @@ function ScreenRow({
           <PresencePill presence={presence} />
         </div>
         <p className="text-xs text-ink/55">Locked with Live Watch. It can still be removed.</p>
-        <form action={removeLiveScreen}>
+        <StayForm door="pubPanood.removeLiveScreen" action={removeLiveScreen}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="screen_id" value={screen.id} />
           <SubmitButton pendingLabel="…" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60 hover:text-burgundy">
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Remove
           </SubmitButton>
-        </form>
+        </StayForm>
       </li>
     );
   }
@@ -242,7 +243,7 @@ function ScreenRow({
   return (
     <li className="sn-row space-y-3 p-4" data-testid="venue-screen-row">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <form action={renameLiveScreen} className="flex min-w-0 flex-1 items-center gap-2">
+        <StayForm door="pubPanood.renameLiveScreen" action={renameLiveScreen} className="flex min-w-0 flex-1 items-center gap-2">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="screen_id" value={screen.id} />
           <label htmlFor={`screen-name-${screen.id}`} className="sr-only">
@@ -259,7 +260,7 @@ function ScreenRow({
           <SubmitButton pendingLabel="…" className="text-xs font-semibold text-ink/50 hover:text-ink">
             Rename
           </SubmitButton>
-        </form>
+        </StayForm>
         <PresencePill presence={presence} />
       </div>
 
@@ -281,7 +282,7 @@ function ScreenRow({
           const Icon = MODE_ICON[m];
           const on = m === mode;
           return (
-            <form key={m} action={setLiveScreenMode}>
+            <StayForm door="pubPanood.setLiveScreenMode" key={m} action={setLiveScreenMode}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="screen_id" value={screen.id} />
               <input type="hidden" name="mode" value={m} />
@@ -289,29 +290,29 @@ function ScreenRow({
                 <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 {LIVE_SCREEN_MODE_LABEL[m]}
               </SubmitButton>
-            </form>
+            </StayForm>
           );
         })}
       </div>
       {mode === 'mirror' ? <p className="text-xs text-ink/55">The screen shows: &ldquo;{MIRROR_DELAY_NOTICE}&rdquo;</p> : null}
 
       <div className="flex flex-wrap gap-3 border-t border-ink/10 pt-3">
-        <form action={reissueLiveScreenCode}>
+        <StayForm door="pubPanood.reissueLiveScreenCode" action={reissueLiveScreenCode}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="screen_id" value={screen.id} />
           <SubmitButton pendingLabel="…" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60 hover:text-ink">
             <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {presence === 'waiting' ? 'New code' : 'Swap device (new code)'}
           </SubmitButton>
-        </form>
-        <form action={removeLiveScreen}>
+        </StayForm>
+        <StayForm door="pubPanood.removeLiveScreen" action={removeLiveScreen}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="screen_id" value={screen.id} />
           <SubmitButton pendingLabel="…" className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink/60 hover:text-burgundy">
             <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Remove
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
     </li>
   );

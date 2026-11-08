@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { BellRing, CalendarX2, ChevronLeft, Clock, MapPin, MessageSquare, QrCode, RotateCcw, Users } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH } from '@/lib/calendar-grid';
 import { dayLongWords, rangeWords, type DayAnswer, type DayGroup } from '@/lib/vendor-dates';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
+import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
 /**
  * CUSTOMERS › DATES › A DAY (S-PR3, redrawn to the 2026-10-14 approved prototype `SCREENS.day`; plan § 8 gap 11).
@@ -210,11 +210,11 @@ export function DaySheet({
             title="On the waiting list"
             line={`${formatCount(data.waiting)} ${data.waiting === 1 ? 'couple' : 'couples'} · for when a seat opens`}
             end={
-              <form action={actions.notifyWaitlistSlot}>
+              <StayForm door="supCalendar.notifyWaitlistSlot" action={actions.notifyWaitlistSlot}>
                 {back}
                 <input type="hidden" name="requested_date" value={day} />
                 <SupplierSubmit tone="neutral" icon={<BellRing aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Tell them" pendingLabel="Telling…" />
-              </form>
+              </StayForm>
             }
           />
         ) : null}
@@ -227,13 +227,13 @@ export function DaySheet({
             title={h.title}
             line={h.line}
             end={
-              <form action={actions.setCalendarDayState}>
+              <StayForm door="supCalendar.setCalendarDayState" action={actions.setCalendarDayState}>
                 {back}
                 <input type="hidden" name="state_date" value={day} />
                 <input type="hidden" name="scope" value={h.scope} />
                 <input type="hidden" name="day_state" value="open" />
                 <SupplierSubmit tone="neutral" icon={<RotateCcw aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Reopen" pendingLabel="Reopening…" />
-              </form>
+              </StayForm>
             }
           />
         ))}
@@ -250,11 +250,11 @@ export function DaySheet({
                 title={c.label}
                 line={`${c.repeatWords || rangeWords(c.startDate, c.endDate, today)} · ${c.scope}`}
                 end={
-                  <ConfirmForm action={actions.removeBlock} title="Open these days again?" confirmLabel="Open them" message={openMessage(c, today)}>
+                  <StayConfirmForm door="supCalendar.removeBlock" action={actions.removeBlock} title="Open these days again?" confirmLabel="Open them" message={openMessage(c, today)}>
                     {back}
                     <input type="hidden" name="block_id" value={c.blockId} />
                     <SupplierSubmit tone="danger" icon={<RotateCcw aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Open" pendingLabel="Opening…" />
-                  </ConfirmForm>
+                  </StayConfirmForm>
                 }
               />
             ))
@@ -267,15 +267,15 @@ export function DaySheet({
             line={single ? `${single.label} · ${single.repeatWords || rangeWords(single.startDate, single.endDate, today)}` : 'Nothing new can take it'}
             end={
               single ? (
-                <ConfirmForm action={actions.removeBlock} title="Open this day again?" confirmLabel="Open it" destructive={false} message={openMessage(single, today)}>
+                <StayConfirmForm door="supCalendar.removeBlock" action={actions.removeBlock} title="Open this day again?" confirmLabel="Open it" destructive={false} message={openMessage(single, today)}>
                   {back}
                   <input type="hidden" name="block_id" value={single.blockId} />
                   <button type="submit" role="switch" aria-checked="true" aria-label="Not available" className={SWITCH_BUTTON}>
                     <SwitchTrack on />
                   </button>
-                </ConfirmForm>
+                </StayConfirmForm>
               ) : (
-                <form action={actions.addManualBlock}>
+                <StayForm door="supCalendar.addManualBlock" action={actions.addManualBlock}>
                   {back}
                   <input type="hidden" name="scope" value="org" />
                   <input type="hidden" name="start_date" value={day} />
@@ -283,7 +283,7 @@ export function DaySheet({
                   <button type="submit" role="switch" aria-checked={blockedOn} aria-label="Not available" className={SWITCH_BUTTON}>
                     <SwitchTrack on={blockedOn} />
                   </button>
-                </form>
+                </StayForm>
               )
             }
           />

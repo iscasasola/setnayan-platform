@@ -11,6 +11,8 @@ import {
 } from '@/lib/emcee-questions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { addQuestion, toggleQuestionAsked, updateQuestion } from './question-actions';
+import { StayForm } from '@/app/_components/stay-form';
+import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 /**
  * QUESTIONS FOR THE COUPLE — the supplier's reusable question set. (DAY-7.)
@@ -107,7 +109,7 @@ export function QuestionsSectionBody({
         <ol className="space-y-2">
           {asked.map((q, i) => (
             <li key={q.question_id} className="border border-ink/10 bg-white p-3">
-              <form action={updateQuestion} className="space-y-2">
+              <StayForm door="supActivities.updateQuestion" action={updateQuestion} className="space-y-2">
                 <input type="hidden" name="question_id" value={q.question_id} />
                 <div className="flex items-start gap-2">
                   <span className="pt-2 font-mono text-[0.66rem] text-ink/45">{i + 1}.</span>
@@ -137,8 +139,8 @@ export function QuestionsSectionBody({
                     Save
                   </button>
                 </div>
-              </form>
-              <form action={toggleQuestionAsked} className="mt-1 flex justify-end">
+              </StayForm>
+              <StayForm door="supActivities.toggleQuestionAsked" action={toggleQuestionAsked} className="mt-1 flex justify-end">
                 <input type="hidden" name="question_id" value={q.question_id} />
                 <input type="hidden" name="is_asked" value="false" />
                 <button
@@ -147,7 +149,7 @@ export function QuestionsSectionBody({
                 >
                   Stop asking
                 </button>
-              </form>
+              </StayForm>
             </li>
           ))}
         </ol>
@@ -161,7 +163,7 @@ export function QuestionsSectionBody({
           <ul className="space-y-1.5">
             {starters.map((s) => (
               <li key={s.prompt}>
-                <form action={addQuestion}>
+                <StayForm door="supActivities.addQuestion" action={addQuestion}>
                   <input type="hidden" name="prompt" value={s.prompt} />
                   <input type="hidden" name="hint" value={s.hint} />
                   <button
@@ -171,14 +173,14 @@ export function QuestionsSectionBody({
                     <Plus aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gild" strokeWidth={2} />
                     {s.prompt}
                   </button>
-                </form>
+                </StayForm>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
 
-      <form action={addQuestion} className="space-y-2 border border-ink/10 bg-paper-deep p-4">
+      <StayResetForm door="supActivities.addQuestion" action={addQuestion} className="space-y-2 border border-ink/10 bg-paper-deep p-4">
         <h3 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
           Write your own
         </h3>
@@ -203,7 +205,7 @@ export function QuestionsSectionBody({
         >
           Add question
         </button>
-      </form>
+      </StayResetForm>
 
       {retired.length > 0 ? (
         <details className="border border-ink/10 bg-paper-deep p-4">
@@ -217,7 +219,7 @@ export function QuestionsSectionBody({
             {retired.map((q) => (
               <li key={q.question_id} className="flex items-center justify-between gap-3">
                 <span className="text-sm text-ink/70">{q.prompt}</span>
-                <form action={toggleQuestionAsked}>
+                <StayForm door="supActivities.toggleQuestionAsked" action={toggleQuestionAsked}>
                   <input type="hidden" name="question_id" value={q.question_id} />
                   <input type="hidden" name="is_asked" value="true" />
                   <button
@@ -226,7 +228,7 @@ export function QuestionsSectionBody({
                   >
                     Ask again
                   </button>
-                </form>
+                </StayForm>
               </li>
             ))}
           </ul>

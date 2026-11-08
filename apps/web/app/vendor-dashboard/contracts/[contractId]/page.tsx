@@ -12,6 +12,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { cancelContract, publishContractToCouple } from '../actions';
 import { formatCalendarDate } from '@/lib/events';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Contract · Supplier' };
 
@@ -114,7 +115,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
             Right now only you can see this. Make it visible so the couple can
             view and download it from their dashboard.
           </p>
-          <form action={publishContractToCouple} className="mt-4">
+          <StayForm door="svContracts.publishContractToCouple" action={publishContractToCouple} className="mt-4">
             <input type="hidden" name="contract_id" value={contract.contract_id} />
             <SubmitButton
               className="button-primary inline-flex items-center justify-center gap-2 text-sm"
@@ -123,7 +124,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
               <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Make visible to couple
             </SubmitButton>
-          </form>
+          </StayForm>
         </section>
       ) : null}
 
@@ -143,7 +144,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
             Removes the contract from the couple&rsquo;s view. The file stays in
             our records for audit but is not shown anywhere else.
           </p>
-          <form action={cancelContract} className="mt-3 space-y-3">
+          <StayForm door="svContracts.cancelContract" action={cancelContract} className="mt-3 space-y-3">
             <input type="hidden" name="contract_id" value={contract.contract_id} />
             <div className="space-y-1.5">
               <label htmlFor="reason" className="block text-xs text-ink/65">
@@ -165,7 +166,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
               <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Cancel contract
             </SubmitButton>
-          </form>
+          </StayForm>
         </details>
       ) : null}
 

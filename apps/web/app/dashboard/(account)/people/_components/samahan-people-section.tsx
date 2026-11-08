@@ -11,6 +11,7 @@ import { formatCount } from '@/lib/format-number';
 import { readPeopleGroupRows } from '@/lib/people-group-rows';
 import type { GroupChatRow } from '@/lib/people-group-rows-shape';
 import { GroupChatRows } from './group-chat-rows';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * Samahan on the People page (owner degree model 2026-07-17): the GROUPS you
@@ -103,7 +104,7 @@ export async function SamahanPeopleSection({
                 <span>{p.display_name}</span>
                 <span className="text-ink/40">· {p.via.join(', ')}</span>
                 {connectionsOn && !p.known ? (
-                  <form action={proposeSamahanConnection}>
+                  <StayForm door="accPeople.proposeSamahanConnection" action={proposeSamahanConnection}>
                     <input type="hidden" name="member_row_id" value={p.member_row_id} />
                     <SubmitButton
                       className="rounded-full border border-ink/15 bg-cream px-2 py-0.5 text-[0.7rem] font-medium text-ink/70 transition-colors hover:bg-ink/5"
@@ -114,7 +115,7 @@ export async function SamahanPeopleSection({
                           concept). */}
                       Add
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 ) : null}
               </li>
             ))}

@@ -108,6 +108,7 @@ import {
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
+import { OUTCOME_NOTICE } from './_lib/outcome-notice';
 import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
@@ -211,11 +212,8 @@ const PROPOSAL_NOTICE: Record<string, string> = {
     'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
-  // Won & Lost Reasons capture (Wave 6).
-  outcome_saved: 'Outcome saved — thanks for logging it.',
-  outcome_invalid: 'Pick won, lost, or no-response to log this inquiry.',
-  outcome_bad_reason: 'That reason is no longer available — pick another.',
-  outcome_failed: 'Couldn’t save that outcome. Please try again.',
+  // Won & Lost Reasons capture (Wave 6) — its words live in `_lib/outcome-notice.ts`, shared with the stay door.
+  ...OUTCOME_NOTICE,
 };
 
 /** The picked client's three embeds of this thread (Chat · Quotation · Details' Decisions), drawn together. */

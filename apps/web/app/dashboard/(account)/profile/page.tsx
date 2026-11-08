@@ -83,6 +83,8 @@ import { RestorePurchasesRow } from '@/app/_components/iap/restore-purchases-row
 import { getIapGate } from '@/lib/request-platform';
 import { PasswordField } from '@/app/_components/password-field';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
+import { StayForm } from '@/app/_components/stay-form';
+import type { AccProfileStayDoor } from '@/lib/stay-doors/accProfile';
 
 export const metadata = { title: 'Profile' };
 
@@ -460,7 +462,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const profilePane = (
     <>
       <GroupHeader eyebrow="Who you are" title="Profile" />
-      <form action={updatePersonalInfo} className="space-y-6">
+      <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="space-y-6">
         <input type="hidden" name="tab" value="profile" />
         {/* The photo control is on this form, so a cleared photo (which posts
             no value at all) is told apart from a form without the photo. */}
@@ -594,13 +596,13 @@ export default async function ProfilePage({ searchParams }: Props) {
             </SubmitButton>
           </div>
         </div>
-      </form>
+      </StayForm>
       {/* The one-tap "Use '<name>'" line's own form — its inputs sit in the
           Full name box above and point here with `form="use-event-name"`. */}
       {formalNameOffer ? (
-        <form id="use-event-name" action={updatePersonalInfo} className="hidden">
+        <StayForm door="accProfile.updatePersonalInfo" id="use-event-name" action={updatePersonalInfo} className="hidden">
           <input type="hidden" name="tab" value="profile" />
-        </form>
+        </StayForm>
       ) : null}
     </>
   );
@@ -613,7 +615,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         title="Guest details"
         lead="Nothing here is shared automatically — you confirm what to share each time you join an event."
       />
-      <form action={updatePersonalInfo} className="sn-tile space-y-6">
+      <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="sn-tile space-y-6">
         <input type="hidden" name="tab" value="guest-details" />
         {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
             *"if they create an account to sync, these information will be
@@ -729,7 +731,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             .
           </span>
         </div>
-      </form>
+      </StayForm>
     </>
   );
 
@@ -737,6 +739,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const greetingSwitch = (
     <SwitchRow
       action={updatePublicGreeting}
+      door="accProfile.updatePublicGreeting"
       on={profile?.public_greeting_opt_in ?? false}
       id="public-greeting"
       label="Public birthday and anniversary greetings"
@@ -775,6 +778,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             <div className="mt-2 divide-y divide-ink/10">
               <SwitchRow
                 action={updatePublicProfileEnabled}
+                door="accProfile.updatePublicProfileEnabled"
                 on={publicProfileOn}
                 id="public-profile"
                 label="Public profile page"
@@ -818,7 +822,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 </div>
               ) : null}
 
-              <form action={updateUserSlug} className="space-y-2 py-4">
+              <StayForm door="accProfile.updateUserSlug" action={updateUserSlug} className="space-y-2 py-4">
                 <label htmlFor="slug" className="block text-sm font-medium text-ink">
                   Account name
                 </label>
@@ -845,7 +849,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                   Your @tag and your address. 3–32 characters: lowercase letters, numbers, hyphens.
                   The old link keeps redirecting for {slugForwardingLabel()}.
                 </p>
-              </form>
+              </StayForm>
 
               {/* FINDABLE BY NAME — the way out of the people search (owner
                   2026-08-21, "just like facebook"). Not the public page: this
@@ -853,6 +857,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                   connect. */}
               <SwitchRow
                 action={updateDiscoverableByName}
+                door="accProfile.updateDiscoverableByName"
                 on={findableByName}
                 id="findable-by-name"
                 label="Can people find you by name?"
@@ -867,6 +872,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
               <SwitchRow
                 action={updateSharePhotoWithHosts}
+                door="accProfile.updateSharePhotoWithHosts"
                 on={sharePhotoWithHosts}
                 id="photo-with-hosts"
                 label="Share my profile photo with hosts"
@@ -1034,6 +1040,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             </p>
             <SwitchRow
               action={setAccountFaceProfileConsent}
+              door="accProfile.setAccountFaceProfileConsent"
               on={faceProfileOptedIn}
               id="face-profile"
               label="Reuse my account face profile across my events"
@@ -1055,6 +1062,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                     <SwitchRow
                       key={ev.eventId}
                       action={setAccountFaceProfileConsent}
+                      door="accProfile.setAccountFaceProfileConsent"
                       on={ev.on}
                       id={`face-reuse-${ev.eventId}`}
                       label={ev.name}
@@ -1074,7 +1082,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Forget my face everywhere
               </summary>
-              <form action={forgetMyFaceEverywhere} className="mt-3 space-y-3">
+              <StayForm door="accProfile.forgetMyFaceEverywhere" action={forgetMyFaceEverywhere} className="mt-3 space-y-3">
                 <p className="text-sm text-danger-900">
                   This deletes the face profile saved to your account. Tick the box
                   below to also remove the face data saved for your individual
@@ -1098,7 +1106,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 >
                   Forget my face everywhere
                 </SubmitButton>
-              </form>
+              </StayForm>
             </details>
           </section>
         ) : null}
@@ -1256,6 +1264,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           {isAnon ? null : (
             <SwitchRow
               action={updatePersonalInfo}
+              door="accProfile.updatePersonalInfo"
               on={profile?.marketing_opt_in ?? false}
               id="marketing-emails"
               label="Marketing emails"
@@ -1374,7 +1383,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 </p>
               </div>
             </div>
-            <form action={cancelAccountDeletionRequest}>
+            <StayForm door="accProfile.cancelAccountDeletionRequest" action={cancelAccountDeletionRequest}>
               <input type="hidden" name="request_id" value={pendingDeletion.request_id} />
               <SubmitButton
                 className="button-secondary inline-flex items-center gap-2"
@@ -1382,7 +1391,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               >
                 Cancel deletion request
               </SubmitButton>
-            </form>
+            </StayForm>
           </div>
         ) : isAnon ? (
           // Anon-draft: there's no permanent account to delete — the deletion
@@ -1405,7 +1414,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Delete my account
             </summary>
-            <form action={requestAccountDeletion} className="mt-3 space-y-3">
+            <StayForm door="accProfile.requestAccountDeletion" action={requestAccountDeletion} className="mt-3 space-y-3">
               <p className="text-sm text-danger-900">
                 This files a request to delete your account. Our team reviews it
                 within 24 hours before it takes effect — this lets us check for
@@ -1440,7 +1449,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               >
                 Request account deletion
               </SubmitButton>
-            </form>
+            </StayForm>
           </details>
         )}
       </div>
@@ -1530,6 +1539,7 @@ function GroupHeader({
  */
 function SwitchRow({
   action,
+  door,
   on,
   id,
   label,
@@ -1537,14 +1547,17 @@ function SwitchRow({
   children,
 }: {
   action: (formData: FormData) => void | Promise<void>;
+  /** The switch saves in place through this door (`lib/stay-doors/accProfile.ts`) when its action redirects back here. */
+  door?: AccProfileStayDoor;
   on: boolean;
   id: string;
   label: string;
   help?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <form action={action} className="flex items-center justify-between gap-4 py-4 first:pt-2 last:pb-2">
+  const cls = 'flex items-center justify-between gap-4 py-4 first:pt-2 last:pb-2';
+  const body = (
+    <>
       {children}
       <div className="min-w-0">
         <p id={`${id}-label`} className="text-sm font-medium text-ink">
@@ -1561,6 +1574,15 @@ function SwitchRow({
       >
         <SwitchTrack on={on} />
       </button>
+    </>
+  );
+  return door ? (
+    <StayForm door={door} action={action} className={cls}>
+      {body}
+    </StayForm>
+  ) : (
+    <form action={action} className={cls}>
+      {body}
     </form>
   );
 }

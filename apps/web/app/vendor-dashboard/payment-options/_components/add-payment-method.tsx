@@ -37,6 +37,7 @@ import {
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addPaymentMethod } from '../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 type Props = {
   vendorProfileId: string;
@@ -79,8 +80,10 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
   const cls = type === 'link' && linkDraft.trim().length > 0 ? classifyPaymentLink(linkDraft) : null;
 
   return (
-    <form
+    <StayForm
+      door="supPayments.addPaymentMethod"
       action={addPaymentMethod}
+      onSaved={() => setOpen(false)}
       className="space-y-5 sn-tile p-5"
     >
       {returnTo ? (
@@ -325,6 +328,6 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }:
           Save payment option
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }

@@ -32,6 +32,7 @@ import {
 import { AddPaymentMethod } from './_components/add-payment-method';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'How clients pay you · Supplier · Setnayan' };
 
@@ -284,7 +285,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                 {/* Per-card actions. */}
                 <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
                   {!m.is_primary ? (
-                    <form action={setPrimaryPaymentMethod}>
+                    <StayForm door="supPayments.setPrimaryPaymentMethod" action={setPrimaryPaymentMethod}>
                       {back}
                       <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                       <SubmitButton
@@ -294,10 +295,10 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                         <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Make primary
                       </SubmitButton>
-                    </form>
+                    </StayForm>
                   ) : null}
 
-                  <form action={togglePaymentMethodShown}>
+                  <StayForm door="supPayments.togglePaymentMethodShown" action={togglePaymentMethodShown}>
                     {back}
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     {/* CURRENT value — the action toggles to the opposite. */}
@@ -318,14 +319,15 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                         </>
                       )}
                     </SubmitButton>
-                  </form>
+                  </StayForm>
 
                   {/* A SERVER component cannot hand a client button an
                       onClick — React refuses to serialise the function and the
                       whole console crashes the moment a shop has ONE saved
                       option (prod 2026-09-19). The confirm lives in the client
                       <ConfirmForm> instead. Guard: no-function-props-to-client.test.ts */}
-                  <ConfirmForm
+                  <StayConfirmForm
+                    door="supPayments.deletePaymentMethod"
                     action={deletePaymentMethod}
                     title="Remove this payment option?"
                     message="Clients will no longer see it."
@@ -341,7 +343,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Delete
                     </SubmitButton>
-                  </ConfirmForm>
+                  </StayConfirmForm>
                 </div>
               </article>
             );

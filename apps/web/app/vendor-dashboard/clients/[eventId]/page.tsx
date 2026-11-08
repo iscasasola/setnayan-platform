@@ -238,6 +238,8 @@ import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/
 import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
+import { StayForm } from '@/app/_components/stay-form';
+import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -3704,7 +3706,7 @@ function ScheduleTab(props: {
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
-              <form action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayResetForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
@@ -3713,14 +3715,14 @@ function ScheduleTab(props: {
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send link
                 </SubmitButton>
-              </form>
+              </StayResetForm>
             </details>
 
             <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <FileText aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Upload a sample/proof
               </summary>
-              <form action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayResetForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
@@ -3729,14 +3731,14 @@ function ScheduleTab(props: {
                 <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Upload
                 </SubmitButton>
-              </form>
+              </StayResetForm>
             </details>
 
             <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <MessageSquarePlus aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Leave a note
               </summary>
-              <form action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayResetForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
                 <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
@@ -3744,21 +3746,21 @@ function ScheduleTab(props: {
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send note
                 </SubmitButton>
-              </form>
+              </StayResetForm>
             </details>
 
             <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
                 <PackageCheck aria-hidden className="h-3.5 w-3.5 text-ink/55" /> All delivered (sign-off)
               </summary>
-              <form action={vendorPostHandover} className="mt-2 grid gap-2">
+              <StayResetForm door="supClients.vendorPostHandover" action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
                 <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Mark all delivered
                 </SubmitButton>
-              </form>
+              </StayResetForm>
             </details>
           </div>
 
@@ -3832,7 +3834,7 @@ function ScheduleTab(props: {
             <summary className="cursor-pointer text-sm font-medium text-terracotta-700">
               Propose a change
             </summary>
-            <form action={vendorRaiseChangeOrder} className="mt-3 space-y-3">
+            <StayResetForm door="supClients.vendorRaiseChangeOrder" action={vendorRaiseChangeOrder} className="mt-3 space-y-3">
               <input type="hidden" name="event_id" value={eventId} />
               <div className="flex flex-wrap items-center gap-4 text-xs text-ink/70">
                 <label className="inline-flex items-center gap-1.5">
@@ -3891,7 +3893,7 @@ function ScheduleTab(props: {
               <SubmitButton className="button-primary" pendingLabel="Sending…">
                 Send to couple
               </SubmitButton>
-            </form>
+            </StayResetForm>
           </details>
 
           {!changeOrdersMeasured ? (
@@ -3941,15 +3943,15 @@ function ScheduleTab(props: {
 
                     {isProposed && isCoupleRaised ? (
                       <div className="mt-2 flex items-center gap-2">
-                        <form action={vendorRespondChangeOrder}>
+                        <StayForm door="supClients.vendorRespondChangeOrder" action={vendorRespondChangeOrder}>
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="change_order_id" value={co.change_order_id} />
                           <input type="hidden" name="decision" value="accept" />
                           <SubmitButton className="button-primary text-[11px]" pendingLabel="Accepting…">
                             Accept
                           </SubmitButton>
-                        </form>
-                        <form action={vendorRespondChangeOrder}>
+                        </StayForm>
+                        <StayForm door="supClients.vendorRespondChangeOrder" action={vendorRespondChangeOrder}>
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="change_order_id" value={co.change_order_id} />
                           <input type="hidden" name="decision" value="decline" />
@@ -3959,12 +3961,12 @@ function ScheduleTab(props: {
                           >
                             Decline
                           </SubmitButton>
-                        </form>
+                        </StayForm>
                       </div>
                     ) : null}
 
                     {isProposed && !isCoupleRaised ? (
-                      <form action={vendorWithdrawChangeOrder} className="mt-2">
+                      <StayForm door="supClients.vendorWithdrawChangeOrder" action={vendorWithdrawChangeOrder} className="mt-2">
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="change_order_id" value={co.change_order_id} />
                         <SubmitButton
@@ -3973,7 +3975,7 @@ function ScheduleTab(props: {
                         >
                           Withdraw
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     ) : null}
                   </li>
                 );

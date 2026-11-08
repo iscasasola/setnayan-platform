@@ -54,6 +54,7 @@ import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordin
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { readLatestVenueCheck } from '@/lib/venue-check-read.server';
 import { VenueCheckCard } from './venue-check/_components/venue-check-card';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Live Watch setup' };
 
@@ -1146,7 +1147,7 @@ function YouTubeDelivery({
               During the live window, your wedding page shows a Watch Live player with
               this broadcast — front and center for the loved ones watching from afar.
             </p>
-            <form action={clearPanoodWatchUrl} className="mt-3">
+            <StayForm door="panoodSetup.clearPanoodWatchUrl" action={clearPanoodWatchUrl} className="mt-3">
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Removing…"
@@ -1155,7 +1156,7 @@ function YouTubeDelivery({
                 <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove link
               </SubmitButton>
-            </form>
+            </StayForm>
           </>
         ) : connected ? (
           <p className="mt-1 text-sm text-ink/60">
@@ -1173,7 +1174,7 @@ function YouTubeDelivery({
         )}
 
         {!youtubeWatchUrl ? (
-          <form action={savePanoodWatchUrl} className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <StayForm door="panoodSetup.savePanoodWatchUrl" action={savePanoodWatchUrl} className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="url"
@@ -1189,7 +1190,7 @@ function YouTubeDelivery({
               <Radio aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save watch link
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : null}
         {!youtubeWatchUrl ? (
           <p className="mt-2 text-xs text-ink/50">
@@ -1208,6 +1209,8 @@ function YouTubeDelivery({
         facebookUrl={facebookWatchUrl}
         saveAction={savePanoodFacebookUrl}
         clearAction={clearPanoodFacebookUrl}
+        saveDoor="panoodSetup.savePanoodFacebookUrl"
+        clearDoor="panoodSetup.clearPanoodFacebookUrl"
         saved={facebookUrlSaved}
         error={facebookUrlError}
       />

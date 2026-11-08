@@ -37,6 +37,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendorChallengeAction } from '../actions';
 import { ShopCard } from '../../../_components/kit';
 import { formatCount } from '@/lib/format-number';
+import { StayResetForm } from '@/app/vendor-dashboard/clients/_components/stay-reset-form';
 
 const STATUS_BADGE: Record<VendorChallengeStatus, { label: string; cls: string }> = {
   pending: { label: 'Awaiting couple', cls: 'bg-mulberry/15 text-mulberry' },
@@ -124,7 +125,7 @@ export async function VendorChallengeSection({
         // Entitled → the vendor may author challenges (the RPC re-checks the paid
         // entitlement server-side) + collect the consented guest photos (Phase 5).
         <>
-          <form action={createVendorChallengeAction} className="mt-4 space-y-2">
+          <StayResetForm door="supClients.createVendorChallengeAction" action={createVendorChallengeAction} className="mt-4 space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <textarea
               name="prompt"
@@ -140,7 +141,7 @@ export async function VendorChallengeSection({
             >
               Submit for the couple&rsquo;s okay
             </SubmitButton>
-          </form>
+          </StayResetForm>
           <Link
             href={`/vendor-dashboard/clients/${eventId}/challenge-photos`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta-700 hover:text-terracotta-800"

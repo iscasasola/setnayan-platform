@@ -110,6 +110,7 @@ import {
 } from './service-list-editors';
 import { formatCount } from '@/lib/format-number';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { StayForm } from '@/app/_components/stay-form';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -1040,7 +1041,7 @@ export async function VendorServicesManager({
                     {planHold?.hold === 'held' ? (
                       <PlanHoldTag />
                     ) : (
-                    <form action={toggleVendorServiceActive}>
+                    <StayForm door="svServices.toggleVendorServiceActive" action={toggleVendorServiceActive}>
                       <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
                       <input type="hidden" name="is_active" value={svc.is_active ? 'false' : 'true'} />
                       <button
@@ -1053,7 +1054,7 @@ export async function VendorServicesManager({
                       >
                         <SwitchTrack on={svc.is_active} />
                       </button>
-                    </form>
+                    </StayForm>
                     )}
                   </div>
 
@@ -1192,7 +1193,13 @@ export async function VendorServicesManager({
             it.
           </p>
         </div>
-        <form action={proposeCategory} className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end">
+        {/* Keyed on the request count: a request that lands joins "Your requests" in place and starts this form empty. */}
+        <StayForm
+          key={`propose-${myRequests.length}`}
+          door="svServices.proposeCategory"
+          action={proposeCategory}
+          className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end"
+        >
           {/* Survives the redirect so "Back to your card" still shows after
               submitting — server actions can't read the page's own URL. */}
           <input type="hidden" name="from_locked_kind" value={wantsCategoryForm ? '1' : ''} />
@@ -1219,7 +1226,7 @@ export async function VendorServicesManager({
           <SubmitButton className="button-primary" pendingLabel="Sending…">
             Request
           </SubmitButton>
-        </form>
+        </StayForm>
         {!requestsMeasured ? (
           <p role="alert" className="text-sm" style={{ color: 'var(--m-ink)' }}>
             <strong>We couldn&rsquo;t load your category requests.</strong> Any

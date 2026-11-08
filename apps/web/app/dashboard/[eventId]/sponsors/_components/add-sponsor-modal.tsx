@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import type {
@@ -99,7 +100,7 @@ export function AddSponsorModal({
               </button>
             </header>
 
-            <form action={formAction} className="space-y-4 px-5 py-4">
+            <StayForm door="sponsors.addSponsor" action={formAction} onSaved={() => setOpen(false)} className="space-y-4 px-5 py-4">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_tier" value={sponsorTier} />
               <input type="hidden" name="side" value={side} />
@@ -181,7 +182,7 @@ export function AddSponsorModal({
                   Save sponsor
                 </SubmitButton>
               </div>
-            </form>
+            </StayForm>
           </div>
         </div>
       ) : null}

@@ -21,6 +21,7 @@ import {
 } from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 // 0009 Photo Delivery panel — wired to real OAuth + release flow.
 //
@@ -359,7 +360,7 @@ function ConnectedState({
             </div>
           </div>
 
-          <form action={disconnectPhotoDelivery}>
+          <StayForm door="photoDelivery.disconnectPhotoDelivery" action={disconnectPhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               pendingLabel="Disconnecting…"
@@ -368,7 +369,7 @@ function ConnectedState({
               <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Disconnect
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
       </section>
 
@@ -396,7 +397,7 @@ function ConnectedState({
               reviewing, release the full archive to your Drive in one pass.
             </p>
           </header>
-          <form action={releasePhotoDelivery}>
+          <StayForm door="photoDelivery.releasePhotoDelivery" action={releasePhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               pendingLabel="Releasing…"
@@ -405,7 +406,7 @@ function ConnectedState({
               <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Release to Drive
             </SubmitButton>
-          </form>
+          </StayForm>
         </section>
       ) : null}
 
@@ -462,7 +463,7 @@ function ConnectedState({
                 Open in Drive
               </Link>
             ) : null}
-            <form action={releasePhotoDelivery}>
+            <StayForm door="photoDelivery.releasePhotoDelivery" action={releasePhotoDelivery}>
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Releasing…"
@@ -471,7 +472,7 @@ function ConnectedState({
                 <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Re-deliver new photos
               </SubmitButton>
-            </form>
+            </StayForm>
           </div>
         </section>
       ) : null}
@@ -496,7 +497,7 @@ function ConnectedState({
               Setnayan still has your photos safely in R2 — retry whenever you&rsquo;re ready.
             </p>
           </header>
-          <form action={releasePhotoDelivery}>
+          <StayForm door="photoDelivery.releasePhotoDelivery" action={releasePhotoDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               pendingLabel="Retrying…"
@@ -505,7 +506,7 @@ function ConnectedState({
               <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Retry upload
             </SubmitButton>
-          </form>
+          </StayForm>
         </section>
       ) : null}
     </div>

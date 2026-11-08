@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { demoteMember, promoteMember, removeMember } from '../../actions';
+import { demoteMember, promoteMember } from '../../actions';
+import { saveInPlace } from '@/app/_actions/save-in-place';
 
 /**
  * member-actions-menu.tsx — an organizer's Promote · Demote · Remove for one member, as ONE dropdown.
@@ -26,7 +27,20 @@ export function MemberActionsMenu({
 }) {
   const promoteRef = useRef<HTMLFormElement>(null);
   const demoteRef = useRef<HTMLFormElement>(null);
-  const removeRef = useRef<HTMLFormElement>(null);
+  /* Remove saves IN PLACE (owner 2026-10-26, "a save never resets the screen"): the `accGroup.removeMember` door, the
+     same two fields; a refusal is said under the menu. */
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [, startRemove] = useTransition();
+  const remove = () => {
+    const fd = new FormData();
+    fd.set('community_id', communityId);
+    fd.set('member_row_id', String(memberRowId));
+    setRemoveError(null);
+    startRemove(async () => {
+      const r = await saveInPlace('accGroup.removeMember', fd);
+      if (!r.ok) setRemoveError(r.error);
+    });
+  };
   const fields = (
     <>
       <input name="community_id" type="hidden" value={communityId} />
@@ -49,7 +63,8 @@ export function MemberActionsMenu({
           { key: 'remove', label: 'Remove', icon: <X className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
         ]}
         onPick={(k) => {
-          const form = k === 'promote' ? promoteRef.current : k === 'demote' ? demoteRef.current : removeRef.current;
+          if (k === 'remove') return remove();
+          const form = k === 'promote' ? promoteRef.current : demoteRef.current;
           form?.requestSubmit();
         }}
       />
@@ -59,9 +74,11 @@ export function MemberActionsMenu({
       <form ref={demoteRef} action={demoteMember} className="hidden">
         {fields}
       </form>
-      <form ref={removeRef} action={removeMember} className="hidden">
-        {fields}
-      </form>
+      {removeError ? (
+        <p role="alert" className="text-[12.5px] leading-snug text-terracotta-700" data-stay-error="accGroup.removeMember">
+          {removeError}
+        </p>
+      ) : null}
     </>
   );
 }

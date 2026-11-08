@@ -120,6 +120,7 @@ import {
   showsExpiryWarning,
 } from '@/lib/chat-file-rules';
 import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
+import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -1428,7 +1429,7 @@ export function ChatMessageStream({
                           not sent/viewed); `return_to` keeps the couple in this conversation.
                         */}
                         {quoteState.offerAcceptUpdate ? (
-                          <form action={respondToProposal} className="flex flex-1">
+                          <StayForm door="svProposals.respondToProposal" action={respondToProposal} className="flex flex-1">
                             <input type="hidden" name="proposal_id" value={m.proposal_id} />
                             <input type="hidden" name="public_id" value={card.publicId} />
                             <input type="hidden" name="response" value="accepted" />
@@ -1439,7 +1440,7 @@ export function ChatMessageStream({
                             >
                               Accept the update
                             </SubmitButton>
-                          </form>
+                          </StayForm>
                         ) : null}
                         {/*
                           S5 · the couple's ONE next step on an accepted quote,

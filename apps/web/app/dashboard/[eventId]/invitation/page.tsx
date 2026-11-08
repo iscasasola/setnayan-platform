@@ -33,6 +33,8 @@ import { qrFileName } from '@/lib/qr-download';
 import { TagListDownload } from '@/app/_components/tag-list-download';
 import { invitationReach, unreachableSentence } from '@/lib/invitation-reach';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
+import { MONO_ERROR_COPY } from './mono-error-copy';
 
 export const metadata = { title: 'Invitations' };
 
@@ -56,9 +58,6 @@ const SLUG_ERROR_COPY: Record<string, string> = {
   taken: 'That address is already taken by another event.',
 };
 
-const MONO_ERROR_COPY: Record<string, string> = {
-  invalid_color: 'Monogram color must be a hex code like #C97B4B.',
-};
 
 export default async function InvitationAdminPage({ params, searchParams }: Props) {
   const { eventId } = await params;
@@ -279,7 +278,8 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           ) : null}
         </header>
 
-        <form action={monoAction} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+        <StayForm door="invitation.updateMonogram" action={monoAction} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <input type="hidden" name="event_id" value={eventId} />
           <div className="space-y-1.5">
             <label htmlFor="monogram_text" className="block text-sm font-medium text-ink">
               Monogram text
@@ -314,7 +314,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               Save monogram
             </SubmitButton>
           </div>
-        </form>
+        </StayForm>
 
         {monoError ? (
           <p role="alert" className="mt-3 text-xs text-terracotta-700">

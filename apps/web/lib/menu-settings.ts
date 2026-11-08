@@ -177,7 +177,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   shop: {
     door: 'first-row-gear',
     sheet: 'Shop settings',
-    line: 'Your plan, who helps run the shop, your papers, how we reach you.',
+    line: 'Your page, your plan, who helps run the shop, your papers, how we reach you.',
     live: true,
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
   },
@@ -208,6 +208,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     tip: 'Settings for this client only. What you set for every client stays in Clients settings.',
   },
 };
+
+/**
+ * 🏪 THE SHOP ⚙'S FIRST ENTRY (THE ONE BUILD spec §10 #31, controller 8 Nov 2026): **Your page** — what couples see, all
+ * your reviews inside — opens the page editor (`/vendor-dashboard/website`). It heads the sheet, above the set-once folds
+ * (`ShopSettings` draws it, so it shows while the folds are still being read). "Your details" is NOT here: it lives only
+ * in the top-right account sheet. (The loose Your page · Your details rows leave the Shop page — the Shop lane.)
+ */
+export const SHOP_SETTINGS_FIRST = {
+  title: 'Your page',
+  line: 'What couples see, all your reviews inside',
+  href: '/vendor-dashboard/website',
+} as const;
 
 export const SETTINGS_MENUS = Object.keys(SETTINGS_ENTRY) as SettingsMenu[];
 

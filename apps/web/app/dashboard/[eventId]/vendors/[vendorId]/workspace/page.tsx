@@ -131,6 +131,7 @@ import { ChangeOrderTrail, type ChangeOrderRow } from './_components/change-orde
 import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
+import { SupplierFormsCard } from './_components/supplier-forms-card';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -2607,14 +2608,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // ❓ "{SHOP} ASKS" — every supplier's questions for the couple, answered here (owner 2026-11-04, verbatim "Yes,
   // every supplier"). Only a supplier with a Setnayan shop can ask; the card renders nothing unless they ask something
   // AND are booked or sent their set from the chat. Lives on Details (flag-on) / after the inclusions (flag-off).
+  // 📋 …and every form the shop SENT into this event (THE ONE BUILD · Forms), each its own section under it.
   const supplierQuestionsSection = ev.marketplace_vendor_id ? (
-    <SupplierQuestionsCard
-      supabase={supabase}
-      eventId={eventId}
-      eventVendorId={ev.vendor_id}
-      vendorProfileId={ev.marketplace_vendor_id}
-      shopName={displayName}
-    />
+    <>
+      <SupplierQuestionsCard
+        supabase={supabase}
+        eventId={eventId}
+        eventVendorId={ev.vendor_id}
+        vendorProfileId={ev.marketplace_vendor_id}
+        shopName={displayName}
+      />
+      <SupplierFormsCard
+        supabase={supabase}
+        eventId={eventId}
+        eventVendorId={ev.vendor_id}
+        vendorProfileId={ev.marketplace_vendor_id}
+        shopName={displayName}
+      />
+    </>
   ) : null;
 
   // ------------------------------------------------------------------------

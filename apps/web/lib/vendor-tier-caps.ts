@@ -388,6 +388,14 @@ export interface TierCaps {
   performanceAdvanced: boolean;
   /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
   soloBusinessTools: boolean;
+  /**
+   * FORM MEDIA BY PLAN (owner 2026-10-28, DECISION_LOG row of that name, verbatim: *"Upload for pro and ultra .Video
+   * links for solo, pro, and ultra"*). On the Form Maker: UPLOADED files on a form item (photo, video, PDF) = Pro +
+   * Ultra; a VIDEO LINK item = Solo + Pro + Ultra. Customers' answers stay free for everyone. A locked control names
+   * the plan it needs ({@link firstPlanWith}), never a dead button.
+   */
+  formMediaUploads: boolean;
+  formVideoLinks: boolean;
   /*
    * ⛔ `calls` (in-thread 1:1 voice/video calls, Solo+) was REMOVED 2026-11-04 (owner, "SUPPLIER PLAN ALLOWANCES":
    * the stale `calls` capability is removed). In-app calls were retired 2026-10-28 ("remove both voice and video
@@ -457,6 +465,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
+    formMediaUploads: false, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
+    formVideoLinks: false, // FORM MEDIA BY PLAN 2026-10-28: video links Solo + Pro + Ultra
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
     seoLevel: 'basic', // basic indexability is free for all (§ 8)
@@ -504,6 +514,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
+    formMediaUploads: false, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
+    formVideoLinks: false, // FORM MEDIA BY PLAN 2026-10-28: video links Solo + Pro + Ultra
     slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: false,
     inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23; was 10)
@@ -536,6 +548,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true,
     performanceAdvanced: false,
     soloBusinessTools: true,
+    formMediaUploads: false, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
+    formVideoLinks: true, // FORM MEDIA BY PLAN 2026-10-28: video links Solo + Pro + Ultra
     chat: 'chat',
     parentCategories: 2, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 1)
     agentAccounts: 1,
@@ -576,6 +590,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
+    formMediaUploads: true, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
+    formVideoLinks: true, // FORM MEDIA BY PLAN 2026-10-28: video links Solo + Pro + Ultra
     servicesPerLeaf: 10, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 5)
     chat: 'chat',
     parentCategories: 8, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3)
@@ -619,6 +635,8 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
+    formMediaUploads: true, // FORM MEDIA BY PLAN 2026-10-28: uploads Pro + Ultra
+    formVideoLinks: true, // FORM MEDIA BY PLAN 2026-10-28: video links Solo + Pro + Ultra
     servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
     chat: 'chat',
     parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)

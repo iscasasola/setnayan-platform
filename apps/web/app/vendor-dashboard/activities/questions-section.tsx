@@ -41,6 +41,7 @@ export async function QuestionsSection({
     .from('vendor_questions')
     .select('question_id, vendor_profile_id, prompt, hint, is_asked, display_order')
     .eq('vendor_profile_id', vendorProfileId)
+    .is('form_id', null)
     .order('display_order', { ascending: true });
 
   if (error) {

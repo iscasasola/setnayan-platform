@@ -33,7 +33,8 @@ export async function QuestionsSendPanel({
     supabase
       .from('vendor_questions')
       .select('question_id, vendor_profile_id, prompt, hint, is_asked, display_order')
-      .eq('vendor_profile_id', vendorProfileId),
+      .eq('vendor_profile_id', vendorProfileId)
+      .is('form_id', null),
     supabase
       .from('event_question_requests')
       .select('sent_at')

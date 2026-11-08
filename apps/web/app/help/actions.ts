@@ -3,8 +3,7 @@
 import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { emitNotification } from '@/lib/notification-emit';
+import { notifyAdminsOfHelpMessage } from '@/lib/help-message-notify.server';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { VENDOR_TIERS, type VendorTier } from '@/lib/vendor-tier-caps';
 
@@ -106,29 +105,14 @@ export async function submitHelpMessage(formData: FormData) {
     );
   }
 
-  // Notify every internal admin so they see a count in their dashboard bell.
-  try {
-    const admin = createAdminClient();
-    const { data: internals } = await admin
-      .from('users')
-      .select('user_id')
-      .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin');
-    for (const adminUser of internals ?? []) {
-      await emitNotification({
-        userId: adminUser.user_id,
-        type: 'chat_message',
-        title: `Help request · ${subject}`,
-        body: `${email}: ${body.slice(0, 140)}`,
-        // Anchor to the specific message in the flat /admin/help list — there
-        // is no /admin/help/[messageId] subroute. The <li> in admin/help/page.tsx
-        // carries id={`message-${message_id}`} so the email link scrolls the
-        // admin straight to the new request.
-        relatedUrl: `/admin/help#message-${data.message_id}`,
-      });
-    }
-  } catch {
-    // Notification failures shouldn't block the user's submission.
-  }
+  // Notify every internal admin so they see a count in their dashboard bell (the shared loop — the supplier Report
+  // tells the same people; `lib/help-message-notify.server.ts`). Never throws.
+  await notifyAdminsOfHelpMessage({
+    type: 'chat_message',
+    messageId: data.message_id,
+    title: `Help request · ${subject}`,
+    body: `${email}: ${body.slice(0, 140)}`,
+  });
 
   return redirect(`/help?submitted=${encodeURIComponent(data.public_id)}`);
 }

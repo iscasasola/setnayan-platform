@@ -258,6 +258,15 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 🧹 FORM MEDIA (THE ONE BUILD · Forms, §4): uploads in a shop's forms folder that no item references (live or
+    // retired) and that are over a day old — never a file a form still holds. rows_affected = objects deleted.
+    key: 'form-media-sweep',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Form Maker uploads that were never saved into a form (or were removed before saving) deleted after a day',
+    reportsCount: true,
+  },
+  {
     key: 'samahan-story-sweep',
     kind: 'retention',
     gapMs: 60 * 60 * 1000,

@@ -1277,6 +1277,7 @@ export async function buildPersonalDataExport(
     ledgerSuppliers,
     couplePhotoShares,
     ownCrewPasses,
+    ownHearts,
     ownMoodBoardChanges,
     ownFeeDisputes,
     // ⚠ These ten were read and shipped but missing from this list until

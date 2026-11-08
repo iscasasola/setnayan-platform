@@ -38,6 +38,7 @@ export function FormsPageBody({
   suggestions,
   locks,
   answersOpen,
+  shopId,
 }: {
   eventId: string | null;
   coupleName: string;
@@ -50,6 +51,7 @@ export function FormsPageBody({
   suggestions: Suggestions | null;
   locks: FormMakerLocks;
   answersOpen: boolean;
+  shopId: string;
 }) {
   const router = useRouter();
   const loadTitle = useId();
@@ -276,6 +278,7 @@ export function FormsPageBody({
         locks={locks}
         eventId={eventId && canSend ? eventId : null}
         returnPath={returnPath}
+        shopId={shopId}
       />
     </div>
   );

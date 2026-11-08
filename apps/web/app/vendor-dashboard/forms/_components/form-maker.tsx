@@ -11,10 +11,12 @@ import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
 import { InfoTip } from '@/app/_components/info-tip';
 import { TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import {
   CHOICE_TYPES,
   FORM_ANSWER_TYPES,
+  FORM_MEDIA_PER_ITEM_MAX,
   answerTypeLabel,
   validateFormDraft,
   type FormAnswerType,
@@ -60,6 +62,7 @@ export function FormMaker({
   eventId,
   returnPath,
   onSaved,
+  shopId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -72,6 +75,8 @@ export function FormMaker({
   eventId?: string | null;
   returnPath: string;
   onSaved?: (formId: string) => void;
+  /** The shop's id — its media files go to its own folder (`vendors/<shop>/forms`, public media bucket). */
+  shopId: string;
 }) {
   const titleId = useId();
   const [formId, setFormId] = useState<string | undefined>(initial?.formId);
@@ -335,7 +340,7 @@ export function FormMaker({
                         {r.kind === 'video_link' ? <Video className="h-4 w-4 flex-none text-ink/50" aria-hidden /> : null}
                       </button>
                     </div>
-                    {openKey === r.key ? <ItemEditor row={r} onChange={(p) => patch(r.key, p)} /> : null}
+                    {openKey === r.key ? <ItemEditor row={r} shopId={shopId} onChange={(p) => patch(r.key, p)} /> : null}
                   </div>
                 </SwipeToDelete>
               ))}
@@ -396,7 +401,7 @@ function rowLine(r: FormItemDraft): string {
 }
 
 /** The item, opened in place. */
-function ItemEditor({ row, onChange }: { row: FormItemDraft; onChange: (p: Partial<FormItemDraft>) => void }) {
+function ItemEditor({ row, shopId, onChange }: { row: FormItemDraft; shopId: string; onChange: (p: Partial<FormItemDraft>) => void }) {
   if (row.kind === 'question') {
     const choice = CHOICE_TYPES.has(row.answerType);
     return (
@@ -463,9 +468,23 @@ function ItemEditor({ row, onChange }: { row: FormItemDraft; onChange: (p: Parti
   return (
     <div className="space-y-1 border-t border-ink/10 px-3 pb-3 pt-2" data-fm-editor="media">
       <TypedRow name="What they are" value={row.caption} empty="Add" placeholder="e.g. Our sample albums" maxLength={200} onKeep={(t) => onChange({ caption: t })} />
-      <p className="text-[13px] text-ink/60">
-        {row.mediaKeys.length} file{row.mediaKeys.length === 1 ? '' : 's'} on this item.
-      </p>
+      {/* The shipped uploader (compress-first, size limits) into the shop's own folder. Kept while the form exists
+          (THE ONE BUILD §4) — not the chat's 90-day expiry, because a library form is sent to many couples. */}
+      <FileUpload
+        bucket="media"
+        pathPrefix={`vendors/${shopId}/forms`}
+        multiple
+        maxFiles={FORM_MEDIA_PER_ITEM_MAX}
+        maxSizeMB={25}
+        acceptedTypes={['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/quicktime', 'application/pdf']}
+        compressImage
+        compressVideo
+        variant="gallery"
+        label="Files"
+        help="Photos, short videos or a PDF — up to 10."
+        currentValue={row.mediaKeys.length ? row.mediaKeys : null}
+        onChange={(v) => onChange({ mediaKeys: Array.isArray(v) ? v : v ? [v] : [] })}
+      />
     </div>
   );
 }

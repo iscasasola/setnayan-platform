@@ -68,6 +68,7 @@ export function FormsLabClient({ mode }: { mode: string }) {
         locks={{ media: 'Pro', video: null }}
         eventId={EV}
         returnPath="/dev/forms-lab"
+        shopId={SHOP}
       />
     );
   }
@@ -124,6 +125,7 @@ export function FormsLabClient({ mode }: { mode: string }) {
       suggestions={{ status: 'ok', serviceLabel: 'Photo & Video', groupLabel: 'Photo & Video', own: [], alsoUseful: [] }}
       locks={{ media: 'Pro', video: null }}
       answersOpen
+      shopId={SHOP}
     />
   );
 }

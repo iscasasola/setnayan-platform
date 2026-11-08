@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { answeredCount, liveItems, type FormItemRow } from '@/lib/vendor-forms';
 import { parseVideoLink } from '@/lib/video-embed';
 import { formatCount } from '@/lib/format-number';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SupplierFormAnswers } from './supplier-form-answers';
 
 /**
@@ -62,6 +63,11 @@ export async function SupplierFormsCard({
   const items = (itemsRes.data ?? []) as FormItemRow[];
   const answers = new Map(((answersRes.data ?? []) as { question_id: string; answer: string }[]).map((a) => [a.question_id, a.answer]));
   const returnPath = `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`;
+  // Media files resolve through the public-bucket-only signer (a private or foreign ref resolves to nothing).
+  const mediaRefs = [...new Set(items.filter((i) => i.item_kind === 'media' && i.is_asked).flatMap((i) => i.media_keys ?? []))];
+  const mediaUrls = new Map(
+    await Promise.all(mediaRefs.map(async (r) => [r, await displayUrlForStoredAsset(r)] as const)),
+  );
 
   return (
     <div className="space-y-8" data-supplier-forms>
@@ -92,9 +98,29 @@ export async function SupplierFormsCard({
                     </a>
                   </p>
                 ) : (
-                  <p key={i.question_id} className="text-[14px] text-ink/70">
-                    {i.prompt} · {i.media_keys?.length ?? 0} file{(i.media_keys?.length ?? 0) === 1 ? '' : 's'}
-                  </p>
+                  <div key={i.question_id} className="space-y-2">
+                    <p className="text-[14px] text-ink/80">{i.prompt}</p>
+                    <ul className="flex flex-wrap gap-2">
+                      {(i.media_keys ?? []).map((k, n) => {
+                        const url = mediaUrls.get(k);
+                        if (!url) return null;
+                        return (
+                          <li key={k}>
+                            {/\.(png|jpe?g|webp|gif|avif)$/i.test(k) ? (
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- a signed R2 link, not an optimisable asset */}
+                                <img src={url} alt={`${i.prompt} · ${n + 1}`} className="h-20 w-20 rounded-lg object-cover" />
+                              </a>
+                            ) : (
+                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-[14px] text-sn-accent underline underline-offset-4">
+                                Open file {n + 1}
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 ),
               )}
             <SupplierFormAnswers

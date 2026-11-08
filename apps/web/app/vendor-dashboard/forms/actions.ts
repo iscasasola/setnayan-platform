@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { parseClientRef } from '@/lib/r2-client-ref';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { notifyHostsOfForm } from '@/lib/vendor-forms-on-booking.server';
@@ -112,6 +113,13 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
     if (problems.length) return { status: 'error', message: problems[0]!.message };
     const refusal = await planRefusal(supabase, shop, draft.items);
     if (refusal) return { status: 'error', message: refusal };
+    // A media file must be the shop's OWN upload in its forms folder — never a typed URL, never another shop's file.
+    for (const it of draft.items) {
+      if (it.kind !== 'media') continue;
+      if (!it.mediaKeys.every((k) => parseClientRef(k, { prefixes: [`vendors/${shop}/forms/`] }))) {
+        return { status: 'error', message: 'A file on this form could not be kept. Upload it again.' };
+      }
+    }
     const saved = await saveDraft(supabase, shop, draft);
     if ('error' in saved) return { status: 'error', message: saved.error };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);

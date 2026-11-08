@@ -16,7 +16,9 @@
  * scoped to THIS shop on THIS event), the plan (1); then this event's sends (1–4) and the suggestions (1–4); plus the
  * three shipped sections' own reads (1 + 3 + 2). A refused part is SAID ("couldn't load"), never drawn as empty.
  */
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { maybeRunFormMediaSweep } from '@/lib/form-media-sweep.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { asVendorTier, firstPlanWith, TIER_LABEL, tierCaps } from '@/lib/vendor-tier-caps';
@@ -29,6 +31,8 @@ import { FormsPageBody } from '@/app/vendor-dashboard/forms/_components/forms-pa
 import type { PickedPageProps } from './context';
 
 export async function FormsPage({ ctx }: PickedPageProps) {
+  // 🧹 Cron-free: the daily form-media sweep rides this page's traffic (after the response).
+  after(() => maybeRunFormMediaSweep());
   const supabase = await createClient();
   const [profile, library, booked, tierRes] = await Promise.all([
     fetchOwnVendorProfile(supabase, ctx.viewerUserId),
@@ -93,6 +97,7 @@ export async function FormsPage({ ctx }: PickedPageProps) {
         suggestions={suggestions.status === 'ok' ? suggestions : null}
         locks={locks}
         answersOpen={ctx.feeUnlocked}
+        shopId={ctx.vendorProfileId}
       />
     </div>
   );

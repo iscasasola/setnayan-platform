@@ -139,9 +139,9 @@ test('the spotlight never draws the old centred card', () => {
  * a step that points at nothing; a home left behind after a stop is cut fails too.
  */
 const ANCHOR_HOME: Record<string, string | string[]> = {
-  'shop-segments': 'app/vendor-dashboard/shop/_components/shop-segments.tsx',
-  'shop-page-list': 'app/vendor-dashboard/website/_components/page-parts.tsx',
-  'shop-details-row': 'app/vendor-dashboard/website/_components/page-parts.tsx',
+  // THE ONE BUILD (8 Nov, C4): the v113 Shop tab's two parts.
+  'shop-analytics': 'app/vendor-dashboard/shop/_components/shop-analytics-carousel.tsx',
+  'shop-badges': 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx',
   'hub-next-days': 'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx',
   'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',
   'hub-day-launch': 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx',

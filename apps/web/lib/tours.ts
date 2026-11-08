@@ -1444,7 +1444,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Details, Services, Page, Portfolio and Analytics — the five parts of Shop.',
+    blurb: 'How your shop is going, and the badges it has earned.',
     slides: [
       {
         Icon: Briefcase,
@@ -1459,23 +1459,19 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     // `lib/supplier-page-tours.ts`, after `supplier_spotlight_v1`.
     spotlight: {
       steps: [
+        // THE ONE BUILD (8 Nov 2026, C4 · integration): the Shop tab is v113 now — Your details row, How it is going,
+        // Your badges — and the old ▾ (`shop-segments`) and Page's list are no longer on it, so the old three stops
+        // would wait on parts that are not drawn. `shop-details` ("Your details") is NOT repeated here: the Today
+        // journey (`supplier_spotlight_v1`) already lands on it, and no page tour repeats a journey stop.
         {
-          // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
-          // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
-          anchor: 'shop-segments',
-          title: 'Details · Services · Page · Portfolio · Analytics',
-          body: 'Every part of your shop is in this one menu. Open it and pick Page.',
-          hint: 'Pick Page — or press Next',
+          anchor: 'shop-analytics',
+          title: 'How it is going',
+          body: 'What’s ahead, your quotes that turn into bookings, where your price sits — swipe, and tap one to see what it tells you.',
         },
         {
-          anchor: 'shop-page-list',
-          title: 'Tap a part to change it',
-          body: 'Your cover, your About, which services show first. “View my page” shows it exactly as a couple sees it.',
-        },
-        {
-          anchor: 'shop-details-row',
-          title: 'Your documents live in Your details',
-          body: 'DTI or SEC, BIR 2303, Mayor’s permit, bank proof. Setnayan checks them in 5 working days, then your shop goes live.',
+          anchor: 'shop-badges',
+          title: 'Your badges',
+          body: 'What your shop has earned, and what the next one asks of you.',
         },
       ],
       finale: {

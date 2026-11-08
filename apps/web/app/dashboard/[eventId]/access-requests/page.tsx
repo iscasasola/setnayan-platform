@@ -38,13 +38,13 @@ function lineByLine(
 }
 
 /**
- * Where the host answers a coordinator's ask (owner ruling 2026-07-27).
+ * Where the host answers a supplier's ask (owner ruling 2026-07-27; widened 8 Nov 2026: *"only coordinator and hosts
+ * has the final say"*).
  *
- * Host-only by RLS: `event_access_requests_host_read` is scoped to
- * `current_event_ids()`, so a delegate coordinator loading this URL sees an
- * empty list rather than other people's requests — and could not answer one
- * anyway, since the answer policy is host-scoped too. That matters: a
- * coordinator who could approve requests could approve their own.
+ * The hosts read every ask here (`event_access_requests_host_read`, couple-scoped). The BOOKED COORDINATOR answers a
+ * non-coordinator supplier's ask from their own client page (`CoordinatorAnswers`), never here; a coordinator's own ask
+ * is the hosts' alone — `answer_area_access_request` refuses anybody answering their own, so a coordinator can never
+ * approve themselves. Whichever of them answers first, the ask leaves this list.
  */
 export default async function AccessRequestsPage({
   params,

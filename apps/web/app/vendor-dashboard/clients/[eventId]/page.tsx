@@ -88,6 +88,8 @@ import {
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { readMyLastAccessAnswer } from '@/lib/my-access-ask.server';
+import { readAsksForCoordinator } from '@/lib/coordinator-answers.server';
+import { CoordinatorAnswers } from './_components/coordinator-answers';
 import { isBookedCoordinator as isBookedCoordinatorFact } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
@@ -687,9 +689,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // side against the booking pool, so this is a display rule, not the gate).
   // …and the last ANSWER (owner 8 Nov 2026: the supplier sees what they asked for and what they got) — the third read
   // of the same round trip.
-  const [myGrants, myPendingAsk, myLastAnswer] = isBooked
-    ? await Promise.all([fetchMyAreaGrants(eventId), fetchMyPendingAsk(eventId), readMyLastAccessAnswer(supabase, eventId, user.id)])
-    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null];
+  // 🤝 …and, for the BOOKED COORDINATOR only, the other suppliers' asks waiting on them (owner 8 Nov 2026: "only
+  // coordinator and hosts has the final say") — a fourth read in the same round trip, never for anybody else.
+  const [myGrants, myPendingAsk, myLastAnswer, asksForMe] = isBooked
+    ? await Promise.all([
+        fetchMyAreaGrants(eventId),
+        fetchMyPendingAsk(eventId),
+        readMyLastAccessAnswer(supabase, eventId, user.id),
+        isBookedCoordinator ? readAsksForCoordinator(supabase, eventId) : Promise.resolve(null),
+      ])
+    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null, null];
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
@@ -1930,6 +1939,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         lastAnswer={myLastAnswer}
         askerIsCoordinator={isBookedCoordinator}
       />
+      {asksForMe ? (
+        <CoordinatorAnswers
+          eventId={eventId}
+          asks={asksForMe.asks}
+          measured={asksForMe.measured}
+          shareable={(Object.keys(myGrants) as DelegateArea[]).filter((a) => myGrants[a])}
+        />
+      ) : null}
     </div>
   ) : null;
 

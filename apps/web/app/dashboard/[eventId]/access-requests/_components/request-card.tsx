@@ -30,6 +30,14 @@ export type PendingRequest = {
   askerIsCoordinator: boolean;
 };
 
+/**
+ * 🤝 WHO IS ANSWERING (owner 8 Nov 2026). The hosts answer every line. The booked coordinator answers a supplier's
+ * ask from their client page with the SAME card — but may share only a part they hold themselves (`shareable`); a part
+ * they do not hold can still be declined, and its Share says only the host can give it. The database enforces the
+ * same (`answer_area_access_request`).
+ */
+export type AnsweringAs = { as: 'host' } | { as: 'coordinator'; shareable: readonly DelegateArea[] };
+
 /** Plain-English consequence of sharing this line. */
 const AREA_MEANING: Partial<Record<DelegateArea, string>> = {
   seat_plan: 'Look up where a guest is sitting.',
@@ -40,7 +48,16 @@ const AREA_MEANING: Partial<Record<DelegateArea, string>> = {
   budget: 'See your budget and payments. Never more than view.',
 };
 
-export function RequestCard({ eventId, request }: { eventId: string; request: PendingRequest }) {
+export function RequestCard({
+  eventId,
+  request,
+  answering = { as: 'host' },
+}: {
+  eventId: string;
+  request: PendingRequest;
+  answering?: AnsweringAs;
+}) {
+  const mayShare = (area: DelegateArea) => answering.as === 'host' || answering.shareable.includes(area);
   const [verdicts, setVerdicts] = useState<Record<string, AreaVerdict>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -96,8 +113,10 @@ export function RequestCard({ eventId, request }: { eventId: string; request: Pe
                 <button
                   type="button"
                   onClick={() => setVerdicts((p) => ({ ...p, [area]: 'granted' }))}
+                  disabled={!mayShare(area)}
+                  title={mayShare(area) ? undefined : 'Only the host can share this — you do not hold it.'}
                   aria-pressed={v === 'granted'}
-                  className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition ${
+                  className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-40 ${
                     v === 'granted'
                       ? 'border-success-400 bg-success-500 text-white'
                       : 'border-ink/15 bg-white text-ink/70 hover:border-success-400'
@@ -151,7 +170,9 @@ export function RequestCard({ eventId, request }: { eventId: string; request: Pe
       </div>
 
       <p className="mt-3 text-xs text-ink/45">
-        You can take any of this back later, and they lose it straight away.
+        {answering.as === 'host'
+          ? 'You can take any of this back later, and they lose it straight away.'
+          : 'You answer for the host. Only parts the host shared with you can be shared on. The host can take any of it back.'}
       </p>
     </li>
   );

@@ -92,11 +92,7 @@ export async function SupplierFormsCard({
               .filter((i) => i.item_kind !== 'question')
               .map((i) =>
                 i.item_kind === 'video_link' && i.video_url ? (
-                  <p key={i.question_id} className="text-[14px]">
-                    <a href={i.video_url} target="_blank" rel="noopener noreferrer" className="text-sn-accent underline underline-offset-4">
-                      ▶ {i.prompt} · {parseVideoLink(i.video_url)?.label ?? 'Video'}
-                    </a>
-                  </p>
+                  <VideoItem key={i.question_id} title={i.prompt} url={i.video_url} />
                 ) : (
                   <div key={i.question_id} className="space-y-2">
                     <p className="text-[14px] text-ink/80">{i.prompt}</p>
@@ -151,6 +147,40 @@ function Unread({ shopName }: { shopName: string }) {
   return (
     <p role="alert" className="text-sm text-ink/70">
       <strong className="text-ink">We couldn&rsquo;t load {shopName}&rsquo;s forms.</strong> Anything you already answered is safe. Reload in a moment.
+    </p>
+  );
+}
+
+/**
+ * A form's video link — FORM MEDIA BY PLAN (DECISION_LOG 2026-10-28): YouTube / Vimeo play INSIDE, in their
+ * no-tracking players (`parseVideoLink().embedUrl`, the same iframe the supplier page draws); anything else (Facebook…)
+ * opens outside.
+ */
+function VideoItem({ title, url }: { title: string; url: string }) {
+  const v = parseVideoLink(url);
+  if (v?.kind === 'iframe' && v.embedUrl) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[14px] text-ink/80">{title}</p>
+        <div className="relative aspect-video overflow-hidden rounded-xl bg-ink/5">
+          <iframe
+            src={v.embedUrl}
+            title={`${title} — ${v.label}`}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <p className="text-[14px]">
+      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sn-accent underline underline-offset-4">
+        ▶ {title} · {v?.label ?? 'Video'}
+      </a>
     </p>
   );
 }

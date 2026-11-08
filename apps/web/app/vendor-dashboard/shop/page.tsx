@@ -269,8 +269,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     trusted,
     inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
     founding: own ? { isFounder: own.is_founder === true, joinedYear: own.created_at ? Number(own.created_at.slice(0, 4)) : null } : null,
-    // C2's `shop_booked_loop_count` is not in this tree yet (spec §9 #11) — the Booked Loop stays hidden.
-    bookedLoopMeasured: false,
+    // 🔁 The Booked Loop rides `rewards.facts.bookedLoops` (C2's counter, read by the reward engine) — hidden when unread.
   });
 
   return {

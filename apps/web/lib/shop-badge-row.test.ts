@@ -57,7 +57,6 @@ function input(over: Partial<BadgeRowInput> = {}): BadgeRowInput {
     trusted: FACTS.trusted,
     inBusinessSinceYear: FACTS.inBusinessSinceYear,
     founding: { isFounder: true, joinedYear: 2026 },
-    bookedLoopMeasured: false,
     ...over,
   };
 }
@@ -117,12 +116,19 @@ test('an unread count is "Couldn’t load" on a grey "—", never 0', () => {
   assert.equal(shopBadgeRow(input({ rows: null })), null, 'no rows → the whole row is unread, never an empty shelf');
 });
 
-test('1st Pick is shown but not counted; the Booked Loop is hidden until its counter exists', () => {
-  const row = shopBadgeRow(input())!;
+test('1st Pick is shown but not counted; the Booked Loop is hidden while its counter is unread', () => {
+  const row = shopBadgeRow(input())!; // COUNTS has no `bookedLoops` — not read
   assert.equal(row.find((t) => t.key === 'reward:first_pick')!.sub, NOT_COUNTED_YET);
   assert.equal(row.find((t) => t.key === 'reward:booked_loop'), undefined);
   assert.equal(row.find((t) => t.key === 'reward:first_loop'), undefined);
   assert.ok(!row.some((t) => /booked loop/i.test(t.title)));
+  // …and once C2's counter is read, the loop is a ladder like the others (spec §9 #11)
+  const counted = shopBadgeRow(input({ counts: { ...COUNTS, bookedLoops: 3 }, rows: badgeRowsWithRewards(badgeTracker(FACTS), { ...REWARDS, facts: { ...COUNTS, bookedLoops: 3 } }) }))!;
+  const loop = counted.find((t) => t.key === 'reward:booked_loop')!;
+  assert.equal(loop.num, '3');
+  assert.equal(loop.face, 'bronze', '3 families reached the 1 step');
+  assert.equal(counted.find((t) => t.key === 'reward:first_loop')!.on, true);
+  assert.equal(shopBadgeRow(input({ counts: { ...COUNTS, bookedLoops: null } }))!.find((t) => t.key === 'reward:booked_loop'), undefined);
   // not-counted and unread sort last
   const last = row.slice(-3).map((t) => t.sub);
   assert.ok(last.every((s) => s === NOT_COUNTED_YET || s === COULDNT_LOAD), last.join(','));

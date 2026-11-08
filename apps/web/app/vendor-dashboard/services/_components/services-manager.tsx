@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import { Fragment } from 'react';
@@ -1597,11 +1598,18 @@ function SetnayanGiftField({
   idPrefix,
   giftOn,
   legacyPerkText,
+  limitPct,
 }: {
   idPrefix: string;
   giftOn: boolean;
   legacyPerkText?: string;
+  /**
+   * 🎁 The gift limit, % of the booking fee — the ADMIN SETTING `platform_settings.gift_limit_pct` (C2, THE ONE BUILD
+   * spec §5 #3). Absent → its ruled default (`giftLimitPctOrDefault`), never a typed "40".
+   */
+  limitPct?: number | null;
 }) {
+  const cap = giftLimitPctOrDefault(limitPct);
   return (
     <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}>
       <div className="flex items-center gap-2">
@@ -1620,7 +1628,7 @@ function SetnayanGiftField({
         Say yes and every couple who books this card gets free Papic photos for their
         event — a real Setnayan product, given in your name. How many is worked out from
         your booking fee and appears on the quote, so there is nothing here to set. It is added
-        to your lock bill beside the fee, capped at 40% of it.
+        to your lock bill beside the fee, capped at {cap}% of it.
       </p>
       <fieldset className="flex gap-2">
         <legend className="sr-only">Include a Setnayan gift</legend>

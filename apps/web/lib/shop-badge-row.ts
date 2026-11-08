@@ -14,8 +14,8 @@
  *
  * 🔑 HONEST: an unread count is "Couldn't load" on a grey face with "—", never "0". A badge with no counter in the
  * app says "Not counted yet" (1st Pick, the first 5★ review — spec §4: shown, never counted, pays nothing). The
- * BOOKED LOOP (and the first loop, which hangs off it) is HIDDEN until C2's `shop_booked_loop_count` exists (spec §9
- * #11: "Without the counter the badge is HIDDEN, never shown as 'not yet reached'").
+ * BOOKED LOOP (and the first loop, which hangs off it) is counted by C2's `shop_booked_loop_count` (spec §9 #11) and
+ * HIDDEN whenever that count was not read — "Without the counter the badge is HIDDEN, never shown as 'not yet reached'".
  * 🔒 lib/shop-badge-row.test.ts
  */
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
@@ -89,8 +89,6 @@ export type BadgeRowInput = {
   inBusinessSinceYear: number | null;
   /** `vendor_profiles.is_founder` + the year the shop opened; null = unread → no tile (a status, never "not yet"). */
   founding: { isFounder: boolean; joinedYear: number | null } | null;
-  /** C2's `shop_booked_loop_count` exists and was read. Until then the Booked Loop is hidden (spec §9 #11). */
-  bookedLoopMeasured: boolean;
 };
 
 const COUNT = new Intl.NumberFormat('en-PH');
@@ -141,6 +139,7 @@ const LADDERS = {
   'reward:service_cards': { badge: 'service_cards', mini: 'CARDS', how: 'Live service cards across your services.' },
   'reward:inspiration': { badge: 'inspiration', mini: 'PHOTOS', how: 'Your inspiration photos that Setnayan approved for the library.' },
   'reward:branches': { badge: 'branches', mini: 'BRANCHES', how: 'Your paid, live branches.' },
+  'reward:booked_loop': { badge: 'booked_loop', mini: 'LOOP', how: 'Families who booked you again for another event.' },
 } as const;
 
 const FIRSTS: Readonly<Record<string, { num: string; mini: string; how: string }>> = {
@@ -151,8 +150,9 @@ const FIRSTS: Readonly<Record<string, { num: string; mini: string; how: string }
   'reward:first_first_pick': { num: '1st', mini: 'PICK', how: 'Your first booking after Setnayan recommended you first.' },
 };
 
-/** Hidden until C2's counter exists — never drawn as "not yet reached". */
+/** Hidden whenever C2's counter was not read — never drawn as "not yet reached". */
 const NEEDS_LOOP_COUNTER = new Set(['reward:booked_loop', 'reward:first_loop']);
+const loopsRead = (i: BadgeRowInput) => i.counts !== null && i.counts.bookedLoops !== undefined && i.counts.bookedLoops !== null;
 
 function stateSub(row: TrackerRow): string {
   if (row.state === 'unread') return COULDNT_LOAD;
@@ -183,7 +183,7 @@ function ladderTile(row: TrackerRow, title: string, mini: string, how: string, c
 }
 
 function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
-  if (NEEDS_LOOP_COUNTER.has(row.key) && !i.bookedLoopMeasured) return null;
+  if (NEEDS_LOOP_COUNTER.has(row.key) && !loopsRead(i)) return null;
 
   if (row.kind === 'verified') {
     return {
@@ -274,9 +274,11 @@ function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
             ? c.serviceCards
             : lad.badge === 'inspiration'
               ? c.inspirationPhotos
-              : c.branchIds === null
-                ? null
-                : new Set(c.branchIds).size;
+              : lad.badge === 'booked_loop'
+                ? (c.bookedLoops ?? null)
+                : c.branchIds === null
+                  ? null
+                  : new Set(c.branchIds).size;
     return ladderTile(row, row.title, lad.mini, lad.how, count, stepsOf(lad.badge), unitOf(lad.badge));
   }
   const first = FIRSTS[row.key];
@@ -298,10 +300,6 @@ function tileFor(row: TrackerRow, i: BadgeRowInput): BadgeTile | null {
       ladder: null,
       row,
     };
-  }
-  if (row.key === 'reward:booked_loop') {
-    // Reached only once the counter exists (`bookedLoopMeasured`); the engine still marks it not counted until then.
-    return { key: row.key, title: 'Booked Loop', shape: 'hex', face: 'bronze', num: '—', mini: 'LOOP', on: false, sub: stateSub(row), goal: false, how: 'Families who booked you again.', ladder: null, row };
   }
   return null;
 }

@@ -43,6 +43,9 @@ test('3 · Makers = Scanner + the Forms door; no Tools Maker', () => {
   assert.doesNotMatch(MAKERS + PAGE, /Tools Maker|data-maker="tools"/, 'the Tools Maker is back — out of this build (spec §9 #8)');
 });
 
-test('4 · the Booked Loop stays hidden until C2’s counter is read', () => {
-  assert.match(PAGE, /bookedLoopMeasured: false/, 'the Booked Loop is measured without a counter in this tree');
+test('4 · the Booked Loop is C2’s counter, hidden whenever it was not read', () => {
+  const ROW = stripComments(readFileSync(join(HERE, '../../../lib/shop-badge-row.ts'), 'utf8'));
+  const SERVER = stripComments(readFileSync(join(HERE, '../../../lib/badge-rewards.server.ts'), 'utf8'));
+  assert.match(SERVER, /readShopBookedLoopCount\(admin, vendorProfileId\)/, 'the loop is not read from C2’s counter');
+  assert.match(ROW, /if \(NEEDS_LOOP_COUNTER\.has\(row\.key\) && !loopsRead\(i\)\) return null;/, 'an unread loop is drawn');
 });

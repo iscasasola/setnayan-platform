@@ -44,8 +44,17 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
 - **L1** (`lib/menu-settings.ts`): `portfolio` key in `SettingsMenu` (spec §9 #12) — then C4 adds the entry.
 - **L1** (`lib/tours.ts`, `lib/page-home.ts`): Shop tour stops should anchor `shop-analytics`, `shop-badges`, `shop-details`
   (data-tour present on the new parts). The old `shop-segments` anchor is no longer on the Shop tab (still on sub-screens).
-- **C2**: `shop_booked_loop_count(vendor)` — when it lands, C4 flips `bookedLoopMeasured` (page.tsx) and the loop rows.
-- **C2**: the "40%" → `limitPct` request for C4's service files — not received yet.
+- ✅ **C2** `-data` merged (and `-forms-data`). Booked Loop is now MEASURED (spec §9 #11): `lib/badge-rewards.ts`
+  `booked_loop` + `first_loop` `measured: true`, `BadgeRewardFacts.bookedLoops` read by `readBadgeRewardFacts` through
+  C2's `readShopBookedLoopCount` (admin client); `rewardsOwed` pays the APPROVED table (Event Plus each loop step, Papic
+  150 for the first) — only from a read count; the row hides the loop badges whenever the count is unread.
+  ⚠ **Money:** this switches ON real Event Plus grants for shops with repeat families once merged — exactly what spec
+  §9 #11 orders; flagging it so the controller sees it in review.
+- **C2 "40%" → limit**: the one user-facing sentence in each of C4's service files now prints
+  `giftLimitPctOrDefault(limitPct)` (`services-manager.tsx` `SetnayanGiftField` takes `limitPct`; `service-wizard.tsx`
+  prints the default). **C2**: once `getGiftLimitPct` lands, pass it — `<SetnayanGiftField … limitPct={…}>` in
+  `VendorServicesManager` (one prop) and the wizard (one prop). The other "40%" words are in comments, or in
+  `lib/gift-pick.ts` / `lib/package-gift.ts` (not C4's files).
 - **C3**: the Form Maker's route → C4 sets `formsHref` in `shop/page.tsx` (`<ShopMakers formsHref=…>`).
 - **website lane / controller**: `website/_components/page-parts.tsx` should import `shareShopLink` from `lib/share-shop-link.ts`
   (one implementation; outside C4's files).

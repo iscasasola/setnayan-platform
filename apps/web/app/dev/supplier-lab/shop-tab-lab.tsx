@@ -64,7 +64,7 @@ function shopLab(fail: boolean) {
     : { verified: true, completedEvents: 120, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 38 }, inBusinessSinceYear: 2020, awards: [], nowYear: 2026, unreviewed: 2 };
   const counts: BadgeRewardFacts | null = fail
     ? null
-    : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [] };
+    : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3 };
   const rows = facts && counts ? badgeRowsWithRewards(badgeTracker(facts), { facts: counts, granted: [], names: FALLBACK_REWARD_NAMES, awardTypeByTitle: {}, periodMonth: '2026-11-01' }) : null;
   const tiles = shopBadgeRow({
     rows,
@@ -73,7 +73,6 @@ function shopLab(fail: boolean) {
     trusted: facts?.trusted ?? null,
     inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
     founding: fail ? null : { isFounder: true, joinedYear: 2026 },
-    bookedLoopMeasured: false,
   });
 
   const capacity: CapacityAnalytics | null = fail

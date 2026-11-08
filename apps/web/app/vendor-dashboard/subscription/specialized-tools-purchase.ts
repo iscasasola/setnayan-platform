@@ -177,8 +177,12 @@ export async function buySpecializedTools(
     ),
   );
   if (pErr) {
-    // Same client that minted it, so the rollback really rolls back.
-    await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
+    // Same client that minted it, so the rollback really rolls back. A rollback that fails leaves a
+    // 'submitted' order with no payment — say so loudly, the admin queue is where it will surface.
+    const { error: rbErr } = await createMoneyWriterClient().from('orders').delete().eq('order_id', orderId);
+    if (rbErr) {
+      console.error('[supabase-error] specialized-tools-purchase: order rollback failed', orderId, rbErr);
+    }
     return err('Could not start the Specialized tools payment. Please try again.');
   }
 

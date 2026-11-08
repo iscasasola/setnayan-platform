@@ -1295,11 +1295,13 @@ async function activateSpecializedToolsOrder(ctx: ActivationContext): Promise<vo
   if (error) throw new Error(`${ctx.serviceKey} activation write failed: ${error.message}`);
 
   // The order's own billing window, so the renewal reminder reaches the shop before it lapses —
-  // the same best-effort stamp every add-on hook makes.
-  await ctx.admin
+  // the same best-effort stamp every add-on hook makes. Best-effort, but never silent: a missed
+  // stamp skips a reminder, so it is reported.
+  const { error: stampErr } = await ctx.admin
     .from('orders')
     .update({ expires_at: newExpiry, updated_at: new Date().toISOString() })
     .eq('order_id', ctx.orderId);
+  if (stampErr) reportActivationFault('activate:vendor_specialized_tools:expires_at', ctx, stampErr);
 
   await appendLedger(ctx.admin, {
     order_id: ctx.orderId,

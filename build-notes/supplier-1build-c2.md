@@ -138,7 +138,21 @@ two partners count as ONE family (keyed by their first booked event with the sho
 
 ## Proof
 
-Screenshots in `build-notes/c2-shots/` (v113 vs build at 375 px). See "Where I stopped" for what is and isn't shot.
+Side-by-side, v113 (left) vs build (right), 375 px light, in `build-notes/c2-shots/` — drawn from the fixture lab
+`/dev/supplier-chat-lab` (no session, no database; dummy env only):
+
+- `quotation-01…05.png` — `?m=quote&gifts=1&embed=quotation` (the client's Quotation page body), scrolled to Start from ·
+  Gift · Travel and crew meal · Payment schedule · Quote effectivity. Every step in v113's order; the bar is pinned
+  above the bottom nav with Total · Save · Send quote. (The lab's fixture standing is "silent", so the Setnayan-gift
+  switch row is not drawn there — it renders only where the booking can carry a gift, as shipped.) The lab's shell is
+  the base's (bar still says Customers/Hub — L1's).
+- `chat-01.png` — `?m=tools&booked=1&hosts=1`: the hosts strip (Maria · Jose · You, "Shared chat · 3 inside") and the
+  host's first name + initials on her run. The lab keeps the full-screen head; the client's embedded view has none.
+- **Not shot:** hearts (a tap writes through Supabase; nothing to write to here — `lib/chat-hearts.test.ts`, the RLS db
+  test and `the-host-strip-reuses-presence.test.ts` cover it) · the Hub page (the on-the-day page needs a signed-in
+  supplier with a booked event; v113 reference: `v113-hub` text in the prototype). **Controller: check Chat hearts and
+  Hub on the simulator after integration.**
+- Motion: these pages do not animate on their own (the 520 ms open/close is L2's shell).
 
 ## Where I stopped
 

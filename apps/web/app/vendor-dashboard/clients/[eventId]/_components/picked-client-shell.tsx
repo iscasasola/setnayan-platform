@@ -36,11 +36,11 @@ import {
   LayoutDashboard,
   MessageSquare,
   ReceiptText,
+  Settings,
   Wallet,
   X,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { usePortalHost } from '@/lib/use-portal-host';
@@ -241,7 +241,16 @@ export function PickedClientShell({
           <h1 id={headingId} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink" data-pin-word="">
             {eventName}
           </h1>
-          <MenuSettingsButton menu="customers" open={gearOpen} onOpenChange={setGearOpen} line={settingsLine} />
+          {/* ⚙ This client's own settings — not Clients ⚙ (that menu is mounted once, on the list). ⏳ L1 adds a
+              `client` entry to the SettingsMenu registry; until then the gear opens this shell's own sheet. */}
+          <ActionButton
+            tone="neutral"
+            iconOnly
+            icon={Settings}
+            label={`${eventName} settings`}
+            onClick={() => setGearOpen((o) => !o)}
+            data-testid="picked-settings"
+          />
           <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} data-testid="picked-close" />
         </div>
         {/* 🗂 The nine-page menu — icon over word, the picked one framed (it is the one you pressed). */}

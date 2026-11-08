@@ -266,6 +266,8 @@ const PRIVATE_SUBDIRS = new Set([
   '_sections', // 10 files, 4 carrying a literal destination (+3 after the fix)
   '_actions', //  15 files · see the correction below — contributes ZERO
   '_shared', //   2 files · same, contributes zero
+  '_pages', //    THE ONE BUILD (8 Nov 2026): the picked client's nine page bodies (clients/[eventId]/_pages) —
+  //               they carry its doors (Open chat · Open Hub) and the moved Files body, so they are walked.
   //
   // 🛑 A CORRECTION TO MY OWN REASONING, LEFT HERE BECAUSE THE MISTAKE IS THE
   // USEFUL PART. I added `_actions` believing 15 files of `'use server'` were

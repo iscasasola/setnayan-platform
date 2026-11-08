@@ -23,6 +23,10 @@
  * The picked client covers the bottom nav (v113: no bar while a client is open), so it is a pop-up layer:
  * `--sn-z-pop` (L1's token, 40: over the thumb row and the bar, under a `Sheet` at `--sn-z-modal`), drawn on <body> like `Sheet`, so no
  * page stacking context can trap it under the bar.
+ * 🥞 Which is why a page's OWN thumb row (Schedule's "My times · + My moment", Payment, Forms, Hub, Report —
+ * `SupplierThumbRow`) must not go to <body> at z 25: it would sit UNDER this screen and no tap reaches it (release
+ * check, 8 Nov). The screen keeps a thumb host inside its own layer — after the page body, outside the sliding page —
+ * and hands it down through `ThumbLayerContext`; the row portals there. 🔒 ../the-thumb-row-floats-over-the-picked-client.test.ts
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,6 +50,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { PickedClientPage } from './picked-client-menu';
 import { SCRIPT_FOLD_ID } from './picked-client-menu';
 import { PickedNavContext, type PickedNav } from './picked-client-nav';
+import { ThumbLayerContext, type ThumbLayer } from '../../../_components/thumb-layer';
 import {
   PICKED_EASE,
   PICKED_OPEN_MS,
@@ -105,6 +110,10 @@ export function PickedClientShell({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // 🥞 The page rows' floor (host) and the column they span from 701 (the pinned row's column — it never slides).
+  const [thumbHost, setThumbHost] = useState<HTMLDivElement | null>(null);
+  const [thumbColumn, setThumbColumn] = useState<HTMLDivElement | null>(null);
+  const thumbLayer = useMemo<ThumbLayer>(() => ({ host: thumbHost, column: thumbColumn }), [thumbHost, thumbColumn]);
   const [page, setPage] = useState<PickedClientPage>(initialPage);
   const [gearOpen, setGearOpen] = useState(false);
   const originRef = useRef<PickedOrigin | null>(null);
@@ -268,7 +277,7 @@ export function PickedClientShell({
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
+        <div ref={setThumbColumn} className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
           <h1 id={headingId} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink" data-pin-word="">
             {eventName}
           </h1>
@@ -318,12 +327,14 @@ export function PickedClientShell({
           id="picked-page"
           role="tabpanel"
           aria-labelledby={`picked-tab-${page}`}
-          className="mx-auto w-full max-w-3xl px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-3"
+          className="mx-auto w-full max-w-3xl px-4 pb-[max(calc(env(safe-area-inset-bottom)+24px),var(--sn-thumb-room,0px))] pt-3"
           data-picked-page-body={page}
         >
-          {bodies[page]}
+          <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
         </div>
       </div>
+      {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
+      <div ref={setThumbHost} data-picked-thumb-layer="" />
     </div>
     </PickedNavContext.Provider>
   );

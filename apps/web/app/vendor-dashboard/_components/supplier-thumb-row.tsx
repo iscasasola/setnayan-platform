@@ -21,7 +21,9 @@
  * 📌 PORTALLED TO `<body>`. `position: fixed` is not fixed under an ancestor
  * that carries a transform or a container type (the couple's dashboard learned
  * this on #5461); the row is mounted at the document root so it sits above the
- * bottom dock on every supplier page, whatever wraps the page.
+ * bottom dock on every supplier page, whatever wraps the page. Inside a
+ * full-screen pop-up that provides a `ThumbLayerContext` (the picked client),
+ * it portals into that pop-up's own layer instead — <body> is under it.
  *
  * 🚪 LEAVING. The App Router has no "route change started" event, so the row
  * listens for the tap that starts one — a link to another path — and slides
@@ -45,6 +47,7 @@ import { usePathname } from 'next/navigation';
 import { useFitRow } from '@/components/action-button';
 import { InSheet } from '@/app/_components/sheet';
 import { leavesThePage } from './supplier-thumb-leave';
+import { ThumbLayerContext } from './thumb-layer';
 import styles from './supplier-thumb-row.module.css';
 
 export function SupplierThumbRow({
@@ -72,8 +75,12 @@ export function SupplierThumbRow({
      the foot of the screen, but inside the sheet's own layer, so it floats over the sheet instead of under it, and it
      never moves up into the page's pinned row (that row is behind the sheet). Its edges follow the sheet's panel. */
   const inSheet = useContext(InSheet);
+  /* 🥞 INSIDE A FULL-SCREEN POP-UP'S LAYER (the picked client, `--sn-z-pop`): <body> at z 25 is UNDER it — the row
+     portals into the host the pop-up keeps inside its own layer, and never moves up into the page's pinned row (that
+     row is behind the pop-up too). `thumb-layer.ts`. */
+  const layer = useContext(ThumbLayerContext);
   const pinTools = usePinTools();
-  const upTo = inSheet ? null : pinTools;
+  const upTo = inSheet || layer ? null : pinTools;
 
   // Slides up once the page has rendered (two frames: mount, then move).
   useEffect(() => {
@@ -114,7 +121,7 @@ export function SupplierThumbRow({
     if (!mounted) return;
     const sync = () => {
       const row = rowRef.current;
-      const col = (inSheet ? row?.closest('[data-sheet-panel]') : null) ?? document.querySelector('main');
+      const col = (inSheet ? row?.closest('[data-sheet-panel]') : layer?.column) ?? document.querySelector('main');
       if (!row || !col) return;
       const r = col.getBoundingClientRect();
       row.style.setProperty('--thumb-left', `${Math.max(0, r.left)}px`);
@@ -123,9 +130,12 @@ export function SupplierThumbRow({
     sync();
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);
-  }, [mounted, inSheet]);
+  }, [mounted, inSheet, layer]);
 
   if (!mounted) return null;
+  // Inside a pop-up whose host has not mounted yet: wait a frame rather than land on <body> under it.
+  if (!inSheet && layer && !layer.host) return null;
+  const floor = layer?.host ?? document.body;
   if (upTo) {
     return createPortal(
       <div className={styles.up} data-supplier-thumb={name} data-thumb-up="" role={row ? undefined : 'toolbar'} aria-label={row ? undefined : label}>
@@ -142,7 +152,7 @@ export function SupplierThumbRow({
     );
     return inSheet ? band : createPortal(
       band,
-      document.body,
+      floor,
     );
   }
   const glass = (
@@ -160,7 +170,7 @@ export function SupplierThumbRow({
   );
   return inSheet ? glass : createPortal(
     glass,
-    document.body,
+    floor,
   );
 }
 

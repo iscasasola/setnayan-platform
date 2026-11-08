@@ -23,7 +23,7 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MessageSquare, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -39,7 +39,7 @@ import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
-import { findDoorHref } from '@/lib/suppliers-shell';
+import { CoupleChatsEmpty } from './_components/couple-chats-empty';
 import { teamPicksForMessages, type TeamProfile, type TeamRow } from '@/lib/messages-team-picker';
 import { StartThreadPicker } from './_components/start-thread-picker';
 import { ChatInbox, type InboxRow } from './_components/chat-inbox';
@@ -296,20 +296,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         /* 🔌 A refused unread read is never "Nothing unread." (reads-are-honest, 2026-11-02 audit #11). */
         unreadMeasured={unread.measured}
         viewerId={user.id}
-        empty={
-          <div className="py-10 text-center">
-            <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-            <p className="text-sm font-medium text-ink">No chats yet.</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-              Tap ✎ to message one of this event&rsquo;s suppliers, or Ask for a quote on a supplier&rsquo;s page.
-            </p>
-            <div className="mt-4">
-              <Link href={findDoorHref(eventId)} className="button-secondary">
-                Find a supplier
-              </Link>
-            </div>
-          </div>
-        }
+        empty={<CoupleChatsEmpty eventId={eventId} />}
         newMessage={
           <>
             <p className="mb-2 mt-1 text-[13px] text-ink/60" data-new-message-scope="">

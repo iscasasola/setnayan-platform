@@ -8,6 +8,7 @@
  *   1 · no `initialLens` → Master, exactly as shipped (no "view" line, no empty line);
  *   2 · `initialLens` vendor → that supplier's view is on ("Lumière's view · back to Master"), and the menu still offers
  *       Master · everything and Guests;
+ *   4 · the event Schedule page reads `?lens=vendor:<id>` (and only a well-formed one) and hands it to the day;
  *   3 · a supplier with NO tagged moment (or before the responsible-party columns are live) still gets its lens, with
  *       the honest "No moments for Lumière yet" — never a silent fall back to Master.
  *
@@ -19,7 +20,10 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ScheduleDay, noMomentsForLine } from './_components/day-rail';
-import type { DayActions, DayMoment } from './_components/day-types';
+import { scheduleLensFromParam, type DayActions, type DayMoment } from './_components/day-types';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -104,4 +108,15 @@ test('3 · no tagged moment → the lens stays, with the honest empty line — n
   // An unknown supplier (not on the event's list) is named by the caller, not "Supplier".
   const unknown = day({ initialLens: { kind: 'vendor', id: 'v-new' }, initialLensName: 'Casa Catering' });
   assert.match(unknown, /No moments for Casa Catering yet/);
+});
+
+test('4 · the event Schedule reads ?lens=vendor:<id> and opens the day on it; anything else is Master', () => {
+  const id = '6f1c2b3a-4d5e-4f60-8a7b-9c0d1e2f3a4b';
+  assert.deepEqual(scheduleLensFromParam(`vendor:${id}`), { kind: 'vendor', id });
+  for (const bad of [undefined, null, '', 'all', 'guest', 'vendor:', 'vendor:not-a-uuid', `vendors:${id}`]) {
+    assert.equal(scheduleLensFromParam(bad), undefined, `${String(bad)} opened a supplier lens`);
+  }
+  const page = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), 'utf8'));
+  assert.match(page, /const initialLens = scheduleLensFromParam\(lensParam\);/, 'the page does not read ?lens=');
+  assert.match(page, /<ScheduleDay\b[\s\S]*?\{\.\.\.\(initialLens \? \{ initialLens \} : \{\}\)\}/, 'the day is not handed the lens');
 });

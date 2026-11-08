@@ -21,11 +21,12 @@ import {
   pickedSupplierMenuFor,
   type PickedSupplierPage,
 } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-menu';
-import { LabPickedChat } from '@/app/dev/_components/lab-picked-chat';
+import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
+import { CoupleChatsEmpty } from '@/app/dashboard/[eventId]/messages/_components/couple-chats-empty';
 
 /** The picked supplier's pages in the lab. Details stands in for the workspace's own sections (hero · included · notes),
  * which are drawn inline by the server page and need a real event_vendors row. */
-function labPickedSupplierBodies(threadId: string, name: string, hostsFail: boolean): Record<PickedSupplierPage, React.ReactNode> {
+function labPickedSupplierBodies(threadId: string, name: string, mode: LabChatMode): Record<PickedSupplierPage, React.ReactNode> {
   const later = (label: string) => <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} with {name}.</p>;
   const bodies = Object.fromEntries(PICKED_SUPPLIER_PAGE_IDS.map((id) => [id, later(id)])) as Record<PickedSupplierPage, React.ReactNode>;
   bodies.details = (
@@ -36,7 +37,7 @@ function labPickedSupplierBodies(threadId: string, name: string, hostsFail: bool
       <p className="text-sm text-ink">Quote sent · ₱85,000 · prep + reception + same-day edit</p>
     </section>
   );
-  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} hostsFail={hostsFail} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} {...mode} />;
   return bodies;
 }
 
@@ -88,10 +89,10 @@ export default async function ChatLabInboxPage({
           <h2 className="font-display text-[30px] font-semibold leading-tight text-ink">Chats</h2>
         </header>
         <ChatInbox
-          rows={rows}
+          rows={sp.state === 'empty' ? [] : rows}
           viewerId={LAB_USER}
           join={labJoin}
-          empty={<p>No chats yet.</p>}
+          empty={<CoupleChatsEmpty eventId={LAB_EVENT} />}
           newMessage={
             <>
               <p className="mb-2 mt-1 text-[13px] text-ink/60">{EVENT_LINE} — this event&rsquo;s suppliers only</p>
@@ -111,7 +112,7 @@ export default async function ChatLabInboxPage({
           supplierName={picked.name}
           menu={pickedSupplierMenuFor({ quote: true, chat: true })}
           initialPage={page}
-          bodies={labPickedSupplierBodies(picked.id, picked.name, sp.hosts === 'fail')}
+          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1' })}
         />
       ) : null}
     </LabShell>

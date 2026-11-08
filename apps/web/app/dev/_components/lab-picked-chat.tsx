@@ -67,11 +67,15 @@ async function labSend(formData: FormData): Promise<void> {
   if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
 }
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; hostsFail?: boolean }) {
+/** Empty modes (Build 3 · Lane A, "empty modes are part of done"): `noMessages` = a chat nobody has written in yet;
+ *  `solo` = a single member on the event side (only you — the strip's ＋ shows for the missing hosts). */
+export type LabChatMode = { hostsFail?: boolean; noMessages?: boolean; solo?: boolean };
+
+export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = false, noMessages = false, solo = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
-  const hosts = hostsFail ? null : side === 'vendor' ? [MARIA, JOSE, PIA] : [SHOP, MARIA, JOSE, PIA];
+  const hosts = hostsFail ? null : solo ? (side === 'vendor' ? [MARIA] : [SHOP, MARIA]) : side === 'vendor' ? [MARIA, JOSE, PIA] : [SHOP, MARIA, JOSE, PIA];
   return (
     <div data-picked-lab-chat={side} className="flex min-h-[70dvh] flex-col">
       <ChatBox
@@ -83,7 +87,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, hostsFail = f
           flush
           dealEntry={dealEntryFor({ side, hasQuote: true })}
           threadId={threadId}
-          initialMessages={[...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)]}
+          initialMessages={noMessages ? [] : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)]}
           currentUserId={side === 'couple' ? LAB_USER : LAB_STAFF}
           viewerRole={side}
           hosts={hosts}

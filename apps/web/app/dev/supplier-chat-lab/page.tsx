@@ -64,7 +64,7 @@ import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/me
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { PICKED_CLIENT_PAGES, pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
-import { LabPickedChat } from '@/app/dev/_components/lab-picked-chat';
+import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
 import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
@@ -103,12 +103,12 @@ function labChatsRead(state: string): SupplierChatsRead {
 
 /** The picked client's pages in the lab: Chat is the embedded thread on fixture messages; the rest are lab lines (the
  * real bodies are proven in /dev/clients-lab). */
-function labPickedClientBodies(threadId: string, name: string, hostsFail: boolean): Record<PickedClientPage, React.ReactNode> {
+function labPickedClientBodies(threadId: string, name: string, mode: LabChatMode): Record<PickedClientPage, React.ReactNode> {
   const later = (label: string) => (
     <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} for {name} — drawn in /dev/clients-lab.</p>
   );
   const bodies = Object.fromEntries(PICKED_CLIENT_PAGES.map((p) => [p.id, later(p.label)])) as Record<PickedClientPage, React.ReactNode>;
-  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} hostsFail={hostsFail} />;
+  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} {...mode} />;
   return bodies;
 }
 
@@ -148,7 +148,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, sp.hosts === 'fail')}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1' })}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
           />

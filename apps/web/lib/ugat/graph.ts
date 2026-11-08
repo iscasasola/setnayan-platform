@@ -1752,6 +1752,30 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // Still present, but NO LONGER the reveal gate — see F5. The column
       // outliving its meaning is why the trap prose needed correcting.
       { kind: 'column', table: 'chat_threads', column: 'vendor_first_reply_at' },
+      // 👥 2026-11-09 — the hosts' side of ONE conversation is stored as rows
+      // (migration 20271330575424); current_thread_ids() reads it.
+      { kind: 'table', table: 'chat_thread_members' },
+      { kind: 'fk', table: 'chat_thread_members', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'fk', table: 'chat_thread_members', column: 'user_id', references: 'users' },
+      { kind: 'column', table: 'chat_thread_members', column: 'left_at' },
+      // 2026-11-09 (corpus 22ec04ab) — leaving keeps a note only its writer reads.
+      {
+        kind: 'check',
+        table: 'chat_thread_members',
+        name: 'chat_thread_members_left_note_is_short',
+        mentions: 'left_note',
+      },
+      // ⏳ 2026-11-09 — a blocker's hold counts its shows per person (20271331503438).
+      { kind: 'table', table: 'chat_blocker_shows' },
+      { kind: 'fk', table: 'chat_blocker_shows', column: 'thread_id', references: 'chat_threads' },
+      // 🔒 2026-11-09 — a private message: two people, words only (20271329968207).
+      { kind: 'fk', table: 'chat_messages', column: 'recipient_user_id', references: 'users' },
+      {
+        kind: 'check',
+        table: 'chat_messages',
+        name: 'chat_messages_private_is_words_only',
+        mentions: 'recipient_user_id',
+      },
     ],
     chain: 5,
     pair: ['TYPE-VENDORS', 'TYPE-THREADS'],
@@ -1759,10 +1783,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'chat_threads',
     cardinality: 'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one thread, ever',
     implementedBy:
-      'chat_threads UNIQUE(event, vendor). There is NO participants table — membership is derived in RLS policy, not stored as rows.',
-    writtenBy: 'First-message-send handler (creates the thread row on first contact, either direction)',
+      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation.',
+    writtenBy:
+      'First-message-send handler (creates the thread row on first contact, either direction) · tg_chat_threads_seat_the_opener seats the asking host · chat_thread_add_host() / chat_thread_leave() post a system line each',
     guardedBy:
-      'RLS derives membership from event_members + vendor_team_members — current_thread_ids() is a dead stub: granted, never used.',
+      'current_thread_ids() — live chat_thread_members rows UNION the event\'s coordinators — on chat_messages_member_read/insert, chat_threads_member_read and chat_thread_members_read; the vendor branches are unchanged. Private rows: chat_messages_private_reaches_two (RESTRICTIVE) + chat_message_hearts_follow_the_message.',
     traps: 'Anonymity masks the vendor name/logo until they reply (vendor_first_reply_at gate) — but the thread LIST view leaks the logo early. See F5.',
     healthId: 'F5',
   },

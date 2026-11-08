@@ -57,6 +57,10 @@ import {
   readPickedOrigin,
   type PickedOrigin,
 } from './picked-client-motion';
+import { centreInStrip, pageSwipeStep } from '@/app/_components/centre-in-strip';
+
+/** Where a body swipe may NOT start (it belongs to something that moves sideways itself, or to a field). */
+const PAGE_SWIPE_SKIP = '[data-picked-menu],[data-calendar],[data-dates-week-strip],input,textarea,select,[contenteditable="true"],[data-no-page-swipe]';
 
 const PAGE_ICON: Record<PickedClientPage, typeof Info> = {
   details: Info,
@@ -129,19 +133,16 @@ export function PickedClientShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
 
-  // The active menu item stays in view — by scrolling ONLY the menu strip (§10 #26: `scrollIntoView` also moved the
-  // page body sideways).
+  // 🎯 #36: the picked page sits in the MIDDLE of the menu strip — on a tap, a body swipe, a deep link and the first
+  // open (instant then, so the menu does not glide on arrival); at either end the strip stays at its end. ONLY the strip
+  // scrolls (§10 #26: `scrollIntoView` also moved the page body sideways), and the body is put back if it ever moved.
+  const centredOnce = useRef(false);
   useEffect(() => {
     const strip = menuRef.current;
-    const btn = strip?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`);
-    if (!strip || !btn) return;
-    const left = btn.offsetLeft - strip.offsetLeft;
-    const right = left + btn.offsetWidth;
-    if (left < strip.scrollLeft) strip.scrollTo({ left: Math.max(0, left - 12), behavior: 'smooth' });
-    else if (right > strip.scrollLeft + strip.clientWidth) {
-      strip.scrollTo({ left: right - strip.clientWidth + 12, behavior: 'smooth' });
-    }
-  }, [page]);
+    const first = !centredOnce.current;
+    if (centreInStrip(strip, strip?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`) ?? null, first) !== null) centredOnce.current = true;
+    if (bodyRef.current?.scrollLeft) bodyRef.current.scrollLeft = 0;
+  }, [page, host]);
 
   // `?tab=script` → Schedule, scrolled to the Script fold.
   useEffect(() => {
@@ -182,6 +183,40 @@ export function PickedClientShell({
     },
     [page],
   );
+
+  // 👆 #36: a swipe across the BODY turns the page (v116: ≥ 60 px, 1.5× more sideways than down) in the menu's order,
+  // and the menu centres the new one. Never from the menu, a calendar, a field or anything that scrolls sideways.
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+    let sx = 0;
+    let sy = 0;
+    let on = false;
+    const start = (e: TouchEvent) => {
+      const t = e.target as Element | null;
+      on = !!t && !t.closest(PAGE_SWIPE_SKIP) && e.touches.length === 1;
+      if (!on) return;
+      sx = e.touches[0]!.clientX;
+      sy = e.touches[0]!.clientY;
+    };
+    const end = (e: TouchEvent) => {
+      if (!on) return;
+      on = false;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const step = pageSwipeStep(t.clientX - sx, t.clientY - sy);
+      if (!step) return;
+      const i = menu.findIndex((m) => m.id === page);
+      const next = menu[i + step];
+      if (i >= 0 && next) select(next.id);
+    };
+    body.addEventListener('touchstart', start, { passive: true });
+    body.addEventListener('touchend', end, { passive: true });
+    return () => {
+      body.removeEventListener('touchstart', start);
+      body.removeEventListener('touchend', end);
+    };
+  }, [menu, page, select, host]);
 
   // ✕ — the exact reverse of the open, then back to the list (or to it, on a hard load).
   const close = useCallback(() => {

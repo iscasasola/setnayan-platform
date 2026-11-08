@@ -120,5 +120,10 @@ v113 `v113-today.png` · `v113-sheet.png` | build `build-sheet-supplier.png` (/d
 
 ## Where I stopped
 
-Typecheck + unit tests of touched files not yet run (heavy-lock queue). Next: `pnpm typecheck` under the lock, fix; run the touched
-tests; commit foundation, sabotage each new guard once, preflight, push both branches; then write the sha above.
+- All L1 work items done (F1–F5, S1–S3, event side, registry requests, both controller rulings §10 #30/#31). Every changed test
+  file run singly: green. `origin/claude/supplier-1build-base` (ee8c4867e9) merged into l1 — it fixes the inherited
+  `the-since-line-and-check-a-date` red. Foundation branch NOT changed since 0d9c7c4217 (nothing in it needed a fix).
+- Base-inherited reds seen on the foundation preflight (not L1's): export-coverage-guardrail, shop-name-hold, ugat-both-ends
+  `shop_name_is_held` rpc-no-caller; the stale generated root map (`screens.generated.json`, a controller need above).
+- Pending: `preflight --only lint,types` under the heavy lock (queued behind 4 jobs), then push `claude/supplier-1build-l1`.
+- `wt-l1-fnd` worktree to prune at the end.

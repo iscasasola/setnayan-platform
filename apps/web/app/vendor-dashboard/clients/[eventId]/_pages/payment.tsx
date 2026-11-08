@@ -19,6 +19,7 @@
  * 🔒 app/vendor-dashboard/clients/[eventId]/_pages/the-payment-page-reads-like-the-budget.test.ts
  */
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Wallet } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { PriceSummary } from '@/app/_components/price-summary';
@@ -36,6 +37,7 @@ import {
 import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/vendor-payment-live';
 import { SupplierThumbRow } from '../../../_components/supplier-thumb-row';
 import { BookingMoneySummary } from '../_components/booking-money-summary';
+import { customerLandingHref } from '../../../customers/anchors';
 import type { PickedPageProps } from './context';
 
 function fmtShortDate(iso: string | null): string {
@@ -202,6 +204,15 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
         <p className="mt-2 text-xs text-ink/55" data-client-payment-footer="">
           Their budget shows only your lines. What you confirm here is what they see as paid.
         </p>
+        {/* 💸 THE MONEY LEDGER HAS A DOOR FROM HERE (Build 2 parity, 8 Nov: it was reachable by URL only). The same door
+            Today's Money stat opens (`customerLandingHref('payday')`), so the two can never point at different ledgers. */}
+        <Link
+          href={customerLandingHref('payday')}
+          className="mt-2 inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent underline-offset-2 hover:underline"
+          data-client-payment-ledger=""
+        >
+          Every client&rsquo;s payments ›
+        </Link>
       </div>
 
       {/* 👍 The thumb: "Ask for payment" — the shipped ask form, right under the payments it is about. */}

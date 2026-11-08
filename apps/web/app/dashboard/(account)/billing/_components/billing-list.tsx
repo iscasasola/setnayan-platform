@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Receipt } from 'lucide-react';
 import { ORDER_STATUS_LABEL, formatPhp } from '@/lib/orders';
@@ -92,15 +93,49 @@ function Row({ p, href, pay = false }: { p: Purchase; href: string | null; pay?:
     year: 'numeric',
     timeZone: 'Asia/Manila',
   });
+  return (
+    <BillingRow
+      mark={p.receiptId ? 'receipt' : href ? 'order' : 'record'}
+      href={href}
+      title={p.description}
+      sub={
+        <>
+          {when} · {ORDER_STATUS_LABEL[p.status]}
+        </>
+      }
+      amount={formatPhp(p.grossPhp)}
+      pay={pay}
+    />
+  );
+}
+
+/**
+ * ONE BILLING ROW — what it is on the left, the amount on the right, one small line under it, the WHOLE row the door.
+ * The Purchases rows above and the supplier's own lists (`supplier-billing-sections.tsx`, Build 2 #39) draw THIS, so
+ * every list on the page is the same row.
+ */
+export function BillingRow({
+  mark,
+  href,
+  title,
+  sub,
+  amount,
+  pay = false,
+}: {
+  mark: string;
+  href: string | null;
+  title: ReactNode;
+  sub: ReactNode;
+  amount: ReactNode;
+  pay?: boolean;
+}) {
   const body = (
     <>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-medium text-ink">{p.description}</span>
-        <span className="mt-0.5 block truncate text-xs text-ink/55">
-          {when} · {ORDER_STATUS_LABEL[p.status]}
-        </span>
+        <span className="block truncate text-[15px] font-medium text-ink">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-ink/55">{sub}</span>
       </span>
-      <span className="shrink-0 font-medium tabular-nums text-ink">{formatPhp(p.grossPhp)}</span>
+      <span className="shrink-0 font-medium tabular-nums text-ink">{amount}</span>
       {pay && href ? (
         <span className="shrink-0 rounded-full bg-terracotta-700 px-3.5 py-1.5 text-xs font-semibold text-[#FFFDF8] dark:text-cream">Pay</span>
       ) : href ? (
@@ -109,7 +144,7 @@ function Row({ p, href, pay = false }: { p: Purchase; href: string | null; pay?:
     </>
   );
   return (
-    <li data-billing-row={p.receiptId ? 'receipt' : href ? 'order' : 'record'}>
+    <li data-billing-row={mark}>
       {href ? (
         <Link href={href} className="flex min-h-[60px] items-center gap-3 py-2.5 transition-colors hover:bg-ink/[0.03]">
           {body}

@@ -10,7 +10,8 @@
  *   4 · booked with no plan and nothing logged: no figures, no "all paid" (spec §4);
  *   5 · before L2's switch hands `money` in, the shipped node is drawn unchanged (nothing lost in between).
  *
- * SABOTAGE (seen red once): Paid fed `collectPhp` → 1 red; the "Check" branch removed → 1 red.
+ * SABOTAGE (seen red once): Paid fed `collectPhp` → 1 red; the "Check" branch removed → 1 red; the ledger door pointed
+ * at `/vendor-dashboard/customers` (Build 2, 8 Nov) → 2 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,6 +19,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { customerLandingHref } from '../../../customers/anchors';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -74,6 +76,10 @@ test('2 · the shipped parts: kind-26 rows, Confirm received · Not received, th
   assert.match(html, /data-asks-panel=""/, 'the asks panel is not drawn');
   assert.match(t, /Protected by your reservation policy · acknowledged Oct 14, 2026\./);
   assert.match(t, /Their budget shows only your lines\. What you confirm here is what they see as paid\./);
+  // 💸 Build 2 parity: the money ledger has a tap path from Payment — Today's Money door, never a second ledger.
+  const ledger = /<a (?=[^>]*data-client-payment-ledger="")[^>]*href="([^"]+)"/.exec(html);
+  assert.ok(ledger, 'Payment lost its door to the money ledger');
+  assert.equal(ledger[1].replace(/&amp;/g, '&'), customerLandingHref('payday'), 'the ledger door is not the money ledger');
 });
 
 test('3 · a refused ledger: "part of this couldn’t load", Next "couldn’t check" — never ₱0', async () => {

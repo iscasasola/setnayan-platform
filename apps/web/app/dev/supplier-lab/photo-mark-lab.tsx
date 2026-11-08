@@ -27,25 +27,34 @@ const labSend: UploadSend = (job) => {
   return { done, sent: done.then(() => undefined), cancel: () => {} };
 };
 
-/** A sample photo drawn in the browser (no asset to ship): a warm sky, a horizon, two figures. */
+/** A colour token from globals.css (`--color-*` holds "R G B" channels), as a canvas colour. */
+function tok(name: string, alpha = 1): string {
+  const rgb = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return `rgb(${rgb} / ${alpha})`;
+}
+
+/** A sample photo drawn in the browser (no asset to ship): a warm sky, a horizon, two figures — painted from the
+ *  app's own colour tokens, never raw hex. */
 async function samplePhoto(w: number, h: number): Promise<File> {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   const g = c.getContext('2d')!;
+  g.fillStyle = tok('--color-cream');
+  g.fillRect(0, 0, w, h);
   const sky = g.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#f3c9a1');
-  sky.addColorStop(0.6, '#e9a27a');
-  sky.addColorStop(1, '#5b4636');
+  sky.addColorStop(0, tok('--color-terracotta', 0.35));
+  sky.addColorStop(0.6, tok('--color-mulberry', 0.55));
+  sky.addColorStop(1, tok('--color-ink', 0.85));
   g.fillStyle = sky;
   g.fillRect(0, 0, w, h);
-  g.fillStyle = '#3b2f28';
+  g.fillStyle = tok('--color-ink');
   g.fillRect(0, h * 0.72, w, h * 0.28);
-  g.fillStyle = '#fbf3e8';
+  g.fillStyle = tok('--color-cream');
   g.beginPath();
   g.ellipse(w * 0.44, h * 0.6, w * 0.05, h * 0.16, 0, 0, Math.PI * 2);
   g.fill();
-  g.fillStyle = '#1f2a3a';
+  g.fillStyle = tok('--ink-soft');
   g.beginPath();
   g.ellipse(w * 0.56, h * 0.6, w * 0.05, h * 0.17, 0, 0, Math.PI * 2);
   g.fill();

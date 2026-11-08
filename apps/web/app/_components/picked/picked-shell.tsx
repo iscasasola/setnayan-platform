@@ -36,6 +36,7 @@ import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { formatCount } from '@/lib/format-number';
 import { nextPanelTabId, PickedHeadContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -367,7 +368,7 @@ export function PickedShell<P extends string>({
                     className="absolute right-2 top-0.5 h-4 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-sn-on-accent"
                     data-picked-badge={m.id}
                   >
-                    {count > 99 ? '99+' : count}
+                    {count > 99 ? '99+' : formatCount(count)}
                     <span className="sr-only"> unread</span>
                   </small>
                 ) : null}

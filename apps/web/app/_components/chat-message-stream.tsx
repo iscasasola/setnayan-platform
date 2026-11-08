@@ -26,6 +26,7 @@ import { OpenFileLink } from '@/app/_components/open-file-link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, Paperclip, Share, X } from 'lucide-react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton } from '@/components/action-button';
 import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -737,6 +738,9 @@ export function ChatMessageStream({
   const inPicked = headSlot !== null;
   const [filesOpen, setFilesOpen] = useState(initialView !== 'all');
   const privateNow = usePrivateTo(threadId);
+  // 🔭 The 📎 panel is a fold like any other: a press that opens it glides it into view (app-wide reveal-on-open).
+  const filesPanelRef = useRef<HTMLElement | null>(null);
+  const intendFilesOpen = useRevealOnOpen(filesOpen, () => ({ head: filesPanelRef.current }));
 
   /**
    * Switching views rewrites the URL IN PLACE — `replaceState`, not a
@@ -1268,7 +1272,7 @@ export function ChatMessageStream({
         }
       >
       {inPicked && filesOpen ? (
-        <section className="pb-2" aria-label="Files and decisions in this chat" data-picked-files-panel="">
+        <section ref={filesPanelRef} className="pb-2" aria-label="Files and decisions in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
             <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
               Files · {files.length} · newest first
@@ -1329,7 +1333,10 @@ export function ChatMessageStream({
                 label="Files in this chat"
                 aria-expanded={filesOpen}
                 disabled={privateNow !== null}
-                onClick={() => setFilesOpen((was) => !was)}
+                onClick={() => {
+                  if (!filesOpen) intendFilesOpen();
+                  setFilesOpen((was) => !was);
+                }}
                 data-testid="picked-files-open"
               />
             </>,

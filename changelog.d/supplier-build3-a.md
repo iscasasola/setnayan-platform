@@ -61,6 +61,7 @@ Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the
   - Unread badge on the Chat tab: `readThreadUnreadCount` (`lib/couple-inbox.ts`, the ✉ dot's rule for one thread) on both picked pages; it leaves once Chat is opened.
   - Tabs at v8.3 size (66 px, 13 px, 20 px icons), so Forms peeks at 390. The picked tab is a gold border with no fill (a white fill made its words vanish in dark mode).
   - Guard: `lib/the-picked-head-carries-the-chat-actions.test.ts` (6 tests, each sabotage-checked).
+  - The 📎 panel opens through the shared `useRevealOnOpen` (app-wide reveal-on-open), and the unread badge is printed through `formatCount`.
 - No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
 - Guards (each sabotage-checked):
   - `lib/a-private-message-looks-private.test.ts`;

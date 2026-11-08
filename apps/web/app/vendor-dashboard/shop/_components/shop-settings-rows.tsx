@@ -35,7 +35,16 @@ export function ShopSettingsRows({
   wallet: { title: string; line: string };
   plan: ReactNode;
   team: ReactNode;
-  docs: { isVerified: boolean; docsIn: number; docsTotal: number; measured: boolean; row: Pick<DetailsRow, 'state' | 'badge'>; section: ReactNode };
+  docs: {
+    isVerified: boolean;
+    docsIn: number;
+    docsTotal: number;
+    measured: boolean;
+    row: Pick<DetailsRow, 'state' | 'badge'>;
+    section: ReactNode;
+    /** 🗓 The Mayor's Permit renewal line (`shopPermitLine`, THE ONE BUILD) — where Today's "permit renews" row lands. */
+    permit?: { line: string; badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null };
+  };
 }) {
   const docsChecking = docs.row.state === 'checking';
   return (
@@ -78,6 +87,11 @@ export function ShopSettingsRows({
             <p role="status" className="text-[13.5px] text-ink/70" data-shop-gear-docs-unread="">
               Your documents couldn&rsquo;t load just now — nothing was lost. Close and open this again.
             </p>
+          ) : null}
+          {docs.permit ? (
+            <div id="permit" className="scroll-mt-24">
+              <DatesRow data="shop-gear-permit" title="Business permit" line={docs.permit.line} badge={docs.permit.badge} />
+            </div>
           ) : null}
           <p className="text-xs text-ink/55">Kept private — only Setnayan sees them.</p>
           {docs.section}

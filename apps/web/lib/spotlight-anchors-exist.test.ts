@@ -233,7 +233,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-add': 'app/vendor-dashboard/customers/page.tsx',
   'collections-filter': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
   'collections-list': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
-  'collections-add': 'app/vendor-dashboard/collections/page.tsx',
+  // THE ONE BUILD (C4): the Portfolio tab's thumb row draws it (`portfolio-view.tsx`).
+  'collections-add': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
   'camera-credits': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-challenge': 'app/papic/guest/_components/papic-guest-capture.tsx',
   'camera-mode': 'app/papic/guest/_components/papic-guest-capture.tsx',

@@ -182,17 +182,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
   },
   /**
-   * 🖼 THE SUPPLIER'S PORTFOLIO ⚙ (THE ONE BUILD, 8 Nov 2026 — the Portfolio tab). HELD (`reserved`, not live): the key
-   * exists so the bar and the Portfolio page can name it; the Shop + Portfolio lane builds its sheet
-   * (`collections/_components/portfolio-settings.tsx`) and flips this door to `first-row-gear` + `live: true`, with its
-   * own line, in the same change that mounts it (spec §9 #12, #18 — no storage line: storage is out of this build).
+   * 🖼 PORTFOLIO ⚙ (THE ONE BUILD, lane C4 — spec §9 #12: "portfolio-settings.tsx and the portfolio menu-settings entry →
+   * C4 only"; L1 adds the `portfolio` key to `SettingsMenu`): the right end of the Portfolio tab's pinned row
+   * (`collections/_components/portfolio-settings.tsx`, one mount). Your free photos and what past them costs. Storage
+   * purchase is out of this build (spec §1, owner 8 Nov: "later") — the sheet says "not on sale yet", never a price.
+   * No "what Show includes" switches (map row 70: INVENTED; spec §9 #18).
    */
   portfolio: {
-    door: 'reserved',
+    door: 'first-row-gear',
     sheet: 'Portfolio settings',
-    line: 'What Show includes.',
-    live: false,
-    tip: 'Settings for Portfolio only. Your shop’s own settings stay with your Shop.',
+    line: 'Your free photos, and what comes after them.',
+    live: true,
+    tip: 'Rare, shop-wide things about your portfolio. Adding, sorting and showing your photos stays on the Portfolio page.',
   },
   /**
    * 🧑‍🤝‍🧑 THE PICKED CLIENT'S ⚙ (THE ONE BUILD, 8 Nov 2026 — spec B1 step 5: the picked client's pinned row is

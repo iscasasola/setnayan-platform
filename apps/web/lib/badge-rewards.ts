@@ -127,7 +127,8 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
   first_review: firstOnce('first_review', 'First review', true),
   /** No 5★ count exists yet (`vendor_trusted_review_stats` holds an average and a count only): drawn, never granted. */
   first_five_star: firstOnce('first_five_star', 'First 5★ review', false),
-  first_loop: firstOnce('first_loop', 'First Booked Loop', false),
+  /** ⚖ THE ONE BUILD (spec §9 #11): counted since C2's `shop_booked_loop_count` — the first family who came back. */
+  first_loop: firstOnce('first_loop', 'First Booked Loop', true),
   first_first_pick: firstOnce('first_first_pick', 'First 1st Pick', false),
   events: {
     badge: 'events',
@@ -162,13 +163,14 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
     ],
   },
   /**
-   * "Booked Loop → Event Plus" at EVERY step of its ladder. ⚖ Owner ruled 2026-11-05 (on the draft PR). Pays nothing
-   * until the badge has a counter.
+   * "Booked Loop → Event Plus" at EVERY step of its ladder. ⚖ Owner ruled 2026-11-05 (on the draft PR). MEASURED since
+   * THE ONE BUILD (spec §9 #11): C2's `shop_booked_loop_count(vendor)` — families who booked the shop on 2+ events
+   * (`lib/shop-booked-loops.server.ts`); an unread count pays nothing and the badge is hidden.
    */
   booked_loop: {
     badge: 'booked_loop',
     title: 'Booked Loop',
-    measured: false,
+    measured: true,
     shape: 'ladder',
     unit: ['family who came back', 'families who came back'],
     steps: LOOP_LADDER.map((step) => ({ step, reward: plus(1) })),
@@ -247,6 +249,11 @@ export type BadgeRewardFacts = {
   inspirationPhotos: number | null;
   /** Every Spotlight Award the shop has been given (`vendor_spotlight_awards`). */
   awards: ReadonlyArray<{ type: SpotlightAwardType; periodMonth: string }> | null;
+  /**
+   * 🔁 Families who booked the shop again (`shop_booked_loop_count`, C2 — THE ONE BUILD spec §9 #11). Absent or null
+   * = not read: nothing is granted and the Booked Loop badge is hidden (never "not yet reached").
+   */
+  bookedLoops?: number | null;
 };
 
 export type OwedReward = { key: string; badge: RewardBadge; reward: BadgeReward; note: string };
@@ -279,6 +286,11 @@ export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
   out.push(...ladderOwed('branches', branches, (s) => `Badge reward · ${COUNT.format(s)} branches`));
   out.push(...ladderOwed('service_cards', f.serviceCards, (s) => `Badge reward · ${COUNT.format(s)} service cards`));
   out.push(...ladderOwed('inspiration', f.inspirationPhotos, (s) => `Badge reward · ${COUNT.format(s)} inspiration photos`));
+  const loops = f.bookedLoops ?? null;
+  out.push(...ladderOwed('booked_loop', loops, (s) => `Badge reward · Booked Loop · ${COUNT.format(s)} ${s === 1 ? 'family' : 'families'}`));
+  if (loops !== null && Number.isFinite(loops) && loops >= 1) {
+    out.push({ key: rewardKey('first_loop'), badge: 'first_loop', reward: papic(1), note: 'Badge reward · first Booked Loop' });
+  }
   const award = BADGE_REWARDS.award;
   if (award.shape === 'period') {
     const seen = new Set<string>();
@@ -546,7 +558,7 @@ function rewardBadge(key: string, glyph: string | null, label: string): ShopBadg
 
 const NOT_COUNTED_LINE = 'Setnayan doesn’t count this one yet';
 
-type CountedBadge = 'reviews' | 'branches' | 'service_cards' | 'inspiration';
+type CountedBadge = 'reviews' | 'branches' | 'service_cards' | 'inspiration' | 'booked_loop';
 
 function countedRow(
   badge: CountedBadge,
@@ -579,7 +591,7 @@ function countedRow(
   };
 }
 
-type UncountedBadge = 'first_pick' | 'booked_loop' | 'first_five_star' | 'first_loop' | 'first_first_pick';
+type UncountedBadge = 'first_pick' | 'first_five_star' | 'first_first_pick';
 
 function notCountedRow(badge: UncountedBadge, glyph: string, r: TrackerRewardInput): TrackerRow {
   const rule = BADGE_REWARDS[badge];
@@ -598,7 +610,7 @@ function notCountedRow(badge: UncountedBadge, glyph: string, r: TrackerRewardInp
 
 /** A one-time first: earned · not yet · unread — from one measured yes/no. */
 function firstRow(
-  badge: 'first_booking' | 'first_review',
+  badge: 'first_booking' | 'first_review' | 'first_loop',
   glyph: string,
   earned: boolean | null,
   lines: { unread: string; earned: string; notYet: string },
@@ -670,7 +682,14 @@ function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {
     }, r),
   );
   rows.push(notCountedRow('first_five_star', '5★', r));
-  rows.push(notCountedRow('first_loop', '↻', r));
+  const loops = f.bookedLoops ?? null;
+  rows.push(
+    firstRow('first_loop', '↻', loops === null || !Number.isFinite(loops) ? null : loops >= 1, {
+      unread: 'Your booked loops couldn’t be counted just now',
+      earned: 'A family booked you again',
+      notYet: 'The first family who books you again',
+    }, r),
+  );
   rows.push(notCountedRow('first_first_pick', '1st', r));
 
   rows.push(countedRow('reviews', BADGE_REWARDS.reviews.title, '★', f.trustedReviews, ['trusted review', 'trusted reviews'], r));
@@ -681,6 +700,6 @@ function rewardOnlyRows(r: TrackerRewardInput): TrackerRow[] {
   );
 
   rows.push(notCountedRow('first_pick', '1st', r));
-  rows.push(notCountedRow('booked_loop', '↻', r));
+  rows.push(countedRow('booked_loop', BADGE_REWARDS.booked_loop.title, '↻', loops, ['family who came back', 'families who came back'], r));
   return rows;
 }

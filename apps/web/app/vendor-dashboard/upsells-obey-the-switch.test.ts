@@ -87,6 +87,8 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // starts itself — never a plan paywall. Its one plan rule (the 3D Booth starts on Solo; below that it starts as
   // Papic Challenges) is enforced by the database door `shop_badge_upgrade_start`, which the switch cannot lift.
   'performance/_components/your-badges.tsx': 'Badge upgrades — "upgrade" names an earned reward, not a plan paywall',
+  // THE ONE BUILD (C4): Shop's one badge row draws the same reward lines (`row.reward.upgrade`) in its sheet.
+  'shop/_components/shop-badge-row.tsx': 'Badge upgrades — "upgrade" names an earned reward, not a plan paywall',
   'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
   'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
 };

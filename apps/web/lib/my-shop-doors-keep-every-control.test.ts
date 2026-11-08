@@ -64,7 +64,12 @@ const mountCount = (src: string, component: string) =>
  * test pass is the exact failure the drawing's "nothing removed" is about.
  */
 const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
-  ['<HeroCard', 'hero'],
+  // ['<HeroCard', 'hero'] — MOVED, not retired, by the owner's approval of THE ONE BUILD (8 Nov 2026, prototype v113:
+  // *"Approved suuplier dashboard"*): the hero became the Shop tab's cover band. Every control it held is on the cover
+  // (`shop/_components/shop-cover.tsx`): the logo (now opening its viewer + the shipped framer), Verified / "Get
+  // verified · N of 2", the address (Share › Copy your link), View shop ↗; "Finish profile" is Your details' row with its
+  // "N fields left". Pinned below, exactly once.
+  ['<ShopCover', 'the cover band (was the hero)'],
   // ['<ManageTiles', 'door 1 — shop information'] and ['<VerifySection', 'door 1 — your papers'] — MOVED, not
   // retired, by the owner's approval of the simpler supplier dashboard (DECISION_LOG 2026-10-14 "✅ APPROVE: THE
   // SIMPLER …", prototype moments 6–8): the tiles' panels and the papers are now Your details · Your page · Your
@@ -162,22 +167,25 @@ test('🔑 BOTH DEEP-LINK ANCHORS STILL RESOLVE, AND EXACTLY ONCE EACH', () => {
 
 test('door 1 holds BOTH the shop information and the papers', () => {
   /*
-    The whole point of door 1: "fix my shop information and verification,
-    branches, team" is ONE errand. Since step 5 the room is rows into the screens
-    that hold it — Your details, Your page, Your collections, Helpers — plus the
-    papers' own row. A door that lost one of them would look completely fine.
+    The whole point of door 1: "fix my shop information and verification, branches, team" is ONE errand.
+    THE ONE BUILD (owner-approved v113, 8 Nov 2026) keeps every room and moves the doors: Your page and Your details
+    are the two rows under the cover; Your collections IS the Portfolio tab; Helpers and the papers are the Shop ⚙'s
+    Team and Verification folds (one tap from the cover's ⚙ and from the Verified chip). A door that lost one of them
+    would look completely fine — so each is pinned at its new home.
   */
   const src = PAGE();
-  const open = src.indexOf('<ShopDoorSection');
-  assert.ok(open > -1, 'door 1 is not mounted at all');
-  const close = src.indexOf('</ShopDoorSection>', open);
-  assert.ok(close > open, 'the door shell is never closed');
-  const inside = src.slice(open, close);
-  for (const href of ['"/vendor-dashboard/profile"', '"/vendor-dashboard/website"', '"/vendor-dashboard/collections"', '"/vendor-dashboard/team"', '{DOCS_HREF}']) {
-    assert.ok(inside.includes(`href=${href}`), `door 1 has no row to ${href}`);
-  }
-  assert.match(inside, /id="get-verified"/, 'the papers row is not inside door 1');
-  assert.match(inside, /id="d1"/, 'door 1 does not carry the anchor the rail points at');
+  const open = src.indexOf('data-shop-doors=""');
+  assert.ok(open > -1, 'the doors under the cover are not mounted at all');
+  const inside = src.slice(open, src.indexOf('</ul>', open));
+  for (const href of ['{PAGE_HREF}', '{DETAILS_HREF}']) assert.ok(inside.includes(`href=${href}`), `the doors have no row to ${href}`);
+  assert.match(src, /const PAGE_HREF = '\/vendor-dashboard\/website';/);
+  assert.match(src, /const DETAILS_HREF = '\/vendor-dashboard\/profile';/);
+  assert.match(inside, /id="d1"|data-shop-doors=""/);
+  const gear = read('_components/shop-settings-rows.tsx');
+  assert.match(gear, /anchor="team"/, 'Helpers (Team) left the Shop ⚙');
+  assert.match(gear, /anchor="docs"/, 'the papers left the Shop ⚙');
+  assert.match(read('_components/shop-cover.tsx'), /href="#docs"/, 'the Verified chip does not open the papers');
+  assert.match(src, /id="get-verified"/, 'the papers anchor no longer resolves');
 });
 
 /*

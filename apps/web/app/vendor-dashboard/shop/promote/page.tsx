@@ -1,27 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { renderUrlQrSvg } from '@/lib/qr';
-import { checkADateQr } from '@/lib/check-a-date-qr';
-import { buildVendorInviteUrl, vendorCoverageCategories } from '@/lib/vendor-couple-invite';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import type { VendorCategory } from '@/lib/vendors';
-import { cardKindLabeller } from '@/lib/card-kind-labeller';
-import { siteOrigin } from '@/lib/site-origin';
-import { PROMOTE_HREF, PROMOTE_QR_MODES, myPageUrl, promoteQrModeOf, type PromoteQrMode } from '@/lib/supplier-qr-codes';
-import { printLine, printQrUrl } from '@/lib/supplier-prints-shop';
 import { ShopSegments } from '../_components/shop-segments';
 import { shopGearBody } from '../_components/shop-settings-body';
-import { QrCodes } from '../../invite/_components/qr-codes';
-import { PromoteBridge } from './_components/promote-bridge';
 import { promoteFigures } from '@/lib/shop-section-figures';
-import { ShopGiftsSection } from './_components/shop-gifts-section';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
-import { ShareYourWork } from './_components/share-your-work';
-import { loadShareYourWork } from './_components/share-your-work-data';
-import { ShopPrintsSection } from './_components/shop-prints-section';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { readPrintMember } from '@/lib/supplier-prints.server';
+import { PromoteBody } from './_components/promote-body';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -65,7 +49,6 @@ export default async function ShopPromotePage({
   searchParams: Promise<{ et?: string; cat?: string; mode?: string; gear?: string }>;
 }) {
   const search = await searchParams;
-  const mode: PromoteQrMode = promoteQrModeOf(search.mode);
   const supabase = await createClient();
   const {
     data: { user },
@@ -75,93 +58,16 @@ export default async function ShopPromotePage({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // The codes encode the shop's public address — minted by a trigger the moment a shop is named (the twin note on
-  // Customers › QR codes, `invite/page.tsx`: gating on `is_published` asked for a button suppliers do not have).
-  const slug = (profile as { business_slug?: string | null }).business_slug ?? null;
-  const canShare = Boolean(slug);
-  const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
-  // 🎁 Read alongside the codes (part 2): the gifts section and the row's figure share this one result.
+  // 🎁 The gift stock: the pinned row's ONE figure AND the gifts section — one read, handed to the body.
   const giftsPromise = loadShopGiftsSection(supabase, profile.vendor_profile_id);
-  // Awaited below; this only keeps a throw from being "unhandled" while the codes are drawn — it still surfaces there.
   giftsPromise.catch(() => undefined);
-  // 📣 Row 4 — read beside the gifts; the loader says a refused read in words (never throws).
-  const sharePromise = loadShareYourWork(supabase, profile.vendor_profile_id);
-  // 🪪 The signed-in member's own calling card (owner 2026-11-06, "Yes") — their account name and Team label; no name =
-  // no card. Read beside the gifts and the share read (a refused read = no personal card, never a broken sheet).
-  const memberPromise = canShare ? readPrintMember(createAdminClient(), profile.vendor_profile_id, user.id).catch(() => null) : Promise.resolve(null);
-  // 🔳 OPTION B (owner 2026-11-06, *"B"*): ONE LIST of the shop's four codes, every one drawn on this visit (each row
-  // shows its code). `?mode=` names the code whose sheet opens on arrival (an old "Which code ▾" link, a Shortlist pick).
-  const opened: PromoteQrMode | null = search.mode && (PROMOTE_QR_MODES as readonly string[]).includes(search.mode) ? mode : null;
-  const common = { place: 'promote' as const, open: opened, backHref: PROMOTE_HREF, setupHref: '/vendor-dashboard/shop', booked: null };
-
-  const kindLabel = await cardKindLabeller();
-  const profileServices = ((profile as { services?: string[] | null }).services ?? []) as string[];
-  // 🖨 YOUR FACTS (prints prototype, 5 Nov): the name and the line every print carries — the SAME builder the renderer uses.
-  const printFacts = { name: shopName, line: printLine(profileServices, (profile as { tagline?: string | null }).tagline ?? null, kindLabel) };
-
-  let body;
-  if (!canShare) {
-    body = <QrCodes {...common} canShare={false} shortlist={null} />;
-  } else {
-    const origin = siteOrigin();
-    const eventTypes = await getCreatableEventTypes();
-    const coverage = vendorCoverageCategories(profileServices);
-    const selectedCat = search.cat && coverage.includes(search.cat as VendorCategory) ? (search.cat as VendorCategory) : null;
-    const selectedEt = search.et && eventTypes.some((t) => t.key === search.et) ? search.et : null;
-    const shortUrl = buildVendorInviteUrl(slug!, { eventType: selectedEt, category: selectedCat });
-    const pageUrl = myPageUrl(origin, slug!);
-    const reviewsUrl = printQrUrl('reviews', origin, slug!);
-    const [dates, shortSvg, pageSvg, reviewsSvg] = await Promise.all([
-      checkADateQr(slug!),
-      renderUrlQrSvg(shortUrl, 220).catch(() => null),
-      renderUrlQrSvg(pageUrl, 220).catch(() => null),
-      renderUrlQrSvg(reviewsUrl, 220).catch(() => null),
-    ]);
-    const href = (et: string | null, cat: string | null) => {
-      const q = new URLSearchParams({ mode: 'shortlist' });
-      if (et) q.set('et', et);
-      if (cat) q.set('cat', cat);
-      return `${PROMOTE_HREF}?${q.toString()}`;
-    };
-    const etLabel = eventTypes.find((t) => t.key === selectedEt)?.label ?? null;
-    body = (
-      <QrCodes
-        {...common}
-        canShare
-        checkADate={{ ...dates, shopName }}
-        myPage={{ url: pageUrl, svg: pageSvg, shopName }}
-        reviews={{ url: reviewsUrl, svg: reviewsSvg, shopName }}
-        shortlist={{
-          url: shortUrl,
-          svg: shortSvg,
-          shopName,
-          eventPick: {
-            value: selectedEt ?? 'any',
-            options: [{ key: 'any', label: 'Any event', href: href(null, selectedCat) }, ...eventTypes.map((t) => ({ key: t.key, label: t.label, href: href(t.key, selectedCat) }))],
-          },
-          servicePick: {
-            value: selectedCat ?? 'all',
-            options: [{ key: 'all', label: 'All my services', href: href(selectedEt, null) }, ...coverage.map((c) => ({ key: c, label: kindLabel(c), href: href(selectedEt, c) }))],
-          },
-          scope: `${selectedCat ? ` as ${kindLabel(selectedCat)}` : ''}${etLabel ? ` on their ${etLabel.toLowerCase()} plan` : ''}`,
-        }}
-      />
-    );
-  }
-
-  const [gifts, share] = await Promise.all([giftsPromise, sharePromise]);
-  const member = await memberPromise;
+  const gifts = await giftsPromise;
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
       <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.papic.balance : null })} gearBody={shopGearBody(search)} />
-      {/* 🔗 A code's "Put it on…" hands THAT code to the Prints sheet (Option B) — one ask, held while the page is open. */}
-      <PromoteBridge>
-        {body}
-        <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} facts={printFacts} />
-      </PromoteBridge>
-      <ShopGiftsSection data={gifts} />
-      <ShareYourWork data={share} />
+      {/* 📣 ONE body (THE ONE BUILD A3 W5): the same component Shop's Promote and QR sheets mount (`promote-body.tsx`). */}
+      <PromoteBody search={search} part="all" gifts={giftsPromise} />
     </section>
   );
 }

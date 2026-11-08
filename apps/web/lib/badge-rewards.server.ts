@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { readShopBookedLoopCount } from '@/lib/shop-booked-loops.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { grantOwedBadgeUpgrades, readBadgeUpgrades, type UpgradeSweep } from '@/lib/badge-upgrades.server';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -48,7 +49,7 @@ export async function readBadgeRewardFacts(
   vendorProfileId: string,
   badge: Pick<ShopBadgeFacts, 'verified' | 'completedEvents' | 'trusted'>,
 ): Promise<BadgeRewardFacts> {
-  const [sourced, branches, serviceCards, inspirationPhotos, awards] = await Promise.all([
+  const [sourced, branches, serviceCards, inspirationPhotos, awards, bookedLoops] = await Promise.all([
     // Setnayan-sourced bookings — the ledger the fee itself keeps (attribution 'sourced', made at the lock).
     admin
       .from('booking_fee_ledger')
@@ -124,6 +125,8 @@ export async function readBadgeRewardFacts(
           periodMonth: String(a.period_month),
         }));
       }),
+    // 🔁 Booked Loop (THE ONE BUILD spec §9 #11): C2's counter, on the admin client (service_role only). null = unread.
+    readShopBookedLoopCount(admin, vendorProfileId),
   ]);
 
   const trustedCount = badge.trusted ? Number(badge.trusted.trusted_review_count ?? 0) : null;
@@ -136,6 +139,7 @@ export async function readBadgeRewardFacts(
     serviceCards,
     inspirationPhotos,
     awards,
+    bookedLoops,
   };
 }
 

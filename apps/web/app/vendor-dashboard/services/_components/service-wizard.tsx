@@ -1,5 +1,6 @@
 'use client';
 
+import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Lock } from 'lucide-react';
 import { Field } from '@/app/_components/forms/field';
@@ -349,8 +350,8 @@ export function ServiceWizard({
           Say yes and every couple who books this card gets{' '}
           <span className="font-medium text-ink">free Papic photos</span> for their event,
           given in your name. How many is worked out from your booking fee and shown on the quote —
-          there is nothing here for you to set. It is added to your lock bill, capped at 40% of that
-          fee. Optional: your card publishes either way.
+          there is nothing here for you to set. It is added to your lock bill, capped at {giftLimitPctOrDefault(null)}% of
+          that fee. Optional: your card publishes either way.
         </p>
       </section>
 

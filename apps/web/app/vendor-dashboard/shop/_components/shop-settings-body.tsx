@@ -11,6 +11,8 @@ import { TeamScreen, type TeamSearch } from '../../team/_components/team-screen'
 import { loadDetailsData } from '../../profile/details-data';
 import { VerifySection } from './verify-section';
 import { ShopSettingsRows } from './shop-settings-rows';
+import { shopPermitLine } from '@/lib/shop-permit-line';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * 🏪 THE SHOP ⚙'S ROWS (owner 2026-10-31, verbatim *"Yes follow your recommendation"* — DECISION_LOG "SHOP ⚙ — WHAT A
@@ -44,12 +46,19 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
     return typeof v === 'string' ? v : undefined;
   };
 
-  const [d, wallet, tierRow] = await Promise.all([
+  const [d, wallet, tierRow, permitRow] = await Promise.all([
     loadDetailsData(supabase, profile),
     fetchShopWallet(supabase, profile.vendor_profile_id),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
+    // 🗓 The permit's renewal date (THE ONE BUILD: the "Business permit" line). ⚠ `next_renewal_due_at` is OFF
+    // `authenticated`'s column allowlist (migration 20271222518385) — the shop reads its own through the definer view
+    // `vendor_profiles_self`, in its OWN select so a refusal can never take the plan read down with it.
+    supabase.from('vendor_profiles_self').select('verification_state, next_renewal_due_at').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
   ]);
   const tier = (tierRow.data as { tier_state?: string | null } | null)?.tier_state ?? null;
+  if (permitRow.error) logQueryError('ShopSettingsBody.permit', permitRow.error, { vendorId: profile.vendor_profile_id }, 'graceful_degrade');
+  const permitFacts = permitRow.error ? null : ((permitRow.data as { verification_state?: string | null; next_renewal_due_at?: string | null } | null) ?? null);
+  const permit = shopPermitLine(permitFacts ? { verification_state: permitFacts.verification_state, next_renewal_due_at: permitFacts.next_renewal_due_at } : null);
   const planSearch: PlanSearch = { ordered: one('ordered'), error: one('gsec') === 'plan' ? one('error') : undefined, cycle: one('cycle'), applied: one('applied'), kept: one('kept') };
   const teamSearch: TeamSearch = {
     saved: one('gsec') === 'team' ? one('saved') : undefined,
@@ -81,6 +90,7 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
         docsTotal: d.docsTotal,
         measured: d.verifyMeasured,
         row: d.progress.rows.find((r) => r.key === 'docs')!,
+        permit,
         section: (
           <VerifySection
             businessName={d.businessName}

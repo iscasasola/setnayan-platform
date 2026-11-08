@@ -1,32 +1,21 @@
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
-import {
-  ArrowRight,
-  Check,
-  ChevronRight,
-  Globe,
-  Package as PackageIcon,
-  Plus,
-  ShieldCheck,
-} from 'lucide-react';
+import { ArrowRight, ChevronRight, ExternalLink, Package as PackageIcon, Plus, UserRound } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchOwnVendorProfile, businessProfileChecklist, profileGaps } from '@/lib/vendor-profile';
+import { fetchOwnVendorProfile, businessProfileChecklist, profileGaps, type BusinessProfileItem, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { CopyButton } from '@/app/_components/copy-button';
-import { VendorAvatar, deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
+import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 
 import {
   VendorServicesManager,
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
-import { ShopDoorSection } from './_components/shop-door-section';
-import { ShopSegments } from './_components/shop-segments';
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { ServicesDisclosure } from './_components/services-disclosure';
@@ -39,66 +28,73 @@ import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { ShopServiceRows } from './_components/shop-service-rows';
 import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
-import { SupplierThumbRow } from '../_components/supplier-thumb-row';
-import { ActionButton } from '@/components/action-button';
+import { scannerChoiceOf } from '@/lib/supplier-scan';
+import { ShopServicesThumb } from './_components/shop-services-thumb';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
-import { servicesFigures, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
+import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
+import { planWord } from '@/lib/vendor-plan-change-words';
+import { siteOrigin } from '@/lib/site-origin';
+import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
+import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
+import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
+import { shopBadgeRow, type BadgeTile } from '@/lib/shop-badge-row';
+import { loadShopAnalytics, type ShopAnalytics } from '@/lib/shop-analytics.server';
+import { stripMarks, stripMonths } from '@/lib/analytics-growing';
+import { formatCount } from '@/lib/format-number';
+import type { ProfileFieldData } from './_components/editable-row';
+import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
+import { ShopCover, type CoverData } from './_components/shop-cover';
+import { ShopBadgeRow } from './_components/shop-badge-row';
+import { ShopMakers, type ScannerLine } from './_components/shop-makers';
+import { ShopAnalyticsCarousel, type AnalyticsCardData } from './_components/shop-analytics-carousel';
+import { PromoteBody } from './promote/_components/promote-body';
+import { CapacityCard } from '../performance/_components/capacity-card';
+import { ConversionDealsCard } from '../performance/_components/conversion-deals-card';
+import { PricePositionCard } from '../performance/_components/price-position-card';
+import { RoiAttributionCard } from '../performance/_components/roi-attribution-card';
+import { FunnelBenchmarkCard } from '../performance/_components/funnel-benchmark-card';
+import { CardFace } from '../performance/_components/card-face';
 
 /** Your details, and its papers fold — where every "finish your profile" / "get verified" link on this page goes. */
 const DETAILS_HREF = '/vendor-dashboard/profile';
-const DOCS_HREF = '/vendor-dashboard/profile#docs';
+const PAGE_HREF = '/vendor-dashboard/website';
 
 /**
- * /vendor-dashboard/shop — "My Shop".
+ * /vendor-dashboard/shop — THE SHOP TAB (THE ONE BUILD, lane C4; owner-approved prototype v113/v114 `V.shop`).
  *
- * The storefront home of the vendor doorway. Reworked 2026-07 (owner):
- * everything acts INLINE. Profile / Website / Team / Branch each expand their
- * function in place (ManageTiles + Collapsible) — Profile joined the inline
- * set 2026-07-02 (was the lone navigate-out tile); the QR row card toggles
- * Shortlist ↔ Locked, both rendering a real QR. The metrics strip and the
- * "On this page" rail left 2026-10-21 (owner "Yes to all", item 4): the
- * numbers are Shop › How it is going.
+ * ONE scroll (v110 item 11): the cover (logo · name · Verified · ★ · events · plan · View shop ↗ · Share · Promote · QR ·
+ * ⚙) → Your page · Your details → Analytics (five cards) → Badges (ONE row) → Makers (Scanner + Forms) → Services →
+ * the thumb row (＋ Add a service). The `Shop ▾` section picker left this page: Analytics is in this scroll, Portfolio
+ * is its own tab (`/vendor-dashboard/collections`), Promote and the QR codes are sheets from the cover, Details and the
+ * papers are Your details and Shop ⚙. Their own addresses still work (`/performance`, `/shop/promote`, `/profile`).
  *
- * DATA — every number is LIVE (owner rule: never fabricate). The whole loader
- * is wrapped so a single query error degrades to zeros rather than crashing.
+ * DATA — every number is LIVE and every read is HONEST: an unread one is "—" / "Couldn't load", never 0. Every read
+ * starts at once and is awaited once (the 2026-09-29 rule below); the sheets' bodies (Promote, QR, ⚙, logo, cover)
+ * are drawn only while the URL opens them. Request count: see the C4 build notes.
  */
 
 export const metadata = { title: 'Shop' };
 
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-).replace(/\/$/, '');
-const DISPLAY_HOST = SITE_URL.replace(/^https?:\/\//, '');
-
-function titleCase(s: string): string {
-  return s
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
 type ShopData = {
   businessName: string;
   initials: string;
-  /** Presigned display URL of the uploaded logo (Hero avatar), or null → initials. */
+  /** Presigned display URL of the uploaded logo, or null → initials. */
   logoUrl: string | null;
   /** The logo's align + zoom (owner 2026-11-06, A2). */
   logoFrame: LogoFrame;
+  /** The cover band: Your page's cover pick, else the first portfolio photo (the page's own rule). */
+  coverUrl: string | null;
   slug: string | null;
   city: string | null;
-  primaryService: string | null;
   tier: string | null;
   isVerified: boolean;
   websiteLive: boolean;
-  /* Set when the read FAILED, as opposed to legitimately returning nothing —
-     the hero says "could not load your logo" instead of showing initials as if
-     the shop had none. */
+  /* Set when the read FAILED, as opposed to legitimately returning nothing. */
   logoUnavailable: boolean;
-  completionPct: number;
-  /** Fields of the business profile still empty (the hero's "Finish profile"). */
-  fieldsLeft: number;
   verify: {
     status: VerifyStatus;
     requiredDocsIn: boolean;
@@ -107,10 +103,22 @@ type ShopData = {
   };
   /** 🌱🖼 The shop's trades supply an inspiration part — "Add to the inspiration library" is drawn (owner 2026-10-19). */
   libraryOpen: boolean;
-  /** 🧰 One row per service (v13 Shop › Services) — `null` = the read failed, said as such, never "no services". */
+  /** 🧰 One row per service — `null` = the read failed, said as such, never "no services". */
   serviceRows: ShopServiceRow[] | null;
-  /** 🎟 Each service's claim scanner (coverage id → setting) — `null` = unread: no dropdown is drawn. */
+  /** 🎟 Each service's claim scanner (coverage id → setting) — `null` = unread. */
   scanSettings: Map<number, ScanSetting> | null;
+  /** 🏅 The one badge row (`shopBadgeRow`) — null = unread. */
+  badges: BadgeTile[] | null;
+  /** The cover's "★ 4.8 · 120 events" — null = unread. */
+  rating: string | null;
+  events: string | null;
+  /** 📊 The five Analytics cards. */
+  analytics: ShopAnalytics | null;
+  /** Fields of the business profile still empty (Your details' row) — the logo is its own first step (`profileGaps`). */
+  fieldsLeft: number;
+  /** The logo row's editor data (Your details' own close-save row). */
+  logoItem: BusinessProfileItem | null;
+  logoFields: ProfileFieldData;
 };
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
@@ -123,80 +131,37 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  // Signed in but no shop (owned OR via team) — send them to the one-button
-  // "Open your shop" gate instead of a dead fallback (owner gap-fix
-  // 2026-07-03). Distinct from the error path: the caller's catch keeps the
-  // degraded fallback for genuine load failures.
   if (!profile) return 'no-vendor';
 
   const vendorId = profile.vendor_profile_id;
   const businessName = profile.business_name ?? 'Your shop';
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
-  // 🔑 THE GATE ABOVE RUNS FIRST — who is signed in, and which shop is theirs
-  // (`fetchOwnVendorProfile`, owned OR via team). Every read below is scoped to
-  // THAT `vendorId`, and none of them needs another one's answer except where it
-  // says so, and there it waits for THAT read only. They used to run one after
-  // another — about twenty trips to the database, each waiting for the last —
-  // and My Shop took 1.7 s to load (measured on prod, 2026-09-29). Each block is
-  // STARTED here, as a promise, with its own graceful-degrade exactly as it was,
-  // and they are all awaited together in the one `Promise.all` below.
-  //   · stories + recaps wait for the pool bookings (they need its eventIds).
-  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
-  // RUN — one stray `await` puts a full database trip back in front of the page.
-  //
-  // ✂ STEP 5 (2026-10-14) — SIXTEEN READS LEFT THIS PAGE. Door 1's panels moved to
-  // their own screens: Your details (`profile/details-data.ts` — the profile
-  // fields, the papers, the switches, the travel distances, the branches, the
-  // corrections, the coverage suggestion, the payment methods), Your page
-  // (`website/page-data.ts` — the microsite, the review picker, the stories) and
-  // Your collections (`collections/collections-data.ts` — the portfolio, Instagram).
-  // The team panel was a second copy of /vendor-dashboard/team. Each of those reads
-  // now runs only on the screen that draws it; My Shop keeps the hero and the
-  // numbers.
+  // 🔑 The gate above runs first (who is signed in, which shop is theirs). Every read below is scoped to THAT
+  // `vendorId`, started here as a promise with its own graceful-degrade, and awaited together in the ONE
+  // `Promise.all` below (measured 2026-09-29: one-after-another took 1.7 s). Analytics waits only for the plan.
+  // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS RUN.
 
-  // Tier — not in the shared profile select; soft-probe it.
-  const tierRead = (async () => {
-    let tier: string | null = null;
+  // The shop's own row, the columns the profile select does not carry: the plan, Your page's cover pick, the
+  // founding mark and when the shop opened — ONE select.
+  const ownRead = (async () => {
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
-        .select('tier_state')
+        .select('tier_state, microsite_hero_photo_key, is_founder, created_at')
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
-      // ⚠ THEIR PLAN. Refused, the shop reads as having no tier. The soft
-      // ⚠ fallback stays; the reason reaches the logs.
-      if (error) {
-        logQueryError('VendorShopPage.tierState', error, { vendorId }, 'graceful_degrade');
-      }
-      tier = (data as { tier_state?: string | null } | null)?.tier_state ?? null;
+      if (error) logQueryError('VendorShopPage.ownRow', error, { vendorId }, 'graceful_degrade');
+      return error
+        ? null
+        : ((data as { tier_state?: string | null; microsite_hero_photo_key?: string | null; is_founder?: boolean | null; created_at?: string | null } | null) ?? null);
     } catch {
-      tier = null;
+      return null;
     }
-    return tier;
   })();
 
-  /*
-   * ✂ THE SIX NUMBER TILES LEFT THIS PAGE (owner "Yes to all", 2026-10-21, item
-   * 4 — the approved S-PR6 shape: "ShopRail/ManageTiles removed"), AND THEIR
-   * SIX READS WITH THEM: reviews, saves, views this week, the pool bookings, the
-   * stories + recaps that waited on it, and the partnerships count. Those numbers
-   * are Shop › How it is going's job (`/vendor-dashboard/performance`); a new
-   * supplier saw a long page of empty tiles. `my-shop-reads-at-once.test.ts`
-   * fails if one drifts back.
-   */
   const soft = new SoftReadLog('VendorShopPage');
-
-  // Latest verification application — the Hero's "Get verified · N of 2" pill.
-  // The contact stamps ride on the row itself (`fetchLatestApplication` merges
-  // them), so there is no second read for them.
-  const verifyAppRead = soft.read(
-    'latestApplication',
-    () => fetchLatestApplication(supabase, vendorId),
-    null,
-  );
-  // The hero's logo. A presign hiccup must not blank the page — and must not
-  // look like a shop with no logo either (`logoUnavailable`).
+  const verifyAppRead = soft.read('latestApplication', () => fetchLatestApplication(supabase, vendorId), null);
   const logoRead = (async () => {
     try {
       const url = profile.logo_url ? await displayUrlForStoredAsset(profile.logo_url) : null;
@@ -207,8 +172,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
-  // 🧰 v13 Shop › Services: the services (coverage rows) and the few columns of their cards the rows count — one
-  // read each, beside the others. The cards list under it keeps its own full read (`VendorServicesManager`).
+  // 🧰 Services (coverage rows) and the few columns of their cards the rows count.
   const serviceRowsRead = (async (): Promise<ShopServiceRow[] | null> => {
     try {
       const [cov, cards, labels] = await Promise.all([
@@ -226,91 +190,201 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         logQueryError('VendorShopPage.serviceRows', cov.error ?? cards.error, { vendorId }, 'graceful_degrade');
         return null;
       }
-      return shopServiceRows(
-        (cov.data ?? []) as ShopCoverageLite[],
-        (cards.data ?? []) as ShopCardLite[],
-        (cs) => labels.leafLabel(cs),
-      );
+      return shopServiceRows((cov.data ?? []) as ShopCoverageLite[], (cards.data ?? []) as ShopCardLite[], (cs) => labels.leafLabel(cs));
     } catch (err) {
       logQueryError('VendorShopPage.serviceRows', err, { vendorId });
       return null;
     }
   })();
 
-  // 🎟 Each service's claim scanner (set once per service, DECISION_LOG 2026-10-29) — null = unread, no dropdown drawn.
   const scanSettingsRead = readShopScanSettings(supabase, vendorId).catch((err) => {
     logQueryError('VendorShopPage.scanSettings', err, { vendorId });
     return null;
   });
 
+  // 🏅 THE BADGES — the shipped tracker's facts, then #7298's reward engine (measured, paid once if newly earned, read —
+  // exactly as Performance does), chained on the facts so it adds no round trip beside the batch.
+  const factsRead: Promise<TrackerFacts | null> = readShopTrackerFacts(vendorId).catch((err: unknown) => {
+    logQueryError('VendorShopPage.badgeFacts', err, { vendorId });
+    return null;
+  });
+  const rewardsRead: Promise<TrackerRewardInput | null> = (async () => {
+    const facts = await factsRead;
+    if (!facts) return null;
+    try {
+      return await readBadgeRewardTracker(createAdminClient(), vendorId, facts);
+    } catch (err) {
+      logQueryError('VendorShopPage.badgeRewards', err, { vendorId });
+      return null;
+    }
+  })();
+
+  // The cover: Your page's pick (when it is still on the page), else the first portfolio photo — `page-parts.tsx`'s
+  // rule. Chained on the shop's own row only, so the presign rides beside the batch.
+  const portfolio = (profile.portfolio_r2_keys ?? []) as string[];
+  const coverRead = (async (): Promise<string | null> => {
+    const own = await ownRead;
+    const heroKey = own?.microsite_hero_photo_key && portfolio.includes(own.microsite_hero_photo_key) ? own.microsite_hero_photo_key : (portfolio[0] ?? null);
+    if (!heroKey) return null;
+    try {
+      return await displayUrlForStoredAsset(heroKey);
+    } catch (err) {
+      logQueryError('VendorShopPage.coverDisplayUrl', err, { vendorId });
+      return null;
+    }
+  })();
+
+  // 📊 Analytics — the five cards, gated by the plan (chained on the shop's own row only).
+  const analyticsRead = ownRead
+    .then((own) => loadShopAnalytics(supabase, profile, user.id, own?.tier_state ?? null))
+    .catch((err: unknown) => {
+      logQueryError('VendorShopPage.analytics', err, { vendorId });
+      return null;
+    });
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [tier, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings] = await Promise.all([
-    tierRead,
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, analytics, coverUrl] = await Promise.all([
+    ownRead,
     verifyAppRead,
     logoRead,
     serviceRowsRead,
     scanSettingsRead,
+    factsRead,
+    rewardsRead,
+    analyticsRead,
+    coverRead,
   ]);
 
   const completion = businessProfileChecklist(profile);
-  const completionPct =
-    completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
+  const trusted = facts?.trusted ?? null;
+  const avg = trusted?.trusted_avg_rating ?? null;
+  const count = trusted?.trusted_review_count ?? null;
+
+  const rows = facts ? (rewards ? badgeRowsWithRewards(badgeTracker(facts), rewards) : badgeTracker(facts)) : null;
+  const badges = shopBadgeRow({
+    rows,
+    counts: rewards?.facts ?? null,
+    completedEvents: facts?.completedEvents ?? null,
+    trusted,
+    inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
+    founding: own ? { isFounder: own.is_founder === true, joinedYear: own.created_at ? Number(own.created_at.slice(0, 4)) : null } : null,
+    // 🔁 The Booked Loop rides `rewards.facts.bookedLoops` (C2's counter, read by the reward engine) — hidden when unread.
+  });
 
   return {
     businessName,
     initials: deriveInitials(businessName),
     logoUrl,
     logoFrame: readLogoFrame(profile),
+    coverUrl,
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
-    primaryService: profile.services?.[0] ? titleCase(profile.services[0]) : null,
-    tier,
+    tier: own?.tier_state ?? null,
     isVerified: profile.public_visibility === 'verified',
     websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
-    completionPct,
-    // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
-    fieldsLeft: profileGaps(completion).fieldsLeft,
     verify: {
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
       emailConfirmedAt: verifyApp?.contact_email_confirmed_at ?? null,
       phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
     },
-    // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
     libraryOpen: moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed,
     serviceRows,
     scanSettings,
+    badges,
+    // Honest zero: no trusted review → no rating word; unread → "—" (null).
+    rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
+    events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
+    analytics,
+    // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
+    fieldsLeft: profileGaps(completion).fieldsLeft,
+    logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
+    logoFields: logoFieldData(profile, logoUrl),
   };
 }
 
-const TIER_LABEL: Record<string, string> = {
-  free: 'Free',
-  solo: 'Solo',
-  pro: 'Pro',
-  enterprise: 'Ultra',
-};
-
-function tierLabel(tier: string | null): string {
-  if (!tier) return 'Free';
-  return TIER_LABEL[tier] ?? titleCase(tier);
+/** The logo row's data — the same shape Your details builds (`details-data.ts`); only the logo row reads it here. */
+function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): ProfileFieldData {
+  return {
+    business_name: profile.business_name ?? '',
+    business_owner_name: profile.business_owner_name ?? '',
+    hq_address: profile.hq_address ?? '',
+    location_city: profile.location_city ?? '',
+    hq_latitude: profile.hq_latitude ?? null,
+    hq_longitude: profile.hq_longitude ?? null,
+    contact_phone: profile.contact_phone ?? '',
+    contact_email: profile.contact_email ?? '',
+    in_business_since_year: profile.in_business_since_year ? String(profile.in_business_since_year) : '',
+    venue_width_m: profile.venue_width_m != null ? String(profile.venue_width_m) : '',
+    venue_length_m: profile.venue_length_m != null ? String(profile.venue_length_m) : '',
+    capacity_min: profile.capacity_min != null ? String(profile.capacity_min) : '',
+    capacity_max: profile.capacity_max != null ? String(profile.capacity_max) : '',
+    logo_url: profile.logo_url ?? null,
+    logoFrame: readLogoFrame(profile),
+    logoDisplayMap: profile.logo_url && logoUrl ? { [profile.logo_url]: logoUrl } : {},
+    services: (profile.services ?? []) as string[],
+    extraServiceLeaves: [],
+    vendorProfileId: profile.vendor_profile_id,
+  };
 }
 
+/** The five faces — each the SHIPPED card's `compact` variant; a plan-locked card says which plan shows it. */
+function analyticsCards(a: Extract<ShopAnalytics, { access: 'ok' }>): AnalyticsCardData[] {
+  const locked = (title: string, plan: string) => (
+    <CardFace title={title} window="Your plan" line={`Shows on ${plan} and up`} data="locked">
+      <Link href="#plan" className="mt-4 inline-flex text-[13px] font-medium" style={{ color: 'var(--m-orange-deep)' }}>
+        What each plan includes ›
+      </Link>
+    </CardFace>
+  );
+  const ahead =
+    a.ahead === 'locked'
+      ? { face: locked('What’s ahead', 'Pro'), locked: true }
+      : {
+          face: (
+            <CapacityCard
+              compact
+              data={a.ahead.capacity}
+              strip={
+                a.ahead.booked === null
+                  ? null
+                  : {
+                      months: stripMonths(a.todayIso),
+                      ...stripMarks(a.todayIso, a.ahead.booked, (a.ahead.capacity?.waitlist ?? []).map((w) => ({ date: w.date }))),
+                    }
+              }
+            />
+          ),
+          locked: false,
+        };
+  return [
+    { key: 'ahead', ...ahead, series: a.series.ahead },
+    a.deals === 'locked'
+      ? { key: 'deals', face: locked('Quotes that turn into bookings', 'Pro'), locked: true }
+      : { key: 'deals', face: <ConversionDealsCard compact data={a.deals} />, locked: false, series: a.series.deals },
+    a.price === 'locked'
+      ? { key: 'price', face: locked('Where your price sits', 'Pro'), locked: true }
+      : { key: 'price', face: <PricePositionCard compact result={a.price ?? { status: 'unreadable' }} />, locked: false },
+    a.worth === 'locked'
+      ? { key: 'worth', face: locked('What Setnayan added', 'Solo'), locked: true }
+      : { key: 'worth', face: <RoiAttributionCard compact attribution={a.worth} unread={a.worth === null} annualPlanPhp={null} windowLabel="in the last 12 months" />, locked: false, series: a.series.worth },
+    a.compare === 'locked'
+      ? { key: 'compare', face: locked('Compared with similar suppliers', 'Pro'), locked: true }
+      : { key: 'compare', face: <FunnelBenchmarkCard compact benchmark={a.compare.benchmark} unreadable={a.compare.unreadable} />, locked: false },
+  ];
+}
 
 async function ShopHome({
   searchParams,
 }: {
-  searchParams: Promise<
-    ServicesManagerSearch
-  >;
+  searchParams: Promise<ServicesManagerSearch & Record<string, string | string[] | undefined>>;
 }) {
   let data: ShopData | 'no-vendor' | null;
   try {
     data = await loadShopData();
   } catch (err) {
-    // Re-throw Next's control-flow errors (redirect/notFound) so the /login
-    // redirect inside the loader still navigates.
     const digest = (err as { digest?: unknown } | null)?.digest;
     if (typeof digest === 'string' && digest.startsWith('NEXT_')) {
       throw err;
@@ -320,7 +394,6 @@ async function ShopHome({
     data = null;
   }
 
-  // Signed in without a shop → the one-button "Open your shop" gate.
   if (data === 'no-vendor') redirect('/open-shop');
 
   if (!data) {
@@ -328,20 +401,14 @@ async function ShopHome({
       <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Shop</h1>
-          <p className="max-w-prose text-base text-ink/65">
-            Everything that defines your shop and your reach.
-          </p>
+          <p className="max-w-prose text-base text-ink/65">Everything that defines your shop and your reach.</p>
         </header>
         <div>
           <p className="text-sm text-ink/70">
-            Set up your business profile first — once it&rsquo;s created, your
-            storefront, reach, and reputation all live here.
+            Set up your business profile first — once it&rsquo;s created, your storefront, reach, and reputation all live
+            here.
           </p>
-          <Link
-            href="/open-shop"
-            className="button-primary mt-4 inline-flex items-center gap-2"
-            data-tour="shop-details"
-          >
+          <Link href="/open-shop" className="button-primary mt-4 inline-flex items-center gap-2" data-tour="shop-details">
             Set up my shop
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
@@ -350,397 +417,192 @@ async function ShopHome({
     );
   }
 
-  // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}); the
-  // /v/{slug} route still resolves but the editor surfaces the clean address.
+  // Canonical vendor URL is the bare-root alias (www.setnayan.com/{slug}).
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
+  const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
+  const shareUrl = data.slug ? myPageUrl(siteOrigin(), data.slug) : null;
+  const cover: CoverData = {
+    name: data.businessName,
+    initials: data.initials,
+    logoUrl: data.logoUrl,
+    logoFrame: data.logoFrame,
+    logoUnavailable: data.logoUnavailable,
+    coverUrl: data.coverUrl,
+    city: data.city,
+    verified: {
+      isVerified: data.isVerified,
+      inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
+      stepsDone: (data.verify.requiredDocsIn ? 1 : 0) + (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0),
+    },
+    rating: data.rating,
+    events: data.events,
+    planLabel: planWord(data.tier),
+    publicPath,
+    websiteLive: data.websiteLive,
+    slug: data.slug,
+    shareUrl,
+  };
+  const qrSearch = { et: one('et'), cat: one('cat'), mode: one('mode') };
+  const scanners: ScannerLine[] | null =
+    data.serviceRows === null || data.scanSettings === null
+      ? null
+      : data.serviceRows.filter((r) => r.coverageId != null).map((r) => ({ coverageId: r.coverageId!, label: r.label, choice: scannerChoiceOf(data.scanSettings!.get(r.coverageId!)) }));
 
   return (
     <>
-    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 pb-32 pt-8 sm:px-6 sm:pt-10 lg:px-8">
-      {/* 📌 Shop ▾ + Services' three figures — the pinned row (v13), then one row per service with its tools. */}
-      <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} gearBody={shopGearBody(sp)} />
-      <div className="mx-auto max-w-3xl">
-        <ShopServiceRows rows={data.serviceRows} scan={data.scanSettings} />
-      </div>
-      <HeroCard data={data} publicPath={publicPath} />
+      <div className="mx-auto w-full max-w-3xl pb-32" data-shop-tab="">
+        <ShopCover
+          d={cover}
+          gearBody={shopGearBody(sp)}
+          promoteBody={one('sheet') === 'promote' ? <PromoteBody search={qrSearch} part="promote" /> : null}
+          qrBody={one('sheet') === 'qr' ? <PromoteBody search={qrSearch} part="qr" /> : null}
+          logoBody={
+            one('view') === 'logo' ? (
+              <div className="space-y-3" data-shop-logo-view="">
+                <p className="text-[13px] text-ink/65">Your logo · shows on your page, cards and chat. Drag to move, pinch to zoom.</p>
+                {data.logoUnavailable ? <CouldNotLoad what="your logo" /> : null}
+                {data.logoItem ? (
+                  <ProfileChecklistEditor items={[data.logoItem]} data={data.logoFields} isVerified={data.isVerified} showProgress={false} flat />
+                ) : null}
+              </div>
+            ) : null
+          }
+          coverBody={
+            one('view') === 'cover' ? (
+              <div className="space-y-3" data-shop-cover-view="">
+                {data.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL
+                  <img src={data.coverUrl} alt="Your cover photo" className="aspect-[16/10] w-full rounded-2xl object-cover" />
+                ) : (
+                  <p className="text-[13.5px] text-ink/65">No cover yet — your first portfolio photo becomes it.</p>
+                )}
+                <p className="text-[13px] text-ink/65">Cover photo · the top of your page. You pick it on Your page, and it goes live when you Apply there.</p>
+                <ul className="divide-y divide-ink/10">
+                  <li>
+                    <DatesRow data="shop-cover-pick" title="Pick from Portfolio" line="Your photos · the cover goes live with your page's Apply" href={`${PAGE_HREF}#cover`} />
+                  </li>
+                  <li>
+                    <DatesRow data="shop-cover-upload" title="Upload" line="Add photos to your Portfolio, then pick one" href="/vendor-dashboard/collections#gallery-media" />
+                  </li>
+                </ul>
+              </div>
+            ) : null
+          }
+        />
+        {/* The old anchors still land here, once each (links already sent: notifications, bookmarks). */}
+        <span id="get-verified" className="block scroll-mt-24" aria-hidden />
+        <span id="manage-shop" className="block scroll-mt-24" aria-hidden />
+        <span id="getting-paid" className="block scroll-mt-24" aria-hidden />
 
-      {/* 📸 Photos couples shared for a service card, waiting for Approve (owner 2026-10-30) — draws nothing when none. */}
-      <Suspense fallback={null}>
-        <CouplePhotosToAnswer />
-      </Suspense>
-
-      {/* ✂ The six number tiles and the "On this page" box left here (owner
-          "Yes to all", 2026-10-21, item 4 — S-PR6). The numbers are Shop ›
-          How it is going; the doors below are the page. */}
-
-      {/*
-        ── DOOR 1 · "Your shop" (G1, drawing approved 2026-09-14) ───────────
-        ✂ STEP 5 (2026-10-14): the room is now four rows into the screens the
-        approved supplier prototype gives each errand — Your details (the form,
-        the papers, where you work, how clients pay you), Your page (the page as
-        couples scroll it, a draft and one Apply), Your collections (every photo
-        and video) and Helpers (/vendor-dashboard/team, which the Team tile
-        duplicated). The editors are the SAME components, mounted there.
-
-        ⚠ THE TWO OLD ANCHORS STILL RESOLVE HERE, ONCE EACH. `#manage-shop` is on
-        the rows and `#get-verified` on the documents row: links already sent —
-        notifications stored with `/vendor-dashboard/shop#get-verified`, a
-        bookmark — land on a row one tap from the fold. Every link this code
-        still writes points straight at Your details (`/vendor-dashboard/profile#docs`).
-      */}
-      <ShopDoorSection
-        id="d1"
-        title="Your shop"
-        question="Shop information, verification, branches and team"
-      >
-        <div id="manage-shop" className="scroll-mt-24 divide-y divide-ink/10" data-shop-doors="">
-          <DatesRow
-            data="shop-details"
-            tour="shop-details"
-            title="Your details"
-            line="Name · what you do · where · contact · documents · how clients pay you"
-            badge={
-              data.fieldsLeft > 0
-                ? { tone: 'wait', word: data.fieldsLeft === 1 ? '1 field left' : `${data.fieldsLeft} fields left` }
-                : null
-            }
-            href="/vendor-dashboard/profile"
-          />
-          <DatesRow
-            data="shop-page"
-            title="Your page"
-            line="As couples see it · edit · share"
-            badge={data.websiteLive ? { tone: 'ok', word: 'Couples can see it' } : { tone: 'quiet', word: 'Not shown yet' }}
-            href="/vendor-dashboard/website"
-          />
-          <DatesRow
-            data="shop-collections"
-            title="Your collections"
-            line="Every photo and video in one place"
-            href="/vendor-dashboard/collections"
-          />
-          {/* 🌱🖼 The inspiration library, findable (owner 2026-10-19) — beside the photos it is filled from. */}
-          {data.libraryOpen ? (
-            <DatesRow
-              data="shop-inspiration-library"
-              title={INSPIRATION_LIBRARY_ROW.label}
-              line={INSPIRATION_LIBRARY_ROW.line}
-              href={INSPIRATION_LIBRARY_HREF}
-            />
-          ) : null}
-          <DatesRow data="shop-helpers" title="Helpers" line="Who works with you on Setnayan" href="/vendor-dashboard/team" />
-        </div>
-        <div id="get-verified" className="scroll-mt-24 border-t border-ink/10">
-          <DatesRow
-            data="shop-documents"
-            title="Your documents"
-            line={
-              data.isVerified
-                ? 'Verified'
-                : data.verify.status === 'pending_review' || data.verify.status === 'in_review'
-                  ? 'Setnayan is checking your documents'
-                  : 'DTI or SEC · BIR 2303 · permit · a bank proof'
-            }
-            badge={
-              data.isVerified
-                ? { tone: 'ok', word: 'Verified' }
-                : data.verify.status === 'pending_review' || data.verify.status === 'in_review'
-                  ? { tone: 'wait', word: 'Checking' }
-                  : { tone: 'wait', word: 'Send them' }
-            }
-            href={DOCS_HREF}
-          />
-        </div>
-        {/* The rail's doors 4 and 5 point at these two: their rooms moved to Your
-            page › Auto-reply and Your details › How clients pay you (step 5). */}
-        <div id="getting-paid" className="scroll-mt-24 border-t border-ink/10">
-          <DatesRow
-            data="shop-getting-paid"
-            title="How clients pay you"
-            line="GCash · bank · what couples see"
-            href="/vendor-dashboard/profile#pay"
-          />
-        </div>
-        {vendorAutoReplyEnabled() ? (
-          <div id="auto-reply" className="scroll-mt-24 border-t border-ink/10">
-            <DatesRow
-              data="shop-auto-reply"
-              title="Auto-reply"
-              line="Answers the first message"
-              href="/vendor-dashboard/website#auto-reply"
-            />
-          </div>
-        ) : null}
-      </ShopDoorSection>
-
-
-      {/* ── YOUR SERVICES — the full Services manager, fully consolidated onto
-          My Shop (owner 2026-07-02: "My Services" retired everywhere). The
-          standalone /vendor-dashboard/services route now redirects here; the
-          guided-wizard child route still renders separately. Deep-links open it.
-
-          ── MOVED UP AND OPENED BY DEFAULT 2026-08-26 ────────────────────────
-          Owner named "setting up their services" as one of the jobs a shop
-          owner does, and it was a shut drawer below the verification block —
-          two taps from the rail to reach the thing this page is most for.
-          It is now the first thing under the identity tiles, already open.
-          🔑 Verification moved BELOW it deliberately: getting verified is a
-          once, with its own deep-linked hero pill to jump straight to it;
-          services is the work that never stops. It used to open only when a
-          deep-link carried ?offpeak / ?add / ?saved / ?error / ?requested;
-          `defaultOpen` is now unconditional, which is a SUPERSET of every one
-          of those — each of them opened it, and it is open regardless — so no
-          link that worked before can stop working. */}
-      <ServicesDisclosure defaultOpen>
-        <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
-      </ServicesDisclosure>
-
-      {/* ── PACKAGES — the doorway to the package authoring surface (flag-DARK:
-          renders only behind NEXT_PUBLIC_PACKAGE_AUTHORING; flag-off = today's
-          page exactly). Ships in the same PR as its route, per the
-          no-orphaned-pages rule. Sits directly under Services because a package
-          is a bundle OF services. */}
-      {packageAuthoringEnabled() ? (
-        <section id="packages" aria-labelledby="packages-heading" className="mt-4">
-          <Link
-            href="/vendor-dashboard/packages"
-            className="flex items-center gap-3 rounded-2xl border p-4 transition-colors"
-            style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}
-          >
-            <span
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-              style={{ background: 'var(--m-accent-soft)', color: 'var(--m-accent)' }}
-            >
-              <PackageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span
-                id="packages-heading"
-                className="block text-sm font-semibold"
-                style={{ color: 'var(--m-ink)' }}
-              >
-                Packages
+        {/* Your page · Your details — the two doors under the cover (v113). */}
+        <ul id="d1" className="divide-y divide-ink/10 px-4 pt-2" data-shop-doors="">
+          <li>
+            <Link href={PAGE_HREF} className="sn-press flex min-h-[60px] items-center gap-3 py-2.5" data-shop-door="page">
+              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
+                <ExternalLink className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </span>
-              <span className="block text-xs" style={{ color: 'var(--m-ink-soft)' }}>
-                Bundle your services into something a couple can make their own
-              </span>
-            </span>
-            <ChevronRight
-              aria-hidden
-              className="h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: 'var(--m-ink-soft)' }}
-            />
-          </Link>
-        </section>
-      ) : null}
-
-      {/* AUTO-REPLY moved to Your page › Auto-reply (step 5, 2026-10-14) —
-          `_components/autoreply-section.tsx`, still behind its switch, still `#auto-reply`. */}
-    </section>
-    {/* 👍 Tools in the lower third (v13 Services thumb row: "＋ Add a service") — the same one door every "Add a service"
-        link opens (`SERVICE_MAKER_HREF`, the card maker). */}
-    <SupplierThumbRow name="services" label="Service actions">
-      <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add a service" href={SERVICE_MAKER_HREF} />
-    </SupplierThumbRow>
-    </>
-  );
-}
-
-/* ─── Hero ──────────────────────────────────────────────────────────────── */
-function HeroCard({
-  data,
-  publicPath,
-}: {
-  data: ShopData;
-  publicPath: string | null;
-}) {
-  const subline = [tierLabel(data.tier), data.primaryService, data.city]
-    .filter(Boolean)
-    .join(' · ');
-
-  return (
-    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-      <VendorAvatar
-        logoUrl={data.logoUrl}
-        frame={data.logoFrame}
-        initials={data.initials}
-        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold tracking-wide"
-      />
-
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="truncate text-xl font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {data.businessName}
-          </h2>
-          {data.isVerified ? (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{
-                background: 'color-mix(in srgb, var(--m-sage-deep) 12%, transparent)',
-                color: 'var(--m-sage-deep)',
-              }}
-            >
-              <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-              Verified
-            </span>
-          ) : data.verify.status === 'pending_review' || data.verify.status === 'in_review' ? (
-            <a
-              href={DOCS_HREF}
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-              style={{ background: 'var(--m-paper)', color: 'var(--m-slate)' }}
-            >
-              Verification in review
-            </a>
-          ) : (
-            // The passive "Unverified" chip became the GOAL (owner redesign
-            // 2026-07-03): a live step count that deep-links to the
-            // Get-verified section below. Before the profile is complete the
-            // pill points at the prerequisite instead (owner flow: profile
-            // first → then the documents appear).
-            <a
-              href={DOCS_HREF}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors hover:bg-[color:var(--m-orange-3)]"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-            >
-              <ShieldCheck className="h-3 w-3" strokeWidth={2} aria-hidden />
-              Get verified ·{' '}
-              {(data.verify.requiredDocsIn ? 1 : 0) +
-                (data.verify.emailConfirmedAt && data.verify.phoneConfirmedAt ? 1 : 0)}{' '}
-              of 2
-            </a>
-          )}
-        </div>
-        {subline ? (
-          <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-            {subline}
-          </p>
-        ) : null}
-        {publicPath ? (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <p
-                className="inline-flex items-center gap-1.5 font-mono text-xs"
-                style={{ color: 'var(--m-orange-2)' }}
-              >
-                <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-                <span className="truncate">
-                  {DISPLAY_HOST}
-                  {publicPath}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium text-ink">Your page</span>
+                <span className="block truncate text-[13px] text-ink/60">
+                  {data.websiteLive ? 'What couples see, part by part' : 'What couples will see · not shown yet'}
                 </span>
-              </p>
-              <CopyButton
-                value={`${DISPLAY_HOST}${publicPath}`}
-                label="Copy link"
-                copiedLabel="Copied"
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium text-[color:var(--m-orange-2)] hover:bg-[color:var(--m-orange-3)]"
-              />
-            </div>
-            {/* HOLDING AN ADDRESS IS NOT BEING LISTED. Every shop now gets one
-                the moment it is named (migration 20271117527966), but the page
-                behind it 404s for the public until an admin approves the shop —
-                `public_visibility` is admin-only by owner ruling 2026-07-27
-                ("we only show shops that are ready"). Showing the address with
-                no status attached would read as "you are live", and the vendor
-                would hand the link out to a 404. */}
-            {!data.websiteLive ? (
-              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                This is your address for good — it goes live to couples once
-                Setnayan approves your shop.
-              </p>
-            ) : null}
-          </>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />
+            </Link>
+          </li>
+          <li>
+            <Link href={DETAILS_HREF} className="sn-press flex min-h-[60px] items-center gap-3 py-2.5" data-shop-door="details" data-tour="shop-details">
+              <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
+                <UserRound className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-medium text-ink">Your details</span>
+                <span className="block truncate text-[13px] text-ink/60">
+                  {data.fieldsLeft > 0
+                    ? `${data.fieldsLeft === 1 ? '1 field left' : `${data.fieldsLeft} fields left`} · name · documents · how clients pay you`
+                    : 'Name · documents · how clients pay you'}
+                </span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={2} />
+            </Link>
+          </li>
+          {/* 🌱🖼 The inspiration library, findable (owner 2026-10-19). */}
+          {data.libraryOpen ? (
+            <li>
+              <DatesRow data="shop-inspiration-library" title={INSPIRATION_LIBRARY_ROW.label} line={INSPIRATION_LIBRARY_ROW.line} href={INSPIRATION_LIBRARY_HREF} />
+            </li>
+          ) : null}
+          {/* Auto-reply moves to Clients ⚙ (spec §9 #6) — this row leaves only at integration, once L2's mount lands. */}
+          {vendorAutoReplyEnabled() ? (
+            <li id="auto-reply" className="scroll-mt-24">
+              <DatesRow data="shop-auto-reply" title="Auto-reply" line="Answers the first message" href="/vendor-dashboard/website#auto-reply" />
+            </li>
+          ) : null}
+        </ul>
+
+        {/* 📸 Photos couples shared for a service card, waiting for Approve — draws nothing when none. */}
+        <div className="px-4">
+          <Suspense fallback={null}>
+            <CouplePhotosToAnswer />
+          </Suspense>
+        </div>
+
+        {/* 📊 ANALYTICS — five cards (spec §4). Owners and admins only (the cards carry booking revenue). */}
+        {data.analytics === null ? (
+          <p role="status" className="px-4 pt-5 text-[13.5px] text-ink/65" data-shop-analytics-unread="">
+            Couldn&rsquo;t load your analytics just now.
+          </p>
+        ) : data.analytics.access === 'ok' ? (
+          <ShopAnalyticsCarousel cards={analyticsCards(data.analytics)} recs={data.analytics.recs} nowMs={Date.now()} />
         ) : (
-          <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Add your shop name and we&rsquo;ll give you your web address.
+          <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
+            Analytics are for the shop&rsquo;s owner and admins.
           </p>
         )}
-        {/* The logo the supplier uploaded could not be presigned. Without this
-            the hero silently falls back to initials — exactly what a shop with
-            NO logo looks like — so they are told their branding was lost when
-            it was not. */}
-        {data.logoUnavailable ? <CouldNotLoad what="your logo" /> : null}
+
+        {/* 🏅 BADGES — ONE row, the closest goal first. */}
+        <ShopBadgeRow tiles={data.badges} />
+
+        {/* 🛠 MAKERS — Scanner + the Forms door (no Tools Maker in this build). */}
+        <ShopMakers scanners={scanners} formsHref={null} />
+
+        {/* 🧰 SERVICES — one row per service, then every card with its switches (the shipped manager, whole). */}
+        {/* The shipped rows carry their own "Services ⓘ" heading. */}
+        <section className="px-4 pt-3" id="services">
+          <ShopServiceRows rows={data.serviceRows} scan={null} />
+          <p hidden className="py-3 text-[14px] text-ink/65" data-shop-cards-none="">
+            No services match that search.
+          </p>
+          <ServicesDisclosure defaultOpen>
+            <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
+          </ServicesDisclosure>
+          {/* 📦 Bundles — the shipped packages (flag-dark until NEXT_PUBLIC_PACKAGE_AUTHORING). */}
+          {packageAuthoringEnabled() ? (
+            <Link href="/vendor-dashboard/packages" id="packages" className="mt-4 flex items-center gap-3 rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--m-accent-soft)', color: 'var(--m-accent)' }}>
+                <PackageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
+                  Bundles
+                </span>
+                <span className="block text-xs" style={{ color: 'var(--m-ink-soft)' }}>
+                  Bundle your services into something a couple can make their own
+                </span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-ink-soft)' }} />
+            </Link>
+          ) : null}
+          <Link href={SERVICE_MAKER_HREF} className="mt-3 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-ink/20 text-[14px] font-medium text-ink/75" data-shop-add-service="">
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Add a service
+          </Link>
+        </section>
       </div>
-
-      <CompletenessRing pct={data.completionPct} />
-
-      {/* "View as couple" only once couples really can. Before that the page
-          opens for the shop's own team with a banner (lib/own-shop-preview.ts,
-          23 Oct) — reached from Your page's 👁 View my page and the avatar
-          sheet's View page ↗ — and this slot carries the next step instead. */}
-      {publicPath && data.websiteLive ? (
-        <a
-          href={publicPath}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-          style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-        >
-          View as couple
-          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        </a>
-      ) : (
-        (() => {
-          // The primary CTA must track the vendor's REAL next step, never
-          // contradict a 100% ring. Only an actually-unfinished profile says
-          // "Finish profile"; a complete-but-unverified shop points at the
-          // verification stage; a complete-and-verified shop points back into
-          // the manage tiles.
-          const cta =
-            data.completionPct < 100
-              ? { href: DETAILS_HREF, label: 'Finish profile' }
-              : data.isVerified
-                ? { href: DETAILS_HREF, label: 'Manage shop' }
-                : { href: DOCS_HREF, label: 'Get verified' };
-          return (
-            <a
-              href={cta.href}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors"
-              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-            >
-              {cta.label}
-              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </a>
-          );
-        })()
-      )}
-    </div>
-  );
-}
-
-function CompletenessRing({ pct }: { pct: number }) {
-  const clamped = Math.max(0, Math.min(100, pct));
-  return (
-    <div className="flex shrink-0 flex-col items-center gap-1">
-      <div
-        className="flex h-20 w-20 items-center justify-center rounded-full"
-        style={{
-          background: `conic-gradient(var(--m-orange) ${clamped * 3.6}deg, var(--m-orange-3) 0deg)`,
-        }}
-        role="img"
-        aria-label={`Profile ${clamped}% complete`}
-      >
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{ width: '3.75rem', height: '3.75rem', background: 'var(--m-orange-4)' }}
-        >
-          <span
-            className="font-mono text-base font-bold"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            {clamped}%
-          </span>
-        </div>
-      </div>
-      <span className="sn-eye">
-        {/* Scoped to "Profile" (not a bare "Complete"): the ring measures only
-            the 8 business-profile fields — NOT the public address, which is a
-            separate Pro/Website step. Keeps the ring honest against the header's
-            "no public address yet" and matches the Profile KPI tile's number. */}
-        Profile
-      </span>
-    </div>
+      {/* 👍 Tools in the lower third — Search services · Show & sort · ＋ Add a service (v95). */}
+      <ShopServicesThumb />
+    </>
   );
 }
 

@@ -333,7 +333,7 @@ Searched every non-admin source file for `location.reload()` and `router.push/re
 | `app/[slug]/actions.ts` › `setGuestFaceBlock` | `/[x]` | `/[x]` | left — bound to (event, guest, target) — needs a guest-bound door wrapper; next pass |
 | `app/[slug]/actions.ts` › `setGuestScanTracking` | `/[x]` | `/[x]` | left — bound to (event, guest, target) — needs a guest-bound door wrapper; next pass |
 | `app/[slug]/actions.ts` › `startAccountSaveAction` | `/[x]` | `(computed)` | nav — Save to my account → the Apple/Google sign-in hop (or the app's native sign-in) — a sign-in hop, never a same-screen save |
-| `app/[slug]/actions.ts` › `submitRsvp` | `/[x]` | `(computed)`, `/[x]` | nav — RSVP reply commit → the reply's thank-you (`/<slug>?rsvp=<outcome>` or the invite's door 03) — the outcome in the URL draws the celebration, so staying would lose it |
+| `app/[slug]/actions.ts` › `submitRsvp` | `/[x]` | `(computed)`, `/[x]` | nav — RSVP reply commit → the reply's thank-you (`/<slug>?rsvp=<outcome>` or the invite's door 03) — the outcome in the URL draws the thank-you, so staying would lose it |
 | `app/[slug]/actions.ts` › `withdrawFaceConsent` | `/[x]` | `(computed)` | left — bound to (event, guest, target) — needs a guest-bound door wrapper; next pass |
 | `app/[slug]/invite/actions.ts` › `submitInviteReply` | `/[x]/invite/reply` | `(computed)` | nav — invite door 02 (reply) → door 03, the thank-you (`/invite/enter?rsvp=`) — a wizard step |
 | `app/[slug]/welcome/actions.ts` › `confirmPlusOneName` | `/[x]/welcome` | `/[x]`, `/[x]/welcome` | nav — +1 welcome step → the event page (or `?pass=1`, their pass) — a wizard step that claims the seat |

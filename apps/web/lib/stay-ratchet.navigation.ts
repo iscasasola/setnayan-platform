@@ -102,7 +102,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/vendor-dashboard/services/coverage-actions.ts › addCoverageForCard": "gate bounce only (no shop → /vendor-dashboard); the add answers a result to the maker's ask in place",
   "app/vendor-dashboard/services/coverage-actions.ts › updateCoverageServesInPlace": "gate bounce only (no shop → /vendor-dashboard); answers the maker's useActionState in place",
   "app/[slug]/actions.ts › startAccountSaveAction": "Save to my account → the Apple/Google sign-in hop (or the app's native sign-in) — a sign-in hop, never a same-screen save",
-  "app/[slug]/actions.ts › submitRsvp": "RSVP reply commit → the reply's thank-you (`/<slug>?rsvp=<outcome>` or the invite's door 03) — the outcome in the URL draws the celebration, so staying would lose it",
+  "app/[slug]/actions.ts › submitRsvp": "RSVP reply commit → the reply's thank-you (`/<slug>?rsvp=<outcome>` or the invite's door 03) — the outcome in the URL draws the thank-you, so staying would lose it",
   "app/[slug]/invite/actions.ts › submitInviteReply": "invite door 02 (reply) → door 03, the thank-you (`/invite/enter?rsvp=`) — a wizard step",
   "app/[slug]/welcome/actions.ts › confirmPlusOneName": "+1 welcome step → the event page (or `?pass=1`, their pass) — a wizard step that claims the seat",
   "app/dashboard/(account)/api-keys/actions.ts › createApiKey": "create key → `?just_created=<key>` shows the new key ONCE; in place it would never be shown",

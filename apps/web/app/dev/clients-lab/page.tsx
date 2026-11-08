@@ -234,7 +234,7 @@ const LAB_PAYMENT_MONEY: PaymentMoney = {
   pending: [],
   ledgerMoney: {
     rows: [
-      { event_vendor_id: ME, event_id: 'ev-reyes', event_name: 'Reyes & Santos wedding', event_date: '2026-12-12', seq: 1, label: 'Downpayment', amount_php: 30_000, due_date: null, confirmed: true },
+      { event_vendor_id: ME, event_id: 'ev-reyes', event_name: 'Reyes & Santos wedding', event_date: '2026-12-12', seq: 1, label: 'First payment', amount_php: 30_000, due_date: null, confirmed: true },
       { event_vendor_id: ME, event_id: 'ev-reyes', event_name: 'Reyes & Santos wedding', event_date: '2026-12-12', seq: 2, label: 'Second payment', amount_php: 20_000, due_date: null, confirmed: true },
     ],
     receivedPhp: 50_000,

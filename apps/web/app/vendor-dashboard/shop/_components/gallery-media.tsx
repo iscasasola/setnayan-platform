@@ -269,7 +269,9 @@ function PortfolioForm({
           compressImage
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"
-          watermark
+          mark="supplier"
+          frame="square"
+          previews="portfolio"
           qrGuard
           stallMs={20000}
         />

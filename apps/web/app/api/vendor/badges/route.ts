@@ -19,7 +19,9 @@ export const dynamic = 'force-dynamic';
  * computer.
  *
  * `?view=facts` answers the badges' facts as JSON instead — what the Today line (`badge-earned-line.tsx`) compares
- * with the badges the supplier last dismissed, after the page has drawn (Today's own reads never grow for it).
+ * with the badges the supplier last dismissed, after the page has drawn (Today's own reads never grow for it). It is
+ * also THE door that pays newly earned badge rewards (`grantOwedBadgeRewards`) — the one place a supplier's visit
+ * writes them; no page render does.
  *
  * Own shop only: the signed-in user's shop (`fetchOwnVendorProfile`). A badge the shop does not wear today is refused
  * in words (404), never drawn.
@@ -42,11 +44,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const facts = await readShopBadgeFacts(admin, profile.vendor_profile_id);
   if (sp.get('view') === 'facts') {
     // 🎁 Today asks this after it has drawn, so it is where a newly earned badge pays its reward (owner 2026-11-05)
-    // without slowing Today. Exactly once (the database's key); a failure only means the next read pays it.
-    await readBadgeRewardFacts(admin, profile.vendor_profile_id, facts)
+    // without slowing Today — and so do the badge pages, Shop and Performance (`badge-reward-sweep.tsx`), since a
+    // page render never writes (8 Nov). Exactly once (the database's key); a failure only means the next read pays it.
+    // `granted` = how many rewards/upgrades THIS call paid, so a badge page can redraw once to show them.
+    const granted = await readBadgeRewardFacts(admin, profile.vendor_profile_id, facts)
       .then((rewardFacts) => grantOwedBadgeRewards(admin, profile.vendor_profile_id, rewardFacts))
-      .catch((err) => console.error('[badge-rewards] Today sweep failed', err));
-    return NextResponse.json({ vendorId: profile.vendor_profile_id, facts }, { headers: { 'cache-control': 'private, no-store' } });
+      .then((sweep) => sweep.granted + (sweep.upgrades?.granted ?? 0))
+      .catch((err) => {
+        console.error('[badge-rewards] sweep failed', err);
+        return 0;
+      });
+    return NextResponse.json({ vendorId: profile.vendor_profile_id, facts, granted }, { headers: { 'cache-control': 'private, no-store' } });
   }
   const all = badgesForPrint(facts);
   const picked = want === 'all' ? all : all.filter((b) => b.key === want);

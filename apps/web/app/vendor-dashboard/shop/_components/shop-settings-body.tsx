@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { fetchAdminVendorContext } from '@/lib/vendor-team';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchShopWallet } from '@/lib/shop-wallet.server';
 import { walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
@@ -35,10 +36,14 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const [profile, role, storeShell] = await Promise.all([
+  const [profile, role, storeShell, adminCtx] = await Promise.all([
     fetchOwnVendorProfile(supabase, user.id),
     resolveVendorRole(supabase, user.id),
     isStoreShellRequest(),
+    // 🛡 `TeamScreen` BOUNCES (redirect) anyone this does not find — a founding owner with no team row reads as a
+    // manager above but not here. Asked first, so the rows never hand the screen a user it would bounce: the Shop tab
+    // draws these rows on every visit (`shopGearBodyAlways`), where a bounce would throw the whole Shop page to Today.
+    fetchAdminVendorContext(supabase, user.id).catch(() => null),
   ]);
   if (!profile) return null;
   const manager = !role || canManageVendor(role);
@@ -85,7 +90,7 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
           <PlanScreen search={planSearch} embedded />
         )
       }
-      team={manager ? <TeamScreen search={teamSearch} embedded /> : <p className="text-[13.5px] text-ink/60">A shop admin manages the team.</p>}
+      team={manager && adminCtx ? <TeamScreen search={teamSearch} embedded /> : <p className="text-[13.5px] text-ink/60">A shop admin manages the team.</p>}
       docs={{
         isVerified: d.isVerified,
         docsIn: d.docsIn,
@@ -112,4 +117,13 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
 export function shopGearBody(search: object) {
   const sp = search as Record<string, string | string[] | undefined>;
   return sp.gear === '1' ? <ShopSettingsBody search={sp} /> : null;
+}
+
+/**
+ * The Shop TAB's ⚙ rows, drawn WITH the page whether or not the sheet is open (8 Nov release gate): the Shop tab opens
+ * and closes its ⚙ with client state + `history.replaceState` (`ShopSettings local`), so a tap never re-runs the page.
+ * The page streams it in its own <Suspense>. Other Shop section pages keep `shopGearBody` (drawn while `?gear=1`).
+ */
+export function shopGearBodyAlways(search: object) {
+  return <ShopSettingsBody search={search as Record<string, string | string[] | undefined>} />;
 }

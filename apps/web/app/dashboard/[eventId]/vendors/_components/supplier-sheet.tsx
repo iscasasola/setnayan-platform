@@ -31,6 +31,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ActionButton } from '@/components/action-button';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
+import { FramedImg } from '@/app/_components/framed-img';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { followVendor, unfollowVendor } from '@/lib/follow-actions';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
@@ -390,8 +391,7 @@ export default function SupplierSheet({
             <div className="grid grid-cols-3 gap-1">
               {photos.shown.map((src, i) => (
                 <div key={src} className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <FramedImg src={src} aspect={1} loading="lazy" />
                   {photos.more > 0 && i === photos.shown.length - 1 ? (
                     <span className="absolute inset-0 grid place-items-center bg-black/35 text-[15px] font-semibold text-white">
                       +{formatCount(photos.more)}

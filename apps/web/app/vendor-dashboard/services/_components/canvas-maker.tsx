@@ -1192,7 +1192,9 @@ export function CanvasMaker({
                     unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
                     maxSizeMB={5}
                     acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                    watermark
+                    mark="supplier"
+                    frame="square"
+                    previews="service-card"
                     compressImage
                     variant="square"
                     thumb={{ add: 'Add a cover', replace: 'Replace' }}

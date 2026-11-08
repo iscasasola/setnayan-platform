@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7436
+# facts: 7446
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     612
-#   col       5397
-#   policy    1083
+#   tpriv     613
+#   col       5405
+#   policy    1084
 #   view      9
 #   func      331
 #
@@ -444,6 +444,7 @@ tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
 tpriv	public.supplier_page_photo_notices|authenticated	S
+tpriv	public.supplier_photo_originals|authenticated	SIUD
 tpriv	public.supplier_scan_claims|authenticated	SD
 tpriv	public.supplier_scan_counters|authenticated	S
 tpriv	public.supplier_scan_review_skips|authenticated	S
@@ -4423,6 +4424,14 @@ col	public.supplier_page_photo_notices.published_at	anon=- authenticated=S
 col	public.supplier_page_photo_notices.removed_at	anon=- authenticated=S
 col	public.supplier_page_photo_notices.removed_by	anon=- authenticated=S
 col	public.supplier_page_photo_notices.vendor_profile_id	anon=- authenticated=S
+col	public.supplier_photo_originals.created_at	anon=- authenticated=SIU
+col	public.supplier_photo_originals.frame	anon=- authenticated=SIU
+col	public.supplier_photo_originals.id	anon=- authenticated=SIU
+col	public.supplier_photo_originals.mark_kind	anon=- authenticated=SIU
+col	public.supplier_photo_originals.marked_at	anon=- authenticated=SIU
+col	public.supplier_photo_originals.original_ref	anon=- authenticated=SIU
+col	public.supplier_photo_originals.public_ref	anon=- authenticated=SIU
+col	public.supplier_photo_originals.vendor_profile_id	anon=- authenticated=SIU
 col	public.supplier_scan_claims.claim_id	anon=- authenticated=S
 col	public.supplier_scan_claims.claimed_at	anon=- authenticated=S
 col	public.supplier_scan_claims.coverage_id	anon=- authenticated=S
@@ -6801,6 +6810,7 @@ policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,au
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid))) check=NULL
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.supplier_photo_originals|supplier_photo_originals_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.supplier_scan_claims|supplier_scan_claims_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_claims|supplier_scan_claims_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_claims.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_counters|supplier_scan_counters_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL

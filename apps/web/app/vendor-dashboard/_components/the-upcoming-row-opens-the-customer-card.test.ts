@@ -206,10 +206,8 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
     0,
     'the Customers roster points every row at the chat again',
   );
-  assert.equal(
-    count(customersRoster, /const href = `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=details`/g),
-    1,
-  );
+  // Build 2 row #38: the roster's one door is the one open path — never a bare client link, never a hand-built one.
+  assert.equal(count(customersRoster, /const href = openClientHref\(r\.eventId, rosterLandingFacts\(r, today\)\);/g), 1);
   // Each fixed door names the section its own words promise.
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');

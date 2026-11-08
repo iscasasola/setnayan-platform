@@ -65,8 +65,9 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   guests: { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', mounts: /<ThumbRow\b/g, count: 2 },
   events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<EventsThumbRow\b/g, count: 1 },
   discover: { file: 'app/_components/frontdoor/front-door.tsx', mounts: /<DiscoverThumbRow\b/g, count: 1 },
-  // The supplier (PR2): People · Dates (with a schedule) · a day — one per screen, three screens in one file.
-  customers: { file: 'app/vendor-dashboard/customers/page.tsx', mounts: /<ThumbRow\b/g, count: 3 },
+  // The supplier: the ONE Clients screen (Build 2 #43: Events + Dates are one screen, "Check a date" folded into the day
+  // bar) · a day — one per screen, two screens in one file.
+  customers: { file: 'app/vendor-dashboard/customers/page.tsx', mounts: /<ThumbRow\b/g, count: 2 },
   money: { file: 'app/vendor-dashboard/customers/_components/money-segment.tsx', mounts: /<ThumbRow\b/g, count: 1 },
   page: { file: 'app/vendor-dashboard/website/_components/page-parts.tsx', mounts: /<ThumbRow\b/g, count: 1 },
   // People (and Memories, once it lands on the same component): the account row draws through the shared one.
@@ -161,8 +162,8 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
-      // 2026-10-30: Customers' search says "Search events" (owner 2026-10-29, "Customers are events, not people").
-      ['Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // Build 2 #43d (v113 `thumb()`): the one Clients screen says "Search clients"; the shell's Events search is untouched.
+      ['Search clients', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {

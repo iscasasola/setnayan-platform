@@ -37,7 +37,9 @@ const WEB = join(HERE, '..', '..', '..');
 const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   // THE ONE BUILD (8 Nov, C4): the v113 Shop tab — the ▾ and Page's list left it; Your details is the journey's stop.
   vendor_shop_v1: ['shop-analytics', 'shop-badges'],
-  vendor_dates_v1: ['dates-calendar', 'dates-check', 'dates-add'],
+  // Build 2 #43: Clients is one screen — Check a date folded into the day bar (its stop into the month's), and the
+  // screen's one ＋ is `customers-add`.
+  vendor_dates_v1: ['dates-calendar', 'customers-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
   // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
   vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],

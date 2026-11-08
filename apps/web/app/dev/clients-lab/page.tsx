@@ -14,8 +14,9 @@
  *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
  *     &cal=fail                 the month's one read refused — said, never an empty month.
  *
- * Clients › Dates (the month · the week strip · a picked day · the day bar · every day under pinned headings) is drawn
- * by `/dev/supplier-lab?s=dates`, which mounts the same `CustomersCalendar`.
+ * 📅 Build 2 #43 (B2-A): `?v=events` is the ONE Clients screen — "Clients · 4 booked · ₱18,000 to collect · ⚙", the
+ * month (the shipped `CustomersCalendar`, lab inputs, no request), the tiles as their own row, Overdue / Unread, then
+ * the day-headed list ("SUN 8 NOV"). Tap a day for its head, the day bar and its rows; × lets it go.
  *
  * Every action here is a stand-in that writes nothing.
  */
@@ -28,9 +29,13 @@ import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row
 import { clientsChoiceOf } from '@/app/vendor-dashboard/customers/clients-show-sort';
 import type { ClientMeeting } from '@/app/vendor-dashboard/customers/clients-tiles';
 import { ThumbRow } from '@/components/thumb-row';
-import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { ActionButton } from '@/components/action-button';
+import { Plus, Settings } from 'lucide-react';
+import { SearchBox } from '@/app/_components/search-box';
+import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { clientLandingPage } from '@/lib/upcoming-schedule-door';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
 import { detailsNumbers } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers';
 import { HostsList } from '@/app/vendor-dashboard/clients/[eventId]/_components/hosts-list';
@@ -47,6 +52,8 @@ import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
 import type { ScheduleAsk } from '@/lib/schedule-ask';
 import type { MoneyRow } from '@/lib/vendor-money';
 import { LAB_CALENDAR, LAB_TODAY } from './lab-calendar';
+import { BookedQrsList, type BookedQrRow } from '@/app/vendor-dashboard/invite/_components/booked-qrs-list';
+import { LockedQrGenerator, type LockedQrInitial } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -73,9 +80,28 @@ const UNREAD = [
   { eventId: 'ev-reyes', title: 'Reyes & Santos wedding', threadId: 't-reyes' },
   { eventId: 'ev-garcia', title: 'Garcia corporate party', threadId: 't-garcia' },
 ];
+const DAYS = ['2026-11-08', '2026-11-08', '2026-11-10', '2026-11-12'];
+/** The list stand-in, day-headed the way `CustomersRoster` heads a Day group (same classes, same `dayHeadWords`). */
 const ROSTER = (lane: string) =>
   CLIENTS.map((c, i) => (
-    <DatesRow key={`${lane}-${c.key}`} data="booking" title={c.label} line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]} href="/dev/clients-lab?v=pick&page=details" />
+    <div key={`${lane}-${c.key}`}>
+      {i === 0 || DAYS[i - 1] !== DAYS[i] ? (
+        <p
+          className="sticky z-[3] -mx-4 my-0 flex min-h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/60 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+          style={{ top: 'var(--sn-pin-h)', background: 'var(--sn-canvas)' }}
+          data-customers-group-heading={DAYS[i]}
+        >
+          {dayHeadWords(DAYS[i]!, LAB_TODAY)}
+        </p>
+      ) : null}
+      {/* #38: each row lands where the one open path sends that kind — Booked → Details, Asking → Chat. */}
+      <DatesRow
+        data="booking"
+        title={c.label}
+        line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]}
+        href={`/dev/clients-lab?v=pick&page=${clientLandingPage(i === 3 ? { asking: true, hasChat: true } : { booked: true, hasChat: true })}`}
+      />
+    </div>
   ));
 
 // ── The picked client: Reyes & Santos, booked, 8 Nov ────────────────────────────────────────────────────────────────
@@ -173,10 +199,75 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
   };
 }
 
+/** #34 lab rows — one per group. */
+const LAB_BOOKED_QRS: BookedQrRow[] = [
+  { token: 'a1b2c3d4e5f60718', title: 'Full-day coverage', line: 'Sat 19 Dec · ₱80,000 · ₱20,000 paid · made today', status: 'pending', openHref: '/dev/clients-lab?v=booked' },
+  { token: 'b1b2c3d4e5f60718', title: 'Same-day edit', line: 'Sun 10 Jan · ₱15,000 · ₱5,000 paid · used 2 Nov', status: 'claimed', openHref: '/dev/clients-lab?v=pick&page=details' },
+  { token: 'c1b2c3d4e5f60718', title: 'Prenup shoot', line: 'Sat 6 Feb · ₱30,000 · ₱10,000 paid · deleted 1 Nov', status: 'void', openHref: null },
+];
+const LAB_BOOKED_CHANGE: LockedQrInitial = {
+  replaces: 'a1b2c3d4e5f60718',
+  eventType: 'wedding',
+  eventDate: '2026-12-19',
+  description: 'Full-day coverage, two shooters',
+  serviceRefs: ['svc-full', 'svc-sde'],
+  contractId: '',
+  total: '80000',
+  initialPaid: '20000',
+  schedule: [
+    { label: 'First payment', amount: '20000', date: '2026-11-08' },
+    { label: 'Balance', amount: '60000', date: '2026-12-12' },
+  ],
+  lines: [
+    { label: 'Full-day coverage', detail: null, amount_centavos: 6_500_000 },
+    { label: 'Same-day edit', detail: null, amount_centavos: 1_500_000 },
+  ],
+  proofRef: '',
+  remembranceRef: '',
+};
+
+/**
+ * #29 The lab's stand-ins for the day bar's two writes: they write NOTHING (no database) and answer, so "Accept
+ * bookings" can be flipped and felt on a dummy env. `?refuse=1` hands the refusing one instead — the switch puts itself
+ * back and the calendar drops its overlay. Not exported, so no route and no server-action budget.
+ */
+async function labDayWrite(): Promise<void> {
+  'use server';
+  if (process.env.NODE_ENV === 'production') throw new Error('clients-lab: not in production');
+}
+async function labDayRefused(): Promise<void> {
+  'use server';
+  throw new Error('clients-lab: refused on purpose');
+}
+
 export default async function ClientsLabPage({ searchParams }: Props) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const v = one(sp.v) ?? 'events';
+
+  // 🎟 #34 THE BOOKED QR, COMPLETED: the Booked QRs list (Waiting · Used · Deleted) and the shipped generator opened to
+  // CHANGE a waiting code — its quotation built in place, the Total following the lines. Lab rows; nothing is read.
+  if (v === 'booked') {
+    return (
+      <div className="min-h-screen bg-cream" data-clients-lab="booked">
+        <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-24 pt-4">
+          <h1 className="text-lg font-semibold text-ink">Booked QRs</h1>
+          <BookedQrsList rows={LAB_BOOKED_QRS} />
+          <LockedQrGenerator
+            eventTypes={[{ value: 'wedding', label: 'Wedding' }]}
+            services={[
+              { value: 'svc-full', label: 'Full-day coverage' },
+              { value: 'svc-sde', label: 'Same-day edit' },
+            ]}
+            servicePrices={{ 'svc-full': 65000, 'svc-sde': 15000 }}
+            contracts={[]}
+            dateExempt
+            initial={LAB_BOOKED_CHANGE}
+          />
+        </main>
+      </div>
+    );
+  }
 
   if (v === 'pick') {
     const page = (one(sp.page) ?? 'details') as PickedClientPage;
@@ -198,10 +289,10 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   const show = one(sp.show) ?? null;
   const agent = one(sp.agent) === '1';
   const doors: CustomersDoor[] = [
-    { key: 'booked', value: '4', word: 'booked' },
+    { key: 'booked', value: '4', word: 'booked', dot: 'booked' },
     { key: 'schedules', value: String(MEETINGS.length), word: 'schedules' },
-    { key: 'asking', value: '3', word: 'asked', hot: true },
-    { key: 'collect', value: formatPesoCompact(18000 * 100), word: 'to collect' },
+    { key: 'asking', value: '3', word: 'asked', hot: true, dot: 'asking' },
+    { key: 'collect', value: peso(18000), word: 'to collect' },
   ];
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: '2', zero: false },
@@ -226,11 +317,30 @@ export default async function ClientsLabPage({ searchParams }: Props) {
             <CustomersPin
               seg="events"
               hrefs={{ events: '/dev/clients-lab', dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
+              title={{ counts: `4 booked · ${peso(18000)} to collect` }}
+              month={{
+                initialDayStates: LAB_CALENDAR.dayStates,
+                initialWaitlist: LAB_CALENDAR.waitlist,
+                inquiries: LAB_CALENDAR.inquiries,
+                initialMonth: LAB_TODAY.slice(0, 7),
+                initialDay: one(sp.day) ?? null,
+                todayIso: LAB_TODAY,
+                pools: LAB_CALENDAR.pools,
+                bookings: LAB_CALENDAR.bookings,
+                blocks: LAB_CALENDAR.blocks,
+                dayActions: one(sp.refuse) === '1' ? { addManualBlock: labDayRefused, removeBlock: labDayRefused } : { addManualBlock: labDayWrite, removeBlock: labDayWrite },
+                fetchMonth: null,
+                closuresComplete: true,
+              }}
               doors={doors}
               panels={panels}
               quick={quick}
               initial={show}
-              gear={null}
+              gear={
+                <button type="button" aria-label="Clients settings" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full border border-ink/15 text-ink">
+                  <Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                </button>
+              }
               columns={{ rest: 'No events here yet.' }}
             />
           </div>
@@ -241,7 +351,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
       <div role="toolbar" aria-label="Customer tools" className="fixed inset-x-0 bottom-0 px-3 pb-4" style={{ zIndex: 'var(--sn-z-nav, 30)' }}>
           <ThumbRow
             name="customers"
-            field={null}
+            field={{ node: <SearchBox placeholder="Search clients" defaultValue="" keep="v=events" hash="#customers" data="customers" /> }}
             right={[
               {
                 node: (
@@ -261,7 +371,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
                 ),
               },
             ]}
-            action={null}
+            action={{ node: <ActionButton tone="brand" main icon={<Plus aria-hidden strokeWidth={2} />} label="Add" href="/dev/clients-lab?v=events" /> }}
           />
       </div>
     </div>

@@ -26,9 +26,16 @@ export function DayOpenSwitch({
   blocks,
   actions,
   onOpen,
+  onFlip,
 }: {
   /** Told whenever the switch's shown state changes (the day bar greys "Book a client" on a closed day). */
   onOpen?: (open: boolean) => void;
+  /**
+   * #29 FELT: told the moment the PERSON flips it (`'flip'` — the calendar strikes / un-strikes the day at once and
+   * moves it) and when a refused write puts it back (`'refused'` — the calendar drops its overlay, no motion). Never
+   * told for a re-read or a change of day: only a flip is felt.
+   */
+  onFlip?: (day: string, open: boolean, how: 'flip' | 'refused') => void;
   day: string;
   today: string;
   /** The shop's blocks as the month reads them — a closure carries its `blockId`. */
@@ -66,6 +73,7 @@ export function DayOpenSwitch({
         onChange={(next) => {
           setOn(next);
           setProblem(null);
+          onFlip?.(day, next, 'flip');
           const fd = new FormData();
           fd.set('return_to', 'inplace');
           if (!next) {
@@ -84,6 +92,7 @@ export function DayOpenSwitch({
               await (next ? actions.removeBlock(fd) : actions.addManualBlock(fd));
             } catch {
               setOn(!next);
+              onFlip?.(day, !next, 'refused');
               setProblem('That didn’t save — nothing changed. Try again.');
             }
           });

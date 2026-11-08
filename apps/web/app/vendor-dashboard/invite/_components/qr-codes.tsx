@@ -9,6 +9,7 @@ import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { QrCodeList, type QrRow } from './qr-code-list';
+import { BookedQrsList } from './booked-qrs-list';
 
 /**
  * QR CODES — ONE LIST, a row per code (owner 2026-11-06, QR codes Option B: *"The qr codes are unorganized"* ·
@@ -61,13 +62,10 @@ export type IssuedRow = {
   line: string;
   status: 'pending' | 'claimed' | 'void';
   showHref: string | null;
+  /** #34: waiting → change it · used → that client's Details · deleted → null. */
+  openHref: string | null;
 };
 
-const STATUS_BADGE = {
-  pending: { tone: 'wait', word: 'Pending' },
-  claimed: { tone: 'ok', word: 'Claimed' },
-  void: { tone: 'quiet', word: 'Void' },
-} as const;
 
 /**
  * Each code's words (the prototype's "what it does" list): the row line is the shipped caption cut at the dash; the
@@ -277,13 +275,13 @@ function BookedBody({ booked }: { booked: Booked }) {
       )}
       <div className="mt-2 border-t border-ink/10" id="issued">
         <Fold
-          title="Issued"
+          title="Booked QRs"
           line={
             ledger === null
               ? 'Couldn’t load — any code you issued still works'
               : ledger.length === 0
                 ? 'None yet'
-                : `${formatCount(ledger.length)} · ${formatCount(claimed)} claimed · ${formatCount(voided)} void`
+                : `${formatCount(ledger.length - claimed - voided)} waiting · ${formatCount(claimed)} used · ${formatCount(voided)} deleted`
           }
           defaultOpen={booked.ledgerOpen}
           data="qr-issued"
@@ -297,7 +295,8 @@ function BookedBody({ booked }: { booked: Booked }) {
             ) : ledger.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60">The one-use codes you issue to lock in a customer show here.</p>
             ) : (
-              ledger.map((r) => <DatesRow key={r.token} data="issued" title={r.title} line={r.line} badge={STATUS_BADGE[r.status]} href={r.showHref} />)
+              // #34 Waiting · Used · Deleted — tap to change / open the client, swipe a waiting one to delete (Undo).
+              <BookedQrsList rows={ledger} />
             )}
           </div>
         </Fold>

@@ -109,15 +109,19 @@ test('the page ASKS the handshake flag rather than assuming an answer', () => {
 
 // ── 2 · IT OPENS ON WHO IS WAITING ────────────────────────────────────────
 
-test('the roster is rendered BEFORE the month calendar', () => {
-  const roster = pageSrc.indexOf('<CustomersRoster');
-  const calendar = pageSrc.indexOf('<CustomersCalendar');
-  assert.ok(roster > 0, 'the roster is not rendered at all');
-  assert.ok(calendar > 0, 'the calendar stopped rendering — nothing was meant to be removed');
-  assert.ok(
-    roster < calendar,
-    'the calendar is back above the roster; "Customers opens on who is waiting" is the whole brief',
-  );
+test('the one Clients screen: the month, then the tiles and quick buttons, then the list (Build 2 #43a, v113)', () => {
+  /*
+    🔁 REVERSED BY THE CONTROLLER'S #43 (8 Nov, measured against v113): this test held "the roster ABOVE the month"
+    ("Customers opens on who is waiting"). v113 — the contract — draws ONE screen: calendar → tiles → Overdue/Unread → the
+    day-headed list. Who is waiting is still the first thing the LIST says (the lanes, waiting first, inside each day).
+  */
+  const PIN = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '_components', 'customers-pin.tsx'), 'utf8');
+  assert.ok(pageSrc.indexOf('<CustomersRoster') > 0, 'the roster is not rendered at all');
+  assert.match(pageSrc, /month=\{monthPart\.month\}/, 'the calendar stopped rendering — nothing was meant to be removed');
+  assert.match(PIN, /<CustomersCalendar \{\.\.\.month\} oneScreen between=\{body\} onPicked=\{onPicked\} after=\{rest\} \/>/, 'the month is not on top of the screen');
+  const body = PIN.slice(PIN.indexOf('const body = ('), PIN.indexOf('const rest = ('));
+  assert.ok(body.indexOf('{tilesRow}') > -1 && body.indexOf('{tilesRow}') < body.indexOf('quickRow'), 'the tiles are not right under the month, over Overdue/Unread');
+  assert.match(PIN.slice(PIN.indexOf('const rest = ('), PIN.indexOf('const content =')), /\{lists\}/, 'the list is not under the month');
 });
 
 test("'waiting' is the first lane in the shared order", async () => {
@@ -292,5 +296,7 @@ test('every fold door lands somewhere on this page', () => {
   // The folds carry `#customer-tools`; the month carries `#calendar`. Both ids
   // must exist, or the tap opens a section the reader is never scrolled to.
   assert.ok(/id="customer-tools"/.test(pageSrc), 'the #customer-tools anchor is gone from the page');
-  assert.ok(/id="calendar"/.test(pageSrc), 'the #calendar anchor is gone from the page');
+  // Build 2 #43a: the month — and its anchor — is mounted by the one screen's CustomersPin.
+  const pin = readFileSync(join(HERE, '_components', 'customers-pin.tsx'), 'utf8');
+  assert.ok(/id="calendar"/.test(pin) && /month=\{monthPart\.month\}/.test(pageSrc), 'the #calendar anchor is gone from the page');
 });

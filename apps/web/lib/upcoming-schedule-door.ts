@@ -77,6 +77,56 @@ export function customerCardHref(eventId: string, page: PickedClientPage): strin
   return `/vendor-dashboard/clients/${eventId}?tab=${page}`;
 }
 
+/**
+ * 🚪 THE ONE OPEN PATH — which page a client opens on (Build 2 row #38, prototype v116 `startPage`). Every row that
+ * stands for a client (the Clients list and its views, Today's Needs-you rows) asks THIS, then builds its link with
+ * `customerCardHref`. A door passes what it knows; the first true fact wins, in the prototype's order:
+ *
+ *   an explicit page (a tile's row, a Payment line) → that page
+ *   money due / overdue                             → Payment (Quotation before booking — there is no Payment yet)
+ *   unread messages                                 → Chat
+ *   asking (an open ask, a booking ask, a hold)     → Chat
+ *   quoted / talking                                → Quotation
+ *   booked and the event is today                   → Hub
+ *   anything else (booked, done, an access request) → Details
+ *
+ * 🔑 Chat is chosen only when a thread exists (`hasChat`): a manual client has no chat, and Chat without one lands on
+ * the inbox — a door may only name a page that has something on it. Pure; held by `customers/one-open-path.test.ts`.
+ */
+export type ClientDoorFacts = {
+  page?: PickedClientPage | null;
+  booked?: boolean;
+  hasChat?: boolean;
+  payDue?: boolean;
+  unread?: boolean;
+  asking?: boolean;
+  quoted?: boolean;
+  eventToday?: boolean;
+};
+
+export function clientLandingPage(f: ClientDoorFacts): PickedClientPage {
+  const booked = f.booked === true;
+  const chat = f.hasChat === true;
+  if (f.page) {
+    // Payment and Hub show only once booked: an unbooked Payment door lands on the Quotation (#38), a Hub door on Details.
+    if (f.page === 'payments' && !booked) return 'quote';
+    if (f.page === 'hub' && !booked) return 'details';
+    if (f.page === 'chat' && !chat) return 'details';
+    return f.page;
+  }
+  if (f.payDue) return booked ? 'payments' : 'quote';
+  if (f.unread && chat) return 'chat';
+  if (f.asking && chat) return 'chat';
+  if (f.quoted) return 'quote';
+  if (f.eventToday && booked) return 'hub';
+  return 'details';
+}
+
+/** A client's link through the one open path: the landing page, then the one door function. */
+export function openClientHref(eventId: string, f: ClientDoorFacts): string {
+  return customerCardHref(eventId, clientLandingPage(f));
+}
+
 export function vendorThreadHref(threadId: string): string {
   return `/vendor-dashboard/messages/${threadId}`;
 }

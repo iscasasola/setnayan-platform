@@ -91,9 +91,10 @@ test('3 · a figure is the shared pinned-row tile; an unread one says so', async
 
 test('4 · the page wires the figures to the pinned row', () => {
   const PAGE = code('page.tsx');
-  assert.match(PAGE, /<CustomersPin\s+seg="dates"[\s\S]{0,200}figures=\{<CustomersFigures live figures=\{firstFigures\}/);
-  assert.match(PAGE, /datesFiguresOf\(\s*buildCustomerCalendarMonth\(/, 'the first paint counts with a second rule');
-  assert.match(PAGE, /closuresComplete=\{!blocksIncomplete\}/, 'the month is not told its closures fell short');
+  // Build 2 #43b: Dates is no view of its own — the one Clients screen's row reads "Clients · N booked · ₱X to collect"
+  // (people-is-rows 3c), so no month figures ride a row any more. The month is still told its closures fell short.
+  assert.doesNotMatch(PAGE, /<CustomersPin\s+seg="dates"/, 'a second (Dates) pinned row is back');
+  assert.match(PAGE, /closuresComplete: !blocksIncomplete/, 'the month is not told its closures fell short');
   const MONEY = code('_components/money-segment.tsx');
   assert.match(MONEY, /figures=\{<CustomersFigures figures=\{moneyFiguresOf\(picture\.totals\)\}/);
   const VIEW = code('_components/money-view.tsx');

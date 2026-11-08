@@ -1535,15 +1535,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'dates-calendar',
           title: 'Your month at a glance',
-          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Striped days are off.',
+          // #43: "Check a date" folded into the month's day bar — its stop folds into this one (it pointed at nothing).
+          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Struck-through days are off. Tap a day to see what is on it — or block it off.',
         },
         {
-          anchor: 'dates-check',
-          title: 'Check a date',
-          body: 'Tap a day to see what is on it — or block it off so nobody asks for it.',
-        },
-        {
-          anchor: 'dates-add',
+          // #43: Clients is one screen — its ＋ is the one add (`customers-add`); the Dates view's own ＋ is gone.
+          anchor: 'customers-add',
           title: 'Add what you already have',
           body: 'Bookings from outside Setnayan go here too, so a couple never asks for a day you have given away.',
         },

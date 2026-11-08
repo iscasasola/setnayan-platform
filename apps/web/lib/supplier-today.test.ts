@@ -85,9 +85,13 @@ test('on an event day the card is "Run the day" even with an answer waiting', ()
 });
 
 test('a new inquiry opens its thread with one Reply button', () => {
+  // A card that cannot name its event keeps the bare thread…
   const n = pickSupplierNext({ ...base, answer: inquiry });
   assert.equal(n.action, 'Reply');
   assert.deepEqual(n.target, { to: 'thread', threadId: 't1' });
+  // …and one that can opens the client on its Chat page — the one open path (Build 2 row #38).
+  const e = pickSupplierNext({ ...base, answer: { ...inquiry, eventId: 'e1' } as unknown as WhatsNewCard });
+  assert.deepEqual(e.target, { to: 'card', eventId: 'e1', tab: 'chat' });
 });
 
 test('an unread desk never says "all caught up"', () => {

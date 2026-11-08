@@ -11,6 +11,7 @@ import {
   CLIENTS_SHOW,
   CLIENTS_SORT,
   CLIENTS_STATUS,
+  DEFAULT_CLIENTS_GROUP,
   CLIENTS_SHOWING_EVENT,
   CLIENTS_SHOW_EVENT,
   NO_SEAT,
@@ -105,7 +106,7 @@ export function ClientsShowSort({
           panelData={{ 'data-filter-sheet': 'clients' }}
           onClearAll={() => {
             pickShow('all');
-            go({ svc: null, st: null, client: null, who: null, group: 'status', sort: 'waiting' });
+            go({ svc: null, st: null, client: null, who: null, group: DEFAULT_CLIENTS_GROUP, sort: 'waiting' });
           }}
           showLabel={`Show ${formatCount(shown)} ${shown === 1 ? 'client' : 'clients'}`}
         >

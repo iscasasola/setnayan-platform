@@ -1,3 +1,4 @@
+import { openClientHref, type ClientDoorFacts } from '@/lib/upcoming-schedule-door';
 /**
  * 🧮 THE CLIENTS LIST'S TILES — Booked · Schedules · Asked · To collect, then Overdue (n) › and Unread (n) › (v113
  * `listAll()` `.tot.t4` + `.qrow`; spec §9 #7, owner 2026-11-08). PURE: the page reads, this words.
@@ -16,6 +17,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { formatPhp } from '@/lib/php';
 import type { MoneyTotals } from '@/lib/vendor-money';
 
 export type ClientMeeting = {
@@ -42,6 +44,15 @@ export function toCollectWords(totals: MoneyTotals | null): string | null {
   return totals ? formatPesoCompact(Math.round(totals.toComePhp * 100)) : null;
 }
 
+/**
+ * To collect on the one screen's tile (Build 2 #43c, v113 "₱18,000"): the exact peso under a million — the tile has the
+ * room now it is off the pinned row — and compact above it, so a big shop's figure never runs into its neighbour.
+ */
+export function toCollectTileWords(totals: MoneyTotals | null): string | null {
+  if (!totals) return null;
+  return totals.toComePhp < 1_000_000 ? formatPhp(totals.toComePhp) : formatPesoCompact(Math.round(totals.toComePhp * 100));
+}
+
 /** Overdue — Money's own count; null when the payday read fell short. */
 export function overdueRead(totals: MoneyTotals | null): CountRead | null {
   return totals ? { n: totals.overdue, complete: true, failed: false } : null;
@@ -65,7 +76,14 @@ export function meetingWhen(at: string | null): string {
   return `${day} · ${time}`;
 }
 
-/** Where a tile's row opens: the picked client, on the page that holds the fact. */
-export function clientPageHref(eventId: string, page: 'schedule' | 'payments' | 'chat'): string {
-  return `/vendor-dashboard/clients/${eventId}?tab=${page}`;
+/**
+ * Where a tile's row opens: the picked client, on the page that holds the fact — through THE ONE OPEN PATH (#38), so an
+ * unbooked client's money row lands on the Quotation (no Payment page before booking) and never builds its own link.
+ */
+export function clientPageHref(
+  eventId: string,
+  page: 'schedule' | 'payments' | 'chat',
+  facts: Omit<ClientDoorFacts, 'page'> = { booked: true, hasChat: true },
+): string {
+  return openClientHref(eventId, { ...facts, page });
 }

@@ -71,8 +71,8 @@ export const SUPPLIER_NEXT_ORDER: readonly SupplierNextKind[] = [
 /** Where the one button goes — resolved to an `href` literal by the component. */
 export type SupplierNextTarget =
   | { to: 'thread'; threadId: string }
-  /** A picked client's page (B1 §6 page ids: `?tab=details|quote|payments|schedule|hub`). */
-  | { to: 'card'; eventId: string; tab: 'details' | 'quote' | 'payments' | 'schedule' | 'hub' }
+  /** A picked client's page (B1 §6 page ids: `?tab=details|chat|quote|payments|schedule|hub`). */
+  | { to: 'card'; eventId: string; tab: 'details' | 'chat' | 'quote' | 'payments' | 'schedule' | 'hub' }
   | { to: 'review'; reviewId: string }
   | { to: 'proposals' }
   | { to: 'contracts' }
@@ -177,7 +177,9 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
           ? `“${card.messageExcerpt}”` + (waited ? ` ${waited}` : '')
           : join([inquiryName(card) ? null : card.descriptor, card.eventDate ? formatLongDate(card.eventDate) : null, card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null]) + (waited ? `. ${waited}` : '.'),
         action: 'Reply',
-        target: { to: 'thread', threadId: card.threadId },
+        // 🚪 THE ONE OPEN PATH (#38): an ask opens the client on its Chat page; only a card that cannot name its event
+        // keeps the bare thread.
+        target: card.eventId ? { to: 'card', eventId: card.eventId, tab: 'chat' } : { to: 'thread', threadId: card.threadId },
       };
     case 'message':
       return {
@@ -185,7 +187,8 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
         title: `Reply to ${card.coupleName}`,
         body: card.excerpt ? `“${card.excerpt}”${waited ? ` ${waited}` : ''}` : waited ?? 'They are waiting on your reply.',
         action: 'Reply',
-        target: { to: 'thread', threadId: card.threadId },
+        // Unread → the client's Chat page (#38).
+        target: { to: 'card', eventId: card.eventId, tab: 'chat' },
       };
     case 'lock_request':
       return {

@@ -45,6 +45,11 @@ export const CLIENTS_GROUP = [
   { key: 'seat', label: 'Handled by' },
 ] as const;
 export type ClientsGroup = (typeof CLIENTS_GROUP)[number]['key'];
+/**
+ * 🗓 THE PLAIN LIST IS DAY-HEADED (Build 2 row #43a/e, v113 `GR.ev='Day'`): one Clients screen — the month, the tiles, then
+ * every client under its day ("SUN 8 NOV"), the coming days first. Status (the lanes, no headings) is a Group by choice.
+ */
+export const DEFAULT_CLIENTS_GROUP: ClientsGroup = 'day';
 
 export const CLIENTS_SORT = [
   { key: 'waiting', label: 'Waiting first' },
@@ -82,14 +87,14 @@ export function clientsChoiceOf(sp: Record<string, string | string[] | undefined
     st: (CUSTOMER_LANES as readonly string[]).includes(st) ? (st as CustomerLane) : null,
     client: one(sp.client) || null,
     who: one(sp.who) || null,
-    group: CLIENTS_GROUP.some((g) => g.key === group) ? (group as ClientsGroup) : 'status',
+    group: CLIENTS_GROUP.some((g) => g.key === group) ? (group as ClientsGroup) : DEFAULT_CLIENTS_GROUP,
     sort: CLIENTS_SORT.some((s) => s.key === sort) ? (sort as ClientsSort) : 'waiting',
   };
 }
 
 /** How many choices differ from the plain list ("· N applied"). An agent's own seat is not a choice they made. */
 export function clientsChoiceApplied(c: ClientsChoice, agent: boolean): number {
-  return [c.svc, c.st, c.client, agent ? null : c.who, c.group !== 'status' ? 1 : null, c.sort !== 'waiting' ? 1 : null].filter(
+  return [c.svc, c.st, c.client, agent ? null : c.who, c.group !== DEFAULT_CLIENTS_GROUP ? 1 : null, c.sort !== 'waiting' ? 1 : null].filter(
     (v) => v !== null,
   ).length;
 }
@@ -101,7 +106,7 @@ export function clientsChoiceParams(c: ClientsChoice): [string, string][] {
   if (c.st) out.push(['st', c.st]);
   if (c.client) out.push(['client', c.client]);
   if (c.who) out.push(['who', c.who]);
-  if (c.group !== 'status') out.push(['group', c.group]);
+  if (c.group !== DEFAULT_CLIENTS_GROUP) out.push(['group', c.group]);
   if (c.sort !== 'waiting') out.push(['sort', c.sort]);
   return out;
 }
@@ -117,6 +122,8 @@ export type ClientsContext = {
   agent: boolean;
   /** The chat's last activity, for "Newest message". */
   lastActivity: (eventId: string) => string | null;
+  /** PH civil today — Day headings put the coming days first, then no date, then the past (newest first). */
+  today?: string;
 };
 
 /** Whose seat a choice names — "me" resolved; an agent is always held to their own. */
@@ -171,7 +178,12 @@ export function orderClients<R extends PipelineCustomer>(rows: readonly R[], c: 
   if (!groupKey) return [...rows].sort(within);
   const key = (r: R) => groupKey(r);
   // Days in date order (no date last); other headings in name order.
+  // Day: the coming days first (soonest on top, v113 `x.d>=NOWD`), then "No date yet", then days gone by, newest first —
+  // a finished event never heads the list above tomorrow's.
+  const dayBucket = (k: string) => (k === 'No date yet' ? 1 : ctx.today && k < ctx.today ? 2 : 0);
   const headOrder = (a: string, b: string) =>
-    c.group === 'day' ? (a === 'No date yet' ? 1 : b === 'No date yet' ? -1 : a.localeCompare(b)) : a === 'Not given to a seat' ? 1 : b === 'Not given to a seat' ? -1 : a.localeCompare(b);
+    c.group === 'day'
+      ? dayBucket(a) - dayBucket(b) || (dayBucket(a) === 2 ? b.localeCompare(a) : a.localeCompare(b))
+      : a === 'Not given to a seat' ? 1 : b === 'Not given to a seat' ? -1 : a.localeCompare(b);
   return [...rows].sort((a, b) => headOrder(key(a), key(b)) || within(a, b));
 }

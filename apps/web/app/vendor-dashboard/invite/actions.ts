@@ -12,6 +12,7 @@
 import { eventDateFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -19,7 +20,7 @@ import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
+import { lockQuoteTotalPhp, sanitizeLockQuoteLines, sanitizeLockSchedule, type LockQuoteLine } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
@@ -66,6 +67,22 @@ function parseStringArray(v: FormDataEntryValue | null): string[] {
 */
 
 export async function issueLockedQr(formData: FormData): Promise<void> {
+  // 🗑 #34 DELETE A WAITING BOOKED QR — the Booked QRs list's swipe left (with Undo: `deleteWithUndo` sends this only
+  // when the Undo window closes). The database's `vendor_void_locked_qr` does it under the shop's own RLS, waiting codes
+  // only; a scanned code is a booking and is never deleted from here — that, or any refusal, THROWS, which the list
+  // reads as "it's back — try again".
+  // ⚖ A MODE OF THIS ACTION, NOT A NEW ONE: the server-action budget (`scripts/lint-server-action-budget.mjs`) stands
+  // at its ceiling and every exported action is one more Vercel route — the lint's own first answer is "reuse an
+  // existing action". Nothing else in this function runs in this mode.
+  const voidToken = String(formData.get('void_token') ?? '').trim();
+  if (voidToken) {
+    if (!/^[0-9a-f]{16,64}$/i.test(voidToken)) throw new Error('void: not a code');
+    const db = await createClient();
+    const { data, error } = await db.rpc('vendor_void_locked_qr', { p_token: voidToken });
+    if (error || (data !== 'void' && data !== 'already_void')) throw new Error(`void: ${error ? 'refused' : String(data)}`);
+    revalidatePath('/vendor-dashboard/invite');
+    return;
+  }
   // The outside booking this code is for (Customers › People › "Send their code"), when it came from one. The
   // database refuses a booking that is not this shop's own outside booking (trigger
   // `vendor_locked_qr_block_is_own_outside`); here it is only shape-checked and carried through every refusal.
@@ -177,7 +194,15 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   ).catch(() => null);
   if (freeDays && !freeDays.has(formatDayKey(bookDate))) fail('date_unavailable');
 
-  const totalPhp = toAmount(formData.get('total_php'));
+  // 🧾 #34 THE QUOTATION BUILT IN PLACE: when the code carries lines, the Total IS their sum — computed here, never
+  // trusted from the form. No lines (an older form) → the typed Total, as before.
+  let quoteLines: LockQuoteLine[] = [];
+  try {
+    quoteLines = sanitizeLockQuoteLines(JSON.parse(String(formData.get('quote_lines_json') ?? '[]')));
+  } catch {
+    quoteLines = [];
+  }
+  const totalPhp = quoteLines.length > 0 ? lockQuoteTotalPhp(quoteLines) : toAmount(formData.get('total_php'));
   const initialPaid = toAmount(formData.get('initial_paid_php')) ?? 0;
   // Money validation, independent of the client gate (never trust the client):
   // a real total, a real downpayment, and the downpayment never exceeds the
@@ -261,11 +286,26 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       remembrance_r2_key: remembranceRef,
       source_contract_id: sourceContractId,
       block_id: blockId,
+      quote_line_items: quoteLines.length > 0 ? quoteLines : null,
     })
     .select('token')
     .single();
 
   if (error || !inserted) fail('issue');
 
+  // ✏ #34 CHANGING A WAITING CODE = VOID + REISSUE (a printed code cannot change; a scanned one is a booking). The new
+  // code exists FIRST, then the old one is voided — so a refusal never leaves the customer with no code at all, and two
+  // live codes for one deal never stand: if the old one was scanned meanwhile (or is not this shop's), the NEW one is
+  // voided and the shop is told.
+  const replaces = String(formData.get('replaces') ?? '').trim();
+  if (/^[0-9a-f]{16,64}$/i.test(replaces)) {
+    const { data: gone, error: voidError } = await supabase.rpc('vendor_void_locked_qr', { p_token: replaces });
+    if (voidError || (gone !== 'void' && gone !== 'already_void')) {
+      await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
+      fail(gone === 'claimed' ? 'replaced_claimed' : 'issue');
+    }
+  }
+
   redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}${blockId ? `&block=${blockId}` : ''}`);
 }
+

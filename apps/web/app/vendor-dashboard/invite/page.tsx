@@ -11,7 +11,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { vendorCoverageCategories } from '@/lib/vendor-couple-invite';
-import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
+import { buildVendorLockUrl, sanitizeLockQuoteLines, sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
@@ -26,7 +26,8 @@ import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { crewJoinPath } from '@/lib/crew-pass';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
 import { CUSTOMERS_QR_MODES, PROMOTE_HREF, crewQrEvents, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
-import { LockedQrGenerator } from './_components/locked-qr-generator';
+import { LockedQrGenerator, type LockedQrInitial } from './_components/locked-qr-generator';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
 
 export const metadata = { title: 'QR codes · Supplier' };
@@ -62,6 +63,8 @@ const BOOKED_ERRORS: Record<string, string> = {
   event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   bookings_closed: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
   not_verified: LOCKED_QR_NEEDS_VERIFIED,
+  replaced_claimed:
+    'The code you were changing was scanned a moment ago — it is a booking now, so it stays as it was. Nothing new was made.',
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
 };
@@ -75,15 +78,54 @@ type TokenRow = {
   status: 'pending' | 'claimed' | 'void';
   created_at: string;
   claimed_at: string | null;
+  claimed_event_id: string | null;
+  service_description: string | null;
+  event_date: string | null;
+  voided_at: string | null;
 };
 
 const DATES_HREF = '/vendor-dashboard/customers?seg=dates';
+
+type EditTokenRow = {
+  token: string;
+  event_type: string | null;
+  event_date: string | null;
+  service_description: string | null;
+  vendor_service_ids: unknown;
+  source_contract_id: string | null;
+  total_php: number | string | null;
+  initial_paid_php: number | string | null;
+  schedule_json: unknown;
+  quote_line_items: unknown;
+  proof_r2_key: string | null;
+  remembrance_r2_key: string | null;
+};
+
+/** #34: a waiting code, as the generator's filled-in form (void + reissue on save). Null when there is none to change. */
+function lockedQrInitialOf(t: EditTokenRow | null): LockedQrInitial | null {
+  if (!t) return null;
+  const peso = (v: number | string | null) => (v == null ? '' : String(Number(v)));
+  return {
+    replaces: t.token,
+    eventType: t.event_type ?? '',
+    eventDate: t.event_date ?? '',
+    description: t.service_description ?? '',
+    serviceRefs: Array.isArray(t.vendor_service_ids) ? t.vendor_service_ids.map(String) : [],
+    contractId: t.source_contract_id ?? '',
+    total: peso(t.total_php),
+    initialPaid: peso(t.initial_paid_php),
+    schedule: sanitizeLockSchedule(t.schedule_json).map((r) => ({ label: r.label, amount: String(r.amount_value), date: r.due_date ?? '' })),
+    lines: sanitizeLockQuoteLines(t.quote_line_items),
+    proofRef: t.proof_r2_key ?? '',
+    remembranceRef: t.remembrance_r2_key ?? '',
+  };
+}
 const QR_HREF = '/vendor-dashboard/invite';
 
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string; open?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string; open?: string; edit?: string }>;
 }) {
   const search = await searchParams;
   const asked = supplierQrModeOf(search.mode);
@@ -146,7 +188,7 @@ export default async function VendorQrCodesPage({
   // names something to show — an issued code, a refusal, the ledger, a day, an outside booking, an event — opens the
   // sheet on arrival; a plain visit lands on the list.
   const hrefs = Object.fromEntries(CUSTOMERS_QR_MODES.map((key) => [key, `${QR_HREF}?mode=${key}&open=1`]));
-  const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event) ? mode : null;
+  const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event || search.edit) ? mode : null;
 
   if (!canShare) {
     return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
@@ -171,7 +213,7 @@ export default async function VendorQrCodesPage({
   const [ledgerRead, issuedRead] = await Promise.all([
     supabase
       .from('vendor_locked_qr_tokens')
-      .select('token, public_id, category, total_php, initial_paid_php, status, created_at, claimed_at')
+      .select('token, public_id, category, total_php, initial_paid_php, status, created_at, claimed_at, claimed_event_id, service_description, event_date, voided_at')
       .eq('vendor_profile_id', vendorProfileId)
       .order('created_at', { ascending: false }),
     search.issued
@@ -194,14 +236,26 @@ export default async function VendorQrCodesPage({
         const total = t.total_php != null ? Number(t.total_php) : null;
         return {
           token: t.token,
-          title: kindLabel(t.category),
+          // #34: the deal's own words first ("Full-day coverage"), its kind when it has none (older codes).
+          title: t.service_description?.trim() || kindLabel(t.category),
           line: [
+            t.event_date ? day(t.event_date) : null,
             total != null ? formatPhp(total) : 'No total',
             `${formatPhp(Number(t.initial_paid_php ?? 0))} paid`,
-            t.status === 'claimed' ? `claimed ${day(t.claimed_at)}` : `issued ${day(t.created_at)}`,
-          ].join(' · '),
+            t.status === 'claimed' ? `used ${day(t.claimed_at)}` : t.status === 'void' ? `deleted ${day(t.voided_at)}` : `made ${day(t.created_at)}`,
+          ]
+            .filter(Boolean)
+            .join(' · '),
           status: t.status,
           showHref: t.status === 'pending' ? `${QR_HREF}?mode=locked&issued=${t.token}` : null,
+          // #34 the row's door: a WAITING code opens to be changed (void + reissue); a USED one opens that client (#38:
+          // a used Booked QR → Details); a deleted one opens nothing.
+          openHref:
+            t.status === 'pending'
+              ? `${QR_HREF}?mode=locked&edit=${t.token}`
+              : t.status === 'claimed' && t.claimed_event_id
+                ? customerCardHref(t.claimed_event_id, 'details')
+                : null,
         };
       })
     : null;
@@ -242,11 +296,23 @@ export default async function VendorQrCodesPage({
       </p>
     );
   } else if (!issued) {
-    const [eventTypes, services, contracts] = await Promise.all([
+    const [eventTypes, services, contracts, editRead] = await Promise.all([
       getCreatableEventTypes(),
       fetchVendorServices(supabase, vendorProfileId).catch(() => []),
       fetchVendorContracts(supabase, vendorProfileId).catch(() => []),
+      // ✏ #34 CHANGE A WAITING CODE: everything it said, to fill the form in. Only this shop's, only while it waits.
+      search.edit
+        ? supabase
+            .from('vendor_locked_qr_tokens')
+            .select('token, event_type, event_date, service_description, vendor_service_ids, source_contract_id, total_php, initial_paid_php, schedule_json, quote_line_items, proof_r2_key, remembrance_r2_key')
+            .eq('token', search.edit)
+            .eq('vendor_profile_id', vendorProfileId)
+            .eq('status', 'pending')
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
+    if (editRead.error) logQueryError('VendorQrCodesPage.edit', editRead.error, { vendorProfileId }, 'graceful_degrade');
+    const initial = lockedQrInitialOf(editRead.data as EditTokenRow | null);
     const coverage = vendorCoverageCategories(profileServices);
     const live = services.filter((s) => s.is_active);
     generator = (
@@ -263,6 +329,8 @@ export default async function VendorQrCodesPage({
         initialDate={/^\d{4}-\d{2}-\d{2}$/.test(search.date ?? '') ? (search.date as string) : ''}
         // Customers › People › an outside booking › "Send their code" (owner 2026-10-28): the code names that booking.
         blockId={blockId}
+        initial={initial}
+        servicePrices={Object.fromEntries(live.map((s) => [s.vendor_service_id, s.starting_price_php ?? null]))}
       />
     );
   }

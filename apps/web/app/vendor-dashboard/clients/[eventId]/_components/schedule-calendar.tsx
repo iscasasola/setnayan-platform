@@ -75,6 +75,9 @@ export function ScheduleCalendar({
         blocks={inputs.blocks}
         halls={inputs.pools.every((p) => p.isHall) && inputs.pools.length > 0}
         closuresComplete={inputs.closuresComplete}
+        // 🟠 Asking marks when the one read could tell (Build 2 #43g); null = unread, so no mark and no legend word.
+        inquiries={inputs.inquiries ?? []}
+        asksRead={inputs.inquiries !== null && inputs.inquiries !== undefined}
         fetchMonth={lab === undefined ? undefined : null}
       />
       {inputs.closuresComplete ? null : (

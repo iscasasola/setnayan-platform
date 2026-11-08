@@ -1,16 +1,40 @@
 'use client';
 
 import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
-import { useEffect, useState } from 'react';
-import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info, Plus } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
-import type { LockScheduleRow } from '@/lib/vendor-locked-qr';
+import type { LockQuoteLine, LockScheduleRow } from '@/lib/vendor-locked-qr';
 import { issueLockedQr } from '../actions';
 import { resolveVendorDateStatus } from '../date-status-actions';
 import { formatCount } from '@/lib/format-number';
 
 type Opt = { value: string; label: string };
+
+/**
+ * 🧾 ONE QUOTATION LINE (Supplier Build 2 row #34 — "a quotation built in place"). A picked service seeds its own
+ * line (`fromRef`, priced from the card's starting price when it has one, else blank to fill); "Add a line" adds the
+ * shop's own. Every price is editable; while there is a line, the Total IS the lines' sum (the server re-adds them —
+ * `sanitizeLockQuoteLines`, never the typed figure).
+ */
+type QuoteLineDraft = { key: string; label: string; amount: string; fromRef: string | null };
+
+/** A waiting code being CHANGED (void + reissue — a printed code cannot change): everything it said, filled in. */
+export type LockedQrInitial = {
+  replaces: string;
+  eventType: string;
+  eventDate: string;
+  description: string;
+  serviceRefs: string[];
+  contractId: string;
+  total: string;
+  initialPaid: string;
+  schedule: { label: string; amount: string; date: string }[];
+  lines: LockQuoteLine[];
+  proofRef: string;
+  remembranceRef: string;
+};
 type Row = {
   /** Payment name / label. */
   label: string;
@@ -119,9 +143,9 @@ async function presignAndUpload(file: File): Promise<string> {
 }
 
 /** One image upload slot (presign → PUT → ref), with its own busy/error state. */
-function useUploadSlot() {
-  const [ref, setRef] = useState('');
-  const [name, setName] = useState('');
+function useUploadSlot(initialRef = '') {
+  const [ref, setRef] = useState(initialRef);
+  const [name, setName] = useState(initialRef ? 'Kept from the code you are changing' : '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -162,7 +186,13 @@ export function LockedQrGenerator({
   contracts,
   initialDate = '',
   blockId = null,
+  initial = null,
+  servicePrices = {},
 }: {
+  /** #34: a waiting code being changed — the form opens filled, and saving voids it after the new one is made. */
+  initial?: LockedQrInitial | null;
+  /** #34: each service's starting price (₱), to price the line a picked service seeds. Missing = blank to fill. */
+  servicePrices?: Record<string, number | null>;
   /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
   dateExempt?: boolean;
   /** The date filled in when the shop came from a day ("Show a QR", Dates › a day — 2026-10-14). */
@@ -182,18 +212,35 @@ export function LockedQrGenerator({
   contracts: Opt[];
 }) {
   const today = todayIso();
-  const [rows, setRows] = useState<Row[]>(() => [downpaymentRow()]);
-  const [eventType, setEventType] = useState('');
-  const [serviceRefs, setServiceRefs] = useState<string[]>([]);
+  const [rows, setRows] = useState<Row[]>(() =>
+    initial?.schedule.length ? initial.schedule.map((r) => ({ label: r.label, amount: r.amount, date: r.date })) : [downpaymentRow()],
+  );
+  const [eventType, setEventType] = useState(initial?.eventType ?? '');
+  const [serviceRefs, setServiceRefs] = useState<string[]>(initial?.serviceRefs ?? []);
   const [serviceQuery, setServiceQuery] = useState('');
-  const [eventDate, setEventDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : '');
-  const [serviceDescription, setServiceDescription] = useState('');
-  const [contractId, setContractId] = useState('');
+  const [eventDate, setEventDate] = useState(
+    initial?.eventDate ?? (/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : ''),
+  );
+  const [serviceDescription, setServiceDescription] = useState(initial?.description ?? '');
+  const [contractId, setContractId] = useState(initial?.contractId ?? '');
   // Clean numeric strings (no separators) — displayed with thousands commas.
-  const [total, setTotal] = useState('');
-  const [initialPaid, setInitialPaid] = useState('');
-  const proof = useUploadSlot();
-  const remembrance = useUploadSlot();
+  const [total, setTotal] = useState(initial?.total ?? '');
+  const [initialPaid, setInitialPaid] = useState(initial?.initialPaid ?? '');
+  const proof = useUploadSlot(initial?.proofRef ?? '');
+  const remembrance = useUploadSlot(initial?.remembranceRef ?? '');
+  // 🧾 #34 the quotation, built in place.
+  const lineKey = useRef(0);
+  const nextKey = () => `l${++lineKey.current}`;
+  const [lines, setLines] = useState<QuoteLineDraft[]>(() =>
+    (initial?.lines ?? []).map((l) => ({ key: nextKey(), label: l.label, amount: cleanNumeric(String(l.amount_centavos / 100)), fromRef: null })),
+  );
+  const linesTotal = round2(lines.reduce((t, l) => t + (Number(l.amount) || 0), 0));
+  useEffect(() => {
+    if (lines.length > 0) setTotal(linesTotal > 0 ? String(linesTotal) : '');
+  }, [lines.length, linesTotal]);
+  const quoteLinesJson = lines
+    .filter((l) => l.label.trim())
+    .map((l) => ({ label: l.label.trim(), detail: null, amount_centavos: Math.round((Number(l.amount) || 0) * 100) }));
   // Advisory calendar read for the entered event date (soft — never blocks):
   // available / whitelist / booked / blocked / locked + a waitlist count.
   const [dateStatus, setDateStatus] =
@@ -315,9 +362,18 @@ export function LockedQrGenerator({
   }
 
   function toggleService(value: string) {
+    const on = !serviceRefs.includes(value);
     setServiceRefs((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
     );
+    // #34: a picked service seeds its own quotation line (priced from its card when it has a price); unpicked, it goes.
+    if (on) {
+      const label = prettyServiceLabel(services.find((s) => s.value === value)?.label ?? 'Service');
+      const price = servicePrices[value];
+      setLines((prev) => [...prev, { key: nextKey(), label, amount: price != null && price > 0 ? String(price) : '', fromRef: value }]);
+    } else {
+      setLines((prev) => prev.filter((l) => l.fromRef !== value));
+    }
   }
 
   const remainingLabel = `₱${withThousands(String(Math.abs(remaining)))}`;
@@ -341,6 +397,8 @@ export function LockedQrGenerator({
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
       {blockId ? <input type="hidden" name="block_id" value={blockId} /> : null}
       <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />
+      <input type="hidden" name="quote_lines_json" value={JSON.stringify(quoteLinesJson)} />
+      {initial?.replaces ? <input type="hidden" name="replaces" value={initial.replaces} /> : null}
       <input type="hidden" name="proof_r2_ref" value={proof.ref} />
       <input type="hidden" name="remembrance_r2_ref" value={remembrance.ref} />
       <input type="hidden" name="source_contract_id" value={contractId} />
@@ -430,7 +488,14 @@ export function LockedQrGenerator({
             placeholder="e.g. 50,000"
             value={withThousands(total)}
             onChange={(e) => setTotal(cleanNumeric(e.target.value))}
+            readOnly={lines.length > 0}
+            aria-describedby={lines.length > 0 ? 'total_from_quote' : undefined}
           />
+          {lines.length > 0 ? (
+            <p id="total_from_quote" className="text-xs text-ink/55" data-locked-qr-total-from-quote="">
+              The quotation&rsquo;s Total — change a line below to change it.
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <label htmlFor="initial_paid_php" className="block text-sm font-medium text-ink/80">
@@ -528,6 +593,61 @@ export function LockedQrGenerator({
         <p className="text-xs text-ink/45">
           {serviceRefs.length} selected · {services.length} total
         </p>
+      </div>
+
+      {/* 🧾 #34 THE QUOTATION, BUILT IN PLACE: a line per picked service (priced from its card), the shop's own lines,
+          every price editable — the Total above is their sum. Stored with the code (`quote_line_items`). */}
+      <div className="space-y-3 rounded-2xl border border-ink/10 bg-white/60 p-5" data-locked-qr-quote="">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-sm font-medium text-ink/80">Quotation</p>
+          <p className="text-sm font-semibold tabular-nums text-ink" data-locked-qr-quote-total="">
+            {lines.length > 0 ? `Total ₱${withThousands(String(linesTotal))}` : 'No lines yet'}
+          </p>
+        </div>
+        {lines.length === 0 ? (
+          <p className="text-xs text-ink/55">Pick a service above and its line appears here — or add your own.</p>
+        ) : (
+          <ul className="divide-y divide-ink/10">
+            {lines.map((l, i) => (
+              <li key={l.key} className="flex items-center gap-2 py-2" data-locked-qr-quote-line={i}>
+                <input
+                  type="text"
+                  className="input-field min-w-0 flex-1"
+                  aria-label="Line"
+                  placeholder="What it is"
+                  value={l.label}
+                  onChange={(e) => setLines((prev) => prev.map((x) => (x.key === l.key ? { ...x, label: e.target.value } : x)))}
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="input-field w-28 text-right tabular-nums"
+                  aria-label={`Price of ${l.label || 'this line'}`}
+                  placeholder="₱"
+                  value={withThousands(l.amount)}
+                  onChange={(e) => setLines((prev) => prev.map((x) => (x.key === l.key ? { ...x, amount: cleanNumeric(e.target.value) } : x)))}
+                />
+                {/* A field inside an editor keeps its small ✕ (house rule 3 Nov) — not a list row. */}
+                <button
+                  type="button"
+                  aria-label={`Remove ${l.label || 'this line'}`}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink/55"
+                  onClick={() => setLines((prev) => prev.filter((x) => x.key !== l.key))}
+                >
+                  <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-ink"
+          onClick={() => setLines((prev) => [...prev, { key: nextKey(), label: '', amount: '', fromRef: null }])}
+          data-locked-qr-quote-add=""
+        >
+          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden /> Add a line
+        </button>
       </div>
 
       {/* What the couple availed — the scope of work frozen onto the couple's plan. */}

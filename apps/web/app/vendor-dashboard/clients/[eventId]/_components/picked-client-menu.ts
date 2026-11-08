@@ -70,12 +70,14 @@ export function pickedMenuFor(isBooked: boolean): PickedClientMenuEntry[] {
 }
 
 /**
- * The page actually drawn: the asked page if this client's menu has it, else Details (an unbooked client asked for
- * Payment or Hub lands on Details rather than a page that is not in their menu).
+ * The page actually drawn: the asked page if this client's menu has it. An unbooked client asked for Payment lands on
+ * the Quotation — "Confirm a payment" before booking is about the quote (Build 2 row #38: no Payment page before
+ * booking); asked for Hub, on Details.
  */
 export function visiblePickedPage(rawTab: string | null | undefined, isBooked: boolean): PickedClientPage {
   const p = pickedPageOf(rawTab);
-  return pickedMenuFor(isBooked).some((e) => e.id === p) ? p : DEFAULT_PICKED_PAGE;
+  if (pickedMenuFor(isBooked).some((e) => e.id === p)) return p;
+  return p === 'payments' ? 'quote' : DEFAULT_PICKED_PAGE;
 }
 
 /** `?tab=script` lands on Schedule scrolled to the Script fold. */

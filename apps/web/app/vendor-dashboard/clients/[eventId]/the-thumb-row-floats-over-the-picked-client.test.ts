@@ -16,7 +16,7 @@
  *      client's layer, or is `SupplierThumbRow` (which takes the layer) — so a new row cannot slip in under it.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): drop `<ThumbLayerContext.Provider` from the shell (red: 2);
- * `floor,` → `document.body,` in the row's band portal (red: 3); `const upTo = inSheet || layer ? …` →
+ * `layer?.host ?? document.body,` → `document.body,` in the row's band portal (red: 3); `const upTo = inSheet || layer ? …` →
  * `const upTo = inSheet ? …` (red: 3); a `createPortal(<div …/>, document.body)` at `z-sn-thumb` added to
  * `report-form.tsx` (red: 4).
  */
@@ -86,10 +86,13 @@ test('3 · inside a layer the row portals into the layer’s host — never <bod
   assert.match(ROW, /const layer = useContext\(ThumbLayerContext\);/);
   assert.match(ROW, /const upTo = inSheet \|\| layer \? null : pinTools;/, 'inside the client the row would move up into the page’s pinned row, behind it');
   assert.match(ROW, /if \(!inSheet && layer && !layer\.host\) return null;/, 'while the host mounts the row lands on <body> under the client');
-  assert.match(ROW, /const floor = layer\?\.host \?\? document\.body;/);
   const outer = ROW.slice(ROW.indexOf('export function SupplierThumbRow('), ROW.indexOf('function ThumbFit('));
   assert.deepEqual([...outer.matchAll(/createPortal\(\s*\w+,\s*document\.body/g)].map((m) => m[0]), [], 'a row is portalled straight to <body>');
-  assert.equal([...outer.matchAll(/createPortal\(\s*(\w+),\s*floor,?\s*\)/g)].length, 2, 'expected the row’s two floor portals (band · glass)');
+  assert.equal(
+    [...outer.matchAll(/createPortal\(\s*(\w+),\s*layer\?\.host \?\? document\.body,?\s*\)/g)].length,
+    2,
+    'expected the row’s two floating portals (band · glass), each onto the layer’s host when inside one',
+  );
 });
 
 /** `@/x` and `./x` → a file on disk. */

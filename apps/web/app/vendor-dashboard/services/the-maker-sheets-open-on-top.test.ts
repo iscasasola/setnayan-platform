@@ -87,9 +87,8 @@ test('4 · inside a Sheet the maker’s Preview · Create row stays in the Sheet
   // (`|| layer` — a full-screen pop-up's own layer, the picked client: the-thumb-row-floats-over-the-picked-client.test.ts)
   assert.match(ROW, /const upTo = inSheet(?: \|\| layer)? \? null : pinTools;/, 'inside a sheet the row would move up into the page’s pinned row, behind the sheet');
   const outer = ROW.slice(ROW.indexOf('export function SupplierThumbRow('), ROW.indexOf('function ThumbFit('));
-  // The floating row's floor: <body>, or the host of the pop-up layer it is inside (`floor`).
-  assert.match(outer, /const floor = layer\?\.host \?\? document\.body;/);
-  const toBody = [...outer.matchAll(/createPortal\(\s*(\w+),\s*(?:document\.body|floor),?\s*\)/g)].map((m) => m[1]!);
+  // The floating row's floor: <body>, or the host of the pop-up layer it is inside (`layer?.host ?? document.body`).
+  const toBody = [...outer.matchAll(/createPortal\(\s*(\w+),\s*(?:layer\?\.host \?\? )?document\.body,?\s*\)/g)].map((m) => m[1]!);
   assert.equal(toBody.length, 2, 'expected the row’s two <body> portals (band · glass)');
   for (const node of toBody) {
     assert.match(outer, new RegExp(`return inSheet \\? ${node} : createPortal\\(`), `the ${node} row is portalled under the sheet even inside one`);

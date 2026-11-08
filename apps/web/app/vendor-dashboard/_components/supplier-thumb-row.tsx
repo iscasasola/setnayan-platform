@@ -135,7 +135,6 @@ export function SupplierThumbRow({
   if (!mounted) return null;
   // Inside a pop-up whose host has not mounted yet: wait a frame rather than land on <body> under it.
   if (!inSheet && layer && !layer.host) return null;
-  const floor = layer?.host ?? document.body;
   if (upTo) {
     return createPortal(
       <div className={styles.up} data-supplier-thumb={name} data-thumb-up="" role={row ? undefined : 'toolbar'} aria-label={row ? undefined : label}>
@@ -152,7 +151,7 @@ export function SupplierThumbRow({
     );
     return inSheet ? band : createPortal(
       band,
-      floor,
+      layer?.host ?? document.body,
     );
   }
   const glass = (
@@ -170,7 +169,7 @@ export function SupplierThumbRow({
   );
   return inSheet ? glass : createPortal(
     glass,
-    floor,
+    layer?.host ?? document.body,
   );
 }
 

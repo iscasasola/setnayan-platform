@@ -14,7 +14,9 @@
  *   6 · The supplier's part in v113 order: how changes go · Where · the chapters (hours) · Lock my times · Asked of you.
  *
  * Sabotage log (2026-11-08, each reverted): Suppliers moved above the overview → 1 red · `supplierRows` returning [] for a
- * missing roster → 2 red · Appointments back after `<ScheduleTab` → 3 red.
+ * missing roster → 2 red · Appointments back after `<ScheduleTab` → 3 red · a refused quote read worded "No quote sent yet"
+ * → 4 red · the Schedule month writing the Clients URL (`syncUrl()` unconditional) → 5 red · Asked of you moved back
+ * above Where → 6 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

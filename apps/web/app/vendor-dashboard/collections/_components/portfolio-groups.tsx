@@ -4,6 +4,8 @@ import { useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, ChevronRight, ExternalLink, Link2, Play, Plus } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
+import type { KeepAnswer } from '@/lib/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { BodyPanel } from '../../_components/body-panel';
@@ -303,38 +305,47 @@ function shortLink(url: string): string {
 }
 
 /**
- * 🎬 VIDEO LINKS (§10 #35) — the shipped column, edited row by row. Tap a row → it opens in place (Link · Remove · Save);
- * ▶ plays an embeddable link in a pop-up player (YouTube, Vimeo), and opens the others where they live (Facebook,
- * Instagram, TikTok, Drive). "Add another link" opens a new row ready to paste. Every Save writes the WHOLE list, the
- * way the shipped editor always has (`gallery_video_links`, ≤ 10, re-validated on the server).
+ * 🎬 VIDEO LINKS (§10 #35) — the shipped column, edited row by row. Tap a row → it opens in place: its Link on the house
+ * field (`TypedRow` — keeping the words, Enter or tap out, saves them) and Remove. ▶ plays an embeddable link in a pop-up
+ * player (YouTube, Vimeo) and opens the others where they live (Facebook, Instagram, TikTok). "Add another link" opens a
+ * new row with its field ready to paste. Every keep writes the WHOLE list, the way the shipped editor always has
+ * (`gallery_video_links`, ≤ 10, re-validated on the server).
  */
 function VideoLinks({ initial }: { initial: string[] }) {
   const toast = useToast();
   const [links, setLinks] = useState<string[]>(initial);
   const [editing, setEditing] = useState<number | null>(null);
-  const [draft, setDraft] = useState('');
   const [playing, setPlaying] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const playerTitle = useId();
 
-  const save = (next: string[], word: string) =>
+  const write = async (next: string[]): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const fd = new FormData();
+    fd.set('field', 'gallery_videos');
+    for (const l of next) fd.append('gallery_video_links', l);
+    const r = await updateVendorProfileField(null, fd);
+    if (!r.ok) return { ok: false, error: r.error };
+    setLinks(next);
+    return { ok: true };
+  };
+  const keep = async (i: number, text: string): Promise<KeepAnswer> => {
+    const p = parseVideoLink(text.trim());
+    if (!p) return { ok: false, error: 'That doesn’t look like a video link.' };
+    const next = i < links.length ? links.map((x, j) => (j === i ? p.originalUrl : x)) : [...links, p.originalUrl];
+    const r = await write(next);
+    if (r.ok) setEditing(null);
+    return r;
+  };
+  const remove = (i: number) =>
     start(async () => {
-      const fd = new FormData();
-      fd.set('field', 'gallery_videos');
-      for (const l of next) fd.append('gallery_video_links', l);
-      const r = await updateVendorProfileField(null, fd);
+      if (i >= links.length) return setEditing(null);
+      const r = await write(links.filter((_, j) => j !== i));
       if (r.ok) {
-        setLinks(next);
         setEditing(null);
-        toast.success(word);
+        toast.success('Link removed');
       } else toast.error(r.error);
     });
 
-  const open = (i: number) => {
-    setEditing((cur) => (cur === i ? null : i));
-    setDraft(links[i] ?? '');
-  };
-  const parsedDraft = draft.trim() ? parseVideoLink(draft.trim()) : null;
   const rows = editing !== null && editing >= links.length ? [...links, ''] : links;
   const play = playing ? parseVideoLink(playing) : null;
 
@@ -353,7 +364,7 @@ function VideoLinks({ initial }: { initial: string[] }) {
           return (
             <li key={`${i}-${l}`} data-video-link={i}>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => open(i)} aria-expanded={isOpen} className="sn-press flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
+                <button type="button" onClick={() => setEditing((cur) => (cur === i ? null : i))} aria-expanded={isOpen} className="sn-press flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
                   <Link2 aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={2} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium text-ink">{p ? `${p.label} video` : 'New video link'}</span>
@@ -371,54 +382,35 @@ function VideoLinks({ initial }: { initial: string[] }) {
                   <Play aria-hidden className="h-4 w-4 fill-current" strokeWidth={0} />
                 </button>
               </div>
-              {/* Opens IN PLACE — the house 520 ms; off under reduced motion. */}
-              <div
-                className="grid transition-[grid-template-rows] motion-reduce:transition-none"
-                style={{ gridTemplateRows: isOpen ? '1fr' : '0fr', transitionDuration: '520ms', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
-                aria-hidden={!isOpen}
-              >
-                <div className="min-h-0 overflow-hidden">
-                  <div className="space-y-2 pb-3" data-video-edit="">
-                    <label className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/60" htmlFor={`vl-${i}`}>
-                      Link
-                    </label>
-                    <input
-                      id={`vl-${i}`}
-                      type="url"
-                      inputMode="url"
-                      value={isOpen ? draft : l}
-                      onChange={(e) => setDraft(e.target.value)}
+              {/* Opens IN PLACE with the house rise (`.sn-rise`; the global reduced-motion rule stills it). Drawn only while open. */}
+              {isOpen ? (
+                <div className="sn-rise space-y-2 pb-3" data-video-edit="">
+                  <FormRows data="video-link">
+                    <TypedRow
+                      name="Link"
+                      value={l}
+                      empty="Paste the link"
                       placeholder="youtube.com/… or vimeo.com/…"
-                      className="input-field w-full"
-                      tabIndex={isOpen ? undefined : -1}
-                      aria-invalid={draft.trim().length > 0 && parsedDraft === null ? true : undefined}
+                      inputMode="url"
+                      autoCapitalize="off"
+                      maxLength={500}
+                      openAsk={l ? 0 : 1}
+                      check={(t) => (t.trim() && !parseVideoLink(t.trim()) ? 'That doesn’t look like a video link.' : null)}
+                      onKeep={(t) => keep(i, t)}
+                      data="video-link-url"
                     />
-                    {draft.trim().length > 0 && parsedDraft === null ? <p className="text-[12.5px] text-[color:rgb(var(--color-danger))]">That doesn&rsquo;t look like a video link.</p> : null}
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        disabled={pending}
-                        tabIndex={isOpen ? undefined : -1}
-                        onClick={() => (i < links.length ? save(links.filter((_, j) => j !== i), 'Link removed') : setEditing(null))}
-                        className="min-h-11 flex-1 rounded-full border border-ink/15 text-[14px] font-medium text-ink"
-                        data-video-remove=""
-                      >
-                        Remove
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending || !parsedDraft}
-                        tabIndex={isOpen ? undefined : -1}
-                        onClick={() => parsedDraft && save(i < links.length ? links.map((x, j) => (j === i ? parsedDraft.originalUrl : x)) : [...links, parsedDraft.originalUrl], 'Link saved')}
-                        className="min-h-11 flex-1 rounded-full bg-ink text-[14px] font-semibold text-[color:var(--m-paper)] disabled:opacity-40"
-                        data-video-save=""
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </div>
+                  </FormRows>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => remove(i)}
+                    className="min-h-11 w-full rounded-full text-[14px] font-medium text-[color:rgb(var(--color-danger))]"
+                    data-video-remove=""
+                  >
+                    {i < links.length ? 'Remove this link' : 'Cancel'}
+                  </button>
                 </div>
-              </div>
+              ) : null}
             </li>
           );
         })}
@@ -426,14 +418,11 @@ function VideoLinks({ initial }: { initial: string[] }) {
       {links.length < MAX_LINKS ? (
         <button
           type="button"
-          onClick={() => {
-            setEditing(links.length);
-            setDraft('');
-          }}
+          onClick={() => setEditing(links.length)}
           className="mt-3 flex w-full items-center gap-3 rounded-2xl border-[1.5px] border-dashed border-ink/20 px-3 py-3.5 text-left"
           data-video-add=""
         >
-          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full border-[1.5px] border-[color:var(--m-orange)] text-[color:var(--m-orange)]">
+          <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full border-[1.5px] border-[color:var(--m-orange-2)] text-[color:var(--m-orange-2)]">
             <Plus className="h-5 w-5" strokeWidth={2} />
           </span>
           <span className="min-w-0 flex-1">

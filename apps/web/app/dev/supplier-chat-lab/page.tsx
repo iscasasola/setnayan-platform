@@ -16,6 +16,9 @@
  *                &gifts=plus (their event has Event Plus · this one makes it Pro) · &gifts=pro (their event has Pro)
  *   ?m=full      the couple's date is full — no "Yes po, that day is free"
  *   &booked=1    the couple already booked you — every tool open
+ *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
+ *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
+ *                (sample hosts; the first is the fixture couple sender)
  *
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
  * Names are samples: nobody real.
@@ -33,7 +36,7 @@ import { BackButton } from '@/app/_components/back-button';
 import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
 import { ChatInfoRailTrigger } from '@/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail';
 import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
-import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF } from '@/app/dev/chat-lab/fixtures';
+import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
@@ -194,6 +197,18 @@ export default async function SupplierChatLabPage({
     ),
   };
 
+  // THE ONE BUILD (8 Nov 2026) · `&embed=quotation` — the picked client's Quotation page as the thread page's own
+  // `__embed=quotation` view draws it: the quote tool alone, full width, no chat frame (the client's pinned row is above).
+  if (sp.embed === 'quotation') {
+    return (
+      <SupplierLabShell measure="own">
+        <div data-picked-client-page="quotation" className="mx-auto w-full max-w-xl space-y-3 px-0 pb-6">
+          {toolNodes['build-quote']}
+        </div>
+      </SupplierLabShell>
+    );
+  }
+
   return (
     // The supplier's thread as its page draws it: the supplier's REAL shell (rail · bar · tabs), the page's column, the
     // ONE thread frame (`ChatThreadFrame`) holding one `ChatBox` — so a walk at 390 proves the takeover covers the
@@ -310,6 +325,14 @@ export default async function SupplierChatLabPage({
         >
           <ChatMessageStream
             flush
+            {...(sp.hosts === '1'
+              ? {
+                  hosts: [
+                    { userId: LAB_USER, firstName: 'Maria', name: 'Maria Reyes', role: 'bride', label: null },
+                    { userId: '00000000-0000-4000-8000-0000000000ee', firstName: 'Jose', name: 'Jose Santos', role: 'groom', label: null },
+                  ],
+                }
+              : {})}
             dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
             threadId={LAB_THREAD}
             initialMessages={LAB_MESSAGES.map((x) => ({ ...x, thread_id: LAB_THREAD }))}

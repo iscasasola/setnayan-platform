@@ -1164,7 +1164,7 @@ export function ProposalMaker({
       // (lib/telemetry/flows.ts, "supplier_quote").
       data-flow="supplier-quote"
       data-quote-one-screen=""
-      className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
+      className="overflow-clip rounded-2xl border border-ink/10 bg-cream shadow-sm"
     >
       <input type="hidden" name="thread_id" value={threadId} />
       {/* ONE Undo toast for the quote — the line drop and the gift rows share it. */}
@@ -1974,7 +1974,7 @@ export function ProposalMaker({
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
-          <span className={lbl}>How they pay</span>
+          <span className="sr-only">Payment schedule</span>
           {schedule.over_by_centavos > 0 ? (
             <span className="text-[11px] font-medium text-warn-900">
               over by {formatCentavos(schedule.over_by_centavos)} — trim a payment
@@ -2355,11 +2355,8 @@ export function ProposalMaker({
           rides the bar; Save is the shipped "Save this quote · reuse it next time" (it opens its name field above);
           Send is the ONE SubmitButton — the couple still reviews and accepts. "₱X to lock" is INVENTED and not built.
           Sticky to the scrolling page, above the thumb row (safe area included). ── */}
-      <div
-        data-quote-pinned-bar=""
-        className="sticky bottom-0 z-10 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur"
-        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
-      >
+      {/* What Send does — said above the bar, beside the way out of the quote (the bar keeps v113's three). */}
+      <div className="space-y-2 px-4 pt-3" data-quote-send-note="">
         {/*
           🔴 THIS SAID "accepting just adds it to their plan" AND THAT IS
           BACKWARDS. Owner, 2026-09-18: *"Plan should only fill at lock. not
@@ -2383,10 +2380,27 @@ export function ProposalMaker({
           combinations of suppliers. It books nothing and pays nothing; their
           plan fills only when they Lock.
         </p>
-        <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={closePanel}
+          aria-label="Cancel this quote"
+          className="inline-flex h-11 items-center rounded-xl border border-ink/15 px-4 text-sm text-ink/70 hover:border-ink/40"
+        >
+          Cancel
+        </button>
+      </div>
+      <div
+        data-quote-pinned-bar=""
+        // Pinned to the page's scroll (the form is `overflow-clip`, not a scroll box), standing ON whatever the shell
+        // puts at the bottom — the dock (`--sn-bottomdock-h`) or the floating thumb row (`--sn-thumb-room`) — never
+        // under it. Page layer: no z above the thumb row / nav (spec §10, layers).
+        className="sticky z-10 border-t border-ink/10 bg-cream/95 px-4 py-2.5 backdrop-blur"
+        style={{ bottom: 'max(var(--sn-bottomdock-h, 0px), var(--sn-thumb-room, 0px))' }}
+      >
+        <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1" data-quote-answer="">
             <span className="block text-[11px] text-ink/55">Total</span>
-            <b className="font-serif text-xl font-semibold tabular-nums text-ink">{formatCentavos(netPayable)}</b>
+            <b className="block truncate font-serif text-lg font-semibold tabular-nums text-ink">{formatCentavos(netPayable)}</b>
           </span>
           <button
             type="button"
@@ -2394,24 +2408,16 @@ export function ProposalMaker({
               setSaveName(title.trim() || cardTitle || '');
               setSaveState('idle');
             }}
-            className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/15 px-4 text-sm text-ink hover:border-ink/40"
+            className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full border border-ink/15 px-4 text-sm text-ink hover:border-ink/40"
           >
             Save
           </button>
           <SubmitButton
             pendingLabel="Sending…"
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
           >
-            Send quote · {formatCentavos(netPayable)}
+            Send quote
           </SubmitButton>
-          <button
-            type="button"
-            onClick={closePanel}
-            aria-label="Cancel this quote"
-            className="inline-flex h-11 items-center rounded-xl px-2 text-sm text-ink/60 hover:text-ink"
-          >
-            Cancel
-          </button>
         </div>
       </div>
     </form>

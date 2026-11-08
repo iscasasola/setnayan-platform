@@ -55,7 +55,10 @@ test('the sections, once each, in the owner\'s eleven-step order (THE ONE BUILD,
 test('11 · the total, Save and the ONE Send ride a pinned bar; the name is the first field', () => {
   const bar = maker.slice(maker.indexOf('data-quote-pinned-bar'));
   assert.ok(maker.indexOf('data-quote-pinned-bar') > 0, 'the pinned bar is gone');
-  assert.match(bar.slice(0, 400), /sticky bottom-0/, 'the bar is not pinned');
+  assert.match(bar.slice(0, 900), /className="sticky\b/, 'the bar is not pinned');
+  assert.match(bar.slice(0, 900), /bottom: 'max\(var\(--sn-bottomdock-h, 0px\), var\(--sn-thumb-room, 0px\)\)'/, 'the bar sits UNDER the dock / thumb row');
+  // `sticky` only pins when no ancestor inside the form is a scroll box: the form clips, it does not scroll.
+  assert.match(maker, /className="overflow-clip rounded-2xl border border-ink\/10 bg-cream shadow-sm"/, 'an overflow-hidden form makes the bar inert');
   assert.match(bar, /data-quote-answer=""[\s\S]{0,300}formatCentavos\(netPayable\)/, 'the total left the bar');
   assert.ok(bar.indexOf('<SubmitButton') > 0, 'Send is not in the pinned bar');
   assert.match(bar.slice(0, bar.indexOf('<SubmitButton')), />\s*Save\s*</, 'Save is not beside Send');

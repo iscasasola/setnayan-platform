@@ -244,8 +244,8 @@ export function InviteSheet({ f, open, onClose }: { f: FindOrInviteState; open: 
             className="mt-3 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40" // no-card-ok: the name field, not a container
           />
           <input
-            autoComplete="off"
             type="email"
+            autoComplete="off"
             inputMode="email"
             value={f.draft.email || f.email}
             onChange={(e) => f.setEmail(e.target.value)}
@@ -298,8 +298,8 @@ export function InviteCard({ f }: { f: FindOrInviteState }) {
           <span className="min-w-0 flex-1 truncate text-[14px] text-ink/70">{f.draft.email}</span>
         ) : (
           <input
-            autoComplete="off"
             type="email"
+            autoComplete="off"
             inputMode="email"
             value={f.email}
             onChange={(e) => f.setEmail(e.target.value)}

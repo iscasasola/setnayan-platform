@@ -24,7 +24,7 @@
 import { notFound } from 'next/navigation';
 import { GenericOnboarding } from '@/app/onboarding/[type]/_components/generic-onboarding';
 import { OnboardingShell } from '@/app/onboarding/wedding/_components/onboarding-shell';
-import { buildOnboardingPricing } from '@/app/onboarding/wedding/_components/onboarding-pricing';
+import type { OnboardingPricing } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { SimpleSetupFlow } from '@/app/onboarding/simple/_components/simple-setup-flow';
 import { toProfile, type ProfileRow } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/onboarding/flow-config';
@@ -34,6 +34,9 @@ import { manilaToday } from '@/lib/std-views';
 import { buildServicesStepView } from '@/lib/onboarding/services-step-data';
 
 export const dynamic = 'force-dynamic';
+
+/** The wedding wizard on NO catalogue: nothing priced exists here, so no figure can be drawn. */
+const EMPTY_CATALOGUE: OnboardingPricing = { svc: {}, bundles: { essentials: null, complete: null }, setnayanAi: null, promo: 0 };
 
 /** The twenty labels as production's `event_type_vocab` names them (measured 2026-10-18). */
 const LABEL: Record<string, { label: string; emoji: string }> = {
@@ -70,7 +73,7 @@ export default async function OnboardingLabPage({
   // The wedding is its own wizard (matrix §3) — mounted as itself, on an empty catalogue.
   if (sp.type === 'wedding') {
     return (
-      <OnboardingShell authed resume={false} pricing={buildOnboardingPricing([], [], null, 0)} selfName={selfName} />
+      <OnboardingShell authed resume={false} pricing={EMPTY_CATALOGUE} selfName={selfName} />
     );
   }
   const type = sp.type && sp.type in DEFAULT_PRESET_BY_TYPE ? sp.type : 'hangout';

@@ -126,6 +126,10 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   booking_fee_waived: 'low',
   guest_takedown_honored: 'low',
   service_card_moderated: 'low',
+  // Admin supplier slice — Setnayan answered the shop's name / web-address request, or sent a flagged service-card
+  // photo back. Ruling 8 Nov 2026 (DECISION_LOG): LOW — bell + evening summary, never buzzes; in the app only, no
+  // email (it is not on the email allowlist).
+  supplier_request_answered: 'low',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',

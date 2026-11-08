@@ -9,10 +9,9 @@ import { vendorBarItems } from '@/app/vendor-dashboard/_components/vendor-bottom
  * component itself (`seam-invariants.test.ts`).
  */
 /**
- * `runsEvents` no longer changes the bar (THE ONE BUILD, 8 Nov 2026: no Hub/Events tab for anyone — the coordinator's
- * door is Today's "Events you run"). Kept optional so `coord-lab.tsx` (the Shop lane's file) still compiles; it may
- * drop the prop.
+ * No `runsEvents` (THE ONE BUILD, 8 Nov 2026: no Hub/Events tab for anyone — the coordinator's door is Today's "Events
+ * you run"); the integration dropped the prop from both labs.
  */
-export function CoordLabBar(_props: { runsEvents?: boolean }) {
+export function CoordLabBar() {
   return <BottomNav items={vendorBarItems({ role: 'owner' })} />;
 }

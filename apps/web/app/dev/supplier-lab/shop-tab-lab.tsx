@@ -54,7 +54,7 @@ const PHOTOS = [
 
 const bar = (
   <BottomDock boundary="tab">
-    <CoordLabBar runsEvents={false} />
+    <CoordLabBar />
   </BottomDock>
 );
 

@@ -162,7 +162,7 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">
-      <CoordLabBar runsEvents={runs.length > 0} />
+      <CoordLabBar />
     </BottomDock>
   );
   if (state === 'coord-badges') {

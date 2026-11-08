@@ -1,6 +1,6 @@
 # THE ONE BUILD · lane L1 (Frame + event side) — notes
 
-FOUNDATION PUSHED: (not yet — see "Where I stopped")
+FOUNDATION PUSHED 0d9c7c4217 (origin/claude/supplier-1build-foundation; first push 811acdb580 by the controller, this a fast-forward on top)
 
 Branch `claude/supplier-1build-l1` (worktree `~/Documents/Claude/Projects/wt-l1`), from `origin/claude/supplier-1build-base`.
 Early-push branch for the foundation: `claude/supplier-1build-foundation`.
@@ -18,7 +18,7 @@ Early-push branch for the foundation: `claude/supplier-1build-foundation`.
 | F5 | `SettingsMenu` gains `portfolio` (reserved, `live: false` — C4 flips it); customers ⚙ = "Clients settings" | tests pending |
 | S1 | supplier bar Today · Clients · Shop · Portfolio; `portfolio` key + `vendor.sidebar.portfolio` / `vendor.bottom-nav.portfolio` slots; on-the-day + events light Clients; moodboard-library lights Portfolio; layout drops two reads | tests pending |
 | S2 | "Clients" in L1 files (tours, help, helpers line, HowItWorks en + tl) | tests pending |
-| S3 | avatar sheet: tiles Help · Show me around · Sign out on every sheet; supplier sheet "You are in" card; Sign out asks (supplier, other accounts); Your collections row dropped; Your Story's door → help centre | tests pending |
+| S3 | avatar sheet — CONTENT ONLY (owner ruling 8 Nov, below): tiles Help · Show me around · Sign out on every sheet; supplier sheet "You are in" card (the shipped "Your shop" card, relabelled); Your collections row dropped; Your Story's door → help centre; Refer a couple's door → Help (`/help?refer=<event>` → "Refer a couple ›", programme on only) | G10 6/6 + reachable-without-typing 3/3 |
 | Event B1/B2 | Today · Guests · Suppliers · Memories · Hub; Home → Today (word only; key `home`) in menu, registry, page-home, route-meta | tests pending |
 | Event B3 | copy sweep "on/from Home" → Today (see changelog fragment for the list) | tests pending |
 | Event B4/B5 | `papicCardHref` → `/dashboard/<id>/memories?papic=open#papic`; old `/dashboard/<id>?papic=open…` forwards to Memories | tests pending |
@@ -73,7 +73,7 @@ Early-push branch for the foundation: `claude/supplier-1build-foundation`.
 - `--sn-z-pop` stays **40** (not 50): existing pop-ups keep their layer; the Sheet is `--sn-z-modal: 50`. Order holds:
   thumb 25 < nav 30 < pop 40 ≤ modal 50.
 - Chrome-away attribute sits on `<html>` (the dock can live outside `.fd`).
-- Supplier "Sign out of…" opens IN PLACE under the tiles, not a second house `Sheet` stacked over the account sheet.
+- ~~Supplier "Sign out of…" opens IN PLACE under the tiles~~ — REMOVED. **OWNER RULING 8 Nov (S3), via coordinator:** *"this menu pop up from the upper right already has a design and i like the design. only the content is what you change."* The sheet keeps the shipped look (white grouped cards, serif name header + "Profile & settings ›", round icon tiles, pill badges, Appearance pill, red Sign out tile, quiet "Sign out of all accounts" line). No styling was changed: every card/row/tile uses the shipped classes. The one non-content addition — the spec's "Sign out of…" choice card (A1 S3 item 7), which also hid the quiet line on the supplier sheet — was reverted to the shipped tile + quiet line on EVERY sheet. G10 test 4 now pins that (sabotaged: `!supplierSheet` back on the quiet line → red).
 
 ## Risks
 

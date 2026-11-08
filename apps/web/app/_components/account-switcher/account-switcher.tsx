@@ -194,11 +194,15 @@ const SHOP_ROW_ICON: Record<string, typeof Store> = {
  *      Signed-in accounts only (an anon draft has bought nothing and is always Light).
  *   4. QUICK TILES — Help · Show me around (a tour is mounted) · Sign out, on EVERY sheet (DECISION_LOG 2026-11-07
  *      "Account sheet tiles": *"on event, that also becomes help"*; Refer a couple: *"NO NEED"*). Your Story's door
- *      moved into Help (the help centre's "Your Story ›" line). On the SUPPLIER sheet Sign out asks "Sign out of…" —
- *      Just this account · All accounts on this phone — when another account is signed in here; with one, it signs
- *      out straight away (v113/v114).
- *   5. "Sign out of all accounts" — the one quiet line, on every sheet but the supplier's (whose Sign out already
- *      offers it). Until other logins can live on this phone it signs out the only one there is.
+ *      moved into Help (the help centre's "Your Story ›" line). Sign out is the shipped red tile on every sheet.
+ *   5. "Sign out of all accounts" — the one quiet line, on EVERY sheet (supplier's included). Until other logins can
+ *      live on this phone it signs out the only one there is.
+ *
+ * 🔒 OWNER RULING 2026-11-08 (S3): *"this menu pop up from the upper right already has a design and i like the
+ *    design. only the content is what you change."* The sheet keeps the shipped look — white grouped cards, serif name
+ *    header with "Profile & settings ›", round icon tiles, pill badges, the Appearance pill, the red Sign out tile and
+ *    the quiet "Sign out of all accounts" line. The spec's "Sign out of…" choice card (v113/v114) was NOT kept: it
+ *    replaced that quiet line with a new control, and the ruling keeps the line.
  *
  * ⚠ `?hub=1` on Your events IS LOAD-BEARING: plain `/dashboard` re-fires the launcher's auto-jump for a
  * single-event person and lands them back in the event they were leaving (owner 2026-08-11: the board is "the
@@ -214,6 +218,7 @@ export function SwitcherPanelBody({
   here = 'events',
   activeShopId = null,
   unread = null,
+  referHref = null,
 }: {
   data: SwitcherData;
   close: () => void;
@@ -231,12 +236,13 @@ export function SwitcherPanelBody({
   // The shop the supplier pages are reading right now: the layout says, else the only one listed.
   const currentShopId = here === 'shop' ? (activeShopId ?? (shops.length === 1 ? shops[0]!.id : null)) : null;
   /* 🏪 THE SUPPLIER SHEET (THE ONE BUILD, 2026-11-08): drawn by the vendor layout — the shop you are in heads its own
-     "You are in" card instead of sitting in Switch to; Sign out asks which accounts. Every other sheet is as it was. */
+     "You are in" card instead of sitting in Switch to. Every other sheet is as it was. */
   const supplierSheet = here === 'shop';
   const youAreIn = supplierSheet ? (shops.find((s) => s.id === currentShopId) ?? null) : null;
-  const [signOutAsk, setSignOutAsk] = useState(false);
-  const askWhichSignOut = supplierSheet && !data.isAnonymous && (data.otherAccounts?.length ?? 0) > 0;
-  const helpHref = supplierSheet ? '/vendor-dashboard/help' : '/help';
+  /* 🤝 Refer a couple has no tile any more (owner 7 Nov 2026, "NO NEED") — its door stays reachable inside Help (spec
+     §S3: "their destinations stay reachable inside Help"): on an event whose programme is on, Help names this event. */
+  const referEvent = referHref ? /^\/dashboard\/([A-Za-z0-9-]{1,64})\/refer$/.exec(referHref)?.[1] ?? null : null;
+  const helpHref = supplierSheet ? '/vendor-dashboard/help' : referEvent ? `/help?refer=${referEvent}` : '/help';
   const me = data.photoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img src={data.photoUrl} alt="" width={56} height={56} className="h-full w-full object-cover" style={pictureFrameStyle(data.photoFrame)} />
@@ -531,20 +537,6 @@ export function SwitcherPanelBody({
             </span>
             Secure your plan
           </Link>
-        ) : askWhichSignOut ? (
-          /* 🚪 ONE control, two answers (supplier sheet, another account signed in here): it asks first. */
-          <button
-            type="button"
-            aria-expanded={signOutAsk}
-            onClick={() => setSignOutAsk((o) => !o)}
-            data-sheet-sign-out-ask=""
-            className={`${TILE} text-red-600 dark:text-red-400`}
-          >
-            <span aria-hidden className={`${TILE_MARK} bg-red-600/10`}>
-              <LogOut className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            Sign out
-          </button>
         ) : (
           <form action="/auth/sign-out" method="post" className="flex flex-1 basis-0">
             <button type="submit" className={`${TILE} text-red-600 dark:text-red-400`}>
@@ -557,31 +549,9 @@ export function SwitcherPanelBody({
         )}
       </div>
 
-      {/* ── 4b · "Sign out of…" — the supplier sheet's two answers, opened in place under the tiles (v113/v114). ── */}
-      {askWhichSignOut && signOutAsk ? (
-        <div className="sn-sheet-card mx-3 mt-2.5 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-sign-out-choice="">
-          <span className="block px-3 pb-1 pt-2.5 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--m-slate-3)]">
-            Sign out of…
-          </span>
-          <form action="/auth/sign-out" method="post">
-            <button type="submit" data-sheet-sign-out="this" className={ROW_SM}>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium text-ink">Just this account</span>
-                <span className="block truncate text-[12.5px] text-[var(--m-slate-2)]">Stay signed in to the others</span>
-              </span>
-            </button>
-          </form>
-          <form action={signOutAllAction(data.otherAccounts)} method="post">
-            <button type="submit" data-sheet-sign-out="all" className={`${ROW_SM} text-red-600 dark:text-red-400`}>
-              <span className="min-w-0 flex-1 truncate text-[15px] font-medium">All accounts on this phone</span>
-            </button>
-          </form>
-        </div>
-      ) : null}
-
       {/* ── 5 · Sign out of all accounts — one quiet line: every account on this phone (their jars revoked and
           expired, lib/account-jars.ts), then the one you are on. ── */}
-      {!data.isAnonymous && !supplierSheet ? (
+      {!data.isAnonymous ? (
         <form action={signOutAllAction(data.otherAccounts)} method="post" className="flex justify-center pt-1.5">
           <button
             type="submit"

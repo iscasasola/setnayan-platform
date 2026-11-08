@@ -107,16 +107,15 @@ test('1 · Memories draws EXACTLY ONE Papic card — under the keepsakes, before
   // The gallery draws the slot under the keepsake row and before the grid.
   const g = code(GALLERY);
   const keep = g.indexOf('{host ? keepsakes : null}');
-  const slot = g.indexOf('{host ? papic : null}');
+  const slot = g.indexOf('{host && papic ? <div data-tour="memories-papic">{papic}</div> : null}');
   const grid = g.indexOf('data-tour="memories-grid"');
   assert.ok(keep >= 0 && slot > keep && grid > slot, 'keepsakes → the Papic card → the grid');
-  assert.equal(count(g, /\{host \? papic : null\}/g), 1, 'one slot');
+  assert.equal(count(g, /\{host && papic \? <div data-tour="memories-papic">\{papic\}<\/div> : null\}/g), 1, 'one slot — and the Memories tour lights it');
   // The card itself: the #papic anchor, the three counts and Add more on its face, outside the head's button.
   const html = card(CARD);
   assert.equal(count(html, /data-papic-home-card=/g), 1);
   assert.match(html, /id="papic"/, 'the card is the #papic anchor old links scroll to');
   assert.match(html, /data-memories-papic=""/);
-  assert.match(html, /data-tour="memories-papic"/, 'the Memories tour lights it');
   assert.match(html, /data-papic-card-count="total"[^>]*>500</);
   assert.match(html, /data-papic-card-count="taken"[^>]*>180</);
   assert.match(html, /data-papic-card-count="remaining"[^>]*>320</);

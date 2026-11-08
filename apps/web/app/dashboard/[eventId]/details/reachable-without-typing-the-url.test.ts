@@ -103,8 +103,12 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  *           anyone holding the guest list lands on it (a rail row), and the
  *           one viewer it still draws for — a helper without the guest list —
  *           reaches it from the People roster's "Running the day with you";
- *   refer → the account menu: the event layout hands `referHref` to the
- *           mounted <AccountSwitcher>, which draws "Refer a couple".
+ *   refer → inside Help (owner 7 Nov 2026: the Refer a couple tile, "NO NEED";
+ *           spec S3: its destination "stays reachable inside Help"): the event
+ *           layout hands `referHref` to the mounted <AccountSwitcher>, whose Help
+ *           tile opens `/help?refer=<event>`, and the help centre draws
+ *           "Refer a couple ›" for it. 🔁 UPDATED ON PURPOSE 2026-11-08 — the
+ *           chain is still read end to end, NOT WEAKENED.
  *   details → since 2026-10-30 (owner: *"move them all in the event settings"* ·
  *           *"they were suppose to combine the event details and event settings
  *           together on the event settings"*) what the couple does on Event
@@ -142,7 +146,9 @@ const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
     PEOPLE_GROUP_COPY.hosts.path === 'hosts',
   refer: () =>
     read('app/dashboard/[eventId]/layout.tsx').includes('referHref={referralEnabled ? `/dashboard/${eventId}/refer` : null}') &&
-    read('app/_components/account-switcher/account-switcher.tsx').includes('href={referHref}') &&
+    read('app/_components/account-switcher/account-switcher.tsx').includes("referEvent ? `/help?refer=${referEvent}` : '/help'") &&
+    read('app/_components/account-switcher/account-switcher.tsx').includes('<Link href={helpHref} onClick={close} data-sheet-tile="help"') &&
+    read('app/(shell)/help/page.tsx').includes('href={`/dashboard/${referEvent}/refer`}') &&
     isMounted('app/_components/account-switcher/account-switcher.tsx'),
 };
 

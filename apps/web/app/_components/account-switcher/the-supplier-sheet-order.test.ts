@@ -5,14 +5,20 @@
  *   - the tiles are Help · Show me around · Sign out on EVERY sheet (no Your Story / Refer a couple tile — "NO NEED");
  *   - on the supplier sheet the shop you are in is not listed under "Switch to" — it heads a "You are in" card that
  *     holds the shop, View page and its rows (Your details · Your page · Helpers · Plan · Settings);
- *   - Sign out on the supplier sheet asks "Just this account / All accounts on this phone" when another account is
- *     signed in here; with only one account it signs out straight away.
+ *   - OWNER RULING 8 Nov 2026 (S3): *"this menu pop up from the upper right already has a design and i like the
+ *     design. only the content is what you change."* So Sign out stays the shipped red tile (one POST) and the quiet
+ *     "Sign out of all accounts" line stays on EVERY sheet, the supplier's included — the spec's "Sign out of…" choice
+ *     card is NOT drawn;
+ *   - the couple's Help tile names the event when its Refer programme is on (`/help?refer=<event>`) — Refer a couple's
+ *     door lives inside Help now.
  *
  * It RENDERS the shipped `SwitcherPanelBody` (with the shop rows the vendor layout passes) and reads the marks in the
  * order they are drawn — a source-order check could not see a section moved by a conditional.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): the shop you are in no longer skipped in "Switch to" (red: test 2,
  * drawn twice); the `!supplierSheet` condition dropped from the quiet "Sign out of all accounts" line (red: test 4).
+ * 🔁 Test 4 UPDATED ON PURPOSE (owner ruling above), NOT WEAKENED: it now pins the shipped sign-out on both sheets, and
+ * re-sabotaged 2026-11-08 — `!supplierSheet` put back on the quiet line → red ("the supplier sheet lost …").
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,7 +58,7 @@ function person(otherAccounts: (typeof CLAIRE)[]) {
   };
 }
 
-async function sheet(here: 'shop' | 'events', others = [CLAIRE]): Promise<string> {
+async function sheet(here: 'shop' | 'events', others = [CLAIRE], referHref: string | null = null): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { ThemeProvider } = await import('@/app/_components/theme-provider');
   const { SwitcherPanelBody } = await import('./account-switcher');
@@ -67,6 +73,7 @@ async function sheet(here: 'shop' | 'events', others = [CLAIRE]): Promise<string
         here,
         activeShopId: SHOP.id,
         shopRows: here === 'shop' ? supplierAvatarRows() : null,
+        referHref,
       }),
     ),
   );
@@ -85,7 +92,6 @@ function marks(html: string): string[] {
     else if (name === 'setting-appearance') out.push('row:appearance');
     else if (name === 'sheet-tiles') out.push('tiles');
     else if (name === 'sheet-tile') out.push(`tile:${value}`);
-    else if (name === 'sheet-sign-out-ask') out.push('sign-out-ask');
     else if (name === 'sheet-sign-out-all') out.push('sign-out-all-line');
   }
   return out;
@@ -131,26 +137,32 @@ test('tiles are Help · Show me around · Sign out — on the supplier sheet AND
   }
 });
 
-test('supplier Sign out asks which accounts when another is signed in; signs straight out when alone', async () => {
-  const asks = await sheet('shop');
-  assert.match(asks, /data-sheet-sign-out-ask=""/, 'the supplier Sign out does not ask with another account signed in');
-  assert.doesNotMatch(asks, /data-sheet-sign-out-all/, 'the supplier sheet still draws the quiet "Sign out of all accounts" line');
-  const alone = await sheet('shop', []);
-  assert.doesNotMatch(alone, /data-sheet-sign-out-ask/, 'one account signed in: Sign out must sign out straight away');
-  assert.match(alone, /<form [^>]*action="\/auth\/sign-out" method="post"/, 'the lone account has no straight sign-out form');
-  // The two answers, opened in place by the ask (a click no server render can make — read from the source).
-  const src = stripComments(readFileSync(join(WEB, 'app/_components/account-switcher/account-switcher.tsx'), 'utf8'));
-  const choice = /askWhichSignOut && signOutAsk \? \(([\s\S]*?)\) : null\}/.exec(src)?.[1] ?? '';
-  assert.match(choice, /data-sheet-sign-out-choice/);
-  assert.match(choice, /Just this account[\s\S]*data-sheet-sign-out="all"|data-sheet-sign-out="this"[\s\S]*All accounts on this phone/);
-  assert.match(choice, /action="\/auth\/sign-out"[\s\S]*data-sheet-sign-out="this"/, '"Just this account" is not the one-account sign out');
-  assert.match(choice, /action=\{signOutAllAction\(data\.otherAccounts\)\}[\s\S]*data-sheet-sign-out="all"/, '"All accounts" is not the every-account sign out');
+test('Sign out is the shipped tile + quiet "Sign out of all accounts" line on BOTH sheets (owner ruling 8 Nov)', async () => {
+  for (const here of ['shop', 'events'] as const) {
+    for (const others of [[CLAIRE], []]) {
+      const html = await sheet(here, others);
+      assert.doesNotMatch(html, /data-sheet-sign-out-(?:ask|choice)|data-sheet-sign-out="/, `${here}: a "Sign out of…" choice is drawn — the owner kept the shipped sheet`);
+      assert.match(html, /<form [^>]*action="\/auth\/sign-out" method="post"/, `${here}: Sign out is not the straight POST`);
+      assert.match(html, /data-sheet-sign-out-all=""/, `${here}: the supplier sheet lost the quiet "Sign out of all accounts" line`);
+    }
+  }
+});
+
+test('Refer a couple is reached inside Help: the couple Help tile names the event; bad input falls back', async () => {
+  const on = await sheet('events', [CLAIRE], '/dashboard/S89E-ABCDEFGHJK/refer');
+  assert.match(on, /data-sheet-tile="help"[^>]* href="\/help\?refer=S89E-ABCDEFGHJK"/);
+  assert.doesNotMatch(on, /Refer a couple/, 'the Refer a couple tile is back ("NO NEED")');
+  const odd = await sheet('events', [CLAIRE], 'https://evil.example/dashboard/x/refer');
+  assert.match(odd, /data-sheet-tile="help"[^>]* href="\/help"/);
+  const supplier = await sheet('shop', [CLAIRE], '/dashboard/S89E-ABCDEFGHJK/refer');
+  assert.match(supplier, /data-sheet-tile="help"[^>]* href="\/vendor-dashboard\/help"/);
+  const help = stripComments(readFileSync(join(WEB, 'app/(shell)/help/page.tsx'), 'utf8'));
+  assert.match(help, /referEvent && \(await isReferralProgramEnabled\(\)[\s\S]*?href=\{`\/dashboard\/\$\{referEvent\}\/refer`\}[\s\S]*?Refer a couple/, 'the help centre does not draw the Refer a couple door');
 });
 
 test('the couple sheet is unchanged: no You are in card, the quiet "Sign out of all accounts" line still drawn', async () => {
   const html = await sheet('events');
   assert.doesNotMatch(html, /data-sheet-you-are-in/);
-  assert.doesNotMatch(html, /data-sheet-sign-out-ask/);
   assert.match(html, /data-sheet-sign-out-all=""/);
   assert.match(html, /data-sheet-tile="help"[^>]* href="\/help"/, 'the couple’s Help tile opens the help centre');
   const supplier = await sheet('shop');

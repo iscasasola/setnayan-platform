@@ -510,7 +510,7 @@ export function PapicCard({
   card,
   name = SERVICE_NAMES.papic.plain,
   brand = SERVICE_NAMES.papic.brand,
-  marker = { 'data-memories-papic': '', 'data-tour': 'memories-papic' },
+  marker = { 'data-memories-papic': '' },
 }: {
   card: PapicCardInput;
   name?: string;

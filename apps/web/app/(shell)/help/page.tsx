@@ -8,6 +8,7 @@ import { Field } from '@/app/_components/forms/field';
 import { submitHelpMessage } from '@/app/help/actions';
 import { HowSearchField, HowSearchResults } from '@/app/_components/how-search/how-search';
 import { runHowSearch } from '@/lib/how-search';
+import { isReferralProgramEnabled } from '@/lib/platform-settings';
 
 
 /*
@@ -82,12 +83,13 @@ function isHelpRole(value: string | undefined): value is HelpRole {
 }
 
 type Props = {
-  searchParams: Promise<{ submitted?: string; error?: string; role?: string; q?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; role?: string; q?: string; refer?: string }>;
 };
 
 export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   const role: HelpRole | undefined = isHelpRole(search.role) ? search.role : undefined;
+  const referEvent = typeof search.refer === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(search.refer) ? search.refer : null;
 
   // 🍎 In the iPhone app every answer is the app's own (no price, no purchase,
   // no pointer to the web, no Android) and questions about parts the app does
@@ -305,6 +307,17 @@ export default async function HelpPage({ searchParams }: Props) {
                 Your Story ›
               </Link>{' '}
               — the chapters you write about your events.
+            </p>
+          ) : null}
+          {/* 🤝 Refer a couple — the account sheet's old tile (owner 7 Nov 2026 "NO NEED" for the tile; its page stays
+              reachable inside Help). Only from an event's sheet (`?refer=<event>`), only while the programme is on;
+              the refer page checks the viewer itself. */}
+          {user && !user.is_anonymous && referEvent && (await isReferralProgramEnabled().catch(() => false)) ? (
+            <p className="mt-2 text-sm text-ink/65" data-help-refer="">
+              <Link href={`/dashboard/${referEvent}/refer`} className="font-medium text-terracotta underline-offset-2 hover:underline">
+                Refer a couple ›
+              </Link>{' '}
+              — share Setnayan with a couple you know.
             </p>
           ) : null}
           {activeRoleMeta ? (

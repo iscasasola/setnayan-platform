@@ -435,7 +435,8 @@ export function EventMemoriesGallery({
       {/* THE KEEPSAKE ROW — directly under the top row, the host's (the server draws it inside its host branch too). */}
       {host ? keepsakes : null}
       {/* 📷 PAPIC — ONE card, under the keepsakes, before the grid (2026-11-08: it left Today for Memories). */}
-      {host ? papic : null}
+      {/* 📷 The Memories tour's Papic stop lights this slot (`customer_memories_v2` → `memories-papic`). */}
+      {host && papic ? <div data-tour="memories-papic">{papic}</div> : null}
       {needsLook ? (
         <p className="pb-1.5 text-[13px] text-ink/60">Only photos to review — screened or reported. Tap one to approve, hide, report or stop that guest shooting.</p>
       ) : null}

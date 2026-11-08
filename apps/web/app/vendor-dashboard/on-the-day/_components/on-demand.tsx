@@ -16,34 +16,34 @@
  */
 import dynamic from 'next/dynamic';
 
-export const GuestReviewQr = dynamic(() => import('./guest-review-qr').then((m) => m.GuestReviewQr), { loading: () => null });
-export const ShotList = dynamic(() => import('./shot-list').then((m) => m.ShotList), { loading: () => null });
-export const IssuesLog = dynamic(() => import('./issues-log').then((m) => m.IssuesLog), { loading: () => null });
-export const VendorStatusUpdates = dynamic(() => import('./vendor-status-updates').then((m) => m.VendorStatusUpdates), {
+export const GuestReviewQr = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './guest-review-qr').then((m) => m.GuestReviewQr), { loading: () => null });
+export const ShotList = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './shot-list').then((m) => m.ShotList), { loading: () => null });
+export const IssuesLog = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './issues-log').then((m) => m.IssuesLog), { loading: () => null });
+export const VendorStatusUpdates = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './vendor-status-updates').then((m) => m.VendorStatusUpdates), {
   loading: () => null,
 });
-export const ModuleConfigurator = dynamic(() => import('./module-configurator').then((m) => m.ModuleConfigurator), {
+export const ModuleConfigurator = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './module-configurator').then((m) => m.ModuleConfigurator), {
   loading: () => null,
 });
-export const HubEventMenu = dynamic(() => import('./hub-event-menu').then((m) => m.HubEventMenu), { loading: () => null });
-export const HubThumbRow = dynamic(() => import('./hub-thumb-row').then((m) => m.HubThumbRow), { loading: () => null });
-export const HubSettings = dynamic(() => import('./hub-settings').then((m) => m.HubSettings), { loading: () => null });
-export const AccessGrants = dynamic(() => import('./access-grants').then((m) => m.AccessGrants), { loading: () => null });
-export const CrewPanel = dynamic(() => import('./crew-panel').then((m) => m.CrewPanel), { loading: () => null });
+export const HubEventMenu = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './hub-event-menu').then((m) => m.HubEventMenu), { loading: () => null });
+export const HubThumbRow = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './hub-thumb-row').then((m) => m.HubThumbRow), { loading: () => null });
+export const HubSettings = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './hub-settings').then((m) => m.HubSettings), { loading: () => null });
+export const AccessGrants = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './access-grants').then((m) => m.AccessGrants), { loading: () => null });
+export const CrewPanel = dynamic(() => import(/* webpackChunkName: "hub-parts" */ './crew-panel').then((m) => m.CrewPanel), { loading: () => null });
 
 /** Warm every chunk above (code only — no render, no data). The picked client calls it once its first paint settles. */
 export function warmHubParts(): void {
   const warm = [
-    () => import('./guest-review-qr'),
-    () => import('./shot-list'),
-    () => import('./issues-log'),
-    () => import('./vendor-status-updates'),
-    () => import('./module-configurator'),
-    () => import('./hub-event-menu'),
-    () => import('./hub-thumb-row'),
-    () => import('./hub-settings'),
-    () => import('./access-grants'),
-    () => import('./crew-panel'),
+    () => import(/* webpackChunkName: "hub-parts" */ './guest-review-qr'),
+    () => import(/* webpackChunkName: "hub-parts" */ './shot-list'),
+    () => import(/* webpackChunkName: "hub-parts" */ './issues-log'),
+    () => import(/* webpackChunkName: "hub-parts" */ './vendor-status-updates'),
+    () => import(/* webpackChunkName: "hub-parts" */ './module-configurator'),
+    () => import(/* webpackChunkName: "hub-parts" */ './hub-event-menu'),
+    () => import(/* webpackChunkName: "hub-parts" */ './hub-thumb-row'),
+    () => import(/* webpackChunkName: "hub-parts" */ './hub-settings'),
+    () => import(/* webpackChunkName: "hub-parts" */ './access-grants'),
+    () => import(/* webpackChunkName: "hub-parts" */ './crew-panel'),
   ];
   for (const w of warm) w().catch(() => undefined);
 }

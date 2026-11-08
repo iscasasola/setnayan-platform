@@ -54,24 +54,24 @@ function onDemand<P extends object>(load: () => Promise<ComponentType<P>>, loadi
 
 // ── Forms ────────────────────────────────────────────────────────────────────────────────────────────────────────
 export const FormsPageBody = onDemand(
-  () => import('@/app/vendor-dashboard/forms/_components/forms-page-body').then((m) => m.FormsPageBody),
+  () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/forms/_components/forms-page-body').then((m) => m.FormsPageBody),
   <Quiet what="your forms" />,
 );
 
 // ── Files ────────────────────────────────────────────────────────────────────────────────────────────────────────
-export const FilesFinder = onDemand(() => import('./files-finder').then((m) => m.FilesFinder), <Quiet what="the files" />);
+export const FilesFinder = onDemand(() => import(/* webpackChunkName: "picked-pages" */ './files-finder').then((m) => m.FilesFinder), <Quiet what="the files" />);
 
 // ── Report ───────────────────────────────────────────────────────────────────────────────────────────────────────
-export const ReportForm = onDemand(() => import('./report-form').then((m) => m.ReportForm), <Quiet what="the report" />);
+export const ReportForm = onDemand(() => import(/* webpackChunkName: "picked-pages" */ './report-form').then((m) => m.ReportForm), <Quiet what="the report" />);
 
 // ── Payment ──────────────────────────────────────────────────────────────────────────────────────────────────────
 export const ClientRefunds = onDemand(
-  () => import('../_components/client-refunds').then((m) => m.ClientRefunds),
+  () => import(/* webpackChunkName: "picked-pages" */ '../_components/client-refunds').then((m) => m.ClientRefunds),
   <Quiet what="refunds" />,
 );
 
 // ── The thumb row a page hands to `SupplierThumbRow` (Payment) — it floats, so it waits quietly (nothing drawn). ─────
-export const ThumbRow = onDemand(() => import('@/components/thumb-row').then((m) => m.ThumbRow), null);
+export const ThumbRow = onDemand(() => import(/* webpackChunkName: "picked-pages" */ '@/components/thumb-row').then((m) => m.ThumbRow), null);
 
 /**
  * Warm every on-demand chunk (no render, no data). Called by the shell once the first paint has settled. The paths are
@@ -79,11 +79,11 @@ export const ThumbRow = onDemand(() => import('@/components/thumb-row').then((m)
  */
 export function warmPickedPages(): void {
   const warm = [
-    () => import('@/app/vendor-dashboard/forms/_components/forms-page-body'),
-    () => import('./files-finder'),
-    () => import('./report-form'),
-    () => import('../_components/client-refunds'),
-    () => import('@/components/thumb-row'),
+    () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/forms/_components/forms-page-body'),
+    () => import(/* webpackChunkName: "picked-pages" */ './files-finder'),
+    () => import(/* webpackChunkName: "picked-pages" */ './report-form'),
+    () => import(/* webpackChunkName: "picked-pages" */ '../_components/client-refunds'),
+    () => import(/* webpackChunkName: "picked-pages" */ '@/components/thumb-row'),
   ];
   for (const w of warm) w().catch(() => undefined);
 }

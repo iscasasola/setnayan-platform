@@ -107,7 +107,7 @@ function resolve(from: string, spec: string): string | null {
 function sourceOf(file: string, src: string, name: string, depth = 0): string | null {
   const spec =
     new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from '([^']+)'`).exec(src)?.[1] ??
-    new RegExp(`const ${name}\\s*=\\s*\\w+\\(\\s*\\(\\)\\s*=>\\s*import\\('([^']+)'\\)`).exec(src)?.[1] ??
+    new RegExp(`const ${name}\\s*=\\s*\\w+\\(\\s*\\(\\)\\s*=>\\s*import\\(\\s*(?:\\/\\*[^*]*\\*\\/\\s*)?'([^']+)'\\)`).exec(src)?.[1] ??
     (depth ? new RegExp(`export \\{[^}]*\\b${name}\\b[^}]*\\} from '([^']+)'`).exec(src)?.[1] : undefined);
   const dep = spec ? resolve(file, spec) : null;
   if (!dep) return null;
@@ -130,7 +130,7 @@ test('4 · every <body> portal the picked client’s pages reach floats over the
     const src = read(f);
     // Static imports AND `import('…')` — a part loaded on demand (`_pages/lazy.tsx`, the thread's and Hub's `on-demand.tsx`)
     // still draws inside the picked client.
-    for (const m of src.matchAll(/(?:(?:^|\n)\s*(?:import|export)\s+(?!type\b)(?:[^'"]*?from\s+)?|\bimport\(\s*)'([^']+)'/g)) {
+    for (const m of src.matchAll(/(?:(?:^|\n)\s*(?:import|export)\s+(?!type\b)(?:[^'"]*?from\s+)?|\bimport\(\s*(?:\/\*[^*]*\*\/\s*)?)'([^']+)'/g)) {
       const dep = resolve(f, m[1]!);
       if (dep) stack.push(dep);
     }

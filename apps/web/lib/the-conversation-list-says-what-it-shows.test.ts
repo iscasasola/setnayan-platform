@@ -308,7 +308,7 @@ test('🔑 12 · ONE column renders both sides, and it knows both vocabularies',
     // (`messages/[threadId]/_components/on-demand.tsx`), never a copy.
     const viaOnDemand =
       /import \{[^}]*\bConversationColumn\b[^}]*\} from '\.\/_components\/on-demand'/.test(src) &&
-      /export const ConversationColumn = dynamic\(\s*\(\) => import\('@\/app\/_components\/chat\/conversation-column'\)/.test(
+      /export const ConversationColumn = dynamic\(\s*\(\) => import\(\s*(?:\/\*[^*]*\*\/\s*)?'@\/app\/_components\/chat\/conversation-column'\)/.test(
         read(PAGE.replace(/page\.tsx$/, '_components/on-demand.tsx')),
       );
     assert.ok(

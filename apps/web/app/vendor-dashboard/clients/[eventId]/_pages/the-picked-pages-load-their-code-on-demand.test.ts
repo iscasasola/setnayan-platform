@@ -146,10 +146,10 @@ test('4 · each on-demand module warms exactly what it wraps; the shell warms al
   for (const f of ON_DEMAND) {
     const src = read(f);
     assert.ok(isClient(raw(f)), `${rel(f)} is not a client module — its wrappers would not split`);
-    const wrapped = [...src.matchAll(/export const \w+ = (?:dynamic|onDemand)\(\s*\(\) =>\s*import\('([^']+)'\)/g)].map((m) => m[1]!);
+    const wrapped = [...src.matchAll(/export const \w+ = (?:dynamic|onDemand)\(\s*\(\) =>\s*import\(\s*(?:\/\*[^*]*\*\/\s*)?'([^']+)'\)/g)].map((m) => m[1]!);
     assert.ok(wrapped.length >= 4, `${rel(f)}: found ${wrapped.length} wrappers — re-anchor`);
     const warmFn = src.slice(src.indexOf('export function warm'));
-    const warmed = [...warmFn.matchAll(/\(\) => import\('([^']+)'\)/g)].map((m) => m[1]!);
+    const warmed = [...warmFn.matchAll(/\(\) => import\(\s*(?:\/\*[^*]*\*\/\s*)?'([^']+)'\)/g)].map((m) => m[1]!);
     assert.deepEqual([...warmed].sort(), [...new Set(wrapped)].sort(), `${rel(f)}: the warm list is not the wrapped list`);
   }
   const shell = read(join(CLIENT, '_components', 'picked-client-shell.tsx'));

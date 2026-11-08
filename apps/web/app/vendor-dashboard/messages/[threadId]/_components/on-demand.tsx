@@ -33,73 +33,73 @@ function Quiet({ what }: { what: string }) {
 
 // ── The conversation ─────────────────────────────────────────────────────────────────────────────────────────────
 export const ChatMessageStream = dynamic(
-  () => import('@/app/_components/chat-message-stream').then((m) => m.ChatMessageStream),
+  () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-message-stream').then((m) => m.ChatMessageStream),
   { loading: () => <Quiet what="the chat" /> },
 );
-export const ChatSendForm = dynamic(() => import('@/app/_components/chat-send-form').then((m) => m.ChatSendForm), {
+export const ChatSendForm = dynamic(() => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-send-form').then((m) => m.ChatSendForm), {
   loading: () => null,
 });
-export const ThreadToolsSheet = dynamic(() => import('./thread-tools-sheet').then((m) => m.ThreadToolsSheet), {
+export const ThreadToolsSheet = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './thread-tools-sheet').then((m) => m.ThreadToolsSheet), {
   loading: () => null,
 });
 export const NegotiationComposerMenu = dynamic(
-  () => import('@/app/_components/negotiation-composer-menu').then((m) => m.NegotiationComposerMenu),
+  () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/negotiation-composer-menu').then((m) => m.NegotiationComposerMenu),
   { loading: () => null },
 );
 export const ChatPrivacyNotice = dynamic(
-  () => import('@/app/_components/chat-privacy-notice').then((m) => m.ChatPrivacyNotice),
+  () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-privacy-notice').then((m) => m.ChatPrivacyNotice),
   { loading: () => null },
 );
-export const ChatThreadMenu = dynamic(() => import('@/app/_components/chat-thread-menu').then((m) => m.ChatThreadMenu), {
+export const ChatThreadMenu = dynamic(() => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-thread-menu').then((m) => m.ChatThreadMenu), {
   loading: () => null,
 });
-export const ChatInfoRailTrigger = dynamic(() => import('./chat-info-rail').then((m) => m.ChatInfoRailTrigger), {
+export const ChatInfoRailTrigger = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './chat-info-rail').then((m) => m.ChatInfoRailTrigger), {
   loading: () => null,
 });
 export const ConversationColumn = dynamic(
-  () => import('@/app/_components/chat/conversation-column').then((m) => m.ConversationColumn),
+  () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat/conversation-column').then((m) => m.ConversationColumn),
   { loading: () => null },
 );
 export const VendorEventDayPrepCta = dynamic(
-  () => import('@/app/_components/vendor-event-day-prep-cta').then((m) => m.VendorEventDayPrepCta),
+  () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/vendor-event-day-prep-cta').then((m) => m.VendorEventDayPrepCta),
   { loading: () => null },
 );
 export const InquiryOutcomeCapture = dynamic(
-  () => import('./inquiry-outcome-capture').then((m) => m.InquiryOutcomeCapture),
+  () => import(/* webpackChunkName: "thread-parts" */ './inquiry-outcome-capture').then((m) => m.InquiryOutcomeCapture),
   { loading: () => null },
 );
 
 // ── The quote ────────────────────────────────────────────────────────────────────────────────────────────────────
-export const ProposalMaker = dynamic(() => import('@/app/_components/proposal-maker').then((m) => m.ProposalMaker), {
+export const ProposalMaker = dynamic(() => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/proposal-maker').then((m) => m.ProposalMaker), {
   loading: () => <Quiet what="the quote" />,
 });
-export const SendProposalCard = dynamic(() => import('./send-proposal-card').then((m) => m.SendProposalCard), {
+export const SendProposalCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './send-proposal-card').then((m) => m.SendProposalCard), {
   loading: () => null,
 });
-export const QuoteVersionLine = dynamic(() => import('@/app/_components/quote-version-line').then((m) => m.QuoteVersionLine), {
+export const QuoteVersionLine = dynamic(() => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/quote-version-line').then((m) => m.QuoteVersionLine), {
   loading: () => null,
 });
-export const VendorOfferService = dynamic(() => import('./vendor-offer-service').then((m) => m.VendorOfferService), {
+export const VendorOfferService = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './vendor-offer-service').then((m) => m.VendorOfferService), {
   loading: () => null,
 });
 
 /** Warm every chunk above (code only — no render, no data). The picked client calls it once its first paint settles. */
 export function warmThreadParts(): void {
   const warm = [
-    () => import('@/app/_components/chat-message-stream'),
-    () => import('@/app/_components/chat-send-form'),
-    () => import('./thread-tools-sheet'),
-    () => import('@/app/_components/negotiation-composer-menu'),
-    () => import('@/app/_components/chat-privacy-notice'),
-    () => import('@/app/_components/chat-thread-menu'),
-    () => import('./chat-info-rail'),
-    () => import('@/app/_components/chat/conversation-column'),
-    () => import('@/app/_components/vendor-event-day-prep-cta'),
-    () => import('./inquiry-outcome-capture'),
-    () => import('@/app/_components/proposal-maker'),
-    () => import('./send-proposal-card'),
-    () => import('@/app/_components/quote-version-line'),
-    () => import('./vendor-offer-service'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-message-stream'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-send-form'),
+    () => import(/* webpackChunkName: "thread-parts" */ './thread-tools-sheet'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/negotiation-composer-menu'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-privacy-notice'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat-thread-menu'),
+    () => import(/* webpackChunkName: "thread-parts" */ './chat-info-rail'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/chat/conversation-column'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/vendor-event-day-prep-cta'),
+    () => import(/* webpackChunkName: "thread-parts" */ './inquiry-outcome-capture'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/proposal-maker'),
+    () => import(/* webpackChunkName: "thread-parts" */ './send-proposal-card'),
+    () => import(/* webpackChunkName: "thread-parts" */ '@/app/_components/quote-version-line'),
+    () => import(/* webpackChunkName: "thread-parts" */ './vendor-offer-service'),
   ];
   for (const w of warm) w().catch(() => undefined);
 }

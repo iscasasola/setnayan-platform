@@ -58,7 +58,7 @@ function onDemand(rel: string, piece: string, from: string): boolean {
   const esc = from.replace(/[/.]/g, '\\$&');
   assert.match(
     wrap,
-    new RegExp(`export const ${piece} = dynamic\\(\\s*\\(\\) => import\\('${esc}'\\)\\.then\\(\\(m\\) => m\\.${piece}\\)`),
+    new RegExp(`export const ${piece} = dynamic\\(\\s*\\(\\) => import\\(\\s*(?:\\/\\*[^*]*\\*\\/\\s*)?'${esc}'\\)\\.then\\(\\(m\\) => m\\.${piece}\\)`),
     `${rel}: the on-demand ${piece} is not the shared one`,
   );
   return true;

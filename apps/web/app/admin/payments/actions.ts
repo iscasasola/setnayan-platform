@@ -77,6 +77,10 @@ import {
   promotionRefusedReason,
 } from '@/lib/order-promotion-rule';
 import { scanAllPriors } from '@/lib/payment-priors-scan';
+import {
+  convertOrderToPapicCredits,
+  moveOrderToNextEvent,
+} from '@/lib/admin/service-remedies.server';
 
 /**
  * ────────────────────────────────────────────────────────────────────────────
@@ -1512,6 +1516,14 @@ export async function requestPaymentResubmit(formData: FormData) {
 
 export async function refundOrder(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
+  // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
+  // Two intent branches, not new exported actions: the server-action budget is
+  // at its ceiling, and both sit beside this refund tool on the same order row.
+  // Neither moves money. See lib/admin/service-remedies.server.ts.
+  const intent = formData.get('intent');
+  if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
+    return serviceRemedy(adminUserId, intent, formData);
+  }
   const orderId = formData.get('order_id');
   const reason = nullIfBlank(formData.get('reason'));
   const proofUrl = nullIfBlank(formData.get('proof_url'));
@@ -1657,6 +1669,43 @@ export async function refundOrder(formData: FormData) {
     refundCentavos,
     actingAdminId: adminUserId,
   });
+}
+
+/**
+ * "Convert to Papic credits" / "Move to the couple's next event" — the two
+ * things the public refund page promises instead of money back. The work and the
+ * double-click guard are one SQL transaction each; this lands the admin back on
+ * the desk with the outcome as a notice (refusals in the warn style).
+ */
+async function serviceRemedy(
+  adminUserId: string,
+  intent: 'convert_to_papic_credits' | 'move_to_next_event',
+  formData: FormData,
+): Promise<never> {
+  const orderId = formData.get('order_id');
+  if (typeof orderId !== 'string') throw new Error('Missing order_id.');
+  const q = deskQuery(formData.get('q'));
+  const reason = nullIfBlank(formData.get('reason'));
+  const admin = createAdminClient();
+
+  const outcome =
+    intent === 'convert_to_papic_credits'
+      ? await convertOrderToPapicCredits(admin, {
+          adminUserId,
+          orderId,
+          expectedCreditsRaw: formData.get('expected_credits'),
+          reason,
+        })
+      : await moveOrderToNextEvent(admin, {
+          adminUserId,
+          orderId,
+          toEventId: nullIfBlank(formData.get('to_event_id')),
+          reason,
+        });
+
+  revalidatePath('/admin/payments');
+  if (outcome.ok) after(() => revalidatePath('/dashboard', 'layout'));
+  redirect(deskUrl(q, outcome.message, !outcome.ok));
 }
 
 /**

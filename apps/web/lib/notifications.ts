@@ -480,6 +480,15 @@ export type NotificationType =
      named is in the create picker (Admin › Event types). Enum value:
      20271293446382. */
   | 'event_type_added'
+  /* 💳 A SERVICE THEY COULD NOT USE (owner 2026-11-05 "yes to refund"; the
+     public /refunds page). → the BUYER, in the app only (NOT on the email
+     allowlist — owner 2026-10-11). Emitted from Admin › Payments
+     (`app/admin/payments/remedy-actions.ts`) only when the action was applied,
+     never on a repeat press. `became_credits` = its value is now Papic credits
+     on the event; `moved_to_event` = it moved to their next event. Not a
+     refund: no money moves. Enum values: 20271309539718. */
+  | 'service_became_credits'
+  | 'service_moved_to_event'
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
@@ -698,6 +707,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
   event_type_added: 'Your event type was added',
+  service_became_credits: 'Papic credits added',
+  service_moved_to_event: 'Service moved',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
@@ -930,6 +941,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_declined: 'bg-warn-100 text-warn-900',
   // What they asked for is ready — a settled good thing, like an agreement.
   event_type_added: 'bg-success-100 text-success-800',
+  // What we promised on /refunds, done — settled, like an agreement.
+  service_became_credits: 'bg-success-100 text-success-800',
+  service_moved_to_event: 'bg-success-100 text-success-800',
   // Money waiting on a yes → the same action-needed amber as a payment ask. The
   // answer can be yes or no, so it takes amber too rather than claim a verdict
   // the type alone does not carry (same reasoning as part_reopen_answered).
@@ -1205,6 +1219,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
   event_type_added: 'sparkle',
+  service_became_credits: 'image',
+  service_moved_to_event: 'receipt',
   vendor_joined: 'user-plus',
   samahan_join: 'user-plus',
   order_quoted: 'receipt',

@@ -130,6 +130,9 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   event_auto_surfaced: 'low',
   // "Ask us to add it" — the event type you asked for is now in the picker. A small update.
   event_type_added: 'low',
+  // Admin › Payments settled a service they could not use — credits added, or moved to their next event.
+  service_became_credits: 'low',
+  service_moved_to_event: 'low',
   vendor_status_change: 'low',
   vendor_credit_expiring: 'low',
   vendor_joined: 'low',

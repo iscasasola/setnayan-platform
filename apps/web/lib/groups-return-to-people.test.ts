@@ -94,11 +94,17 @@ test('3 · People says "You left the group." when it arrives with the note', () 
 
 const GROUP_PAGE = 'app/dashboard/(account)/samahan/[communityId]/page.tsx';
 const GROUP_BACK = 'app/dashboard/(account)/samahan/[communityId]/_components/group-back.tsx';
+const GROUP_ROOM = 'app/dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx';
 
 test('4 · every ‹ on the group page returns in place, and falls back to the map\'s home', () => {
   const page = read(GROUP_PAGE);
   // Both ‹s — the group's own and a one-tap view's — are GroupBack; none is drawn by hand beside it.
-  assert.equal((page.match(/<GroupBack\b/g) ?? []).length, 2, 'the group page draws a ‹ that is not GroupBack');
+  // Since the chatroom (#7009, 2026-10-28) the group itself is GroupChatroom, which draws its own ‹ People; the page's
+  // one GroupBack is a one-tap view's ‹ to its group. Both must return in place.
+  assert.equal((page.match(/<GroupBack\b/g) ?? []).length, 1, 'the group page draws a ‹ that is not GroupBack');
+  const room = read(GROUP_ROOM);
+  assert.match(room, /<ReturnInPlace>\s*<Link\b[^>]*href=\{backHref\}[\s\S]*?<\/Link>\s*<\/ReturnInPlace>/, 'the chatroom ‹ People lost ReturnInPlace — it jumps to People › Groups again');
+  assert.match(page, /backHref=\{GROUP_HOME\.href\}/, 'the chatroom ‹ no longer falls back to the map\'s home');
   assert.doesNotMatch(page, /<ArrowLeft\b/, 'a hand-drawn ‹ on the group page skips ReturnInPlace');
   // GroupBack IS the return-in-place: its link sits inside ReturnInPlace.
   const back = read(GROUP_BACK);

@@ -52,6 +52,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FacebookDualStreamCard } from '@/app/_components/facebook-dual-stream-card';
 import { LiveStudioRecordingsCard } from '@/app/_components/live-studio-recordings-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { readLatestVenueCheck } from '@/lib/venue-check-read.server';
+import { VenueCheckCard } from './venue-check/_components/venue-check-card';
 
 export const metadata = { title: 'Live Watch setup' };
 
@@ -261,6 +263,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         ? `In Event Hub Pro · ${formatPhp(monogramPrices.full)}`
         : null;
 
+  // The venue connection check's last result — the couple's and the coordinator's to see.
+  const venueCheck = await readLatestVenueCheck(supabase, eventId);
+
   // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples
   // download from their Setnayan dashboard via a link that resolves the YouTube
   // watch URL through the Data API"). Service-role client because both source
@@ -410,6 +415,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         facebookUrlSaved={Boolean(facebookUrlSaved)}
         facebookUrlError={Boolean(facebookUrlError)}
       />
+
+      {/* The venue connection check — the page's footer: the tool the step-3 tip used to only promise. */}
+      <VenueCheckCard href={`/dashboard/${eventId}/studio/panood/setup/venue-check`} latest={venueCheck} />
     </section>
   );
 }
@@ -879,9 +887,9 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
       </article>
 
       <p className="text-xs text-ink/55">
-        Pro tip: each phone needs ~500 kbps sustained upload — once streaming is live,
-        run a venue connectivity check a week ahead so you can rent a portable hotspot if
-        needed.
+        Pro tip: each phone needs ~500 kbps sustained upload. Check the venue&rsquo;s
+        connection a week ahead (at the bottom of this page) so there is time to rent a
+        portable hotspot if needed.
       </p>
     </section>
   );

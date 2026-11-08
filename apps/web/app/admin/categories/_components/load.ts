@@ -188,7 +188,7 @@ type SchemaRow = {
  */
 export async function loadCategories(admin: Admin, openTileId: string | null): Promise<CategoriesData> {
   const failed: string[] = [];
-  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes, oneRes] = await Promise.all([
+  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes, oneRes, hintsRes] = await Promise.all([
     getTaxonomy(),
     admin
       .from('canonical_service_schemas')
@@ -213,6 +213,9 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
     admin.from('onboarding_refinements').select('tile_id'),
     // ONE PER EVENT (owner 2026-10-29) — its own read: an unreadable switch says so on the panel (null), never "off".
     admin.from('service_categories').select('id, one_per_event, default_chapters').eq('tier', 2),
+    // ⓘ TEXT OF A SERVICE (plan D4) — its own read, so a build running ahead of its column never takes the services
+    // list down; an unreadable line is said on the panel (undefined), never shown as an empty box.
+    admin.from('canonical_service_schemas').select('canonical_service, hint_en'),
   ]);
   if (tax.source === 'fallback') failed.push('the category tree');
   noteFailure(failed, 'services', schemasRes.error);
@@ -221,6 +224,10 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
   noteFailure(failed, 'deadlines', deadlinesRes.error);
   noteFailure(failed, 'search words', aliasRes.error);
   noteFailure(failed, 'what couples choose', leafCountRes.error);
+  noteFailure(failed, 'service ⓘ texts', hintsRes.error);
+  const serviceHints = hintsRes.error
+    ? null
+    : new Map(((hintsRes.data ?? []) as Array<{ canonical_service: string; hint_en: string | null }>).map((r) => [r.canonical_service, r.hint_en ?? null]));
   const onePerEvent = oneRes.error
     ? null
     : new Map(((oneRes.data ?? []) as Array<{ id: string; one_per_event: boolean | null }>).map((r) => [r.id, r.one_per_event === true]));
@@ -283,6 +290,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
       dietary: meta?.dietary ?? null,
       secondaryTiles: Array.isArray(meta?.secondary_tiles) ? [...meta.secondary_tiles] : [],
       eventTypes: extra.get(s.canonical_service)?.applicable_event_types ?? null,
+      hint: serviceHints ? (serviceHints.get(s.canonical_service) ?? null) : undefined,
       schemaVersion: s.schema_version ?? 1,
       sharedGroups: Array.isArray(s.shared_attribute_groups) ? s.shared_attribute_groups : [],
       fields: Object.entries(attrs).map(([key, def]) => {

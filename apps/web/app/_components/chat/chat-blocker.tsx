@@ -21,7 +21,7 @@ import { createPortal } from 'react-dom';
 import { ActionButton } from '@/components/action-button';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
 import { actionHeld, blockerHoldSeconds, holdLeft, holdLine } from '@/lib/blocker-hold';
-import { recordBlockerShow, type BlockerKind } from './blocker-actions';
+import { recordBlockerShow, type BlockerKind } from './blocker-show';
 
 export type BlockerFactRow = { label: string; value: ReactNode };
 

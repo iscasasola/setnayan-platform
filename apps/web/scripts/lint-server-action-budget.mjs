@@ -85,9 +85,15 @@ import { fileURLToPath } from 'node:url';
 // "raise once with the reasoned line"). No unimported export was found in the lane's files to retire; message hearts
 // write through the browser client under their own RLS, so they spend no route. ⚠ Other lanes raise this too — the
 // controller reconciles the ONE number on the merged tree (sum of the lanes' +n), checked by check-vercel-route-count.
-// INTEGRATION (2026-11-08, claude/supplier-1build): main's 1233 + the lanes' new actions; CEILING = the count
-// measured on the merged tree (see below), never the sum of the arrows.
-export const CEILING = 1234;
+// 1233 → 1237 (INTEGRATION, 2026-11-08, claude/supplier-1build — THE ONE BUILD): measured on the merged tree against
+// origin/main's 1233 (both counted by this script). The four new exports, each imported by its one caller:
+// C2 `admin/gifts/gift-limit-actions.ts` · `saveGiftLimitPct` (the gift limit's one audited writer, above);
+// C3 `vendor-dashboard/forms/actions.ts` · `formsAction` (ONE dispatcher for the Form Maker — save · use · send · retire),
+// C3 `vendor-dashboard/clients/[eventId]/report-actions.ts` · `submitSupplierReport` (the picked client's Report page),
+// C3 `admin/categories/form-suggestion-actions.ts` · `formSuggestionsAction` (ONE dispatcher for Admin › Categories' new template ·
+// suggest · unsuggest). No unimported export was found to retire. No fresh `vercel build` count — 2026-11-07 measured
+// 1835 routes, 165 under check-vercel-route-count's 2000, so +4 fits; the SUM stays gated by that job on the PR build.
+export const CEILING = 1237;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

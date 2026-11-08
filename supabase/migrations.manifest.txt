@@ -8,7 +8,7 @@
 # Regenerate: node apps/web/scripts/lint-migrations-never-deleted.mjs --write
 # NEVER delete a line to go green — restore the migration file instead.
 #
-# versions: 1787
+# versions: 1794
 20260512000000	20260512000000_setnayan_base.sql
 20260513000000	20260513000000_iteration_0000_shell_schema.sql
 20260513010000	20260513010000_iteration_0001_guests.sql
@@ -1794,5 +1794,12 @@
 20271323347634	20271323347634_supplier_scan_guest_reviews.sql
 20271323363853	20271323363853_badge_rewards_land_in_the_gift_stock.sql
 20271324259202	20271324259202_badge_upgrades_ready_to_start.sql
+20271324946509	20271324946509_the_brief_names_the_hosts.sql
+20271325118550	20271325118550_a_shop_keeps_a_library_of_forms.sql
 20271325152313	20271325152313_a_couples_link_clips_and_holds_the_name.sql
+20271325290605	20271325290605_a_supplier_report_says_where_it_came_from.sql
+20271325510297	20271325510297_supplier_report_notice_type.sql
 20271325516180	20271325516180_a_badge_fee_and_one_free_booking_per_business_meet.sql
+20271325581544	20271325581544_a_message_can_be_hearted.sql
+20271326463501	20271326463501_the_gift_limit_is_an_admin_setting.sql
+20271327129110	20271327129110_a_shop_counts_its_booked_loops.sql

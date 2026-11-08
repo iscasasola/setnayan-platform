@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 327 jobs, 208 of them form-driven, as of 1322d72223.
+// that performs it. 329 jobs, 210 of them form-driven, as of 3d330060aa.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1088,6 +1088,25 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     ],
     "refusedWhenEmpty": [],
     "destructive": true
+  },
+  {
+    "name": "formSuggestionsAction",
+    "phrase": "form suggestions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "op",
+      "category_id",
+      "title",
+      "lines",
+      "template_key"
+    ],
+    "refusedWhenEmpty": [
+      "category_id",
+      "title",
+      "template_key"
+    ],
+    "destructive": false
   },
   {
     "name": "getDeepSearchChatPromptAction",
@@ -2510,6 +2529,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/booking-fees",
     "fields": [
       "fee_review_unsettled_events_min"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveGiftLimitPct",
+    "phrase": "save gift limit pct",
+    "ownerPath": "/admin/gifts",
+    "resolvedPath": "/admin/gifts",
+    "fields": [
+      "gift_limit_pct"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

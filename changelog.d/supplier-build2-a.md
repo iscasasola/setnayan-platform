@@ -16,5 +16,8 @@
   ends staying put; a sideways swipe across the page turns the page. Guard: `the-page-menu-centres-the-picked-page.test.ts`.
 - **#27** The return rule: letting a picked day go glides the page back to where it stood before any day opened
   (520 ms; instant under reduced motion), waiting for the list to grow back first. Guard: `calendar-day-box.test.ts`.
+- **#29** Accept bookings is felt: flipping the day bar's switch strikes / un-strikes the day on the month and the week
+  strip at once, then squashes it (off) or pops it with a small confetti burst (on); reduced motion keeps only the
+  strike. Guard: `customers/accept-bookings-is-felt.test.ts`.
 
 SPEC IMPACT: None — builds the approved v113/v118 prototype (corpus prototypes/supplier_clients_2026-11-07).

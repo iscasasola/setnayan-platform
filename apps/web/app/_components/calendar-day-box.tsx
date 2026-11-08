@@ -272,3 +272,101 @@ export function glideScrollTo(scroller: HTMLElement, top: number): () => void {
   raf = requestAnimationFrame(tick);
   return stop;
 }
+
+/**
+ * 🎉 ACCEPT BOOKINGS IS FELT (Build 2 row #29, owner: *"turning off a date did not cross out the date… the date
+ * crushing… a celebratory when it is going to turn on"* — prototype v118 `dayMark` · `@keyframes dcrush / dcheer`).
+ *
+ * The day's mark (its `DayBox`, on the month and on the week strip) moves the moment the switch is flipped — the
+ * strike itself is drawn by the calendar at once, from the switch's shown state:
+ *   · off → a squash (wide-and-flat, then back) while the strike draws in, 620 ms;
+ *   · on  → a pop with a small tilt, 700 ms, and 12 pieces of confetti burst from each visible cell, 820 ms.
+ * Reduced motion: nothing moves and no confetti — the strike still changes at once. The confetti is page decoration:
+ * it rides at the sticky layer (`--sn-z-sticky`), under the thumb row, the nav and every pop-up.
+ */
+export const DAY_FEEL = {
+  crushMs: 620,
+  cheerMs: 700,
+  confettiMs: 820,
+  pieces: 12,
+  ease: DAY_BOX_MOTION.ease,
+  confettiEase: 'cubic-bezier(.2,.7,.3,1)',
+} as const;
+/** The prototype's five (gold · green · blue · pink · deep gold) as the app's tokens — the month's own mark colours. */
+const CONFETTI_COLOURS = ['var(--sn-gold-500)', 'rgb(var(--color-ok))', 'rgb(var(--color-info))', 'rgb(var(--color-mulberry))', 'var(--sn-gold-700)'] as const;
+
+/** Squash (off) or pop + confetti (on) every given day mark. Returns how many confetti pieces it threw. */
+export function feelDay(boxes: readonly HTMLElement[], off: boolean): number {
+  if (reducedMotion()) return 0;
+  for (const b of boxes) {
+    if (!b.animate) continue;
+    if (off) {
+      b.animate(
+        [
+          { transform: 'none', textDecorationColor: 'transparent' },
+          { transform: 'scale(1.18,.55)', offset: 0.3 },
+          { transform: 'scale(.9,1.1)', textDecorationColor: 'transparent', offset: 0.55 },
+          { transform: 'scale(1.04,.96)', offset: 0.75 },
+          { transform: 'none', textDecorationColor: 'currentColor' },
+        ],
+        { duration: DAY_FEEL.crushMs, easing: DAY_FEEL.ease },
+      );
+    } else {
+      b.animate(
+        [
+          { transform: 'none' },
+          { transform: 'scale(1.3) rotate(-4deg)', offset: 0.35 },
+          { transform: 'scale(.94) rotate(2deg)', offset: 0.6 },
+          { transform: 'scale(1.05)', offset: 0.8 },
+          { transform: 'none' },
+        ],
+        { duration: DAY_FEEL.cheerMs, easing: DAY_FEEL.ease },
+      );
+    }
+  }
+  if (off) return 0;
+  let thrown = 0;
+  for (const b of boxes) {
+    const r = b.getBoundingClientRect();
+    if (!r.width || r.bottom < 0 || r.top > window.innerHeight) continue; // off screen: no burst
+    const hold = b.closest<HTMLElement>('[data-dates-week-strip]');
+    if (hold && Number(getComputedStyle(hold).opacity) < 0.4) continue; // the folded-away week strip
+    thrown += confettiFrom(r.left + r.width / 2, r.top + r.height / 2);
+  }
+  return thrown;
+}
+
+function confettiFrom(cx: number, cy: number): number {
+  for (let i = 0; i < DAY_FEEL.pieces; i++) {
+    const f = document.createElement('i');
+    f.setAttribute('aria-hidden', 'true');
+    f.dataset.dayConfetti = '';
+    Object.assign(f.style, {
+      position: 'fixed',
+      left: `${cx - 3.5}px`,
+      top: `${cy - 3.5}px`,
+      width: '7px',
+      height: '7px',
+      borderRadius: '2px',
+      pointerEvents: 'none',
+      zIndex: 'var(--sn-z-sticky)',
+      background: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length]!,
+    });
+    document.body.appendChild(f);
+    if (!f.animate) {
+      f.remove();
+      continue;
+    }
+    const a = (i / DAY_FEEL.pieces) * Math.PI * 2 + Math.random() * 0.4;
+    const d = 26 + Math.random() * 22;
+    f.animate(
+      [
+        { transform: 'translate(0,0) rotate(0) scale(.6)', opacity: 1 },
+        { transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d - 6}px) rotate(${180 + Math.random() * 180}deg) scale(1)`, opacity: 1, offset: 0.55 },
+        { transform: `translate(${Math.cos(a) * d * 1.15}px,${Math.sin(a) * d + 14}px) rotate(360deg) scale(.8)`, opacity: 0 },
+      ],
+      { duration: DAY_FEEL.confettiMs, easing: DAY_FEEL.confettiEase },
+    ).onfinish = () => f.remove();
+  }
+  return DAY_FEEL.pieces;
+}

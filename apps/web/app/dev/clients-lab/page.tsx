@@ -197,6 +197,20 @@ function pickedBodies(page: PickedClientPage, calFail: boolean): Record<PickedCl
   };
 }
 
+/**
+ * #29 The lab's stand-ins for the day bar's two writes: they write NOTHING (no database) and answer, so "Accept
+ * bookings" can be flipped and felt on a dummy env. `?refuse=1` hands the refusing one instead — the switch puts itself
+ * back and the calendar drops its overlay. Not exported, so no route and no server-action budget.
+ */
+async function labDayWrite(): Promise<void> {
+  'use server';
+  if (process.env.NODE_ENV === 'production') throw new Error('clients-lab: not in production');
+}
+async function labDayRefused(): Promise<void> {
+  'use server';
+  throw new Error('clients-lab: refused on purpose');
+}
+
 export default async function ClientsLabPage({ searchParams }: Props) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -261,6 +275,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
                 pools: LAB_CALENDAR.pools,
                 bookings: LAB_CALENDAR.bookings,
                 blocks: LAB_CALENDAR.blocks,
+                dayActions: one(sp.refuse) === '1' ? { addManualBlock: labDayRefused, removeBlock: labDayRefused } : { addManualBlock: labDayWrite, removeBlock: labDayWrite },
                 fetchMonth: null,
                 closuresComplete: true,
               }}

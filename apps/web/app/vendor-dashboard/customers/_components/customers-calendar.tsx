@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
-import { DayBox, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
+import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
@@ -186,7 +186,7 @@ export function CustomersCalendar({
     );
   }, [month, monthInputs, shownPools, bookings, blocks, todayIso, inquiries]);
 
-  const states = useMemo(() => {
+  const readStates = useMemo(() => {
     const out = new Map<CalendarDay, CalendarDayState>();
     for (const d of data.days) {
       const st = dayStateOf(d);
@@ -194,6 +194,39 @@ export function CustomersCalendar({
     }
     return out;
   }, [data.days]);
+
+  // 🎉 #29 ACCEPT BOOKINGS IS FELT: the day bar's switch is flipped → the day's cell (month + week strip) is struck /
+  // un-struck AT ONCE, in the picked fill too, from what the switch now SHOWS — not when the write's re-read lands.
+  // The overlay goes when the re-read arrives (`blocks` changes: the read is the truth again) or the write is
+  // refused. Then the mark moves (`feelDay`: squash off · pop + confetti on; nothing under reduced motion).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [flipped, setFlipped] = useState<ReadonlyMap<CalendarDay, boolean>>(() => new Map());
+  useEffect(() => setFlipped((f) => (f.size ? new Map() : f)), [blocks]);
+  const states = useMemo(() => {
+    if (flipped.size === 0) return readStates;
+    const out = new Map(readStates);
+    for (const [d, open] of flipped) out.set(d, { ...(out.get(d) ?? {}), blocked: !open });
+    return out;
+  }, [readStates, flipped]);
+  const feel = useRef<{ day: CalendarDay; off: boolean } | null>(null);
+  const onFlip = useCallback((day: string, open: boolean, how: 'flip' | 'refused') => {
+    feel.current = how === 'flip' ? { day, off: !open } : null;
+    setFlipped((f) => {
+      const next = new Map(f);
+      if (how === 'flip') next.set(day, open);
+      else next.delete(day);
+      return next;
+    });
+  }, []);
+  useLayoutEffect(() => {
+    const f = feel.current;
+    feel.current = null;
+    if (!f || !rootRef.current) return;
+    const marks = rootRef.current.querySelectorAll<HTMLElement>(
+      `[data-calendar-day="${f.day}"] [data-calendar-dn], [data-dates-week-day="${f.day}"] [data-calendar-dn]`,
+    );
+    feelDay([...marks], f.off);
+  }, [flipped]);
 
   const goToMonth = useCallback(
     (m: CalendarMonth, day?: CalendarDay) => {
@@ -416,7 +449,7 @@ export function CustomersCalendar({
   const near = picked ? nearWord(todayIso, picked) : '';
 
   return (
-    <div data-dates-month={place} aria-busy={pending}>
+    <div ref={rootRef} data-dates-month={place} aria-busy={pending}>
       {/* "All schedules ▾" — the ONE dropdown, above the month (prototype datesBody). One schedule: its one line. */}
       {!onClients ? null : options.length > 2 ? (
         <div className="mb-2 mt-1 flex min-h-11 items-center" data-dates-eyebrow="">
@@ -540,7 +573,7 @@ export function CustomersCalendar({
             ) : null}
           </div>
           {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
-          {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
+          {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} onFlip={onFlip} /> : null}
           <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
         </>
       ) : oneScreen ? null : (

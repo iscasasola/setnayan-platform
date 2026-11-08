@@ -29,7 +29,10 @@ export function DayBar({
   today,
   blocks,
   actions,
+  onFlip,
 }: {
+  /** #29: the switch's flips, for the calendar to strike the day at once and move it. */
+  onFlip?: (day: string, open: boolean, how: 'flip' | 'refused') => void;
   day: string;
   today: string;
   blocks: readonly DatesBlock[];
@@ -40,7 +43,7 @@ export function DayBar({
   return (
     <div className="flex items-center gap-3" data-dates-day-bar={day}>
       <div className="min-w-0 flex-1">
-        <DayOpenSwitch day={day} today={today} blocks={blocks} actions={actions} onOpen={setOpen} />
+        <DayOpenSwitch day={day} today={today} blocks={blocks} actions={actions} onOpen={setOpen} onFlip={onFlip} />
       </div>
       <ActionButton
         tone="brand"

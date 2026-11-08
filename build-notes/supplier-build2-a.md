@@ -118,6 +118,26 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - **Requests:** 0. Shots: `sbs-27-scrolled-before`, `sbs-27-returned` (+ reduced). v118's frame scrolls inside a
   phone mock that the wheel did not move, so its two shots look alike for a different reason.
 
+### #29 — Accept bookings off/on is felt
+- `DayOpenSwitch` now tells (`onFlip`) the moment the PERSON flips it, and when a refused write puts it back — never a
+  re-read or a change of day. `DayBar` passes it to the calendar, which overlays the switch's shown state on the ONE
+  `states` both the month and the week strip draw from: the day is struck / un-struck AT ONCE (in the picked fill too),
+  not when the re-read lands. The overlay goes when `blocks` re-reads (the truth again) or the write is refused.
+- `calendar-day-box.tsx` `feelDay` (v118 `dayMark`, its keyframes copied): off = squash (1.18×.55 → .9×1.1 → 1.04×.96)
+  while the strike draws in (`text-decoration-color` transparent → currentColor), 620 ms; on = pop + tilt 700 ms and 12
+  confetti from each VISIBLE cell (the folded-away week strip throws none), 820 ms, in the month's own mark tokens (no
+  raw hex — the hex guard caught my first draft). Confetti rides at `--sn-z-sticky`: under the thumb row, nav, pop-ups.
+  Reduced motion: the strike still changes at once; nothing moves, nothing is thrown.
+- Lab: `/dev/clients-lab` gains two non-exported inline stand-ins (`labDayWrite` writes nothing; `?refuse=1` hands the
+  refusing one), production-guarded like `open-shop-lab`'s — no route, no server-action budget.
+- Measured (headless Chromium, 375 px): off → both marks struck on the next frame, 2 animations; on → un-struck, 2
+  animations + 12 confetti; all gone by 1 s. Reduced: struck / un-struck, 0 animations, 0 confetti. `?refuse=1`: struck,
+  then put back with the switch, no confetti.
+- Guard: `customers/accept-bookings-is-felt.test.ts` (5 — `feelDay` run against a stand-in DOM, plus the wiring).
+  Sabotaged (the reduced-motion return removed) — caught. Touched-file tests **1010 pass · 0 fail**; ESLint clean.
+- **Requests:** 0 (the switch's write is the shipped one; nothing is read for the feel). Shots: `sbs-29-off-squash`,
+  `sbs-29-on-confetti` (+ reduced, light + dark).
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
@@ -146,4 +166,4 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43, #38, #37, #28, #36, #27 committed + pushed. Next: #29 (Accept bookings off/on is felt).
+- #43, #38, #37, #28, #36, #27, #29 committed + pushed. Next: #34 (the Booked QR — one migration, never applied).

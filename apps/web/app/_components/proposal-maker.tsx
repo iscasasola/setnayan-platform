@@ -20,6 +20,7 @@ import {
 } from '@/lib/papic-on-a-quote';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { ValidUntilPicker } from '@/app/_components/valid-until-picker';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { QuoteCardLines } from '@/app/_components/quote-card-lines';
@@ -266,12 +267,6 @@ const PLAN_PRESETS: ReadonlyArray<{ key: PlanPreset; label: string; percent: num
         : `${percent}% to book · rest ${PLAN_FINAL_DAYS} days before`,
 }));
 
-/** "Good for" — the prototype's three, plus no end date. */
-const GOOD_FOR_DAYS = [7, 14, 30] as const;
-const GOOD_FOR: ReadonlyArray<{ key: string; label: string; days: number | null }> = [
-  ...GOOD_FOR_DAYS.map((d) => ({ key: String(d), label: `${d} days`, days: d })),
-  { key: 'none', label: 'No end date', days: null },
-];
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
@@ -313,6 +308,7 @@ export function ProposalMaker({
   savedQuotes = [],
   askedCardId = null,
   todayIso = '',
+  eventDate = null,
   labSeed = null,
   shopGifts = null,
   shopGiftsBuy = null,
@@ -343,6 +339,8 @@ export function ProposalMaker({
   askedCardId?: string | null;
   /** PH civil today (`YYYY-MM-DD`) — "Good for N days" is counted from it. */
   todayIso?: string;
+  /** The event day (yyyy-mm-dd) — a Valid until past it is not offered (📅 2026-11-09). */
+  eventDate?: string | null;
   /**
    * S5 · "Update this quote": the LIVE quote this builder opens pre-filled
    * from (`seedQuoteRevision`). Present → the builder opens already expanded,
@@ -1062,17 +1060,6 @@ export function ProposalMaker({
       first?.kind === 'percent' ? `${first.percent ?? 0}% to book` : first ? `${formatCentavos(toCentavos(first.amountPhp ?? 0))} to book` : 'Your own plan';
     return `${firstWords} · ${installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0)} payments`;
   };
-
-  /* ── GOOD FOR ───────────────────────────────────────────────────────────── */
-  const goodForKey = (): string => {
-    if (!validUntil) return 'none';
-    const days = validDaysOf(todayIso, validUntil);
-    return GOOD_FOR.find((g) => g.days === days)?.key ?? 'date';
-  };
-  const goodForOptions = [
-    ...GOOD_FOR.map((g) => ({ key: g.key, label: g.label })),
-    ...(goodForKey() === 'date' ? [{ key: 'date', label: `Until ${validUntil}` }] : []),
-  ];
 
   /* ── SAVE THIS QUOTE ─────────────────────────────────────────────────────── */
   const draftForSave = (): SavedQuoteDraft => ({
@@ -2232,20 +2219,14 @@ export function ProposalMaker({
       {/* ── 10 · QUOTE EFFECTIVITY ── */}
       <QuoteSection id="effectivity" title="Quote effectivity">
       <div className="space-y-3 px-4 py-3">
-          {/* GOOD FOR (prototype "Good for · 7 / 14 / 30 days") — one dropdown; it writes the same valid-until date. */}
+          {/* 📅 VALID UNTIL (2026-11-09, "no lifetime quotation"): the one shared picker — 7 / 14 / 30 days / Pick a date,
+              none preselected, a choice past the event not offered; required to send (the server refuses blank). */}
           <div className="block space-y-1" data-quote-good-for="">
-            <span className="sr-only">Good for</span>
-            <PickMenu
-              label="How long this quote is good for"
-              value={goodForKey()}
-              options={goodForOptions}
-              onPick={(key) => {
-                if (key === 'date') return;
-                const g = GOOD_FOR.find((x) => x.key === key);
-                setValidUntil(validUntilFor(todayIso, g?.days ?? null));
-              }}
-              dataAttr="data-quote-good-for-pick"
-              className="min-h-11 w-full"
+            <ValidUntilPicker
+              todayIso={todayIso}
+              eventDate={eventDate}
+              initial={validUntil || null}
+              onChange={(v) => setValidUntil(v ?? '')}
             />
           </div>
         <label className="block space-y-1">

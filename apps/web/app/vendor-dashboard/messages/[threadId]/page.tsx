@@ -67,6 +67,7 @@ import { askedOnce } from '@/lib/request-once';
 import { MarkReadWhenShown } from './_components/mark-read-when-shown';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import type { PinFact } from '@/lib/chat-pins';
+import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
@@ -1329,6 +1330,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       <div className="space-y-3">
         <ProposalMaker
           threadId={threadId}
+          eventDate={event?.event_date ? String(event.event_date).slice(0, 10) : null}
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
           papicStanding={composerPapicStanding}
@@ -1358,6 +1360,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           }
         />
         <SendProposalCard
+          eventDate={event?.event_date ? String(event.event_date).slice(0, 10) : null}
+          todayIso={manilaTodayIsoFor(Date.now())}
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
           papicStanding={composerPapicStanding}

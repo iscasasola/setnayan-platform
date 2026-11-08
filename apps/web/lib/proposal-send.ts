@@ -1,3 +1,4 @@
+import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -42,6 +43,8 @@ import { writeQuoteShopGifts } from '@/lib/shop-gifts.server';
  */
 
 export type SendProposalError =
+  // 📅 No lifetime quotation (2026-11-09): a quote is not sent without a Valid until after today.
+  | 'needs_valid_until'
   | 'unauthenticated'
   | 'not_owner'
   | 'thread_closed'
@@ -347,6 +350,12 @@ export async function sendProposalCore(
     `${profile.business_name ?? 'Quote'} — ${brief.event.display_name ?? 'your event'}`.slice(0, 160);
 
   const validUntil = (input.validUntil ?? '').trim();
+  // 📅 No lifetime quotation (2026-11-09) — refused at the door, before a row is written. The event-day bound is the
+  // send trigger's (`tg_vendor_proposals_valid_until`), which names it.
+  {
+    const refusal = validUntilRefusal(validUntil, manilaTodayIsoFor(Date.now()), null);
+    if (refusal) return { ok: false, code: 'needs_valid_until', message: refusal };
+  }
 
   // 5 · Insert as draft, then flip to sent (the draft→sent freeze is what the
   // UPDATE-draft RLS allows; inserting 'sent' directly would fail the policy).
@@ -623,6 +632,12 @@ export async function sendCustomProposalCore(
     `Quote from ${profile.business_name ?? 'your supplier'}. Review the line items below. ${DEFAULT_QUOTE_NOTE_TAIL}`;
 
   const validUntil = (input.validUntil ?? '').trim();
+  // 📅 No lifetime quotation (2026-11-09) — refused at the door, before a row is written. The event-day bound is the
+  // send trigger's (`tg_vendor_proposals_valid_until`), which names it.
+  {
+    const refusal = validUntilRefusal(validUntil, manilaTodayIsoFor(Date.now()), null);
+    if (refusal) return { ok: false, code: 'needs_valid_until', message: refusal };
+  }
 
   // Insert as draft, then flip to sent (mirrors the package path's freeze).
   const { data: inserted, error: insErr } = await supabase

@@ -1,5 +1,7 @@
 'use server';
 
+import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -203,10 +205,14 @@ export async function sendProposal(formData: FormData) {
   {
     const { data: draft } = await supabase
       .from('vendor_proposals')
-      .select('event_id, vendor_profile_id')
+      .select('event_id, vendor_profile_id, valid_until')
       .eq('proposal_id', proposalId)
       .eq('status', 'draft')
       .maybeSingle();
+    // 📅 No lifetime quotation (2026-11-09): a draft may be blank; sending it may not. The draft is kept.
+    if (draft && validUntilRefusal((draft as { valid_until?: string | null }).valid_until ?? null, manilaTodayIsoFor(Date.now()), null)) {
+      redirect(`/proposals/${publicId}?notice=send_needs_valid_until`);
+    }
     if (draft) {
       const { data: blocker, error: blockerErr } = await supabase.rpc('vendor_may_requote', {
         p_event_id: draft.event_id,

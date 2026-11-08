@@ -52,6 +52,15 @@ import { SCRIPT_FOLD_ID } from './picked-client-menu';
 import { PickedNavContext, type PickedNav } from './picked-client-nav';
 import { ThumbLayerContext, type ThumbLayer } from '../../../_components/thumb-layer';
 import { warmPickedPages } from '../_pages/lazy';
+import { warmThreadParts } from '../../../messages/[threadId]/_components/on-demand';
+import { warmHubParts } from '../../../on-the-day/_components/on-demand';
+
+/** Every non-Details page's code (Chat · Quotation · the thread's parts, Hub, Forms · Files · Payment · Report). */
+function warmEveryPage(): void {
+  warmPickedPages();
+  warmThreadParts();
+  warmHubParts();
+}
 import {
   PICKED_EASE,
   PICKED_OPEN_MS,
@@ -161,8 +170,8 @@ export function PickedClientShell({
     let idle = 0;
     const t = window.setTimeout(() => {
       const ric = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-      if (ric) idle = ric(warmPickedPages);
-      else warmPickedPages();
+      if (ric) idle = ric(warmEveryPage);
+      else warmEveryPage();
     }, PICKED_OPEN_MS);
     return () => {
       window.clearTimeout(t);

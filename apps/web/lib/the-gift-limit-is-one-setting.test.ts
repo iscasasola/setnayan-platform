@@ -65,10 +65,8 @@ const TYPED_GIFT_PCT = {
  * and must be deleted here.
  */
 const STILL_TYPED_ELSEWHERE: ReadonlyArray<{ file: string; owner: string }> = [
-  { file: 'app/vendor-dashboard/services/_components/services-manager.tsx', owner: 'C4' },
   { file: 'lib/gift-pick.ts', owner: 'C4 (card maker gift copy) — via the controller' },
   { file: 'lib/package-gift.ts', owner: 'C4 (packages) — via the controller' },
-  { file: 'app/vendor-dashboard/services/_components/service-wizard.tsx', owner: 'C4' },
 ];
 
 test('1 · the old constant GIFT_SHARE_OF_FEE_PCT is gone from every source file', () => {

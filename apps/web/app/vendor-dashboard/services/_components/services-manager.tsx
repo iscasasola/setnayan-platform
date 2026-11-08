@@ -22,6 +22,7 @@ import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readPlanHolds } from '@/lib/service-plan-hold.server';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { StayOnSection } from './stay-on-section';
 import { PlanHoldTag } from './plan-hold-tag';
@@ -179,9 +180,11 @@ export async function VendorServicesManager({
 
   // 🧭 Which cards the PLAN holds (owner 2026-11-06, SERVICES LIFE CYCLE) — its own read, so a database without the
   // columns degrades to "every card as it always was" (null), never to a claim that nothing is held.
-  const [services, planHolds] = await Promise.all([
+  // 🎁 The gift limit is the admin setting (C2 → C4, THE ONE BUILD spec §5 #3) — read beside the list, never typed.
+  const [services, planHolds, giftLimitPct] = await Promise.all([
     fetchVendorServices(supabase, profile.vendor_profile_id),
     readPlanHolds(supabase, profile.vendor_profile_id),
+    getGiftLimitPct(createAdminClient()),
   ]);
 
   // Only the canvas maker can open pre-filled, so "start a new card from this
@@ -775,6 +778,7 @@ export async function VendorServicesManager({
               vendorProfileId={profile.vendor_profile_id}
               refinements={refinementsByCategory.get(addCategory) ?? null}
               refinementInitial={refinementPayloadByCategory.get(addCategory) ?? {}}
+              giftLimitPct={giftLimitPct}
             />
           </div>
         ) : null}
@@ -1304,6 +1308,7 @@ function AddServiceForm({
   vendorProfileId,
   refinements,
   refinementInitial,
+  giftLimitPct,
 }: {
   addCategory: VendorCategory;
   labelFor: (cat: VendorCategory) => string;
@@ -1313,6 +1318,8 @@ function AddServiceForm({
   vendorProfileId: string;
   refinements: CategoryRefinements | null;
   refinementInitial: Record<string, unknown>;
+  /** 🎁 `platform_settings.gift_limit_pct`, read once by the manager. */
+  giftLimitPct: number;
 }) {
   return (
     <>
@@ -1408,7 +1415,7 @@ function AddServiceForm({
       <DiscountsEditor initial={[]} />
       <InclusionsEditor initial={[]} />
       <ShowcaseMediaFields vendorProfileId={vendorProfileId} unsavedHint="press Add service below" />
-      <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} />
+      <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} limitPct={giftLimitPct} />
       <div className="flex items-center justify-between">
         <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Cancel

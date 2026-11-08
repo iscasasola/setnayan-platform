@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, MessageSquareReply, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
+import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
@@ -105,14 +105,11 @@ export type PageClientData = {
 export function PageParts({
   d,
   domainBody,
-  autoReplyBody,
   reviewsBody,
 }: {
   d: PageClientData;
   /** Your own web address — the shipped DomainManager (its own saves). */
   domainBody: ReactNode;
-  /** The shipped auto-reply card, or null while its switch is off. */
-  autoReplyBody: ReactNode | null;
   /** 💬 The reviews with their reply form, read + reply in place (`review-replies.tsx`, server-drawn). */
   reviewsBody: ReactNode;
 }) {
@@ -481,12 +478,6 @@ export function PageParts({
           {d.addressAsks ? <PlanAsk plan={d.addressPlan} when={`adding your own address asks for ${d.addressPlan}`} /> : null}
           <div className="pb-4">{domainBody}</div>
         </Fold>
-
-        {autoReplyBody ? (
-          <Fold anchor="auto-reply" data="page-autoreply" lead={<RowIcon icon={MessageSquareReply} />} title="Auto-reply" line="Answers the first message" popovers>
-            <div className="pb-4">{autoReplyBody}</div>
-          </Fold>
-        ) : null}
 
         {d.storeShell ? null : (
           <Fold anchor="plans" data="page-plans" lead={<RowIcon icon={Sparkles} />} title="What each plan adds" line={d.plans.map((p) => (p.pro ? `${p.plan} ◆` : p.plan)).join(' · ')}>

@@ -23,7 +23,6 @@ import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { ShopServiceRows } from './_components/shop-service-rows';
@@ -533,12 +532,7 @@ async function ShopHome({
               <DatesRow data="shop-inspiration-library" title={INSPIRATION_LIBRARY_ROW.label} line={INSPIRATION_LIBRARY_ROW.line} href={INSPIRATION_LIBRARY_HREF} />
             </li>
           ) : null}
-          {/* Auto-reply moves to Clients ⚙ (spec §9 #6) — this row leaves only at integration, once L2's mount lands. */}
-          {vendorAutoReplyEnabled() ? (
-            <li id="auto-reply" className="scroll-mt-24">
-              <DatesRow data="shop-auto-reply" title="Auto-reply" line="Answers the first message" href="/vendor-dashboard/website#auto-reply" />
-            </li>
-          ) : null}
+          {/* Auto-reply lives in Clients ⚙ now (spec §9 #6 — L2's mount, the integration commit took this row away). */}
         </ul>
 
         {/* 📸 Photos couples shared for a service card, waiting for Approve — draws nothing when none. */}

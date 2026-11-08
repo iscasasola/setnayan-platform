@@ -3802,7 +3802,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
-    title: 'Event ↔ Guest (who is viewing the Event Hub — Home › Who’s here)',
+    title: 'Event ↔ Guest (who is viewing the Event Hub — Today › Who’s here)',
     joint: 'hub_guest_views',
     cardinality:
       'One row per guest (their last open, moved at most once per 30 minutes) · one counter per event per quarter-hour for everyone else · both kept a day',

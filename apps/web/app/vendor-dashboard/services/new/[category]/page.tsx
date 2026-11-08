@@ -7,6 +7,7 @@ import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveClaimContextForService } from '@/lib/vendor-invite-actions';
 import { buildCanvasInitialFromCoupleCard } from '@/lib/vendor-card-from-couple';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
@@ -155,6 +156,8 @@ export default async function NewServicePage({
         )
       : null);
   const details = canvas ? await loadKindDetails(supabase, profile.vendor_profile_id, category) : null;
+  // 🎁 The wizard's "capped at N%" reads the admin setting (C2 → C4), never a typed 40.
+  const giftLimitPct = canvas ? null : await getGiftLimitPct(createAdminClient());
 
   return (
     // The card maker fills the screen (split evenly from 820 up) and carries its own title on its surface — no page
@@ -235,6 +238,7 @@ export default async function NewServicePage({
           coverages={coverageOptions}
           vendorProfileId={profile.vendor_profile_id}
           claimToken={showClaimBanner ? claimToken : null}
+          giftLimitPct={giftLimitPct}
         />
       )}
     </div>

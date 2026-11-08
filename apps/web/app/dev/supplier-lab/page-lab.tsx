@@ -35,7 +35,6 @@ import { analyticsFigures, galleryFigures, pageFigures } from '@/lib/shop-sectio
 import { PageParts, type PageClientData } from '@/app/vendor-dashboard/website/_components/page-parts';
 import { pagePlanLines } from '@/app/vendor-dashboard/website/page-data';
 import { DomainManager } from '@/app/vendor-dashboard/website/_domain-manager';
-import { AutoReplyCard } from '@/app/vendor-dashboard/shop/_components/autoreply-card';
 import { CollectionsList } from '@/app/vendor-dashboard/collections/_components/collections-list';
 import { GalleryMedia } from '@/app/vendor-dashboard/shop/_components/gallery-media';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -779,13 +778,6 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
                     ]
                   : []
               }
-            />
-          }
-          autoReplyBody={
-            <AutoReplyCard
-              initialEnabled
-              initialAutoAcceptEnabled={false}
-              initialAutoAcceptThreshold={80}
             />
           }
           reviewsBody={<ReviewReplies reviews={fail ? null : LAB_REVIEWS} vendorName={d.businessName} capped={false} guestReviews={fail ? { state: 'refused' } : LAB_GUEST_REVIEWS} />}

@@ -55,6 +55,7 @@ export function ServiceWizard({
   coverages = [],
   vendorProfileId,
   claimToken = null,
+  giftLimitPct = null,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -68,6 +69,8 @@ export function ServiceWizard({
    * normal "add a service" flow.
    */
   claimToken?: string | null;
+  /** 🎁 `platform_settings.gift_limit_pct`, read by the page (C2 → C4). Absent → the ruled default. */
+  giftLimitPct?: number | null;
 }) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
@@ -350,7 +353,7 @@ export function ServiceWizard({
           Say yes and every couple who books this card gets{' '}
           <span className="font-medium text-ink">free Papic photos</span> for their event,
           given in your name. How many is worked out from your booking fee and shown on the quote —
-          there is nothing here for you to set. It is added to your lock bill, capped at {giftLimitPctOrDefault(null)}% of
+          there is nothing here for you to set. It is added to your lock bill, capped at {giftLimitPctOrDefault(giftLimitPct)}% of
           that fee. Optional: your card publishes either way.
         </p>
       </section>

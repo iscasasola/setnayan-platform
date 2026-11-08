@@ -42,6 +42,7 @@ import {
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { PickedClientPage } from './picked-client-menu';
 import { SCRIPT_FOLD_ID } from './picked-client-menu';
 import { PickedNavContext, type PickedNav } from './picked-client-nav';
@@ -201,14 +202,11 @@ export function PickedClientShell({
     anim.onfinish = leave;
   }, [router]);
 
-  // Esc closes, like every pop-up.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !gearOpen) close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [close, gearOpen]);
+  // The house modal contract (`useModalA11y`): focus moves in, Tab stays inside, Esc closes — and only the TOPMOST layer
+  // answers Esc, so with the ⚙ sheet (or any sheet a page opens) on top, Esc peels that layer, not the client. Armed once
+  // the screen is on <body> (`host`): the first frame is drawn in place, then remounted into the portal. Page scroll is
+  // left alone (`lockScroll: false`) — the screen is fixed full-height with its own scroller, as before.
+  useModalA11y({ open: Boolean(host), onClose: close, containerRef: rootRef, lockScroll: false });
 
   // A ⚙ row or a link inside a page switches pages the same way the menu does (and closes the ⚙ sheet first).
   const nav = useMemo<PickedNav>(

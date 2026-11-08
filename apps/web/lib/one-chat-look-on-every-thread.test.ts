@@ -99,8 +99,29 @@ function el(node: ts.Node, sf: ts.SourceFile): El | null {
   return null;
 }
 
+/**
+ * A `{name}` child that is a `const name = (<…/>)` of the SAME page function, expanded to its element. THE ONE BUILD
+ * (8 Nov 2026, v111 "Chat lives in the client"): the supplier's page defines its ONE `<ChatBox>` once as `chatBox` and
+ * draws it in the frame (full screen) or, inside the picked client, without the frame — so the frame's child is read
+ * through that one const, never two boxes.
+ */
+function expandConst(k: El, fn: ts.FunctionDeclaration, sf: ts.SourceFile): El {
+  const m = /^\{([A-Za-z_$][\w$]*)\}$/.exec(k.tag);
+  if (!m) return k;
+  for (const st of fn.body!.statements) {
+    if (!ts.isVariableStatement(st)) continue;
+    for (const d of st.declarationList.declarations) {
+      if (ts.isIdentifier(d.name) && d.name.text === m[1] && d.initializer) {
+        const e = el(d.initializer, sf);
+        if (e) return e;
+      }
+    }
+  }
+  return k;
+}
+
 /** The JSX the route's default export returns LAST — its normal render, after every early `redirect` / `notFound`. */
-function returnedTree(rel: string): { tree: El; sf: ts.SourceFile } {
+function returnedTree(rel: string): { tree: El; sf: ts.SourceFile; fn: ts.FunctionDeclaration } {
   const sf = ts.createSourceFile(rel, raw(rel), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const fn = sf.statements.find(
     (s): s is ts.FunctionDeclaration =>
@@ -111,12 +132,12 @@ function returnedTree(rel: string): { tree: El; sf: ts.SourceFile } {
   assert.ok(last?.expression, `${rel}: the page function has no final return`);
   const tree = el(last.expression, sf);
   assert.ok(tree, `${rel}: the page's final return is not JSX`);
-  return { tree, sf };
+  return { tree, sf, fn };
 }
 
 test('🔒 each thread route RETURNS the one thread frame holding one ChatBox — nothing drawn beside it', () => {
   for (const rel of ROUTES) {
-    const { tree, sf } = returnedTree(rel);
+    const { tree, sf, fn } = returnedTree(rel);
     let t = tree;
     // At most ONE plain gutter around it (the supplier tree has no event-layout column, so its page draws that column).
     if (t.tag === 'div') {
@@ -125,7 +146,7 @@ test('🔒 each thread route RETURNS the one thread frame holding one ChatBox �
     }
     assert.equal(t.tag, 'ChatThreadFrame', `${rel}: the page returns <${t.tag}>, not the one thread frame`);
     assert.deepEqual(
-      t.kids.map((k) => k.tag),
+      t.kids.map((k) => expandConst(k, fn, sf).tag),
       ['ChatBox'],
       `${rel}: the thread frame holds more than one ChatBox — everything a side adds belongs INSIDE the box's slots`,
     );
@@ -133,6 +154,19 @@ test('🔒 each thread route RETURNS the one thread frame holding one ChatBox �
     const list = t.attrs.get('list');
     if (list) assert.equal(el(list, sf)?.tag, 'ConversationColumn', `${rel}: the frame's list is not the shared ConversationColumn`);
   }
+});
+
+test('🔒 THE ONE BUILD · inside the picked client the supplier page draws the SAME box — no frame, no list, nothing beside it', () => {
+  // v111 (owner 8 Nov 2026): Chat lives in the client. The supplier's page returns early for `embed === 'chat'` with
+  // the one `chatBox` and nothing else — the client's pinned row is the head, so no frame (a phone takeover) and no
+  // conversation list. Still ONE <ChatBox> in the file (test 1), and the frame's child is that same const.
+  const rel = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
+  const src = read(rel);
+  assert.equal((src.match(/<ChatBox\b/g) ?? []).length, 1, 'a second ChatBox was drawn for the client page');
+  assert.match(src, /const chatBox = \(\s*<ChatBox\b/, 'the one box is no longer the shared const');
+  const embed = src.slice(src.indexOf("if (embed === 'chat') {"), src.indexOf("if (embed === 'chat') {") + 260);
+  assert.match(embed, /return \(\s*<div data-picked-client-page="chat"[^>]*>\s*\{chatBox\}\s*<\/div>\s*\);/, 'the client chat draws something beside the box');
+  assert.doesNotMatch(embed, /ChatThreadFrame|ConversationColumn/, 'the client chat must not draw the full-screen frame or the list');
 });
 
 test('the frame, RENDERED: one takeover, and the page column holds nothing but the list and the box', async () => {

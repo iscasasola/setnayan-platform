@@ -197,6 +197,33 @@ test('a forged thread_id is overwritten by the message’s own thread', async ()
   assert.equal(r.rows[0]!.thread_id, F.threadId);
 });
 
+test('the browser’s one write — an UPSERT on (message_id, user_id) — hearts, un-hearts and re-hearts under RLS', async () => {
+  // The stream writes `.upsert({ message_id, user_id, hearted }, { onConflict: 'message_id,user_id' })`: PostgREST's
+  // INSERT … ON CONFLICT DO UPDATE, which needs the INSERT policy, the UPDATE policy and SELECT, all as the caller.
+  const msg = await send(F.vendorUser, 'An upsert target');
+  const upsert = async (hearted: boolean) => {
+    await asUser(F.couple);
+    try {
+      await db.query(
+        `INSERT INTO public.chat_message_hearts (message_id, user_id, hearted) VALUES ($1, $2, $3)
+         ON CONFLICT (message_id, user_id) DO UPDATE
+           SET message_id = EXCLUDED.message_id, user_id = EXCLUDED.user_id, hearted = EXCLUDED.hearted`,
+        [msg, F.couple, hearted],
+      );
+    } finally {
+      await reset();
+    }
+    const r = await db.query<{ hearted: boolean }>(
+      `SELECT hearted FROM public.chat_message_hearts WHERE message_id = $1 AND user_id = $2`,
+      [msg, F.couple],
+    );
+    return r.rows.map((x) => x.hearted);
+  };
+  assert.deepEqual(await upsert(true), [true], 'first tap hearts');
+  assert.deepEqual(await upsert(false), [false], 'second tap un-hearts — the same row, no delete');
+  assert.deepEqual(await upsert(true), [true], 'third tap hearts again');
+});
+
 test('un-heart is an UPDATE; there is no DELETE', async () => {
   await asUser(F.couple);
   const up = await db.query(

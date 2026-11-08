@@ -107,6 +107,10 @@ import {
   type PendingSend,
 } from '@/lib/chat-optimistic';
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
+import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
+import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
+import { ChatHostStrip } from './chat/chat-host-strip';
+import { MessageHeart } from './chat/message-heart';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -161,6 +165,13 @@ type Props = {
    * any member of the shop may reply). Only names the page may show (a revealed shop); absent → no name line.
    */
   senderNames?: Record<string, string>;
+  /**
+   * THE ONE BUILD (8 Nov 2026) · supplier side, inside the picked client's Chat page: the event's hosts
+   * (`event_chat_hosts`, keyed by auth uid). Given → the host strip is drawn on top (who is inside, a ring for
+   * "in this chat now" from THIS stream's presence channel), and every incoming run is labelled with its sender's
+   * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
+   */
+  hosts?: readonly ChatHost[] | null;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -358,12 +369,21 @@ export function ChatMessageStream({
   theirLastReadAt = null,
   senderNames = {},
   fileExpiry = null,
+  hosts,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  /** Who is IN this chat now — the keys of this stream's own presence channel (`chat-presence-${threadId}`). */
+  const [presentIds, setPresentIds] = useState<ReadonlySet<string>>(() => new Set());
+  /**
+   * ♥ Hearts per message (THE ONE BUILD, v111 "tap = heart"; `lib/chat-hearts.ts`). Read once with the thread, then
+   * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
+   */
+  const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
+  const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
   /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
   const [pendings, setPendings] = useState<PendingSend[]>([]);
   /* Remember the last messages, so the next open of this thread paints them before the server answers
@@ -843,7 +863,24 @@ export function ChatMessageStream({
   useEffect(() => {
     let cancelled = false;
 
+    const refetchHearts = async () => {
+      const { data, error } = await supabase
+        .from('chat_message_hearts')
+        .select(HEART_SELECT)
+        .eq('thread_id', threadId)
+        .eq('hearted', true)
+        .limit(2000);
+      if (cancelled) return;
+      // A refused read keeps what is drawn (never wipes the hearts to "none"); the next SUBSCRIBED tries again.
+      if (error) {
+        console.error('[chat] hearts read refused', error);
+        return;
+      }
+      setHearts(heartsFrom((data ?? []) as HeartRow[]));
+    };
+
     const refetchAll = async () => {
+      void refetchHearts();
       try {
         const fresh = await fetchMessages(supabase, threadId);
         if (cancelled) return;
@@ -902,6 +939,20 @@ export function ChatMessageStream({
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
+          },
+        )
+        // ♥ THE SECOND .on() — hearts on this thread, on the SAME channel (THE ONE BUILD; no new connection).
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'chat_message_hearts',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as HeartRow | undefined;
+            if (row && typeof row.message_id === 'string') setHearts((prev) => applyHeart(prev, row));
           },
         )
         .subscribe((status) => {
@@ -1019,6 +1070,8 @@ export function ChatMessageStream({
         }
       }
       setCounterpartyTyping(othersTyping);
+      // The strip's ring: whoever holds a presence key on this thread right now (keys are user ids).
+      setPresentIds(new Set(Object.keys(state)));
     };
 
     channel
@@ -1044,6 +1097,28 @@ export function ChatMessageStream({
       void supabase.removeChannel(channel);
     };
   }, [supabase, threadId, currentUserId, viewerRole]);
+
+  /**
+   * ♥ TAP = HEART (owner v111). Optimistic, then written by THIS viewer's own browser client under the table's RLS (own
+   * row only, a message they can read, never across a block). A refusal puts the heart back as it was. One upsert —
+   * `hearted` true/false — never a delete, so the other side hears it as an UPDATE on the shared channel.
+   */
+  const toggleHeart = useCallback(
+    (messageId: string) => {
+      const on = !(hearts.get(messageId)?.has(currentUserId) ?? false);
+      const row: HeartRow = { message_id: messageId, user_id: currentUserId, hearted: on };
+      setHearts((prev) => applyHeart(prev, row));
+      void supabase
+        .from('chat_message_hearts')
+        .upsert(row, { onConflict: 'message_id,user_id' })
+        .then(({ error }) => {
+          if (!error) return;
+          console.error('[chat] heart refused', error);
+          setHearts((prev) => applyHeart(prev, { ...row, hearted: !on }));
+        });
+    },
+    [hearts, currentUserId, supabase],
+  );
 
   const broadcastTyping = useCallback((typing: boolean) => {
     const channel = presenceChannelRef.current;
@@ -1164,6 +1239,7 @@ export function ChatMessageStream({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} /> : null}
       {/*
         THE SWITCH — above the conversation, at every width. On a phone this
         row may be the most useful thing on the screen: the whole standing of a
@@ -1706,8 +1782,19 @@ export function ChatMessageStream({
           // small avatar beside the LAST bubble of their run; the corners join inside a run; no frame.
           const mine = ownsBubble(m, viewerRole);
           const run = bubbleRun(messages, i);
+          // The supplier's view, inside the client (THE ONE BUILD): an incoming run carries its HOST's first name and
+          // initials (`event_chat_hosts`), so a chat with four hosts says who is speaking. The couple's view is as before.
+          const host = !mine && m.sender_user_id ? hostById.get(m.sender_user_id) ?? null : null;
           const staffName =
-            viewerRole === 'couple' && !mine && run.first && m.sender_user_id ? senderNames[m.sender_user_id] ?? null : null;
+            !mine && run.first && m.sender_user_id
+              ? viewerRole === 'couple'
+                ? senderNames[m.sender_user_id] ?? null
+                : host
+                  ? hostFirstName(host)
+                  : null
+              : null;
+          const heartSet = hearts.get(m.message_id);
+          const heartCount = heartSet?.size ?? 0;
           const corner = mine
             ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
             : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
@@ -1729,13 +1816,18 @@ export function ChatMessageStream({
                     aria-hidden
                     className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
                   >
-                    {initialsOf(counterpartyLabel)}
+                    {host ? hostInitials(host) : initialsOf(counterpartyLabel)}
                   </span>
                 ) : (
                   <span aria-hidden className="w-7 shrink-0" />
                 )
               ) : null}
               <div
+                // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
+                onClick={(e) => {
+                  if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
+                }}
+                data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   mine
                     ? 'bg-sn-accent text-white'
@@ -1783,6 +1875,12 @@ export function ChatMessageStream({
                 </span>
               </div>
               </div>
+              <MessageHeart
+                count={heartCount}
+                mine={heartSet?.has(currentUserId) ?? false}
+                onToggle={() => toggleHeart(m.message_id)}
+                alignEnd={mine}
+              />
               {/* Negotiation auto-reader (Phase 1): under the sender's OWN
                   message, if the deterministic reader flags a meeting topic,
                   offer a one-tap "set up this meeting" chip. Suggestion-grade —

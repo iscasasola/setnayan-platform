@@ -182,3 +182,20 @@ test('7 · the supplier reads a notice addressed to the supplier; the couple’s
   // The default reader is the couple, so an unlabelled mount cannot show a shop the supplier line.
   assert.match(notice, /viewer = 'couple',/);
 });
+
+test('9 · THE ONE BUILD · the picked client\'s Chat and Quotation pages draw the ONE thread body — no frame part of their own', () => {
+  // v111 (owner 8 Nov 2026): Chat lives in the client. Still ONE chat body: each client page renders
+  // `SupplierThreadBody`, which renders the supplier thread page itself (test 1's one mount site) — nothing else.
+  const body = read('app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body.tsx');
+  assert.match(body, /import VendorThreadPage from '\.\.\/page';/, 'the body is not the thread page');
+  assert.match(body, /<VendorThreadPage\b/);
+  for (const rel of ['app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx', 'app/vendor-dashboard/clients/[eventId]/_pages/quotation.tsx']) {
+    const src = read(rel);
+    assert.equal(count(src, /<SupplierThreadBody\b/g), 1, `${rel} does not draw the one thread body`);
+    for (const part of ['ChatMessageStream', 'ChatSendForm', 'ChatThreadMenu', 'ChatBox', 'ChatThreadFrame', 'ChatPrivacyNotice']) {
+      assert.equal(count(src, new RegExp(`\\b${part}\\b`, 'g')), 0, `${rel} carries ${part} of its own`);
+    }
+  }
+  // The full-screen route keeps working for the envelope doors (6 Nov ruling): the embed is opt-in, internal.
+  assert.match(supplierThread, /sp\?\.__embed === 'chat' \? 'chat'/);
+});

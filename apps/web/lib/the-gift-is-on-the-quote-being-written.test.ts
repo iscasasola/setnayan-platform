@@ -57,7 +57,7 @@ test('both composers DERIVE the number — never a local estimate', () => {
     const src = read(f);
     assert.match(src, /previewGiftForTotal\(/, `${f} does not call previewGiftForTotal`);
     assert.ok(
-      !/\*\s*0?\.4|\*\s*0?\.05|GIFT_SHARE_OF_FEE_PCT/.test(src),
+      !/\*\s*0?\.4|\*\s*0?\.05|GIFT_SHARE_OF_FEE_PCT|GIFT_LIMIT_PCT_DEFAULT|giftLimitPctOrDefault/.test(src),
       `${f} appears to compute the gift or the fee itself — it must not`,
     );
   }

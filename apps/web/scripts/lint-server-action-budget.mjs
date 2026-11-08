@@ -80,7 +80,14 @@ import { fileURLToPath } from 'node:url';
 // train tree (never the sum of the arrows).
 // TRAIN 1 (2026-11-08, #7394 merging main after 2B): train 1's two (+2 on 1230) and 2B's venue check (+1) meet;
 // CEILING = the count measured on the merged tree (never the sum of the arrows).
-export const CEILING = 1233;
+// 1232 → 1233 (2026-11-08, THE ONE BUILD lane C2, owner v112 "Gift limit · % of the booking fee" in Admin › Gifts):
+// `admin/gifts/gift-limit-actions.ts` · `saveGiftLimitPct`, the setting's ONE audited writer (spec B2 §4 sanctions
+// "raise once with the reasoned line"). No unimported export was found in the lane's files to retire; message hearts
+// write through the browser client under their own RLS, so they spend no route. ⚠ Other lanes raise this too — the
+// controller reconciles the ONE number on the merged tree (sum of the lanes' +n), checked by check-vercel-route-count.
+// INTEGRATION (2026-11-08, claude/supplier-1build): main's 1233 + the lanes' new actions; CEILING = the count
+// measured on the merged tree (see below), never the sum of the arrows.
+export const CEILING = 1234;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

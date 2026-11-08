@@ -1,6 +1,5 @@
 import { Gift } from 'lucide-react';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
-import { GIFT_SHARE_OF_FEE_PCT } from '@/lib/setnayan-gift';
 import { formatCount } from '@/lib/format-number';
 import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server';
 
@@ -22,17 +21,20 @@ export function ShopGiftsLedger({
   ledgerError,
   holds,
   holdsError,
+  giftLimitPct,
 }: {
   ledger: ShopGiftLedgerRow[] | null;
   ledgerError: { message: string } | null;
   holds: ShopGiftHoldRow[] | null;
   holdsError: { message: string } | null;
+  /** The live gift limit (`getGiftLimitPct`) — the same setting this page edits. Never typed. */
+  giftLimitPct: number;
 }) {
   return (
     <section className="mb-10" data-admin-shop-gifts="">
       <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">Supplier gifts</h2>
       <p className="mb-4 text-xs text-ink/60">
-        A shop&rsquo;s gifts on one booking are capped at {GIFT_SHARE_OF_FEE_PCT}% of that booking&rsquo;s fee, at the
+        A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
         price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Gift prices
         are the catalogue&rsquo;s.
       </p>

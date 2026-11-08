@@ -43,14 +43,14 @@ import {
   type PapicQuoteStanding,
 } from './papic-on-a-quote';
 import { BOOKING_FEE } from './booking-fee';
-import type { GiftQuoteBasis } from './setnayan-gift';
+import { GIFT_LIMIT_PCT_DEFAULT, type GiftQuoteBasis } from './setnayan-gift';
 
 const LADDER = [
   { credits: 1_000, priceCentavos: 70_000 },
   { credits: 2_000, priceCentavos: 140_000 },
   { credits: 50_000, priceCentavos: 1_500_000 },
 ];
-const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER };
+const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER, limitPct: GIFT_LIMIT_PCT_DEFAULT };
 
 /** What a surface ends up promising: a basis (⇒ a photo count) or nothing. */
 const promises = (arm: string, quoteSwitch: boolean | null): boolean =>

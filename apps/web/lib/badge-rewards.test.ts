@@ -22,6 +22,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { MILESTONE_THRESHOLDS } from './service-card-record';
 import { BOOKING_FEE } from './booking-fee';
+import { GIFT_LIMIT_PCT_DEFAULT } from './setnayan-gift';
 import { judgeQuoteGifts, rewardFreeByKind, shopGiftPacksFrom } from './shop-gifts';
 import {
   BADGE_REWARDS,
@@ -295,22 +296,22 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
   const TOTAL = 2_000_000;
 
   it('an Event Pro from badge rewards goes on a small booking; the same Event Pro BOUGHT does not', () => {
-    const fromReward = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, F(0, 0, 1), 'none', F(0, 0, 1));
+    const fromReward = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', F(0, 0, 1));
     assert.equal(fromReward.state, 'ok');
     assert.deepEqual(fromReward.fromReward, [true]);
     assert.ok(fromReward.rewardCentavos > fromReward.limitCentavos, 'the fixture does not exceed the limit');
 
-    const bought = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, F(0, 0, 1), 'none', F(0, 0, 0));
+    const bought = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', F(0, 0, 0));
     assert.equal(bought.state, 'over_limit', 'a bought Event Pro escaped the limit');
   });
 
   it('reward stock pays whole lines, the most valuable first; the rest is measured', () => {
     // One Event Plus from rewards + one bought Event Plus: the bought one is measured, and is over.
-    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, F(0, 2), 'none', F(0, 1));
+    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 2), 'none', F(0, 1));
     assert.deepEqual(v.fromReward, [true, false]);
     assert.equal(v.state, 'over_limit');
     // 150 reward credits cover one Papic 150 line; a second one (bought) is still the always-allowed pack.
-    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, F(300), 'none', F(150));
+    const p = judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(300), 'none', F(150));
     assert.deepEqual(p.fromReward, [true, false]);
     assert.equal(p.state, 'ok');
   });
@@ -318,7 +319,7 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
   it('reward stock never counts for more than is free to offer, and an unread one counts as none', () => {
     assert.deepEqual(rewardFreeByKind({ papic: { earned: 300, used: 0 }, event_plus: { earned: 1, used: 1 }, event_pro: { earned: 0, used: 0 } }, F(150, 3)), F(150, 0, 0));
     assert.equal(rewardFreeByKind(null, F(150)), null);
-    const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, F(0, 0, 1), 'none', null);
+    const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], PACKS, TOTAL, BOOKING_FEE, GIFT_LIMIT_PCT_DEFAULT, F(0, 0, 1), 'none', null);
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');
   });
 });

@@ -31,7 +31,7 @@ import { bookingFeePhp } from '../../lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '../../lib/booking-fee-lock';
 import {
   GIFT_CAP_CREDITS,
-  GIFT_SHARE_OF_FEE_PCT,
+  GIFT_LIMIT_PCT_DEFAULT,
   giftLadderFrom,
   setnayanGiftBillClause,
   setnayanGiftForFee,
@@ -274,7 +274,8 @@ test('① the charge is 40% of the fee (floored) until the cap, then the top pac
   for (const booking of [4_950, 5_000, 20_000, 49_000]) {
     const fee = await sqlFeeCentavos(booking);
     const g = await sqlGiftForFee(fee);
-    assert.equal(g.charge_centavos, Math.floor((fee * GIFT_SHARE_OF_FEE_PCT) / 100));
+    // The replay's platform_settings.gift_limit_pct is the ruled default (the-gift-limit-reaches-the-bill holds 25 too).
+    assert.equal(g.charge_centavos, Math.floor((fee * GIFT_LIMIT_PCT_DEFAULT) / 100));
     assert.equal(g.capped, false);
   }
   for (const booking of [49_950, 5_000_000, 10_000_000]) {

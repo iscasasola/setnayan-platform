@@ -26,6 +26,7 @@ import { test } from 'node:test';
 
 import { bookingFeePhp, BOOKING_FEE } from './booking-fee';
 import {
+  GIFT_LIMIT_PCT_DEFAULT,
   previewGiftForTotal,
   setnayanGiftForFee,
   giftQuoteCopy,
@@ -42,7 +43,7 @@ const LADDER: GiftRung[] = [
   { credits: 50_000, priceCentavos: 1_500_000 },
 ];
 
-const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER };
+const BASIS: GiftQuoteBasis = { schedule: BOOKING_FEE, ladder: LADDER, limitPct: GIFT_LIMIT_PCT_DEFAULT };
 
 /** Totals in centavos, spanning the fee floor, the tier-1 band and the taper. */
 const TOTALS = [
@@ -104,7 +105,7 @@ test('no basis, no amount, no gift ⇒ silence, never a zero', () => {
   assert.equal(previewGiftForTotal(0, BASIS), null, 'no price typed yet ⇒ say nothing');
   assert.equal(previewGiftForTotal(-1, BASIS), null);
   assert.equal(previewGiftForTotal(Number.NaN, BASIS), null);
-  assert.equal(previewGiftForTotal(5_000_000, { schedule: BOOKING_FEE, ladder: [] }), null);
+  assert.equal(previewGiftForTotal(5_000_000, { schedule: BOOKING_FEE, ladder: [], limitPct: GIFT_LIMIT_PCT_DEFAULT }), null);
 });
 
 test('the composer renders the SUPPLIER voice — both halves of "show both"', () => {

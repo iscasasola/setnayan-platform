@@ -48,9 +48,6 @@ import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
  */
 export const GIFT_LIMIT_PCT_DEFAULT = 40;
 
-/** @deprecated the setting's default — pass the live `limitPct` (`getGiftLimitPct`). Removed once every reader passes it. */
-export const GIFT_SHARE_OF_FEE_PCT = GIFT_LIMIT_PCT_DEFAULT;
-
 /**
  * A gift-limit percent as the sizing uses it: a whole number 0–100. Anything else (absent, NaN, out of range)
  * falls back to the ruled default — never to 0 (no gift) and never above 100.
@@ -375,6 +372,8 @@ export type GiftQuoteBasis = {
   ladder: GiftRung[];
   /** 💝 This shop pays the gift price (Verified-and-up, owner 2026-11-04) — the same answer the bill uses. */
   giftPrice?: boolean;
+  /** 🎁 The live gift limit (`getGiftLimitPct`, Admin › Gifts) — the % of the fee the gift is sized at. Never typed. */
+  limitPct: number;
 };
 
 /**
@@ -390,7 +389,10 @@ export function previewGiftForTotal(
 ): SetnayanGift | null {
   if (!basis || !Number.isFinite(totalCentavos) || totalCentavos <= 0) return null;
   const feeCentavos = Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100);
-  const gift = setnayanGiftForFee(feeCentavos, basis.ladder, { giftPrice: basis.giftPrice === true });
+  const gift = setnayanGiftForFee(feeCentavos, basis.ladder, {
+    giftPrice: basis.giftPrice === true,
+    limitPct: basis.limitPct,
+  });
   return gift.credits > 0 ? gift : null;
 }
 

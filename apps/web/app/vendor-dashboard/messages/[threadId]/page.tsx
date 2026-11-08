@@ -66,6 +66,9 @@ import { fetchVendorServices } from '@/lib/vendor-services';
 import { fetchAddonsByService } from '@/lib/vendor-service-addons';
 import type { QuoteCardOption } from '@/app/_components/proposal-maker';
 import { briefForQuote } from '@/lib/quote-event-brief';
+import { chatHostsFrom, type ChatHost } from '@/lib/chat-hosts';
+import { QUOTE_VERSION_SELECT, type QuoteVersionRow } from '@/lib/quote-versions';
+import { QuoteVersionLine } from '@/app/_components/quote-version-line';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
 import { bandMedianPerHeadPhp } from '@/lib/budget-band-money';
 import { isFeeUnlocksEventEnabled } from '@/lib/event-access-stage';
@@ -178,6 +181,13 @@ type Props = {
     taken?: string;
     free?: string;
     competing?: string;
+    /**
+     * THE ONE BUILD (8 Nov 2026) — INTERNAL, set only by `SupplierThreadBody` (`_components/supplier-thread-body.tsx`):
+     * the SAME thread, drawn inside the picked client's page instead of full screen. `chat` = the conversation
+     * without the full-screen frame (no conversation list, the client's pinned row is the head); `quotation` = the
+     * quote builder alone, seeded from the live quote. One body, one read path — never a second copy of these reads.
+     */
+    __embed?: string;
   }>;
 };
 
@@ -217,8 +227,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // card. Opens the Build-a-quote panel on the server AND seeds the builder
   // from the quote being replaced (see `quoteRevision` below), so the supplier
   // edits what they sent rather than retyping it. Same mechanism as `deal`.
+  const embed: 'chat' | 'quotation' | null =
+    sp?.__embed === 'chat' ? 'chat' : sp?.__embed === 'quotation' ? 'quotation' : null;
+  // The Quotation page opens the builder ON the live quote, exactly as "Update this quote" does (`compose=quote`).
   const composeMode =
-    sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : null;
+    sp?.compose === 'deal' ? 'deal' : sp?.compose === 'quote' ? 'quote' : embed === 'quotation' ? 'quote' : null;
   const proposalNotice = typeof noticeKey === 'string' ? PROPOSAL_NOTICE[noticeKey] : undefined;
   // The answer to a booking ask given from the accepted quote card lands back
   // HERE (`lockAnswerReturnTo`), so this page says what happened — the same
@@ -394,6 +407,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // for it (that column reads the `chat_thread_reads` row this writes).
   const markedRead = (async () => {
     await writesWaitFor;
+    // THE ONE BUILD: the client's Quotation page draws the quote tool, not the conversation — opening it must not
+    // mark the couple's messages as read. Full screen and the client's Chat page do, as before.
+    if (embed === 'quotation') return;
     await markThreadRead(threadId).catch(() => undefined);
   })();
   const batchRead = msgTimer.track('thread', () => Promise.all([
@@ -472,17 +488,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     // degrades field by field rather than costing the page.
     (async (): Promise<{
       hostName: string | null;
+      /** THE ONE BUILD (8 Nov 2026): every host in this chat (`event_chat_hosts`). NULL = unread, never "no hosts". */
+      hosts: ChatHost[] | null;
       locked: number | null;
       total: number | null;
       lockedCategories: string[];
     }> => {
       try {
         const [members, vendors] = await Promise.all([
-          paxAdmin
-            .from('event_members')
-            .select('user_id')
-            .eq('event_id', thread.event_id)
-            .limit(1),
+          // WHO THE HOSTS ARE — one source for the brief and this page (`event_chat_hosts`, 20271324946509): every
+          // couple member, keyed by auth uid. Was `event_members … limit(1)` + a `users` read for one name.
+          paxAdmin.rpc('event_chat_hosts', { p_event_id: thread.event_id }),
           paxAdmin
             // `category` rides along on a query this page already makes — the
             // locked-category chips cost no extra round trip. ⚠ `vendor_name`
@@ -506,20 +522,12 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         const lockedCategories = lockedRows
           .map((r) => (r.category ? displayServiceLabel(r.category) : null))
           .filter((c): c is string => !!c);
-        const hostId = (members.data ?? [])[0]?.user_id as string | undefined;
-        let hostName: string | null = null;
-        if (hostId) {
-          // ⚠ `display_name`, NOT `full_name` — public.users has no `full_name`.
-          const { data: u } = await paxAdmin
-            .from('users')
-            .select('display_name')
-            .eq('user_id', hostId)
-            .maybeSingle();
-          hostName = (u as { display_name: string | null } | null)?.display_name ?? null;
-        }
-        return { hostName, locked, total: rows.length, lockedCategories };
+        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
+        const hosts = members.error ? null : chatHostsFrom(members.data);
+        const hostName = hosts?.[0]?.name ?? null;
+        return { hostName, hosts, locked, total: rows.length, lockedCategories };
       } catch {
-        return { hostName: null, locked: null, total: null, lockedCategories: [] };
+        return { hostName: null, hosts: null, locked: null, total: null, lockedCategories: [] };
       }
     })(),
     // Vendor Proposal Maker (§ 9) — the vendor's OWN published payment methods
@@ -1541,26 +1549,43 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         returnTo: '/vendor-dashboard/customers',
       };
 
-  return (
-    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
-    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
-    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
-    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
-    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
-    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
-    <ChatThreadFrame
-      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
-      list={
-        <ConversationColumn
-          rows={conversationRows}
-          activeThreadId={threadId}
-          side="vendor"
-          hrefBase="/vendor-dashboard/messages"
+  /*
+    THE QUOTATION PAGE (THE ONE BUILD, v113 · B2 §2.2) — the picked client's "Quotation": the version line, then the
+    SAME quote tool this page mounts in its tools panel (`toolNodes['build-quote']`: ProposalMaker in the owner's eleven
+    steps + the saved-template shortcut). Nothing re-read for it except the version rows the stream reads in the
+    browser (`QUOTE_VERSION_SELECT`, one query).
+  */
+  if (embed === 'quotation') {
+    const versionRows = await supabase
+      .from('vendor_proposals')
+      .select(QUOTE_VERSION_SELECT)
+      .eq('event_id', thread.event_id)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .neq('status', 'draft')
+      .order('created_at', { ascending: true })
+      .limit(50);
+    if (versionRows.error) console.error('[supplier quotation page] version rows read refused', versionRows.error);
+    return (
+      <div data-picked-client-page="quotation" className="space-y-3">
+        <QuoteVersionLine
+          rows={versionRows.error ? null : ((versionRows.data ?? []) as QuoteVersionRow[])}
+          counterpartyLabel={coupleLabel}
         />
-      }
-    >
+        {toolNodes['build-quote']}
+      </div>
+    );
+  }
+
+  /*
+    THE CHAT PAGE (THE ONE BUILD, v111/v113 · B1 step 7) — the SAME box, drawn inside the picked client: no
+    conversation list, no full-screen head; the stream draws the hosts strip and labels each host's run.
+  */
+  const chatBox = (
         <ChatBox
+          // THE ONE BUILD · inside the picked client the client's pinned row IS the head (and the hosts strip sits
+          // in the stream), so the full-screen head is drawn only on the full-screen route.
           header={
+            embed === 'chat' ? null : (
             <ChatThreadHead
               back={<BackButton route="/vendor-dashboard/messages/[threadId]" params={{ threadId }} variant="chat" />}
               // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
@@ -1622,6 +1647,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 </>
               }
             />
+            )
           }
           notice={
             <>
@@ -2015,6 +2041,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         >
           <ChatMessageStream
             flush
+            // THE ONE BUILD · the client's Chat page names every host (strip + run labels); full screen is unchanged.
+            {...(embed === 'chat' ? { hosts: customerPlan.hosts } : {})}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.
@@ -2059,6 +2087,34 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             }}
           />
         </ChatBox>
+  );
+  if (embed === 'chat') {
+    return (
+      <div data-picked-client-page="chat" className="flex min-h-[70dvh] flex-col">
+        {chatBox}
+      </div>
+    );
+  }
+
+  return (
+    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
+    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
+    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
+    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
+    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
+    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="vendor"
+          hrefBase="/vendor-dashboard/messages"
+        />
+      }
+    >
+        {chatBox}
     </ChatThreadFrame>
     </div>
   );

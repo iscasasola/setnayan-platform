@@ -9,7 +9,7 @@
  *   • they leave the stock when that couple's FIRST PAYMENT clears, and land on the couple's EVENT;
  *   • a Verified-and-up shop pays the catalogue's GIFT price (`gift_price_php`); Free pays the list price;
  *   • a shop's gifts on one booking are capped at 40% of that booking's fee, measured at the price couples pay —
- *     the SAME 40% as the Setnayan gift (`GIFT_SHARE_OF_FEE_PCT`, reused, never re-typed) — and the smallest Papic
+ *     the SAME gift limit as the Setnayan gift (`limitPct`, the admin setting, never re-typed) — and the smallest Papic
  *     pack ("Papic 150") is ALWAYS allowed, even above the limit.
  *
  * 🔑 THE ALWAYS-ALLOWED PACK IS DERIVED, NOT TYPED: it is the smallest active pack on the live catalogue
@@ -31,7 +31,7 @@
 
 import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
 import { EVENT_PLUS_SKU, FULL_PRO_SKU } from './hub-parts';
-import { GIFT_SHARE_OF_FEE_PCT } from './setnayan-gift';
+import { giftLimitPctOrDefault } from './setnayan-gift';
 
 /** What a gift is: Papic credits, or one Event Plus / Event Pro unlock. The migration's CHECKs say the same three. */
 export type ShopGiftKind = 'papic' | 'event_plus' | 'event_pro';
@@ -136,13 +136,14 @@ export function giftUnitPrice(
 }
 
 /**
- * The gift LIMIT for a quote of `totalCentavos`: 40% of its booking fee, in whole centavos, FLOORED (the limit can
- * never exceed 40% by a centavo). The fee comes from `bookingFeePhp` under the LIVE schedule — never a re-typed rate.
+ * The gift LIMIT for a quote of `totalCentavos`: `limitPct`% of its booking fee, in whole centavos, FLOORED (the
+ * limit can never exceed that share by a centavo). The fee comes from `bookingFeePhp` under the LIVE schedule, and
+ * `limitPct` from the live admin setting (`getGiftLimitPct`, owner 8 Nov 2026) — never a re-typed rate.
  */
-export function giftLimitCentavos(totalCentavos: number, schedule: BookingFeeSchedule): number {
+export function giftLimitCentavos(totalCentavos: number, schedule: BookingFeeSchedule, limitPct: number): number {
   if (!Number.isFinite(totalCentavos) || totalCentavos <= 0) return 0;
   const feeCentavos = Math.round(bookingFeePhp(totalCentavos / 100, schedule) * 100);
-  return Math.floor((feeCentavos * GIFT_SHARE_OF_FEE_PCT) / 100);
+  return Math.floor((feeCentavos * giftLimitPctOrDefault(limitPct)) / 100);
 }
 
 /**
@@ -237,6 +238,7 @@ export function allocateRewardLines(lines: readonly ShopGiftPack[], rewardFree: 
  * SAME function to draw the block, so the two can never disagree.
  *
  * @param codes    the packs added, one entry per pack (two Papic 1000 ⇒ the code twice)
+ * @param limitPct the live gift limit (`ShopGiftQuoteBasis.limitPct`, Admin › Gifts) — binds the BOUGHT lines only
  * @param free     what is free to offer of each kind, from `freeByKind` — `null` (stock unread) judges as short
  * @param eventHas what the couple's event already holds — an event with Event Pro cannot take Plus or Pro
  * @param rewardFree what is left of the shop's BADGE-REWARD stock, per kind — those lines sit outside the limit
@@ -246,11 +248,12 @@ export function judgeQuoteGifts(
   packs: readonly ShopGiftPack[],
   totalCentavos: number,
   schedule: BookingFeeSchedule,
+  limitPct: number,
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
   rewardFree: FreeByKind | null = null,
 ): QuoteGiftsVerdict {
-  const limitCentavos = giftLimitCentavos(totalCentavos, schedule);
+  const limitCentavos = giftLimitCentavos(totalCentavos, schedule, limitPct);
   const byCode = new Map(packs.map((p) => [p.code, p]));
   const lines: ShopGiftPack[] = [];
   const lineOfCode: number[] = [];
@@ -305,6 +308,8 @@ export function judgeQuoteGifts(
 export type ShopGiftQuoteBasis = {
   packs: ShopGiftPack[];
   schedule: BookingFeeSchedule;
+  /** 🎁 The live gift limit, % of the booking fee (`getGiftLimitPct`, Admin › Gifts, owner 8 Nov 2026). Never typed. */
+  limitPct: number;
   /** Free to offer on THIS quote, per kind (this event's old holds left out). Null = could not be read. */
   free: FreeByKind | null;
   /** What the couple's event already holds — Plus and Pro gifts read it. */
@@ -331,12 +336,13 @@ export function addGiftMenu(
   packs: readonly ShopGiftPack[],
   totalCentavos: number,
   schedule: BookingFeeSchedule,
+  limitPct: number,
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
   rewardFree: FreeByKind | null = null,
 ): GiftMenuOption[] {
   return packs.map((p) => {
-    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, free, eventHas, rewardFree);
+    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, limitPct, free, eventHas, rewardFree);
     if (v.state === 'ok') return { code: p.code, title: p.title, ok: true, why: null };
     if (v.state === 'already_has') return { code: p.code, title: p.title, ok: false, why: 'Their event already has Event Pro' };
     if (v.state === 'over_limit') return { code: p.code, title: p.title, ok: false, why: 'Over this booking’s gift limit' };

@@ -47,12 +47,32 @@ const PIECES = [
   ['ChatSendForm', "@/app/_components/chat-send-form"],
 ] as const;
 
+/**
+ * True when `rel` takes `piece` from its own `_components/on-demand.tsx`, and that file loads it from the ONE shared
+ * source under the same name (code split, not a copy). Anything else is false — the direct import must then hold.
+ */
+function onDemand(rel: string, piece: string, from: string): boolean {
+  const s = read(rel);
+  if (!new RegExp(`import \\{[^}]*\\b${piece}\\b[^}]*\\} from '\\./_components/on-demand';`).test(s)) return false;
+  const wrap = read(rel.replace(/page\.tsx$/, '_components/on-demand.tsx'));
+  const esc = from.replace(/[/.]/g, '\\$&');
+  assert.match(
+    wrap,
+    new RegExp(`export const ${piece} = dynamic\\(\\s*\\(\\) => import\\('${esc}'\\)\\.then\\(\\(m\\) => m\\.${piece}\\)`),
+    `${rel}: the on-demand ${piece} is not the shared one`,
+  );
+  return true;
+}
+
 test('both thread routes mount the SAME shared pieces, once each, imported from the one source', () => {
   for (const rel of ROUTES) {
     const s = read(rel);
     assert.ok(s.length > 10_000, `${rel} read short`);
     for (const [piece, from] of PIECES) {
       assert.equal((s.match(new RegExp(`<${piece}\\b`, 'g')) ?? []).length, 1, `${rel}: <${piece}> is not mounted exactly once`);
+      // ⚡ The supplier thread loads its heavy parts on demand: the SAME shared component, re-exported under its own name
+      // by the page's `_components/on-demand.tsx` (`dynamic(() => import('<the one source>').then((m) => m.<piece>))`).
+      if (onDemand(rel, piece, from)) continue;
       assert.match(s, new RegExp(`import \\{[^}]*\\b${piece}\\b[^}]*\\} from '${from.replace(/[/.]/g, '\\$&')}';`), `${rel}: ${piece} is not the shared one`);
     }
     // Nothing page-local draws a head or bubbles beside them.

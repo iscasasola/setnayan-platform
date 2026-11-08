@@ -136,3 +136,57 @@ test('5 · honest words — a refused count is null, a short one N+, a short pay
   assert.match(PAGE, /zero: !unreadFailed && unreadRows\.length === 0/);
   assert.match(PAGE, /zero: overdue\?\.n === 0/);
 });
+
+test('6 · Show & sort narrows by Service · Status · Client · Handled by — an agent sees only theirs', async () => {
+  const s = await import('./clients-show-sort');
+  const row = (eventId: string, lane: string, title: string, eventDate: string | null) => ({ eventId, lane, title, eventDate }) as never;
+  const rows = [row('a', 'booked', 'Ana', '2026-12-01'), row('b', 'waiting', 'Ben', null), row('c', 'booked', 'Cy', '2026-11-20')];
+  const ctx = {
+    serviceOf: (e: string) => ({ a: 'svc1', c: 'svc2' })[e as 'a'] ?? null,
+    seatsOf: (e: string) => ({ a: ['seatA'], c: ['me1'] })[e as 'a'] ?? [],
+    meSeat: 'me1',
+    agent: false,
+    lastActivity: () => null,
+  };
+  const ids = (c: Partial<import('./clients-show-sort').ClientsChoice>, x = ctx) =>
+    s.narrowClients(rows, { ...s.clientsChoiceOf({}), ...c }, x).map((r: { eventId: string }) => r.eventId);
+  assert.deepEqual(ids({}), ['a', 'b', 'c'], 'the plain address narrows');
+  assert.deepEqual(ids({ svc: 'svc1' }), ['a']);
+  assert.deepEqual(ids({ st: 'waiting' }), ['b']);
+  assert.deepEqual(ids({ client: 'c' }), ['c']);
+  assert.deepEqual(ids({ who: 'seatA' }), ['a']);
+  assert.deepEqual(ids({ who: 'me' }), ['c']);
+  assert.deepEqual(ids({ who: s.NO_SEAT }), ['b'], '"Not given to a seat" is not the unassigned events');
+  // An agent is held to their own seat, whatever the address says.
+  assert.deepEqual(ids({ who: 'seatA' }, { ...ctx, agent: true }), ['c'], 'an agent sees another seat’s clients');
+  assert.equal(s.clientsChoiceApplied(s.clientsChoiceOf({ who: 'me' }), true), 0, 'an agent’s own seat counts as a choice');
+  // Group by Day: days together, in date order, no date last; Sort Name inside.
+  const key = s.groupKeyOf('day', ctx, (x: string) => x)!;
+  const ordered = s.orderClients(rows, { ...s.clientsChoiceOf({ group: 'day' }) }, ctx, key).map((r: { eventId: string }) => r.eventId);
+  assert.deepEqual(ordered, ['c', 'a', 'b']);
+  // The plain list keeps the derivation's order (waiting first) — nothing re-sorted.
+  assert.deepEqual(s.orderClients(rows, s.clientsChoiceOf({}), ctx, null).map((r: { eventId: string }) => r.eventId), ['a', 'b', 'c']);
+  // The page applies it before counting and paging, and draws the headings sticky.
+  assert.match(PAGE, /order: \(rows\) => orderClients\(rows, choice, clientsCtx, groupKey\)/);
+  const ROSTER = code('_components', 'customers-roster.tsx');
+  assert.match(ROSTER, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h, 57px\)'/, 'the group heading does not pin');
+  // A refused team read narrows nobody by a guess.
+  assert.match(PAGE, /agent: teamKnown && viewerIsAgent,/);
+});
+
+test('7 · the sheet is the Guests sheet’s frame, with the Clients rows — Handled by for owners, "Your clients only" for agents', () => {
+  const GUESTS = stripComments(readFileSync(join(HERE, '..', '..', 'dashboard', '[eventId]', 'guests', '_components', 'guests-filter-panel.tsx'), 'utf8'));
+  assert.match(GUESTS, /<ShowSortSheet\b/, 'Guests no longer draws the shared frame');
+  assert.doesNotMatch(GUESTS, /<GuestPopup\b|function TopicHead/, 'Guests draws its own frame again — two sheets that can drift');
+  const SHEET = code('_components', 'clients-show-sort.tsx');
+  assert.match(SHEET, /<ShowSortSheet\b/, 'Clients draws its own sheet');
+  for (const name of ['Show', 'Service', 'Status', 'Client', 'Handled by', 'Group by', 'Sort']) {
+    assert.match(SHEET, new RegExp(`name="${name}"`), `the sheet has no ${name} row`);
+  }
+  assert.match(SHEET, /\{ key: ALL, label: 'All seats' \}, \{ key: 'me', label: 'Me' \}, \.\.\.seats/, 'Handled by is not All seats · Me · each seat');
+  assert.match(SHEET, /Your clients only/, 'an agent is not told why they see only theirs');
+  assert.match(SHEET, /rootClassName="fixed inset-0 z-\[var\(--sn-z-pop,40\)\]"/, 'the sheet does not sit on the pop-up layer token');
+  // Show is in place — no navigation for it.
+  assert.match(SHEET, /window\.dispatchEvent\(new CustomEvent\(CLIENTS_SHOW_EVENT/);
+  assert.match(code('_components', 'customers-pin.tsx'), /window\.addEventListener\(CLIENTS_SHOW_EVENT, pick\)/, 'the row does not hear a Show pick');
+});

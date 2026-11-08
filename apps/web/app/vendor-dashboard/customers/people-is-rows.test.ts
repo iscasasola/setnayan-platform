@@ -211,7 +211,9 @@ test('3 · three segments, one address each; every old landing opens the segment
 test('3b · each segment reads only what it draws (owner: "the fewest requests")', () => {
   const people = body(PAGE, 'CustomersPipeline');
   const dates = body(PAGE, 'CustomersDates');
-  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'fetchVendorServices', 'fetchVendorTeam', 'VendorQrSection']) {
+  // 2026-11-08 (v113 Show & sort, spec §9 #7): Events now reads the shop's services (Service ▾) and team (Handled by) —
+  // what its own sheet draws. The month's data stays Dates'.
+  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'VendorQrSection']) {
     assert.ok(!people.includes(`${r}(`) && !people.includes(`<${r}`), `Events reads ${r} — the month's data, drawn by Dates`);
   }
   for (const r of ['customerLaneOf', 'readVendorPaydayInstallments', "from('vendor_client_notes')"]) {

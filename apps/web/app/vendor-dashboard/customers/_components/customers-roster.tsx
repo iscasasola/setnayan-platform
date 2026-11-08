@@ -349,7 +349,13 @@ export function CustomersRoster({
   lines = {},
   answers = null,
   list = null,
+  groupOf = null,
 }: {
+  /**
+   * ⇅ Show & sort's Group by (Day · Handled by) — each row's heading; a new heading is drawn where it changes, and it
+   * PINS under the row while its rows scroll (v113 sticky day headings). Null = the shipped list, no headings.
+   */
+  groupOf?: ((r: RosterRow) => string) | null;
   /** Which list this is (a count's key), null for every event — the rows' handles carry it (`RosterRowView`). */
   list?: string | null;
   /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
@@ -461,11 +467,24 @@ export function CustomersRoster({
         )
       ) : (
         <ul data-customers-list="" data-tour="customers-list">
-          {rows.map((r) => (
-            <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
-              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
-            </li>
-          ))}
+          {rows.map((r, i) => {
+            const head = groupOf ? groupOf(r) : null;
+            const newHead = head !== null && (i === 0 || groupOf!(rows[i - 1]!) !== head);
+            return (
+              <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
+                {newHead ? (
+                  <p
+                    className="home-k2 sticky z-[3] -mx-4 flex min-h-10 items-center px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+                    style={{ top: 'var(--sn-pin-h, 57px)', background: 'var(--sn-canvas)' }}
+                    data-customers-group-heading={head}
+                  >
+                    {/^\d{4}-\d{2}-\d{2}$/.test(head) ? fmtDate(head, nowMs) : head}
+                  </p>
+                ) : null}
+                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
+              </li>
+            );
+          })}
         </ul>
       )}
 

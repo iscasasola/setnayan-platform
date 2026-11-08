@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersSegment } from '../segments';
+import { CLIENTS_SHOWING_EVENT, CLIENTS_SHOW_EVENT } from '../clients-show-sort';
 import { SupplierOpenScope } from '../../_components/supplier-open-row';
 import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 
@@ -108,6 +109,19 @@ export function CustomersPin({
   // place; pressing it again shows them all — opening on Asking alone made a supplier's booked events look gone.
   const [on, setOn] = useState<string | null>(initial);
   const showing: string = on ?? 'all';
+  // ⇅ Show & sort's Show picks a list here, in place; the sheet is told what is shown (a door pressed changes it too).
+  useEffect(() => {
+    if (!panels) return;
+    const pick = (e: Event) => {
+      const k = (e as CustomEvent<string | null>).detail;
+      setOn(k && k in panels ? k : null);
+    };
+    window.addEventListener(CLIENTS_SHOW_EVENT, pick);
+    return () => window.removeEventListener(CLIENTS_SHOW_EVENT, pick);
+  }, [panels]);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(CLIENTS_SHOWING_EVENT, { detail: on }));
+  }, [on]);
   // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);

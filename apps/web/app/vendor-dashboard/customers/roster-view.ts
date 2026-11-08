@@ -45,6 +45,8 @@ export function rosterView<R>(
     q: string | undefined;
     page: string | string[] | undefined;
     decorate: (r: PipelineCustomer) => R;
+    /** ⇅ Show & sort's order (Group by, then Sort — `clients-show-sort.ts`); absent = the lanes' own order. */
+    order?: (rows: PipelineCustomer[]) => PipelineCustomer[];
   },
 ): RosterView<R> {
   const laneCounts = Object.fromEntries(
@@ -56,7 +58,8 @@ export function rosterView<R>(
     : null;
 
   // Waiting first, always. The chip narrows the same list; it never reorders it.
-  const ordered = activeLane ? lanes[activeLane] : CUSTOMER_LANES.flatMap((l) => lanes[l]);
+  const laneOrdered = activeLane ? lanes[activeLane] : CUSTOMER_LANES.flatMap((l) => lanes[l]);
+  const ordered = opts.order ? opts.order(laneOrdered) : laneOrdered;
 
   const matched = filterBySearch(ordered, parseSearchParam(opts.q), (r) => r.title);
   const page = paginate(matched, opts.page);

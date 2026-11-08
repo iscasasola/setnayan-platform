@@ -71,6 +71,8 @@ import { CustomersPin, type CustomersDoor, type CustomersQuick } from './_compon
 import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-tile-lists';
 import { countWords, overdueRead, toCollectWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
+import { ClientsShowSort } from './_components/clients-show-sort';
+import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, type ClientsContext } from './clients-show-sort';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { resolveAppointmentLabel } from '@/lib/appointments';
 import {
@@ -275,6 +277,16 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
     readUnreadChatCountsByThread(supabase, user.id),
   ]);
+  /*
+    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
+    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
+    the team couldn't load, and nobody is narrowed by a guess.
+  */
+  const [teamRead, assignmentsRead, servicesRead] = await Promise.all([
+    fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
+    fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
+    fetchVendorServices(supabase, vendorProfileId).catch(() => null),
+  ]);
 
   const threads = threadsRead.threads;
   if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
@@ -359,7 +371,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       const { data, error, count } = await rosterAdmin
         .from('event_vendors')
         .select(
-          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at',
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
           { count: 'exact' },
         )
         .eq('marketplace_vendor_id', vendorProfileId)
@@ -392,6 +404,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     lock_request_expires_at: string | null;
     completion_status: string | null;
     customer_confirmed_received_at: string | null;
+    service_id: string | null;
   }[];
   const bookingByEvent = new Map(bookingRows.map((r) => [r.event_id, r]));
 
@@ -518,7 +531,37 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   }
   const listed = derived.filter((r) => !archivedOff.has(r.eventId));
 
-  const lanes = groupByLane(listed);
+  /*
+    ⇅ SHOW & SORT (v113; spec §9 #7) — Service · Status · Client · Handled by narrow EVERY event before the lists are
+    counted and paged; Group by and Sort order each list (`clients-show-sort.ts`). The plain address is the shipped list.
+  */
+  const choice = clientsChoiceOf(search as Record<string, string | undefined>);
+  const meRow = teamRead?.find((m) => m.user_id === user.id) ?? null;
+  const viewerIsAgent = meRow?.role === 'agent';
+  const seatsByService = new Map<string, string[]>();
+  for (const [memberId, serviceIds] of Object.entries(assignmentsRead ?? {})) {
+    for (const sid of serviceIds) seatsByService.set(sid, [...(seatsByService.get(sid) ?? []), memberId]);
+  }
+  const teamKnown = teamRead !== null && assignmentsRead !== null;
+  const seatNames = teamKnown && teamRead.length > 0 ? await enrichTeamWithUsers(rosterAdmin, teamRead).catch(() => null) : [];
+  const seatName = (id: string) => {
+    const m = seatNames?.find((t) => t.vendor_team_member_id === id);
+    return id === meRow?.vendor_team_member_id ? 'You' : m?.display_name?.trim() || m?.team_label?.trim() || 'Team member';
+  };
+  const clientsCtx: ClientsContext = {
+    serviceOf: (eventId) => bookingByEvent.get(eventId)?.service_id ?? null,
+    seatsOf: (eventId) => {
+      const sid = bookingByEvent.get(eventId)?.service_id;
+      return sid ? (seatsByService.get(sid) ?? []) : [];
+    },
+    meSeat: meRow?.vendor_team_member_id ?? null,
+    // An agent is held to their own seat only when the team was read — never narrowed by a refused read.
+    agent: teamKnown && viewerIsAgent,
+    lastActivity: (eventId) => threadByEvent.get(eventId)?.updated_at ?? null,
+  };
+  const narrowed = teamKnown || !choice.who ? narrowClients(listed, choice, clientsCtx) : narrowClients(listed, { ...choice, who: null }, clientsCtx);
+  const groupKey = groupKeyOf(choice.group, clientsCtx, seatName);
+  const lanes = groupByLane(narrowed);
   /*
     Computed over EVERY listed customer, never over the door on screen —
     filtering to a door must not make a date clash disappear. That is the
@@ -642,6 +685,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           q: search.q,
           page: (urlDoor ?? 'all') === k ? search.page : undefined,
           decorate,
+          order: (rows) => orderClients(rows, choice, clientsCtx, groupKey),
         }),
       ];
     }),
@@ -734,6 +778,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             lines={lines}
             answers={{ acceptInquiry, declineInquiry }}
             list={k === 'all' ? null : k}
+            groupOf={groupKey}
           />
           {isBooked ? (
             <OutsideClientRows
@@ -817,7 +862,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     (spec §10). Money's figures are Money's own picture (`moneyPicture`), never re-added here.
   */
   const picture = moneyPicture(paydayIncomplete ? null : paydayRows, 'all', todayIso);
-  const unreadRows = unreadEvents(listed, unreadRead.countByThread);
+  const unreadRows = unreadEvents(narrowed, unreadRead.countByThread);
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: 'booked' },
@@ -936,6 +981,22 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 />
               ),
             }}
+            right={[
+              {
+                node: (
+                  <ClientsShowSort
+                    choice={choice}
+                    initialShow={initialDoor}
+                    services={(servicesRead ?? []).filter((s) => s.is_active).map((s) => ({ key: s.vendor_service_id, label: s.title?.trim() || 'A service' }))}
+                    clients={listed.map((r) => ({ key: r.eventId, label: r.title }))}
+                    seats={teamKnown && seatNames ? teamRead.filter((m) => m.vendor_team_member_id !== meRow?.vendor_team_member_id).map((m) => ({ key: m.vendor_team_member_id, label: seatName(m.vendor_team_member_id) })) : null}
+                    agent={clientsCtx.agent}
+                    shown={narrowed.length}
+                    keep={keepParamsFrom(sp, ['svc', 'st', 'client', 'who', 'group', 'sort', 'page', 'notice', 'add', 'gear'])}
+                  />
+                ),
+              },
+            ]}
             action={{
               node: (
                 <OutsideClientAdd

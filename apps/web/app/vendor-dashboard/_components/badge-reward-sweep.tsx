@@ -22,7 +22,9 @@ export function BadgeRewardSweep({ url = '/api/vendor/badges?view=facts' }: { ur
     fetch(url, { credentials: 'same-origin', headers: { accept: 'application/json' } })
       .then((r) => (r.ok ? (r.json() as Promise<{ granted?: number }>) : null))
       .then((j) => {
-        if (live && j && typeof j.granted === 'number' && j.granted > 0) router.refresh();
+        if (!live || !j || typeof j.granted !== 'number' || j.granted <= 0) return;
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/vendor/badges that just paid a reward; redraw once to show it.
+        router.refresh();
       })
       // A failed sweep pays nothing and shows nothing; the next visit (or Today) pays it.
       .catch(() => undefined);

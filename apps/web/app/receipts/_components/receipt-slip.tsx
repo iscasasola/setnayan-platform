@@ -52,7 +52,7 @@ export function ReceiptSlip({
     <article data-receipt-slip="" className="sn-slip relative mx-auto w-full max-w-[340px] px-5 pb-6 pt-[22px]">
       <style>{SLIP_CSS}</style>
       <p className="text-center text-[12.5px] font-bold tracking-[0.3em]">SETNAYAN</p>
-      <p className="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-[#8A857B]">{kind}</p>
+      <p className="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-[#6E6A62]">{kind}</p>
       <p className="mt-1.5 text-center font-mono text-[11px] leading-none text-[#6E6A62]">No. {number}</p>
       {/* The stamp owns the top-right corner; the amount steps left to give it room (owner's pick 2026-10-25). Its
           own clipping box, so the PAID ink can run off the edge without clipping the slip's torn bottom. */}
@@ -79,7 +79,7 @@ export function ReceiptSlip({
         <b className="text-sm">Total</b>
         <span className="font-mono text-lg font-bold leading-none">{total}</span>
       </div>
-      {vatIncluded ? <p className="mt-1 text-right text-[11.5px] text-[#8A857B]">VAT included</p> : null}
+      {vatIncluded ? <p className="mt-1 text-right text-[11.5px] text-[#6E6A62]">VAT included</p> : null}
 
       <hr className="sn-slip-tear" />
       {rows.map((r) => (
@@ -88,14 +88,14 @@ export function ReceiptSlip({
           <span className="text-right font-mono text-xs leading-snug">{r.value}</span>
         </div>
       ))}
-      <p className="mt-1 break-all font-mono text-[10px] leading-[1.7] tracking-[0.02em] text-[#8A857B]">
+      <p className="mt-1 break-all font-mono text-[10px] leading-[1.7] tracking-[0.02em] text-[#6E6A62]">
         {refs.map((r) => (
           <span key={r} className="block">
             {r}
           </span>
         ))}
       </p>
-      <p className="mt-3 text-center text-[11px] leading-snug text-[#8A857B]">{legal}</p>
+      <p className="mt-3 text-center text-[11px] leading-snug text-[#6E6A62]">{legal}</p>
     </article>
   );
 }
@@ -104,9 +104,9 @@ function SlipLineRow({ line }: { line: SlipLine }) {
   return (
     <>
       <span>{line.what}</span>
-      <span className="font-mono text-[11.5px] leading-none text-[#8A857B]">{line.qty != null ? `×${line.qty}` : ''}</span>
+      <span className="font-mono text-[11.5px] leading-none text-[#6E6A62]">{line.qty != null ? `×${line.qty}` : ''}</span>
       <span className="font-mono text-[13px] font-medium leading-none">{line.amount}</span>
-      {line.detail ? <span className="col-span-3 -mt-0.5 mb-1.5 text-[11.5px] text-[#8A857B]">{line.detail}</span> : null}
+      {line.detail ? <span className="col-span-3 -mt-0.5 mb-1.5 text-[11.5px] text-[#6E6A62]">{line.detail}</span> : null}
     </>
   );
 }

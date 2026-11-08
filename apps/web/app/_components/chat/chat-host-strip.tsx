@@ -33,8 +33,11 @@ export function ChatHostStrip({
   const inNow = people.filter((p) => presentIds.has(p.id)).length;
   return (
     <div className="border-b border-ink/10 px-4 py-2" data-chat-host-strip="">
+      {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
+          the avatar: ring-2 + ring-offset-2 = 4 px. So the list pads 4 px all round (`p-1`, pulled back with `-mx-1` so
+          the first avatar still lines up with the line below) and snaps inside that padding (`scroll-px-1`). */}
       <ul
-        className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"
+        className="-mx-1 flex snap-x snap-mandatory scroll-px-1 gap-2 overflow-x-auto p-1 [scrollbar-width:none]"
         aria-label={`Shared chat · ${people.length} inside`}
       >
         {people.map((p) => {

@@ -6,12 +6,14 @@
  * navigation; the shell reads it once on mount. A hard load (Today, a notification, a typed URL) finds nothing and
  * simply appears — and its ✕ goes to the Clients list instead of `history.back()`, which could leave the app.
  *
- * ⏳ L1's foundation ships the shared 520 ms primitive and `--sn-pin-h`; when it lands the numbers below are read
- * from it (one motion, app-wide) and this file keeps only the origin bookkeeping.
+ * The numbers are L1's ONE rise (`lib/rise-motion.ts` — 520 ms, its ease, the 120 ms reduced fade), read here at
+ * integration so the picked client and every other rise move alike; this file keeps the origin bookkeeping.
  */
-export const PICKED_OPEN_MS = 520;
-export const PICKED_EASE = 'cubic-bezier(.2,.8,.2,1)';
-export const PICKED_FADE_MS = 120;
+import { RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
+
+export const PICKED_OPEN_MS = RISE_MS;
+export const PICKED_EASE = RISE_EASE;
+export const PICKED_FADE_MS = RISE_REDUCED_MS;
 /** §10 #26 (owner 8 Nov: "make the animation run 0.7 seconds"): 700 ms, 44 px, this ease, opacity full at 45 %. */
 export const PICKED_PAGE_SLIDE_MS = 700;
 export const PICKED_PAGE_SLIDE_EASE = 'cubic-bezier(.33,1,.68,1)';

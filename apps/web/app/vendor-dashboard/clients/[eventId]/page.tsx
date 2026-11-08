@@ -1715,7 +1715,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       href="/vendor-dashboard/customers"
       className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
     >
-      <ArrowLeft aria-hidden className="h-4 w-4" /> Customers
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
     </Link>
   );
 
@@ -2166,7 +2166,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <section className="mx-auto w-full max-w-5xl px-3 py-6 sm:px-6 lg:px-8">
         <div className="overflow-hidden sn-tile">
           {/* ============================ HEADER ============================ */}
-          <header className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
+          <header className="sticky top-0 z-10 sn-pin-hair bg-cream/95 px-4 pt-4 backdrop-blur sm:px-6">
             {backLink}
             {identityBlock}
             {actionRow}

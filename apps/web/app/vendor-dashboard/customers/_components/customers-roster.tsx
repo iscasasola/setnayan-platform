@@ -475,7 +475,7 @@ export function CustomersRoster({
                 {newHead ? (
                   <p
                     className="home-k2 sticky z-[3] -mx-4 flex min-h-10 items-center px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-                    style={{ top: 'var(--sn-pin-h, 57px)', background: 'var(--sn-canvas)' }}
+                    style={{ top: 'var(--sn-pin-h)', background: 'var(--sn-canvas)' }}
                     data-customers-group-heading={head}
                   >
                     {/^\d{4}-\d{2}-\d{2}$/.test(head) ? fmtDate(head, nowMs) : head}

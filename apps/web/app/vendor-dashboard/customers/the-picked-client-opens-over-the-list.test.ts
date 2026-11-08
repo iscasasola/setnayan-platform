@@ -51,7 +51,7 @@ test('1 · one intercepting slot over the list, re-exporting the ONE client page
 test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dialog, Esc closes', () => {
   const shell = read(SHELL);
   assert.match(shell, /createPortal\(screen, host\)/, 'portaled onto <body> so no page stacking context traps it');
-  assert.match(shell, /zIndex: 'var\(--sn-z-pop, 50\)'/, 'the pop-up layer is the token');
+  assert.match(shell, /zIndex: 'var\(--sn-z-pop\)'/, 'the pop-up layer is the token (integration: no fallback once foundation defines it)');
   assert.doesNotMatch(shell, /zIndex:\s*\d/, 'a raw z-index number — use the layer tokens (§10 #23)');
   assert.doesNotMatch(shell, /className="[^"]*\bz-\d/, 'a raw z-* class — use the layer tokens (§10 #23)');
   assert.match(shell, /role="dialog"/);
@@ -62,6 +62,7 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
 
 test('3 · the close is the open played backwards', () => {
   assert.equal(PICKED_OPEN_MS, 520);
+  assert.match(read(MOTION), /PICKED_OPEN_MS = RISE_MS;/, 'the picked client keeps its own copy of the rise again');
   assert.equal(PICKED_FADE_MS, 120);
   assert.equal(PICKED_PAGE_SLIDE_MS, 700, '§10 #26: the page slide is 0.7 s');
   assert.equal(PICKED_PAGE_SLIDE_EASE, 'cubic-bezier(.33,1,.68,1)');

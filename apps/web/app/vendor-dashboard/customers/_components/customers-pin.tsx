@@ -197,7 +197,7 @@ export function CustomersPin({
     <>
       <div
         ref={pinRef}
-        className="sticky top-0 z-[5] -mx-4 mb-3 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="sticky top-0 z-[5] -mx-4 mb-3 sn-pin-hair px-4 py-1.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ background: 'var(--sn-canvas)' }}
         data-customers-pin={seg}
         data-pin-fold=""
@@ -205,12 +205,12 @@ export function CustomersPin({
         data-first-row=""
         data-tour="customers-segments"
       >
-        <div className="flex min-h-11 items-center gap-1" role="group" aria-label="Customers">
+        <div className="flex min-h-11 items-center gap-1" role="group" aria-label="Clients">
           <span className="shrink-0" data-customers-view="">
             <PickMenu
-              label="Customers — show"
+              label="Clients — show"
               value={seg}
-              buttonText={`Customers · ${CUSTOMER_SEGMENT_LABEL[seg]}`}
+              buttonText={`Clients · ${CUSTOMER_SEGMENT_LABEL[seg]}`}
               options={CUSTOMER_SEGMENTS.map((s) => ({ key: s, label: CUSTOMER_SEGMENT_LABEL[s] }))}
               compact
               dataAttr="data-customers-picker"

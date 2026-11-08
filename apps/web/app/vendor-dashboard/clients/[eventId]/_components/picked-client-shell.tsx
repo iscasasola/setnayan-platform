@@ -21,7 +21,7 @@
  *
  * ── LAYERS (spec §10 #23: page < thumb row < bottom nav < pop-ups/sheets) ──────────────────────────────────────
  * The picked client covers the bottom nav (v113: no bar while a client is open), so it is a pop-up layer:
- * `--sn-z-pop` (L1's token; 50 — the shipped `Sheet` — until foundation lands), drawn on <body> like `Sheet`, so no
+ * `--sn-z-pop` (L1's token, 40: over the thumb row and the bar, under a `Sheet` at `--sn-z-modal`), drawn on <body> like `Sheet`, so no
  * page stacking context can trap it under the bar.
  */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -233,7 +233,7 @@ export function PickedClientShell({
       aria-labelledby={headingId}
       data-picked-client={eventId}
       className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink"
-      style={{ zIndex: 'var(--sn-z-pop, 50)' }}
+      style={{ zIndex: 'var(--sn-z-pop)' }}
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">

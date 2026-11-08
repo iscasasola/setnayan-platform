@@ -36,11 +36,9 @@ function walk(dir: string, out: string[] = []): string[] {
 const SHARED = ['lib/menu-settings.ts', 'lib/help.ts', 'lib/tours.ts', 'lib/nav-registry-defaults.ts'];
 
 /** Files whose owning lane renames the word in THE ONE BUILD (owner lane in the value). Remove a line once fixed. */
-const KNOWN: Record<string, string> = {
-  'app/vendor-dashboard/customers/page.tsx': 'L2 — the Clients page metadata + heading',
-  'app/vendor-dashboard/customers/_components/customers-pin.tsx': 'L2 — the Clients pinned row',
-  'app/vendor-dashboard/clients/[eventId]/page.tsx': 'L2 — the client page back link',
-};
+// Integration (8 Nov): emptied — the last three strings (the pinned row's group + Show label, the client page's back
+// link) now say Clients. It stays as the shape of the ratchet: a new "Customers" string is red.
+const KNOWN: Record<string, string> = {};
 
 const WORD = /\bCustomers\b/g;
 

@@ -173,7 +173,7 @@ test('6 · Show & sort narrows by Service · Status · Client · Handled by — 
   // The page applies it before counting and paging, and draws the headings sticky.
   assert.match(PAGE, /order: \(rows\) => orderClients\(rows, choice, clientsCtx, groupKey\)/);
   const ROSTER = code('_components', 'customers-roster.tsx');
-  assert.match(ROSTER, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h, 57px\)'/, 'the group heading does not pin');
+  assert.match(ROSTER, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h\)'/, 'the group heading does not pin');
   // A refused team read narrows nobody by a guess.
   assert.match(PAGE, /agent: teamKnown && viewerIsAgent,/);
 });
@@ -189,7 +189,7 @@ test('7 · the sheet is the Guests sheet’s frame, with the Clients rows — Ha
   }
   assert.match(SHEET, /\{ key: ALL, label: 'All seats' \}, \{ key: 'me', label: 'Me' \}, \.\.\.seats/, 'Handled by is not All seats · Me · each seat');
   assert.match(SHEET, /Your clients only/, 'an agent is not told why they see only theirs');
-  assert.match(SHEET, /rootClassName="fixed inset-0 z-\[var\(--sn-z-pop,40\)\]"/, 'the sheet does not sit on the pop-up layer token');
+  assert.match(SHEET, /rootClassName="fixed inset-0 z-sn-pop"/, 'the sheet does not sit on the pop-up layer token');
   // Show is in place — no navigation for it.
   assert.match(SHEET, /window\.dispatchEvent\(new CustomEvent\(CLIENTS_SHOW_EVENT/);
   assert.match(code('_components', 'customers-pin.tsx'), /window\.addEventListener\(CLIENTS_SHOW_EVENT, pick\)/, 'the row does not hear a Show pick');

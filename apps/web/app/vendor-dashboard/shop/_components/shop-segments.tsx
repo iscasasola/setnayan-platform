@@ -52,7 +52,7 @@ export function ShopSegments({
   return (
     <div
       ref={pinRef}
-      className="sticky top-0 z-[5] -mx-4 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6"
+      className="sticky top-0 z-[5] -mx-4 sn-pin-hair px-4 py-1.5 sm:-mx-6 sm:px-6"
       style={{ background: 'var(--sn-canvas)' }}
       data-shop-pin={on}
       data-pin-fold=""

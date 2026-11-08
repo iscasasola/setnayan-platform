@@ -343,8 +343,8 @@ export function CustomersCalendar({
           height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}
       <div
         ref={stripRef}
-        className={`sticky z-[4] -mx-4 flex items-center gap-1 overflow-hidden border-ink/10 px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
-          folded ? 'h-[54px] border-b opacity-100' : 'pointer-events-none h-0 opacity-0'
+        className={`sticky z-[4] -mx-4 flex items-center gap-1 overflow-hidden px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
+          folded ? 'h-[54px] sn-pin-hair opacity-100' : 'pointer-events-none h-0 opacity-0'
         }`}
         style={{ background: 'var(--sn-canvas)' }}
         aria-hidden={!folded}

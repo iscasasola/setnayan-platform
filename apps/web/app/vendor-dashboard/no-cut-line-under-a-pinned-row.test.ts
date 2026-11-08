@@ -39,12 +39,8 @@ function walk(dir: string, out: string[] = []): string[] {
  * files"). Owner lane in brackets. Remove a line the moment its row is fixed — this list may only shrink.
  */
 const KNOWN: Record<string, string> = {
-  'app/vendor-dashboard/customers/_components/customers-pin.tsx': 'L2 — Clients pinned row',
-  'app/vendor-dashboard/clients/[eventId]/page.tsx': 'L2 — the client page header',
-  'app/vendor-dashboard/customers/_components/customers-calendar.tsx': 'L2 — the Clients calendar head',
-  'app/vendor-dashboard/shop/_components/shop-segments.tsx': 'C4 — Shop segments row',
-  'app/vendor-dashboard/_components/supplier-open-row.tsx': 'C1 — Today open row',
-  'app/vendor-dashboard/_components/today-counts.tsx': 'C1 — Today counts row',
+  // Integration (8 Nov): the L2 / C1 / C4 rows moved onto sn-pin-hair (today-counts.tsx left with C1's Today); one left —
+  // the canvas maker's head draws in the maker's own palette (`line`), not the app hairline: its own lane's call.
   'app/vendor-dashboard/services/_components/canvas-maker.tsx': 'C4 — the canvas maker head',
 };
 

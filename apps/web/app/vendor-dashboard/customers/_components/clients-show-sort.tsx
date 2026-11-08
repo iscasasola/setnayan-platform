@@ -101,7 +101,7 @@ export function ClientsShowSort({
           titleId="clients-filter-sheet-title"
           applied={applied}
           rows="clients-filter"
-          rootClassName="fixed inset-0 z-[var(--sn-z-pop,40)]"
+          rootClassName="fixed inset-0 z-sn-pop"
           panelData={{ 'data-filter-sheet': 'clients' }}
           onClearAll={() => {
             pickShow('all');

@@ -12,6 +12,9 @@
  *   &s=edit                       an existing card in the same maker (the edit sheet) — Live · delete · copy
  *   &s=unread                     …an existing card whose add-ons could not be read (Save waits)
  *   &s=fixed                      a new card whose kind came with the address (/services/new/[category])
+ *   &checks=1                     🃏 the card checks — fix before Create (owner 2026-10-26) on fixtures: the six seed claim
+ *                                 words, this lab's trades (with an alias), and a photo ask that says the cover is on
+ *                                 another shop's card and a showcase photo on another of this shop's cards
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
  *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
  *                                 the photos…) can be checked over that sheet, not only on the standalone page
@@ -26,6 +29,28 @@ import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
+import type { CardPhotoVerdict } from '@/lib/service-card-checks';
+import type { MakerCheckRules } from '@/app/vendor-dashboard/services/_components/card-checks';
+
+/** 🃏 `&checks=1` — the owner's six seed words (the migration's), as the maker reads them. LAB FIXTURES. */
+const LAB_CLAIM_WORDS = [
+  { phrase: 'guaranteed', why: 'A promise we can’t stand behind for you.' },
+  { phrase: '#1', why: 'A ranking nobody measured.' },
+  { phrase: 'best in', why: 'A ranking nobody measured.' },
+  { phrase: 'lowest price', why: 'A comparison with other shops we can’t check.' },
+  { phrase: 'official', why: 'Reads as an appointment by a brand or a venue.' },
+  { phrase: '100%', why: 'A promise we can’t stand behind for you.' },
+];
+
+/** 🃏 The lab's photo ask: the cover is on another shop's card; any showcase photo on this shop's "Grazing table". */
+async function labPhotoCheck(input: { serviceId: string | null; cover: string | null; showcase: string[] }): Promise<CardPhotoVerdict[]> {
+  'use server';
+  if (process.env.NODE_ENV === 'production') return [];
+  return [
+    ...(input.cover ? [{ ref: input.cover, where: 'cover' as const, verdict: 'another_shop' as const }] : []),
+    ...input.showcase.map((ref) => ({ ref, where: 'showcase' as const, verdict: 'this_shop' as const, cardTitle: 'Grazing table' })),
+  ];
+}
 
 const VP = '00000000-0000-4000-8000-0000000000bb';
 
@@ -258,6 +283,13 @@ export default async function CardMakerLabPage({
   const fixed = s === 'fixed';
   const fx = isEdit ? editFixture(shop) : null;
   const inToday = sp.host === 'today';
+  const withChecks = sp.checks === '1';
+  const labTrades = FAKE_TREE.flatMap((p) =>
+    p.branches.flatMap((b) =>
+      b.leaves.map((l) => ({ key: l.canonicalService, label: l.label, branch: b.label, aliases: l.canonicalService === 'lights_and_sound' ? ['sound system'] : l.canonicalService === 'sorbetes_cart' ? ['sorbetero'] : undefined })),
+    ),
+  );
+  const checkRules: MakerCheckRules | null = withChecks ? { claimWords: LAB_CLAIM_WORDS, trades: labTrades } : null;
 
   const maker = (
       <CanvasMaker
@@ -294,6 +326,8 @@ export default async function CardMakerLabPage({
         editing={fx?.editing ?? null}
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
+        checkRules={checkRules}
+        photoCheck={withChecks ? labPhotoCheck : undefined}
       />
   );
 

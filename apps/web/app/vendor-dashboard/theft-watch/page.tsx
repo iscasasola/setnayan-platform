@@ -27,7 +27,7 @@ const STATUS: Record<RepostFlagStatus, { label: string; className: string }> = {
 const SURFACE_LABEL: Record<RepostSurface, string> = {
   service_primary: 'Service cover photo',
   portfolio: 'Portfolio photo',
-  moodboard_library: 'Gallery photo',
+  moodboard_library: 'Inspiration photo',
   service_showcase: 'Service card photo',
 };
 

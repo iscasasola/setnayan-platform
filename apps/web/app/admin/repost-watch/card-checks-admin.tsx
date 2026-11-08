@@ -5,12 +5,8 @@ import { relativeTime } from '@/lib/activity';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
-import {
-  addCardClaimWord,
-  grantCardClaimWordAllowance,
-  removeCardClaimWord,
-  removeCardClaimWordAllowance,
-} from './actions';
+import { saveCardClaimWords } from './actions';
+import { PostedPick, PostedText } from './card-checks-fields';
 
 /**
  * 🃏 SERVICE CARD CHECKS on the shipped Repost watch page (owner 2026-10-26, "fix before Create").
@@ -39,7 +35,6 @@ type ReportRow = {
 
 const BTN =
   'inline-flex min-h-9 items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]';
-const FIELD = 'h-9 rounded-md border border-ink/15 bg-white px-2.5 text-sm text-ink';
 
 async function shopNames(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -164,7 +159,8 @@ export async function CardChecksAdmin() {
             <li key={w.phrase} className="flex items-center gap-3 py-2 text-sm">
               <b className="w-32 flex-none text-ink">{w.phrase}</b>
               <span className="min-w-0 flex-1 text-ink/70">{w.note ?? '—'}</span>
-              <form action={removeCardClaimWord}>
+              <form action={saveCardClaimWords}>
+                <input type="hidden" name="op" value="remove" />
                 <input type="hidden" name="phrase" value={w.phrase} />
                 <SubmitButton className={BTN} pendingLabel="Removing…">
                   <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Remove
@@ -175,15 +171,10 @@ export async function CardChecksAdmin() {
         </ul>
       )}
 
-      <form action={addCardClaimWord} className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs text-ink/70">
-          Word or phrase
-          <input name="phrase" required maxLength={60} placeholder="e.g. cheapest" className={FIELD} />
-        </label>
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-ink/70">
-          Why (the supplier reads this)
-          <input name="note" maxLength={200} placeholder="A comparison with other shops we can’t check." className={`${FIELD} w-full`} />
-        </label>
+      <form action={saveCardClaimWords} className="mt-3 space-y-1">
+        <input type="hidden" name="op" value="add" />
+        <PostedText name="Word or phrase" fieldName="phrase" required maxLength={60} placeholder="e.g. cheapest" data="claim-word-phrase" />
+        <PostedText name="Why (the supplier reads it)" fieldName="note" maxLength={200} placeholder="A comparison with other shops we can’t check." data="claim-word-note" />
         <SubmitButton className={BTN} pendingLabel="Adding…">
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add word
         </SubmitButton>
@@ -202,7 +193,8 @@ export async function CardChecksAdmin() {
                 <b>{names.get(a.vendor_profile_id) ?? 'Supplier'}</b> may use “{a.phrase}”
                 {a.note ? <span className="text-ink/60"> · {a.note}</span> : null}
               </span>
-              <form action={removeCardClaimWordAllowance}>
+              <form action={saveCardClaimWords}>
+                <input type="hidden" name="op" value="unallow" />
                 <input type="hidden" name="phrase" value={a.phrase} />
                 <input type="hidden" name="vendor_profile_id" value={a.vendor_profile_id} />
                 <SubmitButton className={BTN} pendingLabel="Removing…">
@@ -214,37 +206,13 @@ export async function CardChecksAdmin() {
         </ul>
       )}
       {words.length > 0 && shops.length > 0 ? (
-        <form action={grantCardClaimWordAllowance} className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-ink/70">
-            Shop
-            <select name="vendor_profile_id" required className={FIELD} defaultValue="">
-              <option value="" disabled>
-                Pick a shop
-              </option>
-              {shops.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ink/70">
-            Word
-            <select name="phrase" required className={FIELD} defaultValue="">
-              <option value="" disabled>
-                Pick a word
-              </option>
-              {words.map((w) => (
-                <option key={w.phrase} value={w.phrase}>
-                  {w.phrase}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-ink/70">
-            Why (for admin)
-            <input name="note" maxLength={200} placeholder="e.g. appointed caterer of the venue" className={`${FIELD} w-full`} />
-          </label>
+        <form action={saveCardClaimWords} className="mt-3 space-y-1">
+          <input type="hidden" name="op" value="allow" />
+          <div className="flex flex-wrap items-center gap-2">
+            <PostedPick label="Shop" fieldName="vendor_profile_id" empty="Pick a shop" options={shops.map((x) => ({ key: x.id, label: x.name }))} data="claim-allow-shop" />
+            <PostedPick label="Word" fieldName="phrase" empty="Pick a word" options={words.map((w) => ({ key: w.phrase, label: w.phrase }))} data="claim-allow-word" />
+          </div>
+          <PostedText name="Why (for admin)" fieldName="note" maxLength={200} placeholder="e.g. appointed caterer of the venue" data="claim-allow-note" />
           <SubmitButton className={BTN} pendingLabel="Allowing…">
             <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Allow
           </SubmitButton>

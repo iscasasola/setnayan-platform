@@ -175,8 +175,8 @@ export function findServiceMismatch(args: {
   if (ownPhrases.some((p) => containsPhrase(everything, p))) return null;
 
   let best: ServiceMismatch | null = null;
+  // A related trade cannot match here: its phrases are in `ownPhrases`, which already returned null above.
   for (const t of args.trades) {
-    if (related(t)) continue;
     for (const p of phrasesOf(t)) {
       if (containsPhrase(title, p) && (best === null || p.length > normaliseCardText(best.word).length)) {
         best = { says: t, word: p };
@@ -195,7 +195,7 @@ export function serviceMismatchLine(m: ServiceMismatch, categoryLabel: string): 
 
 export type CardPhotoWhere = 'cover' | 'showcase';
 
-/** "It's mine — report it": the note admin reads, at most this long (the column's CHECK). */
+/** "It's mine — report it": the note admin reads, at most this long (the column's CHECK, and the report's own cut). */
 export const REPORT_NOTE_MAX = 200;
 
 /**

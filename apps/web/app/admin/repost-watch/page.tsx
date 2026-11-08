@@ -97,7 +97,7 @@ const STATUS_TONE: Record<FlagRow['status'], string> = {
 const SURFACE_LABEL: Record<FlagRow['flagged_surface'], string> = {
   service_primary: 'Service cover',
   portfolio: 'Portfolio',
-  moodboard_library: 'Gallery',
+  moodboard_library: 'Inspiration',
   service_showcase: 'Service photo',
 };
 

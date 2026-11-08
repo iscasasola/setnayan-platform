@@ -47,7 +47,7 @@ function cleanRefs(cover: unknown, showcase: unknown): { cover: string | null; s
 }
 
 /** The card's photos, each with its verdict. Asked when the SET of photos changes, never per keystroke. */
-export async function checkCardPhotosAction(input: {
+async function checkCardPhotosAction(input: {
   serviceId: string | null;
   cover: string | null;
   showcase: string[];
@@ -65,7 +65,7 @@ export type ReportCardPhotoResult = { ok: true } | { ok: false; message: string 
  * on that pair's repost-watch row: `supplier_reported_at` + `supplier_report_note`. Re-reporting the same photo
  * updates the note — one row per pair (UNIQUE flagged_r2_ref, source_r2_ref).
  */
-export async function reportCardPhotoAction(input: {
+async function reportCardPhotoAction(input: {
   serviceId: string | null;
   ref: string;
   where: CardPhotoWhere;
@@ -113,4 +113,18 @@ export async function reportCardPhotoAction(input: {
     return { ok: false, message: 'We couldn’t send that just now — try again.' };
   }
   return { ok: true };
+}
+
+export type CardPhotoAsk =
+  | { op: 'check'; serviceId: string | null; cover: string | null; showcase: string[] }
+  | { op: 'report'; serviceId: string | null; ref: string; where: CardPhotoWhere; note: string };
+
+/**
+ * ONE dispatcher for the maker's two photo calls (the server-action budget, `scripts/lint-server-action-budget.mjs`):
+ * `check` returns the verdicts, `report` the report's outcome.
+ */
+export async function cardPhotoAction(input: CardPhotoAsk): Promise<CardPhotoVerdict[] | ReportCardPhotoResult> {
+  if (input?.op === 'report') return reportCardPhotoAction(input);
+  if (input?.op === 'check') return checkCardPhotosAction(input);
+  return [];
 }

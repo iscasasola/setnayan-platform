@@ -65,7 +65,7 @@ test('the save asks the same checks again, before the card is written', () => {
 });
 
 test('the photo check the supplier reads never names the other shop', () => {
-  const fn = CHECK_ACTIONS.slice(CHECK_ACTIONS.indexOf('export async function checkCardPhotosAction'));
+  const fn = CHECK_ACTIONS.slice(CHECK_ACTIONS.indexOf('async function checkCardPhotosAction'));
   const body = fn.slice(0, fn.indexOf('\n}\n'));
   assert.match(body, /return checkCardPhotos\(/, 'the maker’s photo call must return the verdicts alone');
   assert.doesNotMatch(body, /matchCardPhotos|source/, 'the maker’s photo call can reach the other shop');

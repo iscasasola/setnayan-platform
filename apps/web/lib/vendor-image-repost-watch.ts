@@ -222,11 +222,13 @@ export async function hashAndScanVendorImages(args: {
     );
     // A photo hashed before (an unchanged cover, a copied card's photo) still has to NAME the card it is on now.
     if (args.vendorServiceId && already.size > 0) {
-      await admin
+      const { error: nameError } = await admin
         .from('vendor_image_hashes')
         .update({ vendor_service_id: args.vendorServiceId })
         .eq('vendor_profile_id', vendorProfileId)
         .in('r2_ref', Array.from(already));
+      // Not fatal to the scan below, but a photo left naming no card would not be protected — so it is reported.
+      if (nameError) Sentry.captureException(nameError, { tags: { feature: 'vendor-image-repost-watch' }, extra: { phase: 'name-card' } });
     }
     const toHash = refs.filter((r) => !already.has(r));
     if (toHash.length === 0) return;

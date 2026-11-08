@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ArrowDown, Check, Flag, MoveRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -22,7 +22,10 @@ import {
   type ClaimWord,
   type ServiceMismatch,
 } from '@/lib/service-card-checks';
-import { checkCardPhotosAction, reportCardPhotoAction } from '../card-check-actions';
+import { cardPhotoAction, type ReportCardPhotoResult } from '../card-check-actions';
+import { TypedRow } from '@/app/_components/form-row';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * THE CARD CHECKS, INSIDE THE SHIPPED MAKER — "fix before Create" (owner 2026-10-26).
@@ -40,8 +43,16 @@ import { checkCardPhotosAction, reportCardPhotoAction } from '../card-check-acti
 /** What the page read for the checks (`lib/service-card-checks.server.ts`). `null` = unread. */
 export type MakerCheckRules = { claimWords: ClaimWord[] | null; trades: CheckTrade[] | null };
 
+/** The photo ask — the server action in the app; a fixture server action in `/dev/card-maker-lab`. */
+export type PhotoCheckAsk = (input: { serviceId: string | null; cover: string | null; showcase: string[] }) => Promise<CardPhotoVerdict[]>;
+
 const DANGER = { color: 'rgb(var(--color-danger))' } as const;
-const NOTE = 'mt-1.5 flex items-start gap-1.5 text-[13px] font-medium leading-snug';
+/**
+ * A note line owns a 46 px row: its ⓘ's press halo is 46 × 46 (`.sn-dot-btn`, the 44 px press rule), so two notes any
+ * closer would put one ⓘ's target over the other's (measured at 375 px, 2026-11-08 — the second word's ⓘ took the
+ * first one's press).
+ */
+const NOTE = 'flex min-h-[46px] items-center gap-2 text-[13px] font-medium leading-snug';
 const QUIET = 'mt-1.5 text-[12px] leading-snug text-ink/55';
 
 export type CardChecks = {
@@ -62,8 +73,11 @@ export function useCardChecks(args: {
   category: string;
   categoryLabel: string;
   serviceId: string | null;
+  /** Defaults to `checkCardPhotosAction`; only the dev lab hands in another. */
+  ask?: PhotoCheckAsk;
 }): CardChecks {
   const { rules, input, category, categoryLabel, serviceId } = args;
+  const ask: PhotoCheckAsk = args.ask ?? ((i) => cardPhotoAction({ op: 'check', ...i }) as Promise<CardPhotoVerdict[]>);
 
   const claims = useMemo(
     () => (rules?.claimWords ? findClaimWords(claimTextsOf(input), rules.claimWords) : []),
@@ -90,7 +104,7 @@ export function useCardChecks(args: {
     const showcase = input.showcaseRefs;
     const timer = setTimeout(() => {
       setInFlight(true);
-      checkCardPhotosAction({ serviceId, cover, showcase })
+      ask({ serviceId, cover, showcase })
         .then((verdicts) => {
           if (live) setAsked({ key: refsKey, verdicts });
         })
@@ -110,7 +124,7 @@ export function useCardChecks(args: {
       live = false;
       clearTimeout(timer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refsKey IS cover + showcase
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refsKey IS cover + showcase; `ask` is fixed per page
   }, [refsKey, serviceId]);
 
   const photos = refsKey && asked.key === refsKey ? asked.verdicts : [];
@@ -130,24 +144,28 @@ export function useCardChecks(args: {
 
 const FIELD_WORD: Record<ClaimField, string> = { name: 'Name', included: 'Line', extras: 'Extra' };
 
-/** The claim words found in ONE field, on that field's row. */
+/**
+ * The claim words found in ONE field, on that field's row — ONE line for the row (every word in it), ONE ⓘ holding each
+ * word's why. A word in a what's-included line or an extra names its line ("line 2").
+ */
 export function ClaimWordNotes({ hits, field }: { hits: ReadonlyArray<ClaimHit>; field: ClaimField }) {
   const mine = hits.filter((h) => h.field === field);
   if (mine.length === 0) return null;
+  const said = mine.map((h) => `“${h.phrase}”${field === 'name' ? '' : ` (${FIELD_WORD[field].toLowerCase()} ${h.index + 1})`}`);
+  const whys = Array.from(new Map(mine.map((h) => [h.phrase, h.why])).entries());
   return (
     <div data-card-check="claim" data-card-check-field={field}>
-      {mine.map((h) => (
-        <p key={`${h.index}:${h.phrase}`} role="alert" className={NOTE} style={DANGER}>
-          <span className="min-w-0 flex-1">
-            {field === 'name' ? '' : `${FIELD_WORD[field]} ${h.index + 1}: `}Reword “{h.phrase}” to save this card.
-          </span>
-          <InfoTip label="" ariaLabel={`Why “${h.phrase}”`} align="end">
-            <span className="block font-semibold">“{h.phrase}”</span>
-            <span className="mt-1 block">{h.why}</span>
-            <span className="mt-1 block text-ink/60">Couples read the card as your promise. If you hold the right to say it, ask us — we can allow it for your shop.</span>
-          </InfoTip>
-        </p>
-      ))}
+      <p role="alert" className={NOTE} style={DANGER}>
+        <span className="min-w-0 flex-1">Reword {said.join(', ')} to save this card.</span>
+        <InfoTip label="" ariaLabel={`Why ${whys.map(([p]) => `“${p}”`).join(', ')}`} align="end">
+          {whys.map(([phrase, why]) => (
+            <span key={phrase} className="mb-1 block">
+              <b className="font-semibold">“{phrase}”</b> — {why}
+            </span>
+          ))}
+          <span className="mt-1 block text-ink/60">Couples read the card as your promise. If you hold the right to say it, ask us — we can allow it for your shop.</span>
+        </InfoTip>
+      </p>
     </div>
   );
 }
@@ -168,7 +186,7 @@ export function ServiceMismatchNote({
 }) {
   if (!mismatch) return null;
   return (
-    <div data-card-check="service" className="mt-1.5">
+    <div data-card-check="service">
       <p role="alert" className={NOTE} style={DANGER}>
         <span className="min-w-0 flex-1">{serviceMismatchLine(mismatch, categoryLabel)}</span>
         <InfoTip label="" ariaLabel="About filing a card" align="end">
@@ -181,7 +199,7 @@ export function ServiceMismatchNote({
         </InfoTip>
       </p>
       {onMove && !moveWhy ? (
-        <div className="mt-2">
+        <div>
           <ActionButton tone="neutral" icon={MoveRight} label={`Move to ${mismatch.says.label}`} onClick={() => onMove(mismatch.says.key)} />
         </div>
       ) : !onMove ? (
@@ -207,13 +225,13 @@ export function PhotoCheckNotes({
   const unchecked = checks.photos.filter((p) => p.verdict === 'unchecked');
   if (blocked.length === 0 && unchecked.length === 0 && !checks.checkingPhotos) return null;
   return (
-    <div data-card-check="photo" className="mt-2 space-y-2">
+    <div data-card-check="photo" className="mt-2 space-y-1">
       {blocked.map((v) => (
         <PhotoBlockedNote key={v.ref} verdict={v} serviceId={serviceId} position={v.where === 'showcase' ? showcaseRefs.indexOf(v.ref) + 1 : 0} />
       ))}
       {unchecked.length > 0 ? (
         <p className={QUIET} data-card-check-unchecked="">
-          Couldn’t check {unchecked.length === 1 ? 'one photo' : `${unchecked.length} photos`} just now — Create checks again.
+          Couldn’t check {unchecked.length === 1 ? 'one photo' : `${formatCount(unchecked.length)} photos`} just now — Create checks again.
         </p>
       ) : null}
       {checks.checkingPhotos && blocked.length === 0 ? (
@@ -227,6 +245,9 @@ export function PhotoCheckNotes({
 
 function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhotoVerdict; serviceId: string | null; position: number }) {
   const [open, setOpen] = useState(false);
+  const reportBox = useRef<HTMLDivElement>(null);
+  // The note opens IN PLACE under its line and is brought into view (the app-wide reveal-on-open).
+  const intend = useRevealOnOpen(open, () => ({ head: reportBox.current }));
   const [note, setNote] = useState('');
   const [sent, setSent] = useState<null | { ok: boolean; text: string }>(null);
   const [sending, startSending] = useTransition();
@@ -251,22 +272,30 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
             <Check aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} /> Sent to Setnayan. Replace the photo to save now.
           </p>
         ) : (
-          <div className="mt-2">
+          <div ref={reportBox}>
             {!open ? (
-              <ActionButton tone="neutral" icon={Flag} label="It’s mine — report it" onClick={() => setOpen(true)} aria-expanded={false} />
+              <ActionButton
+                tone="neutral"
+                icon={Flag}
+                label="It’s mine — report it"
+                onClick={() => {
+                  intend();
+                  setOpen(true);
+                }}
+                aria-expanded={false}
+              />
             ) : (
               <div className="space-y-2">
-                <label className="block text-[13px] font-medium text-ink" htmlFor={`report-${verdict.ref}`}>
-                  A short note for Setnayan <span className="font-normal text-ink/50">optional · {REPORT_NOTE_MAX - note.length} left</span>
-                </label>
-                <textarea
-                  id={`report-${verdict.ref}`}
+                <TypedRow
+                  name="A short note for Setnayan"
                   value={note}
+                  long
+                  boxed
                   maxLength={REPORT_NOTE_MAX}
-                  onChange={(e) => setNote(e.target.value)}
-                  rows={2}
+                  empty="Optional"
                   placeholder="e.g. I shot this at our March wedding"
-                  className="w-full rounded-xl border border-ink/15 bg-raised px-3 py-2 text-[15px] text-ink outline-none focus:border-sn-accent"
+                  onKeep={(t) => setNote(t)}
+                  data="card-photo-report-note"
                 />
                 <div className="flex flex-wrap items-center gap-2">
                   <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setOpen(false)} />
@@ -277,7 +306,7 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                     waiting={sending}
                     onClick={() =>
                       startSending(async () => {
-                        const res = await reportCardPhotoAction({ serviceId, ref: verdict.ref, where: verdict.where, note }).catch(() => ({
+                        const res = await (cardPhotoAction({ op: 'report', serviceId, ref: verdict.ref, where: verdict.where, note }) as Promise<ReportCardPhotoResult>).catch(() => ({
                           ok: false as const,
                           message: 'We couldn’t send that just now — try again.',
                         }));

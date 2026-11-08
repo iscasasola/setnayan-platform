@@ -117,6 +117,7 @@ import {
   ServiceMismatchNote,
   useCardChecks,
   type MakerCheckRules,
+  type PhotoCheckAsk,
 } from './card-checks';
 
 /**
@@ -258,6 +259,7 @@ export function CanvasMaker({
   cancelHref,
   bookingsPerDate = null,
   checkRules = null,
+  photoCheck,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -341,6 +343,8 @@ export function CanvasMaker({
    * its row and Create / Save waits; the save asks again. `null` = the page read nothing (the save still checks).
    */
   checkRules?: MakerCheckRules | null;
+  /** The photo ask — omit it (the app's server action). Only `/dev/card-maker-lab` hands in a fixture one. */
+  photoCheck?: PhotoCheckAsk;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -816,6 +820,7 @@ export function CanvasMaker({
     category,
     categoryLabel: activeCategoryLabel,
     serviceId: editing?.serviceId ?? null,
+    ask: photoCheck,
   });
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
   // A blocked photo under "More photos" opens that fold, so the photo it names is on screen.

@@ -816,6 +816,23 @@ export async function createVendorService(formData: FormData) {
     }
   }
 
+  // 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26). This older add form (a deep-linked `?add=`) writes a
+  // card too, so it asks the same three as `commitVendorService` — no door skips them. lib/service-card-checks.server.ts
+  {
+    const refusal = await cardCheckRefusal({
+      vendorProfileId: profile.vendor_profile_id,
+      serviceId: null,
+      category,
+      categoryLabel: displayServiceLabel(category),
+      title: title ?? '',
+      inclusionLabels: inclusionRows.map((n) => n.label),
+      addonLabels: [],
+      cover: parsePrimaryPhoto(formData),
+      showcase: showcase.showcase_photo_r2_keys,
+    });
+    if (refusal) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
+  }
+
   // QR-in-media guard (owner-locked 2026-07-03): showcase photos render on the
   // public service card — they may not embed the vendor's invite/lock QR. All
   // refs are new on create. Fails OPEN on scanner trouble (never blocks an
@@ -1093,6 +1110,32 @@ export async function updateVendorService(formData: FormData) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
       );
+    }
+  }
+
+  // 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26), on this older edit path too: its name and kind are the
+  // stored ones (this form edits neither), its lines and photos the posted ones.
+  {
+    const { data: cardRow } = await supabase
+      .from('vendor_services')
+      .select('category, title')
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const stored = cardRow as { category?: string | null; title?: string | null } | null;
+    if (stored?.category) {
+      const refusal = await cardCheckRefusal({
+        vendorProfileId: profile.vendor_profile_id,
+        serviceId: idRaw,
+        category: stored.category,
+        categoryLabel: displayServiceLabel(stored.category),
+        title: stored.title ?? '',
+        inclusionLabels: inclusionRows.map((n) => n.label),
+        addonLabels: [],
+        cover: parsePrimaryPhoto(formData),
+        showcase: showcase.showcase_photo_r2_keys,
+      });
+      if (refusal) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
     }
   }
 

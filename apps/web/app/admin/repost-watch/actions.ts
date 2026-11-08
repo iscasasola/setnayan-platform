@@ -192,7 +192,7 @@ function cleanNote(v: FormDataEntryValue | null): string | null {
   return n.length > 0 ? n : null;
 }
 
-export async function addCardClaimWord(formData: FormData) {
+async function addCardClaimWord(formData: FormData) {
   const { userId } = await requireAdmin();
   const phrase = cleanPhrase(formData.get('phrase'));
   if (!phrase) redirect(WORDS_REFUSED);
@@ -203,7 +203,7 @@ export async function addCardClaimWord(formData: FormData) {
   revalidatePath('/admin/repost-watch');
 }
 
-export async function removeCardClaimWord(formData: FormData) {
+async function removeCardClaimWord(formData: FormData) {
   await requireAdmin();
   const phrase = cleanPhrase(formData.get('phrase'));
   if (!phrase) throw new Error('Invalid input');
@@ -212,7 +212,7 @@ export async function removeCardClaimWord(formData: FormData) {
   revalidatePath('/admin/repost-watch');
 }
 
-export async function grantCardClaimWordAllowance(formData: FormData) {
+async function grantCardClaimWordAllowance(formData: FormData) {
   const { userId } = await requireAdmin();
   const phrase = cleanPhrase(formData.get('phrase'));
   const shop = formData.get('vendor_profile_id');
@@ -229,7 +229,7 @@ export async function grantCardClaimWordAllowance(formData: FormData) {
   revalidatePath('/admin/repost-watch');
 }
 
-export async function removeCardClaimWordAllowance(formData: FormData) {
+async function removeCardClaimWordAllowance(formData: FormData) {
   await requireAdmin();
   const phrase = cleanPhrase(formData.get('phrase'));
   const shop = formData.get('vendor_profile_id');
@@ -241,4 +241,17 @@ export async function removeCardClaimWordAllowance(formData: FormData) {
     .eq('phrase', phrase);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/repost-watch');
+}
+
+/**
+ * ONE dispatcher for the four edits (the server-action budget, `scripts/lint-server-action-budget.mjs`): the form posts
+ * `op` = add · remove · allow · unallow beside its fields.
+ */
+export async function saveCardClaimWords(formData: FormData) {
+  const op = formData.get('op');
+  if (op === 'add') return addCardClaimWord(formData);
+  if (op === 'remove') return removeCardClaimWord(formData);
+  if (op === 'allow') return grantCardClaimWordAllowance(formData);
+  if (op === 'unallow') return removeCardClaimWordAllowance(formData);
+  throw new Error('Invalid input');
 }

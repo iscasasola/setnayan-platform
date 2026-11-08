@@ -207,7 +207,8 @@ test('no Help, tour or ⓘ string names a removed thing', () => {
 test('no Help, tour or ⓘ string sends anyone to a More the bar does not have', () => {
   const supplierBar = SUPPLIER_BAR();
   const accountBar = ACCOUNT_BAR();
-  assert.deepEqual(supplierBar, ['Today', 'Customers', 'Shop', 'Hub'], 'premise: the supplier bar is Today · Customers · Shop · Hub (2026-10-21)');
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113): the supplier bar is Today · Clients · Shop · Portfolio.
+  assert.deepEqual(supplierBar, ['Today', 'Clients', 'Shop', 'Portfolio'], 'premise: the supplier bar is Today · Clients · Shop · Portfolio (2026-11-08)');
   assert.ok(accountBar.includes('People') && accountBar.includes('Memories'), `premise: the account bar is the 2026-10-21 one (read ${accountBar.join(' · ')})`);
   const noMore: Record<Audience, boolean> = {
     supplier: !supplierBar.includes('More'),

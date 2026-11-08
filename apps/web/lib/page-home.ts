@@ -216,7 +216,7 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/services/*': { home: '/vendor-dashboard/shop' },
   '/vendor-dashboard/on-the-day/live/[eventId]': { home: '/vendor-dashboard/on-the-day' },
   // THE ONE BUILD (8 Nov 2026): the Event Hub room left the bar — it lives under a picked client, so ‹ goes to Clients;
-  // the inspiration library is Portfolio's.
+  // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
   '/vendor-dashboard/on-the-day': { home: '/vendor-dashboard/customers' },
   '/vendor-dashboard/moodboard-library': { home: '/vendor-dashboard/collections' },
 

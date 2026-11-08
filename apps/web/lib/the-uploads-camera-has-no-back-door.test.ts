@@ -127,12 +127,18 @@ test('🚨 it takes the event\'s real capture window, never null', () => {
   assert.match(call, /validUntil: win\.endIso/, 'the Uploads camera no longer takes the event window');
   // …and the heal asks the host-only entitlement check BEFORE it writes, and the event row on the viewer's own session.
   assert.ok(heal.indexOf('await eventEntitlementClient(eventId)') > 0 && heal.indexOf('await eventEntitlementClient(eventId)') < heal.indexOf('provisionUploadsCameraAdmin('), 'the self-heal writes before the host check');
-  // …and Home draws it only inside the couple's card.
-  const home = readFileSync(join(WEB, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
-  const cardBranch = /const papicCard: PapicCardInput \| null =[\s\S]*?: null;/.exec(home)?.[0] ?? '';
-  assert.match(cardBranch, /viewerMemberType === 'couple'/, 'the card (and its self-heal) is no longer the couple\'s alone');
+  // …and the card draws it only for the couple. 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, owner: "Papic + Thank
+  // You into Memories"): the card moved whole from Home to Memories, inside that page's couple-only `if (host)` branch —
+  // the same three checks, NOT WEAKENED; and Home draws no self-heal at all now.
+  const mem = readFileSync(join(WEB, 'app/dashboard/[eventId]/memories/page.tsx'), 'utf8');
+  assert.match(mem, /const host = membershipRes\.data\?\.member_type === 'couple';/, 'the card (and its self-heal) is no longer the couple\'s alone');
+  const hostBranch = /\n  if \(host\) \{[\s\S]*?\n  \}\n/.exec(mem)?.[0] ?? '';
+  const cardBranch = /const card: PapicCardInput = \{[\s\S]*?papicCard = <PapicCard/.exec(hostBranch)?.[0] ?? '';
+  assert.ok(cardBranch, 'the card is built outside the couple\'s branch');
   assert.match(cardBranch, /<PapicSelfHeal eventId=\{eventId\} \/>/, 'the self-heal left the couple\'s card');
-  assert.equal((home.match(/<PapicSelfHeal\b/g) ?? []).length, 1, 'the self-heal is drawn somewhere else on Home');
+  assert.equal((mem.match(/<PapicSelfHeal\b/g) ?? []).length, 1, 'the self-heal is drawn somewhere else on Memories');
+  const home = readFileSync(join(WEB, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
+  assert.equal((home.match(/<PapicSelfHeal\b/g) ?? []).length, 0, 'Home draws a self-heal again — the card lives in Memories');
   // captureWindowState returns 'open' on null bounds, so a null-window seat
   // would be the only camera in the product exempt from the couple's dates.
   assert.ok(!/validFrom: null/.test(call), 'a null window makes this the only seat exempt from the dates the couple picked');

@@ -22,8 +22,10 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const code = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
-// 📷 The Papic page is gone (owner 2026-10-26: "place that on home and remove that page") — Home draws the card.
-const PAPIC = 'app/dashboard/[eventId]/page.tsx';
+// 📷 The Papic page is gone (owner 2026-10-26: "place that on home and remove that page") — Home drew the card until
+// THE ONE BUILD (owner 8 Nov 2026: "Papic + Thank You into Memories") moved it whole to Memories.
+// 🔁 UPDATED ON PURPOSE 2026-11-08 — the same card, read where it now lives; NOT WEAKENED.
+const PAPIC = 'app/dashboard/[eventId]/memories/page.tsx';
 const CAMERA = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 const SETTINGS = 'app/dashboard/[eventId]/memories/_components/memories-settings.tsx';
 const DETAILS = 'app/dashboard/[eventId]/details/page.tsx';
@@ -32,11 +34,11 @@ const GUESTS = 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx';
 
 test('1 · the Papic card is the camera: the switch, the counts, his five — and none of the files', () => {
   const page = code(PAPIC);
-  const at = page.indexOf('const papicCard: PapicCardInput | null =');
-  const body = page.slice(at, page.indexOf(': null;', at));
-  assert.ok(at > 0 && body.length > 100, 'premise: Home builds the Papic card');
+  const at = page.indexOf('const card: PapicCardInput = {');
+  const body = page.slice(at, page.indexOf('papicCard = <PapicCard', at));
+  assert.ok(at > 0 && body.length > 100, 'premise: Memories builds the Papic card');
   assert.match(body, /headControl: \(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/, 'the card lost its switch');
-  assert.match(body, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'the card no longer opens the camera settings');
+  assert.match(body, /<PapicCameraSettings eventId=\{eventId\} seat="memories"/, 'the card no longer opens the camera settings');
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
   for (const must of [

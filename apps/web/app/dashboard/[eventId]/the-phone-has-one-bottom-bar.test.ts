@@ -102,7 +102,7 @@ test('3 · the same five tabs in every phase, and the same five rows on the rail
   assert.deepEqual(bars[0], rail, 'the phone and the laptop disagree about the menu');
 });
 
-test('4 · Home · Guests · Suppliers · Hub · Memories — the rail says the same (More left both 22 Oct; Memories joined both 23 Oct 2026)', () => {
+test('4 · Today · Guests · Suppliers · Memories · Hub — the rail says the same (More left both 22 Oct; Memories joined both 23 Oct 2026)', () => {
   /*
     Owner, 2026-10-01 (DECISION_LOG "THE BOTTOM BAR IS HOME · GUESTS ·
     SUPPLIERS · HUB · MORE"): the bar and the rail wear the same words; the one
@@ -113,11 +113,13 @@ test('4 · Home · Guests · Suppliers · Hub · Memories — the rail says the 
   const ctx = { websiteEnabled: true, seatingEnabled: true } as const;
   // 🔁 22 Oct 2026, owner verbatim *"Yes remove more"*: the fifth tab and the rail's More Services row are gone.
   const bar = buildCustomerMenuTree(EVENT_ID, ctx).map((m) => m.label);
-  assert.deepEqual(bar, ['Home', 'Guests', 'Suppliers', 'Hub', 'Memories']);
+  // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113): Home is called Today, and Memories sits before Hub —
+  // bar AND rail still wear the same five words, NOT WEAKENED.
+  assert.deepEqual(bar, ['Today', 'Guests', 'Suppliers', 'Memories', 'Hub']);
   const rail = buildCustomerNavGroups(EVENT_ID, ctx)
     .find((g) => g.key === 'pillars')!
     .items.map((i) => i.label);
-  assert.deepEqual(rail, ['Home', 'Guests', 'Suppliers', 'Hub', 'Memories']);
+  assert.deepEqual(rail, ['Today', 'Guests', 'Suppliers', 'Memories', 'Hub']);
   // The registry defaults are what the bar and the rail actually overlay first.
   const slot = new Map(NAV_SLOT_DEFAULTS.map((s) => [s.key, s.label]));
   assert.equal(slot.get('customer.bottom-nav.launch'), 'Hub');

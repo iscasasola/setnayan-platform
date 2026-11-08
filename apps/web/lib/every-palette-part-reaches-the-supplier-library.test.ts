@@ -36,6 +36,7 @@ import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { canonicalServicesForTile } from './vendor-counts';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
+import { pageHome } from './page-home';
 import type { VendorProfileRow } from './vendor-profile';
 import { fallbackInspirationParts } from './inspiration-parts';
 
@@ -164,7 +165,7 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
   }
 });
 
-test('4 · the way in: Today and Shop draw “Add to the inspiration library” for a shop the library lets in, and Shop’s tab stays lit', async () => {
+test('4 · the way in: Today and Shop draw “Add to the inspiration library” for a shop the library lets in, and Portfolio’s tab stays lit', async () => {
   assert.equal(INSPIRATION_LIBRARY_HREF, '/vendor-dashboard/moodboard-library');
   assert.equal(INSPIRATION_LIBRARY_ROW.label, 'Add to the inspiration library');
 
@@ -231,9 +232,12 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   assert.match(shopSrc.slice(at - 200, at), /\{data\.libraryOpen \? \(/, 'Shop draws the row without asking whether the library lets the shop in');
   assert.match(shopSrc, /libraryOpen: moodboardLibraryAccessForProfile\(profile, await getInspirationParts\(\)\)\.allowed/);
 
-  /* The bottom nav lights Shop on the library's page (a door that leaves the tab unlit reads as lost). */
-  const nav = code('app/vendor-dashboard/_components/vendor-bottom-nav.tsx');
-  assert.match(nav, /'\/vendor-dashboard\/moodboard-library'/);
+  /* The bottom nav lights a tab on the library's page (a door that leaves the tab unlit reads as lost).
+     🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, spec A1): the library is Portfolio's now — Portfolio lights, and
+     its ‹ goes to Portfolio. Still a lit tab, NOT WEAKENED. */
+  const dest = code('app/vendor-dashboard/_components/vendor-nav-destinations.ts');
+  assert.match(dest, /VENDOR_PORTFOLIO_EXTRA_MATCH: readonly string\[\] = \['\/vendor-dashboard\/moodboard-library'\]/);
+  assert.equal(pageHome('/vendor-dashboard/moodboard-library').home, '/vendor-dashboard/collections');
 });
 
 /* 🤝🖼 THE SAME CHAIN, ON AN EVENT (owner 2026-10-19, "SUPPLIERS ADD INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE

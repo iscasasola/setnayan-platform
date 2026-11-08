@@ -154,11 +154,12 @@ export default async function StylistMoodboardLibraryPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* ‹ Portfolio — the library lights Portfolio's tab (THE ONE BUILD, 8 Nov 2026), so its back goes there too. */}
       <Link
-        href="/vendor-dashboard"
+        href="/vendor-dashboard/collections"
         className="mb-4 inline-block font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
       >
-        ‹ Back to shop dashboard
+        ‹ Back to Portfolio
       </Link>
 
       <header className="mb-6 space-y-2">

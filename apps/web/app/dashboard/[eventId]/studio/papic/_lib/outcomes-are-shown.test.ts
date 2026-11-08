@@ -41,9 +41,17 @@ const ROUTE = resolve(HERE, '..');
   📷 THE PAPIC PAGE IS GONE (owner 2026-10-26: "place that on home and remove that page"). Its banners moved, unchanged,
   to `papic-outcome-banners.tsx`, and every save lands on Home › Today with the card open (`papicCardHref`), where Home
   hands its query to them. So `PAGE` is the banners file, and `HOME` is the page whose searchParams must carry each key.
+  🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, owner: "Papic + Thank You into Memories"): the card moved whole to
+  Memories and `papicCardHref` lands there, so `HOME` now reads Memories — the page every save lands on. The three
+  checks are the same (arrives · consumed · the gate); NOT WEAKENED. Keys Memories' OWN notice line says
+  (`SAID_BY_THE_NOTICE` → `lib/memories-notice.ts`) count as consumed only when that notice really reads them.
 */
 const PAGE = readFileSync(join(ROUTE, '_components', 'papic-outcome-banners.tsx'), 'utf8');
-const HOME = readFileSync(resolve(ROUTE, '..', '..', 'page.tsx'), 'utf8');
+const HOME = readFileSync(resolve(ROUTE, '..', '..', 'memories', 'page.tsx'), 'utf8');
+const NOTICE = readFileSync(resolve(ROUTE, '..', '..', '..', '..', '..', 'lib', 'memories-notice.ts'), 'utf8');
+/** The keys Memories keeps for its own notice line, read from the page. */
+const saidByNotice = (): string[] =>
+  [...(/const SAID_BY_THE_NOTICE[^=]*= new Set\(\[([\s\S]*?)\]\)/.exec(HOME)?.[1] ?? '').matchAll(/'(\w+)'/g)].map((m) => m[1]!);
 
 /**
  * Strip comments — this guard must never pass on the prose describing the bug.
@@ -215,17 +223,13 @@ test('the scan still reads PAST a line break (the blindness that cost three outc
   );
 });
 
-test('🚨 every outcome arrives — Home’s searchParams carry it (its own type, or the banners’ key list)', () => {
-  // The type's own shape, not its line breaks: since 2026-10-30 (Home's ⚙ `?settings=1&row=` and the Date Finder's
-  // `?date=find`) it is written over several lines (`Promise<\n {…} & PapicOutcomes\n >`).
-  const at = HOME.search(/searchParams\?: Promise<\s*\{/);
-  assert.ok(at > 0, 'Home’s searchParams type moved');
-  const end = HOME.indexOf('PapicOutcomes', at);
-  assert.ok(end > at, 'Home’s searchParams no longer take the Papic outcomes');
-  const type = HOME.slice(at, end + 'PapicOutcomes'.length);
-  assert.match(type, /& PapicOutcomes/, 'Home’s searchParams no longer take the Papic outcomes');
+test('🚨 every outcome arrives — Memories hands the card every Papic outcome key (or reads the key itself)', () => {
+  // Memories takes its whole query (`Record<string, …>`) and copies each PAPIC_OUTCOME_KEYS entry into the card's
+  // outcomes — so a key arrives when it is on that list, or when the page reads `search.<key>` itself.
+  assert.match(HOME, /for \(const k of PAPIC_OUTCOME_KEYS\) \{/, 'Memories no longer copies the Papic outcome keys');
+  assert.match(HOME, /searchParams: Promise<Record<string, string \| string\[\] \| undefined>>/, 'Memories’ searchParams narrowed');
   const list = region('export const PAPIC_OUTCOME_KEYS = [', '] as const;');
-  const missing = KEYS.filter((k) => !new RegExp(`\\b${k}\\?:`).test(type) && !list.includes(`'${k}'`));
+  const missing = KEYS.filter((k) => !list.includes(`'${k}'`) && !new RegExp(`search\\.${k}\\b`).test(HOME));
   assert.deepEqual(
     missing,
     [],
@@ -248,7 +252,13 @@ test('🚨 every outcome is CONSUMED — passed to something that can show it', 
   const pageRender = region('export function PapicOutcomeBanners', 'function StatusBanners');
   const camel = (k: string) => k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
   // Handed to the banners (`search.<key>` → its prop), or read by Home itself (`papic_pool_error` → the buy sheet).
-  const dropped = KEYS.filter((k) => !new RegExp(`\\b${camel(k)}\\b`).test(pageRender) && !new RegExp(`search\\.${k}\\b`).test(HOME));
+  const notice = saidByNotice();
+  assert.ok(notice.length > 0, 'premise: Memories names the keys its notice says');
+  const dropped = KEYS.filter((k) =>
+    notice.includes(k)
+      ? !new RegExp(`search\\.${k}\\b`).test(NOTICE) // handed to the notice, never the card — the notice must say it
+      : !new RegExp(`\\b${camel(k)}\\b`).test(pageRender) && !new RegExp(`search\\.${k}\\b`).test(HOME),
+  );
   assert.deepEqual(
     dropped,
     [],
@@ -273,7 +283,7 @@ test('the detail-only exemption list is exactly what it claims', () => {
   );
   // 🍎 `appleIap` (2026-10-21) is the request's own gate (`getIapGate().iap`) — never a param any redirect here sends.
   assert.ok(![...KEYS].includes('appleIap'), 'appleIap arrives as a URL outcome — it is a trigger, not a detail');
-  assert.match(HOME, /<PapicOutcomeBanners eventId=\{eventId\} search=\{search\} appleIap=\{iap\} \/>/, 'Home does not hand the banners the gate');
+  assert.match(HOME, /<PapicOutcomeBanners eventId=\{eventId\} search=\{outcomes\} appleIap=\{iap\.iap\} \/>/, 'Memories does not hand the banners the gate');
 });
 
 test('🚨 nothing handed to the banner dies at the bail-out', () => {

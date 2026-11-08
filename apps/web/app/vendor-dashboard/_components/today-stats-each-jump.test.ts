@@ -18,7 +18,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { TODAY_STAT_HREFS, TodayStats, todayStatsOf } from './today-stats';
+import { TODAY_STAT_HREFS, TodayStats, TodayStatsPinned, todayStatsOf } from './today-stats';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
@@ -61,4 +61,12 @@ test('3 · an unread figure says "couldn’t load" — never 0 or ₱0', () => {
   const p = todayStatsOf({ views: 1, inquiries: 1, booked: 1, portfolio: undefined, toComeInPhp: 1 }).find((s) => s.id === 'portfolio')!;
   assert.equal(p.figure, null);
   assert.notEqual(p.line, 'couldn’t load');
+});
+
+test('4 · the pinned row-2 strip is the same five links, and an unread figure is "—", never 0', () => {
+  const html = renderToStaticMarkup(React.createElement(TodayStatsPinned, { stats: { views: 1240, inquiries: null, booked: 6, portfolio: undefined, toComeInPhp: 48000 } }));
+  const ids = [...html.matchAll(/data-today-stat-pinned="(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ['views', 'inquiries', 'booked', 'portfolio', 'money']);
+  const t = text(html);
+  assert.match(t, /1,240 Views — Inquiries 6 Booked — Portfolio ₱48K Money/);
 });

@@ -6,6 +6,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import { CHAT_FILE_EXPIRED_LABEL } from '@/lib/chat-file-rules';
 import { formatCount } from '@/lib/format-number';
+import { dayMonth } from '@/lib/format-date';
 import { FILES_FOLDERS, FILES_SORTS, filesFor, folderCounts, type FilesSort, type FilesView } from '@/lib/shared-files-view';
 
 /**
@@ -125,9 +126,9 @@ function FileIcon({ f }: { f: SharedFileEntry }) {
   return <I aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />;
 }
 
+/** "14 Oct" — the house's day-month (`dayMonth`), as v113 prints a file's day. */
 function dateWord(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
+  return dayMonth(iso) ?? '';
 }
 
 /** One file: its name, who shared it and its type, its size and day — the whole row opens it. */

@@ -108,6 +108,7 @@ export function PaymentPage({ ctx, shipped, reservationAcknowledgedAt, money, as
       ) : (
         <BudgetFigures
           label="Payment summary"
+          columns={3}
           tour="client-payment-figures"
           marks={{ 'data-client-payment-figures': '' }}
           cells={[

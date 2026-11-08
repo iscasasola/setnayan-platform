@@ -22,6 +22,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ShopEmpty } from '../../../_components/kit';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import { CHAT_DOCUMENT_MAX_MB, CHAT_FILE_EXPIRY_DAYS, CHAT_PHOTO_MAX_MB, CHAT_VIDEO_MAX_MB } from '@/lib/chat-file-rules';
+import { formatCount } from '@/lib/format-number';
 import type { PickedPageProps } from './context';
 import { FilesFinder } from './files-finder';
 
@@ -88,12 +89,13 @@ export function FilesPage(props: FilesPageProps) {
 
       <p className="text-[13px] text-ink/70" data-files-limits="">
         <InfoTip label="Limits & keeping" align="start">
-          Photo {CHAT_PHOTO_MAX_MB} MB · document {CHAT_DOCUMENT_MAX_MB} MB · video {CHAT_VIDEO_MAX_MB} MB. Chat files
-          are deleted {CHAT_FILE_EXPIRY_DAYS} days after the event; contracts, payment proofs and anything pinned to
+          Photo {formatCount(CHAT_PHOTO_MAX_MB)} MB · document {formatCount(CHAT_DOCUMENT_MAX_MB)} MB · video{' '}
+          {formatCount(CHAT_VIDEO_MAX_MB)} MB. Chat files are deleted {formatCount(CHAT_FILE_EXPIRY_DAYS)} days after the event; contracts, payment proofs and anything pinned to
           Decisions are kept.
         </InfoTip>
         <span className="ml-1 text-ink/55">
-          Photo {CHAT_PHOTO_MAX_MB} MB · document {CHAT_DOCUMENT_MAX_MB} MB · video {CHAT_VIDEO_MAX_MB} MB
+          Photo {formatCount(CHAT_PHOTO_MAX_MB)} MB · document {formatCount(CHAT_DOCUMENT_MAX_MB)} MB · video{' '}
+          {formatCount(CHAT_VIDEO_MAX_MB)} MB
         </span>
       </p>
 

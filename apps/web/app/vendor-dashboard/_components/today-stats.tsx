@@ -77,3 +77,21 @@ export function TodayStats({ stats }: { stats: Stats }) {
     </nav>
   );
 }
+
+/**
+ * 📌 THE STATS, PINNED (v113 row 2 once the cover has collapsed — "1,240 Views · 4 Inquiries · 6 Booked · 64% Portfolio
+ * · ₱48k Money"): the same five links, one compact row. Handed to `CollapsingTop` as `second.pinned` when the foundation
+ * lands (spec A2 A4: "pins as row 2 under row 1"). An unread figure shows "—" here (the full strip says why).
+ */
+export function TodayStatsPinned({ stats }: { stats: Stats }) {
+  return (
+    <nav aria-label="Your numbers" data-today-stats-pinned="" className="flex w-full items-stretch justify-between gap-1">
+      {todayStatsOf(stats).map((s) => (
+        <Link key={s.id} href={TODAY_STAT_HREFS[s.id]} data-today-stat-pinned={s.id} className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center text-center">
+          <span className="text-[14px] font-semibold leading-none text-ink">{s.figure ?? '—'}</span>
+          <span className="mt-0.5 truncate text-[11px] text-ink/60">{s.label}</span>
+        </Link>
+      ))}
+    </nav>
+  );
+}

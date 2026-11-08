@@ -86,7 +86,7 @@ test('4 · rendered: folders with counts, the root list, each row its own href, 
   assert.doesNotMatch(src, /PillTrack|ISegmented|role="tablist"/, 'a pill row came back');
   assert.doesNotMatch(src, /\/vendor-dashboard\/messages\/\$\{|chat-attachment/, 'the finder builds a file link of its own');
   const page = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/clients/[eventId]/_pages/files.tsx'), 'utf8'));
-  assert.match(page, /CHAT_PHOTO_MAX_MB, CHAT_VIDEO_MAX_MB/, 'the limits are typed, not the chat’s own');
+  assert.match(page, /formatCount\(CHAT_PHOTO_MAX_MB\)/, 'the limits are typed, not the chat’s own');
   assert.doesNotMatch(page, /\b(?:20|50|90) MB\b|\b90 days\b/, 'a limit is typed by hand');
   // Refused is not empty — said, and the rows still show.
   const refused = renderToStaticMarkup(

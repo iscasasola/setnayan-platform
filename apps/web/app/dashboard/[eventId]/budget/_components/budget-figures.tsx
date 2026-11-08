@@ -24,7 +24,10 @@ import styles from './budget-page.module.css';
  */
 export function Peso({ value, id, className }: { value: number; id?: string; className?: string }) {
   if (Number.isInteger(value)) {
-    return <Count value={value} format={formatPhp} id={id} className={className} />;
+    // The NAMED format ("peso", `formatPhpRounded` — the same "₱12,500" as `formatPhp` for a whole peso): a name crosses
+    // from a server page to the client `Count`; a function does not (the supplier's Payment page draws this on the
+    // server — found in the THE ONE BUILD lab, 8 Nov).
+    return <Count value={value} format="peso" id={id} className={className} />;
   }
   return (
     <span className={className} style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -55,6 +58,7 @@ export type BudgetFiguresNext =
 
 export function BudgetFigures({
   label,
+  columns = 2,
   tour,
   marks,
   cells,
@@ -65,6 +69,8 @@ export function BudgetFigures({
 }: {
   /** The section's name ("Budget summary" · "Payment summary"). */
   label: string;
+  /** Figures per row — the couple's 2 × 2 (Target · Agreed / Paid · Owed), or v113 Payment's one row of three. */
+  columns?: 2 | 3;
   /** 🔦 The spotlight anchor on the section (`data-tour`). */
   tour?: string;
   /** Data hooks for the host's own guards. */
@@ -81,9 +87,10 @@ export function BudgetFigures({
   const sw = { paid: styles.swPaid, agreed: styles.swAgreed, target: styles.swTarget } as const;
   return (
     <section className={`${styles.page} ${styles.sum}`} aria-label={label} data-tour={tour} {...marks}>
-      <div className={styles.grid}>
-        {cells.map((c) => (
-          <div key={c.key} className={styles.cell} data-budget-cell={c.key}>
+      <div className={styles.grid} style={columns === 2 ? undefined : { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        {cells.map((c, i) => (
+          // The first ROW has no hairline above it — the module's rule covers two cells; a third in the row joins it.
+          <div key={c.key} className={styles.cell} data-budget-cell={c.key} style={i >= 2 && i < columns ? { borderTop: 0 } : undefined}>
             <div className={styles.k}>{c.label}</div>
             {c.body !== undefined ? c.body : <Figure value={c.value ?? null} id={c.id ?? `budget-${c.key}`} tone={c.tone ?? null} atLeast={c.atLeast ?? false} />}
           </div>

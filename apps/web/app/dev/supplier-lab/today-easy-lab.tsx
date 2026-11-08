@@ -25,6 +25,8 @@ import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { TodayNextEvents } from '@/app/vendor-dashboard/_components/today-next-events';
 import { TodayThumbRow } from '@/app/vendor-dashboard/_components/today-thumb-row';
+import { PaymentPage } from '@/app/vendor-dashboard/clients/[eventId]/_pages/payment';
+import { FilesPage } from '@/app/vendor-dashboard/clients/[eventId]/_pages/files';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
@@ -38,7 +40,9 @@ import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
-export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock', 'two', 'empty', 'unread'] as const;
+// 🗂 + `payment` / `files` — lane C1's two picked-client page bodies (B2 §2.3 · §2.4), drawn on fixtures for the
+// v113 side-by-side (the client page itself is L2's; the bodies are this lane's).
+export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed', 'findlock', 'two', 'empty', 'unread', 'payment', 'files'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
 export const EASY_SUPPLIERS = ['parish', 'caterer', 'studio', 'venue'] as const;
 export type EasySupplier = (typeof EASY_SUPPLIERS)[number];
@@ -340,7 +344,75 @@ const SUPS: Record<EasySupplier, Sup> = {
 /** 📥 The lab shop's own Setnayan page — what its step-6 code opens (`myPageUrl`, never the root slug). */
 export const LAB_SHOP_QR_URL = myPageUrl('https://www.setnayan.com', 'titanena');
 
+const LAB_CLIENT = {
+  eventId: 'lab-rs',
+  vendorProfileId: 'lab-shop',
+  viewerUserId: 'lab-user',
+  threadId: 'lab-thread',
+  eventName: 'Reyes & Santos wedding',
+  stage: 'booked' as const,
+  isBooked: true,
+  feeUnlocked: true,
+  eventVendorId: 'lab-ev',
+  eventDate: '2026-11-08',
+};
+
+/** 🗂 The two picked-client page bodies this lane owns, on v113's own sample (Reyes & Santos). */
+function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
+  if (page === 'payment') {
+    const st = (seq: number, label: string, amount: number, due: string, state: 'paid' | 'pending' | 'due') =>
+      ({ seq, label, amount_php: amount, due_date: due, amount_kind: 'fixed', percent_bps: null, state }) as const;
+    return (
+      <PaymentPage
+        ctx={LAB_CLIENT}
+        reservationAcknowledgedAt="2026-10-14T00:00:00Z"
+        money={{
+          steps: [st(1, 'Balance', 30000, '2026-11-01', 'pending'), st(2, 'Final payment', 8000, '2026-11-08', 'due')] as never,
+          clearedAt: null,
+          pending: [
+            { paymentId: 'lab-p1', eventVendorId: 'lab-ev', amountPhp: 30000, paidAt: ago(2), method: 'GCash', reference: null, notes: null, installmentLabel: 'Balance', proofUrl: '#receipt', isDepositRecord: false, dispute: null },
+          ],
+          ledgerMoney: { rows: [], receivedPhp: 0, expectedPhp: 0 },
+          ledgerUnreadable: false,
+        }}
+        asks={
+          <p className="py-2 text-[14px] text-ink" data-lab-asks="">
+            <b className="font-semibold">₱30,000 · Balance</b>
+            <span className="block text-[12.5px] text-ink/55">by 1 Nov · asked 28 Oct · the shipped panel, with Take it back, on the real page</span>
+          </p>
+        }
+      />
+    );
+  }
+  const f = (key: string, kind: 'contract' | 'chat' | 'handover' | 'gallery_link', name: string, origin: string, typeLabel: string, sizeLabel: string | null, at: string) => ({
+    key, kind, name, origin, typeLabel, sizeLabel, at, href: '#open', isImage: typeLabel === 'Photo',
+  });
+  return (
+    <FilesPage
+      ctx={LAB_CLIENT}
+      files={[
+        f('c1', 'contract', 'Contract.pdf', 'From you', 'PDF', '1.2 MB', '2026-10-14T00:00:00Z'),
+        f('c2', 'contract', 'Quote-WP40.pdf', 'From you', 'PDF', '0.4 MB', '2026-10-10T00:00:00Z'),
+        f('m1', 'chat', 'Payment-proof-30k.jpg', 'From them', 'Photo', '2.1 MB', '2026-11-01T00:00:00Z'),
+        f('m2', 'chat', 'Peg-photos.zip', 'From them', 'Archive', '48 MB', '2026-10-20T00:00:00Z'),
+        f('h1', 'handover', 'Prenup selects', 'From you', '24 photos', '96 MB', '2026-11-02T00:00:00Z'),
+        f('g1', 'gallery_link', 'Album link', 'From you', 'Link', null, '2026-10-21T00:00:00Z'),
+      ]}
+      chatFilesMeasured
+      threadId="lab-thread"
+      isBooked
+    />
+  );
+}
+
 export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+  if (moment === 'payment' || moment === 'files') {
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab="client-page" data-client-page={moment}>
+        <ClientPagesLab page={moment} />
+      </div>
+    );
+  }
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }

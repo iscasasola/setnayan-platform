@@ -17,8 +17,18 @@
  */
 export type ReceiptStampStatus = 'paid' | 'awaiting';
 
-const PAID_INK = 'rgba(46,125,79,.82)';
-const WAIT_INK = 'rgba(160,108,18,.95)';
+/**
+ * 🖋 THE INKS ARE READABLE (Build 2 #41, 8 Nov 2026). Measured on the slip's paper #FFFDF8: PAID was
+ * rgba(46,125,79,.82) under `opacity-75` = 2.47:1 and AWAITING rgba(160,108,18,.95) = 4.07:1 — both under 4.5:1. Both
+ * inks are darker now (same hue, same worn mask, same tilt): PAID 5.09:1 where the ink is solid, AWAITING 5.45:1.
+ * The figures are recomputed from these constants by `receipt-ink-is-readable.test.ts` — change a colour, the test
+ * measures it again.
+ */
+export const RECEIPT_PAPER = '#FFFDF8';
+export const PAID_INK = 'rgba(28,92,56,.92)';
+/** The PAID stamp's own `opacity` (it was `opacity-75`) — part of what the eye reads, so the test multiplies it in. */
+export const PAID_OPACITY = 0.9;
+export const WAIT_INK = 'rgba(133,88,10,.95)';
 const WORN = 'repeating-linear-gradient(100deg,#000 0 4px,rgba(0,0,0,.6) 4px 5px)';
 
 export function ReceiptStamp({ status, payBy = null }: { status: ReceiptStampStatus; payBy?: string | null }) {
@@ -26,8 +36,9 @@ export function ReceiptStamp({ status, payBy = null }: { status: ReceiptStampSta
     return (
       <span
         data-receipt-stamp="paid"
-        className="pointer-events-none absolute -right-1 top-[74px] -rotate-[16deg] py-1 pl-4 pr-1 font-mono text-[28px] font-bold leading-none tracking-[0.32em] opacity-75"
+        className="pointer-events-none absolute -right-1 top-[74px] -rotate-[16deg] py-1 pl-4 pr-1 font-mono text-[28px] font-bold leading-none tracking-[0.32em]"
         style={{
+          opacity: PAID_OPACITY,
           color: PAID_INK,
           borderTop: `3px double ${PAID_INK}`,
           borderBottom: `3px double ${PAID_INK}`,

@@ -240,6 +240,25 @@ test('supplier_lock_refusal: may ask while unlocked, refused once locked, nothin
   assert.equal(await ask(w.host, 'nonsense', p), 'not_found');
 });
 
+test('a locked quotation refuses the hosts’ counter-offer at the database; the supplier’s own amendment passes', async () => {
+  const w = await newWorld();
+  const p = await quote(w, 'sent');
+  const amend = (raisedBy: 'couple' | 'vendor', base: string | null) =>
+    db.query(
+      `INSERT INTO public.proposal_amendments (event_id, vendor_profile_id, thread_id, base_proposal_id, raised_by, status)
+       VALUES ($1, $2, $3, $4, $5, 'proposed')`,
+      [w.eventId, w.shop, w.threadId, base, raisedBy],
+    );
+  await amend('couple', p); // unlocked: may ask
+  await as(w.supplier, () => db.query(`SELECT public.vendor_set_proposal_lock($1, 'changes', TRUE)`, [p]));
+  await assert.rejects(amend('couple', p), /QUOTE_LOCKED/);
+  await assert.rejects(amend('couple', null), /QUOTE_LOCKED/, 'no base given: the live quote’s lock still holds');
+  await amend('vendor', p); // the supplier's own word on their own price
+  await as(w.supplier, () => db.query(`SELECT public.vendor_set_proposal_lock($1, 'plan', TRUE)`, [p]));
+  await as(w.supplier, () => db.query(`SELECT public.vendor_set_proposal_lock($1, 'changes', FALSE)`, [p]));
+  await amend('couple', p); // the plan lock is not the quote lock
+});
+
 // ── 3 · a quote expires ─────────────────────────────────────────────────────
 
 test('a lapsed quote cannot be accepted; the writer expires it with a line; accepted and legacy quotes never expire', async () => {
@@ -335,6 +354,22 @@ test('host_agree_coordinator_access: a host agrees once (who, when, a line); the
   const p = await newWorld();
   await db.query(`INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id) VALUES ($1,'photographer','Sol',$2)`, [p.eventId, p.shop]);
   assert.equal((await as(p.host, () => one<{ r: string }>(`SELECT public.host_agree_coordinator_access($1,$2) AS r`, [p.eventId, p.shop]))).r, 'not_a_coordinator');
+});
+
+test('chat_coordinator_agree_needed: true for a booked coordinator until a host agrees; false to a stranger and a non-coordinator', async () => {
+  const w = await newWorld({ services: ['planner_coordinator'] });
+  const needed = (uid: string, ev = w.eventId, shop = w.shop) =>
+    as(uid, async () => (await one<{ r: boolean }>(`SELECT public.chat_coordinator_agree_needed($1,$2) AS r`, [ev, shop])).r);
+  assert.equal(await needed(w.host), false, 'not booked yet: nothing to agree to');
+  await db.query(`INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id) VALUES ($1,'misc','Cora & Co',$2)`, [w.eventId, w.shop]);
+  assert.equal(await needed(w.host), true);
+  assert.equal(await needed(w.supplier), true, 'the supplier sees it waits');
+  assert.equal(await needed(w.stranger), false, 'a stranger learns nothing');
+  await as(w.host, () => one(`SELECT public.host_agree_coordinator_access($1,$2) AS r`, [w.eventId, w.shop]));
+  assert.equal(await needed(w.host), false, 'agreed: the pin goes');
+  const p = await newWorld();
+  await db.query(`INSERT INTO public.event_vendors (event_id, category, vendor_name, marketplace_vendor_id) VALUES ($1,'photographer','Sol',$2)`, [p.eventId, p.shop]);
+  assert.equal(await needed(p.host, p.eventId, p.shop), false, 'a photographer is never asked an Agree');
 });
 
 // ── 6 · decision topics ─────────────────────────────────────────────────────

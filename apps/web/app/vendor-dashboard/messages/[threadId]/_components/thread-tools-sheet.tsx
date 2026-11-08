@@ -9,7 +9,7 @@ import {
   CalendarPlus,
   ChevronRight,
   Handshake,
-  PlusCircle,
+  Plus,
   Star,
   Store,
   type LucideIcon,
@@ -238,9 +238,17 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: SheetRow[]; she
         title={gate.shut ? gate.message : 'Add to the chat'}
         data-thread-tools-open=""
         data-plus-shut={gate.shut ? '' : undefined}
-        className={`sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:bg-ink/[0.05] ${gate.shut ? 'text-ink/30' : 'text-sn-accent'}`}
+        // ＋ v8.3: a FILLED 40-px circle — the brand fill with a white ＋; shut, it greys (the card it waits on is named).
+        // The 44-px target is the button; the circle is drawn inside it.
+        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
-        <PlusCircle aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
+        <span
+          aria-hidden
+          data-plus-circle=""
+          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-ink/[0.06] text-ink/35' : 'bg-sn-accent text-white'}`}
+        >
+          <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
+        </span>
       </button>
       {mounted ? createPortal(sheet, document.body) : null}
     </>

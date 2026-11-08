@@ -192,6 +192,45 @@ GRANT EXECUTE ON FUNCTION public.supplier_lock_refusal(TEXT, UUID, UUID) TO auth
 COMMENT ON FUNCTION public.supplier_lock_refusal(TEXT, UUID, UUID) IS
   'The ONE server answer to "may a change be asked for on this?" (owner 2026-11-09: a lock hides Ask for a change AND the server refuses requests). NULL = may ask; quote_locked / plan_locked / form_locked = refused; not_found = no such row or not your conversation. Every Ask-for-a-change writer calls it before writing. Migration 20271332497337.';
 
+-- The one change request that already ships: the hosts' counter-offer on a
+-- quote (a `proposal_amendments` row raised_by = 'couple'). A locked quotation
+-- refuses it HERE, whatever door wrote it — the Ask-for-a-change card (Lane C)
+-- and the shipped Counter-offer alike. The supplier's own amendments pass: the
+-- lock is the supplier's word on their own price.
+CREATE OR REPLACE FUNCTION public.tg_proposal_amendments_respect_the_lock()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_locked BOOLEAN;
+BEGIN
+  IF NEW.raised_by IS DISTINCT FROM 'couple' THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.base_proposal_id IS NOT NULL THEN
+    SELECT changes_locked INTO v_locked FROM public.vendor_proposals WHERE proposal_id = NEW.base_proposal_id;
+  ELSE
+    SELECT changes_locked INTO v_locked
+      FROM public.vendor_proposals
+     WHERE event_id = NEW.event_id AND vendor_profile_id = NEW.vendor_profile_id
+       AND status IN ('sent', 'viewed', 'accepted')
+     ORDER BY created_at DESC LIMIT 1;
+  END IF;
+  IF v_locked THEN
+    RAISE EXCEPTION 'supplier_lock: QUOTE_LOCKED — the supplier locked this quotation; the price is final'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.tg_proposal_amendments_respect_the_lock() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS proposal_amendments_respect_the_lock ON public.proposal_amendments;
+CREATE TRIGGER proposal_amendments_respect_the_lock
+  BEFORE INSERT ON public.proposal_amendments
+  FOR EACH ROW EXECUTE FUNCTION public.tg_proposal_amendments_respect_the_lock();
+
 -- ── 3 · a quote expires ─────────────────────────────────────────────────────
 -- "Valid until" is the LAST day the quote holds: it lapses the day after.
 -- Accepted never expires. A legacy quote (sent before Valid until was required,
@@ -381,6 +420,37 @@ REVOKE ALL ON FUNCTION public.host_agree_coordinator_access(UUID, UUID) FROM PUB
 GRANT EXECUTE ON FUNCTION public.host_agree_coordinator_access(UUID, UUID) TO authenticated;
 COMMENT ON FUNCTION public.host_agree_coordinator_access(UUID, UUID) IS
   'A host''s one-time Agree that a booked coordinator / planner supplier may access the whole event (DECISION_LOG 🤝 2026-11-08 — given with the payment proof; Lane C''s Log a payment card calls it). Writes the consent record (who, when) and one chat line. Hosts only. Migration 20271332497337.';
+
+-- The pin's question, asked by either side: does this booked coordinator /
+-- planner still wait for the hosts' Agree? TRUE only for a coordinator-trade
+-- shop with a booking on the event and no live consent. FALSE to anyone outside
+-- the conversation (it says nothing to a stranger).
+CREATE OR REPLACE FUNCTION public.chat_coordinator_agree_needed(p_event_id UUID, p_vendor_profile_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE((
+    SELECT public.services_make_a_coordinator(vp.services)
+       AND EXISTS (SELECT 1 FROM public.event_vendors ev
+                    WHERE ev.event_id = p_event_id AND ev.marketplace_vendor_id = p_vendor_profile_id)
+       AND NOT EXISTS (SELECT 1 FROM public.coordinator_access_consents c
+                        WHERE c.event_id = p_event_id AND c.vendor_profile_id = p_vendor_profile_id
+                          AND c.revoked_at IS NULL)
+      FROM public.vendor_profiles vp
+     WHERE vp.vendor_profile_id = p_vendor_profile_id
+       AND (p_event_id IN (SELECT public.current_event_ids())
+            OR p_vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
+            OR p_vendor_profile_id IN (SELECT public.current_vendor_ids())
+            OR public.is_admin())
+  ), FALSE);
+$$;
+REVOKE ALL ON FUNCTION public.chat_coordinator_agree_needed(UUID, UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_coordinator_agree_needed(UUID, UUID) TO authenticated;
+COMMENT ON FUNCTION public.chat_coordinator_agree_needed(UUID, UUID) IS
+  'TRUE when a booked coordinator / planner supplier still waits for the hosts'' one-time Agree (no live coordinator_access_consents row for the shop) — the chat''s coordinator_agree pin. FALSE to anyone outside the conversation. Migration 20271332497337.';
 
 -- ── 6 · decision topics — either side closes, anyone reopens ────────────────
 -- Owner 2026-11-09 ("everything is approved", recommendation 1): "Either side

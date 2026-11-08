@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Send, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -67,6 +67,10 @@ import { askedOnce } from '@/lib/request-once';
 import { MarkReadWhenShown } from './_components/mark-read-when-shown';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import type { PinFact } from '@/lib/chat-pins';
+import { readChatPinFacts, type ChatPinRead } from '@/lib/chat-pin-facts.server';
+import { BLOCKER_OF, firstBlocker } from '@/lib/chat-pin-facts';
+import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { ActionButton } from '@/components/action-button';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
@@ -628,7 +632,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         .select(QUOTE_REVISION_SELECT)
         .eq('event_id', thread.event_id)
         .eq('vendor_profile_id', profile.vendor_profile_id)
-        .in('status', ['sent', 'viewed', 'accepted'])
+        // + 'expired' (Build 3): "Send a new quotation" opens seeded from the lapsed one.
+        .in('status', ['sent', 'viewed', 'accepted', 'expired'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -835,6 +840,25 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       otherName: 'the couple',
     });
   })();
+  // 📌 THE PINS' OWN FACTS (Build 3 round 2) — payment due · call time · access ask · booking fee · coordinator Agree
+  // · quote expired · open decisions, read as the supplier (`readChatPinFacts`). Started here, beside the batch; a
+  // failure drops the pins it would have drawn, never the page.
+  const chatPinsRead: Promise<ChatPinRead> = (async () => {
+    const [{ data: ev }, money] = await Promise.all([eventRead, bookedMoneyRead]);
+    return readChatPinFacts(supabase, {
+      side: 'vendor',
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+      threadId,
+      userId: user.id,
+      themName: ev?.display_name ?? 'the couple',
+      supplierName: profile.business_name,
+      bookedMoney: money,
+    });
+  })().catch((e: unknown): ChatPinRead => {
+    console.error('[vendor thread] pin facts read failed', e);
+    return { facts: [], masked: false, expiredQuoteId: null };
+  });
   // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
   // ACCEPTED quote card as the same one-tap door the Overview's booking card
   // carries. The shop's OWN profile id (proved above), never a param.
@@ -1080,6 +1104,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     eventFileDayRead,
   ]);
   const heldAskService = await heldServiceRead;
+  const chatPins = await chatPinsRead;
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
   const shopGifts = await shopGiftsRead;
@@ -1434,6 +1459,77 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           dueMs: lockHandshake.expiresAt ? Date.parse(lockHandshake.expiresAt) : null,
         }
       : null;
+
+  const pinFacts: PinFact[] = [...(askPin ? [askPin] : []), ...chatPins.facts];
+  // 🚦 THE ONE BLOCKER — the booking ask first (its own panel answers it), else the oldest blocking fact this page has
+  // an answer for: an expired quotation (Send a new quotation, seeded from the old one), an overdue booking fee (its
+  // pay page), an unset call time within 7 days (their Schedule). Each answer is a door the supplier already has.
+  const blockFact =
+    askPin && toolNodes['booking-ask']
+      ? askPin
+      : firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate: event?.event_date ?? null }, ['quote_expired', 'booking_fee', 'call_time']);
+  const chatBlocker = (() => {
+    if (!blockFact) return null;
+    const kind = BLOCKER_OF[blockFact.kind];
+    if (!kind) return null;
+    const base = { pinKey: blockFact.key, kind, subjectKey: blockFact.key, title: blockFact.title };
+    if (blockFact.kind === 'booking_ask' && lockHandshake?.eventVendorId) {
+      return {
+        ...base,
+        topic: 'quote' as const,
+        title: 'They asked to book you',
+        why: 'Nothing is booked, and their date is not held for you, until you answer.',
+        action: (
+          <LockRequestAnswer
+            layout="blocker"
+            eventVendorId={lockHandshake.eventVendorId}
+            expiresAt={lockHandshake.expiresAt}
+            payoutReadiness={payoutReadiness}
+            feeForecast={chatFeeForecast}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            agreeLock={vendorAgreeToLock}
+            declineLock={vendorDeclineLock}
+            dayCheck={dayCheck}
+            waitlistAsk={vendorWaitlistTheAsk}
+            heldService={heldAskService}
+          />
+        ),
+      };
+    }
+    if (blockFact.kind === 'quote_expired') {
+      return {
+        ...base,
+        topic: 'quote' as const,
+        why: 'They can’t accept it any more. Send a new one — it opens filled in from the old quotation.',
+        action: (
+          <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href="?compose=quote" className="!h-11 !min-h-11 w-full" />
+        ),
+      };
+    }
+    if (blockFact.kind === 'booking_fee') {
+      const payHref = `/vendor-dashboard/booking-fees/${blockFact.key.slice('booking_fee:'.length)}`;
+      return {
+        ...base,
+        topic: 'payment' as const,
+        why: 'The booking fee is past its day. Pay it to keep working on this event.',
+        action: (
+          <ActionButton tone="brand" main icon={<Wallet aria-hidden strokeWidth={1.9} />} label="Pay the booking fee" href={payHref} className="!h-11 !min-h-11 w-full" />
+        ),
+      };
+    }
+    if (blockFact.kind === 'call_time') {
+      const scheduleHref = `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`;
+      return {
+        ...base,
+        topic: 'schedule' as const,
+        why: 'Their event is a week away or less, and your part of the day has no time yet.',
+        action: (
+          <ActionButton tone="brand" main icon={<CalendarDays aria-hidden strokeWidth={1.9} />} label="Set your call time" href={scheduleHref} className="!h-11 !min-h-11 w-full" />
+        ),
+      };
+    }
+    return null;
+  })();
 
   const toolsMounted = thread.inquiry_status === 'accepted';
 
@@ -2156,20 +2252,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // 📌🚦 SUPPLIER BUILD 3 — the booking ask is a BLOCKER: the whole screen until answered, then the red pin.
             // Its facts and its one action are the shipped panel (`LockRequestAnswer`: the fee forecast above Agree,
             // the ask's own expiry) — nothing re-priced or re-timed here.
-            extraPins={askPin ? [askPin] : []}
-            blocker={
-              askPin && toolNodes['booking-ask']
-                ? {
-                    pinKey: askPin.key,
-                    kind: 'booking_ask',
-                    subjectKey: askPin.key,
-                    topic: 'quote',
-                    title: 'They asked to book you',
-                    why: 'Nothing is booked, and their date is not held for you, until you answer.',
-                    action: toolNodes['booking-ask'],
-                  }
-                : null
-            }
+            // Round 2: + the pins' real facts (payment due · call time · access · booking fee · coordinator Agree ·
+            // quote expired · decisions); the oldest blocking one the supplier can answer takes the screen.
+            extraPins={pinFacts}
+            blocker={chatBlocker}
+            pinBodies={decisionPinBodies(chatPins.facts)}
             plus={{
               eventId: thread.event_id,
               returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,

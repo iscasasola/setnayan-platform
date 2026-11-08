@@ -329,15 +329,18 @@ export async function respondToProposal(formData: FormData) {
   }
 
   revalidatePath(`/proposals/${publicId}`);
+  // ⏳ The database refuses accepting a quotation past its Valid until (`QUOTE_EXPIRED`, migration 20271332497337):
+  // say THAT, not "try again" — trying again can never work; the supplier sends a new one.
+  const failNotice = error ? (/QUOTE_EXPIRED/.test(error.message ?? '') ? 'quote_expired' : 'respond_failed') : null;
   // 4 Nov 2026 · "Accept the update" on the chat's quote card answers IN the conversation
   // (a save never resets the screen). Only this app's own thread paths are honoured —
   // never an outside URL.
   const returnTo = safeThreadReturn(formData.get('return_to'));
   if (returnTo) {
     revalidatePath(returnTo);
-    redirect(`${returnTo}${error ? '?notice=respond_failed' : ''}`);
+    redirect(`${returnTo}${failNotice ? `?notice=${failNotice}` : ''}`);
   }
-  redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
+  redirect(`/proposals/${publicId}${failNotice ? `?notice=${failNotice}` : ''}`);
 }
 
 /** A chat thread path on this app (couple or supplier side), or null. */

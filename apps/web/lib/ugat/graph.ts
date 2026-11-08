@@ -1768,6 +1768,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // ⏳ 2026-11-09 — a blocker's hold counts its shows per person (20271331503438).
       { kind: 'table', table: 'chat_blocker_shows' },
       { kind: 'fk', table: 'chat_blocker_shows', column: 'thread_id', references: 'chat_threads' },
+      // # 2026-11-09 round 2 — a decision topic pins until settled; either side closes, anyone reopens (20271332497337).
+      { kind: 'table', table: 'chat_decision_topics' },
+      { kind: 'fk', table: 'chat_decision_topics', column: 'thread_id', references: 'chat_threads' },
       // 🔒 2026-11-09 — a private message: two people, words only (20271329968207).
       { kind: 'fk', table: 'chat_messages', column: 'recipient_user_id', references: 'users' },
       {

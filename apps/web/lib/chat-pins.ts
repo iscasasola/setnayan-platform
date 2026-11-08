@@ -37,7 +37,9 @@ export type PinKind =
   /** Someone asks for access to a part of the event. */
   | 'access_ask'
   /** A sent quote the hosts never accepted ran past its Valid until (🧾⏳ 9 Nov — the sixth blocker). */
-  | 'quote_expired';
+  | 'quote_expired'
+  /** An open decision topic (the (+) "Decision" — "Pin a topic until it is settled"); either side closes it. */
+  | 'decision';
 
 /** The topic each pin wears (its icon is `TOPIC_ICON[topic]` — never a glyph of its own). */
 export const PIN_TOPIC: Record<PinKind, ChatTopic> = {
@@ -51,6 +53,7 @@ export const PIN_TOPIC: Record<PinKind, ChatTopic> = {
   guest_count: 'details',
   access_ask: 'access',
   quote_expired: 'quote',
+  decision: 'decision',
 };
 
 export type PinFact = {
@@ -111,6 +114,7 @@ export function needsYouLevel(
     case 'confirm_payment':
     case 'guest_count':
     case 'access_ask':
+    case 'decision':
       return 'due';
   }
 }

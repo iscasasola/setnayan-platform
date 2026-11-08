@@ -88,6 +88,36 @@ add the class by hand so the dark rules can be judged before the area is listed.
   (the part fill back) — caught. Touched-file tests **906 pass · 0 fail**.
 - **Requests:** 0. Shots: `sbs-28-nothing-picked`, `sbs-28-blocked-day-picked`.
 
+### #36 — the page menu centres the picked page
+- New `app/_components/centre-in-strip.ts` (`centreScrollLeft` · `centreInStrip` · `pageSwipeStep`, v116 `centerMk`):
+  the picked client's menu strip keeps its picked page in the MIDDLE after a tap, a body swipe, a deep link and the
+  first open (instant then); at either end it stays at the end (clamped). Only the strip scrolls — never
+  `scrollIntoView`, which also slid the body sideways (§10 #26). Replaces the shell's keep-in-view (not centred).
+- A swipe across the page body (≥ 60 px, 1.5× more sideways than down) turns the page in the menu's order. It never
+  starts on the menu, a calendar, the week strip, a field or `[data-no-page-swipe]`.
+- Guard: `clients/[eventId]/the-page-menu-centres-the-picked-page.test.ts` (3). Sabotaged twice (the clamp removed;
+  deps `[page]` without `host`, so the portal landing is not centred) — both caught.
+- **Requests:** 0. Shots: `sbs-36-deep-link-payment` (centred), `sbs-36-deep-link-report` (at its end, scrollWidth 375).
+
+### #27 — the return rule
+- `calendar-day-box.tsx` gains `RETURN_MOTION` (520 ms, `cubic-bezier(.33,1,.68,1)`), `cubicBezier`, `scrollerOf` and
+  `glideScrollTo`. The Clients month and the client's Schedule month (one component) remember where their scroller
+  stood when a day opens from none, and letting it go — ×, the same day again, a tile — glides back there; stepping
+  day → day keeps the first memory. Reduced motion: one instant step.
+- ⚠ **Measured, and the first version did nothing:** a picked day shrinks the page to the viewport (992 → 812 px, so
+  the scroll clamps to 0), and the list grows back only some frames AFTER the let-go. Clamped up front (or on the
+  first frame) the target was 0. The glide now WAITS until the spot is reachable (capped 400 ms), then glides, then
+  holds the spot 400 ms while the page settles (an instant return landed 8 px off: 1000 → 992 px + scroll
+  anchoring) — letting go on any wheel / touch / pointer / key so it never fights the person.
+  🔑 Checked in headless Chromium, NOT the browser pane: a hidden pane runs no `requestAnimationFrame`, so any glide
+  "fails" there.
+- Measured: scrolled 180 → pick → page at 0 → × → 33 · 80 · 118 · 147 · 163 · 172 · 178 · **180** (≈ 500 ms);
+  reduced motion **180** on the first sample.
+- Guard: `calendar-day-box.test.ts` #27 (the ease, remember / give back, the wait, the hold, the input let-go).
+  Sabotaged twice (record on every change; no wait) — both caught. Touched-file tests **982 pass · 0 fail**.
+- **Requests:** 0. Shots: `sbs-27-scrolled-before`, `sbs-27-returned` (+ reduced). v118's frame scrolls inside a
+  phone mock that the wheel did not move, so its two shots look alike for a different reason.
+
 ## Not done / differs from v118 (for the controller)
 - v118's picked day swaps the tiles for that day's figures and shows "Accept bookings" + "Book a client"; the build
   keeps the month's tiles. The picked fill is still the accent — that is row #37.
@@ -100,11 +130,13 @@ add the class by hand so the dark rules can be judged before the area is listed.
     the two rulings disagree, so I left them. If #38 wins: map a thread → its event at read time (one batched read).
   · "Schedule/appointment → Schedule with that day picked" needs a day param on the client's Schedule page.
   · "While a client is open the list ignores the view filter" — on a phone the list is off screen while a client is
-    open (a route); it matters for the return motion, so it rides with #27.
+    open (a route). #27 covers the calendars' return; closing an opened CLIENT returns through the router (the
+    @client intercept from the base), which keeps the list's scroll — not re-measured here.
 - Forced dark: the opened-event pane (Schedule / Details) keeps a white ground — not dark-swept yet (not live).
 
 ## Needs
-- tsc: queued under the heavy lock behind `integrate-unit-suite` (see "Where I stopped").
+- tsc: the #43 run was green (rc 0, 0 errors). The #37 run was killed by a signal (exit 144) while QUEUED for the
+  heavy lock — it never compiled. Not re-run; CI's typecheck is the gate on the controller's PR.
 
 ## Generated files (not edited — the controller regenerates)
 - `port:baseline` (`lint:port-controls` lists exactly these, all deliberate):
@@ -114,4 +146,4 @@ add the class by hand so the dark rules can be judged before the area is listed.
 - Server-action budget: unchanged (no new exported action).
 
 ## Where I stopped
-- #43, #38, #37, #28 committed + pushed. Next: #36 (the page menu centres the picked page).
+- #43, #38, #37, #28, #36, #27 committed + pushed. Next: #29 (Accept bookings off/on is felt).

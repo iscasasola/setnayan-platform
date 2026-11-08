@@ -182,3 +182,93 @@ export function useCalendarSwipe(
     return true;
   };
 }
+
+/**
+ * ↩ THE RETURN RULE (Build 2 row #27, owner: *"when things return, it returns to the last state"*). Closing anything
+ * that expanded — a picked day on the Clients month or the Schedule page — glides its scroller back to exactly where it
+ * was before it opened (and so the month's compact/open state with it), 520 ms on `cubic-bezier(.33,1,.68,1)`, never a
+ * jump. Reduced motion: instant.
+ */
+export const RETURN_MOTION = { ms: 520, ease: [0.33, 1, 0.68, 1] as const } as const;
+
+/** `cubic-bezier(x1,y1,x2,y2)` as a function of time 0…1 (Newton on x, then y). */
+export function cubicBezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number {
+  const bx = (s: number) => 3 * x1 * s * (1 - s) ** 2 + 3 * x2 * s * s * (1 - s) + s ** 3;
+  const by = (s: number) => 3 * y1 * s * (1 - s) ** 2 + 3 * y2 * s * s * (1 - s) + s ** 3;
+  const dx = (s: number) => 3 * x1 * (1 - s) ** 2 + 6 * (x2 - x1) * s * (1 - s) + 3 * (1 - x2) * s * s;
+  return (t: number) => {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    let s = t;
+    for (let i = 0; i < 8; i++) {
+      const d = dx(s);
+      if (Math.abs(d) < 1e-6) break;
+      s -= (bx(s) - t) / d;
+      s = Math.min(1, Math.max(0, s));
+    }
+    return by(s);
+  };
+}
+
+/** The element that scrolls `el` (the page itself when nothing nearer does). */
+export function scrollerOf(el: HTMLElement | null): HTMLElement {
+  for (let n = el?.parentElement ?? null; n; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if (oy === 'auto' || oy === 'scroll') return n; // the nearest scroller, even if it does not overflow yet
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+}
+
+/**
+ * Glide `scroller` to `top` with the return motion; returns a stop function.
+ *
+ * ⚠ It WAITS until `top` is reachable, then glides — the target is never clamped once, up front. Measured (#27, the
+ * Clients lab at 375 px, headless Chromium): a picked day shrinks the page to the viewport (992 → 812 px, scroll
+ * clamped to 0), and the list grows back only some frames AFTER the let-go's layout effect (still 812 px on the next
+ * frame). Clamped up front — or on the first frame — the target was 0 and nothing moved: the jump the rule forbids.
+ * Once landed it HOLDS the spot for `RETURN_WAIT_MS` (measured: the page settles 1000 → 992 px a few frames after an
+ * instant return and scroll anchoring moved it 8 px off) — and lets go the moment the person touches, scrolls or
+ * presses a key, so it never fights them. Reduced motion: one instant step once the spot is reachable, then the hold.
+ */
+export const RETURN_WAIT_MS = 400;
+export function glideScrollTo(scroller: HTMLElement, top: number): () => void {
+  const target = () => Math.max(0, Math.min(Math.max(0, scroller.scrollHeight - scroller.clientHeight), top));
+  if (typeof requestAnimationFrame === 'undefined') {
+    scroller.scrollTop = target();
+    return () => {};
+  }
+  const still = reducedMotion();
+  const ease = cubicBezier(...RETURN_MOTION.ease);
+  let asked = -1;
+  let t0 = -1;
+  let landed = -1;
+  let from = 0;
+  let raf = 0;
+  const inputs = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    for (const e of inputs) window.removeEventListener(e, stop, true);
+  };
+  for (const e of inputs) window.addEventListener(e, stop, { capture: true, passive: true });
+  const tick = (now: number) => {
+    if (asked < 0) asked = now;
+    const to = target();
+    if (t0 < 0) {
+      // Wait for the page to grow back far enough (or for the cap), then start the clock from where it stands.
+      if (to < top - 1 && now - asked < RETURN_WAIT_MS) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      t0 = now;
+      from = scroller.scrollTop;
+    }
+    const t = still || Math.abs(to - from) < 1 ? 1 : Math.min(1, (now - t0) / RETURN_MOTION.ms);
+    const at = t >= 1 ? to : from + (to - from) * ease(t);
+    if (Math.abs(scroller.scrollTop - at) >= 0.5) scroller.scrollTop = at;
+    if (t >= 1 && landed < 0) landed = now;
+    if (t < 1 || now - landed < RETURN_WAIT_MS) raf = requestAnimationFrame(tick);
+    else stop();
+  };
+  raf = requestAnimationFrame(tick);
+  return stop;
+}

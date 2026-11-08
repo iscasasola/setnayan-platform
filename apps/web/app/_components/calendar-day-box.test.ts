@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CalendarGrid } from './calendar';
-import { CALENDAR_SWIPE, DAY_BOX_MOTION } from './calendar-day-box';
+import { CALENDAR_SWIPE, DAY_BOX_MOTION, RETURN_MOTION, cubicBezier } from './calendar-day-box';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -91,4 +91,31 @@ test('the three supplier calendars wear the box, and both the month and the week
   assert.match(BOX, /swallow = true;/);
   assert.match(BOX, /addEventListener\('click', click, true\)/);
   assert.match(BOX, /if \(!sideways\) return reset\(\);/);
+});
+
+test('#27 the return rule: letting a day go glides back to where the scroller stood before ANY day opened', () => {
+  assert.equal(RETURN_MOTION.ms, 520);
+  assert.deepEqual([...RETURN_MOTION.ease], [0.33, 1, 0.68, 1]);
+  const e = cubicBezier(...RETURN_MOTION.ease);
+  assert.equal(e(0), 0);
+  assert.equal(e(1), 1);
+  let last = 0;
+  for (let t = 0.05; t < 1; t += 0.05) {
+    const v = e(t);
+    assert.ok(v >= last - 1e-9 && v <= 1.0001, `the ease runs backwards at ${t}`);
+    last = v;
+  }
+  assert.ok(e(0.5) > 0.8, 'not the ease-out the prototype uses (fast start, soft landing)');
+  // Remembered when a day opens from none; given back when it closes; a step between days keeps the first memory.
+  assert.match(CAL, /if \(was === null && picked !== null\) returnTop\.current = lastTop\.current;/);
+  assert.match(CAL, /was !== null && picked === null && returnTop\.current !== null[\s\S]{0,160}return glideScrollTo\(scroller\.current, top\);/);
+  const glide = BOX.slice(BOX.indexOf('export function glideScrollTo'));
+  assert.match(glide, /const still = reducedMotion\(\);[\s\S]{0,1200}const t = still \|\| Math\.abs\(to - from\) < 1 \? 1 :/, 'reduced motion must return instantly');
+  // Measured: the list grows back SOME FRAMES after the let-go — the glide waits until the spot is reachable (capped).
+  assert.match(glide, /if \(to < top - 1 && now - asked < RETURN_WAIT_MS\) \{\s*raf = requestAnimationFrame\(tick\);\s*return;/, 'the glide starts against the shrunken page and lands at 0');
+  assert.doesNotMatch(glide.slice(0, glide.indexOf('const tick')), /const to = /, 'the target is fixed before the page has grown back');
+  // Landed, it holds the spot while the page settles — and lets go the moment the person touches, scrolls or types.
+  assert.match(glide, /if \(t < 1 \|\| now - landed < RETURN_WAIT_MS\) raf = requestAnimationFrame\(tick\);/);
+  assert.match(glide, /const inputs = \['wheel', 'touchstart', 'pointerdown', 'keydown'\] as const;/, 'the hold would fight the person');
+  assert.match(glide, /return stop;\s*\}/);
 });

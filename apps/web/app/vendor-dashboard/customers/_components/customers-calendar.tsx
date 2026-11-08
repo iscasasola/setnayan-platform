@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
-import { DayBox, useCalendarSwipe } from '@/app/_components/calendar-day-box';
+import { DayBox, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
@@ -325,6 +325,35 @@ export function CustomersCalendar({
     slideWeek();
   }, [week]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ↩ #27 THE RETURN RULE: picking a day (from none) remembers where the scroller stood; letting it go — ×, the day
+  // tapped again, a tile — glides back there (and so to the month's open/compact state), 520 ms, never a jump. Stepping
+  // from one day to another keeps the first memory, so the return is to the state before ANY day opened.
+  const scroller = useRef<HTMLElement | null>(null);
+  const lastTop = useRef(0);
+  const returnTop = useRef<number | null>(null);
+  useEffect(() => {
+    const sc = scrollerOf(monthRef.current);
+    scroller.current = sc;
+    const target: HTMLElement | Window = sc === document.scrollingElement ? window : sc;
+    const read = () => {
+      lastTop.current = sc.scrollTop;
+    };
+    read();
+    target.addEventListener('scroll', read, { passive: true });
+    return () => target.removeEventListener('scroll', read);
+  }, []);
+  const wasPicked = useRef(picked);
+  useLayoutEffect(() => {
+    const was = wasPicked.current;
+    wasPicked.current = picked;
+    if (was === null && picked !== null) returnTop.current = lastTop.current;
+    else if (was !== null && picked === null && returnTop.current !== null && scroller.current) {
+      const top = returnTop.current;
+      returnTop.current = null;
+      return glideScrollTo(scroller.current, top);
+    }
+  }, [picked]);
+
   const holds = (monthInputs.get(month)?.dayStates ?? []).map((s) => ({
     poolId: s.poolId,
     stateDate: s.stateDate,
@@ -544,3 +573,4 @@ export function CustomersCalendar({
     </div>
   );
 }
+

@@ -1,0 +1,17 @@
+## 2026-11-08 · fix(shop): the Shop render only reads, and its cover sheets open without a request
+
+Two release blockers on `/vendor-dashboard/shop`.
+
+**A · The render wrote, and waited in a line.** `readBadgeRewardTracker` ran `grantOwedBadgeRewards` — a service-role write that hands a shop real Event Plus / Papic stock — inside the Shop (and Performance) render, then three more reads, then the upgrades: about five round trips in a row before the page could draw. Analytics added a role read and then ten more in front of the cover.
+
+- `readBadgeRewardTracker` now only READS, in one wave: the reward facts start beside the page's badge facts (it accepts their promise), and the plan read and the upgrade rows run together (`readBadgeUpgrades` accepts the plan as a promise).
+- Paying moved to the door that already pays for Today: `GET /api/vendor/badges?view=facts` (owner 2026-11-05: Today "is where a newly earned badge pays its reward"). Shop and Performance mount the new `BadgeRewardSweep`, which calls that door once the page has drawn and redraws the page once if the call paid something. The supplier is still paid on the same visit, a moment later. Paying exactly once is still enforced by the database key.
+- Analytics streams in its own `<Suspense>` with a placeholder of the same height, so the cover and badges no longer wait for it. Its role read now starts beside the plan read. The numbers are unchanged.
+
+**B · Every cover sheet reloaded the whole page.** Promote, QR, Logo, Cover and ⚙ opened with `router.replace(?sheet=…)`, and the server drew each sheet's body only while the address named it. Every open and close re-ran `loadShopData` (on dev, Promote appeared 8.4 s after the tap). Now every body comes with the page: Promote, QR and ⚙ stream in their own `<Suspense>`, and Logo and Cover use data the page has already read. Opening or closing a sheet sets client state and writes the address with `history.replaceState(null, …)`, which Next.js turns into a router restore with no fetch, so `useSearchParams` stays in step. A deep link still opens its sheet on arrival. `ShopSettings` gains `local` for the Shop tab. Other Shop section pages still navigate, because their ⚙ rows are only drawn for `?gear=1`. The Logo/Cover tap fix (a309848942) is kept and now guarded.
+
+Guards (each part was broken on purpose, went red, and went green again when restored): `shop/the-shop-render-never-writes.test.ts` walks from `readBadgeRewardTracker` to every reader it reaches and fails on any write or non-STABLE rpc. It also checks that the page hands its admin client only to the tracker, and that the sweep and the paying door both still exist. `shop/the-shop-sheets-open-without-a-request.test.ts` fails if the cover uses `router.replace`/`push`/`useRouter`, if a body is gated on the address, if deep links stop opening their sheet, if `local` is dropped from the ⚙, or if the pinned-row tap fix regresses. Two guards were updated with their intent kept: `the-shop-tab-is-v113` now pins the order at `<ShopAnalyticsSection`, and `the-shop-gear-holds-the-set-once-things` accepts `shopGearBodyAlways(sp)`.
+
+Cost note: the Shop's first load now also reads the Promote, QR and ⚙ bodies (streamed, so they do not block the first paint). A sheet switch costs nothing.
+
+SPEC IMPACT: None. This changes when the grant runs, not what is granted. The 2026-11-05 badge-reward ruling does not say when a grant fires; the code's own rule ("earning is the moment a read finds it") still holds.

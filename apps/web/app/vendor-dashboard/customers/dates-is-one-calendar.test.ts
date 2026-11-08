@@ -349,7 +349,10 @@ test('8 · the shop’s codes are ONE list — a row per code, the QR card (Shar
   // row per code (`QrCodeList`), each opening its own sheet. Customers' rows link by `CUSTOMERS_QR_MODES`; Promote opens
   // a sheet only for a code in `PROMOTE_QR_MODES`.
   assert.match(page, /CUSTOMERS_QR_MODES\.map\(/);
-  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/);
+  // THE ONE BUILD (8 Nov, C4): Promote's body moved into `promote-body.tsx` (one body for the Promote route and the Shop tab) — the
+  // check follows the code, the page only mounts it.
+  assert.match(code(join(VD, 'shop', 'promote', '_components', 'promote-body.tsx')), /PROMOTE_QR_MODES as readonly string\[\]\)\.includes\(/);
+  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /<PromoteBody\b/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /\['shortlist', 'locked',[^\]]*\]/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /shortlist: 'Shortlist · free',\s*locked: 'Booked · one-use'/);
   assert.doesNotMatch(view + page, /<CustomersPick label="Which code"/, 'the one-code dropdown is back — Option B is one list');

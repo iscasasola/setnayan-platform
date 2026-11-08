@@ -197,15 +197,15 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   },
   /**
    * 🧑‍🤝‍🧑 THE PICKED CLIENT'S ⚙ (THE ONE BUILD, 8 Nov 2026 — spec B1 step 5: the picked client's pinned row is
-   * "‹✕› [initials] Event name · lane badge ⚙", built with `MenuSettingsButton`). HELD (`reserved`, not live): the spec
-   * names the door but not what its sheet holds, so the key exists for the Clients lane to name it and nothing is drawn
-   * behind it yet. Whoever rules its rows flips this to `first-row-gear` + `live: true` in the change that mounts it.
+   * "‹✕› [initials] Event name · lane badge ⚙", built with `MenuSettingsButton`). LIVE since the integration (8 Nov):
+   * mounted once, in `PickedClientShell`'s pinned row. Its one row today is the shipped "agree to their requests"
+   * switch (`PickedClientSettings`, moved by L2); any further row is an owner call — the spec names the door, not its rows.
    */
   client: {
-    door: 'reserved',
+    door: 'first-row-gear',
     sheet: 'Client settings',
     line: 'Settings for this client only.',
-    live: false,
+    live: true,
     tip: 'Settings for this client only. What you set for every client stays in Clients settings.',
   },
 };

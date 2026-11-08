@@ -10,9 +10,12 @@
  *   3. at least TWO code doors outside the room link into it, Today's being one of them;
  *   4. the Ugat no-door baseline does not carry it (a baseline line would excuse "nobody can reach this").
  *
+ *   (3, integration) the picked client's Hub page is the second required door (spec G8 "Today + client card").
+ *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): `/vendor-dashboard/on-the-day` removed from
  * `VENDOR_CLIENTS_EXTRA_MATCH` (red: test 1, the bar and rail light nothing); Today's `event-hub` case pointed at
- * `/vendor-dashboard/customers` (red: test 3, Today's door is gone).
+ * `/vendor-dashboard/customers` (red: test 3, Today's door is gone). Integration: the client Hub page's embed no longer passing `event: eventId` to the
+ * room (red: test 3, the client card's door is gone).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -69,6 +72,22 @@ test('at least two doors outside the room open it, Today’s among them', () => 
     today,
     /case 'event-hub': \{\s*const href = '\/vendor-dashboard\/on-the-day';/,
     'Today’s Event Hub line no longer opens the Hub room',
+  );
+  // Spec G8 "Today + client card": the picked client's Hub page (L2, `clients/[eventId]/_pages/hub.tsx`) is the second
+  // required door. It draws the room's OWN embed (`__embed=hub`) for this event, whose first row is "Open Hub" into the
+  // room — so the door is asserted on both halves: the client page mounts the embed, and the embed draws the door.
+  const clientHub = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/clients/[eventId]/_pages/hub.tsx'), 'utf8'));
+  assert.match(
+    clientHub,
+    /<VendorOnTheDayPage searchParams=\{Promise\.resolve\(\{ event: eventId, __embed: 'hub' \}\)\}/,
+    'the picked client’s Hub page no longer opens this event’s Hub',
+  );
+  const room = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/on-the-day/page.tsx'), 'utf8'));
+  const embed = room.slice(room.indexOf('data-picked-client-page="hub"'));
+  assert.match(
+    embed,
+    /<HubDoorRow href=\{`\/vendor-dashboard\/on-the-day\?event=\$\{selected\.eventId\}`\} label="Open Hub"/,
+    'the client card’s Hub page draws no "Open Hub" door into the room',
   );
   // eslint-disable-next-line no-console
   console.log(`doors into the Hub room: ${doors.length} — ${doors.join(', ')}`);

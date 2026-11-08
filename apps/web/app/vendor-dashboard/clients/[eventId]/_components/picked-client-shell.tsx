@@ -36,13 +36,11 @@ import {
   LayoutDashboard,
   MessageSquare,
   ReceiptText,
-  Settings,
   Wallet,
   X,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
-import { InfoTip } from '@/app/_components/info-tip';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import type { PickedClientPage } from './picked-client-menu';
 import { SCRIPT_FOLD_ID } from './picked-client-menu';
@@ -241,16 +239,11 @@ export function PickedClientShell({
           <h1 id={headingId} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink" data-pin-word="">
             {eventName}
           </h1>
-          {/* ⚙ This client's own settings — not Clients ⚙ (that menu is mounted once, on the list). ⏳ L1 adds a
-              `client` entry to the SettingsMenu registry; until then the gear opens this shell's own sheet. */}
-          <ActionButton
-            tone="neutral"
-            iconOnly
-            icon={Settings}
-            label={`${eventName} settings`}
-            onClick={() => setGearOpen((o) => !o)}
-            data-testid="picked-settings"
-          />
+          {/* ⚙ This client's own settings — not Clients ⚙ (that menu is mounted once, on the list). The house door
+              (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
+          <MenuSettingsButton menu="client" open={gearOpen} onOpenChange={setGearOpen} line={settingsLine}>
+            {settings}
+          </MenuSettingsButton>
           <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} data-testid="picked-close" />
         </div>
         {/* 🗂 The nine-page menu — icon over word, the picked one framed (it is the one you pressed). */}
@@ -298,18 +291,6 @@ export function PickedClientShell({
           {bodies[page]}
         </div>
       </div>
-      {gearOpen ? (
-        <Sheet open onClose={() => setGearOpen(false)} labelledById={`${headingId}-gear`} title={`${eventName} settings`} wide>
-          <div data-menu-settings-sheet="client">
-            <p className="px-4 pt-3 text-[12.5px] text-ink/60" data-menu-settings-line="">
-              <InfoTip label={settingsLine.line} align="start">
-                {settingsLine.tip}
-              </InfoTip>
-            </p>
-            {settings}
-          </div>
-        </Sheet>
-      ) : null}
     </div>
     </PickedNavContext.Provider>
   );

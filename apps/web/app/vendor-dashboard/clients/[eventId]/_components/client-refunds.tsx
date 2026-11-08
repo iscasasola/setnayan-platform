@@ -1,10 +1,12 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
+import { FormRow, FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
+import { DateRow } from '@/app/_components/form-row-date';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -78,6 +80,7 @@ export function ClientRefunds({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [requestId, setRequestId] = useState('');
+  const rowsRef = useRef<HTMLDivElement>(null);
   const back = `/vendor-dashboard/clients/${eventId}`;
 
   const hide = (id: string, on: boolean) =>
@@ -114,11 +117,16 @@ export function ClientRefunds({
     }
   }
 
-  const peso = Number(amount.replace(/,/g, ''));
+  const peso = Number(amount.replace(/[^\d.]/g, ''));
   const ready = Number.isFinite(peso) && peso > 0 && reason.trim().length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(on) && !uploading;
 
   async function save() {
-    if (!ready || saving) return;
+    if (saving) return;
+    // An unfinished answer shakes and the sheet moves to it — never a silent refusal (the shared form-row rule).
+    if (!ready) {
+      if (rowsRef.current) nudgeFormRows(rowsRef.current);
+      return;
+    }
     const yes = await confirm({
       title: `Record ${formatPhp(peso)} refunded to ${clientName}?`,
       body: `On ${refundDayWords(on)} · “${reason.trim()}”. No money moves — this is your record. It lowers what they have paid you, and ${clientName} sees it with your payments.`,
@@ -203,47 +211,36 @@ export function ClientRefunds({
             Record a refund to {clientName}
           </h2>
           <p className="text-[13.5px] text-ink/65">Money you gave back to {clientName}. No money moves here — it is your record.</p>
-          <label className="block space-y-1.5">
-            <span className="block text-sm font-medium text-ink/80">Amount</span>
-            <input
-              inputMode="decimal"
-              className="input-field w-full"
-              placeholder="₱0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
-              name="amount_php"
-              autoComplete="off"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="block text-sm font-medium text-ink/80">The day you gave it back</span>
-            <input type="date" className="input-field w-full" max={manilaToday()} value={on} onChange={(e) => setOn(e.target.value)} name="refunded_on" />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="block text-sm font-medium text-ink/80">Why</span>
-            <input
-              className="input-field w-full"
-              maxLength={240}
-              placeholder="e.g. Drone coverage dropped from the package"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              name="reason"
-            />
-            <span className="block text-xs text-ink/50">{clientName} sees this.</span>
-          </label>
-          <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-ink/80">Proof photo · optional</span>
-            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-ink/15 px-4 text-sm text-ink/75 hover:border-terracotta">
-              <input type="file" accept="image/*" className="sr-only" onChange={onProof} />
-              {uploading ? 'Uploading…' : proof ? `Change · ${proof.name}` : 'Add a photo'}
-            </label>
+          <div ref={rowsRef}>
+            <FormRows width="wide">
+              <TypedRow name="Amount" value={amount} amount required empty="How much" fieldName="amount_php" data="client-refund-amount" onKeep={(t) => setAmount(t)} />
+              <DateRow name="The day" value={on} today={manilaToday()} max={manilaToday()} empty="Pick the day" data="client-refund-day" onKeep={(d) => setOn(d)} />
+              <TypedRow
+                name="Why"
+                value={reason}
+                required
+                maxLength={240}
+                empty="Say why"
+                placeholder="e.g. Drone coverage dropped from the package"
+                fieldName="reason"
+                data="client-refund-reason"
+                note={`${clientName} sees this.`}
+                onKeep={(t) => setReason(t)}
+              />
+              <FormRow name="Proof photo" data="client-refund-proof">
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-ink/15 px-4 text-sm text-ink/75 hover:border-terracotta">
+                  <input type="file" accept="image/*" className="sr-only" onChange={onProof} />
+                  {uploading ? 'Uploading…' : proof ? `Change · ${proof.name}` : 'Optional · add'}
+                </label>
+              </FormRow>
+            </FormRows>
           </div>
           {error ? (
             <p role="alert" className="text-[13.5px] text-danger-700" data-client-refund-error="">
               {error}
             </p>
           ) : null}
-          <ActionButton tone="brand" main icon={Undo2} label="Record refund" onClick={save} disabled={!ready} waiting={saving} className="w-full" />
+          <ActionButton tone="brand" main icon={Undo2} label="Record refund" onClick={save} disabled={uploading} waiting={saving} className="w-full" />
         </div>
       </Sheet>
 

@@ -1856,7 +1856,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.
             </p>
           ) : supplierRefunds.rows.length > 0 ? (
-            <div className="space-y-1.5 rounded-lg border border-ink/10 bg-white/60 p-4" data-workspace-refunds={supplierRefunds.rows.length}>
+            <div className="space-y-1.5 border-t border-ink/10 pt-3" data-workspace-refunds={supplierRefunds.rows.length}>
               <p className="text-xs font-semibold text-ink">
                 Refunds from {displayName} · ₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}
               </p>

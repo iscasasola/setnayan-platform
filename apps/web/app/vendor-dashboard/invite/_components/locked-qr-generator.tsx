@@ -4,6 +4,7 @@ import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from
 import { useEffect, useRef, useState } from 'react';
 import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info, Plus } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { MAX_SCHEDULE_ITEMS } from '@/lib/vendor-service-payment-schedules';
 import type { LockQuoteLine, LockScheduleRow } from '@/lib/vendor-locked-qr';
 import { issueLockedQr } from '../actions';
@@ -411,22 +412,21 @@ export function LockedQrGenerator({
       <input type="hidden" name="initial_paid_php" value={initialPaid} />
 
       <div className="grid grid-cols-1 gap-4 rounded-2xl border border-ink/10 bg-white/60 p-5 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2" data-locked-qr-client="">
-          <label htmlFor="client_name" className="block text-sm font-medium text-ink/80">
-            Client name
-          </label>
-          <input
-            id="client_name"
-            name="client_name"
-            type="text"
-            maxLength={120}
-            autoComplete="off"
-            className="input-field w-full"
-            placeholder="e.g. Ana & Ben"
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-          />
-          <p className="text-xs text-ink/50">Who this code is for — your Booked QRs list names it by this.</p>
+        <div className="sm:col-span-2" data-locked-qr-client="">
+          {/* The shared one-line row (lint:field-template): inside this <form> it posts its kept words as `client_name`. */}
+          <FormRows width="wide">
+            <TypedRow
+              name="Client name"
+              value={clientName}
+              maxLength={120}
+              fieldName="client_name"
+              autoCapitalize="words"
+              empty="Who it’s for"
+              placeholder="e.g. Ana & Ben"
+              note="Your Booked QRs list names the code by this."
+              onKeep={(t) => setClientName(t)}
+            />
+          </FormRows>
         </div>
         <div className="space-y-1.5">
           <label htmlFor="event_type" className="block text-sm font-medium text-ink/80">

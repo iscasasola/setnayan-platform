@@ -52,7 +52,7 @@ test('3 · the refund lowers Paid; the client name reaches the code', () => {
   const pay = read('clients/[eventId]/_pages/payment.tsx');
   assert.match(pay, /refundedPhp: refunds \? \(refunds\.measured \? refundedTotalPhp\(refunds\.rows\) : null\) : 0/, 'the Payment page does not hand its refunds to the balance');
   const form = read('invite/_components/locked-qr-generator.tsx');
-  assert.match(form, /name="client_name"/, 'the Booked QR form lost its Client name field');
+  assert.match(form, /fieldName="client_name"/, 'the Booked QR form lost its Client name field');
   const action = read('invite/actions.ts');
   assert.match(action, /formData\.get\('client_name'\)/, 'issueLockedQr does not read client_name');
   assert.match(action, /client_name: clientName,/, 'issueLockedQr does not write client_name');

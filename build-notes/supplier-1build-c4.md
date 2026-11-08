@@ -26,6 +26,8 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
 | Makers | `shop/_components/shop-makers.tsx` | Scanner → sheet with one shipped `ServiceScannerPick` per service. Forms Maker door: `formsHref={null}` until C3's route exists (no dead door). No Tools Maker. |
 | Services | `shop/page.tsx` | Shipped `ShopServiceRows` (scanner dropdown moved to Makers) + the shipped `VendorServicesManager` WHOLE (every switch, discount, plan hold) + Bundles door (flag) + dashed "＋ Add a service". |
 
+| Shop ⚙ "Business permit" | `lib/shop-permit-line.ts` (+test), `shop/_components/shop-settings-body.tsx` + `shop-settings-rows.tsx` | Inside ⚙ › Verification and documents (`#docs`, row `id="permit"`): "Renews <date> · in N days" / "… — send the renewed one" (≤ 60 days, the shipped `badgeDeadline` window) / "Ran out on …" / "No renewal date on file"; unread says so. ⚠ `next_renewal_due_at` is revoked from `authenticated` (migration 20271222518385) — read through the shop's definer view `vendor_profiles_self`, in its own select. **C1 (A2 A9):** link Today's row to `/vendor-dashboard/shop#docs` (the hash opens the ⚙ on that fold); and read the date through `vendor_profiles_self` too, never `vendor_profiles`. |
+
 ## Guards updated honestly (tests that read files I moved)
 - `app/open-shop/the-gate-walk-fixes.test.ts` (logo frame now on the cover) · `app/vendor-dashboard/upsells-obey-the-switch.test.ts`
   (shop-badge-row.tsx: "upgrade" = badge reward, same reason as your-badges.tsx) · `shop/promote/gifts-live-on-promote.test.ts`,

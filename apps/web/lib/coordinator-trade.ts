@@ -41,3 +41,24 @@ const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SER
 export function isCoordinatorTrade(services: readonly string[] | null | undefined): boolean {
   return (services ?? []).some((s) => COORDINATOR_TRADE_SET.has(s));
 }
+
+/** The four `event_vendors.status` values that mean BOOKED — the set `current_coordinator_booked_event_ids()` reads. */
+export const BOOKED_EVENT_VENDOR_STATUSES: readonly string[] = ['contracted', 'deposit_paid', 'delivered', 'complete'];
+
+/**
+ * 🧭 THE BOOKED COORDINATOR (owner 8 Nov 2026: *"only coordinator and hosts has the final say"*) — the TS mirror of
+ * `public.is_booked_coordinator(event)` (migration 20271329284628): the shop is BOOKED on the event AND its services
+ * are the coordinator trade. A `wedding_planner_external` SEAT does not make anybody the coordinator — the seat says
+ * what they were handed; this says who they are. Pass either the booking statuses of the shop's rows on the event or
+ * an already-resolved `booked` boolean.
+ */
+export function isBookedCoordinator(input: {
+  services: readonly string[] | null | undefined;
+  booked?: boolean;
+  bookingStatuses?: readonly (string | null | undefined)[];
+}): boolean {
+  const booked =
+    input.booked === true ||
+    (input.bookingStatuses ?? []).some((s) => typeof s === 'string' && BOOKED_EVENT_VENDOR_STATUSES.includes(s));
+  return booked && isCoordinatorTrade(input.services);
+}

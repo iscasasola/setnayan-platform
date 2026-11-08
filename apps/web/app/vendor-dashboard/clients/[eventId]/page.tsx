@@ -87,7 +87,7 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
-import { isCoordinatorTrade } from '@/lib/coordinator-trade';
+import { isBookedCoordinator as isBookedCoordinatorFact } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -663,8 +663,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // is. Booking is the other half and it is already established: everything
   // below this point renders only when `isBooked`, and the RPC re-checks both
   // regardless — this decides what to DRAW, never what is permitted.
-  const isBookedCoordinator =
-    isBooked && isCoordinatorTrade((profile as { services?: string[] | null }).services);
+  // 🧭 THE ONE FACT (owner 8 Nov 2026): booked AND the coordinator trade — `isBookedCoordinator`, the TS mirror of
+  // `public.is_booked_coordinator(event)` (migration 20271329284628). Never the `wedding_planner_external` seat.
+  const isBookedCoordinator = isBookedCoordinatorFact({
+    booked: isBooked,
+    services: (profile as { services?: string[] | null }).services,
+  });
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────

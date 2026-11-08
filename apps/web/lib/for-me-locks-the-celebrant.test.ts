@@ -16,14 +16,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { seatSelf } from '@/lib/onboarding/couple-handoff';
+import { stripComments } from '@/lib/strip-comments';
 
 const web = process.cwd();
 const read = (rel: string) => readFileSync(join(web, rel), 'utf8');
-const stripComments = (src: string) =>
-  src
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
 
 const LOCK = 'app/_components/self-celebrant-lock.tsx';
 const WIZARD = 'app/onboarding/[type]/_components/generic-onboarding.tsx';
@@ -42,7 +38,8 @@ test('the lock is read-only, says the one quiet line, and posts nothing', () => 
 
 test('every create path that knows it is "for you" draws the lock — and only then', () => {
   const wizard = stripComments(read(WIZARD));
-  assert.match(wizard, /\{knowsCelebrant \? \([\s\S]{0,300}?<SelfCelebrantLock/, 'the wizard’s celebrant screen');
+  // The shared stripComments blanks a comment with spaces (indexes kept), so the window counts the blanked lines too.
+  assert.match(wizard, /\{knowsCelebrant \? \([\s\S]{0,900}?<SelfCelebrantLock/, 'the wizard’s celebrant screen');
   assert.match(wizard, /const knowsCelebrant = momentForSelf && !honoree && !blockedBy;/);
   // The way out is the For ▾ row, keeping where they were headed.
   assert.match(wizard, /changeHref=\{[\s\S]{0,160}?'\/dashboard\/create-event'/);
@@ -50,7 +47,7 @@ test('every create path that knows it is "for you" draws the lock — and only t
   const picker = stripComments(read(PICKER));
   assert.match(
     picker,
-    /subject\?\.kind === 'self' && pickerAsksHonoree\(selected\.key, 'self'\) && !communityId \? \([\s\S]{0,80}?<SelfCelebrantLock/,
+    /subject\?\.kind === 'self' && pickerAsksHonoree\(selected\.key, 'self'\) && !communityId \? \([\s\S]{0,600}?<SelfCelebrantLock/,
     'the grid’s inline form',
   );
   assert.match(picker, /onChange=\{openForMenu\}/, '"Change who it’s for" re-opens For ▾ on the same page');

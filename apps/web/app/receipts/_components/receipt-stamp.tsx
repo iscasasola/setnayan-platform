@@ -24,7 +24,6 @@ export type ReceiptStampStatus = 'paid' | 'awaiting';
  * The figures are recomputed from these constants by `receipt-ink-is-readable.test.ts` — change a colour, the test
  * measures it again.
  */
-export const RECEIPT_PAPER = '#FFFDF8';
 export const PAID_INK = 'rgba(28,92,56,.92)';
 /** The PAID stamp's own `opacity` (it was `opacity-75`) — part of what the eye reads, so the test multiplies it in. */
 export const PAID_OPACITY = 0.9;

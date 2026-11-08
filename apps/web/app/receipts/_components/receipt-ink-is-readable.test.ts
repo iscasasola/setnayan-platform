@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { PAID_INK, PAID_OPACITY, RECEIPT_PAPER, WAIT_INK } from './receipt-stamp';
+import { PAID_INK, PAID_OPACITY, WAIT_INK } from './receipt-stamp';
 
 type RGB = [number, number, number];
 const hex = (h: string): RGB => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)) as RGB;
@@ -37,7 +37,11 @@ const contrast = (x: RGB, y: RGB) => {
 };
 
 test('1 · both stamp inks read at least 4.5:1 on the slip paper', () => {
-  const paper = hex(RECEIPT_PAPER);
+  // The paper is read from the slip itself (`.sn-slip{background:…}`), so a new paper colour is measured too.
+  const slip = readFileSync(join(import.meta.dirname, 'receipt-slip.tsx'), 'utf8');
+  const bg = /\.sn-slip\{background:(#[0-9A-Fa-f]{6})/.exec(slip);
+  assert.ok(bg, 'the slip lost its .sn-slip paper colour — re-anchor this test');
+  const paper = hex(bg[1] ?? '');
   const paid = rgba(PAID_INK);
   const wait = rgba(WAIT_INK);
   const paidRatio = contrast(over(paid.rgb, paid.a * PAID_OPACITY, paper), paper);

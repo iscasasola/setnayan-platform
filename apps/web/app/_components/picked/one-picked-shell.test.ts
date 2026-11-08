@@ -15,7 +15,7 @@
  *
  * SABOTAGE (done once, 9 Nov): an `el.animate(` in `picked-supplier-shell.tsx` → 1 RED; the intercept given its own
  * body → 2 RED; the host row's href back to `/messages/${r.threadId}` only → 3 RED; `<ul>{active.map(renderRow)}</ul>`
- * alone in the inbox → 4 RED; `markThreadRead(threadId)` without the `embedded` return → 5 RED.
+ * alone in the inbox → 4 RED; a needs-you level computed inside the inbox → 4 RED; `markThreadRead(threadId)` without the `embedded` return → 5 RED.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -120,6 +120,10 @@ test('4 · one ordering rule for both lists: unread pinned on top, then the most
   assert.match(inbox, /pinned\.map\(renderRow\)/);
   assert.match(inbox, /recent\.map\(renderRow\)/);
   assert.match(inbox, /rememberPickedOrigin\(/, 'a picked row no longer records its tap — the open would not rise from it');
+  // 🚦 The needs-you dot draws ONLY the level handed in (Lane B's `needsYouLevel()`), never one the inbox works out.
+  assert.match(inbox, /r\.needsYou === 'blocker' \?/, 'the blocker dot is gone');
+  assert.match(inbox, /r\.needsYou === 'due-now' \?/, 'the due-now dot is gone');
+  assert.doesNotMatch(inbox, /needsYou\s*=(?!=)|needsYouLevel\(/, 'the inbox decides a needs-you level itself — a second rule');
 });
 
 test('5 · the host Chat page is the shipped thread, marked read only while shown', () => {

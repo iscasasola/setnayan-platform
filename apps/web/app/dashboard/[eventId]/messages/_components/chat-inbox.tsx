@@ -158,7 +158,16 @@ export function ChatInbox({
         className="sn-press flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-2"
         onClickCapture={r.opensPicked ? (e) => rememberPickedOrigin(e.currentTarget.closest('li'), r.href.split('?')[0]!) : undefined}
       >
-        <ThreadListAvatar logoUrl={r.logoUrl} name={r.name} size="lg" />
+        {/* 🚦 Needs you — a badge on the avatar's corner, apart from the unread dot at the row's end (two meanings, two
+            places). The blocker's is the stronger: larger, danger, ringed; due-now is the smaller amber one. */}
+        <span className="relative shrink-0">
+          <ThreadListAvatar logoUrl={r.logoUrl} name={r.name} size="lg" />
+          {r.needsYou === 'blocker' ? (
+            <span role="img" aria-label={NEEDS_YOU_DOT_LABEL.blocker} title={NEEDS_YOU_DOT_LABEL.blocker} className="absolute -right-0.5 -top-0.5 h-4 w-4 rounded-full bg-danger-600 ring-2 ring-cream" data-needs-you-dot="blocker" />
+          ) : r.needsYou === 'due-now' ? (
+            <span role="img" aria-label={NEEDS_YOU_DOT_LABEL['due-now']} title={NEEDS_YOU_DOT_LABEL['due-now']} className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-warn-500 ring-2 ring-cream" data-needs-you-dot="due-now" />
+          ) : null}
+        </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-1.5">
             {/* With an event line beside it the name keeps 70 %; a name that IS the event line (the supplier's chat title,
@@ -175,12 +184,6 @@ export function ChatInbox({
             {r.preview} · {r.timeLabel}
           </span>
         </span>
-        {/* 🚦 Needs you — the blocker's dot is the stronger (a ring round it); due-now is the amber one. */}
-        {r.needsYou === 'blocker' ? (
-          <span role="img" aria-label={NEEDS_YOU_DOT_LABEL.blocker} title={NEEDS_YOU_DOT_LABEL.blocker} className="h-3 w-3 shrink-0 rounded-full bg-danger-600 ring-[3px] ring-danger-600/25" data-needs-you-dot="blocker" />
-        ) : r.needsYou === 'due-now' ? (
-          <span role="img" aria-label={NEEDS_YOU_DOT_LABEL['due-now']} title={NEEDS_YOU_DOT_LABEL['due-now']} className="h-2.5 w-2.5 shrink-0 rounded-full bg-warn-500" data-needs-you-dot="due-now" />
-        ) : null}
         {r.unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}
       </Link>
       {r.archive}

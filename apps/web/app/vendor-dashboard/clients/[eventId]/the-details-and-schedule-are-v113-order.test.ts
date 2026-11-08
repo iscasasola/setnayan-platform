@@ -82,6 +82,7 @@ test('5 · Schedule’s month is the Clients calendar — one part, its own plac
   assert.match(cc, /if \(onClients\) syncUrl\(\);/, 'the Schedule month writes the Clients URL');
   assert.match(cc, /if \(onClients\) window\.dispatchEvent\(new CustomEvent\(DATES_FIGURES_EVENT/, 'the Schedule month speaks for Clients’ pinned row');
   assert.match(cc, /\{dayActions && onClients \? <DayBar/, 'the day bar is drawn on Schedule');
+  assert.match(cc, /\{!onClients \? null : picked \? \(/, 'Schedule draws the shop’s day rows under its month (v113 draws the schedule there)');
 });
 
 test('6 · the supplier’s part in v113 order — Where · hours · Lock · Asked', () => {

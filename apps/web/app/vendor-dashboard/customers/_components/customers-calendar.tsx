@@ -402,7 +402,8 @@ export function CustomersCalendar({
         </button>
       </div>
 
-      {picked ? (
+      {/* Schedule (v113 `calC`): the month marks the event's day; the schedule follows — no day rows of the shop here. */}
+      {!onClients ? null : picked ? (
         <>
           {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
           <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
@@ -421,7 +422,7 @@ export function CustomersCalendar({
           {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
           <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
         </>
-      ) : !onClients ? null : (
+      ) : (
         <div className="mt-4" data-dates-all-days="">
           {allDays.length === 0 ? (
             <p className="py-3 text-[14px] text-ink/70" data-dates-all-empty="">

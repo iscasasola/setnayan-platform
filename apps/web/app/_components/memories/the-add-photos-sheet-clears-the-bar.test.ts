@@ -89,10 +89,17 @@ test('🔒 every Sheet in the gallery — + Add photos first — is drawn throug
 test('🔒 at the root the sheet is ABOVE the bar — read from the Sheet and the dock, both boundaries', () => {
   const sheetZ = [...SHEET.matchAll(/root:\s*'fixed inset-0 z-(\d+)\b/g)].map((m) => Number(m[1]));
   assert.equal(sheetZ.length, 2, 'the Sheet’s two root geometries (lg · tab) are no longer readable here');
-  const dockZ = [...NAV.matchAll(/'fixed inset-x-0 bottom-0 z-(\d+) flex flex-col backdrop-blur (?:tab|lg):hidden'/g)].map((m) => Number(m[1]));
+  // The dock stands on the nav layer token since THE ONE BUILD (§10 #23): `z-sn-nav` = `--sn-z-nav` in globals.css.
+  const navZ = Number(/--sn-z-nav:\s*(\d+);/.exec(readFileSync(join(WEB, 'app/globals.css'), 'utf8'))?.[1]);
+  assert.ok(Number.isFinite(navZ), 'the nav layer token is no longer readable here');
+  const dockZ = [...NAV.matchAll(/'fixed inset-x-0 bottom-0 z-(\d+|sn-nav) flex flex-col backdrop-blur (?:tab|lg):hidden'/g)].map((m) =>
+    m[1] === 'sn-nav' ? navZ : Number(m[1]),
+  );
   assert.equal(dockZ.length, 2, 'the dock’s two classes (tab · lg) are no longer readable here');
   for (const s of sheetZ) for (const d of dockZ) assert.ok(s > d, `the Sheet (z ${s}) is not above the bar (z ${d})`);
-  const rowZ = Number(/data-memories-thumb=""[\s\S]{0,400}?\bz-\[(\d+)\]/.exec(GALLERY)?.[1]);
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  const rowM = /data-memories-thumb=""[\s\S]{0,400}?\bz-(?:\[(\d+)\]|sn-(thumb))/.exec(GALLERY);
+  const rowZ = rowM?.[2] ? Number(/--sn-z-thumb:\s*(\d+);/.exec(css)?.[1]) : Number(rowM?.[1]);
   assert.ok(Number.isFinite(rowZ), 'the thumb row’s layer is no longer readable here');
   for (const s of sheetZ) assert.ok(s > rowZ, `the Sheet (z ${s}) is not above the thumb row (z ${rowZ})`);
 });

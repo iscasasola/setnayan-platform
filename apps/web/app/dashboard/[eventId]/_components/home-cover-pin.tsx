@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useShellBarOffset } from '../guests/_components/use-shell-bar-offset';
+import { useStuck } from '@/app/_components/collapsing-top/use-stuck';
 
 /** The pinned line's height — the part of the band left on screen once it has stuck. */
 export const HOME_PIN_H = 52;
@@ -31,40 +32,9 @@ export function HomeCoverPin({ name, date, gear = false }: { name: string; date?
     band.current = line.current?.parentElement ?? null;
   }, []);
   useShellBarOffset(band, '--home-bar');
-  useEffect(() => {
-    const el = band.current;
-    if (!el) return;
-    let raf = 0;
-    let lastH = -1;
-    let lastOn: boolean | null = null;
-    const read = () => {
-      raf = 0;
-      if (el.offsetHeight !== lastH) {
-        lastH = el.offsetHeight;
-        el.style.setProperty('--home-band-h', `${lastH}px`);
-      }
-      const top = parseFloat(getComputedStyle(el).top);
-      const on = window.scrollY > 0 && Number.isFinite(top) && el.getBoundingClientRect().top <= top + 1;
-      if (on !== lastOn) {
-        lastOn = on;
-        el.toggleAttribute('data-collapsed', on);
-      }
-    };
-    const soon = () => {
-      if (!raf) raf = requestAnimationFrame(read);
-    };
-    read();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
-    ro?.observe(el);
-    window.addEventListener('scroll', soon, { passive: true });
-    window.addEventListener('resize', soon);
-    return () => {
-      if (raf) cancelAnimationFrame(raf);
-      ro?.disconnect();
-      window.removeEventListener('scroll', soon);
-      window.removeEventListener('resize', soon);
-    };
-  }, []);
+  /* The shared read (THE ONE BUILD F2, 8 Nov 2026): the same rect-per-frame "has it stuck?" the shared collapsing top is
+     built on — lifted from here, so Home and every supplier top read it ONE way. Same writes, same names. */
+  useStuck(band, { heightVar: '--home-band-h', attr: 'data-collapsed' });
   return (
     <span
       ref={line}

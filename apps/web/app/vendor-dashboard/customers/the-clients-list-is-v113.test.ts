@@ -58,7 +58,7 @@ test('1 · a picked day can be let go — every day still to come, each under a 
   assert.match(MONTH, /\.filter\(\(d\) => d\.date >= todayIso\)/, 'the every-day list shows days already gone');
   const head = MONTH.slice(MONTH.indexOf('data-dates-day-heading'), MONTH.indexOf('data-dates-day-heading') + 10);
   assert.ok(head.length > 0, 'no day heading');
-  assert.match(MONTH, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: headTop/, 'the day heading does not pin');
+  assert.match(MONTH, /className="sticky z-\[3\][^"]*"\s+style=\{\{ top: headTop/, 'the day heading does not pin');
   assert.match(MONTH, /const headTop = pinH \+ \(folded \? 54 : 0\);/, 'the day heading does not pin under the row and the week strip');
 });
 
@@ -176,7 +176,7 @@ test('6 · Show & sort narrows by Service · Status · Client · Handled by — 
   // The page applies it before counting and paging, and draws the headings sticky.
   assert.match(PAGE, /order: \(rows\) => orderClients\(rows, choice, clientsCtx, groupKey\)/);
   const ROSTER = code('_components', 'customers-roster.tsx');
-  assert.match(ROSTER, /className="home-k2 sticky [^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h, 57px\)'/, 'the group heading does not pin');
+  assert.match(ROSTER, /className="sticky z-\[3\][^"]*"\s+style=\{\{ top: 'var\(--sn-pin-h, 57px\)'/, 'the group heading does not pin');
   // A refused team read narrows nobody by a guess.
   assert.match(PAGE, /agent: teamKnown && viewerIsAgent,/);
 });

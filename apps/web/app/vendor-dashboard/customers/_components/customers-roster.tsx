@@ -474,7 +474,7 @@ export function CustomersRoster({
               <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
                 {newHead ? (
                   <p
-                    className="home-k2 sticky z-[3] -mx-4 flex min-h-10 items-center px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+                    className="sticky z-[3] -mx-4 my-0 flex min-h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/60 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
                     style={{ top: 'var(--sn-pin-h, 57px)', background: 'var(--sn-canvas)' }}
                     data-customers-group-heading={head}
                   >

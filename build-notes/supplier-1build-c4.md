@@ -92,5 +92,20 @@ Branch `claude/supplier-1build-c4`, cut from `origin/claude/supplier-1build-base
 - Dark mode: the supplier `DARK_READY` flag stays OFF this build (spec §4), so dark was not shot; the contrast lint
   (`lint-label-on-fill-contrast`) passes for the new parts.
 
-## Where I stopped
-- (updated each push)
+## Where I stopped (2026-11-08 ~00:30 UTC)
+- **Done:** every item in the C4 block — getPortfolioCount (early push) · #7338 harvest · Shop tab (cover + viewers,
+  Share, Promote, QR + NFC Tap test, ⚙ incl. Business permit, Analytics five cards + period sheet, ONE badge row +
+  sheet + rewards, Makers = Scanner (+ Forms door waiting on C3's route), Services + thumb row search/Show & sort) ·
+  Portfolio tab (albums open in place, Show, "N of 50 free photos", Sort + Add photos, ⚙ + menu entry) · compress on
+  both uploaders · Booked Loop on C2's counter · gift-limit sentence · 4 new guards (each sabotaged red once) + honest
+  updates of the guards the moves touched · lab + 375 px side-by-sides.
+- **Merged:** `-base` (4329b71a), `-data` (C2), `-forms-data` (C3). `-foundation` (L1) NOT pushed yet.
+- **Exact next steps:** (1) when `-foundation` lands: merge it; replace `{...CAROUSEL_STILL}` in
+  `shop/_components/shop-analytics-carousel.tsx` with literal `advanceMs={0} dots={false}` (the guard accepts both);
+  swap the CSS pinned-row fades in `shop-cover.tsx` + `portfolio-view.tsx` for `CollapsingTop`; use the `--sn-z-*`
+  tokens for `portfolio-show.tsx`'s `z-50` (spec §10 #23); drop C4's `| 'portfolio'` on `SettingsMenu` if L1 added it.
+  (2) when C3's Form Maker route lands: set `formsHref` in `shop/page.tsx`. (3) when C2's `getGiftLimitPct` lands: pass
+  `limitPct` to `SetnayanGiftField` + the wizard. (4) Integration commit: remove the Shop's Auto-reply row (L2 mounts
+  `AutoreplySection` in Clients ⚙, spec §9 #6).
+- **Waits on:** L1 (foundation, tours/page-home lines), C3 (form maker route), C2 (`getGiftLimitPct`), controller
+  (generated baselines: port-control, ugat screens).

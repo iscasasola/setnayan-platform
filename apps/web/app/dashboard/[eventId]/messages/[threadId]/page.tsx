@@ -770,7 +770,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} />}
+                  lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                 />
@@ -847,6 +847,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
           */}
           <ChatMessageStream
             flush
+            // ＋ Build 3 — a (+) card's Send lands back here; its full-page doors open this event's pages.
+            plus={{ eventId, returnPath: `/dashboard/${eventId}/messages/${threadId}` }}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.

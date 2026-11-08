@@ -66,6 +66,7 @@ import { QUOTE_VERSION_SELECT, type QuoteVersionRow } from '@/lib/quote-versions
 import { askedOnce } from '@/lib/request-once';
 import { MarkReadWhenShown } from './_components/mark-read-when-shown';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import type { PinFact } from '@/lib/chat-pins';
 import { threadDecisionFacts, type DecisionCards, type DecisionQuoteCard } from '@/lib/thread-decisions';
 import { DetailsDecisionsList } from '../../clients/[eventId]/_components/details-decisions-list';
 import { fetchBudgetBands } from '@/lib/budget-bands-read';
@@ -1414,6 +1415,19 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     'log-outcome': outcomeCapture,
   });
   const toolNodes = toolNodesFor(composeMode);
+  // 📌 The open booking ask as a pin fact (Build 3) — keyed by its own deadline, so a NEW ask is a new blocker.
+  const askPin: PinFact | null =
+    askOpen && lockHandshake?.eventVendorId
+      ? {
+          key: `booking_ask:${lockHandshake.eventVendorId}:${lockHandshake.expiresAt ?? 'open'}`,
+          kind: 'booking_ask',
+          title: 'They asked to book you',
+          answerer: 'you',
+          themName: coupleLabel,
+          sinceMs: 0,
+          dueMs: lockHandshake.expiresAt ? Date.parse(lockHandshake.expiresAt) : null,
+        }
+      : null;
 
   const toolsMounted = thread.inquiry_status === 'accepted';
 
@@ -1919,7 +1933,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                 />
@@ -2132,6 +2146,27 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               eventDate: event?.event_date ?? null,
               endDate: eventFileDay?.event_end_date ?? null,
               precision: eventFileDay?.event_date_precision ?? null,
+            }}
+            // 📌🚦 SUPPLIER BUILD 3 — the booking ask is a BLOCKER: the whole screen until answered, then the red pin.
+            // Its facts and its one action are the shipped panel (`LockRequestAnswer`: the fee forecast above Agree,
+            // the ask's own expiry) — nothing re-priced or re-timed here.
+            extraPins={askPin ? [askPin] : []}
+            blocker={
+              askPin && toolNodes['booking-ask']
+                ? {
+                    pinKey: askPin.key,
+                    kind: 'booking_ask',
+                    subjectKey: askPin.key,
+                    topic: 'quote',
+                    title: 'They asked to book you',
+                    why: 'Nothing is booked, and their date is not held for you, until you answer.',
+                    action: toolNodes['booking-ask'],
+                  }
+                : null
+            }
+            plus={{
+              eventId: thread.event_id,
+              returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,
             }}
           />
         </ChatBox>

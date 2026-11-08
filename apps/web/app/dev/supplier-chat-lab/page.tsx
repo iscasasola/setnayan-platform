@@ -295,6 +295,7 @@ export default async function SupplierChatLabPage({
                   lead={
                     <ThreadToolsSheet
                       eventId={LAB_EVENT}
+                      threadId={LAB_THREAD}
                       state={{ hasAgreement: booked, askOpen, paymentsToConfirm: booked ? 1 : 0, guestCountChanges: 0 }}
                     />
                   }

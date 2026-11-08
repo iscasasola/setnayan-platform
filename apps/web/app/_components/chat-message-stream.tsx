@@ -76,17 +76,23 @@ import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { DealEntry } from '@/lib/deal-entry';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
-  ThreadViewSwitch,
-  DecisionsPanel,
   FilesPanel,
+  ReplyControls,
+  type ReplyContext,
   type SupplierReplyActions,
 } from './chat-thread-views';
+import { ChatPins } from './chat/chat-pins';
+import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
+import { PlusDraft } from './chat/plus-draft';
+import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
+import type { RunningTopic } from '@/lib/chat-plus';
+import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
   threadDecisionFacts,
-  decisionsNeedingYou,
   type GuestCountFact,
   type PaymentFact,
 } from '@/lib/thread-decisions';
@@ -246,6 +252,18 @@ type Props = {
    */
   supplierReplyActions?: SupplierReplyActions;
   /**
+   * 📌 SUPPLIER BUILD 3 · the automatic pins the PAGE knows and the stream cannot (a booking ask, an unset call time, a
+   * payment due, an access ask). The ones the conversation's own Decisions know — a logged payment, a guest-count
+   * change, an adjustment — the stream adds itself (`pinsFromDecisions`).
+   */
+  extraPins?: readonly PinFact[];
+  /** The answer drawn under a page pin when it opens (the shipped controls). */
+  pinBodies?: Readonly<Record<string, React.ReactNode>>;
+  /** 🚦 The full-screen blocker, when one is unanswered (its fact must also be in `extraPins`, as the red pin). */
+  blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
+  /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
+  plus?: { eventId: string; returnPath: string } | null;
+  /**
    * Where "Counter-offer" goes on a quote card. A URL rather than a callback —
    * the thread pages are server components and cannot pass functions across the
    * boundary. Omit it and the button does not render, which is what a surface
@@ -350,7 +368,6 @@ export function ChatMessageStream({
   viewerRole,
   counterpartyLabel,
   eventDate = null,
-  standing = null,
   decisionPayments = [],
   decisionGuestCounts = [],
   lockHandshake = null,
@@ -371,6 +388,10 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  extraPins = [],
+  pinBodies,
+  blocker = null,
+  plus = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -685,7 +706,8 @@ export function ChatMessageStream({
   // ---------------------------------------------------------------------------
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
-  const [view, setViewState] = useState<ThreadView>(initialView);
+  // Decisions left the stream (Build 3): open ones are pins, closed ones Details › Decisions.
+  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : initialView);
 
   /**
    * Switching views rewrites the URL IN PLACE — `replaceState`, not a
@@ -746,7 +768,6 @@ export function ChatMessageStream({
     ],
   );
 
-  const needsYouCount = useMemo(() => decisionsNeedingYou(decisions), [decisions]);
 
   /**
    * THE FILES THIRD, from `buildSharedFiles` (PR #5362) — the same builder the
@@ -777,6 +798,91 @@ export function ChatMessageStream({
     // view reads oldest-to-newest like the conversation it summarises.
     return [...rows].reverse();
   }, [messages, viewerRole, counterpartyLabel]);
+
+  // ---------------------------------------------------------------------------
+  // 📌 PINS · the Running topic · the blocker (Supplier Build 3 · lane B)
+  // ---------------------------------------------------------------------------
+  const replyCtx: ReplyContext = useMemo(
+    () => ({
+      threadId,
+      eventId: messages[0]?.event_id ?? plus?.eventId ?? '',
+      vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+      returnPath:
+        plus?.returnPath ??
+        (viewerRole === 'couple' && messages[0]
+          ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+          : `/vendor-dashboard/messages/${threadId}`),
+      eventDate,
+      supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+    }),
+    [threadId, messages, plus, viewerRole, eventDate, supplierReplyActions],
+  );
+  const pinFacts = useMemo(
+    () => [...extraPins, ...pinsFromDecisions(decisions, counterpartyLabel)],
+    [extraPins, decisions, counterpartyLabel],
+  );
+  const allPinBodies = useMemo(() => {
+    const out: Record<string, React.ReactNode> = { ...(pinBodies ?? {}) };
+    for (const e of decisions) {
+      if (e.reply && !out[e.key]) out[e.key] = <ReplyControls reply={e.reply} ctx={replyCtx} />;
+    }
+    return out;
+  }, [pinBodies, decisions, replyCtx]);
+
+  /**
+   * THE RUNNING TOPIC — the newest (+) card in this chat still waiting for its answer: a meeting proposed, a quote sent
+   * and not yet answered. Read from the live card rows (never the announcing message). Published to the (+)'s store,
+   * so the (+) is shut for its opener ("Finish or close: …").
+   */
+  const sentTopic: RunningTopic | null = useMemo(() => {
+    for (let k = messages.length - 1; k >= 0; k--) {
+      const m = messages[k]!;
+      if (m.appointment_id) {
+        const a = appointmentCards[m.appointment_id];
+        if (a && a.status === 'proposed') {
+          return {
+            key: `meeting:${m.appointment_id}`,
+            card: 'meeting',
+            title: `Meeting · ${a.label}`,
+            by: a.initiated_by === viewerRole ? 'you' : 'them',
+            byName: counterpartyLabel,
+            status: 'sent',
+            anchorId: `msg-${m.message_id}`,
+          };
+        }
+      }
+      if (m.proposal_id) {
+        const q = proposalCards[m.proposal_id];
+        if (q && (q.status === 'sent' || q.status === 'viewed')) {
+          return {
+            key: `quote:${m.proposal_id}`,
+            card: 'quote',
+            title: `Quote · ${q.title}`,
+            by: viewerRole === 'vendor' ? 'you' : 'them',
+            byName: counterpartyLabel,
+            status: 'sent',
+            anchorId: `msg-${m.message_id}`,
+          };
+        }
+      }
+    }
+    return null;
+  }, [messages, appointmentCards, proposalCards, viewerRole, counterpartyLabel]);
+  useEffect(() => {
+    patchPlus(threadId, { sent: sentTopic });
+  }, [threadId, sentTopic]);
+  const plusState = usePlus(threadId);
+  const running: RunningTopic | null = plusState.draft
+    ? {
+        key: 'draft',
+        card: plusState.draft.kind,
+        title: plusState.draft.kind === 'meeting' ? 'Meeting' : plusState.draft.kind[0]!.toUpperCase() + plusState.draft.kind.slice(1),
+        by: 'you',
+        status: 'draft',
+        anchorId: PLUS_DRAFT_ANCHOR,
+      }
+    : sentTopic;
+  const [blockerOpen, setBlockerOpen] = useState(true);
 
   // In-app path back to THIS thread page — the return target for negotiation
   // server actions (appointment create / respond redirect + revalidate here).
@@ -1190,17 +1296,50 @@ export function ChatMessageStream({
     <div className="flex min-h-0 flex-1 flex-col">
       {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} /> : null}
       {/*
-        THE SWITCH — above the conversation, at every width. On a phone this
-        row may be the most useful thing on the screen: the whole standing of a
-        booking without scrolling a month of chat. It is never breakpoint-hidden.
+        📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
+        open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is), closed
+        ones live on Details › Decisions, and Files is the paperclip (one list for this booking).
       */}
-      <ThreadViewSwitch
-        view={view}
-        onChange={setView}
-        decisionsCount={decisions.length}
-        needsYouCount={needsYouCount}
-        filesCount={files.length}
+      <div className="flex items-center justify-end px-1" data-chat-head-tools="">
+        <button
+          type="button"
+          onClick={() => setView(view === 'files' ? 'all' : 'files')}
+          aria-pressed={view === 'files'}
+          aria-label={`Files in this chat · ${files.length}`}
+          data-chat-files-clip=""
+          className="sn-press relative grid h-11 w-11 place-items-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
+        >
+          {(() => {
+            const Clip = TOPIC_ICON.files;
+            return <Clip aria-hidden className="h-5 w-5" strokeWidth={1.9} />;
+          })()}
+          {files.length > 0 ? (
+            <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-cream">
+              {files.length}
+            </span>
+          ) : null}
+        </button>
+      </div>
+      <ChatPins
+        threadId={threadId}
+        facts={pinFacts}
+        bodies={allPinBodies}
+        onBlocker={() => setBlockerOpen(true)}
+        running={running}
+        talking={plusState.talking}
+        onCloseTalking={() => patchPlus(threadId, { talking: null })}
+        eventDate={eventDate}
       />
+      {blocker && blockerOpen ? (
+        <ChatBlocker
+          {...blocker}
+          threadId={threadId}
+          onReturn={() => {
+            setBlockerOpen(false);
+            patchPlus(threadId, { talking: { key: blocker.pinKey, title: blocker.title } });
+          }}
+        />
+      ) : null}
       {(() => {
         // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
         if (!fileExpiry?.eventDate) return null;
@@ -1214,34 +1353,7 @@ export function ChatMessageStream({
         ) : null;
       })()}
 
-      {view === 'decisions' ? (
-        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
-          <DecisionsPanel
-            entries={decisions}
-            standing={standing}
-            counterpartyLabel={counterpartyLabel}
-            needsYouCount={needsYouCount}
-            reply={{
-              threadId,
-              eventId: messages[0]?.event_id ?? '',
-              vendorProfileId: messages[0]?.vendor_profile_id ?? '',
-              // 🔑 THE REPLY LANDS BACK ON DECISIONS. Every reply action ends
-              // in redirect(return_path); without the view in it, answering
-              // the other side would drop you into the full chat after every
-              // tap. The actions revalidate the bare route (lib/return-path.ts)
-              // and redirect to this.
-              returnPath: withThreadView(
-                viewerRole === 'couple' && messages[0]
-                  ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
-                  : `/vendor-dashboard/messages/${threadId}`,
-                'decisions',
-              ),
-              eventDate,
-              supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
-            }}
-          />
-        </div>
-      ) : view === 'files' ? (
+      {view === 'files' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
@@ -1874,6 +1986,8 @@ export function ChatMessageStream({
           const brk = timeBreakBefore(messages, i);
           return (
             <Fragment key={m.message_id}>
+              {/* The Running-topic pin's jump target (Build 3). */}
+              <li id={`msg-${m.message_id}`} aria-hidden className="h-0 scroll-mt-3" />
               {brk ? (
                 <li aria-hidden className="pb-1 pt-3 text-center text-[12px] text-ink/50" data-chat-time="">
                   {formatChatTimestamp(m.created_at)}
@@ -1933,6 +2047,18 @@ export function ChatMessageStream({
               <span className="h-1 w-1 animate-pulse rounded-full bg-ink/40 [animation-delay:240ms]" />
             </span>
           </div>
+        </li>
+      ) : null}
+      {/* ＋ The (+) card being filled — the opener's own until Send (Build 3). */}
+      {plus ? (
+        <li>
+          <PlusDraft
+            threadId={threadId}
+            side={viewerRole}
+            eventId={plus.eventId}
+            eventDate={eventDate}
+            returnPath={plus.returnPath}
+          />
         </li>
       ) : null}
     </ol>

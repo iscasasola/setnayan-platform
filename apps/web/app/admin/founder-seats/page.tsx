@@ -101,6 +101,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
           <label className="flex min-w-56 flex-1 flex-col gap-1 text-xs font-medium text-ink/70">
             Account email
             <input
+              autoComplete="off"
               type="email"
               name="email"
               required

@@ -113,6 +113,7 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
               From <span className="text-ink/70">(optional — the band sees this)</span>
             </label>
             <input
+              autoComplete="name"
               id="songreq-name"
               type="text"
               value={name}

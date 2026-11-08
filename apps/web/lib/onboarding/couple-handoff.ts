@@ -82,3 +82,28 @@ export function seatCouple(
   if (!current[theirs].trim()) out[theirs] = couple.partner;
   return out;
 }
+
+/**
+ * "I'm the bride" / "I'm the groom" with no couple carried: the person's OWN slot starts filled from
+ * their account name (owner 2026-11-08 — the forms that ask the signed-in person for their own name start
+ * filled and stay editable). First word → first name, the rest → last name. The partner's slot is never
+ * touched — never prefill another person's field with the account's data — and neither is a helper's,
+ * nor a slot already typed in. Pure, so the rule is pinned by a test.
+ */
+export function seatSelf(
+  role: 'bride' | 'groom' | 'helper' | string,
+  selfName: string | null | undefined,
+  current: { brideFirstName: string; groomFirstName: string; brideLastName: string; groomLastName: string },
+): { brideFirstName?: string; groomFirstName?: string; brideLastName?: string; groomLastName?: string } {
+  if (role !== 'bride' && role !== 'groom') return {};
+  const words = (selfName ?? '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0 || words[0]!.includes('@')) return {};
+  const first = words[0]!.slice(0, 40);
+  const last = words.slice(1).join(' ').slice(0, 60);
+  const firstKey = role === 'bride' ? 'brideFirstName' : 'groomFirstName';
+  const lastKey = role === 'bride' ? 'brideLastName' : 'groomLastName';
+  const out: { brideFirstName?: string; groomFirstName?: string; brideLastName?: string; groomLastName?: string } = {};
+  if (!current[firstKey].trim()) out[firstKey] = first;
+  if (last && !current[lastKey].trim()) out[lastKey] = last;
+  return out;
+}

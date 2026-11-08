@@ -152,6 +152,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           </Field>
           <Field label="Business address" htmlFor="business_address">
             <textarea
+              autoComplete="off"
               id="business_address"
               name="business_address"
               rows={3}
@@ -162,6 +163,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           </Field>
           <Field label="Business email" htmlFor="business_email">
             <input
+              autoComplete="off"
               id="business_email"
               name="business_email"
               type="email"
@@ -210,6 +212,7 @@ export async function SettingsSurface({ searchParams }: Props) {
             help='Setnayan-owned inbox suppliers email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
           >
             <input
+              autoComplete="off"
               id="vendor_validate_email"
               name="vendor_validate_email"
               type="email"
@@ -224,6 +227,7 @@ export async function SettingsSurface({ searchParams }: Props) {
             help='Setnayan-owned number suppliers text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to suppliers until one exists.'
           >
             <input
+              autoComplete="off"
               id="vendor_validate_phone"
               name="vendor_validate_phone"
               type="tel"

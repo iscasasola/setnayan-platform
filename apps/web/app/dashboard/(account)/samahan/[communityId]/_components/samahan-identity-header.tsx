@@ -164,6 +164,7 @@ export function SamahanIdentityHeader({
             >
               <input type="hidden" name="community_id" value={communityId} />
               <input
+                autoComplete="off"
                 type="text"
                 name="name"
                 defaultValue={name}

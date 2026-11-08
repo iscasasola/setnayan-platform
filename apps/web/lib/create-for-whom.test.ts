@@ -210,5 +210,7 @@ test('"For you" reaches the wizard as the settled "This one’s yours", by name'
   assert.match(picker, /forSelf: subject\?\.kind === 'self',/);
   const wizard = read('app/onboarding/[type]/_components/generic-onboarding.tsx');
   assert.match(wizard, /if \(carried\.forSelf\) setMomentForSelf\(true\);/);
-  assert.match(wizard, /data-self-celebrant>\{selfName\?\.trim\(\) \|\| 'you'\}/);
+  // Their own name, in the celebrant field, locked (owner 2026-11-08) — on the wizard AND the grid's form.
+  assert.match(wizard, /<SelfCelebrantLock\s+name=\{selfName\}/);
+  assert.match(picker, /<SelfCelebrantLock[\s\S]{0,200}?name=\{selfCelebrantName\(subject\)\}/);
 });

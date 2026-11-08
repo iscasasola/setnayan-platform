@@ -48,6 +48,7 @@ export function CreateClusterForm({
           Name this group
         </label>
         <input
+          autoComplete="off"
           id="cluster-display-name"
           name="display_name"
           required

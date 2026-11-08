@@ -402,6 +402,7 @@ export function PackageEditor({
         <div>
           <label className={lab} htmlFor="pkg-name">Name</label>
           <input
+            autoComplete="off"
             id="pkg-name"
             className={field}
             value={draft.package_name}

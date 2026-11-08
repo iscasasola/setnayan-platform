@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1775
-# tables: 462
-# columns: 5680
-# notnull: 3434
+# ledger: 1787
+# tables: 464
+# columns: 5732
+# notnull: 3450
 [ledger]
 20260512000000
 20260513000000
@@ -1761,6 +1761,7 @@
 20271309260178
 20271309403755
 20271309527923
+20271309535584
 20271309539718
 20271310256381
 20271311598756
@@ -1772,21 +1773,32 @@
 20271315529466
 20271316174617
 20271316355263
+20271316444107
 20271316466285
 20271316625547
 20271316933967
 20271319497337
 20271319689851
 20271319712279
+20271319958455
+20271320001366
+20271320018288
 20271320021260
 20271320245383
+20271320258754
+20271320303985
 20271320327933
+20271320474333
 20271320476390
 20271320900784
 20271321530399
 20271321738256
 20271322360315
 20271323347634
+20271323363853
+20271324259202
+20271325152313
+20271325516180
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1953,6 +1965,7 @@ blocked_users.created_at
 blocked_users.id
 blocked_users.reason
 booking_fee_charges.amount_charged_centavos
+booking_fee_charges.badge_reward_id
 booking_fee_charges.charge_id
 booking_fee_charges.computed_fee_centavos
 booking_fee_charges.created_at
@@ -5739,6 +5752,35 @@ shared_attribute_groups.display_name_en
 shared_attribute_groups.display_name_tl
 shared_attribute_groups.group_name
 shared_attribute_groups.updated_at
+shop_badge_rewards.badge
+shop_badge_rewards.granted_at
+shop_badge_rewards.note
+shop_badge_rewards.returned_at
+shop_badge_rewards.returned_from_charge_id
+shop_badge_rewards.revoke_note
+shop_badge_rewards.revoked_at
+shop_badge_rewards.revoked_by
+shop_badge_rewards.reward_id
+shop_badge_rewards.reward_key
+shop_badge_rewards.reward_kind
+shop_badge_rewards.setnayan_gift_credits
+shop_badge_rewards.setnayan_gift_grant_id
+shop_badge_rewards.stock_delta
+shop_badge_rewards.units
+shop_badge_rewards.used_at
+shop_badge_rewards.used_on_charge_id
+shop_badge_rewards.vendor_profile_id
+shop_badge_upgrades.badge
+shop_badge_upgrades.choices
+shop_badge_upgrades.ends_at
+shop_badge_upgrades.granted_at
+shop_badge_upgrades.note
+shop_badge_upgrades.reward_key
+shop_badge_upgrades.started_at
+shop_badge_upgrades.started_choice
+shop_badge_upgrades.started_period_days
+shop_badge_upgrades.upgrade_id
+shop_badge_upgrades.vendor_profile_id
 shop_gift_purchases.created_at
 shop_gift_purchases.created_by
 shop_gift_purchases.credits_each
@@ -5749,6 +5791,7 @@ shop_gift_purchases.quantity
 shop_gift_purchases.service_code
 shop_gift_purchases.unit_price_php
 shop_gift_purchases.vendor_profile_id
+shop_gift_stock_entries.badge_reward_id
 shop_gift_stock_entries.created_at
 shop_gift_stock_entries.created_by
 shop_gift_stock_entries.delta
@@ -6061,8 +6104,11 @@ users.name_search
 users.name_suffix
 users.phone
 users.planner_mode
+users.profile_focal_x
+users.profile_focal_y
 users.profile_photo_url
 users.profile_view_count
+users.profile_zoom
 users.public_greeting_opt_in
 users.public_id
 users.public_profile_enabled
@@ -6627,9 +6673,12 @@ vendor_package_items.replacement_value_centavos
 vendor_package_items.service_description
 vendor_package_items.transport_flat_centavos
 vendor_package_items.transport_mode
+vendor_package_items.vendor_service_id
 vendor_packages.consumable_budget_centavos
 vendor_packages.created_at
 vendor_packages.description
+vendor_packages.gift_pack_code
+vendor_packages.includes_setnayan_gift
 vendor_packages.is_active
 vendor_packages.is_consumable_flexible
 vendor_packages.package_id
@@ -6812,6 +6861,10 @@ vendor_profiles.extra_bookings_per_date
 vendor_profiles.extra_parent_categories
 vendor_profiles.extra_services_per_leaf
 vendor_profiles.extra_waitlist_acceptances
+vendor_profiles.find_lock_lifted_at
+vendor_profiles.find_lock_lifted_by
+vendor_profiles.find_lock_reason
+vendor_profiles.find_locked_at
 vendor_profiles.fraud_banned_at
 vendor_profiles.fraud_suspended_at
 vendor_profiles.fraud_tombstoned
@@ -6825,13 +6878,17 @@ vendor_profiles.in_business_since_date
 vendor_profiles.in_business_since_year
 vendor_profiles.inner_radius_km
 vendor_profiles.is_demo
+vendor_profiles.is_findable
 vendor_profiles.is_founder
 vendor_profiles.is_published
 vendor_profiles.is_supplier_vendor
 vendor_profiles.last_demoted_at
 vendor_profiles.last_verified_at
 vendor_profiles.location_city
+vendor_profiles.logo_focal_x
+vendor_profiles.logo_focal_y
 vendor_profiles.logo_url
+vendor_profiles.logo_zoom
 vendor_profiles.max_soft_holds_per_date
 vendor_profiles.max_waitlist_acceptances
 vendor_profiles.microsite_about
@@ -6897,6 +6954,7 @@ vendor_profiles.website
 vendor_profiles.weddings_done_approx
 vendor_proposal_shop_gifts.created_at
 vendor_proposal_shop_gifts.credits
+vendor_proposal_shop_gifts.from_badge_reward
 vendor_proposal_shop_gifts.gift_kind
 vendor_proposal_shop_gifts.gift_line_id
 vendor_proposal_shop_gifts.proposal_id
@@ -7216,6 +7274,7 @@ vendor_services.daily_capacity
 vendor_services.demo_batch_id
 vendor_services.exclusive_perk_text
 vendor_services.extra_hour_php
+vendor_services.gift_pack_code
 vendor_services.hour_base_php
 vendor_services.includes_setnayan_gift
 vendor_services.is_active
@@ -7227,6 +7286,11 @@ vendor_services.min_hours
 vendor_services.min_pax
 vendor_services.package_inclusions
 vendor_services.per_pax_price_php
+vendor_services.plan_held_at
+vendor_services.plan_hold
+vendor_services.plan_hold_returns_on
+vendor_services.plan_hold_starts_on
+vendor_services.plan_hold_was_live
 vendor_services.pricing_basis
 vendor_services.primary_photo_r2_key
 vendor_services.public_id
@@ -9828,6 +9892,20 @@ shared_attribute_groups.created_at
 shared_attribute_groups.display_name_en
 shared_attribute_groups.group_name
 shared_attribute_groups.updated_at
+shop_badge_rewards.badge
+shop_badge_rewards.granted_at
+shop_badge_rewards.reward_id
+shop_badge_rewards.reward_key
+shop_badge_rewards.reward_kind
+shop_badge_rewards.stock_delta
+shop_badge_rewards.units
+shop_badge_rewards.vendor_profile_id
+shop_badge_upgrades.badge
+shop_badge_upgrades.choices
+shop_badge_upgrades.granted_at
+shop_badge_upgrades.reward_key
+shop_badge_upgrades.upgrade_id
+shop_badge_upgrades.vendor_profile_id
 shop_gift_purchases.created_at
 shop_gift_purchases.credits_each
 shop_gift_purchases.gift_kind
@@ -10402,6 +10480,7 @@ vendor_package_items.service_description
 vendor_package_items.transport_mode
 vendor_packages.consumable_budget_centavos
 vendor_packages.created_at
+vendor_packages.includes_setnayan_gift
 vendor_packages.is_active
 vendor_packages.is_consumable_flexible
 vendor_packages.package_id
@@ -10536,6 +10615,7 @@ vendor_profiles.verification_state
 vendor_profiles.waitlist_enabled
 vendor_proposal_shop_gifts.created_at
 vendor_proposal_shop_gifts.credits
+vendor_proposal_shop_gifts.from_badge_reward
 vendor_proposal_shop_gifts.gift_kind
 vendor_proposal_shop_gifts.gift_line_id
 vendor_proposal_shop_gifts.proposal_id

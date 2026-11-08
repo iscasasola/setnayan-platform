@@ -85,8 +85,9 @@ test('the card renders nothing when there is nothing to decline', () => {
 test('THE HANDLE: the column has a writer and a mounted control', () => {
   assert.match(strip(ACTION), /\.update\(\{ face_tagging_declined_by_couple/);
   assert.match(strip(CARD), /action=\{setCoupleFaceTaggingDeclined\}/);
-  // 📷 Mounted in the camera settings — Home's Papic card draws them (the Papic page is gone, 2026-10-26).
-  const page = strip(read('..', 'app', 'dashboard', '[eventId]', 'page.tsx'));
+  // 📷 Mounted in the camera settings — the Papic card draws them (the Papic page is gone, 2026-10-26). Since THE ONE
+  // BUILD (L1, 8 Nov 2026) the Papic card lives in Memories, not Home: `memories/page.tsx` mounts the settings.
+  const page = strip(read('..', 'app', 'dashboard', '[eventId]', 'memories', 'page.tsx'));
   const settings = strip(read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', '_components', 'papic-camera-settings.tsx'));
   assert.match(page, /<PapicCameraSettings\b/);
   assert.match(settings, /<FaceTaggingChoice/);

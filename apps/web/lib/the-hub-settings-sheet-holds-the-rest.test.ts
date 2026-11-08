@@ -34,7 +34,8 @@ test('1 · one sheet, four groups in the prototype’s order, and the event’s 
   const groups = [...HUB.matchAll(/data-hub-settings-group="([a-z-]+)"/g)].map((m) => m[1]);
   assert.deepEqual(groups, ['look', 'your-event-hub', 'guests-see', 'gifts'], 'the groups are not Look · Your Event Hub · What guests see · E-Gifts');
   assert.match(HUB, /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the sheet is not the house ⚙’s');
-  assert.match(HUB, /Names, date, venues and parents are in Home › Event settings\./, 'the event’s own facts are not sent to Home');
+  // The event's first tab is called Today since THE ONE BUILD (L1, 8 Nov 2026: "Home → Today, word only").
+  assert.match(HUB, /Names, date, venues and parents are in Today › Event settings\./, 'the event’s own facts are not sent to Today (the event’s first tab)');
   // Each group's heading carries its ⓘ — title + one line, the rest in ⓘ.
   for (const label of ['"Look"', '"Your Event Hub"', '{GUESTS_SEE_WORDS.title}', '"E-Gifts"']) {
     assert.match(HUB, new RegExp(`<InfoTip label=${label.replace(/[{}.]/g, (c) => `\\${c}`)} align="start">`), `the ${label} group has no ⓘ`);

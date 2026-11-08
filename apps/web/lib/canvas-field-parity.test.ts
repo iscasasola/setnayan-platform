@@ -325,7 +325,11 @@ test('the maker page picks its component from canvasMakerEnabled(), and OFF is t
   assert.equal([...page.matchAll(/<ServiceWizard/g)].length, 1);
 });
 
-test('flag OFF is byte-for-byte the shipped wizard call — same six props, nothing added', () => {
+// ⚖ SEVEN, NOT SIX, SINCE THE ONE BUILD (8 Nov 2026). `giftLimitPct` joined the wizard call when the gift's
+// "capped at N%" stopped being typed in the wizard and started reading the one admin setting (`getGiftLimitPct`,
+// `lib/the-gift-limit-is-one-setting.test.ts`). It is read only on the wizard arm (`canvas ? null : …`), so the flag-ON
+// path is unchanged; the canvas has no gift field, so it is NOT added to the canvas's drop-in list below.
+test('flag OFF is byte-for-byte the shipped wizard call — same seven props, nothing added', () => {
   const page = stripComments(readFileSync(NEW_SERVICE_PAGE, 'utf8'));
   const call = page.slice(page.indexOf('<ServiceWizard'));
   const props = [...call.slice(0, call.indexOf('/>')).matchAll(/^\s*(\w+)=/gm)].map(
@@ -336,6 +340,7 @@ test('flag OFF is byte-for-byte the shipped wizard call — same six props, noth
     'categoryValue',
     'claimToken',
     'coverages',
+    'giftLimitPct',
     'otherCategories',
     'vendorProfileId',
   ]);

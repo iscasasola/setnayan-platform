@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
 import { bodyPanelBox, panelClip, type PanelBox } from '@/lib/body-panel';
+import { anyModalOpen } from '@/lib/use-modal-a11y';
 
 /**
  * 🗂 THE IN-BODY PANEL — ONE part for Shop › Makers (THE ONE BUILD §10 #33, owner 8 Nov: *"should share a single row…
@@ -144,7 +145,8 @@ export function BodyPanel({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !document.querySelector('[role="dialog"][aria-modal="true"]')) close();
+      // A Sheet opened from inside the panel takes Escape first — the shared modal stack says one is up.
+      if (e.key === 'Escape' && !anyModalOpen()) close();
     };
     // A tap on the bottom nav leaves the page — the panel goes at once (the prototype's `mkClose(true)`).
     const onDock = (e: Event) => {

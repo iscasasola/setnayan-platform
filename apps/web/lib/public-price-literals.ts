@@ -187,6 +187,55 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     reason:
       'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
   },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱80,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱20,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱15,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱5,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱30,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/clients-lab/page.tsx',
+    literal: '₱10,000',
+    sku: null,
+    reason:
+      'A made-up deal total / first payment on a Booked QR row in the DEV-ONLY Clients lab (404 in production; Build 2 #34) — a supplier’s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/supplier-lab/shop-tab-lab.tsx',
+    literal: '₱128',
+    sku: null,
+    reason:
+      'A made-up Shop wallet balance in the DEV-ONLY Shop tab lab (404 in production; Build 2 B) — a fixture balance, not a Setnayan SKU.',
+  },
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

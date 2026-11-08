@@ -97,6 +97,7 @@ export function ShopMakers({
             type="button"
             onClick={() => go(t.k)}
             aria-expanded={open === t.k}
+            aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
             className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 rounded-2xl border border-ink/10 bg-raised px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
             data-maker={t.k}
           >

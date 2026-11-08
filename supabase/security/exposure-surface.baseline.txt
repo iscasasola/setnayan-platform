@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7386
+# facts: 7388
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     610
-#   col       5365
+#   col       5366
 #   policy    1074
 #   view      9
-#   func      324
+#   func      325
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -3868,6 +3868,7 @@ col	public.platform_settings.business_address	anon=- authenticated=S
 col	public.platform_settings.business_email	anon=- authenticated=S
 col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
+col	public.platform_settings.chat_live_pings_live	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.drive_speed_kmh	anon=- authenticated=S
@@ -7343,6 +7344,7 @@ func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, 
 func	public.unpair_guest(p_event_id uuid, p_guest_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated search_path=public
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
+func	public.user_topic_is_mine(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_agree_to_part(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean, p_public_key text, p_copy_public boolean)	secdef=yes exec=authenticated search_path=public

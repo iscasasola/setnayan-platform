@@ -160,7 +160,8 @@ test('2 · Events’ thumb row = the shared Search box (≥ 60 %) + Add (brand) 
   const at = PAGE.indexOf('<SupplierThumbRow\n        name="events"');
   const thumb = PAGE.slice(at, PAGE.indexOf('\n      />', PAGE.indexOf('action={{', at)));
   assert.ok(at > -1 && thumb.length > 50, 'Events has no thumb row');
-  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search events"/, 'the thumb row lost the search box');
+  // v113 `thumb()` (Build 2 #43d): "Search clients" — the one Clients screen.
+  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search clients"/, 'the thumb row lost the search box');
   assert.match(thumb, /action=\{\{\s*node: \(\s*<OutsideClientAdd\b/, 'the thumb row lost Add');
   assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
   assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label=\{label\}/, 'Add is not the brand main button');
@@ -204,40 +205,50 @@ test('3 · three segments, one address each; every old landing opens the segment
   assert.match(PAGE, /const sections = CUSTOMER_SECTIONS\.filter\(\(s\) => folds\.includes\(s\.key\)\)/, 'a fold is drawn outside its segment');
   // The ids the landings name are drawn only under their segment.
   // S-PR4: Money is the last branch of the segment switch (its rows wear `#payday`); `#bookings` is drawn only on Money.
-  assert.match(PAGE, /<CustomersDates search=\{search\} \/>[\s\S]{0,120}\) : \(\s*<div id="payday"[^>]*>\s*<CustomersMoney /, 'Payday is not Money’s');
+  assert.match(PAGE, /<CustomersPipeline search=\{search\} \/>[\s\S]{0,120}\) : \(\s*(?:\/\/[^\n]*\n\s*)*<div id="payday"[^>]*>\s*<CustomersMoney /, 'Payday is not Money’s');
   assert.match(PAGE, /\{seg === 'money' \? <span id="bookings"/, 'Bookings is not Money’s');
 });
 
-test('3b · each segment reads only what it draws (owner: "the fewest requests")', () => {
+test('3b · the one Clients screen reads each thing ONCE (owner: "the fewest requests"; Build 2 #43a)', () => {
   const people = body(PAGE, 'CustomersPipeline');
-  const dates = body(PAGE, 'CustomersDates');
-  // 2026-11-08 (v113 Show & sort, spec §9 #7): Events now reads the shop's services (Service ▾) and team (Handled by) —
-  // what its own sheet draws. The month's data stays Dates'.
-  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'VendorQrSection']) {
-    assert.ok(!people.includes(`${r}(`) && !people.includes(`<${r}`), `Events reads ${r} — the month's data, drawn by Dates`);
+  const month = body(PAGE, 'customersMonth');
+  // The month's OWN reads start beside the list's (one round, no waterfall) — and only there.
+  assert.match(people, /const monthReads = startMonthReads\(/, 'the month reads its days after the list, not beside it');
+  assert.ok(people.indexOf('startMonthReads(') < people.indexOf('await Promise.all(['), 'the month reads wait behind the list');
+  for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist']) {
+    assert.ok(!people.includes(`${r}(`), `the list reads ${r} itself — it belongs to startMonthReads`);
+  }
+  // What the list already read is HANDED to the month — never read twice on one screen.
+  for (const r of ['fetchVendorPools(', 'fetchVendorPoolBookings(', 'fetchVendorBlocksDetailed(', 'fetchVendorThreadsDetailed(', 'fetchVendorServices(', 'fetchVendorTeam(']) {
+    assert.ok(!month.includes(r), `the month reads ${r} again — the list already has it`);
   }
   for (const r of ['customerLaneOf', 'readVendorPaydayInstallments', "from('vendor_client_notes')"]) {
-    assert.ok(!dates.includes(r), `Dates reads ${r} — the roster's data, drawn by Events`);
+    assert.ok(!month.includes(r), `the month reads ${r} — the list's data`);
   }
   const hub = body(PAGE, 'VendorCustomersHub');
-  assert.match(hub, /seg === 'events' \? \([\s\S]{0,120}<CustomersPipeline\b/, 'Events is not drawn only on Events');
-  assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
+  assert.match(hub, /seg === 'dates' && [^\n]*search\.day[\s\S]{0,200}<CustomersDay\b/, 'Dates › one day lost its sheet');
+  assert.match(hub, /seg !== 'money' \? \([\s\S]{0,120}<CustomersPipeline\b/, 'the one Clients screen is not drawn for Events and Dates');
+  assert.doesNotMatch(PAGE, /function CustomersDates\b/, 'a second Dates view is back — Clients is ONE screen');
 });
 
-// v13 (2026-10-29): Dates and Money carry their OWN figures on the row (booked · asking · days off · Received · To come
-// in · Overdue), so each view draws the row over what it read — the hub draws none (S4,
-// `the-customers-figures-are-the-pinned-row.test.ts` holds the figures themselves).
-test('3c · one pinned row on every view: Events with its tiles (v113); Dates and Money with their own figures', () => {
+test('3c · one pinned row per screen: Clients · N booked · ₱X to collect · ⚙ over the month; Money with its own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
-  assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
-  assert.match(body(PAGE, 'CustomersDates'), /<CustomersPin\s+seg="dates"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Dates lost its pinned row');
+  assert.match(
+    people,
+    /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{ counts: pinCounts \}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
+    'the one screen does not draw its title row, month, tiles and lists',
+  );
+  assert.match(people, /const pinCounts = `\$\{doorValue\('booked'\) \?\? '—'\} booked · \$\{[^`]*\} to collect`/, 'the row does not read "N booked · ₱X to collect"');
   assert.match(code('_components', 'money-segment.tsx'), /<CustomersPin\s+seg="money"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Money lost its pinned row');
   assert.doesNotMatch(body(PAGE, 'VendorCustomersHub'), /<CustomersPin\b/, 'the hub draws a second pinned row over a view’s own');
 });
 
 test('3d · the view is ONE dropdown (Events ▾ · Dates · Money), 44 px — never a pill row', async () => {
   const PIN = code('_components', 'customers-pin.tsx');
-  assert.match(PIN, /<PickMenu\b[\s\S]{0,200}options=\{CUSTOMER_SEGMENTS\.map/, 'the views are not one PickMenu');
+  // Money's row keeps the ONE dropdown (back to Clients); the one Clients screen has no ▾ — one view (Build 2 #43b).
+  assert.match(PIN, /<PickMenu\b[\s\S]{0,400}options=\{CUSTOMER_SEGMENTS\.filter\(\(s\) => s !== 'dates' \|\| seg === 'dates'\)\.map/, 'the views are not one PickMenu');
+  assert.match(PIN, /if \(title\) \{[\s\S]{0,1400}data-customers-title=""[\s\S]{0,200}Clients/, 'the one screen lost its "Clients" title row');
+  assert.doesNotMatch(PIN.slice(PIN.indexOf('if (title) {'), PIN.indexOf('if (title) {') + 1600), /<PickMenu\b/, 'the one Clients screen grew a ▾ again');
   assert.doesNotMatch(PIN, /<PillTrack\b|<PillLink\b/, 'the views are a pill row again');
   assert.match(PIN, /min-h-11/, 'a door is under 44 px');
 });

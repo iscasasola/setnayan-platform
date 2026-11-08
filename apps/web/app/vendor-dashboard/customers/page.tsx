@@ -70,7 +70,7 @@ import {
 } from './_components/people-more';
 import { CustomersPin, type CustomersDoor, type CustomersQuick } from './_components/customers-pin';
 import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-tile-lists';
-import { countWords, overdueRead, toCollectWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
+import { countWords, overdueRead, toCollectTileWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
 import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, type ClientsContext } from './clients-show-sort';
@@ -86,8 +86,6 @@ import {
 } from './segments';
 import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
-import { CustomersFigures } from './_components/customers-figures';
-import { datesFiguresOf } from './dates-figures';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle } from '@/lib/event-chat-title';
@@ -97,11 +95,10 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SearchBox } from '@/app/_components/search-box';
 import { ThumbRow } from '@/components/thumb-row';
 import { rosterView } from './roster-view';
-import { CustomersCalendar } from './_components/customers-calendar';
 import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
-import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
+import { readOpenAsks } from './open-asks';
 import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf, oldPeopleAddressForward } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
@@ -232,6 +229,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
 
   const vendorProfileId = profile.vendor_profile_id;
   const todayIso = manilaTodayIso();
+  // 📅 The month on top (Build 2 #43a): its own reads start NOW, beside the list's — one round, not a waterfall.
+  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : todayIso.slice(0, 7);
+  const monthReads = startMonthReads(supabase, vendorProfileId, month, todayIso);
 
   // The roster's reads, in parallel. Each helper is the SAME one the
   // dedicated pages use — one source of truth per surface.
@@ -290,6 +290,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   ]);
 
   const threads = threadsRead.threads;
+  const monthPart = await customersMonth({
+    supabase,
+    vendorProfileId,
+    todayIso,
+    month,
+    openFold: search.open === 'availability' ? 'capacity' : (search.open ?? null),
+    pools,
+    bookings,
+    blocksRead,
+    threads,
+    services: servicesRead ?? [],
+    teamRows: teamRead ?? [],
+    reads: monthReads,
+  });
   if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
   if (unreadRead.error) logQueryError('VendorCustomersPage.unread', { message: unreadRead.error }, { vendorProfileId }, 'graceful_degrade');
   const meetings: ClientMeeting[] = ((meetingsRead.data ?? []) as {
@@ -559,6 +573,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // An agent is held to their own seat only when the team was read — never narrowed by a refused read.
     agent: teamKnown && viewerIsAgent,
     lastActivity: (eventId) => threadByEvent.get(eventId)?.updated_at ?? null,
+    today: todayIso,
   };
   const narrowed = teamKnown || !choice.who ? narrowClients(listed, choice, clientsCtx) : narrowClients(listed, { ...choice, who: null }, clientsCtx);
   const groupKey = groupKeyOf(choice.group, clientsCtx, seatName);
@@ -856,7 +871,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const keptNotesMeasured = !keptNotesError;
   const keptNotes = (keptNoteRows ?? []) as Array<{ note_id: string; body: string; created_at: string }>;
 
-  const notice = search.notice ? EVENTS_NOTICES[search.notice] : undefined;
+  // One screen, one toast: an outside client's Add / Remove, or any of the month's tools (Build 2 #43a).
+  const notice = search.notice ? (EVENTS_NOTICES[search.notice] ?? DATES_NOTICES[search.notice]) : undefined;
   /*
     🧮 THE TILES (v113, spec §9 #7; owner 2026-11-08): Booked · Schedules · Asked · To collect, then Overdue (n) › and
     Unread (n) › under the row. Each shows its list IN PLACE. "Done" left the row and stays a list — Show & sort's Done
@@ -866,11 +882,13 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadRows = unreadEvents(narrowed, unreadRead.countByThread);
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
-    { key: 'booked', value: doorValue('booked'), word: 'booked' },
+    { key: 'booked', value: doorValue('booked'), word: 'booked', dot: 'booked' },
     { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
-    { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0 },
-    { key: 'collect', value: toCollectWords(picture.totals), word: 'to collect' },
+    { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
+    { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
+  // 📌 The pinned row's two figures (Build 2 #43b, v113 "6 booked · ₱48,000 to collect") — the SAME reads as the tiles.
+  const pinCounts = `${doorValue('booked') ?? '—'} booked · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
   const overdue = overdueRead(picture.totals);
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
@@ -913,7 +931,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
 
   return (
     <>
-      {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?add=outside" /> : null}
+      {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers" /> : null}
 
       {/* 🖥 MAXIMIZE THE SCREEN (owner 2026-10-29) — THE TWO COLUMNS (supplier dashboard v13): from 701 the events sit
           left and the opened event is drawn right (`CustomersPin` → `SupplierOpenScope`); the chats not on the list and
@@ -921,9 +939,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
       <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
         <ChatOriginMark />
+        {monthPart.head}
         <CustomersPin
           seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
+          title={{ counts: pinCounts }}
+          month={monthPart.month}
           doors={doors}
           panels={panels}
           quick={quick}
@@ -958,12 +979,14 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
               {keptNotesMeasured && keptNotes.length > 0 ? (
                 <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
               ) : null}
+              {monthPart.folds}
             </div>
           }
         />
       </div>
 
-      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search events" · ＋ Add, each its own glass, no band. */}
+      {/* 📱 THE THUMB ROW (v113 `thumb()`, Build 2 #43d): Search clients · ⇅ Show & sort · ＋ Add, each its own glass.
+          "Check a date" left it: the month is on this screen and a picked day's bar says what the day holds. */}
       <SupplierThumbRow
         name="events"
         label="Customer tools"
@@ -973,7 +996,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             field={{
               node: (
                 <SearchBox
-                  placeholder="Search events"
+                  placeholder="Search clients"
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
                   hash="#customers"
@@ -1005,8 +1028,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                   action={importExternalClient}
                   startOpen={search.add === 'outside'}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
+                  setupHref="/vendor-dashboard/customers?gear=1"
                   tour="customers-add"
+                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
+                  seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
                 />
               ),
             }}
@@ -1097,81 +1122,70 @@ const DATES_ACTIONS = {
   notifyWaitlistSlot,
 };
 
-/**
- * The shop's open conversations about unbooked, dated events — "Holding" (amber). The thread's own `event` embed is
- * always null for a supplier, so the dates come from ONE admin `events` read scoped to this shop's own threads.
- */
-async function readOpenAsks(
-  threads: { thread_id: string; event_id: string; inquiry_status: string | null; created_at: string }[],
-  bookedEventIds: ReadonlySet<string>,
-): Promise<{ asks: DatesAsk[]; measured: boolean }> {
-  const ids = [
-    ...new Set(
-      threads
-        .filter((t) => (t.inquiry_status === 'pending' || t.inquiry_status === 'accepted') && !bookedEventIds.has(t.event_id))
-        .map((t) => t.event_id),
-    ),
-  ];
-  if (ids.length === 0) return { asks: [], measured: true };
-  const { rows, error } = await readInChunks(ids, (part) =>
-    createAdminClient().from('events').select('event_id, display_name, event_date').in('event_id', part),
-  );
-  if (error) logQueryError('VendorCustomersPage.openAsks', error, {}, 'graceful_degrade');
-  const events = new Map(
-    ((rows ?? []) as { event_id: string; display_name: string | null; event_date: string | null }[]).map((e) => [
-      e.event_id,
-      { date: e.event_date, name: e.display_name },
-    ]),
-  );
-  return { asks: openAsksOf(threads, events, bookedEventIds), measured: !error };
+/** The month's own reads — they depend only on the shop and the month, so they start with the list's reads, not after. */
+function startMonthReads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  vendorProfileId: string,
+  month: string,
+  todayIso: string,
+) {
+  return Promise.all([
+    fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+    // The month's waiting list (its marks) and every date ahead (the Waiting list fold).
+    fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
+    fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
+    // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
+    supabase
+      .from('vendor_profiles')
+      .select('waitlist_enabled, max_waitlist_acceptances, tier_state')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+    // The couples this shop already picked off a waiting list, per date ahead.
+    supabase
+      .from('vendor_date_waitlist')
+      .select('requested_date')
+      .eq('vendor_profile_id', vendorProfileId)
+      .gte('requested_date', todayIso)
+      .not('accepted_at', 'is', null),
+  ]);
 }
 
-async function CustomersDates({ search }: { search: Awaited<Props['searchParams']> }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard');
-
-  const vendorProfileId = profile.vendor_profile_id;
-  const todayIso = manilaTodayIso();
-  const thisMonth = todayIso.slice(0, 7);
-  const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
-  const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
-  const openFold = search.open === 'availability' ? 'capacity' : (search.open ?? null);
-
-  const [pools, bookings, blocksRead, dayStates, monthWaitlist, upcomingWaitlist, threadsRead, services, teamRows, settingsRead, pickedRead] =
-    await Promise.all([
-      fetchVendorPools(supabase, vendorProfileId),
-      // CAPACITY, not the room: the month counts these against each pool's seats (pool-grain, as
-      // `acquire_schedule_pools` enforces). A booking with no pool cannot consume a pool seat.
-      fetchVendorPoolBookings(supabase, vendorProfileId),
-      // Paged to the server's count; `complete` drives a note over the month and the Block days line.
-      fetchVendorBlocksDetailed(supabase, vendorProfileId),
-      fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
-      // The month's waiting list (its amber marks) and every date ahead (the Waitlist fold).
-      fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-      fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
-      fetchVendorThreadsDetailed(supabase, vendorProfileId),
-      fetchVendorServices(supabase, vendorProfileId),
-      fetchVendorTeam(supabase, vendorProfileId),
-      // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
-      supabase
-        .from('vendor_profiles')
-        .select('waitlist_enabled, max_waitlist_acceptances, tier_state')
-        .eq('vendor_profile_id', vendorProfileId)
-        .maybeSingle(),
-      // The couples this shop already picked off a waiting list, per date ahead.
-      supabase
-        .from('vendor_date_waitlist')
-        .select('requested_date')
-        .eq('vendor_profile_id', vendorProfileId)
-        .gte('requested_date', todayIso)
-        .not('accepted_at', 'is', null),
-    ]);
-
+/**
+ * 📅 THE MONTH ON THE ONE CLIENTS SCREEN (Build 2 row #43a, v113 — was the separate Clients › Dates view, S-PR3).
+ *
+ * The month is no view of its own any more: it heads Clients, over the tiles and the day-headed list. What Dates read
+ * that the list ALREADY reads (pools · bookings · blocks · threads · services · team) is handed in, never read twice; only
+ * the month's own five reads (`startMonthReads`) and the asks' event dates are added. Its tools — Not available ·
+ * Waiting list · QR codes (`DatesFolds`) — sit at the foot of the screen, unchanged.
+ */
+async function customersMonth({
+  supabase,
+  vendorProfileId,
+  todayIso,
+  month,
+  openFold,
+  pools,
+  bookings,
+  blocksRead,
+  threads,
+  services,
+  teamRows,
+  reads,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  vendorProfileId: string;
+  todayIso: string;
+  month: string;
+  openFold: string | null;
+  pools: Awaited<ReturnType<typeof fetchVendorPools>>;
+  bookings: Awaited<ReturnType<typeof fetchVendorPoolBookings>>;
+  blocksRead: Awaited<ReturnType<typeof fetchVendorBlocksDetailed>>;
+  threads: Awaited<ReturnType<typeof fetchVendorThreadsDetailed>>['threads'];
+  services: Awaited<ReturnType<typeof fetchVendorServices>>;
+  teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
+  reads: ReturnType<typeof startMonthReads>;
+}) {
+  const [dayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
   const blocks = blocksRead.blocks;
   const blocksIncomplete = !blocksRead.complete;
 
@@ -1214,7 +1228,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
 
   // Holding (amber): open conversations about unbooked, dated events — a COUNT per date crosses to the browser.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const { asks } = await readOpenAsks(threadsRead.threads, bookedEventIds);
+  const { asks } = await readOpenAsks(threads, bookedEventIds);
 
   const poolLabelOf = new Map(pools.map((p) => [p.poolId, p.label]));
   // Every closure still ahead: a one-off not yet over, or a REPEAT with no end or an end still ahead. Repeats first —
@@ -1236,25 +1250,30 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       dayPart: b.dayPart,
       scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
-  const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
-  // 📌 The pinned row's figures for the first paint — the SAME count the month makes on every ‹ › (`dates-figures.ts`).
-  const firstFigures = datesFiguresOf(
-    buildCustomerCalendarMonth(pools, bookings, blocks, dayStates, monthWaitlist, month, todayIso, asksByDate(asks)).days,
-    !blocksIncomplete,
-  );
 
-  return (
-    <>
-      {/* 📌 Dates' pinned row: the view ▾ · booked · asking · days off · ⚙ (v13). The figures follow the month on show. */}
-      <CustomersPin
-        seg="dates"
-        hrefs={CUSTOMER_SEGMENT_HREFS}
-        figures={<CustomersFigures live figures={firstFigures} label="This month" />}
-        gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="dates" search={search} /> : null} />}
-      />
-      {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?seg=dates" /> : null}
-      {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`). */}
-      <div id="calendar" className="scroll-mt-24">
+  return {
+    /** The month's props — `CustomersPin` mounts the shipped `CustomersCalendar` with them, on top of the screen. */
+    month: {
+      initialDayStates: dayStates,
+      initialWaitlist: monthWaitlist,
+      inquiries: asksByDate(asks),
+      initialMonth: month,
+      // v113: the one screen opens on its whole list — no day picked until the supplier taps one.
+      initialDay: null,
+      todayIso,
+      pools,
+      // Only what the month and the day's rows read — a block's contact and note never cross the wire.
+      bookings: datesBookingsForWire(bookings),
+      blocks: datesBlocksForWire(blocks),
+      agents,
+      agentCategories,
+      halls: pools.every((p) => p.isHall) && pools.length > 0,
+      dayActions: { addManualBlock, removeBlock },
+      closuresComplete: !blocksIncomplete,
+    },
+    /** A status line over the month — a short closures read, or no schedule yet. */
+    head: (
+      <>
         {blocksIncomplete ? (
           <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
             Some of your blocked dates couldn&rsquo;t load, so a date you closed may show as open
@@ -1266,75 +1285,35 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
             Schedule not set — open ⚙ › How many a day to make one.
           </p>
         ) : null}
-        <CustomersCalendar
-          initialDayStates={dayStates}
-          initialWaitlist={monthWaitlist}
-          inquiries={asksByDate(asks)}
-          initialMonth={month}
-          initialDay={initialDay}
-          todayIso={todayIso}
-          pools={pools}
-          // Only what the month and the day's rows read — a block's contact and note never cross the wire.
-          bookings={datesBookingsForWire(bookings)}
-          blocks={datesBlocksForWire(blocks)}
-          agents={agents}
-          agentCategories={agentCategories}
-          halls={pools.every((p) => p.isHall) && pools.length > 0}
-          dayActions={{ addManualBlock, removeBlock }}
-          closuresComplete={!blocksIncomplete}
-          after={
-            <DatesFolds
-              today={todayIso}
-              month={month}
-              open={openFold}
-              closures={closures}
-              closuresIncomplete={blocksIncomplete}
-              waitlist={{
-                tierCap: waitlistTierCap,
-                unlimited,
-                on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
-                cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
-                grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
-                settingsMeasured: !settingsRead.error,
-                pickedMeasured: !pickedRead.error,
-                dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
-              }}
-              qrHref="/vendor-dashboard/invite?mode=locked"
-              blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
-              actions={DATES_ACTIONS}
-            />
-          }
+      </>
+    ),
+    /** The month's tools, at the foot of the screen — the same folds Dates drew under its month. */
+    folds: (
+      // The month's own anchor (`#calendar`) sits on the month itself, in `CustomersPin`.
+      <div className="mt-6" data-customers-month-tools="">
+        <DatesFolds
+          today={todayIso}
+          month={month}
+          open={openFold}
+          closures={closures}
+          closuresIncomplete={blocksIncomplete}
+          waitlist={{
+            tierCap: waitlistTierCap,
+            unlimited,
+            on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
+            cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
+            grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
+            settingsMeasured: !settingsRead.error,
+            pickedMeasured: !pickedRead.error,
+            dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+          }}
+          qrHref="/vendor-dashboard/invite?mode=locked"
+          blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
+          actions={DATES_ACTIONS}
         />
       </div>
-
-      {/* 📱 THE THUMB ROW (prototype thumb(), owner call 1 2026-10-14): Check a date · Add (brand — a booking from
-          outside holds a date). "Mark days not available" lives in its fold and on the day. */}
-      <SupplierThumbRow
-        name="dates"
-        label="Date tools"
-        row={
-          <ThumbRow
-            name="dates"
-            field={pools.length > 0 ? { node: <CheckADate /> } : null}
-            action={{
-              node: (
-                <OutsideClientAdd
-                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-                  action={importExternalClient}
-                  today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
-                  returnTo="dates"
-                  tour="dates-add"
-                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
-                  seats={seatsByPool(pools, bookings, blocks, todayIso)}
-                />
-              ),
-            }}
-          />
-        }
-      />
-    </>
-  );
+    ),
+  };
 }
 
 /** "Wedding" · "Tagaytay" — an event's words for a booked row. */
@@ -1618,24 +1597,23 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
         <div
           // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'events' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Clients</h1>
           {/* 📌 Each view draws its own pinned row, over what it read: Events with its three counts; Dates with the
               month's figures (`CustomersDates`) and Money with Received · To come in · Overdue (`CustomersMoney`) — v13,
               `customers-figures.tsx`. One day (Dates › a day) has its own back-headed sheet instead. */}
-          {seg === 'events' ? (
+          {/* 📅 ONE CLIENTS SCREEN (Build 2 #43a, v113): Events and Dates are no longer two views — `?seg=dates` and the
+              plain address both draw the month → tiles → Overdue/Unread → the day-headed list. Only Dates › one day keeps
+              its own back-headed sheet (`?seg=dates&day=`). */}
+          {seg === 'dates' && /^\d{4}-\d{2}-\d{2}$/.test(search.day ?? '') ? (
+            <div className="pb-24">
+              <CustomersDay day={search.day as string} search={search} />
+            </div>
+          ) : seg !== 'money' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />
-            </div>
-          ) : seg === 'dates' ? (
-            <div className="pb-24">
-              {/^\d{4}-\d{2}-\d{2}$/.test(search.day ?? '') ? (
-                <CustomersDay day={search.day as string} search={search} />
-              ) : (
-                <CustomersDates search={search} />
-              )}
             </div>
           ) : (
             // 💰 Money (S-PR4): payday + earnings + the booking-fee bills, as rows. `#payday` is where every "to come

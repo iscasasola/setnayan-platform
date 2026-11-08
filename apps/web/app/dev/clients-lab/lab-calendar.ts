@@ -36,4 +36,10 @@ export const LAB_CALENDAR = {
   dayStates: [],
   waitlist: [],
   closuresComplete: true,
+  // v113's asking marks (1 · 5 · 12 Nov) — the Schedule month draws them now its one read carries the asks (Build 2 #43g).
+  inquiries: [
+    { requestedDate: '2026-11-01', count: 1 },
+    { requestedDate: '2026-11-05', count: 1 },
+    { requestedDate: '2026-11-12', count: 1 },
+  ],
 };

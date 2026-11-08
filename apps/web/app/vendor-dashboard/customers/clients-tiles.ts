@@ -16,6 +16,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { formatPhp } from '@/lib/php';
 import type { MoneyTotals } from '@/lib/vendor-money';
 
 export type ClientMeeting = {
@@ -40,6 +41,15 @@ export function countWords(r: CountRead): string | null {
 /** To collect — Money's "to come in", compact; "—"-able (null) when the payday read fell short. */
 export function toCollectWords(totals: MoneyTotals | null): string | null {
   return totals ? formatPesoCompact(Math.round(totals.toComePhp * 100)) : null;
+}
+
+/**
+ * To collect on the one screen's tile (Build 2 #43c, v113 "₱18,000"): the exact peso under a million — the tile has the
+ * room now it is off the pinned row — and compact above it, so a big shop's figure never runs into its neighbour.
+ */
+export function toCollectTileWords(totals: MoneyTotals | null): string | null {
+  if (!totals) return null;
+  return totals.toComePhp < 1_000_000 ? formatPhp(totals.toComePhp) : formatPesoCompact(Math.round(totals.toComePhp * 100));
 }
 
 /** Overdue — Money's own count; null when the payday read fell short. */

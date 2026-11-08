@@ -20,6 +20,7 @@ import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ListPager } from '../../_components/list-pager';
 import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
+import { dayHeadWords } from '@/lib/vendor-dates';
 
 /**
  * CUSTOMERS › EVENTS (People until 2026-10-30 — owner: *"Customers still show people and not events"*) — one row per
@@ -478,7 +479,8 @@ export function CustomersRoster({
                     style={{ top: 'var(--sn-pin-h)', background: 'var(--sn-canvas)' }}
                     data-customers-group-heading={head}
                   >
-                    {/^\d{4}-\d{2}-\d{2}$/.test(head) ? fmtDate(head, nowMs) : head}
+                    {/* v113 "SUN 8 NOV" (Build 2 #43e) — the one wording every Clients day heading uses. */}
+                    {/^\d{4}-\d{2}-\d{2}$/.test(head) ? dayHeadWords(head, new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10)) : head}
                   </p>
                 ) : null}
                 <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />

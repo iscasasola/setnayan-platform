@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
 import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/vendor-customers';
-import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
+import { dayHeadWords, dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking, type DayRow } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
 import { DayBar } from './day-bar';
@@ -55,6 +55,13 @@ type MonthInputs = { dayStates: VendorCalendarDayState[]; waitlist: WaitlistDate
 
 const ym = (m: CalendarMonth) => `${m.y}-${String(m.m).padStart(2, '0')}`;
 
+/**
+ * 🔘 LET THE PICKED DAY GO, from outside the month (Build 2 #43): the ONE Clients screen's tiles sit under the month, and
+ * pressing one while a day is picked shows its whole list — so the day is let go first. A window event, like
+ * `DATES_JUMP_EVENT`, because the tiles and the month are siblings, not parent and child.
+ */
+export const CLIENTS_LET_GO_DAY_EVENT = 'sn:clients-let-go-day';
+
 export function CustomersCalendar({
   initialDayStates,
   initialWaitlist,
@@ -73,7 +80,24 @@ export function CustomersCalendar({
   closuresComplete = true,
   after = null,
   place = 'clients',
+  oneScreen = false,
+  between = null,
+  onPicked,
+  asksRead = false,
 }: {
+  /** Schedule place: the asks were read in the month's one request (Build 2 #43g) — the legend may say "Asking". */
+  asksRead?: boolean;
+  /**
+   * 📅 THE ONE CLIENTS SCREEN (Build 2 row #43a, v113): the month heads Clients itself — calendar → tiles →
+   * Overdue/Unread → the day-headed list. The month then draws no list of its own when no day is picked (the clients'
+   * list below IS the list), no legend (the tiles' dots name the marks), writes `?m=` (not `?seg=dates`), and the picked
+   * day's head gets an × that lets the day go. Off = Clients › Dates as it shipped (the dev lab still mounts it).
+   */
+  oneScreen?: boolean;
+  /** Drawn right under the month (and its week strip) — the one screen's tiles and quick buttons. */
+  between?: ReactNode;
+  /** Told whenever the picked day changes (null = let go) — the one screen hides the full list while a day is picked. */
+  onPicked?: (day: CalendarDay | null) => void;
   /**
    * 📅 WHERE THIS MONTH IS DRAWN — one part, two places (controller 2026-11-08: the picked client's Schedule draws "the
    * Clients calendar component, not a second calendar"; v113 `calC`):
@@ -102,8 +126,8 @@ export function CustomersCalendar({
   inquiries?: { requestedDate: string; count: number }[];
   /** 'YYYY-MM' of the first-painted month. */
   initialMonth: string;
-  /** The day picked on arrival. */
-  initialDay: CalendarDay;
+  /** The day picked on arrival; null = none (the one Clients screen opens on its whole list, v113). */
+  initialDay: CalendarDay | null;
   /** PH civil "today" (YYYY-MM-DD). */
   todayIso: string;
   pools: SchedulePool[];
@@ -173,7 +197,14 @@ export function CustomersCalendar({
   const goToMonth = useCallback(
     (m: CalendarMonth, day?: CalendarDay) => {
       const next = ym(m);
-      const syncUrl = () => window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+      const syncUrl = () => {
+        if (!oneScreen) return window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+        // The one screen keeps everything else the address says (a search, a Show & sort choice) and names the month.
+        const u = new URL(window.location.href);
+        u.searchParams.set('m', next);
+        u.searchParams.delete('seg');
+        window.history.replaceState(null, '', `${u.pathname}${u.search}`);
+      };
       setMonth(next);
       // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
       // A step of the week strip names the day itself (the 31st's next day is the 1st of the next month).
@@ -187,8 +218,19 @@ export function CustomersCalendar({
         setMonthInputs((prev) => new Map(prev).set(next, { dayStates: res.dayStates, waitlist: res.waitlist }));
       });
     },
-    [monthInputs, fetchMonth, todayIso, onClients],
+    [monthInputs, fetchMonth, todayIso, onClients, oneScreen],
   );
+
+  // The one screen hears its picked day, and lets it go when a tile asks to show a whole list.
+  useEffect(() => {
+    onPicked?.(picked);
+  }, [picked, onPicked]);
+  useEffect(() => {
+    if (!oneScreen) return;
+    const letGo = () => setPicked(null);
+    window.addEventListener(CLIENTS_LET_GO_DAY_EVENT, letGo);
+    return () => window.removeEventListener(CLIENTS_LET_GO_DAY_EVENT, letGo);
+  }, [oneScreen]);
 
   /* 📌 THE FIGURES — counted here, for the month on show, and handed to the pinned row; a tap there picks a day here. */
   const figures = useMemo(() => datesFiguresOf(data.days, closuresComplete), [data.days, closuresComplete]);
@@ -283,7 +325,7 @@ export function CustomersCalendar({
     });
   };
   /* No day picked: every day of the month still to come that has something on it, in order (v113 `listAll`). */
-  const allDays = picked || !onClients
+  const allDays = picked || !onClients || oneScreen
     ? []
     : data.days
         .filter((d) => d.date >= todayIso)
@@ -324,7 +366,7 @@ export function CustomersCalendar({
         <div className="mb-2 mt-1 flex min-h-11 items-center" data-dates-eyebrow="">
           <PickMenu label="Schedules" value={scope} options={options} onPick={setScope} dataAttr="data-dates-scope" className="!min-h-11" />
         </div>
-      ) : pools.length === 1 ? (
+      ) : pools.length === 1 && !oneScreen ? (
         <p className="mb-2 mt-1 text-[14px] font-medium text-ink" data-dates-one-schedule="">
           {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
         </p>
@@ -358,7 +400,7 @@ export function CustomersCalendar({
         />
       </div>
       {/* The Schedule month has no "asking" marks (its one read skips the shop's threads) — its legend says only what it draws. */}
-      <CalendarLegend dots={onClients ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full />
+      {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full />}
 
       {/* 📌 THE WEEK STRIP (v13 `.weekstrip`): the picked day's week, ‹ › a day. Drawn always, shown only once folded —
           height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}
@@ -402,13 +444,15 @@ export function CustomersCalendar({
         </button>
       </div>
 
+      {between}
+
       {/* Schedule (v113 `calC`): the month marks the event's day; the schedule follows — no day rows of the shop here. */}
       {!onClients ? null : picked ? (
         <>
           {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
           <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
             <span className="home-k2 min-w-0 flex-1 truncate" data-dates-picked={picked}>
-              {dayLongWords(picked).replace(/, \d{4}$/, '')}
+              {dayHeadWords(picked, todayIso)}
               {near === 'Today' ? ' · today' : ''}
             </span>
             {onClients ? (
@@ -417,12 +461,24 @@ export function CustomersCalendar({
                 <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
               </Link>
             ) : null}
+            {oneScreen ? (
+              // v118 `.dh1 .dx`: the × lets the day go — back to the whole list (tapping the day again does too).
+              <button
+                type="button"
+                className="sn-press grid h-11 w-11 flex-none place-items-center rounded-full text-ink/70"
+                aria-label="Back to every day"
+                onClick={() => setPicked(null)}
+                data-dates-let-go=""
+              >
+                <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </button>
+            ) : null}
           </div>
           {/* 📅 THE DAY BAR (v113 `.dayact`): Accept bookings + Book a client, for the picked day. */}
           {dayActions && onClients ? <DayBar day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
           <div data-dates-rows="">{rowsOf(picked).map((r) => drawRow(r, picked))}</div>
         </>
-      ) : (
+      ) : oneScreen ? null : (
         <div className="mt-4" data-dates-all-days="">
           {allDays.length === 0 ? (
             <p className="py-3 text-[14px] text-ink/70" data-dates-all-empty="">
@@ -438,7 +494,7 @@ export function CustomersCalendar({
                   data-dates-day-heading={g.day}
                 >
                   <button type="button" className="sn-press min-h-10 text-left" onClick={() => setPicked(g.day)} data-dates-heading-pick={g.day}>
-                    {dayLongWords(g.day).replace(/, \d{4}$/, '')}
+                    {dayHeadWords(g.day, todayIso)}
                     {nearWord(todayIso, g.day) === 'Today' ? ' · today' : ''}
                   </button>
                 </h3>

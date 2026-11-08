@@ -210,10 +210,13 @@ test('3 · "Free" only where a schedule says so; a shop with no schedule is "Not
 
 test('4 · Holding is read from events (admin, this shop’s threads) — never the thread embed, which is null for a supplier', () => {
   assert.doesNotMatch(PAGE, /pendingInquiryDates\(/, 'the month counts the always-null thread embed again');
-  const read = body(PAGE, 'readOpenAsks');
+  // Build 2 #43g: ONE reader, shared by the one Clients screen and the picked client's Schedule month (`open-asks.ts`).
+  const ASKS = readFileSync(join(HERE, 'open-asks.ts'), 'utf8');
+  assert.match(PAGE, /import \{ readOpenAsks \} from '\.\/open-asks'/, 'the one screen reads asks some other way');
+  const read = body(ASKS, 'readOpenAsks');
   assert.match(read, /createAdminClient\(\)\.from\('events'\)\.select\('event_id, display_name, event_date'\)\.in\('event_id', part\)/);
   assert.match(read, /readInChunks\(/, 'one in.() over every thread is a URL the gateway refuses past ~600');
-  assert.match(body(PAGE, 'CustomersDates'), /inquiries=\{asksByDate\(asks\)\}/, 'the month is not handed the holding counts');
+  assert.match(body(PAGE, 'customersMonth'), /inquiries: asksByDate\(asks\)/, 'the month is not handed the holding counts');
   // Executed: open + dated + unbooked only; one per event; a count is all that crosses.
   const asks = openAsksOf(
     [

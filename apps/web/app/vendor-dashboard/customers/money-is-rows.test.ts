@@ -61,7 +61,8 @@ function compactBranch(src: string, fn: string): string {
 // SABOTAGE: mount `<PaydaySurface />` back under Money → RED (the file is gone; the import cannot resolve, and the
 // page names it). SABOTAGE: send /earnings back to Shop → RED.
 test('1 · Money is one segment: the old surfaces are gone, Shop draws no copy, every old address lands here', () => {
-  assert.match(PAGE, /<CustomersDates search=\{search\} \/>[\s\S]{0,120}\) : \(\s*<div id="payday"[^>]*>\s*<CustomersMoney search=\{sp\} \/>/);
+  // Build 2 #43a: Events + Dates are ONE Clients screen (`CustomersPipeline`); Money stays the last branch.
+  assert.match(PAGE, /<CustomersPipeline search=\{search\} \/>[\s\S]{0,120}\) : \(\s*(?:\/\/[^\n]*\n\s*)*<div id="payday"[^>]*>\s*<CustomersMoney search=\{sp\} \/>/);
   assert.equal(count(PAGE, /<CustomersMoney\b/), 1);
   assert.doesNotMatch(PAGE, /PaydaySurface|EarningsSurface/, 'Customers still draws an old money surface');
   for (const gone of ['payday/surface.tsx', 'earnings/surface.tsx', 'payday/_components/payday-summary.tsx']) {

@@ -92,6 +92,18 @@ export function dayTitle(today: string, day: string): string {
   return `${WEEKDAY[p.w]}, ${MONTH[p.m - 1]} ${p.d}${t && t.y !== p.y ? `, ${p.y}` : ''}`;
 }
 
+/**
+ * 🗓 "Sun 8 Nov" — a day-headed list's heading (v113 `SUN 8 NOV`, Build 2 row #43e; the CSS uppercases it). The year
+ * follows only when it is not `today`'s ("Sat 2 Jan 2027"). One wording for every day heading on Clients — the list's
+ * Day groups, the month's day rows and the picked day's head — so the three never disagree.
+ */
+export function dayHeadWords(day: string, today?: string): string {
+  const p = parts(day);
+  if (!p) return day;
+  const t = today ? parts(today) : null;
+  return `${WEEKDAY[p.w]} ${p.d} ${MONTH[p.m - 1]}${t && t.y !== p.y ? ` ${p.y}` : ''}`;
+}
+
 /** "Saturday, October 3, 2026" — what a screen reader hears for the day sheet. */
 export function dayLongWords(day: string): string {
   const p = parts(day);

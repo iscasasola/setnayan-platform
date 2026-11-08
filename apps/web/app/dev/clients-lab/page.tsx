@@ -14,8 +14,9 @@
  *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
  *     &cal=fail                 the month's one read refused — said, never an empty month.
  *
- * Clients › Dates (the month · the week strip · a picked day · the day bar · every day under pinned headings) is drawn
- * by `/dev/supplier-lab?s=dates`, which mounts the same `CustomersCalendar`.
+ * 📅 Build 2 #43 (B2-A): `?v=events` is the ONE Clients screen — "Clients · 4 booked · ₱18,000 to collect · ⚙", the
+ * month (the shipped `CustomersCalendar`, lab inputs, no request), the tiles as their own row, Overdue / Unread, then
+ * the day-headed list ("SUN 8 NOV"). Tap a day for its head, the day bar and its rows; × lets it go.
  *
  * Every action here is a stand-in that writes nothing.
  */
@@ -28,7 +29,10 @@ import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row
 import { clientsChoiceOf } from '@/app/vendor-dashboard/customers/clients-show-sort';
 import type { ClientMeeting } from '@/app/vendor-dashboard/customers/clients-tiles';
 import { ThumbRow } from '@/components/thumb-row';
-import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { ActionButton } from '@/components/action-button';
+import { Plus, Settings } from 'lucide-react';
+import { SearchBox } from '@/app/_components/search-box';
+import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
 import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
@@ -73,9 +77,22 @@ const UNREAD = [
   { eventId: 'ev-reyes', title: 'Reyes & Santos wedding', threadId: 't-reyes' },
   { eventId: 'ev-garcia', title: 'Garcia corporate party', threadId: 't-garcia' },
 ];
+const DAYS = ['2026-11-08', '2026-11-08', '2026-11-10', '2026-11-12'];
+/** The list stand-in, day-headed the way `CustomersRoster` heads a Day group (same classes, same `dayHeadWords`). */
 const ROSTER = (lane: string) =>
   CLIENTS.map((c, i) => (
-    <DatesRow key={`${lane}-${c.key}`} data="booking" title={c.label} line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]} href="/dev/clients-lab?v=pick&page=details" />
+    <div key={`${lane}-${c.key}`}>
+      {i === 0 || DAYS[i - 1] !== DAYS[i] ? (
+        <p
+          className="sticky z-[3] -mx-4 my-0 flex min-h-10 items-center px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/60 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+          style={{ top: 'var(--sn-pin-h)', background: 'var(--sn-canvas)' }}
+          data-customers-group-heading={DAYS[i]}
+        >
+          {dayHeadWords(DAYS[i]!, LAB_TODAY)}
+        </p>
+      ) : null}
+      <DatesRow data="booking" title={c.label} line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]} href="/dev/clients-lab?v=pick&page=details" />
+    </div>
   ));
 
 // ── The picked client: Reyes & Santos, booked, 8 Nov ────────────────────────────────────────────────────────────────
@@ -198,10 +215,10 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   const show = one(sp.show) ?? null;
   const agent = one(sp.agent) === '1';
   const doors: CustomersDoor[] = [
-    { key: 'booked', value: '4', word: 'booked' },
+    { key: 'booked', value: '4', word: 'booked', dot: 'booked' },
     { key: 'schedules', value: String(MEETINGS.length), word: 'schedules' },
-    { key: 'asking', value: '3', word: 'asked', hot: true },
-    { key: 'collect', value: formatPesoCompact(18000 * 100), word: 'to collect' },
+    { key: 'asking', value: '3', word: 'asked', hot: true, dot: 'asking' },
+    { key: 'collect', value: peso(18000), word: 'to collect' },
   ];
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: '2', zero: false },
@@ -226,11 +243,29 @@ export default async function ClientsLabPage({ searchParams }: Props) {
             <CustomersPin
               seg="events"
               hrefs={{ events: '/dev/clients-lab', dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
+              title={{ counts: `4 booked · ${peso(18000)} to collect` }}
+              month={{
+                initialDayStates: LAB_CALENDAR.dayStates,
+                initialWaitlist: LAB_CALENDAR.waitlist,
+                inquiries: LAB_CALENDAR.inquiries,
+                initialMonth: LAB_TODAY.slice(0, 7),
+                initialDay: one(sp.day) ?? null,
+                todayIso: LAB_TODAY,
+                pools: LAB_CALENDAR.pools,
+                bookings: LAB_CALENDAR.bookings,
+                blocks: LAB_CALENDAR.blocks,
+                fetchMonth: null,
+                closuresComplete: true,
+              }}
               doors={doors}
               panels={panels}
               quick={quick}
               initial={show}
-              gear={null}
+              gear={
+                <button type="button" aria-label="Clients settings" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full border border-ink/15 text-ink">
+                  <Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                </button>
+              }
               columns={{ rest: 'No events here yet.' }}
             />
           </div>
@@ -241,7 +276,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
       <div role="toolbar" aria-label="Customer tools" className="fixed inset-x-0 bottom-0 px-3 pb-4" style={{ zIndex: 'var(--sn-z-nav, 30)' }}>
           <ThumbRow
             name="customers"
-            field={null}
+            field={{ node: <SearchBox placeholder="Search clients" defaultValue="" keep="v=events" hash="#customers" data="customers" /> }}
             right={[
               {
                 node: (
@@ -261,7 +296,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
                 ),
               },
             ]}
-            action={null}
+            action={{ node: <ActionButton tone="brand" main icon={<Plus aria-hidden strokeWidth={2} />} label="Add" href="/dev/clients-lab?v=events" /> }}
           />
       </div>
     </div>

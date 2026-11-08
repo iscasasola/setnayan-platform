@@ -12,13 +12,14 @@ The Shop and Portfolio tabs move closer to v118, extending lane C4's shipped par
   stays static under reduced motion. Pure logic is in `lib/badge-ring.ts` (tested).
 - **#33 Makers = one row of tiles that open INTO THE BODY.** The Forms Maker shows C3's Form Maker shop-wide
   (`ShopFormsMaker`); its body is read only while `?maker=forms`. The Scanner keeps the shipped `ServiceScannerPick` per
-  service. The new shared `BodyPanel` sits between the top bar and the bottom nav. It grows out of the tile over 520 ms
+  service, and it opens with no request; only the Forms Maker writes `?maker=forms`. The new shared `BodyPanel` sits between the top bar and the bottom nav. It grows out of the tile over 520 ms
   using the house rise ease, shrinks back into the tile on ×/Escape, and holds the page's exact scroll. Reduced motion
   gets a 120 ms fade. It uses the pop layer token. No Tools Maker (spec §9 #8).
 - **#35 Portfolio in three groups:** All your events (the private Papic album per booked event) · Your services (each
   card's photos) · Inspiration you curated (approved looks per part, plus the "Add to the inspiration library" row, moved
   here from Shop). Then Stories couples published, All photos (newest first), and Video links. Video links are edited
-  row by row (Link · Remove · Save), ▶ plays them in a pop-up player, and "Add another link" adds more. No new table:
+  row by row: the Link sits on the house `TypedRow` field (keeping it saves) with Remove beside it, ▶ plays the video
+  in a pop-up player, and "Add another link" adds more. No new table:
   every group reads a store that already exists, and video links are the shipped `gallery_video_links`. Pure logic is in
   `lib/portfolio-groups.ts` (tested).
 - **#40 An opened album pins and fills the body.** Albums open through the same `BodyPanel` as the Makers, as a 3-column

@@ -253,7 +253,11 @@ export async function loadCollectionsData(
           return null;
         })
     : Promise.resolve('off' as const);
-  const papicRead = isVendorPapicCaptureEnabled().catch(() => false);
+  // The flag only decides whether an album links to its own page; unread → no link (the album still shows), logged.
+  const papicRead = isVendorPapicCaptureEnabled().catch((err) => {
+    logQueryError('VendorCollections.papicFlag', err, { vendorId }, 'graceful_degrade');
+    return false;
+  });
   // The event albums' photos, signed on the media bucket (the album page's own signer), at most one panel's worth each.
   const albumUrlsRead = albumsRead.then(async (a) => {
     if (!a) return null;
@@ -264,7 +268,11 @@ export async function loadCollectionsData(
         perEvent.set(p.eventId, n + 1);
         if (n >= ALBUM_OPEN_MAX) return { eventId: p.eventId, url: null, createdAt: p.importedAt ?? '' };
         const { key } = parseR2Ref(p.r2Key);
-        const url = await r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: 3600 }).catch(() => null);
+        // An unsigned photo still counts toward the album; an album with none to show says so (`AlbumGrid`).
+        const url = await r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: 3600 }).catch((err) => {
+          logQueryError('VendorCollections.albumSign', err, { vendorId, eventId: p.eventId }, 'graceful_degrade');
+          return null;
+        });
         return { eventId: p.eventId, url, createdAt: p.importedAt ?? '' };
       }),
     );

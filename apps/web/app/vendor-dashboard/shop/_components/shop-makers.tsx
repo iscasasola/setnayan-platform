@@ -46,18 +46,21 @@ export function ShopMakers({
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
-  const [open, setOpen] = useState<MakerKey | null>(inUrl === 'forms' || inUrl === 'scanner' ? inUrl : null);
+  const [open, setOpen] = useState<MakerKey | null>(inUrl === 'forms' ? 'forms' : null);
   const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, scanner: null });
   const frame = useRef<HTMLElement | null>(null);
   useEffect(() => {
     frame.current = (tiles.current.scanner?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
   }, []);
 
-  // The address carries the open maker (a reload, or Back, lands on the same panel); the page never scrolls for it.
+  // Only the Forms Maker writes the address — its body is the server's (`?maker=forms`), so a reload lands on it too. The
+  // Scanner's lines are already on the page: it opens with NO request (an address change would re-draw the whole Shop
+  // on the server for nothing). Closing clears the address only if it carries a maker. The page never scrolls for it.
   const go = (k: MakerKey | null) => {
     setOpen(k);
+    if (k !== 'forms' && !params.get('maker')) return;
     const q = new URLSearchParams(params.toString());
-    if (k) q.set('maker', k);
+    if (k === 'forms') q.set('maker', k);
     else q.delete('maker');
     const qs = q.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });

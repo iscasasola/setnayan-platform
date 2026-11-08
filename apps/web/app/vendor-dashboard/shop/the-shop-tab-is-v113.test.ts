@@ -51,6 +51,8 @@ test('3 · Makers = one row of tiles (Forms Maker + Scanner); no Tools Maker', (
   assert.match(MAKERS, /k: 'forms' as const, title: 'Forms Maker'/);
   assert.match(PAGE, /<ShopMakers scanners=\{scanners\} formsBody=\{shopFormsBody\(sp\)\} \/>/, 'the Forms tile has no body behind it (a dead tile)');
   assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');
+  // The Scanner's lines are already on the page — opening it must not touch the address (a server re-draw of the Shop).
+  assert.match(MAKERS, /if \(k !== 'forms' && !params\.get\('maker'\)\) return;/, 'opening the Scanner costs a server round-trip');
   assert.doesNotMatch(MAKERS + PAGE, /Tools Maker|data-maker="tools"/, 'the Tools Maker is back — out of this build (spec §9 #8)');
 });
 

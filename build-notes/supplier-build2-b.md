@@ -26,13 +26,16 @@ Lab: `/dev/supplier-lab?s=shop-tab` · `?s=portfolio-tab` (`&unread=1` = every r
   assertion sabotaged once and seen red.
 
 ## Request counts
-(see "Shots" — measured in the lab; the real page's added reads are listed here)
-- **Shop tab:** no new read on load. The Forms Maker's reads (`readShopForms` + tier + `readFormSuggestions`) run only
-  while `?maker=forms`. Removed: the inspiration-library access read (moved to Portfolio).
-- **Portfolio tab:** one `Promise.all` wave. Added reads: pool bookings (1, shared by event-album titles and stories) →
-  featured stories (1, chained), approved looks (1, admin; skipped when the library refuses the shop), Papic capture
-  flag (1), album signing (≤ 24 presigns per event, local HMAC — no network round-trip to R2), card album display URLs
-  (local). The album rows select widened (same single query). Group albums open with NO new read (already loaded).
+Measured in the lab at 375 px (dummy env, Next dev overlay hidden; counts = non-bundle requests):
+- **Shop tab load:** 3. **Scanner open + close: 0** (it no longer writes the address — the first walk caught it re-drawing
+  the whole Shop on the server via `?maker=scanner`; now only the Forms Maker writes `?maker=forms`, guarded in
+  `the-shop-tab-is-v113.test.ts` test 3, sabotaged once). **Forms Maker open: 1** (the RSC that draws its body).
+- **Portfolio tab load:** 13 (the 10 lab photos + document; 12 with `&unread=1`). **Album open + close: 0** (already-signed
+  URLs). Scroll position held to the pixel on close (Makers 366 → 366).
+- **Real page, added server reads:** Shop — none on load (the inspiration-library access read moved to Portfolio); Forms
+  Maker reads only while open. Portfolio — one `Promise.all` wave adds pool bookings (1, shared by album titles and
+  stories) → featured stories (1, chained), approved looks (1, admin; skipped when the library refuses the shop), Papic
+  capture flag (1); album signing is a local presign (`getSignedUrl`, no R2 round-trip), ≤ 24 per event.
 
 ## NEEDS (controller / owner)
 - **Video link titles:** v118 draws a Title field per link; the shipped store is `gallery_video_links text[]` (URLs only).
@@ -51,8 +54,25 @@ Lab: `/dev/supplier-lab?s=shop-tab` · `?s=portfolio-tab` (`&unread=1` = every r
 - `apps/web/lib/ugat/screens.generated.json` / `scripts/port-control-baseline.json` if the screen/port maps flag the new
   components (`portfolio-groups.tsx`, `body-panel.tsx`, `shop-forms-body.tsx`) — run the repo's regenerators on integrate.
 
-## Shots
-`build-notes/shots/b2b/` — see "Where I stopped".
+## Shots (`build-notes/shots/b2b/`)
+Side by side with v118 (left) at 375 px:
+- #31 `sbs-31-shop-light.png` · `sbs-31-shop-dark.png` · `sbs-31-shop-gear.png` (⚙ opens with Your page first; the ★ line
+  "4.8 · 38 reviews" is the underlined link → `/vendor-dashboard/website#reviews`, measured)
+- #32 `sbs-32-badges-light.png` · `sbs-32-badges-dark.png` · draw-in frame `app-shop-badges-mid.png`
+- #33 `sbs-33-makers-light.png` · `sbs-33-makers-mid.png` · `sbs-33-makers-open-light.png` · `sbs-33-makers-open-dark.png`
+  · Forms body `app-shop-makers-forms.png`
+- #35 `sbs-35-portfolio-light.png` · `sbs-35-portfolio-dark.png` · `sbs-35-stories-light.png` · `sbs-35-video-light.png`
+  · `sbs-35-video-edit.png` · unread `app-portfolio-unread.png`
+- #40 `sbs-40-album-mid.png` · `sbs-40-album-open-light.png` · `sbs-40-album-open-dark.png`
+- Reduced motion: `reduced-33-makers.png` (first frame → settled, a fade) · `reduced-32-40.png` (rings static · album)
+Every page `scrollWidth === 375`. The lab has no `header.fd-topbar`, so in the lab the panel starts at the top edge; on
+the real page it starts under the bar (the box is measured, `lib/body-panel.ts`).
+Known differences from v118, on purpose: no Tools Maker tile (§9 #8); Forms tile says "Sent as a chat card", not "5 saved"
+(no read on load); video link rows have no Title (no stored title — NEEDS).
 
 ## Where I stopped
-(updated at the end of the session)
+All six rows built, guarded, typechecked (repo script, 10 GB heap — a 6 GB run ran out of memory), linted (`next lint` on
+every changed file + no-card / field-template / contrast / radius / port-controls / server-only / botnav / masthead /
+legibility / dup-rule / vendor-layout), shot side by side with v118, committed and pushed on `claude/supplier-build2-b`
+(merged `origin/claude/supplier-1build` at 97cf54af86, clean). No PR opened. Nothing open in this lane except the NEEDS
+above.

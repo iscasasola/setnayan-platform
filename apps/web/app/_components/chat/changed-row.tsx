@@ -9,13 +9,17 @@
  *
  * Opens at the family's one speed (`--sn-pill-dur`); reduced motion shows the end state.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ChevronDown } from 'lucide-react';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { changedLabel, momentWords, type AgreedRow } from '@/lib/agreed-now';
 
 export function ChangedRow({ row, loaded = true, initialOpen = false }: { row: AgreedRow; loaded?: boolean; initialOpen?: boolean }) {
   const [open, setOpen] = useState(initialOpen);
+  const item = useRef<HTMLLIElement>(null);
+  // The app's ONE reveal (owner 2026-11-04, app-wide): an open history that runs past the bottom glides into view.
+  const intend = useRevealOnOpen(open, () => ({ head: item.current }));
   const Icon = TOPIC_ICON[row.topic];
   const has = loaded && row.history.length > 0;
   const tail = changedLabel(row.history, loaded);
@@ -44,9 +48,12 @@ export function ChangedRow({ row, loaded = true, initialOpen = false }: { row: A
 
   const grid = 'grid min-h-[56px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 py-2 text-left';
   return (
-    <li className="border-t border-ink/10 first:border-t-0" data-agreed-row={row.key} data-changed={row.history.length}>
+    <li ref={item} className="border-t border-ink/10 first:border-t-0" data-agreed-row={row.key} data-changed={row.history.length}>
       {has ? (
-        <button type="button" className={`sn-press ${grid}`} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <button type="button" className={`sn-press ${grid}`} aria-expanded={open} onClick={() => {
+            intend();
+            setOpen((o) => !o);
+          }}>
           {head}
         </button>
       ) : (

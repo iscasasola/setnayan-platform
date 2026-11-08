@@ -41,6 +41,8 @@ lib/iap/products.ts :: credits :: IDENTIFIER — the App Store product name "Pap
 lib/iap/products.ts :: credits :: IDENTIFIER — the supplier gift product's App Store name "Gift · Papic 1000", the same owner name, matched exactly in App Store Connect
 
 # ── BOUNDED: cannot reach 1,000 ──
+app/_components/chat/chat-step-card.tsx :: s + 1 :: BOUNDED — the one-step card's "2 of 4" counter; the step index of a (+) card whose steps are a fixed list in code (the Meeting card has 4), so it cannot reach 1,000
+app/_components/chat/chat-step-card.tsx :: n :: BOUNDED — the one-step card's step total ("of 4"); `steps.length` of a fixed in-code list (the Meeting card has 4), so it cannot reach 1,000
 app/open-shop/_components/claim-door.tsx :: step :: BOUNDED — the claim door's step counter ("Step 2 of 6", aria-label); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
 app/open-shop/_components/claim-door.tsx :: total :: BOUNDED — the claim door's step counter ("Step 2 of 6", aria-label); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000
 app/open-shop/_components/claim-door.tsx :: step :: BOUNDED — the claim door's step counter ("Step 2 of 6", the Your answers summary); `total` is 5 or 6 (`const total = team ? 5 : 6`), so neither can reach 1,000

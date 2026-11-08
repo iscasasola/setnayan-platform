@@ -12,16 +12,20 @@ import { AgreedNow } from '@/app/_components/chat/agreed-now';
 import type { PickedPageProps } from './context';
 
 export function DetailsPage({ ctx, shipped }: PickedPageProps) {
+  // A Fragment, not a wrapper: the shipped node stays a direct child of this page, so the one-draw guard
+  // (`a-client-open-draws-the-thread-once.test.ts`) still walks into it and still counts its reads.
   return (
-    <div className="space-y-5">
-      <AgreedNow
-        eventId={ctx.eventId}
-        vendorProfileId={ctx.vendorProfileId}
-        viewerUserId={ctx.viewerUserId}
-        threadId={ctx.threadId}
-        isBooked={ctx.isBooked}
-      />
+    <>
+      <div className="mb-5">
+        <AgreedNow
+          eventId={ctx.eventId}
+          vendorProfileId={ctx.vendorProfileId}
+          viewerUserId={ctx.viewerUserId}
+          threadId={ctx.threadId}
+          isBooked={ctx.isBooked}
+        />
+      </div>
       {shipped ?? null}
-    </div>
+    </>
   );
 }

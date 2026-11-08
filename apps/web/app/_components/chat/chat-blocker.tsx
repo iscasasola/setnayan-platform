@@ -22,6 +22,7 @@ import { ActionButton } from '@/components/action-button';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
 import { actionHeld, blockerHoldSeconds, holdLeft, holdLine } from '@/lib/blocker-hold';
 import { recordBlockerShow, type BlockerKind } from './blocker-show';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 
 export type BlockerFactRow = { label: string; value: ReactNode };
 
@@ -97,21 +98,23 @@ export function ChatBlocker({
     return () => window.clearInterval(id);
   }, [hold, labLeft]);
 
-  // Esc never skips the hold; the screen stays until the act or Return to chat.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
   const free = left === 0;
+  // The shared modal contract (focus in, Tab trapped, focus restored, body scroll locked). Escape is Return to chat
+  // ONLY once the hold has run out — Esc never skips the hold.
+  const freeRef = useRef(free);
+  useEffect(() => {
+    freeRef.current = free;
+  }, [free]);
+  const layerRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: mounted, onClose: () => (freeRef.current ? onReturn() : undefined), containerRef: layerRef });
+
   const total = hold ?? 1;
   const drained = left == null ? 0 : 1 - left / total;
 
   const layer = (
     <div
+      ref={layerRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-labelledby={`blocker-${subjectKey}`}

@@ -86,7 +86,7 @@ function who(changedBy: string | null, viewer: string, names: ReadonlyMap<string
 function paxWords(n: string | number | null | undefined): string | null {
   if (n == null || n === '') return null;
   const v = typeof n === 'number' ? n : Number(n);
-  return Number.isFinite(v) ? `${v} guests` : null;
+  return Number.isFinite(v) ? `${v.toLocaleString('en-PH')} guests` : null;
 }
 
 function historyOf(

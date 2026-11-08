@@ -29,6 +29,7 @@ import {
 } from '@/lib/chat-pins';
 import { PLUS_CARD_TOPIC, type RunningTopic } from '@/lib/chat-plus';
 import { jumpTo } from '@/lib/chat-plus-store';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 const COLLAPSE_KEY = (threadId: string) => `sn-chat-pins-collapsed:${threadId}`;
 const SEEN_KEY = (threadId: string) => `sn-chat-pins-seen:${threadId}`;
@@ -48,10 +49,16 @@ function writeLocal(key: string, v: string): void {
   }
 }
 
-/** The fold: rows open/close at the family's one speed (`--sn-pill-dur`); reduced motion shows the end state. */
+/**
+ * The fold: rows open/close at the family's one speed (`--sn-pill-dur`); reduced motion shows the end state. An open the
+ * person caused glides its row into view through the app's ONE reveal (`useRevealOnOpen`, owner 2026-11-04 app-wide).
+ */
 function Fold({ open, children }: { open: boolean; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useRevealOnOpen(open, () => ({ head: box.current?.previousElementSibling ?? box.current, end: box.current }), { cause: 'gesture' });
   return (
     <div
+      ref={box}
       className="grid transition-[grid-template-rows] duration-[var(--sn-pill-dur)] ease-[var(--sn-ease)] motion-reduce:transition-none"
       style={{ gridTemplateRows: open ? '1fr' : '0fr' }}
       aria-hidden={!open}

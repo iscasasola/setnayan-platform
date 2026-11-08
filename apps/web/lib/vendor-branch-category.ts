@@ -113,6 +113,7 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   grooming: 'hair_stylist',
   wellness_fitness: 'wellness_fitness',
   jewelleries_accessories: 'rings',
+  ceremony_essentials: 'rings',
 
   // ── Booths ───────────────────────────────────────────────────────────────
   // Drinks and food booths belong with the trade that supplies them; the rest

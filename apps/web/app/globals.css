@@ -1399,8 +1399,8 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    *
    * ⚠ -3 and -4 are NOT terracotta and must NOT be "corrected" to match.
    * They stopped being CTA tints long ago: --m-mulberry-3 is consumed as
-   * MUTED LIGHT TEXT ON DARK (vendor-grow-sections.tsx sets it as `color`
-   * over `background: var(--m-ink)`; vendor-tier-matrix.tsx does the same),
+   * MUTED LIGHT TEXT ON DARK (creator-story-sections.tsx sets it as `color`
+   * over a dark band, as the old /for-suppliers sections did until 2026-11-06),
    * plus the disabled-button fill. Making them orange would put terracotta
    * body copy on the vendor pages. Left neutral on purpose. */
   --m-mulberry:    #C24E25;

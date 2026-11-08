@@ -11,6 +11,7 @@
  * Otherwise: the Canvas showcase.
  */
 
+import { arrivalParams, withShopArrival } from '@/lib/shop-back';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -33,7 +34,7 @@ export const dynamic = 'force-dynamic';
  *  "Walk into my booth" link in lock-step. */
 export const PLAN3D_BOOTH_SHOWCASE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE);
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams?: Promise<{ src?: string; event?: string }> };
 
 type BoothVendorRow = {
   vendor_profile_id: string;
@@ -139,26 +140,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function SoftGate({ slug, name, message }: { slug: string; name: string; message: string }) {
+function SoftGate({ shopHref, name, message }: { shopHref: string; name: string; message: string }) {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-[#efe9dd] p-6 text-center">
       <div className="max-w-sm">
         <p className="text-lg font-medium text-[#1a1a1a]">{name}</p>
         <p className="mt-2 text-sm text-black/60">{message}</p>
         <Link
-          href={`/v/${slug}`}
+          href={shopHref}
           className="mt-5 inline-block rounded-xl bg-black/[0.06] px-4 py-2 text-sm text-[#1a1a1a] hover:bg-black/10"
         >
-          View {name}&rsquo;s profile →
+          Back to {name}&rsquo;s shop page
         </Link>
       </div>
     </main>
   );
 }
 
-export default async function VendorBoothShowcasePage({ params }: Props) {
+export default async function VendorBoothShowcasePage({ params, searchParams }: Props) {
   if (!PLAN3D_BOOTH_SHOWCASE_ENABLED) notFound();
   const { slug } = await params;
+  // The shop page again, carrying where the visit came from (lib/shop-back.ts) — so its back door survives the booth.
+  const shopHref = withShopArrival(`/v/${slug}`, arrivalParams((await searchParams) ?? {}));
   const vendor = await fetchBoothVendor(slug);
 
   // 🔑 A REFUSED READ IS NOT "THIS BOOTH IS NOT PUBLIC". The 404 below is the
@@ -193,12 +196,12 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
   // so they get to preview what they'd be buying). A gated vendor gets a soft
   // card, not a broken canvas.
   if (!boothTierCanBrand(vendor.tier_state)) {
-    return <SoftGate slug={slug} name={name} message="A 3D booth showcase is a Pro feature — this supplier hasn't set theirs up yet." />;
+    return <SoftGate shopHref={shopHref} name={name} message="A 3D booth showcase is a Pro feature — this supplier hasn't set theirs up yet." />;
   }
 
   const category = boothCategoryFor(vendor.services);
   if (!category) {
-    return <SoftGate slug={slug} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
+    return <SoftGate shopHref={shopHref} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
   }
 
   // Resolve the logo ONCE, before the booth object is built. `logo_url` holds an
@@ -231,7 +234,7 @@ export default async function VendorBoothShowcasePage({ params }: Props) {
     },
   };
   if (!boothTemplateFor(booth)) {
-    return <SoftGate slug={slug} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
+    return <SoftGate shopHref={shopHref} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
   }
 
   return <BoothShowcaseLoader booth={booth} vendorName={name} />;

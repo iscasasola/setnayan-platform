@@ -60,9 +60,11 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   assert.match(WIZARD, /We sent a link to \{sentTo\} — tap it to finish/);
 });
 
-test('A1 · flag off → today’s behaviour: flipped, signed in, the welcome mail sent', () => {
+test('A1 · flag off → today’s behaviour: flipped, signed in — and no welcome mail of our own', () => {
   assert.match(ACCOUNT, /confirmed = !mustConfirm && confirmResult\.status === 'fulfilled';/);
-  assert.match(ACCOUNT, /mustConfirm \? Promise\.resolve\(null\) : sendEmail\(\{/);
+  // DECISION_LOG 2026-11-07 "ONE EMAIL AT SIGN-UP": Supabase's confirm email is the welcome, so this door sends no
+  // Resend welcome on EITHER side of the switch (lib/the-journey-words-say-what-happens.test.ts holds the copy).
+  assert.doesNotMatch(ACCOUNT, /\bsendEmail\(/, 'the shop door mails a welcome of its own again');
   assert.match(ACCOUNT, /signInWithPassword\(\{ email, password \}\)/);
 });
 

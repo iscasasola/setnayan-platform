@@ -55,6 +55,8 @@
  *   &covers=1           📍 …and Seda's in-house Cake (Reception only) and Catering (follows Seda) under its Where
  *   &wherefail=1        📍 a tick in a Where dropdown is refused (said in place, the ticks go back)
  *   &favorites=1        ♡ after the day: the host's heart on each booked row with a shop (owner 2026-11-06)
+ *   &corrected=1        ✏️ Bituin joined from the couple's link and corrected their name and phone; approved, the row
+ *                       says "updated by the supplier", the opened row's ⓘ says what (DECISION_LOG 2026-11-07)
  *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
  *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
@@ -221,6 +223,7 @@ export default async function SuppliersLabPage({
     favorites: one('favorites') === '1',
     chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
     covers: one('covers') === '1',
+    corrected: one('corrected') === '1',
   };
   const bookedMoney = labBookedMoney(bookedOpts);
   /* 🧹 Booked is just the team (owner 2026-11-02, "BOOKED IS JUST THE TEAM"): no Team · Budget · Schedule parts — the

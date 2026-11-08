@@ -1480,7 +1480,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   vendor_hub_v1: {
     key: 'vendor_hub_v1',
-    label: 'Supplier — Event Hub mini-tour',
+    label: 'Supplier — Hub mini-tour',
     blurb: 'Running one event on its day.',
     slides: [
       {
@@ -1500,7 +1500,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'hub-empty',
-          title: 'Your Event Hub',
+          title: 'Your Hub',
           body: 'When a couple books you, their event lands here — set it up ahead, and run it on the day.',
         },
         {

@@ -264,8 +264,8 @@ export function SaveToAccount({
        card links to /signup with the same `next`) returning to the SAME place the
        button does — `/join/{eventId}/connect`, the seat-binding door, exactly as the
        `sign_in` state above. No new auth, and 📵 no email is SENT by this: password
-       sign-in sends nothing, and an event sign-up gets no welcome email
-       (`welcomeEmailKind` → null for `isEventSignup`). A text link, not a frame —
+       sign-in sends nothing, and no sign-up sends an app welcome email (since
+       2026-11-07 the only one is Supabase's own "Confirm signup"). A text link, not a frame —
        the provider buttons stay the main action. Guarded by `use-my-email-instead.test.ts`. */
     const emailHref = `/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`;
     const emailInstead = (

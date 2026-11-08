@@ -105,7 +105,7 @@ export async function PortfolioAlbumSection({
             true of a photo you put on your page: the event's guests are shown it first (owner 2026-10-03). */}
         <InfoTip label="Only you see this album. A photo you put on your page goes up after the guests’ notice." labelClassName="text-xs" align="start">
           Each photo you import spends one Papic credit. When you put one on your page, everyone at this event is told
-          in their Event Hub and has {SUPPLIER_PAGE_NOTICE_DAYS} days to remove it. If nobody does, it goes up on your
+          on their guests’ page and has {SUPPLIER_PAGE_NOTICE_DAYS} days to remove it. If nobody does, it goes up on your
           page by itself. A guest can still remove it later, and a photo taken down at a guest&rsquo;s request comes
           off your page too.
         </InfoTip>

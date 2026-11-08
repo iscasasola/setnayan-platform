@@ -173,6 +173,20 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     reason:
       'A made-up supplier’s own "from" price on the DEV-ONLY lab service card (404 in production) that shows an approved couple photo — not a Setnayan SKU.',
   },
+  {
+    file: 'app/dev/inquire-lab/page.tsx',
+    literal: '₱45,000',
+    sku: null,
+    reason:
+      'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/inquire-lab/page.tsx',
+    literal: '₱38,000',
+    sku: null,
+    reason:
+      'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
+  },
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

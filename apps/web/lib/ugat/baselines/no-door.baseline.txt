@@ -27,6 +27,7 @@
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/group-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/hero-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -52,6 +53,7 @@
 /dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/selfie-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-back-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page back-door proof lab — a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -60,11 +62,13 @@
 /dev/supplier-chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-print-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/clients	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/on-the-day	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/proposals	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/repertoire	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -75,3 +79,4 @@
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/favorites-lab	# 2026-11-06 · internal (dev, prototypes) · the favorites proof lab — a page nobody can reach without typing its address
 /dev/find-lock-lab	# 2026-11-07 · internal (dev, prototypes) · the find-lock proof lab (DECISION_LOG 2026-11-07) — a page nobody can reach without typing its address
+/dev/inquire-lab	# 2026-11-07 · internal (dev, prototypes) · the shop page Inquire pop-up proof lab — a page nobody can reach without typing its address

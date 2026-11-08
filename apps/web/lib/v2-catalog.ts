@@ -22,6 +22,7 @@
 
 import { cache } from 'react';
 import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
+import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   CatalogChargeResolution as CatalogChargeResolutionType,
@@ -383,6 +384,9 @@ export const getVendorPrices = cache(async () => {
     else today — the price shown must be the price charged.
   */
   const branch = price(BRANCH_SKU_CODE);
+  // The extra team seat Ultra may buy (owner 2026-11-04 price sheet) — the row the seat order CHARGES
+  // (`SEAT_SKU_CODE`, lib/vendor-seats.ts). /for-suppliers lists it beside the branch as Ultra's add-ons.
+  const seat = price(SEAT_SKU_CODE);
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
   // ⚠ NO TYPED PRICE ANYWHERE BELOW, and that is the point of this block. Every
   // figure used to carry a hand-typed fallback ("₱1,000", "₱10,400", …, nine of
@@ -409,6 +413,7 @@ export const getVendorPrices = cache(async () => {
     enterpriseAnnual: fmt(entYr),
     enterpriseAnnualSave: save(entMo, entYr),
     branch: fmt(branch),
+    seat: fmt(seat),
     tokenUnit: fmt(tokenUnit),
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     // `null` = unreadable: the Offer is omitted, never priced from a guess.

@@ -53,7 +53,6 @@ app/dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx  # 
 app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx  # menu-like
 app/dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx  # menu-like
 app/dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx  # menu-like
-app/for-suppliers/_components/vendor-tier-deltas.tsx  # fold
 app/onboarding/_shared/setup-card.tsx  # menu-like
 app/onboarding/wedding/_components/wedding-cards.tsx  # menu-like
 app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx  # fold

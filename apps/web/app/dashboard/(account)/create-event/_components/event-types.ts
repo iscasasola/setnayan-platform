@@ -87,9 +87,28 @@ export function startHrefFor(t: Pick<EventTypeRow, 'key' | 'onboardingHref'>, ex
   return onboardingRouteFor(t, experienceQuizOn) ?? `/onboarding/${t.key}`;
 }
 
+/**
+ * THE PHOTO SET'S VERSION — bump it whenever the files in `public/event-types/`
+ * are replaced under the same names.
+ *
+ * next/image caches each optimised copy for a month (`minimumCacheTTL` in
+ * `next.config.ts`), keyed by the source URL. A file overwritten under the same
+ * name keeps serving the OLD optimised photo until that cache expires, on every
+ * phone. A new `?v=` is a new URL, so the new set shows the moment it deploys.
+ * (Measured 2026-11-07: Next 15.5 with no `images.localPatterns` accepts a query
+ * on a local src, and production's optimiser answered 200 image/webp for
+ * `/event-types/wedding.webp?v=20261107`.)
+ */
+export const EVENT_TYPE_PHOTO_VERSION = '20261107';
+
+/** The repo photo for a type — the ONE place its path is built. */
+export function eventTypeRepoPhotoSrc(key: string): string {
+  return `/event-types/${key}.webp?v=${EVENT_TYPE_PHOTO_VERSION}`;
+}
+
 /** Hero-photo resolution shared by both pickers: admin upload → repo asset. */
 export function eventTypePhotoSrc(t: Pick<EventTypeRow, 'key' | 'heroPhotoUrl'>): string {
-  return t.heroPhotoUrl ?? `/event-types/${t.key}.webp`;
+  return t.heroPhotoUrl ?? eventTypeRepoPhotoSrc(t.key);
 }
 
 /**
@@ -109,30 +128,37 @@ export function eventTypePhotoSrc(t: Pick<EventTypeRow, 'key' | 'heroPhotoUrl'>)
  *
  * ⚠ THESE NUMBERS BELONG TO THE FILES. Replacing a photo means re-measuring its row —
  * `lib/event-type-photo-faces.test.ts` fails when a file has no row or a row has no file.
- * It cannot tell a stale row from a fresh one, so re-measure whenever a file changes.
+ * It cannot tell a stale row from a fresh one, so re-measure whenever a file changes —
+ * and bump `EVENT_TYPE_PHOTO_VERSION` above, or phones keep the old picture for a month.
  */
 export type FaceSpan = readonly [top: number, bottom: number];
 
 export const EVENT_TYPE_PHOTO_FACES: Readonly<Record<string, FaceSpan>> = {
-  anniversary: [0.13, 0.28],
-  birthday: [0.13, 0.33],
-  celebration: [0.05, 0.17],
-  christening: [0.28, 0.46],
-  corporate: [0.15, 0.31],
-  date: [0.15, 0.31],
-  debut: [0.13, 0.24],
-  gala_night: [0.16, 0.42],
-  gender_reveal: [0.01, 0.25],
-  graduation: [0.1, 0.36],
-  hangout: [0.13, 0.32],
-  reunion: [0.26, 0.43],
+  // ⟳ 2026-11-07 set (owner "update the photos"): 17 rows re-measured on the new
+  // files — wide, grand rooms, so the faces now sit near the middle of the frame.
+  // In a crowd, the span is the FOCAL people (the couple, the celebrant, the
+  // speaker), not every head in the room.
+  anniversary: [0.51, 0.6], // the couple dancing + the woman watching, left
+  birthday: [0.4, 0.48], // the celebrant cutting the cake
+  celebration: [0.5, 0.62], // the toasting table nearest the camera
+  christening: [0.42, 0.53], // parents + baby at the font (the priest is background)
+  concert: [0.47, 0.51], // the singer, centre stage
+  corporate: [0.55, 0.59], // the speaker on stage
+  date: [0.47, 0.55], // the couple at the table
+  debut: [0.4, 0.48], // the debutante and the ring of escorts at her level
+  gala_night: [0.5, 0.67], // the dancing couples at the centre of the floor
+  gender_reveal: [0.45, 0.55], // the couple under the balloon
+  graduation: [0.44, 0.55], // the hugging pair + the smiling graduate, right
+  grand_opening: [0.32, 0.42], // the two women cutting the ribbon
+  hangout: [0.43, 0.55], // the standing group in the pool
+  open_house: [0.48, 0.68], // the family at the near end of the table
+  reunion: [0.46, 0.63], // the elder walking in + the near end of the table
   simple_event: [0.15, 0.36],
-  tournament: [0.14, 0.38],
-  travel: [0.09, 0.24],
-  // Two people a long way apart: the man standing (0.04–0.17), the woman seated
-  // (0.27–0.43). A strip too short for both keeps the top, so the man's face shows.
-  wake: [0.04, 0.43],
-  wedding: [0.05, 0.17],
+  tournament: [0.36, 0.60],
+  travel: [0.48, 0.60],
+  // No faces near the casket: the span is the mourners standing behind it.
+  wake: [0.21, 0.28],
+  wedding: [0.47, 0.53], // the couple walking in
 };
 
 /** Height ÷ width of every repo event-type photo (880×1100). */
@@ -144,7 +170,9 @@ export const EVENT_TYPE_PHOTO_ASPECT = 1100 / 880;
  * keeps the old per-event crop.
  */
 export function faceSpanForTypePhoto(eventType: string, photoSrc: string): FaceSpan | null {
-  if (photoSrc !== `/event-types/${eventType}.webp`) return null;
+  // The current versioned path, or the bare path (an admin may paste the repo
+  // path itself — it is the same picture).
+  if (photoSrc !== eventTypeRepoPhotoSrc(eventType) && photoSrc !== `/event-types/${eventType}.webp`) return null;
   return Object.prototype.hasOwnProperty.call(EVENT_TYPE_PHOTO_FACES, eventType)
     ? EVENT_TYPE_PHOTO_FACES[eventType]!
     : null;

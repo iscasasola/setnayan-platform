@@ -6,8 +6,10 @@ import path from 'node:path';
 /**
  * THE RENAME IS LABELS ONLY — and a rename that misses a copy is a diff.
  *
- * The supplier's day-of room is called the **Event Hub**, because that is what a
- * supplier walks into on the day (owner, 2026-08-28, on the drawing). The word
+ * The supplier's day-of room was called the **Event Hub** (owner, 2026-08-28, on the drawing) and is now the
+ * **Hub** — the word its tab already said (2026-10-21) — because "Event Hub" became a couple-side word for the front
+ * page only, never in supplier or coordinator material (owner, the For Suppliers brief, 2026-11-05). The file keeps
+ * its name so its history stays findable; what it holds is that the room has ONE name everywhere it is written. The word
  * is written in SIX places, not the five the plan listed — the sixth is the
  * 72px icon strip's caption, which is keyed by the stable key and would have
  * gone on saying "On the day" beside five renamed rows.
@@ -27,13 +29,7 @@ import path from 'node:path';
  */
 
 const WEB = path.resolve(__dirname, '../../..');
-const NAME = 'Event Hub';
-/**
- * The TAB's word since 2026-10-21 (owner "Yes to all": the bar is Today ·
- * Customers · Shop · Hub — the couple's fourth word in the couple's slot). The
- * ROOM is still the Event Hub: its title, its headings, its back links.
- */
-const TAB_WORD = 'Hub';
+const NAME = 'Hub';
 const OLD = /On the Day/;
 
 /** Every file that renders the room's NAME to a supplier. */
@@ -111,7 +107,7 @@ test('NO RENDERED SITE STILL SAYS "On the Day"', () => {
  * its pages light Clients (held in `the-hub-has-doors-without-a-tab.test.ts`). So the two tab assertions became:
  * no bar or rail slot carries the room any more, and the ROUTE — the thing four systems read — is untouched.
  */
-test('the room says Event Hub; it has no tab — no bar or rail slot carries it', () => {
+test('the room says Hub; it has no tab — no bar or rail slot carries it', () => {
   const registry = read('lib/nav-registry-defaults.ts');
   const slots = [...registry.matchAll(/key: "vendor\.(?:sidebar|bottom-nav)\.[^"]+",[\s\S]{0,400}?route: "\/vendor-dashboard\/on-the-day"/g)];
   assert.equal(slots.length, 0, 'a registry slot still puts the Hub room on the bar or the rail');

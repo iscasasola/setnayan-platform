@@ -83,6 +83,9 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
+import { InquireSheet, type InquireEvent, type InquireService } from './_components/inquire-sheet';
+import { inquireServiceList, NO_SERVICES_LINE } from '@/lib/shop-inquire';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -113,6 +116,7 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
+import { arrivalParams, shopBackDoor, withShopArrival } from '@/lib/shop-back';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CARD_COLUMN_CLASS,
@@ -1636,6 +1640,9 @@ export async function renderVendorBySlug({
   const viewerOwnsShop =
     user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
   let coupleEventId: string | null = null;
+  /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
+   *  Never the `events[0]` fallback: only an event the link named can be "where you came from". */
+  let arrivalEventId: string | null = null;
   /** The couple's intended event date (ISO YYYY-MM-DD) — drives the Booked-Out
    *  Waitlist CTA when the vendor is unavailable on it. */
   let coupleEventDate: string | null = null;
@@ -1691,6 +1698,7 @@ export async function renderVendorBySlug({
         ? events.find((e) => e.event_id === requestedEventId)
         : undefined;
     coupleEventId = chosen?.event_id ?? events[0]?.event_id ?? null;
+    arrivalEventId = chosen?.event_id ?? null;
     coupleEventDate = chosen?.event_date ?? events[0]?.event_date ?? null;
     if (coupleEventId) {
       const threadResult = await supabase
@@ -1793,9 +1801,63 @@ export async function renderVendorBySlug({
     today's behaviour exactly. This is the whole reason the fallback above stays.
   */
   const shopEventPicker = showInquiryComposer ? await resolveAddShopToEvent(slug) : null;
+  /* 🧭 WHERE THIS VISIT CAME FROM (owner 2026-11-07, "back to suppliers … went to a wrong shell"). Read once; the
+     back door at the foot of Inquire and every screen this page opens carry it (lib/shop-back.ts). */
+  const shopArrival = { src: arrivalParams(search).src, eventId: arrivalEventId };
+  const shopBack = shopBackDoor(shopArrival);
+  /*
+    💬 THE INQUIRE POP-UP (owner 2026-11-07: "inquire for your event is it should have been a pop up to first ask what
+    service/s are they interested to then connect them to which event the user has and it will add them to those
+    categories automatically and send inquire"). Every Inquire on this page opens it — services → which event (or a new
+    one) → the ONE send, `startServiceInquiry`. Its event list is the shipped picker's (`resolveAddShopToEvent`, cached,
+    so the read above is not repeated), and it is read for anyone signed in, not only when a composer renders.
+  */
+  const viewerSignedIn = user !== null && !(user.is_anonymous ?? false);
+  const inquireEventState = bookable && viewerSignedIn ? (shopEventPicker ?? (await resolveAddShopToEvent(slug))) : null;
+  const inquireEvents: InquireEvent[] =
+    inquireEventState?.signedIn === true
+      ? inquireEventState.options.map((o) => ({
+          eventId: o.eventId,
+          label: o.dateISO
+            ? `${o.title} · ${new Date(`${o.dateISO}T00:00:00+08:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+            : o.title,
+        }))
+      : [];
+  // 📋 EVERY SERVICE THE SHOP PROVIDES (owner 2026-11-07, "Yes, list all"): the active cards as before, then each
+  // service picked at sign-up (`vendor_profiles.services`) that has no card — named by the ONE taxonomy resolver
+  // (`cardKindLabeller`, Admin › Categories), "Price on request". Inquire is never a dead end for a shop with no card.
+  // Read only when the pop-up is mounted and the shop lists services — a shop with none never asks for a name.
+  const inquireProvidedKeys = bookable ? (vendor.services ?? []) : [];
+  const inquireKindLabel = inquireProvidedKeys.length > 0 ? await cardKindLabeller() : (key: string) => key;
+  const inquireServices: InquireService[] = inquireServiceList(
+    activeServices.map((s) => ({
+      serviceId: s.vendor_service_id,
+      label: serviceLabel(s),
+      // The price line, or nothing — `servicePriceLabel` says "Inquire" for a hidden price, a word with no place inside the pop-up.
+      price: !hidePricesPublicly && s.starting_price_php !== null && s.starting_price_php > 0 ? servicePriceLabel(s) : '',
+      category: s.category ?? null,
+    })),
+    inquireProvidedKeys,
+    inquireKindLabel,
+  );
+  // Creator Economy PR-C/PR-D — provenance from the arrival URL, read ONCE for both the composer and the pop-up.
+  // startServiceInquiry re-validates both server-side, so an unknown ?src is inert.
+  const arrivalInquirySource =
+    search.src === 'editorial'
+      ? 'editorial'
+      : search.src === 'favorites'
+        ? 'favorites'
+        : search.src === 'explore'
+          ? 'explore'
+          : search.src === 'search'
+            ? 'search'
+            : null;
+  const arrivalChapter =
+    typeof search.ref_chapter === 'string' && search.ref_chapter ? search.ref_chapter : null;
   const shopEventOptions =
     shopEventPicker?.signedIn && shopEventPicker.options.length > 1
-      ? shopEventPicker.options
+      ? // Choosing an event keeps where you came from — a picked row is this page again, not a new arrival.
+        shopEventPicker.options.map((o) => ({ ...o, href: withShopArrival(o.href, { src: shopArrival.src }) }))
       : [];
 
   // The event-type question in the anon composer (owner 2026-08-06: "for what
@@ -2356,6 +2418,8 @@ export async function renderVendorBySlug({
           <Link href="/" className="flex items-center text-ink">
             <Wordmark size={22} />
           </Link>
+          {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
+              shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
           {user ? (
             <Link
               href="/dashboard"
@@ -2363,14 +2427,7 @@ export async function renderVendorBySlug({
             >
               Return to Dashboard
             </Link>
-          ) : (
-            <Link
-              href="/signup"
-              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-            >
-              Plan with Setnayan
-            </Link>
-          )}
+          ) : null}
         </div>
       </header>
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
@@ -2615,8 +2672,8 @@ export async function renderVendorBySlug({
             {/*
               🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
               120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
-              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified or
-              "self-reported"; the declared count inside the events sheet). The two tenures stay told apart by their
+              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified, or the
+              year alone; the declared count inside the events sheet). The two tenures stay told apart by their
               words — "In business since" is the credential, "On Setnayan since" is only how long they have been here —
               and the joined-here half is NEVER hidden to flatter a new shop: its absence would be a tell.
             */}
@@ -2744,13 +2801,13 @@ export async function renderVendorBySlug({
                     never a date check or a booking (DECISION_LOG 2026-11-07). */}
                 {bookable ? (
                   <CheckADateLink
-                    href={`/v/${vendor.business_slug ?? slug}/dates`}
+                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/dates`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   />
                 ) : null}
                 {bookable && canShowBooth ? (
                   <Link
-                    href={`/v/${vendor.business_slug ?? slug}/booth`}
+                    href={withShopArrival(`/v/${vendor.business_slug ?? slug}/booth`, shopArrival)}
                     className="button-secondary inline-flex items-center gap-2"
                   >
                     Walk into my booth
@@ -3257,7 +3314,7 @@ export async function renderVendorBySlug({
           guestReviews={guestReviews}
           guestReviewPhotoUrls={guestReviewPhotoUrls}
           hasMore={hasMore}
-          nextPage={reviewsPage + 1}
+          moreHref={withShopArrival(`/${slug}?reviewsPage=${reviewsPage + 1}#reviews`, shopArrival)}
           /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (owner ruling
              re-confirmed 2026-08-09): reviews are never hidden or unlocked by
              what a vendor pays. Both caps are now true on every tier, so these
@@ -3321,11 +3378,16 @@ export async function renderVendorBySlug({
                   </>
                 )
               ) : (
-                <>
-                  <span className="font-medium text-ink">{displayLabel}</span>{' '}
-                  hasn&rsquo;t listed a service you can ask about yet. Check back soon —
-                  when they do, you&rsquo;ll message them right here on Setnayan.
-                </>
+                // No active card: still askable. With services it provides, the pop-up lists them ("Yes, list all");
+                // with none at all, it sends a general question (one plain line, no dead end).
+                inquireServices.length > 0 ? (
+                  <span data-inquire-provided="">
+                    Send <span className="font-medium text-ink">{displayLabel}</span> an inquiry — they&rsquo;ll reply
+                    in your Setnayan inbox, and the conversation stays with your event.
+                  </span>
+                ) : (
+                  <span data-inquire-general="">{NO_SERVICES_LINE(displayLabel)}</span>
+                )
               )
             ) : (
               <>
@@ -3415,22 +3477,8 @@ export async function renderVendorBySlug({
               // a saved-vendors "Contact" link → 'Favorites'). Absent both, the
               // inquiry stays the NULL/'website' default. startServiceInquiry
               // re-validates the source server-side, so an unknown ?src is inert.
-              referringChapterPublicId={
-                typeof search.ref_chapter === 'string' && search.ref_chapter
-                  ? search.ref_chapter
-                  : null
-              }
-              inquirySource={
-                search.src === 'editorial'
-                  ? 'editorial'
-                  : search.src === 'favorites'
-                    ? 'favorites'
-                    : search.src === 'explore'
-                      ? 'explore'
-                      : search.src === 'search'
-                        ? 'search'
-                        : null
-              }
+              referringChapterPublicId={arrivalChapter}
+              inquirySource={arrivalInquirySource}
             />
           ) : null}
 
@@ -3507,6 +3555,9 @@ export async function renderVendorBySlug({
                       value={vendor.vendor_profile_id}
                     />
                     <input type="hidden" name="requested_date" value={waitlistDate} />
+                    {/* Where this visit came from, so the page the join returns to keeps its back door. */}
+                    {shopArrival.src ? <input type="hidden" name="src" value={shopArrival.src} /> : null}
+                    {shopArrival.eventId ? <input type="hidden" name="event" value={shopArrival.eventId} /> : null}
                     <SubmitButton
                       pendingLabel="Joining…"
                       className="rounded-lg bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
@@ -3519,12 +3570,30 @@ export async function renderVendorBySlug({
             </div>
           ) : null}
 
+          {bookable ? (
+            <InquireSheet
+              shop={{ vendorProfileId: vendor.vendor_profile_id, slug: vendor.business_slug ?? slug, name: displayLabel }}
+              services={inquireServices}
+              signedIn={viewerSignedIn}
+              events={inquireEvents}
+              inquirySource={arrivalInquirySource}
+              referringChapterPublicId={arrivalChapter}
+            />
+          ) : null}
+
           <div className="flex flex-wrap gap-3">
-            <Link href="/signup" className="button-primary">
-              Plan with Setnayan
-            </Link>
-            <Link href="/explore" className="button-secondary">
-              Back to suppliers
+            {/* A shop with no service has no composer above — this is its way to ask (the pop-up catches the press). */}
+            {bookable && !showInquiryComposer && anonComposerServices.length === 0 ? (
+              <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2" data-inquire-general-ask="">
+                <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                {inquireServices.length > 0 ? 'Inquire' : 'Ask a question'}
+              </a>
+            ) : null}
+            {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
+                was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
+                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back". */}
+            <Link href={shopBack.href} className="button-secondary" data-shop-back={shopBack.back ? 'back' : 'cold'}>
+              {shopBack.label}
             </Link>
           </div>
         </section>
@@ -3989,7 +4058,7 @@ function ReviewsSection({
   guestReviews,
   guestReviewPhotoUrls,
   hasMore,
-  nextPage,
+  moreHref,
   showStars,
   showComments,
   recommendingCouples,
@@ -4010,7 +4079,8 @@ function ReviewsSection({
   /** The guests' own shots, through the blur gate. */
   guestReviewPhotoUrls: ReadonlyMap<string, string>;
   hasMore: boolean;
-  nextPage: number;
+  /** The next page of reviews — this page again, carrying where the visit came from. */
+  moreHref: string;
   /** Phase C: Free hides the star average + per-review star rows. */
   showStars: boolean;
   /** Phase C: Free + Verified hide review bodies + axis stats + replies. */
@@ -4101,7 +4171,7 @@ function ReviewsSection({
       {hasMore && (showStars || showComments) ? (
         <div className="pt-2">
           <Link
-            href={`/${slug}?reviewsPage=${nextPage}#reviews`}
+            href={moreHref}
             className="button-secondary inline-flex h-10 px-4"
           >
             Show more reviews

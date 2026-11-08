@@ -20,7 +20,7 @@ import { PortfolioAlbumSection } from '../_components/portfolio-album-section';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
-export const metadata = { title: 'Papic capture · Event Hub' };
+export const metadata = { title: 'Papic capture · Hub' };
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
 function phToday(): string {
@@ -73,7 +73,7 @@ export default async function VendorPapicCapturePage({
         gate={feeGate}
         threadId={booking.threadId}
         backHref={back}
-        backLabel="Back to the Event Hub"
+        backLabel="Back to the Hub"
       />
     );
   }
@@ -131,7 +131,7 @@ export default async function VendorPapicCapturePage({
           style={{ color: 'var(--m-slate-2)' }}
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />{' '}
-          {isEventDay ? 'Back to the floor' : 'Back to the Event Hub'}
+          {isEventDay ? 'Back to the floor' : 'Back to the Hub'}
         </Link>
         <span className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
           {isEventDay ? 'Papic capture' : 'What you shot'}

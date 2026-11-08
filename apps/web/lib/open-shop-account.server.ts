@@ -13,7 +13,7 @@ import 'server-only';
  * by calling the SAME helpers: breach check (`lib/leaked-password`), blacklist
  * (`lib/blacklist`), Turnstile (`lib/turnstile`), `auth.signUp` with
  * `account_type: 'vendor'` in the metadata the DB trigger reads, the V1 admin
- * auto-confirm, the welcome email, then a direct sign-in so nobody retypes the
+ * auto-confirm, then a direct sign-in so nobody retypes the
  * password they chose ten seconds ago. What is NOT shared is the orchestration
  * itself — `app/signup/actions.ts` ends in `redirect()` and cannot be called for an
  * answer. When that action is next opened it should import THIS function for the
@@ -28,7 +28,6 @@ import 'server-only';
  */
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
@@ -95,7 +94,14 @@ export async function createVendorAccountForShop(input: {
       emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(mustConfirm ? confirmNext : '/open-shop')}`,
       // The trigger reads raw_user_meta_data->>'account_type'. A shop owner is a
       // vendor from the first row — no later self-heal needed for this path.
-      data: { account_type: 'vendor' },
+      // `signup_door` picks the supplier welcome in the Supabase "Confirm signup"
+      // template (supabase/templates/confirm-signup.html) — the ONE email a new
+      // account gets since 2026-11-07 (DECISION_LOG "ONE EMAIL AT SIGN-UP"); this
+      // function sends no welcome of its own. The template also has a
+      // 'coordinator' branch, but this door does not know it is the coordinator
+      // door yet (the services choice is written AFTER sign-up), so it says
+      // 'supplier' — which is still true for a coordinator.
+      data: { account_type: 'vendor', signup_door: 'supplier' },
       // Same shape lib/turnstile's helper produces: trimmed, and the field only when a token exists.
       ...((captchaToken ?? '').trim() ? { captchaToken: (captchaToken ?? '').trim() } : {}),
     },
@@ -140,34 +146,13 @@ export async function createVendorAccountForShop(input: {
       if (profileErr) console.warn('[open-shop] profile (name/terms) update failed:', profileErr.message);
     })();
 
-    const [confirmResult, profileResult, emailResult] = await Promise.allSettled([
+    const [confirmResult, profileResult] = await Promise.allSettled([
       // 🔒 L3 — flipped ONLY when verification is not required (the /signup gate, byte for byte).
       mustConfirm ? Promise.resolve(null) : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
       profilePromise,
-      // With verification on, Supabase's own confirmation mail is the one that matters; a "your account is ready,
-      // sign in here" mail beside it would invite a sign-in that is refused until the link is tapped.
-      mustConfirm ? Promise.resolve(null) : sendEmail({
-        to: email,
-        subject: 'Welcome to Setnayan',
-        text: [
-          `Welcome to Setnayan.`,
-          ``,
-          `Your supplier account is ready. Sign in here:`,
-          `${appUrl}/login`,
-          ``,
-          `What's next:`,
-          `• Open ${appUrl}/vendor-dashboard — Today shows your next step, one at a time. Couples find you on Setnayan and message you there.`,
-          ``,
-          `Need help? ${appUrl}/help`,
-          ``,
-          `—`,
-          `Set na 'yan.`,
-        ].join('\n'),
-      }),
     ]);
     if (confirmResult.status === 'rejected') console.warn('[open-shop] updateUserById failed:', confirmResult.reason);
     if (profileResult.status === 'rejected') console.warn('[open-shop] profile IIFE threw:', profileResult.reason);
-    if (emailResult.status === 'rejected') console.warn('[open-shop] welcome email failed:', emailResult.reason);
     confirmed = !mustConfirm && confirmResult.status === 'fulfilled';
   } catch (err) {
     console.warn('[open-shop] auto-confirm path threw:', err);

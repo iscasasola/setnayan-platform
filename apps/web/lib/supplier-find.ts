@@ -85,6 +85,7 @@ export const FIND_GROUP_OF_TILE: Readonly<Record<WeddingTile, FindGroupId>> = {
   grooming: 'look_style',
   wellness_fitness: 'look_style',
   jewelleries_accessories: 'look_style',
+  ceremony_essentials: 'look_style',
   stylist_decorator: 'look_style',
   florist: 'look_style',
   led_wall: 'look_style',

@@ -54,6 +54,7 @@ import {
 } from '@/lib/inquiry-attribution';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
+import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import {
   eventVendorCategoryForCardKind,
   eventVendorCategoryKeyForCardKind,
@@ -172,8 +173,25 @@ export async function startServiceInquiry(input: {
    * securing an account and flushing a shortlist never trips the anti-spam cap.
    */
   source?: 'manual' | 'system';
-  /** vendor_service the couple clicked Inquire on → source='initial'. */
+  /** vendor_service the couple clicked Inquire on → source='initial'. `''` only with `general`. */
   initialServiceId: string;
+  /**
+   * ❓ A GENERAL QUESTION — the shop has NO active service to ask about (owner 2026-11-07, "inquire does nothing" on a
+   * shop with 0 active cards: Inquire scrolled to "hasn't listed a service you can ask about yet" and stopped). The SAME
+   * send: the thread, the opening note, the follow gate, the provenance stamp. What it skips is everything that needs a
+   * card — no service interests, no requirements template — and the shop is put on the event's suppliers as
+   * `considering` through the shipped shop-level save (`saveVendorToPicks`, the /explore Save), not under a card's
+   * category. Requires `initialServiceId: ''`; a caller that names a service is never a general question.
+   */
+  general?: boolean;
+  /**
+   * 📋 SERVICES THE SHOP PROVIDES WITH NO CARD (owner 2026-11-07, "Yes, list all") — taxonomy keys from the shop's own
+   * `vendor_profiles.services`, in the couple's pick order. Each is checked against that list here (a key the shop
+   * does not provide is dropped, never recorded) and lands on the thread as a category-only interest.
+   * With `initialServiceId: ''`, the FIRST key is the ask's anchor: the shop is filed on the event's Find under THAT
+   * service's category (`saveVendorToPicks` with `service_key`), not under the shop's first service.
+   */
+  serviceKeys?: string[];
   /** Canonical category for the initial service (display/scoping). */
   initialCategoryKey: string | null;
   /** Extra standalone services the couple opted into → source='couple_added'. */
@@ -238,7 +256,11 @@ export async function startServiceInquiry(input: {
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
-  if (!vendorProfileId || !initialServiceId) {
+  const general = input.general === true && !initialServiceId;
+  const askedKeys = general
+    ? []
+    : Array.from(new Set((input.serviceKeys ?? []).map((k) => String(k ?? '').trim()).filter(Boolean)));
+  if (!vendorProfileId || (!initialServiceId && !general && askedKeys.length === 0)) {
     return { status: 'error', message: 'Missing supplier or service' };
   }
 
@@ -321,22 +343,46 @@ export async function startServiceInquiry(input: {
   // host-supplied form data, so a stale/forged id should be dropped, not
   // recorded. adminClient bypasses vendor_services RLS (same pattern as the
   // dashboard add actions).
-  const requestedIds = Array.from(
-    new Set([initialServiceId, ...input.alsoServiceIds.map((s) => String(s).trim())].filter(Boolean)),
-  );
-  const { data: ownedServices } = await admin
-    .from('vendor_services')
-    .select('vendor_service_id, category')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('is_active', true)
-    .in('vendor_service_id', requestedIds);
+  const requestedIds = general
+    ? []
+    : Array.from(
+        new Set([initialServiceId, ...input.alsoServiceIds.map((s) => String(s).trim())].filter(Boolean)),
+      );
+  const { data: ownedServices } = general || requestedIds.length === 0
+    ? { data: [] as { vendor_service_id: string; category: string | null }[] }
+    : await admin
+        .from('vendor_services')
+        .select('vendor_service_id, category')
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('is_active', true)
+        .in('vendor_service_id', requestedIds);
   const ownedById = new Map(
     (ownedServices ?? []).map((s) => [
       s.vendor_service_id as string,
       (s.category as string | null) ?? null,
     ]),
   );
-  if (!ownedById.has(initialServiceId)) {
+  // 📋 The card-less services, held to what the shop SAYS it provides (`vendor_profiles.services`). A key that no
+  // longer is (or never was) one of them is dropped. A key a picked card already carries is the card's, not a second ask.
+  const pickedCardKinds = new Set(Array.from(ownedById.values()).filter((c): c is string => !!c));
+  let providedKeys: string[] = [];
+  if (askedKeys.length > 0) {
+    const { data: prof } = await admin
+      .from('vendor_profiles')
+      .select('services')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    const provides = new Set(
+      (((prof as { services?: string[] | null } | null)?.services ?? []) as string[]).map((k) => String(k).trim()),
+    );
+    providedKeys = askedKeys.filter((k) => provides.has(k) && !pickedCardKinds.has(k));
+  }
+  // The ask is anchored on a card-less service: no card to validate, the shop is filed under that service's key.
+  const keyed = !general && !initialServiceId;
+  if (keyed && providedKeys.length === 0) {
+    return { status: 'error', message: 'That service is no longer available.' };
+  }
+  if (!general && !keyed && !ownedById.has(initialServiceId)) {
     return { status: 'error', message: 'That service is no longer available.' };
   }
 
@@ -346,8 +392,11 @@ export async function startServiceInquiry(input: {
   // (~1:1 with canonical_service_schemas), preferring the explicit categoryKey the
   // composer sent, else the validated owned service's category. A handful of legacy
   // categories have no schema row → the persist below FK-checks + gracefully skips.
-  const requirementCanonicalService =
-    input.initialCategoryKey?.trim() || ownedById.get(initialServiceId) || null;
+  const requirementCanonicalService = general
+    ? null
+    : keyed
+      ? (providedKeys[0] ?? null)
+      : input.initialCategoryKey?.trim() || ownedById.get(initialServiceId) || null;
 
   // Sanitize the checkbox payload: keep only string keys → arrays of non-empty
   // strings. Forged/odd shapes degrade to {} rather than poisoning the JSONB.
@@ -512,21 +561,88 @@ export async function startServiceInquiry(input: {
     );
   }
 
+  // ❓ A general question has no card: the shop goes on the event's suppliers through the shipped shop-level save
+  // (considering, filed by the shop's own services — never under a card it does not have), and nothing below that
+  // needs a card runs. A refused save is reported, never fatal: the question already reached the shop.
+  if (general) {
+    try {
+      const form = new FormData();
+      form.set('vendor_profile_id', vendorProfileId);
+      form.set('event_id', eventId);
+      const saved = await saveVendorToPicks(form);
+      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+        // eslint-disable-next-line no-console
+        console.error('[inquiry-event-vendor-write] general question: the shop did NOT reach the event suppliers', {
+          eventId,
+          vendorProfileId,
+          status: saved.status,
+        });
+        Sentry.captureMessage('inquiry-general-save-refused', {
+          tags: { feature: 'inquiry-event-vendor-write', stage: 'general', status: saved.status },
+          extra: { eventId, vendorProfileId },
+        });
+      }
+    } catch (caught) {
+      Sentry.captureException(caught, {
+        tags: { feature: 'inquiry-event-vendor-write', stage: 'general' },
+        extra: { eventId, vendorProfileId },
+      });
+    }
+    revalidatePath(`/dashboard/${eventId}/messages/${threadId}`);
+    return { status: 'ok', threadId, eventId, isExisting };
+  }
+
+  // 📋 Anchored on a card-less service: the shop goes on the event's Find under THAT service's category, through the
+  // same shipped shop-level save the general question uses, told which service (`service_key`). One Find pick per event
+  // and shop (`event_vendors_unique_marketplace_pick_per_event`): a shop already on the event stays where it is.
+  if (keyed) {
+    const anchorKey = providedKeys[0] as string;
+    try {
+      const form = new FormData();
+      form.set('vendor_profile_id', vendorProfileId);
+      form.set('event_id', eventId);
+      form.set('service_key', anchorKey);
+      const saved = await saveVendorToPicks(form);
+      if (saved.status !== 'ok' && saved.status !== 'already_saved') {
+        // eslint-disable-next-line no-console
+        console.error('[inquiry-event-vendor-write] provided service: the shop did NOT reach the event suppliers', {
+          eventId,
+          vendorProfileId,
+          serviceKey: anchorKey,
+          status: saved.status,
+        });
+        Sentry.captureMessage('inquiry-provided-save-refused', {
+          tags: { feature: 'inquiry-event-vendor-write', stage: 'provided', status: saved.status },
+          extra: { eventId, vendorProfileId, serviceKey: anchorKey },
+        });
+      }
+    } catch (caught) {
+      Sentry.captureException(caught, {
+        tags: { feature: 'inquiry-event-vendor-write', stage: 'provided' },
+        extra: { eventId, vendorProfileId, serviceKey: anchorKey },
+      });
+    }
+  }
+
   // Build the interest seeds: initial → its linked services → couple_added.
   // Also track confirmedServiceIds for persisting to event_vendors.
-  const confirmedServiceIds: string[] = [initialServiceId];
-  const seeds: InterestSeed[] = [
-    {
-      vendorServiceId: initialServiceId,
-      categoryKey: input.initialCategoryKey ?? ownedById.get(initialServiceId) ?? null,
-      source: 'initial',
-    },
-  ];
+  const confirmedServiceIds: string[] = keyed ? [] : [initialServiceId];
+  const seeds: InterestSeed[] = keyed
+    ? [{ vendorServiceId: null, categoryKey: providedKeys[0] ?? null, source: 'initial' }]
+    : [
+        {
+          vendorServiceId: initialServiceId,
+          categoryKey: input.initialCategoryKey ?? ownedById.get(initialServiceId) ?? null,
+          source: 'initial',
+        },
+      ];
 
-  const { data: links } = await admin
-    .from('vendor_service_links')
-    .select('linked_canonical_service')
-    .eq('vendor_service_id', initialServiceId);
+  const { data: links } = keyed
+    ? { data: [] as { linked_canonical_service?: string | null }[] }
+    : await admin
+        .from('vendor_service_links')
+        .select('linked_canonical_service')
+        .eq('vendor_service_id', initialServiceId);
   for (const link of links ?? []) {
     const key = (link as { linked_canonical_service?: string | null }).linked_canonical_service;
     if (key) seeds.push({ vendorServiceId: null, categoryKey: key, source: 'linked' });
@@ -542,6 +658,10 @@ export async function startServiceInquiry(input: {
       source: 'couple_added',
     });
     confirmedServiceIds.push(id);
+  }
+  // The card-less services the couple also picked — on the thread by their key (the anchor, when keyed, is above).
+  for (const key of keyed ? providedKeys.slice(1) : providedKeys) {
+    seeds.push({ vendorServiceId: null, categoryKey: key, source: 'couple_added' });
   }
 
   await recordThreadInterests(supabase, {

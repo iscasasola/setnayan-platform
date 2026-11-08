@@ -958,6 +958,17 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'proposed_by',
     why: 'Who RAISED a motion to demote or remove another vendor admin. Owner ruling 2026-09-06, answering the DPO question this file had carried open: clear it. The motion’s value is the DECISION and the VOTES, not who raised it, and the target’s record survives either way — so retaining an erased person’s uuid buys nothing and costs a residual. The row itself must NOT be deleted: vendor_admin_motion_votes.motion_id CASCADEs off it, so deleting the motion would destroy OTHER admins’ votes (the event_delegates over-deletion in a different suit). Migration 20271210831005 made the column nullable + SET NULL, which handles a hard DELETE; this entry is what handles an ERASURE, which anonymizes in place and issues no delete. Both halves are needed — the FK alone never fires on the erasure path.',
   },
+  // Supplier Build 3 · lane B (2026-11-09) — two actor stamps on records other people read.
+  {
+    table: 'booking_changes',
+    column: 'changed_by',
+    why: 'Who moved a booking value (the date, the guest count, a call time, a meeting time). A plain uuid with NO foreign key, the event_vendor_refunds.recorded_by_user_id shape (migration 20271329937802 says so). The row is the event\u2019s and its suppliers\u2019 shared history of what changed — the stamp goes, the change stays.',
+  },
+  {
+    table: 'chat_thread_members',
+    column: 'added_by_user_id',
+    why: 'Which host seated ANOTHER host in a supplier conversation (migration 20271330575424). The row is the other host\u2019s seat — deleting it would throw them out of the conversation because the person who added them left. ON DELETE SET NULL covers a hard delete; erasure anonymizes in place and issues none, so this is the erasure half.',
+  },
 ] as const;
 
 /**
@@ -1423,6 +1434,16 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s own read cursors. Pseudonymous, no counterparty value — the thread itself is untouched.',
   },
   {
+    table: 'chat_thread_members',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — the subject\u2019s own seat as a host in a supplier conversation, with the note they left (2026-11-09, migrations 20271330575424 · 20271330723629). Seats are the ONLY door a host reads a thread through (current_thread_ids()), so it goes with them; the thread, its messages and the other hosts\u2019 seats are untouched.',
+  },
+  {
+    table: 'chat_blocker_shows',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — how many times THIS person was shown a chat blocker (migration 20271331503438). A per-person UI counter with no counterparty value.',
+  },
+  {
     table: 'samahan_reads',
     column: 'user_id',
     why: 'The subject’s own group read markers (group unread, 2026-10-28). No counterparty value — the group and its messages are untouched. CASCADE + NOT NULL as well.',
@@ -1753,5 +1774,15 @@ export const DPO_QUESTIONS: readonly DpoQuestion[] = [
     ifRuledForSubject:
       'The column is nulled AND the private R2 object is handed to storage for deletion — a nulled ref with the object left behind is not an erasure. A dispute window (hold N days, then drop) is the likely middle answer and would need its own column.',
     tables: ['event_vendors'],
+  },
+  {
+    key: 'private-messages-addressed-to-the-subject',
+    today:
+      'A PRIVATE chat line (chat_messages.recipient_user_id, migration 20271329968207) written TO the subject by another host or the supplier survives the subject\u2019s erasure with the subject\u2019s uuid still in recipient_user_id. Erasure deletes only the lines the subject SENT (sender_user_id). The FK is ON DELETE CASCADE, but erasure anonymizes in place and issues no delete, so the cascade never fires on this path.',
+    tension:
+      'The words are the SENDER\u2019s, and the sender can still read their own private line; deleting it erases a third party\u2019s record of what they said. Keeping it keeps the subject\u2019s identity on a message addressed only to them. And nulling recipient_user_id is NOT a middle answer: NULL means "everyone in the thread", so it would turn a private line public — the reason the migration chose CASCADE over SET NULL.',
+    ifRuledForSubject:
+      'A SUBJECT_ROW_DELETES-shaped step deletes chat_messages rows WHERE recipient_user_id = the subject (mirroring the CASCADE). It must be its own step in purge.ts, because ERASURE_ROW_DELETES pins chat_messages to sender_user_id and a generic entry would be shadowed there.',
+    tables: ['chat_messages'],
   },
 ];

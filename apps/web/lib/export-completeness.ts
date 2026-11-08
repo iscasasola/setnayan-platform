@@ -135,6 +135,10 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'vendor_team_members', decision: 'exported', as: 'supplier_team_memberships' },
   // Added 2026-11-06 with the table (supplier claim scanner, slice 1): read by scanned_by_user_id, guest not selected.
   { table: 'supplier_scan_claims', decision: 'exported', as: 'supplier_scans_made' },
+  // Added 2026-11-09 with the tables (Supplier Build 3 · lane B): host seats in a supplier chat, read by user_id with
+  // the subject's own left_note (added_by_user_id not selected), and the per-person blocker show counts.
+  { table: 'chat_thread_members', decision: 'exported', as: 'chat_conversations_hosted' },
+  { table: 'chat_blocker_shows', decision: 'exported', as: 'chat_blocker_shows' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

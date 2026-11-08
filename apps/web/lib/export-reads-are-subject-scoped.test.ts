@@ -115,6 +115,9 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_member_token_wallets: eqUid('user_id'),
   vendor_team_members: eqUid('user_id'),
   supplier_scan_claims: eqUid('scanned_by_user_id'),
+  // Supplier Build 3 · lane B (2026-11-09): the subject's own host seats (with their own left_note) and blocker counts.
+  chat_thread_members: eqUid('user_id'),
+  chat_blocker_shows: eqUid('user_id'),
   // AUTHOR-scoped: a shared list or a shared day must not hand one person another's entries.
   event_preparation_items: eqUid('created_by'),
   budget_builds: eqUid('created_by'),

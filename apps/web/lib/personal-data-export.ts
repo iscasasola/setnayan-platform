@@ -891,6 +891,8 @@ export async function buildPersonalDataExport(
     tokenBalancesRes,
     teamMembershipsRes,
     supplierScansRes,
+    chatSeatsRes,
+    blockerShowsRes,
   ] = await Promise.all([
     // What Setnayan told this person in the app. Recipient-scoped: every row is
     // addressed to them. A body can quote a chat message somebody sent them, so
@@ -1090,6 +1092,23 @@ export async function buildPersonalDataExport(
           .eq('scanned_by_user_id', user.id)
           .order('claimed_at', { ascending: true })
       : Promise.resolve(null),
+    // The supplier conversations this person is a HOST in (migration 20271330575424), when they joined, when they
+    // left, and the note they left behind (20271330723629). Read privileged because `left_note` is withheld from the
+    // `authenticated` column grant (the member reads their own through chat_thread_my_left_note()); bounded by
+    // user_id = the subject. `added_by_user_id` is NOT selected — who seated them is the other host's act.
+    admin
+      ? admin
+          .from('chat_thread_members')
+          .select('thread_id, joined_at, left_at, left_note')
+          .eq('user_id', user.id)
+          .order('joined_at', { ascending: true })
+      : Promise.resolve(null),
+    // How many times this person was shown each unanswered chat blocker (migration 20271331503438) — the count that
+    // sets their "Return to chat in N" hold. Own-read policy, subject-scoped.
+    supabase
+      .from('chat_blocker_shows')
+      .select('thread_id, blocker_kind, subject_key, shown_count, first_shown_at, last_shown_at')
+      .eq('user_id', user.id),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -1178,6 +1197,8 @@ export async function buildPersonalDataExport(
   const tokenBalances = listOutcome('retired_token_balances', tokenBalancesRes);
   const teamMemberships = listOutcome('supplier_team_memberships', teamMembershipsRes);
   const supplierScans = listOutcome('supplier_scans_made', supplierScansRes, adminUnavailable);
+  const chatSeats = listOutcome('chat_conversations_hosted', chatSeatsRes, adminUnavailable);
+  const blockerShows = listOutcome('chat_blocker_shows', blockerShowsRes);
 
   // Receipt links for the ledger: presigned from the payment-proof folder of the
   // row's OWN event (the only folder its writer accepts), with the expiry the
@@ -1319,6 +1340,8 @@ export async function buildPersonalDataExport(
     tokenBalances,
     teamMemberships,
     supplierScans,
+    chatSeats,
+    blockerShows,
   ]);
 
   const exported = {
@@ -1491,6 +1514,10 @@ export async function buildPersonalDataExport(
     // Claim scans you made as a supplier's crew — what you scanned for which shop, when, and its number. The guest
     // you scanned is theirs, not yours, and is not in your file.
     supplier_scans_made: supplierScans.rows,
+    // The supplier conversations you are (or were) a host in — joined, left, and the note you left.
+    chat_conversations_hosted: chatSeats.rows,
+    // How often each unanswered chat reminder was shown to you.
+    chat_blocker_shows: blockerShows.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

@@ -4038,6 +4038,48 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'A code issued before #34 has no lines and writes NO quote — never invent one from the Total. The claim supersedes the shop’s earlier live quotes on the event first, so exactly one accepted quote states the deal; a reader that assumes the conversation wrote the accepted quote is wrong for a QR booking.',
   },
+  {
+    /**
+     * 🃏 SERVICE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26, DECISION_LOG "SERVICE CARD CHECKS — FIX BEFORE
+     * CREATE" + "ONE PHOTO, ONE SERVICE CARD" + "NO PRICE CHECK ON SERVICE CARDS AT ALL"; migration
+     * …_service_card_checks_fix_before_create, rebuilt from the stale #6956 whose J57 was taken; J65 went to the Booked QR). The shipped maker draws
+     * each problem on its row and keeps Create / Save shut; the save re-checks and REFUSES — nothing is held or queued.
+     * Three checks: claim words (`card_claim_words`, admin data, with a per-shop allowance), the card matches its
+     * service (the live taxonomy + reviewed aliases — no new data), and one photo = one service card: a cover/showcase
+     * hash names the CARD it is on (`vendor_image_hashes.vendor_service_id`), so a photo already on another card — any
+     * shop, this one included — is refused. "It's mine — report it" is a note on the repost-watch row, read as a list.
+     */
+    id: 'J66',
+    claims: [
+      { kind: 'table', table: 'card_claim_words' },
+      { kind: 'column', table: 'card_claim_words', column: 'phrase' },
+      { kind: 'table', table: 'card_claim_word_allowances' },
+      { kind: 'fk', table: 'card_claim_word_allowances', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'card_claim_word_allowances', column: 'phrase', references: 'card_claim_words' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'vendor_image_hashes', name: 'vendor_image_hashes_surface_check', mentions: 'service_showcase' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_reported_at' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_report_note' },
+      { kind: 'unique', table: 'vendor_image_flags', columns: ['flagged_r2_ref', 'source_r2_ref'] },
+      { kind: 'no_column', table: 'vendor_services', column: 'held' },
+      { kind: 'no_column', table: 'platform_settings', column: 'card_price_band_tolerance' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
+    title: 'Service card → the checks before Create (claim words · its service · one photo, one card)',
+    joint: 'vendor_image_hashes.vendor_service_id',
+    cardinality:
+      'A photo (by pHash within the admin-set Hamming threshold) is on at most one service card across every shop; each cover/showcase hash names its card (nullable — portfolio and moodboard hashes, dropped photos and deleted cards name none) · a shop holds at most one allowance per word · one report per photo pair (UNIQUE flagged_r2_ref, source_r2_ref)',
+    implementedBy:
+      'card_claim_words (phrase PK, lower-case, admin-only RLS, seeded with six) · card_claim_word_allowances (vendor_profile_id, phrase) PK, admin-only, CASCADE with the word or the shop · vendor_image_hashes.vendor_service_id → vendor_services ON DELETE SET NULL (a deleted card frees its photos), backfilled for existing cover hashes · vendor_image_flags.supplier_reported_at + supplier_report_note (≤200) · surface service_showcase',
+    writtenBy:
+      'the seed (the owner\u2019s six words) · the words + allowances editor on /admin/repost-watch (app/admin/repost-watch/actions.ts) · commitVendorService after() — hashAndScanVendorImages names the card on the cover AND showcase hashes, releaseCardPhotos frees a dropped photo · reportCardPhotoAction ("It\u2019s mine — report it", app/vendor-dashboard/services/card-check-actions.ts)',
+    guardedBy:
+      'RLS: card_claim_words + card_claim_word_allowances admin-only (the maker\u2019s page and the save read them with the service role); vendor_image_hashes / vendor_image_flags admin-only as before · the save re-asks cardCheckRefusal before save_vendor_service · tests/db/a-claim-word-list-is-admin-only.db.test.ts · tests/db/one-photo-one-card-schema.db.test.ts · lib/service-card-checks.test.ts · app/vendor-dashboard/services/the-card-checks-run-before-create.test.ts',
+    traps:
+      'No price anything — the owner removed it (no column, no setting). A hash blocks another card only while it NAMES one: a hash made before this rule names its card only if the backfill matched its cover; an unhashed or unreadable photo is "unchecked" and lets the card through (fail-open, said on the row). The maker\u2019s photo verdict never carries the other shop — the report action re-asks the match server-side.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

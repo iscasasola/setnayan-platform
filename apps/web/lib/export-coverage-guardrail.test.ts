@@ -184,6 +184,12 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-08 (service card checks, migration 20271328838140) ──
+  card_claim_words:
+    'Admin configuration (a claim-word list). The only user column is created_by — the ADMIN who added the word, an actor stamp, not the subject of the row; nothing here was typed by or is about the exporting person.',
+  card_claim_word_allowances:
+    'Admin configuration (which shop may use a word). The only user column is granted_by — the ADMIN who allowed it, an actor stamp; the row is about a shop and a word, not the exporting person.',
+
   // ── added 2026-11-04 with the table itself (the supplier claim scanner, slice 1) ──
   supplier_scan_sessions:
     'A supplier’s group shot (one number, its prints). opened_by_user_id is the crew member who tapped New shot — a ' +

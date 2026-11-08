@@ -170,3 +170,75 @@ export async function resolveQrMediaFlag(formData: FormData) {
 
   revalidatePath('/admin/repost-watch');
 }
+
+// ── 🃏 SERVICE CARD CHECKS — the claim words and the per-shop allowance (owner 2026-10-26) ──────────────────────────
+//
+// The card maker refuses a card carrying a word from `card_claim_words` (lib/service-card-checks.ts) until it is
+// reworded; admin edits the list here, and may let ONE shop use ONE word (`card_claim_word_allowances`). Both tables
+// are admin-only under RLS; the writes go through the service-role client like the rest of this page. A save never
+// resets the screen: each action revalidates in place (no navigation); only a refused input returns to the section.
+
+const WORDS_REFUSED = '/admin/repost-watch?words_error=1#card-claim-words';
+
+function cleanPhrase(v: FormDataEntryValue | null): string | null {
+  if (typeof v !== 'string') return null;
+  const p = v.trim().toLowerCase().replace(/\s+/g, ' ');
+  return p.length >= 1 && p.length <= 60 ? p : null;
+}
+
+function cleanNote(v: FormDataEntryValue | null): string | null {
+  if (typeof v !== 'string') return null;
+  const n = v.trim().slice(0, 200);
+  return n.length > 0 ? n : null;
+}
+
+export async function addCardClaimWord(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const phrase = cleanPhrase(formData.get('phrase'));
+  if (!phrase) redirect(WORDS_REFUSED);
+  const { error } = await createAdminClient()
+    .from('card_claim_words')
+    .upsert({ phrase, note: cleanNote(formData.get('note')), created_by: userId }, { onConflict: 'phrase' });
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/repost-watch');
+}
+
+export async function removeCardClaimWord(formData: FormData) {
+  await requireAdmin();
+  const phrase = cleanPhrase(formData.get('phrase'));
+  if (!phrase) throw new Error('Invalid input');
+  const { error } = await createAdminClient().from('card_claim_words').delete().eq('phrase', phrase);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/repost-watch');
+}
+
+export async function grantCardClaimWordAllowance(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const phrase = cleanPhrase(formData.get('phrase'));
+  const shop = formData.get('vendor_profile_id');
+  if (!phrase || typeof shop !== 'string' || !/^[0-9a-f-]{36}$/i.test(shop)) {
+    redirect(WORDS_REFUSED);
+  }
+  const { error } = await createAdminClient()
+    .from('card_claim_word_allowances')
+    .upsert(
+      { vendor_profile_id: shop, phrase, note: cleanNote(formData.get('note')), granted_by: userId },
+      { onConflict: 'vendor_profile_id,phrase' },
+    );
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/repost-watch');
+}
+
+export async function removeCardClaimWordAllowance(formData: FormData) {
+  await requireAdmin();
+  const phrase = cleanPhrase(formData.get('phrase'));
+  const shop = formData.get('vendor_profile_id');
+  if (!phrase || typeof shop !== 'string') throw new Error('Invalid input');
+  const { error } = await createAdminClient()
+    .from('card_claim_word_allowances')
+    .delete()
+    .eq('vendor_profile_id', shop)
+    .eq('phrase', phrase);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/repost-watch');
+}

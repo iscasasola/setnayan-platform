@@ -42,7 +42,6 @@ export default async function ChatCardsLab({ searchParams }: { searchParams: Pro
             threadId="00000000-0000-4000-8000-00000000c0de"
             returnPath="/dev/chat-cards-lab"
             eventDate={EVENT_DAY}
-            onClose={undefined}
             initialStep={step - 1}
             seed={seed}
           />

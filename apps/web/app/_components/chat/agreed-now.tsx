@@ -56,7 +56,7 @@ export async function AgreedNow({
   const failed = Boolean(ev.error || !ev.data || quotes.error || appts.error);
   if (failed) {
     return (
-      <section data-agreed-now="" data-read="failed" className="rounded-2xl border border-ink/10 bg-white px-4 py-3">
+      <section data-agreed-now="" data-read="failed">
         <h2 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/55">Agreed now</h2>
         <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load what is agreed. Pull to refresh, or open it again in a moment.</p>
       </section>

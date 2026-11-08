@@ -52,7 +52,7 @@ export function ChatCardShell({
       id={anchorId}
       data-chat-card={topic}
       aria-label={title}
-      className={`my-2 scroll-mt-3 overflow-hidden rounded-2xl border border-ink/12 bg-white transition-shadow duration-[var(--sn-pill-dur)] data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)] dark:bg-ink/[0.04] ${place}`}
+      className={`my-2 scroll-mt-3 overflow-hidden rounded-2xl border border-ink/12 bg-white transition-shadow duration-[var(--sn-pill-dur)] data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)] dark:bg-ink/[0.04] ${place}` /* no-card-ok: a (+) card IS a message in the chat — the prototype's framed card */}
     >
       <header className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2.5 px-4 pb-2 pt-3">
         <span aria-hidden className="grid h-8 w-8 place-items-center rounded-full bg-sn-accent/10 text-sn-accent">

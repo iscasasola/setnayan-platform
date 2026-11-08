@@ -125,7 +125,7 @@ export function ChatBlocker({
         style={{ transform: risen ? 'none' : 'translateY(24px)', opacity: risen ? 1 : 0 }}
       >
         <div className="flex items-center gap-2.5">
-          <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-danger-100 text-danger-700">
+          <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full bg-danger-100 text-danger-800">
             <Icon className="h-5 w-5" strokeWidth={1.9} />
           </span>
           <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-danger-700">Needs you first</span>

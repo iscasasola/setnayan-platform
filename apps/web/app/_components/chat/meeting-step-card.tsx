@@ -15,10 +15,12 @@
 import { useId, useState } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { DateRow } from '@/app/_components/form-row-date';
+import { TypedRow } from '@/app/_components/form-row';
 import { MeetingHowFields } from '@/app/_components/meeting-how-fields';
 import { createScheduleRequestFromChat } from '@/app/_components/negotiation-actions';
 import { TIME_SLOTS, dayBeforeEventIso, todayIsoLocal } from '@/lib/appointment-slots';
 import { ChatStepCard, type ChatCardStep } from './chat-step-card';
+import { dayWords } from '@/lib/agreed-now';
 
 const KINDS = [
   { key: 'Ocular visit', label: 'Ocular visit' },
@@ -40,7 +42,7 @@ export function MeetingStepCard({
   threadId: string;
   returnPath: string;
   eventDate: string | null;
-  onClose: () => void;
+  onClose?: () => void;
   onSent?: () => void;
   anchorId?: string;
   /** Labs only — open on a given step with fields filled. */
@@ -76,14 +78,17 @@ export function MeetingStepCard({
             dataAttr="data-meeting-kind"
           />
           {kind === 'other' ? (
-            <input
-              className="input-field h-11 text-[16px]"
-              placeholder="Name it"
+            <TypedRow
+              name="Name the meeting"
               value={name}
+              empty="Name it"
+              placeholder="Name it"
               maxLength={120}
-              onChange={(e) => setName(e.target.value)}
-              aria-label="Name the meeting"
-              autoFocus
+              openAsk={1}
+              onType={(v) => setName(v)}
+              onKeep={(v) => {
+                setName(v);
+              }}
             />
           ) : null}
         </div>
@@ -123,7 +128,7 @@ export function MeetingStepCard({
     },
     {
       title: 'How will you meet?',
-      sub: date && timeLabel ? `${title} · ${date} · ${timeLabel}` : undefined,
+      sub: date && timeLabel ? `${title} · ${dayWords(date) ?? date} · ${timeLabel}` : undefined,
       body: <MeetingHowFields />,
       ok: true,
     },

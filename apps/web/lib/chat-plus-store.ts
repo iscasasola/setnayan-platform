@@ -73,7 +73,17 @@ export function jumpTo(anchorId: string): void {
   if (typeof document === 'undefined') return;
   const el = document.getElementById(anchorId);
   if (!el) return;
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Scroll ONLY the conversation's own scroller — `scrollIntoView` would also scroll the page behind the chat frame and
+  // push the head off screen (seen at 390 px).
+  let box: HTMLElement | null = el.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) {
+    box = box.parentElement;
+  }
+  if (box) {
+    const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    box.scrollTo({ top: Math.max(0, top - box.clientHeight / 2 + el.clientHeight / 2), behavior: reduce ? 'auto' : 'smooth' });
+  }
   el.setAttribute('data-hot', '');
   window.setTimeout(() => el.removeAttribute('data-hot'), 1400);
 }

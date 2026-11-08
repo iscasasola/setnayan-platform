@@ -23,8 +23,11 @@
 
 import Link from 'next/link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Share } from 'lucide-react';
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { FileText, Paperclip, Share, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -116,7 +119,7 @@ import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
-import { setPrivateTo } from './chat/private-to';
+import { setPrivateTo, usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -186,8 +189,13 @@ type Props = {
   /** 👥 Your own face → "Leave this chat?" — a host only (never the supplier, coordinator or planner). Absent → no
    *  Leave. A host leaving (the optional note is stored for them only — never in the "left" line). Lane B's write. */
   memberLeave?: ((note: string | null) => Promise<void>) | null;
-  /** 📞 The page's `BookedCallButtons`, drawn at the end of the host strip (the picked page's head). */
+  /**
+   * 📞 The page's `BookedCallButtons`. Inside a picked shell they go to its pinned head row with the 📎 (v8.3:
+   * title · 📞 · 🎥 · 📎 · ⚙ · ✕ — `PickedHeadContext`); elsewhere they sit at the end of the host strip.
+   */
   headCalls?: React.ReactNode;
+  /** ⓘ The privacy words a picked chat keeps one tap away on the strip's "Shared chat" line (no notice row — v8.3). */
+  headNote?: React.ReactNode;
   /**
    * 📐 Lane B's pins and Waiting line — drawn INSIDE the one pinned stack (`ChatPinnedStack`, capped at 4/9 of the
    * screen, scrolling inside itself). Nothing pinned above the messages is drawn outside it.
@@ -394,6 +402,7 @@ export function ChatMessageStream({
   memberAdd = null,
   memberLeave = null,
   headCalls = null,
+  headNote = null,
   pins = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
@@ -719,6 +728,15 @@ export function ChatMessageStream({
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
   const [view, setViewState] = useState<ThreadView>(initialView);
+  /**
+   * 📌 INSIDE A PICKED SHELL (v8.3, approved 9 Nov) there is no Chat · Decisions · Files row: the head's 📎 opens Files
+   * and Decisions as ONE panel inside the pinned stack, and the conversation stays under it. A link that names
+   * `?view=decisions|files` lands with that panel open.
+   */
+  const headSlot = useContext(PickedHeadContext);
+  const inPicked = headSlot !== null;
+  const [filesOpen, setFilesOpen] = useState(initialView !== 'all');
+  const privateNow = usePrivateTo(threadId);
 
   /**
    * Switching views rewrites the URL IN PLACE — `replaceState`, not a
@@ -1230,22 +1248,60 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={headCalls} /> : null}
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
-              THE SWITCH — above the conversation, at every width. On a phone this
+              THE SWITCH — above the conversation, at every width, on the routed thread pages. On a phone this
               row may be the most useful thing on the screen: the whole standing of a
               booking without scrolling a month of chat. It is never breakpoint-hidden.
+              Inside a picked shell the head's 📎 carries it instead (v8.3: no second tab row under the page menu).
             */}
-            <ThreadViewSwitch
-              view={view}
-              onChange={setView}
-              decisionsCount={decisions.length}
-              needsYouCount={needsYouCount}
-              filesCount={files.length}
-            />
+            {inPicked ? null : (
+              <ThreadViewSwitch
+                view={view}
+                onChange={setView}
+                decisionsCount={decisions.length}
+                needsYouCount={needsYouCount}
+                filesCount={files.length}
+              />
+            )}
           </>
         }
       >
+      {inPicked && filesOpen ? (
+        <section className="pb-2" aria-label="Files and decisions in this chat" data-picked-files-panel="">
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
+              Files · {files.length} · newest first
+            </h2>
+            <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
+          </div>
+          <FilesPanel files={files} />
+          {decisions.length > 0 ? (
+            <>
+              <h2 className="pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">Decisions · {decisions.length}</h2>
+              <DecisionsPanel
+                entries={decisions}
+                standing={standing}
+                counterpartyLabel={counterpartyLabel}
+                needsYouCount={needsYouCount}
+                reply={{
+                  threadId,
+                  eventId: messages[0]?.event_id ?? '',
+                  vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+                  returnPath: withThreadView(
+                    viewerRole === 'couple' && messages[0]
+                      ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+                      : `/vendor-dashboard/messages/${threadId}`,
+                    'decisions',
+                  ),
+                  eventDate,
+                  supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+                }}
+              />
+            </>
+          ) : null}
+        </section>
+      ) : null}
       {pins}
       {(() => {
         // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
@@ -1261,7 +1317,26 @@ export function ChatMessageStream({
       })()}
       </ChatPinnedStack>
 
-      {view === 'decisions' ? (
+      {/* 📞 🎥 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private. */}
+      {headSlot
+        ? createPortal(
+            <>
+              {headCalls}
+              <ActionButton
+                tone="neutral"
+                iconOnly
+                icon={Paperclip}
+                label="Files in this chat"
+                aria-expanded={filesOpen}
+                disabled={privateNow !== null}
+                onClick={() => setFilesOpen((was) => !was)}
+                data-testid="picked-files-open"
+              />
+            </>,
+            headSlot,
+          )
+        : null}
+      {!inPicked && view === 'decisions' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <DecisionsPanel
             entries={decisions}
@@ -1288,7 +1363,7 @@ export function ChatMessageStream({
             }}
           />
         </div>
-      ) : view === 'files' ? (
+      ) : !inPicked && view === 'files' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>

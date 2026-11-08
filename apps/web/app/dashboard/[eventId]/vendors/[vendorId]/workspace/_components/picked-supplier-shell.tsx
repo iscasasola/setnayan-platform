@@ -46,6 +46,7 @@ export function PickedSupplierShell({
   menu,
   initialPage,
   bodies,
+  chatUnread = null,
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -54,11 +55,14 @@ export function PickedSupplierShell({
   menu: PickedSupplierMenuEntry[];
   initialPage: PickedSupplierPage;
   bodies: Record<PickedSupplierPage, ReactNode>;
+  /** 🔴 The Chat tab's unread count (`readThreadUnreadCount`); null = unmeasured or no chat — no badge. */
+  chatUnread?: number | null;
 }) {
   return (
     <PickedShell<PickedSupplierPage>
       // 📌 Chat fills the body and scrolls inside itself — the shell's pinned row and menu stay put above it.
       fillPages={['chat']}
+      badges={{ chat: chatUnread }}
       pickedId={eventVendorId}
       title={supplierName}
       menu={menu}

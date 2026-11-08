@@ -28,7 +28,7 @@ import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
+import { ChatPrivacyTip, ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
@@ -776,7 +776,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             />
             )
           }
-          notice={<ChatSafetyBanner inBox />}
+          notice={embedded ? null : <ChatSafetyBanner inBox />}
           composer={
             blocked ? (
               <div className="px-2 py-1 text-sm text-ink/70">
@@ -898,9 +898,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
               endDate: eventDay?.event_end_date ?? null,
               precision: eventDay?.event_date_precision ?? null,
             }}
-            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand at the strip's end.
+            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand in the picked head row
+            // (title · 📞 · 🎥 · 📎 · ⚙ · ✕, v8.3), and the privacy words sit behind the strip's ⓘ instead of a notice row.
             // (Kept LAST: its JSX value closes with `/>`, and the guards that read this tag walk to the first `>`.)
-            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} /> } : {})}
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />, headNote: <ChatPrivacyTip viewer="couple" /> } : {})}
           />
         </ChatBox>
   );

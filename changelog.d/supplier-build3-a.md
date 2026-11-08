@@ -53,6 +53,14 @@ Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the
   - the lab Details stand-in drops a ₱ figure (a public-price guard);
   - type fixes in `private-to.ts`, `picked-shell.tsx`, the send route's refusal map and the lab.
 - Labs: `&pins=tall` draws a tall pin region to measure pinned-stays-pinned.
+- **Round 2 — v8.3 as drawn (approved 9 Nov).**
+  - Picked head row = title · 📞 · 🎥 · 📎 · ⚙ · ✕: `PickedShell` draws an action slot (`PickedHeadContext`) and the stream portals the booked calls and the 📎 into it. The calls leave the host strip, so its (+) is no longer clipped at 390.
+  - No Chat · Decisions · Files row in a picked chat: 📎 opens Files and Decisions as one panel inside the 4/9 stack (greyed while private). The routed thread pages keep their switch.
+  - No notice row in a picked chat: the privacy words sit behind an ⓘ on the strip's "Shared chat" line (`ChatPrivacyTip`). The supplier's copy is the locked 0019 copy and is still never dismissible.
+  - Composer (+) · 🔒 · box · Send: with a (+), 📷 and 🖼 move inside it (the sheet's Camera · Photo rows click `CHAT_CAMERA_INPUT_ID` / `CHAT_PHOTO_INPUT_ID`). The labs mount a (+); `ComposerPlusSheet` `more` is Lane B's slot for the supplier's (+) rows.
+  - Unread badge on the Chat tab: `readThreadUnreadCount` (`lib/couple-inbox.ts`, the ✉ dot's rule for one thread) on both picked pages; it leaves once Chat is opened.
+  - Tabs at v8.3 size (66 px, 13 px, 20 px icons), so Forms peeks at 390.
+  - Guard: `lib/the-picked-head-carries-the-chat-actions.test.ts` (6 tests, each sabotage-checked).
 - No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
 - Guards (each sabotage-checked):
   - `lib/a-private-message-looks-private.test.ts`;

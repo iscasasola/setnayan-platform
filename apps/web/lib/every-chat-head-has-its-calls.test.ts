@@ -12,6 +12,8 @@
  *
  * No new gate: an unbooked shop still renders nothing (lib/no-door-out-of-the-app.test.ts).
  *
+ * Round 2 (v8.3): inside a picked shell the calls go to the picked head row, not the strip — test 1 holds both homes.
+ *
  * Sabotage (9 Nov 2026): `headCalls` dropped from the supplier thread page → 1 RED; `calls` dropped from the strip's
  * couldn't-load state → 2 RED.
  */
@@ -78,7 +80,11 @@ test('1 · every chat that draws the host strip also hands it the booked call bu
     assert.match(calls[0], /\bbooked=\{shopBooked\}/, `${rel}: the picked chat's calls are not keyed on the booking check`);
   }
   // The stream hands them to the strip.
-  assert.match(read('app/_components/chat-message-stream.tsx'), /<ChatHostStrip\b[^>]*\bcalls=\{headCalls\}/, 'the stream drops the head calls');
+  // The stream hands them on: to the picked head row inside a picked shell (v8.3 — title · 📞 · 🎥 · 📎 · ⚙ · ✕, held by
+  // lib/the-picked-head-carries-the-chat-actions.test.ts), to the strip everywhere else. Never dropped.
+  const stream = read('app/_components/chat-message-stream.tsx');
+  assert.match(stream, /<ChatHostStrip\b[^>]*\bcalls=\{inPicked \? null : headCalls\}/, 'the stream drops the head calls off a picked page');
+  assert.match(stream, /createPortal\(\s*<>\s*\{headCalls\}/, 'the picked head row lost the calls');
 });
 
 test('2 · the strip draws the calls with the faces AND when who-is-here could not load', () => {

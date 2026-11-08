@@ -44,6 +44,7 @@ import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { prepareChatFile, uploadPreparedChatFile } from '@/lib/chat-file-prepare';
 import { CHAT_ATTACHMENT_ACCEPT, chatAttachmentLimit } from '@/lib/chat-attachment-limits';
+import { CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 import { useTapAway } from '@/app/_components/typing-band';
 import {
@@ -60,6 +61,9 @@ import {
 const MEDIA_ACCEPT = CHAT_ATTACHMENT_ACCEPT.split(',')
   .filter((t) => t.startsWith('image/') || t.startsWith('video/'))
   .join(',');
+
+/** A visible 📷 / 🖼 shortcut (only on a composer with no ＋). */
+const SHORTCUT = 'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]';
 
 type Props = {
   threadId: string;
@@ -424,18 +428,19 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             }}
           />
         </label>
-        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). They slide out with the rest while a message is being
-            written, so the field takes their room; both hand the file to the ONE input above. */}
+        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). With a ＋ (`lead`) they live INSIDE it (v8.3, approved
+            9 Nov: (+) · 🔒 · box · Send): the labels are clipped and the sheet's Camera / Photo rows click their inputs by
+            id. Without one they stay visible beside the paperclip. Both hand the file to the ONE input above. */}
           <>
-            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Camera" data-chat-camera="">
+            <label className={lead ? 'sr-only' : SHORTCUT} title="Camera" data-chat-camera="">
               <span className="sr-only">Camera</span>
               <Camera aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
-              <input ref={cameraRef} type="file" accept={MEDIA_ACCEPT} capture="environment" className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
+              <input ref={cameraRef} id={CHAT_CAMERA_INPUT_ID} type="file" accept={MEDIA_ACCEPT} capture="environment" className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
-            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Photo" data-chat-photo="">
+            <label className={lead ? 'sr-only' : SHORTCUT} title="Photo" data-chat-photo="">
               <span className="sr-only">Photo</span>
               <ImageIcon aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
-              <input ref={photoRef} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
+              <input ref={photoRef} id={CHAT_PHOTO_INPUT_ID} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
           </>
         </div>

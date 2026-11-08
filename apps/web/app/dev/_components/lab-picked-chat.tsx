@@ -6,7 +6,8 @@
  * a lab stand-in that writes nothing. Only ever imported by `/dev/*` pages, which 404 in production.
  */
 import { ChatBox } from '@/app/_components/chat/chat-box';
-import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
+import { ChatPrivacyTip } from '@/app/_components/chat-privacy-notice';
+import { ComposerPlusSheet, CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
@@ -88,8 +89,19 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
     <div data-picked-lab-chat={side} className="flex min-h-0 flex-1 flex-col">
       <ChatBox
         header={null}
-        notice={<ChatSafetyBanner inBox />}
-        composer={<ChatSendForm threadId={threadId} sendAction={actions.send} attachInputId={CHAT_ATTACH_INPUT_ID} userId={side === 'couple' ? LAB_USER : LAB_STAFF} />}
+        // v8.3: no notice row in a picked chat — the words sit behind the strip's ⓘ (`headNote` below).
+        notice={null}
+        // v8.3 composer: (+) · 🔒 · box · Send. The host's (+) is the shipped couple sheet; the supplier's carries the
+        // shipped attach actions only — `more` is Lane B's slot for the supplier's (+) content.
+        composer={
+          <ChatSendForm
+            threadId={threadId}
+            sendAction={actions.send}
+            lead={side === 'couple' ? <CoupleThreadToolsSheet dealReveal={null} /> : <ComposerPlusSheet sheetMark="lab-vendor" more={[]} />}
+            attachInputId={CHAT_ATTACH_INPUT_ID}
+            userId={side === 'couple' ? LAB_USER : LAB_STAFF}
+          />
+        }
       >
         <ChatMessageStream
           flush
@@ -107,6 +119,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           // 👥 The ＋ and Leave are the event side's only — the supplier's chat passes neither.
           {...(side === 'couple' && actions.add && actions.leave ? { memberAdd: { candidates: LAB_ADDABLE, add: actions.add }, memberLeave: actions.leave } : {})}
           counterpartyLabel={counterpartyLabel}
+          headNote={<ChatPrivacyTip viewer={side} />}
           {...(tallPins ? { pins: <LabPins /> } : {})}
           senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
           fileExpiry={{ eventDate: '2026-12-18', precision: 'day' }}

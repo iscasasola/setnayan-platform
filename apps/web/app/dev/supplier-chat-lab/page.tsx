@@ -158,6 +158,8 @@ export default async function SupplierChatLabPage({
             bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
+            // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
+            chatUnread={sp.msgs === '0' ? 0 : 2}
           />
         ) : null}
       </SupplierLabShell>

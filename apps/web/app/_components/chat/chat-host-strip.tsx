@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { Check, Plus, UserPlus, Users } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { showsAddAll, stripOrder } from '@/lib/chat-members';
@@ -52,6 +53,7 @@ export function ChatHostStrip({
   leave = null,
   viewerSide = 'vendor',
   calls = null,
+  note = null,
 }: {
   /** NULL = the hosts read was refused: said as such, never as an empty chat. */
   hosts: readonly ChatHost[] | null;
@@ -72,6 +74,10 @@ export function ChatHostStrip({
    * 🔒 lib/every-chat-head-has-its-calls.test.ts
    */
   calls?: ReactNode;
+  /**
+   * ⓘ The chat's privacy words, one tap away on the "Shared chat" line (a picked chat draws no notice row — v8.3).
+   */
+  note?: ReactNode;
 }) {
   const [leaving, setLeaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -110,7 +116,7 @@ export function ChatHostStrip({
           the first avatar still lines up with the line below) and snaps inside that padding (`scroll-px-1`). */}
       <div className="flex items-start gap-2">
       <ul
-        className="-mx-1 flex min-w-0 flex-1 snap-x snap-mandatory scroll-px-1 gap-2 overflow-x-auto p-1 [scrollbar-width:none]"
+        className="-mx-1 flex min-w-0 flex-1 snap-x snap-mandatory scroll-px-1 gap-1.5 overflow-x-auto p-1 [scrollbar-width:none]"
         aria-label={`Shared chat · ${people.length} inside`}
       >
         {people.map((p) => {
@@ -186,7 +192,13 @@ export function ChatHostStrip({
       ) : null}
       </div>
       <p className="text-[11px] text-ink/55">
-        Shared chat · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}
+        {note ? (
+          <InfoTip label={`Shared chat · ${people.length} inside${inNow > 0 ? ` · ${inNow} in the chat now` : ''}`} align="start">
+            {note}
+          </InfoTip>
+        ) : (
+          <>Shared chat · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}</>
+        )}
       </p>
       {leave ? (
         <LeaveChatDialog

@@ -68,6 +68,7 @@ export function PickedClientShell({
   scrollToScript = false,
   settingsLine,
   settings,
+  chatUnread = null,
 }: {
   eventId: string;
   eventName: string;
@@ -82,11 +83,14 @@ export function PickedClientShell({
   settingsLine: { line: string; tip: string };
   /** The ⚙ sheet's rows (shipped facts only). */
   settings: ReactNode;
+  /** 🔴 The Chat tab's unread count (`readThreadUnreadCount`); null = unmeasured or no chat — no badge. */
+  chatUnread?: number | null;
 }) {
   return (
     <PickedShell<PickedClientPage>
       // 📌 Chat fills the body and scrolls inside itself — the shell's pinned row and menu stay put above it.
       fillPages={['chat']}
+      badges={{ chat: chatUnread }}
       pickedId={eventId}
       title={eventName}
       menu={menu}

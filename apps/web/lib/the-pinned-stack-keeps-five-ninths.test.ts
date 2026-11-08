@@ -71,10 +71,17 @@ test('2 · the stream pins the strip, Lane B\'s pins, the switch and the expiry 
   ] as const) {
     assert.match(inside, re, `${what} is drawn outside the pinned stack`);
   }
-  // …and it closes before every scroller below it.
-  for (const scroller of ["view === 'decisions' ?", '<DecisionsPanel', '<FilesPanel', 'ref={listRef}']) {
-    const at = s.indexOf(scroller);
-    assert.ok(at > close, `${scroller} sits inside the pinned stack`);
+  // …and it closes before every scroller below it (the routed pages' full Decisions / Files views and the messages).
+  // v8.3 round 2: inside a picked shell the 📎 opens Files + Decisions as a PANEL inside the stack, on purpose — so the
+  // full views are counted from the stack's close, and the in-stack copies must be that panel and nothing else.
+  const below = s.slice(close);
+  for (const scroller of ["{!inPicked && view === 'decisions' ?", '<DecisionsPanel', '<FilesPanel', 'ref={listRef}']) {
+    assert.ok(below.includes(scroller), `${scroller} is not below the pinned stack`);
+  }
+  for (const panel of ['<DecisionsPanel', '<FilesPanel']) {
+    const inStack = inside.split(panel).length - 1;
+    assert.ok(inStack <= 1, `${panel} is drawn more than once inside the stack`);
+    if (inStack) assert.match(inside, new RegExp(`\\{inPicked && filesOpen \\? \\([\\s\\S]*${panel}`), `${panel} is inside the stack outside the picked 📎 panel`);
   }
   // No second cap anywhere under app/ (the constant has one home).
   const hits: string[] = [];

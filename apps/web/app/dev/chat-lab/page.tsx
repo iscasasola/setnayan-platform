@@ -131,6 +131,8 @@ export default async function ChatLabInboxPage({
           menu={pickedSupplierMenuFor({ quote: true, chat: true })}
           initialPage={page}
           bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
+          // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
+          chatUnread={sp.msgs === '0' ? 0 : 2}
         />
       ) : null}
     </LabShell>

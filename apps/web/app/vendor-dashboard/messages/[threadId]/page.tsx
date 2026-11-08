@@ -121,6 +121,7 @@ import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { ChatPrivacyTip } from '@/app/_components/chat-privacy-notice';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
@@ -1731,7 +1732,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 </p>
               ) : null}
               {answerLine}
-              <ChatPrivacyNotice inBox viewer="vendor" />
+              {embedded ? null : <ChatPrivacyNotice inBox viewer="vendor" />}
             </>
           }
           pinned={
@@ -2133,9 +2134,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
               endDate: eventFileDay?.event_end_date ?? null,
               precision: eventFileDay?.event_date_precision ?? null,
             }}
-            // 📞 Inside the picked client the routed head is not drawn — its Call · Video call stand at the strip's end.
+            // 📞 Inside the picked client the routed head is not drawn — its Call · Video call stand in the picked head row
+            // (title · 📞 · 🎥 · 📎 · ⚙ · ✕, v8.3), and the privacy words sit behind the strip's ⓘ instead of a notice row.
             // (Kept LAST: its JSX value closes with `/>`, and the guards that read this tag walk to the first `>`.)
-            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} /> } : {})}
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} />, headNote: <ChatPrivacyTip viewer="vendor" /> } : {})}
           />
         </ChatBox>
   );

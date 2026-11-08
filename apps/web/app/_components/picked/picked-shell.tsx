@@ -36,7 +36,7 @@ import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { nextPanelTabId, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PickedHeadContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
   PICKED_OPEN_MS,
@@ -86,6 +86,11 @@ export type PickedShellProps<P extends string> = {
    * never covers the shell's own head and menu.
    */
   fillPages?: readonly P[];
+  /**
+   * 🔴 A count on a menu entry (v8.3: the Chat tab's unread). A page's badge leaves once it is opened in this visit;
+   * 0 / null / absent draws nothing.
+   */
+  badges?: Partial<Record<P, number | null>>;
 };
 
 export function PickedShell<P extends string>({
@@ -102,6 +107,7 @@ export function PickedShell<P extends string>({
   scrollTo = null,
   gear = null,
   fillPages = [],
+  badges = {},
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -114,6 +120,12 @@ export function PickedShell<P extends string>({
   const thumbLayer = useMemo<ThumbLayer>(() => ({ host: thumbHost, column: thumbColumn }), [thumbHost, thumbColumn]);
   const [page, setPage] = useState<P>(initialPage);
   const [gearOpen, setGearOpen] = useState(false);
+  const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
+  // The pages opened in this visit — their badge has been seen (the page itself marks the read on the server side).
+  const [seen, setSeen] = useState<ReadonlySet<P>>(() => new Set([initialPage]));
+  useEffect(() => {
+    setSeen((was) => (was.has(page) ? was : new Set([...was, page])));
+  }, [page]);
   const originRef = useRef<PickedOrigin | null>(null);
   const closingRef = useRef(false);
   const headingId = useId();
@@ -304,9 +316,11 @@ export function PickedShell<P extends string>({
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
         <div ref={setThumbColumn} className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
-          <h1 id={headingId} className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink" data-pin-word="">
+          <h1 id={headingId} className="min-w-0 flex-1 truncate text-[20px] font-bold text-ink" data-pin-word="">
             {title}
           </h1>
+          {/* 📞 🎥 📎 — the page on show draws its own head actions here (`PickedHeadContext`; v8.3 head row). */}
+          <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
           {gear ? (
@@ -321,12 +335,13 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className="mx-auto flex w-full max-w-3xl gap-1 overflow-x-auto px-3 pb-2 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           data-picked-menu=""
         >
           {menu.map((m) => {
             const Icon: LucideIcon = icons[m.id];
             const on = m.id === page;
+            const count = seen.has(m.id) ? 0 : (badges[m.id] ?? 0);
             return (
               <button
                 key={m.id}
@@ -339,14 +354,23 @@ export function PickedShell<P extends string>({
                 tabIndex={on ? 0 : -1}
                 onClick={() => select(m.id)}
                 onKeyDown={(e) => onKeyDown(e, m.id)}
-                className={`flex min-h-[48px] min-w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
+                className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-[14px] px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
                   on
-                    ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] bg-white text-[rgb(var(--color-terracotta-700,154_98_52))]'
-                    : 'border border-transparent text-ink/80'
+                    ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] bg-white text-ink'
+                    : 'border border-transparent text-ink/70'
                 }`}
               >
-                <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.6} />
+                <Icon aria-hidden className="h-5 w-5" strokeWidth={1.7} />
                 <span>{m.label}</span>
+                {count > 0 ? (
+                  <small
+                    className="absolute right-2 top-0.5 h-4 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-sn-on-accent"
+                    data-picked-badge={m.id}
+                  >
+                    {count > 99 ? '99+' : count}
+                    <span className="sr-only"> unread</span>
+                  </small>
+                ) : null}
               </button>
             );
           })}
@@ -369,7 +393,9 @@ export function PickedShell<P extends string>({
           data-picked-page-body={page}
           {...(fills ? { 'data-picked-fill': '' } : {})}
         >
-          <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+          <PickedHeadContext.Provider value={headSlot}>
+            <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+          </PickedHeadContext.Provider>
         </div>
       </div>
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}

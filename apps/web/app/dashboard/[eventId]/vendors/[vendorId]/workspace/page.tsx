@@ -38,6 +38,7 @@ import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
 import { Suspense, type ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { readThreadUnreadCount } from '@/lib/couple-inbox';
 import { CLIENT_REFUND_SELECT, clientRefundOf, refundDayWords, refundedTotalPhp, type ClientRefund, type ClientRefundDbRow } from '@/lib/client-refunds';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
@@ -918,6 +919,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
+  // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
+  const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -2978,6 +2981,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     <PickedSupplierShell
       eventId={eventId}
       eventVendorId={ev.vendor_id}
+      chatUnread={await chatUnreadP}
       supplierName={displayName}
       menu={pickedMenu}
       // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none.

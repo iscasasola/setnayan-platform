@@ -27,3 +27,12 @@ export function nextPanelTabId(panelIds: readonly string[], currentId: string, k
   const step = key === 'ArrowRight' ? 1 : -1;
   return panelIds[(at + step + panelIds.length) % panelIds.length] ?? null;
 }
+
+/**
+ * 📌 THE PICKED HEAD'S ACTION SLOT (v8.3, approved 9 Nov: title · 📞 · 🎥 · 📎 · ⚙ · ✕). The shell draws an empty slot in
+ * its pinned row, between the title and ⚙, and hands it down; the page on show (Chat) portals its own head actions
+ * into it — the booked calls and the 📎 — so they sit in the ONE head row and leave the chat's host strip.
+ * `null` outside a picked shell (the routed thread pages keep their own head).
+ * 🔒 lib/the-picked-head-carries-the-chat-actions.test.ts
+ */
+export const PickedHeadContext = createContext<HTMLElement | null>(null);

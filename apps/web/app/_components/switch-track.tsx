@@ -53,10 +53,10 @@ export function SwitchTrack({ on, words }: { on: boolean; words?: { on: string; 
   if (!words) return <span aria-hidden data-on={on} className={SWITCH_TRACK} />;
   return (
     <span aria-hidden data-on={on} className={SWITCH_TRACK_WORDED}>
-      <span className="sn-switch-word sn-switch-word--on absolute inset-y-0 left-[11px] flex items-center text-[12px] font-semibold text-white">
+      <span className="sn-switch-word sn-switch-word--on absolute inset-y-0 left-[11px] flex items-center text-[12px] font-semibold text-sn-on-accent">
         {words.on}
       </span>
-      <span className="sn-switch-word sn-switch-word--off absolute inset-y-0 right-[10px] flex items-center text-[12px] font-semibold text-white">
+      <span className="sn-switch-word sn-switch-word--off absolute inset-y-0 right-[10px] flex items-center text-[12px] font-semibold text-sn-on-accent">
         {words.off}
       </span>
     </span>

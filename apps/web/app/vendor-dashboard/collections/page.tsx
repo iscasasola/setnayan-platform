@@ -4,6 +4,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { GalleryMedia } from '../shop/_components/gallery-media';
 import { loadCollectionsData } from './collections-data';
 import { PortfolioView } from './_components/portfolio-view';
+import { isMusicToolCategory, readVendorSongs } from '@/lib/songs';
+import { latestPhotoKey } from '@/lib/supplier-hero';
+import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 
 export const metadata = { title: 'Portfolio' };
 
@@ -49,7 +52,18 @@ export default async function YourCollectionsPage({
   // /open-shop on a read that might simply have failed (`the-open-shop-redirect-is-a-proven-absence`).
   if (!profile) redirect('/vendor-dashboard');
 
-  const [d, sp] = await Promise.all([loadCollectionsData(supabase, profile, user.id), searchParams]);
+  const services = (profile.services ?? []) as string[];
+  // 🎵 Song bank — a Portfolio section for music categories only (Lane E; the shipped `isMusicToolCategory` rule).
+  const songsRead = isMusicToolCategory(services)
+    ? readVendorSongs(supabase, profile.vendor_profile_id)
+        .then((r) => (r.failed ? null : { count: r.rows.length, withVideo: r.rows.filter((x) => x.performance_url).length }))
+        .catch(() => null)
+    : Promise.resolve('off' as const);
+  const [d, sp, songs] = await Promise.all([loadCollectionsData(supabase, profile, user.id), searchParams, songsRead]);
+  // 🖼 The hero = the LATEST upload (the last key the uploader appended), else the category placeholder (Lane E 11–12).
+  const latest = latestPhotoKey(d.portfolioRefs);
+  const latestUrl = latest ? (d.portfolioDisplayMap[latest] ?? null) : null;
+  const hero = latestUrl ? { url: latestUrl, kind: 'photo' as const } : { url: await heroPlaceholderUrl(services), kind: 'placeholder' as const };
   const igFlash: { kind: 'ok' | 'error'; message: string } | null = sp.ig_connected
     ? { kind: 'ok', message: 'Instagram connected. Press “Sync now” to pull your posts.' }
     : sp.ig_error
@@ -83,6 +97,9 @@ export default async function YourCollectionsPage({
         allPhotos={[...showAlbums.page.urls].reverse()}
         libraryOpen={d.libraryOpen}
         videoLinkUrls={d.galleryVideoLinks}
+        hero={hero}
+        moodboard={d.input.moodboard && d.input.moodboard.allowed ? { looks: d.input.moodboard.looks, declined: d.input.moodboard.declined } : null}
+        songs={songs}
         gallery={
           <GalleryMedia
             vendorProfileId={d.vendorId}

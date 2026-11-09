@@ -73,7 +73,8 @@ test('Shop reads — Services, Page and How it is going', () => {
   assert.match(perf, /<section className="mx-auto w-full max-w-6xl tab:max-w-3xl /, 'How it is going is not the reading column');
   assert.match(perf, /<div className="mx-auto w-full max-w-xl tab:max-w-none">/, 'its top block keeps a narrower measure of its own');
   assert.match(read('website/page.tsx'), /className="mx-auto w-full max-w-3xl /, 'Shop › Page is not the reading column');
-  assert.match(read('shop/page.tsx'), /<FeatureAccordion sections=\{SHOP_SECTIONS\} openKey=\{open\} measure="reading">/);
+  // The Manpower fold left Shop (owner 2026-11-09, Lane E: "Remove manpower gigs") — Shop has no folds to measure.
+  assert.doesNotMatch(read('shop/page.tsx'), /<FeatureAccordion\b/);
 });
 
 test('Hub — its side paths read; the Hub itself fills the frame with its two columns', () => {

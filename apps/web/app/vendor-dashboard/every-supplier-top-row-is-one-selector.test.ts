@@ -59,7 +59,6 @@ const src = (p: string) => stripComments(readFileSync(p, 'utf8'));
 /** Top-row components that carry no `data-first-row` mark of their own (the row is drawn around them). */
 const KNOWN_TOP_ROWS = [
   'app/vendor-dashboard/_components/supplier-page-menu.tsx', // the shell bar's left from 701
-  'app/vendor-dashboard/services/_components/manager-tabs.tsx', // Shop › Services: the manager's section switch
   'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx', // Hub: the one row — the views + the events (2026-10-31)
 ];
 
@@ -168,7 +167,7 @@ test('4 · Today RENDERS the greeting · the task count · ⚙ — no count tile
     React.createElement(TodayCover, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now, gear: React.createElement('button', { 'data-menu-settings': 'today' }) }),
   );
   const text = cover.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(text, /Good morning, SetnaProd Sat 7 Nov 9 tasks today/, `the cover does not greet the shop with its day and count: ${text}`);
+  assert.match(text, /Today · Sat 7 Nov (?:Sample photo · Upload yours )?Good morning, SetnaProd 9 tasks today/, `the cover does not greet the shop with its day and count: ${text}`);
   assert.equal((cover.match(/<(?:a|button)\b/g) ?? []).length, 1, 'the cover holds another control besides its ⚙');
   assert.doesNotMatch(cover, /data-pin-door|aria-pressed/, 'a count tile or filter is back on Today’s top');
   const row = renderToStaticMarkup(React.createElement(TodayPinnedRow, { shopName: 'SetnaProd', tasks: 9, todayIso: '2026-11-07', now }));

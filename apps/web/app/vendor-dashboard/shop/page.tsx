@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
-import { ArrowRight, ChevronRight, Package as PackageIcon, Plus } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -18,14 +18,14 @@ import {
 
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
-import { ServicesDisclosure } from './_components/services-disclosure';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
-import { ShopServiceRows } from './_components/shop-service-rows';
 import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
 import { scannerChoiceOf } from '@/lib/supplier-scan';
 import { ShopServicesThumb } from './_components/shop-services-thumb';
+import { ShopServicesHead } from './_components/shop-services-head';
+import { ShopBundles, type ShopBundle } from './_components/shop-bundles';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
 import { shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
@@ -45,7 +45,11 @@ import type { ProfileFieldData } from './_components/editable-row';
 import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
-import { ShopMakers, type ScannerLine } from './_components/shop-makers';
+import { ShopMakers, type BookedDay, type ScannerLine } from './_components/shop-makers';
+import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
 import { ShopAnalyticsCarousel, type AnalyticsCardData } from './_components/shop-analytics-carousel';
 import { PromoteBody } from './promote/_components/promote-body';
 import { CapacityCard } from '../performance/_components/capacity-card';
@@ -111,6 +115,15 @@ type ShopData = {
   events: string | null;
   /** 📊 The five Analytics cards — a started read, streamed by `ShopAnalyticsSection` (never part of the one wait). */
   analytics: Promise<ShopAnalytics | null>;
+  /** 🖼 The hero (Lane E 11–12): the cover photo, else the category placeholder — and its caption. */
+  hero: { url: string; kind: 'photo' | 'placeholder' };
+  heroCaption: string | null;
+  /** 🧰 Booked days today and ahead — where the per-event Specialized tools run (null = unread). */
+  booked: BookedDay[] | null;
+  /** `vendor_profiles.services` — the Song bank's music rule. */
+  services: string[];
+  /** 📦 The shop's bundles (Lane E item 7: bundles FIRST) — null = unread; [] with `bundlesOn` false = the flag is off. */
+  bundles: ShopBundle[] | null;
   /** Fields of the business profile still empty (Your details' row) — the logo is its own first step (`profileGaps`). */
   fieldsLeft: number;
   /** The logo row's editor data (Your details' own close-save row). */
@@ -238,6 +251,52 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
+  // 🖼 The hero's placeholder (Lane E item 12) — read only when there is no cover photo to wear.
+  const heroRead = (async (): Promise<{ url: string; kind: 'photo' | 'placeholder' }> => {
+    const url = await coverRead;
+    return url ? { url, kind: 'photo' } : { url: await heroPlaceholderUrl(profile.services as string[] | null), kind: 'placeholder' };
+  })();
+
+  // 📦 Bundles — the shipped packages (flag-dark until NEXT_PUBLIC_PACKAGE_AUTHORING), listed FIRST (Lane E item 7).
+  const bundlesRead: Promise<ShopBundle[] | null> = packageAuthoringEnabled()
+    ? (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('vendor_packages')
+            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id)`)
+            .eq('vendor_profile_id', vendorId)
+            .order('updated_at', { ascending: false });
+          if (error) {
+            logQueryError('VendorShopPage.bundles', error, { vendorId }, 'graceful_degrade');
+            return null;
+          }
+          return (data ?? []).map((p: { package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: { vendor_service_id: string | null }[] | null }) => ({
+            id: p.package_id,
+            name: p.package_name?.trim() || 'Untitled bundle',
+            priceCentavos: p.total_price_centavos ?? null,
+            live: p.is_active === true,
+            cards: (p.vendor_package_items ?? []).filter((i) => i.vendor_service_id).length,
+          }));
+        } catch (err) {
+          logQueryError('VendorShopPage.bundles', err, { vendorId });
+          return null;
+        }
+      })()
+    : Promise.resolve([]);
+
+  // 🧰 The booked days the per-event Specialized tools run on — the same days the Hub picks from (`on-the-day/page.tsx`).
+  const bookedRead: Promise<BookedDay[] | null> = (async () => {
+    try {
+      const rows = await fetchVendorRoomEvents(supabase, vendorId);
+      return collapseToPickerDays(rows, phTodayIso())
+        .filter((b) => b.when !== 'past')
+        .map((b) => ({ eventId: b.eventId, eventName: b.eventName, bookedDate: b.bookedDate }));
+    } catch (err) {
+      logQueryError('VendorShopPage.bookedDays', err, { vendorId });
+      return null;
+    }
+  })();
+
   // 📊 Analytics — the five cards, gated by the plan (its role read starts now, beside the shop's own row). NOT in the
   // one wait: the cards STREAM in their own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for them.
   const analyticsRead: Promise<ShopAnalytics | null> = loadShopAnalytics(
@@ -251,7 +310,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   });
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -260,7 +319,10 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     factsRead,
     rewardsRead,
     coverRead,
+    heroRead,
+    bookedRead,
   ]);
+  const bundles = await bundlesRead;
 
   const completion = businessProfileChecklist(profile);
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
@@ -305,6 +367,16 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
     analytics: analyticsRead,
+    hero,
+    heroCaption:
+      hero.kind === 'photo'
+        ? own?.microsite_hero_photo_key && portfolio.includes(own.microsite_hero_photo_key)
+          ? 'Cover · Your page'
+          : 'Cover · first photo'
+        : null,
+    booked,
+    services: (profile.services ?? []) as string[],
+    bundles,
     // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
     fieldsLeft: profileGaps(completion).fieldsLeft,
     logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
@@ -426,6 +498,40 @@ function analyticsCards(a: Extract<ShopAnalytics, { access: 'ok' }>): AnalyticsC
   ];
 }
 
+/** The services head's line: "Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live". */
+function servicesLine(d: ShopData): string {
+  const parts = ['Bundles first, then every service you do, by category'];
+  const c = servicesCompact(d);
+  return c ? `${parts[0]} · ${c}` : parts[0]!;
+}
+/** "1 bundle · 2 cards · 1 live" — what the compressed row keeps. Unread counts are left out, never 0. */
+function servicesCompact(d: ShopData): string {
+  const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
+  const bits: string[] = [];
+  if (packageAuthoringEnabled() && d.bundles) bits.push(n(d.bundles.length, 'bundle', 'bundles'));
+  const cards = cardsOf(d);
+  if (cards !== null) {
+    bits.push(n(cards, 'card', 'cards'));
+    const live = (d.serviceRows ?? []).filter((r) => r.live).length;
+    if (cards > 0) bits.push(`${formatCount(live)} live`);
+  }
+  return bits.join(' · ');
+}
+/** How many service cards the shop has — null when the rows were unread. */
+function cardsOf(d: ShopData): number | null {
+  return d.serviceRows === null ? null : d.serviceRows.reduce((t, r) => t + r.cards, 0);
+}
+/** Each service's "Tools on every event" line (the Event Hub's own tools), keyed by its coverage id. */
+function toolsByCoverage(d: ShopData): Record<number, string> {
+  const out: Record<number, string> = {};
+  for (const r of d.serviceRows ?? []) {
+    if (r.coverageId == null) continue;
+    const t = [...r.tools, ...(r.scanner ? [r.scanner] : [])].join(' · ');
+    if (t) out[r.coverageId] = t;
+  }
+  return out;
+}
+
 async function ShopHome({
   searchParams,
 }: {
@@ -493,6 +599,8 @@ async function ShopHome({
     websiteLive: data.websiteLive,
     slug: data.slug,
     shareUrl,
+    hero: data.hero,
+    heroCaption: data.heroCaption,
   };
   const qrSearch = { et: one('et'), cat: one('cat'), mode: one('mode') };
   const scanners: ScannerLine[] | null =
@@ -573,114 +681,53 @@ async function ShopHome({
           <ShopAnalyticsSection read={data.analytics} />
         </Suspense>
 
-        {/* 🏅 BADGES — ONE row, the closest goal first. */}
+        {/* 🏅 BADGES — ONE row: completed first, then in progress, then not yet (Lane E item 2). */}
         <ShopBadgeRow tiles={data.badges} />
 
-        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Scanner), each opening into the body (Build 2 §10 #33). */}
-        <ShopMakers scanners={scanners} formsBody={shopFormsBody(sp)} />
+        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Specialized tools, Lane E item 13), each opening into the body. */}
+        <ShopMakers
+          scanners={scanners}
+          formsBody={shopFormsBody(sp)}
+          categories={(data.serviceRows ?? []).map((r) => r.label)}
+          services={data.services}
+          booked={data.booked}
+        />
 
-        {/* 🧰 SERVICES — one row per service, then every card with its switches (the shipped manager, whole). */}
-        {/* The shipped rows carry their own "Services ⓘ" heading. */}
-        <section className="px-4 pt-3" id="services">
-          <ShopServiceRows rows={data.serviceRows} scan={null} />
+        {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped
+            in categories under. They are all services"*): the head (compresses into one sticky row; its ＋ = New bundle ·
+            New service) → BUNDLES → every service card, grouped Group › Category (the one taxonomy). No Coverage · Service
+            cards · Tools picker, no "Add a service or coverage" dropdown, no second "+ Add a service" link. */}
+        <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
+          <ShopServicesHead
+            line={servicesLine(data)}
+            compact={servicesCompact(data)}
+            serviceHref={SERVICE_MAKER_HREF}
+            bundlesOn={packageAuthoringEnabled()}
+          />
+          {/* 📦 BUNDLES FIRST — the shipped packages; the old Bundles card's anchor still lands here. */}
+          <span id="packages" className="block scroll-mt-24" aria-hidden />
+          {packageAuthoringEnabled() ? <ShopBundles bundles={data.bundles} cards={cardsOf(data)} /> : null}
           <p hidden className="py-3 text-[14px] text-ink/65" data-shop-cards-none="">
             No services match that search.
           </p>
-          <ServicesDisclosure defaultOpen>
-            <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" />
-          </ServicesDisclosure>
-          {/* 📦 Bundles — the shipped packages (flag-dark until NEXT_PUBLIC_PACKAGE_AUTHORING). */}
-          {packageAuthoringEnabled() ? (
-            <Link href="/vendor-dashboard/packages" id="packages" className="mt-4 flex items-center gap-3 rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)', background: 'var(--m-card)' }}>
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--m-accent-soft)', color: 'var(--m-accent)' }}>
-                <PackageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Bundles
-                </span>
-                <span className="block text-xs" style={{ color: 'var(--m-ink-soft)' }}>
-                  Bundle your services into something a couple can make their own
-                </span>
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-ink-soft)' }} />
-            </Link>
-          ) : null}
-          <Link href={SERVICE_MAKER_HREF} className="mt-3 flex min-h-[52px] items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-ink/20 text-[14px] font-medium text-ink/75" data-shop-add-service="">
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Add a service
-          </Link>
+          <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
         </section>
       </div>
       {/* 👍 Tools in the lower third — Search services · Show & sort · ＋ Add a service (v95). */}
-      <ShopServicesThumb />
+      <ShopServicesThumb bundlesOn={packageAuthoringEnabled()} />
     </>
   );
 }
 
-/* ── My Shop hub (owner 5-page IA, 2026-07-12) ──────────────────────────────
- * One menu item, the whole business integrated: the shop home (profile ·
- * services · verify · website — this file's original body, incl. the
- * services fold-in from 2026-07-02) plus Contracts, Proposals (Earnings moved to Customers › Money, S-PR4),
- * How clients pay you, Manpower as tabs, and a Tools tab linking the
- * long-tail surfaces that left the sidebar. Old routes redirect in. */
+/* ── My Shop hub ─────────────────────────────────────────────────────────────
+ * Contracts and Proposals left this page 2026-08-26 (they live beside the customer); More tools went to Settings
+ * 2026-10-21; and the LAST fold, Manpower, left on 2026-11-09 (Build 3 Lane E, owner: *"Remove manpower gigs lets not
+ * deal with this first"* — no door anywhere for now; `/vendor-dashboard/manpower` and its data are untouched). So Shop
+ * has no folds. Old `?open=…` links still land here; `#shop-folds` keeps its anchor. */
 import { Suspense } from 'react';
-import { HardHat } from 'lucide-react';
-import {
-  FeatureAccordion,
-  AccordionSkeleton,
-  type AccordionSection,
-} from '../_components/feature-accordion';
-import ManpowerSurface from '../manpower/surface';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
-
-// The folded feature sections, in strategic order below the shop home. Each
-// expands in place and loads its server body on open (owner one-page IA
-// 2026-07-12). Home (profile · services · verify · website) stays above.
-/*
-  ── CONTRACTS AND PROPOSALS LEFT THIS PAGE 2026-08-26 ───────────────────────
-  Owner re-cut ("yes i agree"): a contract and a quote are papers about a deal
-  with ONE customer, so a shop owner looks for them beside that customer, not
-  beside their opening hours. Both now fold into the My Customers hub; their
-  own routes still exist and now forward there, so every inbound link — the
-  client page, the message thread's send-a-quote card, the requote nudge, the
-  public proposal page — keeps working untouched.
-
-  🔑 THIS RESTORES AN AGREEMENT THAT WAS ALREADY BROKEN. The phone's bottom bar
-  has lit **Customers** for `/contracts` and `/proposals` all along, while the
-  laptop rendered them under My Shop — the same question answered two ways
-  depending on which screen you held. Nothing lit Shop for them, so no phone
-  tab goes dark.
-*/
-const SHOP_SECTIONS: AccordionSection[] = [
-  {
-    key: 'manpower',
-    label: 'Manpower',
-    sub: 'Pick up paid crew gigs from events already booked',
-    icon: <HardHat className="h-4 w-4" strokeWidth={1.75} />,
-  },
-];
-
-/*
-  ── MORE TOOLS LEFT THIS PAGE (owner "Yes to all", 2026-10-21, item 3) ──────
-  ONE door, in Settings › More tools, as the approved 2026-10-14 prototype draws
-  it. The shelves are still `shop-tool-shelves.ts` — Settings reads them
-  (`settings/settings-rows.ts`), so not one tool was lost, only the copy. An old
-  `?open=tools` link lands on Settings' fold (below).
-*/
-/** The open section's body — async so <Suspense> streams a skeleton while its
- *  queries run. Only the matching one renders, so folded sections cost nothing
- *  until expanded. */
-async function ShopSectionBody({ open }: { open: string }) {
-  switch (open) {
-    case 'manpower':
-      return <ManpowerSurface />;
-    default:
-      return null;
-  }
-}
 
 export default async function VendorShopHub({
   searchParams,
@@ -707,25 +754,14 @@ export default async function VendorShopHub({
   }
   // MORE TOOLS is Settings' fold now (2026-10-21, item 3) — one door, not two.
   if (openRaw === 'tools') redirect('/vendor-dashboard/settings#more-tools');
-  const open =
-    openRaw && SHOP_SECTIONS.some((s) => s.key === openRaw) ? openRaw : null;
 
   return (
     <>
       {/* Home stays on top: identity · the door rows · services. */}
       <ShopHome searchParams={Promise.resolve(sp) as never} />
 
-      {/* Everything else folds in below — one open at a time, loaded on expand.
-          The id is where Settings' Manpower row lands (`settings-rows.ts`). */}
-      <div id="shop-folds" className="scroll-mt-24">
-        <FeatureAccordion sections={SHOP_SECTIONS} openKey={open} measure="reading">
-          {open ? (
-            <Suspense fallback={<AccordionSkeleton />}>
-              <ShopSectionBody open={open} />
-            </Suspense>
-          ) : null}
-        </FeatureAccordion>
-      </div>
+      {/* The folds' old anchor — links already sent still land at the foot of Shop. */}
+      <span id="shop-folds" className="block scroll-mt-24" aria-hidden />
     </>
   );
 }

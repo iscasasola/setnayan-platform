@@ -13,7 +13,8 @@ import { shopToolShelves, type ShopTool, type ShopToolShelf } from '../shop/shop
 export const SETTINGS_HELP_HREF = '/vendor-dashboard/help';
 
 const TEAM_HREF = '/vendor-dashboard/team';
-const MANPOWER: ShopTool = { href: '/vendor-dashboard/shop?open=manpower#shop-folds', label: 'Manpower', sub: 'Pick up paid crew gigs from events already booked.' };
+// ✂ MANPOWER left More tools (owner 2026-11-09, Build 3 Lane E: "Remove manpower gigs lets not deal with this first" —
+// no door anywhere for now). `/vendor-dashboard/manpower` and its data are untouched.
 const DEEP_SEARCH: ShopTool = { href: '/vendor-dashboard/deep-search', label: 'Deep Search', sub: 'We read the web about your business and fill your details.' };
 
 export function settingsMoreTools(opts: {
@@ -23,7 +24,6 @@ export function settingsMoreTools(opts: {
 }): ShopToolShelf[] {
   return shopToolShelves(opts.hasMoodboardLibraryAccess, opts.hasMusicRepertoireAccess).map((shelf) => {
     const tools = shelf.tools.filter((t) => t.href !== TEAM_HREF);
-    if (shelf.key === 'with-others') return { ...shelf, tools: [...tools, MANPOWER] };
     if (shelf.key === 'protection') return { ...shelf, tools: opts.storeShell ? tools : [...tools, DEEP_SEARCH] };
     return { ...shelf, tools };
   });

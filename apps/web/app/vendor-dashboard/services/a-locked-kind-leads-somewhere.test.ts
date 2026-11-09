@@ -108,10 +108,11 @@ test('the intake tab opens on arrival, and scrolls to itself', () => {
     /const wantsCategoryForm = proposeCategoryRequested\(search\.wantCategory\);/,
     'the manager stopped reading the intent param',
   );
+  // 🔁 2026-11-09 (Build 3 Lane E item 7): the Tools tab is gone — the form now DRAWS when it was asked for.
   assert.match(
     manager,
-    /const defaultTab = search\.requested \|\| wantsCategoryForm/,
-    'arriving from a locked kind stopped landing on the Tools tab',
+    /const showProposeForm = search\.requested \|\| wantsCategoryForm;/,
+    'arriving from a locked kind stopped drawing the form',
   );
   assert.match(
     manager,

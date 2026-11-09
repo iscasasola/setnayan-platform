@@ -75,6 +75,9 @@ import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
+import { heroPicture, readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
+import { mostViewedPhotoKey, viewsOf } from '@/lib/supplier-hero';
+import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
@@ -305,6 +308,20 @@ export default async function VendorOverviewPage({
   const renewalP = readTodayRenewal(supabase, vendorProfileId);
   // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
   const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
+  // 🖼 Lane E item 11: Today's hero = the most-viewed portfolio photo (ties → latest; no views → latest; no photo →
+  // the category placeholder). Started now, awaited once at the render — never another wait in this run.
+  const heroP = (async () => {
+    const keys = (profile.portfolio_r2_keys ?? []) as string[];
+    const views = keys.length > 0 ? await readPortfolioPhotoViews(supabase, vendorProfileId) : null;
+    const key = mostViewedPhotoKey(keys, views);
+    const n = viewsOf(key, views);
+    const picture = await heroPicture(key, profile.services as string[] | null);
+    return {
+      picture,
+      caption: picture.kind === 'photo' ? (n > 0 ? `Most viewed · ${formatCount(n)} ${n === 1 ? 'view' : 'views'}` : 'Latest photo') : null,
+      upload: picture.kind === 'placeholder' ? { href: '/vendor-dashboard/collections#gallery-media' } : null,
+    };
+  })().catch(() => null);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -692,6 +709,7 @@ export default async function VendorOverviewPage({
         now={renderNow}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
+        hero={await heroP}
         eventsYouRun={eventsYouRun}
         setup={setup}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

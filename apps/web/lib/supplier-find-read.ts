@@ -32,16 +32,21 @@ import {
   homeTileForRow,
   LOCKED_VENDOR_STATUSES,
 } from '@/lib/shortlist-taxonomy';
-import { TAXONOMY_MAP } from '@/lib/taxonomy';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import { fetchVendorCountsByService, getCanonicalBuckets, rollUpCountsToTile } from '@/lib/vendor-counts';
 import { buildFindList, type FindList } from '@/lib/supplier-find';
 
 /** tile → the words of every service under it, so the one search finds
- *  "tent" inside Chairs & tents. Built once per process from the code map. */
-const SERVICES_BY_TILE: ReadonlyMap<string, readonly string[]> = (() => {
+ *  "tent" inside Chairs & tents. Built from the LIVE taxonomy the caller hands
+ *  in (`taxonomy.map` — Admin › Categories, or the seed when the read fell
+ *  back), so a service an admin adds or moves is searchable under its new
+ *  category the moment it is saved. Owner 2026-11-09: "make sure the services
+ *  are not hard coded". */
+export function servicesByTileFrom(
+  map: TaxonomySnapshot['map'],
+): ReadonlyMap<string, readonly string[]> {
   const out = new Map<string, string[]>();
-  for (const [service, entry] of Object.entries(TAXONOMY_MAP)) {
+  for (const [service, entry] of Object.entries(map)) {
     if (!entry.tile) continue;
     const words = service.replace(/_/g, ' ');
     const arr = out.get(entry.tile);
@@ -49,7 +54,7 @@ const SERVICES_BY_TILE: ReadonlyMap<string, readonly string[]> = (() => {
     else out.set(entry.tile, [words]);
   }
   return out;
-})();
+}
 
 export type FindListRead = {
   list: FindList;
@@ -122,7 +127,7 @@ export async function readFindList(args: {
     booked,
     counts,
     query: args.query ?? '',
-    servicesByTile: SERVICES_BY_TILE,
+    servicesByTile: servicesByTileFrom(taxonomy.map),
   });
   return { list, bookedMeasured };
 }

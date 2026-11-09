@@ -98,7 +98,7 @@ import {
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
-import { getTaxonomy } from '@/lib/taxonomy-db';
+import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
   displayLogoUrl,
   displayUrlForCatalogueArt,
@@ -425,20 +425,26 @@ export const metadata = {
 // Build origin-aware at render time so the `item:` field carries the
 // canonical absolute URL Google + AI engines prefer (relative URLs
 // degrade extraction quality on ItemList).
-function buildVendorsItemListJsonLd(siteUrl: string): Record<string, unknown> {
+function buildVendorsItemListJsonLd(
+  siteUrl: string,
+  tax: Pick<TaxonomySnapshot, 'folderOrder' | 'folderLabel' | 'folderSlug'>,
+): Record<string, unknown> {
+  // The live groups (Admin › Categories) — a group an admin adds, renames or
+  // re-orders is what search engines are told, with no deploy.
+  const folders = tax.folderOrder;
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Filipino wedding supplier categories on Setnayan',
     description:
       'The 12 wedding-supplier categories Setnayan organizes its Filipino marketplace under.',
-    numberOfItems: WEDDING_FOLDER_ORDER.length,
+    numberOfItems: folders.length,
     itemListOrder: 'https://schema.org/ItemListOrderAscending',
-    itemListElement: WEDDING_FOLDER_ORDER.map((folder, idx) => ({
+    itemListElement: folders.map((folder, idx) => ({
       '@type': 'ListItem',
       position: idx + 1,
-      name: WEDDING_FOLDER_LABEL[folder],
-      url: `${siteUrl}/explore?folder=${WEDDING_FOLDER_SLUG[folder]}`,
+      name: tax.folderLabel[folder] ?? folder,
+      url: `${siteUrl}/explore?folder=${tax.folderSlug[folder] ?? folder}`,
     })),
   };
 }
@@ -817,6 +823,8 @@ const SLUG_TO_TILE: Map<string, WeddingTile> = new Map(
 
 function parseFilters(
   raw: Awaited<Props['searchParams']>,
+  /** The live group ids (Admin › Categories) — a new group is filterable by URL at once. */
+  folderOrder: readonly string[],
 ): {
   q: string;
   // `category` is the marketplace "filter by service" param. It can be:
@@ -936,7 +944,7 @@ function parseFilters(
   // Task #47 — catalog-mode folder scope. Validate against the canonical
   // 12-folder enum. Invalid / typo / null all fall back to unscoped.
   const rawFolder = (raw.folder ?? '').trim();
-  const folder = (WEDDING_FOLDER_ORDER as readonly string[]).includes(rawFolder)
+  const folder = folderOrder.includes(rawFolder)
     ? (rawFolder as WeddingFolder)
     : null;
   // 10-parent model — tile scope from `?tile=<slug>`. Decode the hyphenated
@@ -1229,7 +1237,9 @@ async function fetchDemoStartingPrices(
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const raw = await searchParams;
-  let filters = parseFilters(raw);
+  // One taxonomy read per request (React `cache()`), shared with every later reader on this page.
+  const pageTax = await getTaxonomy();
+  let filters = parseFilters(raw, pageTax.folderOrder);
   const admin = createAdminClient();
 
   // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
@@ -1547,7 +1557,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const vendorsSiteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
-  const vendorsItemListJsonLd = buildVendorsItemListJsonLd(vendorsSiteUrl);
+  const vendorsItemListJsonLd = buildVendorsItemListJsonLd(vendorsSiteUrl, pageTax);
 
   // Admin morning-digest flush — placed BEFORE the catalog-mode early return so
   // it fires on bare/unfiltered /explore visits too (the marketplace's main

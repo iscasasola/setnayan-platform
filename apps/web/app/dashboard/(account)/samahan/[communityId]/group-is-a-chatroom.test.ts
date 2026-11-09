@@ -182,8 +182,8 @@ test('5 · ⋯ holds the shipped lists; every old ?tab= address lands', () => {
 test('6 · moved, not lost', () => {
   const members = PAGE.slice(PAGE.indexOf("if (view === 'members')"));
   assert.match(members.slice(0, 1200), /<SamahanIdentityHeader\b/, 'the group’s photo + rename are lost (they live on Members now)');
-  assert.match(ROOM, /<form action=\{deleteSamahanMessage\}/, '“Take it down” is gone from your own message');
-  assert.match(ROOM, /<form\s+action=\{postSamahanMessage\}/, 'the message bar does not post to Usapan');
+  assert.match(ROOM, /<StayForm door="accGroup\.deleteSamahanMessage" action=\{deleteSamahanMessage\}/, '“Take it down” is gone from your own message');
+  assert.match(ROOM, /<StayForm\s+door="accGroup\.postSamahanMessage"\s+action=\{postSamahanMessage\}/, 'the message bar does not post to Usapan');
   assert.match(ROOM, /<SamahanStories[\s\S]{0,200}strip[\s\S]{0,80}controlRef=\{storiesRef\}/, 'the strip is not the shipped one');
   assert.match(ROOM, /storiesRef\.current\?\.record\(\)/, '📷 does not open the strip’s camera');
   assert.match(ORGANIZER, /aria-label="Play the day"/, 'the strip lost Play the day');

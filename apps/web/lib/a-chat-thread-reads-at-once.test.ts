@@ -122,7 +122,9 @@ for (const { side, path } of PAGES) {
       .split('\n')
       .slice(1)
       .map((l) => l.trim())
-      .find((l) => l.length > 0 && !l.startsWith('//'));
+      /* A picked client's embed reads nothing at all (`if (embedded) return []`) — the first READ still waits. */
+      .filter((l) => l.length > 0 && !l.startsWith('//'))
+      .find((l) => !/^if \(embedded\) return \[\] as /.test(l));
     assert.equal(
       firstStatement,
       'await markedRead;',

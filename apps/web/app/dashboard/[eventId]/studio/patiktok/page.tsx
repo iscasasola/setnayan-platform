@@ -57,6 +57,7 @@ import { disconnectPatiktokTiktok, savePatiktokBoothTemplates } from './actions'
 import { ReelRenderer } from './_components/reel-renderer';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { StayForm } from '@/app/_components/stay-form';
 
 type RenderJobRow = {
   job_id: string;
@@ -521,7 +522,7 @@ function TiktokConnectPanel({
             TikTok connected
             {grant.tiktok_handle ? `: @${grant.tiktok_handle}` : ''}
           </p>
-          <form action={disconnectPatiktokTiktok}>
+          <StayForm door="patiktok.disconnectPatiktokTiktok" action={disconnectPatiktokTiktok}>
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-danger-300 hover:text-danger-700 disabled:opacity-70"
@@ -529,7 +530,7 @@ function TiktokConnectPanel({
             >
               Disconnect TikTok
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
       ) : (
         <a
@@ -901,7 +902,7 @@ function TemplateCard({
         </div>
         <p className="text-xs text-ink/70">{template.vibe}</p>
         {boothRole ? (
-          <form action={savePatiktokBoothTemplates}>
+          <StayForm door="patiktok.savePatiktokBoothTemplates" action={savePatiktokBoothTemplates}>
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="hidden"
@@ -920,7 +921,7 @@ function TemplateCard({
               <Film className="h-4 w-4" strokeWidth={1.75} />
               Use as {boothRole}
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : (
           <Link
             href={`/dashboard/${eventId}/studio/patiktok/${template.slug}`}

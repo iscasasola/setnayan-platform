@@ -6,6 +6,7 @@ import { STAGE_NOTE_MAX, fetchStageNotes, type StageNote } from '@/lib/stage-not
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendStageNoteFromEvent } from '../stage-note-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * "TELL THE HOST" — the same send box the supplier floor console has, on the
@@ -114,7 +115,7 @@ export async function TellTheHost({
 
       {sent.map(({ host, notes }) => (
         <div key={host.vendorProfileId} className="space-y-2">
-          <form action={sendStageNoteFromEvent} className="space-y-2">
+          <StayForm door="schedule.sendStageNoteFromEvent" action={sendStageNoteFromEvent} resetOnSaved className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="hidden"
@@ -142,7 +143,7 @@ export async function TellTheHost({
                 Send
               </SubmitButton>
             </div>
-          </form>
+          </StayForm>
 
           {notes.length > 0 ? <SentList notes={notes} /> : null}
         </div>

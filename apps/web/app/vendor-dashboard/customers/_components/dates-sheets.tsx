@@ -13,6 +13,7 @@ import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import type { CalendarDay } from '@/lib/calendar-grid';
 import { DAY_PARTS, DAY_PART_WORDS, repeatOptions, type DayPart, type RepeatRule } from '@/lib/not-available';
 import { SupplierSubmit } from '../../_components/supplier-submit';
+import { StayForm, useStaySubmit } from '@/app/_components/stay-form';
 
 /**
  * CUSTOMERS › DATES — the sheets its rows and thumb row open (S-PR3; plan § 2 "Block days · Waitlist · Capacity";
@@ -70,6 +71,15 @@ export function BlockDateAdd({
   const [part, setPart] = useState<DayPart>('all_day');
   const repeats = repeat !== 'once';
 
+  const stay = useStaySubmit('supCalendar.addManualBlock', () => {
+    setOpen(false);
+    setLabel('');
+    setFrom(null);
+    setTo(null);
+    setRepeat('once');
+    setPart('all_day');
+  });
+
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-dates-block-add="">
@@ -81,11 +91,17 @@ export function BlockDateAdd({
           ref={form}
           action={action}
           className="mt-3"
+          data-stay={'supCalendar.addManualBlock'}
+          aria-busy={stay.pending || undefined}
           onSubmit={(e) => {
             if (!from) {
               e.preventDefault();
               nudgeFormRows(form.current ?? undefined);
+              return;
             }
+            // 💾 Saved in place (owner 2026-10-26 "a save never resets the screen"): a landed save closes the sheet; a
+            // refusal is said under the form, the sheet still open.
+            stay.onSubmit(e);
           }}
         >
           <input type="hidden" name="return_to" value="dates" />
@@ -138,6 +154,7 @@ export function BlockDateAdd({
             />
           </div>
         </form>
+        {stay.refusal}
       </div>
     </Sheet>
   );
@@ -185,6 +202,11 @@ export function CalendarSheet({
   const on = new Set(pool?.serviceIds ?? []);
   const editing = Boolean(pool);
 
+  const stay = useStaySubmit(editing ? 'supCalendar.editCalendar' : 'supCalendar.createCalendar', () => {
+    setOpen(false);
+    if (!editing) setName('');
+  });
+
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-dates-calendar-sheet={editing ? 'edit' : 'new'}>
@@ -196,11 +218,17 @@ export function CalendarSheet({
           ref={form}
           action={editing ? editAction : createAction}
           className="mt-3"
+          data-stay={editing ? 'supCalendar.editCalendar' : 'supCalendar.createCalendar'}
+          aria-busy={stay.pending || undefined}
           onSubmit={(e) => {
             if (!name.trim()) {
               e.preventDefault();
               nudgeFormRows(form.current ?? undefined);
+              return;
             }
+            // 💾 Saved in place (owner 2026-10-26 "a save never resets the screen"): a landed save closes the sheet; a
+            // refusal is said under the form, the sheet still open.
+            stay.onSubmit(e);
           }}
         >
           <input type="hidden" name="return_to" value="dates" />
@@ -243,6 +271,7 @@ export function CalendarSheet({
             />
           </div>
         </form>
+        {stay.refusal}
       </div>
     </Sheet>
   );
@@ -290,10 +319,12 @@ export function ShareTeamPick({
   /** The Customers view the ⚙ was opened on — a save inside Customers ⚙ comes back to it (`return_seg`). */
   returnSeg?: string;
 }) {
-  const form = useRef<HTMLFormElement>(null);
+  /* `StayForm` takes no ref — the form is the one this mark sits in. */
+  const mark = useRef<HTMLSpanElement>(null);
   const target = useRef<HTMLInputElement>(null);
   return (
-    <form ref={form} action={moveAction} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
+    <StayForm door="supCalendar.reassignCategoryPool" action={moveAction} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-share-team={categoryKey}>
+      <span ref={mark} hidden />
       <input type="hidden" name="return_to" value="dates" />
       <input type="hidden" name="return_fold" value="capacity" />
       <input type="hidden" name="return_month" value={month} />
@@ -308,12 +339,12 @@ export function ShareTeamPick({
         onPick={(k) => {
           if (k === value || !target.current) return;
           target.current.value = k;
-          form.current?.requestSubmit();
+          mark.current?.closest('form')?.requestSubmit();
         }}
         dataAttr="data-dates-share-pick"
         className="!min-h-11"
       />
-    </form>
+    </StayForm>
   );
 }
 
@@ -349,6 +380,15 @@ export function HallSheet({
   const [standing, setStanding] = useState(hall?.standing ? String(hall.standing) : '');
   const digits = (t: string) => t.replace(/[^\d]/g, '').slice(0, 6);
 
+  const stay = useStaySubmit(editing ? 'supCalendar.editCalendar' : 'supCalendar.createCalendar', () => {
+    setOpen(false);
+    if (!editing) {
+      setName('');
+      setSeated('');
+      setStanding('');
+    }
+  });
+
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-dates-hall-sheet={editing ? 'edit' : 'new'}>
@@ -360,11 +400,17 @@ export function HallSheet({
           ref={form}
           action={editing ? editAction : createAction}
           className="mt-3"
+          data-stay={editing ? 'supCalendar.editCalendar' : 'supCalendar.createCalendar'}
+          aria-busy={stay.pending || undefined}
           onSubmit={(e) => {
             if (!name.trim()) {
               e.preventDefault();
               nudgeFormRows(form.current ?? undefined);
+              return;
             }
+            // 💾 Saved in place (owner 2026-10-26 "a save never resets the screen"): a landed save closes the sheet; a
+            // refusal is said under the form, the sheet still open.
+            stay.onSubmit(e);
           }}
         >
           <input type="hidden" name="return_to" value="dates" />
@@ -392,6 +438,7 @@ export function HallSheet({
             />
           </div>
         </form>
+        {stay.refusal}
       </div>
     </Sheet>
   );

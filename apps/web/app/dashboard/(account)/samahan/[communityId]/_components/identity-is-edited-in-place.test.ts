@@ -44,8 +44,13 @@ test('the NAME is a button, and it carries a pencil', () => {
 });
 
 test('both edits go through the ONE server action', () => {
-  const actions = [...header.matchAll(/action=\{updateCommunityIdentity\}/g)];
-  assert.equal(actions.length, 2, 'exactly two forms: the photo one and the name one');
+  // Both save IN PLACE through the one door of that action (owner 2026-10-26, "a save never resets the screen"):
+  // the name is its form, the photo — uploaded first — posts the same action's door with the stored ref.
+  const nameForm = [...header.matchAll(/<StayForm\s+door="accGroup\.updateCommunityIdentity"\s+action=\{updateCommunityIdentity\}/g)];
+  assert.equal(nameForm.length, 1, 'exactly one form: the name one');
+  const photo = [...header.matchAll(/saveInPlace\('accGroup\.updateCommunityIdentity', fd\)/g)];
+  assert.equal(photo.length, 1, 'exactly one photo save, through the same action');
+  assert.equal([...header.matchAll(/action=\{(\w+)\}/g)].filter((m) => m[1] !== 'updateCommunityIdentity').length, 0, 'no second action');
 });
 
 test('the header is what the PAGE renders — no second copy of these controls', () => {

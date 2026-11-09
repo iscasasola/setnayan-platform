@@ -35,6 +35,7 @@ import { ConnectionTreeSection } from './_components/connection-tree-section';
 import { FoundPersonCard } from './_components/found-person-card';
 import { findPersonByPublicId, type PersonHit } from '@/lib/people-search';
 import { isPersonPublicId, personCardKey } from '@/lib/people-person-link';
+import { PEOPLE_ERROR_WORDS } from '@/lib/stay-doors/accPeople';
 
 export const metadata = {
   title: 'People',
@@ -45,17 +46,8 @@ const PERSON_UNREAD = 'We couldn’t open that person just now. Nothing is lost 
 /** `?person=` names nobody you can open — one sentence for every reason, so the link is no oracle. */
 const PERSON_NONE = 'That person isn’t one you can open here.';
 
-const FENCE_ERROR: Record<string, string> = {
-  fence: 'You can only add a child (under 18) or an elder (over 50). For anyone else, invite them to Setnayan instead.',
-  name: 'Please add a name.',
-  birthdate: 'Please add a valid birthday.',
-  email: 'Please enter a valid email address.',
-  no_active_link: 'Create the hand-over link first, then email it.',
-  email_not_configured:
-    'Email isn’t set up yet — an admin needs to add the Resend key in Admin → Integrations. The copy-link button still works.',
-  email_send_failed: 'The email didn’t send — try again, or copy the link instead.',
-  not_of_age: 'They can claim their profile once they turn 18.',
-};
+/** The Loved-ones refusals' sentences — kept with the stay doors that say them (`lib/stay-doors/accPeople.ts`). */
+const FENCE_ERROR = PEOPLE_ERROR_WORDS;
 
 /**
  * People — the person-spine connections layer (owner-locked 2026-07-04,

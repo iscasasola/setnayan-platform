@@ -61,7 +61,11 @@ test('1 · Messages is not a fold any more, on any view — Events keeps its lis
 
 test('2 · archive moved INTO the chat — ⋮ › Archive this chat / Move back to your list, the shipped actions', () => {
   assert.match(MENU, /archive\?: \{ archived: boolean; returnTo: string \} \| null;/);
-  assert.match(MENU, /<form action=\{archive\.archived \? unarchiveThread : archiveThread\}>/, 'the chat menu does not post the shipped archive actions');
+  assert.match(
+    MENU,
+    /<StayForm\s+door=\{archive\.archived \? 'pubChat\.unarchiveThread' : 'pubChat\.archiveThread'\}\s+action=\{archive\.archived \? unarchiveThread : archiveThread\}/,
+    'the chat menu does not post the shipped archive actions (through their stay doors)',
+  );
   assert.match(MENU, /Archive this chat/);
   assert.match(MENU, /Move back to your list/);
   assert.match(THREAD, /<ChatThreadMenu[\s\S]{0,200}archive=\{threadArchive\}/, 'the supplier’s chat does not offer Archive');

@@ -14,6 +14,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { setOptIn, flagFeedback } from './actions';
 import { suggestToCouple } from './share-actions';
 import { ShopEmpty, ShopNotice } from '../_components/kit';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * RecommendationsPanel — the vendor's private "Recommend to your couples"
@@ -261,7 +262,7 @@ function ActiveRecCard({
           ) : null}
         </div>
         {rec.isOptIn && rec.optInEnabled ? (
-          <form action={setOptIn} className="shrink-0">
+          <StayForm door="svRecommendations.setOptIn" action={setOptIn} className="shrink-0">
             <input type="hidden" name="tile_id" value={rec.tileId} />
             <input type="hidden" name="service_code" value={rec.serviceCode} />
             <input type="hidden" name="enabled" value="false" />
@@ -271,7 +272,7 @@ function ActiveRecCard({
             >
               Turn off
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : null}
       </div>
 
@@ -328,14 +329,14 @@ function OptInOfferCard({
             </p>
           ) : null}
         </div>
-        <form action={setOptIn} className="shrink-0">
+        <StayForm door="svRecommendations.setOptIn" action={setOptIn} className="shrink-0">
           <input type="hidden" name="tile_id" value={rec.tileId} />
           <input type="hidden" name="service_code" value={rec.serviceCode} />
           <input type="hidden" name="enabled" value="true" />
           <SubmitButton className="button-primary h-9 px-3 text-xs" pendingLabel="Turning on…">
             Turn on
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
 
       <p className="mt-2 text-xs text-ink/65">
@@ -506,7 +507,8 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
   }
 
   return (
-    <form
+    <StayForm
+      door="svRecommendations.flagFeedback"
       action={flagFeedback}
       className="space-y-2 sn-row p-3"
     >
@@ -538,7 +540,7 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
           Send flag
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }
 
@@ -578,7 +580,8 @@ function SuggestControl({
   }
 
   return (
-    <form
+    <StayForm
+      door="svRecommendations.flagFeedback"
       action={flagFeedback}
       className="w-full max-w-md space-y-2 sn-row p-3"
     >
@@ -628,6 +631,6 @@ function SuggestControl({
           Send suggestion
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }

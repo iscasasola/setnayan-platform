@@ -2,6 +2,7 @@
 
 import { useContext } from 'react';
 import { useGuestActions } from './guest-actions-context';
+import { StayForm } from '@/app/_components/stay-form';
 import { TEAM_SIDE_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 
@@ -17,12 +18,17 @@ export function NewGroupInlineForm({
   // A sideless event's group has no team side to pick: the action stores
   // 'both' when the field is absent (createGuestGroup).
   const hasSides = useContext(GuestListHasSidesContext);
-  const { createGuestGroup } = useGuestActions();
+  const { createGuestGroup, stay } = useGuestActions();
+  /* Saved IN PLACE (owner 2026-10-26, "a save never resets the screen") — the list keeps its scroll and selection. */
   return (
-    <form
+    <StayForm
+      door="guests.createGuestGroup"
       action={createGuestGroup.bind(null, eventId)}
+      save={stay}
+      onSaved={onClose}
       className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-ink/10 bg-cream/60 p-3"
     >
+      <input type="hidden" name="event_id" value={eventId} />
       {selectedIds.map((id) => (
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
       ))}
@@ -82,6 +88,6 @@ export function NewGroupInlineForm({
           Cancel
         </button>
       </div>
-    </form>
+    </StayForm>
   );
 }

@@ -48,7 +48,8 @@ test('after the celebration the couple is never shown a blank', () => {
   );
   // The control itself already existed; RULE 0. This asserts it was not rebuilt.
   assert.equal(
-    count(src, /<form action=\{coupleConfirmReceived\}>/),
+    /* the same form, saved in place since 2026-11-08 (`vendorReview.coupleConfirmReceived`) */
+    count(src, /<StayForm door="vendorReview\.coupleConfirmReceived" action=\{coupleConfirmReceived\}>/),
     1,
     'the confirm was already mounted here — a second one would be a rebuild, not a fix',
   );

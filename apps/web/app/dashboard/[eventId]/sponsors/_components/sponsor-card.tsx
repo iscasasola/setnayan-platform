@@ -15,6 +15,7 @@ import {
 import { EditSponsorModal } from './edit-sponsor-modal';
 import { InvitationTemplateModal } from './invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { SponsorSwipe } from './sponsor-swipe';
 import { markResponse, sendInvitation, updateSponsor } from '../actions';
 
@@ -123,7 +124,7 @@ export function SponsorCard({
 
         {sponsor.invitation_status === 'invited' ? (
           <>
-            <form action={markResponse}>
+            <StayForm door="sponsors.markResponse" action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="accepted" />
@@ -134,8 +135,8 @@ export function SponsorCard({
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Marked yes
               </SubmitButton>
-            </form>
-            <form action={markResponse}>
+            </StayForm>
+            <StayForm door="sponsors.markResponse" action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="declined" />
@@ -146,7 +147,7 @@ export function SponsorCard({
                 <XCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Declined
               </SubmitButton>
-            </form>
+            </StayForm>
           </>
         ) : null}
 

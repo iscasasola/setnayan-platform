@@ -8,6 +8,7 @@ import { cancelGigFromHost } from './host-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * V2 Phase F · Host-side manpower surface.
@@ -326,7 +327,7 @@ function GigGroup({
               </div>
 
               {allowCancel ? (
-                <form action={cancelGigFromHost} className="mt-3 flex flex-wrap items-end gap-2">
+                <StayForm door="manpower.cancelGigFromHost" action={cancelGigFromHost} className="mt-3 flex flex-wrap items-end gap-2">
                   <input type="hidden" name="gig_id" value={gig.gig_id} />
                   <input type="hidden" name="event_id" value={gig.event_id} />
                   <label className="flex-1 min-w-[180px]">
@@ -352,7 +353,7 @@ function GigGroup({
                   >
                     Cancel gig
                   </SubmitButton>
-                </form>
+                </StayForm>
               ) : null}
             </li>
           ))}

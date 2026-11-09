@@ -3,11 +3,11 @@
 import { DateRow } from '@/app/_components/form-row-date';
 import { FormRow } from '@/app/_components/form-row';
 import type { KeepAnswer } from '@/lib/form-row';
-import { addManualBlock } from '../calendar/actions';
+import { saveInPlace } from '@/app/_actions/save-in-place';
 
 /**
  * 🧰 STEP 6 · "Days you can't take" — one day marked IN PLACE (the shared `DateRow`: the pill, the calendar, the tick
- * or the failure line on the row itself). The keep is the shipped `addManualBlock` — the whole shop, all day, once —
+ * or the failure line on the row itself). The keep is the shipped `addManualBlock` (through its stay door) — the whole shop, all day, once —
  * asked to answer in place (`return_to=inplace`) instead of redirecting, so Today never leaves; the re-read rail then
  * ticks the step. In the dev lab (`lab`) nothing is written: the row says so instead of pretending.
  */
@@ -25,7 +25,10 @@ export function SetupDaysOffRow({ marked, today, lab = false }: { marked: string
     fd.set('day_part', 'all_day');
     fd.set('return_to', 'inplace');
     // A refusal throws — the row then says it did not save. The action revalidates Today, so the ✓ arrives with it.
-    await addManualBlock(fd);
+    // Through the stay door (`supCalendar.addManualBlock` — the same shipped action, its answer read in place), so a
+    // gate's bounce still navigates and nothing else on Today moves.
+    const r = await saveInPlace('supCalendar.addManualBlock', fd);
+    if (!r.ok) throw new Error(r.error);
     return { ok: true };
   };
   return (

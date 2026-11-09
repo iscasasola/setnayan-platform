@@ -10,6 +10,7 @@ import {
 } from '@/lib/emcee-questions';
 import { saveHostAnswers } from '../question-answers-actions';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * HOST QUESTIONS — the couple answers what only they can tell their emcee.
@@ -108,7 +109,7 @@ export async function HostQuestions({
         </p>
       ) : null}
 
-      <form action={saveHostAnswers} className="space-y-3">
+      <StayForm door="schedule.saveHostAnswers" action={saveHostAnswers} className="space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
         {questionnaire.rows.map(({ question, answer }) => (
           <label key={question.question_id} className="block space-y-1">
@@ -133,7 +134,7 @@ export async function HostQuestions({
         >
           Save answers
         </button>
-      </form>
+      </StayForm>
     </section>
   );
 }

@@ -25,6 +25,7 @@ import {
   type SamahanStory,
 } from '@/lib/samahan-stories';
 import { leaveCommunity, rotateInviteToken } from '../actions';
+import { GROUP_ERROR_WORDS } from '@/lib/stay-doors/accGroup';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SamahanIdentityHeader } from './_components/samahan-identity-header';
 import { MemberActionsMenu } from './_components/member-actions-menu';
@@ -38,6 +39,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { pageBackLink } from '@/lib/page-home';
 import { GroupBack } from './_components/group-back';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = {
   title: 'Group',
@@ -68,11 +70,8 @@ const VIEW_TITLE: Record<Exclude<View, 'home'>, string> = {
 /** Where a group's ‹ goes when there is no screen of ours to go back to — the one map (People › Groups). */
 const GROUP_HOME = pageBackLink('/dashboard/samahan/[communityId]')!;
 
-const ERROR_COPY: Record<string, string> = {
-  last_organizer:
-    'You are the last organizer. Promote someone first, or archive the group.',
-  member_gone: 'That member is no longer on the roster.',
-};
+/** A group's refusals, in its own words — kept with the stay doors that say them (`lib/stay-doors/accGroup.ts`). */
+const ERROR_COPY = GROUP_ERROR_WORDS;
 
 type SearchParams = Promise<{
   tab?: string;
@@ -345,13 +344,13 @@ function MembersTab({
             tip="Rotate it to kill a leaked link — the old one stops working immediately. Or open someone on People and pick “Ask into a group”: Setnayan emails them this link, and nothing happens until they open it."
             line="Anyone with this link can join."
             action={
-              <form action={rotateInviteToken}>
+              <StayForm door="accGroup.rotateInviteToken" action={rotateInviteToken}>
                 <input name="community_id" type="hidden" value={communityId} />
                 <SubmitButton overlay={false} pendingLabel="Rotating…" className={QUIET_ACTION}>
                   <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Rotate link
                 </SubmitButton>
-              </form>
+              </StayForm>
             }
           />
           {inviteUrl ? (

@@ -1,9 +1,10 @@
 'use client';
 
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { demoteMember, promoteMember, removeMember } from '../../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * member-actions-menu.tsx — an organizer's Promote · Demote · Remove for one member, as ONE dropdown.
@@ -26,7 +27,11 @@ export function MemberActionsMenu({
 }) {
   const promoteRef = useRef<HTMLFormElement>(null);
   const demoteRef = useRef<HTMLFormElement>(null);
-  const removeRef = useRef<HTMLFormElement>(null);
+  /* Remove saves IN PLACE (owner 2026-10-26, "a save never resets the screen"): its form is a `StayForm` through the
+     `accGroup.removeMember` door — the same two fields, submitted by id (the form takes no ref); a refusal is said
+     under it. */
+  const removeId = useId();
+
   const fields = (
     <>
       <input name="community_id" type="hidden" value={communityId} />
@@ -49,7 +54,12 @@ export function MemberActionsMenu({
           { key: 'remove', label: 'Remove', icon: <X className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
         ]}
         onPick={(k) => {
-          const form = k === 'promote' ? promoteRef.current : k === 'demote' ? demoteRef.current : removeRef.current;
+          const form =
+            k === 'promote'
+              ? promoteRef.current
+              : k === 'demote'
+                ? demoteRef.current
+                : (document.getElementById(removeId) as HTMLFormElement | null);
           form?.requestSubmit();
         }}
       />
@@ -59,9 +69,9 @@ export function MemberActionsMenu({
       <form ref={demoteRef} action={demoteMember} className="hidden">
         {fields}
       </form>
-      <form ref={removeRef} action={removeMember} className="hidden">
+      <StayForm door="accGroup.removeMember" id={removeId} action={removeMember} className="hidden">
         {fields}
-      </form>
+      </StayForm>
     </>
   );
 }

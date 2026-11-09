@@ -15,6 +15,7 @@ import { addRepertoireSong, setPerformanceLink } from './actions';
 import { SetList } from './_components/set-list';
 import { ShopNotice } from '../_components/kit';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Your repertoire · Supplier' };
 
@@ -147,13 +148,13 @@ export default async function RepertoirePage({ searchParams }: Props) {
                         <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Added
                       </span>
                     ) : (
-                      <form action={addRepertoireSong} className="shrink-0">
+                      <StayForm door="svRepertoire.addRepertoireSong" action={addRepertoireSong} className="shrink-0">
                         <input type="hidden" name="song_id" value={song.song_id} />
                         <input type="hidden" name="q" value={query} />
                         <SubmitButton className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700">
                           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     )}
                   </li>
                 );
@@ -162,7 +163,10 @@ export default async function RepertoirePage({ searchParams }: Props) {
           </ul>
 
           {/* Not in the library → add your own (joins the master catalogue). */}
-          <form
+          {/* Keyed on the set list's size: a song that lands re-draws the list in place and starts this form empty. */}
+          <StayForm
+            key={`add-own-${repertoire.length}`}
+            door="svRepertoire.addRepertoireSong"
             action={addRepertoireSong}
             className="space-y-2 border-t border-ink/10 pt-4"
           >
@@ -175,7 +179,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
             <SubmitButton className="button-primary inline-flex items-center gap-1">
               <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add to my set list
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
 
         {/* ── Your set list ── */}
@@ -215,7 +219,7 @@ export default async function RepertoirePage({ searchParams }: Props) {
 */
 function PerformanceLinkForm({ song, query }: { song: { song_id: number; title: string; performance_url: string | null }; query: string }) {
   return (
-    <form action={setPerformanceLink} className="mt-1 flex w-full items-center gap-2 basis-full">
+    <StayForm door="svRepertoire.setPerformanceLink" action={setPerformanceLink} className="mt-1 flex w-full items-center gap-2 basis-full">
       <input type="hidden" name="song_id" value={song.song_id} />
       <input type="hidden" name="q" value={query} />
       <input
@@ -242,6 +246,6 @@ function PerformanceLinkForm({ song, query }: { song: { song_id: number; title: 
           Watch
         </a>
       ) : null}
-    </form>
+    </StayForm>
   );
 }

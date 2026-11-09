@@ -15,6 +15,7 @@ import { saveVendorServiceAttribute, removeVendorServiceAttribute } from './acti
 import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ShopNotice } from '../_components/kit';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Service attributes · Supplier' };
 
@@ -344,7 +345,7 @@ function ServiceForm({
         </div>
       </header>
 
-      <form action={saveVendorServiceAttribute} className="space-y-5">
+      <StayForm door="supAttributes.saveVendorServiceAttribute" action={saveVendorServiceAttribute} className="space-y-5">
         <input type="hidden" name="canonical_service" value={schema.canonical_service} />
 
         {Object.entries(visibleFields).map(([fieldKey, def]) => (
@@ -365,7 +366,7 @@ function ServiceForm({
             <RemoveServiceButton canonicalService={schema.canonical_service} />
           ) : null}
         </div>
-      </form>
+      </StayForm>
     </article>
   );
 }
@@ -388,7 +389,7 @@ function CompletenessBadge({ value }: { value: number }) {
 
 function RemoveServiceButton({ canonicalService }: { canonicalService: string }) {
   return (
-    <form action={removeVendorServiceAttribute} className="inline">
+    <StayForm door="supAttributes.removeVendorServiceAttribute" action={removeVendorServiceAttribute} className="inline">
       <input type="hidden" name="canonical_service" value={canonicalService} />
       <SubmitButton
         pendingLabel="Removing…"
@@ -396,6 +397,6 @@ function RemoveServiceButton({ canonicalService }: { canonicalService: string })
       >
         Remove this service&rsquo;s payload
       </SubmitButton>
-    </form>
+    </StayForm>
   );
 }

@@ -1,10 +1,13 @@
 // lucide-react dropped its brand glyphs, so there is no Facebook mark to use —
 // Share2 reads as "a second destination", which is exactly what this card is.
+import type { ReactNode } from 'react';
 import { AlertCircle, CheckCircle2, Share2, Unlink2, Video } from 'lucide-react';
 
 import { FACEBOOK_REPLAY_WARNING, normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 
 import { SubmitButton } from './submit-button';
+import { StayForm } from './stay-form';
+import type { StayDoor } from '@/lib/stay-doors';
 
 /**
  * FacebookDualStreamCard — the couple-facing "also stream to Facebook" control.
@@ -37,6 +40,8 @@ export function FacebookDualStreamCard({
   clearAction,
   saved = false,
   error = false,
+  saveDoor,
+  clearDoor,
 }: {
   eventId: string;
   /** The raw stored column value, or null. Re-normalized below before display. */
@@ -47,6 +52,10 @@ export function FacebookDualStreamCard({
   saved?: boolean;
   /** `?facebook_url_error=1` — the pasted value was not a Facebook video link. */
   error?: boolean;
+  /** The stay doors for the two actions (owner 2026-10-26, "a save never resets the screen") — a host that has them
+   *  saves in place; one that does not posts the plain form, as before. */
+  saveDoor?: StayDoor;
+  clearDoor?: StayDoor;
 }) {
   // Re-normalize before showing it back. The stored value is host-PATCHable
   // (events UPDATE RLS is row-level), and the public page re-validates on read —
@@ -83,7 +92,7 @@ export function FacebookDualStreamCard({
             <span className="font-medium">Watch on Facebook</span> link beside it, so guests
             can watch wherever they already are.
           </p>
-          <form action={clearAction} className="mt-3">
+          <MaybeStayForm door={clearDoor} action={clearAction} className="mt-3">
             <input type="hidden" name="event_id" value={eventId} />
             <SubmitButton
               pendingLabel="Removing…"
@@ -92,7 +101,7 @@ export function FacebookDualStreamCard({
               <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Remove Facebook link
             </SubmitButton>
-          </form>
+          </MaybeStayForm>
         </>
       ) : (
         <>
@@ -100,7 +109,7 @@ export function FacebookDualStreamCard({
             Many guests live on Facebook. Go live there at the same time as YouTube, paste
             the Facebook video link here, and your event page offers both.
           </p>
-          <form action={saveAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <MaybeStayForm door={saveDoor} action={saveAction} className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="url"
@@ -116,7 +125,7 @@ export function FacebookDualStreamCard({
               <Video aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save Facebook link
             </SubmitButton>
-          </form>
+          </MaybeStayForm>
         </>
       )}
 
@@ -162,5 +171,28 @@ export function FacebookDualStreamCard({
         </ol>
       </details>
     </div>
+  );
+}
+
+/** The card's form — saved in place through `door` when the host gave one, the plain form otherwise. */
+function MaybeStayForm({
+  door,
+  action,
+  className,
+  children,
+}: {
+  door?: StayDoor;
+  action: (formData: FormData) => Promise<void>;
+  className: string;
+  children: ReactNode;
+}) {
+  return door ? (
+    <StayForm door={door} action={action} className={className}>
+      {children}
+    </StayForm>
+  ) : (
+    <form action={action} className={className}>
+      {children}
+    </form>
   );
 }

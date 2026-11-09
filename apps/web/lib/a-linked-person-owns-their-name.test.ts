@@ -117,7 +117,7 @@ test('🔒 the profile boxes show what is SAVED; the event’s name is a one-tap
   assert.match(p, /!normalizeNamePart\(savedFormalName\[f\]\) && formalNameSuggestion\.name\[f\]/, 'the tap can overwrite a part the person typed');
   assert.match(p, /<input key=\{f\} type="hidden" form="use-event-name"/);
   assert.match(p, /<button type="submit" form="use-event-name"/);
-  assert.match(p, /<form id="use-event-name" action=\{updatePersonalInfo\}/);
+  assert.match(p, /<StayForm door="accProfile\.updatePersonalInfo" id="use-event-name" action=\{updatePersonalInfo\}/);
 });
 
 test('the offer finds seats saved to the account, not only the claimed person', () => {

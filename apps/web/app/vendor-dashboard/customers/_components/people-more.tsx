@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ChevronRight, QrCode, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
-import { ConfirmForm } from '@/app/_components/confirm-form';
+import { StayConfirmForm } from '@/app/_components/stay-form';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
@@ -160,7 +160,8 @@ export function OutsideClientRows({
               {c.contact ? <p className="mt-1">{c.contact}</p> : null}
               {c.note ? <p className="mt-1 whitespace-pre-wrap text-ink/60">{c.note}</p> : null}
               <OutsideCodeBlock c={c} code={code} nowMs={nowMs} />
-              <ConfirmForm
+              <StayConfirmForm
+                door="supCalendar.removeBlock"
                 action={removeBlock}
                 title="Remove this outside client?"
                 confirmLabel="Remove"
@@ -170,7 +171,7 @@ export function OutsideClientRows({
                 <input type="hidden" name="return_to" value="events" />
                 <input type="hidden" name="block_id" value={c.blockId} />
                 <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" />
-              </ConfirmForm>
+              </StayConfirmForm>
             </div>
           </Fold>
         </div>

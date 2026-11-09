@@ -29,7 +29,7 @@ import {
 import { blockClosesDay, repeatWords } from '@/lib/not-available';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
-import { DAILY_CAPACITY_MAX, entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
+import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
@@ -103,6 +103,7 @@ import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf, oldPeopleAddressFo
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
+import { DATES_NOTICES } from '../calendar/dates-notices';
 import {
   addManualBlock,
   importExternalClient,
@@ -1089,30 +1090,8 @@ function shortDay(iso: string): string {
 
 /* ═══ DATES (S-PR3) ═══════════════════════════════════════════════════════ */
 
-/** Every calendar action's outcome, said once by the toast and kept as the status line (`?notice=`). */
-const DATES_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
-  block_added: { tone: 'ok', text: 'Marked not available. Couples see only “unavailable”.' },
-  block_removed: { tone: 'ok', text: 'Open again — bookable on Setnayan.' },
-  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
-  capacity_saved: { tone: 'ok', text: 'How many a day — saved.' },
-  capacity_clamped: { tone: 'note', text: `Saved at ${DAILY_CAPACITY_MAX} a day — the most a calendar takes.` },
-  pool_saved: { tone: 'ok', text: 'Saved — those services share that schedule now.' },
-  waitlist_notified: { tone: 'ok', text: 'Told them — the couples waiting know the date is open.' },
-  waitlist_settings_saved: { tone: 'ok', text: 'Waiting list saved.' },
-  waitlist_picked: { tone: 'ok', text: 'Picked — they hold their place for that date.' },
-  waitlist_full: { tone: 'note', text: 'That date’s waiting list is full. Raise how many a date to pick more.' },
-  waitlist_not_in_plan: { tone: 'note', text: 'A waiting list comes with the paid plans. Nothing changed.' },
-  waitlist_none: { tone: 'note', text: 'No one is waiting on that date yet.' },
-  day_state_saved: { tone: 'ok', text: 'Day updated. Couples see only “unavailable”.' },
-  day_state_cleared: { tone: 'ok', text: 'Day reopened — it’s bookable again.' },
-  calendar_created: { tone: 'ok', text: 'Schedule made.' },
-  calendar_saved: { tone: 'ok', text: 'Schedule saved.' },
-  bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
-  bad_name: { tone: 'bad', text: 'It needs a name. Nothing was saved.', retry: true },
-  bad_pool: { tone: 'bad', text: 'Pick which schedule it belongs to. Nothing was saved.', retry: true },
-  bad_capacity: { tone: 'bad', text: 'How many a day must be 1 or more. Nothing was saved.', retry: true },
-  save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
-};
+/* Every calendar action's outcome (`DATES_NOTICES`) lives beside the actions now — `calendar/dates-notices.ts`, shared
+   with the stay door that says a refusal on the row it was pressed on. */
 
 /** The calendar actions every Dates view hands to its rows (this page names them once). */
 const DATES_ACTIONS = {

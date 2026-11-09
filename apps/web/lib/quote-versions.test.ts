@@ -223,7 +223,8 @@ test('🔴 no second diff anywhere in the app — quoteChanges is called only in
 test('the couple accepts the update through the existing respondToProposal, and only when the rule says', () => {
   const s = read(STREAM);
   assert.equal(count(s, /\{quoteState\.offerAcceptUpdate \? \(/g), 1, 'Accept the update is not gated on the rule exactly once');
-  assert.equal(count(s, /<form action=\{respondToProposal\}/g), 1);
+  /* Saves in place (A SAVE NEVER RESETS THE SCREEN): the same action, posted through its stay door. */
+  assert.equal(count(s, /<StayForm door="svProposals\.respondToProposal" action=\{respondToProposal\}/g), 1);
   assert.equal(count(s, /Accept the update/g), 1);
 });
 

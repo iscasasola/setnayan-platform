@@ -66,7 +66,8 @@ test('the Promote card is the couple’s only, like every action behind it', () 
     /\.from\('event_members'\)[\s\S]*?\.eq\('user_id', user\.id\)[\s\S]*?if \(\(member as \{ member_type\?: string \} \| null\)\?\.member_type !== 'couple'\) return null;/,
   );
   // Every seat form names this booking, so the action lands back here.
-  const forms = CARD.match(/<form action=\{revokeHostInvite\}>[\s\S]*?<\/form>/g) ?? [];
+  // (saved in place since 2026-11-08: the same form as a `StayForm` on the `hosts.revokeHostInvite` door)
+  const forms = CARD.match(/<StayForm door="hosts\.revokeHostInvite" action=\{revokeHostInvite\}>[\s\S]*?<\/StayForm>/g) ?? [];
   assert.equal(forms.length, 1, 'the waiting invite lost its Revoke');
   assert.match(forms[0] ?? '', /name="vendor_id"/);
   // The planner's grants are SHOWN here and changed in Event Details › People

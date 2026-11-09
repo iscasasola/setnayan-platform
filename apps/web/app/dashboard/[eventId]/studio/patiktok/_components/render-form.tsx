@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Film } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPatiktokRender } from '../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 // Iteration 0017 Phase 5 — Patiktok render-form with music selection.
 //
@@ -61,7 +62,7 @@ export function RenderForm({
   );
 
   return (
-    <form action={submitPatiktokRender} className="space-y-4">
+    <StayForm door="patiktok.submitPatiktokRender" action={submitPatiktokRender} className="space-y-4">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="template_slug" value={templateSlug} />
       <input type="hidden" name="duration_sec" value={duration} />
@@ -154,6 +155,6 @@ export function RenderForm({
         while it works — then download it, and a copy is saved to your
         Memories.
       </p>
-    </form>
+    </StayForm>
   );
 }

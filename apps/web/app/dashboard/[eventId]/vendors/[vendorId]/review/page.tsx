@@ -37,6 +37,7 @@ import { FavoriteAddCard } from '@/app/_components/favorite-heart';
 import { offerHostFavorites } from '@/lib/favorites.server';
 import { favoriteDay, favoriteEventPhrase } from '@/lib/favorites';
 import { resolveProfile } from '@/lib/event-type-profile';
+import { StayForm } from '@/app/_components/stay-form';
 
 function parseBlockedSignal(raw: string | undefined): SelfReviewSignal | null {
   if (!raw) return null;
@@ -563,20 +564,20 @@ function ConfirmReceiptState({
         something is missing, let us know.
       </p>
       <div className="flex flex-wrap gap-2 pt-1">
-        <form action={coupleConfirmReceived}>
+        <StayForm door="vendorReview.coupleConfirmReceived" action={coupleConfirmReceived}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={vendorId} />
           <SubmitButton className="button-primary" pendingLabel="Confirming…">
             Yes, I got everything
           </SubmitButton>
-        </form>
-        <form action={coupleReportNonDelivery}>
+        </StayForm>
+        <StayForm door="vendorReview.coupleReportNonDelivery" action={coupleReportNonDelivery}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={vendorId} />
           <SubmitButton className="button-secondary" pendingLabel="Reporting…">
             Something&rsquo;s missing
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
       <p className="text-xs text-ink/50">
         If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still go up.

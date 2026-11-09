@@ -4240,6 +4240,8 @@
     "/admin/repost-watch": {
       "files": [
         "admin/repost-watch/actions.ts",
+        "admin/repost-watch/card-checks-admin.tsx",
+        "admin/repost-watch/card-checks-fields.tsx",
         "admin/repost-watch/page.tsx"
       ],
       "destinations": [
@@ -4250,12 +4252,19 @@
         "rescanAllRepostWatch",
         "resolveQrMediaFlag",
         "resolveRepostFlag",
+        "saveCardClaimWords",
         "scanQrMediaGuard"
       ],
       "blocks": [
+        "CardChecksAdmin",
         "FormFlash",
         "PageMasthead",
-        "SubmitButton"
+        "PickMenu",
+        "PostedPick",
+        "PostedText",
+        "SubmitButton",
+        "SupplierPhotoReports",
+        "TypedRow"
       ]
     },
     "/admin/reveal-studio": {
@@ -8524,6 +8533,7 @@
     "/dashboard/[eventId]/messages": {
       "files": [
         "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
+        "dashboard/[eventId]/messages/_components/couple-chats-empty.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/layout.tsx",
@@ -8540,9 +8550,11 @@
       "blocks": [
         "ChatInbox",
         "ChatOriginMark",
+        "CoupleChatsEmpty",
         "FeedPageSkeleton",
         "Filter",
         "HTMLDivElement",
+        "LeftChatRow",
         "Link",
         "LiveInboxRefresh",
         "PageMasthead",
@@ -8581,15 +8593,19 @@
       ],
       "blocks": [
         "BackButton",
+        "BlockerChangeRow",
         "BookedCallButtons",
         "ChatBox",
         "ChatMessageStream",
+        "ChatPinRead",
+        "ChatPrivacyTip",
         "ChatSafetyBanner",
         "ChatSendForm",
         "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
+        "CoordinatorAgreeButton",
         "CoupleThreadPage",
         "CoupleThreadToolsSheet",
         "Link",
@@ -11879,6 +11895,38 @@
         "ViewMoment"
       ]
     },
+    "/dev/chat-cards-c-lab": {
+      "files": [
+        "dev/chat-cards-c-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AskChangeDoor",
+        "BookRequestCard",
+        "ChangeAskCard",
+        "DecisionStepCard",
+        "FilesStepCard",
+        "FormAnswerCard",
+        "FormStepCard",
+        "GuestRecountCard",
+        "LogPaymentCard",
+        "PaymentStepCard",
+        "QuoteStepCard"
+      ]
+    },
+    "/dev/chat-cards-lab": {
+      "files": [
+        "dev/chat-cards-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AgreedNowView",
+        "MeetingStepCard",
+        "SupplierLocksView"
+      ]
+    },
     "/dev/chat-lab": {
       "files": [
         "dev/chat-lab/fixtures.tsx",
@@ -11890,6 +11938,7 @@
       "actions": [],
       "blocks": [
         "ChatInbox",
+        "CoupleChatsEmpty",
         "CoupleThreadSupplierRow",
         "LabPickedChat",
         "LabShell",
@@ -11997,6 +12046,24 @@
         "CustomerMoneyFold",
         "ShopCard",
         "SupplierCountTile"
+      ]
+    },
+    "/dev/date-sheet-lab": {
+      "files": [
+        "dev/date-sheet-lab/lab-client.tsx",
+        "dev/date-sheet-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CalendarDay",
+        "DateRow",
+        "DateSheetLabClient",
+        "FormRow",
+        "FormRows",
+        "HTMLButtonElement",
+        "LazyDateSheet",
+        "MeetingRow"
       ]
     },
     "/dev/details-lab": {
@@ -12927,6 +12994,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "BackButton",
         "BookedCallButtons",
         "ChatBox",
@@ -12938,6 +13006,7 @@
         "ChatThreadHead",
         "ChatThreadMenu",
         "LabPickedChat",
+        "LabPlusSeed",
         "LockRequestAnswer",
         "PickedClientShell",
         "ProposalMaker",
@@ -15512,6 +15581,7 @@
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
         "vendor-dashboard/clients/[eventId]/_components/hosts-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-rows.ts",
+        "vendor-dashboard/clients/[eventId]/_components/lock-switch.tsx",
         "vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-menu.ts",
@@ -15523,6 +15593,7 @@
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-count-tile.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/supplier-locks-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-list.tsx",
@@ -15595,11 +15666,13 @@
       "blocks": [
         "ActionButton",
         "ActivityFeed",
+        "AgreedNow",
         "AppointmentsSection",
         "AskAccess",
         "AskSubmit",
         "AskedRow",
         "Badge",
+        "BlockerAskRow",
         "BoardPart",
         "BookingAskOutcomeLine",
         "BookingFeeBills",
@@ -15673,6 +15746,7 @@
         "OpenTheirEvent",
         "OverviewTab",
         "P",
+        "PaymentAskOutcome",
         "PaymentAsksPanel",
         "PaymentHistoryList",
         "PaymentPage",
@@ -15719,6 +15793,8 @@
         "SubmitButton",
         "SuggestSheet",
         "SupplierCountTile",
+        "SupplierLocksSection",
+        "SupplierLocksView",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
         "SupplierTaskRow",
@@ -15728,9 +15804,9 @@
         "SuppliersList",
         "Suspense",
         "SwipeToDelete",
+        "Switch",
+        "SwitchTrack",
         "TheyToldYou",
-        "ThumbLayer",
-        "ThumbLayerContext.Provider",
         "ThumbRow",
         "TimeRow",
         "TypedRow",
@@ -16429,6 +16505,8 @@
         "vendor-dashboard/messages/[threadId]/questions-actions.ts"
       ],
       "destinations": [
+        "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/disputes",
         "/u/[seg]",
         "/u/[seg]/c/[seg]",
         "/vendor-dashboard/activities",
@@ -16453,14 +16531,18 @@
         "sendProposalFromChat"
       ],
       "blocks": [
+        "ActionButton",
         "AnswerAskButton",
         "BackButton",
+        "BlockerChangeRow",
         "BookedCallButtons",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
+        "ChatPinRead",
         "ChatPrivacyNotice",
+        "ChatPrivacyTip",
         "ChatSendForm",
         "ChatThreadFrame",
         "ChatThreadHead",
@@ -16483,6 +16565,7 @@
         "PayoutReadiness",
         "PendingPaymentAnswer",
         "PipelinePressureLine",
+        "PlusDoor",
         "ProposalMaker",
         "QuestionsSendBody",
         "QuestionsSendPanel",
@@ -16508,6 +16591,7 @@
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "ToolsSheetButton",
+        "ValidUntilPicker",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive",
@@ -17112,6 +17196,7 @@
         "SwipeToDelete",
         "TemplateList",
         "UndoToastHost",
+        "ValidUntilPicker",
         "VendorReuseInbox"
       ]
     },
@@ -17193,6 +17278,7 @@
       "files": [
         "vendor-dashboard/services/_components/addons-editor.tsx",
         "vendor-dashboard/services/_components/canvas-maker.tsx",
+        "vendor-dashboard/services/_components/card-checks.tsx",
         "vendor-dashboard/services/_components/coverage-panel.tsx",
         "vendor-dashboard/services/_components/customization-step.tsx",
         "vendor-dashboard/services/_components/halls-uses-pick.tsx",
@@ -17210,6 +17296,7 @@
         "vendor-dashboard/services/_components/stay-on-section.tsx",
         "vendor-dashboard/services/actions.ts",
         "vendor-dashboard/services/addon-actions.ts",
+        "vendor-dashboard/services/card-check-actions.ts",
         "vendor-dashboard/services/coverage-actions.ts",
         "vendor-dashboard/services/loading.tsx",
         "vendor-dashboard/services/page.tsx",
@@ -17219,6 +17306,7 @@
       "destinations": [
         "/vendor-dashboard/attributes",
         "/vendor-dashboard/packages",
+        "/vendor-dashboard/services/new",
         "/vendor-dashboard/services/new/[seg]?from=[seg]",
         "/vendor-dashboard/subscription"
       ],
@@ -17252,9 +17340,13 @@
         "CanvasFormSnapshot",
         "CanvasKeep",
         "CanvasSheet",
+        "CardCheckInput",
+        "CardChecksSummary",
         "CardRecordSection",
         "CheckChip",
         "ChipGroup",
+        "ClaimHit",
+        "ClaimWordNotes",
         "CoverageBrowse",
         "CoverageLeaf",
         "CoveragePanel",
@@ -17298,6 +17390,8 @@
         "ParsedScheduleRow",
         "PaymentScheduleEditor",
         "PendingWatch",
+        "PhotoBlockedNote",
+        "PhotoCheckNotes",
         "PickMenu",
         "PillButton",
         "PillTrack",
@@ -17306,6 +17400,7 @@
         "PricingBasisEditor",
         "Recap",
         "RefinementsEditor",
+        "ReportCardPhotoResult",
         "RequestStatusBadge",
         "Row",
         "RowIcon",
@@ -17314,6 +17409,7 @@
         "ServiceCardFace",
         "ServiceCardLivePreview",
         "ServiceCardView",
+        "ServiceMismatchNote",
         "ServicesEmptyCard",
         "ServicesManagerSearch",
         "SetnayanGiftField",

@@ -218,6 +218,8 @@ import {
 import { reviewState, type ReviewState } from '@/lib/completion-handshake';
 import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
+import { resolveBudgetVisibility } from '@/lib/budget-visibility';
+import { HOSTS_ONLY } from '@/lib/money-mask';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -345,6 +347,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     .maybeSingle();
 
   if (vendorErr || !vendorRow) notFound();
+
+  /*
+    🔒 "₱ — HOSTS ONLY" (FINAL RULINGS 2026-11-09). A coordinator of this event without Budget & payments reads no
+    amount here. The database withholds the quote, change and payment-ask rows from them outright (migration
+    20271333705710); this booking row still carries its price columns (a Suppliers grant reads the row), so every
+    figure drawn from it is masked below. The database's own answer (`chat_money_hidden`) — the same predicate the
+    chat's readers use; if it cannot answer, the page's own Budget & payments rule decides.
+  */
+  const moneyHidden = await supabase
+    .rpc('chat_money_hidden', {
+      p_event_id: eventId,
+      p_vendor_profile_id: (vendorRow as { marketplace_vendor_id: string | null }).marketplace_vendor_id,
+    })
+    .then(async ({ data, error }) => {
+      if (!error) return data === true;
+      console.error('[supabase-error] app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx · rpc:chat_money_hidden', error);
+      return !(await resolveBudgetVisibility(supabase, eventId, user.id)).mayRead;
+    });
 
   /*
     THE SUPPLIER'S REFUSAL — READ SEPARATELY, AND THAT IS DELIBERATE.
@@ -1471,7 +1491,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Price
             </dt>
             <dd className="mt-1 text-sm font-semibold text-ink">
-              {heroPriceFormatted ?? '—'}
+              {moneyHidden ? HOSTS_ONLY : (heroPriceFormatted ?? '—')}
             </dd>
           </div>
           <div>
@@ -1479,7 +1499,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Paid so far
             </dt>
             <dd className="mt-1 text-sm font-semibold text-ink">
-              {paidSoFarFormatted ?? '—'}
+              {moneyHidden ? HOSTS_ONLY : (paidSoFarFormatted ?? '—')}
             </dd>
           </div>
           {/* 🚪 ONLY THE CONTACT THE COUPLE TYPED THEMSELVES (owner 2026-09-10:
@@ -1736,9 +1756,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   ) : null}
                 </span>
                 <span className="shrink-0 font-mono text-xs text-ink/70">
-                  {line.amountCentavos > 0
-                    ? `+${formatCentavosPhp(line.amountCentavos)}`
-                    : 'Included'}
+                  {moneyHidden
+                    ? HOSTS_ONLY
+                    : line.amountCentavos > 0
+                      ? `+${formatCentavosPhp(line.amountCentavos)}`
+                      : 'Included'}
                 </span>
               </li>
             ))}
@@ -2270,7 +2292,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
   );
 
-  const proposalsCard = (
+  // 🔒 What a coordinator without Budget & payments reads where the quote and the payments would be.
+  const hostsOnlyPanel = (
+        <section
+          aria-label="Price and payments"
+          data-money-hosts-only=""
+          className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-sm text-ink/70 sm:p-6"
+        >
+          The quotation, the price and the payments with {displayName} are the hosts’ to see ({HOSTS_ONLY}).
+        </section>
+  );
+
+  const proposalsCard = moneyHidden ? hostsOnlyPanel : (
         <VendorProposalsCard
           eventId={eventId}
           marketplaceVendorId={ev.marketplace_vendor_id}
@@ -2685,7 +2718,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {includedSection}
         {choicesSection}
         {addOnsSection}
-        {statusSection}
+        {moneyHidden ? null : statusSection}
         <div className="grid gap-5 lg:grid-cols-2">
           {conversationSection}
           {colourAccessSection}
@@ -2695,7 +2728,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </div>
         {appointmentsSection}
         {marketplaceInfoSection}
-        {paymentModeSection}
+        {moneyHidden ? null : paymentModeSection}
         {notesSection}
         {workingFolderSection}
         {claimSection}
@@ -2921,8 +2954,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       icon: <PiggyBank aria-hidden className={tabIconClass} strokeWidth={1.75} />,
       node: (
         <div className="space-y-6">
-          {statusSection}
-          {paymentModeSection}
+          {moneyHidden ? hostsOnlyPanel : statusSection}
+          {moneyHidden ? null : paymentModeSection}
         </div>
       ),
     },

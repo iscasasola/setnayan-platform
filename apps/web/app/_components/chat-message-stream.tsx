@@ -1061,14 +1061,24 @@ export function ChatMessageStream({
             const row = payload.new as HeartRow | undefined;
             if (row && typeof row.message_id === 'string') setHearts((prev) => applyHeart(prev, row));
           },
-        )
-        .subscribe((status) => {
+        );
+      // 🔒 A masked reader is never SENT a line with an amount (the database withholds it — migration
+      // 20271333705710), so that line raises no INSERT here. Every shared line still moves the thread's own
+      // `updated_at`, and that UPDATE is the cue to re-read through the masking reader.
+      const watched = moneyHidden
+        ? channel.on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'chat_threads', filter: `thread_id=eq.${threadId}` },
+            () => void refetchAll(),
+          )
+        : channel;
+      watched.subscribe((status) => {
           // On (re)SUBSCRIBED — including reconnects after a network drop —
           // pull a fresh batch so we backfill anything missed while offline.
-          if (status === 'SUBSCRIBED') {
-            void refetchAll();
-          }
-        });
+        if (status === 'SUBSCRIBED') {
+          void refetchAll();
+        }
+      });
       return () => supabase.removeChannel(channel);
     });
 

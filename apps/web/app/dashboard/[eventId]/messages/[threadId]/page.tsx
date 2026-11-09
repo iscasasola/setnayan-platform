@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
+import { fetchCoupleThreads, fetchMessages, fetchMessagesMasked, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
@@ -600,10 +600,14 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             action: <CoordinatorAgreeButton eventId={thread.event_id} vendorProfileId={thread.vendor_profile_id} />,
           }
       : null;
-  // 🔒 A reader whose amounts the database hides gets the first paint masked HERE, on the server — the stream then
-  // reads only through the masking readers (`moneyHidden`).
+  // 🔒 A reader whose amounts the database hides: the session read above was WITHHELD every line that names an amount
+  // (migration 20271333705710), so the first paint re-reads through the masking reader — every line, its figures
+  // "₱ — hosts only". If that read fails, the lines we do hold are masked here anyway, never shown raw.
   const streamMessages = chatPins.streamMasked
-    ? initialMessages.map((m) => ({ ...m, body: maskPesos(m.body) }))
+    ? await fetchMessagesMasked(supabase, threadId).catch((e: unknown) => {
+        console.error('[supabase-error] chat thread · chat_thread_messages_read', e);
+        return initialMessages.map((m) => ({ ...m, body: maskPesos(m.body) }));
+      })
     : initialMessages;
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the

@@ -99,7 +99,7 @@ test('the page column that holds the frame scrolls, so a frame taller than the c
 test('(2) every view scroller carries a floor AND basis-0, so the frame’s minimum is the floor, not the thread', () => {
   const scrollers = classNamesWith(STREAM, ['flex-1', 'overflow-y-auto']);
   // Conversation, Decisions, Files. Counted, so a fourth view cannot slip in unfloored.
-  assert.equal(scrollers.length, 3, `expected 3 flex-1 view scrollers, found ${scrollers.length}: ${scrollers.join(' | ')}`);
+  assert.equal(scrollers.length, 2, `expected 2 flex-1 view scrollers (chat · files — Build 3 retired the Decisions view into the pins + Details), found ${scrollers.length}: ${scrollers.join(' | ')}`);
   for (const s of scrollers) {
     const list = classes(s);
     const floor = list.map((c) => /^min-h-\[(\d+(?:\.\d+)?)rem\]$/.exec(c)).find(Boolean);

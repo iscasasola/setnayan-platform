@@ -119,8 +119,8 @@ async function bookingWithQuote(
     [eventId, shop],
   );
   const proposalId = await one<string>(
-    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos)
-     VALUES ($1, $2, 'Quote', $3, CASE WHEN $3 = 'accepted' THEN NOW() END, 5000000) RETURNING proposal_id AS v`,
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos, valid_until)
+     VALUES ($1, $2, 'Quote', $3, CASE WHEN $3 = 'accepted' THEN NOW() END, 5000000, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id AS v`,
     [shop, eventId, quoteStatus],
   );
   if (credits > 0) {

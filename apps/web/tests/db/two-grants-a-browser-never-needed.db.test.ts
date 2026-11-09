@@ -155,7 +155,12 @@ test('NEUTRALISED: with TRUNCATE granted back, the same statement runs — so th
 
 test('POSITIVE CONTROL: the rest of the table’s browser grants are untouched', async () => {
   const r = await db.query<{ s: boolean; i: boolean; u: boolean; t: boolean }>(
-    `SELECT has_table_privilege('authenticated','public.chat_threads','SELECT') AS s,
+    // SELECT is held per COLUMN since 20271333705710: agreed_price_centavos is
+    // closed to every browser role (a masked coordinator read it raw), and every
+    // other column is granted back one by one. So the browser still reads the
+    // table — has_table_privilege would say false for a table-wide SELECT it no
+    // longer holds; thread_id is the column every chat read starts from.
+    `SELECT has_column_privilege('authenticated','public.chat_threads','thread_id','SELECT') AS s,
             has_table_privilege('authenticated','public.chat_threads','INSERT') AS i,
             has_table_privilege('authenticated','public.chat_threads','UPDATE') AS u,
             has_table_privilege('service_role','public.chat_threads','TRUNCATE') AS t`,

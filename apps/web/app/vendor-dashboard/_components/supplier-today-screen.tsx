@@ -50,6 +50,7 @@ export function SupplierTodayScreen({
   library = false,
   eventsYouRun = [],
   setup = null,
+  hero = null,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -70,6 +71,8 @@ export function SupplierTodayScreen({
   eventsYouRun?: readonly EventYouRun[];
   /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
   setup?: ReactNode;
+  /** 🖼 The shared hero's picture (Lane E item 11) — read by the page; the lab draws the placeholder. */
+  hero?: Parameters<typeof TodayCover>[0]['hero'];
 }) {
   /*
     📌 THE TOP SCROLLS UP AND LOCKS (L1's `CollapsingTop`, wired at integration — C1 NEEDS L1 #1): the cover locks to
@@ -86,7 +89,7 @@ export function SupplierTodayScreen({
         </div>
       }
     >
-      <TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} />
+      <TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} hero={hero} />
     </CollapsingTop>
   );
   const statsTop = (

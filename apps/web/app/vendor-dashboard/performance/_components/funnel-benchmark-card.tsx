@@ -78,7 +78,7 @@ export function FunnelBenchmarkCard({
         ? 'Not enough shops like yours yet'
         : `${formatCount(placed.length)} of ${formatCount(benchmark.metrics.length)} placed among similar shops`;
     return (
-      <CardFace title="Compared with similar suppliers" window="Your category" line={line} data="compare">
+      <CardFace title="Compared with similar suppliers" window="Your category" line={line} data="compare" quiet={unreadable || placed.length === 0}>
         <ul className="space-y-2.5 pt-1">
           {benchmark.metrics.map((m) => {
             const on = !unreadable && m.percentile !== null && m.band !== null;

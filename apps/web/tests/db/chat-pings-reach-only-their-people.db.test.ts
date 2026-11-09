@@ -5,15 +5,17 @@
  * (`realtime.send`) to each recipient's PRIVATE topic `user:<uid>`, and a policy on realtime.messages that lets a
  * person listen to their OWN topic and nobody else's. What this file proves:
  *
- *   1 · THE RIGHT PEOPLE, AND ONLY THEM. A couple's message pings the shop owner, the shop's admin team member and the
- *       couple's partner — never the sender, never a shop VIEWER or AGENT (their badge does not count the thread),
- *       never a guest of the event, never a stranger. Read backwards from `count_unread_message_threads`, so the
- *       people pinged are exactly the people whose count can move.
+ *   1 · THE RIGHT PEOPLE, AND ONLY THEM. A host's message pings the shop owner, the shop's admin team member, the
+ *       other hosts IN THIS CHAT (a live chat_thread_members row — migration 20271330575424) and the event's
+ *       coordinator — never the sender, never a host who was not added or who LEFT, never a shop VIEWER or AGENT
+ *       (their badge does not count the thread), never a guest of the event, never a stranger. A PRIVATE line pings
+ *       its one reader and nobody else (migration 20271334537840). Read backwards from `count_unread_message_threads`,
+ *       so the people pinged are exactly the people whose count can move.
  *   2 · NO CONTENT. The payload carries thread_id · message_id · at — not the body.
  *   3 · A PING NEVER COSTS A MESSAGE. With `realtime.send` raising, the INSERT still lands. With no realtime schema at
  *       all (the shape of this replay before the stub), the INSERT lands and nothing is sent.
  *   4 · O(RECIPIENTS), NEVER A SCAN. Each lookup is keyed on an index whose leading column is the key it filters on —
- *       including the PARTIAL couple index, so an event's hundreds of guest rows are never walked.
+ *       including the PARTIAL coordinator index, so an event's hundreds of guest rows are never walked.
  *   5 · A USER ONLY RECEIVES THEIR OWN TOPIC. `user_topic_is_mine` is TRUE for `user:<me>` and FALSE for another
  *       person's uid, anon, NULL, a lookalike prefix — and never raises. The policy is READ only (no INSERT policy:
  *       a browser cannot send into anyone's topic).
@@ -43,6 +45,9 @@ let db: PGlite;
 const F = {
   bride: '',
   groom: '',
+  hostOut: '',
+  hostLeft: '',
+  coordinator: '',
   guest: '',
   shopOwner: '',
   shopAdmin: '',
@@ -70,15 +75,15 @@ async function reset(): Promise<void> {
 }
 
 /** Insert a message AS `uid` — the shipped send path's shape — and return its id. */
-async function sendAs(uid: string, body: string): Promise<string> {
+async function sendAs(uid: string, body: string, to: string | null = null): Promise<string> {
   await setAuthUid(db, uid);
   await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
   await db.exec(`SET ROLE authenticated`);
   try {
     const r = await db.query<{ message_id: string }>(
-      `INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, body)
-       VALUES ($1,$2,$3,$4) RETURNING message_id`,
-      [F.threadId, F.eventId, F.vendorId, body],
+      `INSERT INTO public.chat_messages (thread_id, event_id, vendor_profile_id, body, recipient_user_id)
+       VALUES ($1,$2,$3,$4,$5) RETURNING message_id`,
+      [F.threadId, F.eventId, F.vendorId, body, to],
     );
     return r.rows[0]!.message_id;
   } finally {
@@ -119,6 +124,9 @@ before(async () => {
 
   F.bride = await createUser('ping-bride@chat.test', 'customer');
   F.groom = await createUser('ping-groom@chat.test', 'customer');
+  F.hostOut = await createUser('ping-host-out@chat.test', 'customer');
+  F.hostLeft = await createUser('ping-host-left@chat.test', 'customer');
+  F.coordinator = await createUser('ping-coordinator@chat.test', 'customer');
   F.guest = await createUser('ping-guest@chat.test', 'customer');
   F.shopOwner = await createUser('ping-owner@chat.test', 'vendor');
   F.shopAdmin = await createUser('ping-admin@chat.test', 'vendor');
@@ -154,6 +162,9 @@ before(async () => {
   for (const [uid, type] of [
     [F.bride, 'couple'],
     [F.groom, 'couple'],
+    [F.hostOut, 'couple'],
+    [F.hostLeft, 'couple'],
+    [F.coordinator, 'coordinator'],
     [F.guest, 'guest'],
   ] as const) {
     await db.query(
@@ -168,6 +179,13 @@ before(async () => {
     [F.eventId, F.vendorId, F.bride],
   );
   F.threadId = th.rows[0]!.thread_id;
+  // Who is IN this supplier chat on the hosts' side (20271330575424): the opener (the bride, seated by the trigger),
+  // the groom (added), and a host who joined and LEFT. hostOut is a host of the event who was never added.
+  await db.query(
+    `INSERT INTO public.chat_thread_members (thread_id, user_id, left_at) VALUES ($1, $2, NULL), ($1, $3, now())
+     ON CONFLICT (thread_id, user_id) DO UPDATE SET left_at = EXCLUDED.left_at`,
+    [F.threadId, F.groom, F.hostLeft],
+  );
 
   // Production stamps this from NEXT_PUBLIC_CHAT_LIVE_ENABLED (lib/chat-live-stamp.ts). ON for the tests below; the
   // OFF test sets it back itself.
@@ -201,8 +219,8 @@ test('a couple message pings exactly the people whose unread count it moves — 
   assert.ok(sent.length > 0, 'nothing was pinged — the trigger did not fire');
   assert.deepEqual(
     topics,
-    [F.groom, F.shopAdmin, F.shopOwner].map(topicOf).sort(),
-    'the pinged set must be the partner + the shop owner + the shop ADMIN — never the sender, an agent, a viewer, a guest or a stranger',
+    [F.groom, F.coordinator, F.shopAdmin, F.shopOwner].map(topicOf).sort(),
+    'the pinged set must be the host in the chat + the coordinator + the shop owner + the shop ADMIN — never the sender, a host who is not in the chat or left, an agent, a viewer, a guest or a stranger',
   );
   for (const s of sent) {
     assert.equal(s.event, 'chat_message');
@@ -217,7 +235,7 @@ test('a couple message pings exactly the people whose unread count it moves — 
 test('the recipient list is the unread count read backwards — each pinged person can now count the thread', async () => {
   // Property, not a list: for EVERY user in the fixture, "was pinged" ⇔ "their count_unread_message_threads() rose".
   await stubRealtime('record');
-  const everyone = [F.bride, F.groom, F.guest, F.shopOwner, F.shopAdmin, F.shopAgent, F.shopViewer, F.stranger];
+  const everyone = [F.bride, F.groom, F.hostOut, F.hostLeft, F.coordinator, F.guest, F.shopOwner, F.shopAdmin, F.shopAgent, F.shopViewer, F.stranger];
   const countFor = async (uid: string) => {
     await setAuthUid(db, uid);
     try {
@@ -253,6 +271,22 @@ test('the recipient list is the unread count read backwards — each pinged pers
     );
   }
   assert.ok(rose >= 3, `only ${rose} counts rose — the comparison proves nothing`);
+});
+
+test('a private line pings its one reader — and nobody else learns a line was written', async () => {
+  await stubRealtime('record');
+  for (const [from, to] of [
+    [F.bride, F.groom], // host ↔ host: the supplier must not even be pinged
+    [F.bride, F.shopOwner], // host → supplier: the other host must not be pinged
+    [F.shopOwner, F.bride], // supplier → host
+  ] as const) {
+    const mark = await lastSent();
+    const id = await sendAs(from, 'Between us two', to);
+    assert.ok(id, 'the private line must land');
+    const sent = await sentSince(mark);
+    assert.deepEqual(sent.map((x) => x.topic), [topicOf(to)], 'a private line pinged someone other than its recipient');
+    assert.deepEqual(Object.keys(sent[0]!.payload).sort(), ['at', 'message_id', 'thread_id'], 'the ping carries ids, never content');
+  }
 });
 
 test('off means off — never stamped, or stamped FALSE, the trigger sends nothing and the message lands', async () => {
@@ -303,9 +337,11 @@ test('O(recipients), never a scan — every lookup has an index led by its key',
     ).rows.map((r) => r.def);
   const em = await idx('event_members');
   assert.ok(
-    em.some((d) => /\(event_id\)\s+WHERE\s+\(?member_type\s*=\s*'couple'/i.test(d)),
-    `the couple lookup must use a PARTIAL index on (event_id) WHERE member_type = 'couple' — otherwise a big event's guest rows are walked. Found: ${em.join(' | ')}`,
+    em.some((d) => /\(event_id\)\s+WHERE\s+\(?member_type\s*=\s*'coordinator'/i.test(d)),
+    `the coordinator lookup must use a PARTIAL index on (event_id) WHERE member_type = 'coordinator' — otherwise a big event's guest rows are walked. Found: ${em.join(' | ')}`,
   );
+  const ctm = await idx('chat_thread_members');
+  assert.ok(ctm.some((d) => /UNIQUE INDEX .* \(thread_id, user_id\)/i.test(d)), 'chat_thread_members must be keyed on (thread_id, …)');
   const vp = await idx('vendor_profiles');
   assert.ok(vp.some((d) => /UNIQUE INDEX .* \(vendor_profile_id\)/i.test(d)), 'vendor_profiles must be keyed on vendor_profile_id');
   const vtm = await idx('vendor_team_members');
@@ -315,7 +351,10 @@ test('O(recipients), never a scan — every lookup has an index led by its key',
   const src = (
     await db.query<{ src: string }>(`SELECT prosrc AS src FROM pg_proc WHERE proname = 'chat_message_recipient_ids'`)
   ).rows[0]!.src;
-  assert.match(src, /em\.event_id\s*=\s*p_event_id[\s\S]*member_type\s*=\s*'couple'/);
+  assert.match(src, /ctm\.thread_id\s*=\s*p_thread_id[\s\S]*ctm\.left_at IS NULL/);
+  assert.match(src, /em\.event_id\s*=\s*p_event_id[\s\S]*member_type\s*=\s*'coordinator'/);
+  assert.match(src, /SELECT p_recipient\s+WHERE p_recipient IS NOT NULL/, 'a private line must ping its recipient');
+  assert.match(src, /WHERE p_recipient IS NULL\s+AND r\.user_id IS NOT NULL/, 'a private line must ping nobody else');
   assert.match(src, /vp\.vendor_profile_id\s*=\s*p_vendor_profile_id/);
   assert.match(src, /vtm\.vendor_profile_id\s*=\s*p_vendor_profile_id/);
   assert.doesNotMatch(src, /chat_threads|chat_messages/, 'the recipient lookup must not read the chat tables — the message already carries its keys');
@@ -350,7 +389,7 @@ test('no client role can run the recipient list or the trigger; authenticated CA
   const can = async (role: string, fn: string) =>
     (await db.query<{ ok: boolean }>(`SELECT has_function_privilege($1, $2, 'EXECUTE') AS ok`, [role, fn])).rows[0]!.ok;
   for (const role of ['anon', 'authenticated']) {
-    assert.equal(await can(role, 'public.chat_message_recipient_ids(uuid,uuid,uuid)'), false, `${role} can enumerate a thread's people`);
+    assert.equal(await can(role, 'public.chat_message_recipient_ids(uuid,uuid,uuid,uuid,uuid)'), false, `${role} can enumerate a thread's people`);
     assert.equal(await can(role, 'public.chat_messages_ping_recipients()'), false, `${role} can execute the ping trigger function`);
     assert.equal(await can(role, 'public.user_live_send(uuid[],text,jsonb)'), false, `${role} can send into anyone's user: topic`);
     assert.equal(await can(role, 'public.user_live_pings_on()'), false, `${role} can run the internal gate`);

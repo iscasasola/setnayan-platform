@@ -20,6 +20,7 @@ import {
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
+import { CHAT_PRIVATE_FIELD, privateToFromForm } from '@/lib/chat-private';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -99,8 +100,11 @@ export async function sendChatMessage(formData: FormData) {
       ? { ref: rawRef.trim(), name: typeof rawRefName === 'string' ? rawRefName : '' }
       : null;
 
+  // 🔒 Private to one person (the composer's chip) — parsed here, judged in the core.
+  const privateTo = privateToFromForm(formData.get(CHAT_PRIVATE_FIELD), null);
+
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef });
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -119,7 +123,9 @@ export async function sendChatMessage(formData: FormData) {
     if (
       result.code === 'attachment_invalid' ||
       result.code === 'attachment_failed' ||
-      result.code === 'contact_blocked'
+      result.code === 'contact_blocked' ||
+      result.code === 'private_words_only' ||
+      result.code === 'private_recipient'
     ) {
       if (isSafeNext(returnTo)) {
         redirect(
@@ -150,6 +156,8 @@ export async function notifyOtherParty(args: {
    * the notification type from chat_message to vendor_inquiry_received.
    */
   isFirstMessage?: boolean;
+  /** 🔒 A private message: ONLY this person is told (marked private); nobody else is notified or sees a placeholder. */
+  privateTo?: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -170,6 +178,19 @@ export async function notifyOtherParty(args: {
   const eventName = eventRes.data?.display_name ?? 'your event';
   const vendorName = vendorRes.data?.business_name?.trim() || 'a supplier';
   const preview = args.body.slice(0, 140);
+
+  if (args.privateTo) {
+    // The shop's owner reads the thread at the supplier's door; a host at the event's.
+    const toShop = vendorRes.data?.user_id === args.privateTo;
+    await emitNotification({
+      userId: args.privateTo,
+      type: 'chat_message',
+      title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
+      body: preview,
+      relatedUrl: toShop ? `/vendor-dashboard/messages/${args.threadId}` : `/dashboard/${args.eventId}/messages/${args.threadId}`,
+    });
+    return;
+  }
 
   if (args.senderRole === 'couple') {
     // The vendor user is the recipient.

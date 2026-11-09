@@ -13,6 +13,8 @@ import {
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ValidUntilPicker } from '@/app/_components/valid-until-picker';
+import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { createProposal, saveTemplate } from './actions';
 import { TemplateList } from './_components/template-list';
 import { VendorReuseInbox } from './_components/reuse-inbox';
@@ -241,10 +243,11 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
                 No package? Total ₱
                 <input type="number" name="total_php" min="0" step="any" placeholder="0" className="w-28 rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
               </label>
-              <label className="inline-flex items-center gap-1.5">
-                Valid until
-                <input type="date" name="valid_until" className="rounded-lg border border-ink/20 bg-white px-2 py-1.5" />
-              </label>
+              {/* 📅 The one Valid until picker (2026-11-09). A draft may leave it blank; sending refuses blank. The event is
+                  picked in this same form, so the server checks "on or before the event day" when it sends. */}
+              <div className="min-w-[14rem]">
+                <ValidUntilPicker todayIso={manilaTodayIsoFor(Date.now())} eventDate={null} />
+              </div>
             </div>
             <SubmitButton pendingLabel="Creating…" className="justify-self-start rounded-lg bg-ink px-4 py-2 text-sm font-medium text-cream">
               Generate draft

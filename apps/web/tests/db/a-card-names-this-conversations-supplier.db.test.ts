@@ -256,8 +256,8 @@ before(async () => {
 
     const proposal = (
       await db.query<{ proposal_id: string }>(
-        `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, total_centavos, status)
-         VALUES ($1, $2, $3, 9900000, 'sent') RETURNING proposal_id`,
+        `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, total_centavos, status, valid_until)
+         VALUES ($1, $2, $3, 9900000, 'sent', (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id`,
         [vendorId, eventId, `${tag} — full day coverage`],
       )
     ).rows[0]!.proposal_id;

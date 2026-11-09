@@ -30,6 +30,7 @@ test("the bubble's own tap does nothing but heart", () => {
   assert.ok(at > 0, 'the heartable bubble is gone');
   const open = stream.lastIndexOf('<div', at);
   const tag = stream.slice(open, stream.indexOf('>', at));
-  assert.match(tag, /onClick=\{\(e\) => \{\s*if \(tapMeansHeart\(e\.target as Element\)\) toggleHeart\(m\.message_id\);\s*\}\}/);
+  // Build 3 (Lane A): a press-and-hold that opened the "Reply privately" menu eats its own tap first — never a decision.
+  assert.match(tag, /onClick=\{\(e\) => \{\s*(?:if \(hold\.consumeTap\(\)\) return;\s*)?if \(tapMeansHeart\(e\.target as Element\)\) toggleHeart\(m\.message_id\);\s*\}\}/);
   assert.doesNotMatch(stream, /(Make|Turn) (this|it) (into )?a decision/i, 'a bubble action names a decision');
 });

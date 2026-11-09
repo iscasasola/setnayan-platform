@@ -85,7 +85,9 @@ test('the couple’s answering card asks no host question', () => {
   assert.match(card, /standing !== 'booked'/, 'a booked supplier is answered without sending');
   const page = code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
   assert.match(page, /const supplierQuestionsSection = ev\.marketplace_vendor_id \?/, 'mounted for every Setnayan supplier');
-  assert.equal((page.match(/\{supplierQuestionsSection\}/g) ?? []).length, 2, 'drawn on both shells (flag on and off)');
+  // Flag off: the long page. Flag on: the picked supplier's Forms page (Supplier Build 3 · Lane A), which says so when
+  // the supplier is not on Setnayan (`?? (…)`) rather than drawing an empty page.
+  assert.equal((page.match(/\{supplierQuestionsSection(?:\}| \?\? \()/g) ?? []).length, 2, 'drawn on both shells (flag on and off)');
 });
 
 test('the answer action writes only THIS supplier’s questions, and asks the helper gate', () => {

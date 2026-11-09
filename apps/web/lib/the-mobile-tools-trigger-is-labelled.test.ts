@@ -110,7 +110,9 @@ test('🔑 the ＋ that opens the tools is named and a full 44px target', () => 
   const open = sheetSrc.lastIndexOf('<button', at);
   const close = sheetSrc.indexOf('</button>', at);
   const plus = sheetSrc.slice(open, close);
-  assert.match(plus, /aria-label="Tools"/, 'the ＋ lost its accessible name');
+  // Build 3 · lane B: the ＋ is named for what it does ("Add to the chat", the prototype sheet's title) and, while one
+  // card is open, names the card it is waiting on ("Finish or close: Meeting") — named in both states.
+  assert.match(plus, /aria-label=\{gate\.shut \? gate\.message : 'Add to the chat'\}/, 'the ＋ lost its accessible name');
   assert.match(plus, /aria-haspopup="dialog"/, 'the ＋ no longer says it opens a sheet');
   assert.match(plus, /\bh-11\b/, 'the ＋ is shorter than 44px');
   assert.match(plus, /\bw-11\b/, 'the ＋ is narrower than 44px');

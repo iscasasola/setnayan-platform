@@ -106,7 +106,7 @@ test('only an explicit yes opens the drawer', () => {
 // 2 · THE TARGET IS ACTUALLY REACHABLE
 // ---------------------------------------------------------------------------
 
-test('the request lands on the Service cards tab, not Coverage', () => {
+test('the request draws the chooser (the Coverage · Service cards · Tools picker is gone — Lane E, 2026-11-09)', () => {
   const mgr = read(MANAGER);
   assert.match(
     mgr,
@@ -118,8 +118,8 @@ test('the request lands on the Service cards tab, not Coverage', () => {
   // vendor with no cards — who is exactly who the Create button is for.
   assert.match(
     mgr,
-    /pickerRequested \|\|[\s\S]{0,120}\?\s*1/,
-    'a picker request no longer selects the Service cards tab',
+    /\{addCategory !== null \|\| pickerRequested \? \(\s*<details/,
+    'a picker request no longer draws the category chooser',
   );
 });
 
@@ -255,8 +255,15 @@ test('My Shop’s own "Add a service" controls open the maker', () => {
   // card they were building. Same href, different intent; if this count ever
   // grows past 3 without a name for the new one, that is the regression this
   // guard exists to catch.
+  // 🔁 2026-11-09 (Build 3 Lane E item 6): the section header's "+ Add a service" left the manager — Shop's services
+  // head and thumb row hold the ONE ＋ (New bundle · New service → the same maker). Left here: the empty state and
+  // the S3 return link here, and the empty state's New service in its shared part (`services-empty-card.tsx`).
   const toMaker = [...mgr.matchAll(/href=\{SERVICE_MAKER_HREF\}/g)].length;
-  assert.equal(toMaker, 3, `expected the two create links plus the S3 return link, found ${toMaker}`);
+  assert.equal(toMaker, 1, `expected the S3 return link, found ${toMaker}`);
+  assert.match(mgr, /<ServicesEmptyCard \/>/, 'the empty list lost its New service door');
+  assert.match(read('app/vendor-dashboard/shop/_components/services-empty-card.tsx'), /href=\{SERVICE_MAKER_HREF\}/, 'the empty state’s New service does not open the maker');
+  const head = read('app/vendor-dashboard/shop/page.tsx');
+  assert.match(head, /serviceHref=\{SERVICE_MAKER_HREF\}/, 'the services head’s ＋ › New service no longer opens the maker');
   assert.ok(
     !/href=\{SERVICE_PICKER_HASH\}/.test(mgr),
     'a shop create link went back to the in-page drawer',
@@ -269,7 +276,9 @@ test('the drawer survives as the coverage door and the canvas-off fallback', () 
   // canvas maker is switched off — the 6-step wizard cannot ask for a kind.
   const mgr = read(MANAGER);
   assert.match(mgr, /id=\{SERVICE_PICKER_ANCHOR_ID\}/, 'the drawer lost its anchor');
-  assert.match(mgr, /Add a service or coverage/, 'the coverage door is gone');
+  // 🔁 2026-11-09 (Lane E: "No need to add coverage") — no standing dropdown; the chooser draws for the deep link.
+  assert.match(mgr, /Pick a category/, 'the chooser lost its words');
+  assert.match(mgr, /\{addCategory !== null \|\| pickerRequested \? \(/, 'the chooser no longer draws for a deep link');
   const page = read('app/vendor-dashboard/services/new/page.tsx');
   assert.match(page, /redirect\(SERVICE_PICKER_HREF\)/, 'the canvas-off fallback lost its target');
 });

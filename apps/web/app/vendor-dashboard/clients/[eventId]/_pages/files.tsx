@@ -17,7 +17,7 @@
  * 🔒 lib/files-folders-are-the-three-sources.test.ts
  */
 import Link from 'next/link';
-import { FolderOpen } from 'lucide-react';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ShopEmpty } from '../../../_components/kit';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
@@ -61,7 +61,7 @@ export function FilesPage(props: FilesPageProps) {
 
       {!hasAny ? (
         <ShopEmpty>
-          <FolderOpen aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
+          <TOPIC_ICON.files aria-hidden className="mx-auto h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/55">
             No files shared yet. Contracts you upload for this couple appear here, and so does
             anything either of you attaches in the conversation.

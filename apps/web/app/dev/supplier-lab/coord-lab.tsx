@@ -158,7 +158,7 @@ function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
 }
 
 export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
-  if (state === 'shop-tab' || state === 'portfolio-tab') return <ShopTabLab state={state} fail={unread} />;
+  if (state === 'shop-tab' || state === 'portfolio-tab') return <ShopTabLab state={state} fail={unread} none={none} />;
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">

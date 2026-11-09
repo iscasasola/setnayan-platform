@@ -23,7 +23,7 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MessageSquare, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -39,11 +39,12 @@ import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
-import { findDoorHref } from '@/lib/suppliers-shell';
+import { CoupleChatsEmpty } from './_components/couple-chats-empty';
 import { teamPicksForMessages, type TeamProfile, type TeamRow } from '@/lib/messages-team-picker';
 import { StartThreadPicker } from './_components/start-thread-picker';
 import { ChatInbox, type InboxRow } from './_components/chat-inbox';
 import { formatLongDate } from '@/lib/format-date';
+import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
 
 export const metadata = { title: 'Chats' };
@@ -112,7 +113,29 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const activeThreads = threads.filter(isActiveInboxThread);
   const archivedThreads = threads.filter((t) => !isActiveInboxThread(t));
 
-  const [unread, lastRes, interestRes] = await Promise.all([
+  /*
+    🪞 A ROW OPENS THE PICKED SUPPLIER ON CHAT (Supplier Build 3 · Lane A, 9 Nov 2026 — DECISION_LOG 🪞). The picked
+    supplier is the workspace route (`vendors/[vendorId]/workspace`, keyed by `event_vendors.vendor_id`), drawn OVER this
+    list by `./@supplier`. The row each shop's thread resolves to is the thread page's own pick — (event,
+    marketplace_vendor_id), the anchor or plain row, not archived — read ONCE for every thread here. A thread with no such
+    row yet (an inquiry to a shop not on the list), a refused read, or the flag-OFF workspace keeps the shipped door: the
+    full-screen thread.
+  */
+  const pickedOn = isRelationshipWorkspaceEnabled();
+  const vendorProfileIds = [...new Set(threads.map((t) => t.vendor_profile_id).filter(Boolean))];
+  const picksRead =
+    pickedOn && vendorProfileIds.length > 0
+      ? supabase
+          .from('event_vendors')
+          .select('vendor_id, marketplace_vendor_id, updated_at')
+          .eq('event_id', eventId)
+          .in('marketplace_vendor_id', vendorProfileIds)
+          .or('package_role.is.null,package_role.eq.anchor')
+          .is('archived_at', null)
+          .order('updated_at', { ascending: false })
+      : Promise.resolve({ data: [] as Array<{ vendor_id: string; marketplace_vendor_id: string | null }>, error: null });
+
+  const [unread, lastRes, interestRes, picksRes] = await Promise.all([
     readCoupleUnread(supabase, user.id, threadIds),
     threadIds.length > 0
       ? supabase
@@ -129,7 +152,17 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           .in('thread_id', threadIds)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
+    picksRead,
   ]);
+
+  if (picksRes.error) {
+    logQueryError('CoupleMessagesPage.picks', picksRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  // Newest row first, so the first sighting per shop is the one the thread page's `.limit(1)` would pick.
+  const workspaceOfShop = new Map<string, string>();
+  for (const r of (picksRes.data ?? []) as Array<{ vendor_id: string; marketplace_vendor_id: string | null }>) {
+    if (r.marketplace_vendor_id && !workspaceOfShop.has(r.marketplace_vendor_id)) workspaceOfShop.set(r.marketplace_vendor_id, r.vendor_id);
+  }
 
   if (lastRes.error) {
     logQueryError('CoupleMessagesPage.lastMessages', lastRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -215,9 +248,14 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const toInboxRow = (r: ConversationRow): InboxRow => {
     const vendorId = vendorOf.get(r.threadId) ?? '';
     const archivedRow = archivedIds.has(r.threadId);
+    const eventVendorId = workspaceOfShop.get(vendorId) ?? null;
     return {
       threadId: r.threadId,
-      href: `/dashboard/${eventId}/messages/${r.threadId}`,
+      // 🪞 The picked supplier, already on its Chat page (drawn over this list); else the shipped full-screen thread.
+      href: eventVendorId
+        ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=chat`
+        : `/dashboard/${eventId}/messages/${r.threadId}`,
+      opensPicked: Boolean(eventVendorId),
       name: r.displayName,
       logoUrl: logoByVendor.get(vendorId) ?? null,
       preview: r.preview,
@@ -226,6 +264,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       eventLine,
       archived: archivedRow,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archivedRow} />,
+      // 🚦 TODO(Build 3 · Lane B): `needsYou: needsYouLevel(...)` — the one rule; no row guesses a level meanwhile.
     };
   };
   const inboxRows = [...activeThreads, ...archivedThreads]
@@ -260,20 +299,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         /* 🔌 A refused unread read is never "Nothing unread." (reads-are-honest, 2026-11-02 audit #11). */
         unreadMeasured={unread.measured}
         viewerId={user.id}
-        empty={
-          <div className="py-10 text-center">
-            <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-            <p className="text-sm font-medium text-ink">No chats yet.</p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-              Tap ✎ to message one of this event&rsquo;s suppliers, or Ask for a quote on a supplier&rsquo;s page.
-            </p>
-            <div className="mt-4">
-              <Link href={findDoorHref(eventId)} className="button-secondary">
-                Find a supplier
-              </Link>
-            </div>
-          </div>
-        }
+        empty={<CoupleChatsEmpty eventId={eventId} />}
         newMessage={
           <>
             <p className="mb-2 mt-1 text-[13px] text-ink/60" data-new-message-scope="">

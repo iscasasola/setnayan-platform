@@ -164,7 +164,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   // heading.
   'today-next': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'shop-details': 'app/vendor-dashboard/shop/page.tsx',
-  'shop-add-service': 'app/vendor-dashboard/services/_components/services-manager.tsx',
+  'shop-add-service': 'app/vendor-dashboard/shop/_components/services-empty-card.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   // 📌 The money count is the pinned row's filter since 2026-10-28 — drawn by `TodayCounts`.
   'today-money': 'app/vendor-dashboard/_components/today-stats.tsx',

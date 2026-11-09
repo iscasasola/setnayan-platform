@@ -33,6 +33,8 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/_components/chat-amendment-card.tsx', text: /Waiting for the couple to lock/, why: 'the supplier’s view of the same card; the couple’s button reads "Book this deal"' },
   { prefix: 'app/_components/negotiation-actions.ts', text: /Deal locked/, why: 'the notification title the SUPPLIER receives when the couple books' },
   { prefix: 'app/proposals/', text: /already locked at the accepted quote|couple has asked to lock/, why: 'supplier-only notices on the quote page' },
+  { prefix: 'app/_components/chat/cards/quote-step-card.tsx', text: /already locked at the accepted quote|asked to lock at the quote/, why: "the supplier's Change quote card (chat, lane C) — the SAME supplier-only S5 notices as the quote page" },
+  { prefix: 'app/_components/chat/cards/card-calls.ts', text: /form_id, locked, vendor_forms/, why: 'a column list in a select (`event_form_sends.locked` — a form made final), never a word on screen' },
   { prefix: 'app/[slug]/_components/supplier-desk.tsx', why: "the supplier's day-of desk — supplier side" },
   { prefix: 'lib/vendor-', why: 'supplier-facing helpers (verification, first steps, funnel, payment schedules, corrections)' },
   { prefix: 'lib/supplier-', why: 'the supplier’s Today / next-move copy' },

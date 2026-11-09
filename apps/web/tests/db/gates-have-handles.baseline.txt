@@ -166,3 +166,6 @@ users.planner_mode | RETIRED 2026-10-23 (owner): the Guided · DIY setting left 
 
 # ── GENERATED: the database computes it; its INPUTS carry the handles ─────────
 vendor_profiles.is_findable | GENERATED ALWAYS AS … STORED (migration 20271320303985) — it cannot be written by anything, by design: it is the ONE findability rule computed from verification_state + find_locked_at. Its handles are its inputs: find_locked_at is stamped by the triggers stamp_find_lock_on_inquiry / stamp_find_lock_on_import and cleared by the admin lift in app/admin/verify/actions.ts; verification_state is flipped at the verification desk. DECISION_LOG 2026-11-07 "FINDABLE UNTIL ITS FIRST INQUIRY".
+
+# ── ADDED 2026-11-09 · Supplier Build 3 · lane B · the schema lands one commit ahead of its toggle ──
+# Same SEQUENCING cost as events.papic_guest_spend_ceiling_on above, on the same branch (claude/supplier-build3-b).

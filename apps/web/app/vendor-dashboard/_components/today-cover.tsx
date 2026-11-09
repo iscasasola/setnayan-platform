@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { dateChip, greetedShop, greetingLine, pinnedCountsLine, tasksWord } from '@/lib/supplier-today-greeting';
+import { SupplierHero, type SupplierHeroPicture, type SupplierHeroUpload } from './supplier-hero';
 
 /**
  * 👋 TODAY'S COVER (THE ONE BUILD A1 · A2, v113 Today): "Good morning, / <Shop>" · the date chip · "N tasks today" ·
@@ -25,6 +26,7 @@ export function TodayCover({
   todayIso,
   now,
   gear = null,
+  hero = null,
 }: {
   shopName: string | null;
   /** The Needs-you list's length (null when the list could not be read). */
@@ -32,36 +34,44 @@ export function TodayCover({
   todayIso: string;
   now: number;
   gear?: ReactNode;
+  /**
+   * 🖼 Lane E item 11: the shared hero's picture — the most-viewed portfolio photo ("Most viewed · N views"), else the
+   * latest, else the category placeholder with its Upload door. Null (the lab, a guard) = the shipped placeholder file.
+   */
+  hero?: { picture: SupplierHeroPicture | null; caption: string | null; upload: SupplierHeroUpload | null } | null;
 }) {
   const shop = greetedShop(shopName);
   const tasksChip = tasksWord(tasks);
   return (
-    <header
-      data-today-cover=""
-      data-tour="today-cover"
-      className="hc-ecard-plain relative -mx-4 -mt-4 mb-4 flex min-h-[248px] flex-col justify-end overflow-hidden rounded-b-3xl px-4 pb-5 pt-14 sm:-mx-6 sm:px-6"
-    >
-      {gear ? <div className="absolute right-3 top-3" data-today-cover-gear="">{gear}</div> : null}
+    <header data-today-cover="" data-tour="today-cover" className="relative -mx-4 -mt-4 mb-4 sm:-mx-6">
       <h1 className="sr-only">Today</h1>
-      <p className="text-[15px] opacity-90" data-today-greeting="">
-        {greetingLine(now)}
-      </p>
-      {shop ? (
-        <p className="hc-ecard-name truncate text-[30px] font-semibold leading-[1.1] tracking-[-0.01em]" data-today-greeted="">
-          {shop}
-        </p>
-      ) : null}
-      <p className="mt-3 flex flex-wrap items-center gap-2">
-        {/* State chips, never pressed (the badge shape on the dark ground). */}
-        <span className="inline-flex min-h-8 items-center rounded-full bg-white/15 px-3 text-[13px]" data-today-date-chip="">
-          {dateChip(todayIso)}
-        </span>
-        {tasksChip ? (
-          <span className="inline-flex min-h-8 items-center rounded-full bg-white px-3 text-[13px] font-semibold text-[rgb(var(--color-ink-on-plate,var(--color-ink)))]" data-today-tasks-chip="">
-            {tasksChip}
-          </span>
-        ) : null}
-      </p>
+      {/* 🖼 THE ONE SUPPLIER HERO (Lane E item 10) — the same part, height and gutters as Shop and Portfolio. */}
+      <SupplierHero
+        eyebrow={
+          <>
+            Today · <span data-today-date-chip="">{dateChip(todayIso)}</span>
+          </>
+        }
+        gear={gear ? <span data-today-cover-gear="">{gear}</span> : null}
+        title={
+          <>
+            <span data-today-greeting="">{greetingLine(now)}</span>
+            {shop ? (
+              <>
+                {' '}
+                <span data-today-greeted="">
+                  {shop}
+                </span>
+              </>
+            ) : null}
+          </>
+        }
+        sub={tasksChip ? <b className="font-semibold" data-today-tasks-chip="">{tasksChip}</b> : null}
+        picture={hero?.picture ?? null}
+        caption={hero?.caption ?? null}
+        upload={hero?.upload ?? null}
+        data={{ 'today-hero': '' }}
+      />
     </header>
   );
 }

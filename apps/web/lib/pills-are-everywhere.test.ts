@@ -83,7 +83,8 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'couple', what: 'How to set the date (Specific date(s) | A range)', file: `${A}/create-event/_components/create-date-picker.tsx`, anchor: 'aria-label="How do you want to set the date?"', via: 'track', thumb: 'waits', why: RADIO, gone: "'bg-ink text-white' : 'bg-ink/5" },
   { area: 'couple', what: 'Order the reel (By significance | By time)', file: `${A}/life-flash/_components/scroll-reel.tsx`, anchor: 'aria-label="Order the reel"', via: 'track', thumb: 'slides', gone: 'flex rounded-full border border-ink/15 p-0.5 text-xs' },
   { area: 'shared', what: 'A thread’s views (Chat | Decisions | Files)', file: 'app/_components/chat-thread-views.tsx', anchor: 'aria-label="Show"', via: 'classes', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-lg border border-ink/15' },
-  { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
+  // 2026-11-09 (Build 3 · Lane A): "Workspace sections" (relationship-tab-shell.tsx) is RETIRED on purpose — both sides
+  // open the ONE picked shell, whose page menu is icon-over-word (owner-approved v8.3), not a pill track.
   /* ── area 2 · the supplier's dashboard ── */
   // 2026-11-01 (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE", Q1 "the segmented rows become the same ▾"; house rule
   // "every choice is one dropdown"): My Performance's Momentum window (Daily | Monthly | Annual) is RETIRED as a pill —
@@ -204,7 +205,8 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // shared PickMenu now; see its note in CONVERTED).
   // 23, not 25, since 2026-11-06: two converted selectors (the Custom plan's billing term and its admin pay channel)
   // were DELETED with the Custom plan — the screens are gone, not unconverted.
-  assert.ok(CONVERTED.length >= 23, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 22, not 23, since 2026-11-09: the two-sided "Workspace sections" strip was DELETED with its shell (one picked shell).
+  assert.ok(CONVERTED.length >= 22, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

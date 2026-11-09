@@ -74,7 +74,7 @@ async function newCoupleEvent(): Promise<{ eventId: string; coupleId: string }> 
   const coupleId = await newUser('c');
   const r = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('Rosa & Ben', 'birthday', DATE '2027-02-14') RETURNING event_id`,
+     VALUES ('Rosa & Ben', 'birthday', (NOW() AT TIME ZONE 'Asia/Manila')::date + 60) RETURNING event_id`,
   );
   const eventId = r.rows[0]!.event_id;
   await db.query(
@@ -88,10 +88,10 @@ async function newSentProposal(eventId: string, vendorProfileId: string, totalCe
   const r = await db.query<{ proposal_id: string }>(
     `INSERT INTO public.vendor_proposals
        (event_id, vendor_profile_id, title, status, total_centavos, sent_at,
-        line_items, merge_snapshot)
+        line_items, merge_snapshot, valid_until)
      VALUES ($1, $2, 'Full-day coverage', 'sent', $3, NOW(),
              jsonb_build_array(jsonb_build_object('label','Photography','detail','photography','amount_centavos',$3::bigint)),
-             '{}'::jsonb)
+             '{}'::jsonb, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7)
      RETURNING proposal_id`,
     [eventId, vendorProfileId, totalCentavos],
   );

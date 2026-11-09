@@ -1,23 +1,18 @@
-import { redirect } from 'next/navigation';
+import ManpowerSurface from './surface';
 
 /**
- * /vendor-dashboard/manpower — folded into the My Shop hub (owner 5-page IA,
- * 2026-07-12: "overview, my shop, my customers, my performance, BEO are all
- * 1-page each with the different features integrated"). The surface lives on
- * in ./surface.tsx, rendered by the hub's ?tab=manpower. This stub keeps every
- * old deep-link working and forwards its params (pattern: /vendor-dashboard/
- * services → My Shop, owner 2026-07-02).
+ * /vendor-dashboard/manpower — Manpower gigs, kept and reachable by its address, with NO door (Build 3 Lane E, owner
+ * 9 Nov: *"Remove manpower gigs lets not deal with this first"* — no Shop fold, no Settings row, nothing on Today).
+ *
+ * It used to forward to the Shop hub's `?tab=manpower` fold. That fold left Shop with the ruling, so the page now draws
+ * its own shipped surface (`./surface.tsx`, unchanged) instead of forwarding to a fold that no longer exists — the page
+ * and its data are untouched, only where they are drawn moved. Revisit later (owner).
  */
-export default async function RedirectManpower({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const sp = await searchParams;
-  const qs = new URLSearchParams();
-  qs.set('tab', 'manpower');
-  for (const [k, v] of Object.entries(sp)) {
-    if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
-  }
-  redirect(`/vendor-dashboard/shop?${qs.toString()}`);
+export default async function VendorManpowerPage() {
+  return (
+    <section className="mx-auto w-full max-w-3xl px-4 py-6" data-manpower-page="">
+      <h1 className="sr-only">Manpower</h1>
+      <ManpowerSurface />
+    </section>
+  );
 }

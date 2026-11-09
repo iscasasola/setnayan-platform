@@ -9,12 +9,12 @@ import {
   ChevronRight,
   Copy,
   Gift,
-  Layers,
   Plus,
   Snowflake,
   Tag,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -59,10 +59,7 @@ import { buildLeafIndex } from '@/lib/service-card-kind';
 import { NOT_IN_WHAT_YOU_DO, cardIsOutsideCoverage } from '@/lib/service-card-maker';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { labelForVendorCategory } from '@/lib/vendor-category-taxonomy';
-import {
-  iconForVendorCategory,
-  specialistToolsForCategories,
-} from '@/lib/vendor-service-tools';
+import { iconForVendorCategory } from '@/lib/vendor-service-tools';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import {
@@ -87,7 +84,6 @@ import {
 } from '@/lib/service-picker-anchor';
 import { CoveragePanel } from './coverage-panel';
 import { PricingBasisEditor, IncludedFlags } from './pricing-basis-editor';
-import { ManagerTabs } from './manager-tabs';
 import { ShowcaseMediaFields } from './showcase-media-fields';
 import { ServiceCardLivePreview } from './service-card-live-preview';
 import { ServiceCardView } from '@/app/_components/service-card-view';
@@ -166,9 +162,12 @@ type CategoryRequestRow = {
 export async function VendorServicesManager({
   search,
   basePath = '/vendor-dashboard/services',
+  toolsByCoverage = {},
 }: {
   search: ServicesManagerSearch;
   basePath?: string;
+  /** Each service's "Tools on every event" line (the Event Hub's own tools), by coverage id — drawn under its heading. */
+  toolsByCoverage?: Readonly<Record<number, string>>;
 }) {
   const supabase = await createClient();
   const {
@@ -281,11 +280,27 @@ export async function VendorServicesManager({
   // Group the service list by coverage (in the coverage panel's order; unassigned
   // cards last). A stable sort keeps each group's created_at order; the render
   // below emits a group header when the coverage changes.
-  const coverageOrder = new Map(coverageItems.map((c, idx) => [c.id, idx]));
+  // 🗂 GROUPED BY CATEGORY (Build 3 Lane E item 7, owner: *"the services grouped in categories under. They are all
+  // services"*): each card sits under its Group › Category — the first two levels of the one taxonomy's path
+  // (`resolveCoverageLabels().pathLabel`, never hard-coded) — in the coverage panel's order; cards with no category last.
+  const groupOfPath = (path: string) => {
+    const seg = path.split(' › ');
+    return seg.length > 1 && seg[1] !== seg[0] ? `${seg[0]} › ${seg[1]}` : (seg[0] ?? path);
+  };
+  const groupLabelOf = (svc: { coverage_id?: number | null; category: string }): string => {
+    const cov = svc.coverage_id != null ? coverageItems.find((c) => c.id === svc.coverage_id) : undefined;
+    if (cov) return groupOfPath(cov.pathLabel);
+    return coverageLabels ? groupOfPath(coverageLabels.pathLabel(svc.category)) : 'Not filed under a category';
+  };
+  const groupOrder = new Map<string, number>();
+  for (const c of coverageItems) {
+    const g = groupOfPath(c.pathLabel);
+    if (!groupOrder.has(g)) groupOrder.set(g, groupOrder.size);
+  }
   const listedServices = [...services].sort((a, b) => {
-    const ra = a.coverage_id != null ? coverageOrder.get(a.coverage_id) ?? 9998 : 9999;
-    const rb = b.coverage_id != null ? coverageOrder.get(b.coverage_id) ?? 9998 : 9999;
-    return ra - rb;
+    const ra = groupOrder.get(groupLabelOf(a)) ?? 9998;
+    const rb = groupOrder.get(groupLabelOf(b)) ?? 9998;
+    return ra !== rb ? ra - rb : groupLabelOf(a).localeCompare(groupLabelOf(b));
   });
   // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
   // migration 20270502342558), grouped by service for the off-peak nudge, row
@@ -332,7 +347,6 @@ export async function VendorServicesManager({
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle()
     .then((r) => r, () => ({ data: null }));
-  const distinctCategories = Array.from(new Set(services.map((s) => s.category)));
 
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
   // track a COUNT per category (not just presence) to show on the picker.
@@ -512,7 +526,9 @@ export async function VendorServicesManager({
     wizardEnabled
       ? `/vendor-dashboard/services/new/${cat}`
       : `${basePath}?add=${cat}#add-${cat}`;
-  const specialistTools = specialistToolsForCategories(distinctCategories);
+  // ✂ The per-shop "Tools" view left this page (Lane E item 7: "Most of the tools are already handled by hub for each of
+  // the event") — every tool it held has a home, listed in the PR: On-the-day per event, Moodboard library + Song bank
+  // in Portfolio and Shop › Makers › Specialized tools, Manpower no door (owner), the category request below.
 
   // Did they arrive by pressing a "Create a service card" link anywhere in the
   // product? That is an INTENT, and it outranks the coverage-first default.
@@ -522,25 +538,10 @@ export async function VendorServicesManager({
   // (S3, owner 2026-08-28)? Also an intent — lands on Tools, at the form.
   const wantsCategoryForm = proposeCategoryRequested(search.wantCategory);
 
-  // v20 tab landing: category-request confirmations land on Tools; any
-  // service-targeted param (open add form, off-peak prefill) or an existing
-  // service list lands on Service cards; a brand-new vendor starts on Coverage
-  // (coverage-first — pick what you serve, then build cards inside it).
-  //
-  // 🔴 AND THAT LAST CLAUSE IS WHAT BROKE THE CREATE BUTTON. `services.length >
-  // 0` sends an established shop to Service cards, so the tab was right for
-  // everyone EXCEPT the supplier with no cards yet — who is precisely the person
-  // the Create button exists for. They landed on Coverage, with the picker in a
-  // hidden panel behind a shut drawer, and nothing said so.
-  //
-  // ⚖ The coverage-first default is NOT reversed: a vendor who simply opens My
-  // Shop still starts on Coverage. Only an explicit "make me a card" press
-  // moves them, which is the one case where coverage-first is the wrong answer.
-  const defaultTab = search.requested || wantsCategoryForm
-    ? 2
-    : pickerRequested || addCategory !== null || offPeakPrefillId !== null || services.length > 0
-      ? 1
-      : 0;
+  // The "Tell us what you do" form draws only when it was asked for: from the maker's "Search what you offer" no-match
+  // and its locked-kind reason (`PROPOSE_CATEGORY_HREF`), or coming back with `?requested=1`. The Coverage · Service
+  // cards · Tools picker that used to land here is gone (Lane E item 7).
+  const showProposeForm = search.requested || wantsCategoryForm;
 
   return (
     <div className="space-y-6">
@@ -611,28 +612,7 @@ export async function VendorServicesManager({
         </p>
       ) : null}
 
-      {/* v20 prototype structure (owner-locked): ONE card, three tabs —
-          Coverage · Service cards · Tools. Tier banner + the standalone
-          Explore-preview section were REMOVED per the prototype. */}
-      <ManagerTabs
-        defaultTab={defaultTab}
-        tabs={[
-          {
-            label: 'Coverage',
-            panel: (
-              <CoveragePanel
-                tree={coverageTree}
-                coverages={coverageItems}
-                eventTypeOptions={eventTypeOptions}
-                faithOptions={faithOptions}
-                parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
-              />
-            ),
-          },
-          {
-            label: 'Service cards',
-            panel: (
-              <>
+      {/* ONE LIST (Lane E item 7) — no Coverage · Service cards · Tools picker. The off-season offer stays above the list. */}
       {/* Off-Season Promos nudge (Wave 5). */}
       {showOffSeasonNudge && offPeakTargetId ? (
         <div
@@ -669,26 +649,8 @@ export async function VendorServicesManager({
 
       {/* ── YOUR SERVICE CARDS ──────────────────────────────────────────── */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <SectionEyebrow>Your services</SectionEyebrow>
-          {/* 🔑 ONE DOOR (owner 2026-08-28: *"make sure this is connected to the
-              top nav create a card and the link from the shop"*). This used to
-              jump to the drawer BELOW — a supplier pressing the same words in
-              two places got two different products: the top bar opened the card
-              maker and My Shop opened a wall of category pills. Both open the
-              maker now. The drawer stays for ADDING COVERAGE and as the
-              canvas-off fallback, which is why it keeps its own longer name. */}
-          <Link
-            href={SERVICE_MAKER_HREF}
-            data-tour="shop-add-service"
-            className="inline-flex items-center gap-1.5 text-sm font-medium"
-            style={{ color: 'var(--m-orange-2)' }}
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Add a service
-          </Link>
-        </div>
-
+        {/* ✂ The "Your services · + Add a service" header left (Lane E item 6): the section's head and its ＋ (New bundle ·
+            New service) are Shop's (`shop-services-head.tsx`), the same two choices as the thumb row's ＋. */}
         {/* Category chooser — opens the guided wizard for the chosen category
             (or the inline ?add= form when the wizard is off). Both "Add a
             service" and "Add coverage" jump here. */}
@@ -697,6 +659,10 @@ export async function VendorServicesManager({
             end one step later: the anchor scrolls to a closed `<details>` and
             the supplier still has nothing to press. `scroll-mt-24` keeps it
             clear of the sticky bar once it is open. */}
+        {/* ✂ "Add a service or coverage" is no longer a standing dropdown (Lane E item 6: "No need to add coverage. Just add
+            services"). The category chooser draws ONLY for a deep link that asks for it (`?newcard=1`, `?add=<cat>` —
+            the wizard-off fallback), open on arrival, so a link already sent still lands on something to press. */}
+        {addCategory !== null || pickerRequested ? (
         <details
           id={SERVICE_PICKER_ANCHOR_ID}
           className="scroll-mt-24 rounded-2xl border"
@@ -709,7 +675,7 @@ export async function VendorServicesManager({
           >
             <span className="inline-flex items-center gap-2">
               <Plus aria-hidden className="h-4 w-4" strokeWidth={2} style={{ color: 'var(--m-orange-2)' }} />
-              Add a service or coverage
+              Pick a category
             </span>
             <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
           </summary>
@@ -758,6 +724,9 @@ export async function VendorServicesManager({
             ))}
           </div>
         </details>
+        ) : (
+          <span id={SERVICE_PICKER_ANCHOR_ID} className="block scroll-mt-24" aria-hidden />
+        )}
 
         {/* Inline add form when deep-linked via ?add=<category> (wizard-off
             fallback path). */}
@@ -820,38 +789,24 @@ export async function VendorServicesManager({
         <StayOnSection supabase={supabase} vendorProfileId={profile.vendor_profile_id} userId={user.id} />
 
         {services.length === 0 ? (
-          <div
-            className="rounded-2xl border border-dashed p-8 text-center"
-            style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-          >
-            <Layers
-              aria-hidden
-              className="mx-auto mb-2 h-6 w-6"
-              strokeWidth={1.5}
-              style={{ color: 'var(--m-slate-4)' }}
-            />
-            <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-              No services yet.
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-xs" style={{ color: 'var(--m-slate-2)' }}>
-              Add your first service so couples can find and book you.
-            </p>
-            {/* The FIRST card a shop ever makes is pressed here — the one
-                place the old drawer was worst, because a shop with no cards has
-                nothing to recognise in a list of 34 kinds. */}
-            <Link href={SERVICE_MAKER_HREF} className="button-primary mt-3 inline-flex" data-tour="shop-add-service">
-              Add a service
-            </Link>
-          </div>
+          // 🧾 EMPTY LOOKS FINISHED (Lane E): one line + New service — the shared part (`services-empty-card.tsx`).
+          <ServicesEmptyCard />
         ) : (
           <ul className="space-y-2.5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
-              const prevCov = i > 0 ? listedServices[i - 1]?.coverage_id ?? null : null;
-              const showCovHeader = i === 0 || prevCov !== (svc.coverage_id ?? null);
-              const covHeaderLabel =
-                svc.coverage_id && coverageLabelById.has(svc.coverage_id)
-                  ? (coverageLabelById.get(svc.coverage_id) as string)
-                  : 'Unassigned';
+              const showCovHeader = i === 0 || groupLabelOf(listedServices[i - 1]!) !== groupLabelOf(svc);
+              const covHeaderLabel = groupLabelOf(svc);
+              // The group's "Tools on every event" line — every coverage under this heading, said once.
+              const groupTools = showCovHeader
+                ? [
+                    ...new Set(
+                      listedServices
+                        .filter((x) => groupLabelOf(x) === covHeaderLabel && x.coverage_id != null)
+                        .flatMap((x) => (toolsByCoverage[x.coverage_id as number] ?? '').split(' · '))
+                        .filter(Boolean),
+                    ),
+                  ].join(' · ')
+                : '';
               const Icon = iconForVendorCategory(svc.category);
               // PRICE DECIDES REACH (S5). The old label for a priceless card
               // read `quote on request` — a phrase that tells the shop nothing
@@ -890,9 +845,16 @@ export async function VendorServicesManager({
                       <p
                         className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]"
                         style={{ color: 'var(--m-slate-3)' }}
+                        data-shop-card-group-label=""
                       >
                         {covHeaderLabel}
                       </p>
+                      {groupTools ? (
+                        <p className="mt-1 text-[12px] leading-snug text-ink/60" data-shop-service-tools="">
+                          <span className="font-medium text-ink/75">Tools on every event · </span>
+                          {groupTools}
+                        </p>
+                      ) : null}
                     </li>
                   ) : null}
                 <li
@@ -1108,54 +1070,13 @@ export async function VendorServicesManager({
           </ul>
         )}
       </section>
-              </>
-            ),
-          },
-          {
-            label: 'Tools',
-            panel: (
-              <>
-      {/* ── 5 · SPECIALIST TOOLS ────────────────────────────────────────── */}
-      {specialistTools.length > 0 ? (
-        <section className="space-y-3">
-          <SectionEyebrow>Specialist tools · shown only for your service categories</SectionEyebrow>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {specialistTools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <Link
-                  key={tool.key}
-                  href={tool.href}
-                  className="group flex items-start gap-3 rounded-2xl border p-4 transition-colors"
-                  style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-                >
-                  <span
-                    aria-hidden
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-                  >
-                    <Icon className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                      {tool.title}
-                    </p>
-                    <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                      {tool.description}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
 
       {/* Request a new category — the "Add coverage" on-ramp for services not in
           the directory (spec 0023 §3.2c). Also where a plan-locked kind in the
           maker sends a supplier (S3, owner 2026-08-28) — same form, so the
           heading branches: their kind IS in the directory, their plan just
           doesn't cover another one yet. */}
+      {showProposeForm ? (
       <section
         id={PROPOSE_CATEGORY_ANCHOR_ID}
         className="space-y-4 rounded-2xl border p-5"
@@ -1252,24 +1173,32 @@ export async function VendorServicesManager({
           </ul>
         ) : null}
       </section>
-              </>
-            ),
-          },
-        ]}
-      />
-    </div>
-  );
-}
+      ) : (
+        <span id={PROPOSE_CATEGORY_ANCHOR_ID} className="block scroll-mt-24" aria-hidden />
+      )}
 
-/** Small mono eyebrow header used to label each prototype section. */
-function SectionEyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <h2
-      className="font-mono text-[11px] font-medium uppercase tracking-[0.18em]"
-      style={{ color: 'var(--m-slate-3)' }}
-    >
-      {children}
-    </h2>
+      {/* 🗂 THE CATEGORIES YOU SERVE — the events and faiths each one serves (the shipped panel, unchanged). Not a third
+          section to pick any more: it folds shut at the foot of the one list, and opens in place (Lane E reading — see
+          the PR: "No need to add coverage" retires ADDING it here; what each category serves is still edited here). */}
+      <details className="rounded-2xl border" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }} data-shop-categories-fold="">
+        <summary className="flex min-h-12 cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium text-ink">
+          <span>
+            Your categories
+            <span className="block text-[12.5px] font-normal text-ink/60">the events and faiths each one serves</span>
+          </span>
+          <ChevronDown aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+        </summary>
+        <div className="border-t px-4 pb-4 pt-3" style={{ borderColor: 'var(--m-line)' }}>
+          <CoveragePanel
+            tree={coverageTree}
+            coverages={coverageItems}
+            eventTypeOptions={eventTypeOptions}
+            faithOptions={faithOptions}
+            parentUsage={{ used: coveredParentCount, cap: caps.parentCategories }}
+          />
+        </div>
+      </details>
+    </div>
   );
 }
 

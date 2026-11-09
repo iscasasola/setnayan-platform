@@ -75,12 +75,16 @@ const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
   // SIMPLER …", prototype moments 6–8): the tiles' panels and the papers are now Your details · Your page · Your
   // collections. Every control they held is pinned at its NEW home in `MOVED_MOUNTS` below — exactly once each — so
   // a control lost in the move still turns this red.
-  ['<ServicesDisclosure', 'door 3 — what you sell'],
+  // ['<ServicesDisclosure', 'door 3 — what you sell'] — the FOLD retired by owner ruling 2026-11-09 (Build 3 Lane E,
+  // file 04 items 5–7: one list, its head compresses into a sticky row). The door itself stays, unfolded:
+  ['<VendorServicesManager', 'door 3 — what you sell'],
   // ['<EarningsSurface', 'door 5 — earnings'] — RETIRED by owner ruling 2026-10-08 (supplier dashboard round 1,
   // "2. Money": Earnings & payday become Customers › Money; plan § 2 "earnings/surface.tsx … Merge into Customers ›
   // Money"). Deleted with its mount in S-PR4; the year, the fee bills and the legacy payouts are Money's now
   // (`app/vendor-dashboard/customers/_components/money-segment.tsx`).
-  ['<FeatureAccordion', 'door 6 — the folds'],
+  // ['<FeatureAccordion', 'door 6 — the folds'] — RETIRED by owner ruling 2026-11-09 (Build 3 Lane E, file 04:
+  // *"Remove manpower gigs lets not deal with this first"* ⇒ Manpower gigs gets NO door, not in Shop). Manpower was the
+  // last fold; the page and its data are untouched (`/vendor-dashboard/manpower`). `#shop-folds` keeps its anchor.
 ];
 
 /**

@@ -362,7 +362,11 @@ export default async function SupplierLabPage({
       node
     );
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
-    const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
+    // 🧰 `?easy=setup` defaults to the CATERER: its six steps draw `labSetupDetails` (Tita Nena's Catering · /caterer) and
+    // its offer step counts catering cards, so the SHOP row under them must be that same shop. It defaulted to the
+    // studio and drew "Lumina Studio · Photo & video" under Tita Nena's steps — two shops on one screen, which the real
+    // page cannot do (both read the one `profile`) (Build 3 empty modes, 9 Nov).
+    const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : q.easy === 'setup' ? 'caterer' : 'studio';
     return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} heroPhoto={q.hero === '1'} />, 'today');
   }
   if (q.s === 'hub') {

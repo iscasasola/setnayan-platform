@@ -325,6 +325,12 @@ export function waitlistLine(input: { allowed: boolean; on: boolean; dates: read
 
 const formatPeople = (n: number) => String(n);
 
+/** "How many a day" in the Customers ⚙ — the fold's `#anchor` (`Fold` opens it on arrival) and the "Set it" link that
+    opens the ⚙ (`?gear=1`) straight at it. Owner 2026-11-10: "Schedule not set — open ⚙ › How many a day" read as
+    "how many DAYS", so the no-schedule line says what it is for and carries the link. */
+export const HOW_MANY_A_DAY_ANCHOR = 'how-many-a-day';
+export const SET_HOW_MANY_A_DAY_HREF = `/vendor-dashboard/customers?seg=dates&gear=1#${HOW_MANY_A_DAY_ANCHOR}`;
+
 /** How many a day's line: "Main 1 · Studio B 2 · 2 schedules"; "Not set" when the shop has no schedule (P5). */
 export function capacityLine(pools: readonly { capacity: number; label?: string }[]): string {
   if (pools.length === 0) return 'Not set';

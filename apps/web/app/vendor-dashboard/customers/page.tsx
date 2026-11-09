@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -24,6 +25,7 @@ import {
   openAsksOf,
   rangeWords,
   seatsByPool,
+  SET_HOW_MANY_A_DAY_HREF,
   type DatesAsk,
 } from '@/lib/vendor-dates';
 import { blockClosesDay, repeatWords } from '@/lib/not-available';
@@ -1261,7 +1263,10 @@ async function customersMonth({
         ) : null}
         {pools.length === 0 ? (
           <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
-            Schedule not set — open ⚙ › How many a day to make one.
+            Set how many events you take a day so couples see if your date is open.{' '}
+            <Link href={SET_HOW_MANY_A_DAY_HREF} className="font-semibold text-ink underline underline-offset-2" data-dates-set-it="">
+              Set it
+            </Link>
           </p>
         ) : null}
       </>

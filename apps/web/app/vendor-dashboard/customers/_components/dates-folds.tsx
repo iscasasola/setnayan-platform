@@ -4,7 +4,7 @@ import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE } from '@/lib/calendar-grid';
-import { blockDaysLine, capacityLine, closureWords, rangeWords, waitlistLine } from '@/lib/vendor-dates';
+import { blockDaysLine, capacityLine, closureWords, HOW_MANY_A_DAY_ANCHOR, rangeWords, waitlistLine } from '@/lib/vendor-dates';
 import type { DayPart, RepeatRule } from '@/lib/not-available';
 import { hallGuests } from '@/lib/vendor-halls';
 import { formatCount } from '@/lib/format-number';
@@ -373,7 +373,7 @@ export function DaysSettings({
       {/* ── HOW MANY A DAY ── (a venue whose schedules are all halls has only Your halls) */}
       {venue && schedules.length === 0 ? null : (
       <div className="border-b border-ink/10" data-dates-fold="capacity">
-        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={!venue} data="dates-capacity">
+        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={!venue} data="dates-capacity" anchor={HOW_MANY_A_DAY_ANCHOR}>
           <div className="pb-3">
             {schedules.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">

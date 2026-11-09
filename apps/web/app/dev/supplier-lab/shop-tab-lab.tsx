@@ -88,16 +88,28 @@ function shopLab(fail: boolean, none: boolean) {
     founding: fail || none ? null : { isFounder: true, joinedYear: 2026 },
   });
 
+  // `&none=1` passes what a NEW shop's reads return (nothing booked, no quotes, no market, no peers) — the lab drew a busy
+  // shop's numbers under a new shop's cover, so its "empty" Analytics were never the empty ones (Build 3, 9 Nov).
   const capacity: CapacityAnalytics | null = fail
     ? null
-    : { waitlist: [{ date: '2026-11-28', waiting: 1 }, { date: '2026-12-12', waiting: 1 }], waitlistTotal: 2, load: { upcomingBookedDays: 8, upcomingBookings: 9, next30DaysBooked: 3, next90DaysBooked: 8 } };
+    : none
+      ? { waitlist: [], waitlistTotal: 0, load: { upcomingBookedDays: 0, upcomingBookings: 0, next30DaysBooked: 0, next90DaysBooked: 0 } }
+      : { waitlist: [{ date: '2026-11-28', waiting: 1 }, { date: '2026-12-12', waiting: 1 }], waitlistTotal: 2, load: { upcomingBookedDays: 8, upcomingBookings: 9, next30DaysBooked: 3, next90DaysBooked: 8 } };
   const booked = fail
     ? null
-    : ['2026-11-14', '2026-11-21', '2026-11-28', '2026-12-05', '2026-12-12', '2026-12-19', '2027-01-09', '2027-01-23'].map((date, i) => ({ date, bookings: i === 3 ? 2 : 1 }));
-  const deals = fail ? null : ({ quote: { sentCount: 21, acceptedCount: 9, acceptancePct: 42.9, quotedWithInquiryCount: 0, avgHoursToQuote: 0 } } as unknown as ConversionAnalytics);
+    : none
+      ? []
+      : ['2026-11-14', '2026-11-21', '2026-11-28', '2026-12-05', '2026-12-12', '2026-12-19', '2027-01-09', '2027-01-23'].map((date, i) => ({ date, bookings: i === 3 ? 2 : 1 }));
+  const deals = fail
+    ? null
+    : none
+      ? ({ quote: { sentCount: 0, acceptedCount: 0, acceptancePct: null, quotedWithInquiryCount: 0, avgHoursToQuote: 0 } } as unknown as ConversionAnalytics)
+      : ({ quote: { sentCount: 21, acceptedCount: 9, acceptancePct: 42.9, quotedWithInquiryCount: 0, avgHoursToQuote: 0 } } as unknown as ConversionAnalytics);
   const price: PricePositionResult | { status: 'unreadable' } = fail
     ? { status: 'unreadable' }
-    : ({
+    : none
+      ? ({ status: 'no_data', key: { ownPricePhp: null } } as unknown as PricePositionResult)
+      : ({
         status: 'positioned',
         key: { ownPricePhp: 45000 },
         band: { lowPhp: 25000, medianPhp: 40000, highPhp: 65000, sampleN: 14, computedAt: '2026-11-01T00:00:00Z' },
@@ -106,8 +118,21 @@ function shopLab(fail: boolean, none: boolean) {
       } as unknown as PricePositionResult);
   const worth: SourceAttribution | null = fail
     ? null
-    : ({ setnayan: { attribution: 'setnayan', bookingCount: 14, pricedCount: 12, revenuePhp: 0 }, offPlatform: { attribution: 'off_platform', bookingCount: 9, pricedCount: 9, revenuePhp: 0 }, unattributed: { attribution: 'unattributed', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, totalBookings: 23 } as unknown as SourceAttribution);
-  const benchmark = {
+    : none
+      ? ({ setnayan: { attribution: 'setnayan', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, offPlatform: { attribution: 'off_platform', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, unattributed: { attribution: 'unattributed', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, totalBookings: 0 } as unknown as SourceAttribution)
+      : ({ setnayan: { attribution: 'setnayan', bookingCount: 14, pricedCount: 12, revenuePhp: 0 }, offPlatform: { attribution: 'off_platform', bookingCount: 9, pricedCount: 9, revenuePhp: 0 }, unattributed: { attribution: 'unattributed', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, totalBookings: 23 } as unknown as SourceAttribution);
+  const benchmark = (none
+    ? {
+        hasBand: false,
+        category: 'photography',
+        sampleN: 0,
+        metrics: [
+          { key: 'reply_rate', label: 'Reply rate', direction: 'higher', own: null, band: null, percentile: null, tier: null },
+          { key: 'reply_mins', label: 'Reply time', direction: 'lower', own: null, band: null, percentile: null, tier: null },
+          { key: 'conversion', label: 'Inquiry → booking', direction: 'higher', own: null, band: null, percentile: null, tier: null },
+        ],
+      }
+    : {
     hasBand: true,
     category: 'photography',
     sampleN: 12,
@@ -116,18 +141,18 @@ function shopLab(fail: boolean, none: boolean) {
       { key: 'reply_mins', label: 'Reply time', direction: 'lower', own: 45, band: { p25: 30, p50: 90, p75: 240 }, percentile: 64, tier: 'above_median' },
       { key: 'conversion', label: 'Inquiry → booking', direction: 'higher', own: 18, band: { p25: 10, p50: 20, p75: 30 }, percentile: 44, tier: 'below_median' },
     ],
-  } as unknown as FunnelBenchmark;
+  }) as unknown as FunnelBenchmark;
 
   const cards: AnalyticsCardData[] = [
     {
       key: 'ahead',
       face: <CapacityCard compact data={capacity} strip={booked ? { months: stripMonths(TODAY), ...stripMarks(TODAY, booked, (capacity?.waitlist ?? []).map((w) => ({ date: w.date }))) } : null} />,
       locked: false,
-      series: fail ? null : booked!.map((b) => b.date).concat(['2026-11-02', '2026-10-03', '2026-10-17', '2026-10-24']),
+      series: fail ? null : none ? [] : booked!.map((b) => b.date).concat(['2026-11-02', '2026-10-03', '2026-10-17', '2026-10-24']),
     },
-    { key: 'deals', face: <ConversionDealsCard compact data={deals} />, locked: false, series: fail ? null : ['2026-11-03T03:00:00Z', '2026-11-06T03:00:00Z', '2026-10-04T03:00:00Z'] },
+    { key: 'deals', face: <ConversionDealsCard compact data={deals} />, locked: false, series: fail ? null : none ? [] : ['2026-11-03T03:00:00Z', '2026-11-06T03:00:00Z', '2026-10-04T03:00:00Z'] },
     { key: 'price', face: <PricePositionCard compact result={price} />, locked: false },
-    { key: 'worth', face: <RoiAttributionCard compact attribution={worth} unread={fail} annualPlanPhp={null} windowLabel="in the last 12 months" />, locked: false, series: fail ? null : ['2026-11-05T03:00:00Z', '2026-10-09T03:00:00Z'] },
+    { key: 'worth', face: <RoiAttributionCard compact attribution={worth} unread={fail} annualPlanPhp={null} windowLabel="in the last 12 months" />, locked: false, series: fail ? null : none ? [] : ['2026-11-05T03:00:00Z', '2026-10-09T03:00:00Z'] },
     { key: 'compare', face: <FunnelBenchmarkCard compact benchmark={benchmark} unreadable={fail} />, locked: false },
   ];
 
@@ -233,14 +258,36 @@ function shopLab(fail: boolean, none: boolean) {
 }
 
 function portfolioLab(fail: boolean, none: boolean) {
+  // ONE SOURCE draws both the counts and the albums, as `collections-data.ts` does (its `albums` count and its
+  // `groups.events` are the same `albumsRead`). The lab used to hold fixed counts (180 album photos · 4 cards …) beside
+  // `none`'s empty albums, so a new shop read "0 photos" and "about 216 photos" on one screen (Build 3, 9 Nov).
+  const albumPhotos = none
+    ? []
+    : [
+        ...PHOTOS.map((url, i) => ({ eventId: 'ev-santos', url, createdAt: `2026-11-07T0${i}:00:00Z` })),
+        ...PHOTOS.slice(2, 8).map((url, i) => ({ eventId: 'ev-cruz', url, createdAt: `2026-10-18T0${i}:00:00Z` })),
+        ...PHOTOS.slice(4, 9).map((url, i) => ({ eventId: 'ev-reyes', url, createdAt: `2026-09-27T0${i}:00:00Z` })),
+      ];
+  const serviceCards = none
+    ? []
+    : [
+        { id: 'svc-photo', title: 'Wedding photo & video', urls: PHOTOS.slice(0, 8), total: 8 },
+        { id: 'svc-booth', title: 'Photo booth', urls: PHOTOS.slice(5, 9), total: 4 },
+      ];
+  const looks = none
+    ? []
+    : [
+        ...PHOTOS.slice(0, 5).map((url, i) => ({ id: `l${i}`, url, part: 'Reception styling' })),
+        ...PHOTOS.slice(5, 8).map((url, i) => ({ id: `m${i}`, url, part: 'Bridal portraits' })),
+      ];
   const input: CollectionsInput = {
     page: { photos: none ? 0 : 38, videos: none ? 0 : 12, shown: true },
-    cards: fail ? null : { cards: 4, photos: 12, videos: 1 },
-    albums: fail ? null : { photos: 180, events: 1 },
-    own: fail ? null : { items: 18 },
-    delivered: fail ? null : { couples: 6, items: 6 },
+    cards: fail ? null : { cards: serviceCards.length, photos: serviceCards.reduce((a, c) => a + c.total, 0), videos: 0 },
+    albums: fail ? null : { photos: albumPhotos.length, events: new Set(albumPhotos.map((p) => p.eventId)).size },
+    own: fail ? null : { items: none ? 0 : 18 },
+    delivered: fail ? null : none ? { couples: 0, items: 0 } : { couples: 6, items: 6 },
     instagram: { configured: false, connected: false, posts: 0, shown: 0 },
-    moodboard: fail ? null : { allowed: true, looks: 5, declined: 0 },
+    moodboard: fail ? null : { allowed: true, looks: looks.length, declined: 0 },
   };
   const saved = { sections: { portfolio: true } } as unknown as PageSaved;
   // Build 2 §10 #35 — v118's own sample groups, through the SAME pure builders the loader uses.
@@ -250,11 +297,7 @@ function portfolioLab(fail: boolean, none: boolean) {
       ? { events: [], services: [], inspiration: [], stories: [] }
       : {
         events: eventAlbums(
-          [
-            ...PHOTOS.map((url, i) => ({ eventId: 'ev-santos', url, createdAt: `2026-11-07T0${i}:00:00Z` })),
-            ...PHOTOS.slice(2, 8).map((url, i) => ({ eventId: 'ev-cruz', url, createdAt: `2026-10-18T0${i}:00:00Z` })),
-            ...PHOTOS.slice(4, 9).map((url, i) => ({ eventId: 'ev-reyes', url, createdAt: `2026-09-27T0${i}:00:00Z` })),
-          ],
+          albumPhotos,
           [
             { eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-07' },
             { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-10-18' },
@@ -262,14 +305,8 @@ function portfolioLab(fail: boolean, none: boolean) {
           ],
           { thisYear: 2026, albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` },
         ),
-        services: serviceAlbums([
-          { id: 'svc-photo', title: 'Wedding photo & video', urls: PHOTOS.slice(0, 8), total: 8 },
-          { id: 'svc-booth', title: 'Photo booth', urls: PHOTOS.slice(5, 9), total: 4 },
-        ]),
-        inspiration: inspirationAlbums([
-          ...PHOTOS.slice(0, 5).map((url, i) => ({ id: `l${i}`, url, part: 'Reception styling' })),
-          ...PHOTOS.slice(5, 8).map((url, i) => ({ id: `m${i}`, url, part: 'Bridal portraits' })),
-        ]),
+        services: serviceAlbums(serviceCards),
+        inspiration: inspirationAlbums(looks),
         stories: [
           { eventId: 'ev-santos', slug: 'santos-delacruz', hostNames: 'Ana & Miguel', line: 'Tagaytay · Nov 2026' },
           { eventId: 'ev-cruz', slug: 'bea-cruz-18', hostNames: 'Bea Cruz', line: 'Batangas · Oct 2026' },
@@ -282,12 +319,12 @@ function portfolioLab(fail: boolean, none: boolean) {
           vendorId="lab"
           input={input}
           saved={saved}
-          previews={none ? {} : { page: { urls: PHOTOS.slice(0, 9), total: 38 }, ...(fail ? {} : { cards: { urls: PHOTOS.slice(3, 9), total: 12 } }) }}
+          previews={none ? {} : { page: { urls: PHOTOS.slice(0, 9), total: 38 }, ...(fail ? {} : { cards: { urls: PHOTOS.slice(3, 9), total: input.cards?.photos ?? 0 } }) }}
           showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
           photos={none ? 0 : 38}
           videoLinks={none ? 0 : 12}
           hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
-          moodboard={fail || none ? null : { looks: 5, declined: 0 }}
+          moodboard={fail || none ? null : { looks: looks.length, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
           allowanceUnread={fail}

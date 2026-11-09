@@ -128,12 +128,14 @@ export function LogoPhotoMenu({
       </div>
     );
   }
+  // No logo yet → Upload only: nothing to see and nothing to adjust (Build 3 empty modes, 9 Nov — "never Adjust
+  // profile photo" without one). No "Choose profile photo" — no Portfolio→logo picker is shipped.
   return (
     <div data-photo-menu="logo">
       <ul>
-        <SeeRow word="See profile photo" url={logoUrl} none="No logo yet" album="Your logo" data="logo-see" />
+        {logoUrl ? <SeeRow word="See profile photo" url={logoUrl} none="No logo yet" album="Your logo" data="logo-see" /> : null}
         {logoItem ? <UploadRow onPick={setFiles} data="logo-upload" /> : null}
-        {logoItem ? (
+        {logoItem && logoUrl ? (
           <li data-photo-menu-row="logo-adjust">
             <button type="button" className={`sn-press ${ROW}`} onClick={() => setEditing(true)}>
               <RowLead icon={Crop} />

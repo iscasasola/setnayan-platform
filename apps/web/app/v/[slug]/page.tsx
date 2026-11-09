@@ -128,6 +128,7 @@ import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
 import { parseVideoLink } from '@/lib/video-embed';
+import { videoTitlesOf } from '@/lib/video-link-titles';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
@@ -288,6 +289,8 @@ export type PublicVendorRow = {
   // Featured videos — external URLs the vendor pasted (migration 20270518165113).
   // Optional + `?? []` at read time so a pre-migration DB degrades to no section.
   gallery_video_links?: string[] | null;
+  // Each link's optional title, keyed by the link (migration 20271334860034) — said under its player.
+  gallery_video_titles?: unknown;
   services: string[];
   location_city: string | null;
   hq_address: string | null;
@@ -488,7 +491,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -499,7 +502,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
       error.message,
     )
   ) {
@@ -1587,9 +1590,14 @@ export async function renderVendorBySlug({
   // door out Q3 closes). The vendor's pasted value stays saved in
   // gallery_video_links; only the public render narrows to what actually plays
   // in-page. Unparseable entries are dropped too.
+  // 🎬 Each video carries the title its supplier gave it (Portfolio › Video links), keyed by the link as stored.
+  const videoTitles = videoTitlesOf(vendor.gallery_video_titles);
   const featuredVideos = (vendor.gallery_video_links ?? [])
-    .map((url) => parseVideoLink(url))
-    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null)
+    .map((url) => {
+      const v = parseVideoLink(url);
+      return v ? { ...v, title: videoTitles[url] ?? null } : null;
+    })
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> & { title: string | null } => v !== null)
     .filter((v) => v.kind === 'iframe');
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
@@ -2988,20 +2996,25 @@ export async function renderVendorBySlug({
                   // `featuredVideos` is pre-filtered to `kind === 'iframe'`, so
                   // every entry reaching this map plays in-page — never a link
                   // out (owner ruling 2026-09-11 Q3).
-                  <div
-                    key={`${v.originalUrl}-${idx}`}
-                    className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
-                  >
-                    <iframe
-                      src={v.embedUrl}
-                      title={`${displayLabel} — ${v.label} video ${idx + 1}`}
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      className="absolute inset-0 h-full w-full border-0"
-                    />
-                  </div>
+                  <figure key={`${v.originalUrl}-${idx}`} className="col-span-2 space-y-1.5" data-featured-video="">
+                    <div className="relative aspect-video overflow-hidden rounded-xl bg-ink/5">
+                      <iframe
+                        src={v.embedUrl}
+                        title={v.title ? `${displayLabel} — ${v.title}` : `${displayLabel} — ${v.label} video ${idx + 1}`}
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        className="absolute inset-0 h-full w-full border-0"
+                      />
+                    </div>
+                    {/* The title the supplier gave it (Portfolio › Video links); no title → no caption, never a filler. */}
+                    {v.title ? (
+                      <figcaption className="px-1 text-[13.5px] font-medium text-ink" data-featured-video-title="">
+                        {v.title}
+                      </figcaption>
+                    ) : null}
+                  </figure>
                 ) : null,
               )}
               {/* Synced Instagram posts (show_on_profile) — images re-hosted in

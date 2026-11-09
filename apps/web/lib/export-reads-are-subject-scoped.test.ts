@@ -94,6 +94,8 @@ const ANCHORS: Record<string, RegExp> = {
   // by T15 in export-coverage-guardrail.test.ts
   event_vendor_payments: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   event_vendors: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
+  // couple-grain too (2026-11-09): the refunds suppliers recorded giving the caller's OWN couple events money back.
+  event_vendor_refunds: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   // the subject's OWN vendor profile (vp ← vendor_profiles .eq('user_id', user.id))
   editorial_vendor_media: /\.eq\(\s*'vendor_profile_id'\s*,\s*vp\.vendor_profile_id\s*\)/,
 

@@ -221,6 +221,10 @@ export type NotificationType =
   // which announces the plan the COUPLE themselves authored at lock — this one
   // is the supplier's own sentence about an amount, and it names the figure.
   | 'vendor_payment_asked'
+  // Added 2026-11-09 alongside migration 20271334860034 (Supplier Build 2 leftover (b)). COUPLE-recipient: a booked
+  // supplier RECORDED a refund they gave the couple (amount, date, why) on that client's Payment page. A record only —
+  // no money moves through Setnayan. IN-APP ONLY: not on the email allowlist (owner 2026-10-11, no new emails).
+  | 'client_refund_recorded'
   // Added 2026-08-29 alongside migration 20271178787548_picking_someone_tells_them.sql.
   // COUPLE-recipient: a shop picked THEM off its booked-out waitlist and is
   // holding the date. Distinct from the three "a slot opened" paths, which
@@ -679,6 +683,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_confirmed: 'Payment confirmed',
   payment_cleared: 'Payment plan settled',
   vendor_payment_asked: 'Payment requested',
+  client_refund_recorded: 'Refund recorded',
   waitlist_picked: 'Your date is being held',
   vendor_credit_expiring: 'Your credit is about to expire',
   // Vendor lifecycle Phase 3→4 spine (2026-06-20).
@@ -872,6 +877,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // same action-needed register as payment_logged on the other side of the
   // same conversation.
   vendor_payment_asked: 'bg-warn-100 text-warn-900',
+  // A supplier saying they gave money back = information, nothing to do → sky, the informational register.
+  client_refund_recorded: 'bg-sky-100 text-sky-800',
   // Being chosen is good news the couple must ACT on before somebody else is
   // picked — amber, the action-needed register, not the celebratory one.
   waitlist_picked: 'bg-warn-100 text-warn-900',
@@ -1207,6 +1214,7 @@ export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, str
   payment_confirmed: 'Payment',
   payment_cleared: 'Payment',
   vendor_payment_asked: 'Payment',
+  client_refund_recorded: 'Payment',
   guest_claim_pending: 'Guest request',
   guest_claim_rejected: 'Guest request',
   event_auto_surfaced: 'Added',
@@ -1267,6 +1275,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   fee_dispute_answered: 'receipt',
   payment_info_sent: 'receipt',
   vendor_payment_asked: 'receipt',
+  client_refund_recorded: 'receipt',
   ai_payment_due: 'receipt',
   payment_matched: 'check',
   payment_confirmed: 'check',

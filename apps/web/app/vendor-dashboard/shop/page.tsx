@@ -132,6 +132,8 @@ type ShopData = {
   logoFields: ProfileFieldData;
   /** 📂 What the Upload doors' uploader needs (the stored list · free room · wallet) — Portfolio's own three reads. */
   uploadFacts: PortfolioUploadFacts;
+  /** 📋 How many live forms the shop has saved (the Forms Maker tile) — null = unread, said as "Couldn't load". */
+  formsSaved: number | null;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -160,17 +162,26 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
 
   // The shop's own row, the columns the profile select does not carry: the plan, Your page's cover pick, the
   // founding mark and when the shop opened — ONE select.
+  // 📋 …and the Forms Maker tile's "N saved" (Build 2 leftover, owner 9 Nov "finish it"): the shop's LIVE forms ride
+  // this SAME request as an embed (ids only, retired ones filtered out) — no new request on any Shop load.
   const ownRead = (async () => {
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
-        .select('tier_state, microsite_hero_photo_key, is_founder, created_at')
+        .select('tier_state, microsite_hero_photo_key, is_founder, created_at, vendor_forms!vendor_forms_vendor_profile_id_fkey(form_id)')
+        .is('vendor_forms.retired_at', null)
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
       if (error) logQueryError('VendorShopPage.ownRow', error, { vendorId }, 'graceful_degrade');
       return error
         ? null
-        : ((data as { tier_state?: string | null; microsite_hero_photo_key?: string | null; is_founder?: boolean | null; created_at?: string | null } | null) ?? null);
+        : ((data as {
+            tier_state?: string | null;
+            microsite_hero_photo_key?: string | null;
+            is_founder?: boolean | null;
+            created_at?: string | null;
+            vendor_forms?: { form_id: string }[] | null;
+          } | null) ?? null);
     } catch {
       return null;
     }
@@ -389,6 +400,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
+    formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
   };
 }
 
@@ -684,6 +696,7 @@ async function ShopHome({
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
+          formsSaved={data.formsSaved}
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}
           booked={data.booked}

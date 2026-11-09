@@ -14,7 +14,9 @@ import {
   LEDGER_EXPORT_PROJECTION,
   LEDGER_SUPPLIER_PROJECTION,
   RECEIPT_LINK_TTL_SECONDS,
+  REFUND_EXPORT_PROJECTION,
   shapeLedgerRows,
+  shapeRefundRows,
   type LedgerExportRow,
   type LedgerSupplierRow,
   type ReceiptLink,
@@ -310,6 +312,7 @@ export async function buildPersonalDataExport(
     ownColourChangesRes,
     ledgerRes,
     ledgerSuppliersRes,
+    ledgerRefundsRes,
     ownSuggestionsRes,
     couplePhotoSharesRes,
     ownCrewPassesRes,
@@ -811,6 +814,18 @@ export async function buildPersonalDataExport(
       if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
       return supabase.from('event_vendors').select(LEDGER_SUPPLIER_PROJECTION).in('event_id', owned.ids);
     })(),
+    // …and the money each supplier says they GAVE BACK on those same couple events (Supplier Build 2, 2026-11-09):
+    // `event_vendor_refunds`, couple-grain on the session client (its couple-read policy is the second bound).
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase
+        .from('event_vendor_refunds')
+        .select(REFUND_EXPORT_PROJECTION)
+        .in('event_id', owned.ids)
+        .order('refunded_on', { ascending: true });
+    })(),
     // RA 10173 (2026-10-19) — PHOTOS THE SUBJECT SUGGESTED to a couple's board as a booked supplier (migration
     // 20271279311294). AUTHOR-scoped on suggested_by_user_id: the row records an act THIS person made; the couple who
     // kept or declined it is not its data subject (their decision is the outcome on the row, not their data). Read
@@ -1197,6 +1212,7 @@ export async function buildPersonalDataExport(
   const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
   const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
   const ledgerSuppliers = listOutcome<LedgerSupplierRow>('payment_ledger_suppliers', ledgerSuppliersRes);
+  const ledgerRefunds = listOutcome<Record<string, unknown>>('supplier_refunds_received', ledgerRefundsRes);
   const notificationsReceived = listOutcome('notifications_received', notificationsRes);
   const receipts = listOutcome('receipts', receiptsRes);
   const orderHistory = listOutcome('order_history', orderHistoryRes);
@@ -1322,6 +1338,7 @@ export async function buildPersonalDataExport(
     ownColourChanges,
     ledger,
     ledgerSuppliers,
+    ledgerRefunds,
     couplePhotoShares,
     ownCrewPasses,
     ownHearts,
@@ -1503,6 +1520,9 @@ export async function buildPersonalDataExport(
     payment_ledger: shapeLedgerRows(ledger.rows, ledgerSuppliers.rows, receiptLinks),
     payment_ledger_note:
       'Every payment you logged against a supplier on an event you own, with the supplier’s confirmation, any “it never reached me” and Setnayan’s ruling. receipt_link is presigned and stops working at receipt_link_expires_at; the durable record of each receipt is proof_r2_key.',
+    // Supplier Build 2 (2026-11-09) — the refunds a supplier recorded giving you back on an event you own, each naming
+    // the supplier. A removed one stays, with removed_at. See lib/export-payment-ledger (REFUND_EXPORT_*).
+    supplier_refunds_received: shapeRefundRows(ledgerRefunds.rows, ledgerSuppliers.rows),
     // ── Added 2026-11-05: the record types that were missing (see
     // lib/export-completeness.ts). Each is scoped to you.
     // What Setnayan told you in the app. An admin-prepared file leaves out each
@@ -1562,6 +1582,7 @@ export async function buildPersonalDataExport(
       'active loved-one claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
       'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
+      'in supplier_refunds_received, the account ids of the supplier-side people who recorded or removed a refund (their identifiers, not yours — the amount, day, reason and when ARE included)',
       // 2026-11-05 — what the new sections deliberately leave out, so a field
       // that is missing reads as a decision, not an accident.
       'Setnayan staff’s internal notes on your records — the note on an account-deletion request, the reason written for a comp, the notes on a help message — and the ids of the staff who handled them. When each was handled IS included.',

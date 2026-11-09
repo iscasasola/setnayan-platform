@@ -95,3 +95,41 @@ export function shapeLedgerRows(
     };
   });
 }
+
+// ── REFUNDS A SUPPLIER RECORDED GIVING THE COUPLE (Supplier Build 2 leftover (c), 2026-11-09) ─────────────────────────
+// `event_vendor_refunds` (migration 20271328327292): the couple already READS these in the app (booked-supplier
+// workspace › Payments, the couple-read policy), so the export carries them beside the ledger, couple-grain, on the
+// session client — the same bound as the payments above. A removed refund stays in the file with its `removed_at`:
+// money history is never dropped.
+
+/** The refund columns the subject receives. Split by the completeness test (export-coverage-guardrail T16). */
+export const REFUND_EXPORT_PROJECTION =
+  'refund_id, event_id, event_vendor_id, vendor_profile_id, amount_php, refunded_on, reason, proof_r2_key, ' +
+  'created_at, removed_at';
+
+export const REFUND_EXPORT_FIELDS: readonly string[] = REFUND_EXPORT_PROJECTION.split(',').map((c) => c.trim());
+
+/** Withheld, each with the reason — the same class as LEDGER_EXPORT_OMITTED. */
+export const REFUND_EXPORT_OMITTED: Readonly<Record<string, string>> = {
+  recorded_by_user_id:
+    'The account id of the supplier-side person who recorded the refund — a third party’s identifier. What they recorded (amount, day, reason) and when (created_at) are exported.',
+  removed_by_user_id:
+    'The account id of the supplier-side person who took the refund back — a third party’s identifier. When it was removed (removed_at) is exported.',
+  request_id:
+    'An internal key the supplier’s screen sends so a double tap writes one row — not a fact about the refund or about you.',
+};
+
+/** Each refund as the subject reads it: every exported column and the supplier who gave it back, by name. */
+export function shapeRefundRows(
+  rows: readonly Record<string, unknown>[],
+  suppliers: readonly LedgerSupplierRow[],
+): Array<Record<string, unknown>> {
+  const byBooking = new Map(suppliers.filter((s) => s.vendor_id).map((s) => [s.vendor_id as string, s]));
+  return rows.map((r) => {
+    const supplier = typeof r.event_vendor_id === 'string' ? byBooking.get(r.event_vendor_id) : undefined;
+    return {
+      ...r,
+      given_back_by: supplier ? { business_name: supplier.vendor_name ?? null, category: supplier.category ?? null } : null,
+    };
+  });
+}

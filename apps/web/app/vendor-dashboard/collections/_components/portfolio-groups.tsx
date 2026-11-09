@@ -14,6 +14,7 @@ import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { updateVendorProfileField } from '../../actions';
 import { formatCount } from '@/lib/format-number';
 import { parseVideoLink } from '@/lib/video-embed';
+import { VIDEO_TITLE_MAX, videoRowName, videoTitlesFor } from '@/lib/video-link-titles';
 import { groupCount, type PortfolioAlbum, type PortfolioGroups, type PortfolioStory } from '@/lib/portfolio-groups';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 
@@ -31,8 +32,9 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
  *   The ✓ circle on each album row stays the separate "pick for Show" control (#24).
  *
  * 🔑 NO NEW TABLE. Video links are the shipped `vendor_profiles.gallery_video_links` (URLs only, ≤ 10), saved through
- * the shipped `updateVendorProfileField('gallery_videos')` — RULE 0: the column existed. It stores no title, so a row is
- * named by its platform ("YouTube video"); a Title field waits on a stored title (B2-B notes, NEEDS).
+ * the shipped `updateVendorProfileField('gallery_videos')` — RULE 0: the column existed. Each link's optional Title
+ * (≤ 80) lives beside it in `gallery_video_titles`, keyed by the link (migration 20271334860034, `lib/video-link-titles.ts`);
+ * a row with no title is named by the link's host.
  * 🔒 collections/the-portfolio-is-all-media.test.ts · lib/portfolio-groups.test.ts
  */
 export type PickKey = string;
@@ -42,6 +44,7 @@ export function PortfolioGroupsView({
   allPhotos,
   libraryOpen,
   videoLinks,
+  videoTitles = {},
   picked,
   onPick,
   moodboard = null,
@@ -52,6 +55,8 @@ export function PortfolioGroupsView({
   allPhotos: string[];
   libraryOpen: boolean;
   videoLinks: string[];
+  /** Each link's title, keyed by the link. null = unread: no Title field, and a save never touches titles. */
+  videoTitles?: Record<string, string> | null;
   picked: PickKey | null;
   onPick: (key: PickKey, album: { title: string; urls: string[] }) => void;
   /** 🎨 Moodboard library counts (Lane E: "Moodboard library lives inside portfolio") — said on the inspiration card's
@@ -189,7 +194,7 @@ export function PortfolioGroupsView({
         )}
       </PortfolioCard>
 
-      <VideoLinks initial={videoLinks} />
+      <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
 
       {open ? (
         <BodyPanel
@@ -392,10 +397,14 @@ function shortLink(url: string): string {
  * player (YouTube, Vimeo) and opens the others where they live (Facebook, Instagram, TikTok). "Add another link" opens a
  * new row with its field ready to paste. Every keep writes the WHOLE list, the way the shipped editor always has
  * (`gallery_video_links`, ≤ 10, re-validated on the server).
+ * 🏷 TITLE (v118): the open row's second field. The row reads the title, else the link's host. A title rides the SAME
+ * write as its link (one map keyed by the link), so changing a link carries its title and removing one drops it. While
+ * the titles are unread (`initialTitles` null) the field is not drawn and the write sends no titles at all.
  */
-function VideoLinks({ initial }: { initial: string[] }) {
+export function VideoLinks({ initial, initialTitles }: { initial: string[]; initialTitles: Record<string, string> | null }) {
   const toast = useToast();
   const [links, setLinks] = useState<string[]>(initial);
+  const [titles, setTitles] = useState<Record<string, string> | null>(initialTitles);
   const [editing, setEditing] = useState<number | null>(null);
   // A link opens its editor IN PLACE — the app-wide reveal-on-open rule: its head glides to the pin line if it runs low.
   const editHead = useRef<HTMLLIElement | null>(null);
@@ -404,20 +413,38 @@ function VideoLinks({ initial }: { initial: string[] }) {
   const [pending, start] = useTransition();
   const playerTitle = useId();
 
-  const write = async (next: string[]): Promise<{ ok: true } | { ok: false; error: string }> => {
+  const write = async (next: string[], nextTitles: Record<string, string> | null = titles): Promise<{ ok: true } | { ok: false; error: string }> => {
     const fd = new FormData();
     fd.set('field', 'gallery_videos');
     for (const l of next) fd.append('gallery_video_links', l);
+    // Titles go PAIRED with their links (same order), and only when they were read — absent, the server leaves them be.
+    if (nextTitles) {
+      fd.set('gallery_video_titles_sent', '1');
+      for (const l of next) fd.append('gallery_video_title', nextTitles[l] ?? '');
+    }
     const r = await updateVendorProfileField(null, fd);
     if (!r.ok) return { ok: false, error: r.error };
     setLinks(next);
+    if (nextTitles) setTitles(videoTitlesFor(next, next.map((l) => [l, nextTitles[l] ?? ''] as const)));
     return { ok: true };
   };
   const keep = async (i: number, text: string): Promise<KeepAnswer> => {
     const p = parseVideoLink(text.trim());
     if (!p) return { ok: false, error: 'That doesn’t look like a video link.' };
-    const next = i < links.length ? links.map((x, j) => (j === i ? p.originalUrl : x)) : [...links, p.originalUrl];
-    const r = await write(next);
+    const isNew = i >= links.length;
+    const next = isNew ? [...links, p.originalUrl] : links.map((x, j) => (j === i ? p.originalUrl : x));
+    // A changed link keeps its title: the title moves to the new key.
+    const old = isNew ? null : links[i]!;
+    const nextTitles = titles && old && old !== p.originalUrl && titles[old] ? { ...titles, [p.originalUrl]: titles[old]! } : titles;
+    const r = await write(next, nextTitles);
+    // A NEW link stays open so its Title can be added right there; an edited one closes.
+    if (r.ok && (!isNew || !titles)) setEditing(null);
+    return r;
+  };
+  const keepTitle = async (i: number, text: string): Promise<KeepAnswer> => {
+    if (!titles || i >= links.length) return { ok: false, error: 'Add the link first.' };
+    const link = links[i]!;
+    const r = await write(links, { ...titles, [link]: text.trim().slice(0, VIDEO_TITLE_MAX) });
     if (r.ok) setEditing(null);
     return r;
   };
@@ -433,6 +460,7 @@ function VideoLinks({ initial }: { initial: string[] }) {
 
   const rows = editing !== null && editing >= links.length ? [...links, ''] : links;
   const play = playing ? parseVideoLink(playing) : null;
+  const playName = (playing && titles?.[playing]) || (play ? `${play.label} video` : 'Video');
 
   return (
     <section
@@ -459,7 +487,7 @@ function VideoLinks({ initial }: { initial: string[] }) {
                 <button type="button" onClick={() => { intendEdit(); setEditing((cur) => (cur === i ? null : i)); }} aria-expanded={isOpen} className="sn-press flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
                   <Link2 aria-hidden className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={2} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium text-ink">{p ? `${p.label} video` : 'New video link'}</span>
+                    <span className="block truncate text-[15px] font-medium text-ink" data-video-title="">{l ? videoRowName(l, titles) : 'New video link'}</span>
                     <span className="block truncate text-[13px] text-ink/60">{l ? shortLink(l) : 'Paste the link'}</span>
                   </span>
                 </button>
@@ -491,6 +519,17 @@ function VideoLinks({ initial }: { initial: string[] }) {
                       onKeep={(t) => keep(i, t)}
                       data="video-link-url"
                     />
+                    {titles && i < links.length ? (
+                      <TypedRow
+                        name="Title"
+                        value={titles[l] ?? ''}
+                        empty="Add a title"
+                        placeholder="Ana & Ben · same-day edit"
+                        maxLength={VIDEO_TITLE_MAX}
+                        onKeep={(t) => keepTitle(i, t)}
+                        data="video-link-title"
+                      />
+                    ) : null}
                   </FormRows>
                   <button
                     type="button"
@@ -530,11 +569,11 @@ function VideoLinks({ initial }: { initial: string[] }) {
       <Sheet open={playing !== null} onClose={() => setPlaying(null)} labelledById={playerTitle} rise>
         <div className="space-y-3 px-4 pb-6 pt-2" data-video-player="">
           <h2 id={playerTitle} className="text-[15px] font-semibold text-ink">
-            {play ? `${play.label} video` : 'Video'}
+            {playName}
           </h2>
           {play?.embedUrl ? (
             <div className="aspect-video overflow-hidden rounded-xl bg-black">
-              <iframe src={play.embedUrl} title={`${play.label} video`} className="h-full w-full" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+              <iframe src={play.embedUrl} title={playName} className="h-full w-full" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
             </div>
           ) : null}
           <p className="text-center text-[12.5px] text-ink/60">{playing ? shortLink(playing) : ''} · plays here, in place</p>

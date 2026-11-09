@@ -41,6 +41,7 @@ export function ShopMakers({
   scanners,
   formsBody,
   formsOn = true,
+  formsSaved,
   categories = [],
   services = [],
   booked = null,
@@ -51,6 +52,9 @@ export function ShopMakers({
   formsBody: ReactNode | null;
   /** The lab draws the row without the Forms tile's server body; the app always has the Forms Maker. */
   formsOn?: boolean;
+  /** 📋 How many live forms the shop has saved — said on the tile ("3 saved" · "None yet"). null = unread ("Couldn't
+   *  load", never "None yet"); absent = not measured here (the lab), the tile keeps its shipped line. */
+  formsSaved?: number | null;
   /** The shop's service labels (the one taxonomy) — they decide which tools are SUGGESTED first, never which are open. */
   categories?: readonly string[];
   /** `vendor_profiles.services` — the music rule for the Song bank. */
@@ -92,7 +96,7 @@ export function ShopMakers({
         ? 'Add a service first'
         : `${formatCount(on ?? 0)} of ${formatCount(scanners.length)} on`;
   const list: { k: MakerKey; title: string; sub: string; icon: LucideIcon; head: string }[] = [
-    ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: 'Sent as a chat card', icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
+    ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     { k: 'tools', title: 'Specialized tools', sub: `Scanner · ${formatCount(tools.length - 1)} tools`, icon: Wrench, head: 'Swipe · tap one · each opens where it runs' },
   ];
   const picked = tools.find((t) => t.tool.key === tool)?.tool ?? tools[0]!.tool;
@@ -260,4 +264,11 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
       )}
     </div>
   );
+}
+
+/** The Forms Maker tile's line: how many forms the shop has saved, honestly (an unread count is never "None yet"). */
+export function formsSub(saved: number | null | undefined): string {
+  if (saved === undefined) return 'Sent as a chat card';
+  if (saved === null) return 'Couldn’t load';
+  return saved === 0 ? 'None yet' : `${formatCount(saved)} saved`;
 }

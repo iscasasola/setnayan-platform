@@ -80,7 +80,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readSchema, type TableSchema } from './security/migration-schema';
-import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED } from './export-payment-ledger';
+import { LEDGER_EXPORT_FIELDS, LEDGER_EXPORT_OMITTED, REFUND_EXPORT_FIELDS, REFUND_EXPORT_OMITTED } from './export-payment-ledger';
 import {
   VENDOR_PROFILE_EXPORT_COLUMNS,
   VENDOR_PROFILE_EXPORT_OMITTED,
@@ -476,8 +476,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_manual_vendors: 'TODO(RA10173-backlog): vendor contact details the subject typed in themselves.',
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
-  event_vendor_refunds:
-    'TODO(RA10173-backlog): refunds a supplier recorded giving the couple money back (Supplier Build 2 lane E, 2026-11-08). The couple READS them in-app (booked-supplier workspace › Payments) but the export does not carry them yet; belongs beside payment_ledger, couple-grain on the session client. Its two *_user_id columns are supplier-side actor stamps (erasure nulls them).',
+  // event_vendor_refunds LEFT this list on 2026-11-09: the export now carries it as supplier_refunds_received,
+  // beside payment_ledger, couple-grain on the session client (T15, T16 below).
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
@@ -612,7 +612,8 @@ const KNOWN_GAPS: Record<string, string> = {
 // to the real count so the slack cannot be spent on a new gap.
 // Raised 68 → 69 on 2026-11-08, deliberately: event_vendor_refunds (Supplier Build 2
 // lane E) is a new couple-readable money record the export does not carry yet.
-const KNOWN_GAP_CEILING = 69;
+// Lowered 69 → 68 on 2026-11-09: event_vendor_refunds moved into the export (supplier_refunds_received).
+const KNOWN_GAP_CEILING = 68;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -968,6 +969,30 @@ test('T14 · the payment_ledger projection is COMPLETE (no ledger column silentl
   }
 });
 
+test('T16 · the supplier_refunds_received projection is COMPLETE (no refund column silently drops out)', () => {
+  // T14's check for the refunds a supplier recorded (2026-11-09): every column is exported or withheld with a reason.
+  const table = readSchema().get('event_vendor_refunds');
+  assert.ok(table, 'No CREATE TABLE public.event_vendor_refunds found — the parser regressed.');
+  const projected = new Set(REFUND_EXPORT_FIELDS);
+  const omitted = Object.keys(REFUND_EXPORT_OMITTED);
+  assert.equal(projected.size, REFUND_EXPORT_FIELDS.length, 'the refund projection repeats a column');
+  const missing = [...table.cols].filter((c) => !projected.has(c) && !omitted.includes(c)).sort();
+  assert.deepEqual(
+    missing,
+    [],
+    `UNDER-EXPORT: refund column(s) reach no data subject: ${missing.join(', ')}. Add each to ` +
+      'REFUND_EXPORT_PROJECTION in lib/export-payment-ledger.ts, or to REFUND_EXPORT_OMITTED with the reason.',
+  );
+  const phantom = [...projected].filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(phantom, [], `Projected refund column(s) no migration declares: ${phantom.join(', ')}.`);
+  const stale = omitted.filter((c) => !table.cols.has(c)).sort();
+  assert.deepEqual(stale, [], `REFUND_EXPORT_OMITTED names column(s) that no longer exist: ${stale.join(', ')}.`);
+  for (const [col, reason] of Object.entries(REFUND_EXPORT_OMITTED)) {
+    assert.ok(reason.trim().length > 20, `REFUND_EXPORT_OMITTED.${col} needs a real reason.`);
+    assert.ok(!projected.has(col), `${col} is both exported and withheld`);
+  }
+});
+
 test('T15 · the ledger and its suppliers are COUPLE-scoped, on the session client', () => {
   // Couple-grain like the birth data: a coordinator on someone else's event
   // must never export that couple's payments. Pinned three ways, because a
@@ -980,7 +1005,7 @@ test('T15 · the ledger and its suppliers are COUPLE-scoped, on the session clie
     'coupleEventIds no longer resolves the caller’s OWN member_type=\'couple\' events.',
   );
   // 2 · both reads are bounded to those ids …
-  for (const table of ['event_vendor_payments', 'event_vendors']) {
+  for (const table of ['event_vendor_payments', 'event_vendors', 'event_vendor_refunds']) {
     assert.match(
       src,
       new RegExp(`const owned = await coupleEventIds;[\\s\\S]{0,300}?supabase\\s*\\.from\\('${table}'\\)[\\s\\S]{0,200}?\\.in\\('event_id', owned\\.ids\\)`),

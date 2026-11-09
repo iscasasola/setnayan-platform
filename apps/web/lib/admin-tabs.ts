@@ -107,6 +107,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
     tab: 'money',
     note: 'To confirm + received. Work surfaces its to-confirm rows; the ledger itself is Money.',
   },
+  { route: '/admin/payments/supplier-refunds', tab: 'money', note: 'Read only — refunds suppliers recorded giving their clients (Build 2).' },
   { route: '/admin/receipts', tab: 'money' },
   { route: '/admin/subscriptions', tab: 'money' },
   { route: '/admin/booking-fees', tab: 'money' },

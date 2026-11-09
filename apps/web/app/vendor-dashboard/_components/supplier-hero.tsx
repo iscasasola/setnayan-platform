@@ -22,6 +22,13 @@ export const SUPPLIER_HERO_HEIGHT_PX = 208;
 
 export type SupplierHeroPicture = { url: string; kind: 'photo' | 'placeholder' };
 
+/** The placeholder's Upload pill — drawn here as a link, or worn by a picker door (`portfolio-upload.tsx`). */
+export const HERO_UPLOAD_PILL =
+  'inline-flex h-10 items-center gap-1.5 rounded-full bg-white/[0.92] px-3.5 text-[13.5px] font-semibold text-[color:var(--m-espresso)]';
+
+/** Where Upload goes: a link (Portfolio's own in-page `#gallery-media`), or a DOOR — the device's picker in place. */
+export type SupplierHeroUpload = { href: string } | { door: ReactNode };
+
 export function SupplierHero({
   eyebrow,
   gear = null,
@@ -46,7 +53,7 @@ export function SupplierHero({
   /** The photo's caption chip ("Most viewed · 412 views", "Cover · Your page", "Latest"). Placeholder ignores it. */
   caption?: ReactNode;
   /** Where Upload goes while the hero is a placeholder (omit for no door). */
-  upload?: { href: string } | null;
+  upload?: SupplierHeroUpload | null;
   /** The tab's own marker on the root (`{ 'portfolio-top': '' }`). */
   data?: Record<string, string>;
 }) {
@@ -56,7 +63,7 @@ export function SupplierHero({
   return (
     <div
       className="relative isolate h-[208px] flex-none overflow-hidden rounded-b-3xl text-white"
-      style={{ background: 'var(--m-ink)' }}
+      style={{ background: 'var(--m-espresso)' }}
       data-supplier-hero={sample ? 'placeholder' : 'photo'}
       {...attrs}
     >
@@ -89,14 +96,14 @@ export function SupplierHero({
         {sub ? <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-white/90">{sub}</div> : null}
       </div>
       {sample && upload ? (
-        <a
-          href={upload.href}
-          className="absolute bottom-4 right-4 inline-flex h-10 items-center gap-1.5 rounded-full bg-white/[0.92] px-3.5 text-[13.5px] font-semibold text-[color:var(--m-ink)]"
-          data-supplier-hero-upload=""
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Upload
-        </a>
+        'door' in upload ? (
+          <span className="absolute bottom-4 right-4">{upload.door}</span>
+        ) : (
+          <a href={upload.href} className={`absolute bottom-4 right-4 ${HERO_UPLOAD_PILL}`} data-supplier-hero-upload="">
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Upload
+          </a>
+        )
       ) : null}
     </div>
   );

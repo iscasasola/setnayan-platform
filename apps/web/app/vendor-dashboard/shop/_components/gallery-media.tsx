@@ -150,7 +150,7 @@ export function GalleryMedia({
  * `shop_portfolio_commit`, which charges under the wallet's lock and refuses — writing nothing — what the wallet
  * cannot cover. An unread wallet pays for nothing: only the free room can be saved, and the page says so.
  */
-function PortfolioForm({
+export function PortfolioForm({
   vendorProfileId,
   storedRefs,
   displayMap,
@@ -159,6 +159,9 @@ function PortfolioForm({
   walletBalance,
   labPicked,
   toast,
+  addOnly = false,
+  pickedFiles = null,
+  onSaved,
 }: {
   vendorProfileId: string;
   storedRefs: string[];
@@ -168,12 +171,25 @@ function PortfolioForm({
   walletBalance: number | null;
   labPicked?: string[];
   toast: ReturnType<typeof useToast>;
+  /**
+   * 📂 The Upload doors' sheet (Today's and Shop's heroes, Shop › Cover photo — `_components/portfolio-upload.tsx`):
+   * only the NEW photos are drawn; the stored ones ride as hidden refs before them, so the save is the same
+   * replace-the-list `portfolio` write, priced the same. Default false: Portfolio's page exactly as it was.
+   */
+  addOnly?: boolean;
+  /** What the door's picker chose — handed to the one `FileUpload` (`pickedFiles`). */
+  pickedFiles?: readonly File[] | null;
+  /** After a save that went through, the refs it ADDED (the Cover menu pre-picks the first as the cover). */
+  onSaved?: (added: string[]) => void;
 }) {
   const [state, formAction] = useActionState(updateVendorProfileField, null);
   const initial = useMemo(() => [...storedRefs, ...(labPicked ?? [])], [storedRefs, labPicked]);
   const [refs, setRefs] = useState<string[]>(initial);
   const [short, setShort] = useState<string | null>(null);
   const dirty = refs.length !== storedRefs.length || refs.some((r, i) => r !== storedRefs[i]);
+  // The save's own moment reads the list as it was pressed — never re-fired by a later edit.
+  const savedRef = useRef({ refs, storedRefs, onSaved });
+  savedRef.current = { refs, storedRefs, onSaved };
 
   useEffect(() => {
     if (!state) return;
@@ -181,6 +197,8 @@ function PortfolioForm({
       const p = state.portfolio;
       toast.success(p ? portfolioSavedText(p.added, p.charged, p.balance) : 'Portfolio saved.');
       setShort(null);
+      const cur = savedRef.current;
+      cur.onSaved?.(cur.refs.filter((r) => !cur.storedRefs.includes(r)));
     } else {
       toast.error(state.error);
       setShort(state.walletShort ? state.error : null);
@@ -247,17 +265,22 @@ function PortfolioForm({
 
       <form action={formAction} className="mt-3 space-y-3">
         <input type="hidden" name="field" value="portfolio" />
+        {addOnly ? initial.map((r) => <input key={r} type="hidden" name="portfolio_r2_keys" value={r} />) : null}
         <FileUpload
           bucket="media"
           pathPrefix={`vendors/${vendorProfileId}/portfolio`}
           name="portfolio_r2_keys"
           unsavedHint="press Save below"
-          currentValue={initial}
-          initialDisplayUrls={displayMap}
+          currentValue={addOnly ? [] : initial}
+          initialDisplayUrls={addOnly ? {} : displayMap}
           multiple
-          onChange={(v) => setRefs(Array.isArray(v) ? v : v ? [v] : [])}
+          pickedFiles={pickedFiles}
+          onChange={(v) => {
+            const picked = Array.isArray(v) ? v : v ? [v] : [];
+            setRefs(addOnly ? [...initial, ...picked] : picked);
+          }}
           // Everything on the page, the free room still open, and what the wallet can pay for (unread → free only).
-          maxFiles={portfolioMaxFiles(storedRefs.length, free, walletBalance)}
+          maxFiles={portfolioMaxFiles(storedRefs.length, free, walletBalance) - (addOnly ? initial.length : 0)}
           limitMessage={
             walletBalance == null
               ? 'Your shop wallet couldn’t be read — only free photos can be added right now.'

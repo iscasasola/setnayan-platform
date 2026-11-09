@@ -10,6 +10,7 @@
  * No peso is typed here: fees are the bills' own amounts and the forecast is `bookingFeeForecast` on the default
  * schedule (`BOOKING_FEE`) — the same function the page's forecast runs.
  */
+import { Plus } from 'lucide-react';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { assembleSupplierToday, type SupplierTodayInput } from '@/lib/supplier-today-view';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
@@ -39,6 +40,13 @@ import type { SpotlightScript } from '@/lib/tours';
 import { LAB_PAPER_URLS, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
+import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
+import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+
+/** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
+ *  dev server for a presign and is refused — the lab writes nothing). */
+const LAB_UPLOAD_FACTS: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: [], free: 50, allowanceUnread: false, walletBalance: 0 };
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
@@ -568,7 +576,14 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         hero={
           heroPhoto
             ? { picture: { url: '/realstories/jack-jill-g1.jpg', kind: 'photo' }, caption: 'Most viewed · 412 views', upload: null }
-            : { picture: { url: '/placeholders/vendor.webp', kind: 'placeholder' }, caption: null, upload: { href: '/vendor-dashboard/collections#gallery-media' } }
+            : { picture: { url: '/placeholders/vendor.webp', kind: 'placeholder' }, caption: null, upload: {
+                door: (
+                  <PortfolioUploadDoor facts={LAB_UPLOAD_FACTS} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
+                    <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    Upload
+                  </PortfolioUploadDoor>
+                ),
+              } }
         }
         eventsYouRun={eventsYouRun}
         library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}

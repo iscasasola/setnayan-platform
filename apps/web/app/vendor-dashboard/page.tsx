@@ -6,7 +6,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -77,6 +77,9 @@ import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/sup
 import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
 import { heroPicture, readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
 import { mostViewedPhotoKey, viewsOf } from '@/lib/supplier-hero';
+import { HERO_UPLOAD_PILL } from './_components/supplier-hero';
+import { PortfolioUploadDoor } from './_components/portfolio-upload';
+import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
 import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -316,10 +319,24 @@ export default async function VendorOverviewPage({
     const key = mostViewedPhotoKey(keys, views);
     const n = viewsOf(key, views);
     const picture = await heroPicture(key, profile.services as string[] | null);
+    // 📂 Upload opens the device's picker HERE (owner 9 Nov) — its facts read only while the hero is a placeholder.
+    const uploadFacts =
+      picture.kind === 'placeholder'
+        ? await readPortfolioUploadFacts(supabase, vendorProfileId, keys, shopRowP.then((row) => row?.tierState ?? null).catch(() => null))
+        : null;
     return {
       picture,
       caption: picture.kind === 'photo' ? (n > 0 ? `Most viewed · ${formatCount(n)} ${n === 1 ? 'view' : 'views'}` : 'Latest photo') : null,
-      upload: picture.kind === 'placeholder' ? { href: '/vendor-dashboard/collections#gallery-media' } : null,
+      upload: uploadFacts
+        ? {
+            door: (
+              <PortfolioUploadDoor facts={uploadFacts} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
+                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                Upload
+              </PortfolioUploadDoor>
+            ),
+          }
+        : null,
     };
   })().catch(() => null);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);

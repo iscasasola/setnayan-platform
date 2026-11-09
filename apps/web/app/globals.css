@@ -1361,6 +1361,10 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
    * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
   --m-ink:        #2C2A29;
+  /* 🖼 The SAME espresso, but it never flips: what a photo band (the supplier hero) sits on, and the ink of a white
+   * pill drawn over a photo. `--m-ink` turns paper-light in dark mode (#FBFAF7), which made the hero's band light and
+   * its white Upload pill's word white-on-white (Build 3 integration, 9 Nov). Defined once here; html.dark leaves it. */
+  --m-espresso:   #2C2A29;
   --m-slate:      #3A382F;
   --m-slate-2:    #6E6A62;
   --m-slate-3:    #8A857B;

@@ -117,6 +117,6 @@ test('4 · an unread wallet pays for nothing — and says so instead of a number
   assert.ok(body.length > 200, 'PortfolioForm moved — re-point this guard');
   assert.match(body, /walletBalance == null \?/, 'the form no longer branches on an unread wallet');
   assert.match(body, /data-portfolio-wallet="unread"/, 'the unread wallet has no sentence of its own');
-  assert.match(body, /maxFiles=\{portfolioMaxFiles\(storedRefs\.length, free, walletBalance\)\}/, 'the uploader is sized by something else');
+  assert.match(body, /maxFiles=\{portfolioMaxFiles\(storedRefs\.length, free, walletBalance\)(?: - \(addOnly \? initial\.length : 0\))?\}/, 'the uploader is sized by something else');
   assert.match(body, /href=\{SHOP_WALLET_HREF\}/, 'the wallet is not a door to its one home');
 });

@@ -19,7 +19,6 @@ import {
 import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
-import { DatesRow } from '../customers/_components/dates-row';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
 import { scannerChoiceOf } from '@/lib/supplier-scan';
@@ -42,7 +41,9 @@ import { loadShopAnalytics, type ShopAnalytics } from '@/lib/shop-analytics.serv
 import { stripMarks, stripMonths } from '@/lib/analytics-growing';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
-import { ProfileChecklistEditor } from './_components/profile-checklist-editor';
+import { CoverPhotoMenu, LogoPhotoMenu } from './_components/photo-menus';
+import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type ScannerLine } from './_components/shop-makers';
@@ -129,6 +130,8 @@ type ShopData = {
   /** The logo row's editor data (Your details' own close-save row). */
   logoItem: BusinessProfileItem | null;
   logoFields: ProfileFieldData;
+  /** 📂 What the Upload doors' uploader needs (the stored list · free room · wallet) — Portfolio's own three reads. */
+  uploadFacts: PortfolioUploadFacts;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -309,8 +312,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     return null;
   });
 
+  // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
+  const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked] = await Promise.all([
+  const [own, verifyApp, { logoUrl, logoUnavailable }, serviceRows, scanSettings, facts, rewards, coverUrl, hero, booked, uploadFacts] = await Promise.all([
     ownRead,
     verifyAppRead,
     logoRead,
@@ -321,6 +327,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     coverRead,
     heroRead,
     bookedRead,
+    uploadFactsRead,
   ]);
   const bundles = await bundlesRead;
 
@@ -381,6 +388,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     fieldsLeft: profileGaps(completion).fieldsLeft,
     logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
     logoFields: logoFieldData(profile, logoUrl),
+    uploadFacts,
   };
 }
 
@@ -601,6 +609,7 @@ async function ShopHome({
     shareUrl,
     hero: data.hero,
     heroCaption: data.heroCaption,
+    uploadFacts: data.uploadFacts,
   };
   const qrSearch = { et: one('et'), cat: one('cat'), mode: one('mode') };
   const scanners: ScannerLine[] | null =
@@ -630,30 +639,17 @@ async function ShopHome({
           }
           logoBody={
             <div className="space-y-3" data-shop-logo-view="">
-                <p className="text-[13px] text-ink/65">Your logo · shows on your page, cards and chat. Drag to move, pinch to zoom.</p>
                 {data.logoUnavailable ? <CouldNotLoad what="your logo" /> : null}
-                {data.logoItem ? (
-                  <ProfileChecklistEditor items={[data.logoItem]} data={data.logoFields} isVerified={data.isVerified} showProgress={false} flat />
-                ) : null}
+                {/* 📷 One short menu (owner 9 Nov, Facebook's profile photo): See · Upload (the picker, then the shipped
+                    framer) · Adjust. */}
+                <LogoPhotoMenu logoUrl={data.logoUrl} logoItem={data.logoItem} logoFields={data.logoFields} isVerified={data.isVerified} />
               </div>
           }
           coverBody={
             <div className="space-y-3" data-shop-cover-view="">
-                {data.coverUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL
-                  <img src={data.coverUrl} alt="Your cover photo" className="aspect-[16/10] w-full rounded-2xl object-cover" />
-                ) : (
-                  <p className="text-[13.5px] text-ink/65">No cover yet — your first portfolio photo becomes it.</p>
-                )}
-                <p className="text-[13px] text-ink/65">Cover photo · the top of your page. You pick it on Your page, and it goes live when you Apply there.</p>
-                <ul className="divide-y divide-ink/10">
-                  <li>
-                    <DatesRow data="shop-cover-pick" title="Pick from Portfolio" line="Your photos · the cover goes live with your page's Apply" href={`${PAGE_HREF}#cover`} />
-                  </li>
-                  <li>
-                    <DatesRow data="shop-cover-upload" title="Upload" line="Add photos to your Portfolio, then pick one" href="/vendor-dashboard/collections#gallery-media" />
-                  </li>
-                </ul>
+                {/* 📷 One short menu (owner 9 Nov, Facebook's cover photo): See · Upload (the picker, in place) · Choose
+                    (Your page's Pick from Portfolio). It still goes live with Your page's Apply. */}
+                <CoverPhotoMenu coverUrl={data.coverUrl} facts={data.uploadFacts} chooseHref={`${PAGE_HREF}#cover`} />
               </div>
           }
         />

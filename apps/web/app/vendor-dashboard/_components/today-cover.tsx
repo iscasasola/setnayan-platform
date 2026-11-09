@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { dateChip, greetedShop, greetingLine, pinnedCountsLine, tasksWord } from '@/lib/supplier-today-greeting';
-import { SupplierHero, type SupplierHeroPicture } from './supplier-hero';
+import { SupplierHero, type SupplierHeroPicture, type SupplierHeroUpload } from './supplier-hero';
 
 /**
  * 👋 TODAY'S COVER (THE ONE BUILD A1 · A2, v113 Today): "Good morning, / <Shop>" · the date chip · "N tasks today" ·
@@ -38,7 +38,7 @@ export function TodayCover({
    * 🖼 Lane E item 11: the shared hero's picture — the most-viewed portfolio photo ("Most viewed · N views"), else the
    * latest, else the category placeholder with its Upload door. Null (the lab, a guard) = the shipped placeholder file.
    */
-  hero?: { picture: SupplierHeroPicture | null; caption: string | null; upload: { href: string } | null } | null;
+  hero?: { picture: SupplierHeroPicture | null; caption: string | null; upload: SupplierHeroUpload | null } | null;
 }) {
   const shop = greetedShop(shopName);
   const tasksChip = tasksWord(tasks);

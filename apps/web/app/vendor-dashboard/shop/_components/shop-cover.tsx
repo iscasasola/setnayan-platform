@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Pencil, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
+import { Camera, Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
@@ -13,7 +13,9 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import type { LogoFrame } from '@/lib/open-shop-logo';
 import { shareShopLink, shopPhotoCardPath } from '@/lib/share-shop-link';
 import { ShopSettings } from './shop-settings';
-import { SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
+import { HERO_UPLOAD_PILL, SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
+import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
 
 /** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
@@ -67,6 +69,8 @@ export type CoverData = {
   hero?: SupplierHeroPicture | null;
   /** "Cover · Your page" / "Cover · first photo". */
   heroCaption?: string | null;
+  /** 📂 The Upload door's facts (owner 9 Nov: Upload opens the device's picker, here). Absent = no door. */
+  uploadFacts?: PortfolioUploadFacts | null;
 };
 
 /**
@@ -252,7 +256,18 @@ export function ShopCover({
           }
           picture={d.hero ?? (d.coverUrl ? { url: d.coverUrl, kind: 'photo' } : null)}
           caption={d.heroCaption ?? null}
-          upload={{ href: '/vendor-dashboard/collections#gallery-media' }}
+          upload={
+            d.uploadFacts
+              ? {
+                  door: (
+                    <PortfolioUploadDoor facts={d.uploadFacts} coverPick className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
+                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      Upload
+                    </PortfolioUploadDoor>
+                  ),
+                }
+              : null
+          }
           data={{ 'shop-hero': '' }}
         />
       </div>
@@ -270,7 +285,7 @@ export function ShopCover({
               className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold ring-1 ring-ink/10"
             />
             <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-raised text-ink shadow">
-              <Pencil aria-hidden className="h-3 w-3" strokeWidth={2} />
+              <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
             </span>
           </button>
           {d.publicPath ? (

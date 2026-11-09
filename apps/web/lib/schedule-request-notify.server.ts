@@ -5,6 +5,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { whereNoticeUrl } from '@/lib/supplier-where';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
+import { readBookedSupplierFacts } from '@/lib/booked-supplier-facts.server';
 // The window is applied inside `scheduleRequestRecipients` (delegate-access-window),
 // so an expired coordinator is never told about a request they can no longer answer.
 import {
@@ -44,11 +45,11 @@ export async function notifyScheduleRequest(input: {
   where?: { names: string; suggestionId: string };
 }): Promise<void> {
   const admin = createAdminClient();
-  const [membersRes, seatsRes, eventRes] = await Promise.all([
+  const [membersRes, seatsRes, eventRes, suppliers] = await Promise.all([
     admin.from('event_members').select('user_id').eq('event_id', input.eventId).eq('member_type', 'couple'),
     admin
       .from('event_moderators')
-      .select('user_id, accepted_at, removed_at, permissions_json')
+      .select('user_id, role_subtype, accepted_at, removed_at, permissions_json')
       .eq('event_id', input.eventId)
       .not('accepted_at', 'is', null)
       .is('removed_at', null),
@@ -57,6 +58,9 @@ export async function notifyScheduleRequest(input: {
       .select('event_date, event_end_date, event_date_precision')
       .eq('event_id', input.eventId)
       .maybeSingle(),
+    // 🧭 Who on this event is a booked supplier, and who is the booked coordinator — a supplier's seat proposes and
+    // never approves (owner 8 Nov 2026), so it is not told a request waits on it.
+    readBookedSupplierFacts(admin, input.eventId),
   ]);
   if (membersRes.error) logQueryError('notifyScheduleRequest.members', membersRes.error, { eventId: input.eventId }, 'graceful_degrade');
   if (seatsRes.error) logQueryError('notifyScheduleRequest.seats', seatsRes.error, { eventId: input.eventId }, 'graceful_degrade');
@@ -78,6 +82,7 @@ export async function notifyScheduleRequest(input: {
       precision: ev?.event_date_precision ?? null,
     },
     now: new Date(),
+    suppliers,
   });
 
   const title = input.where

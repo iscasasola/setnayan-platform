@@ -15,7 +15,7 @@ import {
 import type { DelegateArea } from '@/lib/event-moderators';
 import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
-import { fetchMyAreaGrants, fetchMyPendingAsk } from './access-actions';
+import { fetchMyAreaGrants, fetchMyPendingAsk } from '@/lib/my-area-grants.server';
 import { decideRequestsPanel } from '@/lib/day-requests';
 import { getDayRequestsView } from '../../../../actions';
 import { RequestsInbox } from '../../../../_components/requests-inbox';
@@ -96,7 +96,14 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
       </p>
 
       {model.needsHostAccess ? (
-        <AskAccess eventId={eventId} askable={askable} pendingAreas={pendingAsk?.requestedAreas ?? null} />
+        // The floor console is the coordinator's specialization: their own ask is the hosts' to answer.
+        <AskAccess
+          eventId={eventId}
+          askable={askable}
+          pendingAreas={pendingAsk?.requestedAreas ?? null}
+          held={grants}
+          askerIsCoordinator
+        />
       ) : null}
 
       {model.schedule.state === 'ready' ? (

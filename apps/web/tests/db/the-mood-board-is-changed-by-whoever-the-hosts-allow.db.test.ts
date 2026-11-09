@@ -18,6 +18,12 @@
  *       and anon cannot call it;
  *   6 · the palette stays the hosts' — a person given Mood Board Edit changes no column of the event row.
  *
+ * ✋ AMENDED 8 Nov 2026 (owner: *"only coordinator and hosts has the final say. so any supplier that is not a
+ *    coordinator still has to request a host or coordinator to accept the change"*; migration 20271329978605): the
+ *    "granted supplier" who writes is now the BOOKED COORDINATOR's shop. A stylist the hosts set to Mood Board Edit is
+ *    a supplier who is NOT the coordinator — they still READ the board and SUGGEST photos
+ *    (`event_inspiration_suggestions`), but every direct write is refused (tests 2 and 5 hold them to it).
+ *
  * 🛡 Sabotage (run 2026-10-30, both restored → 6/6 green):
  *    · dropping the `current_moderator_area_levels` arm from the INSERT and UPDATE policies → tests 1, 4 and 5 red
  *      ("granted supplier: upload refused — new row violates row-level security policy"; "the gate says true but the
@@ -40,6 +46,7 @@ const W = {
   otherEventId: '',
   creator: '',
   grantedSupplier: '',
+  grantedStylist: '',
   grantedCoordinator: '',
   grantedHelper: '',
   plainSupplier: '',
@@ -96,11 +103,11 @@ async function seat(eventId: string, uid: string, role: string, perms: unknown):
   return r.rows[0]!.moderator_id;
 }
 /** A shop owned by `uid`, booked (contracted) on this event, and a 'vendor' member of it. */
-async function bookedShop(uid: string, name: string): Promise<void> {
+async function bookedShop(uid: string, name: string, services: string[] = ['styling']): Promise<void> {
   const vp = await db.query<{ vendor_profile_id: string }>(
     `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
-     VALUES ($1, $2, 'Manila', ARRAY['styling']::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
-    [uid, name],
+     VALUES ($1, $2, 'Manila', $3::text[], 'verified', NOW()) RETURNING vendor_profile_id`,
+    [uid, name, services],
   );
   await db.query(
     `INSERT INTO public.event_vendors (event_id, vendor_name, category, status, marketplace_vendor_id)
@@ -189,7 +196,8 @@ before(async () => {
   db = replay.db;
 
   W.creator = await newUser('mbg-creator@mood-board-grant.test');
-  W.grantedSupplier = await newUser('mbg-stylist@mood-board-grant.test');
+  W.grantedSupplier = await newUser('mbg-coordinator-shop@mood-board-grant.test');
+  W.grantedStylist = await newUser('mbg-stylist@mood-board-grant.test');
   W.grantedCoordinator = await newUser('mbg-coordinator@mood-board-grant.test');
   W.grantedHelper = await newUser('mbg-helper@mood-board-grant.test');
   W.plainSupplier = await newUser('mbg-florist@mood-board-grant.test');
@@ -218,9 +226,12 @@ before(async () => {
   // Two booked shops. The stylist asked for access and the hosts said yes — the access-request door's seat
   // (answerAccessRequest: wedding_planner_external, the narrow template, the lines granted) — then set Mood Board to
   // Edit in Event access. The florist is booked and was given nothing.
-  await bookedShop(W.grantedSupplier, 'Styled by Bea');
+  // ✋ 8 Nov 2026: the shop whose Edit WRITES is the booked coordinator's; the stylist given the same Edit proposes.
+  await bookedShop(W.grantedSupplier, 'Planned by Bea', ['planner_coordinator']);
+  await bookedShop(W.grantedStylist, 'Styled by Bea');
   await bookedShop(W.plainSupplier, 'Bloom & Co.');
   W.grantedSupplierSeat = await seat(W.eventId, W.grantedSupplier, 'wedding_planner_external', { ...NARROW, areas: { mood_board: 'edit' } });
+  await seat(W.eventId, W.grantedStylist, 'wedding_planner_external', { ...NARROW, areas: { mood_board: 'edit' } });
 
   // A coordinator on Limited, given Mood Board; another left on Limited (View everywhere).
   await seat(W.eventId, W.grantedCoordinator, 'wedding_planner_external', { ...NARROW, areas: { ...ALL_VIEW, mood_board: 'edit' }, access_level: 'limited' });
@@ -240,13 +251,14 @@ after(async () => {
 
 const GRANTED = () =>
   [
-    ['granted supplier', W.grantedSupplier],
+    ['granted booked coordinator', W.grantedSupplier],
     ['granted Limited coordinator', W.grantedCoordinator],
     ['granted helper', W.grantedHelper],
   ] as const;
 const REFUSED = () =>
   [
     ['booked supplier with no grant', W.plainSupplier],
+    ['supplier (not the coordinator) set to Edit — proposes', W.grantedStylist],
     ['coordinator left at View', W.viewCoordinator],
     ['guest', W.guest],
     ['host of another event', W.stranger],
@@ -303,6 +315,7 @@ test('🔒 2 · everyone without the grant is refused every write — and still 
   // READ is untouched: every member of the event still sees the board.
   for (const [label, uid] of [
     ['booked supplier with no grant', W.plainSupplier],
+    ['supplier (not the coordinator) set to Edit', W.grantedStylist],
     ['coordinator left at View', W.viewCoordinator],
     ['guest', W.guest],
     ['person granted elsewhere (a guest here)', W.elsewhere],

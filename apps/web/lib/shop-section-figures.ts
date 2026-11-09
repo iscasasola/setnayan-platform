@@ -77,7 +77,7 @@ export function analyticsFigures(now: FunnelCounts | null, before: FunnelCounts 
   const fig = (key: keyof FunnelCounts, word: string, short: string): PinFigure => {
     const v = now ? now[key] : null;
     const ch = changeWord(v, before ? before[key] : null);
-    return { key, value: v === null ? null : n(v), word: ch ? `${word} · ${ch}` : word, short, href: at };
+    return { key, value: v === null ? null : n(v), ...(v === null ? {} : { count: v }), word, ...(ch ? { change: ch } : {}), short, href: at };
   };
   return [fig('views', 'opened', 'opened'), fig('inquiries', 'asked', 'asked'), fig('booked', 'booked', 'booked')];
 }

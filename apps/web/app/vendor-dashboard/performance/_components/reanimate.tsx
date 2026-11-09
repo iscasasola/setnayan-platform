@@ -34,16 +34,43 @@ export function useReanimate(): boolean | null {
 export function Reanimate({
   children,
   className = '',
+  still = false,
+  onPlay,
 }: {
   children: ReactNode;
   className?: string;
+  /**
+   * STILL UNDER REDUCED MOTION (Analytics, owner-approved 6 Nov 2026: "reduced motion → final values at once"): with
+   * `prefers-reduced-motion` or a hidden tab the section plays at once — nothing waits for a scroll to show its true
+   * value. Absent → exactly as it always was.
+   */
+  still?: boolean;
+  /** Told once, when the section plays (Analytics staggers sections that arrive together). */
+  onPlay?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [played, setPlayed] = useState(false);
+  const told = useRef(false);
+
+  useEffect(() => {
+    if (played && !told.current) {
+      told.current = true;
+      onPlay?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [played]);
 
   useEffect(() => {
     if (played) return;
     const el = ref.current;
+    if (
+      still &&
+      (document.visibilityState === 'hidden' ||
+        (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches))
+    ) {
+      setPlayed(true);
+      return;
+    }
     // No element or no IntersectionObserver support → reveal immediately so
     // content is never stuck in its hidden pre-animation state.
     if (!el || typeof IntersectionObserver === 'undefined') {
@@ -61,7 +88,7 @@ export function Reanimate({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [played]);
+  }, [played, still]);
 
   return (
     <div ref={ref} className={`perf-reanim ${played ? 'perf-play' : ''} ${className}`.trim()}>

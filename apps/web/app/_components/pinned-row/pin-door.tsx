@@ -40,6 +40,7 @@ export type PinDoorMark = Readonly<Record<`data-${string}`, string>>;
 export function PinDoor({
   value,
   word,
+  change,
   short,
   hot = false,
   on,
@@ -53,6 +54,12 @@ export function PinDoor({
   /** Already worded ("3", "₱48K", "12+") — or null: not read, drawn "—" + "couldn't load", never 0. */
   value: ReactNode | null;
   word: string;
+  /**
+   * 📈 The figure's change against the window before ("+12" · "−16" · "same") — Shop › Analytics, owner-approved 6 Nov
+   * 2026. On its own line under the word when the doors stand tight (number over word), after " · " when they lie flat,
+   * and gone on the folded line (the prototype's `.fig small .ch`). Absent → exactly as it was.
+   */
+  change?: string;
   /** The word on the FOLDED line, when the full one cannot fit (Money's "to come"). */
   short?: string;
   /** The brand colour — the count that waits on you. */
@@ -92,6 +99,12 @@ export function PinDoor({
           ) : (
             word
           )}
+          {change ? (
+            <span className="[[data-folded]_&]:hidden [[data-tight]_&]:mt-[2px] [[data-tight]_&]:block" data-pin-ch="">
+              <span className="[[data-tight]_&]:hidden"> · </span>
+              {change}
+            </span>
+          ) : null}
         </span>
       </>
     );

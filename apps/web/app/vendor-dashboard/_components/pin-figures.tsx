@@ -1,5 +1,6 @@
 import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 import type { PinFigure } from '@/lib/pin-figure';
+import { Count } from '@/components/count';
 
 /**
  * 📌 A PAGE'S FIGURES ON ITS PINNED ROW (supplier dashboard v13, APPROVED 2026-10-29; DECISION_LOG "EVERY SUPPLIER-DASHBOARD
@@ -20,7 +21,10 @@ export type { PinFigure };
 // 📌 THE ONE COUNT DOOR (owner 2026-10-30 "all yes", Q3): each figure is the shared `PinDoor` as a link — number + word,
 // the door every pinned row draws. Was a two-line round tile of its own.
 function Tile({ f, name }: { f: PinFigure; name: string }) {
-  return <PinDoor value={f.value} word={f.word} short={f.short} hot={f.hot} href={f.href} mark={{ [`data-${name}-figure`]: f.key }} unreadMark="data-pin-figure-unread" />;
+  // A figure with a `count` COUNTS (Analytics, 6 Nov) — the same `Count` engine, keyed per figure, so a window change
+  // slides old → new; an unread figure stays "—".
+  const value = f.value !== null && f.count !== undefined ? <Count value={f.count} id={`pin:${name}:${f.key}`} /> : f.value;
+  return <PinDoor value={value} word={f.word} change={f.change} short={f.short} hot={f.hot} href={f.href} mark={{ [`data-${name}-figure`]: f.key }} unreadMark="data-pin-figure-unread" />;
 }
 
 /** The figures, in the doors' place on a pinned row. `name` keys the data hooks (`data-shop-figure="…"`). */

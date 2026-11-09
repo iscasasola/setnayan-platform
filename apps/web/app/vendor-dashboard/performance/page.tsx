@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
-import { Gauge, TrendingUp, Radar, Info } from 'lucide-react';
+import { Gauge, TrendingUp, Radar } from 'lucide-react';
 import { replyTimeVerdict } from '@/lib/vendor-reply-time';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -23,16 +23,19 @@ import {
   fetchVendorBookingDailySeries,
 } from '@/lib/vendor-booking-series';
 import {
-  fetchVendorFunnelTotals,
   fetchVendorFunnelTotalsResult,
-  buildFunnelSteps,
-  fetchServiceBookedCount,
-  fetchNullServiceBookedCount,
   fetchBookedBySource,
   fetchViewsBySource,
   fetchInquiriesBySource,
-  FUNNEL_MIN_N,
+  type SourceSlice,
 } from '@/lib/vendor-funnel';
+import {
+  fetchInquiriesSeries,
+  fetchUpcomingBookedDays,
+  fetchViewsSeries,
+  type SeriesClient,
+} from '@/lib/vendor-growth-series';
+import type { GrowthWindow } from '@/lib/analytics-growing';
 import {
   getVendorDemandRadar,
   maybeRefreshDemandRadar,
@@ -59,21 +62,9 @@ import {
 import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { ShopSegments } from '../shop/_components/shop-segments';
 import { analyticsFigures } from '@/lib/shop-section-figures';
-import { HealthCompositeCard } from './_components/health-composite-card';
-import { ReplyClaimCard } from './_components/reply-claim-card';
-import { GrowthRecsCard } from './_components/growth-recs-card';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedMedianCard } from './_components/verified-median-card';
-import { RoiAttributionCard } from './_components/roi-attribution-card';
-import type { MomentumWindow, MomentumMode } from './_components/momentum-card';
-import { FunnelPreviewCard } from './_components/funnel-preview-card';
-import { DemandRadarCard } from '../demand/_components/demand-radar-card';
-import { FunnelBenchmarkCard } from './_components/funnel-benchmark-card';
-import {
-  PricePositionCard,
-  type PricePositionUnreadable,
-} from './_components/price-position-card';
 import { fetchVendorPricePosition, type PricePositionResult } from '@/lib/price-position';
 import {
   EMPTY_FUNNEL_BENCHMARK,
@@ -81,35 +72,18 @@ import {
   FUNNEL_BENCHMARK_UNREADABLE,
 } from '@/lib/funnel-benchmark';
 import { regionLabel } from '@/lib/region-source';
-import {
-  ServiceScopeSelector,
-  scopeLabelFor,
-} from './_components/service-scope-selector';
-import { InquiryHandlingCard } from './_components/inquiry-handling-card';
-import { ConversionDealsCard } from './_components/conversion-deals-card';
-import { ReputationCard } from './_components/reputation-card';
-import { CapacityCard } from './_components/capacity-card';
-import { SourceBreakdown } from '../_components/source-breakdown';
-import { PerformanceControls } from './_components/performance-controls';
-import { Reanimate } from './_components/reanimate';
-import { formatCount } from '@/lib/format-number';
-import { BusinessDoing, type DoingWindow } from './_components/business-doing';
+import { ServiceScopeSelector } from './_components/service-scope-selector';
 import { YourBadges } from './_components/your-badges';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
-import { badgeShelf, badgeTracker, type TrackerFacts, type TrackerRow } from '@/lib/shop-badges';
+import { badgeShelf, badgeTracker, milestoneLadder, stepName, type TrackerFacts, type TrackerRow } from '@/lib/shop-badges';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
-import {
-  barHeights,
-  businessSentence,
-  fromLine,
-  ratingLine,
-  replyLine,
-  unmeasuredStats,
-  type MeasuredStatsRow,
-} from '@/lib/business-doing';
+import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
+import { GrowthWindowScope } from '../_components/growth-window';
+import { AnalyticsGrowing } from './_components/analytics-growing';
+import { buildGrowthView, type PricePositionUnreadable } from './_components/growth-view';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
@@ -121,9 +95,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * DAY_MS).toISOString();
 }
-
-/** Empty funnel totals — the graceful fallback when the funnel reader fails. */
-const EMPTY_FUNNEL_TOTALS = { views: 0, inquiries: 0, quotes: 0, booked: 0 };
 
 /**
  * FAULT ISOLATION (2026-07-02 · fixes the whole-cockpit crash behind the
@@ -158,15 +129,6 @@ function safeRead<T>(p: PromiseLike<T>, fallback: T, label: string): Promise<T> 
     console.error(`[my-performance] reader "${label}" failed; using fallback`, err);
     return fallback;
   });
-}
-
-/** Small mono eyebrow that labels a page section — used to make the
- *  windowed-vs-not-windowed boundary legible at a glance (owner 2026-07-02
- *  arrangement pass). */
-function SectionEyebrow({ label }: { label: string }) {
-  // Glass PR-7: section labels render as `.sn-sec` (sentence-case ink) rather
-  // than the retired mono ALL-CAPS hand-roll (contract § 5).
-  return <p className="sn-sec mb-3">{label}</p>;
 }
 
 /**
@@ -277,48 +239,44 @@ export default async function PerformanceHome({
   // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
   // on a refusal, never zeros), so "the 30 days before" is the difference and an unread window says "—". Started here,
   // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
+  // 🌱 Analytics, growing (owner-approved 6 Nov 2026): the 12-month figures are read the SAME honest way, so the pinned
+  // row, the sentence and the funnel follow the ONE window — the old 365-day read folded a refusal into zeros.
   const pinNowRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
   const pinSince60Read = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
+  const pinYearRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
   const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
 
-  // Momentum window from the URL. Daily is Pro+ only — normalize a stray ?day.
-  const raw = search.momentum;
-  let momentumMode: MomentumMode =
-    raw === 'year' ? 'year' : raw === 'day' ? 'day' : 'month';
-  if (momentumMode === 'day' && !canAdvanced) momentumMode = 'month';
+  // 🪟 THE ONE WINDOW (owner-approved 6 Nov 2026): Last 30 days · Last 12 months. `?momentum=year` (the old picker's
+  // links, the service scope's hrefs) still lands on 12 months.
+  const initialWindow: GrowthWindow = search.momentum === 'year' ? '12' : '30';
+  const nowMs = Date.now();
 
-  // ── Batch A — everything that does NOT depend on the chosen service scope:
-  //    the activity-stats row (health + growth), the vendor's own services (to
-  //    build + validate the scope selector), the catalog (plan price), funnel
-  //    totals, and demand radar. Runs in ONE parallel batch (no per-fetch
-  //    waterfall). We must know the vendor's own services before we can validate
-  //    a ?service param, so the SEGMENTABLE readers (attribution windows +
-  //    monthly/daily chart series + null-service footnote counts) run in Batch B
-  //    below — a second parallel batch, not a chain.
+  // ── Batch A — everything that does NOT depend on the chosen service scope: the activity-stats row (health + growth),
+  //    the vendor's own services (to build + validate the scope selector), the catalog (plan price), the radar and the
+  //    benchmark, the 12-month inquiry + conversion analytics, the by-source slices for BOTH windows, the price meter,
+  //    the lanes' two new series and the next 13 weeks' booked dates. ONE parallel batch (no per-fetch waterfall).
+  //    The 28-day reads are retired with the "Monthly" picker (the window is 30 days or 12 months).
   const [
     statsRead,
     services,
     vendorCatalog,
-    funnelTotalsYear,
     demandRadarRead,
     funnelBenchmarkRead,
     inquiryAnalytics,
     conversionAnalytics,
-    funnelTotalsMonth,
-    funnelTotalsDay,
     bookedBySourceYear,
     viewsBySourceYear,
-    bookedBySourceMonth,
-    viewsBySourceMonth,
     bookedBySourceDay,
     viewsBySourceDay,
     inquiriesBySourceYear,
-    inquiriesBySourceMonth,
     inquiriesBySourceDay,
     marketRegionRow,
     pricePosition,
+    viewsSeries,
+    inquiriesSeries,
+    upcomingBooked,
     badgeFacts,
   ] = await Promise.all([
     safeRead(
@@ -354,11 +312,6 @@ export default async function PerformanceHome({
     safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services'),
     safeRead(fetchV2VendorCatalog(), [], 'catalog'),
     safeRead(
-      fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
-      EMPTY_FUNNEL_TOTALS,
-      'funnel_totals',
-    ),
-    safeRead(
       getVendorDemandRadar(supabase, profile.vendor_profile_id),
       EMPTY_RADAR,
       'demand_radar',
@@ -376,7 +329,7 @@ export default async function PerformanceHome({
           'funnel_benchmark',
         )
       : Promise.resolve(EMPTY_FUNNEL_BENCHMARK),
-    // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business).
+    // Inquiry-handling + conversion analytics — shop-level, Pro+ (own-business), 12 months.
     // Skip the RPCs entirely for tiers that won't render the sections.
     canAdvanced
       ? safeRead(
@@ -392,51 +345,30 @@ export default async function PerformanceHome({
           'conversion_analytics',
         )
       : Promise.resolve(null),
-    // Funnel totals + booked/views sliced by source, for ALL THREE windows
-    // (year 365d · month 28d · day 30d). All three are pre-fetched so the
-    // Daily/Monthly/Annual toggle can swap the ROI + funnel + by-source section
-    // INSTANTLY client-side (no refetch, no Apply button) — the same pattern the
-    // Momentum card uses. Shop-level (views/inquiries/quotes carry no
-    // service_id), so none of these depend on serviceId. Pro+ only: month/day
-    // are gated to canAdvanced; the year funnel total stays ungated to preserve
-    // the prior behavior (basic tier never renders any of it either way).
+    // Booked / views / inquiries sliced by source, for BOTH windows (365 d · 30 d), so the window ▾ swaps them
+    // INSTANTLY client-side (no refetch). Shop-level (views/inquiries/quotes carry no service_id). Pro+ only.
+    // A REJECTED read is `null` ("Couldn’t load"), never `[]` ("none yet").
     canAdvanced
-      ? safeRead(fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(28)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_month')
-      : Promise.resolve(EMPTY_FUNNEL_TOTALS),
-    canAdvanced
-      ? safeRead(fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(30)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_day')
-      : Promise.resolve(EMPTY_FUNNEL_TOTALS),
-    canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'booked_by_source_year')
+      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), null, 'booked_by_source_year')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'views_by_source_year')
+      ? safeRead<SourceSlice[] | null>(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), null, 'views_by_source_year')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'booked_by_source_month')
+      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), null, 'booked_by_source_day')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'views_by_source_month')
-      : Promise.resolve([]),
-    canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'booked_by_source_day')
-      : Promise.resolve([]),
-    canAdvanced
-      ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'views_by_source_day')
+      ? safeRead<SourceSlice[] | null>(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), null, 'views_by_source_day')
       : Promise.resolve([]),
     // Inquiries by source (Creator Economy PR-C — the owner's inquiry-source
-    // taxonomy on chat_threads). Same three windows; NULL folds into 'website'.
+    // taxonomy on chat_threads). NULL folds into 'website'.
     canAdvanced
-      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'inquiries_by_source_year')
+      ? safeRead<SourceSlice[] | null>(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), null, 'inquiries_by_source_year')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'inquiries_by_source_month')
+      ? safeRead<SourceSlice[] | null>(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), null, 'inquiries_by_source_day')
       : Promise.resolve([]),
-    canAdvanced
-      ? safeRead(fetchInquiriesBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'inquiries_by_source_day')
-      : Promise.resolve([]),
-    // HQ region → market label for the Demand Radar (the market-intel section
-    // folded into §4 from the retired /demand fold, owner 2026-07-12).
+    // HQ region → market label for the Demand Radar and the price rail.
     canMarket
       ? safeRead(
           supabase
@@ -460,21 +392,31 @@ export default async function PerformanceHome({
           'price_position',
         )
       : Promise.resolve(null),
+    // 📈 The lanes' two new series (lib/vendor-growth-series.ts) — views and inquiries per Manila day (30) and month
+    // (12), one paged read each; a refusal is `null` and the lane says "Couldn’t load".
+    safeRead(fetchViewsSeries(supabase as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'views_series'),
+    safeRead(fetchInquiriesSeries(supabase as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'inquiries_series'),
+    // 📅 §4's strip — the next 13 weeks' live booked dates (the rows `vendor_upcoming_load` counts).
+    canAdvanced
+      ? safeRead(fetchUpcomingBookedDays(supabase as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'upcoming_booked_days')
+      : Promise.resolve(null),
     // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
     badgeFactsRead,
   ]);
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
-  const [pinNow, pinSince60] = await Promise.all([pinNowRead, pinSince60Read]);
-  const pinFigures = analyticsFigures(
-    pinNow.totals,
+  const [pinNow, pinSince60, pinYear] = await Promise.all([pinNowRead, pinSince60Read, pinYearRead]);
+  const totalsBefore30 =
     pinNow.totals && pinSince60.totals
       ? {
           views: pinSince60.totals.views - pinNow.totals.views,
           inquiries: pinSince60.totals.inquiries - pinNow.totals.inquiries,
+          quotes: pinSince60.totals.quotes - pinNow.totals.quotes,
           booked: pinSince60.totals.booked - pinNow.totals.booked,
         }
-      : null,
-  );
+      : null;
+  const pinFigures = analyticsFigures(pinNow.totals, totalsBefore30);
+  // 12 months: the change word is blank — no 24-month read exists, so there is no "before" to compare against.
+  const pinFiguresYear = analyticsFigures(pinYear.totals, null);
   const shelf = badgeShelf(badgeFacts);
   const badgeRows = trackerRows(badgeFacts, await badgeRewardsRead);
 
@@ -527,36 +469,33 @@ export default async function PerformanceHome({
     });
   }
 
-  const growthRecs = buildGrowthRecs(
-    statsRow
-      ? {
-          ...(statsRow as Omit<GrowthRecStats, 'partnership_count'>),
-          partnership_count: partnershipErr ? 99 : (partnershipCount ?? 0),
-        }
-      : null,
-  );
+  // ⏭ DO NEXT (owner-approved 6 Nov 2026): the shipped rules, per window — reply advice only once a couple has asked IN
+  // THAT WINDOW (the pinned row's "asked"); an unread count gives no reply advice either (lib/vendor-growth-recs.ts).
+  const recStats: GrowthRecStats | null = statsRow
+    ? {
+        ...(statsRow as Omit<GrowthRecStats, 'partnership_count'>),
+        partnership_count: partnershipErr ? 99 : (partnershipCount ?? 0),
+      }
+    : null;
+  const growthRecs = buildGrowthRecs(recStats, { askedInWindow: pinNow.totals ? pinNow.totals.inquiries : null });
+  const growthRecsYear = buildGrowthRecs(recStats, { askedInWindow: pinYear.totals ? pinYear.totals.inquiries : null });
   // 🤝 The "Link up" card lands on the served-with list (owner 2026-11-06) — with nobody on it, it does not fire.
-  // Read only when the card would show.
-  const servedWith = growthRecs.some((r) => r.key === 'build_partnerships')
+  // Read only when the card would show, in either window.
+  const servedWith = [...growthRecs, ...growthRecsYear].some((r) => r.key === 'build_partnerships')
     ? await readPartnersYouServedWith(supabase, profile.vendor_profile_id)
     : null;
-  const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink(
-    growthRecs,
-    servedWith === null ? null : servedWith.measured ? proposableShops(servedWith).length : null,
-  );
-
-  // month-over-month composite delta — no historical snapshot table exists yet,
-  // so there is no prior composite to diff against. Rather than invent a number,
-  // the delta is left null (the card omits the "+N this month" chip).
-  const monthDelta: number | null = null;
+  const eligiblePartners = servedWith === null ? null : servedWith.measured ? proposableShops(servedWith).length : null;
+  const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink(growthRecs, eligiblePartners);
+  const shownGrowthRecsYear = withoutPartnershipRecWhenNobodyToLink(growthRecsYear, eligiblePartners);
 
   // ── Service scope. Only ACTIVE services are selectable (a retired/inactive or
   //    deleted service must fall back to All silently). The selector shows only
   //    with 2+ active services — a single/zero-service vendor has nothing to
   //    segment by. Validate ?service against the vendor's OWN active services:
   //    a spoofed / non-owned / inactive / deleted id resolves to null (All), no
-  //    redirect or 404. Segmentation itself is Pro+ (a Solo vendor sees the
-  //    shop-level cards only), so the selector is gated to canAdvanced.
+  //    redirect or 404. Segmentation itself is Pro+, so the selector is gated to
+  //    canAdvanced. Only the BOOKED lane and the money segment; the funnel's other
+  //    stages stay shop-wide.
   const activeServices = services.filter((s) => s.is_active);
   const showSelector = canAdvanced && activeServices.length >= 2;
   const serviceId =
@@ -565,29 +504,14 @@ export default async function PerformanceHome({
     activeServices.some((s) => s.vendor_service_id === search.service)
       ? search.service
       : null;
-  const scopeLabel = scopeLabelFor(activeServices, serviceId);
 
-  // ── Batch B — the SEGMENTABLE readers, now that serviceId is validated. When
-  //    a service is selected, the attribution windows + monthly chart series +
-  //    daily chart series filter to that service (real data, via
-  //    event_vendors.service_id). When serviceId is null they behave exactly as
-  //    before (shop-level). The null-service booked COUNTS run ONLY when a
-  //    service is selected — each is a direct count of bookings with
-  //    service_id IS NULL in that window (NOT shopTotal − thisService, which
-  //    would misattribute OTHER services' bookings), for the honest
-  //    "Excludes N bookings not tied to a specific service" footnotes.
+  // ── Batch B — the SEGMENTABLE readers, now that serviceId is validated: the attribution windows (money + the
+  //    Setnayan / own split) and the booked lanes (daily + monthly series) filter to the selected service.
   const [
     attributionYear,
-    attributionMonth,
     attributionDay,
     bookingSeries,
     bookingDailySeries,
-    // True count of service_id IS NULL bookings per window — only fetched when a
-    // service is selected, so the footnote counts ONLY genuinely service-less
-    // bookings.
-    nullExcludedYear,
-    nullExcludedMonth,
-    nullExcludedDay,
     reputationAnalytics,
     capacityAnalytics,
   ] = await Promise.all([
@@ -595,11 +519,6 @@ export default async function PerformanceHome({
       fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId),
       null,
       'attribution_year',
-    ),
-    safeRead(
-      fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId),
-      null,
-      'attribution_month',
     ),
     safeRead(
       fetchVendorSourceAttribution(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId),
@@ -616,27 +535,6 @@ export default async function PerformanceHome({
       [],
       'booking_daily',
     ),
-    serviceId
-      ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
-          null,
-          'null_excluded_year',
-        )
-      : Promise.resolve(null),
-    serviceId
-      ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
-          null,
-          'null_excluded_month',
-        )
-      : Promise.resolve(null),
-    serviceId
-      ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30)),
-          null,
-          'null_excluded_day',
-        )
-      : Promise.resolve(null),
     canAdvanced
       ? safeRead(
           fetchVendorReputationAnalytics(supabase, profile.vendor_profile_id),
@@ -653,151 +551,12 @@ export default async function PerformanceHome({
       : Promise.resolve(null),
   ]);
 
-  const funnelStepsYear = buildFunnelSteps(funnelTotalsYear);
-  const funnelStepsMonth = buildFunnelSteps(funnelTotalsMonth);
-  const funnelStepsDay = buildFunnelSteps(funnelTotalsDay);
-
-  // Per-service BOOKED count for the funnel callout — the ONLY funnel stage that
-  // can segment (views/inquiries/quotes have no service_id). Shop-level funnel
-  // bars are unchanged; this drives the "Bookings for {service}: N" note, per
-  // window so it tracks the Daily/Monthly/Annual toggle. Only when a service is
-  // selected (one parallel batch, not a per-window waterfall). Each is safeRead
-  // so a failed count degrades to an empty callout, never the whole cockpit.
-  const [serviceBookedYear, serviceBookedMonth, serviceBookedDay] = serviceId
-    ? await Promise.all([
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId), null, 'service_booked_year'),
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId), null, 'service_booked_month'),
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId), null, 'service_booked_day'),
-      ])
-    : [null, null, null];
-
   // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
   // vendor's current tier. Falls back to the shipped tier-price constant only if
   // the catalog lacks the row (mirrors the subscription page's dual source).
   const annualSku = `${tier}_vendor_annual`;
   const catalogAnnual = vendorCatalog.find((r) => r.sku_code === annualSku)?.price_php ?? null;
   const annualPlanPhp = catalogAnnual ?? TIER_PRICE_PHP[tier].annual;
-
-  const monthWindow: MomentumWindow = {
-    bookings: attributionMonth?.totalBookings ?? 0,
-    earningsPhp: attributionMonth?.totalRevenuePhp ?? 0,
-    pricedCount: attributionMonth?.totalPriced ?? 0,
-  };
-  const yearWindow: MomentumWindow = {
-    bookings: attributionYear?.totalBookings ?? 0,
-    earningsPhp: attributionYear?.totalRevenuePhp ?? 0,
-    pricedCount: attributionYear?.totalPriced ?? 0,
-  };
-  const dayWindow: MomentumWindow = {
-    bookings: attributionDay?.totalBookings ?? 0,
-    earningsPhp: attributionDay?.totalRevenuePhp ?? 0,
-    pricedCount: attributionDay?.totalPriced ?? 0,
-  };
-
-  // ── Windowed "Your business" section (ROI + funnel + by-source). All three
-  //    windows are pre-rendered so <PerformanceControls> can swap them INSTANTLY
-  //    when the Daily/Monthly/Annual toggle changes — client-side, no refetch,
-  //    no Apply button (same pattern as the Momentum card). The window framing
-  //    matches the Momentum card ("this year" / "this month" / "in the last 30
-  //    days"). The "× your annual plan" ROI multiple is annual-specific, so
-  //    annualPlanPhp is passed to the year node only (the card hides the
-  //    multiple when it's null). Only rendered for Pro+ (canAdvanced).
-  const WINDOW_LABEL: Record<MomentumMode, string> = {
-    year: 'this year',
-    month: 'this month',
-    day: 'in the last 30 days',
-  };
-  const renderWindowedSection = (mode: MomentumMode) => {
-    const attribution =
-      mode === 'year' ? attributionYear : mode === 'month' ? attributionMonth : attributionDay;
-    const steps =
-      mode === 'year' ? funnelStepsYear : mode === 'month' ? funnelStepsMonth : funnelStepsDay;
-    const booked =
-      mode === 'year' ? bookedBySourceYear : mode === 'month' ? bookedBySourceMonth : bookedBySourceDay;
-    const views =
-      mode === 'year' ? viewsBySourceYear : mode === 'month' ? viewsBySourceMonth : viewsBySourceDay;
-    const inquiriesSlices =
-      mode === 'year'
-        ? inquiriesBySourceYear
-        : mode === 'month'
-          ? inquiriesBySourceMonth
-          : inquiriesBySourceDay;
-    const nullExcluded =
-      mode === 'year' ? nullExcludedYear : mode === 'month' ? nullExcludedMonth : nullExcludedDay;
-    const serviceBooked =
-      mode === 'year' ? serviceBookedYear : mode === 'month' ? serviceBookedMonth : serviceBookedDay;
-    const label = WINDOW_LABEL[mode];
-    return (
-      <div className="space-y-6">
-        {/* Each block is wrapped in <Reanimate> so it animates the first time it
-            scrolls into view (and replays on toggle via the key={mode} remount). */}
-
-        {/* Your booking funnel — the four-stage bars, opening the acquisition →
-            conversion → revenue story. Only the BOOKED stage can segment; when a
-            service is selected we show its booked count for this window as a
-            callout and note the other stages are shop-wide. */}
-        {/* 📌 #funnel — where Analytics' pinned figures (opened · asked · booked) land (v13, S5). */}
-        <div id="funnel" className="scroll-mt-28">
-        <Reanimate className="space-y-6">
-          {serviceId ? (
-            <div className="text-sm">
-              <p style={{ color: 'var(--m-ink)' }}>
-                <span className="font-semibold">Bookings for {scopeLabel}:</span>{' '}
-                <span className="font-mono">{serviceBooked ?? 0}</span> — {label}.
-              </p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Views, inquiries, and quotes below are shop-wide — they aren&rsquo;t
-                tracked per service.
-              </p>
-            </div>
-          ) : null}
-          <FunnelPreviewCard steps={steps} windowLabel={label} />
-        </Reanimate>
-        </div>
-
-        {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
-        <Reanimate>
-          <RoiAttributionCard
-            attribution={attribution}
-            annualPlanPhp={mode === 'year' ? annualPlanPhp : null}
-            windowLabel={label}
-            scopeLabel={scopeLabel}
-            nullServiceExcluded={nullExcluded}
-          />
-        </Reanimate>
-
-        {/* Where they came from — sliced breakdown folded in from the retired
-            /funnel page. Shop-level (not per-service). */}
-        <Reanimate>
-          <SourceBreakdown
-            title="Where your bookings come from"
-            blurb={`Where your booked couples first found you (${label}). Sources with fewer than ${formatCount(FUNNEL_MIN_N)} bookings are hidden to keep the read reliable.`}
-            slices={booked}
-            emptyText="No bookings in this window yet."
-          />
-        </Reanimate>
-        <Reanimate>
-          <SourceBreakdown
-            title="Where your profile views come from"
-            blurb={`Where your top-of-funnel traffic comes from (${label}). Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
-            slices={views}
-            emptyText="No profile views in this window yet."
-          />
-        </Reanimate>
-        {/* Inquiry-source taxonomy (Creator Economy PR-C · owner 2026-07-17):
-            what TYPE of customer sent each inquiry — Website · First Pick ·
-            Auto Build · Influencer · Editorial · … Vendor-private. */}
-        <Reanimate>
-          <SourceBreakdown
-            title="What type of customer inquires"
-            blurb={`How each inquiry reached you (${label}) — website, recommendations, storyteller chapters, editorial features. Thin sources (under ${FUNNEL_MIN_N}) are hidden.`}
-            slices={inquiriesSlices}
-            emptyText="No inquiries in this window yet."
-          />
-        </Reanimate>
-      </div>
-    );
-  };
 
   // Verified-median pricing (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
   // Off → skip the read entirely, render nothing. Computed on the full-render
@@ -817,237 +576,117 @@ export default async function PerformanceHome({
         avgResponseMinutes: statsRow?.avg_response_minutes,
         repliedThreadCount: statsRow?.replied_thread_count,
         lastActiveAt: statsRow?.last_active_at,
-        now: Date.now(),
+        now: nowMs,
       })
     : null;
 
-  // ── HOW IS MY BUSINESS DOING (simpler supplier dashboard step 6) ─────────
-  // The top block, in plain words, over the SAME reads made above — nothing new
-  // is fetched. The 28-day window exists only where the page already reads it
-  // (Pro-and-up, or everyone while the plan paywall is off).
-  const doingWindows: DoingWindow[] = [
-    ...(canAdvanced
-      ? [
-          {
-            key: 'month' as const,
-            label: 'Last 28 days',
-            views: funnelTotalsMonth.views,
-            inquiries: funnelTotalsMonth.inquiries,
-            booked: funnelTotalsMonth.booked,
-            bookedPhp: attributionMonth?.totalRevenuePhp ?? 0,
-            ...businessSentence(funnelTotalsMonth),
-            from: fromLine(attributionMonth),
-          },
-        ]
-      : []),
-    {
-      key: 'year' as const,
-      label: 'Last 12 months',
-      views: funnelTotalsYear.views,
-      inquiries: funnelTotalsYear.inquiries,
-      booked: funnelTotalsYear.booked,
-      bookedPhp: attributionYear?.totalRevenuePhp ?? 0,
-      ...businessSentence(funnelTotalsYear),
-      from: fromLine(attributionYear),
-    },
-  ];
-  const doingMore = [
-    { key: 'over-time', title: 'Over time', line: 'Bookings and money by day, month and year', href: '#over-time', pro: false },
-    { key: 'market', title: 'Demand and prices near you', line: 'Busy months ahead · how your prices sit', href: '#market', pro: gateOn && !canMarket },
-    { key: 'compare', title: 'How you compare', line: 'Your funnel against shops like you', href: '#market', pro: gateOn && !canMarket },
-  ];
+  // 🏅 The badges as §5's picture — the milestone ladder the tracker already climbs.
+  const ladder = badgeFacts && badgeFacts.completedEvents !== null ? milestoneLadder(badgeFacts.completedEvents) : null;
+  const priceKey = pricePosition && 'key' in pricePosition ? pricePosition.key : null;
+
+  // 🌱 ANALYTICS, GROWING (owner-approved 6 Nov 2026) — every read above, worded ONCE (growth-view.ts) for the client
+  // tree to draw. Nothing new is computed about the shop.
+  const growthView = buildGrowthView({
+    nowMs,
+    totals30: pinNow.totals,
+    totalsBefore30,
+    totals12: pinYear.totals,
+    views: viewsSeries,
+    inquiries: inquiriesSeries,
+    bookedDay: bookingDailySeries,
+    bookedMonth: bookingSeries,
+    viewsBySource: { '30': viewsBySourceDay, '12': viewsBySourceYear },
+    inquiriesBySource: { '30': inquiriesBySourceDay, '12': inquiriesBySourceYear },
+    bookedBySource: { '30': bookedBySourceDay, '12': bookedBySourceYear },
+    attribution: { '30': attributionDay, '12': attributionYear },
+    annualPlanPhp,
+    recs: { '30': shownGrowthRecs, '12': shownGrowthRecsYear },
+    verdict: replyVerdict,
+    inquiry: inquiryAnalytics,
+    conversion: conversionAnalytics,
+    capacity: capacityAnalytics,
+    upcoming: upcomingBooked,
+    radar: demandRadarUnreadable ? null : demandRadar,
+    showMarket: canMarket,
+    rating: ratingLine(statsRead),
+    ratingAvg: statsRow?.review_avg_bayesian ?? null,
+    ratingCount: Number(statsRow?.review_count ?? 0),
+    reputation: reputationAnalytics,
+    badges: badgeFacts
+      ? {
+          verified: badgeFacts.verified,
+          completedEvents: badgeFacts.completedEvents,
+          earned: ladder?.earned ?? null,
+          earnedName: ladder?.earned ? stepName(ladder.earned) : null,
+          next: ladder?.next ?? null,
+          nextName: ladder?.next ? stepName(ladder.next) : null,
+        }
+      : null,
+    health,
+    healthUnread: !statsRead.measured,
+    bench: funnelBenchmark,
+    benchUnread: funnelBenchmarkUnreadable,
+    price: pricePosition,
+    category: priceKey?.category ?? null,
+    regionLabel: priceKey?.regionLabel ?? marketLabel,
+    pro: gateOn && !canMarket,
+  });
 
   return (
     <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* SHOP › HOW IT IS GOING (owner "Yes to all", 2026-10-21, item 2). This
-          page is the third Shop segment, so it draws the Shop switcher and the
-          bar lights Shop here — it used to draw no segments and light More, so
-          a supplier who tapped Shop landed on a page that said More. */}
-      <ShopSegments on="insights" figures={pinFigures} gearBody={shopGearBody(sp)} />
-      {/* 🎁 Pays a newly earned badge's reward after the page draws — the render only reads (8 Nov). */}
-      <BadgeRewardSweep />
-      {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
-          the full cards, unchanged ("only the words change"). */}
-      <div className="mx-auto w-full max-w-xl tab:max-w-none">
-        <h1 className="sn-h1">How is my business doing</h1>
-        <div className="mt-2">
-          <BusinessDoing
-            windows={doingWindows}
-            initial={momentumMode === 'year' ? 'year' : 'month'}
-            bars={barHeights(bookingSeries)}
-            barLabels={bookingSeries.map((p) => p.label)}
-            reply={replyLine(replyVerdict)}
-            rating={ratingLine(statsRead)}
-            more={doingMore}
-          />
-        </div>
-        {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
-        <div className="mt-8">
-          <YourBadges shelf={shelf} rows={badgeRows} />
-        </div>
-      </div>
-
-      {/* ── Arrangement (owner 2026-07-02 design pass): ONE bounded windowed zone
-          headed by the filter, the acquisition→conversion→revenue story reunited
-          high, and every non-windowed card grouped into a clean back-half so the
-          "what does the filter control?" question is answered by containment. */}
-
-      {/* 1 · Snapshot — how am I doing (all tiers, point-in-time). */}
-      <div className="space-y-6">
-        <HealthCompositeCard health={health} monthDelta={monthDelta}>
-          <GrowthRecsCard recs={shownGrowthRecs} />
-        </HealthCompositeCard>
-        {/* The one number on this page a COUPLE also reads. Free on every tier:
-            it is not analytics about somebody else's market, it is a claim
-            Setnayan publishes about this shop, so the shop is entitled to know
-            what it says and what would change it. */}
-        <ReplyClaimCard verdict={replyVerdict} />
-        {verifiedMedian ? <VerifiedMedianCard data={verifiedMedian} /> : null}
-      </div>
-
-      {/* 2 · Performance over time — the ONE windowed zone. The filter row is its
-          header (inside <PerformanceControls>); every card here (Momentum →
-          Funnel → ROI → by-source, plus the coming money graphs) responds to the
-          Daily/Monthly/Annual window + service scope, INSTANTLY client-side (no
-          refetch, no Apply button). Nothing else on the page follows the filter. */}
-      <div id="over-time" className="scroll-mt-24">
-        <SectionEyebrow label="Performance over time" />
-        <p className="mb-4 -mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Pick a window and service below — this whole section updates instantly.
-        </p>
-        <PerformanceControls
-          initialMode={momentumMode}
-          isFull={canAdvanced}
-          serviceId={serviceId}
-          day={dayWindow}
-          month={monthWindow}
-          year={yearWindow}
-          monthlySeries={bookingSeries}
-          dailySeries={bookingDailySeries}
-          scopeLabel={scopeLabel}
-          serviceSelector={
-            showSelector ? (
-              <ServiceScopeSelector
-                activeServices={activeServices}
-                activeServiceId={serviceId}
-                momentum={momentumMode}
-              />
-            ) : null
-          }
-          windowedSection={
-            canAdvanced
-              ? {
-                  day: renderWindowedSection('day'),
-                  month: renderWindowedSection('month'),
-                  year: renderWindowedSection('year'),
-                }
-              : null
-          }
-        />
-        {/* ROI + funnel are Pro+; a Solo vendor sees the upsell in their place. */}
-        {!canAdvanced && (
-          <div className="mt-6">
-            <VendorTierTeaser
-              feature="ROI & booking funnel"
-              requiredTier="pro"
-              blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
-              icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* 3 · Conversion & responsiveness — last 12 months, NOT filtered (the
-          inquiry arrival heatmap needs a long window to read; owner 2026-07-02). */}
-      {canAdvanced && (inquiryAnalytics || conversionAnalytics) && (
-        <div>
-          <SectionEyebrow label="Conversion & responsiveness · last 12 months" />
-          <div className="space-y-6">
-            {inquiryAnalytics && (
-              <Reanimate>
-                <InquiryHandlingCard data={inquiryAnalytics} />
-              </Reanimate>
-            )}
-            {conversionAnalytics && (
-              <Reanimate>
-                <ConversionDealsCard data={conversionAnalytics} />
-              </Reanimate>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 4 · Looking ahead & the market — forward-looking (Capacity) + market
-          intel (Demand radar), both deliberately OUTSIDE the period filter. */}
-      <div id="market" className="scroll-mt-24">
-        <SectionEyebrow label="Looking ahead & the market · not affected by the period filter" />
-        <div className="space-y-6">
-          {canAdvanced && capacityAnalytics && (
-            <Reanimate>
-              <CapacityCard data={capacityAnalytics} />
-            </Reanimate>
-          )}
-          {canMarket ? (
-            <Reanimate>
-              <section className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-                    Demand radar
-                    <span
-                      className="ml-2 font-mono text-[11px] uppercase tracking-[0.15em]"
-                      style={{ color: 'var(--m-slate-3)' }}
-                    >
-                      who&apos;s looking for you
-                    </span>
-                  </h2>
-                  <div className="mt-3 flex items-start gap-2 rounded-xl border border-ink/10 bg-white/60 p-3 text-xs text-ink/65">
-                    <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} />
-                    <p>
-                      Every number here is a <span className="font-medium">count</span> —
-                      inquiries, unlocks, and bookings rolled up by month and look
-                      for your region. Small groups stay hidden until no single
-                      couple can be picked out, so the radar can look quiet early
-                      and fills in as your market grows.
-                    </p>
-                  </div>
-                </div>
-                <DemandRadarCard
-                  radar={demandRadar}
-                  marketLabel={marketLabel}
-                  scope="vendor"
-                  unreadable={demandRadarUnreadable}
-                />
-                <div className="mt-6">
-                  <FunnelBenchmarkCard benchmark={funnelBenchmark}
-                    unreadable={funnelBenchmarkUnreadable}
+      <GrowthWindowScope initial={initialWindow}>
+        {/* SHOP › ANALYTICS — the third Shop segment draws the Shop switcher and its pinned row. Its three figures ARE the
+            headline numbers (owner call, 6 Nov): they count, and they follow the ONE window below. */}
+        <ShopSegments on="insights" figures={pinFigures} yearFigures={pinFiguresYear} gearBody={shopGearBody(sp)} />
+        {/* 🎁 Pays a newly earned badge's reward after the page draws — the render only reads (8 Nov). */}
+        <BadgeRewardSweep />
+        <div className="mx-auto w-full max-w-xl tab:max-w-none">
+          <h1 className="sn-h1">How is my business doing</h1>
+          <div className="mt-2">
+            <AnalyticsGrowing
+              view={growthView}
+              scope={
+                showSelector ? (
+                  <ServiceScopeSelector
+                    key="scope"
+                    activeServices={activeServices}
+                    activeServiceId={serviceId}
+                    momentum={initialWindow === '12' ? 'year' : 'day'}
                   />
-                </div>
-                {/* null = the shop lists no category yet, so there is nothing to band on. */}
-                {pricePosition && <PricePositionCard result={pricePosition} />}
-              </section>
-            </Reanimate>
-          ) : (
-            <VendorTierTeaser
-              feature="Demand Radar & Price-Position"
-              requiredTier="pro"
-              blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is a Pro feature."
-              icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+                ) : null
+              }
+              badges={<YourBadges shelf={shelf} rows={badgeRows} />}
             />
+          </div>
+          {verifiedMedian ? (
+            <div className="mt-8">
+              <VerifiedMedianCard data={verifiedMedian} />
+            </div>
+          ) : null}
+          {/* Tier teasers — only while the plan gate is ON and the shop is below the plan (flag-dark today, so no shop
+              sees them). The sections carry ◆ on their titles then. */}
+          {!canAdvanced && (
+            <div className="mt-8">
+              <VendorTierTeaser
+                feature="ROI & booking funnel"
+                requiredTier="pro"
+                blurb="See how much business Setnayan sourced vs your own book, plus your views → inquiries → quotes → booked funnel. Full analytics come with Pro."
+                icon={<TrendingUp aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+              />
+            </div>
+          )}
+          {canMarket ? null : (
+            <div className="mt-8">
+              <VendorTierTeaser
+                feature="Demand Radar & Price-Position"
+                requiredTier="pro"
+                blurb="Where demand is building in your market, and how your prices sit against the field — de-identified, nationwide totals only. Market intelligence is a Pro feature."
+                icon={<Radar aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+              />
+            </div>
           )}
         </div>
-      </div>
-
-      {/* 5 · Reputation — all-time standing (not windowed). */}
-      {canAdvanced && reputationAnalytics && (
-        <div>
-          <SectionEyebrow label="Reputation · all-time" />
-          <div className="space-y-6">
-            <Reanimate>
-              <ReputationCard data={reputationAnalytics} />
-            </Reanimate>
-          </div>
-        </div>
-      )}
+      </GrowthWindowScope>
     </section>
   );
 }

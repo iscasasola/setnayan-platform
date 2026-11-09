@@ -520,6 +520,9 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',
+      // 20271333348826 (Build 3 lane B, round 3): coordinators post like hosts — the sender trigger's coordinator
+      // branch admits an event_members coordinator only for a thread this helper already lets them read.
+      'tg_chat_messages_derive_sender',
       'unread_message_threads_by_event',
     ],
   });

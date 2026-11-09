@@ -52,6 +52,8 @@ import { readChatPinFacts, type ChatPinRead } from '@/lib/chat-pin-facts.server'
 import { BLOCKER_OF, firstBlocker } from '@/lib/chat-pin-facts';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
 import { CoordinatorAgreeButton } from '@/app/_components/chat/coordinator-agree-button';
+import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
+import { maskPesos } from '@/lib/money-mask';
 import { firstPaymentSentence } from '@/lib/accepted-quote-terms';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
@@ -526,7 +528,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     });
   })().catch((e: unknown): ChatPinRead => {
     console.error('[couple thread] pin facts read failed', e);
-    return { facts: [], masked: false, expiredQuoteId: null };
+    return { facts: [], masked: false, streamMasked: false, expiredQuoteId: null };
   });
 
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
@@ -570,21 +572,39 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopNotYetVerifiedRead,
   ]);
   const chatPins = await chatPinsRead;
-  // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it.
-  const blockFact = firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate }, ['coordinator_agree']);
+  // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
+  // or a change the supplier asked for, within a week of the day (its key `adjustment:<id>` is the server's, so its
+  // shows count per blocker like every other).
+  const blockFact = firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate }, ['coordinator_agree', 'change_approval']);
   const blockKind = blockFact ? BLOCKER_OF[blockFact.kind] : undefined;
+  const threadPath = `/dashboard/${eventId}/messages/${threadId}`;
   const chatBlocker =
     blockFact && blockKind
-      ? {
-          pinKey: blockFact.key,
-          kind: blockKind,
-          subjectKey: blockFact.key,
-          topic: 'access' as const,
-          title: blockFact.title,
-          why: `${vendorLabel} will be able to access your event to help you build it. The final say stays with you.`,
-          action: <CoordinatorAgreeButton eventId={thread.event_id} vendorProfileId={thread.vendor_profile_id} />,
-        }
+      ? blockFact.kind === 'change_approval'
+        ? {
+            pinKey: blockFact.key,
+            kind: blockKind,
+            subjectKey: blockFact.key,
+            topic: 'quote' as const,
+            title: blockFact.title,
+            why: 'Your day is a week away or less. Answer it here, or return to the chat to counter.',
+            action: <BlockerChangeRow threadId={threadId} amendmentId={blockFact.key.slice('adjustment:'.length)} returnTo={threadPath} />,
+          }
+        : {
+            pinKey: blockFact.key,
+            kind: blockKind,
+            subjectKey: blockFact.key,
+            topic: 'access' as const,
+            title: blockFact.title,
+            why: `${vendorLabel} will be able to access your event to help you build it. The final say stays with you.`,
+            action: <CoordinatorAgreeButton eventId={thread.event_id} vendorProfileId={thread.vendor_profile_id} />,
+          }
       : null;
+  // 🔒 A reader whose amounts the database hides gets the first paint masked HERE, on the server — the stream then
+  // reads only through the masking readers (`moneyHidden`).
+  const streamMessages = chatPins.streamMasked
+    ? initialMessages.map((m) => ({ ...m, body: maskPesos(m.body) }))
+    : initialMessages;
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
   // live quote total above already say whether there is a quote to amend.
@@ -898,7 +918,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             // S5 · an accepted quote mounts the ONE action that books.
             lockTarget={quoteLockTarget}
             threadId={threadId}
-            initialMessages={initialMessages}
+            initialMessages={streamMessages}
+            moneyHidden={chatPins.streamMasked}
             currentUserId={user.id}
             viewerRole="couple"
             counterpartyLabel={vendorLabel}

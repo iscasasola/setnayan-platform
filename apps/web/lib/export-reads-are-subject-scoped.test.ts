@@ -45,7 +45,9 @@ const ANCHORS: Record<string, RegExp> = {
   event_members: new RegExp(String.raw`\.eq\(\s*'user_id'\s*,\s*(${UID}|userId)\s*\)`),
   events_host: /\.in\(\s*'event_id'\s*,\s*ids\s*\)/, // ids = coupleEventIds (pinned below)
   vendor_profiles: eqUid('user_id'),
-  chat_messages: eqUid('sender_user_id'),
+  // two reads: the lines the subject WROTE, and (RA 10173 access right, Build 3 lane B round 3) the private
+  // lines sent TO them — recipient_user_id is the person a private line is about, as much as its sender.
+  chat_messages: new RegExp(String.raw`\.eq\(\s*'(sender_user_id|recipient_user_id)'\s*,\s*${UID}\s*\)`),
   orders: eqUid('user_id'),
   payments: eqUid('user_id'),
   guest_face_enrollments: /\.in\(\s*'guest_id'\s*,\s*ownGuestIds\s*\)/, // pinned below

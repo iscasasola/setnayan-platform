@@ -20,12 +20,9 @@ import { paymentReminder, stackPins, type PinFact } from './chat-pins';
 import { formatPhp } from './php';
 import type { BlockerKind } from '@/app/_components/chat/blocker-show';
 
-export const HOSTS_ONLY = '₱ — hosts only';
+import { HOSTS_ONLY, maskPesos } from './money-mask';
 
-/** Every peso figure in a line → "₱ — hosts only". */
-export function maskPesos(text: string): string {
-  return text.replace(/₱\s?[\d,]+(?:\.\d+)?/g, HOSTS_ONLY);
-}
+export { HOSTS_ONLY, maskPesos };
 
 export type PinFactInputs = {
   side: 'vendor' | 'couple';
@@ -50,6 +47,12 @@ export type PinFactInputs = {
   quote: { proposalId: string; status: string; title: string | null; validUntil: string | null; updatedAt: string | null } | null;
   /** Open decision topics. */
   decisions: readonly { topicId: string; title: string; openedAt: string }[] | null;
+  /**
+   * Changes the OTHER side asked for and this reader must answer (`proposal_amendments` status 'proposed', raised by
+   * them, in this thread). Derived on the SERVER so the change-approval blocker has a stable key
+   * (`adjustment:<amendment_id>` — the same key the stream's Decisions use) and its shows count like every blocker.
+   */
+  changes?: readonly { amendmentId: string; createdAt: string; deltaPhp: number | null }[] | null;
   /** Manila today, 'YYYY-MM-DD'. */
   todayPh: string;
 };
@@ -177,6 +180,18 @@ export function buildPinFacts(i: PinFactInputs): PinFact[] {
       answerer: i.side === 'vendor' ? 'you' : 'them',
       themName: i.themName,
       sinceMs: ms(q.updatedAt, i.nowMs),
+    });
+  }
+
+  for (const c of i.changes ?? []) {
+    const delta = c.deltaPhp != null && c.deltaPhp !== 0 ? ` · ${c.deltaPhp > 0 ? '+' : '−'}₱${Math.abs(c.deltaPhp).toLocaleString('en-PH')}` : '';
+    push({
+      key: `adjustment:${c.amendmentId}`,
+      kind: 'change_approval',
+      title: `${i.side === 'vendor' ? 'They asked for a change' : `${i.supplierName} asked for a change`}${delta}`,
+      answerer: 'you',
+      themName: i.themName,
+      sinceMs: ms(c.createdAt, i.nowMs),
     });
   }
 

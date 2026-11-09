@@ -690,6 +690,19 @@ export async function fetchMessages(
 }
 
 /**
+ * 🔒 The SAME thread read for a reader whose amounts are hidden (a coordinator without Budget & payments): through
+ * `chat_thread_messages_read()` (migration 20271333348826) — the caller's own RLS, every peso figure in a body already
+ * "₱ — hosts only" when it leaves the database. Same columns as `fetchMessages`; a refusal throws the same way.
+ */
+export async function fetchMessagesMasked(supabase: SupabaseClient, threadId: string): Promise<ChatMessageRow[]> {
+  const { data, error } = await supabase
+    .rpc('chat_thread_messages_read', { p_thread_id: threadId })
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`);
+  if (error) throw new Error(`fetchMessagesMasked failed: ${error.message}`);
+  return (data ?? []) as ChatMessageRow[];
+}
+
+/**
  * ⏱ ONE CHAT TIME, ONE STRING — on the server AND in the browser (walk 2026-11-01).
  *
  * This used to be `toLocaleTimeString(undefined, …)` / `toLocaleString(undefined, …)`: the RUNNING MACHINE's zone and

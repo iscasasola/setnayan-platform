@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 264 single-column FKs onto auth.users / public.users
-# CASCADE=70  RESTRICT=1  SET NULL=193
+# 266 single-column FKs onto auth.users / public.users
+# CASCADE=70  RESTRICT=1  SET NULL=195
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -33,6 +33,8 @@ booking_fee_disputes.opened_by_user_id                    SET NULL     nullable 
 budget_allocation_decisions.recorded_by                   SET NULL     nullable  -> auth.users
 budget_builds.created_by                                  SET NULL     nullable  -> auth.users
 canonical_service_aliases.reviewed_by                     SET NULL     nullable  -> auth.users
+card_claim_word_allowances.granted_by                     SET NULL     nullable  -> users
+card_claim_words.created_by                               SET NULL     nullable  -> users
 category_hub_settings.updated_by                          SET NULL     nullable  -> users
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
 chat_message_flags.sender_user_id                         SET NULL     nullable  -> users

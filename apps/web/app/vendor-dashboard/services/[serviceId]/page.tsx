@@ -110,6 +110,7 @@ export default async function EditServiceCardPage({
         giftPacks={ctx.giftPacks}
         giftFree={ctx.giftFree}
         bookingsPerDate={ctx.bookingsPerDate}
+        checkRules={ctx.checkRules}
         detailsKind={details ? card.category : null}
         detailsSlot={
           details ? (

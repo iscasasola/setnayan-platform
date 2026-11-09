@@ -37,7 +37,8 @@ test('the edit sheet’s Save waits on a LIVE card with no price — it would on
     /const liveNeedsPrice = isEdit && liveOn && editing\?\.isActive === true && !snap\.hasPrice;/,
     'a live card can be saved priceless again',
   );
-  assert.match(MAKER, /const saveBlocked = unread\.length > 0 \|\| liveNeedsPrice;/);
+  // 🃏 The card checks (fix before Create, owner 2026-10-26) also keep Save waiting — the live-price rule must stay in it.
+  assert.match(MAKER, /const saveBlocked = unread\.length > 0 \|\| liveNeedsPrice(?: \|\| checks\.open > 0)?;/);
   assert.match(MAKER, /if \(saveBlocked\) \{\s*e\.preventDefault\(\);/, 'the form still submits while Save waits');
   assert.match(MAKER, /waiting=\{pending \|\| saveBlocked\}/, 'the Save button no longer shows that it waits');
 });

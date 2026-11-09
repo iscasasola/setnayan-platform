@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7475
+# facts: 7491
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     616
-#   col       5422
-#   policy    1091
+#   tpriv     618
+#   col       5434
+#   policy    1093
 #   view      9
 #   func      333
 #
@@ -61,6 +61,8 @@ tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
+tpriv	public.card_claim_word_allowances|authenticated	SIUD
+tpriv	public.card_claim_words|authenticated	SIUD
 tpriv	public.category_form_suggestions|authenticated	S
 tpriv	public.category_hub_settings|authenticated	S
 tpriv	public.category_hub_tool_switches|authenticated	S
@@ -893,6 +895,15 @@ col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
+col	public.card_claim_word_allowances.granted_at	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.granted_by	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.note	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.phrase	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.vendor_profile_id	anon=- authenticated=SIU
+col	public.card_claim_words.created_at	anon=- authenticated=SIU
+col	public.card_claim_words.created_by	anon=- authenticated=SIU
+col	public.card_claim_words.note	anon=- authenticated=SIU
+col	public.card_claim_words.phrase	anon=- authenticated=SIU
 col	public.category_form_suggestions.category_id	anon=- authenticated=S
 col	public.category_form_suggestions.sort_order	anon=- authenticated=S
 col	public.category_form_suggestions.template_key	anon=- authenticated=S
@@ -5088,6 +5099,8 @@ col	public.vendor_image_flags.source_r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_surface	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_vendor_id	anon=- authenticated=SIU
 col	public.vendor_image_flags.status	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_report_note	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_reported_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.hashed_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.id	anon=- authenticated=SIU
 col	public.vendor_image_hashes.is_demo	anon=- authenticated=SIU
@@ -5095,6 +5108,7 @@ col	public.vendor_image_hashes.phash	anon=- authenticated=SIU
 col	public.vendor_image_hashes.r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_hashes.surface	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_image_hashes.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_invites.business_name	anon=SIU authenticated=SIU
 col	public.vendor_invites.claim_token	anon=SIU authenticated=SIU
 col	public.vendor_invites.claimed_at	anon=SIU authenticated=SIU
@@ -6115,6 +6129,8 @@ policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mo
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.card_claim_word_allowances|card_claim_word_allowances_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.card_claim_words|card_claim_words_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.category_form_suggestions|category_form_suggestions_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.category_form_suggestions|category_form_suggestions_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.category_hub_settings|category_hub_settings_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

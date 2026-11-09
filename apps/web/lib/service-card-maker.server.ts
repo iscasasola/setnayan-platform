@@ -43,6 +43,7 @@ import { rowToDraft, type PaymentScheduleItemRow } from '@/lib/vendor-service-pa
 import type { VendorServiceTimeSlot } from '@/lib/vendor-time-slots';
 import type { AudienceOption } from '@/lib/canvas-audience-groups';
 import { fetchCategoryChipRefinementsMany, type CategoryRefinements } from '@/lib/vendor-service-attributes';
+import { loadCardCheckRules, type CardCheckRules } from '@/lib/service-card-checks.server';
 
 /**
  * service-card-maker.server.ts — EVERYTHING THE SIMPLER MAKER READS, read once, for all three doors.
@@ -94,6 +95,12 @@ export type MakerContext = {
    */
   giftPacks: ShopGiftPack[] | null;
   giftFree: FreeByKind | null;
+  /**
+   * 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26): the claim words this shop may not use + the live trades
+   * with their reviewed aliases. Read in the same batch as everything else (2 requests for the words; the trades ride
+   * the per-request cache of the taxonomy and aliases this loader already reads). Each half `null` when unread.
+   */
+  checkRules: CardCheckRules;
 };
 
 export async function loadMakerContext(
@@ -103,7 +110,7 @@ export async function loadMakerContext(
 ): Promise<MakerContext> {
   const withKindList = opts.withKindList ?? true;
 
-  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock] = await Promise.all([
+  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock, checkRules] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
@@ -121,6 +128,8 @@ export async function loadMakerContext(
     // 🎁 the Gift row — in the same batch, never one read after another. Each fails soft to null (logged inside).
     fetchShopGiftPacks(supabase).catch(() => null),
     fetchShopGiftStock(supabase, vendorProfileId).catch(() => null),
+    // 🃏 the card checks — fails soft per half (never to an empty list, which would read as "nothing to fix").
+    loadCardCheckRules(vendorProfileId).catch((): CardCheckRules => ({ claimWords: null, trades: null })),
   ]);
   const coverageLabels = await resolveCoverageLabels().catch(() => null);
 
@@ -318,6 +327,7 @@ export async function loadMakerContext(
     kindLabel,
     giftPacks,
     giftFree: freeByKind(giftStock),
+    checkRules,
   };
 }
 

@@ -53,6 +53,11 @@ $$;
 COMMENT ON FUNCTION public.video_titles_are_short(JSONB) IS
   'CHECK helper for vendor_profiles.gallery_video_titles: an object of link → title, each title 1–80 characters. 20271334860034.';
 
+-- Exposure: a CHECK helper is evaluated as the writing role, so `authenticated` (the shop owner saving their videos)
+-- keeps EXECUTE; `anon` never writes vendor_profiles and gets none (the change_request_payload_ok precedent).
+REVOKE ALL ON FUNCTION public.video_titles_are_short(JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.video_titles_are_short(JSONB) TO authenticated, service_role;
+
 ALTER TABLE public.vendor_profiles
   ADD COLUMN IF NOT EXISTS gallery_video_titles JSONB NOT NULL DEFAULT '{}'::jsonb;
 

@@ -2,7 +2,6 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTaxonomy } from '@/lib/taxonomy-db';
-import { TAXONOMY_MAP } from '@/lib/taxonomy';
 import { displayUrlForCatalogueArt, displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { HERO_PLACEHOLDER_FILE, placeholderRefs } from '@/lib/supplier-hero';
@@ -52,8 +51,10 @@ export async function heroPhotoUrl(key: string | null): Promise<string | null> {
 export async function heroPlaceholderUrl(services: readonly string[] | null | undefined): Promise<string> {
   try {
     const first = (services ?? [])[0];
-    const tile = first ? (TAXONOMY_MAP[first]?.tile ?? first) : null;
+    // The LIVE map (Admin › Categories), the same snapshot the photos come from — never the code constant, so a
+    // service an admin moves or renames lands on its new category's picture with no code change (Build 3, 9 Nov).
     const tax = await getTaxonomy();
+    const tile = first ? (tax.map[first]?.tile ?? first) : null;
     for (const ref of placeholderRefs(tile, tax.categoryPhotos, tax.tileParent)) {
       const url = await displayUrlForCatalogueArt(ref).catch(() => null);
       if (url) return url;

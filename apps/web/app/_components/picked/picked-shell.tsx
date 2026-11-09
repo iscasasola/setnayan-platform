@@ -379,7 +379,7 @@ export function PickedShell<P extends string>({
       </div>
       <div
         ref={bodyRef}
-        className={`min-h-0 flex-1 overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-white ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
+        className={`min-h-0 flex-1 overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
         data-picked-body=""
       >
         <div

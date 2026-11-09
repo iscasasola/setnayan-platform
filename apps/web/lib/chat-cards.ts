@@ -14,6 +14,7 @@
  *      a locked quote ("[supplier]'s price is final").
  */
 import { formatCentavos } from './vendor-proposals';
+import { isCoordinatorTrade } from './coordinator-trade';
 export { bookRequestFromLine, changeAskFromLine, formLineTitle, guestCountFromLine, streamLineKind, type BookRequestState } from './chat-card-lines';
 import type { AskSubject } from './chat-card-lines';
 import { resolveSchedule, type AutoBalanceMeta, type InstallmentDraft, type ResolvedSchedule } from './proposal-payment-schedule';
@@ -205,11 +206,14 @@ export type LogPaymentDraft = {
   agree: boolean;
 };
 
-/** The planner/coordinator category key on a booking (`event_vendors.category`). */
-export const COORDINATOR_CATEGORY = 'planner_coordinator';
-
+/**
+ * Is the booking's category (`event_vendors.category`) the coordinator trade? Asked of THE one answer,
+ * `lib/coordinator-trade.ts` (TS = SQL = taxonomy, held by `coordinator-trade-is-one-list.test.ts`) — never a key
+ * typed here. Today's `vendor_category` enum holds one of that list's names, `planner_coordinator`, so the answer is
+ * unchanged for every existing booking (Build 3, 9 Nov: "the services are not hard coded").
+ */
 export function needsCoordinatorAgree(category: string | null | undefined): boolean {
-  return category === COORDINATOR_CATEGORY;
+  return category ? isCoordinatorTrade([category]) : false;
 }
 
 /** Each step's "may move on". The receipt step holds the Agree when the payment goes to a coordinator/planner. */

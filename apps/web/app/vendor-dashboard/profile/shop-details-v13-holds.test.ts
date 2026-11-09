@@ -93,7 +93,9 @@ test('4a · Deep Search is priced from the run’s own source — never a typed 
   assert.equal(words, '₱777 a search on Free, Verified and Solo · ₱333 on Pro and Ultra, one search per purchase.');
   // 2026-11-09 (DECISION_LOG 🔎💳): no free search on any plan — the words never promise one.
   assert.equal(deepSearchBandWords({ entryPhp: 499, growthPhp: 499 }), '₱499 a search on every plan, one search per purchase.');
-  assert.doesNotMatch(words, /free/i);
+  for (const w of [words, deepSearchBandWords({ entryPhp: 499, growthPhp: 499 })]) {
+    assert.doesNotMatch(w, /\b\d+ free\b|free (search|every)/i, 'the words promise a free search again');
+  }
   // One resolver for the page and the card.
   assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /await loadDeepSearchOffer\(/, 'the Deep Search page prices itself again');
   assert.doesNotMatch(src('app/vendor-dashboard/deep-search/page.tsx'), /resolveVendorAddonPricePhp|fetchVendorDeepSearchPricePhp/, 'a second price path is back on the page');

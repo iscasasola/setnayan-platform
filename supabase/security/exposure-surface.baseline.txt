@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7599
+# facts: 7601
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     624
-#   col       5488
+#   col       5489
 #   policy    1113
 #   view      9
-#   func      361
+#   func      362
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -5474,6 +5474,7 @@ col	public.vendor_profiles.fraud_banned_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_suspended_at	anon=- authenticated=SIU
 col	public.vendor_profiles.fraud_tombstoned	anon=- authenticated=SIU
 col	public.vendor_profiles.gallery_video_links	anon=- authenticated=SIU
+col	public.vendor_profiles.gallery_video_titles	anon=- authenticated=SIU
 col	public.vendor_profiles.hq_address	anon=- authenticated=SIU
 col	public.vendor_profiles.hq_country	anon=- authenticated=SIU
 col	public.vendor_profiles.hq_latitude	anon=S authenticated=SIU
@@ -7609,6 +7610,7 @@ func	public.vendor_whitelist_pressure(p_thread_id uuid)	secdef=yes exec=authenti
 func	public.vendor_win_loss(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_withdraw_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendors_blocked_on_date(p_vendor_ids uuid[], p_event_date date)	secdef=yes exec=authenticated search_path=public
+func	public.video_titles_are_short(p_titles jsonb)	secdef=no exec=authenticated search_path=public
 func	public.viewer_service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.visible_connection_names(p_person_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.wall_approve_caption(p_message_id uuid)	secdef=yes exec=authenticated search_path=public

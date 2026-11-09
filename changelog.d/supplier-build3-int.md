@@ -49,6 +49,7 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
   - `lib/supplier-hero.server.ts`: the placeholder's service→category lookup reads `getTaxonomy().map`, the same live snapshot its photos come from, not the `TAXONOMY_MAP` constant.
   - `lib/chat-cards.ts`: the Log-a-payment coordinator Agree asks `isCoordinatorTrade` (`lib/coordinator-trade.ts`, TS = SQL = taxonomy) instead of a `'planner_coordinator'` literal. Of that list, only `planner_coordinator` is a `vendor_category` enum value, so every existing booking answers as before.
   - Guard: `lib/build3-reads-the-live-taxonomy.test.ts`.
+- **Build 2 finish merged in** (`claude/supplier-build2-finish` at `56ba04ad24`). The admin supplier-refunds read now uses `CLIENT_REFUND_SELECT` (dup-rule GUARD 2). The exposure baseline gains the two facts that merge adds, both for signed-in users only: `vendor_profiles.gallery_video_titles` (`authenticated=SIU`, `anon=-`) and `video_titles_are_short(jsonb)` (`exec=authenticated`).
 - **Regenerated:** the screens map, admin jobs/map, the migrations manifest, the exposure baseline, the FK behaviour file, the port-control baseline and the no-card baseline. The no-card count fell.
 
 SPEC IMPACT: None. The Upload/menu behaviour follows the owner's 9 Nov rulings already recorded for Build 3. No corpus file changes. One gap is flagged for the owner in the PR: there is no shipped "logo from Portfolio" picker, so the Logo menu's third row adjusts the logo rather than choosing one.

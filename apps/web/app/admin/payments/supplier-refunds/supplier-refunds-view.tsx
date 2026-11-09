@@ -65,7 +65,7 @@ export function SupplierRefundsView({
       <ConsoleTable
         rows={rows}
         readPermitted
-        readError={error}
+        readError={readError}
         reads="supplier refunds"
         cap={ROW_LIMIT}
         label="Supplier refunds"

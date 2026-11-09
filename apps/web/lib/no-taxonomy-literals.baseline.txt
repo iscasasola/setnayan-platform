@@ -12,11 +12,10 @@
 # which lowers counts and deletes lines and never adds one. A NEW copy fails the
 # test; the only way to keep one is a hand-written line with a reason, in review.
 #
-# Reasons starting "PENDING" are files an integrating PR changes (#7416 Supplier
-# Build 3, #7413 Build 4) — pre-registered so that integration stays green, and
-# allowed to go stale until it lands. Delete them once it has.
+# Reasons starting "PENDING" are files an integrating PR changes — pre-registered
+# so that integration stays green, and allowed to go stale until it lands. Delete
+# them once it has. (None today: #7416 and #7413 both landed 2026-11-09.)
 
-app/_components/frontdoor/data.ts	import	2	# BLOCKED BY #7416 · the "What you run" group word reads WEDDING_FOLDER_LABEL / TAXONOMY_MAP. Moving it to getTaxonomy() regenerates lib/ugat/screens.generated.json, which Build 3 also changes — do it after #7416 lands
 app/_components/plan3d/kit/booth-templates.ts	list	3	# DESIGN · 3D booth sign text per category
 app/_components/plan3d/venue-decor.tsx	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/_components/plan3d/venue-objects.tsx	compare	3	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
@@ -38,8 +37,8 @@ app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx	compar
 app/dashboard/[eventId]/studio/playlist/page.tsx	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx	compare	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
-app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	compare	5	# PENDING #7416/#7413 · integrating PRs change this file; not touched here
-app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	import	1	# PENDING #7416/#7413 · integrating PRs change this file; not touched here
+app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	compare	5	# CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()
+app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	import	1	# CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()
 app/dashboard/[eventId]/vendors/actions.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/dashboard/[eventId]/wizard-actions.ts	list	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/onboarding/wedding/_components/onboarding-shell.tsx	import	1	# DELIBERATE · PICK_GROUPS_FALLBACK — curated couple copy for "What would you love?"; the live categories are merged in. Exit: build the picker from the snapshot (owner sign-off on the copy)
@@ -47,9 +46,9 @@ app/onboarding/wedding/_components/onboarding-shell.tsx	list	4	# DELIBERATE · P
 app/onboarding/wedding/_data/experience-personas.ts	list	8	# DELIBERATE · onboarding persona picks (EXP_ESSENTIAL_PICKS)
 app/onboarding/wedding/_data/refinements.ts	list	1	# DELIBERATE · onboarding refinement content keyed by category
 app/tour/vendors/page.tsx	list	1	# DEMO · the product tour’s fixed sample
-app/vendor-dashboard/services/_components/canvas-maker.tsx	compare	1	# PENDING #7416/#7413 · integrating PRs change this file; not touched here
+app/vendor-dashboard/services/_components/canvas-maker.tsx	compare	1	# CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()
 app/vendor-dashboard/services/_components/pricing-basis-editor.tsx	compare	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
-app/vendor-dashboard/services/_components/services-manager.tsx	compare	1	# PENDING #7416/#7413 · integrating PRs change this file; not touched here
+app/vendor-dashboard/services/_components/services-manager.tsx	compare	1	# CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()
 app/vendor-dashboard/services/[serviceId]/page.tsx	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/add-ons-catalog.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/appointments.ts	list	1	# category → appointment type bridge. Exit: an admin column
@@ -87,7 +86,7 @@ lib/print-set.server.ts	list	1	# UNREVIEWED · found when the guard landed (2026
 lib/reception-scene.ts	compare	9	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/role-sets.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/schedule-view-as.server.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
-lib/seating-3d.ts	list	1	# PENDING #7416 · Build 3 changes this file; not touched here
+lib/seating-3d.ts	list	1	# CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()
 lib/seating.ts	compare	9	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/seating.ts	list	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/service-card-maker.ts	compare	2	# DELIBERATE · maker profiles (church / caterer / studio defaults: lead months, per-pax, crew). Exit: an admin maker_profile column — owner sign-off first
@@ -101,7 +100,6 @@ lib/supplier-access-by-category.ts	list	2	# PRIVACY GATE · who may see the seat
 lib/supplier-count.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/supplier-find.ts	compare	1	# DELIBERATE · FIND_GROUP_OF_TILE (host-facing regrouping) + POPULAR_BY_TYPE (editorial "Popular for <type>", order-only — it can never ADD a category). No existing column encodes either. Exit: an admin find_group / popular field — owner sign-off on the new field first
 lib/supplier-find.ts	list	7	# DELIBERATE · FIND_GROUP_OF_TILE (host-facing regrouping) + POPULAR_BY_TYPE (editorial "Popular for <type>", order-only — it can never ADD a category). No existing column encodes either. Exit: an admin find_group / popular field — owner sign-off on the new field first
-lib/supplier-hero.server.ts	import	1	# PENDING #7416 · Build 3 adds TAXONOMY_MAP here and its fix round removes it
 lib/supplier-landing-data.ts	import	1	# FAIL-CLOSED · ADMIN_ONLY_TILES OR hiddenCategories — owner ruling 2026-08-27 keeps officiants + counseling shut; the constant keeps them shut even if a DB row loses its hidden flag
 lib/supplier-scan.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/taxonomy-folder-counts.ts	import	2	# FRONT_DOOR_VISIBLE_FOLDERS + a seed count. Exit: an admin front_door_visible flag + a live count

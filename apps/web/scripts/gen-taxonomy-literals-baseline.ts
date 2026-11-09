@@ -34,9 +34,9 @@ const HEADER = `# Hard-coded copies of the service taxonomy that existed when
 # which lowers counts and deletes lines and never adds one. A NEW copy fails the
 # test; the only way to keep one is a hand-written line with a reason, in review.
 #
-# Reasons starting "PENDING" are files an integrating PR changes (#7416 Supplier
-# Build 3, #7413 Build 4) — pre-registered so that integration stays green, and
-# allowed to go stale until it lands. Delete them once it has.
+# Reasons starting "PENDING" are files an integrating PR changes — pre-registered
+# so that integration stays green, and allowed to go stale until it lands. Delete
+# them once it has. (None today: #7416 and #7413 both landed 2026-11-09.)
 `;
 
 /** Reasons for the rows the 2026-11-09 audit read. Everything else is UNREVIEWED. */
@@ -72,18 +72,16 @@ const REASONS: Record<string, string> = {
   'lib/taxonomy-folder-counts.ts': 'FRONT_DOOR_VISIBLE_FOLDERS + a seed count. Exit: an admin front_door_visible flag + a live count',
   'app/(shell)/explore/page.tsx':
     'module-level copies left: the TAXONOMY_OPTIONS autocomplete and the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). Exit: thread the snapshot',
-  'app/_components/frontdoor/data.ts':
-    'BLOCKED BY #7416 · the "What you run" group word reads WEDDING_FOLDER_LABEL / TAXONOMY_MAP. Moving it to getTaxonomy() regenerates lib/ugat/screens.generated.json, which Build 3 also changes — do it after #7416 lands',
   'lib/category-hints.ts': 'SEED DEFAULT · the ⓘ written in code for a category whose admin hint_en is blank',
   'lib/taxonomy-icons.ts': 'SEED DEFAULT · the icon for a category with no admin icon_name',
   'app/admin/categories/page.tsx': 'ADMIN · the editor’s own default selection',
   'app/admin/categories/_components/load.ts': 'ADMIN · the editor’s own load',
   'app/tour/vendors/page.tsx': 'DEMO · the product tour’s fixed sample',
   'app/_components/plan3d/kit/booth-templates.ts': 'DESIGN · 3D booth sign text per category',
-  'lib/seating-3d.ts': 'PENDING #7416 · Build 3 changes this file; not touched here',
-  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': 'PENDING #7416/#7413 · integrating PRs change this file; not touched here',
-  'app/vendor-dashboard/services/_components/canvas-maker.tsx': 'PENDING #7416/#7413 · integrating PRs change this file; not touched here',
-  'app/vendor-dashboard/services/_components/services-manager.tsx': 'PENDING #7416/#7413 · integrating PRs change this file; not touched here',
+  'lib/seating-3d.ts': 'CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()',
+  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx': 'CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()',
+  'app/vendor-dashboard/services/_components/canvas-maker.tsx': 'CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()',
+  'app/vendor-dashboard/services/_components/services-manager.tsx': 'CHANGED BY #7416/#7413 (both merged 2026-11-09) · a copy that existed before them and still does. Exit: read getTaxonomy()',
 };
 
 const DEFAULT_REASON = 'UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables';
@@ -93,7 +91,8 @@ const DEFAULT_REASON = 'UNREVIEWED · found when the guard landed (2026-11-09). 
  * so that branch's integration does not go red on a line it is already removing.
  */
 const PENDING_EXTRA: Array<[string, LiteralKind, number, string]> = [
-  ['lib/supplier-hero.server.ts', 'import', 1, 'PENDING #7416 · Build 3 adds TAXONOMY_MAP here and its fix round removes it'],
+  // Empty: Supplier Builds 3 (#7416) and 4 (#7413) both landed 2026-11-09, and
+  // Build 3's TAXONOMY_MAP import in lib/supplier-hero.server.ts went with them.
 ];
 
 export type BaselineRow = { file: string; kind: LiteralKind; count: number; reason: string };

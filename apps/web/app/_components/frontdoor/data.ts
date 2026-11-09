@@ -39,6 +39,7 @@ import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 
 import { LIVE_SHOP_GATE } from '@/lib/live-shops';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { displayLogoUrl } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -315,13 +316,14 @@ export type FrontDoorData = {
 async function toFrontDoorShop(
   row: Record<string, unknown>,
 ): Promise<FrontDoorShop | null> {
-  const { WEDDING_FOLDER_LABEL } = await import('@/lib/taxonomy');
+  // The live taxonomy (Admin › Categories) — a renamed or moved group reads its new name. One read per request.
+  const taxonomy = await getTaxonomy();
   const slug = typeof row.business_slug === 'string' ? row.business_slug : '';
   const name = typeof row.business_name === 'string' ? row.business_name : '';
   if (!slug || !name) return null;
   const services = Array.isArray(row.services) ? (row.services as unknown[]) : [];
   const first = services.find((s) => typeof s === 'string') as string | undefined;
-  const folder = first ? await folderOfService(first) : null;
+  const folder = first ? (taxonomy.map[first]?.folder ?? null) : null;
   return {
     // The bare-root address is canonical; /v/[slug] is legacy.
     href: `/${slug}`,
@@ -329,7 +331,7 @@ async function toFrontDoorShop(
       logo_url: typeof row.logo_url === 'string' ? row.logo_url : null,
     }).catch(() => null),
     name,
-    folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
+    folderLabel: (folder ? taxonomy.folderLabel[folder] : undefined) ?? 'Setnayan supplier',
     city: typeof row.location_city === 'string' ? row.location_city : null,
     isDemo: row.is_demo === true,
     // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
@@ -452,11 +454,6 @@ async function loadLiveShops(
     if (shop) shops.push(shop);
   }
   return { shops, count, realCount };
-}
-
-async function folderOfService(key: string) {
-  const { TAXONOMY_MAP } = await import('@/lib/taxonomy');
-  return TAXONOMY_MAP[key]?.folder ?? null;
 }
 
 /** The published articles as the front door's cards — newest first, capped for the grid. */

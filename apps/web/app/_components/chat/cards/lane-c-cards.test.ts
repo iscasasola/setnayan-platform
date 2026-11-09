@@ -51,13 +51,13 @@ test('🧾 every Send is the SHIPPED writer', () => {
   assert.match(read(`${CARDS}/form-step-card.tsx`), /await saveSupplierAnswers\(/);
   const actions = read(`${CARDS}/card-calls.ts`);
   assert.match(actions, /await logPayment\(formData\)/);
-  assert.match(actions, /formData\.set\('inline', '1'\);\s*const res = await vendorAskForPayment\(formData\)/);
+  assert.match(actions, /formData\.set\('inline', '1'\);[\s\S]{0,200}const res = \(await vendorAskForPayment\(formData\)\) as unknown as PaymentAskOutcome \| undefined;/);
   // A decision opens through lane B's one door (chat_decision_open), never a chat line of its own.
   assert.match(actions, /await openDecision\(createClient\(\), threadId, topic\)/);
   assert.doesNotMatch(read(`${CARDS}/decision-step-card.tsx`), /chat_messages|patchPlus/);
   // The client page's ask is the same core plus its redirects — one write path, two returns.
   const clients = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
-  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)[\s\S]{0,400}if \(formData\.get\('inline'\) === '1'\) return res as unknown as void;/);
+  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)[\s\S]{0,800}if \(formData\.get\('inline'\) === '1'\) return res as unknown as void;/);
   assert.match(clients, /^async function askForPaymentCore\(/m, 'the core is not its own exported route');
   assert.equal((clients.match(/from\('vendor_payment_asks'\)\.insert\(/g) ?? []).length, 1, 'one insert of a payment ask');
 });

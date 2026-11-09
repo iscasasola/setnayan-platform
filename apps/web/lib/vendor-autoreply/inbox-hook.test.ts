@@ -60,6 +60,10 @@ class FakeQuery implements PromiseLike<ListResult> {
   in(..._args: unknown[]) {
     return this;
   }
+  // `.is('recipient_user_id', null)` — the hook reads shared lines only (the AI never reads a private message).
+  is(..._args: unknown[]) {
+    return this;
+  }
   order(..._args: unknown[]) {
     return this;
   }

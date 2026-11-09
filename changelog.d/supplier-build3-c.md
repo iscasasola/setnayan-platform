@@ -22,7 +22,8 @@ and sends through the SHIPPED writer — no second write path.
   time under the supplier's form line (`saveSupplierAnswers`), Stop for now / Continue.
 - **Photos & files / File**: From where? → From your phone opens the shipped chat attach. Portfolio album + hearts
   → Inspiration drawn shut with its reason (not built — needs an album record).
-- **Decision**: name a topic → "Talking about: … · pinned by …" line + lane B's open-topic store; close it the same way.
+- **Decision**: name a topic → Open, through lane B's `openDecision` (`chat_decision_open()`: the topic row + its line,
+  shown as a pin). Closing / reopening is the pin's own `DecisionToggle`.
 - **Guest count changed** (lane B's line): per-guest lines only, Apply ₱X | Keep price (one row); flat-only quotes
   are told; a locked quote is never recounted.
 - **Booking ask** lines drawn as their card (exact database words only).

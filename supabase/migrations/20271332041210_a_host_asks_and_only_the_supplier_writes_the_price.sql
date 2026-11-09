@@ -99,6 +99,7 @@ CREATE POLICY booking_change_asks_members_read
   USING (
     thread_id IN (SELECT public.current_thread_ids())
     OR vendor_profile_id IN (SELECT public.current_vendor_ids())
+    OR vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
     OR (SELECT public.is_admin())
   );
 
@@ -139,11 +140,14 @@ BEGIN
   IF v_thread.thread_id IS NULL THEN
     RAISE EXCEPTION 'ask_for_a_change: NOT_IN_THIS_CHAT' USING ERRCODE = '42501';
   END IF;
-  -- The hosts' side only: in the conversation, and NOT the shop's own team (the supplier writes; they never ask).
-  IF NOT (p_thread_id IN (SELECT public.current_thread_ids()))
-     OR v_thread.vendor_profile_id IN (SELECT public.current_vendor_ids())
+  -- The hosts' side only: NOT the shop's own team (the supplier writes; they never ask) …
+  IF v_thread.vendor_profile_id IN (SELECT public.current_vendor_ids())
      OR v_thread.vendor_profile_id IN (SELECT public.current_vendor_profile_ids()) THEN
     RAISE EXCEPTION 'ask_for_a_change: NOT_THE_HOSTS_SIDE' USING ERRCODE = '42501';
+  END IF;
+  -- … and in the conversation (a thread that exists is not a thread you are in).
+  IF NOT (p_thread_id IN (SELECT public.current_thread_ids())) THEN
+    RAISE EXCEPTION 'ask_for_a_change: NOT_IN_THIS_CHAT' USING ERRCODE = '42501';
   END IF;
 
   IF p_subject IN ('quote', 'plan') THEN

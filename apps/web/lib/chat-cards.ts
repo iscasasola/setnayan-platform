@@ -316,10 +316,3 @@ export function formProgress(answers: readonly (string | null)[]): { at: number;
 
 // ── Decision topics ──────────────────────────────────────────────────────────
 
-/** "Talking about: …" — the line a decision posts when it opens, and the line it posts when either side closes it. */
-export function decisionLine(topic: string, act: 'open' | 'close' | 'reopen', by: string): string {
-  const t = topic.trim().slice(0, 120);
-  if (act === 'open') return `Talking about: ${t} · pinned by ${by}`;
-  if (act === 'reopen') return `Talking about: ${t} · reopened by ${by}`;
-  return `${t} · closed by ${by}`;
-}

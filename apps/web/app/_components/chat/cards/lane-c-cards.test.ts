@@ -19,7 +19,7 @@ const cardFiles = readdirSync(join(WEB, CARDS)).filter((f) => f.endsWith('.tsx')
 
 test('⚡ the chat reaches every card ONLY through lazy-cards (next/dynamic) — no card module in the first load', () => {
   const lazy = read(`${CARDS}/lazy-cards.tsx`);
-  for (const m of lazy.matchAll(/export const (\w+) = (.+);/g)) assert.match(m[2]!, /^dynamic\(\(\) => import\('\.\/[\w-]+'\)/, `${m[1]} is not a dynamic import`);
+  for (const m of lazy.matchAll(/export const (\w+) = (.+);/g)) assert.match(m[2]!, /^dynamic\(\(\) => import\(\/\* webpackChunkName: "chat-cards-(plus|stream)" \*\/ '\.\/[\w-]+'\)/, `${m[1]} is not a dynamic import into one of the two named card chunks`);
   for (const rel of ['app/_components/chat/plus-draft.tsx', 'app/_components/chat-message-stream.tsx']) {
     const src = read(rel);
     assert.match(src, /from '\.\/(chat\/)?cards\/lazy-cards'/, `${rel} must import the cards from lazy-cards`);
@@ -41,7 +41,7 @@ test('🪫 every card that reads says "Couldn\'t load" on a refusal — never an
   // …and the actions keep "none" and "refused" apart.
   const actions = read(`${CARDS}/card-actions.ts`);
   assert.match(actions, /if \(!q\) return \{ ok: true, quote: null \}/);
-  assert.match(actions, /if \(qErr \|\| floorRes\.error \|\| gate\.error\) return \{ ok: false \}/, 'a refused floor (or S5 gate) read must not pass as "no floor"');
+  assert.match(actions, /if \(qErr \|\| floorRes\.error \|\| gate\.error\) return refused\(/, 'a refused floor (or S5 gate) read must not pass as "no floor"');
 });
 
 test('🧾 every Send is the SHIPPED writer', () => {
@@ -52,6 +52,9 @@ test('🧾 every Send is the SHIPPED writer', () => {
   const actions = read(`${CARDS}/card-actions.ts`);
   assert.match(actions, /await logPayment\(formData\)/);
   assert.match(actions, /await askForPaymentCore\(formData\)/);
+  // A decision opens through lane B's one door (chat_decision_open), never a chat line of its own.
+  assert.match(actions, /await openDecision\(await createClient\(\), threadId, topic\)/);
+  assert.doesNotMatch(read(`${CARDS}/decision-step-card.tsx`), /chat_messages|patchPlus/);
   // The client page's ask is the same core plus its redirects — one write path, two returns.
   const clients = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
   assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)/);

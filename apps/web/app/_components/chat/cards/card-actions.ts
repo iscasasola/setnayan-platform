@@ -25,7 +25,6 @@ import { readShopForms } from '@/lib/vendor-forms.server';
 import { formLockOf, quoteLocksOf, type ItemLocks } from '@/lib/quote-locks';
 import {
   askRefusalWords,
-  decisionLine,
   logPaymentRefusal,
   needsCoordinatorAgree,
   type AskSubject,
@@ -35,8 +34,19 @@ import {
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { isSafeNext } from '@/lib/safe-next';
 import { askForPaymentCore } from '@/app/vendor-dashboard/clients/[eventId]/actions';
+import { openDecision } from '@/lib/chat-decisions';
 
 type Fail = { ok: false };
+
+/** A refused or failed read, RECORDED (never a bare return): the card then says "Couldn't load", the log says why. */
+function warned(where: string, reason: { code?: string; message?: string } | null | undefined): null {
+  console.warn(`[chat-cards] ${where}:`, reason?.code || reason?.message || 'no row');
+  return null;
+}
+function refused(where: string, reason: { code?: string; message?: string } | null | undefined): Fail {
+  warned(where, reason);
+  return { ok: false };
+}
 
 // ── Change quote · the live quote, its floor, its locks, the catalogue ───────
 
@@ -107,7 +117,7 @@ async function paidSeqsOf(supabase: Awaited<ReturnType<typeof createClient>>, ev
     .eq('marketplace_vendor_id', shop)
     .limit(1)
     .maybeSingle();
-  if (error) return null;
+  if (error) return warned('paid plan rows · booking', error);
   if (!ev) return [];
   const { data, error: pErr } = await supabase
     .from('event_vendor_payments')
@@ -115,7 +125,7 @@ async function paidSeqsOf(supabase: Awaited<ReturnType<typeof createClient>>, ev
     .eq('vendor_id', (ev as { vendor_id: string }).vendor_id)
     .not('vendor_confirmed_at', 'is', null)
     .is('payment_refused_at', null);
-  if (pErr) return null;
+  if (pErr) return warned('paid plan rows · payments', pErr);
   return ((data ?? []) as { schedule_instance_seq: number | null }[])
     .map((r) => r.schedule_instance_seq)
     .filter((v): v is number => typeof v === 'number');
@@ -136,7 +146,7 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     .eq('thread_id', threadId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (tErr || !thread) return { ok: false };
+  if (tErr || !thread) return refused('quote · thread', tErr);
   const t = thread as { event_id: string; vendor_profile_id: string; pax_current: number | null };
   const [{ data: q, error: qErr }, floorRes, extras, gate] = await Promise.all([
     liveQuote(supabase, t.event_id, t.vendor_profile_id),
@@ -145,7 +155,7 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     supabase.rpc('vendor_may_requote', { p_event_id: t.event_id, p_vendor_profile_id: t.vendor_profile_id }),
   ]);
   // A refused floor read must not pass as "no floor": the card would let a lower price through to the server.
-  if (qErr || floorRes.error || gate.error) return { ok: false };
+  if (qErr || floorRes.error || gate.error) return refused('quote · read', qErr ?? floorRes.error ?? gate.error);
   // No live quote in this chat: an honest empty, never a refusal.
   if (!q) return { ok: true, quote: null };
   const row = q as Record<string, unknown>;
@@ -201,7 +211,7 @@ export async function loadRecount(threadId: string): Promise<RecountRead | Fail>
     .from('vendor_services')
     .select('vendor_service_id, title, pricing_basis, per_pax_price_php, min_pax')
     .in('vendor_service_id', quote.serviceCardIds);
-  if (error) return { ok: false };
+  if (error) return refused('recount · services', error);
   const cards = (data ?? []) as { vendor_service_id: string; title: string | null; pricing_basis: string | null; per_pax_price_php: number | null; min_pax: number | null }[];
   const perPax: PerPaxLine[] = [];
   for (const c of cards) {
@@ -250,7 +260,7 @@ export async function loadChangeAsks(threadId: string): Promise<{ ok: true; asks
     .eq('thread_id', threadId)
     .order('asked_at', { ascending: false })
     .limit(40);
-  if (error) return { ok: false };
+  if (error) return refused('change asks', error);
   return {
     ok: true,
     asks: ((data ?? []) as { ask_id: string; subject: AskSubject; note: string; asked_at: string; status: ChangeAskRow['status']; proposal_id: string | null }[]).map((r) => ({
@@ -293,7 +303,7 @@ export async function loadLogPaymentTarget(threadId: string): Promise<
     .select('event_id, vendor_profile_id')
     .eq('thread_id', threadId)
     .maybeSingle();
-  if (tErr || !thread) return { ok: false };
+  if (tErr || !thread) return refused('log payment · thread', tErr);
   const t = thread as { event_id: string; vendor_profile_id: string };
   const { data, error } = await supabase
     .from('event_vendors')
@@ -304,7 +314,7 @@ export async function loadLogPaymentTarget(threadId: string): Promise<
     .maybeSingle();
   // Not on the event's supplier list yet: an honest "nothing to log against", not a refusal.
   if (!error && !data) return { ok: true, eventId: t.event_id, vendorId: null };
-  if (error || !data) return { ok: false };
+  if (error || !data) return refused('log payment · booking', error);
   const r = data as { vendor_id: string; category: string | null; vendor_name: string | null };
   return { ok: true, eventId: t.event_id, vendorId: r.vendor_id, toCoordinator: needsCoordinatorAgree(r.category), supplierName: r.vendor_name ?? 'your supplier' };
 }
@@ -366,24 +376,17 @@ export async function keepPriceFromChat(formData: FormData): Promise<AskResult> 
   return postOwnLine(threadId, `Kept the price at ${total} for ${guests.toLocaleString('en-PH')} guests`);
 }
 
-export async function decisionLineFromChat(formData: FormData): Promise<AskResult> {
+/**
+ * Open a decision topic — through lane B's ONE door (`openDecision` → `chat_decision_open()`, which writes the topic and
+ * posts its "Decision opened · …" line). Closing / reopening is the pin's own `DecisionToggle`, never this card.
+ */
+export async function openDecisionFromChat(formData: FormData): Promise<AskResult> {
   const threadId = String(formData.get('thread_id') ?? '');
-  const topic = String(formData.get('topic') ?? '').trim();
-  const act = String(formData.get('act') ?? 'open');
-  if (!threadId || !topic || (act !== 'open' && act !== 'close' && act !== 'reopen')) return { ok: false, message: 'Name the topic first.' };
-  return postOwnLine(threadId, decisionLine(topic, act, await whoIsWriting()));
-}
-
-/** The name a line says it is "by" — the shop's name for its team, the person's own display name otherwise. */
-async function whoIsWriting(): Promise<string> {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return 'you';
-  const profile = await fetchOwnVendorProfile(supabase, auth.user.id);
-  if (profile?.business_name?.trim()) return profile.business_name.trim().slice(0, 60);
-  const { data } = await supabase.from('users').select('display_name').eq('user_id', auth.user.id).maybeSingle();
-  const name = String((data as { display_name?: string | null } | null)?.display_name ?? '').trim();
-  return (name.split(/\s+/)[0] || 'a host').slice(0, 60);
+  const topic = String(formData.get('topic') ?? '');
+  if (!threadId) return { ok: false, message: 'Name the topic first.' };
+  const r = await openDecision(await createClient(), threadId, topic);
+  if (r.ok) return { ok: true };
+  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : "Couldn't open it. Try again." };
 }
 
 // ── Form · the shop's library ────────────────────────────────────────────────
@@ -423,14 +426,14 @@ export type FormToAnswer = {
 export async function loadSentFormForAnswer(threadId: string, title: string): Promise<{ ok: true; form: FormToAnswer | null } | Fail> {
   const supabase = await createClient();
   const { data: thread, error: tErr } = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
-  if (tErr || !thread) return { ok: false };
+  if (tErr || !thread) return refused('form · thread', tErr);
   const t = thread as { event_id: string; vendor_profile_id: string };
   const { data: sends, error: sErr } = await supabase
     .from('event_form_sends')
     .select('form_id, locked, vendor_forms ( title )')
     .eq('event_id', t.event_id)
     .eq('vendor_profile_id', t.vendor_profile_id);
-  if (sErr) return { ok: false };
+  if (sErr) return refused('form · sends', sErr);
   const hit = ((sends ?? []) as unknown as { form_id: string; locked: boolean | null; vendor_forms: { title: string | null } | null }[]).find(
     (r) => (r.vendor_forms?.title ?? '').trim() === title.trim(),
   );
@@ -449,7 +452,7 @@ async function loadFormForAnswer(input: { eventId: string; formId: string }): Pr
     supabase.from('vendor_questions').select('question_id, prompt, item_kind, is_asked, display_order').eq('form_id', input.formId).order('display_order'),
     supabase.from('event_question_answers').select('question_id, answer').eq('event_id', input.eventId),
   ]);
-  if (iErr || aErr) return { ok: false };
+  if (iErr || aErr) return refused('form · questions', iErr ?? aErr);
   const byQ = new Map(((answers ?? []) as { question_id: string; answer: unknown }[]).map((a) => [a.question_id, a.answer == null ? null : typeof a.answer === 'string' ? a.answer : JSON.stringify(a.answer)]));
   return {
     ok: true,

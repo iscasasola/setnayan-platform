@@ -10,7 +10,6 @@ import {
   askRefusalWords,
   bookRequestFromLine,
   changeAskFromLine,
-  decisionLine,
   deltaWords,
   editPlanPayment,
   floorRefusal,
@@ -143,6 +142,4 @@ test('📝 form · one at a time; the form and guest-count lines are read exactl
   assert.equal(formLineTitle('I sent you a form'), null);
   assert.deepEqual(guestCountFromLine('Guest count changed · 150 → 170 guests'), { from: 150, to: 170 });
   assert.equal(guestCountFromLine('Guest count set · 150 guests'), null);
-  assert.equal(decisionLine('Drone at sunset', 'open', 'Maria'), 'Talking about: Drone at sunset · pinned by Maria');
-  assert.equal(decisionLine('Drone at sunset', 'close', 'Lumina'), 'Drone at sunset · closed by Lumina');
 });

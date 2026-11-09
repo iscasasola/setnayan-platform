@@ -77,7 +77,7 @@ async function quote(w: World, status: string, totalCentavos: number, schedule: 
        (event_id, vendor_profile_id, title, status, total_centavos, sent_at, line_items, merge_snapshot, valid_until, payment_schedule, resolved_at)
      VALUES ($1, $2, 'Full-day coverage', $3, $4, NOW(),
              jsonb_build_array(jsonb_build_object('label','Coverage','detail',NULL,'amount_centavos',$4::bigint)),
-             '{}'::jsonb, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7, $5::jsonb,
+             '{}'::jsonb, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7, COALESCE($5::jsonb, '{}'::jsonb),
              CASE WHEN $3 = 'accepted' THEN NOW() ELSE NULL END)
      RETURNING proposal_id`,
     [w.eventId, w.shop, status, totalCentavos, schedule === null ? null : JSON.stringify(schedule)],
@@ -132,16 +132,18 @@ test('🔒 a locked quotation or plan cannot be asked about', async () => {
   const w = await newWorld();
   const p = await quote(w, 'sent', 6_000_000);
   await db.query(`UPDATE public.vendor_proposals SET changes_locked = TRUE WHERE proposal_id = $1`, [p]);
-  assert.match((await as(w.host, () => ask(w, 'quote'))).error ?? '', /ITEM_LOCKED/);
-  assert.equal((await as(w.host, () => ask(w, 'plan'))).error, undefined, 'the plan is not locked');
+  assert.match((await as(w.host, () => ask(w, 'quote', 'x', p))).error ?? '', /ITEM_LOCKED/);
+  assert.equal((await as(w.host, () => ask(w, 'plan', 'x', p))).error, undefined, 'the plan is not locked');
   await db.query(`UPDATE public.vendor_proposals SET plan_locked = TRUE WHERE proposal_id = $1`, [p]);
-  assert.match((await as(w.host, () => ask(w, 'plan'))).error ?? '', /ITEM_LOCKED/);
+  assert.match((await as(w.host, () => ask(w, 'plan', 'x', p))).error ?? '', /ITEM_LOCKED/);
 });
 
 test('✅ only the shop answers, once: declined posts its line; a second answer is a no-op', async () => {
   const w = await newWorld();
-  await quote(w, 'sent', 6_000_000);
-  const id = (await as(w.host, () => ask(w, 'quote'))).value!;
+  const p = await quote(w, 'sent', 6_000_000);
+  const asked = await as(w.host, () => ask(w, 'quote', 'Can we add a drone?', p));
+  assert.equal(asked.error, undefined, asked.error);
+  const id = asked.value!;
   assert.match((await as(w.host, () => db.query(`SELECT public.answer_change_ask($1, 'declined', NULL)`, [id]))).error ?? '', /./, 'the host cannot answer');
   const a = await as(w.supplier, () => db.query<{ r: string }>(`SELECT public.answer_change_ask($1, 'declined', NULL) AS r`, [id]).then((x) => x.rows[0]!.r));
   assert.equal(a.error, undefined, a.error);

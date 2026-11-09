@@ -220,6 +220,7 @@ export default async function NewServicePage({
           giftPacks={ctx.giftPacks}
           giftFree={ctx.giftFree}
           bookingsPerDate={ctx.bookingsPerDate}
+          checkRules={ctx.checkRules}
           detailsKind={details ? category : null}
           detailsSlot={
             details ? (

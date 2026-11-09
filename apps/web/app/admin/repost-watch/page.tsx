@@ -21,6 +21,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { CardChecksAdmin, SupplierPhotoReports } from './card-checks-admin';
 import { formatCount } from '@/lib/format-number';
 export const metadata = { title: 'Repost watch · Admin' };
 export const dynamic = 'force-dynamic';
@@ -45,10 +46,10 @@ type FlagRow = {
   public_id: string;
   flagged_vendor_id: string;
   flagged_r2_ref: string;
-  flagged_surface: 'service_primary' | 'portfolio';
+  flagged_surface: 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
   source_vendor_id: string;
   source_r2_ref: string;
-  source_surface: 'service_primary' | 'portfolio';
+  source_surface: 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
   hamming_distance: number;
   status: 'open' | 'dismissed' | 'confirmed_theft' | 'escalated';
   resolution_notes: string | null;
@@ -96,6 +97,8 @@ const STATUS_TONE: Record<FlagRow['status'], string> = {
 const SURFACE_LABEL: Record<FlagRow['flagged_surface'], string> = {
   service_primary: 'Service cover',
   portfolio: 'Portfolio',
+  moodboard_library: 'Inspiration',
+  service_showcase: 'Service photo',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -282,6 +285,9 @@ export default async function AdminRepostWatchPage({
           </FormFlash>
         </div>
       )}
+
+      {/* 🃏 "It's mine — report it" (owner 2026-10-26) — a LIST, not a queue: the card stays blocked either way. */}
+      <SupplierPhotoReports />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {STATUS_FILTERS.map((f) => (
@@ -632,6 +638,8 @@ export default async function AdminRepostWatchPage({
       </section>
 
       
+      {/* 🃏 The claim words the card maker refuses, and the shops allowed one (owner 2026-10-26). */}
+      <CardChecksAdmin />
     </div>
   );
 }

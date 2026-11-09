@@ -17,7 +17,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type RepostFlagStatus = 'open' | 'dismissed' | 'confirmed_theft' | 'escalated';
-export type RepostSurface = 'service_primary' | 'portfolio';
+export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
 
 export type VendorRepostFlag = {
   publicId: string;

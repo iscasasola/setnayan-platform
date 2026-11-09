@@ -7,7 +7,8 @@ import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
+import { hashAndScanVendorImages, releaseCardPhotos } from '@/lib/vendor-image-repost-watch';
+import { cardCheckRefusal } from '@/lib/service-card-checks.server';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import {
@@ -815,6 +816,23 @@ export async function createVendorService(formData: FormData) {
     }
   }
 
+  // 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26). This older add form (a deep-linked `?add=`) writes a
+  // card too, so it asks the same three as `commitVendorService` — no door skips them. lib/service-card-checks.server.ts
+  {
+    const refusal = await cardCheckRefusal({
+      vendorProfileId: profile.vendor_profile_id,
+      serviceId: null,
+      category,
+      categoryLabel: displayServiceLabel(category),
+      title: title ?? '',
+      inclusionLabels: inclusionRows.map((n) => n.label),
+      addonLabels: [],
+      cover: parsePrimaryPhoto(formData),
+      showcase: showcase.showcase_photo_r2_keys,
+    });
+    if (refusal) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
+  }
+
   // QR-in-media guard (owner-locked 2026-07-03): showcase photos render on the
   // public service card — they may not embed the vendor's invite/lock QR. All
   // refs are new on create. Fails OPEN on scanner trouble (never blocks an
@@ -1092,6 +1110,32 @@ export async function updateVendorService(formData: FormData) {
       return redirect(
         `${await servicesReturnBase()}?error=${encodeURIComponent(VENDOR_QR_MEDIA_ERROR)}`,
       );
+    }
+  }
+
+  // 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26), on this older edit path too: its name and kind are the
+  // stored ones (this form edits neither), its lines and photos the posted ones.
+  {
+    const { data: cardRow } = await supabase
+      .from('vendor_services')
+      .select('category, title')
+      .eq('vendor_service_id', idRaw)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    const stored = cardRow as { category?: string | null; title?: string | null } | null;
+    if (stored?.category) {
+      const refusal = await cardCheckRefusal({
+        vendorProfileId: profile.vendor_profile_id,
+        serviceId: idRaw,
+        category: stored.category,
+        categoryLabel: displayServiceLabel(stored.category),
+        title: stored.title ?? '',
+        inclusionLabels: inclusionRows.map((n) => n.label),
+        addonLabels: [],
+        cover: parsePrimaryPhoto(formData),
+        showcase: showcase.showcase_photo_r2_keys,
+      });
+      if (refusal) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
     }
   }
 
@@ -1756,6 +1800,27 @@ export async function commitVendorService(formData: FormData) {
     if (viol) return back(viol);
   }
 
+  // ---- 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26) ----------
+  //
+  // *"when there is something they need to change, they must fix it before the service card is created"*. The maker
+  // keeps Create / Save shut while a check is open; the save asks the SAME three again and refuses with the sentence
+  // the row showed — claim words · the card matches its service · one photo = one service card. Nothing is created
+  // and then held; there is no review queue. ⛔ No price check of any kind. lib/service-card-checks.server.ts
+  {
+    const refusal = await cardCheckRefusal({
+      vendorProfileId: profile.vendor_profile_id,
+      serviceId,
+      category,
+      categoryLabel: displayServiceLabel(category),
+      title: (fields.title as string | null) ?? '',
+      inclusionLabels: inclusionRows.map((n) => n.label),
+      addonLabels: parseAddonRows(formData).map((a) => a.label),
+      cover: (fields.primary_photo_r2_key as string | null) ?? null,
+      showcase: showcase.showcase_photo_r2_keys,
+    });
+    if (refusal) return back(refusal);
+  }
+
   // The customization draft becomes a ONE-SERVICE package anchored to this
   // service's category. Built and validated HERE, before the service is
   // written, so a bad draft costs the vendor a bounce rather than leaving a
@@ -2130,15 +2195,37 @@ export async function commitVendorService(formData: FormData) {
   // redirect (which throws to unwind) and self-swallowing so it never affects
   // the save. Skips refs already hashed, so an edit that didn't change the photo
   // is a cheap no-op.
+  //
+  // 🃏 ONE PHOTO = ONE SERVICE CARD (owner 2026-10-26): every hash names the card it is on (cover AND showcase — the
+  // showcase used to go unhashed), and a photo this card dropped lets go of it, so it can go on another card.
   const primaryPhoto = fields.primary_photo_r2_key;
+  const cardForHashes = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
   if (typeof primaryPhoto === 'string' && primaryPhoto.length > 0) {
     after(() =>
       hashAndScanVendorImages({
         vendorProfileId: profile.vendor_profile_id,
         refs: [primaryPhoto],
         surface: 'service_primary',
+        vendorServiceId: cardForHashes,
       }),
     );
+  }
+  if (showcase.showcase_photo_r2_keys.length > 0) {
+    after(() =>
+      hashAndScanVendorImages({
+        vendorProfileId: profile.vendor_profile_id,
+        refs: showcase.showcase_photo_r2_keys,
+        surface: 'service_showcase',
+        vendorServiceId: cardForHashes,
+      }),
+    );
+  }
+  if (cardForHashes) {
+    const keepRefs = [
+      ...(typeof primaryPhoto === 'string' && primaryPhoto.length > 0 ? [primaryPhoto] : []),
+      ...showcase.showcase_photo_r2_keys,
+    ];
+    after(() => releaseCardPhotos({ vendorProfileId: profile.vendor_profile_id, vendorServiceId: cardForHashes, keepRefs }));
   }
 
   revalidatePath('/vendor-dashboard/services');

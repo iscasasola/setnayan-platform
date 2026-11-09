@@ -199,7 +199,9 @@ test('the maker posts EVERY field the wizard posts — the server cannot tell a 
   );
   // Anything beyond the wizard's set is a NAMED field the save reads — never an unnamed extra.
   // `<SupplierThumbRow name="maker">` names the thumb row (its guard anchor), not a form field.
-  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker']);
+  // 🃏 `<TypedRow name="A short note for Setnayan">` (card-checks.tsx, "It's mine — report it") is the row's LABEL; it has
+  // no `fieldName`, so it posts nothing with the card — the note goes by `cardPhotoAction`, never by the card form.
+  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker', 'A short note for Setnayan']);
   const onlyCanvas = sorted(canvas).filter((n) => !wizard.has(n) && !known.has(n));
   assert.deepEqual(
     onlyCanvas,

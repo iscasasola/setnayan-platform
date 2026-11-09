@@ -156,6 +156,8 @@ export const COUPLE_SUPPLIER_NOTICES = {
   },
   payment_logged: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   vendor_payment_asked: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
+  // A supplier recorded a refund they gave the couple (Build 2, 2026-11-09). In the app only — no new email.
+  client_refund_recorded: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   payment_confirmed: {
     to: 'couple',
     reach: 'email',

@@ -151,6 +151,7 @@ const CONVERTED = [
   'accounts/_surfaces/vendors-surface.tsx',
   'accounts/_surfaces/venues-surface.tsx',
   'pax-changes/page.tsx',
+  'payments/supplier-refunds/supplier-refunds-view.tsx',
   'pricing/_components/legacy-catalog.tsx',
   'pricing/_surfaces/price-bands-surface.tsx',
   'receipts/page.tsx',

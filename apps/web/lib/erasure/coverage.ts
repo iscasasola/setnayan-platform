@@ -291,6 +291,9 @@ export const VENDOR_PROFILE_PII_SCRUB = {
   microsite_sections: [] as unknown as null,
   portfolio_r2_keys: [] as unknown as null,
   gallery_video_links: [] as unknown as null,
+  // Added with the column (2026-11-09, migration 20271334860034): a title a shop gave a video link can name a client
+  // ("Ana & Ben · same-day edit"). NOT NULL DEFAULT '{}' — it takes its default, like the arrays above.
+  gallery_video_titles: {} as unknown as null,
 } as const;
 
 /**

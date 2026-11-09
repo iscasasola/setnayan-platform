@@ -59,6 +59,7 @@ export function PortfolioView({
   allPhotos,
   libraryOpen,
   videoLinkUrls,
+  videoTitles = {},
   hero = null,
   moodboard = null,
   songs = 'off',
@@ -83,6 +84,8 @@ export function PortfolioView({
   libraryOpen?: boolean;
   /** The shipped `gallery_video_links`, edited row by row under Video links. */
   videoLinkUrls?: string[];
+  /** Each link's title, keyed by the link; null = unread (no Title field then). Absent = none yet (the lab). */
+  videoTitles?: Record<string, string> | null;
   /** 🖼 The latest upload, or the category placeholder (`lib/supplier-hero.ts`). Null = the shipped placeholder file. */
   hero?: SupplierHeroPicture | null;
   moodboard?: { looks: number; declined: number } | null;
@@ -183,6 +186,7 @@ export function PortfolioView({
             allPhotos={allPhotos ?? []}
             libraryOpen={libraryOpen ?? false}
             videoLinks={videoLinkUrls ?? []}
+            videoTitles={videoTitles}
             moodboard={moodboard}
             songs={songs}
             picked={picked}

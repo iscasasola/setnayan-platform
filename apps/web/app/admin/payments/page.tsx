@@ -439,6 +439,10 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           target="orders_needing_quote"
           label="Orders needing a quote"
         />
+        {/* 💸 Refunds SUPPLIERS recorded giving their clients — a read-only list of its own (no write, no money moves). */}
+        <a href="/admin/payments/supplier-refunds" className="sn-chip" data-supplier-refunds-door="">
+          Supplier refunds
+        </a>
       </nav>
 
       {filter !== 'orders_needing_quote' ? (

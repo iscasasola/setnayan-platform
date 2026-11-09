@@ -29,6 +29,7 @@ import {
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
 import { parseVideoLink } from '@/lib/video-embed';
+import { videoTitlesFor } from '@/lib/video-link-titles';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   MICROSITE_ABOUT_MAX,
@@ -719,11 +720,22 @@ export async function updateVendorProfileField(
       // Featured videos (relocated · 2026-07-05). External URLs validated +
       // deduped + capped at 10 to match the DB cardinality CHECK — identical to
       // saveVendorProfile's gallery_video_links parse.
-      patch = {
-        gallery_video_links: parseVideoLinks(
-          formData.getAll('gallery_video_links'),
-        ),
-      };
+      const links = parseVideoLinks(formData.getAll('gallery_video_links'));
+      patch = { gallery_video_links: links };
+      // 🎬 Each link's optional Title (≤ 80, migration 20271334860034), POSTED paired with its link in the same order.
+      // Keyed by the link as STORED (the parsed URL), so it can never land on another video. Only when the editor read
+      // the titles (`gallery_video_titles_sent`): an editor that never saw them leaves them exactly as they are.
+      if (formData.get('gallery_video_titles_sent') === '1') {
+        const rawLinks = formData.getAll('gallery_video_links');
+        const rawTitles = formData.getAll('gallery_video_title');
+        const pairs: (readonly [string, string])[] = [];
+        rawLinks.forEach((raw, i) => {
+          const parsed = typeof raw === 'string' ? parseVideoLink(raw) : null;
+          const t = rawTitles[i];
+          if (parsed && typeof t === 'string') pairs.push([parsed.originalUrl, t]);
+        });
+        patch = { ...patch, gallery_video_titles: videoTitlesFor(links, pairs) };
+      }
       break;
     }
     default:

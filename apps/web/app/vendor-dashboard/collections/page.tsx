@@ -97,6 +97,7 @@ export default async function YourCollectionsPage({
         allPhotos={[...showAlbums.page.urls].reverse()}
         libraryOpen={d.libraryOpen}
         videoLinkUrls={d.galleryVideoLinks}
+        videoTitles={d.videoTitles}
         hero={hero}
         moodboard={d.input.moodboard && d.input.moodboard.allowed ? { looks: d.input.moodboard.looks, declined: d.input.moodboard.declined } : null}
         songs={songs}

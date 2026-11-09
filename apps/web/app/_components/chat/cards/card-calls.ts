@@ -20,7 +20,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { logPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { loadCatalogueExtrasForQuote } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
-import { vendorAskForPayment } from '@/app/vendor-dashboard/clients/[eventId]/actions';
+import { vendorAskForPayment, type PaymentAskOutcome } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { seedScheduleFromStored } from '@/lib/quote-revision-seed';
 import { formLockOf, quoteLocksOf, type ItemLocks } from '@/lib/quote-locks';
 import {
@@ -479,7 +479,8 @@ const ASK_PAYMENT_WORDS: Record<string, string> = {
 
 export async function askForPaymentFromChat(formData: FormData): Promise<AskResult> {
   formData.set('inline', '1');
-  const res = await vendorAskForPayment(formData);
+  // `inline=1`: the action returns its outcome instead of redirecting (see its comment for the declared `void`).
+  const res = (await vendorAskForPayment(formData)) as unknown as PaymentAskOutcome | undefined;
   if (!res) return { ok: false, message: ASK_PAYMENT_WORDS.error! };
   if (res.ok) {
     return { ok: true };

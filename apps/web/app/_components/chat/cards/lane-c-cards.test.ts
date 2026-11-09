@@ -57,7 +57,7 @@ test('🧾 every Send is the SHIPPED writer', () => {
   assert.doesNotMatch(read(`${CARDS}/decision-step-card.tsx`), /chat_messages|patchPlus/);
   // The client page's ask is the same core plus its redirects — one write path, two returns.
   const clients = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
-  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)[\s\S]{0,400}if \(formData\.get\('inline'\) === '1'\) return res;/);
+  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)[\s\S]{0,400}if \(formData\.get\('inline'\) === '1'\) return res as unknown as void;/);
   assert.match(clients, /^async function askForPaymentCore\(/m, 'the core is not its own exported route');
   assert.equal((clients.match(/from\('vendor_payment_asks'\)\.insert\(/g) ?? []).length, 1, 'one insert of a payment ask');
 });

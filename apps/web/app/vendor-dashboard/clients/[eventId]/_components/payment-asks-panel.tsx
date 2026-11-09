@@ -1,10 +1,6 @@
 import { Wallet, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { vendorAskForPayment as askForPayment, vendorWithdrawPaymentAsk } from '../actions';
-
-// This form never posts `inline=1`, so the action ends on its redirect and returns nothing; the outcome it can return
-// is the chat Payment card's (Supplier Build 3 · lane C), which stays in the conversation. Same action, typed as a form's.
-const vendorAskForPayment = askForPayment as (formData: FormData) => Promise<void>;
+import { vendorAskForPayment, vendorWithdrawPaymentAsk } from '../actions';
 
 /**
  * "Ask for a payment" — on the customer, next to what they owe.

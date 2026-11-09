@@ -1836,13 +1836,15 @@ export async function resolveOwnBookingId(
  * silence is indistinguishable from one that passed, and this one refuses for
  * four different reasons.
  */
-export async function vendorAskForPayment(formData: FormData): Promise<PaymentAskOutcome | undefined> {
+export async function vendorAskForPayment(formData: FormData): Promise<void> {
   const eventId = formData.get('event_id');
   const res = await askForPaymentCore(formData);
   // The chat's Payment card (Supplier Build 3 · lane C) sends the SAME ask and stays in the conversation: with
   // `inline=1` the outcome comes back instead of a landing ("a save never resets the screen"). One action, two
-  // returns — no second exported route (the server-action budget).
-  if (formData.get('inline') === '1') return res;
+  // returns — no second exported route (the server-action budget). The declared return stays a form action's
+  // (`Promise<void>`), because the client page binds this to `<form action>` and never posts `inline`; the chat's
+  // caller (`chat/cards/card-calls.ts`) reads the outcome back as `PaymentAskOutcome`.
+  if (formData.get('inline') === '1') return res as unknown as void;
   if (res.ok) {
     redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }

@@ -964,6 +964,17 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'changed_by',
     why: 'Who moved a booking value (the date, the guest count, a call time, a meeting time). A plain uuid with NO foreign key, the event_vendor_refunds.recorded_by_user_id shape (migration 20271329937802 says so). The row is the event\u2019s and its suppliers\u2019 shared history of what changed — the stamp goes, the change stays.',
   },
+  // Supplier Build 3 · lane C (2026-11-09) — the ask for a change (migration 20271332041210).
+  {
+    table: 'booking_change_asks',
+    column: 'asked_by',
+    why: 'Which host or coordinator asked the supplier to change a quote, a plan or a form. A plain uuid with NO foreign key (the booking_changes.changed_by shape). The ask is the chat\u2019s shared record of what was asked and answered — the stamp goes, the ask and its answer stay.',
+  },
+  {
+    table: 'booking_change_asks',
+    column: 'answered_by',
+    why: 'Which member of the shop answered the ask (revised / declined). Same shape and reason as asked_by: nulled in place, the answer stays for the hosts who read it.',
+  },
   {
     table: 'chat_thread_members',
     column: 'added_by_user_id',

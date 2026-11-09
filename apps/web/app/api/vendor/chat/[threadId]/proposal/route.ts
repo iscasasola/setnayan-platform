@@ -23,6 +23,7 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   gift_refused: 422,
   // 📅 no lifetime quotation (2026-11-09): sent without a Valid until — nothing was written.
   needs_valid_until: 422,
+  plan_not_in_full: 422,
   failed: 500,
 };
 

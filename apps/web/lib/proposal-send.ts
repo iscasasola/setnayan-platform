@@ -45,6 +45,8 @@ import { writeQuoteShopGifts } from '@/lib/shop-gifts.server';
 export type SendProposalError =
   // 📅 No lifetime quotation (2026-11-09): a quote is not sent without a Valid until after today.
   | 'needs_valid_until'
+  // 💳 Pay in full (2026-11-09): a plan whose payments do not add up to the quote total is refused, never saved.
+  | 'plan_not_in_full'
   | 'unauthenticated'
   | 'not_owner'
   | 'thread_closed'
@@ -493,6 +495,26 @@ export interface SendCustomProposalInput {
   shopGiftCodes?: string[] | null;
 }
 
+/**
+ * The wire's schedule with its base replaced by the server's own total. The crew-meal credit rides as a NEGATIVE line
+ * inside `totalCentavos`, so the plan's pre-credit base is the total plus that credit.
+ */
+export function withServerBase(raw: unknown, totalCentavos: number): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const credit = Math.max(0, Math.round(Number((raw as { creditCentavos?: unknown }).creditCentavos) || 0));
+  return { ...(raw as object), baseCentavos: Math.max(0, Math.round(totalCentavos)) + credit };
+}
+
+/** Why a resolved plan may not be sent (it does not pay the quote total in full), or null. */
+export function planRefusal(schedule: ResolvedSchedule, totalCentavos: number): string | null {
+  if (schedule.over_by_centavos > 0) return 'The payments add up to more than the quote — trim a payment, then send.';
+  if (schedule.credit_over_centavos > 0) return 'The crew-meal credit is more than the payments after the first — trim it, then send.';
+  if (schedule.total_centavos !== Math.max(0, Math.round(totalCentavos))) {
+    return 'The payment plan must pay the whole quote — nothing was sent.';
+  }
+  return null;
+}
+
 const MAX_CUSTOM_LINE_ITEMS = 60;
 const MAX_PAYMENT_METHODS = 12;
 
@@ -582,7 +604,15 @@ export async function sendCustomProposalCore(
   // persisted, self-balancing numbers come from the pure resolver, not the
   // client. Null when the vendor built no schedule → store {} (degrades to line
   // items only on the couple view).
-  const resolvedSchedule: ResolvedSchedule | null = sanitizeAndResolveSchedule(input.schedule);
+  //
+  // 💳 THE PLAN PAYS THE WHOLE AMOUNT (owner 2026-11-09, Supplier Build 3 · lane C). The base the plan balances to is
+  // the SERVER's total, never the wire's `baseCentavos` — a client that sent a stale or smaller base would otherwise
+  // store a plan that pays part of the quote. Over-cover is refused, never saved ("over — trim a payment"); the
+  // database refuses the same (`vendor_proposals_money_rules`, migration 20271332041210).
+  const resolvedSchedule: ResolvedSchedule | null = sanitizeAndResolveSchedule(withServerBase(input.schedule, totalCentavos));
+  if (resolvedSchedule && planRefusal(resolvedSchedule, totalCentavos)) {
+    return { ok: false, code: 'plan_not_in_full', message: planRefusal(resolvedSchedule, totalCentavos)! };
+  }
 
   // Accepted payment methods (§ 9) — keep ONLY ids that are this vendor's OWN
   // methods (RLS-scoped read on the vendor's client; owner RLS already blocks

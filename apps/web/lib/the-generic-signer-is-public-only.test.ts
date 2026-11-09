@@ -233,6 +233,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   // kept by `saveSelfAddedServiceCard` only through `budgetPaymentProofPolicy`, read back only through
   // `displayUrlForPrivateStoredAsset(…, budgetPaymentProofPolicy)` (`lib/self-added-pay-ways.server.ts`).
   'app/dashboard/[eventId]/_components/pay-ways-editor.tsx': 1, // thread-files → event_manual_vendors.pay_ways[].qr
+  // The chat's Log a payment card (Supplier Build 3 · lane C, 2026-11-09) — the SAME column and path prefix as the
+  // vendor itemization card above; it posts the shipped `logPayment` (`budgetPaymentProofPolicy`), whose reader is
+  // already scoped.
+  'app/_components/chat/cards/log-payment-card.tsx': 1, // thread-files → event_vendor_payments.proof_r2_key
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {

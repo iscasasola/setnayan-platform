@@ -126,6 +126,8 @@ import {
   showsExpiryWarning,
 } from '@/lib/chat-file-rules';
 import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
+import { formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -158,6 +160,8 @@ type ProposalCardData = {
    * by the message that announced the quote six weeks earlier.
    */
   resolvedAt: string | null;
+  /** Lane B's quotation / payment-plan locks — a locked one is not offered for "Ask for a change" (lane C). */
+  locks?: { quote: boolean; plan: boolean };
 };
 
 type Props = {
@@ -500,7 +504,7 @@ export function ChatMessageStream({
       const { data, error } = await supabase
         .from('vendor_proposals')
         .select(
-          'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, service_card_ids',
+          'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids',
         )
         .in('proposal_id', ids);
       if (cancelled) return;
@@ -520,6 +524,8 @@ export function ChatMessageStream({
           status: string;
           line_items: ProposalLineItem[] | null;
           service_card_ids: unknown;
+          changes_locked?: boolean | null;
+          plan_locked?: boolean | null;
         }[]) {
           next[p.proposal_id] = {
             resolvedAt: p.resolved_at,
@@ -529,6 +535,7 @@ export function ChatMessageStream({
             status: p.status,
             lineItems: p.line_items ?? [],
             serviceCardIds: p.service_card_ids,
+            locks: { quote: p.changes_locked === true, plan: p.plan_locked === true },
           };
         }
         return next;
@@ -1654,6 +1661,16 @@ export function ChatMessageStream({
                         ) : null}
                       </div>
                       )}
+                      {/* 💬 Lane C · the hosts' side never edits a price — they ask (a lazy chunk, only on the live quote). */}
+                      {!replaced && viewerRole === 'couple' && isLatestProposal && card && ['sent', 'viewed', 'accepted'].includes(card.status) ? (
+                        <AskChangeDoor
+                          threadId={threadId}
+                          supplierName={counterpartyLabel}
+                          proposalId={m.proposal_id}
+                          locks={card.locks ?? {}}
+                          returnPath={returnPathFor(m)}
+                        />
+                      ) : null}
                       {isLatestProposal && quoteVersions && m.proposal_id ? (
                         <QuoteVersionsRow
                           versions={versionsNewestFirst(quoteVersions, m.proposal_id)}
@@ -1825,6 +1842,23 @@ export function ChatMessageStream({
           // Setnayan notes — centered, owned by neither side, labelled
           // "Setnayan". Never "from the couple"/"from the vendor".
           if (m.sender_role === 'system') {
+            // 🪜 Lane C · a booking ask, an ask for a change, a guest-count change: drawn as its card (lazy chunk).
+            if (streamLineKind(m.body)) {
+              return (
+                <li key={m.message_id} data-stream-line-card="">
+                  <StreamLineCard
+                    body={m.body ?? ''}
+                    createdAt={m.created_at}
+                    at={formatChatTimestamp(m.created_at)}
+                    threadId={threadId}
+                    viewer={viewerRole}
+                    supplierName={viewerRole === 'couple' ? counterpartyLabel : 'you'}
+                    eventDate={eventDate}
+                    returnPath={returnPathFor(m)}
+                  />
+                </li>
+              );
+            }
             return (
               <li key={m.message_id} className="flex justify-center">
                 <div className="max-w-[90%] rounded-xl border border-mulberry/20 bg-mulberry/[0.06] px-3 py-2 text-center text-sm text-ink">
@@ -1982,6 +2016,8 @@ export function ChatMessageStream({
             </li>
           );
           })();
+          // 📝 Lane C · the supplier's form line, as the hosts answer it — one question at a time (lazy chunk).
+          const formTitle = viewerRole === 'couple' && m.sender_role === 'vendor' ? formLineTitle(m.body) : null;
           // A centred time between runs (Messenger): first message, or a quiet gap since the one before.
           const brk = timeBreakBefore(messages, i);
           return (
@@ -1994,6 +2030,11 @@ export function ChatMessageStream({
                 </li>
               ) : null}
               {node}
+              {formTitle ? (
+                <li data-form-answer-card="">
+                  <FormAnswerCard threadId={threadId} title={formTitle} returnPath={returnPathFor(m)} />
+                </li>
+              ) : null}
             </Fragment>
           );
         })

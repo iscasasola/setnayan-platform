@@ -1838,18 +1838,28 @@ export async function resolveOwnBookingId(
  */
 export async function vendorAskForPayment(formData: FormData) {
   const eventId = formData.get('event_id');
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    redirect('/vendor-dashboard/clients');
+  const res = await askForPaymentCore(formData);
+  if (res.ok) {
+    redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }
+  if (res.code === 'event') redirect('/vendor-dashboard/clients');
+  if (res.code === 'signin') redirect('/login');
+  if (res.code === 'shop') redirect('/vendor-dashboard');
+  redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: res.code } }));
+}
+
+/**
+ * The ask itself, with every refusal NAMED and no redirect — so the chat's Payment card (Supplier Build 3 · lane C)
+ * sends the SAME ask without leaving the conversation ("a save never resets the screen"). `vendorAskForPayment`
+ * above is this plus its redirects, byte-for-byte the flags it always rendered.
+ */
+export async function askForPaymentCore(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' }> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, code: 'event' };
   const amount = parseAmount(formData.get('amount_php'));
-  if (amount === null) {
-    redirect(
-      vendorClientSurfaceHref(eventId, 'asks', {
-        shellOn: isRelationshipWorkspaceEnabled(),
-        query: { ask: 'amount' },
-      }),
-    );
-  }
+  if (amount === null) return { ok: false, code: 'amount' };
   const dueRaw = formData.get('due_date');
   const dueDate = typeof dueRaw === 'string' && dueRaw.length > 0 ? dueRaw : null;
   const note = nullIfBlank(formData.get('note'), 500);
@@ -1858,20 +1868,12 @@ export async function vendorAskForPayment(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) return { ok: false, code: 'signin' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard');
+  if (!profile) return { ok: false, code: 'shop' };
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
-  if (!eventVendorId) {
-    redirect(
-      vendorClientSurfaceHref(eventId, 'asks', {
-        shellOn: isRelationshipWorkspaceEnabled(),
-        query: { ask: 'notbooked' },
-      }),
-    );
-  }
-
+  if (!eventVendorId) return { ok: false, code: 'notbooked' };
   // RLS is the fence: confirmed booking ∩ own profile ∩ status='open' ∩
   // asked_by_user_id = auth.uid(). A shop that is merely in conversation is
   // refused HERE, not by a TypeScript check somebody could route around.
@@ -1915,12 +1917,7 @@ export async function vendorAskForPayment(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(
-    vendorClientSurfaceHref(eventId, 'asks', {
-      shellOn: isRelationshipWorkspaceEnabled(),
-      query: { ask: error ? 'error' : 'sent' },
-    }),
-  );
+  return error ? { ok: false, code: 'error' } : { ok: true };
 }
 
 /**

@@ -886,7 +886,11 @@ export async function VendorServicesManager({
                       reach) STAY, under the card. They are not on the couple's
                       card and never should be, but they are exactly what a shop
                       scans a list for. */}
-                  <div className="flex items-center gap-3 p-4">
+                  {/* 🔁 The switch's refusal ("Add a cover photo before you publish…") is printed by StayForm as a SIBLING of
+                      its form — i.e. a flex child of THIS row. Unwrapped it took half the width and crushed the card into
+                      a one-word column, the switch thumb drawn over the chips (owner screenshot, 10 Nov: "Toggle issue").
+                      The row wraps and the refusal takes its own full-width line under the card. */}
+                  <div className="flex flex-wrap items-center gap-3 p-4 [&>[data-stay-error]]:order-last [&>[data-stay-error]]:basis-full">
                     <div className="min-w-0 flex-1 space-y-2">
                       {/* THE COUPLE'S OWN CARD, not a vendor-side lookalike.
                           Same `toServiceCard` the public profile calls and the

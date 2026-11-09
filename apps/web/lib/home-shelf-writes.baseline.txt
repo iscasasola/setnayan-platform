@@ -44,6 +44,7 @@ unreadable	orders	app/vendor-dashboard/subscription/actions.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	2
 unreadable	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
+unreadable	orders	app/vendor-dashboard/subscription/specialized-tools-purchase.ts	1
 unreadable	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 unreadable	orders	app/vendor-dashboard/team/actions.ts	1
 unreadable	orders	lib/iap/fulfil.server.ts	1
@@ -103,6 +104,7 @@ waits	orders	app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack
 waits	orders	app/vendor-dashboard/subscription/ai-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/booth-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/subscription/photo-challenge-actions.ts	2
+waits	orders	app/vendor-dashboard/subscription/specialized-tools-purchase.ts	1
 waits	orders	app/vendor-dashboard/subscription/ultra-addon-actions.ts	1
 waits	orders	app/vendor-dashboard/team/actions.ts	1
 waits	orders	lib/booking-fee-lock.server.ts	2

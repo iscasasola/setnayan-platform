@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7601
+# facts: 7602
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5489
 #   policy    1113
 #   view      9
-#   func      362
+#   func      363
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7476,6 +7476,7 @@ func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,a
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_funnel_bands()	secdef=yes exec=anon,authenticated search_path=public
 func	public.recompute_market_price_bands()	secdef=yes exec=authenticated search_path=public
+func	public.record_specialized_tool_use(p_event_id uuid, p_tool_key text, p_kind text, p_template_key text, p_scanner_mode text, p_category text)	secdef=yes exec=authenticated search_path=public
 func	public.refresh_demand_radar_rollups()	secdef=yes exec=anon,authenticated search_path=public
 func	public.refresh_identity_clusters()	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.refresh_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public

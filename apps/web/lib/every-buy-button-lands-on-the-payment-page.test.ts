@@ -46,6 +46,8 @@ const PAID_PATHS = [
   // and the reference, and "pay to our BDO or GCash account" — naming NEITHER
   // account, with no QR carrying the amount and nowhere to send a screenshot.
   'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
+  // ⬇ ADDED 2026-11-08 (Build 4). The Specialized tools unlock — ₱499 / 4 weeks or ₱4,990 / year.
+  'app/vendor-dashboard/subscription/specialized-tools-purchase.ts',
   // ⬇ ADDED 2026-09-06 (G3). A vendor buying a Papic portfolio-credit pack
   // (₱500/100 credits, per booked event) pays real money and must land on the
   // same one screen as every other paid buy button.

@@ -203,19 +203,16 @@ const FIX: Record<Who, Fixture> = {
 
 /** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (band on, nothing run yet). */
 function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
-  // Lab fixture (dev-only route): a two-sided band shaped like the catalogue's, never read by a real page.
-  const band = { entryPhp: 799, growthPhp: 499 };
-  const pro = tier === 'pro' || tier === 'enterprise';
-  const price = pro ? band.growthPhp : band.entryPhp;
+  // Lab fixture (dev-only route): one price on every plan, shaped like the catalogue's (2026-11-09), never read by a
+  // real page.
+  const band = { entryPhp: 499, growthPhp: 499 };
+  const price = band.entryPhp;
   return {
     eligible: verified,
     tier,
-    isFreeNow: verified && pro,
-    hasFreeAllowance: pro,
     pricePhp: price,
     cyclePricePhp: price,
     band,
-    periodDays: 28,
     openRails: [{ id: 'gcash', label: 'GCash' }] as unknown as DeepSearchOffer['openRails'],
   };
 }

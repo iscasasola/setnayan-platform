@@ -131,7 +131,9 @@ const inDays = (n: number) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('a BOOKED shop with no subscription cannot author a challenge', async () => {
-  const shop = await newVendor('unpaid', 'pro');
+  // SOLO, not Pro: since 2026-11-09 the Pro and Ultra plans INCLUDE the Specialized tools unlock (owner,
+  // Build 4), so a Pro shop is entitled with no subscription. Solo is the plan that still has to pay.
+  const shop = await newVendor('unpaid', 'solo');
   const eventId = await newBookedEvent('unpaid-ev', shop.vendorProfileId);
   const err = await tryAuthor(shop.userId, eventId);
   assert.match(
@@ -173,7 +175,7 @@ test('ONE subscription covers EVERY celebration — the whole product change', a
 });
 
 test('a LAPSED subscription refuses — lapse is read time, nothing sweeps it', async () => {
-  const shop = await newVendor('lapsed', 'pro');
+  const shop = await newVendor('lapsed', 'solo'); // Pro includes the unlock since 2026-11-09
   const eventId = await newBookedEvent('lapsed-ev', shop.vendorProfileId);
   await setSubscription(shop.vendorProfileId, inDays(-1));
   assert.match(String(await tryAuthor(shop.userId, eventId)), /PAPIC_CHALLENGE_NOT_SUBSCRIBED/);
@@ -345,16 +347,34 @@ test('a shop cannot be BORN holding a window either', async () => {
 // 4. THE PRICE
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('the catalogue row is a 28-day subscription at ₱1,490, not a per-event fee', async () => {
+test('the catalogue row is a 28-day subscription at ₱1,490 — RETIRED into Specialized tools, never deleted', async () => {
   // Owner 2026-11-04 (SUPPLIER PRICE SHEET): photo challenge ₱1,490. Was ₱2,500 (2026-08-28).
-  const r = await db.query<{ price: string; type: string; active: boolean }>(
-    `SELECT price_php::text AS price, offering_type AS type, is_active AS active
+  // Owner 2026-11-09 (Build 4, "BUILD 4 ANSWERS"): retired when Specialized tools went on sale; time already
+  // paid for is honoured (`papic_challenge_expires_at` is still read by vendor_papic_challenge_entitled).
+  const r = await db.query<{ price: string; type: string; active: boolean; replaced: string | null; retired: string | null }>(
+    `SELECT price_php::text AS price, offering_type AS type, is_active AS active,
+            replaced_by_sku_code AS replaced, retired_at::text AS retired
        FROM public.vendor_billing_catalog WHERE sku_code = 'vendor_photo_challenge'`,
   );
-  assert.equal(r.rows.length, 1, 'ONE row — the sku_code is also the orders.service_key');
-  assert.equal(Number(r.rows[0]!.price), 1490);
+  assert.equal(r.rows.length, 1, 'ONE row — the sku_code is also the orders.service_key, and it is never deleted');
+  assert.equal(Number(r.rows[0]!.price), 1490, 'the retired row keeps the price it was sold at');
   assert.equal(r.rows[0]!.type, 'vendor_addon_recurring');
-  assert.equal(r.rows[0]!.active, true, 'a retired row would block the sale outright');
+  assert.equal(r.rows[0]!.active, false, 'retired 2026-11-09 — no new sale');
+  assert.ok(r.rows[0]!.retired, 'retired_at is stamped');
+  assert.equal(r.rows[0]!.replaced, 'vendor_specialized_tools');
+});
+
+test('🧰 a VERIFIED shop authors with the Specialized tools unlock — and is refused without it', async () => {
+  // Owner 2026-11-09: the unlock is Verified and up, and it opens Papic challenge. The plan floor admits
+  // `verified`; the entitlement call still decides, so the unlock (not the tier) is what lets them in.
+  const shop = await newVendor('verified-author', 'verified');
+  const eventId = await newBookedEvent('verified-ev', shop.vendorProfileId);
+  assert.match(String(await tryAuthor(shop.userId, eventId)), /PAPIC_CHALLENGE_NOT_SUBSCRIBED/);
+  await db.query(
+    `INSERT INTO public.vendor_specialized_tools_access (vendor_profile_id, unlock_expires_at) VALUES ($1, $2)`,
+    [shop.vendorProfileId, inDays(20)],
+  );
+  assert.equal(await tryAuthor(shop.userId, eventId), null);
 });
 
 test('A FREE PLAN CANNOT AUTHOR, even holding a live subscription window', async () => {
@@ -373,7 +393,8 @@ test('A FREE PLAN CANNOT AUTHOR, even holding a live subscription window', async
   const eventId = await newBookedEvent('freeplan-ev', shop.vendorProfileId);
   await setSubscription(shop.vendorProfileId, inDays(20));
   const err = await tryAuthor(shop.userId, eventId);
-  assert.match(String(err), /paid plan/, `a free shop must be refused: ${err}`);
+  // Wording since 2026-11-09: "…comes with Specialized tools (Verified and up)" — was "…a paid plan".
+  assert.match(String(err), /Verified and up/, `a free shop must be refused: ${err}`);
   assert.doesNotMatch(
     String(err),
     /NOT_SUBSCRIBED/,
@@ -406,7 +427,7 @@ test('the price switch cannot open the door in EITHER position', async () => {
     await setSubscription(shop.vendorProfileId, inDays(20));
     assert.match(
       String(await tryAuthor(shop.userId, eventId)),
-      /paid plan/,
+      /Verified and up/,
       `a free shop must be refused with the tiered switch ${on ? 'ON' : 'OFF'}`,
     );
   }

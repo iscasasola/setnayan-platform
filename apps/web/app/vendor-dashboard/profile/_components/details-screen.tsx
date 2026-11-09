@@ -260,10 +260,6 @@ export function DetailsScreen({
                   <Badge tone="quiet" data="details-deep-search">
                     Verified shops
                   </Badge>
-                ) : d.deepSearch.isFreeNow ? (
-                  <Badge tone="ok" data="details-deep-search">
-                    1 free
-                  </Badge>
                 ) : null
               }
               popovers

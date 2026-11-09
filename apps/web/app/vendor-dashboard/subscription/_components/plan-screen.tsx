@@ -603,9 +603,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         openRails={openRails}
       />
 
-      {/* Deep Search — a metered ₱500/search add-on that researches the vendor's
-          OWN business to auto-fill their profile. Pro+ get 1 free per 28-day
-          cycle; Solo always pays. The runnable surface lives on its own sub-route
+      {/* Deep Search — a metered per-search add-on that researches the vendor's
+          OWN business to auto-fill their profile. One price on every plan, one
+          search per purchase, no free search (owner 2026-11-09). The runnable surface lives on its own sub-route
           (owner 2026-07-22).
           🍎 `data-web-only`: the screen now also mounts in the Shop ⚙ (not only on the refused /subscription route), and
           Deep Search's own route is refused in the app (lib/store-shell.ts) — so the card never shows there
@@ -628,9 +628,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           <p className="mt-0.5 text-sm text-ink/60">
             {isPaidTierForAddon
               ? isVerifiedVendor
-                ? isTierAtLeast(currentTier, 'pro')
-                  ? `We research your business and hand you a “what we learned” review. 1 free every 28 days, then ₱${deepSearchPricePhp.toLocaleString('en-PH')} each.`
-                  : `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search on Solo.`
+                ? `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one search per purchase.`
                 : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
               : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
           </p>

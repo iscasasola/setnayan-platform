@@ -6,7 +6,7 @@ import { payPath } from '@/lib/pay-path';
 import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -14,52 +14,34 @@ import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { deepSearchAiConfigured, type VendorDossier } from '@/lib/vendor-deep-search';
-import {
-  runAndRecordVendorDeepSearch,
-  buildVendorDeepSearchInputs,
-} from '@/lib/vendor-deep-search-run';
+import { deepSearchAiConfigured } from '@/lib/vendor-deep-search';
 import {
   VENDOR_DEEP_SEARCH_SKU_CODE,
   deepSearchEligibility,
-  deepSearchCycleStartMs,
-  countDeepSearchUsesSince,
   resolveDeepSearchPricePhp,
   DEEP_SEARCH_DENY_MESSAGE,
 } from '@/lib/vendor-deep-search-addon';
 
 /**
- * Deep Search (vendor-facing) — run the web-research deep search on the vendor's
- * OWN business and return the "What We Learned" review to auto-fill their
- * profile. Owner-locked 2026-07-22: ₱500 / search, PAID tiers (Solo+) + verified;
- * Pro/Ultra get 1 free per 28-day cycle, Solo always pays.
+ * Deep Search (vendor-facing) — buy ONE web-research deep search on the vendor's OWN business; it runs on payment
+ * approval and its "What We Learned" review auto-fills their profile. Owner-locked 2026-07-22, repriced 2026-11-09
+ * (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO FREE SEARCH ON PRO/ULTRA"): ONE catalogue price on
+ * every plan, ONE search per purchase, and ⛔ NO free search — the Pro/Ultra "1 free per 28-day cycle" path (its
+ * atomic `was_free` claim and the instant free run) was removed with it.
  *
  * ── WHY the gate + price re-check is HERE, server-side ──────────────────────
- * Nothing else gates a vendor add-on on the orders spine. This action is the
- * ONLY gate: it rejects — BEFORE pricing — a free/verified tier or an unverified
- * shop, then COUNTS the vendor's own uses since the current 28-day cycle start
- * (admin-read for authority) and re-reads the ₱500 authoritative price + the
- * SKU's is_active flag from vendor_billing_catalog (mirrors the AI-addon /
- * Photo-Challenge actions). The client sends only the pay channel — never a
- * price and never the free/paid decision.
+ * Nothing else gates a vendor add-on on the orders spine. This action is the ONLY gate: it rejects — BEFORE pricing —
+ * an unverified shop (and, while the paywall switch is on, a plan below Solo), then re-reads the authoritative price +
+ * the SKU's is_active flag from vendor_billing_catalog. The client sends only the pay channel — never a price.
  *
- * TWO paths, one action (recurring billing is UNBUILT, so this is the cleanest
- * split):
- *   • FREE search (resolved price ₱0 · Pro+ with 0 uses this cycle) → RUN NOW,
- *     record was_free=true, return the dossier. Nothing to pay.
- *   • PAID search (₱500 · Solo, or a Pro+ vendor's 2nd+ run this cycle) →
- *     apply-then-pay: a 'submitted' order + a pending 'payments' row that lands
- *     in /admin/payments. On admin approval, the sku-activation hook
- *     ('vendor_deep_search') RUNS the search, stores the dossier, and records
- *     was_free=false — pay-then-run, because there is no credit ledger to draw a
- *     pre-paid run from yet.
+ * ONE path: apply-then-pay — a 'submitted' order + a pending 'payments' row that lands in /admin/payments. On admin
+ * approval, the sku-activation hook ('vendor_deep_search') RUNS the one search, stores the dossier, and records it
+ * (was_free=false) — pay-then-run, one order = one search.
  */
 
 export type VendorDeepSearchActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  /** Free search ran instantly — the dossier is ready to review now. */
-  | { status: 'ran'; dossier: VendorDossier; wasFree: boolean; message: string; dossierId: number; searchedAt: string }
   /** Paid search — an apply-then-pay order was created; runs on admin approval. */
   | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string };
 
@@ -82,7 +64,6 @@ function generateReferenceCode(): string {
 
 
 const DEEP_SEARCH_PAGE = '/vendor-dashboard/deep-search';
-const DETAILS_PAGE = '/vendor-dashboard/profile';
 
 export async function runVendorDeepSearch(
   _prev: VendorDeepSearchActionState,
@@ -114,16 +95,14 @@ export async function runVendorDeepSearch(
   }
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────
-  // tier_state / tier_expires_at / verification_state are not in
+  // tier_state / verification_state are not in
   // FULL_VENDOR_PROFILE_SELECT — soft probe them together.
   const { data: gateRow } = await supabase
     .from('vendor_profiles')
-    .select('tier_state, tier_expires_at, verification_state')
+    .select('tier_state, verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   const tier = (gateRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const tierExpiresAt =
-    (gateRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? null;
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
@@ -138,14 +117,9 @@ export async function runVendorDeepSearch(
     return err(DEEP_SEARCH_DENY_MESSAGE[eligibility.reason]);
   }
 
-  // ── Allowance count → the price decision (admin-read for authority) ─────────
-  const admin = createAdminClient();
-  const cycleStartIso = new Date(deepSearchCycleStartMs(tierExpiresAt, Date.now())).toISOString();
-  const usesThisCycle = await countDeepSearchUsesSince(admin, vendorProfileId, cycleStartIso);
-
-  // Re-read the authoritative price + is_active from the admin-managed catalog — THIS shop's band row (owner
-  // 2026-11-04, "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN": Pro/Ultra one row, Free/Verified/Solo another).
-  // A retired row (is_active=false) blocks the sale. The ORDER still carries `VENDOR_DEEP_SEARCH_SKU_CODE`.
+  // ── The price decision ─────────────────────────────────────────────────────
+  // Re-read the authoritative price + is_active from the admin-managed catalog — the ONE row on every plan (owner
+  // 2026-11-09). A retired row (is_active=false) blocks the sale. The ORDER carries `VENDOR_DEEP_SEARCH_SKU_CODE`.
   const { data: skuRow } = await supabase
     .from('vendor_billing_catalog')
     .select('price_php, is_active')
@@ -154,91 +128,13 @@ export async function runVendorDeepSearch(
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
     return err('Deep Search is temporarily unavailable. Please try again later.');
   }
-  const catalogCyclePricePhp =
-    skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
-      ? Number((skuRow as { price_php: number | string }).price_php)
-      : null;
-  // ⚠ INJECTED AS THE INPUT, never as the final price. resolveDeepSearchPricePhp returns ₱0 for a Pro+ vendor's
-  // first run of the cycle BEFORE it reads this value — overwriting `pricePhp` afterwards would silently DELETE the
-  // Pro+ free search.
-  const cyclePricePhp = catalogCyclePricePhp;
-  let pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
+  const cyclePricePhp = skuRow ? Number((skuRow as { price_php: number | string }).price_php) : null;
+  const pricePhp = resolveDeepSearchPricePhp({ cyclePricePhp });
 
-  const inputs = buildVendorDeepSearchInputs({
-    business_name: profile.business_name,
-    website: profile.website ?? null,
-    location_city: profile.location_city ?? null,
-    services: profile.services ?? [],
-    gallery_video_links: profile.gallery_video_links ?? [],
-  });
-
-  // ── FREE search → ATOMICALLY CLAIM the allowance, THEN run ──────────────────
-  // The old flow was read-decide-run: count uses → ₱0 → run → write the usage row
-  // AFTER. Concurrent requests all read 0 uses and all ran free. Now we CLAIM the
-  // one free run per cycle BEFORE running: the partial unique index
-  // (vendor_profile_id, free_cycle_start) WHERE was_free serializes a burst —
-  // exactly one INSERT wins, the rest hit a unique violation and fall through to
-  // the paid ₱500 path. Matches the AI/booth add-ons' atomic trial claims.
-  if (pricePhp <= 0) {
-    const { data: claimRow, error: claimErr } = await admin
-      .from('vendor_deep_search_uses')
-      .insert({
-        vendor_profile_id: vendorProfileId,
-        was_free: true,
-        free_cycle_start: cycleStartIso,
-        order_id: null,
-        dossier_id: null,
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (!claimErr && claimRow) {
-      // Won the claim → run the free search against this pre-claimed usage row.
-      const claimUseId = (claimRow as { id: number }).id;
-      const result = await runAndRecordVendorDeepSearch({
-        admin,
-        vendorProfileId,
-        requestedByUserId: user.id,
-        inputs,
-        wasFree: true,
-        orderId: null,
-        claimUseId,
-      });
-      if (result.status === 'failed') {
-        // Roll the claim back so a retry still gets this cycle's free run — a
-        // failed run must never burn the allowance.
-        await admin.from('vendor_deep_search_uses').delete().eq('id', claimUseId);
-        return err(result.error);
-      }
-      revalidatePath(DEEP_SEARCH_PAGE);
-      // 🔎 Shop › Details carries the Deep Search card too (Supplier dashboard v13): its "Last search" line redraws.
-      revalidatePath(DETAILS_PAGE);
-      return {
-        status: 'ran',
-        dossier: result.dossier,
-        // 📄 The result's id — its PDF is made from it (`/api/vendor/deep-search-pdf`).
-        dossierId: result.dossierId,
-        searchedAt: new Date().toISOString(),
-        wasFree: true,
-        message: 'Deep Search finished — review what we learned and apply it to your profile.',
-      };
-    }
-
-    // Lost the claim (unique violation) or a transient insert error → the free run
-    // for this cycle is gone. FAIL TOWARD CHARGING: re-price to the paid ₱500 and
-    // continue to apply-then-pay (never hand out a second free run).
-    pricePhp = resolveDeepSearchPricePhp({
-      tier,
-      usesThisCycle: usesThisCycle + 1,
-      cyclePricePhp,
-    });
-  }
-
-  // ── PAID search → apply-then-pay (runs on admin approval) ───────────────────
+  // ── apply-then-pay (runs on admin approval) ─────────────────────────────────
   // Without the AI research engine (ANTHROPIC_API_KEY unset) a run silently
-  // degrades to the free keyless Lite pass — so a paid ₱500 charge would buy
-  // nothing the free tier doesn't already get. Block the SALE (the free Lite path
-  // above still works at ₱0). No order is created, so nothing is charged.
+  // degrades to the keyless Lite pass — so a paid charge would buy nothing worth
+  // paying for. Block the SALE. No order is created, so nothing is charged.
   if (!deepSearchAiConfigured()) {
     return err(
       'Deep Search is temporarily unavailable — the research engine is offline. You won’t be charged.',
@@ -246,7 +142,7 @@ export async function runVendorDeepSearch(
   }
 
   // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
-  // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
+  // nobody can pay into.
   const channel = await railForNewOrder(supabase, formData.get('channel'));
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
   const referenceCode = generateReferenceCode();
@@ -263,8 +159,6 @@ export async function runVendorDeepSearch(
   // `resolveVendorRoleForProfile` + canManageVendor (PROFILE-scoped, so a role
   // held on another shop does not count) → `deepSearchEligibility` on a fresh
   // tier/verification read → the SKU is_active reject → `deepSearchAiConfigured`.
-  // Reuses the `admin` client already created above for the allowance count —
-  // one service-role client per request, not two.
   const { data: orderRow, error: oErr } = await createMoneyWriterClient()
     .from('orders')
     .insert(

@@ -893,6 +893,7 @@ export async function buildPersonalDataExport(
     supplierScansRes,
     chatSeatsRes,
     blockerShowsRes,
+    privateReceivedRes,
   ] = await Promise.all([
     // What Setnayan told this person in the app. Recipient-scoped: every row is
     // addressed to them. A body can quote a chat message somebody sent them, so
@@ -1109,6 +1110,17 @@ export async function buildPersonalDataExport(
       .from('chat_blocker_shows')
       .select('thread_id, blocker_kind, subject_key, shown_count, first_shown_at, last_shown_at')
       .eq('user_id', user.id),
+    // 🔒 RA 10173 access right (owner FINAL RULINGS 2026-11-09): the PRIVATE lines sent TO this person
+    // (`recipient_user_id` = the subject, migration 20271329968207). Their sender's own copy is
+    // `chat_messages_authored`; this is the recipient's. Privileged when the key is present, because a host who
+    // has since left the conversation still owns what was said to them; bounded by recipient_user_id = the
+    // subject, fixed projection. Without the key, the person's own session reads it (the restrictive policy lets
+    // a recipient read their own private lines).
+    (admin ?? supabase)
+      .from('chat_messages')
+      .select('message_id, thread_id, sender_role, body, created_at')
+      .eq('recipient_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -1199,6 +1211,7 @@ export async function buildPersonalDataExport(
   const supplierScans = listOutcome('supplier_scans_made', supplierScansRes, adminUnavailable);
   const chatSeats = listOutcome('chat_conversations_hosted', chatSeatsRes, adminUnavailable);
   const blockerShows = listOutcome('chat_blocker_shows', blockerShowsRes);
+  const privateReceived = listOutcome('chat_private_messages_received', privateReceivedRes);
 
   // Receipt links for the ledger: presigned from the payment-proof folder of the
   // row's OWN event (the only folder its writer accepts), with the expiry the
@@ -1342,6 +1355,7 @@ export async function buildPersonalDataExport(
     supplierScans,
     chatSeats,
     blockerShows,
+    privateReceived,
   ]);
 
   const exported = {
@@ -1518,6 +1532,9 @@ export async function buildPersonalDataExport(
     chat_conversations_hosted: chatSeats.rows,
     // How often each unanswered chat reminder was shown to you.
     chat_blocker_shows: blockerShows.rows,
+    // The private messages sent TO you inside a shared chat — only you and their sender could read them. An
+    // admin-prepared file carries no message text (the same rule as chat_messages_authored).
+    chat_private_messages_received: forAdmin ? withoutMessageText(privateReceived.rows) : privateReceived.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/

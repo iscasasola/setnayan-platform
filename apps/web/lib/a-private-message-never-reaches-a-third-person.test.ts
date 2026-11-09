@@ -68,6 +68,10 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
   // held by lib/the-ai-never-reads-a-private-message.test.ts.
   'lib/vendor-autoreply/inbox-hook.ts': 'filters private lines OUT of the AI’s read of the latest host line',
   'lib/vendor-autoreply/voice-learning.ts': 'filters private lines OUT of the AI’s voice sample',
+  // A READ FILTER, not a writer (Build 3 lane B round 3, RA 10173 access right): the export reads the private lines
+  // sent TO its subject — `.eq('recipient_user_id', user.id)`, so the admin's service-role door is bounded by it;
+  // run as written by tests/db/a-private-message-never-reaches-a-third-person.db.test.ts (export).
+  'lib/personal-data-export.ts': 'the subject’s own received private lines, filtered recipient_user_id = the subject',
 };
 
 /** Every code mention (comments stripped) of the private-message column. */

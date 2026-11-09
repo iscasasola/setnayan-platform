@@ -15,8 +15,10 @@
  *   1 · NOTICES — a private insert (the browser's own write, the only way one
  *       can exist: no server path names a recipient — pinned by
  *       lib/a-private-message-never-reaches-a-third-person.test.ts) writes no
- *       `notifications` row and no report flag for anybody, and every AFTER
- *       INSERT trigger on chat_messages is one this file has judged.
+ *       report flag and no push, and exactly ONE `notifications` row — the
+ *       recipient's, with none of the words ("Only the recipient is notified",
+ *       20271333348826). Every AFTER INSERT trigger on chat_messages is one
+ *       this file has judged.
  *   2 · DIGEST — the only chat-shaped number any digest reads is the admin's
  *       open `chat_message_flags` count (lib/admin/queue-counts.ts); a private
  *       message adds nothing to it. No digest module reads chat_messages (the
@@ -26,11 +28,12 @@
  *       own session. The REAL `previewFor` + `matchesSearch` run over the REAL
  *       preview read here, and a third person's search never finds the words.
  *       No SQL function searches chat_messages at all.
- *   4 · EXPORT — the export's chat read is lifted out of
+ *   4 · EXPORT — the export's chat reads are lifted out of
  *       lib/personal-data-export.ts and run as written, through BOTH doors (the
  *       person's own session, and the admin's service role). The private line
- *       is in its sender's file and nobody else's — and the sabotage run shows
- *       the admin door leans on that filter alone.
+ *       is in its sender's file and its recipient's (RA 10173 access right,
+ *       round 3) and nobody else's — and the sabotage run shows the admin door
+ *       leans on those filters alone.
  *
  * Run (from apps/web): tsx --test tests/db/a-private-message-never-reaches-a-third-person.db.test.ts
  */
@@ -189,11 +192,11 @@ type Who = keyof ReturnType<typeof everyone>;
 
 /**
  * The private pairs a conversation can hold — host→supplier, supplier→host,
- * host→coordinator (from either host), host→host, shop teammate→host. Each
- * names who wrote, who it is for, and so who is a THIRD person. (A coordinator
- * cannot WRITE a chat line in this schema at all — tg_chat_messages_derive_sender
- * has no coordinator branch, "sender is not a party" — so there is no
- * coordinator→anyone pair to prove; they are a recipient or a third person.)
+ * host→coordinator (from either host), host→host, shop teammate→host, and —
+ * since 20271333348826 gave tg_chat_messages_derive_sender its coordinator
+ * branch (FINAL RULINGS 2026-11-09: coordinators post like hosts) —
+ * coordinator→host and coordinator→supplier. Each names who wrote, who it is
+ * for, and so who is a THIRD person.
  */
 const PAIRS: Array<{ from: Who; to: Who }> = [
   { from: 'hostA', to: 'supplier' },
@@ -202,6 +205,8 @@ const PAIRS: Array<{ from: Who; to: Who }> = [
   { from: 'hostB', to: 'coordinator' },
   { from: 'hostA', to: 'hostB' },
   { from: 'teammate', to: 'hostB' },
+  { from: 'coordinator', to: 'hostA' },
+  { from: 'coordinator', to: 'supplier' },
 ];
 
 test('the private-message migration applied on top of the full corpus (not skipped)', () => {
@@ -210,7 +215,7 @@ test('the private-message migration applied on top of the full corpus (not skipp
 
 // ── 1 · notices ─────────────────────────────────────────────────────────────
 
-test('notices: a private message writes no notification and no report flag for anybody, in every pair', async () => {
+test('notices: a private message notifies its recipient ONCE and nobody else — no flag, no push, no words — in every pair', async () => {
   const w = await newWorld();
   const p = everyone(w);
   const counts = async () => {
@@ -227,9 +232,15 @@ test('notices: a private message writes no notification and no report flag for a
   try {
     for (const { from, to } of PAIRS) {
       const before = await counts();
-      await send(w, p[from], `psst ${from} to ${to}`, p[to]);
+      const words = `psst ${from} to ${to}`;
+      await send(w, p[from], words, p[to]);
       const afterPrivate = await counts();
-      assert.deepEqual(afterPrivate, before, `a private ${from}→${to} line wrote a notice, a flag or a push`);
+      // "Only the recipient is notified" (20271333348826) — one in-app row, theirs.
+      assert.deepEqual(afterPrivate, { ...before, n: before.n + 1 }, `a private ${from}→${to} line wrote a flag, a push, or ≠1 notice`);
+      const newest = (await db.query<{ user_id: string; title: string; body: string | null }>(
+        `SELECT user_id, title, body FROM public.notifications ORDER BY created_at DESC, notification_id DESC LIMIT 1`)).rows[0]!;
+      assert.equal(newest.user_id, p[to], `the ${from}→${to} notice went to someone other than its recipient`);
+      assert.ok(!`${newest.title} ${newest.body ?? ''}`.includes(words), 'the notice copied the private words');
     }
     // The control: a shared line still goes out — the measurement can see a push.
     const before = await counts();
@@ -254,8 +265,10 @@ test('notices: every AFTER INSERT trigger on chat_messages is one this lane judg
   assert.deepEqual(got, AUDITED_AFTER_TRIGGERS);
   const webhook = r.rows.find((x) => x.tgname === 'chat_messages_notify_webhook');
   assert.match(webhook?.def ?? '', /WHEN \(\(new\.recipient_user_id IS NULL\)\)/, 'the push webhook must fire for shared rows only');
+  const tells = r.rows.find((x) => x.tgname === 'chat_messages_private_tells_its_reader');
+  assert.match(tells?.def ?? '', /WHEN \(\(new\.recipient_user_id IS NOT NULL\)\)/, 'the private notice must fire for private rows only');
   // None of the others writes a notice or calls out.
-  for (const x of r.rows.filter((y) => y.tgname !== 'chat_messages_notify_webhook')) {
+  for (const x of r.rows.filter((y) => !['chat_messages_notify_webhook', 'chat_messages_private_tells_its_reader'].includes(y.tgname))) {
     const src = (await db.query<{ s: string }>(`SELECT prosrc AS s FROM pg_proc WHERE proname = $1`, [x.proname])).rows
       .map((y) => y.s).join('\n');
     assert.doesNotMatch(src, /\bnotifications\b|http_post|emit_notification/i, `${x.proname} writes a notice or calls out`);
@@ -265,6 +278,10 @@ test('notices: every AFTER INSERT trigger on chat_messages is one this lane judg
 const AUDITED_AFTER_TRIGGERS: string[] = [
   // Fires for shared rows only (WHEN, 20271329968207) — asserted above.
   'chat_messages_notify_webhook → notify_chat_message_webhook',
+  // "Only the recipient is notified" (20271333348826): ONE in-app row for
+  // recipient_user_id, no words copied, WHEN recipient_user_id IS NOT NULL — asserted
+  // above and in the notices test.
+  'chat_messages_private_tells_its_reader → tg_chat_messages_private_tells_its_reader',
   // Lifts the supplier's name on the thread once a message lands; no body, no notice.
   'chat_messages_unlock_vendor_name → tg_chat_messages_unlock_vendor_name',
   // Sets chat_threads.updated_at = NEW.created_at. No body and no notice; shared lines
@@ -376,44 +393,51 @@ test('search: no SQL function searches chat_messages (search runs over RLS-read 
 // ── 4 · export ──────────────────────────────────────────────────────────────
 
 /** The export's chat_messages read, lifted out of the shipped builder as written. */
-function exportChatRead(): { select: string; filterColumn: string } {
+function exportChatReads(): Array<{ select: string; filterColumn: string }> {
   const src = stripComments(
     readFileSync(join(import.meta.dirname, '..', '..', 'lib', 'personal-data-export.ts'), 'utf8'),
   );
-  const at = src.indexOf(".from('chat_messages')");
-  assert.ok(at >= 0, 'the export no longer reads chat_messages by literal — re-point this test');
-  assert.equal(src.indexOf(".from('chat_messages')", at + 1), -1, 'a second chat_messages read in the export — prove it too');
-  const chain = src.slice(at, src.indexOf('.order(', at));
-  const select = /\.select\(\s*'([^']+)'\s*\)/.exec(chain)?.[1];
-  const eqs = [...chain.matchAll(/\.eq\(\s*'([a-z_]+)'\s*,\s*user\.id\s*\)/g)].map((m) => m[1]!);
-  assert.ok(select, `no select list in the export's chat read: ${chain}`);
-  assert.equal(eqs.length, 1, `the export's chat read must name exactly one subject column: ${chain}`);
-  assert.match(select, /^[a-z_, ]+$/, 'select list must be plain columns to run here');
-  return { select, filterColumn: eqs[0]! };
+  const reads: Array<{ select: string; filterColumn: string }> = [];
+  for (let at = src.indexOf(".from('chat_messages')"); at >= 0; at = src.indexOf(".from('chat_messages')", at + 1)) {
+    const chain = src.slice(at, src.indexOf('.order(', at));
+    const select = /\.select\(\s*'([^']+)'\s*\)/.exec(chain)?.[1];
+    const eqs = [...chain.matchAll(/\.eq\(\s*'([a-z_]+)'\s*,\s*user\.id\s*\)/g)].map((m) => m[1]!);
+    assert.ok(select, `no select list in an export chat read: ${chain}`);
+    assert.equal(eqs.length, 1, `each export chat read must name exactly one subject column: ${chain}`);
+    assert.match(select, /^[a-z_, ]+$/, 'select list must be plain columns to run here');
+    reads.push({ select, filterColumn: eqs[0]! });
+  }
+  assert.ok(reads.length > 0, 'the export no longer reads chat_messages by literal — re-point this test');
+  return reads;
 }
 
-test('export: a private line is in its sender’s file only — through the person’s own door AND the admin’s', async () => {
-  const { select, filterColumn } = exportChatRead();
-  assert.equal(filterColumn, 'sender_user_id', 'the export reads AUTHORED messages (chat_messages_authored)');
+test('export: a private line is in its sender’s and its recipient’s files only — through the person’s own door AND the admin’s', async () => {
+  const reads = exportChatReads();
+  // The AUTHORED read (chat_messages_authored) and — RA 10173 access right, round 3 —
+  // the private lines sent TO the person (chat_private_messages_received). No third read.
+  assert.deepEqual(reads.map((r) => r.filterColumn).sort(), ['recipient_user_id', 'sender_user_id']);
   const w = await newWorld();
   const p = everyone(w);
   const ids = new Map<string, { from: Who; to: Who }>();
   for (const pair of PAIRS) ids.set(await send(w, p[pair.from], `export ${pair.from}→${pair.to}`, p[pair.to]), pair);
 
-  const sql = `SELECT ${select} FROM public.chat_messages WHERE ${filterColumn} = $1 ORDER BY created_at`;
   const measured: Record<string, string[]> = {};
   for (const who of Object.keys(p) as Who[]) {
-    const own = await as(p[who], async () => (await db.query<{ message_id: string }>(sql, [p[who]])).rows);
-    const admin = await asService(async () => (await db.query<{ message_id: string }>(sql, [p[who]])).rows);
-    for (const [door, rows] of [['own session', own], ['admin (service role)', admin]] as const) {
+    for (const door of ['own session', 'admin (service role)'] as const) {
+      const rows: { message_id: string }[] = [];
+      for (const { select, filterColumn } of reads) {
+        const sql = `SELECT ${select} FROM public.chat_messages WHERE ${filterColumn} = $1 ORDER BY created_at`;
+        const run = async () => (await db.query<{ message_id: string }>(sql, [p[who]])).rows;
+        rows.push(...(door === 'own session' ? await as(p[who], run) : await asService(run)));
+      }
       const privateIn = rows.map((r) => ids.get(r.message_id)).filter((x): x is { from: Who; to: Who } => x != null);
       measured[`${who} · ${door}`] = privateIn.map((x) => `${x.from}→${x.to}`);
       for (const x of privateIn) {
         assert.ok(who === x.from || who === x.to, `${who}'s export (${door}) carries the private ${x.from}→${x.to} line`);
       }
-      // …and every private line this person SENT is in their file.
-      const sent = PAIRS.filter((x) => x.from === who).map((x) => `${x.from}→${x.to}`).sort();
-      assert.deepEqual(privateIn.map((x) => `${x.from}→${x.to}`).sort(), sent, `${who}'s export (${door}) is missing a line they wrote`);
+      // …and every private line this person SENT or RECEIVED is in their file.
+      const theirs = PAIRS.filter((x) => x.from === who || x.to === who).map((x) => `${x.from}→${x.to}`).sort();
+      assert.deepEqual(privateIn.map((x) => `${x.from}→${x.to}`).sort(), theirs, `${who}'s export (${door}) is missing a line of theirs`);
     }
   }
   console.log('private lines per export file:', JSON.stringify(measured));
@@ -422,7 +446,7 @@ test('export: a private line is in its sender’s file only — through the pers
 test('export (sabotage): without its subject filter the admin door WOULD carry every private line', async () => {
   // Proves the test above measures the filter, not an accident: the admin's
   // service role bypasses RLS, so the sender filter is the only bound there.
-  const { select } = exportChatRead();
+  const { select } = exportChatReads()[0]!;
   const w = await newWorld();
   const id = await send(w, w.hostA, 'Only for the supplier', w.supplier);
   const unfiltered = await asService(async () =>

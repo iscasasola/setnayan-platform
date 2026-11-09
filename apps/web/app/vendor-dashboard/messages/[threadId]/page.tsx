@@ -148,6 +148,7 @@ import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-t
 import { QuestionsSendPanel } from './_components/questions-send-panel';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
+import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
@@ -858,7 +859,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     });
   })().catch((e: unknown): ChatPinRead => {
     console.error('[vendor thread] pin facts read failed', e);
-    return { facts: [], masked: false, expiredQuoteId: null };
+    return { facts: [], masked: false, streamMasked: false, expiredQuoteId: null };
   });
   // 2026-09-19 · can this couple see anywhere to pay you? Shown on the live
   // ACCEPTED quote card as the same one-tap door the Overview's booking card
@@ -1464,11 +1465,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   const pinFacts: PinFact[] = [...(askPin ? [askPin] : []), ...chatPins.facts];
   // 🚦 THE ONE BLOCKER — the booking ask first (its own panel answers it), else the oldest blocking fact this page has
   // an answer for: an expired quotation (Send a new quotation, seeded from the old one), an overdue booking fee (its
-  // pay page), an unset call time within 7 days (their Schedule). Each answer is a door the supplier already has.
+  // pay page), an unset call time within 7 days (their Schedule), a change they asked for within 7 days (Decline | Accept). Each answer is a door the supplier already has.
   const blockFact =
     askPin && toolNodes['booking-ask']
       ? askPin
-      : firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate: event?.event_date ?? null }, ['quote_expired', 'booking_fee', 'call_time']);
+      : firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate: event?.event_date ?? null }, ['quote_expired', 'booking_fee', 'call_time', 'change_approval']);
   const chatBlocker = (() => {
     if (!blockFact) return null;
     const kind = BLOCKER_OF[blockFact.kind];
@@ -1515,6 +1516,20 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         why: 'The booking fee is past its day. Pay it to keep working on this event.',
         action: (
           <ActionButton tone="brand" main icon={<Wallet aria-hidden strokeWidth={1.9} />} label="Pay the booking fee" href={payHref} className="!h-11 !min-h-11 w-full" />
+        ),
+      };
+    }
+    if (blockFact.kind === 'change_approval') {
+      return {
+        ...base,
+        topic: 'quote' as const,
+        why: 'Their day is a week away or less. Answer it here, or return to the chat to counter.',
+        action: (
+          <BlockerChangeRow
+            threadId={threadId}
+            amendmentId={blockFact.key.slice('adjustment:'.length)}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+          />
         ),
       };
     }

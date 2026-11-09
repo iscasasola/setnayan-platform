@@ -53,7 +53,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // ── The subject's own records ───────────────────────────────────────────
   { table: 'users', decision: 'exported', as: 'profile (users)' },
   { table: 'event_members', decision: 'exported', as: 'event_memberships' },
-  { table: 'chat_messages', decision: 'exported', as: 'chat_messages_authored' },
+  // Two sections: what they wrote, and (RA 10173, Build 3 lane B round 3) the private lines sent TO them.
+  { table: 'chat_messages', decision: 'exported', as: 'chat_messages_authored · chat_private_messages_received' },
   { table: 'orders', decision: 'exported', as: 'orders' },
   { table: 'payments', decision: 'exported', as: 'payments' },
   // 📱 A crew member's own passes onto a shop's Event Hub (2026-10-29) — the name they typed, their role, whether

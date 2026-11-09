@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7499
+# facts: 7506
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5438
 #   policy    1088
 #   view      9
-#   func      343
+#   func      350
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7215,15 +7215,22 @@ func	public.cancel_part_reopen_request(p_finalization_id uuid)	secdef=yes exec=a
 func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
+func	public.chat_amendment_items_read(p_amendment_ids uuid[])	secdef=no exec=authenticated search_path=public
+func	public.chat_amendments_read(p_amendment_ids uuid[])	secdef=no exec=authenticated search_path=public
 func	public.chat_blocker_shown(p_thread_id uuid, p_kind text, p_subject_key text)	secdef=yes exec=authenticated search_path=public
 func	public.chat_call_time_for(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_coordinator_agree_needed(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_decision_open(p_thread_id uuid, p_title text)	secdef=yes exec=authenticated search_path=public
 func	public.chat_decision_set_closed(p_topic_id uuid, p_closed boolean)	secdef=yes exec=authenticated search_path=public
 func	public.chat_is_in_thread(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.chat_mask_money_json(p_value jsonb)	secdef=no exec=authenticated search_path=public
+func	public.chat_mask_pesos(p_text text)	secdef=no exec=authenticated search_path=public
+func	public.chat_money_hidden(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_pair_is_blocked(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.chat_quotes_read(p_event_id uuid, p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.chat_thread_add_host(p_thread_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_thread_leave(p_thread_id uuid, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.chat_thread_messages_read(p_thread_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.chat_thread_my_left_note(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.claim_manpower_gig(p_gig_id uuid)	secdef=yes exec=authenticated search_path=public

@@ -29,6 +29,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
   fetchMessages,
+  fetchMessagesMasked,
   formatChatTimestamp,
   type ChatMessageRow,
   type ChatSenderRole,
@@ -85,6 +86,7 @@ import { ChatPins } from './chat/chat-pins';
 import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
 import { PlusDraft } from './chat/plus-draft';
 import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
+import { HOSTS_ONLY } from '@/lib/money-mask';
 import type { RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
@@ -139,7 +141,8 @@ type ProposalLineItem = {
 type ProposalCardData = {
   publicId: string;
   title: string;
-  totalCentavos: number;
+  /** Null = the server hid the amount from this reader ("₱ — hosts only"). */
+  totalCentavos: number | null;
   status: string;
   /**
    * `vendor_proposals.service_card_ids` — which service cards this quote was
@@ -267,6 +270,14 @@ type Props = {
   blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
   plus?: { eventId: string; returnPath: string } | null;
+  /**
+   * 🔒 THE SERVER SAYS THIS READER'S AMOUNTS ARE HIDDEN (`chat_money_hidden` — a coordinator without Budget &
+   * payments, owner 2026-11-09 "₱ — hosts only" everywhere). The stream then reads messages, quotes and amendments
+   * ONLY through the masking readers (migration 20271333348826), so the amounts never arrive from those reads, and a
+   * realtime row is re-read through the reader instead of drawn from its payload. False for everyone else: the normal
+   * path is unchanged.
+   */
+  moneyHidden?: boolean;
   /**
    * Where "Counter-offer" goes on a quote card. A URL rather than a callback —
    * the thread pages are server components and cannot pass functions across the
@@ -396,12 +407,18 @@ export function ChatMessageStream({
   pinBodies,
   blocker = null,
   plus = null,
+  moneyHidden = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // 🔒 One read for the whole thread: through the masking reader when the server says the amounts are hidden.
+  const readThread = useCallback(
+    (client: typeof supabase, id: string) => (moneyHidden ? fetchMessagesMasked(client, id) : fetchMessages(client, id)),
+    [moneyHidden],
+  );
   /** Who is IN this chat now — the keys of this stream's own presence channel (`chat-presence-${threadId}`). */
   const [presentIds, setPresentIds] = useState<ReadonlySet<string>>(() => new Set());
   /**
@@ -479,12 +496,15 @@ export function ChatMessageStream({
     void (async () => {
       const reads = await Promise.all(
         pairs.map((m) =>
-          supabase
-            .from('vendor_proposals')
-            .select(QUOTE_VERSION_SELECT)
-            .eq('event_id', m.event_id)
-            .eq('vendor_profile_id', m.vendor_profile_id)
-            .neq('status', 'draft'),
+          moneyHidden
+            ? // 🔒 Masked reader: no version history with figures — "what changed" is a price story.
+              Promise.resolve({ data: [] as QuoteVersionRow[], error: null })
+            : supabase
+                .from('vendor_proposals')
+                .select(QUOTE_VERSION_SELECT)
+                .eq('event_id', m.event_id)
+                .eq('vendor_profile_id', m.vendor_profile_id)
+                .neq('status', 'draft'),
         ),
       );
       if (cancelled) return;
@@ -501,12 +521,21 @@ export function ChatMessageStream({
       // never appears in the thread, and both the couple and the supplier are
       // in that conversation waiting on it. The cost lands on whoever was
       // waiting, and neither of them can tell anything went wrong.
-      const { data, error } = await supabase
-        .from('vendor_proposals')
-        .select(
-          'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids',
-        )
-        .in('proposal_id', ids);
+      const cardCols = 'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids';
+      const { data, error } = moneyHidden
+        ? // 🔒 Through the masking reader, one per conversation pair — amounts arrive as null.
+          await Promise.all(
+            pairs.map((m) =>
+              supabase
+                .rpc('chat_quotes_read', { p_event_id: m.event_id, p_vendor_profile_id: m.vendor_profile_id })
+                .select(cardCols)
+                .in('proposal_id', ids),
+            ),
+          ).then((rs) => {
+            const bad = rs.find((r) => r.error);
+            return bad ? { data: null, error: bad.error } : { data: rs.flatMap((r) => r.data ?? []), error: null };
+          })
+        : await supabase.from('vendor_proposals').select(cardCols).in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
         if (error) console.error('[chat] proposal card read refused', error);
@@ -520,7 +549,7 @@ export function ChatMessageStream({
           resolved_at: string | null;
           public_id: string;
           title: string;
-          total_centavos: number;
+          total_centavos: number | null;
           status: string;
           line_items: ProposalLineItem[] | null;
           service_card_ids: unknown;
@@ -544,7 +573,7 @@ export function ChatMessageStream({
     return () => {
       cancelled = true;
     };
-  }, [messages, supabase]);
+  }, [messages, supabase, moneyHidden]);
 
   // Appointment cards (negotiation auto-reader Phase 1): a message with
   // appointment_id renders as a schedule request card. Fetch the appointment's
@@ -628,16 +657,20 @@ export function ChatMessageStream({
     if (ids.length === 0) return;
     let cancelled = false;
     void (async () => {
+      const amCols = 'amendment_id, status, raised_by, note, base_proposal_id, locked_at';
+      const itemCols = 'item_id, amendment_id, item_kind, label, amount_php, delivered_at, sort_order';
+      // 🔒 A masked reader reads both through the masking readers — amounts arrive as null.
       const [{ data: amRows }, { data: itemRows }] = await Promise.all([
-        supabase
-          .from('proposal_amendments')
-          .select('amendment_id, status, raised_by, note, base_proposal_id, locked_at')
-          .in('amendment_id', ids),
-        supabase
-          .from('proposal_amendment_items')
-          .select('item_id, amendment_id, item_kind, label, amount_php, delivered_at, sort_order')
-          .in('amendment_id', ids)
-          .order('sort_order', { ascending: true }),
+        moneyHidden
+          ? supabase.rpc('chat_amendments_read', { p_amendment_ids: ids }).select(amCols)
+          : supabase.from('proposal_amendments').select(amCols).in('amendment_id', ids),
+        moneyHidden
+          ? supabase.rpc('chat_amendment_items_read', { p_amendment_ids: ids }).select(itemCols)
+          : supabase
+              .from('proposal_amendment_items')
+              .select(itemCols)
+              .in('amendment_id', ids)
+              .order('sort_order', { ascending: true }),
       ]);
       if (cancelled || !amRows) return;
       const ams = amRows as Array<{
@@ -653,7 +686,8 @@ export function ChatMessageStream({
         new Set(ams.map((a) => a.base_proposal_id).filter((v): v is string => Boolean(v))),
       );
       const totalByProp = new Map<string, number>();
-      if (propIds.length > 0) {
+      if (propIds.length > 0 && !moneyHidden) {
+        // (A masked reader is never handed a base total — the card then reads "₱ — hosts only".)
         // The amendment TOTAL is money. A refused read leaves it absent rather
         // than wrong, but absent money in a negotiation reads as "no figure
         // agreed", so the reason is captured instead of swallowed.
@@ -708,7 +742,7 @@ export function ChatMessageStream({
     return () => {
       cancelled = true;
     };
-  }, [messages, supabase, negotiationOn]);
+  }, [messages, supabase, negotiationOn, moneyHidden]);
 
   // ---------------------------------------------------------------------------
   // All · Decisions · Files
@@ -825,7 +859,12 @@ export function ChatMessageStream({
     [threadId, messages, plus, viewerRole, eventDate, supplierReplyActions],
   );
   const pinFacts = useMemo(
-    () => [...extraPins, ...pinsFromDecisions(decisions, counterpartyLabel)],
+    () => {
+      // The server's facts win: a change the page already derived (`adjustment:<id>`, the change-approval blocker) is
+      // not pinned a second time from the conversation's own Decisions.
+      const fromPage = new Set(extraPins.map((p) => p.key));
+      return [...extraPins, ...pinsFromDecisions(decisions, counterpartyLabel).filter((p) => !fromPage.has(p.key))];
+    },
     [extraPins, decisions, counterpartyLabel],
   );
   const allPinBodies = useMemo(() => {
@@ -944,7 +983,7 @@ export function ChatMessageStream({
     const refetchAll = async () => {
       void refetchHearts();
       try {
-        const fresh = await fetchMessages(supabase, threadId);
+        const fresh = await readThread(supabase, threadId);
         if (cancelled) return;
         setMessages(fresh);
       } catch (err) {
@@ -977,6 +1016,11 @@ export function ChatMessageStream({
             filter: `thread_id=eq.${threadId}`,
           },
           (payload) => {
+            // 🔒 A masked reader never draws a payload: the row is re-read through the masking reader.
+            if (moneyHidden) {
+              void refetchAll();
+              return;
+            }
             const row = payload.new as ChatMessageRow;
             setMessages((prev) => {
               // Guard against the same INSERT echoing twice (e.g. on a
@@ -997,6 +1041,10 @@ export function ChatMessageStream({
             filter: `thread_id=eq.${threadId}`,
           },
           (payload) => {
+            if (moneyHidden) {
+              void refetchAll();
+              return;
+            }
             const row = payload.new as ChatMessageRow;
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
@@ -1031,7 +1079,7 @@ export function ChatMessageStream({
       cancelled = true;
       stop();
     };
-  }, [supabase, threadId]);
+  }, [supabase, threadId, readThread, moneyHidden]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new message (but only if the user was already at the bottom).
@@ -1263,7 +1311,7 @@ export function ChatMessageStream({
         void (async () => {
           let fresh: ChatMessageRow[] | null = null;
           try {
-            fresh = await fetchMessages(supabase, threadId);
+            fresh = await readThread(supabase, threadId);
           } catch {
             fresh = null;
           }
@@ -1285,7 +1333,7 @@ export function ChatMessageStream({
       window.removeEventListener(CHAT_PENDING_EVENT, onPending);
       window.removeEventListener(CHAT_SETTLED_EVENT, onSettled);
     };
-  }, [threadId, supabase, viewerRole]);
+  }, [threadId, supabase, viewerRole, readThread]);
 
   // A pending bubble leaves the moment its real row is in the thread.
   useEffect(() => {
@@ -1495,7 +1543,9 @@ export function ChatMessageStream({
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
                       <p className="text-sm text-ink/70">
-                        {card.totalCentavos > 0
+                        {card.totalCentavos == null
+                          ? HOSTS_ONLY
+                          : card.totalCentavos > 0
                           ? formatCentavos(card.totalCentavos)
                           : 'Price on request'}
                         {/* Owner, live 2026-09-20: "₱16,750 · Accepted ·
@@ -1787,6 +1837,7 @@ export function ChatMessageStream({
                     returnPath={returnPathFor(m)}
                     counterpartyLabel={counterpartyLabel}
                     lockHandshake={lockHandshake}
+                    moneyHidden={moneyHidden}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">

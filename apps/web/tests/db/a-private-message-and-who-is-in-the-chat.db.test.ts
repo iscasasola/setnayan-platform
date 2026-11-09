@@ -507,7 +507,7 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
     policies: [
       // Supplier Build 3 · lane C: the members of a chat read its change asks (migration 20271332041210).
       'booking_change_asks.booking_change_asks_members_read',
-      // Supplier Build 3 · lane B: a chat's decision topics (migration 20271332497337).
+      // 20271332497337 (Build 3 lane B): a decision topic is read by the chat's members (and the shop's team).
       'chat_decision_topics.chat_decision_topics_read',
       'chat_messages.chat_messages_member_insert',
       'chat_messages.chat_messages_member_read',
@@ -517,10 +517,15 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
     functions: [
       'ask_for_a_change', // lane C: only a member of the chat may ask (migration 20271332041210)
       'chat_blocker_shown',
-      'chat_is_in_thread', // lane B (migration 20271332497337)
+      // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
+      // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.
+      'chat_is_in_thread',
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',
+      // 20271333348826 (Build 3 lane B, round 3): coordinators post like hosts — the sender trigger's coordinator
+      // branch admits an event_members coordinator only for a thread this helper already lets them read.
+      'tg_chat_messages_derive_sender',
       'unread_message_threads_by_event',
     ],
   });

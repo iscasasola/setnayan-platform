@@ -108,3 +108,23 @@ test('firstBlocker only names a kind the page can answer', () => {
   const s = buildPinFacts(base({ side: 'vendor', quote: q }));
   assert.equal(firstBlocker(s, { nowMs: NOW }, ['booking_fee']), null);
 });
+
+test('✋ a change the other side asked for pins for THIS reader to answer, keyed adjustment:<id> (the server-side count key)', () => {
+  const changes = [{ amendmentId: 'a1', createdAt: '2026-11-08T00:00:00Z', deltaPhp: 4500 }];
+  const host = buildPinFacts(base({ changes }));
+  assert.deepEqual([host[0]!.kind, host[0]!.key, host[0]!.answerer], ['change_approval', 'adjustment:a1', 'you']);
+  assert.match(host[0]!.title, /^Lumina asked for a change · \+₱4,500$/);
+  const shop = buildPinFacts(base({ side: 'vendor', changes: [{ ...changes[0]!, deltaPhp: -1000 }] }));
+  assert.match(shop[0]!.title, /^They asked for a change · −₱1,000$/);
+  assert.equal(buildPinFacts(base({ changes: [{ ...changes[0]!, deltaPhp: null }] }))[0]!.title, 'Lumina asked for a change');
+  // 🔒 the coordinator reads the change, never its figure.
+  const masked = buildPinFacts(base({ mayReadMoney: false, changes }));
+  assert.ok(!/₱\s?\d/.test(masked[0]!.title) && masked[0]!.title.includes(HOSTS_ONLY), masked[0]!.title);
+  assert.equal(firstBlocker(host, { nowMs: NOW, eventDate: '2026-11-12' }, ['change_approval'])?.key, 'adjustment:a1');
+});
+
+test('maskPesos also masks a "PHP" figure, and is idempotent', () => {
+  assert.equal(maskPesos('PHP 12,500.50 or php-300'), `${HOSTS_ONLY} or ${HOSTS_ONLY}`);
+  assert.equal(maskPesos(maskPesos('₱5,000')), HOSTS_ONLY);
+  assert.equal(maskPesos('Room 1,200 sqm'), 'Room 1,200 sqm');
+});

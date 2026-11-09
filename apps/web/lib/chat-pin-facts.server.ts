@@ -24,6 +24,12 @@ export type ChatPinRead = {
   facts: PinFact[];
   /** The money is masked for this reader ("₱ — hosts only"). */
   masked: boolean;
+  /**
+   * The database says this reader's amounts are hidden (`chat_money_hidden`) — the stream then reads through the
+   * masking readers (`chat_thread_messages_read` · `chat_quotes_read` · `chat_amendments_read` ·
+   * `chat_amendment_items_read`), so the amounts never reach the browser from those reads.
+   */
+  streamMasked: boolean;
   /** The newest quote expired (after this read's own expiry pass): its id, for "Send a new quotation". */
   expiredQuoteId: string | null;
 };
@@ -146,11 +152,59 @@ export async function readChatPinFacts(
       }));
     });
 
+  // ✋ Changes the other side asked for, waiting on THIS reader — the change-approval blocker, derived here so its key
+  // (`adjustment:<amendment_id>`) is stable and its shows count server-side like every other blocker.
+  const changesRead = (async () => {
+    const a = await supabase
+      .from('proposal_amendments')
+      .select('amendment_id, created_at')
+      .eq('thread_id', args.threadId)
+      .eq('status', 'proposed')
+      .neq('raised_by', args.side === 'vendor' ? 'vendor' : 'couple')
+      .order('created_at', { ascending: true });
+    if (a.error) {
+      logQueryError('chatPins.changes', a.error, { thread_id: args.threadId }, 'graceful_degrade');
+      return null;
+    }
+    const rows = (a.data ?? []) as { amendment_id: string; created_at: string }[];
+    if (rows.length === 0) return [];
+    const it = await supabase
+      .from('proposal_amendment_items')
+      .select('amendment_id, amount_php')
+      .in('amendment_id', rows.map((r) => r.amendment_id));
+    const sum = new Map<string, number>();
+    if (it.error) logQueryError('chatPins.changeItems', it.error, { thread_id: args.threadId }, 'graceful_degrade');
+    for (const r of (it.data ?? []) as { amendment_id: string; amount_php: number | string | null }[]) {
+      if (r.amount_php != null) sum.set(r.amendment_id, (sum.get(r.amendment_id) ?? 0) + Number(r.amount_php));
+    }
+    return rows.map((r) => ({
+      amendmentId: r.amendment_id,
+      createdAt: r.created_at,
+      // A failed line read names no figure rather than a wrong one.
+      deltaPhp: it.error ? null : (sum.get(r.amendment_id) ?? null),
+    }));
+  })();
+
   // 🔒 Money for a delegate refused Budget & payments is stripped HERE (the supplier always reads its own money).
   const visibilityRead =
     args.side === 'couple' ? resolveBudgetVisibility(supabase, args.eventId, args.userId) : Promise.resolve({ mayRead: true });
+  // 🔒 The database's own answer (`chat_money_hidden`) — the SAME predicate the stream's readers mask by, so the pins
+  // and the stream cannot disagree about who reads "₱ — hosts only". A failed answer is not "visible": the TS rule
+  // above still decides.
+  const hiddenRead =
+    args.side === 'couple'
+      ? supabase
+          .rpc('chat_money_hidden', { p_event_id: args.eventId, p_vendor_profile_id: args.vendorProfileId })
+          .then(({ data, error }) => {
+            if (error) {
+              logQueryError('chatPins.moneyHidden', error, { event_id: args.eventId }, 'graceful_degrade');
+              return null;
+            }
+            return data === true;
+          })
+      : Promise.resolve(false);
 
-  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility] = await Promise.all([
+  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden] = await Promise.all([
     quoteRead,
     callTimeRead,
     accessRead,
@@ -158,7 +212,10 @@ export async function readChatPinFacts(
     agreeRead,
     decisionsRead,
     visibilityRead,
+    changesRead,
+    hiddenRead,
   ]);
+  const masked = !visibility.mayRead || hidden === true;
 
   const inputs: PinFactInputs = {
     side: args.side,
@@ -166,7 +223,7 @@ export async function readChatPinFacts(
     supplierName: args.supplierName,
     nowMs,
     todayPh,
-    mayReadMoney: visibility.mayRead,
+    mayReadMoney: !masked,
     money: args.bookedMoney ? { step: args.bookedMoney.step, schedule: args.bookedMoney.terms?.schedule ?? [] } : null,
     callTime,
     accessAsks,
@@ -174,10 +231,12 @@ export async function readChatPinFacts(
     coordinatorAgree,
     quote,
     decisions,
+    changes,
   };
   return {
     facts: buildPinFacts(inputs),
-    masked: !visibility.mayRead,
+    masked,
+    streamMasked: hidden === true,
     expiredQuoteId: quote?.status === 'expired' ? quote.proposalId : null,
   };
 }

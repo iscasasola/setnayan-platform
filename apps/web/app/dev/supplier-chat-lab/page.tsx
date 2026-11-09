@@ -50,6 +50,8 @@ import { VendorOfferService } from '@/app/vendor-dashboard/messages/[threadId]/_
 import { ThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-answer-line';
+import { Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { LockRequestAnswer } from '@/app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel';
 import { vendorAgreeToLock, vendorDeclineLock } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -219,8 +221,26 @@ export default async function SupplierChatLabPage({
   }
   const shown = typeof sp.shown === 'string' ? Number(sp.shown) : 1;
   const left = typeof sp.left === 'string' ? Number(sp.left) : undefined;
+  // ⏳ Round 2 · `&blocker=expired` — the supplier's expired-quotation blocker (one action: Send a new quotation).
+  if (sp.blocker === 'expired') {
+    labPins.unshift({ key: 'quote_expired:lab', kind: 'quote_expired', title: 'Your quotation expired · valid until Nov 6, 2026', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS });
+  }
   const labBlocker =
-    sp.blocker === '1' && askOpen
+    sp.blocker === 'expired'
+      ? {
+          pinKey: 'quote_expired:lab',
+          kind: 'quote_expired' as const,
+          subjectKey: 'quote_expired:lab',
+          topic: 'quote' as const,
+          title: 'Your quotation expired · valid until Nov 6, 2026',
+          why: 'They can’t accept it any more. Send a new one — it opens filled in from the old quotation.',
+          action: (
+            <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href="?compose=quote" className="!h-11 !min-h-11 w-full" />
+          ),
+          labShownCount: shown,
+          labLeft: left,
+        }
+      : sp.blocker === '1' && askOpen
       ? {
           pinKey: 'booking_ask:lab',
           kind: 'booking_ask' as const,
@@ -228,7 +248,20 @@ export default async function SupplierChatLabPage({
           topic: 'quote' as const,
           title: 'They asked to book you',
           why: 'Nothing is booked, and their date is not held for you, until you answer.',
-          action: toolNodes['booking-ask'],
+          // v8.3: the blocker answers in one equal row — Turn down | Agree and book.
+          action: (
+            <LockRequestAnswer
+              layout="blocker"
+              eventVendorId={LAB_EVENT_VENDOR}
+              expiresAt="2026-10-15T20:00:00Z"
+              payoutReadiness="ready"
+              feeForecast={bookingFeeForecast(feeStanding, 112_500)}
+              returnTo={`/vendor-dashboard/messages/${LAB_THREAD}`}
+              agreeLock={vendorAgreeToLock}
+              declineLock={vendorDeclineLock}
+              now={NOW}
+            />
+          ),
           labShownCount: shown,
           labLeft: left,
         }

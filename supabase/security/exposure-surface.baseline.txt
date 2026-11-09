@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7458
+# facts: 7480
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     614
-#   col       5415
-#   policy    1085
+#   tpriv     616
+#   col       5424
+#   policy    1087
 #   view      9
-#   func      331
+#   func      340
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -64,6 +64,8 @@ tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
 tpriv	public.category_form_suggestions|authenticated	S
 tpriv	public.chat_blocker_shows|authenticated	S
+tpriv	public.chat_decision_topics|anon	S
+tpriv	public.chat_decision_topics|authenticated	S
 tpriv	public.chat_message_flags|authenticated	SIUD
 tpriv	public.chat_message_hearts|authenticated	SIU
 tpriv	public.chat_messages|anon	SD
@@ -910,6 +912,14 @@ col	public.chat_blocker_shows.shown_count	anon=- authenticated=S
 col	public.chat_blocker_shows.subject_key	anon=- authenticated=S
 col	public.chat_blocker_shows.thread_id	anon=- authenticated=S
 col	public.chat_blocker_shows.user_id	anon=- authenticated=S
+col	public.chat_decision_topics.closed_at	anon=S authenticated=S
+col	public.chat_decision_topics.closed_by_user_id	anon=S authenticated=S
+col	public.chat_decision_topics.opened_at	anon=S authenticated=S
+col	public.chat_decision_topics.opened_by_user_id	anon=S authenticated=S
+col	public.chat_decision_topics.reopened_at	anon=S authenticated=S
+col	public.chat_decision_topics.thread_id	anon=S authenticated=S
+col	public.chat_decision_topics.title	anon=S authenticated=S
+col	public.chat_decision_topics.topic_id	anon=S authenticated=S
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
 col	public.chat_message_flags.categories	anon=- authenticated=SIU
 col	public.chat_message_flags.created_at	anon=- authenticated=SIU
@@ -1117,6 +1127,7 @@ col	public.coordinator_access_consents.moderator_id	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.revoked_at	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.scope_version	anon=SIU authenticated=SIU
 col	public.coordinator_access_consents.scopes	anon=SIU authenticated=SIU
+col	public.coordinator_access_consents.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.coordinator_broadcasts.body	anon=S authenticated=SI
 col	public.coordinator_broadcasts.broadcast_id	anon=S authenticated=SI
 col	public.coordinator_broadcasts.created_at	anon=S authenticated=S
@@ -6112,6 +6123,7 @@ policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mod
 policy	public.category_form_suggestions|category_form_suggestions_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.category_form_suggestions|category_form_suggestions_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.chat_blocker_shows|chat_blocker_shows_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.chat_decision_topics|chat_decision_topics_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_message_hearts|chat_message_hearts_block_guard_insert	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT chat_pair_is_blocked(event_id, vendor_profile_id))
@@ -6148,6 +6160,7 @@ policy	public.concierge_plan_templates|concierge_plan_templates_public_read	mode
 policy	public.concierge_response_cache|concierge_response_cache_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_stale = false) check=NULL
 policy	public.coordinator_access_consents|coordinator_access_consents_host_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.coordinator_access_consents|coordinator_access_consents_host_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))
+policy	public.coordinator_access_consents|coordinator_access_consents_shop_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IS NOT NULL) AND ((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) check=NULL
 policy	public.coordinator_broadcasts|coordinator_broadcasts_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.coordinator_broadcasts|coordinator_broadcasts_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) AND (sender_user_id = ( SELECT auth.uid() AS uid)))
 policy	public.coordinator_broadcasts|coordinator_broadcasts_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_event_ids() AS current_event_ids)) check=NULL
@@ -7185,6 +7198,11 @@ func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
 func	public.chat_blocker_shown(p_thread_id uuid, p_kind text, p_subject_key text)	secdef=yes exec=authenticated search_path=public
+func	public.chat_call_time_for(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.chat_coordinator_agree_needed(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.chat_decision_open(p_thread_id uuid, p_title text)	secdef=yes exec=authenticated search_path=public
+func	public.chat_decision_set_closed(p_topic_id uuid, p_closed boolean)	secdef=yes exec=authenticated search_path=public
+func	public.chat_is_in_thread(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_pair_is_blocked(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_thread_add_host(p_thread_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_thread_leave(p_thread_id uuid, p_note text)	secdef=yes exec=authenticated search_path=public
@@ -7251,6 +7269,7 @@ func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticate
 func	public.event_hub_viewers(p_event_id uuid, p_window_minutes integer)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.event_team_presence_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.expire_lapsed_quotes(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.follow_people_names(p_user_ids uuid[])	secdef=yes exec=authenticated search_path=public
@@ -7275,6 +7294,7 @@ func	public.godchildren_with_birthday_soon(p_today date, p_within integer)	secde
 func	public.guest_link_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zone, p_limit integer)	secdef=yes exec=anon,authenticated search_path=public
 func	public.guest_unlink_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.host_agree_coordinator_access(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.host_ask_supplier_where(p_vendor_id uuid, p_block_ids uuid[], p_note text, p_by_name text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.host_review_booking_is_complete(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date, p_client_time time without time zone)	secdef=yes exec=authenticated search_path=public
@@ -7390,6 +7410,7 @@ func	public.shop_portfolio_ref_credits(p_ref text)	secdef=no exec=authenticated 
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_ask_where(p_vendor_id uuid, p_block_ids uuid[], p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.supplier_lock_refusal(p_kind text, p_id uuid, p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_mark_schedule(p_event_id uuid, p_mark text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.supplier_scan_claim(p_event_id uuid, p_coverage_id bigint, p_token text, p_method text)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_first_name(p_event_id uuid, p_coverage_id bigint, p_token text)	secdef=yes exec=authenticated search_path=public
@@ -7450,6 +7471,7 @@ func	public.vendor_review_monthly(p_vendor_profile_id uuid, p_months integer)	se
 func	public.vendor_set_booth_poster(p_event_id uuid, p_poster_ref text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_set_booth_studio_content(p_event_id uuid, p_content jsonb)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_set_cocktail_area(p_event_id uuid, p_x numeric, p_y numeric, p_w numeric, p_h numeric, p_label text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.vendor_set_form_lock(p_kind text, p_event_id uuid, p_ref uuid, p_locked boolean)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_set_proposal_lock(p_proposal_id uuid, p_lock text, p_locked boolean)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_source_attribution(p_vendor_profile_id uuid, p_since timestamp with time zone, p_service_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_tier_rank(p_tier vendor_tier_state)	secdef=no exec=anon,authenticated search_path=""

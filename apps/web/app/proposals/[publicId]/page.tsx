@@ -423,6 +423,12 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           That didn&rsquo;t go through — refresh and try again.
         </p>
       ) : null}
+      {/* ⏳ Accept refused: its Valid until passed (QUOTE_EXPIRED). */}
+      {search.notice === 'quote_expired' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          This quotation expired before it was accepted. The supplier is sending a new one.
+        </p>
+      ) : null}
       {/* S5 · sending this would supersede an ACCEPTED quote the booking rests on. */}
       {search.notice === 'send_deal_locked' ? (
         <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">

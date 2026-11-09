@@ -980,6 +980,17 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'added_by_user_id',
     why: 'Which host seated ANOTHER host in a supplier conversation (migration 20271330575424). The row is the other host\u2019s seat — deleting it would throw them out of the conversation because the person who added them left. ON DELETE SET NULL covers a hard delete; erasure anonymizes in place and issues none, so this is the erasure half.',
   },
+  // Round 2 (migration 20271332497337) — a decision topic is the CONVERSATION's: either side closes it, anyone reopens.
+  {
+    table: 'chat_decision_topics',
+    column: 'opened_by_user_id',
+    why: 'Who pinned a decision topic in a supplier conversation. The topic (its title, open / closed) is the whole chat\u2019s shared record — the other side still needs it settled — so the stamp goes and the topic stays. ON DELETE SET NULL covers a hard delete; this is the erasure half.',
+  },
+  {
+    table: 'chat_decision_topics',
+    column: 'closed_by_user_id',
+    why: 'Who closed a decision topic. Same call as opened_by_user_id: the shared topic stays, the actor stamp goes.',
+  },
 ] as const;
 
 /**

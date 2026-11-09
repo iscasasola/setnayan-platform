@@ -7,8 +7,11 @@
  *
  * 🧾 Build 3 · lane B adds ONE section on top — **Agreed now** (won / lost, the quote, the date, the guest count, the
  * meetings, each with "Changed N×") — and leaves the shipped node below it unchanged.
+ *
+ * 🔒 Round 2 adds **Your locks** under it — the quotation, payment-plan and form switches (`SupplierLocksSection`).
  */
 import { AgreedNow } from '@/app/_components/chat/agreed-now';
+import { SupplierLocksSection } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-locks-section';
 import type { PickedPageProps } from './context';
 
 export function DetailsPage({ ctx, shipped }: PickedPageProps) {
@@ -25,6 +28,7 @@ export function DetailsPage({ ctx, shipped }: PickedPageProps) {
           isBooked={ctx.isBooked}
         />
       </div>
+      <SupplierLocksSection eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} />
       {shipped ?? null}
     </>
   );

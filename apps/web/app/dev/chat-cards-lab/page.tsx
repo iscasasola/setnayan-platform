@@ -12,6 +12,8 @@
 import { notFound } from 'next/navigation';
 import { MeetingStepCard } from '@/app/_components/chat/meeting-step-card';
 import { AgreedNowView } from '@/app/_components/chat/agreed-now';
+import { SupplierLocksView } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-locks-section';
+import { LockSwitch } from '@/app/vendor-dashboard/clients/[eventId]/_components/lock-switch';
 import { agreedOutcome, agreedRows, type AgreedInputs } from '@/lib/agreed-now';
 import { orderQuoteVersions } from '@/lib/quote-versions';
 
@@ -89,6 +91,18 @@ export default async function ChatCardsLab({ searchParams }: { searchParams: Pro
     <main className="min-h-dvh bg-cream px-4 py-6" data-lab-chat-cards={m}>
       <div className="mx-auto max-w-md">
         <AgreedNowView outcome={outcome} rows={rows} historyLoaded openKey={open} />
+        {/* 🔒 Round 2 — Your locks, under Agreed now (empty with m=empty; &locks=failed draws the refused read). */}
+        <div className="mt-5">
+          <SupplierLocksView
+            eventId="lab-event"
+            vendorProfileId="lab-shop"
+            failed={sp.locks === 'failed'}
+            quote={m === 'empty' ? null : { proposal_id: 'q2', title: 'Wedding day coverage', changes_locked: true, plan_locked: false }}
+            forms={m === 'empty' ? [] : [{ formId: 'f1', locked: false, title: 'Wedding day details' }]}
+            questionsLocked={m === 'empty' ? null : false}
+            Switch={LockSwitch}
+          />
+        </div>
       </div>
     </main>
   );

@@ -139,6 +139,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // the subject's own left_note (added_by_user_id not selected), and the per-person blocker show counts.
   { table: 'chat_thread_members', decision: 'exported', as: 'chat_conversations_hosted' },
   { table: 'chat_blocker_shows', decision: 'exported', as: 'chat_blocker_shows' },
+  // Round 2 (migration 20271332497337): a decision topic is the conversation's shared record (either side closes it,
+  // anyone reopens) — the call made for communities / event_wish_items: who started it only stamps the row.
+  { table: 'chat_decision_topics', decision: 'excluded', why: 'The conversation\'s shared topic (a title, open or closed), not the opener\'s record: every member of the chat reads, closes and reopens it, and opened_by / closed_by only stamp who pressed. The same call as communities.created_by. The erasure clears both stamps (lib/erasure/coverage.ts).' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

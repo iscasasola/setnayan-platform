@@ -13,12 +13,12 @@
  *   1 · NOTICES — every notice the app sends about a chat line comes from
  *       `notifyOtherParty` (lib/chat-actions.ts), and it FANS OUT: a host's line
  *       notifies the shop; a supplier's notifies EVERY host on the event, body
- *       included. That is correct only because no server path can hand it a
- *       private line — nothing in the app names `recipient_user_id` today; a
- *       private line exists only as the browser's own insert, which fires no
- *       notice (db test) and whose push trigger is shared-only. The first code
- *       to write a recipient fails here, and must route its notice to the
- *       RECIPIENT ONLY rather than through that fan-out.
+ *       included. Build 3 lane A's private composer is the first server path to
+ *       write a recipient (`sendChatMessageCore`, lib/chat-send.ts), so the
+ *       tripwire now PROVES that path instead of forbidding it: the recipient
+ *       rides the row only beside a words-only refusal, the AI is never woken,
+ *       and `notifyOtherParty` tells the RECIPIENT ONLY and returns before the
+ *       fan-out. Any OTHER code that names the column still fails here.
  *   2 · DIGEST — no digest module, nor anything it imports, reads chat_messages
  *       or the unread RPCs. Walked, not listed by hand.
  *   3 · SEARCH — the inbox search runs over the rows on screen; the preview is
@@ -72,11 +72,30 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
   // sent TO its subject — `.eq('recipient_user_id', user.id)`, so the admin's service-role door is bounded by it;
   // run as written by tests/db/a-private-message-never-reaches-a-third-person.db.test.ts (export).
   'lib/personal-data-export.ts': 'the subject’s own received private lines, filtered recipient_user_id = the subject',
+  // Build 3 integration (lanes A × B): the composer's private line.
+  'lib/chat-private.ts': 'the ONE place the column’s name is written (CHAT_PRIVATE_RECIPIENT_COLUMN) — a constant, no I/O',
+  'lib/chat.ts': 'fetchMessages SELECTS the column on the caller’s client so a bubble can be drawn private; the session callers are bound by the restrictive policy, the one service-role caller filters (test below)',
+  'app/dev/_components/lab-picked-chat.tsx': 'a dev-lab fixture row (no database; production 404s /dev)',
+  // A READ FILTER, not a writer: the admin replies as a demo shop through the service role, so it keeps only the shop's
+  // own view — proved by 'a service-role read of a thread keeps only what its viewer may read' below.
+  'app/admin/demo-vendors/inquiries/[threadId]/page.tsx': 'filters a service-role thread read down to the shop’s own view',
 };
 
-/** Every code mention (comments stripped) of the private-message column. */
+/**
+ * Files that WRITE a private line, each with its proof in this file. A writer is
+ * never metadata: its notice and its AI wake-up are pinned by the test below.
+ */
+const WRITES_A_PRIVATE_LINE: Record<string, string> = {
+  'lib/chat-send.ts': 'sendChatMessageCore — words only, no AI, notice to the recipient only (proved below)',
+};
+
+/**
+ * Every code mention (comments stripped) of the private-message column — its
+ * name, or the constant that carries it (a writer that spreads
+ * `[CHAT_PRIVATE_RECIPIENT_COLUMN]` never spells the name).
+ */
 function mentionsOfRecipient(code: string): number {
-  return [...stripComments(code).matchAll(/\brecipient_user_id\b/g)].length;
+  return [...stripComments(code).matchAll(/\brecipient_user_id\b|\bCHAT_PRIVATE_RECIPIENT_COLUMN\b/g)].length;
 }
 
 test('the scanner sees a written recipient and ignores prose about one (sabotage)', () => {
@@ -86,15 +105,19 @@ test('the scanner sees a written recipient and ignores prose about one (sabotage
     1,
   );
   assert.equal(mentionsOfRecipient(`q.is('recipient_user_id', null)`), 1);
-  // On the REAL send core, in memory: adding a recipient to its row is caught.
-  const real = fs.readFileSync(path.join(HERE, 'chat-send.ts'), 'utf8');
-  assert.equal(mentionsOfRecipient(real), 0);
-  const sabotaged = real.replace('body: trimmed,', 'body: trimmed, recipient_user_id: to,');
+  // The constant counts too — a writer that never spells the name is still seen.
+  assert.equal(mentionsOfRecipient(`insert({ body, ...(to ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: to } : {}) })`), 1);
+  // On a REAL module that writes chat lines but no recipient (the change-approval card), in memory: adding one is caught.
+  const realFile = fs.existsSync(path.join(HERE, 'chat-actions.ts')) ? path.join(HERE, 'chat-actions.ts') : '';
+  assert.ok(realFile, 'chat-actions.ts moved — re-point this sabotage');
+  const real = fs.readFileSync(realFile, 'utf8');
+  assert.equal(mentionsOfRecipient(real), 0, 'chat-actions.ts names the column — judge it above');
+  const sabotaged = real.replace('const preview = args.body.slice(0, 140);', "const preview = args.body.slice(0, 140); const r = 'recipient_user_id';");
   assert.notEqual(sabotaged, real, 'sabotage anchor moved');
   assert.equal(mentionsOfRecipient(sabotaged), 1);
 });
 
-test('notices: no app code writes a private line yet, so the fan-out never carries one', () => {
+test('notices: only the proven writer names the column, so the fan-out never carries a private line', () => {
   const roots = ['app', 'lib', 'components', 'hooks'].map((d) => path.join(WEB, d)).concat(path.join(REPO, 'apps', 'mobile'));
   const files = roots.flatMap((r) => walk(r));
   assert.ok(files.length > 1000, `only ${files.length} files walked — the scanner stopped seeing the app`);
@@ -102,7 +125,7 @@ test('notices: no app code writes a private line yet, so the fan-out never carri
     .map((f) => ({ f: path.relative(WEB, f), n: mentionsOfRecipient(fs.readFileSync(f, 'utf8')) }))
     .filter((x) => x.n > 0);
   console.log(`recipient_user_id mentions in app code: ${JSON.stringify(hits)}`);
-  const unjudged = hits.filter((x) => !(x.f in NAMES_THE_COLUMN_AS_METADATA)).map((x) => x.f);
+  const unjudged = hits.filter((x) => !(x.f in NAMES_THE_COLUMN_AS_METADATA) && !(x.f in WRITES_A_PRIVATE_LINE)).map((x) => x.f);
   assert.deepEqual(
     unjudged,
     [],
@@ -114,26 +137,62 @@ test('notices: no app code writes a private line yet, so the fan-out never carri
   );
   // Every allowlisted file is still a hit — a stale entry would let a writer hide there.
   const seen = new Set(hits.map((x) => x.f));
-  assert.deepEqual(Object.keys(NAMES_THE_COLUMN_AS_METADATA).filter((f) => !seen.has(f)), [], 'stale metadata entries');
+  assert.deepEqual(
+    [...Object.keys(NAMES_THE_COLUMN_AS_METADATA), ...Object.keys(WRITES_A_PRIVATE_LINE)].filter((f) => !seen.has(f)),
+    [],
+    'stale entries',
+  );
 });
 
-test('notices: the fan-out is what the test above protects (it notifies every host, body as preview)', () => {
-  // Pins the premise. If notifyOtherParty ever learns to notify one person, the
-  // tripwire above can be relaxed for the path that passes it a recipient.
+test('notices: the fan-out notifies every host, and a private line leaves before it (recipient only)', () => {
   const src = stripComments(fs.readFileSync(path.join(HERE, 'chat-actions.ts'), 'utf8'));
   const fn = src.slice(src.indexOf('export async function notifyOtherParty'), src.indexOf('async function findPriorLockedEventName'));
   assert.ok(fn.length > 200, 'notifyOtherParty moved — re-point this test');
   assert.match(fn, /\.from\('event_members'\)[\s\S]*?\.eq\('member_type', 'couple'\)[\s\S]*?for \(const m of members/, 'the supplier side notifies every host');
   assert.match(fn, /const preview = args\.body\.slice\(0, 140\)/, 'the notice carries the body');
-  assert.doesNotMatch(fn, /recipient/i, 'notifyOtherParty learned a recipient — update the tripwire’s premise');
-  // …and the only server send core inserts shared lines (no recipient in its row).
+  // The private branch: ONE notice, to args.privateTo, then return — before ANY fan-out.
+  const branch = /if \(args\.privateTo\) \{([\s\S]*?)\n  \}\n/.exec(fn);
+  assert.ok(branch, 'notifyOtherParty has no private branch — a private line would ride the fan-out');
+  const body = branch[1]!;
+  assert.equal([...body.matchAll(/emitNotification\(/g)].length, 1, 'the private branch notifies more than one person');
+  assert.match(body, /userId: args\.privateTo,/, 'the private notice is not addressed to the recipient');
+  assert.match(body, /\n    return;\s*$/, 'the private branch does not return — it falls through to the fan-out');
+  const at = fn.indexOf(branch[0]);
+  assert.ok(at < fn.indexOf(".from('event_members')"), 'the private branch runs AFTER the hosts are read');
+  assert.ok(at < fn.indexOf("if (args.senderRole === 'couple')"), 'the private branch runs after the shop fan-out begins');
+  // …and the send core: the recipient rides the row only as the gated spread, never with a file, never to the AI,
+  // and the same `privateTo` is what the notice gets.
   const send = stripComments(fs.readFileSync(path.join(HERE, 'chat-send.ts'), 'utf8'));
   const insert = /\.from\('chat_messages'\)\.insert\(\{([\s\S]*?)\}\);/.exec(send)?.[1] ?? '';
   assert.deepEqual(
-    insert.split(',').map((s) => s.trim()).filter(Boolean),
-    ['thread_id: thread.thread_id', 'event_id: thread.event_id', 'vendor_profile_id: thread.vendor_profile_id', 'body: trimmed', '...(attachment ?? {})'],
-    'sendChatMessageCore’s row changed — a recipient here would ride notifyOtherParty’s fan-out',
+    insert.split(/,\n/).map((s) => s.trim().replace(/,$/, '')).filter(Boolean),
+    [
+      'thread_id: thread.thread_id',
+      'event_id: thread.event_id',
+      'vendor_profile_id: thread.vendor_profile_id',
+      'body: trimmed',
+      '...(attachment ?? {})',
+      '...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {})',
+    ],
+    'sendChatMessageCore’s row changed — re-prove where a recipient can come from',
   );
+  assert.match(send, /if \(privateTo\) \{\s*if \(hasAttachment \|\| storedRef\) \{\s*return \{ ok: false, code: 'private_words_only'/, 'a private line may carry a file');
+  assert.match(send, /if \(senderRole === 'couple' && !privateTo && vendorAutoReplyEnabled\(\)\)/, 'a private line wakes the AI');
+  assert.match(send, /await notifyOtherParty\(\{[\s\S]*?\n    privateTo,\n  \}\);/, 'the notice is not told the line is private');
+});
+
+test('a service-role read of a thread keeps only what its viewer may read', () => {
+  // The admin replies AS a demo shop through the service role — the policy cannot bind it, so the page filters.
+  const f = 'app/admin/demo-vendors/inquiries/[threadId]/page.tsx';
+  const code = stripComments(fs.readFileSync(path.join(WEB, f), 'utf8'));
+  assert.match(code, /fetchMessages\(admin, threadId\)\)\.filter\(/, `${f}: the service-role read is not filtered`);
+  assert.match(code, /!m\.recipient_user_id \|\|/, `${f}: shared lines are not the base of the filter`);
+  assert.match(code, /m\.recipient_user_id === shopUserId \|\| m\.sender_user_id === shopUserId/, `${f}: keeps private lines the shop is not party to`);
+  // No OTHER service-role caller of fetchMessages exists.
+  const callers = ['app', 'lib'].flatMap((d) => walk(path.join(WEB, d)))
+    .filter((p) => /fetchMessages\(\s*(admin|adminClient|service)\b/.test(stripComments(fs.readFileSync(p, 'utf8'))))
+    .map(rel);
+  assert.deepEqual(callers, [f], 'a new service-role fetchMessages caller — filter it like the demo inquiry page, then list it here');
 });
 
 // ── 2 · digest ──────────────────────────────────────────────────────────────

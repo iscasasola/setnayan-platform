@@ -34,7 +34,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
 
   const { data: vendorRaw, error: vendorError } = await admin
     .from('vendor_profiles')
-    .select('business_name, is_demo')
+    .select('business_name, is_demo, user_id')
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
   // 🔑 A refused read is not a missing thread: `notFound()` here gave a 404 on a
@@ -54,7 +54,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
       </section>
     );
   }
-  const vendor = vendorRaw as { business_name: string | null; is_demo: boolean } | null;
+  const vendor = vendorRaw as { business_name: string | null; is_demo: boolean; user_id: string | null } | null;
   // Demo-only surface — never expose / act on a real vendor's thread here.
   if (!vendor?.is_demo) notFound();
 
@@ -70,7 +70,14 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
     region: string | null;
   } | null;
 
-  const messages = await fetchMessages(admin, threadId);
+  // 🔒 A PRIVATE LINE NEVER REACHES A THIRD PERSON (DECISION_LOG 2026-11-09). This read is the service role, so the
+  // restrictive policy does not bind it: keep exactly what the shop itself reads — every shared line, plus the private
+  // lines the shop sent or was sent. A host ↔ host private line in this thread is never shown to the admin replying as
+  // the shop. 🔒 lib/a-private-message-never-reaches-a-third-person.test.ts
+  const shopUserId = vendor.user_id;
+  const messages = (await fetchMessages(admin, threadId)).filter(
+    (m) => !m.recipient_user_id || (shopUserId !== null && (m.recipient_user_id === shopUserId || m.sender_user_id === shopUserId)),
+  );
   const vendorName = vendor.business_name ?? 'Demo supplier';
   // Demo mirrors production, which stopped masking on the owner's 2026-09-08
   // ruling — one label, accepted or not.

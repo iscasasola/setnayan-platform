@@ -538,6 +538,15 @@ export type NotificationType =
      Sent by `answerClaimAccess` (app/dashboard/[eventId]/access-requests/actions.ts) after
      `answer_claim_access_request`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302590530. */
   | 'claim_access_answered'
+  /* ✋ THE 8 NOV 2026 ACCESS RULE (owner: *"only coordinator and hosts has the final say. so any supplier that is not a
+     coordinator still has to request a host or coordinator to accept the change"*). `access_answered` → the supplier
+     whose area ask a host or the booked coordinator answered (`answerAccessRequest` → `answer_area_access_request`).
+     `change_requested` → every host and the booked coordinator, when a supplier proposes a change to the guest list,
+     the seat plan or the suppliers (`event_change_requests`). `change_answered` → that supplier, when it is accepted
+     (applied in place) or declined. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM values in 20271330482944. */
+  | 'access_answered'
+  | 'change_requested'
+  | 'change_answered'
   /* 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27, built 2026-11-05). → the supplier who claimed a couple's link,
      when the couple's Approve finds the couple had already opened that shop on Setnayan before typing it in by hand
      (`found_you_check_at_claim`): "<couple> found you on Setnayan on <date>". Data-minimal: the couple's event name,
@@ -726,6 +735,9 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
   claim_access_answered: 'A couple answered your link',
+  access_answered: 'Your access request was answered',
+  change_requested: 'A supplier proposed a change',
+  change_answered: 'Your proposed change was answered',
   found_you_lead: 'A couple found you on Setnayan',
   fee_dispute_opened: 'A booking fee is disputed',
   fee_dispute_answered: 'Your fee dispute was answered',
@@ -971,6 +983,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
   claim_access_answered: 'bg-sky-100 text-sky-800',
+  access_answered: 'bg-sky-100 text-sky-800',
+  change_requested: 'bg-warn-100 text-warn-900',
+  change_answered: 'bg-sky-100 text-sky-800',
   // Good news for the supplier, not a yes or no → the informational sky.
   found_you_lead: 'bg-sky-100 text-sky-800',
   // Waiting on an admin's answer → the action-needed amber, like every other ask.

@@ -107,6 +107,27 @@ test('nobody who cannot approve is told — View, Off, unaccepted, removed, expi
   assert.deepEqual(late, ['couple']);
 });
 
+test('✋ a SUPPLIER seat holding The Day = Edit is not told unless it is the booked coordinator (owner 8 Nov 2026)', () => {
+  const suppliers = new Map([
+    ['florist', { bookedSupplier: true, bookedCoordinator: false }],
+    ['planner', { bookedSupplier: true, bookedCoordinator: true }],
+  ]);
+  const got = scheduleRequestRecipients({
+    coupleUserIds: ['couple'],
+    seats: [
+      // The florist's seat says Edit, but the database caps a non-coordinator supplier at View — they propose.
+      seat('florist', 'edit', { role_subtype: 'wedding_planner_external' }),
+      seat('planner', 'edit', { role_subtype: 'wedding_planner_external' }),
+      // The couple's own planner, invited by email, is not a booked supplier: the hosts' delegate, untouched.
+      seat('their-planner', 'edit', { role_subtype: 'wedding_planner_external' }),
+    ],
+    window: OPEN_WINDOW,
+    now: NOW,
+    suppliers,
+  });
+  assert.deepEqual(got, ['couple', 'planner', 'their-planner']);
+});
+
 test('a host seat with no areas map (the couple’s own partner rows) follows the legacy rule', () => {
   // `resolveAreaLevel` — the one mirror of `moderator_area_level` — gives
   // edit_all rows 'edit'. A partner backfilled as a moderator is ALSO a couple

@@ -26,6 +26,7 @@ import {
   PARTNERSHIP_VENDOR_LABEL,
   PARTNERSHIP_VENDOR_LABEL_SHORT,
 } from '@/lib/vendor-partnership-kinds';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Partnerships · Supplier' };
 
@@ -195,7 +196,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <form action={acceptPartnership}>
+                  <StayForm door="svPartnerships.acceptPartnership" action={acceptPartnership}>
                     <input type="hidden" name="partnership_id" value={p.id} />
                     <SubmitButton
                       pendingLabel="Accepting…"
@@ -203,8 +204,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     >
                       Accept
                     </SubmitButton>
-                  </form>
-                  <form action={declinePartnership}>
+                  </StayForm>
+                  <StayForm door="svPartnerships.declinePartnership" action={declinePartnership}>
                     <input type="hidden" name="partnership_id" value={p.id} />
                     <SubmitButton
                       pendingLabel="Declining…"
@@ -212,7 +213,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     >
                       Decline
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 </div>
               </li>
             ))}
@@ -265,7 +266,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         by the schema instead of by an action remembering to do
                         it. */}
                     {iProposed ? (
-                      <form action={changePartnershipKind} className="flex flex-col gap-3 pb-4">
+                      <StayForm door="svPartnerships.changePartnershipKind" action={changePartnershipKind} className="flex flex-col gap-3 pb-4">
                         <input type="hidden" name="partnership_id" value={p.id} />
                         <label className="flex flex-col gap-1 text-sm" htmlFor={`kind-${p.id}`}>
                           <span className="font-semibold text-ink">Change this partnership</span>
@@ -294,7 +295,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                             badge returns once they do.
                           </p>
                         </div>
-                      </form>
+                      </StayForm>
                     ) : (
                       <p className="pb-4 text-sm text-ink/55">
                         They proposed this partnership, so only they can change how it&rsquo;s described.
@@ -325,7 +326,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     {' · '}Waiting for them to accept
                   </p>
                 </div>
-                <form action={withdrawPartnership}>
+                <StayForm door="svPartnerships.withdrawPartnership" action={withdrawPartnership}>
                   <input type="hidden" name="partnership_id" value={p.id} />
                   <SubmitButton
                     pendingLabel="Withdrawing…"
@@ -333,7 +334,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   >
                     Withdraw
                   </SubmitButton>
-                </form>
+                </StayForm>
               </li>
             ))}
           </ul>
@@ -381,7 +382,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                   lineWrap
                   data="partner-served-with"
                 >
-                  <form action={proposePartnership} className="flex flex-col gap-3 pb-4">
+                  <StayForm door="svPartnerships.proposePartnership" action={proposePartnership} className="flex flex-col gap-3 pb-4">
                     <input type="hidden" name="recommended_vendor_id" value={v.vendorProfileId} />
                     <label className="flex flex-col gap-1 text-sm">
                       <span className="font-semibold text-ink">What kind of partnership?</span>
@@ -409,7 +410,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                         They decide whether to accept. Nothing goes public until they do.
                       </p>
                     </div>
-                  </form>
+                  </StayForm>
                 </Fold>
               </li>
             ))}

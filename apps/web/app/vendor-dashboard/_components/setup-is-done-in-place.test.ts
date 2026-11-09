@@ -208,7 +208,10 @@ test('4b · the papers: Checking while Setnayan looks; Needs a fix — and the a
 
 test('5 · the days-off row saves through the shipped addManualBlock, in place — and in place never redirects', () => {
   const row = code('app/vendor-dashboard/_components/setup-days-off-row.tsx');
-  assert.match(row, /import \{ addManualBlock \} from '\.\.\/calendar\/actions';/);
+  // Through its stay door (owner 2026-10-26 "a save never resets the screen"): the door named runs the shipped action.
+  assert.match(row, /const r = await saveInPlace\('supCalendar\.addManualBlock', fd\);\s*if \(!r\.ok\) throw new Error\(r\.error\);/);
+  assert.match(code('app/_actions/stay-registry/supCalendar.ts'), /'supCalendar\.addManualBlock': \w+\(addManualBlock\),/);
+  assert.match(code('app/_actions/stay-registry/supCalendar.ts'), /import \{[^}]*\baddManualBlock\b[^}]*\} from '@\/app\/vendor-dashboard\/calendar\/actions';/);
   assert.match(row, /fd\.set\('return_to', 'inplace'\);/);
   const actions = code('app/vendor-dashboard/calendar/actions.ts');
   const fn = actions.slice(actions.indexOf('export async function addManualBlock('), actions.indexOf('\nexport async function', actions.indexOf('export async function addManualBlock(') + 10));

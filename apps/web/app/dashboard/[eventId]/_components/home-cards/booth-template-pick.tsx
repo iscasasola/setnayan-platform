@@ -11,6 +11,7 @@ import { useRef } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { savePatiktokBoothTemplates } from '../../studio/patiktok/actions';
 import { HomeCardRow } from '../home-service-card';
+import { StayForm } from '@/app/_components/stay-form';
 
 export function BoothTemplatePick({
   eventId,
@@ -39,7 +40,7 @@ export function BoothTemplatePick({
   };
   const options = (not: string) => templates.filter((t) => t.slug !== not).map((t) => ({ key: t.slug, label: t.name }));
   return (
-    <form ref={form} action={savePatiktokBoothTemplates} className="contents" data-home-booth-templates="">
+    <StayForm door="patiktok.savePatiktokBoothTemplates" ref={form} action={savePatiktokBoothTemplates} className="contents" data-home-booth-templates="">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="return_to" value="home" />
       <input ref={primaryIn} type="hidden" name="primary" defaultValue={primary} disabled />
@@ -54,6 +55,6 @@ export function BoothTemplatePick({
         marker="booth-backup"
         control={<PickMenu label="Backup template" value={backup} options={options(primary)} onPick={(k) => pick('backup', k)} dataAttr="data-home-booth-backup" compact />}
       />
-    </form>
+    </StayForm>
   );
 }

@@ -25,6 +25,7 @@ import {
 import { sendCreatorOffer } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Creators · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -331,7 +332,7 @@ function CreatorCard({
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Send a discount offer
           </summary>
-          <form action={sendCreatorOffer} className="mt-3 space-y-3">
+          <StayForm door="svCreators.sendCreatorOffer" action={sendCreatorOffer} className="mt-3 space-y-3">
             <input type="hidden" name="creator_user_id" value={c.userId} />
             <label className="block space-y-1">
               <span className="block text-[11px] font-medium text-ink">
@@ -382,7 +383,7 @@ function CreatorCard({
               <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Send offer
             </SubmitButton>
-          </form>
+          </StayForm>
         </details>
       )}
     </div>

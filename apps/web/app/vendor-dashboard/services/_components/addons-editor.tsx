@@ -7,6 +7,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { ActionButton } from '@/components/action-button';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { setServiceAddons } from '../addon-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * Priced add-ons editor for a service card (Vendor Services rework 2026-07-02).
@@ -111,7 +112,8 @@ export function AddonsEditor({
     );
   }
   return (
-    <form
+    <StayForm
+      door="svServices.setServiceAddons"
       action={setServiceAddons}
       className="rounded-lg border p-3"
       style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
@@ -175,6 +177,6 @@ export function AddonsEditor({
           Save add-ons
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }

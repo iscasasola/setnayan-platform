@@ -44,6 +44,7 @@ import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { readQuoteWhere } from '@/lib/booked-call-times.server';
 import { BookedWhere, QuoteWhereFact } from '@/app/dashboard/[eventId]/vendors/_components/booked-where';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Quote' };
 
@@ -687,7 +688,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {!isVendorSide && (proposal.status === 'sent' || proposal.status === 'viewed') ? (
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <form action={respondToProposal}>
+          <StayForm door="svProposals.respondToProposal" action={respondToProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="accepted" />
@@ -697,8 +698,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             >
               <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept quote
             </SubmitButton>
-          </form>
-          <form action={respondToProposal}>
+          </StayForm>
+          <StayForm door="svProposals.respondToProposal" action={respondToProposal}>
             <input type="hidden" name="proposal_id" value={proposal.proposal_id} />
             <input type="hidden" name="public_id" value={proposal.public_id} />
             <input type="hidden" name="response" value="declined" />
@@ -708,7 +709,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             >
               <XCircle aria-hidden className="h-4 w-4" /> Decline
             </SubmitButton>
-          </form>
+          </StayForm>
           <p className="w-full text-xs text-ink/45">
             Accepting tells {businessName} you&rsquo;re going with this — it doesn&rsquo;t
             charge you anything.

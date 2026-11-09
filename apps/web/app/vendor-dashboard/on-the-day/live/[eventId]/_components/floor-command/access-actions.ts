@@ -5,7 +5,7 @@
  * "coordinator will ask for access from the host; host must approve what
  * features do they want to share the vendor").
  *
- * Asking only. Nothing here can grant anything — a row in
+ * Asking only — ONE export, the ask. Nothing here can grant anything — a row in
  * `event_access_requests` confers no access at any level, and every gated
  * feature reads `moderator_area_level`, never this table. The host's answer
  * lives at /dashboard/[eventId]/access-requests.
@@ -17,75 +17,14 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { normalizeRequestedAreas } from '@/lib/floor-command';
-import { resolveAreaLevel, type DelegateArea, type ModeratorPermissions } from '@/lib/event-moderators';
+import type { DelegateArea } from '@/lib/event-moderators';
+// The two READS live in a server-only module, not here: every export of a 'use server' file is a route, and the
+// repo's server-action budget sits at its ceiling (`scripts/lint-server-action-budget.mjs`). Server components call
+// them directly; this file keeps the one thing a browser presses — the ask.
+import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type AskAccessResult = { ok: boolean; error?: string; asked?: DelegateArea[] };
-
-/** What the host has already shared with this user on this event. */
-export async function fetchMyAreaGrants(
-  eventId: string,
-): Promise<Partial<Record<DelegateArea, 'edit' | 'view' | null>>> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return {};
-
-  // RLS scopes this to rows the caller may see; the filter keeps it to their own.
-  // ⚠ `accepted_at IS NOT NULL` MIRRORS THE DATABASE GATE, and it was missing.
-  // `public.moderator_area_level` only ever looks at accepted, non-removed rows,
-  // so an invitation nobody has accepted grants nothing — but this read counted
-  // it as "already held" and quietly dropped that area from what the
-  // coordinator could ask for. They would have been unable to ask for a thing
-  // they did not have, on both screens at once.
-  const { data } = await supabase
-    .from('event_moderators')
-    .select('permissions_json, removed_at')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (!data) return {};
-  const perms = (data as { permissions_json: ModeratorPermissions }).permissions_json;
-  // Resolve through the SAME helper the SQL gate mirrors, so the UI's idea of
-  // "already held" cannot drift from what moderator_area_level() will say.
-  return {
-    seat_plan: resolveAreaLevel(perms, 'seat_plan'),
-    schedule: resolveAreaLevel(perms, 'schedule'),
-    guest_list: resolveAreaLevel(perms, 'guest_list'),
-    vendors: resolveAreaLevel(perms, 'vendors'),
-  };
-}
-
-/** Whether this coordinator already has an unanswered ask outstanding. */
-export async function fetchMyPendingAsk(
-  eventId: string,
-): Promise<{ requestedAreas: DelegateArea[]; createdAt: string } | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data } = await supabase
-    .from('event_access_requests')
-    .select('requested_areas, created_at')
-    .eq('event_id', eventId)
-    .eq('requester_user_id', user.id)
-    // The line-by-line ask only — a claim ask (joined from the couple's link,
-    // 2026-10-20) is the couple's Approve, not an area request.
-    .eq('kind', 'areas')
-    .eq('status', 'pending')
-    .maybeSingle();
-
-  if (!data) return null;
-  const row = data as { requested_areas: string[]; created_at: string };
-  return { requestedAreas: row.requested_areas as DelegateArea[], createdAt: row.created_at };
-}
 
 /**
  * Send the ask. Areas are normalized server-side — junk is dropped, duplicates
@@ -135,7 +74,7 @@ export async function askHostForAccess(
     // The partial unique index is the one collision worth naming: it means an
     // ask is already sitting with the host, not that anything went wrong.
     if (error.code === '23505') {
-      return { ok: false, error: 'You already have a request waiting with the host.' };
+      return { ok: false, error: 'You already have a request waiting with the host or the coordinator.' };
     }
     return { ok: false, error: error.message };
   }

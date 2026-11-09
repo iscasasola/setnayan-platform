@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { AttributeFieldRenderer } from '@/app/vendor-dashboard/attributes/_components/attribute-field-renderer';
 import type { CategoryRefinements } from '@/lib/vendor-service-attributes';
 import { saveServiceRefinements } from '../refinement-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * Inline "refinement chips" on the fast service-card form (v20 gap closer).
@@ -61,7 +62,8 @@ export function RefinementsEditor({
   }
 
   return (
-    <form
+    <StayForm
+      door="svServices.saveServiceRefinements"
       action={saveServiceRefinements}
       className="rounded-lg border p-3"
       style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
@@ -109,6 +111,6 @@ export function RefinementsEditor({
           Save refinements
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }

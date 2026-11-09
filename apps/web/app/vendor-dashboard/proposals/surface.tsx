@@ -22,7 +22,8 @@ import { shopInputClass } from '../_components/kit';
 import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { pageWindowFor } from '@/lib/paginate';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY, DEMO_SHOP_CANNOT_BE_BOOKED } from '@/lib/demo-scope';
+import { QUOTE_NOTICES } from './_components/quote-notices';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Quotes · Supplier' };
 
@@ -60,16 +61,8 @@ type ProposalRow = {
 
 type PackageRow = { package_id: string; package_name: string; total_price_centavos: number };
 
-const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
-  template_saved: { tone: 'ok', text: 'Template saved — use it on any booked client below.' },
-  template_needs_name: { tone: 'warn', text: 'The template needs a name.' },
-  pick_event_and_template: { tone: 'warn', text: 'Pick a booked client and a template first.' },
-  not_booked: { tone: 'warn', text: 'Quotes work for booked clients only.' },
-  save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
-  // 🧪 lib/demo-scope.ts — the words are imported, never retyped.
-  demo_shop: { tone: 'warn', text: DEMO_SHOP_CANNOT_BE_BOOKED },
-  demo_event: { tone: 'warn', text: DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY },
-};
+/** The banner words live beside the surface so the stay door says the same sentence (`_components/quote-notices.ts`). */
+const NOTICES = QUOTE_NOTICES;
 
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
@@ -323,7 +316,8 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
           <summary className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold">
             <Plus aria-hidden className="h-4 w-4" /> New template
           </summary>
-          <form action={saveTemplate} className="mt-3 grid gap-2">
+          {/* Keyed on the template count: a saved template joins the list above in place and this form starts empty. */}
+          <StayForm key={`template-${templates.length}`} door="svProposals.saveTemplate" action={saveTemplate} className="mt-3 grid gap-2">
             <input type="text" name="template_name" required maxLength={120} placeholder="Template name, e.g. Full wedding catering" className={shopInputClass} />
             <textarea
               name="body"
@@ -346,7 +340,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
             <SubmitButton pendingLabel="Saving…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
               Save template
             </SubmitButton>
-          </form>
+          </StayForm>
           <div className="mt-3 rounded-lg bg-white/70 p-3">
             <p className="text-xs font-semibold text-ink/70">Merge tokens</p>
             <ul className="mt-1 grid gap-x-6 gap-y-0.5 text-xs text-ink/60 sm:grid-cols-2">

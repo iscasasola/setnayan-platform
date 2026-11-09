@@ -304,7 +304,8 @@ test('BOTH photo kinds get the control, each naming its own table', () => {
 test('the control is behind a confirm that says it cannot be undone', () => {
   const src = read(PAGE);
   assert.equal(
-    (src.match(/<ConfirmForm/g) ?? []).length,
+    /* `StayConfirmForm` IS a ConfirmForm (the same dialog) whose confirmed press saves in place (2026-11-08). */
+    (src.match(/<(?:Stay)?ConfirmForm\b/g) ?? []).length,
     2,
     'an irreversible delete fires on a single accidental click',
   );

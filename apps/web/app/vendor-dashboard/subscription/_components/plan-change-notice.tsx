@@ -2,6 +2,7 @@ import { CalendarClock, Wallet } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { planLines, type PlanSituation } from '@/lib/vendor-plan-change-words';
 import { cancelScheduledPlanChange } from '../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * What a shop is told about a plan change, on the plan screen itself.
@@ -41,11 +42,11 @@ export function PlanChangeNotice({ situation }: { situation: PlanSituation }) {
             <CalendarClock className="h-4 w-4 text-ink/70" strokeWidth={1.75} aria-hidden />
           </span>
           <p className="min-w-0 flex-1 text-sm text-ink">{lines.change}</p>
-          <form action={cancelScheduledPlanChange} className="shrink-0">
+          <StayForm door="svSubscription.cancelScheduledPlanChange" action={cancelScheduledPlanChange} className="shrink-0">
             <SubmitButton className="text-sm font-medium text-ink underline underline-offset-4">
               Keep my current plan instead
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
       ) : null}
 

@@ -1,7 +1,8 @@
 /**
  * _lib/papic-in-place.ts — 📍 WHAT A PAPIC ACTION'S REDIRECT MEANS WHEN THE PRESS STAYS IN PLACE (`in-place-actions.ts`).
  *
- * A Papic action ends in `redirect(<back>?<news>)`. Asked in place, that URL is read instead of followed:
+ * A Papic action ends in `redirect(<back>?<news>)`. Asked in place (the app-wide door, `app/_actions/save-in-place.ts`,
+ * whose Papic doors read with this), that URL is read instead of followed:
  *   · a refusal — `?…_error=<code>`, `?<outcome>=error` or `?add=full` → `{ ok: false, error }`, said on the row in the
  *     page's own words;
  *   · somewhere a press must really go — signed out (`/login…`), not on this event (`/dashboard`), off the dashboard
@@ -11,31 +12,12 @@
  * Pure. Held by `papic-saves-in-place.test.ts`.
  */
 
-/** Every Papic action a control may save in place through (`in-place-actions.ts` `DOORS`). */
-export const PAPIC_DOORS = [
-  'setGuestAllotments',
-  'setGuestAllotment',
-  'releaseTheRest',
-  'setPapicWindow',
-  'setPapicUploadsOpen',
-  'setPapicGuestCaptureEarly',
-  'setCoupleFaceTaggingDeclined',
-  'setCapturePreserved',
-  'setClipShowcaseApproval',
-  'setGuestClipShowcaseApproval',
-  'reviewVendorChallengeAction',
-  'setChallengesPausedAction',
-  'setCoupleChallengeActiveAction',
-  'createCoupleChallengeAction',
-  'addLibraryChallengeAction',
-  'armChallengeAction',
-  'stopChallengeAction',
-  'deleteCoupleChallengeAction',
-  // 📷 Papic by chapter (owner 2026-11-01) — the card's pick and Start now (`_lib/papic-chapter-doors.ts`).
-  'pickPapicChapter',
-  'startPapicChapterNow',
-] as const;
-export type PapicDoor = (typeof PAPIC_DOORS)[number];
+import { PAPIC_STAY_DOORS, type PapicStayDoor } from '@/lib/stay-doors/papic';
+
+/** Every Papic action a control may save in place through — the app-wide door's `papic.*` names (`lib/stay-doors/papic.ts`)
+ *  without the prefix: what `PapicStayForm` takes and `papicSaveInPlace` sends. */
+export type PapicDoor = PapicStayDoor extends `papic.${infer D}` ? D : never;
+export const PAPIC_DOORS: readonly PapicDoor[] = PAPIC_STAY_DOORS.map((d) => d.slice('papic.'.length) as PapicDoor);
 
 export type PapicInPlaceResult = { ok: true } | { ok: false; error: string };
 

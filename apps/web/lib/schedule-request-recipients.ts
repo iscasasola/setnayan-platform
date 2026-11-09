@@ -14,8 +14,11 @@
  * 🔑 THE RECIPIENTS ARE EXACTLY THE PEOPLE WHO CAN ANSWER. A delegate counts
  * when, and only when, the database would let them approve:
  *   · the seat is accepted and not removed (`moderator_area_level`'s own WHERE);
- *   · its schedule level resolves to 'edit' through `resolveAreaLevel`, the TS
- *     mirror of `public.moderator_area_level` — never a second copy of the rule;
+ *   · its schedule level resolves to 'edit' through `seatAreaLevel`, the TS
+ *     mirror of `public.moderator_area_level` — never a second copy of the rule —
+ *     which since 8 Nov 2026 caps a SUPPLIER's seat at 'view' unless they are the
+ *     booked coordinator (`supplierProposesOnly`, migration 20271329978605): a
+ *     florist the hosts let see the day proposes, they never approve;
  *   · its access window is still open (`delegate-access-window.ts`, owner
  *     2026-09-14: a delegate's access ends 7 days after the event).
  * View, Off, an un-accepted invite, a removed seat and an expired window are
@@ -24,11 +27,13 @@
  * Pure (type-only imports + two pure modules), so the rule is executed by a
  * test rather than read off a server file.
  */
-import { resolveAreaLevel, type ModeratorPermissions } from './delegate-areas';
+import { seatAreaLevel, supplierProposesOnly, type ModeratorPermissions } from './delegate-areas';
 import { permissionsWithinWindow } from './delegate-access-window';
 
 export type ScheduleRequestSeat = {
   user_id: string | null;
+  /** The seat's role — a supplier's seat is `wedding_planner_external` (SUPPLIER_SEAT_ROLE). */
+  role_subtype?: string | null;
   accepted_at: string | null;
   removed_at: string | null;
   permissions_json: ModeratorPermissions | null;
@@ -46,6 +51,11 @@ export function scheduleRequestRecipients(input: {
   seats: readonly ScheduleRequestSeat[];
   window: ScheduleRequestWindow;
   now: Date;
+  /**
+   * 🧭 Per person acting for a shop booked on the event: booked supplier? booked coordinator? (`bookedSupplierFacts`,
+   * lib/coordinator-trade.ts). Somebody absent is not a booked supplier, so their seat is the hosts' own delegate.
+   */
+  suppliers?: ReadonlyMap<string, { bookedSupplier: boolean; bookedCoordinator: boolean }>;
 }): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -66,7 +76,14 @@ export function scheduleRequestRecipients(input: {
       precision: input.window.precision,
       now: input.now,
     });
-    if (resolveAreaLevel(perms, 'schedule') === 'edit') add(seat.user_id);
+    const facts = input.suppliers?.get(seat.user_id);
+    const proposesOnly = supplierProposesOnly({
+      roleSubtype: seat.role_subtype ?? null,
+      bookedSupplier: facts?.bookedSupplier ?? false,
+      bookedCoordinator: facts?.bookedCoordinator ?? false,
+      isHost: seen.has(seat.user_id),
+    });
+    if (seatAreaLevel(perms, 'schedule', proposesOnly) === 'edit') add(seat.user_id);
   }
   return out;
 }

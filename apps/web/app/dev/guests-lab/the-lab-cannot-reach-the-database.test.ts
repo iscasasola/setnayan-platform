@@ -77,8 +77,8 @@ test('(1b) the stand-ins answer like the real ones, locally', async () => {
 
 test('(2) the call sites take their action from the context and import no action module of their own', () => {
   const sites: Array<[string, string]> = [
-    ['guests-screen.tsx', 'bulkApplyRoleAndGroup, sendRunHref'],
-    ['new-group-inline-form.tsx', 'createGuestGroup'],
+    ['guests-screen.tsx', 'stay, sendRunHref'],
+    ['new-group-inline-form.tsx', 'createGuestGroup, stay'],
     ['capture-bar.tsx', 'addSingleGuest'],
     ['guest-invite-cell.tsx', 'setGuestInvitationSent'],
     ['quick-add-sheet.tsx', 'quickAddGuest, quickCreateGroup, addRoleToGuest, setGuestPrimaryRole'],

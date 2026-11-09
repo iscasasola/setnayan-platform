@@ -1,7 +1,9 @@
 'use client';
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
+import { createGuestGroup } from '../groups-actions';
+import { saveInPlace } from '@/app/_actions/save-in-place';
+import type { StaySave } from '@/app/_components/stay-form';
 import { addSingleGuest, restoreGuestRsvpAndSeat, setGuestRsvp } from '../inline-actions';
 import { addRoleToGuest, quickAddGuest, quickCreateGroup, setGuestPrimaryRole } from '../quick-add-actions';
 import { addGuestsFromPeople, listPeopleYouCanInvite } from '../people-add-actions';
@@ -30,7 +32,12 @@ import type { GuestCardResult } from './guest-card';
  * (The removal's two writes ride their own context in `guest-delete.tsx`.)
  */
 export type GuestActions = {
-  bulkApplyRoleAndGroup: typeof bulkApplyRoleAndGroup;
+  /**
+   * 📍 THE SAVER A GUESTS PRESS SAVES IN PLACE THROUGH (owner 2026-10-26, "a save never resets the screen"): the app-wide
+   * door (`saveInPlace` — Select → Set… ▾ is `guests.bulkApplyRoleAndGroup`, New group is `guests.createGuestGroup`). The
+   * lab hands in a stand-in that answers `{ ok: true }` locally, so a lab press never reaches the door.
+   */
+  stay: StaySave;
   createGuestGroup: typeof createGuestGroup;
   addSingleGuest: typeof addSingleGuest;
   quickAddGuest: typeof quickAddGuest;
@@ -71,7 +78,7 @@ export type GuestActions = {
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
-  bulkApplyRoleAndGroup,
+  stay: saveInPlace,
   createGuestGroup,
   addSingleGuest,
   quickAddGuest,

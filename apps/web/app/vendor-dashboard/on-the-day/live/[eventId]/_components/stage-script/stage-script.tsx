@@ -15,7 +15,7 @@ import { deriveRunOfShow } from '@/lib/run-of-show';
 import { DEFAULT_EVENT_TZ, onlyTimedBlocks } from '@/lib/schedule';
 import { fetchStageNotes } from '@/lib/stage-notes';
 import { StageNotesCard } from '../stage-notes-card';
-import { fetchMyAreaGrants } from '../floor-command/access-actions';
+import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { ScheduleUpdater } from '../floor-command/schedule-updater';
 
 /**

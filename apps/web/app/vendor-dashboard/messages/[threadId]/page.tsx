@@ -123,6 +123,7 @@ import {
   VendorOfferService,
 } from './_components/on-demand';
 import type { VendorOfferOption } from './_components/vendor-offer-service';
+import { OUTCOME_NOTICE } from './_lib/outcome-notice';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
@@ -224,11 +225,8 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
-  // Won & Lost Reasons capture (Wave 6).
-  outcome_saved: 'Outcome saved — thanks for logging it.',
-  outcome_invalid: 'Pick won, lost, or no-response to log this inquiry.',
-  outcome_bad_reason: 'That reason is no longer available — pick another.',
-  outcome_failed: 'Couldn’t save that outcome. Please try again.',
+  // Won & Lost Reasons capture (Wave 6) — its words live in `_lib/outcome-notice.ts`, shared with the stay door.
+  ...OUTCOME_NOTICE,
 };
 
 /** The picked client's three embeds of this thread (Chat · Quotation · Details' Decisions), drawn together. */

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1803
-# tables: 475
-# columns: 5820
-# notnull: 3511
+# ledger: 1809
+# tables: 478
+# columns: 5849
+# notnull: 3527
 [ledger]
 20260512000000
 20260513000000
@@ -1810,10 +1810,16 @@
 20271327929301
 20271328327292
 20271328682743
+20271328838140
 20271329241008
+20271329284628
 20271329352320
 20271329965074
+20271329978605
+20271330396757
+20271330482944
 20271330825868
+20271331202840
 20271331290778
 [columns]
 account_deletion_requests.admin_note
@@ -2143,6 +2149,15 @@ canonical_service_taxonomy.secondary_tiles
 canonical_service_taxonomy.sort_order
 canonical_service_taxonomy.tile_id
 canonical_service_taxonomy.updated_at
+card_claim_word_allowances.granted_at
+card_claim_word_allowances.granted_by
+card_claim_word_allowances.note
+card_claim_word_allowances.phrase
+card_claim_word_allowances.vendor_profile_id
+card_claim_words.created_at
+card_claim_words.created_by
+card_claim_words.note
+card_claim_words.phrase
 category_form_suggestions.category_id
 category_form_suggestions.sort_order
 category_form_suggestions.template_key
@@ -2589,6 +2604,7 @@ email_deliveries.provider_message_id
 email_deliveries.recipient_masked
 email_deliveries.scheduled_for
 email_deliveries.subject
+event_access_requests.answerable_by_coordinator
 event_access_requests.created_at
 event_access_requests.decided_at
 event_access_requests.decided_by_user_id
@@ -2661,6 +2677,22 @@ event_category_decisions.event_id
 event_category_decisions.id
 event_category_decisions.plan_group_id
 event_category_decisions.tile
+event_change_requests.answer_note
+event_change_requests.area
+event_change_requests.change_id
+event_change_requests.created_at
+event_change_requests.decided_at
+event_change_requests.decided_by_user_id
+event_change_requests.event_id
+event_change_requests.note
+event_change_requests.op
+event_change_requests.payload
+event_change_requests.proposer_user_id
+event_change_requests.status
+event_change_requests.summary
+event_change_requests.target_id
+event_change_requests.updated_at
+event_change_requests.vendor_profile_id
 event_checklist_items.category
 event_checklist_items.completed_at
 event_checklist_items.created_at
@@ -6650,6 +6682,8 @@ vendor_image_flags.source_r2_ref
 vendor_image_flags.source_surface
 vendor_image_flags.source_vendor_id
 vendor_image_flags.status
+vendor_image_flags.supplier_report_note
+vendor_image_flags.supplier_reported_at
 vendor_image_hashes.hashed_at
 vendor_image_hashes.id
 vendor_image_hashes.is_demo
@@ -6657,6 +6691,7 @@ vendor_image_hashes.phash
 vendor_image_hashes.r2_ref
 vendor_image_hashes.surface
 vendor_image_hashes.vendor_profile_id
+vendor_image_hashes.vendor_service_id
 vendor_invites.business_name
 vendor_invites.claim_token
 vendor_invites.claimed_at
@@ -7841,6 +7876,11 @@ canonical_service_taxonomy.phase
 canonical_service_taxonomy.secondary_tiles
 canonical_service_taxonomy.sort_order
 canonical_service_taxonomy.updated_at
+card_claim_word_allowances.granted_at
+card_claim_word_allowances.phrase
+card_claim_word_allowances.vendor_profile_id
+card_claim_words.created_at
+card_claim_words.phrase
 category_form_suggestions.category_id
 category_form_suggestions.sort_order
 category_form_suggestions.template_key
@@ -8129,6 +8169,7 @@ email_deliveries.kind
 email_deliveries.outcome
 email_deliveries.recipient_masked
 email_deliveries.subject
+event_access_requests.answerable_by_coordinator
 event_access_requests.created_at
 event_access_requests.decisions
 event_access_requests.event_id
@@ -8172,6 +8213,16 @@ event_category_decisions.decided_at
 event_category_decisions.decision
 event_category_decisions.event_id
 event_category_decisions.id
+event_change_requests.area
+event_change_requests.change_id
+event_change_requests.created_at
+event_change_requests.event_id
+event_change_requests.op
+event_change_requests.payload
+event_change_requests.proposer_user_id
+event_change_requests.status
+event_change_requests.summary
+event_change_requests.updated_at
 event_checklist_items.category
 event_checklist_items.created_at
 event_checklist_items.event_id

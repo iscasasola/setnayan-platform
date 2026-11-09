@@ -1558,6 +1558,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'Transient OAuth handshake token (Live Watch channel).',
   },
   {
+    table: 'event_change_requests',
+    column: 'proposer_user_id',
+    why: 'The subject’s own proposed changes to a couple’s guest list, seat plan or suppliers (owner 8 Nov 2026), with a note they wrote. Their request, their words — ON DELETE CASCADE removes them with the account. An ACCEPTED change already lives in the couple’s list as the couple’s data. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s change is an action ON their record.',
+  },
+  {
     table: 'event_access_requests',
     column: 'requester_user_id',
     why: 'The subject’s own asks for access to an event, including a free-text note they wrote. Their request, their words — and the grant it may have produced lives in event_moderators, which erasure handles separately. `decided_by_user_id` needs no entry: it is ON DELETE SET NULL, and answering someone else’s request is an action ON their record, not personal data OF the answerer.',

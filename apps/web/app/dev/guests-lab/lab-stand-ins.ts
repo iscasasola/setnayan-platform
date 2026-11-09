@@ -12,7 +12,8 @@ let seq = 0;
 const labId = () => `lab-${++seq}`;
 
 export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
-  bulkApplyRoleAndGroup: async () => undefined as never,
+  /* 📍 Every in-place save (Select → Set… ▾, New group) — local: answers saved, the door is never reached. */
+  stay: async () => ({ ok: true }),
   /* 🪪 A tap on a row reads its card alone — here, nothing: `&open=1` hands the lab's own card-only read in instead. */
   openGuestCard: async () => ({ ok: false, reason: 'The lab opens a card with &open=1.' }),
   /* ✋ Select → Set reply — local: says every id changed (the screen draws the new reply itself, and its Undo clears it). */

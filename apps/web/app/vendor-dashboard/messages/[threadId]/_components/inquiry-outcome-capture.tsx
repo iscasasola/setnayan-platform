@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Trophy, X, MessageSquareOff } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { recordInquiryOutcome } from '../outcome-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /** Shape passed from the server — the LIVE admin-managed taxonomy, never a
  *  hardcoded list. `appliesTo` lets us filter chips to the chosen outcome. */
@@ -65,7 +66,8 @@ export function InquiryOutcomeCapture({
     : [];
 
   return (
-    <form
+    <StayForm
+      door="svMessages.recordInquiryOutcome"
       action={recordInquiryOutcome}
       className="sn-row p-4"
     >
@@ -158,6 +160,6 @@ export function InquiryOutcomeCapture({
           </SubmitButton>
         </div>
       ) : null}
-    </form>
+    </StayForm>
   );
 }

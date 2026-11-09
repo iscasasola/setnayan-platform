@@ -46,6 +46,9 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   supplier_where_changed: 'normal', // the host changed which chapters a booked supplier works
   supplier_part_changed: 'normal', // a host or coordinator changed a moment this supplier is on (one per save)
   claim_access_answered: 'normal', // the couple let in (or declined) a supplier who joined from their link
+  access_answered: 'normal', // a host or the coordinator answered a supplier's access ask (8 Nov 2026)
+  change_requested: 'normal', // a supplier proposed a change to the guest list, seat plan or suppliers
+  change_answered: 'normal', // the supplier's proposed change was accepted or declined
   found_you_lead: 'normal', // the couple had found this supplier on Setnayan before adding them by hand (found-you)
   fee_dispute_opened: 'normal', // a supplier's booking-fee dispute waits for an admin
   fee_dispute_answered: 'normal', // an admin accepted or rejected a supplier's booking-fee dispute

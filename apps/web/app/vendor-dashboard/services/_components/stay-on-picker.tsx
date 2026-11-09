@@ -7,6 +7,7 @@ import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import {
   HOLD_WORDS,
   capsOf,
@@ -132,7 +133,9 @@ export function StayOnPicker({
         </p>
       ) : null}
 
-      <form action={action} className="flex flex-wrap items-center gap-2">
+      {/* Saves in place through the door (`pickServicesThatStayOn`); `action` stays the no-JavaScript path. Picking an
+          UPGRADE still goes to the Plan page, where it is paid. */}
+      <StayForm door="svServices.pickServicesThatStayOn" action={action} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="plan" value={plan} />
         {keep.map((id) => (
           <input key={id} type="hidden" name="keep" value={id} />
@@ -156,7 +159,7 @@ export function StayOnPicker({
             setKeep(defaultKeep(cards, capsOf(startPlan, founder), preferred));
           }}
         />
-      </form>
+      </StayForm>
       {waitNote ? <p className="text-[12px] text-ink/60">{waitNote}</p> : null}
     </section>
   );

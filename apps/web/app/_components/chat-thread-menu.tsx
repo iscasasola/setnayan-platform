@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Archive, ArchiveRestore, Ban, CalendarDays, ClipboardList, Flag, FolderOpen, MoreVertical, Receipt, RotateCcw, UserRound, Wallet, X, type LucideIcon } from 'lucide-react';
 import { archiveThread, blockUser, reportUser, unarchiveThread, unblockUser } from '@/lib/chat-actions';
+import { StayForm } from '@/app/_components/stay-form';
 import { useOneOpen } from '@/lib/one-open';
 
 // Apple Guideline 1.2 (UGC safety): an in-app way to REPORT abusive content and
@@ -118,7 +119,11 @@ export function ChatThreadMenu({
                   );
                 })}
                 {archive ? (
-                  <form action={archive.archived ? unarchiveThread : archiveThread}>
+                  <StayForm
+                    door={archive.archived ? 'pubChat.unarchiveThread' : 'pubChat.archiveThread'}
+                    action={archive.archived ? unarchiveThread : archiveThread}
+                    onSaved={close}
+                  >
                     <input type="hidden" name="thread_id" value={threadId} />
                     <input type="hidden" name="return_to" value={archive.returnTo} />
                     <button
@@ -139,7 +144,7 @@ export function ChatThreadMenu({
                         </>
                       )}
                     </button>
-                  </form>
+                  </StayForm>
                 ) : null}
                 <button
                   type="button"
@@ -150,7 +155,11 @@ export function ChatThreadMenu({
                   <Flag aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
                   Report this conversation
                 </button>
-                <form action={blockedByMe ? unblockUser : blockUser}>
+                <StayForm
+                  door={blockedByMe ? 'pubChat.unblockUser' : 'pubChat.blockUser'}
+                  action={blockedByMe ? unblockUser : blockUser}
+                  onSaved={close}
+                >
                   <input type="hidden" name="thread_id" value={threadId} />
                   <input type="hidden" name="return_to" value={returnTo} />
                   <button
@@ -170,10 +179,10 @@ export function ChatThreadMenu({
                       </>
                     )}
                   </button>
-                </form>
+                </StayForm>
               </>
             ) : (
-              <form action={reportUser} className="space-y-2 p-2">
+              <StayForm door="pubChat.reportUser" action={reportUser} onSaved={close} className="space-y-2 p-2">
                 <input type="hidden" name="thread_id" value={threadId} />
                 <input type="hidden" name="return_to" value={returnTo} />
                 <div className="flex items-center justify-between">
@@ -223,7 +232,7 @@ export function ChatThreadMenu({
                 <p className="px-1 text-[11px] text-ink/50">
                   Our team reviews every report within 24 hours.
                 </p>
-              </form>
+              </StayForm>
             )}
           </div>
         </>

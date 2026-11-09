@@ -32,6 +32,7 @@ import { ACCESS_LEVEL_AREA, COORDINATOR_ACCESS_LEVELS, LEVEL_WORD, type Coordina
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
 import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * people-with-access.tsx — Event Details › PEOPLE WITH ACCESS (owner
@@ -380,7 +381,7 @@ function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: P
         Remove…
       </button>
       {asking ? (
-        <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
+        <StayForm door="hosts.removeHost" action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
           <input type="hidden" name="return_to" value={returnTo} />
@@ -402,7 +403,7 @@ function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: P
           >
             Remove {row.name}
           </SubmitButton>
-        </form>
+        </StayForm>
       ) : null}
     </>
   );

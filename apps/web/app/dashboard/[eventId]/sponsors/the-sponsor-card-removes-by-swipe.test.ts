@@ -27,7 +27,7 @@ test('1 · no trash on the card — the card is the swipe', () => {
 
 test('2 · the swipe is the same removeSponsor, with Undo, and a refusal brings the card back', () => {
   const swipe = read('_components/sponsor-swipe.tsx');
-  assert.match(swipe, /deleteWithUndo\(\{[\s\S]*?fd\.set\('event_id', eventId\);\s*fd\.set\('sponsor_id', sponsorId\);\s*return removeSponsor\(fd\);/);
+  assert.match(swipe, /deleteWithUndo\(\{[\s\S]*?fd\.set\('event_id', eventId\);\s*fd\.set\('sponsor_id', sponsorId\);\s*return saveInPlace\('sponsors\.removeSponsor', fd\);/, 'the swipe no longer removes through the same removeSponsor, in place');
   assert.match(swipe, /useSearchParams\(\)\?\.get\('error'\)[\s\S]*?if \(refused\) setGone\(false\);/);
   assert.match(swipe, /<UndoToastHost \/>/);
 });

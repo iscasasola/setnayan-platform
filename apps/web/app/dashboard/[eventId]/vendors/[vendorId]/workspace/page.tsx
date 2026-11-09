@@ -226,6 +226,7 @@ import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/action
 import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { HOSTS_ONLY } from '@/lib/money-mask';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -2834,7 +2835,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           unlock your review and photos — or let us know if something is missing.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <form action={coupleConfirmReceived}>
+          <StayForm door="vendorReview.coupleConfirmReceived" action={coupleConfirmReceived}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
@@ -2843,8 +2844,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             >
               Yes, I got everything
             </SubmitButton>
-          </form>
-          <form action={coupleReportNonDelivery}>
+          </StayForm>
+          <StayForm door="vendorReview.coupleReportNonDelivery" action={coupleReportNonDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
@@ -2853,7 +2854,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             >
               Something&rsquo;s missing
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
         <p className="mt-3 text-[11px] text-ink/55">
           If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still

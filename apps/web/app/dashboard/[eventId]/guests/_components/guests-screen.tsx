@@ -1038,13 +1038,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [newGroup, setNewGroup] = useState(false);
   // ── Set… ▾ › Papic (owner 2026-10-23) — the sheet "Papic · set N each", open with the choice that was picked.
   const [papicSheet, setPapicSheet] = useState<GuestCamera | null>(null);
-  const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
+  const { stay, sendRunHref } = useGuestActions();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
+    fd.set('event_id', eventId);
     for (const id of selected) fd.append('guest_ids[]', id);
     fd.set(field, value);
-    // ⚡ The action revalidates the guest list, so its answer carries the redrawn page — no second render.
-    await bulkApplyRoleAndGroup(eventId, fd);
+    // ⚡ The shipped `bulkApplyRoleAndGroup`, saved IN PLACE (owner 2026-10-26, "a save never resets the screen"): it
+    // revalidates the guest list, so the answer carries the redrawn page — no navigation, the list keeps its scroll and its
+    // selection. A refusal is said here, in the guest list's own words; a partial table set says what it left.
+    const r = await stay('guests.bulkApplyRoleAndGroup', fd);
+    if (!r.ok) guestToast.error(r.error);
+    else if (r.note) toast.info(r.note);
   };
 
   // ── ✋ Set reply ▾ (owner 2026-10-21) — the ONE host reply write (`setGuestRsvp`): drawn at once, one Undo for all.

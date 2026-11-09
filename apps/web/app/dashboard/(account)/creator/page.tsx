@@ -37,6 +37,7 @@ import {
   declineCreatorOffer,
   linkCreatorOfferDeliverable,
 } from './offer-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Your chapters' };
 
@@ -206,7 +207,7 @@ async function CreatorBody({
 
       <section className="sn-tile mb-8 space-y-4">
         <h2 className="sn-sec">New chapter</h2>
-        <form action={createChapter} className="space-y-4">
+        <StayForm door="accCreator.createChapter" action={createChapter} className="space-y-4">
           <ChapterFields myEvents={myEvents} prefillEventId={prefillEventId} />
           <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
@@ -215,7 +216,7 @@ async function CreatorBody({
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
             Create chapter
           </SubmitButton>
-        </form>
+        </StayForm>
       </section>
 
       <section className="space-y-4">
@@ -349,7 +350,7 @@ function OfferInbox({
             </div>
 
             <div className="flex flex-wrap items-end gap-2 border-t border-ink/10 pt-3">
-              <form action={acceptCreatorOffer} className="flex flex-wrap items-end gap-2">
+              <StayForm door="accCreator.acceptCreatorOffer" action={acceptCreatorOffer} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="offer_id" value={o.offerId} />
                 {publishedChapters.length > 0 ? (
                   <label className="space-y-1">
@@ -377,8 +378,8 @@ function OfferInbox({
                   <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Accept
                 </SubmitButton>
-              </form>
-              <form action={declineCreatorOffer}>
+              </StayForm>
+              <StayForm door="accCreator.declineCreatorOffer" action={declineCreatorOffer}>
                 <input type="hidden" name="offer_id" value={o.offerId} />
                 <SubmitButton
                   className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
@@ -386,7 +387,7 @@ function OfferInbox({
                 >
                   Decline
                 </SubmitButton>
-              </form>
+              </StayForm>
             </div>
           </li>
         ))}
@@ -416,7 +417,8 @@ function OfferInbox({
                     </span>
                   </div>
                   {canLink ? (
-                    <form
+                    <StayForm
+                      door="accCreator.linkCreatorOfferDeliverable"
                       action={linkCreatorOfferDeliverable}
                       className="flex flex-wrap items-end gap-2"
                     >
@@ -442,7 +444,7 @@ function OfferInbox({
                       >
                         Link chapter
                       </SubmitButton>
-                    </form>
+                    </StayForm>
                   ) : null}
                 </li>
               );
@@ -560,7 +562,7 @@ function ChapterCard({
         <summary className="cursor-pointer text-sm font-medium text-ink/70 hover:text-ink">
           Edit chapter
         </summary>
-        <form action={updateChapter} className="mt-3 space-y-4">
+        <StayForm door="accCreator.updateChapter" action={updateChapter} className="mt-3 space-y-4">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
           <ChapterFields chapter={c} substrate={substrate} myEvents={myEvents} />
           <SubmitButton
@@ -569,7 +571,7 @@ function ChapterCard({
           >
             Save changes
           </SubmitButton>
-        </form>
+        </StayForm>
       </details>
 
       {/* WHO READS THIS — the whole decision in one row of three (owner
@@ -587,7 +589,7 @@ function ChapterCard({
             // outcome is a refusal.
             if (choice === 'event' && !canShareWithEvent(c.event_id)) return null;
             return (
-              <form action={setChapterAudience} key={choice}>
+              <StayForm door="accCreator.setChapterAudience" action={setChapterAudience} key={choice}>
                 <input type="hidden" name="chapter_id" value={c.chapter_id} />
                 <input type="hidden" name="audience" value={choice} />
                 <SubmitButton
@@ -601,7 +603,7 @@ function ChapterCard({
                   {current ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> : null}
                   {CHAPTER_AUDIENCE_LABEL[choice]}
                 </SubmitButton>
-              </form>
+              </StayForm>
             );
           })}
         </div>
@@ -640,7 +642,7 @@ function ChapterCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <form action={deleteChapter} className="ml-auto">
+        <StayForm door="accCreator.deleteChapter" action={deleteChapter} className="ml-auto">
           <input type="hidden" name="chapter_id" value={c.chapter_id} />
           <SubmitButton
             className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-danger-100 hover:text-danger-700"
@@ -649,7 +651,7 @@ function ChapterCard({
             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
             Delete
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
     </div>
   );

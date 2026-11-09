@@ -120,7 +120,6 @@ import { DesktopEncoderHost } from './_components/desktop-encoder-host';
 import { SetupSheet } from './_components/setup-sheet';
 import { VenueScreensSection } from './_components/venue-screens-section';
 import { fetchPanoodScreens, PANOOD_SCREEN_PAIR_PATH, type PanoodScreenRow } from '@/lib/panood-screens';
-import { VENUE_SCREENS_LOCKED_MESSAGE } from '@/lib/live-screens';
 import { ViewportLock } from './_components/viewport-lock';
 import { ToastLayer } from './_components/toast-layer';
 import { IngestHealthStrip } from './_components/ingest-health-strip';
@@ -150,6 +149,8 @@ import {
   deleteHighlight,
 } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
+import { PANOOD_REFUSAL } from '@/lib/stay-doors/pubPanood';
 
 export const metadata = { title: 'Live Watch controller' };
 
@@ -485,10 +486,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     : screen_renamed ? 'Screen renamed.'
     : screen_code ? 'New code issued. The old device is disconnected.'
     : screen_removed ? 'Screen removed. It is disconnected within a few seconds.'
-    : screen_error === 'cap' ? 'That is the most screens one event can hold.'
-    : screen_error === 'missing' ? 'That screen is no longer connected to this event. Reload to see the current list.'
-    : screen_error === 'locked' ? `${VENUE_SCREENS_LOCKED_MESSAGE} — unlock below to use them.`
-    : screen_error ? 'Couldn’t save that — please try again.'
+    : screen_error === 'cap' ? PANOOD_REFUSAL.screenCap
+    : screen_error === 'missing' ? PANOOD_REFUSAL.screenMissing
+    : screen_error === 'locked' ? PANOOD_REFUSAL.screenLocked
+    : screen_error ? PANOOD_REFUSAL.screenSave
     : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood § 6) on the surface that SURVIVES the flag
@@ -984,14 +985,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       {main_stage_cut ? <Banner tone="success" Icon={Scissors}>Now on Channel 1.</Banner> : null}
       {main_stage_cleared ? <Banner tone="muted" Icon={PowerOff}>Channel 1 cleared.</Banner> : null}
       {watch_url_saved ? <Banner tone="success" Icon={CheckCircle2}>Watch link saved — guests see “Watch Live”.</Banner> : null}
-      {watch_url_error ? <Banner tone="error" Icon={AlertCircle}>That doesn’t look like a YouTube link — paste the watch or share URL.</Banner> : null}
-      {zone_error === 'label' ? <Banner tone="error" Icon={AlertCircle}>Give the channel a name first.</Banner> : null}
+      {watch_url_error ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.watchUrl}</Banner> : null}
+      {zone_error === 'label' ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.zoneLabel}</Banner> : null}
       {zone_error === 'cap' ? (
-        <Banner tone="error" Icon={AlertCircle}>You’ve reached the limit of {MAX_ROAM_ZONES} cameras for one event.</Banner>
+        <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.zoneCap}</Banner>
       ) : null}
-      {zone_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that channel — please try again.</Banner> : null}
+      {zone_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.zoneSave}</Banner> : null}
       {overlay_saved ? <Banner tone="success" Icon={CheckCircle2}>Overlay updated.</Banner> : null}
-      {overlay_error ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that overlay — please try again.</Banner> : null}
+      {overlay_error ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.overlay}</Banner> : null}
       {guest_pick === 'on' ? (
         <Banner tone="success" Icon={Users}>Guest-pick is on — guests can choose any camera channel.</Banner>
       ) : null}
@@ -1001,11 +1002,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       {highlight === 'marked' ? <Banner tone="success" Icon={Zap}>Moment saved.</Banner> : null}
       {highlight === 'removed' ? <Banner tone="muted" Icon={Trash2}>Moment removed.</Banner> : null}
       {highlight_error === 'offair' ? (
-        <Banner tone="error" Icon={AlertCircle}>
-          Moments are timestamps into a broadcast — go live first, then mark them.
-        </Banner>
+        <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.highlightOffAir}</Banner>
       ) : null}
-      {highlight_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>Couldn’t save that moment — please try again.</Banner> : null}
+      {highlight_error === 'save' ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.highlightSave}</Banner> : null}
       {camera_link === 'ready' ? (
         <Banner tone="success" Icon={QrCode}>
           Join QR ready — show it to whoever is holding that phone.
@@ -1017,10 +1016,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         </Banner>
       ) : null}
       {camera_error === 'bind' ? (
-        <Banner tone="error" Icon={AlertCircle}>Couldn’t make a join QR for that channel — please try again.</Banner>
+        <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.cameraBind}</Banner>
       ) : null}
       {camera_error === 'reissue' ? (
-        <Banner tone="error" Icon={AlertCircle}>Couldn’t make a new join QR — please try again.</Banner>
+        <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.cameraReissue}</Banner>
       ) : null}
       </ToastLayer>
       </div>
@@ -1100,7 +1099,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             {/* Take Channel 1 off air — a real control (clearMainStage), free:
                 a rehearsing host who cut a camera on must be able to cut it off. */}
             {mainStageZone ? (
-              <form action={clearMainStage} className="absolute right-2 top-2">
+              <StayForm door="pubPanood.clearMainStage" action={clearMainStage} className="absolute right-2 top-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <SubmitButton
                   pendingLabel="…"
@@ -1111,7 +1110,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                   <PowerOff aria-hidden className="h-3 w-3" strokeWidth={2.25} />
                   Clear
                 </SubmitButton>
-              </form>
+              </StayForm>
             ) : null}
 
             {/* ── WAVE 2 · overlay PLACEMENT PREVIEW ─────────────────────────
@@ -1155,7 +1154,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 something real: paid AND on air (canMarkHighlight). One tap saves a
                 timestamped row; no video is touched. */}
             {canMark ? (
-              <form
+              <StayForm
+                door="pubPanood.markHighlight"
                 action={markHighlight}
                 className={`absolute right-2.5 ${
                   monitorOverlays.lowerThird ? 'bottom-14' : 'bottom-2.5'
@@ -1171,7 +1171,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                   <Zap aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
                   Moment
                 </SubmitButton>
-              </form>
+              </StayForm>
             ) : null}
           </section>
 
@@ -1282,7 +1282,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               YouTube must not watch the only way to turn it off disappear while the
               red light stays lit. Whenever the state exists, so does its handle. */}
           {offerManualAir ? (
-            <form
+            <StayForm
+              door={manualOnAir ? 'pubPanood.clearControlManualAir' : 'pubPanood.setControlManualAir'}
               action={manualOnAir ? clearControlManualAir : setControlManualAir}
               className="shrink-0"
             >
@@ -1305,7 +1306,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <Radio aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2.25} />
                 {manualOnAir ? 'We’re off air' : 'We’re on air'}
               </SubmitButton>
-            </form>
+            </StayForm>
           ) : null}
 
           {/* ── ⭐ THE 12-HOUR ARCHIVE CAP (§ 4f ③) ──────────────────────────
@@ -1865,7 +1866,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5">
                     {!z.is_featured ? (
-                      <form action={setFeaturedRoamZone}>
+                      <StayForm door="pubPanood.setFeaturedRoamZone" action={setFeaturedRoamZone}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="zone_id" value={z.id} />
                         <SubmitButton
@@ -1876,9 +1877,9 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                           <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                           <span className="sr-only">Make default</span>
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     ) : null}
-                    <form action={deleteRoamZone}>
+                    <StayForm door="pubPanood.deleteRoamZone" action={deleteRoamZone}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="zone_id" value={z.id} />
                       <SubmitButton
@@ -1889,7 +1890,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                         <span className="sr-only">Remove channel</span>
                       </SubmitButton>
-                    </form>
+                    </StayForm>
                   </span>
                 </div>
 
@@ -1944,7 +1945,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             You’ve reached the {MAX_ROAM_ZONES}-camera limit. Remove one to add another.
           </p>
         ) : (
-          <form action={addRoamZone} className="grid gap-3 sm:grid-cols-2">
+          <StayForm door="pubPanood.addRoamZone" action={addRoamZone} className="grid gap-3 sm:grid-cols-2">
             <input type="hidden" name="event_id" value={eventId} />
             <label className="space-y-1">
               <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Channel name</span>
@@ -1986,7 +1987,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 Add channel
               </SubmitButton>
             </div>
-          </form>
+          </StayForm>
         )}
       </section>
 
@@ -2201,7 +2202,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                       })}
                     </span>
                   </span>
-                  <form action={deleteHighlight} className="shrink-0">
+                  <StayForm door="pubPanood.deleteHighlight" action={deleteHighlight} className="shrink-0">
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="highlight_id" value={h.id} />
                     <SubmitButton
@@ -2213,7 +2214,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       <span className="sr-only">Remove moment</span>
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 </li>
               ))}
             </ul>
@@ -2222,7 +2223,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           {/* Optional label for the NEXT tap — typed ahead, because nobody types
               mid-ceremony. Only offered when the button it feeds actually exists. */}
           {canMark ? (
-            <form action={markHighlight} className="flex flex-wrap items-end gap-2">
+            <StayForm door="pubPanood.markHighlight" action={markHighlight} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="event_id" value={eventId} />
               <label className="min-w-[180px] flex-1">
                 <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/45">
@@ -2243,7 +2244,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <Zap aria-hidden className="h-4 w-4" strokeWidth={2.25} />
                 Mark it
               </SubmitButton>
-            </form>
+            </StayForm>
           ) : null}
         </section>
       ) : null}
@@ -2264,7 +2265,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         {youtubeWatchUrl ? (
           <div className="space-y-2">
             <p className="font-mono text-sm text-ink/85">{youtubeWatchUrl}</p>
-            <form action={clearControlWatchUrl}>
+            <StayForm door="pubPanood.clearControlWatchUrl" action={clearControlWatchUrl}>
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Removing…"
@@ -2273,10 +2274,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove link
               </SubmitButton>
-            </form>
+            </StayForm>
           </div>
         ) : (
-          <form action={saveControlWatchUrl} className="flex flex-col gap-2 sm:flex-row">
+          <StayForm door="pubPanood.saveControlWatchUrl" action={saveControlWatchUrl} className="flex flex-col gap-2 sm:flex-row">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="url"
@@ -2292,7 +2293,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               <Radio aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save watch link
             </SubmitButton>
-          </form>
+          </StayForm>
         )}
 
         {/* 🎞 EVERY FILM OF THEIR DAY — free, and the promise the ₱2,500 description
@@ -2314,8 +2315,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
 
           {film_error ? (
             <p role="alert" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-2.5 py-1 text-xs text-terracotta-700">
-              <AlertCircle aria-hidden className="h-3.5 w-3.5" /> That link isn&rsquo;t a YouTube
-              or Vimeo video. Those are the two we can play.
+              <AlertCircle aria-hidden className="h-3.5 w-3.5" /> {PANOOD_REFUSAL.film}
             </p>
           ) : null}
           {film_saved ? (
@@ -2334,7 +2334,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                     </span>
                     <span className="font-mono text-[11px] text-ink/50">{film.provider}</span>
                   </span>
-                  <form action={removeEventFilm}>
+                  <StayForm door="pubPanood.removeEventFilm" action={removeEventFilm}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="film_id" value={String(film.id)} />
                     <SubmitButton
@@ -2344,13 +2344,13 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                       <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Remove
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 </li>
               ))}
             </ul>
           ) : null}
 
-          <form action={addEventFilm} className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <StayForm door="pubPanood.addEventFilm" action={addEventFilm} className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="text"
@@ -2371,7 +2371,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             >
               Add film
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
 
         {/* DUAL-STREAM (owner-approved 2026-07-26) — the optional second door.
@@ -2383,6 +2383,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           facebookUrl={facebookWatchUrl}
           saveAction={saveControlFacebookUrl}
           clearAction={clearControlFacebookUrl}
+          saveDoor="pubPanood.saveControlFacebookUrl"
+          clearDoor="pubPanood.clearControlFacebookUrl"
           saved={Boolean(facebook_url_saved)}
           error={Boolean(facebook_url_error)}
         />
@@ -2552,7 +2554,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
   // land. One tap fixes it; nothing is broken in the meantime.
   if (!camera) {
     return (
-      <form action={createChannelJoinLink} className="flex flex-wrap items-center gap-2">
+      <StayForm door="pubPanood.createChannelJoinLink" action={createChannelJoinLink} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="zone_id" value={zone.id} />
         <SubmitButton
@@ -2566,7 +2568,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
         <span className="text-[11px] text-ink/50">
           No phone can join CH {channel} until this exists.
         </span>
-      </form>
+      </StayForm>
     );
   }
 
@@ -2574,7 +2576,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
   // one thing that helps, rather than printing a QR that silently cannot work.
   if (camera.revoked) {
     return (
-      <form action={reissueChannelJoinLink} className="flex flex-wrap items-center gap-2">
+      <StayForm door="pubPanood.reissueChannelJoinLink" action={reissueChannelJoinLink} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="zone_id" value={zone.id} />
         <SubmitButton
@@ -2588,7 +2590,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
         <span className="text-[11px] text-ink/50">
           CH {channel}&rsquo;s old link was retired — nothing can join until you make a new one.
         </span>
-      </form>
+      </StayForm>
     );
   }
 
@@ -2612,7 +2614,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
           CH {channel}. Reissuing makes a new QR and disconnects them — the old
           link stops working immediately.
         </span>
-        <form action={reissueChannelJoinLink}>
+        <StayForm door="pubPanood.reissueChannelJoinLink" action={reissueChannelJoinLink}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="zone_id" value={zone.id} />
           <SubmitButton
@@ -2624,7 +2626,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
             <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             New QR
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
     );
   }
@@ -2819,7 +2821,8 @@ function ChannelTileCard({
           <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           <span className="sr-only">Rename CH {tile.channel}</span>
         </summary>
-        <form
+        <StayForm
+          door="pubPanood.renameRoamZone"
           action={renameRoamZone}
           className="pointer-events-auto absolute inset-x-0 top-full z-30 mt-1 space-y-1.5 rounded-lg border border-ink/15 bg-cream p-2 text-left shadow-lg"
         >
@@ -2850,7 +2853,7 @@ function ChannelTileCard({
           >
             Save name
           </SubmitButton>
-        </form>
+        </StayForm>
       </details>
       ) : null}
     </div>

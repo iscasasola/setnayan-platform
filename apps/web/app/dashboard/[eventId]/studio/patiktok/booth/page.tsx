@@ -30,6 +30,7 @@ import { formatCalendarDate } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
@@ -342,7 +343,7 @@ function TemplatesGrid({
         role="backup"
         otherSlug={primary.slug}
       />
-      <form action={savePatiktokBoothTemplates} className="sm:col-span-2">
+      <StayForm door="patiktok.savePatiktokBoothTemplates" action={savePatiktokBoothTemplates} className="sm:col-span-2">
         {/* The swap SAVES — it used to be a link that changed the URL only. */}
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="primary" value={backup.slug} />
@@ -353,7 +354,7 @@ function TemplatesGrid({
         >
           ↔ Swap primary and backup
         </SubmitButton>
-      </form>
+      </StayForm>
     </section>
   );
 }

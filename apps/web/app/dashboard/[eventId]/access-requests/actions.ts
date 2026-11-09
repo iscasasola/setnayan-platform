@@ -8,8 +8,9 @@
  * `event_moderators.permissions_json.areas`, which every gated feature already
  * reads through `moderator_area_level`. Nothing new decides access.
  *
- * Deliberately host-only, and NOT extended to delegate moderators, because a
- * coordinator who could answer requests could answer their own.
+ * ✋ WIDENED 8 Nov 2026 (owner: *"only coordinator and hosts has the final say"*): the BOOKED COORDINATOR answers a
+ * non-coordinator supplier's ask too — from their client page, through this same action. Still never their own: a
+ * coordinator's ask is the hosts' alone, and `answer_area_access_request` refuses anybody answering their own ask.
  *
  * ⚠ CORRECTED 2026-09-09 — this paragraph named the wrong function, and the one
  * it named is the dangerous one. `event_access_requests_host_answer` is scoped
@@ -25,14 +26,10 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { grantLevelFor, type AreaVerdict } from '@/lib/floor-command';
-import { COORDINATOR_AREAS, materializeAreas, withArea } from '@/lib/delegate-areas';
-import {
-  DELEGATE_AREAS,
-  PERMISSION_TEMPLATES,
-  type DelegateArea,
-  type ModeratorPermissions,
-} from '@/lib/event-moderators';
+import type { AreaVerdict } from '@/lib/floor-command';
+import { COORDINATOR_AREAS } from '@/lib/delegate-areas';
+import { DELEGATE_AREAS, PERMISSION_TEMPLATES, type DelegateArea } from '@/lib/event-moderators';
+import { accessAnswerNotice, areaAnswerRefusal } from '@/lib/access-answer-notice';
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { emitNotification } from '@/lib/notification-emit';
@@ -48,14 +45,12 @@ function isArea(v: string): v is DelegateArea {
 
 /**
  * Answer one request. `verdicts` maps each requested area to granted/declined;
- * anything the host left untouched stays unanswered and is simply not granted.
+ * anything left untouched stays unanswered and is simply not granted.
  *
- * Two writes, in this order:
- *   1. the moderator row (the actual grant — merged, never replaced, so an area
- *      the host shared last month is not silently revoked by today's answer);
- *   2. the request row (the record of what was asked and what was said).
- * If the first fails nothing is recorded as answered, which is the safe way
- * round: a lost record beats a phantom grant.
+ * The grant and the record are ONE transaction since 8 Nov 2026
+ * (`answer_area_access_request`): the seat is merged — never replaced — and the
+ * ask is marked answered in the same statement, so a refused grant never reads
+ * as answered and an answered ask never lacks its grant.
  */
 export async function answerAccessRequest(
   eventId: string,
@@ -94,94 +89,51 @@ export async function answerAccessRequest(
     return answerClaimAccess(eventId, requestId, v === 'granted');
   }
 
-  // Only areas that were actually ASKED for can be answered — a host cannot
-  // hand over something the coordinator never requested through this door.
+  // 🤝 ONE ANSWER PATH, IN THE DATABASE (owner 8 Nov 2026: *"only coordinator and hosts has the final say"*).
+  // `answer_area_access_request` decides WHO may answer (a host; the booked coordinator for a non-coordinator's ask;
+  // never the asker), WHAT the coordinator may share (only a part they hold), and the LEVEL (`grantLevelFor`'s rule:
+  // the booked coordinator → Edit, any other supplier → see and propose). It merges the seat after materialising its
+  // areas — the 2026-08-25 lesson — in one transaction, so a refused grant never reads as answered.
   const asked = req.requested_areas.filter(isArea);
   const decisions: Partial<Record<DelegateArea, AreaVerdict>> = {};
-  const granting: DelegateArea[] = [];
   for (const area of asked) {
     const v = verdicts[area];
-    if (v !== 'granted' && v !== 'declined') continue;
-    decisions[area] = v;
-    if (v === 'granted') granting.push(area);
+    if (v === 'granted' || v === 'declined') decisions[area] = v;
   }
   if (Object.keys(decisions).length === 0) {
     return { ok: false, error: 'Choose share or decline for at least one thing.' };
   }
 
-  if (granting.length > 0) {
-    const { data: existing } = await supabase
-      .from('event_moderators')
-      .select('moderator_id, permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', req.requester_user_id)
-      .maybeSingle();
-
-    const base: ModeratorPermissions =
-      (existing as { permissions_json?: ModeratorPermissions } | null)?.permissions_json ??
-      // 🚨 THIS USED TO SAY "the narrowest template" AND NAME
-      // `wedding_planner_external`, WHICH CARRIES `edit_all: true`,
-      // `checkout: true` AND `invite_hosts: true` — the WIDEST template a
-      // delegate can hold. A sentence is not a mechanism. Combined with the
-      // resolver's legacy fallback, a coordinator whose host granted them one
-      // line came away holding EDIT on every planning area, the guest list
-      // included. `viewer` is the template that is actually narrow: every flag
-      // false. What they may touch comes from `areas` below — the lines the
-      // host said yes to, and nothing else.
-      PERMISSION_TEMPLATES.viewer;
-
-    // ⚠ MATERIALISED, not spread. On an EXISTING row that carries no `areas`
-    // map — every host the couple invited through their own door — spreading
-    // `base.areas ?? {}` would write a map naming only the lines just granted,
-    // and since 2026-08-25 an area a map does not name resolves to nothing. The
-    // host would have answered "yes, share the schedule" and taken away five
-    // other things they never mentioned.
-    let merged: ModeratorPermissions = { ...base, areas: materializeAreas(base) };
-    for (const area of granting) {
-      merged = withArea(merged, area, grantLevelFor(area));
-    }
-
-    const { data: granted, error: modErr } = await supabase.from('event_moderators').upsert(
-      {
-        event_id: eventId,
-        user_id: req.requester_user_id,
-        role_subtype: 'wedding_planner_external',
-        permissions_json: merged,
-        invited_by_user_id: user.id,
-        // They asked for this, so there is no invitation left to accept.
-        accepted_at: new Date().toISOString(),
-        removed_at: null,
-      },
-      { onConflict: 'event_id,user_id' },
-    ).select('event_id');
-    if (modErr) return { ok: false, error: modErr.message };
-    // Same reason as the revoke path below: an upsert refused by a missing
-    // policy is not an error on every route into it, and a grant that silently
-    // wrote nothing would tell the host they had shared something they had not.
-    if (!granted || granted.length === 0) {
-      return {
-        ok: false,
-        error:
-          'We could not share that. Nothing has changed. Please try again, and ' +
-          'tell us if it keeps happening.',
-      };
-    }
+  const { data: answered, error: answerErr } = await supabase.rpc('answer_area_access_request', {
+    p_request_id: requestId,
+    p_verdicts: decisions,
+  });
+  if (answerErr) {
+    console.error('[supabase-error] access-requests/actions.ts · answer_area_access_request', answerErr.message, {
+      event_id: eventId,
+    });
+    return { ok: false, error: areaAnswerRefusal(answerErr.message) };
   }
 
-  const { error: updErr } = await supabase
-    .from('event_access_requests')
-    .update({
-      status: 'answered',
+  // 📣 TELL THE SUPPLIER THE ANSWER — in the app only (`access_answered` is not on EMAIL_ENABLED_TYPES). Fail-soft:
+  // the answer is committed.
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
+    const notice = accessAnswerNotice({
+      eventId,
+      eventName: (ev as { display_name?: string | null } | null)?.display_name ?? null,
       decisions,
-      decided_by_user_id: user.id,
-    })
-    .eq('request_id', requestId)
-    .eq('event_id', eventId);
-
-  if (updErr) return { ok: false, error: updErr.message };
+      askerIsCoordinator: (answered as { asker_is_coordinator?: boolean } | null)?.asker_is_coordinator === true,
+    });
+    await emitNotification({ userId: req.requester_user_id, type: 'access_answered', eventId, ...notice });
+  } catch (e) {
+    console.error('[access-requests] access answer notice failed:', e);
+  }
 
   revalidatePath(`/dashboard/${eventId}/access-requests`);
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   return { ok: true };
 }
 

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7499
+# facts: 7570
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     616
-#   col       5424
-#   policy    1095
+#   tpriv     623
+#   col       5471
+#   policy    1107
 #   view      9
-#   func      351
+#   func      356
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -38,6 +38,7 @@ tpriv	public.blacklisted_emails|anon	SIUD
 tpriv	public.blacklisted_emails|authenticated	SIUD
 tpriv	public.blocked_users|anon	SIUD
 tpriv	public.blocked_users|authenticated	SIUD
+tpriv	public.booking_change_asks|authenticated	S
 tpriv	public.booking_changes|authenticated	S
 tpriv	public.booking_fee_charges|anon	SIUD
 tpriv	public.booking_fee_charges|authenticated	SIUD
@@ -62,7 +63,11 @@ tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
+tpriv	public.card_claim_word_allowances|authenticated	SIUD
+tpriv	public.card_claim_words|authenticated	SIUD
 tpriv	public.category_form_suggestions|authenticated	S
+tpriv	public.category_hub_settings|authenticated	S
+tpriv	public.category_hub_tool_switches|authenticated	S
 tpriv	public.chat_blocker_shows|authenticated	S
 tpriv	public.chat_decision_topics|anon	S
 tpriv	public.chat_decision_topics|authenticated	S
@@ -265,6 +270,7 @@ tpriv	public.homepage_background_videos|anon	SIUD
 tpriv	public.homepage_background_videos|authenticated	SIUD
 tpriv	public.hub_guest_views|authenticated	S
 tpriv	public.hub_music_tracks|authenticated	IUD
+tpriv	public.hub_tools|authenticated	S
 tpriv	public.hub_visitor_buckets|authenticated	S
 tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
@@ -554,6 +560,7 @@ tpriv	public.vendor_partnerships|authenticated	SIUD
 tpriv	public.vendor_payment_asks|authenticated	SI
 tpriv	public.vendor_payment_methods|authenticated	SD
 tpriv	public.vendor_payouts|authenticated	SIUD
+tpriv	public.vendor_portfolio_photo_views|authenticated	S
 tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
 tpriv	public.vendor_profile_views|authenticated	SIUD
@@ -730,6 +737,20 @@ col	public.blocked_users.blocker_user_id	anon=SIU authenticated=SIU
 col	public.blocked_users.created_at	anon=SIU authenticated=SIU
 col	public.blocked_users.id	anon=SIU authenticated=SIU
 col	public.blocked_users.reason	anon=SIU authenticated=SIU
+col	public.booking_change_asks.answer_note	anon=- authenticated=S
+col	public.booking_change_asks.answered_at	anon=- authenticated=S
+col	public.booking_change_asks.answered_by	anon=- authenticated=S
+col	public.booking_change_asks.ask_id	anon=- authenticated=S
+col	public.booking_change_asks.asked_at	anon=- authenticated=S
+col	public.booking_change_asks.asked_by	anon=- authenticated=S
+col	public.booking_change_asks.event_id	anon=- authenticated=S
+col	public.booking_change_asks.form_id	anon=- authenticated=S
+col	public.booking_change_asks.note	anon=- authenticated=S
+col	public.booking_change_asks.proposal_id	anon=- authenticated=S
+col	public.booking_change_asks.status	anon=- authenticated=S
+col	public.booking_change_asks.subject	anon=- authenticated=S
+col	public.booking_change_asks.thread_id	anon=- authenticated=S
+col	public.booking_change_asks.vendor_profile_id	anon=- authenticated=S
 col	public.booking_changes.change_id	anon=- authenticated=S
 col	public.booking_changes.changed_at	anon=- authenticated=S
 col	public.booking_changes.changed_by	anon=- authenticated=S
@@ -902,9 +923,25 @@ col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
+col	public.card_claim_word_allowances.granted_at	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.granted_by	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.note	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.phrase	anon=- authenticated=SIU
+col	public.card_claim_word_allowances.vendor_profile_id	anon=- authenticated=SIU
+col	public.card_claim_words.created_at	anon=- authenticated=SIU
+col	public.card_claim_words.created_by	anon=- authenticated=SIU
+col	public.card_claim_words.note	anon=- authenticated=SIU
+col	public.card_claim_words.phrase	anon=- authenticated=SIU
 col	public.category_form_suggestions.category_id	anon=- authenticated=S
 col	public.category_form_suggestions.sort_order	anon=- authenticated=S
 col	public.category_form_suggestions.template_key	anon=- authenticated=S
+col	public.category_hub_settings.category_id	anon=- authenticated=S
+col	public.category_hub_settings.scan_default	anon=- authenticated=S
+col	public.category_hub_settings.updated_at	anon=- authenticated=S
+col	public.category_hub_settings.updated_by	anon=- authenticated=S
+col	public.category_hub_tool_switches.category_id	anon=- authenticated=S
+col	public.category_hub_tool_switches.created_at	anon=- authenticated=S
+col	public.category_hub_tool_switches.tool_key	anon=- authenticated=S
 col	public.chat_blocker_shows.blocker_kind	anon=- authenticated=S
 col	public.chat_blocker_shows.first_shown_at	anon=- authenticated=S
 col	public.chat_blocker_shows.last_shown_at	anon=- authenticated=S
@@ -2875,6 +2912,14 @@ col	public.hub_music_tracks.sort_order	anon=- authenticated=SIU
 col	public.hub_music_tracks.title	anon=- authenticated=SIU
 col	public.hub_music_tracks.track_id	anon=- authenticated=SIU
 col	public.hub_music_tracks.updated_at	anon=- authenticated=SIU
+col	public.hub_tools.created_at	anon=- authenticated=S
+col	public.hub_tools.is_active	anon=- authenticated=S
+col	public.hub_tools.label	anon=- authenticated=S
+col	public.hub_tools.sort_order	anon=- authenticated=S
+col	public.hub_tools.template	anon=- authenticated=S
+col	public.hub_tools.tool_key	anon=- authenticated=S
+col	public.hub_tools.updated_at	anon=- authenticated=S
+col	public.hub_tools.updated_by	anon=- authenticated=S
 col	public.hub_visitor_buckets.bucket_start	anon=- authenticated=S
 col	public.hub_visitor_buckets.event_id	anon=- authenticated=S
 col	public.hub_visitor_buckets.opens	anon=- authenticated=S
@@ -3920,6 +3965,7 @@ col	public.platform_settings.business_address	anon=- authenticated=S
 col	public.platform_settings.business_email	anon=- authenticated=S
 col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
+col	public.platform_settings.chat_live_pings_live	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.drive_speed_kmh	anon=- authenticated=S
@@ -4869,6 +4915,7 @@ col	public.vendor_contracts.uploaded_by_user_id	anon=SIU authenticated=SIU
 col	public.vendor_contracts.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.created_at	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.current_value	anon=SIU authenticated=SIU
+col	public.vendor_correction_requests.decline_reason	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.field_key	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.id	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.note	anon=SIU authenticated=SIU
@@ -5087,6 +5134,8 @@ col	public.vendor_image_flags.source_r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_surface	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_vendor_id	anon=- authenticated=SIU
 col	public.vendor_image_flags.status	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_report_note	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_reported_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.hashed_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.id	anon=- authenticated=SIU
 col	public.vendor_image_hashes.is_demo	anon=- authenticated=SIU
@@ -5094,6 +5143,7 @@ col	public.vendor_image_hashes.phash	anon=- authenticated=SIU
 col	public.vendor_image_hashes.r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_hashes.surface	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_image_hashes.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_invites.business_name	anon=SIU authenticated=SIU
 col	public.vendor_invites.claim_token	anon=SIU authenticated=SIU
 col	public.vendor_invites.claimed_at	anon=SIU authenticated=SIU
@@ -5346,6 +5396,10 @@ col	public.vendor_payouts.trigger_type	anon=- authenticated=SIU
 col	public.vendor_payouts.updated_at	anon=- authenticated=SIU
 col	public.vendor_payouts.vendor_net_centavos	anon=- authenticated=SIU
 col	public.vendor_payouts.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_portfolio_photo_views.last_viewed_at	anon=- authenticated=S
+col	public.vendor_portfolio_photo_views.photo_key	anon=- authenticated=S
+col	public.vendor_portfolio_photo_views.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_portfolio_photo_views.views	anon=- authenticated=S
 col	public.vendor_portion_rules.applies_to_block	anon=- authenticated=SIU
 col	public.vendor_portion_rules.applies_to_meals	anon=- authenticated=SIU
 col	public.vendor_portion_rules.created_at	anon=- authenticated=SIU
@@ -6088,6 +6142,7 @@ policy	public.blacklisted_emails|blacklisted_emails: admin select	mode=PERMISSIV
 policy	public.blocked_users|blocked_users_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.blocked_users|blocked_users_blocked_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(blocked_user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.blocked_users|blocked_users_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(blocker_user_id = ( SELECT auth.uid() AS uid)) check=(blocker_user_id = ( SELECT auth.uid() AS uid))
+policy	public.booking_change_asks|booking_change_asks_members_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.booking_changes|booking_changes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.booking_changes|booking_changes_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.booking_changes|booking_changes_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))) OR ((vendor_profile_id IS NULL) AND ((event_id IN ( SELECT t.event_id FROM chat_threads t WHERE (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) OR (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))))) check=NULL
@@ -6120,8 +6175,14 @@ policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mo
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.card_claim_word_allowances|card_claim_word_allowances_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.card_claim_words|card_claim_words_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.category_form_suggestions|category_form_suggestions_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.category_form_suggestions|category_form_suggestions_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.category_hub_settings|category_hub_settings_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.category_hub_settings|category_hub_settings_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.category_hub_tool_switches|category_hub_tool_switches_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.category_hub_tool_switches|category_hub_tool_switches_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.chat_blocker_shows|chat_blocker_shows_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.chat_decision_topics|chat_decision_topics_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_text_has_money(title)) OR (opened_by_user_id = ( SELECT auth.uid() AS uid)) OR (NOT chat_thread_money_hidden(thread_id))) check=NULL
 policy	public.chat_decision_topics|chat_decision_topics_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -6377,6 +6438,7 @@ policy	public.event_schedule_suggestions|schedule_asks_only_hosts_ask_suppliers	
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_resolve	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((direction = 'to_host'::text) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))) check=((direction = 'to_host'::text) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))))
 policy	public.event_schedule_suggestions|schedule_suggestions_hours_only_from_its_venue	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=((kind <> 'hours'::text) OR current_vendor_is_chapter_venue(block_id, vendor_profile_id))
+policy	public.event_schedule_suggestions|schedule_suggestions_skip_only_by_the_crew_door	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(kind <> 'skip'::text)
 policy	public.event_schedule_suggestions|schedule_suggestions_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (suggested_by_user_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text) AND (auto_agreed = false) AND ((kind = 'new'::text) = (block_id IS NULL)) AND ((block_id IS NULL) OR (EXISTS ( SELECT 1 FROM event_schedule_blocks b WHERE ((b.block_id = event_schedule_suggestions.block_id) AND (b.event_id = event_schedule_suggestions.event_id))))) AND ((proposed_parent_block_id IS NULL) OR ((EXISTS ( SELECT 1 FROM event_schedule_blocks c WHERE ((c.block_id = event_schedule_suggestions.proposed_parent_block_id) AND (c.event_id = event_schedule_suggestions.event_id) AND (c.parent_block_id IS NULL)))) AND current_vendor_owns_schedule_block(proposed_parent_block_id, vendor_profile_id))) AND ((kind = 'new'::text) OR ((kind = 'adjust'::text) AND (proposed_label IS NULL) AND (proposed_start_at IS NULL) AND (proposed_end_at IS NULL) AND (proposed_location IS NULL) AND (proposed_crew IS NULL)) OR current_vendor_owns_schedule_block(block_id, vendor_profile_id)))
 policy	public.event_schedule_suggestions|schedule_suggestions_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_where_only_by_its_doors	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(kind <> 'where'::text)
@@ -6558,6 +6620,8 @@ policy	public.homepage_background_videos|homepage_background_videos_read_all	mod
 policy	public.hub_guest_views|hub_guest_views_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) AND (EXISTS ( SELECT 1 FROM guests g WHERE (g.guest_id = hub_guest_views.guest_id)))) check=NULL
 policy	public.hub_music_tracks|hub_music_tracks_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.hub_music_tracks|hub_music_tracks_read_published	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_published = true) check=NULL
+policy	public.hub_tools|hub_tools_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.hub_tools|hub_tools_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.hub_visitor_buckets|hub_visitor_buckets_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.inquiry_outcome_reason_codes|reason_codes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.inquiry_outcome_reason_codes|reason_codes_read_active	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_active = true) check=NULL
@@ -7030,6 +7094,8 @@ policy	public.vendor_payment_methods|vendor_payment_methods_owner	mode=PERMISSIV
 policy	public.vendor_payment_methods|vendor_payment_methods_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_payouts|vendor_payouts_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_payouts.vendor_profile_id) AND (vp.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
 policy	public.vendor_payouts|vendor_payouts_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_portfolio_photo_views|vendor_portfolio_photo_views_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_portfolio_photo_views|vendor_portfolio_photo_views_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_portion_rules|vendor_portion_rules_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_profile_views|vendor_profile_views_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_profile_views|vendor_profile_views_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
@@ -7183,6 +7249,7 @@ func	public.admin_market_analytics()	secdef=yes exec=authenticated search_path=p
 func	public.advance_schedule_block(p_block_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.agent_assigned_service_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.agent_customer_event_ids()	secdef=yes exec=anon,authenticated search_path=public
+func	public.answer_change_ask(p_ask_id uuid, p_answer text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.answer_event_date_change(p_event_vendor_id uuid, p_answer text)	secdef=yes exec=authenticated search_path=public
 func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes exec=authenticated search_path=public
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
@@ -7190,6 +7257,7 @@ func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authentic
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.ask_for_a_change(p_thread_id uuid, p_subject text, p_note text, p_proposal_id uuid, p_form_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ask_hosts_for_more_access(p_event_id uuid, p_area text, p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.begin_mood_board_change(p_event_id uuid, p_kind text, p_slot_key text)	secdef=yes exec=authenticated search_path=public
@@ -7249,6 +7317,7 @@ func	public.couple_withdraw_photo_share(p_share_id uuid)	secdef=yes exec=authent
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.crew_pass_request(p_token text, p_name text)	secdef=yes exec=authenticated search_path=public
 func	public.crew_request_schedule_move(p_event_id uuid, p_block_ids uuid[], p_minutes integer)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.crew_request_schedule_skip(p_event_id uuid, p_block_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.crew_schedule_door(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.crew_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public
@@ -7342,6 +7411,7 @@ func	public.move_event_schedule_with_date(p_event_id uuid, p_to_day date)	secdef
 func	public.move_schedule_chapter(p_block_id uuid, p_start_at timestamp with time zone)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.order_basket_lines(p_order_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.paid_quote_floor_centavos(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
@@ -7371,6 +7441,7 @@ func	public.papic_tag_capture(p_token text, p_photo_id uuid, p_guest_token text,
 func	public.papic_tag_guest_capture(p_guest_id uuid, p_capture_id uuid, p_guest_token text, p_table_ref text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_vendor_challenge_photos(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_vendor_challenges(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.partners_you_served_with(p_vendor uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.price_band_pax_bucket(p_pax integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.public_seat_lookup(p_slug text, p_query text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.public_venue_scene(p_slug text, p_token text)	secdef=yes exec=anon,authenticated search_path=public
@@ -7452,6 +7523,7 @@ func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, 
 func	public.unpair_guest(p_event_id uuid, p_guest_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated search_path=public
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
+func	public.user_topic_is_mine(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_agree_to_part(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean, p_public_key text, p_copy_public boolean)	secdef=yes exec=authenticated search_path=public
@@ -7507,7 +7579,6 @@ func	public.vendor_waitlist_the_ask(p_event_vendor_id uuid)	secdef=yes exec=auth
 func	public.vendor_whitelist_pressure(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_win_loss(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_withdraw_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.vendor_worked_with_ids(for_vendor uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendors_blocked_on_date(p_vendor_ids uuid[], p_event_date date)	secdef=yes exec=authenticated search_path=public
 func	public.viewer_service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.visible_connection_names(p_person_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public, extensions

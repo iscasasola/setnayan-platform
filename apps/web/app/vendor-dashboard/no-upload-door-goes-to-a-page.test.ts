@@ -45,6 +45,14 @@ test('2 · the door is a native picker into the shipped PortfolioForm, lazily', 
   assert.match(door, /export const PHOTO_PICK_ACCEPT = 'image\/\*';/);
   assert.match(door, /<label\b[\s\S]*?<input\s+type="file"\s+accept=\{PHOTO_PICK_ACCEPT\}/, 'the door is not a label around a file input');
   assert.match(door, /lazy\(\(\) => loadPortfolioForm\(\)\.then\(\(m\) => \(\{ default: m\.PortfolioForm \}\)\)\)/, 'the uploader is not the shipped PortfolioForm, or not lazy');
+  // ⚖ The doors' on-demand code is no chunk of its own: every chunk id is an entry in the webpack runtime, which is in the shared
+  // bundle (202.3 KB, no headroom). Each dynamic import in the two door files names the EXISTING `picked-pages` chunk.
+  for (const f of ['app/vendor-dashboard/_components/portfolio-upload.tsx', 'app/vendor-dashboard/shop/_components/photo-menus.tsx']) {
+    // Raw source: the chunk name IS a comment (webpack's magic comment), so it is read before comments are stripped.
+    const imports = [...readFileSync(join(WEB, f), 'utf8').matchAll(/(?<![\w.])import\(([^)]*)\)/g)].map((m) => m[1]!).filter((a) => !/^\s*$/.test(a));
+    assert.ok(imports.length >= 1, `${f}: no on-demand import found`);
+    for (const i of imports) assert.match(i, /webpackChunkName: "picked-pages"/, `${f}: an on-demand import outside the existing picked-pages chunk — it adds a runtime entry to the shared bundle`);
+  }
   assert.doesNotMatch(door, /^import[^;]*gallery-media/m, 'the uploader is imported eagerly — it would ride in the page’s first load');
   assert.doesNotMatch(door, /<FileUpload\b/, 'a second uploader');
   assert.match(door, /<PortfolioForm\b[\s\S]*?\baddOnly\b[\s\S]*?pickedFiles=\{files\}/);

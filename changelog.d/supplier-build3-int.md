@@ -16,7 +16,7 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
 - **🔒 The admin's demo-shop thread read is filtered.** `/admin/demo-vendors/inquiries/[threadId]` reads through the service role, so the restrictive policy cannot bind it. It now keeps the shop's own view: shared lines, plus private lines the shop sent or received. A host ↔ host private line is never shown. The guard checks that this is the only service-role caller of `fetchMessages`.
 - **📂 Upload opens the device's picker, never a page.** Owner, 9 Nov: *"Upload is upload on files not go to a page. Mobile is the phone's gallery"*.
   - Today's hero, Shop's cover and the dev lab no longer link to `collections#gallery-media`. Pressing Upload opens a native `<input type="file" accept="image/*">`: the file dialog on desktop, the photo library on a phone.
-  - The chosen photos go to the shipped `PortfolioForm`, in add-only mode, through a new `FileUpload` `pickedFiles` prop. The watermark, QR guard, compression, the room count and the `updateVendorProfileField` `portfolio` save are all unchanged. It adds no server action, and the form is lazy-loaded in its own chunk.
+  - The chosen photos go to the shipped `PortfolioForm`, in add-only mode, through a new `FileUpload` `pickedFiles` prop. The watermark, QR guard, compression, the room count and the `updateVendorProfileField` `portfolio` save are all unchanged. It adds no server action. The form is lazy-loaded inside the supplier dashboard's existing `picked-pages` chunk, not a chunk of its own (see the bundle entry below).
   - A photo uploaded from Shop's cover is pre-picked as the cover in Your page's draft. It still goes live only with Your page's Apply.
   - Guard: `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`, sabotage-checked red.
 - **🖼 Shop's Cover and Logo sheets are each one short menu** (owner, 9 Nov, after Facebook's cover/profile photo menus). Each is rows of a round icon and a word, with no paragraph:
@@ -25,6 +25,11 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
   - Choose cover photo, which opens Your page's cover picker. For the logo, this row is "Adjust profile photo", which opens the shipped crop.
   - One muted line keeps "goes live when you Apply on Your page". The logo keeps the shipped drag/pinch crop after an upload.
 - **🌙 The supplier hero band stays espresso in dark mode.** A new `--m-espresso: #2C2A29` that never flips. `--m-ink` turned paper-light in `html.dark`, which made the hero band light and the white Upload pill's word white on white.
+- **📦 The shared bundle stays inside 202.3 KB without raising it.** Every async chunk id is one entry in the webpack runtime's chunk map, and the runtime is in the shared bundle. Build 3's lanes and the photo doors added enough entries to cross the budget once combined (CI on `fb5c509abf`: runtime 5.1 → 5.2 KB, total over by under 0.1 KB). The fix adds no new chunks: each new on-demand import joins an EXISTING named chunk, which is the Lane C `thread-parts` pattern.
+  - `DecisionToggle` and both `DeclineReasonFields` doors join `thread-parts`.
+  - `LockSwitch` and the photo doors (`PortfolioForm`, `PhotoViewer`) join `picked-pages`.
+  - The door guard now fails on any import in the two door files that does not name `picked-pages`.
+- **Upload sheet gutters:** the sheet's body is padded 16 px on both sides. It measured 0 px at 390 px.
 - **Regenerated:** the screens map, admin jobs/map, the migrations manifest, the exposure baseline, the FK behaviour file, the port-control baseline and the no-card baseline. The no-card count fell.
 
 SPEC IMPACT: None. The Upload/menu behaviour follows the owner's 9 Nov rulings already recorded for Build 3. No corpus file changes. One gap is flagged for the owner in the PR: there is no shipped "logo from Portfolio" picker, so the Logo menu's third row adjusts the logo rather than choosing one.

@@ -24,7 +24,11 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
  *     in the shared bundle (Build 3 rulings: about 20 B of headroom).
  * 🔒 `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`.
  */
-export const loadPortfolioForm = () => import('../shop/_components/gallery-media');
+// ⚖ NO chunk of its own: every chunk id is an entry in the webpack runtime's chunk map, which IS in the shared bundle
+// (202.3 KB, no headroom), so the photo doors ride the supplier dashboard's EXISTING on-demand chunk (`picked-pages`,
+// the picked client's pages) — zero new runtime entries. Two chunks of their own, then one named `photo-parts`, each
+// measured over the budget (Build 3 integration, #7416).
+export const loadPortfolioForm = () => import(/* webpackChunkName: "picked-pages" */ '../shop/_components/gallery-media');
 const PortfolioForm = lazy(() => loadPortfolioForm().then((m) => ({ default: m.PortfolioForm })));
 
 /** Every photo door's picker: any image — iOS and Android then offer the photo library (and the camera). */
@@ -172,14 +176,18 @@ export function PortfolioUploadDoor({
           <h2 id={headingId} className="sr-only">
             Upload photo
           </h2>
-          <PortfolioUploadBody
-            key={round}
-            facts={facts}
-            files={files}
-            coverPick={coverPick}
-            // The hero under the sheet wears the new photo with the save's own render: the `portfolio` write
-            // revalidates Shop, Your page, Portfolio and Today (`updateVendorProfileField`) — no refresh here.
-          />
+          {/* The house sheet draws its body edge to edge; Shop's ParamSheet pads its own — so the 16 px gutters live HERE
+              (measured at 390 px: the body touched both edges without them). */}
+          <div className="px-4 pb-4">
+            <PortfolioUploadBody
+              key={round}
+              facts={facts}
+              files={files}
+              coverPick={coverPick}
+              // The hero under the sheet wears the new photo with the save's own render: the `portfolio` write
+              // revalidates Shop, Your page, Portfolio and Today (`updateVendorProfileField`) — no refresh here.
+            />
+          </div>
         </Sheet>
       ) : null}
     </>

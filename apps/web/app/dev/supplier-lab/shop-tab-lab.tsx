@@ -8,6 +8,9 @@
  * Dev only (the lab page 404s in production).
  */
 import { ShopCover, type CoverData } from '@/app/vendor-dashboard/shop/_components/shop-cover';
+import { CoverPhotoMenu, LogoPhotoMenu } from '@/app/vendor-dashboard/shop/_components/photo-menus';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import type { ProfileFieldData } from '@/app/vendor-dashboard/shop/_components/editable-row';
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
@@ -149,11 +152,18 @@ function shopLab(fail: boolean, none: boolean) {
     shareUrl: 'https://www.setnayan.com/setnaprod',
   };
 
+  // 📷 Build 3 · integration: the Cover and Logo sheets are the REAL one-short-menus (`photo-menus.tsx`), on fixtures.
+  const uploadFacts: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: none ? [] : [...PHOTOS], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 0 };
+  const logoFields: ProfileFieldData = {
+    business_name: 'SetnaProd', business_owner_name: '', hq_address: '', location_city: 'Batangas', hq_latitude: null, hq_longitude: null,
+    contact_phone: '', contact_email: '', in_business_since_year: '', venue_width_m: '', venue_length_m: '', capacity_min: '', capacity_max: '',
+    logo_url: null, logoDisplayMap: {}, services: ['live_band'], extraServiceLeaves: [], vendorProfileId: 'lab-shop',
+  };
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-shop-tab-lab="">
       <div className="mx-auto w-full max-w-3xl">
         <ShopCover
-          d={cover}
+          d={{ ...cover, uploadFacts }}
           gearBody={
             /* Build 2 §10 #31 — the ⚙'s rows from fixtures (Your page first); the folds' editors mount on the real page. */
             <ShopSettingsRows
@@ -166,8 +176,16 @@ function shopLab(fail: boolean, none: boolean) {
           }
           promoteBody={null}
           qrBody={null}
-          logoBody={null}
-          coverBody={null}
+          logoBody={
+            <div className="space-y-3" data-shop-logo-view="">
+              <LogoPhotoMenu logoUrl={null} logoItem={{ key: 'logo', label: 'Logo', ok: false, surface: 'profile' }} logoFields={logoFields} isVerified />
+            </div>
+          }
+          coverBody={
+            <div className="space-y-3" data-shop-cover-view="">
+              <CoverPhotoMenu coverUrl={cover.coverUrl} facts={uploadFacts} chooseHref="/vendor-dashboard/website#cover" />
+            </div>
+          }
         />
         <ShopAnalyticsCarousel cards={cards} recs={buildGrowthRecs(null, { askedInWindow: 4 })} nowMs={NOW} />
         <ShopBadgeRow tiles={tiles} />

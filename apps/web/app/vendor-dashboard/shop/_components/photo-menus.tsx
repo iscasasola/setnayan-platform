@@ -27,7 +27,8 @@ import type { ProfileFieldData } from './editable-row';
  * paragraph. One muted line under the cover's says when a cover goes live (Your page's Apply, as shipped).
  * 🔒 `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`.
  */
-const loadViewer = () => import('@/app/_components/gallery/photo-viewer');
+// The viewer rides the photo doors' ONE on-demand chunk (`picked-pages` — see `loadPortfolioForm`), never a chunk of its own.
+const loadViewer = () => import(/* webpackChunkName: "picked-pages" */ '@/app/_components/gallery/photo-viewer');
 const PhotoViewer = lazy(() => loadViewer().then((m) => ({ default: m.PhotoViewer })));
 
 const ROW = 'flex min-h-[56px] w-full items-center gap-3.5 py-2 text-left';

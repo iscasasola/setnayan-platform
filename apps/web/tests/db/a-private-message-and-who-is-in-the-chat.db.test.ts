@@ -505,6 +505,8 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
   console.log('current_thread_ids callers:', JSON.stringify(got));
   assert.deepEqual(got, {
     policies: [
+      // 20271332497337 (Build 3 lane B): a decision topic is read by the chat's members (and the shop's team).
+      'chat_decision_topics.chat_decision_topics_read',
       'chat_messages.chat_messages_member_insert',
       'chat_messages.chat_messages_member_read',
       'chat_thread_members.chat_thread_members_read',
@@ -512,6 +514,9 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
     ],
     functions: [
       'chat_blocker_shown',
+      // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
+      // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.
+      'chat_is_in_thread',
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',

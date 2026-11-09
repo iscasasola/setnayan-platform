@@ -337,3 +337,26 @@ test('both root boundaries handle the cut-off request', () => {
     assert.match(src, /isInterruptedRequestError\(error\)[\s\S]{0,600}reloadForInterruptedRequest\(/, f);
   }
 });
+
+test('webpack asking for a module the new deploy dropped is a stale tab (owner, 10 Nov)', () => {
+  const stale = new TypeError("Cannot read properties of undefined (reading 'call')");
+  stale.stack = [
+    "TypeError: Cannot read properties of undefined (reading 'call')",
+    '    at c (https://www.setnayan.com/_next/static/chunks/webpack-a3ee0cbee.js?dpl=x:1:128)',
+    '    at s (https://www.setnayan.com/_next/static/chunks/5006-1f89494a8.js?dpl=x:1:56418)',
+  ].join('\n');
+  assert.equal(isStaleBundleError(stale), true);
+});
+
+test("the same 'call' message from OUR code is still a real crash", () => {
+  const real = new TypeError("Cannot read properties of undefined (reading 'call')");
+  real.stack = [
+    "TypeError: Cannot read properties of undefined (reading 'call')",
+    '    at onSave (https://www.setnayan.com/_next/static/chunks/app/vendor-dashboard/page-1a2b.js:1:900)',
+    '    at c (https://www.setnayan.com/_next/static/chunks/webpack-a3ee0cbee.js?dpl=x:1:128)',
+  ].join('\n');
+  assert.equal(isStaleBundleError(real), false);
+  const noStack = new TypeError("Cannot read properties of undefined (reading 'call')");
+  noStack.stack = undefined;
+  assert.equal(isStaleBundleError(noStack), false);
+});

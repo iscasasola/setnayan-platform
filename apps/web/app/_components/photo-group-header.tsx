@@ -146,7 +146,7 @@ export function PhotoGroupHeader({
         {hasPhoto ? (
           <span
             aria-hidden
-            className="mr-0 h-9 w-0 shrink-0 scale-[0.6] overflow-hidden rounded-[9px] bg-cover bg-center opacity-0 [transition:width_var(--sn-pill-dur)_var(--sn-pill-spring),margin_var(--sn-pill-dur)_var(--sn-pill-spring),opacity_var(--sn-pill-dur)_var(--sn-pill-spring),transform_var(--sn-pill-dur)_var(--sn-pill-spring)] motion-reduce:transition-none group-data-[pinned]:mr-2.5 group-data-[pinned]:w-9 group-data-[pinned]:scale-100 group-data-[pinned]:opacity-100"
+            className="mr-0 h-9 w-0 shrink-0 scale-[0.6] overflow-hidden rounded-[var(--m-r-sm)] bg-cover bg-center opacity-0 [transition:width_var(--sn-pill-dur)_var(--sn-pill-spring),margin_var(--sn-pill-dur)_var(--sn-pill-spring),opacity_var(--sn-pill-dur)_var(--sn-pill-spring),transform_var(--sn-pill-dur)_var(--sn-pill-spring)] motion-reduce:transition-none group-data-[pinned]:mr-2.5 group-data-[pinned]:w-9 group-data-[pinned]:scale-100 group-data-[pinned]:opacity-100"
             style={{ backgroundImage: pinned ? `url("${photoUrl}")` : undefined }}
             data-photo-group-thumb=""
           />

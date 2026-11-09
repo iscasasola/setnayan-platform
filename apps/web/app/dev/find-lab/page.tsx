@@ -62,7 +62,10 @@ export default async function FindLabPage({ searchParams }: { searchParams: Prom
         </header>
         <label className="flex items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 py-2">
           <Search className="h-4 w-4 shrink-0 text-ink/45" aria-hidden />
-          <input name="q" placeholder="Search suppliers or a service" className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40" />
+          <input
+            // field-ok: a lab copy of the Find page's own search box (`vendors/categories/page.tsx`), drawn for the shot only
+            name="q"
+            placeholder="Search suppliers or a service" className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40" />
         </label>
         <FindCategoryList eventId={LAB_EVENT} list={withPhotos} bookedMeasured={booked !== null} eventType={eventType} solemn={wake} />
       </div>

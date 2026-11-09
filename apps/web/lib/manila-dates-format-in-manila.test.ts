@@ -29,7 +29,7 @@ test('every Manila-midnight date names Asia/Manila when it is formatted', () => 
   for (const f of hits) {
     const src = readFileSync(f, 'utf8');
     for (const m of src.matchAll(/T00:00:00\+08:00`\)\.toLocaleDateString\('en-PH', \{([^}]*)\}/g)) {
-      if (!/timeZone:\s*'Asia\/Manila'/.test(m[1])) bad.push(f);
+      if (!/timeZone:\s*'Asia\/Manila'/.test(m[1] ?? '')) bad.push(f);
     }
   }
   assert.deepEqual(bad, [], 'formatted without timeZone: Asia/Manila — prints the day before on the server');

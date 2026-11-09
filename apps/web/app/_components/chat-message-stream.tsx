@@ -521,21 +521,25 @@ export function ChatMessageStream({
       // never appears in the thread, and both the couple and the supplier are
       // in that conversation waiting on it. The cost lands on whoever was
       // waiting, and neither of them can tell anything went wrong.
-      const cardCols = 'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids';
       const { data, error } = moneyHidden
         ? // 🔒 Through the masking reader, one per conversation pair — amounts arrive as null.
           await Promise.all(
             pairs.map((m) =>
               supabase
                 .rpc('chat_quotes_read', { p_event_id: m.event_id, p_vendor_profile_id: m.vendor_profile_id })
-                .select(cardCols)
+                .select('proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids')
                 .in('proposal_id', ids),
             ),
           ).then((rs) => {
             const bad = rs.find((r) => r.error);
             return bad ? { data: null, error: bad.error } : { data: rs.flatMap((r) => r.data ?? []), error: null };
           })
-        : await supabase.from('vendor_proposals').select(cardCols).in('proposal_id', ids);
+        : await supabase
+            .from('vendor_proposals')
+            .select(
+              'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, changes_locked, plan_locked, service_card_ids',
+            )
+            .in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
         if (error) console.error('[chat] proposal card read refused', error);

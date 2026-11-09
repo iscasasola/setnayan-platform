@@ -16,7 +16,7 @@ import {
   SPECIALIZED_TOOLS_SKU_CODE,
   SPECIALIZED_TOOLS_SKU_CODES,
   specializedToolsPurchaseEligibility,
-} from '@/lib/specialized-tools';
+} from '@/lib/specialized-tools-access';
 
 /**
  * 🧰 BUY THE SPECIALIZED TOOLS UNLOCK (Build 4, owner 2026-11-09).

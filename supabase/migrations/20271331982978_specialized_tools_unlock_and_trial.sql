@@ -148,7 +148,7 @@ GRANT ALL ON public.vendor_specialized_tools_access TO service_role;
 -- A paid plan whose tier_expires_at has passed does not count (the same explicit
 -- check `subscriptionClearsSpecializationFloor` makes — the tier sweep is
 -- login-driven, so a lapsed shop can still carry a paid tier_state).
--- Mirror: `specializedToolsUnlockFrom` in apps/web/lib/specialized-tools.ts.
+-- Mirror: `specializedToolsUnlockFrom` in apps/web/lib/specialized-tools-access.ts.
 CREATE OR REPLACE FUNCTION public.vendor_specialized_tools_unlocked(
   p_vendor_profile_id UUID,
   p_event_id          UUID
@@ -185,7 +185,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_specialized_tools_unlocked(UUID, UUID) IS
-  'May this shop use the PAID specialized tools (Papic challenge, 3D plan branding, every future tool) at this event? TRUE for (a) a live paid Specialized tools window on a verified Verified-and-up shop, (b) a live Pro or Ultra plan (included, owner 2026-11-09), or (c) the one-time first-booked-event trial on THAT event until it ends. The FREE tools never call this. Mirror: specializedToolsUnlockFrom (apps/web/lib/specialized-tools.ts). service_role only; the SECURITY DEFINER gates that call it run as the owner.';
+  'May this shop use the PAID specialized tools (Papic challenge, 3D plan branding, every future tool) at this event? TRUE for (a) a live paid Specialized tools window on a verified Verified-and-up shop, (b) a live Pro or Ultra plan (included, owner 2026-11-09), or (c) the one-time first-booked-event trial on THAT event until it ends. The FREE tools never call this. Mirror: specializedToolsUnlockFrom (apps/web/lib/specialized-tools-access.ts). service_role only; the SECURITY DEFINER gates that call it run as the owner.';
 
 REVOKE ALL ON FUNCTION public.vendor_specialized_tools_unlocked(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.vendor_specialized_tools_unlocked(UUID, UUID) TO service_role;
@@ -368,7 +368,7 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.specialized_tools_claim_trial(UUID) IS
-  'Claim (or read back) the shop''s ONE-TIME Specialized tools trial: every paid tool on its FIRST booked real-client event until that event ends (owner 2026-11-09). Verified and up; one per BUSINESS via booking_fee_business_matches; host not the shop or its team; a future date at booking; not is_sample. Fails closed (unreadable = nothing granted). Called by the event_vendors booking trigger and by the server (lib/specialized-tools.server.ts). service_role only.';
+  'Claim (or read back) the shop''s ONE-TIME Specialized tools trial: every paid tool on its FIRST booked real-client event until that event ends (owner 2026-11-09). Verified and up; one per BUSINESS via booking_fee_business_matches; host not the shop or its team; a future date at booking; not is_sample. Fails closed (unreadable = nothing granted). Called by the event_vendors booking trigger and by the server (lib/specialized-tools-access.server.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.specialized_tools_claim_trial(UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.specialized_tools_claim_trial(UUID) TO service_role;

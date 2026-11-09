@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTierAtLeast } from './vendor-tier-caps';
-import { fetchVendorSpecializedToolsUnlocked } from '@/lib/specialized-tools';
+import { fetchVendorSpecializedToolsUnlocked } from '@/lib/specialized-tools-access';
 
 /**
  * vendor-photo-challenge.ts — Papic Challenges pricing + eligibility.

@@ -1318,7 +1318,7 @@ export function boothCanBrand(tier: string | null | undefined): boolean {
 
 /** 🧰 The plans whose booth may RENDER branded — Verified and up (owner 2026-11-09, Build 4).
  *  The branded booth is now opened by the Specialized tools unlock, which is sold to Verified and up
- *  (`SPECIALIZED_TOOLS_MIN_TIER` in lib/specialized-tools.ts). Left at Solo, a Verified shop would pay
+ *  (`SPECIALIZED_TOOLS_MIN_TIER` in lib/specialized-tools-access.ts). Left at Solo, a Verified shop would pay
  *  ₱499 and still render the generic booth. The ENTITLEMENT half of {@link boothIsBranded} is unchanged
  *  and never relaxes: a Verified shop with no unlock, no trial and no legacy window stays generic.
  *  {@link BOOTH_BRANDING_MIN_TIER} (Solo) stays the BUY floor of the retired `vendor_3d_booth` add-on. */

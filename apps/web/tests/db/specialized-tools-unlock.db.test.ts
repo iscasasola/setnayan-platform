@@ -29,7 +29,7 @@ import {
   SPECIALIZED_TOOL_KEYS,
   specializedToolsUnlockFrom,
   type SpecializedToolsFacts,
-} from '../../lib/specialized-tools';
+} from '../../lib/specialized-tools-access';
 
 let replay: ReplayResult;
 let db: PGlite;

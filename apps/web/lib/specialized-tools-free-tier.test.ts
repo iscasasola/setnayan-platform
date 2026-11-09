@@ -39,7 +39,7 @@ import {
   specializedToolsUnlockFrom,
   toolNeedsUnlock,
   type SpecializedToolsFacts,
-} from './specialized-tools';
+} from './specialized-tools-access';
 import { FREE_SPECIALIZATION_SETS, VENDOR_SPECIALIZATIONS } from './vendor-specialization-gate';
 import { vendorPaysSetnayan } from './vendor-pays-setnayan';
 
@@ -94,7 +94,7 @@ test('3a · the unlock read has a closed list of callers in the app', () => {
     .sort();
   assert.deepEqual(callers, [
     'lib/entitlements.ts', // the re-export
-    'lib/specialized-tools.ts', // the definitions
+    'lib/specialized-tools-access.ts', // the definitions
     'lib/vendor-photo-challenge.ts', // Papic challenge — a PAID tool
   ]);
 });

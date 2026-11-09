@@ -58,7 +58,7 @@ import {
   isSpecializedToolsSku,
   nextSpecializedToolsExpiry,
   specializedToolsPeriodDays,
-} from '@/lib/specialized-tools';
+} from '@/lib/specialized-tools-access';
 import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,

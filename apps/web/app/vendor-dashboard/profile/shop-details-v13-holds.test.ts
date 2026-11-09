@@ -89,9 +89,11 @@ test('4a · Deep Search is priced from the run’s own source — never a typed 
   }
   // 2026-11-04: both sides of the band are catalogue rows, read by the offer — never a typed matrix.
   assert.match(src('lib/vendor-deep-search-offer.ts'), /fetchVendorAddonBandPrices\(supabase, 'deep_search_about_you'\)/, 'the band is not read from the catalogue');
-  const words = deepSearchBandWords({ entryPhp: 777, growthPhp: 333 }, 28);
-  assert.equal(words, '₱777 a search on Free, Verified and Solo · ₱333 on Pro and Ultra, with 1 free every 28 days on Pro and Ultra.');
-  assert.doesNotMatch(words, /free[^.]*Solo\./i);
+  const words = deepSearchBandWords({ entryPhp: 777, growthPhp: 333 });
+  assert.equal(words, '₱777 a search on Free, Verified and Solo · ₱333 on Pro and Ultra, one search per purchase.');
+  // 2026-11-09 (DECISION_LOG 🔎💳): no free search on any plan — the words never promise one.
+  assert.equal(deepSearchBandWords({ entryPhp: 499, growthPhp: 499 }), '₱499 a search on every plan, one search per purchase.');
+  assert.doesNotMatch(words, /free/i);
   // One resolver for the page and the card.
   assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /await loadDeepSearchOffer\(/, 'the Deep Search page prices itself again');
   assert.doesNotMatch(src('app/vendor-dashboard/deep-search/page.tsx'), /resolveVendorAddonPricePhp|fetchVendorDeepSearchPricePhp/, 'a second price path is back on the page');

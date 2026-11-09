@@ -1516,7 +1516,7 @@ function askedTogether<T>(ask: () => Promise<T>): Promise<T> {
 // branded 3D plan booth, every future tool) at this event? — is answered by the
 // database (`vendor_specialized_tools_unlocked`, migration 20271331982978) and
 // read through these two, re-exported here so every entitlement read is found in
-// one place. They live in lib/specialized-tools.ts because this module reaches
+// one place. They live in lib/specialized-tools-access.ts because this module reaches
 // server-only code and `lib/vendor-photo-challenge.ts` (bundled into client
 // components) must call them without pulling it in.
 //
@@ -1526,4 +1526,4 @@ function askedTogether<T>(ask: () => Promise<T>): Promise<T> {
 export {
   fetchVendorSpecializedToolsUnlocked,
   recordSpecializedToolUse,
-} from '@/lib/specialized-tools';
+} from '@/lib/specialized-tools-access';

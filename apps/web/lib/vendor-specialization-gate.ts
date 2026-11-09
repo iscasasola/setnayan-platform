@@ -112,7 +112,7 @@ export const SPECIALIZATION_MIN_TIER: VendorTier = 'solo';
  * Run of show · Emcee script · Song Desk · Floor Command + March · Live Watch* — every supplier, no purchase
  * (DECISION_LOG "BUILD 4 ANSWERS"). Song Desk (`song_desk`) and Emcee script (`stage_script`, "Script & cues")
  * had kept {@link SPECIALIZATION_MIN_TIER} because nobody had ruled on them; now somebody has. The paid layer is
- * the Specialized tools unlock (lib/specialized-tools.ts), which these three are not part of.
+ * the Specialized tools unlock (lib/specialized-tools-access.ts), which these three are not part of.
  */
 export const FREE_SPECIALIZATION_SETS: ReadonlySet<VendorSpecializationSet> = new Set<VendorSpecializationSet>([
   'floor_command',

@@ -55,6 +55,8 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   gift_refused: 'proposal_gift_refused',
   // 📅 no lifetime quotation (2026-11-09).
   needs_valid_until: 'proposal_needs_valid_until',
+  // 💳 pay in full (2026-11-09).
+  plan_not_in_full: 'proposal_plan_not_in_full',
   failed: 'proposal_failed',
 };
 

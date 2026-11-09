@@ -175,6 +175,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // person column is `changed_by` (no FK), the actor who moved a value. Same blind spot; the stamp is nulled
   // (AUTHOR_UUID_NULLS).
   'booking_changes',
+  // The ask for a change (2026-11-09, migration 20271332041210) — keyed by thread_id / vendor_profile_id; its two person
+  // columns are `asked_by` and `answered_by` (no FK). Same blind spot; both stamps are nulled (AUTHOR_UUID_NULLS).
+  'booking_change_asks',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

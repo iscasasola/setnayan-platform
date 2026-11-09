@@ -221,6 +221,7 @@ const PROPOSAL_NOTICE: Record<string, string> = {
     'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   // 📅 No lifetime quotation (2026-11-09).
   proposal_needs_valid_until: 'Pick how long this quote is valid before you send it — nothing was sent.',
+  proposal_plan_not_in_full: 'The payment plan must pay the whole quote — nothing was sent.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6).

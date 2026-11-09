@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { CLIENT_REFUND_SELECT } from '@/lib/client-refunds';
 import { SUPPLIER_REFUNDS_ROW_LIMIT as ROW_LIMIT, SupplierRefundsView, type SupplierRefundRow } from './supplier-refunds-view';
 
 export const metadata = { title: 'Supplier refunds · Admin' };
@@ -24,7 +25,8 @@ export default async function AdminSupplierRefundsPage() {
 
   const { data, error } = await admin
     .from('event_vendor_refunds')
-    .select('refund_id, event_id, vendor_profile_id, amount_php, refunded_on, reason, proof_r2_key, created_at, removed_at')
+    // The one refund column list (`CLIENT_REFUND_SELECT`, dup-rule GUARD 2), plus the two this console reads beside it.
+    .select(`${CLIENT_REFUND_SELECT}, vendor_profile_id, removed_at`)
     .order('created_at', { ascending: false })
     .limit(ROW_LIMIT);
   if (error) logQueryError('AdminSupplierRefunds', error, {}, 'graceful_degrade');

@@ -20,14 +20,15 @@
  *   3. the couple workspace redirects a chat landing to its thread page; the supplier's client draws Chat IN PLACE
  *      (THE ONE BUILD, 8 Nov 2026 · v111) with no second stream
  *   4. Chat is a page of the picked client / a LINK tab on the couple strip, with no Call tab anywhere
- *   5. the shell renders a link tab as an anchor and never selects it
+ *   5. RETIRED 2026-11-09 — the two-sided strip (`relationship-tab-shell.tsx`) is gone; both sides open the ONE
+ *      picked shell, which has no link tabs (Chat is a page)
  *   6. each thread frame's ⋮ carries the embedding page's sections
  *   7. the supplier's notice is addressed to the supplier; the couple's
  *      canonical string is untouched
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -38,7 +39,6 @@ const SUPPLIER_THREAD = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const COUPLE_THREAD = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const CLIENT_PAGE = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 const WORKSPACE = 'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx';
-const SHELL = 'app/_components/relationship-tab-shell.tsx';
 const PICKED_CHAT_PAGE = 'app/vendor-dashboard/clients/[eventId]/_pages/chat.tsx';
 const PICKED_MENU = 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu.ts';
 const NOTICE = 'app/_components/chat-privacy-notice.tsx';
@@ -47,7 +47,6 @@ const supplierThread = read(SUPPLIER_THREAD);
 const coupleThread = read(COUPLE_THREAD);
 const client = read(CLIENT_PAGE);
 const workspace = read(WORKSPACE);
-const shell = read(SHELL);
 const notice = read(NOTICE);
 
 const count = (src: string, re: RegExp) => (src.match(re) ?? []).length;
@@ -67,7 +66,6 @@ test('the scan reads every file (an empty read is a green lie)', () => {
     [COUPLE_THREAD, coupleThread],
     [CLIENT_PAGE, client],
     [WORKSPACE, workspace],
-    [SHELL, shell],
     [NOTICE, notice],
   ] as const) {
     assert.ok(src.length > 800, `${rel} read as ${src.length} chars`);
@@ -86,8 +84,18 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   // allowed only because it 404s in production as its FIRST statement (checked here, not assumed).
   // The supplier's chat lab (`/dev/supplier-chat-lab`) draws it too since 2026-10-29, on the same terms.
   const LABS = ['app/dev/chat-lab/t/[threadId]/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
-  const product = mounts.filter((m) => !LABS.includes(m));
-  for (const LAB of LABS.filter((l) => mounts.includes(l))) {
+  // 🪞 Supplier Build 3 · Lane A (9 Nov 2026): the picked-page labs draw the stream through ONE lab part,
+  // `app/dev/_components/lab-picked-chat.tsx` — not a page, so it cannot 404 itself. It is allowed only while EVERY
+  // file that imports it is a lab page that 404s in production as its first statement (checked here, not assumed).
+  const LAB_PART = 'app/dev/_components/lab-picked-chat.tsx';
+  const LAB_PART_PAGES = ['app/dev/chat-lab/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const partImporters = files
+    .filter((f) => /lab-picked-chat['"]/.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => f.slice(WEB.length + 1))
+    .filter((f) => !/\.test\.tsx?$/.test(f));
+  assert.deepEqual(partImporters.sort(), [...LAB_PART_PAGES].sort(), `the lab chat part is imported outside the two lab pages: ${partImporters.join(', ')}`);
+  const product = mounts.filter((m) => !LABS.includes(m) && m !== LAB_PART);
+  for (const LAB of [...LABS.filter((l) => mounts.includes(l)), ...(mounts.includes(LAB_PART) ? LAB_PART_PAGES : [])]) {
     const lab = stripComments(readFileSync(join(WEB, LAB), 'utf8'));
     const body = lab.slice(lab.indexOf('{', lab.indexOf(')', lab.indexOf('export default async function'))) + 1).trimStart();
     assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, `${LAB} can render on the live site`);
@@ -121,16 +129,19 @@ test('3 · the couple workspace sends a chat landing to its thread page; the sup
   );
   const chatPage = read(PICKED_CHAT_PAGE);
   assert.equal(count(chatPage, /<ChatMessageStream\b/g), 0, 'the Chat page mounts a second chat box');
-  assert.equal(
-    count(workspace, /relationshipShellEnabled && chatThread/g),
-    1,
-    'the workspace no longer redirects a chat landing',
-  );
+  // 🪞 SUPPLIER BUILD 3 · LANE A (9 Nov 2026; DECISION_LOG 🪞): the couple's workspace is the host's picked supplier now,
+  // and it no longer forwards a chat landing either — its Chat page draws the ONE conversation in place
+  // (`CoupleThreadBody` → the thread page itself, `__embed: 'chat'`; it mounts no stream of its own: test 1 still counts
+  // every mount). Honest update of the half that described the old redirect.
+  assert.equal(count(workspace, /relationshipShellEnabled && chatThread/g), 0, 'the workspace forwards a chat landing again');
   assert.equal(
     count(workspace, /redirect\(`\/dashboard\/\$\{eventId\}\/messages\/\$\{chatThread\.thread_id\}`\)/g),
-    1,
+    0,
+    'the workspace forwards to the thread again — Chat is a page of the picked supplier',
   );
-  assert.equal(count(workspace, /rawLanding === 'chat' \|\| rawLanding === 'call'/g), 1);
+  assert.equal(count(workspace, /<CoupleThreadBody eventId=\{eventId\} threadId=\{chatThread\.thread_id\} \/>/g), 1);
+  const coupleBody = read('app/dashboard/[eventId]/messages/[threadId]/_components/couple-thread-body.tsx');
+  assert.equal(count(coupleBody, /<ChatMessageStream\b/g), 0, 'the couple Chat page mounts a second chat box');
 });
 
 test('4 · "Chat" is a page of the picked client and a door on the couple strip; there is no Call tab', () => {
@@ -142,19 +153,18 @@ test('4 · "Chat" is a page of the picked client and a door on the couple strip;
   assert.equal(count(pages, /id: 'call'/g), 0, 'the picked client has a Call page — the call lives on the composer row');
   assert.match(menu, /call: 'chat'/, '`?tab=call` must land on Chat');
   assert.equal(count(client, /id: 'call'/g), 0, `${CLIENT_PAGE} still has a Call tab`);
-  // Couple: unchanged — Chat stays a link tab in the workspace strip.
-  const chatTab = workspace.match(/id: 'chat',[\s\S]{0,400}?\},/);
-  assert.ok(chatTab, `${WORKSPACE} lost its Chat tab`);
-  assert.match(chatTab![0], /href:/, `${WORKSPACE}: the Chat tab must be a link, not a panel`);
-  assert.doesNotMatch(chatTab![0], /node: [^n]/, `${WORKSPACE}: a link tab renders no panel`);
+  // Couple (🪞 Build 3 · Lane A, 9 Nov 2026): Chat is a page of the host's picked supplier too, and `call` only resolves
+  // TO Chat — never a page of its own.
+  const supplierMenu = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts');
+  const supplierPages = supplierMenu.slice(supplierMenu.indexOf('export const PICKED_SUPPLIER_PAGES'), supplierMenu.indexOf('] as const;', supplierMenu.indexOf('export const PICKED_SUPPLIER_PAGES')));
+  assert.match(supplierPages, /\{ id: 'chat', label: 'Chat' \}/, 'the picked supplier lost its Chat page');
+  assert.equal(count(supplierPages, /id: 'call'/g), 0, 'the picked supplier has a Call page — the call lives on the composer row');
+  assert.match(supplierMenu, /call: 'chat'/, '`?tab=call` must land on Chat');
   assert.equal(count(workspace, /id: 'call'/g), 0, `${WORKSPACE} still has a Call tab — the call lives on the composer row`);
 });
 
-test('5 · the shell draws a link tab as an anchor and never selects it', () => {
-  assert.equal(count(shell, /href\?: string;/g), 1, 'RelationshipTab lost its href');
-  assert.equal(count(shell, /data-tab-link=\{t\.id\}/g), 1, 'a link tab is not rendered as an anchor');
-  assert.match(shell, /visible\.filter\(\(t\) => !t\.href\)\.map\(\(t\) => t\.id\)/, 'link tabs must be excluded from the selectable ids');
-  assert.match(shell, /t\.id === active && !t\.href/, 'a link tab must never be the active panel');
+test('5 · the retired two-sided strip stays retired — one picked shell draws both sides', () => {
+  assert.ok(!existsSync(join(WEB, 'app/_components/relationship-tab-shell.tsx')), 'the two-sided strip is back beside the one picked shell');
 });
 
 test("6 · each frame's ⋮ carries the embedding page's sections", () => {

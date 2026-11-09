@@ -152,7 +152,11 @@ test('4 · each on-demand module warms exactly what it wraps; the shell warms al
     const warmed = [...warmFn.matchAll(/\(\) => import\(\s*(?:\/\*[^*]*\*\/\s*)?'([^']+)'\)/g)].map((m) => m[1]!);
     assert.deepEqual([...warmed].sort(), [...new Set(wrapped)].sort(), `${rel(f)}: the warm list is not the wrapped list`);
   }
+  // Supplier Build 3 · Lane A: the client's wrapper names WHAT to warm (and hands it as `warm`); the ONE picked shell
+  // (`app/_components/picked/picked-shell.tsx`) decides WHEN — at idle, after the open.
   const shell = read(join(CLIENT, '_components', 'picked-client-shell.tsx'));
   for (const w of ['warmPickedPages', 'warmThreadParts', 'warmHubParts']) assert.match(shell, new RegExp(`\\b${w}\\(\\);`), `the shell never warms ${w}`);
-  assert.match(shell, /requestIdleCallback/, 'the shell warms on the first paint’s critical path, not at idle');
+  assert.match(shell, /warm=\{warmEveryPage\}/, 'the client no longer hands its warm list to the shell');
+  const shared = read(join(CLIENT, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx'));
+  assert.match(shared, /requestIdleCallback/, 'the shell warms on the first paint’s critical path, not at idle');
 });

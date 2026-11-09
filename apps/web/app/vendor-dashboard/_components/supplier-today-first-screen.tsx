@@ -328,7 +328,9 @@ export function SupplierTodayFirstScreen({
             section) is Today's own page tour's. */}
         <p className="hc-k2" data-tour="today-next">
           <span>Needs you today</span>
-          <em data-today-needs-count="">{needsCount === null ? '12 MN – 12 MN' : `${formatCount(needsCount)} · 12 MN – 12 MN`}</em>
+          {/* Only a real count: 0 or an unread desk draws nothing here — the empty row under it says "Nothing waiting on
+              you", and a bare "0 · 12 MN – 12 MN" read as a stray mark (Build 3 empty modes, 9 Nov). */}
+          {needsCount ? <em data-today-needs-count="">{`${formatCount(needsCount)} · 12 MN – 12 MN`}</em> : null}
         </p>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
           {needs.map((n) => (

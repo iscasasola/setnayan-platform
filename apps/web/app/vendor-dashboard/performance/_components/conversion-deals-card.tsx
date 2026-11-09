@@ -65,7 +65,7 @@ export function ConversionDealsCard({
     // A half-ring: 0% at the left, 100% at the right (the arc's own length, so no number is invented).
     const ARC = Math.PI * 40;
     return (
-      <CardFace title="Quotes that turn into bookings" window="Last 12 months" line={line} data="deals">
+      <CardFace title="Quotes that turn into bookings" window="Last 12 months" line={line} data="deals" quiet={q === null || q.sentCount === 0}>
         <svg viewBox="0 0 100 58" className="mx-auto block w-[150px]" role="img" aria-label={pct === null ? 'No acceptance rate yet' : `${pct}% of quotes accepted`}>
           <path d="M10,50 A40,40 0 0 1 90,50" fill="none" stroke="color-mix(in srgb, var(--m-ink) 8%, transparent)" strokeWidth="9" strokeLinecap="round" />
           {pct !== null && pct > 0 ? (

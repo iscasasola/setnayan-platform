@@ -24,11 +24,14 @@
 /dev/card-moderation-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/categories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/chapters-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/chat-cards-lab	# first run 2026-11-09 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/chat-cards-c-lab	# first run 2026-11-09 · internal (dev, prototypes) · lane C card lab; 404 in production, reached only by typing its address
 /dev/chat-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/clients-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/collapsing-top-lab	# first run 2026-11-08 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/create-for-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/date-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

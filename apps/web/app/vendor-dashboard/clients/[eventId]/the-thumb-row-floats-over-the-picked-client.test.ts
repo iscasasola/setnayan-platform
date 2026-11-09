@@ -31,7 +31,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..');
 const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 const CSS = read(join(WEB, 'app', 'globals.css'));
-const SHELL = read(join(HERE, '_components', 'picked-client-shell.tsx'));
+const SHELL = read(join(HERE, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx') /* the ONE picked shell (Build 3 · Lane A) */);
 const ROW_PATH = join(WEB, 'app', 'vendor-dashboard', '_components', 'supplier-thumb-row.tsx');
 const ROW = read(ROW_PATH);
 const SHEET = read(join(WEB, 'app', '_components', 'sheet.tsx'));

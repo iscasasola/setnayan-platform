@@ -196,7 +196,9 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     discountPhp: peso(discountCentavos),
     title: row.title ?? '',
     note: row.rendered_body ?? '',
-    validUntil: /^\d{4}-\d{2}-\d{2}$/.test(row.valid_until ?? '') ? (row.valid_until as string) : '',
+    // ⏳ An EXPIRED quote seeds everything but its date: its Valid until is the past, and a send must be after today
+    // (the picker opens on 7 · 14 · 30 days with none chosen — FINAL RULINGS 2026-11-09).
+    validUntil: row.status !== 'expired' && /^\d{4}-\d{2}-\d{2}$/.test(row.valid_until ?? '') ? (row.valid_until as string) : '',
     paymentMethodIds: ids,
     schedule: seedScheduleFromStored(row.payment_schedule),
     giftSwitch: row.includes_setnayan_gift ?? null,

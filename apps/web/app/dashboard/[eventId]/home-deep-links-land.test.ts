@@ -25,6 +25,7 @@ import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { payTargetVendor } from '@/lib/budget-page-view';
 import { homeControlTiles, homeNowAction, homeToday, homeWaiting } from './_components/home-control-faces';
 import { drawHome, loadHome } from './home-render.harness';
+import { visiblePickedSupplierPage, pickedSupplierMenuFor } from './vendors/[vendorId]/workspace/_components/picked-supplier-menu';
 
 test.before(loadHome);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -50,10 +51,13 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   // The workspace lands on the tab its ?tab= names, and Quote is one of its tabs.
   const ws = src('vendors/[vendorId]/workspace/page.tsx');
   assert.match(ws, /const rawLanding = typeof search\.tab === 'string' \? search\.tab : undefined;/);
-  assert.match(ws, /initialTabId=\{rawLanding\}/, 'the workspace no longer opens on the tab its address names');
-  assert.match(ws, /id: 'quote',/, 'the workspace lost its Quote tab');
-  // …and a ?tab= landing is not bounced into the chat (only no tab, chat or call are).
-  assert.match(ws, /if \(!rawLanding \|\| rawLanding === 'chat' \|\| rawLanding === 'call'\)/);
+  // Build 3 (Lane A): the workspace is the picked shell now — the address's tab is mapped onto its page list, and
+  // `?tab=quote` lands on Quotation.
+  assert.match(ws, /initialPage=\{visiblePickedSupplierPage\(rawLanding, pickedMenu\)\}/, 'the workspace no longer opens on the tab its address names');
+  assert.match(src('vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts'), /PICKED_SUPPLIER_PAGE_IDS = \[[^\]]*'quote'/, 'Quote is no longer one of the picked pages');
+  assert.match(ws, /quote: hasQuotesToShow \? <div data-picked-supplier-page="quote">/, 'the workspace lost its Quote tab');
+  // …and a ?tab= landing is not bounced anywhere else: `quote` opens Quotation whenever there is a quote to show.
+  assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ quote: true, chat: true })), 'quote');
 });
 
 test('3 · a To do task opens itself in Planning Stage’s To do filter', () => {

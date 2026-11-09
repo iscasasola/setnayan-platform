@@ -97,6 +97,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   payment_info_sent: 'normal',
   payment_refunded: 'normal',
   vendor_payment_asked: 'normal',
+  client_refund_recorded: 'normal',
   vendor_payout_update: 'normal',
   ai_payment_due: 'normal',
   papic_pool_spent: 'normal',

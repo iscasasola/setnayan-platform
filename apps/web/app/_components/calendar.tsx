@@ -99,6 +99,11 @@ export function CalendarGrid({
   monthPicker,
   data,
   mark = 'circle',
+  month = null,
+  steps = true,
+  glide = true,
+  refuse = null,
+  onRefused,
 }: {
   /** The one day picked (`YYYY-MM-DD`). */
   value?: CalendarDay | null;
@@ -136,8 +141,30 @@ export function CalendarGrid({
    * through instead of hatched, today's ring 1.5 px. Held by `app/_components/calendar-day-box.test.ts`.
    */
   mark?: 'circle' | 'box';
+  /**
+   * THE MONTH ON SHOW, HELD BY THE SCREEN (the date sheet's month strip, `date-sheet.tsx`): ‹ › and the month picker
+   * only ASK (`onMonth`); the grid draws what it is given. Left out, the grid holds its own month, as it always has.
+   */
+  month?: CalendarMonth | null;
+  /** ‹ and › on show. `false` keeps their room (the title stays centred) but hides them — a greyed neighbour month. */
+  steps?: boolean;
+  /** The grid's own small slide when the month changes. `false` when a screen moves the months itself (the strip). */
+  glide?: boolean;
+  /**
+   * 🚫 A DAY THAT CAN NEVER BE CHOSEN (owner, 9 Nov 2026: *"why can i tap on the not available?"*) — its reason in words,
+   * or null. Such a day is never the picked circle, is out of the tab order (`aria-disabled`, tabIndex −1), is drawn
+   * struck (or hatched, when its state says blocked), and a tap NEVER reaches `onPick`: it tells `onRefused` why.
+   * Left out, every day in range may be picked, as before.
+   */
+  refuse?: ((day: CalendarDay) => string | null) | null;
+  /** A refused day was tapped — say why (the date sheet writes it on the line under the grid). */
+  onRefused?: (day: CalendarDay, reason: string) => void;
 }) {
-  const [view, setView] = useState<CalendarMonth>(() => monthOf(value, range?.from, startAt, today) ?? { y: 2026, m: 1 });
+  const [own, setOwn] = useState<CalendarMonth>(() => monthOf(value, range?.from, startAt, today) ?? { y: 2026, m: 1 });
+  const view = month ?? own;
+  const setView = (next: CalendarMonth) => {
+    if (!month) setOwn(next);
+  };
   const grid = useRef<HTMLDivElement>(null);
   const titleId = useId();
   /** The side the month on show came in from: +1 a later month, −1 an earlier one. */
@@ -146,7 +173,7 @@ export function CalendarGrid({
     const side = came.current;
     came.current = 0;
     const el = grid.current;
-    if (!side || !el?.animate || still()) return;
+    if (!side || !glide || !el?.animate || still()) return;
     el.animate(
       [
         { opacity: 0, transform: `translateX(${side * CALENDAR_MONTH_SLIDE_PX}px)` },
@@ -154,7 +181,7 @@ export function CalendarGrid({
       ],
       { duration: familyMs() * CALENDAR_MOTION.month, easing: EASE },
     );
-  }, [view]);
+  }, [view.y, view.m]);
   const step = (n: number) => {
     came.current = n;
     const next = stepMonth(view, n);
@@ -172,7 +199,7 @@ export function CalendarGrid({
   return (
     <div data-calendar={data ?? ''} data-calendar-month={`${view.y}-${String(view.m).padStart(2, '0')}`} className="w-full select-none">
       <div className="flex items-center gap-1.5 px-0.5 pb-2 pt-0.5">
-        <button type="button" aria-label="Earlier month" data-calendar-step="-1" onClick={() => step(-1)} className={STEP_CLASS}>
+        <button type="button" aria-label="Earlier month" data-calendar-step="-1" onClick={() => step(-1)} className={`${STEP_CLASS} ${steps ? '' : 'invisible'}`} aria-hidden={steps ? undefined : true} tabIndex={steps ? undefined : -1}>
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
         {monthPicker ? (
@@ -184,7 +211,7 @@ export function CalendarGrid({
             {monthTitle(view)}
           </b>
         )}
-        <button type="button" aria-label="Later month" data-calendar-step="1" onClick={() => step(1)} className={STEP_CLASS}>
+        <button type="button" aria-label="Later month" data-calendar-step="1" onClick={() => step(1)} className={`${STEP_CLASS} ${steps ? '' : 'invisible'}`} aria-hidden={steps ? undefined : true} tabIndex={steps ? undefined : -1}>
           <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
         </button>
       </div>
@@ -199,27 +226,35 @@ export function CalendarGrid({
         ))}
         {Array.from({ length: days }, (_, i) => {
           const day = dayOf(view.y, view.m, i + 1);
-          const look = dayLook(day, { value, range, today, marks, min, max });
+          const raw = dayLook(day, { value, range, today, marks, min, max });
+          /* A refused day is never the picked circle — whatever the screen says is picked (the 9 Nov bug: the hatch was
+             written over the chosen square). */
+          const why = !raw.out && refuse ? refuse(day) : null;
+          const look = why ? { ...raw, picked: false, inRange: false } : raw;
           const st = states?.get(day) ?? null;
           const dots = dayDots(st);
           const blocked = st?.blocked === true;
           const part = !blocked && st?.part === true;
           const stWords = dayStateWords(st);
           const box = mark === 'box';
+          const struck = why !== null && !blocked;
           return (
             <button
               key={day}
               type="button"
               disabled={look.out}
+              aria-disabled={why !== null ? true : undefined}
+              tabIndex={why !== null ? -1 : undefined}
               aria-pressed={look.picked}
               aria-current={look.today ? 'date' : undefined}
-              aria-label={`${dayWords(day)}${stWords ? ` — ${stWords}` : look.marked ? ' — something is on' : ''}`}
+              aria-label={`${dayWords(day)}${why ? ` — ${why}` : stWords ? ` — ${stWords}` : look.marked ? ' — something is on' : ''}`}
               data-calendar-day={day}
+              data-calendar-refused={why !== null ? '' : undefined}
               data-calendar-in-range={look.inRange ? '' : undefined}
               data-calendar-blocked={blocked ? '' : undefined}
               data-calendar-part={part ? '' : undefined}
               data-calendar-full={st?.full ? '' : undefined}
-              onClick={() => onPick(day)}
+              onClick={() => (why !== null ? onRefused?.(day, why) : onPick(day))}
               /* ONE shape per day: a circle — or, strictly between a range's two ends, a square of the soft fill; or
                  (kind 31) a blocked day's hatched square. The picked day is always the one circle. */
               /* #28 ONE FILLED DAY ONLY (box): the picked day is the only fill — a part-booked day keeps its dots and its
@@ -227,20 +262,22 @@ export function CalendarGrid({
               style={box ? undefined : blocked && !look.picked ? { backgroundImage: CALENDAR_HATCH } : part && !look.picked ? CALENDAR_PART_STYLE : undefined}
               className={`${CALENDAR_DAY_CLASS} ${
                 box
-                  ? `rounded-md ${look.out ? 'pointer-events-none text-ink/25' : blocked ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`
+                  ? `rounded-md ${look.out ? 'pointer-events-none text-ink/25' : blocked || struck ? 'text-ink/45' : 'text-ink'} ${look.picked ? 'font-bold' : ''} ${look.today && !look.picked ? 'ring-[1.5px] ring-inset ring-ink/[0.34]' : ''}`
                   : look.picked
                   ? `rounded-full ${PILL_ON_CLASS} font-bold`
                   : look.out
                     ? 'pointer-events-none rounded-full text-ink/25'
+                    : struck
+                      ? 'cursor-not-allowed rounded-full text-ink/30 line-through decoration-ink/30'
                     : blocked || part
-                      ? `rounded ${blocked ? 'text-ink/45' : 'text-ink'}`
+                      ? `rounded ${blocked ? 'text-ink/45' : 'text-ink'} ${why !== null ? 'cursor-not-allowed' : ''}`
                       : look.inRange
                         ? 'rounded-none bg-sn-accent/[0.14] text-ink'
                         : 'rounded-full text-ink'
               } ${st?.full && !look.picked ? 'font-bold' : ''} ${!box && look.today && !look.picked ? 'ring-1 ring-inset ring-ink/15' : ''}`}
             >
               {box ? (
-                <DayBox on={look.picked} struck={blocked}>
+                <DayBox on={look.picked} struck={blocked || struck}>
                   {i + 1}
                 </DayBox>
               ) : (

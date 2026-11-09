@@ -112,7 +112,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
   if (!available) return null;
 
   return (
-    <section className="sn-tile mt-8 p-6">
+    <section id="papic-challenge" className="sn-tile mt-8 scroll-mt-24 p-6">
       <div className="flex items-start gap-3">
         <span
           aria-hidden

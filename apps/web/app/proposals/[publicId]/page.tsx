@@ -424,11 +424,23 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           That didn&rsquo;t go through — refresh and try again.
         </p>
       ) : null}
+      {/* ⏳ Accept refused: its Valid until passed (QUOTE_EXPIRED). */}
+      {search.notice === 'quote_expired' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          This quotation expired before it was accepted. The supplier is sending a new one.
+        </p>
+      ) : null}
       {/* S5 · sending this would supersede an ACCEPTED quote the booking rests on. */}
       {search.notice === 'send_deal_locked' ? (
         <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
           This booking is already locked at the accepted quote &mdash; changes to it go through a
           change order, not a new quote. Your draft was kept.
+        </p>
+      ) : null}
+      {/* 📅 No lifetime quotation (2026-11-09). */}
+      {search.notice === 'send_needs_valid_until' ? (
+        <p role="alert" className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-900 print:hidden">
+          Pick how long this quote is valid before you send it. Your draft was kept.
         </p>
       ) : null}
       {search.notice === 'send_lock_requested' ? (

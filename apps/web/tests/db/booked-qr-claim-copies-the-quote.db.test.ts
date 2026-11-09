@@ -138,8 +138,9 @@ test('3 · the shop’s earlier live quotes on the event are superseded — one 
     [eventId, shop],
   );
   await db.query(
-    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, line_items, total_centavos, status)
-     VALUES ($1, $2, 'Old accepted', '[]'::jsonb, 100, 'accepted'), ($1, $2, 'Old sent', '[]'::jsonb, 100, 'sent')`,
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, line_items, total_centavos, status, valid_until)
+     VALUES ($1, $2, 'Old accepted', '[]'::jsonb, 100, 'accepted', (NOW() AT TIME ZONE 'Asia/Manila')::date + 7),
+            ($1, $2, 'Old sent', '[]'::jsonb, 100, 'sent', (NOW() AT TIME ZONE 'Asia/Manila')::date + 7)`,
     [shop, eventId],
   );
   assert.equal((await claim(await newToken(), eventId)).status, 'ok');

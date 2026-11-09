@@ -23,6 +23,7 @@ import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
+import { CHAT_PRIVATE_RECIPIENT_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 
 /**
  * The allowlist and the size ceilings now live in `lib/chat-attachment-limits.ts`
@@ -84,6 +85,8 @@ export type SendMessageError =
   | 'attachment_invalid'
   | 'attachment_failed'
   | 'contact_blocked'
+  | 'private_words_only'
+  | 'private_recipient'
   | 'insert_failed';
 
 export type SendMessageResult =
@@ -116,6 +119,12 @@ export async function sendChatMessageCore(
      * read. Ignored when `attachment` is also given.
      */
     attachmentRef?: { ref: string; name: string } | null;
+    /**
+     * 🔒 PRIVATE TO ONE PERSON (DECISION_LOG 2026-11-09 🔒): the recipient's auth uid, or absent/null for everyone. A
+     * private message is WORDS ONLY and its recipient must be a party to this thread; only they are notified, and the
+     * auto-reply is never woken by one. Who can READ it is the database's rule (RLS), not this function's.
+     */
+    privateTo?: string | null;
   },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
@@ -195,6 +204,34 @@ export async function sendChatMessageCore(
     senderRole = 'vendor';
   } else {
     return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
+  }
+
+  // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.
+  // everything else is public."); the recipient must be one of this thread's parties: a host of the event or the shop.
+  const privateTo = input.privateTo && input.privateTo !== user.id ? input.privateTo : null;
+  if (privateTo) {
+    if (hasAttachment || storedRef) {
+      return { ok: false, code: 'private_words_only', message: PRIVATE_WORDS_ONLY_MESSAGE };
+    }
+    const partyAdmin = createAdminClient();
+    const [asHost, asShop] = await Promise.all([
+      partyAdmin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', thread.event_id)
+        .eq('user_id', privateTo)
+        .eq('member_type', 'couple')
+        .maybeSingle(),
+      partyAdmin
+        .from('vendor_profiles')
+        .select('user_id')
+        .eq('vendor_profile_id', thread.vendor_profile_id)
+        .eq('user_id', privateTo)
+        .maybeSingle(),
+    ]);
+    if (!asHost.data && !asShop.data) {
+      return { ok: false, code: 'private_recipient', message: 'That person is not in this chat — your message was not sent.' };
+    }
   }
 
   // Iteration 0028 follow-up — count existing messages on this thread so we
@@ -427,6 +464,7 @@ export async function sendChatMessageCore(
     vendor_profile_id: thread.vendor_profile_id,
     body: trimmed,
     ...(attachment ?? {}),
+    ...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {}),
   });
   if (error) {
     // The database screens the text with the same rules as the check above
@@ -477,7 +515,8 @@ export async function sendChatMessageCore(
   // LOOP-GUARD: only senderRole==='couple' schedules it; the bot's own posts
   // land as sender_role='vendor' via the service-role client (not through this
   // core), so neither the bot nor the vendor can ever re-trigger it.
-  if (senderRole === 'couple' && vendorAutoReplyEnabled()) {
+  // 🔒 A private message never wakes it — the auto-reply answers the shared chat only.
+  if (senderRole === 'couple' && !privateTo && vendorAutoReplyEnabled()) {
     after(() => runVendorAutoReply({ threadId: thread.thread_id, senderRole }));
   }
 
@@ -494,7 +533,8 @@ export async function sendChatMessageCore(
     // preview instead of an empty string. (A message that reaches this point has
     // already passed the contact filter, so trimmed is safe to preview.)
     body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
-    isFirstMessage,
+    isFirstMessage: isFirstMessage && !privateTo,
+    privateTo,
   });
 
   return { ok: true };

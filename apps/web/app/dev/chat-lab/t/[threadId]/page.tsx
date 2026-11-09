@@ -127,10 +127,11 @@ async function LabThread({ params, searchParams }: LabProps) {
                 sendAction={labSend}
                 lead={
                   side === 'couple' ? (
-                    <CoupleThreadToolsSheet dealReveal={dealEntry.composer.reveal} />
+                    <CoupleThreadToolsSheet dealReveal={dealEntry.composer.reveal} eventId={LAB_EVENT} threadId={threadId} />
                   ) : (
                     <ThreadToolsSheet
                       eventId={LAB_EVENT}
+                      threadId={threadId}
                       state={{ hasAgreement: booked, askOpen: false, paymentsToConfirm: 0, guestCountChanges: 0 }}
                     />
                   )
@@ -149,6 +150,7 @@ async function LabThread({ params, searchParams }: LabProps) {
           >
             <ChatMessageStream
               flush
+              plus={{ eventId: LAB_EVENT, returnPath: `/dev/chat-lab/t/${threadId}` }}
               dealEntry={dealEntry}
               threadId={threadId}
               initialMessages={LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId }))}

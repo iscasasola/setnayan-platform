@@ -24,7 +24,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
-import { refundRefusalWords, type RefundAnswer } from '@/lib/client-refunds';
+import { refundDayWords, refundRefusalWords, type RefundAnswer } from '@/lib/client-refunds';
+import { formatPhp } from '@/lib/php';
 import {
   fetchPendingVendorPayments,
   fetchPlanProgressForVendor,
@@ -428,8 +429,54 @@ export async function recordClientRefund(formData: FormData): Promise<RefundAnsw
     console.error('[refund] vendor_record_client_refund failed:', error.message);
     return { ok: false, message: refundRefusalWords(null) };
   }
-  const env = (data ?? {}) as { status?: string };
+  const env = (data ?? {}) as { status?: string; repeat?: boolean; event_id?: string | null };
   if (env.status !== 'ok') return { ok: false, message: refundRefusalWords(env.status) };
+  // 🔔 The couple is TOLD, in the app (Build 2 leftover (b)): amount, day and why. Only for a NEW row — a double tap's
+  // repeat answer carries no event id and tells nobody twice. In-app only (`client_refund_recorded` is app_only in
+  // lib/couple-supplier-notices.ts, not on the email allowlist). Best-effort: the record already stands.
+  if (!env.repeat && env.event_id) {
+    await tellTheCoupleOfARefund(supabase, env.event_id, eventVendorId, Math.round(amount * 100) / 100, on, reason.slice(0, 240));
+  }
   if (back) revalidatePath(back);
   return { ok: true };
+}
+
+/** "Ana's Studio recorded a ₱5,000 refund to you" — to every couple member of the event, in the app. Never throws. */
+async function tellTheCoupleOfARefund(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  eventVendorId: string,
+  amountPhp: number,
+  refundedOn: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const profile = user ? await fetchOwnVendorProfile(supabase, user.id) : null;
+    const vendorName = profile?.business_name?.trim() || 'Your supplier';
+    const admin = createAdminClient();
+    const { data: members, error } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    if (error) {
+      console.error('[refund] couple lookup failed:', error.message);
+      return;
+    }
+    for (const m of members ?? []) {
+      if (!m.user_id) continue;
+      await emitNotification({
+        userId: m.user_id,
+        type: 'client_refund_recorded',
+        title: `${vendorName} recorded a refund to you`,
+        body: `${formatPhp(amountPhp)} given back on ${refundDayWords(refundedOn)}: ${reason}`,
+        relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+      });
+    }
+  } catch (e) {
+    console.error('[refund] couple notify failed:', e);
+  }
 }

@@ -671,7 +671,8 @@ function guestCountNow(g: GuestCountFact, f: ThreadDecisionFacts): DecisionNow {
 export type DecisionQuoteCard = {
   publicId: string;
   title: string;
-  totalCentavos: number;
+  /** Null when the reader may not see the figure ("₱ — hosts only", chat_quotes_read) — the decision names no total. */
+  totalCentavos: number | null;
   status: string;
   resolvedAt: string | null;
 };
@@ -742,7 +743,7 @@ export function threadDecisionFacts(input: {
           // Centavo-exact. `buildThreadDecisions` prints this through `formatPhp`, which keeps centavos only if they
           // survive TO it — so a quote totalling ₱187,500.50 titled its own decision card "₱187,501": the figure the
           // couple is being asked to accept, 50 centavos off, in the chat thread where they accept it.
-          totalPhp: Math.round(card.totalCentavos) / 100,
+          totalPhp: card.totalCentavos == null ? null : Math.round(card.totalCentavos) / 100,
           status: card.status,
           decidedAtMs: ms(card.resolvedAt),
         });

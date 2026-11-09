@@ -10,6 +10,7 @@
  * No peso is typed here: fees are the bills' own amounts and the forecast is `bookingFeeForecast` on the default
  * schedule (`BOOKING_FEE`) — the same function the page's forecast runs.
  */
+import { Plus } from 'lucide-react';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { assembleSupplierToday, type SupplierTodayInput } from '@/lib/supplier-today-view';
 import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
@@ -39,6 +40,13 @@ import type { SpotlightScript } from '@/lib/tours';
 import { LAB_PAPER_URLS, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
+import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
+import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+
+/** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
+ *  dev server for a presign and is refused — the lab writes nothing). */
+const LAB_UPLOAD_FACTS: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: [], free: 50, allowanceUnread: false, walletBalance: 0 };
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
@@ -407,7 +415,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   if (moment === 'answers') {
     // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
     const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
@@ -565,6 +573,18 @@ export function TodayEasyLab({ sup: supKey, moment, library = false, rail = null
         now={NOW}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
+        hero={
+          heroPhoto
+            ? { picture: { url: '/realstories/jack-jill-g1.jpg', kind: 'photo' }, caption: 'Most viewed · 412 views', upload: null }
+            : { picture: { url: '/placeholders/vendor.webp', kind: 'placeholder' }, caption: null, upload: {
+                door: (
+                  <PortfolioUploadDoor facts={LAB_UPLOAD_FACTS} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
+                    <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    Upload
+                  </PortfolioUploadDoor>
+                ),
+              } }
+        }
         eventsYouRun={eventsYouRun}
         library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={

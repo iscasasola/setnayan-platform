@@ -153,8 +153,13 @@ test('the ask panel swaps Agree for "Waiting list" only on the RPC’s full, and
     ['messages', '[threadId]', 'page.tsx'],
   ]) {
     const src = stripComments(readFileSync(join(HERE, '..', 'app', 'vendor-dashboard', ...page), 'utf8'));
-    assert.equal((src.match(/dayCheck=\{dayCheck\}/g) ?? []).length, 1, `${page.join('/')} does not hand the panel its day`);
-    assert.equal((src.match(/waitlistAsk=\{vendorWaitlistTheAsk\}/g) ?? []).length, 1, `${page.join('/')} has no Waiting list`);
+    /* ✏️ 2026-11-09 (Build 3 lane B): the thread page now mounts the panel TWICE — in the (+) rail and as the
+       blocker's answer (`layout="blocker"`). Each mount must be handed the day and the Waiting list, so the count is
+       pinned to the number of mounts (at least one), not to a literal 1 — a mount without the read is still red. */
+    const mounts = (src.match(/<LockRequestAnswer\b/g) ?? []).length;
+    assert.ok(mounts >= 1, `${page.join('/')} no longer mounts the ask panel`);
+    assert.equal((src.match(/dayCheck=\{dayCheck\}/g) ?? []).length, mounts, `${page.join('/')} does not hand the panel its day`);
+    assert.equal((src.match(/waitlistAsk=\{vendorWaitlistTheAsk\}/g) ?? []).length, mounts, `${page.join('/')} has no Waiting list`);
     assert.ok(/readDayCheck\(supabase, /.test(src), `${page.join('/')} reads the day through another client than the supplier's session`);
   }
 });

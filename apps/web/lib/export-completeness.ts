@@ -53,7 +53,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // ── The subject's own records ───────────────────────────────────────────
   { table: 'users', decision: 'exported', as: 'profile (users)' },
   { table: 'event_members', decision: 'exported', as: 'event_memberships' },
-  { table: 'chat_messages', decision: 'exported', as: 'chat_messages_authored' },
+  // Two sections: what they wrote, and (RA 10173, Build 3 lane B round 3) the private lines sent TO them.
+  { table: 'chat_messages', decision: 'exported', as: 'chat_messages_authored · chat_private_messages_received' },
   { table: 'orders', decision: 'exported', as: 'orders' },
   { table: 'payments', decision: 'exported', as: 'payments' },
   // 📱 A crew member's own passes onto a shop's Event Hub (2026-10-29) — the name they typed, their role, whether
@@ -135,6 +136,13 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'vendor_team_members', decision: 'exported', as: 'supplier_team_memberships' },
   // Added 2026-11-06 with the table (supplier claim scanner, slice 1): read by scanned_by_user_id, guest not selected.
   { table: 'supplier_scan_claims', decision: 'exported', as: 'supplier_scans_made' },
+  // Added 2026-11-09 with the tables (Supplier Build 3 · lane B): host seats in a supplier chat, read by user_id with
+  // the subject's own left_note (added_by_user_id not selected), and the per-person blocker show counts.
+  { table: 'chat_thread_members', decision: 'exported', as: 'chat_conversations_hosted' },
+  { table: 'chat_blocker_shows', decision: 'exported', as: 'chat_blocker_shows' },
+  // Round 2 (migration 20271332497337): a decision topic is the conversation's shared record (either side closes it,
+  // anyone reopens) — the call made for communities / event_wish_items: who started it only stamps the row.
+  { table: 'chat_decision_topics', decision: 'excluded', why: 'The conversation\'s shared topic (a title, open or closed), not the opener\'s record: every member of the chat reads, closes and reopens it, and opened_by / closed_by only stamp who pressed. The same call as communities.created_by. The erasure clears both stamps (lib/erasure/coverage.ts).' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

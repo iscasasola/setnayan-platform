@@ -56,7 +56,7 @@ export function PlusDraft({
           ) : draft.kind === 'logpay' && side === 'couple' ? (
             <LogPaymentCard threadId={threadId} onClose={close} onSent={sent} />
           ) : draft.kind === 'form' && side === 'vendor' ? (
-            <FormStepCard eventId={eventId} returnPath={returnPath} onClose={close} onSent={sent} />
+            <FormStepCard threadId={threadId} eventId={eventId} returnPath={returnPath} onClose={close} onSent={sent} />
           ) : draft.kind === 'photos' || draft.kind === 'file' ? (
             <FilesStepCard side={side} onClose={close} />
           ) : draft.kind === 'decision' ? (

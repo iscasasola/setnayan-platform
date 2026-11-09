@@ -1836,9 +1836,13 @@ export async function resolveOwnBookingId(
  * silence is indistinguishable from one that passed, and this one refuses for
  * four different reasons.
  */
-export async function vendorAskForPayment(formData: FormData) {
+export async function vendorAskForPayment(formData: FormData): Promise<PaymentAskOutcome | undefined> {
   const eventId = formData.get('event_id');
   const res = await askForPaymentCore(formData);
+  // The chat's Payment card (Supplier Build 3 · lane C) sends the SAME ask and stays in the conversation: with
+  // `inline=1` the outcome comes back instead of a landing ("a save never resets the screen"). One action, two
+  // returns — no second exported route (the server-action budget).
+  if (formData.get('inline') === '1') return res;
   if (res.ok) {
     redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }
@@ -1848,14 +1852,14 @@ export async function vendorAskForPayment(formData: FormData) {
   redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: res.code } }));
 }
 
+/** What a payment ask came to — every refusal NAMED. */
+export type PaymentAskOutcome = { ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' };
+
 /**
- * The ask itself, with every refusal NAMED and no redirect — so the chat's Payment card (Supplier Build 3 · lane C)
- * sends the SAME ask without leaving the conversation ("a save never resets the screen"). `vendorAskForPayment`
- * above is this plus its redirects, byte-for-byte the flags it always rendered.
+ * The ask itself, with no redirect. NOT exported (each export is a Vercel route): `vendorAskForPayment` above is this
+ * plus its redirects, byte-for-byte the flags it always rendered — or, with `inline=1`, this outcome returned.
  */
-export async function askForPaymentCore(
-  formData: FormData,
-): Promise<{ ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' }> {
+async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome> {
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, code: 'event' };
   const amount = parseAmount(formData.get('amount_php'));

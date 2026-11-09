@@ -23,7 +23,7 @@ import { formatCentavosPhp } from '@/lib/php';
 import { applyQuoteEdits, deltaWords, floorRefusal, linesTotal, planLedger, toProposalLineItems, type MarkedLine, type QuoteEdit } from '@/lib/chat-cards';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { loadQuoteForCard, type QuoteForCard } from './card-actions';
+import { loadQuoteForCard, type QuoteForCard } from './card-calls';
 import { CouldNotLoad, EmptyLine, LedgerStrip, Loading, Problem, type Read } from './card-bits';
 
 type Op = 'add' | 'edit' | 'remove';

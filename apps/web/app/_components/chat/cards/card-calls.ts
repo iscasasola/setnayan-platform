@@ -1,27 +1,27 @@
-'use server';
-
 /**
  * 🪜 THE LANE-C CHAT CARDS — their reads and their few writes (Supplier Build 3 · lane C).
  *
+ * CALLED FROM THE BROWSER with the reader's own session — NOT server actions. Every exported "use server" function is
+ * a capped Vercel route (`scripts/lint-server-action-budget.mjs`), and nothing here needs the server: the same pattern
+ * as lane B's `../blocker-show.ts` → `chat_blocker_shown()`. Each read is the caller's own RLS; each new write is a
+ * SECURITY DEFINER function that checks the caller and the chat membership itself.
+ *
  * RULE 0: every Send goes to a SHIPPED writer wherever one exists —
  *   Change quote / guest-count Apply → `sendCustomProposalFromChat` (a new version; supersede + card + accept again)
- *   Payment (ask now)                → `vendorAskForPayment`
- *   Log a payment                    → `logPayment` (budget actions) — wrapped here ONLY to hold the coordinator Agree
+ *   Payment (ask now)                → `vendorAskForPayment` with `inline=1` (the SAME action the client page posts)
+ *   Log a payment                    → `logPayment` (budget actions), after the coordinator Agree below
  *   Form (send)                      → `formsAction` op=send · answering → `saveSupplierAnswers`
+ *   Decision                         → lane B's `openDecision` → `chat_decision_open()`
  * New here, because nothing shipped does it: Ask for a change (`ask_for_a_change` / `answer_change_ask`, migration
- * 20271332041210), Keep price and the Decision lines (plain chat lines, the sender's own RLS insert).
+ * 20271332041210) and the Keep price line (a plain chat line, the sender's own RLS insert).
  *
- * AUTHORISATION IS RLS'S on every read and write below (the caller's own session). A refused read returns
- * `{ ok: false }` and the card says "Couldn't load" — never an empty list dressed as "none yet".
+ * A refused read returns `{ ok: false }` and the card says "Couldn't load" — never an empty list dressed as "none yet".
  */
-import { revalidatePath } from 'next/cache';
-import { unstable_rethrow } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { createClient } from '@/lib/supabase/client';
 import { logPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { loadCatalogueExtrasForQuote } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
+import { vendorAskForPayment } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { seedScheduleFromStored } from '@/lib/quote-revision-seed';
-import { readShopForms } from '@/lib/vendor-forms.server';
 import { formLockOf, quoteLocksOf, type ItemLocks } from '@/lib/quote-locks';
 import {
   askRefusalWords,
@@ -32,8 +32,6 @@ import {
   type PerPaxLine,
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
-import { isSafeNext } from '@/lib/safe-next';
-import { askForPaymentCore } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { openDecision } from '@/lib/chat-decisions';
 
 type Fail = { ok: false };
@@ -96,7 +94,7 @@ function cardLinesOf(raw: unknown): CardLine[] {
   });
 }
 
-async function liveQuote(supabase: Awaited<ReturnType<typeof createClient>>, eventId: string, shop: string) {
+async function liveQuote(supabase: ReturnType<typeof createClient>, eventId: string, shop: string) {
   return supabase
     .from('vendor_proposals')
     .select(QUOTE_COLS)
@@ -109,7 +107,7 @@ async function liveQuote(supabase: Awaited<ReturnType<typeof createClient>>, eve
 }
 
 /** The plan rows already paid (a confirmed, unrefused payment carrying its `schedule_instance_seq`); null = unread. */
-async function paidSeqsOf(supabase: Awaited<ReturnType<typeof createClient>>, eventId: string, shop: string): Promise<number[] | null> {
+async function paidSeqsOf(supabase: ReturnType<typeof createClient>, eventId: string, shop: string): Promise<number[] | null> {
   const { data: ev, error } = await supabase
     .from('event_vendors')
     .select('vendor_id')
@@ -135,16 +133,12 @@ async function paidSeqsOf(supabase: Awaited<ReturnType<typeof createClient>>, ev
 export type QuoteRead = { ok: true; quote: QuoteForCard | null } | Fail;
 
 export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return { ok: false };
-  const profile = await fetchOwnVendorProfile(supabase, auth.user.id);
-  if (!profile) return { ok: false };
+  const supabase = createClient();
+  // The thread names the shop; RLS shows it only to someone in this chat.
   const { data: thread, error: tErr } = await supabase
     .from('chat_threads')
     .select('thread_id, event_id, vendor_profile_id, pax_current')
     .eq('thread_id', threadId)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (tErr || !thread) return refused('quote · thread', tErr);
   const t = thread as { event_id: string; vendor_profile_id: string; pax_current: number | null };
@@ -206,7 +200,7 @@ export async function loadRecount(threadId: string): Promise<RecountRead | Fail>
   if (!read.ok) return { ok: false };
   const quote = read.quote;
   if (!quote || !quote.serviceCardIds || quote.serviceCardIds.length === 0) return { ok: true, quote, perPax: [] };
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('vendor_services')
     .select('vendor_service_id, title, pricing_basis, per_pax_price_php, min_pax')
@@ -234,9 +228,8 @@ export async function askForAChangeFromChat(formData: FormData): Promise<AskResu
   const note = String(formData.get('note') ?? '').trim();
   const proposalId = String(formData.get('proposal_id') ?? '') || null;
   const formId = String(formData.get('form_id') ?? '') || null;
-  const back = String(formData.get('return_to') ?? '');
   if (!threadId || !['quote', 'plan', 'form'].includes(subject) || !note) return { ok: false, message: askRefusalWords('BAD_ASK') };
-  const supabase = await createClient();
+  const supabase = createClient();
   const { error } = await supabase.rpc('ask_for_a_change', {
     p_thread_id: threadId,
     p_subject: subject,
@@ -245,7 +238,6 @@ export async function askForAChangeFromChat(formData: FormData): Promise<AskResu
     p_form_id: formId,
   });
   if (error) return { ok: false, message: askRefusalWords(error.message) };
-  if (isSafeNext(back)) revalidatePath(back);
   return { ok: true };
 }
 
@@ -253,7 +245,7 @@ export type ChangeAskRow = { askId: string; subject: AskSubject; note: string; a
 
 /** This chat's asks, newest first — the card finds its own by the moment it was asked. */
 export async function loadChangeAsks(threadId: string): Promise<{ ok: true; asks: ChangeAskRow[] } | Fail> {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('booking_change_asks')
     .select('ask_id, subject, note, asked_at, status, proposal_id')
@@ -278,16 +270,14 @@ export async function loadChangeAsks(threadId: string): Promise<{ ok: true; asks
 export async function answerChangeAskFromChat(formData: FormData): Promise<AskResult> {
   const askId = String(formData.get('ask_id') ?? '');
   const answer = String(formData.get('answer') ?? '');
-  const back = String(formData.get('return_to') ?? '');
   if (!askId || (answer !== 'revised' && answer !== 'declined')) return { ok: false, message: "Couldn't send that. Try again." };
-  const supabase = await createClient();
+  const supabase = createClient();
   const { error } = await supabase.rpc('answer_change_ask', {
     p_ask_id: askId,
     p_answer: answer,
     p_note: String(formData.get('note') ?? '').slice(0, 500) || null,
   });
   if (error) return { ok: false, message: "Couldn't send that. Try again." };
-  if (isSafeNext(back)) revalidatePath(back);
   return { ok: true };
 }
 
@@ -297,7 +287,7 @@ export async function answerChangeAskFromChat(formData: FormData): Promise<AskRe
 export async function loadLogPaymentTarget(threadId: string): Promise<
   { ok: true; eventId: string; vendorId: string; toCoordinator: boolean; supplierName: string } | { ok: true; eventId: string; vendorId: null } | Fail
 > {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: thread, error: tErr } = await supabase
     .from('chat_threads')
     .select('event_id, vendor_profile_id')
@@ -322,13 +312,15 @@ export async function loadLogPaymentTarget(threadId: string): Promise<
 /**
  * The host's Log a payment from the chat. The ONLY rule added to the shipped `logPayment`: a payment proof to a
  * coordinator/planner is refused without the Agree (owner, 8 Nov: "No, Agree is required"). The category is read
- * HERE, from the booking, never trusted from the form.
+ * from the booking, never trusted from the form.
+ * ⚠ The Agree is held HERE, in the browser: the shipped `logPayment` (the Budget page and the workspace post it too)
+ * has never asked for one, so a hand-built POST straight to it skips the Agree, exactly as those pages always have.
  */
 export async function logPaymentFromChat(formData: FormData): Promise<AskResult> {
   const eventId = String(formData.get('event_id') ?? '');
   const vendorId = String(formData.get('vendor_id') ?? '');
   if (!eventId || !vendorId) return { ok: false, message: "Couldn't send that. Try again." };
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: booking, error } = await supabase
     .from('event_vendors')
     .select('category')
@@ -342,9 +334,9 @@ export async function logPaymentFromChat(formData: FormData): Promise<AskResult>
   });
   if (refusal) return { ok: false, message: refusal };
   try {
+    // A limited helper's refusal or a lapsed sign-in is the action's own redirect; the router follows it.
     await logPayment(formData);
   } catch (e) {
-    unstable_rethrow(e); // a limited helper's refusal is a redirect, not a failed write
     console.error('[chat-cards] logPayment refused:', (e as Error).message);
     return { ok: false, message: "Couldn't log that payment. Check the amount and try again." };
   }
@@ -354,7 +346,7 @@ export async function logPaymentFromChat(formData: FormData): Promise<AskResult>
 // ── Plain lines: Keep price · a Decision opened or closed ───────────────────
 
 async function postOwnLine(threadId: string, body: string): Promise<AskResult> {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: thread, error: tErr } = await supabase
     .from('chat_threads')
     .select('thread_id, event_id, vendor_profile_id')
@@ -384,27 +376,39 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
   const threadId = String(formData.get('thread_id') ?? '');
   const topic = String(formData.get('topic') ?? '');
   if (!threadId) return { ok: false, message: 'Name the topic first.' };
-  const r = await openDecision(await createClient(), threadId, topic);
+  const r = await openDecision(createClient(), threadId, topic);
   if (r.ok) return { ok: true };
   return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : "Couldn't open it. Try again." };
 }
 
 // ── Form · the shop's library ────────────────────────────────────────────────
 
-export async function loadShopFormsForCard(): Promise<{ ok: true; forms: { formId: string; title: string; questions: string[] }[] } | Fail> {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return { ok: false };
-  const profile = await fetchOwnVendorProfile(supabase, auth.user.id);
-  if (!profile) return { ok: false };
-  const read = await readShopForms(supabase, profile.vendor_profile_id);
-  if (read.status !== 'ok') return { ok: false };
+/** The shop's form library for the Send-a-form card: each live form and its asked questions (`readShopForms`' read). */
+export async function loadShopFormsForCard(
+  threadId: string,
+): Promise<{ ok: true; forms: { formId: string; title: string; questions: string[] }[] } | Fail> {
+  const supabase = createClient();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  if (tErr || !thread) return refused('forms · thread', tErr);
+  const shop = (thread as { vendor_profile_id: string }).vendor_profile_id;
+  const [formsRes, itemsRes] = await Promise.all([
+    supabase.from('vendor_forms').select('form_id, title').eq('vendor_profile_id', shop).is('retired_at', null).order('updated_at', { ascending: false }),
+    supabase
+      .from('vendor_questions')
+      .select('form_id, item_kind, prompt, display_order')
+      .eq('vendor_profile_id', shop)
+      .not('form_id', 'is', null)
+      .eq('is_asked', true)
+      .order('display_order', { ascending: true }),
+  ]);
+  if (formsRes.error || itemsRes.error) return refused('forms · library', formsRes.error ?? itemsRes.error);
+  const items = (itemsRes.data ?? []) as { form_id: string; item_kind: string; prompt: string }[];
   return {
     ok: true,
-    forms: read.forms.map((f) => ({
-      formId: f.formId,
+    forms: ((formsRes.data ?? []) as { form_id: string; title: string }[]).map((f) => ({
+      formId: f.form_id,
       title: f.title,
-      questions: f.items.filter((it) => it.item_kind === 'question' && it.is_asked).map((it) => it.prompt),
+      questions: items.filter((it) => it.form_id === f.form_id && it.item_kind === 'question').map((it) => it.prompt),
     })),
   };
 }
@@ -424,7 +428,7 @@ export type FormToAnswer = {
  * found (retired since, or renamed) — the line then stays a plain line.
  */
 export async function loadSentFormForAnswer(threadId: string, title: string): Promise<{ ok: true; form: FormToAnswer | null } | Fail> {
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data: thread, error: tErr } = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
   if (tErr || !thread) return refused('form · thread', tErr);
   const t = thread as { event_id: string; vendor_profile_id: string };
@@ -447,7 +451,7 @@ export async function loadSentFormForAnswer(threadId: string, title: string): Pr
 async function loadFormForAnswer(input: { eventId: string; formId: string }): Promise<
   { ok: true; questions: { id: string; prompt: string; answer: string | null }[] } | Fail
 > {
-  const supabase = await createClient();
+  const supabase = createClient();
   const [{ data: items, error: iErr }, { data: answers, error: aErr }] = await Promise.all([
     supabase.from('vendor_questions').select('question_id, prompt, item_kind, is_asked, display_order').eq('form_id', input.formId).order('display_order'),
     supabase.from('event_question_answers').select('question_id, answer').eq('event_id', input.eventId),
@@ -474,10 +478,10 @@ const ASK_PAYMENT_WORDS: Record<string, string> = {
 };
 
 export async function askForPaymentFromChat(formData: FormData): Promise<AskResult> {
-  const res = await askForPaymentCore(formData);
+  formData.set('inline', '1');
+  const res = await vendorAskForPayment(formData);
+  if (!res) return { ok: false, message: ASK_PAYMENT_WORDS.error! };
   if (res.ok) {
-    const back = String(formData.get('return_to') ?? '');
-    if (isSafeNext(back)) revalidatePath(back);
     return { ok: true };
   }
   return { ok: false, message: ASK_PAYMENT_WORDS[res.code] ?? ASK_PAYMENT_WORDS.error! };

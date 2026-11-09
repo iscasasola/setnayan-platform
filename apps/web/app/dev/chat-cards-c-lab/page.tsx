@@ -16,7 +16,7 @@ import { DecisionStepCard } from '@/app/_components/chat/cards/decision-step-car
 import { AskChangeDoor, ChangeAskCard } from '@/app/_components/chat/cards/ask-change-card';
 import { GuestRecountCard } from '@/app/_components/chat/cards/guest-recount-card';
 import { BookRequestCard } from '@/app/_components/chat/cards/book-request-card';
-import type { QuoteForCard } from '@/app/_components/chat/cards/card-actions';
+import type { QuoteForCard } from '@/app/_components/chat/cards/card-calls';
 import { planLedger } from '@/lib/chat-cards';
 
 const THREAD = '00000000-0000-4000-8000-00000000c0de';
@@ -97,7 +97,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
           />
         );
       case 'form':
-        return <FormStepCard eventId={EVENT} returnPath={BACK} seed={empty ? { forms: [] } : { forms: FORMS, step, pick: step > 0 ? 'f1' : undefined }} />;
+        return <FormStepCard threadId={THREAD} eventId={EVENT} returnPath={BACK} seed={empty ? { forms: [] } : { forms: FORMS, step, pick: step > 0 ? 'f1' : undefined }} />;
       case 'answer':
         return (
           <FormAnswerCard

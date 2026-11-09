@@ -5,7 +5,7 @@
  *
  * ① Which payment? (the plan's unpaid rows, or another amount) → ② How much? → ③ By when? → ④ A note? (optional) → Send.
  * The plan is drawn with THE ONE LEDGER (`planLedger`, the same rows every face prints) — pay in full: the last unpaid
- * payment is the auto "Final balance", paid rows never change. Send posts the SHIPPED ask (`askForPaymentCore`, the
+ * payment is the auto "Final balance", paid rows never change. Send posts the SHIPPED ask (`vendorAskForPayment` with `inline=1`, the
  * same row and couple notice the client page's "Ask for a payment" writes), without leaving the chat.
  */
 import { useCallback, useEffect, useId, useState } from 'react';
@@ -16,7 +16,7 @@ import { formatCentavosPhp } from '@/lib/php';
 import { planLedger, type Ledger } from '@/lib/chat-cards';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { askForPaymentFromChat, loadQuoteForCard } from './card-actions';
+import { askForPaymentFromChat, loadQuoteForCard } from './card-calls';
 import { CouldNotLoad, LedgerStrip, Loading, Problem, type Read } from './card-bits';
 
 export function PaymentStepCard({

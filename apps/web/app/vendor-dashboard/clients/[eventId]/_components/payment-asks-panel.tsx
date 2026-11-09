@@ -160,7 +160,9 @@ export function PaymentAsksPanel({
 
       {canAsk ? (
       <form
-        action={vendorAskForPayment}
+        // This form never posts `inline=1`, so the action ends on its redirect and returns nothing; the outcome it
+        // returns is the chat's Payment card's (lane C), which stays in the conversation.
+        action={vendorAskForPayment as (formData: FormData) => Promise<void>}
         className="rounded-xl border border-ink/10 bg-white px-3 py-3"
       >
         <input type="hidden" name="event_id" value={eventId} />

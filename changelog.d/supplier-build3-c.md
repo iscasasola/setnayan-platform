@@ -15,9 +15,10 @@ and sends through the SHIPPED writer — no second write path.
   (DEFINER; refused for the shop's own team and while the item is locked); the supplier answers Revise | Decline
   on the card under the ask's line. `paid_quote_floor_centavos()` reads the floor only for the event's people / shop.
 - **Payment** (supplier): Which payment? (the ledger's unpaid rows) → How much? → By when? → note →
-  `askForPaymentCore` (extracted from `vendorAskForPayment`, which is now that core plus its redirects).
+  `vendorAskForPayment` with `inline=1` (its core, `askForPaymentCore`, is not exported; the client page's form gets
+  the same redirects as before, the chat gets the outcome back and stays put).
 - **Log a payment** (host): amount → how → reference → date → receipt (+ **Agree, REQUIRED** to a coordinator /
-  planner, read from the booking on the server) → the shipped `logPayment`.
+  planner, read from the booking's own category) → the shipped `logPayment`.
 - **Form**: supplier picks a saved form and sends it (`formsAction` send); the host answers it one question at a
   time under the supplier's form line (`saveSupplierAnswers`), Stop for now / Continue.
 - **Photos & files / File**: From where? → From your phone opens the shipped chat attach. Portfolio album + hearts
@@ -27,6 +28,9 @@ and sends through the SHIPPED writer — no second write path.
 - **Guest count changed** (lane B's line): per-guest lines only, Apply ₱X | Keep price (one row); flat-only quotes
   are told; a locked quote is never recounted.
 - **Booking ask** lines drawn as their card (exact database words only).
+- **No new server action** (`scripts/lint-server-action-budget.mjs`, ceiling unchanged): the cards' reads and new
+  writes are BROWSER calls with the reader's own session (`cards/card-calls.ts`, lane B's `blocker-show.ts`
+  pattern) — reads are RLS, the new writes are the DEFINER RPCs above; the shipped writers stay the shipped actions.
 - Guards: `app/_components/chat/cards/lane-c-cards.test.ts`, `lib/chat-cards.test.ts`,
   `tests/db/a-host-asks-and-only-the-supplier-writes-the-price.db.test.ts`; erasure + Ugat baseline lines for
   `booking_change_asks`. Lab: `/dev/chat-cards-c-lab` (dev only).

@@ -14,7 +14,7 @@ import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TypedRow } from '@/app/_components/form-row';
 import { ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { openDecisionFromChat } from './card-actions';
+import { openDecisionFromChat } from './card-calls';
 import { Problem } from './card-bits';
 
 export function DecisionStepCard({ threadId, onClose, onSent }: { threadId: string; onClose?: () => void; onSent?: () => void }) {

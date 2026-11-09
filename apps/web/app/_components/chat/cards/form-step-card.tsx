@@ -20,18 +20,20 @@ import { HOST_ANSWER_BASE_FIELD, HOST_ANSWER_FIELD } from '@/lib/host-answers-me
 import { formProgress } from '@/lib/chat-cards';
 import { formatCount } from '@/lib/format-number';
 import { ChatCardShell, ChatStepCard, isStepEnter, type ChatCardStep } from '../chat-step-card';
-import { loadSentFormForAnswer, loadShopFormsForCard, type FormToAnswer } from './card-actions';
+import { loadSentFormForAnswer, loadShopFormsForCard, type FormToAnswer } from './card-calls';
 import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
 
 type LibForm = { formId: string; title: string; questions: string[] };
 
 export function FormStepCard({
+  threadId,
   eventId,
   returnPath,
   onClose,
   onSent,
   seed,
 }: {
+  threadId: string;
   eventId: string;
   returnPath: string;
   onClose?: () => void;
@@ -46,8 +48,8 @@ export function FormStepCard({
   const [problem, setProblem] = useState<string | null>(null);
   const load = useCallback(() => {
     setRead({ at: 'loading' });
-    void loadShopFormsForCard().then((r) => setRead(r.ok ? { at: 'ok', data: r.forms } : { at: 'failed' }));
-  }, []);
+    void loadShopFormsForCard(threadId).then((r) => setRead(r.ok ? { at: 'ok', data: r.forms } : { at: 'failed' }));
+  }, [threadId]);
   useEffect(() => {
     if (!seed) load();
   }, [load, seed]);

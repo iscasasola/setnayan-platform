@@ -3,8 +3,8 @@
  *
  * Source guards — one per card — for the properties a unit test of `lib/chat-cards.ts` cannot see: that each card is
  * a LAZY chunk (the shared bundle has no headroom), that every read has an honest "Couldn't load", that each Send goes
- * to the SHIPPED writer (never a second write path), that the Agree is drawn only to a coordinator and enforced on the
- * server, that a locked item is never offered for an ask, and that the (+) no longer stubs a card that exists.
+ * to the SHIPPED writer (never a second write path), that the Agree is drawn only to a coordinator and checked against
+ * the booking, that a locked item is never offered for an ask, and that the (+) no longer stubs a card that exists.
  * Run from apps/web: tsx --test app/_components/chat/cards/lane-c-cards.test.ts
  */
 import { test } from 'node:test';
@@ -39,7 +39,7 @@ test('🪫 every card that reads says "Couldn\'t load" on a refusal — never an
     assert.match(src, /at: 'failed'/, `${f} never reaches its failed state`);
   }
   // …and the actions keep "none" and "refused" apart.
-  const actions = read(`${CARDS}/card-actions.ts`);
+  const actions = read(`${CARDS}/card-calls.ts`);
   assert.match(actions, /if \(!q\) return \{ ok: true, quote: null \}/);
   assert.match(actions, /if \(qErr \|\| floorRes\.error \|\| gate\.error\) return refused\(/, 'a refused floor (or S5 gate) read must not pass as "no floor"');
 });
@@ -49,25 +49,26 @@ test('🧾 every Send is the SHIPPED writer', () => {
   assert.match(read(`${CARDS}/guest-recount-card.tsx`), /await sendCustomProposalFromChat\(fd\)/);
   assert.match(read(`${CARDS}/form-step-card.tsx`), /await formsAction\(/);
   assert.match(read(`${CARDS}/form-step-card.tsx`), /await saveSupplierAnswers\(/);
-  const actions = read(`${CARDS}/card-actions.ts`);
+  const actions = read(`${CARDS}/card-calls.ts`);
   assert.match(actions, /await logPayment\(formData\)/);
-  assert.match(actions, /await askForPaymentCore\(formData\)/);
+  assert.match(actions, /formData\.set\('inline', '1'\);\s*const res = await vendorAskForPayment\(formData\)/);
   // A decision opens through lane B's one door (chat_decision_open), never a chat line of its own.
-  assert.match(actions, /await openDecision\(await createClient\(\), threadId, topic\)/);
+  assert.match(actions, /await openDecision\(createClient\(\), threadId, topic\)/);
   assert.doesNotMatch(read(`${CARDS}/decision-step-card.tsx`), /chat_messages|patchPlus/);
   // The client page's ask is the same core plus its redirects — one write path, two returns.
   const clients = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
-  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)/);
+  assert.match(clients, /export async function vendorAskForPayment[\s\S]{0,200}await askForPaymentCore\(formData\)[\s\S]{0,400}if \(formData\.get\('inline'\) === '1'\) return res;/);
+  assert.match(clients, /^async function askForPaymentCore\(/m, 'the core is not its own exported route');
   assert.equal((clients.match(/from\('vendor_payment_asks'\)\.insert\(/g) ?? []).length, 1, 'one insert of a payment ask');
 });
 
-test('🤝 Log a payment: Agree is drawn only to a coordinator, required on the client, and enforced on the server', () => {
+test('🤝 Log a payment: Agree is drawn only to a coordinator, and required against the booking\'s own category', () => {
   const card = read(`${CARDS}/log-payment-card.tsx`);
   assert.match(card, /\{target\.toCoordinator \? \(\s*<label/);
   assert.match(card, /logPaymentStepOk\(d, i, target\.toCoordinator\)/);
-  const actions = read(`${CARDS}/card-actions.ts`);
-  const body = actions.slice(actions.indexOf('export async function logPaymentFromChat'));
-  // The category is read from the booking on the server, never trusted from the form, BEFORE the shipped write.
+  const actions = read(`${CARDS}/card-calls.ts`);
+  const body = actions.slice(actions.indexOf('async function logPaymentFromChat'));
+  // The category is read from the booking, never trusted from the form, BEFORE the shipped write.
   assert.ok(body.indexOf(".select('category')") > 0 && body.indexOf(".select('category')") < body.indexOf('await logPayment(formData)'));
   assert.ok(body.indexOf('logPaymentRefusal(') < body.indexOf('await logPayment(formData)'));
 });
@@ -106,4 +107,17 @@ test('🪜 the (+) no longer stubs a card that exists', () => {
   const src = read('app/_components/chat/plus-draft.tsx');
   for (const k of ["'quote'", "'payment'", "'logpay'", "'form'", "'photos'", "'file'", "'decision'"]) assert.match(src, new RegExp(`draft\\.kind === ${k}`), `${k} is not routed to its card`);
   assert.doesNotMatch(src, /comes in Lane C/);
+});
+
+test('🚦 the cards add NO server action (each export is a Vercel route; production refuses above 2,048)', () => {
+  // The cards call from the browser with the reader's own session (lane B's blocker-show pattern): reads are RLS,
+  // new writes are SECURITY DEFINER functions that check the caller themselves.
+  assert.ok(!readdirSync(join(WEB, CARDS)).includes('card-actions.ts'), 'the old server-action module is back');
+  for (const f of readdirSync(join(WEB, CARDS)).filter((x) => /\.tsx?$/.test(x))) {
+    assert.doesNotMatch(read(`${CARDS}/${f}`), /^\s*['"]use server['"]/m, `${f} is a "use server" module`);
+  }
+  const calls = read(`${CARDS}/card-calls.ts`);
+  assert.match(calls, /^import \{ createClient \} from '@\/lib\/supabase\/client';$/m, 'the cards read with the browser session');
+  assert.doesNotMatch(calls, /@\/lib\/supabase\/server|server-only|next\/cache/);
+  for (const rpc of ['ask_for_a_change', 'answer_change_ask', 'paid_quote_floor_centavos', 'vendor_may_requote']) assert.match(calls, new RegExp(`\\.rpc\\('${rpc}'`));
 });

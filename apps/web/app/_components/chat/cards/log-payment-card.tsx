@@ -17,7 +17,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { logPaymentStepOk, type LogPaymentDraft } from '@/lib/chat-cards';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { loadLogPaymentTarget, logPaymentFromChat } from './card-actions';
+import { loadLogPaymentTarget, logPaymentFromChat } from './card-calls';
 import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
 
 const METHODS = ['GCash', 'Maya', 'Bank transfer', 'Cash', 'Check'].map((m) => ({ key: m, label: m }));

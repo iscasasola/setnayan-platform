@@ -38,6 +38,27 @@ export const SWITCH_TRACK =
  */
 export const SWITCH_BUTTON = 'inline-flex min-h-11 flex-none items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50';
 
-export function SwitchTrack({ on }: { on: boolean }) {
-  return <span aria-hidden data-on={on} className={SWITCH_TRACK} />;
+/**
+ * 🟢 THE WORDED SWITCH — owner 2026-11-10, on a picture of an Online / Offline pill: *"The toggle should show a
+ * momentary animate button online green and greyed out to offline"*. Same drawing family (white knob, the press
+ * family's spring at `--sn-pill-dur`), wider so the word fits: GREEN with the on-word when on, GREY with the off-word
+ * when off; the words cross-fade while the knob slides, and the knob squashes for a moment under the finger. Colours
+ * live in `globals.css` (`.sn-switch--worded`), never here. Used where a switch means LIVE vs NOT (a card on Explore);
+ * every other switch keeps the 50 × 30 terracotta/grey one until the owner says otherwise.
+ */
+export const SWITCH_TRACK_WORDED =
+  "sn-switch sn-switch--worded sn-press-ring relative block h-[30px] w-[92px] flex-none overflow-hidden rounded-full after:absolute after:left-[3px] after:top-[3px] after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow after:content-[''] data-[on=true]:after:translate-x-[62px] active:after:w-7 data-[on=true]:active:after:translate-x-[58px]";
+
+export function SwitchTrack({ on, words }: { on: boolean; words?: { on: string; off: string } }) {
+  if (!words) return <span aria-hidden data-on={on} className={SWITCH_TRACK} />;
+  return (
+    <span aria-hidden data-on={on} className={SWITCH_TRACK_WORDED}>
+      <span className="sn-switch-word sn-switch-word--on absolute inset-y-0 left-[11px] flex items-center text-[12px] font-semibold text-white">
+        {words.on}
+      </span>
+      <span className="sn-switch-word sn-switch-word--off absolute inset-y-0 right-[10px] flex items-center text-[12px] font-semibold text-white">
+        {words.off}
+      </span>
+    </span>
+  );
 }

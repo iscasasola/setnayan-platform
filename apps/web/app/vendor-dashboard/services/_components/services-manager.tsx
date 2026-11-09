@@ -871,7 +871,8 @@ export async function VendorServicesManager({
                         ? 'var(--m-orange-3)'
                         : 'var(--m-line)',
                     background: 'var(--m-paper)',
-                    opacity: svc.is_active ? 1 : 0.7,
+                    // No greyed-out card (owner 2026-11-10, "removing that greyed out look"): the worded switch says
+                    // Online / Offline; dimming the whole card also dimmed that switch and the card couples will see.
                   }}
                 >
                   {/* Row header — THE ACTUAL CARD · assigned · reach · toggle
@@ -1018,7 +1019,7 @@ export async function VendorServicesManager({
                         title={svc.is_active ? 'Live — tap to hide' : 'Hidden — tap to show'}
                         className={SWITCH_BUTTON}
                       >
-                        <SwitchTrack on={svc.is_active} />
+                        <SwitchTrack on={svc.is_active} words={{ on: 'Online', off: 'Offline' }} />
                       </button>
                     </StayForm>
                     )}

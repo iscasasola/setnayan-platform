@@ -5407,6 +5407,29 @@ html.dark [data-art='candlelight'] {
     transition: none !important;
   }
 }
+/* 🟢 The WORDED switch (owner 2026-11-10: "online green and greyed out to offline") — `SWITCH_TRACK_WORDED` in
+   `app/_components/switch-track.tsx`. Declared AFTER the shared rules so, at the same weight, green/grey win here only. */
+.sn-switch--worded {
+  background-color: rgb(var(--color-ink) / 0.38);
+}
+.sn-switch--worded[data-on='true'] {
+  background-color: var(--sn-success);
+}
+.sn-switch-word {
+  transition: opacity var(--sn-pill-dur) var(--sn-ease);
+}
+.sn-switch--worded .sn-switch-word--on,
+.sn-switch--worded[data-on='true'] .sn-switch-word--off {
+  opacity: 0;
+}
+.sn-switch--worded[data-on='true'] .sn-switch-word--on {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-switch-word {
+    transition: none !important;
+  }
+}
 
 /* ── THE FORM ROW (owner 2026-10-08; `app/_components/form-row.tsx`, the approved gallery § 6 · § 10) ─────────
    Its MOTION, at the press family's one speed (`--sn-pill-dur`; the gallery's own shares of it):

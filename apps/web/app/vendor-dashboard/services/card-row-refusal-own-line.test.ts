@@ -23,3 +23,8 @@ test('StayForm still prints its refusal with the data-stay-error hook this row t
   const stay = readFileSync(join(__dirname, '..', '..', '_components', 'stay-form.tsx'), 'utf8');
   assert.match(stay, /data-stay-error=\{door\}/);
 });
+
+test('an offline card is not greyed out — the worded switch says Online / Offline (owner 10 Nov)', () => {
+  assert.doesNotMatch(src, /opacity:\s*svc\.is_active\s*\?/, 'the card is dimmed again when offline');
+  assert.match(src, /<SwitchTrack on=\{svc\.is_active\} words=\{\{ on: 'Online', off: 'Offline' \}\} \/>/, 'the card switch lost its words');
+});

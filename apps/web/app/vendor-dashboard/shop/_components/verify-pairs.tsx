@@ -344,7 +344,7 @@ function PairCard({
   const headline = pairHeadline(states);
   return (
     <article
-      className="overflow-hidden rounded-xl border bg-white"
+      className="overflow-hidden rounded-xl border bg-[color:var(--m-paper)]"
       style={{ borderColor: 'var(--m-line)' }}
     >
       <div

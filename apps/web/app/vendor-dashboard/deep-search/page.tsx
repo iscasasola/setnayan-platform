@@ -18,8 +18,8 @@ import { DossierView } from './_components/dossier-view';
  * /vendor-dashboard/deep-search — the Deep Search surface (owner-locked
  * 2026-07-22). A verified, paid-tier vendor runs the web-research deep search on
  * their OWN business and reviews the "What We Learned" result to auto-fill their
- * profile. ₱500 per search; Pro/Ultra get 1 free per 28-day cycle,
- * Solo always pays.
+ * profile. One catalogue price per search on every plan, one search per
+ * purchase — no free search (owner 2026-11-09, DECISION_LOG 🔎💳).
  *
  * Doorway: the "Plan & tokens" hub links here (mirrors the Custom-plan sub-route
  * pattern), so it lives OUTSIDE the locked 5-page sidebar IA.
@@ -83,7 +83,7 @@ export default async function VendorDeepSearchPage() {
   const verification =
     (tierRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  // 🔎 Price, free search, rails and eligibility: the ONE resolver Shop › Details' card uses too
+  // 🔎 Price, rails and eligibility: the ONE resolver Shop › Details' card uses too
   // (`lib/vendor-deep-search-offer.ts`, moved from here 2026-10-29 — every rule it carries is the one this page had).
   // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop; the paid-plan requirement is asked through the
   // one flag-aware question, only at Run — `planAsks` just draws the ◆ note. 🔒 No ◆ hint in the store shell.
@@ -91,7 +91,7 @@ export default async function VendorDeepSearchPage() {
     vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !(await isStoreShellRequest());
   const admin = createAdminClient();
   const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
-  const { eligible, isFreeNow, hasFreeAllowance, cyclePricePhp, openRails } = offer;
+  const { eligible, cyclePricePhp, openRails } = offer;
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).
@@ -143,9 +143,7 @@ export default async function VendorDeepSearchPage() {
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-ink">Run a Deep Search</h2>
             <p className="mt-1 max-w-prose text-sm text-ink/65">
-              {hasFreeAllowance
-                ? `Your plan includes 1 free search every 28 days, then ${peso(cyclePricePhp)} each.`
-                : `Each search is ${peso(cyclePricePhp)} on your plan.`}
+              {`Each search is ${peso(cyclePricePhp)} — one search per purchase, on every plan.`}
             </p>
           </div>
         </div>
@@ -153,8 +151,6 @@ export default async function VendorDeepSearchPage() {
         <DeepSearchRunner
           eligible={eligible}
           planAsks={planAsks}
-          isFreeNow={isFreeNow}
-          hasFreeAllowance={hasFreeAllowance}
           pricePhp={offer.pricePhp}
           openRails={openRails}
         />
@@ -188,6 +184,7 @@ export default async function VendorDeepSearchPage() {
                       />
                     ) : null}
                     <span className="text-xs text-ink/55">
+                      {/* A free use is history: Pro/Ultra had 1 free per 28 days until 2026-11-09. */}
                       {u.was_free ? 'Free (cycle)' : peso(cyclePricePhp)}
                     </span>
                     <span

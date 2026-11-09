@@ -77,20 +77,35 @@ test('the ladders are the APPROVED numbers, read from the engine', () => {
   assert.doesNotMatch(SRC, /\[\s*5,\s*10,\s*25|\[\s*3,\s*6,\s*10|\[\s*10,\s*25,\s*50|\[\s*2,\s*3,\s*5/);
 });
 
-test('the closest badge comes first, with "N to go" — the v113 SetnaProd case', () => {
+test('completed first, then in progress with the closest saying "N to go" — Lane E, 9 Nov', () => {
   const row = shopBadgeRow(input())!;
-  // Furthest along its rung: inspiration (18−10)/(25−10)=53% > reviews 52% > branches 50% > cards 33% > events 5%.
-  assert.equal(row[0]!.key, 'reward:inspiration', 'inspiration is furthest along its rung');
-  assert.equal(row[0]!.ladder!.pct, 53);
-  assert.equal(row[0]!.sub, '7 to go');
-  assert.equal(row[0]!.goal, true);
+  const climbing = (t: (typeof row)[number]) => Boolean(t.ladder && t.ladder.toGo !== null);
+  // Completed (earned or live, not a ladder still climbing) sit far left.
+  const firstClimbing = row.findIndex(climbing);
+  assert.ok(firstClimbing > 0, 'nothing completed sits before the ladders');
+  assert.ok(row.slice(0, firstClimbing).every((t) => t.on && !climbing(t)), 'something not completed sits far left');
+  // Then the in-progress ladders, furthest along its rung first:
+  // inspiration (18−10)/(25−10)=53% > reviews 52% > branches 50% > cards 33% > events 5%.
+  const g = row[firstClimbing]!;
+  assert.equal(g.key, 'reward:inspiration', 'inspiration is furthest along its rung');
+  assert.equal(g.ladder!.pct, 53);
+  assert.equal(g.sub, '7 to go');
+  assert.equal(g.goal, true);
   assert.equal(row.filter((t) => t.goal).length, 1, 'only one goal stands out');
-  assert.equal(row[0]!.face, 'bronze');
-  assert.equal(nextGoalLine(row[0]!), 'Next goal: 25 photos — 7 to go.');
-  assert.equal(nowLine(row[0]!), 'Now · 18 photos · Bronze');
-  // ladders before the earned/live set
-  const firstNonLadder = row.findIndex((t) => !(t.ladder && t.ladder.toGo !== null));
-  assert.ok(row.slice(firstNonLadder).every((t) => !(t.ladder && t.ladder.toGo !== null)));
+  assert.equal(g.face, 'bronze');
+  assert.equal(nextGoalLine(g), 'Next goal: 25 photos — 7 to go.');
+  assert.equal(nowLine(g), 'Now · 18 photos · Bronze');
+  // After the in-progress run, no completed badge appears again.
+  const afterRun = row.slice(firstClimbing).findIndex((t) => !climbing(t));
+  assert.ok(row.slice(firstClimbing + Math.max(afterRun, 0)).every((t) => !(t.on && !climbing(t)) || afterRun < 0));
+});
+
+test('a ladder at zero sits with "not yet", never with the ones in progress (owner: "Yes")', () => {
+  const zero = { ...COUNTS, serviceCards: 0 };
+  const row = shopBadgeRow(input({ counts: zero, rows: badgeRowsWithRewards(badgeTracker(FACTS), { ...REWARDS, facts: zero }) }))!;
+  const cards = row.findIndex((t) => t.key === 'reward:service_cards');
+  const lastInProgress = row.reduce((at, t, i) => (t.ladder && t.ladder.toGo !== null && t.ladder.reached !== null ? i : at), -1);
+  assert.ok(cards > lastInProgress, 'a ladder at 0 sorts among the in-progress ones');
 });
 
 test('Rating has no goal; Events wears the rung it reached', () => {
@@ -136,7 +151,7 @@ test('1st Pick is shown but not counted; the Booked Loop is hidden while its cou
 
 test('reward words come from the engine rows, never from the row file', () => {
   const row = shopBadgeRow(input())!;
-  const insp = row[0]!;
+  const insp = row.find((t) => t.key === 'reward:inspiration')!;
   assert.match(insp.row.reward?.next ?? '', /Next: 25 photos · 7 to go → /);
   assert.doesNotMatch(SRC, /Papic 150|Event Plus|Event Pro|free booking fee/i);
   assert.ok(row.every((t) => !t.row.reward || t.row.reward === row.find((x) => x.key === t.key)!.row.reward));

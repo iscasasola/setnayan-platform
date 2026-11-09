@@ -26,6 +26,7 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { hashViewer } from '@/lib/vendor-funnel';
+import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
 
 /** Cookie that carries an opaque per-browser id for anonymous viewers. Set
  *  best-effort so repeat anonymous views from the same browser dedupe on the
@@ -40,6 +41,11 @@ type RecordVendorViewInput = {
   utm?: string | null;
   /** Couple-event context, when a signed-in couple with an active event views. */
   eventId?: string | null;
+  /**
+   * 👁 A PORTFOLIO PHOTO was opened (Build 3 Lane E item 11) — count THAT photo's view through the one service-role RPC
+   * (`lib/record-portfolio-photo-view.ts`) instead of a shop view. Rides this action so no new server action is added.
+   */
+  photoKey?: string | null;
 };
 
 export async function recordVendorProfileView(
@@ -47,6 +53,7 @@ export async function recordVendorProfileView(
 ): Promise<void> {
   try {
     if (!input.vendorProfileId) return;
+    if (input.photoKey) return await recordPortfolioPhotoView(input.vendorProfileId, input.photoKey);
 
     // Resolve a viewer id WITHOUT persisting it raw. Prefer the auth user;
     // fall back to an opaque anon-browser cookie. Either way we only ever

@@ -1836,20 +1836,36 @@ export async function resolveOwnBookingId(
  * silence is indistinguishable from one that passed, and this one refuses for
  * four different reasons.
  */
-export async function vendorAskForPayment(formData: FormData) {
+export async function vendorAskForPayment(formData: FormData): Promise<void> {
   const eventId = formData.get('event_id');
-  if (typeof eventId !== 'string' || eventId.length === 0) {
-    redirect('/vendor-dashboard/clients');
+  const res = await askForPaymentCore(formData);
+  // The chat's Payment card (Supplier Build 3 · lane C) sends the SAME ask and stays in the conversation: with
+  // `inline=1` the outcome comes back instead of a landing ("a save never resets the screen"). One action, two
+  // returns — no second exported route (the server-action budget). The declared return stays a form action's
+  // (`Promise<void>`), because the client page binds this to `<form action>` and never posts `inline`; the chat's
+  // caller (`chat/cards/card-calls.ts`) reads the outcome back as `PaymentAskOutcome`.
+  if (formData.get('inline') === '1') return res as unknown as void;
+  if (res.ok) {
+    redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: 'sent' } }));
   }
+  if (res.code === 'event') redirect('/vendor-dashboard/clients');
+  if (res.code === 'signin') redirect('/login');
+  if (res.code === 'shop') redirect('/vendor-dashboard');
+  redirect(vendorClientSurfaceHref(String(eventId), 'asks', { shellOn: isRelationshipWorkspaceEnabled(), query: { ask: res.code } }));
+}
+
+/** What a payment ask came to — every refusal NAMED. */
+export type PaymentAskOutcome = { ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' };
+
+/**
+ * The ask itself, with no redirect. NOT exported (each export is a Vercel route): `vendorAskForPayment` above is this
+ * plus its redirects, byte-for-byte the flags it always rendered — or, with `inline=1`, this outcome returned.
+ */
+async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, code: 'event' };
   const amount = parseAmount(formData.get('amount_php'));
-  if (amount === null) {
-    redirect(
-      vendorClientSurfaceHref(eventId, 'asks', {
-        shellOn: isRelationshipWorkspaceEnabled(),
-        query: { ask: 'amount' },
-      }),
-    );
-  }
+  if (amount === null) return { ok: false, code: 'amount' };
   const dueRaw = formData.get('due_date');
   const dueDate = typeof dueRaw === 'string' && dueRaw.length > 0 ? dueRaw : null;
   const note = nullIfBlank(formData.get('note'), 500);
@@ -1858,20 +1874,12 @@ export async function vendorAskForPayment(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) return { ok: false, code: 'signin' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard');
+  if (!profile) return { ok: false, code: 'shop' };
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
-  if (!eventVendorId) {
-    redirect(
-      vendorClientSurfaceHref(eventId, 'asks', {
-        shellOn: isRelationshipWorkspaceEnabled(),
-        query: { ask: 'notbooked' },
-      }),
-    );
-  }
-
+  if (!eventVendorId) return { ok: false, code: 'notbooked' };
   // RLS is the fence: confirmed booking ∩ own profile ∩ status='open' ∩
   // asked_by_user_id = auth.uid(). A shop that is merely in conversation is
   // refused HERE, not by a TypeScript check somebody could route around.
@@ -1915,12 +1923,7 @@ export async function vendorAskForPayment(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(
-    vendorClientSurfaceHref(eventId, 'asks', {
-      shellOn: isRelationshipWorkspaceEnabled(),
-      query: { ask: error ? 'error' : 'sent' },
-    }),
-  );
+  return error ? { ok: false, code: 'error' } : { ok: true };
 }
 
 /**

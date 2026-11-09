@@ -112,11 +112,14 @@ test('4 · an unread wallet pays for nothing — and says so instead of a number
   assert.equal(portfolioCounter(portfolioQuote([], many('a', 50), 50), 50).right, 'Next photo · 1 credit');
   assert.equal(portfolioSavedText(3, 3, 125), 'Portfolio saved. 3 added · 3 credits · shop wallet 128 → 125.');
 
-  const form = src('app/vendor-dashboard/shop/_components/gallery-media.tsx');
-  const body = form.slice(form.indexOf('function PortfolioForm('), form.indexOf('function GalleryForm('));
+  // PortfolioForm has its own file since the Build 3 integration (the Upload doors load it alone); Portfolio's page
+  // still draws it through `gallery-media.tsx`.
+  const form = src('app/vendor-dashboard/shop/_components/portfolio-form.tsx');
+  assert.match(src('app/vendor-dashboard/shop/_components/gallery-media.tsx'), /import \{ PortfolioForm \} from '\.\/portfolio-form';/, 'Portfolio no longer draws the one PortfolioForm');
+  const body = form.slice(form.indexOf('function PortfolioForm('));
   assert.ok(body.length > 200, 'PortfolioForm moved — re-point this guard');
   assert.match(body, /walletBalance == null \?/, 'the form no longer branches on an unread wallet');
   assert.match(body, /data-portfolio-wallet="unread"/, 'the unread wallet has no sentence of its own');
-  assert.match(body, /maxFiles=\{portfolioMaxFiles\(storedRefs\.length, free, walletBalance\)\}/, 'the uploader is sized by something else');
+  assert.match(body, /maxFiles=\{portfolioMaxFiles\(storedRefs\.length, free, walletBalance\)(?: - \(addOnly \? initial\.length : 0\))?\}/, 'the uploader is sized by something else');
   assert.match(body, /href=\{SHOP_WALLET_HREF\}/, 'the wallet is not a door to its one home');
 });

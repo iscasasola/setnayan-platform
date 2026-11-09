@@ -96,7 +96,7 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // (`VENDOR_PROFILE_EXPORT_STAFF_LABELS` below, Build 2 8 Nov 2026, the STAFF_ACTOR rule).
   'find_lock_lifted_at, find_lock_lifted_by, find_lock_reason, find_locked_at, ' +
   'fraud_banned_at, ' +
-  'fraud_suspended_at, fraud_tombstoned, gallery_video_links, hq_address, hq_country, hq_latitude, ' +
+  'fraud_suspended_at, fraud_tombstoned, gallery_video_links, gallery_video_titles, hq_address, hq_country, hq_latitude, ' +
   'hq_longitude, hq_region, in_business_since_date, in_business_since_year, ' +
   'venue_width_m, venue_length_m, ' +
   'inner_radius_km, is_demo, is_findable, is_founder, is_published, is_supplier_vendor, ' +

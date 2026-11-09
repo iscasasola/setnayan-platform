@@ -188,6 +188,13 @@ const ORDER_MINTERS: Record<string, string> = {
     'no row a screenshot could attach to). No figure crosses the boundary: the form carries a ' +
     'sku_code only. Service-role (`moneyWriter`); authorized by the RPC itself, which resolves ' +
     'the vendor from auth.uid() and refuses a non-admin or an unverified shop.',
+  'app/vendor-dashboard/subscription/specialized-tools-purchase.ts':
+    'Vendor Specialized tools unlock (Build 4, owner 2026-11-09) — 4 weeks or 1 year. pricePhp read ' +
+    'server-side from the ACTIVE vendor_billing_catalog row for the chosen cycle; no row, a retired row ' +
+    'or a non-positive price refuses the sale (no code fallback). The form carries a cycle and a pay ' +
+    'channel only. Service-role (`createMoneyWriterClient`). Authorized by fetchOwnVendorProfile + ' +
+    'resolveVendorRoleForProfile + canManageVendor + specializedToolsPurchaseEligibility (verified, ' +
+    'Verified/Solo; Pro/Ultra refused as already included) + one pending order per shop across both cycles.',
   'app/vendor-dashboard/subscription/booth-addon-actions.ts':
     'Vendor 3D-booth add-on. pricePhp read server-side from the vendor catalog. ' +
     'SEC-4b: paid branch now service-role (`moneyWriter`). Authorized by fetchOwnVendorProfile + ' +

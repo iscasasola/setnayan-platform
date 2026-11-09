@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { centreScrollLeft, pageSwipeStep } from '@/app/_components/centre-in-strip';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SHELL = readFileSync(join(HERE, '_components', 'picked-client-shell.tsx'), 'utf8');
+const SHELL = readFileSync(join(HERE, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx') /* the ONE picked shell (Build 3 · Lane A) */, 'utf8');
 
 test('the picked item lands in the middle; the ends stay put', () => {
   // A 375-wide strip of nine 72-wide items (648 wide, max scroll 273), nothing scrolled yet.

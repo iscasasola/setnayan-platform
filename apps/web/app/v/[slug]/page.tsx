@@ -128,6 +128,7 @@ import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
 import { parseVideoLink } from '@/lib/video-embed';
+import { videoTitlesOf } from '@/lib/video-link-titles';
 import { fetchVendorIgMediaForPublic } from '@/lib/vendor-instagram-status';
 import {
   InquiryComposer,
@@ -218,6 +219,7 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -287,6 +289,8 @@ export type PublicVendorRow = {
   // Featured videos — external URLs the vendor pasted (migration 20270518165113).
   // Optional + `?? []` at read time so a pre-migration DB degrades to no section.
   gallery_video_links?: string[] | null;
+  // Each link's optional title, keyed by the link (migration 20271334860034) — said under its player.
+  gallery_video_titles?: unknown;
   services: string[];
   location_city: string | null;
   hq_address: string | null;
@@ -487,7 +491,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -498,7 +502,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
       error.message,
     )
   ) {
@@ -768,12 +772,16 @@ async function fetchVendorHidesPricesPublicly(
 }
 
 async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
+  return (await resolvePortfolioPhotos(keys)).map((p) => p.url);
+}
+
+/** 👁 The portfolio's photos WITH their stored keys — a tap opens one and counts its view (Lane E item 11). */
+async function resolvePortfolioPhotos(keys: string[] | null): Promise<{ key: string; url: string }[]> {
   if (!keys || keys.length === 0) return [];
   try {
-    const resolved = await Promise.all(
-      keys.slice(0, 12).map((k) => displayUrlForStoredAsset(k)),
-    );
-    return resolved.filter((u): u is string => Boolean(u));
+    const shown = keys.slice(0, 12);
+    const resolved = await Promise.all(shown.map((k) => displayUrlForStoredAsset(k)));
+    return shown.flatMap((key, i) => (resolved[i] ? [{ key, url: resolved[i]! }] : []));
   } catch {
     return [];
   }
@@ -1354,9 +1362,9 @@ export async function renderVendorBySlug({
   }));
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
-  const [attributeDetails, portfolioUrls, microsite, igMedia, repertoire] = await Promise.all([
+  const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioUrls(vendor.portfolio_r2_keys),
+    resolvePortfolioPhotos(vendor.portfolio_r2_keys),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1407,6 +1415,7 @@ export async function renderVendorBySlug({
   // set and fall back to defaults (all baseline sections visible).
   const pageSections = canPersonalizePage ? microsite.sections : {};
 
+  const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
   const orderedServices = orderFeaturedFirst(
@@ -1581,9 +1590,14 @@ export async function renderVendorBySlug({
   // door out Q3 closes). The vendor's pasted value stays saved in
   // gallery_video_links; only the public render narrows to what actually plays
   // in-page. Unparseable entries are dropped too.
+  // 🎬 Each video carries the title its supplier gave it (Portfolio › Video links), keyed by the link as stored.
+  const videoTitles = videoTitlesOf(vendor.gallery_video_titles);
   const featuredVideos = (vendor.gallery_video_links ?? [])
-    .map((url) => parseVideoLink(url))
-    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> => v !== null)
+    .map((url) => {
+      const v = parseVideoLink(url);
+      return v ? { ...v, title: videoTitles[url] ?? null } : null;
+    })
+    .filter((v): v is NonNullable<ReturnType<typeof parseVideoLink>> & { title: string | null } => v !== null)
     .filter((v) => v.kind === 'iframe');
   const heroKicker = [
     vendor.services[0] ? displayServiceLabel(vendor.services[0]) : null,
@@ -2967,20 +2981,14 @@ export async function renderVendorBySlug({
               Portfolio
             </h2>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {portfolioUrls.map((url, idx) => (
-                <div
-                  key={url}
-                  className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
-                >
-                  <Image
-                    src={url}
-                    alt={`${displayLabel} portfolio ${idx + 1}`}
-                    fill
-                    sizes="(max-width: 640px) 50vw, 33vw"
-                    className="object-cover"
-                  />
-                </div>
-              ))}
+              {/* 👁 Each photo opens full size on a tap, and that open is ONE view of that photo (Lane E item 11) — the
+                  shop's own people and admins never count (the RPC refuses them; a team preview counts nothing). */}
+              <PortfolioPhotoTiles
+                vendorProfileId={vendor.vendor_profile_id}
+                photos={portfolioPhotos}
+                label={displayLabel}
+                count={!isDemoVendor && teamPreview === null}
+              />
               {featuredVideos.map((v, idx) =>
                 v.embedUrl ? (
                   // Inline player spans two grid columns so its 16:9 frame reads
@@ -2988,20 +2996,25 @@ export async function renderVendorBySlug({
                   // `featuredVideos` is pre-filtered to `kind === 'iframe'`, so
                   // every entry reaching this map plays in-page — never a link
                   // out (owner ruling 2026-09-11 Q3).
-                  <div
-                    key={`${v.originalUrl}-${idx}`}
-                    className="relative col-span-2 aspect-video overflow-hidden rounded-xl bg-ink/5"
-                  >
-                    <iframe
-                      src={v.embedUrl}
-                      title={`${displayLabel} — ${v.label} video ${idx + 1}`}
-                      loading="lazy"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      className="absolute inset-0 h-full w-full border-0"
-                    />
-                  </div>
+                  <figure key={`${v.originalUrl}-${idx}`} className="col-span-2 space-y-1.5" data-featured-video="">
+                    <div className="relative aspect-video overflow-hidden rounded-xl bg-ink/5">
+                      <iframe
+                        src={v.embedUrl}
+                        title={v.title ? `${displayLabel} — ${v.title}` : `${displayLabel} — ${v.label} video ${idx + 1}`}
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        className="absolute inset-0 h-full w-full border-0"
+                      />
+                    </div>
+                    {/* The title the supplier gave it (Portfolio › Video links); no title → no caption, never a filler. */}
+                    {v.title ? (
+                      <figcaption className="px-1 text-[13.5px] font-medium text-ink" data-featured-video-title="">
+                        {v.title}
+                      </figcaption>
+                    ) : null}
+                  </figure>
                 ) : null,
               )}
               {/* Synced Instagram posts (show_on_profile) — images re-hosted in

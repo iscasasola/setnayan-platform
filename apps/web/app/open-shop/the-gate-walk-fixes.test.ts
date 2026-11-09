@@ -107,7 +107,8 @@ test('A2 → A3 · the frame posts under the column names (x / y / zoom), whole 
 
 test('A2 · My Shop’s logo row carries the same control, and its save writes the frame', () => {
   const row = read('app/vendor-dashboard/shop/_components/editable-row.tsx');
-  assert.match(row, /<LogoRowControl data=\{data\} onDirty=\{onDirty\} \/>/);
+  // `pickedFiles` = a photo a door outside chose (Shop › Logo menu › Upload photo, Build 3): the same control, fed once.
+  assert.match(row, /<LogoRowControl data=\{data\} onDirty=\{onDirty\}(?: pickedFiles=\{pickedFiles\})? \/>/);
   assert.match(row, /<PictureFrameControl\b[\s\S]{0,200}picture="logo"/);
   const save = read('app/vendor-dashboard/actions.ts');
   const logoCase = save.slice(save.indexOf("case 'logo': {"), save.indexOf("case 'business_name': {"));

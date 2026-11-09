@@ -220,7 +220,7 @@ const RELOAD_ALLOWED: Readonly<Record<string, string>> = {
   'app/open-shop/_components/open-shop-wizard.tsx': '"Tap Reload to keep going" on a new build — the draft is saved first',
   'app/papic/guest/_components/papic-guest-capture.tsx': '"Try again" when the camera failed to start',
   'app/papic/seat/[token]/_components/papic-seat-capture.tsx': '"Try again" when the camera failed to start',
-  'app/vendor-dashboard/shop/_components/gallery-media.tsx': '"Try again" on a failed gallery read',
+  'app/vendor-dashboard/shop/_components/portfolio-form.tsx': '"Retry" on an unread shop wallet (moved, unchanged, out of gallery-media.tsx)',
   'lib/stylesheet-recovery.ts': 'a stylesheet failed to load — the page is unstyled',
 };
 

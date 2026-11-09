@@ -45,7 +45,9 @@ const ANCHORS: Record<string, RegExp> = {
   event_members: new RegExp(String.raw`\.eq\(\s*'user_id'\s*,\s*(${UID}|userId)\s*\)`),
   events_host: /\.in\(\s*'event_id'\s*,\s*ids\s*\)/, // ids = coupleEventIds (pinned below)
   vendor_profiles: eqUid('user_id'),
-  chat_messages: eqUid('sender_user_id'),
+  // two reads: the lines the subject WROTE, and (RA 10173 access right, Build 3 lane B round 3) the private
+  // lines sent TO them — recipient_user_id is the person a private line is about, as much as its sender.
+  chat_messages: new RegExp(String.raw`\.eq\(\s*'(sender_user_id|recipient_user_id)'\s*,\s*${UID}\s*\)`),
   orders: eqUid('user_id'),
   payments: eqUid('user_id'),
   guest_face_enrollments: /\.in\(\s*'guest_id'\s*,\s*ownGuestIds\s*\)/, // pinned below
@@ -92,6 +94,8 @@ const ANCHORS: Record<string, RegExp> = {
   // by T15 in export-coverage-guardrail.test.ts
   event_vendor_payments: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   event_vendors: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
+  // couple-grain too (2026-11-09): the refunds suppliers recorded giving the caller's OWN couple events money back.
+  event_vendor_refunds: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   // the subject's OWN vendor profile (vp ← vendor_profiles .eq('user_id', user.id))
   editorial_vendor_media: /\.eq\(\s*'vendor_profile_id'\s*,\s*vp\.vendor_profile_id\s*\)/,
 
@@ -116,6 +120,9 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_member_token_wallets: eqUid('user_id'),
   vendor_team_members: eqUid('user_id'),
   supplier_scan_claims: eqUid('scanned_by_user_id'),
+  // Supplier Build 3 · lane B (2026-11-09): the subject's own host seats (with their own left_note) and blocker counts.
+  chat_thread_members: eqUid('user_id'),
+  chat_blocker_shows: eqUid('user_id'),
   // AUTHOR-scoped: a shared list or a shared day must not hand one person another's entries.
   event_preparation_items: eqUid('created_by'),
   budget_builds: eqUid('created_by'),

@@ -375,8 +375,8 @@ test('2 · the supplier sends a priced quote — ₱16,750, 20% on lock, balance
   const p = await db.query<{ proposal_id: string }>(
     `INSERT INTO public.vendor_proposals
        (event_id, vendor_profile_id, title, status, sent_at, total_centavos,
-        line_items, payment_schedule)
-     VALUES ($1, $2, 'Photography — Rosa & Ben', 'sent', NOW(), $3, $4::jsonb, $5::jsonb)
+        line_items, payment_schedule, valid_until)
+     VALUES ($1, $2, 'Photography — Rosa & Ben', 'sent', NOW(), $3, $4::jsonb, $5::jsonb, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7)
      RETURNING proposal_id`,
     [
       need('eventId'),

@@ -92,8 +92,10 @@ test('b · the page is the couple’s ChatInbox, fed the supplier’s rows — n
   // ONE row shape: the thread column's builder over the thread column's inputs.
   assert.match(PAGE, /buildVendorConversationRows\(\{/);
   assert.match(PAGE, /readVendorConversationInputs\(\{/);
-  // A tap opens the one thread page, unchanged.
-  assert.match(PAGE, /href: `\$\{SUPPLIER_CHATS_HREF\}\/\$\{r\.threadId\}`/);
+  // ✉️ Supplier Build 3 (DECISION_LOG ✉️ 2026-11-08, "list all the events (no dupes)"): one row per EVENT, and a tap
+  // opens the PICKED CLIENT already on its Chat page — drawn over this list by `./@client`, rising from the row.
+  assert.match(PAGE, /foldByEvent\(/, 'Chats lists threads, not events');
+  assert.match(PAGE, /href: `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=chat`,\s*opensPicked: true,/, 'a row does not open the picked client on Chat');
 });
 
 test('b · rows: the event’s chat title whole, All · Unread only, newest first with Archived folded below', async () => {
@@ -111,7 +113,7 @@ test('b · rows: the event’s chat title whole, All · Unread only, newest firs
   assert.doesNotMatch(html, />Suppliers</, 'the couple’s Suppliers chip leaked onto the supplier’s Chats');
   assert.doesNotMatch(html, /data-testid="chat-new-message"|New message/, 'a supplier answers chats — there is no ✎');
   assert.match(html, /<details>[\s\S]*Archived/, 'archived chats are not folded below');
-  assert.match(PAGE, /\[\.\.\.active, \.\.\.archived\]/, 'active first, archived after');
+  assert.match(PAGE, /\[\.\.\.rowsFor\(false\), \.\.\.rowsFor\(true\)\]/, 'active first, archived after');
 });
 
 test('c · full screen: the page root is the chat takeover — no bottom tabs, no pinned row — and its search is at its own foot', async () => {

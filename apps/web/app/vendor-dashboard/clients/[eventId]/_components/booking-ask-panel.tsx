@@ -26,6 +26,7 @@
  */
 import { ArrowRight, Check, X } from 'lucide-react';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
+import { BlockerAskRow } from '@/app/_components/chat/blocker-ask-row';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { askLine, type SupplierAskOutcome } from '@/lib/booking-ask-words';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
@@ -70,6 +71,7 @@ export function LockRequestAnswer({
   waitlistAsk,
   heldService = null,
   now = new Date(),
+  layout = 'panel',
 }: {
   eventVendorId: string;
   expiresAt: string | null;
@@ -100,6 +102,12 @@ export function LockRequestAnswer({
   heldService?: string | null;
   /** The render instant (the lab pins it). */
   now?: Date;
+  /**
+   * 🚦 `blocker` — drawn inside the chat's full-screen blocker (Build 3, prototype v8.3): the ordinary yes and no become
+   * ONE row of equal widths, **Turn down | Agree and book** (`BlockerAskRow`, the same two actions). A full day and a
+   * held service keep their shipped single answer. `panel` (default) is the shipped layout, unchanged.
+   */
+  layout?: 'panel' | 'blocker';
 }) {
   // The deadline is the one the DATABASE stamped and the sweep enforces —
   // never a window recomputed here.
@@ -128,6 +136,10 @@ export function LockRequestAnswer({
       <BookingFeeNotice disclosure={feeForecast} />
       {/* The day under the ask — ABOVE the button, like the fee: a full day is known before the tap, never after. */}
       <DayCheckLine read={dayCheck} />
+      {layout === 'blocker' && !heldService && !(dayFull && waitlistAsk) ? (
+        <BlockerAskRow eventVendorId={eventVendorId} returnTo={returnTo} agreeLock={agreeLock} declineLock={declineLock} />
+      ) : (
+        <>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {heldService ? (
           // On plan hold: a yes can only be refused again — the one door is the pick (My Shop › Which services stay on).
@@ -167,6 +179,8 @@ export function LockRequestAnswer({
           <AskSubmit tone="neutral" icon={<X {...ico} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
       </details>
+        </>
+      )}
     </section>
   );
 }

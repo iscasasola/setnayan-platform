@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1809
-# tables: 478
-# columns: 5849
-# notnull: 3527
+# ledger: 1823
+# tables: 487
+# columns: 5928
+# notnull: 3580
 [ledger]
 20260512000000
 20260513000000
@@ -1814,13 +1814,27 @@
 20271329241008
 20271329284628
 20271329352320
+20271329937802
 20271329965074
+20271329968207
 20271329978605
 20271330396757
 20271330482944
+20271330575424
+20271330723629
 20271330825868
 20271331202840
 20271331290778
+20271331503438
+20271331531509
+20271331982978
+20271332041210
+20271332497337
+20271333348826
+20271333705710
+20271334537840
+20271334860034
+20271335272180
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1986,6 +2000,29 @@ blocked_users.blocker_user_id
 blocked_users.created_at
 blocked_users.id
 blocked_users.reason
+booking_change_asks.answer_note
+booking_change_asks.answered_at
+booking_change_asks.answered_by
+booking_change_asks.ask_id
+booking_change_asks.asked_at
+booking_change_asks.asked_by
+booking_change_asks.event_id
+booking_change_asks.form_id
+booking_change_asks.note
+booking_change_asks.proposal_id
+booking_change_asks.status
+booking_change_asks.subject
+booking_change_asks.thread_id
+booking_change_asks.vendor_profile_id
+booking_changes.change_id
+booking_changes.changed_at
+booking_changes.changed_by
+booking_changes.event_id
+booking_changes.field
+booking_changes.from_value
+booking_changes.subject_id
+booking_changes.to_value
+booking_changes.vendor_profile_id
 booking_fee_charges.amount_charged_centavos
 booking_fee_charges.badge_reward_id
 booking_fee_charges.charge_id
@@ -2168,6 +2205,21 @@ category_hub_settings.updated_by
 category_hub_tool_switches.category_id
 category_hub_tool_switches.created_at
 category_hub_tool_switches.tool_key
+chat_blocker_shows.blocker_kind
+chat_blocker_shows.first_shown_at
+chat_blocker_shows.last_shown_at
+chat_blocker_shows.shown_count
+chat_blocker_shows.subject_key
+chat_blocker_shows.thread_id
+chat_blocker_shows.user_id
+chat_decision_topics.closed_at
+chat_decision_topics.closed_by_user_id
+chat_decision_topics.opened_at
+chat_decision_topics.opened_by_user_id
+chat_decision_topics.reopened_at
+chat_decision_topics.thread_id
+chat_decision_topics.title
+chat_decision_topics.topic_id
 chat_message_flags.action_taken
 chat_message_flags.categories
 chat_message_flags.created_at
@@ -2208,10 +2260,17 @@ chat_messages.is_bot
 chat_messages.message_id
 chat_messages.offered_service_id
 chat_messages.proposal_id
+chat_messages.recipient_user_id
 chat_messages.sender_role
 chat_messages.sender_user_id
 chat_messages.thread_id
 chat_messages.vendor_profile_id
+chat_thread_members.added_by_user_id
+chat_thread_members.joined_at
+chat_thread_members.left_at
+chat_thread_members.left_note
+chat_thread_members.thread_id
+chat_thread_members.user_id
 chat_thread_reads.archived_at
 chat_thread_reads.last_read_at
 chat_thread_reads.thread_id
@@ -2369,6 +2428,7 @@ coordinator_access_consents.moderator_id
 coordinator_access_consents.revoked_at
 coordinator_access_consents.scope_version
 coordinator_access_consents.scopes
+coordinator_access_consents.vendor_profile_id
 coordinator_broadcasts.body
 coordinator_broadcasts.broadcast_id
 coordinator_broadcasts.created_at
@@ -2927,6 +2987,7 @@ event_floor_signs.y_pos
 event_form_sends.event_id
 event_form_sends.first_sent_at
 event_form_sends.form_id
+event_form_sends.locked
 event_form_sends.sent_at
 event_form_sends.sent_by
 event_form_sends.thread_id
@@ -3118,6 +3179,7 @@ event_question_answers.question_id
 event_question_answers.updated_at
 event_question_requests.event_id
 event_question_requests.first_sent_at
+event_question_requests.locked
 event_question_requests.sent_at
 event_question_requests.thread_id
 event_question_requests.vendor_profile_id
@@ -6000,6 +6062,17 @@ songs.preview_url
 songs.song_id
 songs.source
 songs.title
+specialized_tool_usage.category
+specialized_tool_usage.event_id
+specialized_tool_usage.first_used_at
+specialized_tool_usage.last_used_at
+specialized_tool_usage.opens
+specialized_tool_usage.scanner_mode
+specialized_tool_usage.scans
+specialized_tool_usage.template_key
+specialized_tool_usage.tool_key
+specialized_tool_usage.usage_id
+specialized_tool_usage.vendor_profile_id
 stewardship_transfers.branch_person_id
 stewardship_transfers.completed_at
 stewardship_transfers.created_at
@@ -6944,6 +7017,14 @@ vendor_payouts.trigger_type
 vendor_payouts.updated_at
 vendor_payouts.vendor_net_centavos
 vendor_payouts.vendor_profile_id
+vendor_portfolio_photo_view_days.photo_key
+vendor_portfolio_photo_view_days.vendor_profile_id
+vendor_portfolio_photo_view_days.viewed_on
+vendor_portfolio_photo_view_days.viewer_hash
+vendor_portfolio_photo_views.last_viewed_at
+vendor_portfolio_photo_views.photo_key
+vendor_portfolio_photo_views.vendor_profile_id
+vendor_portfolio_photo_views.views
 vendor_portion_rules.applies_to_block
 vendor_portion_rules.applies_to_meals
 vendor_portion_rules.created_at
@@ -7000,6 +7081,7 @@ vendor_profiles.fraud_banned_at
 vendor_profiles.fraud_suspended_at
 vendor_profiles.fraud_tombstoned
 vendor_profiles.gallery_video_links
+vendor_profiles.gallery_video_titles
 vendor_profiles.hq_address
 vendor_profiles.hq_country
 vendor_profiles.hq_latitude
@@ -7103,6 +7185,7 @@ vendor_proposal_templates.template_name
 vendor_proposal_templates.terms
 vendor_proposal_templates.updated_at
 vendor_proposal_templates.vendor_profile_id
+vendor_proposals.changes_locked
 vendor_proposals.created_at
 vendor_proposals.event_id
 vendor_proposals.includes_setnayan_gift
@@ -7111,6 +7194,7 @@ vendor_proposals.locked_qr_token_id
 vendor_proposals.merge_snapshot
 vendor_proposals.payment_method_ids
 vendor_proposals.payment_schedule
+vendor_proposals.plan_locked
 vendor_proposals.proposal_id
 vendor_proposals.public_id
 vendor_proposals.rendered_body
@@ -7125,6 +7209,7 @@ vendor_proposals.title
 vendor_proposals.total_centavos
 vendor_proposals.updated_at
 vendor_proposals.valid_until
+vendor_proposals.valid_until_legacy
 vendor_proposals.vendor_profile_id
 vendor_proposals.viewed_at
 vendor_push_tokens.id
@@ -7450,6 +7535,14 @@ vendor_songs.created_at
 vendor_songs.performance_url
 vendor_songs.song_id
 vendor_songs.vendor_profile_id
+vendor_specialized_tools_access.created_at
+vendor_specialized_tools_access.trial_ends_at
+vendor_specialized_tools_access.trial_event_id
+vendor_specialized_tools_access.trial_event_vendor_id
+vendor_specialized_tools_access.trial_used_at
+vendor_specialized_tools_access.unlock_expires_at
+vendor_specialized_tools_access.updated_at
+vendor_specialized_tools_access.vendor_profile_id
 vendor_spotlight_awards.award_id
 vendor_spotlight_awards.award_type
 vendor_spotlight_awards.awarded_at
@@ -7772,6 +7865,17 @@ blocked_users.blocked_user_id
 blocked_users.blocker_user_id
 blocked_users.created_at
 blocked_users.id
+booking_change_asks.ask_id
+booking_change_asks.asked_at
+booking_change_asks.note
+booking_change_asks.status
+booking_change_asks.subject
+booking_change_asks.thread_id
+booking_change_asks.vendor_profile_id
+booking_changes.change_id
+booking_changes.changed_at
+booking_changes.event_id
+booking_changes.field
 booking_fee_charges.amount_charged_centavos
 booking_fee_charges.charge_id
 booking_fee_charges.computed_fee_centavos
@@ -7890,6 +7994,17 @@ category_hub_settings.updated_at
 category_hub_tool_switches.category_id
 category_hub_tool_switches.created_at
 category_hub_tool_switches.tool_key
+chat_blocker_shows.blocker_kind
+chat_blocker_shows.first_shown_at
+chat_blocker_shows.last_shown_at
+chat_blocker_shows.shown_count
+chat_blocker_shows.subject_key
+chat_blocker_shows.thread_id
+chat_blocker_shows.user_id
+chat_decision_topics.opened_at
+chat_decision_topics.thread_id
+chat_decision_topics.title
+chat_decision_topics.topic_id
 chat_message_flags.categories
 chat_message_flags.created_at
 chat_message_flags.flag_id
@@ -7915,6 +8030,9 @@ chat_messages.message_id
 chat_messages.sender_role
 chat_messages.thread_id
 chat_messages.vendor_profile_id
+chat_thread_members.joined_at
+chat_thread_members.thread_id
+chat_thread_members.user_id
 chat_thread_reads.last_read_at
 chat_thread_reads.thread_id
 chat_thread_reads.user_id
@@ -8389,6 +8507,7 @@ event_floor_signs.y_pos
 event_form_sends.event_id
 event_form_sends.first_sent_at
 event_form_sends.form_id
+event_form_sends.locked
 event_form_sends.sent_at
 event_form_sends.sent_by
 event_form_sends.vendor_profile_id
@@ -8492,6 +8611,7 @@ event_question_answers.question_id
 event_question_answers.updated_at
 event_question_requests.event_id
 event_question_requests.first_sent_at
+event_question_requests.locked
 event_question_requests.sent_at
 event_question_requests.vendor_profile_id
 event_recaps.created_at
@@ -10182,6 +10302,17 @@ songs.is_curated_pick
 songs.song_id
 songs.source
 songs.title
+specialized_tool_usage.category
+specialized_tool_usage.event_id
+specialized_tool_usage.first_used_at
+specialized_tool_usage.last_used_at
+specialized_tool_usage.opens
+specialized_tool_usage.scanner_mode
+specialized_tool_usage.scans
+specialized_tool_usage.template_key
+specialized_tool_usage.tool_key
+specialized_tool_usage.usage_id
+specialized_tool_usage.vendor_profile_id
 stewardship_transfers.branch_person_id
 stewardship_transfers.created_at
 stewardship_transfers.id
@@ -10775,6 +10906,14 @@ vendor_payouts.stage_pct
 vendor_payouts.trigger_type
 vendor_payouts.updated_at
 vendor_payouts.vendor_profile_id
+vendor_portfolio_photo_view_days.photo_key
+vendor_portfolio_photo_view_days.vendor_profile_id
+vendor_portfolio_photo_view_days.viewed_on
+vendor_portfolio_photo_view_days.viewer_hash
+vendor_portfolio_photo_views.last_viewed_at
+vendor_portfolio_photo_views.photo_key
+vendor_portfolio_photo_views.vendor_profile_id
+vendor_portfolio_photo_views.views
 vendor_portion_rules.created_at
 vendor_portion_rules.headcount_basis
 vendor_portion_rules.label
@@ -10801,6 +10940,7 @@ vendor_profiles.extra_services_per_leaf
 vendor_profiles.extra_waitlist_acceptances
 vendor_profiles.fraud_tombstoned
 vendor_profiles.gallery_video_links
+vendor_profiles.gallery_video_titles
 vendor_profiles.is_demo
 vendor_profiles.is_founder
 vendor_profiles.is_published
@@ -10844,11 +10984,13 @@ vendor_proposal_templates.template_name
 vendor_proposal_templates.terms
 vendor_proposal_templates.updated_at
 vendor_proposal_templates.vendor_profile_id
+vendor_proposals.changes_locked
 vendor_proposals.created_at
 vendor_proposals.line_items
 vendor_proposals.merge_snapshot
 vendor_proposals.payment_method_ids
 vendor_proposals.payment_schedule
+vendor_proposals.plan_locked
 vendor_proposals.proposal_id
 vendor_proposals.public_id
 vendor_proposals.rendered_body
@@ -10857,6 +10999,7 @@ vendor_proposals.status
 vendor_proposals.title
 vendor_proposals.total_centavos
 vendor_proposals.updated_at
+vendor_proposals.valid_until_legacy
 vendor_proposals.vendor_profile_id
 vendor_push_tokens.id
 vendor_push_tokens.is_active
@@ -11077,6 +11220,9 @@ vendor_services.vendor_service_id
 vendor_songs.created_at
 vendor_songs.song_id
 vendor_songs.vendor_profile_id
+vendor_specialized_tools_access.created_at
+vendor_specialized_tools_access.updated_at
+vendor_specialized_tools_access.vendor_profile_id
 vendor_spotlight_awards.award_id
 vendor_spotlight_awards.award_type
 vendor_spotlight_awards.awarded_at

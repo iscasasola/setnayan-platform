@@ -259,7 +259,11 @@ test('the supplier’s page sends the revise destination, opens the panel for it
   // `?compose=quote` rail and the picked client's Quotation page — hands the builder the live quote's seed.
   assert.equal(count(v, /revision=\{cm === 'quote' \? quoteRevision : null\}/g), 1, 'ProposalMaker is not handed the revision seed exactly once');
   assert.match(v, /seedQuoteRevision\(/, 'the seed is not built from the live quote');
-  assert.match(v, /\.in\('status', \['sent', 'viewed', 'accepted'\]\)/, 'the live quote is not selected by the live statuses');
+  /* ✏️ RE-ANCHORED 2026-11-09 (Build 3 lane B, quote expiry): the seed's read also takes `'expired'`, because the
+     expired-quotation blocker's "Send a new quotation" opens `?compose=quote` seeded FROM the lapsed quote (coordinator
+     round 2: "seeded from the old one"). `seedQuoteRevision` blanks its Valid-until so the new one gets a fresh day.
+     The live statuses are still all three; a draft / declined / superseded quote still never seeds. */
+  assert.match(v, /\.in\('status', \['sent', 'viewed', 'accepted', 'expired'\]\)/, 'the live quote is not selected by the live statuses');
   // The couple's page never offers Update this quote — it has no builder.
   assert.equal(count(read(COUPLE), /reviseHref/g), 0, 'the couple page passes reviseHref');
 });

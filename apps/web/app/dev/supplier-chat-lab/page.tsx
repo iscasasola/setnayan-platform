@@ -19,6 +19,15 @@
  *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
  *                (sample hosts; the first is the fixture couple sender)
+ *   ?m=chats     the supplier's Chats (✉): one row per event, Messenger order — "Unread · pinned", then "Recent"; two rows
+ *                carry Lane B's 🚦 "needs you" dot (fixture levels: one blocker, one due-now)
+ *     &pick=<id>&page=chat|details|…   Build 3 · Lane A — a row opens the picked client OVER the still-drawn list, on Chat
+ *                (the real `PickedClientShell`; its Chat body is `LabPickedChat`; the other pages are lab lines)
+ *
+ *   — Supplier Build 3 · lane B —
+ *   &pins=1      two automatic pins (a payment due tomorrow, a guest-count change) + one waiting on the couple
+ *   &run=meeting a (+) Meeting card open at the foot: the Running-topic pin, the (+) shut   &shut=1 the tap's toast
+ *   &blocker=1   (with m=ask) the booking ask's full-screen blocker   &shown=1|2|3 (5/30/60 s)   &left=N a fixed second
  *
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
  * Names are samples: nobody real.
@@ -39,12 +48,15 @@ import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage
 import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { VendorOfferService } from '@/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service';
 import { ThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-answer-line';
+import { Send } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { LockRequestAnswer } from '@/app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel';
 import { vendorAgreeToLock, vendorDeclineLock } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -57,14 +69,24 @@ import { startersForTiles } from '@/lib/emcee-questions';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { SupplierChats, type SupplierChatsRead } from '@/app/vendor-dashboard/messages/_components/supplier-chats';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
+import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
+import { PICKED_CLIENT_PAGES, pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
+import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
+import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
+import type { PinFact } from '@/lib/chat-pins';
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
 function labChatsRead(state: string): SupplierChatsRead {
   if (state === 'refused') return { kind: 'refused' };
   if (state === 'empty') return { kind: 'read', rows: [], unreadMeasured: true, complete: true };
-  const row = (id: string, name: string, eventLine: string, preview: string, timeLabel: string, unread: boolean, archived = false) => ({
+  const row = (id: string, name: string, eventLine: string, preview: string, timeLabel: string, unread: boolean, archived = false, needsYou: ChatsRowNeedsYou | null = null) => ({
     threadId: id,
-    href: `/dev/supplier-chat-lab?m=tools`,
+    // Build 3 · Lane A: a row opens the picked client on Chat, over this list (the real page's href is
+    // `/vendor-dashboard/clients/<eventId>?tab=chat`, intercepted by `messages/@client`).
+    href: `/dev/supplier-chat-lab?m=chats&pick=${id}&page=chat`,
+    opensPicked: true,
+    needsYou,
     name,
     logoUrl: null,
     preview,
@@ -77,8 +99,8 @@ function labChatsRead(state: string): SupplierChatsRead {
   return {
     kind: 'read',
     rows: [
-      row('lab-c1', "Ana's Wedding (Dec 12)", '', 'Is the garden buffet still free that day?', '2m', true),
-      row('lab-c2', "Bea's Debut (Jan 24, 2027)", '', 'You: Sent you the quote po — 150 pax.', '1h', false),
+      row('lab-c1', "Ana's Wedding (Dec 12)", '', 'Is the garden buffet still free that day?', '2m', true, false, 'blocker'),
+      row('lab-c2', "Bea's Debut (Jan 24, 2027)", '', 'You: Sent you the quote po — 150 pax.', '1h', false, false, 'due-now'),
       row('lab-c3', "Carlo's Wedding (Feb 14, 2027)", '', 'Can we add the coffee bar?', 'Mon', true),
       row('lab-c4', "Dina's Christening (Nov 30)", '', 'Thank you! See you on the day.', 'Oct 28', false),
       row('lab-c5', "Eli's Anniversary (Mar 2, 2027)", '', 'You: Booked — see you!', 'Sep 9', false, true),
@@ -86,6 +108,24 @@ function labChatsRead(state: string): SupplierChatsRead {
     unreadMeasured: true,
     complete: state !== 'partial',
   };
+}
+
+/** The picked client's pages in the lab: Chat is the embedded thread on fixture messages; the rest are lab lines (the
+ * real bodies are proven in /dev/clients-lab). */
+/** The lab chat's stand-in send — it writes nothing. */
+async function labChatSend(formData: FormData): Promise<void> {
+  'use server';
+  void formData;
+  if (process.env.NODE_ENV === 'production') throw new Error('lab: not in production');
+}
+
+function labPickedClientBodies(threadId: string, name: string, mode: LabChatMode): Record<PickedClientPage, React.ReactNode> {
+  const later = (label: string) => (
+    <p className="px-1 py-6 text-sm text-ink/60">(lab) {label} for {name} — drawn in /dev/clients-lab.</p>
+  );
+  const bodies = Object.fromEntries(PICKED_CLIENT_PAGES.map((p) => [p.id, later(p.label)])) as Record<PickedClientPage, React.ReactNode>;
+  bodies.chat = <LabPickedChat threadId={threadId} side="vendor" counterpartyLabel={name} actions={{ send: labChatSend }} {...mode} />;
+  return bodies;
 }
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
@@ -112,9 +152,25 @@ export default async function SupplierChatLabPage({
   // &state=refused · &state=empty · &state=partial draw the honest states.
   if (m === 'chats') {
     const state = typeof sp.state === 'string' ? sp.state : 'rows';
+    const read = labChatsRead(state);
+    const picked = typeof sp.pick === 'string' && read.kind === 'read' ? read.rows.find((r) => r.threadId === sp.pick) ?? null : null;
+    const page = (PICKED_CLIENT_PAGES.find((p) => p.id === sp.page)?.id ?? 'chat') as PickedClientPage;
     return (
       <SupplierLabShell measure="own" page="/vendor-dashboard/messages">
-        <SupplierChats read={labChatsRead(state)} viewerId="lab-supplier" />
+        <SupplierChats read={read} viewerId="lab-supplier" />
+        {picked ? (
+          <PickedClientShell
+            eventId={`lab-${picked.threadId}`}
+            eventName={picked.name}
+            menu={pickedMenuFor(true)}
+            initialPage={page}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
+            settingsLine={{ line: 'This client only', tip: 'Lab.' }}
+            settings={null}
+            // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
+            chatUnread={sp.msgs === '0' ? 0 : 2}
+          />
+        ) : null}
       </SupplierLabShell>
     );
   }
@@ -196,6 +252,67 @@ export default async function SupplierChatLabPage({
       />
     ),
   };
+
+  // 📌 Supplier Build 3 · lane B — the pins and the blocker, on fixture facts (a clock-free sample: due "tomorrow").
+  const DAY_MS = 86_400_000;
+  const labPins: PinFact[] =
+    sp.pins === '1'
+      ? [
+          { key: 'payment_due:lab-2', kind: 'payment_due', title: '₱33,750 · 2nd payment', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS, dueMs: Date.now() + DAY_MS },
+          { key: 'guest_count:lab', kind: 'guest_count', title: 'Guest count 150 → 170', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - 2 * DAY_MS },
+          { key: 'confirm_payment:lab', kind: 'confirm_payment', title: 'Your receipt for ₱11,250', answerer: 'them', themName: 'Ana & Miguel', sinceMs: Date.now() - 3 * DAY_MS },
+        ]
+      : [];
+  if (sp.blocker === '1' && askOpen) {
+    labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
+  }
+  const shown = typeof sp.shown === 'string' ? Number(sp.shown) : 1;
+  const left = typeof sp.left === 'string' ? Number(sp.left) : undefined;
+  // ⏳ Round 2 · `&blocker=expired` — the supplier's expired-quotation blocker (one action: Send a new quotation).
+  if (sp.blocker === 'expired') {
+    labPins.unshift({ key: 'quote_expired:lab', kind: 'quote_expired', title: 'Your quotation expired · valid until Nov 6, 2026', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS });
+  }
+  const labBlocker =
+    sp.blocker === 'expired'
+      ? {
+          pinKey: 'quote_expired:lab',
+          kind: 'quote_expired' as const,
+          subjectKey: 'quote_expired:lab',
+          topic: 'quote' as const,
+          title: 'Your quotation expired · valid until Nov 6, 2026',
+          why: 'They can’t accept it any more. Send a new one — it opens filled in from the old quotation.',
+          action: (
+            <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href="?compose=quote" className="!h-11 !min-h-11 w-full" />
+          ),
+          labShownCount: shown,
+          labLeft: left,
+        }
+      : sp.blocker === '1' && askOpen
+      ? {
+          pinKey: 'booking_ask:lab',
+          kind: 'booking_ask' as const,
+          subjectKey: 'booking_ask:lab',
+          topic: 'quote' as const,
+          title: 'They asked to book you',
+          why: 'Nothing is booked, and their date is not held for you, until you answer.',
+          // v8.3: the blocker answers in one equal row — Turn down | Agree and book.
+          action: (
+            <LockRequestAnswer
+              layout="blocker"
+              eventVendorId={LAB_EVENT_VENDOR}
+              expiresAt="2026-10-15T20:00:00Z"
+              payoutReadiness="ready"
+              feeForecast={bookingFeeForecast(feeStanding, 112_500)}
+              returnTo={`/vendor-dashboard/messages/${LAB_THREAD}`}
+              agreeLock={vendorAgreeToLock}
+              declineLock={vendorDeclineLock}
+              now={NOW}
+            />
+          ),
+          labShownCount: shown,
+          labLeft: left,
+        }
+      : null;
 
   // THE ONE BUILD (8 Nov 2026) · `&embed=quotation` — the picked client's Quotation page as the thread page's own
   // `__embed=quotation` view draws it: the quote tool alone, full width, no chat frame (the client's pinned row is above).
@@ -295,6 +412,7 @@ export default async function SupplierChatLabPage({
                   lead={
                     <ThreadToolsSheet
                       eventId={LAB_EVENT}
+                      threadId={LAB_THREAD}
                       state={{ hasAgreement: booked, askOpen, paymentsToConfirm: booked ? 1 : 0, guestCountChanges: 0 }}
                     />
                   }
@@ -323,14 +441,22 @@ export default async function SupplierChatLabPage({
             )
           }
         >
+          {sp.run === 'meeting' ? <LabPlusSeed threadId={LAB_THREAD} draft="meeting" toast={sp.shut === '1' ? 'Finish or close: Meeting' : null} /> : null}
           <ChatMessageStream
             flush
+            // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
+            lockHandshake={null}
+            extraPins={labPins}
+            blocker={labBlocker}
+            plus={{ eventId: LAB_EVENT, returnPath: '/dev/supplier-chat-lab' }}
             {...(sp.hosts === '1'
               ? {
                   hosts: [
                     { userId: LAB_USER, firstName: 'Maria', name: 'Maria Reyes', role: 'bride', label: null },
                     { userId: '00000000-0000-4000-8000-0000000000ee', firstName: 'Jose', name: 'Jose Santos', role: 'groom', label: null },
                   ],
+                  // 📞 A lab stand-in: a booked sample with a dummy number (the pages pass the ONE booking check).
+                  headCalls: <BookedCallButtons booked phone="0917 000 0000" who="Ana & Miguel" />,
                 }
               : {})}
             dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
@@ -339,7 +465,6 @@ export default async function SupplierChatLabPage({
             currentUserId={LAB_STAFF}
             viewerRole="vendor"
             counterpartyLabel="Ana & Miguel"
-            lockHandshake={null}
             fileExpiry={{ eventDate: DAY, precision: 'day' }}
           />
         </ChatBox>

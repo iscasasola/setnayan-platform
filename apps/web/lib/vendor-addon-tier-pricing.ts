@@ -14,6 +14,10 @@
  * row's `sku_code`. A one-price add-on names the same row on both sides. The band always applies now (the owner ruled
  * two prices, not a flag); the flag no longer decides any price.
  *
+ * ⚖ 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN"): Deep Search is ONE price on every plan —
+ * both sides name `vendor_deep_search`; the entry row `vendor_deep_search_entry` is retired into it. The AI chatbot
+ * KEEPS its two rows (owner, same row: "AI chatbot keeps ₱1,490 (Pro/Ultra) and ₱1,990 (Free/Verified/Solo)").
+ *
  * The map is PURE; the read takes its Supabase client as an argument (import-type only) so this module stays
  * unit-testable under `tsx --test` with no server import.
  */
@@ -49,7 +53,7 @@ export const VENDOR_ADDON_BAND_SKU_CODES: Readonly<Record<VendorAddonSku, Readon
   ads_3d_plan: { entry: 'vendor_3d_booth', growth: 'vendor_3d_booth' },
   ai_chatbot_basic: { entry: 'vendor_ai_addon_entry', growth: 'vendor_ai_addon' },
   ai_chatbot_advanced: { entry: 'vendor_ai_addon_advanced', growth: 'vendor_ai_addon_advanced' },
-  deep_search_about_you: { entry: 'vendor_deep_search_entry', growth: 'vendor_deep_search' },
+  deep_search_about_you: { entry: 'vendor_deep_search', growth: 'vendor_deep_search' }, // one price, 2026-11-09
 };
 
 /** The catalogue row a vendor on `tier` is charged from for `sku`. PURE. */

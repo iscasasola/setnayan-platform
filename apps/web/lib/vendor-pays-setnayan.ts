@@ -42,6 +42,9 @@ export const VENDOR_PAYS_SETNAYAN_SKUS: readonly string[] = [
   'vendor_deep_search',
   'vendor_papic_portfolio_pack',
   'vendor_photo_challenge',
+  // 🧰 Build 4 (owner 2026-11-09) — the Specialized tools unlock, 4 weeks and 1 year. A shop paying US.
+  'vendor_specialized_tools',
+  'vendor_specialized_tools_annual',
 ] as const;
 
 /**

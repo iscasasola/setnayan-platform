@@ -4,8 +4,11 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, Check } from 'lucide-react';
 import { CALENDAR_CLOSE_AFTER_PICK_MS, dayParts, dayWords, type CalendarDay } from '@/lib/calendar-grid';
 import { saveFailedWords, type KeepAnswer } from '@/lib/form-row';
-import { useOneOpen } from '@/lib/one-open';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { deviceToday, type DateSheetChoice, type DateSheetRefusal } from '@/lib/date-sheet';
+import type { CalendarDayState } from '@/lib/calendar-grid';
 import { CalendarGrid, CalendarPop } from './calendar';
+import { LazyDateSheet } from './date-sheet-lazy';
 import { FORM_PILL_CLASS, FORM_ROW_TICK_MS, FormRow, usePillWidth, type FormRowAbout } from './form-row';
 
 /**
@@ -22,6 +25,10 @@ import { FORM_PILL_CLASS, FORM_ROW_TICK_MS, FormRow, usePillWidth, type FormRowA
  *     picked tells nothing;
  *   · after a save lands the mark shows a tick for a moment (no "Saved" word); a save that did not land says so
  *     under the row with Try again, and the pill is back on what it held.
+ *
+ * 📆 `sheet` — THE ONE DATE POP-UP (Build 3 · Lane D, owner 9 Nov 2026 *"date picker approved"*): given, the pill opens
+ * the shared date sheet (`date-sheet.tsx`, loaded on the first tap) instead of the bare calendar — quick choices first,
+ * Cancel | Set, not-available days never chosen. Left out, the row is exactly as it was. Part 2 moves the rows over.
  *
  * In its own file so a screen with no date never carries the calendar. Neutral: nothing here knows the Maker; no
  * accent colour is written here (`sn-accent` only). A native `<input type="date">` is what this replaces.
@@ -41,6 +48,7 @@ export function DateRow({
   data,
   attrs,
   pillAttrs,
+  sheet = null,
 }: {
   name: string;
   about?: FormRowAbout | null;
@@ -63,10 +71,12 @@ export function DateRow({
   attrs?: Readonly<Record<`data-${string}`, string>>;
   /** The screen's own hooks on the pill (a door other code looks for). */
   pillAttrs?: Readonly<Record<`data-${string}`, string>>;
+  /** Open the shared date sheet (quick choices · Cancel | Set) instead of the bare calendar. */
+  sheet?: DateRowSheet | null;
 }) {
   const width = usePillWidth();
   const [open, setOpen] = useState(false);
-  useOneOpen(open, setOpen);
+  const oneOpenId = useOneOpen(open, setOpen);
   const pill = useRef<HTMLButtonElement>(null);
   /* The day just tapped — on the pill at once, until its save has answered. */
   const [picked, setPicked] = useState<CalendarDay | null>(null);
@@ -149,10 +159,7 @@ export function DateRow({
         aria-busy={state.kind === 'saving' || undefined}
         aria-label={`${name}: ${words || 'not set yet'}. Tap to change`}
         onClick={() => {
-          if (!open && !clock) {
-            const now = new Date();
-            setClock(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-          }
+          if (!open && !clock) setClock(deviceToday());
           if (open) close();
           else setOpen(true);
         }}
@@ -167,7 +174,29 @@ export function DateRow({
           <CalendarDays aria-hidden data-form-row-mark="calendar" className={`h-4 w-4 flex-none ${failed ? 'text-danger-700' : 'text-sn-accent'}`} strokeWidth={2} />
         )}
       </button>
-      {open ? (
+      {open && sheet ? (
+        /* The sheet's own ⓘ opening must never close the row that opened it — so it sits in the row's scope. */
+        <OneOpenScope id={oneOpenId}>
+          <LazyDateSheet
+            data="row"
+            title={name}
+            about={sheet.about ?? null}
+            value={reads}
+            today={clock ?? deviceToday()}
+            min={min}
+            max={max}
+            choices={sheet.choices ?? null}
+            states={sheet.states ?? null}
+            refuse={sheet.refuse ?? null}
+            onSet={({ day }) => {
+              close();
+              if (day !== (picked ?? own)) send(day);
+            }}
+            onCancel={close}
+          />
+        </OneOpenScope>
+      ) : null}
+      {open && !sheet ? (
         <CalendarPop title={name} anchor={pill} onClose={close}>
           {/* The circle sits on the day the pill reads — a default that applies included. */}
           <CalendarGrid data="row" value={reads} today={clock} min={min} max={max} onPick={pick} />
@@ -176,3 +205,12 @@ export function DateRow({
     </FormRow>
   );
 }
+
+/** What a row hands the shared date sheet (`sheet`): its quick choices, what each day holds, the days it refuses and why. */
+export type DateRowSheet = {
+  choices?: readonly DateSheetChoice[] | null;
+  states?: ReadonlyMap<CalendarDay, CalendarDayState> | null;
+  refuse?: DateSheetRefusal | null;
+  about?: string | null;
+};
+

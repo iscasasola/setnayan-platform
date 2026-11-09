@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Play, Plus, Upload } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { ListFilter, Plus } from 'lucide-react';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
+import { SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
 import { collectionRows, type CollectionKey, type CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { portfolioCountLabel } from '@/lib/portfolio-count-label';
@@ -25,8 +25,14 @@ import type { PortfolioGroups } from '@/lib/portfolio-groups';
  *   albums     — the shipped collection rows (`CollectionsList`), each album OPENING IN PLACE (3 columns, first 9, "+N")
  *                and its ✓ circle the separate "pick for Show" control — never rows named after clients
  *   Show       — greyed until an album is picked; full screen, swipe, no edit / price / caption (`PortfolioShow`)
- *   thumb row  — Sort ▾ (As listed · By name) · Show ▶ · ＋ Add photos (the shipped uploader's fold, `#gallery-media`).
- *                No "Search portfolio" (map row 69 INVENTED).
+ *   thumb row  — Search photos · ⇅ (Sort: As listed · By name, and Show ▶) · ＋ Add photos (the shipped uploader's fold,
+ *                `#gallery-media`) — the shape of Shop's row (Lane E item 4, owner 9 Nov: "There should be a search bar
+ *                there that could help them find on their photos"). Search narrows every album, story and collection IN
+ *                PLACE by its words (the house move, no request).
+ *
+ * Lane E (Build 3): the band is the ONE supplier hero (`SupplierHero`, item 10) wearing the LATEST photo (item 11) or
+ * the category placeholder (item 12); its Upload pill is gone — the thumb row's ＋ is the one add (item 3), surfaced on
+ * the hero only while it is a placeholder. Every section draws as a finished card, empty or not (item 1).
  *
  * Build 2 (lane B2-B, §10 #35/#40): ABOVE the shipped collection rows, the three groups the owner named — All your
  * events · Your services · Inspiration you curated — then Stories couples published, All photos and Video links
@@ -53,6 +59,10 @@ export function PortfolioView({
   allPhotos,
   libraryOpen,
   videoLinkUrls,
+  videoTitles = {},
+  hero = null,
+  moodboard = null,
+  songs = 'off',
 }: {
   vendorId: string;
   input: CollectionsInput;
@@ -74,12 +84,19 @@ export function PortfolioView({
   libraryOpen?: boolean;
   /** The shipped `gallery_video_links`, edited row by row under Video links. */
   videoLinkUrls?: string[];
+  /** Each link's title, keyed by the link; null = unread (no Title field then). Absent = none yet (the lab). */
+  videoTitles?: Record<string, string> | null;
+  /** 🖼 The latest upload, or the category placeholder (`lib/supplier-hero.ts`). Null = the shipped placeholder file. */
+  hero?: SupplierHeroPicture | null;
+  moodboard?: { looks: number; declined: number } | null;
+  songs?: { count: number; withVideo: number } | null | 'off';
 }) {
   // One pick for Show across both lists: a collection's key, or a group album's "<group>:<key>".
   const [picked, setPicked] = useState<string | null>(null);
   const [groupAlbum, setGroupAlbum] = useState<ShowAlbum | null>(null);
   const [showing, setShowing] = useState(false);
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
+  const [words, setWords] = useState('');
   const bandRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState(0);
 
@@ -138,23 +155,27 @@ export function PortfolioView({
         </div>
       </div>
 
-      {/* The band */}
-      <div ref={bandRef} className="rounded-b-3xl px-4 pb-5 pt-5 text-white" style={{ background: 'linear-gradient(160deg, color-mix(in srgb, var(--m-orange) 40%, var(--m-ink)) 0%, var(--m-ink) 70%)' }} data-portfolio-top="">
-        <p className="text-[13px] font-medium text-white/80">Portfolio · all your media</p>
-        <h1 className="mt-1 font-[family-name:var(--font-display)] text-[30px] font-semibold leading-[1.1]">
-          {n(photos, 'photo', 'photos')} · {n(videoLinks, 'video link', 'video links')}
-        </h1>
-        <p className="mt-2 text-[13.5px] text-white/90">
-          <b className="font-semibold">{count}</b>
-          <span className="ml-3 text-white/75">{n(collections, 'collection', 'collections')}</span>
-        </p>
-        <div className="mt-4 flex items-center gap-2">
-          <a href="#gallery-media" className="flex min-h-[48px] flex-1 items-center gap-2 rounded-2xl bg-[color:var(--m-paper)] px-4 text-[15px] font-semibold text-ink" data-portfolio-upload="">
-            <Upload aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Upload
-          </a>
-          {pin < 0.5 ? settings(true) : null}
-        </div>
+      {/* 🖼 The band = THE ONE SUPPLIER HERO (Lane E item 10). The pinned row above fades in as it leaves. */}
+      <div ref={bandRef} data-portfolio-top="">
+        <SupplierHero
+          eyebrow="Portfolio · all your media"
+          gear={pin < 0.5 ? settings(true) : null}
+          title={
+            <>
+              {n(photos, 'photo', 'photos')} · {n(videoLinks, 'video link', 'video links')}
+            </>
+          }
+          sub={
+            <>
+              <b className="font-semibold">{count}</b>
+              <span className="text-white/75">{n(collections, 'collection', 'collections')}</span>
+            </>
+          }
+          picture={hero}
+          caption="Latest"
+          upload={{ href: '#gallery-media' }}
+          data={{ 'portfolio-hero': '' }}
+        />
       </div>
 
       <section className="space-y-3 px-4 pt-4" data-supplier-collections="">
@@ -165,6 +186,9 @@ export function PortfolioView({
             allPhotos={allPhotos ?? []}
             libraryOpen={libraryOpen ?? false}
             videoLinks={videoLinkUrls ?? []}
+            videoTitles={videoTitles}
+            moodboard={moodboard}
+            songs={songs}
             picked={picked}
             onPick={(k, a) => {
               setGroupAlbum(a);
@@ -173,6 +197,9 @@ export function PortfolioView({
           />
         ) : null}
         <p className="sn-eye pt-4">Collections · tap one to open it · ✓ to pick it for Show</p>
+        <p hidden className="py-3 text-[14px] text-ink/65" data-portfolio-search-none="">
+          Nothing here matches “{words.trim()}”.
+        </p>
         <CollectionsList
           vendorId={vendorId}
           input={input}
@@ -187,22 +214,82 @@ export function PortfolioView({
 
       {showing && album ? <PortfolioShow title={album.title} urls={album.urls} onClose={() => setShowing(false)} /> : null}
 
-      <SupplierThumbRow name="collections" label="Portfolio">
-        <PickMenu
-          label="Sort"
-          value={order}
-          options={[
-            { key: 'listed', label: 'As listed' },
-            { key: 'name', label: 'By name' },
-          ]}
-          onPick={(k) => setOrder(k as 'listed' | 'name')}
-          compact
-          buttonText={order === 'name' ? 'Sort · By name' : 'Sort'}
-          dataAttr="data-portfolio-sort"
-        />
-        <ActionButton tone="neutral" iconOnly icon={<Play aria-hidden strokeWidth={1.9} />} label="Show" onClick={() => canShow && setShowing(true)} disabled={!canShow} />
-        <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add photos" href="#gallery-media" tour="collections-add" />
-      </SupplierThumbRow>
+      {/* 👍 THE THUMB ROW — Shop's shape (Lane E item 4): Search photos · ⇅ Sort and Show · ＋ Add photos. */}
+      <SupplierThumbRow
+        name="collections"
+        label="Portfolio"
+        row={
+          <ThumbRow
+            name="collections"
+            field={{
+              placeholder: 'Search photos',
+              input: {
+                onInput: (e) => {
+                  const v = e.currentTarget.value;
+                  setWords(v);
+                  findInPortfolio(v);
+                },
+                'data-portfolio-search': '',
+              },
+              onClear: () => {
+                setWords('');
+                findInPortfolio('');
+              },
+            }}
+            right={[
+              {
+                menu: [
+                  { key: 'sort:listed', label: 'As listed', group: 'Sort' },
+                  { key: 'sort:name', label: 'By name', group: 'Sort' },
+                  { key: 'show', label: canShow ? `Show ▶ ${album!.title}` : 'Show ▶ · pick an album first', group: 'Show' },
+                ],
+                label: 'Sort and Show',
+                value: `sort:${order}`,
+                onPick: (k: string) => {
+                  if (k === 'show') {
+                    if (canShow) setShowing(true);
+                    return;
+                  }
+                  setOrder(k === 'sort:name' ? 'name' : 'listed');
+                },
+                mark: 'data-portfolio-sort',
+                face: (
+                  <span aria-hidden className="inline-flex">
+                    <ListFilter className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                ),
+              },
+            ]}
+            action={{ icon: Plus, label: 'Add photos', href: '#gallery-media', tour: 'collections-add' }}
+          />
+        }
+      />
     </>
   );
+}
+
+/**
+ * 🔎 Search photos — narrows every album row, story and collection on the page IN PLACE by its words (the house move:
+ * Shop's Search services, no request). A section left with nothing matching steps aside; "Nothing here matches" says so.
+ */
+function findInPortfolio(words: string) {
+  const needle = words.trim().toLowerCase();
+  const root = document.querySelector<HTMLElement>('[data-portfolio-tab],[data-portfolio-tab-lab]');
+  if (!root) return;
+  let shown = 0;
+  const items = root.querySelectorAll<HTMLElement>('[data-album-row],[data-portfolio-story],[data-collection-row],[data-video-link]');
+  items.forEach((el) => {
+    const hit = !needle || (el.textContent ?? '').toLowerCase().includes(needle);
+    const host = (el.closest('li') as HTMLElement | null) ?? el;
+    host.style.display = hit ? '' : 'none';
+    if (hit) shown += 1;
+  });
+  root.querySelectorAll<HTMLElement>('[data-portfolio-card]').forEach((card) => {
+    if (!needle) return void (card.style.display = '');
+    const inside = card.querySelectorAll('[data-album-row],[data-portfolio-story],[data-video-link]');
+    const any = [...inside].some((el) => ((el.closest('li') as HTMLElement | null) ?? (el as HTMLElement)).style.display !== 'none');
+    card.style.display = any ? '' : 'none';
+  });
+  const none = root.querySelector<HTMLElement>('[data-portfolio-search-none]');
+  if (none) none.hidden = !needle || shown > 0;
 }

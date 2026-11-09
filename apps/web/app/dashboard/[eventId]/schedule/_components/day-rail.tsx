@@ -104,6 +104,13 @@ type SheetState =
   | null;
 
 type Lens = { kind: 'all' } | { kind: 'guest' } | { kind: 'vendor'; id: string };
+/** The View as a Schedule OPENS on (owner 9 Nov, "Yes, theirs first"): a picked supplier's / picked client's Schedule tab
+ *  opens on that supplier's part — `{ kind: 'vendor', id }` — and the menu still switches to Master and Guests. */
+export type ScheduleInitialLens = Lens;
+/** The vendor lens's honest empty line — never a silent fall back to Master. */
+export function noMomentsForLine(name: string): string {
+  return `No moments for ${name} yet`;
+}
 
 type DragState = {
   id: string;
@@ -138,7 +145,13 @@ export function ScheduleDay({
   frame = 'page',
   toolsSlot = null,
   openRequests = false,
+  initialLens,
+  initialLensName = null,
 }: {
+  /** 👁 The lens the day opens on — 'all' (Master) everywhere unless a picked supplier/client tab names its supplier. */
+  initialLens?: ScheduleInitialLens;
+  /** The opening vendor lens's name, for when that supplier has no moment tagged yet (so it is not in `suppliers`). */
+  initialLensName?: string | null;
   /** 📅 Open the supplier requests sheet with the page (Home's "N to approve", owner 2026-11-01) — only when there are any. */
   openRequests?: boolean;
   /**
@@ -235,7 +248,7 @@ export function ScheduleDay({
   const dragRef = useRef<DragState | null>(null);
   const suppressClick = useRef(false);
   const [sheet, setSheet] = useState<SheetState>(openRequests && requests.length > 0 ? { kind: 'requests' } : null);
-  const [lens, setLens] = useState<Lens>({ kind: 'all' });
+  const [lens, setLens] = useState<Lens>(initialLens ?? { kind: 'all' });
   /* 👁 VIEW AS on the Schedule page (Step 3c, `schedule-view-as.tsx`): a guest · a role · a supplier or crew · Suppliers
      by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */
   const viewAs = ch?.viewAs ?? null;
@@ -595,7 +608,17 @@ export function ScheduleDay({
       ? 'Master'
       : lens.kind === 'guest'
         ? 'Guests'
-        : (suppliers.find((s) => s.vendor_id === lens.id)?.vendor_name ?? 'Supplier');
+        : (suppliers.find((s) => s.vendor_id === lens.id)?.vendor_name ??
+          (initialLens?.kind === 'vendor' && initialLens.id === lens.id ? initialLensName : null) ??
+          'Supplier');
+  /* 👁 The opening vendor lens stays a choice in View as even with no tagged moment (and before the responsible-party
+     columns are live) — shown with its honest "0 moments", never dropped so the menu silently reads Master. */
+  const lensOptions = rosEnabled ? [...taggedSuppliers] : [];
+  if (initialLens?.kind === 'vendor' && !lensOptions.some((s) => s.vendor_id === initialLens.id)) {
+    const known = suppliers.find((s) => s.vendor_id === initialLens.id);
+    lensOptions.push(known ?? { vendor_id: initialLens.id, vendor_name: initialLensName ?? 'Supplier' });
+  }
+  const lensMomentCount = lens.kind === 'vendor' ? topLevel.filter((m) => m.responsible_vendor_ids.includes(lens.id)).length : null;
 
   // ── render ────────────────────────────────────────────────────────────────
   /* THE SIDE — the picked moment's inspector, or the day in numbers. */
@@ -867,12 +890,10 @@ export function ScheduleDay({
               options={[
                 { key: 'all', label: 'Master · everything' },
                 { key: 'guest', label: 'Guests · what the Event Hub shows' },
-                ...(rosEnabled
-                  ? taggedSuppliers.map((s) => {
-                      const n = topLevel.filter((m) => m.responsible_vendor_ids.includes(s.vendor_id)).length;
-                      return { key: `vendor:${s.vendor_id}`, label: `${supplierOnItem(s)} · ${n} moment${n === 1 ? '' : 's'}` };
-                    })
-                  : []),
+                ...lensOptions.map((s) => {
+                  const n = topLevel.filter((m) => m.responsible_vendor_ids.includes(s.vendor_id)).length;
+                  return { key: `vendor:${s.vendor_id}`, label: `${supplierOnItem(s)} · ${n} moment${n === 1 ? '' : 's'}` };
+                }),
               ]}
               onPick={(key) => {
                 if (key === 'all') {
@@ -948,6 +969,11 @@ export function ScheduleDay({
           >
             back to Master
           </button>
+        </p>
+      ) : null}
+      {lensMomentCount === 0 ? (
+        <p className="px-1 text-sm text-ink/60" role="status" data-schedule-lens-empty="">
+          {noMomentsForLine(lensLabel)}.
         </p>
       ) : null}
 

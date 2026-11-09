@@ -59,6 +59,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
+import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
+import { displayServiceLabel } from '@/lib/vendors';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -366,8 +368,36 @@ export function PackageEditor({
         is_required: i.is_required,
       })),
   };
+  // 🧾 THE CARDS IN THIS BUNDLE, AS A HOST SEES THEM (Build 3 Lane E item 9, owner: *"The service cards should look like
+  // how we look at event dashboard suppliers>find"*): each picked card is drawn by `ServiceCardFace` — the ONE face
+  // Suppliers › Find renders (`supplier-sheet.tsx`) — with "in this bundle" as its footer (the face's own `footer`
+  // prop), never a second drawing. Its price is the card's own from-price; nothing is typed here.
+  const pickedCards = cardLines
+    .map((i) => (i.vendorServiceId ? cardById.get(i.vendorServiceId) : undefined))
+    .filter((c): c is BundleCard => Boolean(c));
   const preview = (
     <>
+      {pickedCards.length > 0 ? (
+        <div className="space-y-2" data-bundle-find-cards="">
+          {pickedCards.map((c) => (
+            <ServiceCardFace
+              key={c.id}
+              snap={{
+                name: c.name,
+                priceText: c.fromPhp != null ? `from ${php(c.fromPhp)}` : '',
+                discountBadge: null,
+                includesLine: null,
+                notIncluded: [],
+                hasExclusive: false,
+                givesSetnayanGift: false,
+                hasCover: false,
+              }}
+              leafPathLabel={[displayServiceLabel(c.category), shopName].filter(Boolean).join(' · ')}
+              footer={<span className="inline-flex rounded-full bg-ink/[0.06] px-2.5 py-1 text-[12px] font-medium text-ink/70">in this bundle</span>}
+            />
+          ))}
+        </div>
+      ) : null}
       <PackageCard pkg={previewPkg} gift={coupleGift} />
       <p className={hint}>
         {draft.is_consumable_flexible

@@ -108,10 +108,16 @@ export const SPECIALIZATION_MIN_TIER: VendorTier = 'solo';
  * "Booked" is not decided here — this module never knew the event. Every surface that mounts the desk is the
  * booked supplier's live console, and `floor-command/actions.ts` re-checks "booked coordinator on this event".
  *
- * ONLY `floor_command`. The song desk and script & cues keep {@link SPECIALIZATION_MIN_TIER}; nobody ruled on those.
+ * 🧰 ALL THREE SINCE 2026-11-09 (Build 4). Owner picked the free tier of Specialized tools: *Scanner + Headcount ·
+ * Run of show · Emcee script · Song Desk · Floor Command + March · Live Watch* — every supplier, no purchase
+ * (DECISION_LOG "BUILD 4 ANSWERS"). Song Desk (`song_desk`) and Emcee script (`stage_script`, "Script & cues")
+ * had kept {@link SPECIALIZATION_MIN_TIER} because nobody had ruled on them; now somebody has. The paid layer is
+ * the Specialized tools unlock (lib/specialized-tools-access.ts), which these three are not part of.
  */
 export const FREE_SPECIALIZATION_SETS: ReadonlySet<VendorSpecializationSet> = new Set<VendorSpecializationSet>([
   'floor_command',
+  'song_desk',
+  'stage_script',
 ]);
 
 /**
@@ -368,8 +374,15 @@ export function resolveVendorSpecializationAccess(input: {
    * `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL`; the production path never passes it.
    */
   freeUntilIso?: string | null;
+  /**
+   * Test-only: which sets are free below the floor. Defaults to {@link FREE_SPECIALIZATION_SETS};
+   * the production path never passes it. Since 2026-11-09 every set is free, so the paywall below
+   * has no production subject — this lets its tests keep exercising it for the next paid set.
+   */
+  freeSets?: ReadonlySet<VendorSpecializationSet>;
 }): VendorSpecializationAccess {
   const { subscription, services, eventTiles, now, minTier } = input;
+  const freeSetsHere = input.freeSets ?? FREE_SPECIALIZATION_SETS;
   const freeUntilIso =
     input.freeUntilIso === undefined ? vendorDayOfFreeUntilIso() : input.freeUntilIso;
   // Resolve the PLURAL once; the singular is its priority winner. Computing it
@@ -408,7 +421,7 @@ export function resolveVendorSpecializationAccess(input: {
 
   // 🆓 Below the floor, but a FREE set is still held — the coordinator's day-of desk (owner 2026-11-05, "keep it
   // free"). Only the free sets: a band that also coordinates gets the floor, never the paid song desk.
-  const freeSets = eligibleSets.filter((s) => FREE_SPECIALIZATION_SETS.has(s));
+  const freeSets = eligibleSets.filter((s) => freeSetsHere.has(s));
   if (freeSets.length > 0) {
     return {
       genericKit: true,

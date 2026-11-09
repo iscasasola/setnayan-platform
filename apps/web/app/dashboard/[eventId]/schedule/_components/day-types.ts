@@ -87,3 +87,13 @@ export type DayActions = {
   /** 🔁 Answers in words (`ScheduleRequestAnswer`, read through `requestAnswerOf`) — the sheet saves in place. */
   resolveScheduleSuggestion: (fd: FormData) => Promise<unknown>;
 };
+
+/**
+ * 👁 `?lens=vendor:<vendor_id>` — the event Schedule opens on that supplier's part (owner 9 Nov, "Yes, theirs first";
+ * 03-FINAL-RULINGS). Anything else (missing, `all`, a malformed id) is Master, as shipped. The id is a uuid.
+ */
+export function scheduleLensFromParam(raw: string | null | undefined): { kind: 'vendor'; id: string } | undefined {
+  if (!raw || !raw.startsWith('vendor:')) return undefined;
+  const id = raw.slice('vendor:'.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? { kind: 'vendor', id } : undefined;
+}

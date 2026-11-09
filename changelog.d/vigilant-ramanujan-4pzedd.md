@@ -10,7 +10,7 @@ taxonomy."* Admin › Categories is the one source (owner 26 Oct: *"the foundati
   `TILE_PARENT`, `WEDDING_*`, `ADMIN_ONLY_TILES`). The vocabulary is the seed itself, so it grows with it.
   Comments never trip it; role/phase words (`coordinator`, `reception`, `editorial`, `venue`, …) are not
   read as categories in a comparison.
-- **Shrink-only baseline `lib/no-taxonomy-literals.baseline.txt`** — 112 rows across 96 files, each with a
+- **Shrink-only baseline `lib/no-taxonomy-literals.baseline.txt`** — 112 rows across 97 files, each with a
   reason (DELIBERATE · PRIVACY GATE · GUARDED · FAIL-CLOSED · PENDING #7416/#7413 · UNREVIEWED). Regenerate
   with `pnpm exec tsx scripts/gen-taxonomy-literals-baseline.ts`, which can only lower counts.
   Files the integrating Supplier Builds 3/4 change are pre-registered as PENDING so their integration stays

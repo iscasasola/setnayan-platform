@@ -36,8 +36,9 @@
 
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
-import type { ReactNode } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { readThreadUnreadCount } from '@/lib/couple-inbox';
 import { CLIENT_REFUND_SELECT, clientRefundOf, refundDayWords, refundedTotalPhp, type ClientRefund, type ClientRefundDbRow } from '@/lib/client-refunds';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
@@ -67,7 +68,6 @@ import {
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
-  Receipt,
   Sparkles,
   UserCheck,
   Upload,
@@ -76,6 +76,16 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { readFindInspiration } from '@/lib/find-inspiration.server';
+import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
+import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
+import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
+import { PickedSupplierShell } from './_components/picked-supplier-shell';
+import {
+  pickedSupplierMenuFor,
+  visiblePickedSupplierPage,
+  type PickedSupplierPage,
+} from './_components/picked-supplier-menu';
 import { hasClaimAsk } from '@/lib/move-supplier-category.server';
 import { WEDDING_TILE_LABEL } from '@/lib/taxonomy';
 import { readCoverCatalog } from '@/lib/cover-catalog.server';
@@ -205,10 +215,6 @@ import {
 // re-grouped into the unified chat-first tabbed shell; otherwise the current
 // long-scroll page renders byte-for-byte unchanged.
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
-import {
-  RelationshipTabShell,
-  type RelationshipTab,
-} from '@/app/_components/relationship-tab-shell';
 // Chat-tab embed — mirror the couple thread page (Chat tab = the live thread).
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -913,6 +919,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
+  // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
+  const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -925,11 +933,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     see app/vendor-dashboard/clients/[eventId]/page.tsx.
   */
   const rawLanding = typeof search.tab === 'string' ? search.tab : undefined;
-  if (relationshipShellEnabled && chatThread) {
-    if (!rawLanding || rawLanding === 'chat' || rawLanding === 'call') {
-      redirect(`/dashboard/${eventId}/messages/${chatThread.thread_id}`);
-    }
-  }
+  /*
+    🪞 THE CONVERSATION IS A PAGE OF THE PICKED SUPPLIER NOW (Supplier Build 3 · Lane A, 9 Nov 2026 — DECISION_LOG 🪞).
+    Until today a chat landing here was sent to the full-screen thread (above, 2026-09-18). The flag-ON workspace is now
+    the host's picked supplier (`PickedSupplierShell`, the ONE picked shell), whose Chat page draws THE conversation in
+    place (`CoupleThreadBody` → the thread page itself, `__embed: 'chat'`) — exactly as the supplier's picked client
+    stopped forwarding in THE ONE BUILD. So nothing redirects: `?tab=chat` (a Chats row) opens on Chat, no tab (the
+    Suppliers list) on Details. The full-screen thread route stays for every other door.
+  */
 
   // --------------------------------------------------------------------------
   // The booked service/package — the HERO of this page.
@@ -2704,12 +2715,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   }
 
   // ------------------------------------------------------------------------
-  // Flag ON — the unified RelationshipTabShell. Everything below runs ONLY on
-  // this branch, so the flag-OFF path adds zero queries and stays untouched.
+  // Flag ON — the host's picked supplier (Supplier Build 3 · Lane A; until 9 Nov
+  // 2026 the unified RelationshipTabShell). Everything below runs ONLY on this
+  // branch, so the flag-OFF path adds zero queries and stays untouched.
   //
-  // Chat tab: mirror the couple thread page (privacy notice + interest chips +
-  // ChatMessageStream + gated composer). Falls back to the existing
-  // conversation link block when there's no thread / the vendor is off-platform.
+  // Chat page: the couple thread page itself (`CoupleThreadBody`). No Chat page
+  // when there is no thread / the vendor is off-platform.
   // ------------------------------------------------------------------------
 
   // Completion handshake (Event Lifecycle Menu §6.1) — resolve the couple-facing
@@ -2876,192 +2887,106 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       </section>
     ) : null;
 
-  // No chat tab node and no call tab node: the conversation — and the call
-  // button on its composer row — is the thread page's frame, and a chat landing
-  // already redirected there above.
-
-  const tabIconClass = 'h-3.5 w-3.5';
+  // ------------------------------------------------------------------------
+  // 🪞 THE HOST'S PICKED SUPPLIER (Supplier Build 3 · Lane A, 9 Nov 2026). The tabs the workspace drew in
+  // `RelationshipTabShell` are now the pages of the ONE picked shell — the same section nodes, relocated, never redrawn
+  // (Rule 0) — in the supplier's picked-client order: Details · Chat · Schedule · Quotation · Payment · Forms · Files ·
+  // Inspiration. The service hero heads Details (the shell's pinned row is the name; ✕ is the way back, so no back
+  // link). Forms is the supplier's questions and forms (`supplierQuestionsSection`, moved off Details, not copied).
+  //
   // ── A TAB THAT CAN ONLY EVER BE BLANK IS NOT OFFERED (2026-09-20) ─────────
-  // `VendorProposalsCard` opens with `if (!marketplaceVendorId) return null`,
-  // so for a supplier the couple added themselves the Quote tab rendered
-  // LITERALLY NOTHING — no empty state, no explanation, just a tab you can
-  // land on and find blank. Measured on the owner's own event: a locked,
-  // self-added ceremony venue sitting on the Quote tab with an empty page,
-  // while the price/transport/food editor he was looking for was one tab away
-  // under Payments and the inclusions editor under Details.
-  //
-  // 🔑 A QUOTE IS SOMETHING A SUPPLIER SENDS. A self-added supplier has no
-  // account to send one from, so there is no quote to show and never will be —
-  // this is not an empty state waiting to fill. The money the couple records
-  // themselves already has a home (Costing, on Payments), and adding a second
-  // one here would be a second writer of one price.
+  // `VendorProposalsCard` opens with `if (!marketplaceVendorId) return null`, so for a supplier the couple added
+  // themselves the Quote tab rendered LITERALLY NOTHING. 🔑 A QUOTE IS SOMETHING A SUPPLIER SENDS — a self-added
+  // supplier has no account to send one from, so there is no Quotation page (`pickedSupplierMenuFor`). Likewise no
+  // Chat page without a conversation.
+  // ------------------------------------------------------------------------
   const hasQuotesToShow = Boolean(ev.marketplace_vendor_id);
-  const tabs: RelationshipTab[] = [
-    {
-      // A DOOR, not a room — the one chat box is the thread page (#5586).
-      id: 'chat',
-      label: 'Chat',
-      icon: <MessageCircle aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      href: conversationHref,
-      node: null,
-    },
-    ...(hasQuotesToShow
-      ? [
-          {
-            id: 'quote',
-            label: 'Quote',
-            icon: <Receipt aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-            node: proposalsCard,
-          } satisfies RelationshipTab,
-        ]
-      : []),
-    {
-      id: 'payments',
-      label: 'Payments',
-      icon: <PiggyBank aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: (
-        <div className="space-y-6">
-          {statusSection}
-          {paymentModeSection}
-        </div>
-      ),
-    },
-    {
-      id: 'files',
-      label: 'Files',
-      icon: <FileText aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: documentsSection,
-    },
-    {
-      id: 'schedule',
-      label: 'Schedule',
-      icon: <CalendarPlus aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: (
-        <div className="space-y-6">
-          {schedulesSection}
-          {appointmentsSection}
-        </div>
-      ),
-    },
-    {
-      id: 'details',
-      label: 'Details',
-      icon: <Info aria-hidden className={tabIconClass} strokeWidth={1.75} />,
-      node: (
-        <div className="space-y-6">
-          {coupleCompletionSection}
-          {supplierQuestionsSection}
-          {colourAccessSection}
-          {selfAddedContactSection}
-          {includedSection}
-          {choicesSection}
-          {addOnsSection}
-          {marketplaceInfoSection}
-          {notesSection}
-          {workingFolderSection}
-          {claimSection}
-        </div>
-      ),
-    },
-  ];
+  const pickedMenu = pickedSupplierMenuFor({ quote: hasQuotesToShow, chat: Boolean(chatThread) });
 
-  // ------------------------------------------------------------------------
-  // Desktop context rail (3-pane · lg+ only). A compact, always-visible summary
-  // of the relationship's NEXT ACTION + quick links to the Chat / Payments tabs.
-  // Reuses the hero/status data already computed above (no new queries). The
-  // shell hides this under lg, and the mobile header already carries the hero +
-  // status, so this is purely additive on desktop.
-  // ------------------------------------------------------------------------
-  //
-  // The leading `if (isSetnayanService)` arm (three Setnayan-order payment
-  // states, read off `activeSetnayanOrder`) was removed 2026-07-26 with the
-  // first-party buy path. The stage-derived chain below already covers every
-  // state a third-party booking can be in, and it always ends in an `else`.
-  let railTitle: string;
-  let railBody: string;
-  if (awaitingSupplier) {
-    // FIRST in the chain, above every money state. A row that is merely asked
-    // cannot be delivered or paid, so ordering costs nothing — and putting it
-    // last would mean the `else` ("your booking is locked, log your
-    // downpayment") caught it, asking the couple to pay for a booking that does
-    // not exist yet.
-    railTitle = 'Waiting on them';
-    railBody = `${displayName} has been asked and hasn't answered yet. Nothing is owed until they say yes — and you can take the request back any time before they do.`;
-  } else if (stage === 'delivered') {
-    railTitle = 'Delivered';
-    railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
-  } else if (stage === 'downpayment_paid') {
-    railTitle = 'Keep payments on track';
-    railBody = `Your first payment is in. Log each payment to ${displayName} as money moves.`;
-  } else {
-    railTitle = 'Record your payment';
-    railBody = `Your booking with ${displayName} is confirmed. Log your first payment to hold the date.`;
-  }
-
-  const quickLinkClass =
-    'inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
-
-  const contextRail = (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-ink/10 bg-cream/70 p-4">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Next step
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {awaitingSupplier ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-warn-900">
-              <Hourglass aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Asked
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
-              <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Booked
-            </span>
-          )}
-          {stage ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-              {STAGE_LABEL[stage]}
-            </span>
-          ) : null}
-        </div>
-        <h3 className="mt-2 text-sm font-semibold text-ink">{railTitle}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-ink/65">{railBody}</p>
-        {paidSoFarFormatted ? (
-          <p className="mt-2.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-            Paid so far <span className="text-ink/80">· {paidSoFarFormatted}</span>
-          </p>
-        ) : null}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <a href={conversationHref} className={quickLinkClass}>
-          <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Chat
-        </a>
-        <a
-          href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=payments`}
-          className={quickLinkClass}
-        >
-          <PiggyBank aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Payments
-        </a>
-      </div>
-    </div>
+  // 💗 INSPIRATION (the prototype's host tab) — the SHIPPED board's strip for this supplier's category
+  // (`FindInspirationStrip`, Suppliers › Find), the looks the host saved there; "See all" opens the whole board. A
+  // refused read is said in words, never an empty board (lib/find-inspiration.ts).
+  const inspirationBoard = await readFindInspiration(
+    supabase,
+    eventId,
+    new Set(ev.marketplace_vendor_id ? [ev.marketplace_vendor_id] : []),
+  ).catch((): FindInspiration => ({ read: 'unread' }));
+  const inspirationTile = homeTileForRow(ev);
+  const inspirationSection = (
+    <section aria-label="Inspiration" className="space-y-3" data-picked-supplier-page="inspiration">
+      <FindInspirationRow board={inspirationBoard} href={findBoardHref(eventId)} />
+      {inspirationTile ? (
+        <FindInspirationStrip board={inspirationBoard} tile={inspirationTile} href={findBoardHref(eventId)} />
+      ) : null}
+    </section>
   );
 
+  const pickedBodies: Record<PickedSupplierPage, ReactNode> = {
+    details: (
+      <div className="space-y-6" data-picked-supplier-page="details">
+        {heroSection}
+        {coupleCompletionSection}
+        {colourAccessSection}
+        {selfAddedContactSection}
+        {includedSection}
+        {choicesSection}
+        {addOnsSection}
+        {marketplaceInfoSection}
+        {notesSection}
+        {workingFolderSection}
+        {claimSection}
+      </div>
+    ),
+    chat: chatThread ? (
+      <Suspense
+        fallback={
+          <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-supplier-page="chat">
+            Loading the chat…
+          </p>
+        }
+      >
+        <CoupleThreadBody eventId={eventId} threadId={chatThread.thread_id} />
+      </Suspense>
+    ) : null,
+    schedule: (
+      <div className="space-y-6" data-picked-supplier-page="schedule">
+        {schedulesSection}
+        {appointmentsSection}
+        {schedulesSection || appointmentsSection ? null : (
+          <p className="py-6 text-sm text-ink/60">No times with {displayName} yet.</p>
+        )}
+      </div>
+    ),
+    quote: hasQuotesToShow ? <div data-picked-supplier-page="quote">{proposalsCard}</div> : null,
+    payments: (
+      <div className="space-y-6" data-picked-supplier-page="payments">
+        {statusSection}
+        {paymentModeSection}
+      </div>
+    ),
+    forms: (
+      <div className="space-y-6" data-picked-supplier-page="forms">
+        {supplierQuestionsSection ?? (
+          <p className="py-6 text-sm text-ink/60">
+            {displayName} is not on Setnayan, so there are no forms from them to answer.
+          </p>
+        )}
+      </div>
+    ),
+    files: <div data-picked-supplier-page="files">{documentsSection}</div>,
+    inspiration: inspirationSection,
+  };
+
   return (
-    <RelationshipTabShell
-      tabs={tabs}
-      // The tab the URL names, painted on the server — "chat" is a link tab
-      // and can never be active (see the client page for the same note).
-      initialTabId={rawLanding}
-      contextRail={contextRail}
-      header={
-        <div className="space-y-4">
-          {backNav}
-          {heroSection}
-        </div>
-      }
+    <PickedSupplierShell
+      eventId={eventId}
+      eventVendorId={ev.vendor_id}
+      chatUnread={await chatUnreadP}
+      supplierName={displayName}
+      menu={pickedMenu}
+      // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none.
+      initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
+      bodies={pickedBodies}
     />
   );
 }

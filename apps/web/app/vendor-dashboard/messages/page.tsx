@@ -13,6 +13,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import type { InboxRow } from '@/app/dashboard/[eventId]/messages/_components/chat-inbox';
 import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
+import { foldByEvent } from '@/lib/chats-by-event';
 import { SupplierChats, type SupplierChatsRead } from './_components/supplier-chats';
 
 /**
@@ -41,6 +42,12 @@ export default async function SupplierChatsPage() {
 }
 
 /**
+ * ✉️ ONE ROW PER EVENT, AND IT OPENS THE PICKED CLIENT ON CHAT (Supplier Build 3 · Lane A, 9 Nov 2026 — DECISION_LOG
+ * ✉️: *"that will just list all the events (no dupes)"*). The threads fold by event (`foldByEvent`, the event's newest
+ * thread speaks for the row; unread if any is; archived only if all are), and a row's door is the picked client —
+ * `/vendor-dashboard/clients/<event>?tab=chat` — drawn OVER this list by `./@client` (the same intercept Clients uses),
+ * rising from the tapped row (`opensPicked`). The order (unread pinned, then most recent) is `ChatInbox`'s.
+ *
  * The supplier's threads as inbox rows — newest first, active then archived. A refused THREAD read is `refused` (the
  * page says it could not load); a refused row-words read degrades the row, never the list
  * (`readVendorConversationInputs`); a refused unread read is `unreadMeasured: false`, never "nothing unread".
@@ -101,40 +108,57 @@ async function readSupplierChats(
   });
   const rowById = new Map(rows.map((r) => [r.threadId, r]));
 
-  // Viber-style archive split, the couple's own predicate: archived, displaced and removed threads fold below.
-  const active = threads.filter(isActiveInboxThread);
-  const archived = threads.filter((t) => !isActiveInboxThread(t));
-  const archivedIds = new Set(archived.map((t) => t.thread_id));
+  // ✉️ One row per EVENT — the event's newest thread leads (lib/chats-by-event.ts).
+  const unreadIds = new Set(unread.threadIds);
+  const folds = foldByEvent(
+    threads.map((t) => ({
+      threadId: t.thread_id,
+      eventId: t.event_id,
+      lastAt: t.updated_at,
+      unread: rowById.get(t.thread_id)?.unread ?? unreadIds.has(t.thread_id),
+      archived: !isActiveInboxThread(t),
+    })),
+  );
 
-  const toInboxRow = (r: ConversationRow): InboxRow => {
+  const toInboxRow = (r: ConversationRow, isArchived: boolean, unreadOnEvent: boolean): InboxRow => {
     const facts = inputs.customers.get(r.eventId);
     const kind = facts?.eventType && facts.eventType !== 'unspecified' ? eventTypeLabel(facts.eventType) : null;
     // ONE EVENT, ONE CHAT TITLE — the same words the thread head prints. With no facts read, the builder's own honest
     // fallback ("A Setnayan event"), never an invented "(date not set)".
     const name = facts ? eventChatTitle({ name: facts.displayName, kind, date: facts.eventDate, nowMs }) : r.displayName;
-    const isArchived = archivedIds.has(r.threadId);
     return {
       threadId: r.threadId,
-      href: `${SUPPLIER_CHATS_HREF}/${r.threadId}`,
+      // ✉️ The picked client, already on its Chat page — drawn over this list (`./@client`).
+      href: `/vendor-dashboard/clients/${r.eventId}?tab=chat`,
+      opensPicked: true,
       name,
       logoUrl: null,
       preview: r.preview,
       timeLabel: r.timeLabel,
-      unread: r.unread,
+      unread: unreadOnEvent,
       // The chat title IS this row's event line — whose event, which kind, which day ("Ana's Wedding (Dec 12)"), so two
       // events of one customer never read as one. Nothing beside it: at 390 a second line there cut the title's date.
       eventLine: '',
       archived: isArchived,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={SUPPLIER_CHATS_HREF} archived={isArchived} />,
+      // 🚦 TODO(Build 3 · Lane B): `needsYou: needsYouLevel(...)` — the one rule; no row guesses a level meanwhile.
     };
   };
 
+  // Viber-style archive split, the couple's own predicate: an event whose every thread is archived, displaced or
+  // removed folds below; the rest stay newest first (`ChatInbox` pins the unread ones on top).
+  const rowsFor = (archived: boolean) =>
+    folds
+      .filter((f) => f.archived === archived)
+      .map((f) => {
+        const r = rowById.get(f.lead.threadId);
+        return r ? toInboxRow(r, archived, f.unread) : null;
+      })
+      .filter((r): r is InboxRow => r != null);
+
   return {
     kind: 'read',
-    rows: [...active, ...archived]
-      .map((t) => rowById.get(t.thread_id))
-      .filter((r): r is ConversationRow => r != null)
-      .map(toInboxRow),
+    rows: [...rowsFor(false), ...rowsFor(true)],
     unreadMeasured: unread.measured,
     complete,
   };

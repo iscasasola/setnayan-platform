@@ -178,6 +178,7 @@ import { safeMonogramSvg } from '@/lib/monogram-svg-safe';
 import { centreLogoOnItsInk } from '@/lib/logo-layers';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+import { readThreadUnreadCount } from '@/lib/couple-inbox';
 import {
   buildSharedFiles,
   type ChatFileInput,
@@ -1009,6 +1010,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // flow lives inside the thread) in the header action row.
   const thread = threads.find((t) => t.event_id === eventId) ?? null;
   const threadId = thread?.thread_id ?? null;
+  // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
+  const chatUnreadP = threadId ? readThreadUnreadCount(supabase, user.id, threadId) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18: "why did the chatbox never change?") ──
@@ -2467,6 +2470,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <PickedClientShell
       eventId={eventId}
       eventName={eventName}
+      chatUnread={await chatUnreadP}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}

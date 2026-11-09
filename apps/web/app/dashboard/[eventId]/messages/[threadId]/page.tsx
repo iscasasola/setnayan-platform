@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import type { ChatHost } from '@/lib/chat-hosts';
+import { readCoupleChatStripPeople } from '@/lib/chat-strip-people.server';
 import { fetchCoupleThreads, fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -26,7 +28,7 @@ import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
-import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
+import { ChatPrivacyTip, ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
@@ -53,13 +55,23 @@ import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.serv
 import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { formatCount } from '@/lib/format-number';
+import { MarkReadWhenShown } from '@/app/vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown';
 
 export const metadata = { title: 'Thread' };
 
 type Props = {
   params: Promise<{ eventId: string; threadId: string }>;
   /** `?view=decisions|files` — see lib/thread-view.ts. */
-  searchParams?: Promise<{ view?: string | string[]; compose?: string }>;
+  searchParams?: Promise<{
+    view?: string | string[];
+    compose?: string;
+    /**
+     * 🪞 Supplier Build 3 · Lane A (9 Nov 2026) — INTERNAL, set only by `CoupleThreadBody`
+     * (`./_components/couple-thread-body.tsx`): `chat` = the SAME conversation drawn inside the host's picked supplier
+     * (no conversation column, no full-screen head — the picked page's pinned row is the head). One body, one read path.
+     */
+    __embed?: string;
+  }>;
 };
 
 export default async function CoupleThreadPage({ params, searchParams }: Props) {
@@ -71,6 +83,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // than shared state: this page is a server component and cannot hand a
   // callback to the client stream.
   const composeMode = sp?.compose === 'deal' ? 'deal' : null;
+  // 🪞 Inside the host's picked supplier (Build 3 · Lane A): the conversation alone, marked read only while shown.
+  const embedded = sp?.__embed === 'chat';
   const { eventId, threadId } = await params;
   const supabase = await createClient();
   const {
@@ -143,6 +157,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // thread read), and the conversation column below waits for it.
   const markedRead = (async () => {
     await Promise.all([eventDateRead, blockStateRead]);
+    // 🪞 The picked supplier builds every page body at once and shows one, so a mark HERE would mark the chat read
+    // while the host looks at Details. Its Chat node mounts `MarkReadWhenShown` instead (the supplier side's rule).
+    if (embedded) return;
     await markThreadRead(threadId);
   })();
 
@@ -357,6 +374,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     // embed on the thread list) — the row `markThreadRead` just wrote. It waits
     // for that write, as it did when every step ran in turn.
     await markedRead;
+    // 🪞 Inside the picked supplier there is no column — read nothing for it.
+    if (embedded) return [] as Awaited<ReturnType<typeof buildCoupleConversationRows>>;
     const listThreads = await fetchCoupleThreads(supabase, eventId).catch((caught: unknown) => {
       logQueryError(
         'CoupleThreadPage.conversationList',
@@ -505,6 +524,25 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // nothing (lib/not-yet-verified.server.ts).
   const shopNotYetVerifiedRead = readThreadShopNotYetVerified(decisionAdmin, thread.vendor_profile_id);
 
+  // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
+  // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
+  // client), the ring from the stream's existing presence channel. Only when embedded (the full thread keeps its head).
+  // The SHOP joins the list under the label this page already shows for it (role `supplier`), so the strip can stand it
+  // first (owner, 9 Nov: Supplier · coordinator(s) · You · the other hosts — `stripOrder`) and a host can tap it for
+  // 🔒 Message privately. The viewer stays in the list: the strip reads their own slot as "You", never twice.
+  // NULL = the read was refused: the strip says "Couldn't load".
+  // TODO(Build 3 · Lane B): the strip shows the THREAD's members (👥) — swap `event_chat_hosts` for Lane B's
+  // thread-scoped hosts read, and pass `memberAdd` / `memberLeave` (its writes) to the stream; `lib/chat-members.ts`
+  // holds who may add, leave and be added.
+  const hostsRead: Promise<ChatHost[] | null | undefined> = embedded
+    ? readCoupleChatStripPeople(decisionAdmin, {
+        eventId: thread.event_id,
+        vendorProfileId: thread.vendor_profile_id,
+        viewerId: user.id,
+        shopLabel: vendorLabelRead,
+      })
+    : Promise.resolve(undefined);
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
@@ -524,6 +562,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDay,
     shopBooked,
     shopPhone,
+    hosts,
     shopNotYetVerified,
   ] = await Promise.all([
     eventDateRead,
@@ -543,6 +582,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     eventDayRead,
     shopBookedRead,
     shopPhoneRead,
+    hostsRead,
     shopNotYetVerifiedRead,
   ]);
 
@@ -679,25 +719,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     ),
   };
 
-  return (
-    // THE ONE THREAD PAGE (`ChatThreadFrame`) — the supplier's thread returns the same frame, holding one ChatBox.
-    <ChatThreadFrame
-      // LIST · CONVERSATION (owner 2026-09-08). The list appears at xl, where there is room for it without squeezing the
-      // conversation — giving the conversation back its space was the whole point.
-      list={
-        <ConversationColumn
-          rows={conversationRows}
-          activeThreadId={threadId}
-          side="couple"
-          hrefBase={`/dashboard/${eventId}/messages`}
-          heading="Suppliers you’re talking to"
-          backHref={`/dashboard/${eventId}/vendors`}
-          backLabel="‹ Saved"
-        />
-      }
-    >
+  const chatBox = (
         <ChatBox
+          // 🪞 Inside the picked supplier its pinned row IS the head, so the full-screen head is drawn only on the route.
           header={
+            embedded ? null : (
             <ChatThreadHead
               back={<BackButton route="/dashboard/[eventId]/messages/[threadId]" params={{ eventId, threadId }} label="Chats" variant="chat" />}
               name={vendorLabel}
@@ -748,8 +774,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 </>
               }
             />
+            )
           }
-          notice={<ChatSafetyBanner inBox />}
+          notice={embedded ? null : <ChatSafetyBanner inBox />}
           composer={
             blocked ? (
               <div className="px-2 py-1 text-sm text-ink/70">
@@ -855,6 +882,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             initialMessages={initialMessages}
             currentUserId={user.id}
             viewerRole="couple"
+            {...(hosts !== undefined ? { hosts } : {})}
             counterpartyLabel={vendorLabel}
             eventDate={eventDate}
             standing={threadStanding}
@@ -870,8 +898,42 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
               endDate: eventDay?.event_end_date ?? null,
               precision: eventDay?.event_date_precision ?? null,
             }}
+            // 📞 Inside the picked supplier the routed head is not drawn — its Call · Video call stand in the picked head row
+            // (title · 📞 · 🎥 · 📎 · ⚙ · ✕, v8.3), and the privacy words sit behind the strip's ⓘ instead of a notice row.
+            // (Kept LAST: its JSX value closes with `/>`, and the guards that read this tag walk to the first `>`.)
+            {...(embedded ? { headCalls: <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />, headNote: <ChatPrivacyTip viewer="couple" /> } : {})}
           />
         </ChatBox>
+  );
+
+  if (embedded) {
+    return (
+      <div data-picked-supplier-page="chat" className="flex min-h-0 flex-1 flex-col">
+        {/* The ONE place the picked supplier marks the conversation read — mounted only while Chat is shown. */}
+        <MarkReadWhenShown threadId={threadId} />
+        {chatBox}
+      </div>
+    );
+  }
+
+  return (
+    // THE ONE THREAD PAGE (`ChatThreadFrame`) — the supplier's thread returns the same frame, holding one ChatBox.
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08). The list appears at xl, where there is room for it without squeezing the
+      // conversation — giving the conversation back its space was the whole point.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="couple"
+          hrefBase={`/dashboard/${eventId}/messages`}
+          heading="Suppliers you’re talking to"
+          backHref={`/dashboard/${eventId}/vendors`}
+          backLabel="‹ Saved"
+        />
+      }
+    >
+        {chatBox}
     </ChatThreadFrame>
   );
 }

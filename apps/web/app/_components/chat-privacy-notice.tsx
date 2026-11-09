@@ -154,6 +154,25 @@ const SAFETY_POINTS = [
 const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 px-3 py-0.5 sm:px-4`;
 const SAFETY_STANDALONE = `${NOTE_LINE} rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-1.5`;
 
+/** The four safety points, drawn once — by the in-box banner and by the picked chat's ⓘ (`ChatPrivacyTip`). */
+function SafetyPoints({ inline = false }: { inline?: boolean }) {
+  // `inline`: inside the strip's ⓘ, which sits in a <p> — spans only, never a list (no <ul> in a <p>).
+  const Wrap = inline ? 'span' : 'ul';
+  const Item = inline ? 'span' : 'li';
+  return (
+    <Wrap className={inline ? 'block space-y-0.5' : 'mt-0.5 space-y-0.5'}>
+      {SAFETY_POINTS.map((point) => (
+        <Item key={point} className="flex gap-1.5">
+          <span aria-hidden className="text-terracotta/60">
+            ·
+          </span>
+          <span>{point}</span>
+        </Item>
+      ))}
+    </Wrap>
+  );
+}
+
 export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
   // Default to visible so SSR + first paint never flash the banner in-then-out;
   // the remembered dismissal is applied after hydration if it was set.
@@ -194,16 +213,7 @@ export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
         {tips ? (
           <>
             <p className="font-medium text-ink">Plan with peace of mind</p>
-            <ul className="mt-0.5 space-y-0.5">
-              {SAFETY_POINTS.map((point) => (
-                <li key={point} className="flex gap-1.5">
-                  <span aria-hidden className="text-terracotta/60">
-                    ·
-                  </span>
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
+            <SafetyPoints />
           </>
         ) : (
           <p className="truncate">
@@ -230,5 +240,27 @@ export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       </button>
     </div>
+  );
+}
+
+/**
+ * 🔒 THE SAME WORDS, BEHIND AN ⓘ — inside a picked shell's Chat (v8.3, approved 9 Nov: no notice row in the picked chat;
+ * "if it must stay reachable, put it behind the ⓘ — never take a row"). The supplier's copy stays the locked 0019 copy
+ * and is never dismissible: it is simply always one tap away on the host strip's "Shared chat" line. The couple's
+ * reads the safety points. Words only — the strip draws the ⓘ (`ChatHostStrip` `note`).
+ */
+export function ChatPrivacyTip({ viewer, locale = 'en-PH' }: { viewer: ChatPrivacyViewer; locale?: Locale | string }) {
+  if (viewer === 'couple') {
+    return (
+      <span className="block" data-chat-privacy-tip="couple">
+        <SafetyPoints inline />
+      </span>
+    );
+  }
+  const strings = COPY[(locale as Locale) in COPY ? (locale as Locale) : 'en-PH'].vendor;
+  return (
+    <span className="block" data-chat-privacy-tip="vendor">
+      <span className="font-medium">{strings.lead}</span> {strings.body} {strings.examples}. {strings.report}
+    </span>
   );
 }

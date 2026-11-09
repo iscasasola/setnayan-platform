@@ -213,6 +213,13 @@
     --color-warn: 150 90 0;            /* #965A00 */
     --color-danger: 179 38 30;         /* #B3261E */
     --color-info: var(--color-link);   /* #3B4E67 — reused, see above */
+    /* 🔒 PRIVATE = SKY BLUE (owner 9 Nov 2026, "why red? use sky blue"; corpus 48503b43). One family for the
+     * private composer box, its focus ring, 🔒, ×, Send, the private bubble and its strip — never --color-info's
+     * slate, never the brand. Measured: label #0369A1 on the tint #E0F2FE 5.17 · on white 5.93 (AA);
+     * ink on the tint 12.45; outline #0284C7 on white 4.10 (UI ≥ 3). */
+    --color-private: 2 132 199;        /* #0284C7 — outline · 🔒 · × · Send */
+    --color-private-text: 3 105 161;   /* #0369A1 — the "🔒 Private · only you and …" words */
+    --color-private-tint: 224 242 254; /* #E0F2FE — the private bubble's wash */
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
@@ -280,6 +287,11 @@
     --color-warn: 240 180 90;          /* #F0B45A */
     --color-danger: 242 129 122;       /* #F2817A */
     --color-info: var(--color-link);
+    /* 🔒 private, dark: sky #38BDF8 on the page 8.46 · on the card 7.59 · on its own tint 5.88 (AA);
+     * the tint is sky at 14% over the card (#263638), paper ink on it 12.07. */
+    --color-private: 56 189 248;       /* #38BDF8 */
+    --color-private-text: 56 189 248;  /* #38BDF8 */
+    --color-private-tint: 38 54 56;    /* #263638 */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     /* 🌗 WARM, NOT COOL (owner "approve all" 2026-10-13, call 6): the dark set is the approved template
@@ -10156,6 +10168,44 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   border-color: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent);
 }
 @media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
+/* 🔒 PRIVATE IS SKY BLUE, AND THE PRIVATE COMPOSER IS ONE COLOUR (owner 9 Nov 2026 — "why red? use sky blue", corpus
+ * 48503b43 + 701b38a3; then "Send turns sky blue too"). The private doors (the 🔒 list's names, "Reply privately") wear
+ * the private TEXT token as their tone (#0369A1 on its 9 % wash ≈ 5.3, AA); in the composer row the quiet 🔒 and the box's
+ * × take the private mark colour; and while a recipient is set (`data-chat-words-only`) every focus ring in the row is
+ * sky blue — no brand red/orange anywhere in it, on focus included. Written after the tone and quiet rules at a higher
+ * weight, so it wins on purpose. Held by lib/a-private-message-looks-private.test.ts. */
+:is([data-chat-private-people], [data-chat-hold-menu]) :is(button, a).ab.ab-info { --ab-tone: var(--color-private-text); }
+[data-chat-composer-row] :is(button, a).ab.ab-info.quiet:not(.ab-main) { color: rgb(var(--color-private)); }
+[data-chat-private-box] :is(button, a).ab.ab-info.quiet:not(.ab-main) { border-color: transparent; }
+[data-chat-words-only] :focus-visible,
+[data-chat-words-only] .ab:focus-visible { outline-color: rgb(var(--color-private)); }
+/* ↔ THE COMPOSER SLIDES (owner 9 Nov 2026, "fully animate the message when the text box expands and the buttons move to
+ * the side away from the screen"; 03-FINAL-RULINGS). The tools group (＋ · 🔒 · 📎 · 📷 · 🖼, `chat-send-form.tsx`) shrinks its
+ * one grid column to nothing while its row slides LEFT off the edge — the message box (flex 1) grows into the room in the
+ * SAME motion; Send stays put. The house speed and spring, never a hand-typed duration ("0.7 second animation is our
+ * default"). Reduced motion: the same end states, no movement. Held by lib/the-composer-slides-its-tools-away.test.ts. */
+.sn-composer-tools {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: hidden;
+  transition: grid-template-columns var(--sn-pill-dur) var(--sn-pill-spring);
+}
+/* min-width 0 lets the track close to 0fr; max-content keeps the group its own width, so translateX(-100%) carries
+   it off the LEFT edge (clipped by the overflow) instead of squeezing it from the right. */
+.sn-composer-tools > * {
+  min-width: 0;
+  width: max-content;
+  transition: transform var(--sn-pill-dur) var(--sn-pill-spring), opacity var(--sn-pill-dur) var(--sn-pill-spring);
+}
+.sn-composer-tools[data-chat-composer-tools='out'] { grid-template-columns: minmax(0, 0fr); }
+.sn-composer-tools[data-chat-composer-tools='out'] > * { transform: translateX(-100%); opacity: 0; }
+.sn-composer-box { transition: margin var(--sn-pill-dur) var(--sn-pill-spring); }
+@media (prefers-reduced-motion: reduce) {
+  .sn-composer-tools,
+  .sn-composer-tools > *,
+  .sn-composer-box { transition: none; }
+}
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by
  * the component; this only owns the slide. Reduced motion → jump. */
@@ -10562,6 +10612,14 @@ html.dark .sn-acc-head[data-open] {
     background-color: rgb(var(--color-cream));
     padding-top: env(safe-area-inset-top, 0px);
   }
+  /* 🪞 A picked page (`--sn-z-pop`, portalled to <body>) opens OVER a full-screen Chats list — the supplier's ✉ Chats is
+     itself a takeover (z 45), which painted over the picked client (measured 9 Nov, the lab and the routed list alike).
+     While a picked page is open, the list underneath steps down to the raised layer; the picked page's own chat is
+     untouched. Held by `lib/the-pinned-stack-keeps-five-ninths.test.ts` (5). */
+  body:has([data-picked-client]) .sn-vt-page:has([data-chat-takeover]),
+  body:has([data-picked-client]) [data-chat-takeover]:not([data-picked-client] [data-chat-takeover]) {
+    z-index: var(--sn-z-raised);
+  }
 }
 @media (min-width: 1024px) {
   [data-chat-takeover] {
@@ -10569,6 +10627,24 @@ html.dark .sn-acc-head[data-open] {
     border-radius: 1rem;
     background-color: rgb(var(--color-cream));
   }
+}
+
+/* 📌 A CHAT INSIDE A PICKED PAGE IS IN FLOW (owner, 9 Nov: "the pinned on top should stay pinned"). The thread's phone
+   takeover above fixes it over the whole screen; inside the picked shell that covered the shell's own pinned row and
+   page menu, and the takeover then scrolled as one — strip, switch and pins with it. Here it fills the shell's body
+   (`PickedShell` `fillPages`) under the head and menu; only when a tool panel outgrows the room does the box itself
+   scroll, as on the thread page. Held by `lib/the-pinned-stack-keeps-five-ninths.test.ts`. */
+[data-picked-fill] [data-chat-takeover] {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 /* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";

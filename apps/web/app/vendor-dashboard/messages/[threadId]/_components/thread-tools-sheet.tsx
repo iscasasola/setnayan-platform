@@ -1,11 +1,13 @@
 'use client';
 
-import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
+import { CHAT_ATTACH_INPUT_ID, CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
+  Camera,
+  ImageIcon,
   CalendarClock,
   CalendarPlus,
   ChevronRight,
@@ -70,6 +72,15 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
   questions: ListChecks,
 };
 
+/** 📷 · 🖼 The composer's two shortcuts, drawn as the sheet's first rows (v8.3: camera and photo live inside the (+)). */
+type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo';
+const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon };
+const ATTACH_INPUT: Record<'file' | 'camera' | 'photo', string> = {
+  file: CHAT_ATTACH_INPUT_ID,
+  camera: CHAT_CAMERA_INPUT_ID,
+  photo: CHAT_PHOTO_INPUT_ID,
+};
+
 /** Each off-screen destination, written out where `lint-port-no-lost-controls` reads this route's doors. */
 function linkHref(tool: VendorThreadLinkTool, eventId: string): string {
   switch (tool.link) {
@@ -87,17 +98,18 @@ function linkHref(tool: VendorThreadLinkTool, eventId: string): string {
 }
 
 /** One row as the sheet draws it — the supplier's registry rows and the couple's rows both come down to this. */
-type SheetRow = {
+export type SheetRow = {
   key: string;
   label: string;
   line: string;
-  icon: VendorThreadToolIcon;
+  icon: SheetIcon;
   primary?: boolean;
   group?: ThreadToolGroup;
   shut: { reason: string } | null;
   href?: string;
   reveal?: readonly string[];
-  attach?: boolean;
+  /** `true` / 'file' → the paperclip's input; 'camera' / 'photo' → the composer's shortcut inputs. */
+  attach?: boolean | 'file' | 'camera' | 'photo';
 };
 
 /**
@@ -106,7 +118,13 @@ type SheetRow = {
  * two rows carry none. Rows have no frames — the icon round and the words, a hairline between (frames only on what
  * you press: the row itself is the press).
  */
-function ToolsSheetButton({ rows, sheetMark }: { rows: SheetRow[]; sheetMark: string }) {
+const SHORTCUT_ROWS: readonly SheetRow[] = [
+  { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', icon: 'camera', shut: null, attach: 'camera' },
+  { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', icon: 'photo', shut: null, attach: 'photo' },
+];
+
+function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; sheetMark: string }) {
+  const rows: readonly SheetRow[] = [...SHORTCUT_ROWS, ...ownRows];
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -124,7 +142,7 @@ function ToolsSheetButton({ rows, sheetMark }: { rows: SheetRow[]; sheetMark: st
       );
       lastGroup = row.group;
     }
-    const Icon = ICON[row.icon];
+    const Icon = SHEET_ICON[row.icon];
     const shut = row.shut;
     const lead = (
       <span
@@ -177,7 +195,7 @@ function ToolsSheetButton({ rows, sheetMark }: { rows: SheetRow[]; sheetMark: st
             onClick={() => {
               if (row.attach) {
                 // Inside the tap: a phone only opens a file picker from a user gesture.
-                document.getElementById(CHAT_ATTACH_INPUT_ID)?.click();
+                document.getElementById(ATTACH_INPUT[row.attach === true ? 'file' : row.attach])?.click();
                 setOpen(false);
                 return;
               }
@@ -257,6 +275,19 @@ export function CoupleThreadToolsSheet({ dealReveal }: { dealReveal: readonly st
     attach: t.attach,
   }));
   return <ToolsSheetButton rows={rows} sheetMark="couple" />;
+}
+
+/**
+ * 🧪 THE (+) WITH THE SHIPPED ATTACH ACTIONS ONLY — Camera · Photo · Share a file — for a composer whose own rows are
+ * not built yet (the chat labs). `more` is Lane B's slot (Build 3: the supplier's (+) menu content): rows handed in are
+ * drawn after the shipped ones, through the same sheet.
+ */
+export function ComposerPlusSheet({ more = [], sheetMark = 'plain' }: { more?: readonly SheetRow[]; sheetMark?: string }) {
+  const rows: SheetRow[] = [
+    { key: 'share-file', label: 'Share a file', line: 'File · photo · video · the contract', icon: 'file', shut: null, attach: 'file' },
+    ...more,
+  ];
+  return <ToolsSheetButton rows={rows} sheetMark={sheetMark} />;
 }
 
 /**

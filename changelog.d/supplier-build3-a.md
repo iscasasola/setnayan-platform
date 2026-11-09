@@ -1,0 +1,88 @@
+## 2026-11-09 · feat(chats): one picked shell for both sides; Chats lists one row per event, unread pinned on top (Supplier Build 3 · Lane A)
+
+Owner, 8 Nov (DECISION_LOG ✉️ 🪞): the supplier's envelope lists *"all the events (no dupes)"* in Messenger order with unread pinned above, and a row opens the picked client on Chat. The host's chat icon lists this event's suppliers by the same rule, and a supplier opens in *"the same full screen effect"*.
+
+- **One picked shell.** `app/_components/picked/picked-shell.tsx` is now the only picked screen. It owns the portal on `--sn-z-pop`, the `pickedMotion` open and its reverse on ✕/Esc, the `history.replaceState(?tab=)` page switch, the swipe and the thumb layer. `PickedClientShell` (supplier) and the new `PickedSupplierShell` (host) are thin wrappers that pass menu, icons and doors. `picked-motion.ts` and the nav context moved beside it; the old path re-exports them. Guard: `app/_components/picked/one-picked-shell.test.ts`, sabotage-checked.
+- **Supplier Chats.** `readSupplierChats` folds threads by event (`lib/chats-by-event.ts` `foldByEvent`). Each row goes to `/vendor-dashboard/clients/<eventId>?tab=chat`, which `vendor-dashboard/messages/@client/(..)clients/[eventId]` intercepts, so the picked client rises over the still-mounted list. The Clients list still opens on Details.
+- **Host Chats.** For a supplier with a workspace row, the row goes to `vendors/<id>/workspace?tab=chat`, intercepted by `messages/@supplier/(..)vendors/[vendorId]/workspace`. With the relationship flag on, the workspace now draws the picked shell with Details · Chat · Schedule · Quotation · Payment · Forms · Files · Inspiration. It opens on Details by default and no longer redirects `?tab=chat` to the thread page. Chat embeds the host thread page (`__embed=chat`, read-marked only while shown, the `SupplierThreadBody` pattern) through `CoupleThreadBody`.
+- **Messenger order in the shared inbox.** `ChatInbox` groups rows under "Unread · pinned" and then "Recent", using `messengerOrder`. It gains `opensPicked` (records the row as the open origin) and `needsYou` (🚦 dot: blocker stronger than due-now). The level is read from Lane B's `needsYouLevel()`; until that lands no row passes one, so no dot is drawn (TODO in `lib/chats-by-event.ts`).
+- **The host strip on every chat.** The host's picked Chat now draws the shipped `ChatHostStrip` under the pinned row, as the supplier's does. It has one source (`event_chat_hosts` plus the shop's owner, `lib/chat-strip-people.server.ts`), keeps the green ring and "Shared chat · N inside · M in the chat now", and says "Couldn't load" when the read is refused. Strip order (owner, 9 Nov): Supplier · coordinator(s) · You · the other hosts. "You" sits in your own slot and is never shown twice (`stripOrder`, `lib/chat-members.ts`). Faces are 44 px, and the no-clip `p-1 -mx-1 scroll-px-1` stays.
+- **🔒 Private messages (DECISION_LOG 2026-11-09 🔒).**
+  - Private mode lives INSIDE the message box, with no extra row (owner, 9 Nov). The empty box reads "Private message to [name]" with a sky-blue outline, a 🔒 at its left, and an × inside at its right that returns it to "Message". This replaces the "Messaging [name] privately ×" chip.
+  - Three doors open it:
+    - tap someone else's face (straight in, no menu);
+    - the composer's 🔒 beside the ＋, which lists the strip's people;
+    - press and hold a message → Reply privately, which pre-picks the sender.
+  - Any pair can message privately, host↔host included.
+  - Words only: the ＋ and every attach control are not rendered while a recipient is set (the box widens into their room), a pasted picture or file is refused in the row's own words, and the server refuses a file (`private_words_only`). × restores the ＋.
+  - Private is SKY BLUE (owner, 9 Nov, "why red? use sky blue"): a new token family in `globals.css`, `--color-private` (#0284C7 · dark #38BDF8), `--color-private-text` (#0369A1 · dark #38BDF8) and `--color-private-tint` (#E0F2FE · dark #263638). It colours the box, its focus ring, the 🔒, the ×, **Send**, the bubble and its strip "🔒 Private · only you and [name]", and the 🔒 in the time row. While private, the composer row draws no brand red/orange, on focus included (a scoped focus-visible rule beats the house `.ab` mulberry ring). The 🔒 list's names and "Reply privately" wear the private text token. Measured: light label 5.17 on the tint / 5.93 on white, ink 12.45 on the tint, #0284C7 4.10 on white (UI); dark #38BDF8 5.88 on its tint, 8.46 on the page, ink 12.07 on the tint. No normal bubble uses it.
+  - No auto-reply; only the one recipient is notified.
+  - The recipient column is `CHAT_PRIVATE_RECIPIENT_COLUMN` (`lib/chat-private.ts`). Lane B's migration owns it and its RLS rule; `fetchMessages` falls back to today's select until it lands.
+- **👥 A supplier chat starts small (DECISION_LOG 2026-11-09 👥).**
+  - The strip's ＋ comes last, for hosts and coordinators only, never the supplier, and only while an event host is missing. It lists every missing host (those who left included) with ticks, plus "Add all" when two or more are missing.
+  - **Leave** = tap your OWN face (hosts only). It opens the house `ConfirmDialog`, "Leave this chat?", with an optional "Your note for leaving" (≤200, Enter = Leave) and **Leave | Not now** at equal widths. `ConfirmDialog` gains an opt-in `equalRow` plus `confirmIcon`; every other caller is unchanged.
+  - A chat you left stays in your Chats list, greyed. Tapping it asks "Join this chat again?" with "You left on [date] — “[note]”" (the note part only when one exists; "Couldn't load" for a refused read), and **Join chat | Not now**.
+  - System lines: "Lea added Marco (back)", "Lea added everyone", "Marco left" (never the note), "Marco joined".
+  - Coordinators and planners never leave and are never listed. Rules: `lib/chat-members.ts`.
+  - The writes (`memberAdd`, `memberLeave(note)`, `join`), the thread-scoped members read and `left_at`/`left_note` are Lane B's. The pages carry TODOs and the labs use stand-ins.
+- **📞 Call · Video call in the picked chat head.** Inside a picked page the routed head is not drawn, so `BookedCallButtons` now stands at the strip's end. It uses the same component and props, `booked={shopBooked}` and the existing phone helper, with no new gate.
+- **📐 One pinned stack, ≤ 4/9 of the screen** (owner, 9 Nov). `app/_components/chat/chat-pinned-stack.tsx` wraps everything pinned above the messages: the strip, Lane B's pins (the stream's new `pins` prop), the Chat · Decisions · Files switch and the expiry line. It is capped at `calc(100dvh * 4/9)` less its own top offset (so the head above it counts toward the 4/9), scrolls inside itself and is `isolate`, so a pin never paints over a panel; messages + composer keep ≥ 5/9. Files and Decisions are full views that replace the message list, not panels over it. Guard: `lib/the-pinned-stack-keeps-five-ninths.test.ts`.
+- **👁 Schedule, "theirs first"** (owner, 9 Nov). Both picked Schedule tabs already show only that supplier's part, as shipped, and are unchanged. `ScheduleDay` gains `initialLens` (default Master everywhere) and the event Schedule reads `?lens=vendor:<id>`, so a door from a supplier lands on their View as. A supplier with no tagged moment keeps its lens, with "No moments for [name] yet", never a silent Master. Guard: `app/dashboard/[eventId]/schedule/a-picked-schedule-opens-on-its-supplier.test.ts`.
+- **Empty modes.** The host's empty Chats is one shared part (`messages/_components/couple-chats-empty.tsx`), used by the page and the lab. Labs gain `?state=empty`, `&msgs=0` (a chat with no messages) and `&solo=1` (a single member).
+- **🚦 Needs-you dot** on a Chats row's avatar corner. Blocker is stronger than due-now. It is prop-driven until Lane B's `needsYouLevel()`.
+- **📌 Pinned stays pinned** (owner, 9 Nov). The stack has a fixed top (strip + the Chat · Decisions · Files switch) and a scroll region below it (Lane B's pins + the expiry line). Only the scroll region moves when the stack is over its cap; the strip's top never does.
+- **↔ The composer slides its tools** (owner, 9 Nov: "0.7 second animation is our default"). When typing starts or private mode opens, the (+), 🔒 and attach tools slide out LEFT and fade while the box grows into their room. It reverses on an empty box or ×. The timing is `--sn-pill-dur` (700 ms) on the house spring `--sn-pill-spring`, with no hand-typed duration. Under reduced motion it jumps to the end states. Send never moves. Guard: `lib/the-composer-slides-its-tools-away.test.ts`.
+- **One picked shell, both sides — the old two-sided strip is deleted.** `app/_components/relationship-tab-shell.tsx` had no mount left once the host workspace opened the picked shell (Ugat both-ends: component-no-mount). Its one rule — an arrow key steps ONE page by id — moved into `picked/picked-nav.ts` (`nextPanelTabId`). The picked menu now has WAI-ARIA arrow/Home/End keys and roving focus. `workspace-tabs-step-one-at-a-time` reads the picked shell. `one-chat-box-everywhere` 5 now holds the deletion, and `pills-are-everywhere` drops the retired "Workspace sections" row (floor 23 → 22, noted).
+- **📌 A chat inside a picked page is in flow** (measured 9 Nov, a real defect). The thread's phone takeover (`position: fixed; inset: 0`) had covered the picked shell's own pinned row (title · ⚙ · ✕) and its page menu on Chat, so a phone could not leave Chat by its menu. The takeover also scrolled as one box, taking the strip and the switch with it.
+  - `PickedShell` gains `fillPages`. Both shells pass `['chat']`, which fills the body with no padding and no body scroll.
+  - `[data-picked-fill] [data-chat-takeover]` turns the takeover into an in-flow box.
+  - The embedded wrappers fill (no `min-h-[70dvh]`).
+  - `ChatBox` draws no empty head row when `header` is null.
+  - The stack's fixed part is never clipped: `pinnedStackMaxHeight(above, fixed)`.
+  - The stream's scrollers are `relative`, so their sr-only labels stop stretching the box.
+
+  Measured with real wheel scrolls (strip top y before → after): 161 → 161 at 320×568, 375×667 and 390×844 on the supplier side, and at 375×667 and 390×844 on the host side. Residual: host at 320×568 with the privacy line open moves 31 px, because of the guarded 14rem message floor. Guard: `the-pinned-stack-keeps-five-ninths` 4.
+- **🪞 The picked client shows over the supplier's ✉ Chats** (measured 9 Nov, a real defect). The supplier's Chats list is itself a phone takeover (z 45). The picked page (`--sn-z-pop`, 40) opened UNDER it, so tapping a row showed nothing. While a picked page is open, the list underneath steps down to `--sn-z-raised`; the picked page's own chat is untouched. Guard: `the-pinned-stack-keeps-five-ninths` 5.
+- **🔒 The private box is the sky tint** (v8.3): `PRIVATE_BOX_FILL`, with its placeholder in the sky label ink. It goes back to the house grey on ×. Guard: `a-private-message-looks-private` 7.
+- **📐 Composer gutters 16/16** (v8.3). `ChatBox`'s composer row is `px-4`, so the tools start at x 16 and Send ends 16 px from the edge. Once the tools slide away, the box meets the 16 px gutter itself, and it opens 170 → 306 px at 390 (v8.3: 202 → 306). The tools now keep their own width (`max-content`, `minmax(0, 0fr)`), so they really travel off the left edge.
+- **CI fixes**:
+  - the leave note is the house `TypedRow`;
+  - the lab's server actions moved into the two lab pages, so the server-action budget stays at 1239 and is not raised;
+  - the shell's ⚙ is mounted with a literal `menu="client"` (the one-mount guard counts literals);
+  - the lab stream mounts pass `lockHandshake={null}`;
+  - the lab Details stand-in drops a ₱ figure (a public-price guard);
+  - type fixes in `private-to.ts`, `picked-shell.tsx`, the send route's refusal map and the lab.
+- Labs: `&pins=tall` draws a tall pin region to measure pinned-stays-pinned.
+- **Round 2 — v8.3 as drawn (approved 9 Nov).**
+  - Picked head row = title · 📞 · 🎥 · 📎 · ⚙ · ✕: `PickedShell` draws an action slot (`PickedHeadContext`) and the stream portals the booked calls and the 📎 into it. The calls leave the host strip, so its (+) is no longer clipped at 390.
+  - No Chat · Decisions · Files row in a picked chat: 📎 opens Files and Decisions as one panel inside the 4/9 stack (greyed while private). The routed thread pages keep their switch.
+  - No notice row in a picked chat: the privacy words sit behind an ⓘ on the strip's "Shared chat" line (`ChatPrivacyTip`). The supplier's copy is the locked 0019 copy and is still never dismissible.
+  - Composer (+) · 🔒 · box · Send: with a (+), 📷 and 🖼 move inside it (the sheet's Camera · Photo rows click `CHAT_CAMERA_INPUT_ID` / `CHAT_PHOTO_INPUT_ID`). The labs mount a (+); `ComposerPlusSheet` `more` is Lane B's slot for the supplier's (+) rows.
+  - Unread badge on the Chat tab: `readThreadUnreadCount` (`lib/couple-inbox.ts`, the ✉ dot's rule for one thread) on both picked pages; it leaves once Chat is opened.
+  - Tabs at v8.3 size (66 px, 13 px, 20 px icons), so Forms peeks at 390. The picked tab is a gold border with no fill (a white fill made its words vanish in dark mode).
+  - Guard: `lib/the-picked-head-carries-the-chat-actions.test.ts` (6 tests, each sabotage-checked).
+  - The 📎 panel opens through the shared `useRevealOnOpen` (app-wide reveal-on-open), and the unread badge is printed through `formatCount`.
+- No chat-head thread picker (owner: one shared chat per supplier per event; switching chats is the Chats list only).
+- Guards (each sabotage-checked):
+  - `lib/a-private-message-looks-private.test.ts`;
+  - `lib/a-supplier-chat-starts-small.test.ts`;
+  - `lib/every-chat-head-has-its-calls.test.ts`;
+  - `lib/the-pinned-stack-keeps-five-ninths.test.ts`;
+  - `app/dashboard/[eventId]/schedule/a-picked-schedule-opens-on-its-supplier.test.ts`.
+- Updated guards (the old contract changed by the owner's ruling, not loosened):
+  - `the-chats-page-is-full-screen` now checks the event fold and the picked door;
+  - `one-chat-box-everywhere` allows the one lab part only while its importers are the two 404-first lab pages;
+  - `questions-for-every-supplier` counts the Forms page's `?? (…)`;
+  - `home-deep-links-land`, `one-picked-shell` 6, `a-bubble-is-not-a-decision` 2: they now read the picked shell's landing map, the one strip-people helper, and the hold menu's tap guard;
+  - the two thread pages pass `headCalls` LAST on the stream (its JSX value closes with `/>`, which cut `deal-waits-for-a-quote`'s tag reader short).
+- Labs: `/dev/supplier-chat-lab?m=chats&pick=…` and `/dev/chat-lab?pick=…` draw the picked shell over the list, sharing one Chat body, `app/dev/_components/lab-picked-chat.tsx`.
+- Regenerated: `lib/ugat/screens.generated.json`, `scripts/port-control-baseline.json`.
+
+SPEC IMPACT: None to the corpus. This implements the 2026-11-08 ✉️/🪞 rows as recorded. These choices need the owner's eye:
+- the host's tab order follows the DECISION_LOG/brief (Details first), not the prototype's host order (Chat first);
+- the host keeps a Files tab;
+- the host list title stays "Chats";
+- Lane B must supply, in the integration:
+  - the recipient column name and its INSERT grant and SELECT rule;
+  - the thread-scoped members read; the add, leave(note) and join writes with their system lines; `left_at` / `left_note` on the member row;
+  - `needsYouLevel()`.

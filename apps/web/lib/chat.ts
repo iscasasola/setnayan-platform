@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
+import { CHAT_PRIVATE_RECIPIENT_COLUMN } from '@/lib/chat-private';
 
 /**
  * `'system'` is an AUTOMATED Setnayan message in the thread (e.g. the Build 3d-C
@@ -212,6 +213,12 @@ export type ChatMessageRow = {
   attachment_name?: string | null;
   attachment_mime?: string | null;
   attachment_size_bytes?: number | null;
+  /**
+   * 🔒 Set on a PRIVATE message (DECISION_LOG 2026-11-09 🔒): the one person, besides its sender, who can read it — RLS
+   * on `chat_messages` returns it to nobody else. NULL = everyone in the thread. The column name lives in ONE place,
+   * `CHAT_PRIVATE_RECIPIENT_COLUMN` (lib/chat-private.ts).
+   */
+  recipient_user_id?: string | null;
   /**
    * TRUE for Auto-Reply Assistant messages (vendor-autoreply Phase 3b,
    * migration 20270822679405). Posted server-side via service_role with
@@ -666,11 +673,17 @@ export async function fetchMessages(
   // owner-pushed and may not be live yet — an unknown column errors the whole
   // select, so on ANY error retry WITHOUT them and treat every message as a
   // plain human bubble. The thread page must never crash ahead of a migration.
+  // 🔒 The private-message recipient (Lane B's column, Build 3) rides first; until that migration is live the select
+  // errors and the next one — exactly today's — answers, so a thread never breaks ahead of the column.
+  const withPrivate = await supabase
+    .from('chat_messages')
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN}`)
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  if (!withPrivate.error) return (withPrivate.data ?? []) as unknown as ChatMessageRow[];
   const withBot = await supabase
     .from('chat_messages')
-    .select(
-      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`,
-    )
+    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id`)
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });
   if (!withBot.error) return (withBot.data ?? []) as ChatMessageRow[];

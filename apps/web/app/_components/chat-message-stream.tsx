@@ -23,8 +23,12 @@
 
 import Link from 'next/link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FileText, Share } from 'lucide-react';
+import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { FileText, Paperclip, Share, X } from 'lucide-react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { ActionButton } from '@/components/action-button';
+import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -110,8 +114,13 @@ import {
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { ChatHostStrip } from './chat/chat-host-strip';
+import { privateOtherId } from '@/lib/chat-private';
+import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
+import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
+import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
+import { ChatPinnedStack } from './chat/chat-pinned-stack';
+import { setPrivateTo, usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -173,6 +182,26 @@ type Props = {
    * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
    */
   hosts?: readonly ChatHost[] | null;
+  /**
+   * 👥 The strip's ＋ (DECISION_LOG 2026-11-09 👥) — hosts and the coordinator only; the supplier's page never passes it.
+   * `add` is a server action. Absent → no ＋.
+   */
+  memberAdd?: ChatHostAdd | null;
+  /** 👥 Your own face → "Leave this chat?" — a host only (never the supplier, coordinator or planner). Absent → no
+   *  Leave. A host leaving (the optional note is stored for them only — never in the "left" line). Lane B's write. */
+  memberLeave?: ((note: string | null) => Promise<void>) | null;
+  /**
+   * 📞 The page's `BookedCallButtons`. Inside a picked shell they go to its pinned head row with the 📎 (v8.3:
+   * title · 📞 · 🎥 · 📎 · ⚙ · ✕ — `PickedHeadContext`); elsewhere they sit at the end of the host strip.
+   */
+  headCalls?: React.ReactNode;
+  /** ⓘ The privacy words a picked chat keeps one tap away on the strip's "Shared chat" line (no notice row — v8.3). */
+  headNote?: React.ReactNode;
+  /**
+   * 📐 Lane B's pins and Waiting line — drawn INSIDE the one pinned stack (`ChatPinnedStack`, capped at 4/9 of the
+   * screen, scrolling inside itself). Nothing pinned above the messages is drawn outside it.
+   */
+  pins?: React.ReactNode;
   /**
    * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
    * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
@@ -371,6 +400,11 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  memberAdd = null,
+  memberLeave = null,
+  headCalls = null,
+  headNote = null,
+  pins = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -384,7 +418,16 @@ export function ChatMessageStream({
    * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
+  // ✋ Press-and-hold on a bubble → "Reply privately" (pre-picks the sender for the composer's chip).
+  const hold = useMessageHold();
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
+  // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
+  // other side's label.
+  const personName = (userId: string): string => {
+    const h = hostById.get(userId);
+    if (h) return hostFirstName(h);
+    return senderNames[userId] ?? counterpartyLabel;
+  };
   /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
   const [pendings, setPendings] = useState<PendingSend[]>([]);
   /* Remember the last messages, so the next open of this thread paints them before the server answers
@@ -686,6 +729,18 @@ export function ChatMessageStream({
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
   const [view, setViewState] = useState<ThreadView>(initialView);
+  /**
+   * 📌 INSIDE A PICKED SHELL (v8.3, approved 9 Nov) there is no Chat · Decisions · Files row: the head's 📎 opens Files
+   * and Decisions as ONE panel inside the pinned stack, and the conversation stays under it. A link that names
+   * `?view=decisions|files` lands with that panel open.
+   */
+  const headSlot = useContext(PickedHeadContext);
+  const inPicked = headSlot !== null;
+  const [filesOpen, setFilesOpen] = useState(initialView !== 'all');
+  const privateNow = usePrivateTo(threadId);
+  // 🔭 The 📎 panel is a fold like any other: a press that opens it glides it into view (app-wide reveal-on-open).
+  const filesPanelRef = useRef<HTMLElement | null>(null);
+  const intendFilesOpen = useRevealOnOpen(filesOpen, () => ({ head: filesPanelRef.current }));
 
   /**
    * Switching views rewrites the URL IN PLACE — `replaceState`, not a
@@ -1184,23 +1239,74 @@ export function ChatMessageStream({
   // ---------------------------------------------------------------------------
   // See the `flush` prop. One string, three scrollers, so the card chrome can
   // never be dropped from one view and kept on another.
-  const scrollerChrome = flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4';
+  // `relative`: each scroller is the containing block of its own `sr-only` (absolute) labels, so a label scrolled out of
+  // sight stays inside the scroller instead of stretching the box around it into a second scroller (measured 9 Nov in
+  // the picked chat: the hearts' sr-only labels made the in-flow chat box scroll the pinned strip away).
+  const scrollerChrome = `relative ${flush ? 'px-0.5 py-3' : 'rounded-xl border border-ink/10 bg-cream p-4'}`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} /> : null}
-      {/*
-        THE SWITCH — above the conversation, at every width. On a phone this
-        row may be the most useful thing on the screen: the whole standing of a
-        booking without scrolling a month of chat. It is never breakpoint-hidden.
-      */}
-      <ThreadViewSwitch
-        view={view}
-        onChange={setView}
-        decisionsCount={decisions.length}
-        needsYouCount={needsYouCount}
-        filesCount={files.length}
-      />
+      {/* 📐 ONE PINNED STACK (owner, 9 Nov): capped at 4/9 of the screen with the head; the messages + composer keep ≥ 5/9.
+          📌 PINNED STAYS PINNED: the strip and the switch are `fixed` — they never scroll; over the cap only Lane B's pins
+          and the expiry line below them scroll, inside the stack. */}
+      <ChatPinnedStack
+        fixed={
+          <>
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {/*
+              THE SWITCH — above the conversation, at every width, on the routed thread pages. On a phone this
+              row may be the most useful thing on the screen: the whole standing of a
+              booking without scrolling a month of chat. It is never breakpoint-hidden.
+              Inside a picked shell the head's 📎 carries it instead (v8.3: no second tab row under the page menu).
+            */}
+            {inPicked ? null : (
+              <ThreadViewSwitch
+                view={view}
+                onChange={setView}
+                decisionsCount={decisions.length}
+                needsYouCount={needsYouCount}
+                filesCount={files.length}
+              />
+            )}
+          </>
+        }
+      >
+      {inPicked && filesOpen ? (
+        <section ref={filesPanelRef} className="pb-2" aria-label="Files and decisions in this chat" data-picked-files-panel="">
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
+              Files · {files.length} · newest first
+            </h2>
+            <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
+          </div>
+          <FilesPanel files={files} />
+          {decisions.length > 0 ? (
+            <>
+              <h2 className="pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">Decisions · {decisions.length}</h2>
+              <DecisionsPanel
+                entries={decisions}
+                standing={standing}
+                counterpartyLabel={counterpartyLabel}
+                needsYouCount={needsYouCount}
+                reply={{
+                  threadId,
+                  eventId: messages[0]?.event_id ?? '',
+                  vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+                  returnPath: withThreadView(
+                    viewerRole === 'couple' && messages[0]
+                      ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+                      : `/vendor-dashboard/messages/${threadId}`,
+                    'decisions',
+                  ),
+                  eventDate,
+                  supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+                }}
+              />
+            </>
+          ) : null}
+        </section>
+      ) : null}
+      {pins}
       {(() => {
         // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
         if (!fileExpiry?.eventDate) return null;
@@ -1213,8 +1319,31 @@ export function ChatMessageStream({
           </p>
         ) : null;
       })()}
+      </ChatPinnedStack>
 
-      {view === 'decisions' ? (
+      {/* 📞 🎥 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private. */}
+      {headSlot
+        ? createPortal(
+            <>
+              {headCalls}
+              <ActionButton
+                tone="neutral"
+                iconOnly
+                icon={Paperclip}
+                label="Files in this chat"
+                aria-expanded={filesOpen}
+                disabled={privateNow !== null}
+                onClick={() => {
+                  if (!filesOpen) intendFilesOpen();
+                  setFilesOpen((was) => !was);
+                }}
+                data-testid="picked-files-open"
+              />
+            </>,
+            headSlot,
+          )
+        : null}
+      {!inPicked && view === 'decisions' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <DecisionsPanel
             entries={decisions}
@@ -1241,7 +1370,7 @@ export function ChatMessageStream({
             }}
           />
         </div>
-      ) : view === 'files' ? (
+      ) : !inPicked && view === 'files' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
@@ -1742,8 +1871,16 @@ export function ChatMessageStream({
                   ? hostFirstName(host)
                   : null
               : null;
+          // 🔒 A private message (DECISION_LOG 2026-11-09 🔒): the one other person's name, as THIS viewer sees it — the
+          // recipient when you sent it, the sender when it came to you. `null` = everyone's message, the usual bubble.
+          const privateWithId = privateOtherId(m, currentUserId);
+          const privateWith = privateWithId === null ? null : personName(privateWithId);
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
+          // ✋ "Reply privately" — any OTHER PERSON's message (by user, not by side: another host's message sits on your
+          // side of the chat and is still someone else's), never yours, never the auto-reply.
+          const replyTo = !m.is_bot && m.sender_user_id && m.sender_user_id !== currentUserId ? m.sender_user_id : null;
+          const canReplyPrivately = replyTo !== null;
           const corner = mine
             ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
             : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
@@ -1774,15 +1911,21 @@ export function ChatMessageStream({
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
                 onClick={(e) => {
+                  if (hold.consumeTap()) return;
                   if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
                 }}
+                {...(canReplyPrivately ? hold.holdProps(m.message_id) : {})}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
-                  mine
-                    ? 'bg-sn-accent text-white'
-                    : 'bg-ink/[0.06] text-ink'
+                  privateWith !== null
+                    ? PRIVATE_BUBBLE_FILL
+                    : mine
+                      ? 'bg-sn-accent text-white'
+                      : 'bg-ink/[0.06] text-ink'
                 }`}
+                {...(privateWith !== null ? { 'data-chat-private': '' } : {})}
               >
+                <PrivateMark privateWith={privateWith} />
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
@@ -1824,6 +1967,17 @@ export function ChatMessageStream({
                 </span>
               </div>
               </div>
+              {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
+              {replyTo !== null && hold.openId === m.message_id ? (
+                <MessageHoldMenu
+                  senderName={personName(replyTo)}
+                  alignEnd={mine}
+                  onReplyPrivately={() => {
+                    setPrivateTo(threadId, { userId: replyTo, name: personName(replyTo) });
+                    hold.close();
+                  }}
+                />
+              ) : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}
@@ -1887,7 +2041,8 @@ export function ChatMessageStream({
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
-          <div className={`max-w-[75%] rounded-2xl bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+          <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.privateTo ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+            <PrivateMark privateWith={p.privateTo ?? null} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>

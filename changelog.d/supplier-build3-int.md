@@ -16,7 +16,7 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
 - **🔒 The admin's demo-shop thread read is filtered.** `/admin/demo-vendors/inquiries/[threadId]` reads through the service role, so the restrictive policy cannot bind it. It now keeps the shop's own view: shared lines, plus private lines the shop sent or received. A host ↔ host private line is never shown. The guard checks that this is the only service-role caller of `fetchMessages`.
 - **📂 Upload opens the device's picker, never a page.** Owner, 9 Nov: *"Upload is upload on files not go to a page. Mobile is the phone's gallery"*.
   - Today's hero, Shop's cover and the dev lab no longer link to `collections#gallery-media`. Pressing Upload opens a native `<input type="file" accept="image/*">`: the file dialog on desktop, the photo library on a phone.
-  - The chosen photos go to the shipped `PortfolioForm`, in add-only mode, through a new `FileUpload` `pickedFiles` prop. The watermark, QR guard, compression, the room count and the `updateVendorProfileField` `portfolio` save are all unchanged. It adds no server action. The form is lazy-loaded inside the supplier dashboard's existing `picked-pages` chunk, not a chunk of its own (see the bundle entry below).
+  - The chosen photos go to the shipped `PortfolioForm`, in add-only mode, through a new `FileUpload` `pickedFiles` prop. The watermark, QR guard, compression, the room count and the `updateVendorProfileField` `portfolio` save are all unchanged. It adds no server action. `PortfolioForm` moved, unchanged, into its own file (`shop/_components/portfolio-form.tsx`); Portfolio's page still draws it, and the doors import it statically (see the bundle entry below).
   - A photo uploaded from Shop's cover is pre-picked as the cover in Your page's draft. It still goes live only with Your page's Apply.
   - Guard: `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`, sabotage-checked red.
 - **🖼 Shop's Cover and Logo sheets are each one short menu** (owner, 9 Nov, after Facebook's cover/profile photo menus). Each is rows of a round icon and a word, with no paragraph:
@@ -25,10 +25,18 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
   - Choose cover photo, which opens Your page's cover picker. For the logo, this row is "Adjust profile photo", which opens the shipped crop.
   - One muted line keeps "goes live when you Apply on Your page". The logo keeps the shipped drag/pinch crop after an upload.
 - **🌙 The supplier hero band stays espresso in dark mode.** A new `--m-espresso: #2C2A29` that never flips. `--m-ink` turned paper-light in `html.dark`, which made the hero band light and the white Upload pill's word white on white.
-- **📦 The shared bundle stays inside 202.3 KB without raising it.** Every async chunk id is one entry in the webpack runtime's chunk map, and the runtime is in the shared bundle. Build 3's lanes and the photo doors added enough entries to cross the budget once combined (CI on `fb5c509abf`: runtime 5.1 → 5.2 KB, total over by under 0.1 KB). The fix adds no new chunks: each new on-demand import joins an EXISTING named chunk, which is the Lane C `thread-parts` pattern.
-  - `DecisionToggle` and both `DeclineReasonFields` doors join `thread-parts`.
-  - `LockSwitch` and the photo doors (`PortfolioForm`, `PhotoViewer`) join `picked-pages`.
-  - The door guard now fails on any import in the two door files that does not name `picked-pages`.
+- **📦 The shared bundle stays inside 202.3 KB without raising it.** CI on `fb5c509abf` failed the bundle check: the webpack runtime went from 5.1 KB to 5.2 KB. The runtime ships on every page and holds one entry for every chunk that an on-demand load can name. Measured locally with CI's dummy env, in gzip bytes against the 207,155 B budget:
+  - `origin/main`: runtime 5,254, total 207,120.
+  - This branch before the fix: runtime 5,350, total 207,216, which is 61 B over.
+  - After the fix: runtime 5,284, total 207,150, which is 5 B under.
+  - **What did it.** The photo doors loaded `PortfolioForm` and `PhotoViewer` on demand. Every chunk that load named became a runtime entry: `next/image`, a date helper and the Library viewer's chunk. That was true whether the load came from `gallery-media.tsx`, from a `photo-parts` chunk or from `picked-pages`, and all three were measured.
+  - **The fix:**
+    - `PortfolioForm` moved, unchanged, to `portfolio-form.tsx`, so a door no longer carries the Instagram card or the video editor.
+    - The doors import it statically. That adds about 6 KB gzipped to the first load of Today and Shop.
+    - Shop's photo menus import `PhotoViewer` statically. That adds about 4 KB gzipped to Shop.
+  - **Guard:** `no-upload-door-goes-to-a-page.test.ts` fails on any `import(` in the two door files, or any door import of `gallery-media`. Sabotage-checked.
+  - **Re-pointed guards:** five guards that read `PortfolioForm` in `gallery-media.tsx` now read it in `portfolio-form.tsx`. Each asserts the same thing as before. Their own "re-point this guard" notes asked for exactly this.
+- **🧪 A lab that 404s adds nothing to production.** `/dev/chat-cards-lab`, `/dev/chat-cards-c-lab` and `/dev/date-sheet-lab` import their parts only inside the branch that a production build folds away (`NODE_ENV` is a build-time constant). Their bodies moved to `lab.tsx`. Before, the c-lab imported lane C's cards statically while production loads them lazily, and that gave it split chunks of its own.
 - **Upload sheet gutters:** the sheet's body is padded 16 px on both sides. It measured 0 px at 390 px.
 - **Regenerated:** the screens map, admin jobs/map, the migrations manifest, the exposure baseline, the FK behaviour file, the port-control baseline and the no-card baseline. The no-card count fell.
 

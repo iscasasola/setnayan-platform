@@ -1,8 +1,9 @@
 'use client';
 
-import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Crop, Eye, Images, Upload, type LucideIcon } from 'lucide-react';
+import { PhotoViewer } from '@/app/_components/gallery/photo-viewer';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { PhotoPickLabel, PortfolioUploadBody } from '../../_components/portfolio-upload';
@@ -27,9 +28,9 @@ import type { ProfileFieldData } from './editable-row';
  * paragraph. One muted line under the cover's says when a cover goes live (Your page's Apply, as shipped).
  * 🔒 `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`.
  */
-// The viewer rides the photo doors' ONE on-demand chunk (`picked-pages` — see `loadPortfolioForm`), never a chunk of its own.
-const loadViewer = () => import(/* webpackChunkName: "picked-pages" */ '@/app/_components/gallery/photo-viewer');
-const PhotoViewer = lazy(() => loadViewer().then((m) => ({ default: m.PhotoViewer })));
+// 📦 The viewer is a STATIC import on purpose (Shop only, ~4 KB gz). Loaded on demand it was a chunk shared with
+// Library and Memories, and an on-demand load turns every chunk it names into an entry of the webpack runtime that ships
+// on EVERY page — measured over the 202.3 KB shared-bundle lock (Build 3 integration, #7416). Same call as `portfolio-upload.tsx`.
 
 const ROW = 'flex min-h-[56px] w-full items-center gap-3.5 py-2 text-left';
 
@@ -56,7 +57,7 @@ function SeeRow({ word, url, none, album, data }: { word: string; url: string | 
   return (
     <li data-photo-menu-row={data}>
       {url ? (
-        <button type="button" className={`sn-press ${ROW}`} onClick={() => setOpen(true)} onPointerDown={() => void loadViewer().catch(() => {})}>
+        <button type="button" className={`sn-press ${ROW}`} onClick={() => setOpen(true)}>
           <RowLead icon={Eye} />
           <RowWord>{word}</RowWord>
         </button>
@@ -69,9 +70,7 @@ function SeeRow({ word, url, none, album, data }: { word: string; url: string | 
         </span>
       )}
       {open && url ? (
-        <Suspense fallback={null}>
-          <PhotoViewer photo={{ src: url, kind: 'photo', label: album }} at={0} total={1} album={album} onMove={() => {}} onClose={() => setOpen(false)} actions={[]} />
-        </Suspense>
+        <PhotoViewer photo={{ src: url, kind: 'photo', label: album }} at={0} total={1} album={album} onMove={() => {}} onClose={() => setOpen(false)} actions={[]} />
       ) : null}
     </li>
   );

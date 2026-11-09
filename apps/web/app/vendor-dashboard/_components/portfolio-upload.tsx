@@ -1,12 +1,13 @@
 'use client';
 
-import { lazy, Suspense, useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { ActionButton } from '@/components/action-button';
 import { draftStorageKey, parseStoredDraft } from '@/lib/supplier-page-draft';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { PortfolioForm } from '../shop/_components/portfolio-form';
 
 /**
  * 📂 UPLOAD OPENS THE DEVICE'S PICKER, IN PLACE (owner, 9 Nov: *"When on desktop. Upload is upload on files not go to a
@@ -16,20 +17,17 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
  *   · The door IS a `<label>` around a real `<input type="file" accept="image/*">`: the press opens the browser's own
  *     file dialog on a computer and the photo library on a phone — natively, inside the tap, with no script between
  *     (a phone opens a picker only from a user gesture).
- *   · What was picked goes into THE SHIPPED PORTFOLIO UPLOADER — `PortfolioForm` (`shop/_components/gallery-media.tsx`:
+ *   · What was picked goes into THE SHIPPED PORTFOLIO UPLOADER — `PortfolioForm` (`shop/_components/portfolio-form.tsx`, which Portfolio's page draws too:
  *     `<FileUpload multiple>` with the watermark, the QR guard and the compression, saved by `updateVendorProfileField`
  *     with `field=portfolio`), fed the files through `FileUpload`'s `pickedFiles`. Never a second uploader: the photo
  *     lands in Portfolio exactly as an upload there would, priced by the same free room and wallet.
- *   · The uploader's code is its OWN chunk (`lazy`), fetched on the first press — never in a page's first load, never
- *     in the shared bundle (Build 3 rulings: about 20 B of headroom).
+ *   · 📦 The uploader is a STATIC import of `portfolio-form.tsx` ALONE (about 6 KB gz on Today's and Shop's first
+ *     load). Measured on the Build 3 integration (#7416): loaded on demand — from `gallery-media.tsx`, from its own
+ *     file, inside `picked-pages` or a `photo-parts` chunk — every chunk the load named became an entry of the webpack
+ *     runtime that ships on EVERY page, and the shared bundle went over its 202.3 KB lock each time. A few KB on the two
+ *     screens that carry the door, against bytes on every page of the app and a lock that cannot be raised.
  * 🔒 `app/vendor-dashboard/no-upload-door-goes-to-a-page.test.ts`.
  */
-// ⚖ NO chunk of its own: every chunk id is an entry in the webpack runtime's chunk map, which IS in the shared bundle
-// (202.3 KB, no headroom), so the photo doors ride the supplier dashboard's EXISTING on-demand chunk (`picked-pages`,
-// the picked client's pages) — zero new runtime entries. Two chunks of their own, then one named `photo-parts`, each
-// measured over the budget (Build 3 integration, #7416).
-export const loadPortfolioForm = () => import(/* webpackChunkName: "picked-pages" */ '../shop/_components/gallery-media');
-const PortfolioForm = lazy(() => loadPortfolioForm().then((m) => ({ default: m.PortfolioForm })));
 
 /** Every photo door's picker: any image — iOS and Android then offer the photo library (and the camera). */
 export const PHOTO_PICK_ACCEPT = 'image/*';
@@ -69,8 +67,6 @@ export function PhotoPickLabel({
       className={`cursor-pointer ${className ?? ''}`}
       {...{ [`data-${data}`]: '' }}
       data-photo-pick=""
-      // ⚡ The uploader's chunk starts on the press, while the dialog is open — never with the page.
-      onPointerDown={() => void loadPortfolioForm().catch(() => {})}
     >
       {children}
       <input
@@ -108,29 +104,21 @@ export function PortfolioUploadBody({
   return (
     <div className="space-y-3" data-portfolio-upload-body="">
       <p className="text-[13px] text-ink/65">From your files or your phone’s photos · it joins your Portfolio</p>
-      <Suspense
-        fallback={
-          <p className="py-4 text-[13px] text-ink/60" role="status">
-            Opening your photos…
-          </p>
-        }
-      >
-        <PortfolioForm
-          vendorProfileId={facts.vendorProfileId}
-          storedRefs={facts.storedRefs}
-          displayMap={{}}
-          free={facts.free}
-          allowanceUnread={facts.allowanceUnread}
-          walletBalance={facts.walletBalance}
-          toast={toast}
-          addOnly
-          pickedFiles={files}
-          onSaved={(added) => {
-            if (coverPick && added[0]) setPicked(pickCoverInDraft(facts.vendorProfileId, added[0]));
-            onSaved?.();
-          }}
-        />
-      </Suspense>
+      <PortfolioForm
+        vendorProfileId={facts.vendorProfileId}
+        storedRefs={facts.storedRefs}
+        displayMap={{}}
+        free={facts.free}
+        allowanceUnread={facts.allowanceUnread}
+        walletBalance={facts.walletBalance}
+        toast={toast}
+        addOnly
+        pickedFiles={files}
+        onSaved={(added) => {
+          if (coverPick && added[0]) setPicked(pickCoverInDraft(facts.vendorProfileId, added[0]));
+          onSaved?.();
+        }}
+      />
       {picked ? (
         <div className="space-y-2" data-portfolio-upload-cover-picked="">
           <p className="text-[13px] text-ink/65">Picked as your cover · it goes live when you Apply on Your page</p>

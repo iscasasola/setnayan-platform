@@ -10,13 +10,18 @@
  * nobody real.
  */
 import { notFound } from 'next/navigation';
-import { DateSheetLabClient } from './lab-client';
 
+// 📦 The lab's client code is imported only in the branch a production build folds away (`NODE_ENV` is a build-time
+// constant), so it never enters the production module graph — a 404ing lab adds no chunk to the webpack runtime, which
+// ships on every page under the 202.3 KB shared-bundle lock (Build 3 integration, #7416). Same shape as `/dev/chat-cards-lab`.
 export default async function DateSheetLabPage() {
   if (process.env.NODE_ENV === 'production') notFound();
-  return (
-    <main className="mx-auto w-full max-w-xl bg-cream px-4 py-6 pb-40">
-      <DateSheetLabClient />
-    </main>
-  );
+  else {
+    const { DateSheetLabClient } = await import('./lab-client');
+    return (
+      <main className="mx-auto w-full max-w-xl bg-cream px-4 py-6 pb-40">
+        <DateSheetLabClient />
+      </main>
+    );
+  }
 }

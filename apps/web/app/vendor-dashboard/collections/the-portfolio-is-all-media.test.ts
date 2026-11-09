@@ -48,7 +48,7 @@ test('3 · Show is greyed until a pick, and draws nothing but the photos', () =>
 });
 
 test('4 · uploads compress; the ⚙ types no storage price', () => {
-  assert.match(read('../shop/_components/gallery-media.tsx'), /\n\s*compressImage\n/);
+  assert.match(read('../shop/_components/portfolio-form.tsx'), /\n\s*compressImage\n/);
   assert.match(read('../shop/_components/editable-row.tsx'), /\n\s*compressImage\n/);
   assert.match(SETTINGS, /Not on sale yet/);
   assert.doesNotMatch(SETTINGS, /₱\s?\d|\b\d+\s?GB\b/, 'a storage price or size is typed into the ⚙');

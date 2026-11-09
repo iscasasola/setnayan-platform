@@ -40,23 +40,22 @@ test('1 · no Upload door hrefs Portfolio’s uploader page', () => {
   assert.deepEqual(hits, [], `an Upload door goes to a page:\n${hits.join('\n')}`);
 });
 
-test('2 · the door is a native picker into the shipped PortfolioForm, lazily', () => {
+test('2 · the door is a native picker into the shipped PortfolioForm — the uploader alone', () => {
   const door = read('app/vendor-dashboard/_components/portfolio-upload.tsx');
   assert.match(door, /export const PHOTO_PICK_ACCEPT = 'image\/\*';/);
   assert.match(door, /<label\b[\s\S]*?<input\s+type="file"\s+accept=\{PHOTO_PICK_ACCEPT\}/, 'the door is not a label around a file input');
-  assert.match(door, /lazy\(\(\) => loadPortfolioForm\(\)\.then\(\(m\) => \(\{ default: m\.PortfolioForm \}\)\)\)/, 'the uploader is not the shipped PortfolioForm, or not lazy');
-  // ⚖ The doors' on-demand code is no chunk of its own: every chunk id is an entry in the webpack runtime, which is in the shared
-  // bundle (202.3 KB, no headroom). Each dynamic import in the two door files names the EXISTING `picked-pages` chunk.
+  // 📦 The uploader is `portfolio-form.tsx` ALONE, imported statically. Measured on the integration (#7416): every on-demand
+  // load of it (from gallery-media, its own file, `picked-pages`, a `photo-parts` chunk) put the chunks it named into the
+  // webpack runtime — on EVERY page — and over the 202.3 KB shared lock. Never all of `gallery-media.tsx` (Instagram,
+  // next/image, the video editor ride along), and no on-demand import in either door file.
+  assert.match(door, /^import \{ PortfolioForm \} from '\.\.\/shop\/_components\/portfolio-form';$/m, 'the door does not draw the shipped PortfolioForm from its own file');
+  assert.doesNotMatch(door, /gallery-media/, 'the door loads all of Portfolio’s Add photos, not the uploader alone');
   for (const f of ['app/vendor-dashboard/_components/portfolio-upload.tsx', 'app/vendor-dashboard/shop/_components/photo-menus.tsx']) {
-    // Raw source: the chunk name IS a comment (webpack's magic comment), so it is read before comments are stripped.
-    const imports = [...readFileSync(join(WEB, f), 'utf8').matchAll(/(?<![\w.])import\(([^)]*)\)/g)].map((m) => m[1]!).filter((a) => !/^\s*$/.test(a));
-    assert.ok(imports.length >= 1, `${f}: no on-demand import found`);
-    for (const i of imports) assert.match(i, /webpackChunkName: "picked-pages"/, `${f}: an on-demand import outside the existing picked-pages chunk — it adds a runtime entry to the shared bundle`);
+    assert.doesNotMatch(read(f), /(?<![\w.])import\(/, `${f}: an on-demand import — each chunk it names is a runtime entry on every page`);
   }
-  assert.doesNotMatch(door, /^import[^;]*gallery-media/m, 'the uploader is imported eagerly — it would ride in the page’s first load');
   assert.doesNotMatch(door, /<FileUpload\b/, 'a second uploader');
   assert.match(door, /<PortfolioForm\b[\s\S]*?\baddOnly\b[\s\S]*?pickedFiles=\{files\}/);
-  const form = read('app/vendor-dashboard/shop/_components/gallery-media.tsx');
+  const form = read('app/vendor-dashboard/shop/_components/portfolio-form.tsx');
   assert.match(form, /export function PortfolioForm\(/);
   assert.match(form, /pickedFiles=\{pickedFiles\}/, 'PortfolioForm does not hand the picked files to its FileUpload');
   assert.match(form, /<input key=\{r\} type="hidden" name="portfolio_r2_keys" value=\{r\} \/>/, 'add-only mode drops the stored photos from the save (it replaces the list)');

@@ -866,11 +866,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     // bottom search draws the same list: categories, booked-or-not and a supplier COUNT — never a price.
     // `lib/add-own-categories.server.ts` (2026-10-24) is "What they do" for the add walk opened from Discover's
     // empty search: built from NO vendor rows, it returns category rows only — no vendor, no price.
-    // `app/dev/find-lab/page.tsx` (2026-11-09) draws the Find list (the photo group headers) from NO vendor rows, the
-    // way `readFindList` does — categories and a supplier count, never a price; 404 in production.
     readsNoPrice: [
       'app/dev/add-your-own-lab/page.tsx',
-      'app/dev/find-lab/page.tsx',
       'app/dev/suppliers-lab/page.tsx',
       'lib/add-own-categories.server.ts',
       'lib/cover-catalog.server.ts',

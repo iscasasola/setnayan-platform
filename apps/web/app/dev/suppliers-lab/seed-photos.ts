@@ -1,5 +1,5 @@
 /**
- * LAB FIXTURE — every category photo the MIGRATIONS write, measured 2026-11-09 by replaying all of
+ * LAB FIXTURE (`/dev/suppliers-lab?find=page`) — every category photo the MIGRATIONS write, measured 2026-11-09 by replaying all of
  * `supabase/migrations` into PGlite (`tests/db/replay-migrations.ts`) and reading
  * `select id, sample_photo_r2_key from service_categories where tier = 2`. Not production, and not a map the app reads:
  * the app reads `service_categories.sample_photo_r2_key` through `getTaxonomy()` (Admin › Categories). The lab has no

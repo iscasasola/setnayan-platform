@@ -19,7 +19,10 @@ The couple's Event › Suppliers › Find (the Find page and the bottom search's
   photo (`displayUrlForCatalogueArt`), once per header, in parallel — no request per row. Lazy, sized `<img>`.
 - One deviation from the prototype, flagged for the owner: a soft shade under the band's count so white 10.5 px caps
   stay readable on a bright photo (the prototype's gradient placeholders did not need it).
-- New dev lab `/dev/find-lab` (the real Find list in the real shell, on the seed's photos; `?nophotos=1`, `&type=wake`).
+- `/dev/suppliers-lab?find=page` — the Find page's list in the real shell, on the photos the migrations write
+  (`seed-photos.ts`, measured by replaying every migration into PGlite; `&nophotos=1`, `&type=wake`). A mode of the
+  existing lab, not a new screen.
+- The Find page's list had 32 px gutters on a phone (the layout's 16 + its own 16); below `sm` it now adds none.
 - 🔒 `app/dashboard/[eventId]/vendors/find-photo-group-headers.test.ts` — photo when the taxonomy has one, text row
   when not, sticky on every group header (Popular included), one header per section, photos from the taxonomy only.
 

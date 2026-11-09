@@ -2297,7 +2297,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         <section
           aria-label="Price and payments"
           data-money-hosts-only=""
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-sm text-ink/70 sm:p-6"
+          className="border-t border-ink/10 pt-4 text-sm text-ink/70"
         >
           The quotation, the price and the payments with {displayName} are the hosts’ to see ({HOSTS_ONLY}).
         </section>

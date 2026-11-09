@@ -102,7 +102,13 @@ import { fileURLToPath } from 'node:url';
 // 'pair' the private clean copy · and, with #7247, 'original' to re-open a photo in the Frame step), so the whole photo
 // mark + frame costs +1, not +3. No unimported export was found to retire. CEILING = the count measured on the lane
 // tree; the integration re-measures on the merged tree, and check-vercel-route-count gates the sum on the PR build.
-export const CEILING = 1239;
+// 1239 → 1241 (2026-11-08, card checks "fix before Create", on claude/supplier-1build): TWO dispatchers instead of the six
+// exports the feature would have been — `cardPhotoAction` (vendor-dashboard/services/card-check-actions.ts: the maker's
+// photo check + "It's mine — report it") and `saveCardClaimWords` (admin/repost-watch/actions.ts: add · remove · allow ·
+// unallow). A scan of every "use server" export found none that nothing references, so nothing could be un-exported in
+// trade. No fresh `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's
+// production build; read that job before merging.
+export const CEILING = 1241;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

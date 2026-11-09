@@ -33,13 +33,16 @@ import {
   CHURCH_FAITHS,
   ESTIMATE_MAX,
   ESTIMATE_MIN,
+  WEDDING_SELF_SIDES,
   ceremonyChoiceOf,
   ceremonyChoiceToState,
   budgetRows,
   snapEstimate,
   stepEstimate,
+  weddingSelfSide,
   type CeremonyChoice,
   type WeddingCardId,
+  type WeddingSelfSide,
 } from '@/lib/onboarding/wedding-cards';
 import { CITIES, TOP30, cityByKey, resolvePick } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
@@ -72,6 +75,8 @@ type Props = {
   card: WeddingCardId;
   state: OnboardingState;
   patch: (p: Partial<OnboardingState>) => void;
+  /** "Which one is you?" — the shell's `selectRole`: sets `role` and moves the account name to that row. */
+  pickSelf: (side: WeddingSelfSide) => void;
   n: number;
   total: number;
   /** Faiths the admin has switched on (`wedding_type_launch_status`); null = read failed. */
@@ -81,21 +86,36 @@ type Props = {
   searchVenues: VenueSearch;
 };
 
-export function WeddingCard({ card, state, patch, n, total, activeFaiths, budgetBands, searchVenues }: Props) {
+export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFaiths, budgetBands, searchVenues }: Props) {
   const frame = { skin: 'wedding' as const, n, total, dataCard: card };
 
   if (card === 'w_names') {
-    const field = (label: string, value: string, key: keyof OnboardingState, req: boolean) => (
+    // "Which one is you?" comes FIRST (owner 2026-11-08: "they need to be one of the 2") — exactly the two
+    // of the couple, as ONE PickMenu (this card had no shipped two-choice control). The pick is the wizard's
+    // existing `role`; the shell's `selectRole` seats YOUR row from your account name (`moveSelf`), never
+    // the partner's, and never over anything typed. The rows open once the pick is made.
+    const side = weddingSelfSide(state.role);
+    const sideWord = (k: WeddingSelfSide) => WEDDING_SELF_SIDES.find((o) => o.key === k)!.label;
+    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => (
       <input
-        aria-label={label}
+        aria-label={`${sideWord(rowSide)} — ${label}`}
         placeholder={label}
-        autoComplete="off"
+        // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
+        autoComplete={rowSide === side ? token : 'off'}
         autoCapitalize="words"
         required={req}
         value={value}
+        data-wedding-name-row={rowSide}
+        data-wedding-own-row={rowSide === side ? '' : undefined}
         onChange={(e) => patch({ [key]: nameOnly(e.target.value), monogramFinalized: true } as Partial<OnboardingState>)}
         className="w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none"
       />
+    );
+    const rowHead = (rowSide: WeddingSelfSide) => (
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink/55">
+        {sideWord(rowSide)}
+        {rowSide === side ? ' · you' : ''}
+      </p>
     );
     return (
       <SetupFrame
@@ -105,13 +125,31 @@ export function WeddingCard({ card, state, patch, n, total, activeFaiths, budget
         info="They go on your invitation, your Event Hub and your guest list. Last names are optional."
       >
         <div className="flex flex-col gap-3" data-wedding-names>
-          {field('First name', state.brideFirstName, 'brideFirstName', true)}
-          {field('Last name (optional)', state.brideLastName, 'brideLastName', false)}
-          <p className="text-center font-serif text-xl italic text-ink/50" aria-hidden>
-            &amp;
-          </p>
-          {field('First name', state.groomFirstName, 'groomFirstName', true)}
-          {field('Last name (optional)', state.groomLastName, 'groomLastName', false)}
+          <p className="text-sm font-medium text-ink">Which one is you?</p>
+          <PickMenu
+            label="Which one is you?"
+            value={side}
+            buttonText={side ? undefined : 'Pick one'}
+            options={WEDDING_SELF_SIDES.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
+            onPick={(key) => {
+              const next = weddingSelfSide(key);
+              if (next) pickSelf(next);
+            }}
+            dataAttr="data-wedding-self"
+          />
+          {side ? (
+            <>
+              {rowHead('bride')}
+              {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
+              {field('bride', 'Last name (optional)', state.brideLastName, 'brideLastName', false, 'family-name')}
+              <p className="text-center font-serif text-xl italic text-ink/50" aria-hidden>
+                &amp;
+              </p>
+              {rowHead('groom')}
+              {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
+              {field('groom', 'Last name (optional)', state.groomLastName, 'groomLastName', false, 'family-name')}
+            </>
+          ) : null}
         </div>
       </SetupFrame>
     );

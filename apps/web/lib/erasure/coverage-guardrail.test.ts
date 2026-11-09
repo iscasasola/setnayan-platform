@@ -195,6 +195,15 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-08 with the tables themselves (service card checks, migration 20271328838140) ──
+  // ADMIN configuration. The only user column on each is an actor stamp — `created_by` / `granted_by`, nullable + ON
+  // DELETE SET NULL — so deleting the admin's account strips the stamp on its own. The rows are a word list and which
+  // SHOP may use a word: nothing in them is about a person (a shop's allowance goes with the shop, ON DELETE CASCADE).
+  card_claim_words:
+    'Admin word list. Only user column is created_by, ON DELETE SET NULL — an actor stamp that self-clears on account deletion; the row is a phrase and a note, about nobody.',
+  card_claim_word_allowances:
+    'Admin allowance (a shop may use a word). Only user column is granted_by, ON DELETE SET NULL — an actor stamp; the row names a SHOP (CASCADE with it) and a word, about no person.',
+
   // ── added 2026-10-28 with the tables (admin supplier slice, migration 20271330825868) ──
   hub_tools:
     'Setnayan-authored tool library. `updated_by` is the ADMIN who last edited a tool — an actor stamp, nullable + ON DELETE SET NULL; no person is the subject of a tool.',

@@ -109,6 +109,16 @@ import { GiftPickRow } from '@/app/_components/gift-pick';
 import { GIFT_SETNAYAN, coupleCardPackLine, giftPickOf, type GiftPick } from '@/lib/gift-pick';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { cardCheckInputKey, EMPTY_CARD_CHECK_INPUT, readCardCheckInput, type CardCheckInput } from '@/lib/service-card-checks';
+import {
+  CardChecksSummary,
+  ClaimWordNotes,
+  PhotoCheckNotes,
+  ServiceMismatchNote,
+  useCardChecks,
+  type MakerCheckRules,
+  type PhotoCheckAsk,
+} from './card-checks';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -248,6 +258,8 @@ export function CanvasMaker({
   giftFree = null,
   cancelHref,
   bookingsPerDate = null,
+  checkRules = null,
+  photoCheck,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -325,6 +337,14 @@ export function CanvasMaker({
    * cap (Free · Verified, not ruled yet).
    */
   bookingsPerDate?: { cap: number | null; help: string | null } | null;
+  /**
+   * 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26): the claim words this shop may not use and the live
+   * trades with their reviewed aliases (`loadMakerContext` → `lib/service-card-checks.server.ts`). Each problem shows on
+   * its row and Create / Save waits; the save asks again. `null` = the page read nothing (the save still checks).
+   */
+  checkRules?: MakerCheckRules | null;
+  /** The photo ask — omit it (the app's server action). Only `/dev/card-maker-lab` hands in a fixture one. */
+  photoCheck?: PhotoCheckAsk;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -560,6 +580,8 @@ export function CanvasMaker({
   );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   const [face, setFace] = useState<Snapshot | null>(null);
+  /** 🃏 What the card checks read off the form — the same live read, its own key. */
+  const [checkInput, setCheckInput] = useState<CardCheckInput>(EMPTY_CARD_CHECK_INPUT);
   const [clipSeconds, setClipSeconds] = useState<number | null>(null);
   const onClipDurationSeconds = useCallback((s: number | null) => setClipSeconds(s), []);
 
@@ -629,6 +651,7 @@ export function CanvasMaker({
     if (!form) return;
     let lastKey = '';
     let lastFace = '';
+    let lastChecks = '';
     let deferred: ReturnType<typeof setTimeout> | null = null;
     const read = () => {
       try {
@@ -644,6 +667,12 @@ export function CanvasMaker({
         if (fk !== lastFace) {
           lastFace = fk;
           setFace(f);
+        }
+        const c = readCardCheckInput(fd);
+        const ck = cardCheckInputKey(c);
+        if (ck !== lastChecks) {
+          lastChecks = ck;
+          setCheckInput(c);
         }
       } catch {
         /* a mid-render read must never break the form */
@@ -781,7 +810,22 @@ export function CanvasMaker({
   const [pending, setPending] = useState(false);
   // A card that is LIVE keeps its price (the gate's own rule for a live card) — Save waits while it is blank.
   const liveNeedsPrice = isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
-  const saveBlocked = unread.length > 0 || liveNeedsPrice;
+  /**
+   * 🃏 FIX BEFORE CREATE (owner 2026-10-26) — claim words · the card matches its service · one photo = one service
+   * card. Each open problem is drawn on its row; Create (Save on an edit) waits until none is left. ./card-checks.tsx
+   */
+  const checks = useCardChecks({
+    rules: checkRules,
+    input: checkInput,
+    category,
+    categoryLabel: activeCategoryLabel,
+    serviceId: editing?.serviceId ?? null,
+    ask: photoCheck,
+  });
+  const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
+  // A blocked photo under "More photos" opens that fold, so the photo it names is on screen.
+  const showcaseBlocked = checks.photos.some((p) => p.where === 'showcase' && (p.verdict === 'another_shop' || p.verdict === 'this_shop'));
+  const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
    * 🎞 THE FIRST OPEN OF "MORE SETTINGS" SHOWS WHAT IS INSIDE (owner 2026-11-04: "when i opened more settings. we want
    * to scroll so the see all animating then return back to the first one which is price") — down to the last row, then
@@ -851,6 +895,9 @@ export function CanvasMaker({
   const [showcaseOpen, setShowcaseOpen] = useState(
     Boolean(initial?.showcaseVideoR2Key) || (initial?.showcasePhotoR2Keys.length ?? 0) > 0,
   );
+  useEffect(() => {
+    if (showcaseBlocked) setShowcaseOpen(true);
+  }, [showcaseBlocked]);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
   const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
     key: o.key,
@@ -1054,6 +1101,13 @@ export function CanvasMaker({
                   className={BOX}
                 />
                 <p className={HINT}>Written for you · change it if you like</p>
+                <ClaimWordNotes hits={checks.claims} field="name" />
+                <ServiceMismatchNote
+                  mismatch={checks.mismatch}
+                  categoryLabel={activeCategoryLabel}
+                  onMove={canChooseKind && moveTrade ? (key) => pickCategory(key) : null}
+                  moveWhy={moveTrade?.standing === 'locked' ? (moveTrade.why ?? 'Your plan doesn’t include that service yet.') : null}
+                />
                 {/* Specialties (optional) — the kind's chip details (was "More settings › Details"), posting with the card. */}
                 <div className="mt-2" data-maker-row="specialties">
                   <ActionButton
@@ -1148,6 +1202,7 @@ export function CanvasMaker({
                   Add what’s included — at least one line.
                 </p>
               ) : null}
+              <ClaimWordNotes hits={checks.claims} field="included" />
               {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
                   package), so it stays reachable while the card is made; the saved card points to Your packages. */}
               {customizationEnabled && !isEdit ? (
@@ -1181,6 +1236,7 @@ export function CanvasMaker({
                 </InfoTip>
               </div>
               <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
+              <ClaimWordNotes hits={checks.claims} field="extras" />
             </div>
 
             {/* ── Gift — the shipped Setnayan-gift switch (was "More settings › Setnayan gift"), now ONE dropdown that
@@ -1236,6 +1292,7 @@ export function CanvasMaker({
                   </div>
                 </div>
               </div>
+              <PhotoCheckNotes checks={checks} serviceId={editing?.serviceId ?? null} showcaseRefs={checkInput.showcaseRefs} />
             </div>
 
             {/* The status line — on a phone it closes the surface; from 820 up the preview beside it says it. */}
@@ -1255,6 +1312,9 @@ export function CanvasMaker({
                   <b className="font-semibold">{status.text}</b>
                 </span>
               </p>
+              <div className="mt-2">
+                <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
+              </div>
             </div>
 
             {/* ═══ MORE SETTINGS — ON THE SAVED CARD (owner 7 Nov 2026: one page of fields while the card is made; "the
@@ -1555,6 +1615,7 @@ export function CanvasMaker({
                 <b className="font-semibold">{status.text}</b>
               </span>
             </p>
+            <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
           </div>
         </aside>
       </div>

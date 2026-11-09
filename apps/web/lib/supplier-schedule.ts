@@ -393,6 +393,7 @@ export function timesRequests(input: {
 export function waitingWords(r: Pick<SupplierRequestRow, 'kind' | 'proposed_label'>, momentLabel: string | null): string {
   if (r.kind === 'where') return 'Your chapters';
   if (r.kind === 'remove') return `Delete “${momentLabel ?? r.proposed_label ?? 'a moment'}”`;
+  if (r.kind === 'skip') return `Skip “${momentLabel ?? 'a part'}” today`;
   if (r.kind === 'adjust') return momentLabel ? `Change “${momentLabel}”` : 'A suggestion';
   return r.proposed_label ?? 'A new moment';
 }

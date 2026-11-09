@@ -282,7 +282,8 @@ test('(8) the Form row with a date: the list’s own pill with a calendar mark; 
   assert.equal(count(src, /onKeep\(/g), 1, 'more than one write per pick');
   assert.doesNotMatch(src, /useEffect\(\(\) => \{[^}]*onKeep/, 'something keeps a day without a tap');
   // It opens the app's ONE calendar, in its pop, only while open — and joins "one open at a time".
-  assert.match(src, /\{open \? \(\s*<CalendarPop title=\{name\} anchor=\{pill\} onClose=\{close\}>[\s\S]*?<CalendarGrid data="row" value=\{reads\}/);
+  // (A row given `sheet` opens the shared date sheet instead — `the-date-sheet.test.ts`; without it, the bare calendar as ever.)
+  assert.match(src, /\{open && !sheet \? \(\s*<CalendarPop title=\{name\} anchor=\{pill\} onClose=\{close\}>[\s\S]*?<CalendarGrid data="row" value=\{reads\}/);
   assert.match(src, /useOneOpen\(open, setOpen\);/);
   // A save that did not land SAYS so, with Try again — and the tick is only for one that landed.
   assert.match(src, /else if \(answer && answer\.ok === false\) setState\(\{ kind: 'failed', day, reason: answer\.error \?\? null \}\);/);

@@ -45,6 +45,7 @@ import { StartThreadPicker } from './_components/start-thread-picker';
 import { ChatInbox, type InboxRow } from './_components/chat-inbox';
 import { formatLongDate } from '@/lib/format-date';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
 
 export const metadata = { title: 'Chats' };
 
@@ -274,6 +275,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   return (
     <section className="mx-auto w-full max-w-2xl">
       <PageMasthead title="Chats" />
+      {/* ⚡ Re-renders when a message arrives — only with NEXT_PUBLIC_CHAT_LIVE_ENABLED on (renders nothing). */}
+      <LiveInboxRefresh userId={user.id} />
       <header className="mb-1">
         <h2 aria-hidden className="font-display text-[30px] font-semibold leading-tight text-ink">
           Chats

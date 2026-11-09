@@ -32,7 +32,7 @@ export type DayRequest = {
   suggestion_id: string;
   block_id: string | null;
   /** add · change (or, with no proposed fields, a suggestion in words) · delete. */
-  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where' | 'skip';
   by: string;
   proposed_label: string | null;
   proposed_start_at: string | null;

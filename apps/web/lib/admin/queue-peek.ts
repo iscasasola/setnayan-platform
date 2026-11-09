@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCentavosPhp } from '@/lib/payouts';
 import { getQueueSource } from '@/lib/admin/queue-counts';
+import { SUPPLIER_WORK_REASONS } from '@/lib/admin/supplier-work';
 
 /**
  * QUEUE PEEK — the actual items behind a work-list row, so an admin can see and
@@ -483,6 +484,9 @@ export async function peekQueue(
             submitLabel: 'Save',
             fields: [
               { name: 'decision', type: 'select', options: ['apply', 'decline'], required: true },
+              // ➕ A decline is refused without a reason from the list (admin supplier slice, 2026-10-28) — the
+              // shop reads it. An apply ignores it.
+              { name: 'reason', type: 'select', options: [...SUPPLIER_WORK_REASONS.names], required: false },
             ],
           },
           href: '/admin/corrections',

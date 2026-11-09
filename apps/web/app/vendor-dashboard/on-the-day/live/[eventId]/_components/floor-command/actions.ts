@@ -20,7 +20,8 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { changeTheSchedule } from '@/lib/change-the-schedule.server';
 import { mayAdvance } from '@/lib/run-of-show-advance';
-import type { ScheduleChange } from '@/lib/change-the-schedule';
+import type { CrewAskAnswer, ScheduleChange } from '@/lib/change-the-schedule';
+import { decideSuggestion } from '@/lib/schedule-suggestion-decide.server';
 import { liveDayTag } from '@/lib/live-day-cache';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
@@ -97,16 +98,19 @@ export async function floorAdvanceBlock(
  *     within the access window) — the shipped "Done · next" gate (`mayAdvance`), asked here for a sentence; RLS and
  *     the running-late door decide the write (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (A)(C));
  *   · `crew`  — a crew Member's phone ASKS (D): signed in (an anonymous account is enough), and
- *     `crew_request_schedule_move` holds every gate itself and files requests the coordinator / hosts approve.
+ *     `crew_request_schedule_move` / `_skip` hold every gate themselves and file requests the coordinator / hosts approve;
+ *   · `answer` (floor only) — the coordinator approves or declines their own crew's skip ask with one tap (owner
+ *     2026-11-05), through the ONE accept path (`decideSuggestion`), which skips the part exactly as the floor's Skip.
  *
  * One revalidate per change for the guests (`liveDayTag` — the cached Event Hub copies wear it; the schedule write
  * moves the event's stamp too). No live connection is opened for anyone.
  */
 export async function floorChangeSchedule(
   eventId: string,
-  change: ScheduleChange,
+  change: ScheduleChange | CrewAskAnswer,
   via: 'floor' | 'crew' = 'floor',
 ): Promise<FloorActionResult & { locked?: string | null; moved?: readonly string[] }> {
+  if (change.op === 'answer' && via !== 'floor') return { ok: false, error: 'Only the coordinator answers the crew’s asks.' };
   let supabase;
   let userId: string;
   if (via === 'crew') {
@@ -129,7 +133,37 @@ export async function floorChangeSchedule(
     if (feeBlocked) return { ok: false, error: feeBlocked as string };
     const allowed = await mayAdvance({ user: supabase as never, admin: createAdminClient() as never }, user.id, eventId);
     if (!allowed) return { ok: false, error: 'The hosts haven’t lent you the schedule to change — ask them for The Day = Edit.' };
+    if (change.op === 'answer') {
+      // Only the coordinator's OWN crew's ask: the answer row is then written on the service role (the coordinator
+      // holds no UPDATE on a request row); the skip itself still runs on their own session.
+      const admin = createAdminClient();
+      const { data: ask } = await admin
+        .from('event_schedule_suggestions')
+        .select('suggestion_id')
+        .eq('suggestion_id', change.suggestionId)
+        .eq('event_id', eventId)
+        .eq('kind', 'skip')
+        .eq('status', 'open')
+        .eq('vendor_profile_id', profile?.vendor_profile_id ?? '')
+        .maybeSingle();
+      if (!ask) return { ok: false, error: 'That ask was already answered.' };
+      let outcome: string;
+      try {
+        outcome = await decideSuggestion(supabase, user.id, eventId, change.suggestionId, change.accept ? 'accept' : 'decline', false, {
+          as: 'host',
+          answerAs: admin,
+        });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : 'Nothing changed — try again.' };
+      }
+      if (outcome !== 'done') return { ok: false, error: 'That ask was already answered.' };
+      revalidateTag(liveDayTag(eventId));
+      revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
+      revalidatePath(`/dashboard/${eventId}/schedule`);
+      return { ok: true, message: change.accept ? 'Skipped — the crew’s ask is approved' : 'Declined — the part stays on' };
+    }
   }
+  if (change.op === 'answer') return { ok: false, error: 'Only the coordinator answers the crew’s asks.' };
 
   const res = await changeTheSchedule(supabase, userId, eventId, change, via);
   if (!res.ok) return { ok: false, error: res.error, locked: res.locked ?? null };

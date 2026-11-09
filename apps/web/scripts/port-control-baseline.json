@@ -2770,6 +2770,7 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
+        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2898,6 +2899,8 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "Hidden",
+        "HubToolsPane",
+        "HubToolsSection",
         "Icon",
         "InPlaceFields",
         "InPlaceSwitch",
@@ -2967,6 +2970,7 @@
         "Say",
         "SayContext.Provider",
         "Says",
+        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2982,6 +2986,7 @@
         "SubmitOnChange",
         "SwipeToDelete",
         "SwitchForm",
+        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3586,22 +3591,27 @@
     },
     "/admin/help": {
       "files": [
+        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
       "destinations": [
         "/admin/events/[seg]",
-        "/admin/help?status=[seg]",
         "/admin/vendors/[seg]"
       ],
       "actions": [
+        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "FilterChip",
-        "PageMasthead",
-        "SubmitButton"
+        "ActionButton",
+        "ChatBox",
+        "ChatThreadHead",
+        "HelpMessageRow",
+        "HelpMessenger",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/hub-music": {
@@ -5087,13 +5097,48 @@
     },
     "/admin/work": {
       "files": [
+        "admin/work/_components/event-type-name-row.tsx",
+        "admin/work/_components/form-pick.tsx",
+        "admin/work/_components/supplier-inbox.tsx",
+        "admin/work/_components/work-row-head.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/help?m=[seg]"
+      ],
+      "actions": [
+        "createEventTypeRoster",
+        "openApplicationDocument",
+        "resolveRepostFlag",
+        "setEventTypeStatus",
+        "setFolderEventTypeOffered",
+        "settleCorrectionFromWorkList",
+        "settleHelpFromWorkList",
+        "settleVerificationFromWorkList"
+      ],
       "blocks": [
-        "QueuesTriageFeed"
+        "ActionButton",
+        "CardsBody",
+        "DocsBody",
+        "EventTypeNameRow",
+        "Fact",
+        "FormPick",
+        "FormRows",
+        "HTMLAnchorElement",
+        "Icon",
+        "InfoTip",
+        "Link",
+        "MsgsBody",
+        "NamesBody",
+        "PickMenu",
+        "Preview",
+        "QueuesTriageFeed",
+        "ReasonPick",
+        "SupplierInbox",
+        "TypedRow",
+        "TypesBody",
+        "WorkRowHead"
       ]
     },
     "/api/v1": {
@@ -8499,6 +8544,7 @@
         "Filter",
         "HTMLDivElement",
         "Link",
+        "LiveInboxRefresh",
         "PageMasthead",
         "PickMenu",
         "PillThumb",
@@ -11608,6 +11654,28 @@
         "UpdateSelfAddedSupplierResult"
       ]
     },
+    "/dev/admin-supplier-lab": {
+      "files": [
+        "dev/admin-supplier-lab/fixtures.ts",
+        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
+        "dev/admin-supplier-lab/page.tsx"
+      ],
+      "destinations": [
+        "/admin/verify",
+        "/dev/admin-supplier-lab?view=[seg]"
+      ],
+      "actions": [
+        "setHelpMessageStatus"
+      ],
+      "blocks": [
+        "HelpMessenger",
+        "HubToolsPane",
+        "LabSubmitCatcher",
+        "QueuesTriageFeed",
+        "SP",
+        "SupplierInbox"
+      ]
+    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -12945,6 +13013,7 @@
         "BottomNav",
         "BranchPanel",
         "CapacityCard",
+        "ChangeTheSchedule",
         "ChatAskLab",
         "ChatBox",
         "ChatOriginMark",
@@ -15650,6 +15719,8 @@
         "Suspense",
         "SwipeToDelete",
         "TheyToldYou",
+        "ThumbLayer",
+        "ThumbLayerContext.Provider",
         "ThumbRow",
         "TimeRow",
         "TypedRow",
@@ -16300,6 +16371,7 @@
         "BackButton",
         "ChatInbox",
         "Icon",
+        "LiveInboxRefresh",
         "PageMasthead",
         "SupplierChats",
         "SupplierChatsRead",
@@ -16595,6 +16667,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/crew-asks.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
@@ -16652,6 +16725,7 @@
         "ConsolePlate",
         "ConsoleRule",
         "Coverage",
+        "CrewAsks",
         "CueCard",
         "EventHubAnnounce",
         "EventHubBar",
@@ -16802,6 +16876,7 @@
         "withdrawPartnership"
       ],
       "blocks": [
+        "Fold",
         "FormFlash",
         "ListPageSkeleton",
         "PageMasthead",

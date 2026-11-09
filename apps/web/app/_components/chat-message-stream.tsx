@@ -33,6 +33,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
   fetchMessages,
+  fetchMessagesMasked,
   formatChatTimestamp,
   type ChatMessageRow,
   type ChatSenderRole,
@@ -80,17 +81,24 @@ import { AmendmentSuggestChip } from './amendment-suggest-chip';
 import type { DealEntry } from '@/lib/deal-entry';
 import type { AppointmentKind } from '@/lib/appointments';
 import {
-  ThreadViewSwitch,
-  DecisionsPanel,
   FilesPanel,
+  ReplyControls,
+  type ReplyContext,
   type SupplierReplyActions,
 } from './chat-thread-views';
+import { ChatPins } from './chat/chat-pins';
+import { ChatBlocker, type ChatBlockerProps } from './chat/chat-blocker';
+import { PlusDraft } from './chat/plus-draft';
+import { pinsFromDecisions, type PinFact } from '@/lib/chat-pins';
+import { HOSTS_ONLY } from '@/lib/money-mask';
+import type { RunningTopic } from '@/lib/chat-plus';
+import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { withThreadView, type ThreadView } from '@/lib/thread-view';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
   threadDecisionFacts,
-  decisionsNeedingYou,
   type GuestCountFact,
   type PaymentFact,
 } from '@/lib/thread-decisions';
@@ -140,7 +148,8 @@ type ProposalLineItem = {
 type ProposalCardData = {
   publicId: string;
   title: string;
-  totalCentavos: number;
+  /** Null = the server hid the amount from this reader ("₱ — hosts only"). */
+  totalCentavos: number | null;
   status: string;
   /**
    * `vendor_proposals.service_card_ids` — which service cards this quote was
@@ -275,6 +284,26 @@ type Props = {
    */
   supplierReplyActions?: SupplierReplyActions;
   /**
+   * 📌 SUPPLIER BUILD 3 · the automatic pins the PAGE knows and the stream cannot (a booking ask, an unset call time, a
+   * payment due, an access ask). The ones the conversation's own Decisions know — a logged payment, a guest-count
+   * change, an adjustment — the stream adds itself (`pinsFromDecisions`).
+   */
+  extraPins?: readonly PinFact[];
+  /** The answer drawn under a page pin when it opens (the shipped controls). */
+  pinBodies?: Readonly<Record<string, React.ReactNode>>;
+  /** 🚦 The full-screen blocker, when one is unanswered (its fact must also be in `extraPins`, as the red pin). */
+  blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
+  /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
+  plus?: { eventId: string; returnPath: string } | null;
+  /**
+   * 🔒 THE SERVER SAYS THIS READER'S AMOUNTS ARE HIDDEN (`chat_money_hidden` — a coordinator without Budget &
+   * payments, owner 2026-11-09 "₱ — hosts only" everywhere). The stream then reads messages, quotes and amendments
+   * ONLY through the masking readers (migration 20271333348826), so the amounts never arrive from those reads, and a
+   * realtime row is re-read through the reader instead of drawn from its payload. False for everyone else: the normal
+   * path is unchanged.
+   */
+  moneyHidden?: boolean;
+  /**
    * Where "Counter-offer" goes on a quote card. A URL rather than a callback —
    * the thread pages are server components and cannot pass functions across the
    * boundary. Omit it and the button does not render, which is what a surface
@@ -379,7 +408,6 @@ export function ChatMessageStream({
   viewerRole,
   counterpartyLabel,
   eventDate = null,
-  standing = null,
   decisionPayments = [],
   decisionGuestCounts = [],
   lockHandshake = null,
@@ -405,12 +433,22 @@ export function ChatMessageStream({
   headCalls = null,
   headNote = null,
   pins = null,
+  extraPins = [],
+  pinBodies,
+  blocker = null,
+  plus = null,
+  moneyHidden = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // 🔒 One read for the whole thread: through the masking reader when the server says the amounts are hidden.
+  const readThread = useCallback(
+    (client: typeof supabase, id: string) => (moneyHidden ? fetchMessagesMasked(client, id) : fetchMessages(client, id)),
+    [moneyHidden],
+  );
   /** Who is IN this chat now — the keys of this stream's own presence channel (`chat-presence-${threadId}`). */
   const [presentIds, setPresentIds] = useState<ReadonlySet<string>>(() => new Set());
   /**
@@ -497,12 +535,15 @@ export function ChatMessageStream({
     void (async () => {
       const reads = await Promise.all(
         pairs.map((m) =>
-          supabase
-            .from('vendor_proposals')
-            .select(QUOTE_VERSION_SELECT)
-            .eq('event_id', m.event_id)
-            .eq('vendor_profile_id', m.vendor_profile_id)
-            .neq('status', 'draft'),
+          moneyHidden
+            ? // 🔒 Masked reader: no version history with figures — "what changed" is a price story.
+              Promise.resolve({ data: [] as QuoteVersionRow[], error: null })
+            : supabase
+                .from('vendor_proposals')
+                .select(QUOTE_VERSION_SELECT)
+                .eq('event_id', m.event_id)
+                .eq('vendor_profile_id', m.vendor_profile_id)
+                .neq('status', 'draft'),
         ),
       );
       if (cancelled) return;
@@ -519,12 +560,25 @@ export function ChatMessageStream({
       // never appears in the thread, and both the couple and the supplier are
       // in that conversation waiting on it. The cost lands on whoever was
       // waiting, and neither of them can tell anything went wrong.
-      const { data, error } = await supabase
-        .from('vendor_proposals')
-        .select(
-          'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, service_card_ids',
-        )
-        .in('proposal_id', ids);
+      const { data, error } = moneyHidden
+        ? // 🔒 Through the masking reader, one per conversation pair — amounts arrive as null.
+          await Promise.all(
+            pairs.map((m) =>
+              supabase
+                .rpc('chat_quotes_read', { p_event_id: m.event_id, p_vendor_profile_id: m.vendor_profile_id })
+                .select('proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, service_card_ids')
+                .in('proposal_id', ids),
+            ),
+          ).then((rs) => {
+            const bad = rs.find((r) => r.error);
+            return bad ? { data: null, error: bad.error } : { data: rs.flatMap((r) => r.data ?? []), error: null };
+          })
+        : await supabase
+            .from('vendor_proposals')
+            .select(
+              'proposal_id, public_id, title, total_centavos, status, resolved_at, line_items, service_card_ids',
+            )
+            .in('proposal_id', ids);
       if (cancelled) return;
       if (error || !data) {
         if (error) console.error('[chat] proposal card read refused', error);
@@ -538,7 +592,7 @@ export function ChatMessageStream({
           resolved_at: string | null;
           public_id: string;
           title: string;
-          total_centavos: number;
+          total_centavos: number | null;
           status: string;
           line_items: ProposalLineItem[] | null;
           service_card_ids: unknown;
@@ -559,7 +613,7 @@ export function ChatMessageStream({
     return () => {
       cancelled = true;
     };
-  }, [messages, supabase]);
+  }, [messages, supabase, moneyHidden]);
 
   // Appointment cards (negotiation auto-reader Phase 1): a message with
   // appointment_id renders as a schedule request card. Fetch the appointment's
@@ -643,16 +697,20 @@ export function ChatMessageStream({
     if (ids.length === 0) return;
     let cancelled = false;
     void (async () => {
+      const amCols = 'amendment_id, status, raised_by, note, base_proposal_id, locked_at';
+      const itemCols = 'item_id, amendment_id, item_kind, label, amount_php, delivered_at, sort_order';
+      // 🔒 A masked reader reads both through the masking readers — amounts arrive as null.
       const [{ data: amRows }, { data: itemRows }] = await Promise.all([
-        supabase
-          .from('proposal_amendments')
-          .select('amendment_id, status, raised_by, note, base_proposal_id, locked_at')
-          .in('amendment_id', ids),
-        supabase
-          .from('proposal_amendment_items')
-          .select('item_id, amendment_id, item_kind, label, amount_php, delivered_at, sort_order')
-          .in('amendment_id', ids)
-          .order('sort_order', { ascending: true }),
+        moneyHidden
+          ? supabase.rpc('chat_amendments_read', { p_amendment_ids: ids }).select(amCols)
+          : supabase.from('proposal_amendments').select(amCols).in('amendment_id', ids),
+        moneyHidden
+          ? supabase.rpc('chat_amendment_items_read', { p_amendment_ids: ids }).select(itemCols)
+          : supabase
+              .from('proposal_amendment_items')
+              .select(itemCols)
+              .in('amendment_id', ids)
+              .order('sort_order', { ascending: true }),
       ]);
       if (cancelled || !amRows) return;
       const ams = amRows as Array<{
@@ -668,7 +726,8 @@ export function ChatMessageStream({
         new Set(ams.map((a) => a.base_proposal_id).filter((v): v is string => Boolean(v))),
       );
       const totalByProp = new Map<string, number>();
-      if (propIds.length > 0) {
+      if (propIds.length > 0 && !moneyHidden) {
+        // (A masked reader is never handed a base total — the card then reads "₱ — hosts only".)
         // The amendment TOTAL is money. A refused read leaves it absent rather
         // than wrong, but absent money in a negotiation reads as "no figure
         // agreed", so the reason is captured instead of swallowed.
@@ -723,12 +782,13 @@ export function ChatMessageStream({
     return () => {
       cancelled = true;
     };
-  }, [messages, supabase, negotiationOn]);
+  }, [messages, supabase, negotiationOn, moneyHidden]);
 
   // ---------------------------------------------------------------------------
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
-  const [view, setViewState] = useState<ThreadView>(initialView);
+  // Decisions left the stream (Build 3): open ones are pins, closed ones Details › Decisions.
+  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : initialView);
   /**
    * 📌 INSIDE A PICKED SHELL (v8.3, approved 9 Nov) there is no Chat · Decisions · Files row: the head's 📎 opens Files
    * and Decisions as ONE panel inside the pinned stack, and the conversation stays under it. A link that names
@@ -801,7 +861,6 @@ export function ChatMessageStream({
     ],
   );
 
-  const needsYouCount = useMemo(() => decisionsNeedingYou(decisions), [decisions]);
 
   /**
    * THE FILES THIRD, from `buildSharedFiles` (PR #5362) — the same builder the
@@ -832,6 +891,96 @@ export function ChatMessageStream({
     // view reads oldest-to-newest like the conversation it summarises.
     return [...rows].reverse();
   }, [messages, viewerRole, counterpartyLabel]);
+
+  // ---------------------------------------------------------------------------
+  // 📌 PINS · the Running topic · the blocker (Supplier Build 3 · lane B)
+  // ---------------------------------------------------------------------------
+  const replyCtx: ReplyContext = useMemo(
+    () => ({
+      threadId,
+      eventId: messages[0]?.event_id ?? plus?.eventId ?? '',
+      vendorProfileId: messages[0]?.vendor_profile_id ?? '',
+      returnPath:
+        plus?.returnPath ??
+        (viewerRole === 'couple' && messages[0]
+          ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
+          : `/vendor-dashboard/messages/${threadId}`),
+      eventDate,
+      supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
+    }),
+    [threadId, messages, plus, viewerRole, eventDate, supplierReplyActions],
+  );
+  const pinFacts = useMemo(
+    () => {
+      // The server's facts win: a change the page already derived (`adjustment:<id>`, the change-approval blocker) is
+      // not pinned a second time from the conversation's own Decisions.
+      const fromPage = new Set(extraPins.map((p) => p.key));
+      return [...extraPins, ...pinsFromDecisions(decisions, counterpartyLabel).filter((p) => !fromPage.has(p.key))];
+    },
+    [extraPins, decisions, counterpartyLabel],
+  );
+  const allPinBodies = useMemo(() => {
+    const out: Record<string, React.ReactNode> = { ...(pinBodies ?? {}) };
+    for (const e of decisions) {
+      if (e.reply && !out[e.key]) out[e.key] = <ReplyControls reply={e.reply} ctx={replyCtx} />;
+    }
+    return out;
+  }, [pinBodies, decisions, replyCtx]);
+
+  /**
+   * THE RUNNING TOPIC — the newest (+) card in this chat still waiting for its answer: a meeting proposed, a quote sent
+   * and not yet answered. Read from the live card rows (never the announcing message). Published to the (+)'s store,
+   * so the (+) is shut for its opener ("Finish or close: …").
+   */
+  const sentTopic: RunningTopic | null = useMemo(() => {
+    for (let k = messages.length - 1; k >= 0; k--) {
+      const m = messages[k]!;
+      if (m.appointment_id) {
+        const a = appointmentCards[m.appointment_id];
+        if (a && a.status === 'proposed') {
+          return {
+            key: `meeting:${m.appointment_id}`,
+            card: 'meeting',
+            title: `Meeting · ${a.label}`,
+            by: a.initiated_by === viewerRole ? 'you' : 'them',
+            byName: counterpartyLabel,
+            status: 'sent',
+            anchorId: `msg-${m.message_id}`,
+          };
+        }
+      }
+      if (m.proposal_id) {
+        const q = proposalCards[m.proposal_id];
+        if (q && (q.status === 'sent' || q.status === 'viewed')) {
+          return {
+            key: `quote:${m.proposal_id}`,
+            card: 'quote',
+            title: `Quote · ${q.title}`,
+            by: viewerRole === 'vendor' ? 'you' : 'them',
+            byName: counterpartyLabel,
+            status: 'sent',
+            anchorId: `msg-${m.message_id}`,
+          };
+        }
+      }
+    }
+    return null;
+  }, [messages, appointmentCards, proposalCards, viewerRole, counterpartyLabel]);
+  useEffect(() => {
+    patchPlus(threadId, { sent: sentTopic });
+  }, [threadId, sentTopic]);
+  const plusState = usePlus(threadId);
+  const running: RunningTopic | null = plusState.draft
+    ? {
+        key: 'draft',
+        card: plusState.draft.kind,
+        title: plusState.draft.kind === 'meeting' ? 'Meeting' : plusState.draft.kind[0]!.toUpperCase() + plusState.draft.kind.slice(1),
+        by: 'you',
+        status: 'draft',
+        anchorId: PLUS_DRAFT_ANCHOR,
+      }
+    : sentTopic;
+  const [blockerOpen, setBlockerOpen] = useState(true);
 
   // In-app path back to THIS thread page — the return target for negotiation
   // server actions (appointment create / respond redirect + revalidate here).
@@ -886,7 +1035,7 @@ export function ChatMessageStream({
     const refetchAll = async () => {
       void refetchHearts();
       try {
-        const fresh = await fetchMessages(supabase, threadId);
+        const fresh = await readThread(supabase, threadId);
         if (cancelled) return;
         setMessages(fresh);
       } catch (err) {
@@ -919,6 +1068,11 @@ export function ChatMessageStream({
             filter: `thread_id=eq.${threadId}`,
           },
           (payload) => {
+            // 🔒 A masked reader never draws a payload: the row is re-read through the masking reader.
+            if (moneyHidden) {
+              void refetchAll();
+              return;
+            }
             const row = payload.new as ChatMessageRow;
             setMessages((prev) => {
               // Guard against the same INSERT echoing twice (e.g. on a
@@ -939,6 +1093,10 @@ export function ChatMessageStream({
             filter: `thread_id=eq.${threadId}`,
           },
           (payload) => {
+            if (moneyHidden) {
+              void refetchAll();
+              return;
+            }
             const row = payload.new as ChatMessageRow;
             setMessages((prev) =>
               prev.map((m) => (m.message_id === row.message_id ? row : m)),
@@ -958,14 +1116,24 @@ export function ChatMessageStream({
             const row = payload.new as HeartRow | undefined;
             if (row && typeof row.message_id === 'string') setHearts((prev) => applyHeart(prev, row));
           },
-        )
-        .subscribe((status) => {
+        );
+      // 🔒 A masked reader is never SENT a line with an amount (the database withholds it — migration
+      // 20271333705710), so that line raises no INSERT here. Every shared line still moves the thread's own
+      // `updated_at`, and that UPDATE is the cue to re-read through the masking reader.
+      const watched = moneyHidden
+        ? channel.on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'chat_threads', filter: `thread_id=eq.${threadId}` },
+            () => void refetchAll(),
+          )
+        : channel;
+      watched.subscribe((status) => {
           // On (re)SUBSCRIBED — including reconnects after a network drop —
           // pull a fresh batch so we backfill anything missed while offline.
-          if (status === 'SUBSCRIBED') {
-            void refetchAll();
-          }
-        });
+        if (status === 'SUBSCRIBED') {
+          void refetchAll();
+        }
+      });
       return () => supabase.removeChannel(channel);
     });
 
@@ -973,7 +1141,7 @@ export function ChatMessageStream({
       cancelled = true;
       stop();
     };
-  }, [supabase, threadId]);
+  }, [supabase, threadId, readThread, moneyHidden]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new message (but only if the user was already at the bottom).
@@ -1205,7 +1373,7 @@ export function ChatMessageStream({
         void (async () => {
           let fresh: ChatMessageRow[] | null = null;
           try {
-            fresh = await fetchMessages(supabase, threadId);
+            fresh = await readThread(supabase, threadId);
           } catch {
             fresh = null;
           }
@@ -1227,7 +1395,7 @@ export function ChatMessageStream({
       window.removeEventListener(CHAT_PENDING_EVENT, onPending);
       window.removeEventListener(CHAT_SETTLED_EVENT, onSettled);
     };
-  }, [threadId, supabase, viewerRole]);
+  }, [threadId, supabase, viewerRole, readThread]);
 
   // A pending bubble leaves the moment its real row is in the thread.
   useEffect(() => {
@@ -1254,19 +1422,32 @@ export function ChatMessageStream({
           <>
             {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
-              THE SWITCH — above the conversation, at every width, on the routed thread pages. On a phone this
-              row may be the most useful thing on the screen: the whole standing of a
-              booking without scrolling a month of chat. It is never breakpoint-hidden.
+              📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
+              open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
+              closed ones live on Details › Decisions, and Files is the paperclip (one list for this booking).
               Inside a picked shell the head's 📎 carries it instead (v8.3: no second tab row under the page menu).
             */}
             {inPicked ? null : (
-              <ThreadViewSwitch
-                view={view}
-                onChange={setView}
-                decisionsCount={decisions.length}
-                needsYouCount={needsYouCount}
-                filesCount={files.length}
-              />
+            <div className="flex items-center justify-end px-1" data-chat-head-tools="">
+              <button
+                type="button"
+                onClick={() => setView(view === 'files' ? 'all' : 'files')}
+                aria-pressed={view === 'files'}
+                aria-label={`Files in this chat · ${files.length}`}
+                data-chat-files-clip=""
+                className="sn-press relative grid h-11 w-11 place-items-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
+              >
+                {(() => {
+                  const Clip = TOPIC_ICON.files;
+                  return <Clip aria-hidden className="h-5 w-5" strokeWidth={1.9} />;
+                })()}
+                {files.length > 0 ? (
+                  <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-cream">
+                    {files.length}
+                  </span>
+                ) : null}
+              </button>
+            </div>
             )}
           </>
         }
@@ -1307,6 +1488,26 @@ export function ChatMessageStream({
         </section>
       ) : null}
       {pins}
+      <ChatPins
+        threadId={threadId}
+        facts={pinFacts}
+        bodies={allPinBodies}
+        onBlocker={() => setBlockerOpen(true)}
+        running={running}
+        talking={plusState.talking}
+        onCloseTalking={() => patchPlus(threadId, { talking: null })}
+        eventDate={eventDate}
+      />
+      {blocker && blockerOpen ? (
+        <ChatBlocker
+          {...blocker}
+          threadId={threadId}
+          onReturn={() => {
+            setBlockerOpen(false);
+            patchPlus(threadId, { talking: { key: blocker.pinKey, title: blocker.title } });
+          }}
+        />
+      ) : null}
       {(() => {
         // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
         if (!fileExpiry?.eventDate) return null;
@@ -1343,34 +1544,7 @@ export function ChatMessageStream({
             headSlot,
           )
         : null}
-      {!inPicked && view === 'decisions' ? (
-        <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
-          <DecisionsPanel
-            entries={decisions}
-            standing={standing}
-            counterpartyLabel={counterpartyLabel}
-            needsYouCount={needsYouCount}
-            reply={{
-              threadId,
-              eventId: messages[0]?.event_id ?? '',
-              vendorProfileId: messages[0]?.vendor_profile_id ?? '',
-              // 🔑 THE REPLY LANDS BACK ON DECISIONS. Every reply action ends
-              // in redirect(return_path); without the view in it, answering
-              // the other side would drop you into the full chat after every
-              // tap. The actions revalidate the bare route (lib/return-path.ts)
-              // and redirect to this.
-              returnPath: withThreadView(
-                viewerRole === 'couple' && messages[0]
-                  ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
-                  : `/vendor-dashboard/messages/${threadId}`,
-                'decisions',
-              ),
-              eventDate,
-              supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
-            }}
-          />
-        </div>
-      ) : !inPicked && view === 'files' ? (
+      {!inPicked && view === 'files' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
           <FilesPanel files={files} />
         </div>
@@ -1505,7 +1679,9 @@ export function ChatMessageStream({
                     <>
                       <p className="mt-1 text-sm font-semibold text-ink">{card.title}</p>
                       <p className="text-sm text-ink/70">
-                        {card.totalCentavos > 0
+                        {card.totalCentavos == null
+                          ? HOSTS_ONLY
+                          : card.totalCentavos > 0
                           ? formatCentavos(card.totalCentavos)
                           : 'Price on request'}
                         {/* Owner, live 2026-09-20: "₱16,750 · Accepted ·
@@ -1787,6 +1963,7 @@ export function ChatMessageStream({
                     returnPath={returnPathFor(m)}
                     counterpartyLabel={counterpartyLabel}
                     lockHandshake={lockHandshake}
+                    moneyHidden={moneyHidden}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">
@@ -2028,6 +2205,8 @@ export function ChatMessageStream({
           const brk = timeBreakBefore(messages, i);
           return (
             <Fragment key={m.message_id}>
+              {/* The Running-topic pin's jump target (Build 3). */}
+              <li id={`msg-${m.message_id}`} aria-hidden className="h-0 scroll-mt-3" />
               {brk ? (
                 <li aria-hidden className="pb-1 pt-3 text-center text-[12px] text-ink/50" data-chat-time="">
                   {formatChatTimestamp(m.created_at)}
@@ -2088,6 +2267,18 @@ export function ChatMessageStream({
               <span className="h-1 w-1 animate-pulse rounded-full bg-ink/40 [animation-delay:240ms]" />
             </span>
           </div>
+        </li>
+      ) : null}
+      {/* ＋ The (+) card being filled — the opener's own until Send (Build 3). */}
+      {plus ? (
+        <li>
+          <PlusDraft
+            threadId={threadId}
+            side={viewerRole}
+            eventId={plus.eventId}
+            eventDate={eventDate}
+            returnPath={plus.returnPath}
+          />
         </li>
       ) : null}
     </ol>

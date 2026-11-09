@@ -77,8 +77,8 @@ async function seedQuote(
 ) {
   return one<string>(
     `INSERT INTO public.vendor_proposals
-       (vendor_profile_id, event_id, title, status, includes_setnayan_gift, resolved_at, total_centavos)
-     VALUES ($1, $2, 'Quote', $3, $4, $5, 5000000)
+       (vendor_profile_id, event_id, title, status, includes_setnayan_gift, resolved_at, total_centavos, valid_until)
+     VALUES ($1, $2, 'Quote', $3, $4, $5, 5000000, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7)
      RETURNING proposal_id`,
     [vendorProfileId, eventId, status, giftSwitch, resolvedAt],
   );

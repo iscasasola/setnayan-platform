@@ -1,5 +1,7 @@
 'use server';
 
+import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -203,10 +205,14 @@ export async function sendProposal(formData: FormData) {
   {
     const { data: draft } = await supabase
       .from('vendor_proposals')
-      .select('event_id, vendor_profile_id')
+      .select('event_id, vendor_profile_id, valid_until')
       .eq('proposal_id', proposalId)
       .eq('status', 'draft')
       .maybeSingle();
+    // 📅 No lifetime quotation (2026-11-09): a draft may be blank; sending it may not. The draft is kept.
+    if (draft && validUntilRefusal((draft as { valid_until?: string | null }).valid_until ?? null, manilaTodayIsoFor(Date.now()), null)) {
+      redirect(`/proposals/${publicId}?notice=send_needs_valid_until`);
+    }
     if (draft) {
       const { data: blocker, error: blockerErr } = await supabase.rpc('vendor_may_requote', {
         p_event_id: draft.event_id,
@@ -323,15 +329,18 @@ export async function respondToProposal(formData: FormData) {
   }
 
   revalidatePath(`/proposals/${publicId}`);
+  // ⏳ The database refuses accepting a quotation past its Valid until (`QUOTE_EXPIRED`, migration 20271332497337):
+  // say THAT, not "try again" — trying again can never work; the supplier sends a new one.
+  const failNotice = error ? (/QUOTE_EXPIRED/.test(error.message ?? '') ? 'quote_expired' : 'respond_failed') : null;
   // 4 Nov 2026 · "Accept the update" on the chat's quote card answers IN the conversation
   // (a save never resets the screen). Only this app's own thread paths are honoured —
   // never an outside URL.
   const returnTo = safeThreadReturn(formData.get('return_to'));
   if (returnTo) {
     revalidatePath(returnTo);
-    redirect(`${returnTo}${error ? '?notice=respond_failed' : ''}`);
+    redirect(`${returnTo}${failNotice ? `?notice=${failNotice}` : ''}`);
   }
-  redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
+  redirect(`/proposals/${publicId}${failNotice ? `?notice=${failNotice}` : ''}`);
 }
 
 /** A chat thread path on this app (couple or supplier side), or null. */

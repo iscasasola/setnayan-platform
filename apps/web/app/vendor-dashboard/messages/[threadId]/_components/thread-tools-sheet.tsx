@@ -8,32 +8,29 @@ import {
   BadgeCheck,
   Camera,
   ImageIcon,
-  CalendarClock,
   CalendarPlus,
   ChevronRight,
-  ListChecks,
-  Flag,
   Handshake,
-  Paperclip,
-  PlusCircle,
-  ReceiptText,
+  Plus,
   Star,
   Store,
-  Users,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
   THREAD_TOOL_GROUPS,
-  vendorThreadToolRows,
   type ThreadToolGroup,
   type VendorThreadLinkTool,
   type VendorThreadToolIcon,
   type VendorThreadToolsState,
 } from '@/lib/vendor-thread-tools';
+import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
+import { hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
+import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
+import { TOPIC_ICON } from '@/lib/topic-icons';
+import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
 
 /**
  * THE ＋ BESIDE THE MESSAGE FIELD — and the ONE sheet of every tool the conversation has (simpler supplier dashboard,
@@ -57,19 +54,20 @@ import { coupleThreadTools } from '@/lib/chat-box-tools';
  * for a `position: fixed` sheet drawn inside it.
  */
 
+// 🔣 One icon per topic (Build 3 · lane B): a row about a topic wears that topic's glyph from `TOPIC_ICON`.
 const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
-  quote: ReceiptText,
+  quote: TOPIC_ICON.quote,
   answer: Handshake,
-  payment: Wallet,
+  payment: TOPIC_ICON.payment,
   confirm: BadgeCheck,
-  schedule: CalendarClock,
-  file: Paperclip,
+  schedule: TOPIC_ICON.schedule,
+  file: TOPIC_ICON.files,
   offer: Store,
   deal: CalendarPlus,
-  guests: Users,
+  guests: TOPIC_ICON.details,
   outcome: Star,
-  problem: Flag,
-  questions: ListChecks,
+  problem: TOPIC_ICON.report,
+  questions: TOPIC_ICON.forms,
 };
 
 /** 📷 · 🖼 The composer's two shortcuts, drawn as the sheet's first rows (v8.3: camera and photo live inside the (+)). */
@@ -110,6 +108,8 @@ export type SheetRow = {
   reveal?: readonly string[];
   /** `true` / 'file' → the paperclip's input; 'camera' / 'photo' → the composer's shortcut inputs. */
   attach?: boolean | 'file' | 'camera' | 'photo';
+  /** Build 3 — the row drops this card into the chat (one at a time) instead of opening a tool. */
+  card?: PlusRow['card'];
 };
 
 /**
@@ -123,9 +123,16 @@ const SHORTCUT_ROWS: readonly SheetRow[] = [
   { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', icon: 'photo', shut: null, attach: 'photo' },
 ];
 
-function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; sheetMark: string }) {
+function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetRow[]; sheetMark: string; threadId?: string }) {
   const rows: readonly SheetRow[] = [...SHORTCUT_ROWS, ...ownRows];
   const [open, setOpen] = useState(false);
+  const plus = usePlus(threadId ?? '');
+  // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
+  // answer — the (+) is shut; a tap says which and jumps to it.
+  const running = plus.draft
+    ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
+    : plus.sent;
+  const gate = plusGate(running ?? null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const headingId = useId();
@@ -142,7 +149,7 @@ function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; shee
       );
       lastGroup = row.group;
     }
-    const Icon = SHEET_ICON[row.icon];
+    const Icon = row.card ? TOPIC_ICON[PLUS_CARD_TOPIC[row.card]] : SHEET_ICON[row.icon];
     const shut = row.shut;
     const lead = (
       <span
@@ -193,6 +200,12 @@ function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; shee
             type="button"
             className={`sn-press ${rowClass}`}
             onClick={() => {
+              if (row.card && threadId) {
+                setOpen(false);
+                patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
+                window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+                return;
+              }
               if (row.attach) {
                 // Inside the tap: a phone only opens a file picker from a user gesture.
                 document.getElementById(ATTACH_INPUT[row.attach === true ? 'file' : row.attach])?.click();
@@ -218,8 +231,9 @@ function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; shee
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
-          Tools
+          Add to the chat
         </h2>
+        <p className="mt-1 text-[13px] text-ink/60">A card lands in the chat. They fill their part there. One at a time.</p>
         <ul className="mt-1">{items}</ul>
       </div>
     </Sheet>
@@ -229,52 +243,134 @@ function ToolsSheetButton({ rows: ownRows, sheetMark }: { rows: SheetRow[]; shee
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Tools"
+        onClick={() => {
+          if (gate.shut) {
+            if (threadId) patchPlus(threadId, { toast: { text: gate.message, at: Date.now() } });
+            if (running) jumpTo(running.anchorId);
+            return;
+          }
+          setOpen(true);
+        }}
+        aria-label={gate.shut ? gate.message : 'Add to the chat'}
         aria-haspopup="dialog"
-        title="Tools"
+        title={gate.shut ? gate.message : 'Add to the chat'}
         data-thread-tools-open=""
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
+        data-plus-shut={gate.shut ? '' : undefined}
+        // ＋ v8.3: a FILLED 40-px circle — the brand fill with a white ＋; shut, it greys (the card it waits on is named).
+        // The 44-px target is the button; the circle is drawn inside it.
+        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
-        <PlusCircle aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
+        <span
+          aria-hidden
+          data-plus-circle=""
+          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-ink/[0.06] text-ink/35' : 'bg-sn-accent text-white'}`}
+        >
+          <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
+        </span>
       </button>
       {mounted ? createPortal(sheet, document.body) : null}
     </>
   );
 }
 
-/** The supplier's ＋ — every row of `VENDOR_THREAD_TOOLS`, grouped, with the shipped greyed/shut rules. */
-export function ThreadToolsSheet({ eventId, state }: { eventId: string; state: VendorThreadToolsState }) {
-  const rows: SheetRow[] = vendorThreadToolRows(state).map(({ tool, shut }) => ({
-    key: tool.key,
-    label: tool.label,
-    line: tool.line,
-    icon: tool.icon,
-    primary: tool.primary,
-    group: tool.group,
-    shut,
-    href: tool.link ? linkHref(tool, eventId) : undefined,
-    reveal: tool.reveal,
-    attach: tool.attach,
-  }));
-  return <ToolsSheetButton rows={rows} sheetMark="vendor" />;
+/**
+ * WHERE A CARD'S FULL PAGE IS — the shipped tool behind each (+) card (its "door"). The supplier's doors are keys of
+ * `VENDOR_THREAD_TOOLS`, so every shipped panel is still reached; the host's are their own pages. Literal hrefs live
+ * here (`lint-port-no-lost-controls` reads this route's doors).
+ */
+export type PlusDoor = { href?: string; reveal?: readonly string[]; attach?: boolean } | null;
+
+export function plusDoor(side: 'vendor' | 'couple', door: string | null, eventId: string): PlusDoor {
+  if (!door) return null;
+  if (side === 'couple') {
+    switch (door) {
+      case 'deal-or-meeting':
+        return { reveal: ['deal-or-meeting'] };
+      case 'share-file':
+        return { attach: true };
+      case 'host-payments':
+        return { href: `/dashboard/${eventId}/budget` };
+      case 'host-report':
+        return { href: `/dashboard/${eventId}/disputes` };
+      default:
+        return null;
+    }
+  }
+  const tool = VENDOR_THREAD_TOOLS.find((t) => t.key === door);
+  if (!tool) return null;
+  if (tool.link) return { href: linkHref(tool, eventId) };
+  if (tool.attach) return { attach: true };
+  return { reveal: tool.reveal };
+}
+
+/** Open a door — the same three ways a sheet row always opened its tool. */
+export function openPlusDoor(d: NonNullable<PlusDoor>): void {
+  if (d.attach) {
+    document.getElementById(CHAT_ATTACH_INPUT_ID)?.click();
+    return;
+  }
+  if (d.reveal) revealThreadTool(d.reveal);
+}
+
+function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: string, hasAgreement: boolean): SheetRow[] {
+  return rows.map((r) => {
+    const d = r.card ? null : plusDoor(side, r.door, eventId);
+    return {
+      key: r.key,
+      label: r.label,
+      line: r.line,
+      icon: r.key === 'report' ? 'problem' : 'file',
+      shut: r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null,
+      card: r.card,
+      href: d?.href,
+      reveal: d?.reveal,
+      attach: d?.attach,
+    };
+  });
 }
 
 /**
- * The couple's ＋ (chat prototype frame C) — "Deal or meeting" when the deal panel is mounted, and the ONE "Share a
- * file". `dealReveal` is `dealEntryFor(…).composer.reveal`, or null when the page mounts no deal panel.
+ * THE SUPPLIER'S (+) — Supplier Build 3 (owner 8 Nov, 📌): Quote · Payment · Meeting · Form · Photos & files ·
+ * Decision · Report a problem (last). What the app detects pins itself instead (`lib/chat-pins.ts`).
  */
-export function CoupleThreadToolsSheet({ dealReveal }: { dealReveal: readonly string[] | null }) {
-  const rows: SheetRow[] = coupleThreadTools(dealReveal).map((t) => ({
-    key: t.key,
-    label: t.label,
-    line: t.line,
-    icon: t.icon,
-    shut: null,
-    reveal: t.reveal,
-    attach: t.attach,
-  }));
-  return <ToolsSheetButton rows={rows} sheetMark="couple" />;
+export function ThreadToolsSheet({
+  eventId,
+  state,
+  threadId,
+  paid = false,
+}: {
+  eventId: string;
+  state: VendorThreadToolsState;
+  threadId?: string;
+  /** A payment is confirmed on the quote — Quote reads "Change quote" (the paid total is the floor). */
+  paid?: boolean;
+}) {
+  const rows = plusSheetRows(supplierPlusRows({ paid }), 'vendor', eventId, state.hasAgreement);
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
+}
+
+/**
+ * THE HOST'S (+) — Meeting · Log a payment · File · Decision · Report a problem (last). A coordinator with another
+ * supplier drops Log a payment (`canLogPayment` false).
+ */
+export function CoupleThreadToolsSheet({
+  dealReveal = null,
+  eventId,
+  threadId,
+  canLogPayment = true,
+}: {
+  dealReveal?: readonly string[] | null;
+  eventId: string;
+  threadId?: string;
+  canLogPayment?: boolean;
+}) {
+  // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
+  // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
+  const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment }), 'couple', eventId, true).map((r) =>
+    r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
+  );
+  return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;
 }
 
 /**

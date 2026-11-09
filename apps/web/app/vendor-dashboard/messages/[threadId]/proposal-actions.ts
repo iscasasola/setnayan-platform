@@ -53,6 +53,8 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   deal_locked: 'proposal_deal_locked',
   lock_requested: 'proposal_lock_requested',
   gift_refused: 'proposal_gift_refused',
+  // 📅 no lifetime quotation (2026-11-09).
+  needs_valid_until: 'proposal_needs_valid_until',
   failed: 'proposal_failed',
 };
 

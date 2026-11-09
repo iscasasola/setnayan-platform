@@ -42,6 +42,7 @@ import { revalidationTarget } from '@/lib/return-path';
 import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
 import { demoBookingRefusal } from '@/lib/demo-scope';
+import { askRefusal, LOCK_REFUSAL_WORDS } from '@/lib/supplier-locks';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -523,6 +524,25 @@ async function insertAmendment(
   return amendmentId;
 }
 
+/**
+ * 🔒 THE SUPPLIER LOCKED THIS QUOTATION (FINAL RULINGS 2026-11-09) — the hosts' counter-offer is refused BEFORE anything
+ * is written (the counter path declines the original first, so a refusal after that would lose it). The database
+ * refuses the insert too (`proposal_amendments_respect_the_lock`); this is the half that says why.
+ */
+async function refuseIfQuoteLocked(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ctx: ThreadRole,
+  back: string | null,
+  dest: string,
+): Promise<void> {
+  if (ctx.role !== 'couple') return;
+  const base = await latestProposal(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
+  if (!base) return;
+  if ((await askRefusal(supabase, 'quote', base.proposalId)) !== 'quote_locked') return;
+  if (back) redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(LOCK_REFUSAL_WORDS.quote_locked)}`);
+  redirect(dest);
+}
+
 /** createAmendmentFromChat — raise a bundled amendment. */
 export async function createAmendmentFromChat(formData: FormData): Promise<void> {
   const threadId = str(formData.get('thread_id'), 64);
@@ -547,6 +567,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
     }
     redirect(dest);
   }
+  await refuseIfQuoteLocked(supabase, ctx!, back, dest);
 
   const base = await latestProposal(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
   const n = items!.length;
@@ -624,6 +645,7 @@ export async function counterAmendmentFromChat(formData: FormData): Promise<void
 
   const eventVendorId = await resolveEventVendorId(supabase, ctx.thread.event_id, ctx.thread.vendor_profile_id);
   if (!eventVendorId) redirect(dest);
+  await refuseIfQuoteLocked(supabase, ctx!, back, dest);
 
   // Decline the original (counterparty + single-winner), then raise the counter.
   const { data: declined } = await supabase

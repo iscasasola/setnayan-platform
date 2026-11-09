@@ -171,6 +171,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // `revoked_by` (no FK), the admin who took back a free booking fee. Same blind spot; the stamp is nulled
   // (AUTHOR_UUID_NULLS).
   'shop_badge_rewards',
+  // The booking change log (2026-11-09, migration 20271329937802) — keyed by (event_id, vendor_profile_id); its one
+  // person column is `changed_by` (no FK), the actor who moved a value. Same blind spot; the stamp is nulled
+  // (AUTHOR_UUID_NULLS).
+  'booking_changes',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

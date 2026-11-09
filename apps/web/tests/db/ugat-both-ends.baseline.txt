@@ -50,9 +50,21 @@ notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with n
 # ADDED, from the regenerator — appointment-join.tsx was the LAST importer of thread-call-room.tsx. The file is KEPT on
 # purpose: deleting the call code is an open owner call, and lib/the-chat-has-no-calls.test.ts requires it to exist.
 # Pay it down by deleting the call stack when the owner rules. 41 -> 42.
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (6) ══
+# Supplier Build 3 · lane B 2026-11-09 (branch claude/supplier-build3-b): current_thread_ids PAID DOWN — migration
+# 20271330575424 gave the base migration's empty stub a body and the chat_messages / chat_threads / chat_thread_members
+# policies now call it. 5 rpc-no-caller rows ADDED, each with a NAMED payer — the lane's migrations land one commit
+# ahead of the UI that calls them, on the same branch, the E-Gifts wish-list staged shape:
+#   chat_thread_add_host · chat_thread_leave · thread_chat_hosts · chat_thread_my_left_note — paid down by the lane-B
+#     chat host strip (Add a host / Leave this chat / the left-note line); delete each row when its .rpc() lands;
+#   vendor_set_proposal_lock — paid down by the lane-B quotation / payment-plan lock toggle; delete its row there.
+# If the lane-B UI is dropped, drop these functions too. 42 -> 46.
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (10) ══
 component-no-mount	app/_components/thread-call-room.tsx	1	no runtime importer in any source file
-rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	chat_thread_add_host	1	no 'chat_thread_add_host' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	chat_thread_leave	1	no 'chat_thread_leave' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	chat_thread_my_left_note	1	no 'chat_thread_my_left_note' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	thread_chat_hosts	1	no 'thread_chat_hosts' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	vendor_set_proposal_lock	1	no 'vendor_set_proposal_lock' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it

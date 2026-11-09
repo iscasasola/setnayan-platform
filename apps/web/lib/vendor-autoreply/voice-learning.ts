@@ -41,6 +41,8 @@ export async function deriveVoiceFromOwnReplies(
       .eq('vendor_profile_id', vendorProfileId)
       .eq('sender_role', 'vendor')
       .eq('is_bot', false)
+      // 🔒 The AI never reads a private message (owner 2026-11-09) — shared lines only.
+      .is('recipient_user_id', null)
       .order('created_at', { ascending: false })
       .limit(VOICE_SAMPLE_LIMIT);
 

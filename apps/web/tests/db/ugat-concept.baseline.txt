@@ -57,7 +57,6 @@ event_vendor_* | map-backlog — the event↔vendor booking cluster (9 tables): 
 event_type_* | map-backlog — event-type vocab and onboarding config; likely belongs under the taxonomy node
 event_vendor_line_items | map-backlog — per-vendor budget line items
 songs | map-backlog — the song catalogue behind the song desk
-chat_messages | map-backlog — message bodies. Threads ARE mapped and their contents are not, which is an odd seam in the map.
 discount_codes | map-backlog — discount code system (parent table)
 discount_code_* | map-backlog — discount code eligibility and redemption
 booking_fee_* | map-backlog — booking fee charges and ledger

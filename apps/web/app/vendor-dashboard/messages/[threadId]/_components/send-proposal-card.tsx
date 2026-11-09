@@ -10,6 +10,7 @@ import {
 } from '@/lib/setnayan-gift';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { sendProposalFromChat } from '../proposal-actions';
+import { ValidUntilPicker } from '@/app/_components/valid-until-picker';
 import { resolveQuoteTotalCentavos } from '@/lib/quote-total';
 import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
@@ -36,6 +37,8 @@ type TemplateOption = Option & { defaultPackageId: string | null };
  */
 export function SendProposalCard({
   threadId,
+  eventDate = null,
+  todayIso,
   templates,
   packages,
   giftBasis = null,
@@ -43,6 +46,10 @@ export function SendProposalCard({
   papicStanding = null,
 }: {
   threadId: string;
+  /** The event day (yyyy-mm-dd) — a Valid until past it is not offered (📅 2026-11-09). */
+  eventDate?: string | null;
+  /** Manila today, from the server, so the picker and the send count from the same day. */
+  todayIso: string;
   templates: TemplateOption[];
   packages: PackageOption[];
   /**
@@ -215,12 +222,11 @@ export function SendProposalCard({
                 onChange={(e) => setTotalPhp(e.target.value)}
               />
             </label>
-            <label className="block space-y-1">
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Valid until (optional)
-              </span>
-              <input name="valid_until" type="date" className={field} />
-            </label>
+            <div className="block space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Valid until</span>
+              {/* 📅 No lifetime quotation (2026-11-09): required to send, the one shared picker. */}
+              <ValidUntilPicker todayIso={todayIso} eventDate={eventDate} />
+            </div>
           </div>
 
           <label className="block space-y-1">

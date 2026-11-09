@@ -18,18 +18,8 @@
  * in the shell). Code only — no data, no request to our server.
  */
 import type { ReactNode } from 'react';
-import {
-  CalendarDays,
-  ClipboardList,
-  Flag,
-  FolderOpen,
-  Info,
-  LayoutDashboard,
-  MessageSquare,
-  ReceiptText,
-  Wallet,
-  type LucideIcon,
-} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PickedShell } from '@/app/_components/picked/picked-shell';
 import { SUPPLIER_PICKED_LISTS } from '@/app/_components/picked/picked-motion';
 import type { PickedClientPage } from './picked-client-menu';
@@ -45,16 +35,17 @@ function warmEveryPage(): void {
   warmHubParts();
 }
 
+// 🔣 One icon per topic (Build 3 · lane B): the tab wears the same glyph as its pins, cards and Details rows.
 const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
-  details: Info,
-  chat: MessageSquare,
-  schedule: CalendarDays,
-  quote: ReceiptText,
-  payments: Wallet,
-  forms: ClipboardList,
-  files: FolderOpen,
-  hub: LayoutDashboard,
-  report: Flag,
+  details: TOPIC_ICON.details,
+  chat: TOPIC_ICON.chat,
+  schedule: TOPIC_ICON.schedule,
+  quote: TOPIC_ICON.quote,
+  payments: TOPIC_ICON.payment,
+  forms: TOPIC_ICON.forms,
+  files: TOPIC_ICON.files,
+  hub: TOPIC_ICON.hub,
+  report: TOPIC_ICON.report,
 };
 
 export const CLIENTS_LIST_HREF = '/vendor-dashboard/customers';

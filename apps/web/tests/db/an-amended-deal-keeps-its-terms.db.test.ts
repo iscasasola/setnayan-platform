@@ -48,7 +48,7 @@ async function newVendor(): Promise<{ vendorProfileId: string; userId: string }>
 async function newEvent(): Promise<string> {
   const r = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('A celebration', 'birthday', DATE '2026-11-12') RETURNING event_id`,
+     VALUES ('A celebration', 'birthday', (NOW() AT TIME ZONE 'Asia/Manila')::date + 60) RETURNING event_id`,
   );
   return r.rows[0]!.event_id;
 }
@@ -66,8 +66,8 @@ async function newBooking(eventId: string, vendorProfileId: string): Promise<str
 
 async function newProposal(eventId: string, vendorProfileId: string): Promise<string> {
   const r = await db.query<{ proposal_id: string }>(
-    `INSERT INTO public.vendor_proposals (event_id, vendor_profile_id, title, status)
-     VALUES ($1, $2, 'Photography — full day', 'sent') RETURNING proposal_id`,
+    `INSERT INTO public.vendor_proposals (event_id, vendor_profile_id, title, status, valid_until)
+     VALUES ($1, $2, 'Photography — full day', 'sent', (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id`,
     [eventId, vendorProfileId],
   );
   return r.rows[0]!.proposal_id;

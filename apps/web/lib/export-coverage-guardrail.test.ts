@@ -344,6 +344,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
   concierge_abuse_flags:
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
+  chat_decision_topics:
+    'A chat\'s shared decision topic (a title, open or closed) — every member of the conversation reads, closes and reopens it; opened_by_user_id / closed_by_user_id only stamp who pressed (same call as communities.created_by). The topic\'s substance is the chat lines, which the export already carries; erasure nulls both stamps (lib/erasure/coverage.ts).',
   chat_message_flags:
     'Anti-abuse enforcement record (off-platform-contact block) — metadata only (categories + timestamp of a blocked message, NEVER the text); exporting it hands the subject the exact filter triggers to evade (NPC investigation carve-out, same rule as concierge_abuse_flags). sender_user_id is the blocked sender.',
   concierge_brain_chunks:

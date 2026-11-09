@@ -30,7 +30,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Check, Share, Share2 } from 'lucide-react';
+import { Check, Share } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { shareInvite } from '../guests/_components/send-invite';
@@ -162,7 +162,7 @@ export function SupplierShareButton({
         <ActionButton
           tone="neutral"
           iconOnly={iconOnly}
-          icon={Share2}
+          icon={Share}
           label={busy ? 'Getting it ready…' : iconOnly ? `Share ${vendorName}'s invite` : 'Share'}
           onClick={() => void press()}
           disabled={busy}

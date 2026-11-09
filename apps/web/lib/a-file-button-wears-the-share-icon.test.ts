@@ -13,7 +13,8 @@ import { stripComments } from './strip-comments';
  * Every control that hands the person a FILE (the Guests Excel, prints, exports, budget CSV, calendar files, QR /
  * pass / ticket saves, PDFs, zips, reels saved to the phone) opens the phone's share sheet — so it wears lucide
  * `Share` (the box with the up arrow), the mark the Guests "Save as Excel" ≡ choice already wore. Never the
- * download arrow, and never `Share2` (the app's "share a link" node). The WORDS stay ("Save PDF", "Budget (.csv)");
+ * download arrow, and never `Share2` (since 10 Nov 2026 every share button wears `Share` too — see
+ * `share-buttons-use-one-icon.test.ts`). The WORDS stay ("Save PDF", "Budget (.csv)");
  * only the mark changed. An icon that names WHAT the file is (CalendarPlus on "Add to calendar", Table2 on the tag
  * list, Printer on a printable) is not a download arrow and stays.
  *

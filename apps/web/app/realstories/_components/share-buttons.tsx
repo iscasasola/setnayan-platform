@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Link2, Check, Share2 } from 'lucide-react';
+import { Link2, Check, Share } from 'lucide-react';
 
 /**
  * ShareButtons — one-tap sharing for a Real Story editorial.
@@ -122,7 +122,7 @@ export function ShareButtons({
             aria-label="Share this story with an app on your phone"
             className={iconBtn}
           >
-            <Share2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            <Share aria-hidden className="h-3 w-3" strokeWidth={1.75} />
           </button>
         ) : null}
         <button

@@ -32,3 +32,12 @@ test('a row without a title says the link host', () => {
   assert.equal(videoRowName('https://vimeo.com/2', { 'https://vimeo.com/2': 'Teaser' }), 'Teaser');
   assert.equal(videoRowName('https://vimeo.com/2', null), 'vimeo.com');
 });
+
+test('the save writes titles only when the editor read them, keyed by the stored link', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const src = readFileSync(join(import.meta.dirname, '..', 'app/vendor-dashboard/actions.ts'), 'utf8');
+  const arm = src.slice(src.indexOf("case 'gallery_videos': {"), src.indexOf('default:', src.indexOf("case 'gallery_videos': {")));
+  assert.match(arm, /if \(formData\.get\('gallery_video_titles_sent'\) === '1'\) \{/, 'titles are written even when the editor never read them');
+  assert.match(arm, /gallery_video_titles: videoTitlesFor\(links, pairs\)/, 'titles are not keyed by the stored links');
+});

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
@@ -440,9 +441,9 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           label="Orders needing a quote"
         />
         {/* 💸 Refunds SUPPLIERS recorded giving their clients — a read-only list of its own (no write, no money moves). */}
-        <a href="/admin/payments/supplier-refunds" className="sn-chip" data-supplier-refunds-door="">
+        <Link href="/admin/payments/supplier-refunds" className="sn-chip" data-supplier-refunds-door="">
           Supplier refunds
-        </a>
+        </Link>
       </nav>
 
       {filter !== 'orders_needing_quote' ? (

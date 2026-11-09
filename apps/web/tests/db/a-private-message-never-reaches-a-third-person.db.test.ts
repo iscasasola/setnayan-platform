@@ -278,6 +278,10 @@ test('notices: every AFTER INSERT trigger on chat_messages is one this lane judg
 const AUDITED_AFTER_TRIGGERS: string[] = [
   // Fires for shared rows only (WHEN, 20271329968207) — asserted above.
   'chat_messages_notify_webhook → notify_chat_message_webhook',
+  // ⚡ The content-free live ping (20271328682743; ids only, never the body). Since 20271334537840 a private row pings
+  // its recipient ONLY and a shared row pings the people in the chat — run in
+  // chat-pings-reach-only-their-people.db.test.ts ('a private line pings its one reader').
+  'chat_messages_ping_recipients → chat_messages_ping_recipients',
   // "Only the recipient is notified" (20271333348826): ONE in-app row for
   // recipient_user_id, no words copied, WHEN recipient_user_id IS NOT NULL — asserted
   // above and in the notices test.

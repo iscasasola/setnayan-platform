@@ -32,6 +32,9 @@
  *   2. only if so, and only when the action belongs to an area,
  *      `public.moderator_area_level(event_id, area)` — the SAME function the
  *      19 area-gated tables' write policies ask (`= 'edit'`).
+ * And a third (8 Nov 2026): `public.supplier_proposes_only(event_id)` — a booked supplier who is NOT the coordinator
+ * sees and proposes; every write through the hosts' screens is refused with where to propose it
+ * ({@link supplierProposesRefusal}).
  * Never re-derived in TypeScript, so the server action and the database cannot
  * disagree about who a helper is or what they were given. A co-host, the
  * creator, a hired planner and everybody else are answered by question 1 and
@@ -83,6 +86,18 @@ export function limitedHelperAreaRefusal(area: DelegateArea | null): string {
   return area ? `You can view ${AREA_IN_A_SENTENCE[area]} but not change it.` : LIMITED_HELPER_REFUSAL;
 }
 
+/**
+ * ✋ A SUPPLIER WHO IS NOT THE COORDINATOR (owner 8 Nov 2026: *"any supplier that is not a coordinator still has to
+ * request a host or coordinator to accept the change"*). The database already refuses their write (the supplier cap in
+ * `moderator_area_level`, migration 20271329978605) — but a refused UPDATE under RLS is an EMPTY SUCCESS, and a
+ * service-role action is not fenced by RLS at all, so the action must refuse first and SAY where the change goes.
+ */
+export function supplierProposesRefusal(area: DelegateArea | null): string {
+  return area
+    ? `You can see ${AREA_IN_A_SENTENCE[area]}. Changes go to the host or the coordinator — propose it from your client page.`
+    : 'Changes to this event are the host’s and the coordinator’s. Ask them from your client page.';
+}
+
 /** The access check itself did not happen (network, 5xx). Retryable — never read as "allowed". */
 export const LIMITED_HELPER_CHECK_FAILED = 'We could not confirm your access just now. Please try again.';
 
@@ -96,7 +111,7 @@ export function isEventIdShape(v: unknown): v is string {
 /** The slice of a Supabase client the gate needs. */
 export type LimitedHelperRpcClient = {
   rpc: (
-    fn: 'is_limited_helper' | 'moderator_area_level',
+    fn: 'is_limited_helper' | 'moderator_area_level' | 'supplier_proposes_only',
     args: { p_event_id: string; p_area?: string },
   ) => PromiseLike<{ data: unknown; error: unknown }>;
   /**
@@ -196,16 +211,21 @@ export async function limitedHelperRefusalWith(
   area: DelegateArea | null,
 ): Promise<string | null> {
   if (!isEventIdShape(eventId)) return null;
-  // Both questions at once — one round trip, not two (a host's every save asks them).
-  const [helper, seat] = await Promise.all([
+  // The questions at once — one round trip, not three (a host's every save asks them).
+  const [helper, seat, proposes] = await Promise.all([
     client.rpc('is_limited_helper', { p_event_id: eventId }),
     client.ownSeatLevel(eventId),
+    client.rpc('supplier_proposes_only', { p_event_id: eventId }),
   ]);
   if (helper.error) return LIMITED_HELPER_CHECK_FAILED;
   if (helper.data !== true) {
     // 🔑 Not a 'viewer' seat — but a coordinator the hosts set to LIMITED is the same grant on her own seat.
     if (seat.error) return LIMITED_HELPER_CHECK_FAILED;
-    if (seat.data !== 'limited') return null;
+    if (seat.data !== 'limited') {
+      // ✋ A booked supplier who is not the coordinator proposes; they never write through the hosts' screens. An
+      // unanswered check here lets the action run (it does not widen anything: the database caps the seat itself).
+      return proposes.data === true ? supplierProposesRefusal(area) : null;
+    }
   }
   if (area === null) return LIMITED_HELPER_REFUSAL;
   const level = await client.rpc('moderator_area_level', { p_event_id: eventId, p_area: area });

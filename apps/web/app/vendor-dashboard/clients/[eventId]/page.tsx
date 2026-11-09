@@ -82,12 +82,16 @@ import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-special
 // The coordinator's ask, reused exactly as the live floor console mounts it —
 // same component, same action, same host-side answering screen.
 import { AskAccess } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access';
-import {
-  fetchMyAreaGrants,
-  fetchMyPendingAsk,
-} from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
+import { fetchMyAreaGrants, fetchMyPendingAsk } from '@/lib/my-area-grants.server';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
-import { isCoordinatorTrade } from '@/lib/coordinator-trade';
+import { readMyLastAccessAnswer } from '@/lib/my-access-ask.server';
+import { readAsksForCoordinator } from '@/lib/coordinator-answers.server';
+import { CoordinatorAnswers } from './_components/coordinator-answers';
+import { ProposeChange } from './_components/propose-change';
+import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
+import { readMyChangeRequests, readOpenChangeRequests, readProposeTargets } from '@/lib/change-requests.server';
+import { proposableOps } from '@/lib/change-requests';
+import { isBookedCoordinator } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -664,8 +668,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // is. Booking is the other half and it is already established: everything
   // below this point renders only when `isBooked`, and the RPC re-checks both
   // regardless — this decides what to DRAW, never what is permitted.
-  const isBookedCoordinator =
-    isBooked && isCoordinatorTrade((profile as { services?: string[] | null }).services);
+  // 🧭 THE ONE FACT (owner 8 Nov 2026): booked AND the coordinator trade — `isBookedCoordinator`, the TS mirror of
+  // `public.is_booked_coordinator(event)` (migration 20271329284628). Never the `wedding_planner_external` seat.
+  const theBookedCoordinator = isBookedCoordinator({
+    booked: isBooked,
+    services: (profile as { services?: string[] | null }).services,
+  });
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
@@ -681,9 +689,27 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // The component, the action and the host's answering screen are all reused
   // untouched. Only booked suppliers may ask (the action re-checks it server
   // side against the booking pool, so this is a display rule, not the gate).
-  const [myGrants, myPendingAsk] = isBooked
-    ? await Promise.all([fetchMyAreaGrants(eventId), fetchMyPendingAsk(eventId)])
-    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null];
+  // …and the last ANSWER (owner 8 Nov 2026: the supplier sees what they asked for and what they got) — the third read
+  // of the same round trip.
+  // 🤝 …and, for the BOOKED COORDINATOR only, the other suppliers' asks waiting on them (owner 8 Nov 2026: "only
+  // coordinator and hosts has the final say") — a fourth read in the same round trip, never for anybody else.
+  // ✍️ …and the suppliers' proposed changes waiting on the coordinator (a fifth read, the coordinator only).
+  const [myGrants, myPendingAsk, myLastAnswer, asksForMe, changesForMe] = isBooked
+    ? await Promise.all([
+        fetchMyAreaGrants(eventId),
+        fetchMyPendingAsk(eventId),
+        readMyLastAccessAnswer(supabase, eventId, user.id),
+        theBookedCoordinator ? readAsksForCoordinator(supabase, eventId) : Promise.resolve(null),
+        theBookedCoordinator ? readOpenChangeRequests(supabase, eventId) : Promise.resolve(null),
+      ])
+    : [{} as Partial<Record<DelegateArea, 'edit' | 'view' | null>>, null, null, null, null];
+  // ✍️ A supplier who is NOT the coordinator, holding the guest list, the seat plan or the suppliers, PROPOSES changes
+  // (owner 8 Nov 2026). Their composer's targets and their own changes — one more round trip, only for them.
+  const proposeOps = isBooked && !theBookedCoordinator ? proposableOps(myGrants) : [];
+  const [proposeTargets, myChanges] =
+    proposeOps.length > 0
+      ? await Promise.all([readProposeTargets(supabase, eventId, proposeOps), readMyChangeRequests(supabase, eventId, user.id)])
+      : [null, null];
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
@@ -1916,16 +1942,42 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
    * sentence is not a mechanism. Defined here, used twice, so the two cannot
    * drift again.
    */
-  const askBlock =
-    isBooked && (askableAreas.length > 0 || myPendingAsk) ? (
-      <div className="mt-4">
-        <AskAccess
+  const askBlock = isBooked ? (
+    <div className="mt-4 space-y-4">
+      <AskAccess
+        eventId={eventId}
+        askable={askableAreas}
+        pendingAreas={myPendingAsk?.requestedAreas ?? null}
+        held={myGrants}
+        lastAnswer={myLastAnswer}
+        askerIsCoordinator={theBookedCoordinator}
+      />
+      {asksForMe ? (
+        <CoordinatorAnswers
           eventId={eventId}
-          askable={askableAreas}
-          pendingAreas={myPendingAsk?.requestedAreas ?? null}
+          asks={asksForMe.asks}
+          measured={asksForMe.measured}
+          shareable={(Object.keys(myGrants) as DelegateArea[]).filter((a) => myGrants[a])}
+          changes={
+            changesForMe && (!changesForMe.measured || changesForMe.rows.length > 0) ? (
+              <ChangeRequestsQueue eventId={eventId} rows={changesForMe.rows} measured={changesForMe.measured} />
+            ) : null
+          }
         />
-      </div>
-    ) : null;
+      ) : null}
+      {proposeTargets && myChanges ? (
+        <ProposeChange
+          eventId={eventId}
+          ops={proposeOps}
+          guests={proposeTargets.guests}
+          tables={proposeTargets.tables}
+          suppliers={proposeTargets.suppliers}
+          mine={myChanges.rows}
+          measured={proposeTargets.measured && myChanges.measured}
+        />
+      ) : null}
+    </div>
+  ) : null;
 
   const pipelineBlock = (
     <div className="mt-3">
@@ -2093,7 +2145,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         brief={brief}
         allBlocks={allBlocks}
         runOfShowBlocks={runOfShowBlocks}
-        canAdvance={isBookedCoordinator}
+        canAdvance={theBookedCoordinator}
         callTime={callTime}
         callTimeAlreadyRequested={callTimeAlreadyRequested}
         supplierPart={supplierPart}

@@ -4075,6 +4075,38 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * ✋ A SUPPLIER PROPOSES; A HOST OR THE COORDINATOR DECIDES (owner 8 Nov 2026: *"only coordinator and hosts has the
+     * final say. so any supplier that is not a coordinator still has to request a host or coordinator to accept the
+     * change"*; migrations 20271329284628 · 20271329978605 · 20271330396757 · 20271331202840). A booked supplier asks
+     * for parts (`event_access_requests`, now answerable by the booked coordinator when the asker is not one), and a
+     * granted non-coordinator's edit to the guest list, the seat plan or the suppliers is a row here until accepted.
+     */
+    id: 'J67',
+    claims: [
+      { kind: 'table', table: 'event_change_requests' },
+      { kind: 'fk', table: 'event_change_requests', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_change_requests', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'event_change_requests', column: 'payload' },
+      { kind: 'check', table: 'event_change_requests', name: 'event_change_requests_payload_ok', mentions: 'payload' },
+      { kind: 'check', table: 'event_change_requests', name: 'event_change_requests_op_in_area', mentions: 'area' },
+      { kind: 'column', table: 'event_access_requests', column: 'answerable_by_coordinator' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Booked supplier → asks for parts · proposes changes → a host or the coordinator decides',
+    joint: 'event_change_requests',
+    cardinality: 'Many asks and many proposed changes per supplier per event; each change names ONE guest, table move or supplier row',
+    implementedBy:
+      'event_access_requests.answerable_by_coordinator (forced at ask time) · event_change_requests (area · op · target_id · whitelisted payload) · moderator_area_level caps a supplier seat at view (supplier_proposes_only_for)',
+    writtenBy:
+      'askHostForAccess (the ask) · answerAccessRequest → answer_area_access_request (the answer, host or coordinator) · changeRequestAction (propose / withdraw / answer → answer_event_change_request, applied in place)',
+    guardedBy:
+      'is_booked_coordinator (the ONE coordinator fact) · the stamp_access_request_answerer trigger · change_request_payload_ok CHECK · answer_* refuse the asker/proposer and a Limited seat · tests/db/a-supplier-proposes-the-coordinator-decides.db.test.ts',
+    traps:
+      'A wedding_planner_external SEAT is not the coordinator — the answer door wrote that role for every supplier it let in; the trade (booked AND services_make_a_coordinator) is. A capped seat still STORES edit: read moderator_area_level, never permissions_json, or a screen will promise a write the database refuses.',
+  },
+  {
+    /**
      * 🃏 SERVICE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26, DECISION_LOG "SERVICE CARD CHECKS — FIX BEFORE
      * CREATE" + "ONE PHOTO, ONE SERVICE CARD" + "NO PRICE CHECK ON SERVICE CARDS AT ALL"; migration
      * …_service_card_checks_fix_before_create, rebuilt from the stale #6956 whose J57 was taken; J65 went to the Booked QR, J66 to notifications, J67 to event_change_requests #7405). The shipped maker draws

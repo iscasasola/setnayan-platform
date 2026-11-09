@@ -19,6 +19,7 @@ import {
 import { fileForceMajeureFlag } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Disputes' };
 
@@ -178,8 +179,10 @@ function NewFlagForm({
         <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Open a new dispute
       </summary>
-      <form
+      <StayForm
+        door="disputes.fileForceMajeureFlag"
         action={fileForceMajeureFlag}
+        resetOnSaved
         className="space-y-5 border-t border-ink/10 p-4"
       >
         <input type="hidden" name="event_id" value={eventId} />
@@ -278,7 +281,7 @@ function NewFlagForm({
         <SubmitButton className="button-primary" pendingLabel="Filing…">
           File flag
         </SubmitButton>
-      </form>
+      </StayForm>
     </details>
   );
 }

@@ -1,6 +1,7 @@
 import { Heart, Check, AlertCircle } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { recommendVendor } from '../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * Recommend-this-vendor card (Event Lifecycle Menu §6.3). Shown on the After
@@ -71,7 +72,7 @@ export function RecommendVendorCard({
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
             Added to your recommended suppliers
           </p>
-          <form action={recommendVendor} className="space-y-2">
+          <StayForm door="vendorReview.recommendVendor" action={recommendVendor} className="space-y-2">
             {hidden}
             <label
               className="block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
@@ -94,8 +95,8 @@ export function RecommendVendorCard({
                 Update endorsement
               </SubmitButton>
             </div>
-          </form>
-          <form action={recommendVendor}>
+          </StayForm>
+          <StayForm door="vendorReview.recommendVendor" action={recommendVendor}>
             {hidden}
             <input type="hidden" name="mode" value="withdraw" />
             <SubmitButton
@@ -104,10 +105,10 @@ export function RecommendVendorCard({
             >
               Remove recommendation
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
       ) : (
-        <form action={recommendVendor} className="space-y-2">
+        <StayForm door="vendorReview.recommendVendor" action={recommendVendor} className="space-y-2">
           {hidden}
           <label
             className="block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
@@ -128,7 +129,7 @@ export function RecommendVendorCard({
               Recommend {vendorName}
             </SubmitButton>
           </div>
-        </form>
+        </StayForm>
       )}
     </section>
   );

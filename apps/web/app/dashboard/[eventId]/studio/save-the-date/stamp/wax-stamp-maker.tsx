@@ -35,6 +35,7 @@ import {
 } from '@/lib/wax-seal/paint-webgl';
 import { saveWaxSeal } from '../wax-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 
 type Props = {
   eventId: string;
@@ -841,7 +842,7 @@ export function WaxStampMaker({
                   <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Try again
                 </button>
-                <form action={saveWaxSeal}>
+                <StayForm door="stdStamp.saveWaxSeal" action={saveWaxSeal}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="config" value={JSON.stringify(savedConfig)} />
                   <SubmitButton
@@ -851,7 +852,7 @@ export function WaxStampMaker({
                     <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     Love it — use this seal
                   </SubmitButton>
-                </form>
+                </StayForm>
               </div>
             </>
           )}

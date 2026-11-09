@@ -5,13 +5,15 @@ import { Check, MapPin } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * "USES" — which halls a card books (owner 2026-10-14 🏛 "Approve all", prototype "A card uses halls": the maker's
  * Schedule row becomes **Uses** — one list with checkmarks, pick one or more; "A + B · joined"). The card books every
  * hall it uses (`vendor_service_halls` → `resolvePoolIdsForService` → `acquire_schedule_pools`, all-or-nothing).
  *
- * Posts the shipped `setServiceHalls`; "Save" appears only when the ticks changed, so opening the list never writes.
+ * Posts the shipped `setServiceHalls` through its stay door (the card stays open — owner 2026-10-26 "a save never resets
+ * the screen"); "Save" appears only when the ticks changed, so opening the list never writes.
  * Shown on a card only when the shop has halls.
  */
 export function HallsUsesPick({
@@ -31,7 +33,7 @@ export function HallsUsesPick({
   const changed = picked.length !== uses.length || picked.some((p) => !uses.includes(p));
   const words = picked.length > 0 ? `${halls.filter((h) => picked.includes(h.poolId)).map((h) => h.name).join(' · ')}${picked.length > 1 ? ' · joined' : ''}` : 'Which halls this card books';
   return (
-    <form action={action} className="flex min-h-[60px] flex-wrap items-center gap-3 border-t border-ink/10 py-2" data-halls-uses={serviceId}>
+    <StayForm door="supCalendar.setServiceHalls" action={action} className="flex min-h-[60px] flex-wrap items-center gap-3 border-t border-ink/10 py-2" data-halls-uses={serviceId}>
       <input type="hidden" name="vendor_service_id" value={serviceId} />
       <input type="hidden" name="return_to" value="shop" />
       {picked.map((id) => (
@@ -53,6 +55,6 @@ export function HallsUsesPick({
         className="!min-h-11"
       />
       {changed ? <SupplierSubmit tone="brand" main icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Save" pendingLabel="Saving…" /> : null}
-    </form>
+    </StayForm>
   );
 }

@@ -72,7 +72,8 @@ test('a wedding seats your own name in YOUR slot — never the partner’s', () 
   const shell = stripComments(read(WEDDING));
   assert.match(
     shell,
-    /coupleCarry\.current \? seatCouple\(r, coupleCarry\.current, s\) : seatSelf\(r, selfName, s\)/,
+    // moveSelf = seatSelf for a first pick, and moves an untouched prefill on a re-pick (w-names-asks-which-one-is-you).
+    /coupleCarry\.current \? seatCouple\(r, coupleCarry\.current, s\) : moveSelf\(s\.role, r, selfName, s\)/,
     'a carried couple wins; otherwise only your own slot',
   );
   // The own slot offers the phone's saved name; the partner's stays off.

@@ -6,6 +6,7 @@ import { Drawer } from '@/app/dashboard/[eventId]/guests/_components/overlay-pri
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AddAlagaFields } from './add-alaga-fields';
 import { addDependent } from '../dependent-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * add-alaga-button.tsx — the alaga form stops living on the page.
@@ -27,11 +28,12 @@ import { addDependent } from '../dependent-actions';
  * focus trapping, Esc, the scrim and the reduced-motion freeze are the same code
  * the guest sheet uses.
  *
- * ⚠ The form posts to a SERVER ACTION that redirects. There is no onSubmit
- * handler closing the drawer, deliberately: a close-on-click would race the
- * submit and could dismiss the sheet while the save was still in flight. The
- * redirect re-renders the page with the drawer unmounted, which is the same
- * thing, in the right order.
+ * ⚠ The form posts to a SERVER ACTION that redirects. There is no close-on-click,
+ * deliberately: it would race the submit and could dismiss the sheet while the
+ * save was still in flight. Since 2026-11-08 it saves IN PLACE (owner 2026-10-26,
+ * "a save never resets the screen"): the `accPeople.addDependent` door answers,
+ * and only a save that LANDED closes the drawer (`onSaved`) — a refusal stays
+ * open, said under the form.
  */
 export function AddAlagaButton() {
   const [open, setOpen] = useState(false);
@@ -49,7 +51,7 @@ export function AddAlagaButton() {
 
       {open ? (
         <Drawer onClose={() => setOpen(false)} labelledById="add-alaga-heading">
-          <form action={addDependent} className="space-y-4">
+          <StayForm door="accPeople.addDependent" action={addDependent} onSaved={() => setOpen(false)} className="space-y-4">
             <h2 id="add-alaga-heading" className="text-base font-semibold text-ink">
               Add a loved one
             </h2>
@@ -70,7 +72,7 @@ export function AddAlagaButton() {
                 Cancel
               </button>
             </div>
-          </form>
+          </StayForm>
         </Drawer>
       ) : null}
     </>

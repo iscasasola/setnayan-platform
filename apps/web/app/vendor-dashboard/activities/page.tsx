@@ -13,6 +13,7 @@ import {
   toggleActivityOffered,
   updateActivity,
 } from './actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 export const metadata = { title: 'Your segments · Supplier' };
 
@@ -96,7 +97,7 @@ export default async function VendorActivitiesPage({
       ) : null}
 
       {/* Add */}
-      <form action={addActivity} className="space-y-3 border border-ink/10 bg-paper-deep p-4">
+      <StayForm door="supActivities.addActivity" action={addActivity} className="space-y-3 border border-ink/10 bg-paper-deep p-4">
         <h2 className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
           Add a segment
         </h2>
@@ -156,7 +157,7 @@ export default async function VendorActivitiesPage({
         >
           Add segment
         </button>
-      </form>
+      </StayForm>
 
       {/* The list */}
       <div className="space-y-3">
@@ -212,7 +213,7 @@ export default async function VendorActivitiesPage({
             {retired.map((a) => (
               <li key={a.activity_id} className="flex items-center justify-between gap-3">
                 <span className="text-sm text-ink/70">{a.label}</span>
-                <form action={toggleActivityOffered}>
+                <StayForm door="supActivities.toggleActivityOffered" action={toggleActivityOffered}>
                   <input type="hidden" name="activity_id" value={a.activity_id} />
                   <input type="hidden" name="is_offered" value="true" />
                   <button
@@ -221,7 +222,7 @@ export default async function VendorActivitiesPage({
                   >
                     Offer again
                   </button>
-                </form>
+                </StayForm>
               </li>
             ))}
           </ul>
@@ -252,7 +253,7 @@ function ActivityRow({
 }) {
   return (
     <li className="border border-ink/10 bg-white p-3">
-      <form action={updateActivity} className="space-y-2">
+      <StayForm door="supActivities.updateActivity" action={updateActivity} className="space-y-2">
         <input type="hidden" name="activity_id" value={activity.activity_id} />
         <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <input
@@ -304,12 +305,12 @@ function ActivityRow({
         >
           Save
         </button>
-      </form>
+      </StayForm>
 
       <div className="mt-2 flex items-center gap-2 border-t border-ink/10 pt-2">
         <MoveButton activityId={activity.activity_id} direction="up" disabled={isFirst} />
         <MoveButton activityId={activity.activity_id} direction="down" disabled={isLast} />
-        <form action={toggleActivityOffered} className="ml-auto">
+        <StayForm door="supActivities.toggleActivityOffered" action={toggleActivityOffered} className="ml-auto">
           <input type="hidden" name="activity_id" value={activity.activity_id} />
           <input type="hidden" name="is_offered" value="false" />
           <button
@@ -318,7 +319,7 @@ function ActivityRow({
           >
             Stop offering
           </button>
-        </form>
+        </StayForm>
       </div>
     </li>
   );
@@ -335,7 +336,7 @@ function MoveButton({
 }) {
   const Icon = direction === 'up' ? ChevronUp : ChevronDown;
   return (
-    <form action={reorderActivity}>
+    <StayForm door="supActivities.reorderActivity" action={reorderActivity}>
       <input type="hidden" name="activity_id" value={activityId} />
       <input type="hidden" name="direction" value={direction} />
       <button
@@ -346,6 +347,6 @@ function MoveButton({
       >
         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
       </button>
-    </form>
+    </StayForm>
   );
 }

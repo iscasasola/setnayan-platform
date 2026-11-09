@@ -10,6 +10,7 @@ import {
   deleteCoverage,
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * Coverage tab (v20 prototype structure — owner: "we had a prototype. follow
@@ -196,31 +197,33 @@ function YourCoverage({
                     ) : null}
                     <Tag className="h-3 w-3" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
                   </button>
-                  <form
+                  <StayForm
+                    door="svServices.deleteCoverage"
                     action={deleteCoverage}
                     className="inline-flex"
-                    onSubmit={(e) => {
-                      if (
-                        !confirm(
-                          `Remove "${c.leafLabel}"? This drops it from search` +
-                            (c.serviceCount > 0
-                              ? ` and unlinks its ${formatCount(c.serviceCount)} service card${c.serviceCount === 1 ? '' : 's'}.`
-                              : '.'),
-                        )
-                      )
-                        e.preventDefault();
-                    }}
                   >
                     <input type="hidden" name="coverage_id" value={c.id} />
+                    {/* The same "Remove …?" ask, on the press — the StayForm owns the form's submit (saves in place). */}
                     <button
                       type="submit"
+                      onClick={(e) => {
+                        if (
+                          !confirm(
+                            `Remove "${c.leafLabel}"? This drops it from search` +
+                              (c.serviceCount > 0
+                                ? ` and unlinks its ${formatCount(c.serviceCount)} service card${c.serviceCount === 1 ? '' : 's'}.`
+                                : '.'),
+                          )
+                        )
+                          e.preventDefault();
+                      }}
                       aria-label={`Remove ${c.leafLabel}`}
                       className="inline-flex h-4 w-4 items-center justify-center rounded-full"
                       style={{ color: 'var(--m-slate-3)' }}
                     >
                       <X className="h-3 w-3" strokeWidth={2} />
                     </button>
-                  </form>
+                  </StayForm>
                 </span>
               );
             })}
@@ -229,7 +232,8 @@ function YourCoverage({
       ))}
 
       {open ? (
-        <form
+        <StayForm
+          door="svServices.updateCoverageServes"
           action={updateCoverageServes}
           className="space-y-4 rounded-2xl border p-4"
           style={{ borderColor: 'var(--m-orange-3)', background: paper }}
@@ -288,7 +292,7 @@ function YourCoverage({
               Save
             </SubmitButton>
           </div>
-        </form>
+        </StayForm>
       ) : null}
     </div>
   );
@@ -374,8 +378,10 @@ function CoverageBrowse({
   if (leaf) {
     const path = `${parent?.label ?? ''} › ${branch?.label ?? ''}`;
     return (
-      <form
+      <StayForm
+        door="svServices.createCoverage"
         action={createCoverage}
+        onSaved={() => setLeaf(null)}
         className="space-y-4 rounded-2xl border p-4"
         style={{ borderColor: 'var(--m-orange-3)', background: paper }}
       >
@@ -439,7 +445,7 @@ function CoverageBrowse({
             Add coverage
           </SubmitButton>
         </div>
-      </form>
+      </StayForm>
     );
   }
 

@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { BadgeCheck, BellRing, CalendarClock, CalendarX2, Check, Clock, Share, MapPin, QrCode, Users, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE } from '@/lib/calendar-grid';
 import { blockDaysLine, capacityLine, closureWords, rangeWords, waitlistLine } from '@/lib/vendor-dates';
@@ -12,6 +11,7 @@ import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
 import { CalendarSheet, HallSheet, ShareTeamPick, type DatesService } from './dates-sheets';
+import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
 /**
  * 2026-10-14 (owner ✅ "APPROVE" — prototype `datesBody`, plain words): the folds are **Not available** (every
@@ -148,7 +148,8 @@ export function DatesFolds({
                   title={closureWords(c, today)}
                   line={[c.label, (c.repeat ?? 'once') !== 'once' ? (c.repeatUntil ? `until ${rangeWords(c.repeatUntil, c.repeatUntil, today)}` : 'repeats on its own') : '', c.scope].filter(Boolean).join(' · ')}
                   end={
-                    <ConfirmForm
+                    <StayConfirmForm
+                      door="supCalendar.removeBlock"
                       action={actions.removeBlock}
                       title="Open these days again?"
                       confirmLabel="Open them"
@@ -161,7 +162,7 @@ export function DatesFolds({
                       {back('block')}
                       <input type="hidden" name="block_id" value={c.blockId} />
                       <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" className="icon-only" />
-                    </ConfirmForm>
+                    </StayConfirmForm>
                   }
                 />
               ))
@@ -199,7 +200,7 @@ export function DatesFolds({
             ) : (
               <>
                 {/* The switch IS the submit: it posts the opposite of what it shows (works without script). */}
-                <form action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3" data-dates-waitlist-switch="">
+                <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3" data-dates-waitlist-switch="">
                   {back('waitlist')}
                   <input type="hidden" name="max_waitlist_acceptances" value={String(waitlist.cap)} />
                   <span className="min-w-0 flex-1">
@@ -217,12 +218,12 @@ export function DatesFolds({
                   >
                     <SwitchTrack on={waitlist.on} />
                   </button>
-                </form>
+                </StayForm>
                 {waitlist.on ? (
                   waitlist.unlimited ? (
                     <DatesRow data="waitlist-cap" title="How many a date" line="As many as are waiting — no limit on your plan" />
                   ) : (
-                    <form action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-waitlist-cap="">
+                    <StayForm door="supCalendar.updateWaitlistSettings" action={actions.updateWaitlistSettings} className="flex min-h-[60px] items-center gap-3 border-t border-ink/10" data-dates-waitlist-cap="">
                       {back('waitlist')}
                       <input type="hidden" name="waitlist_enabled" value="on" />
                       <span className="min-w-0 flex-1">
@@ -232,7 +233,7 @@ export function DatesFolds({
                         </span>
                       </span>
                       <FormCounter name="max_waitlist_acceptances" value={waitlist.cap} min={1} max={capMax} label="How many a date" saveAfterMs={900} data="waitlist-cap" />
-                    </form>
+                    </StayForm>
                   )
                 ) : null}
               </>
@@ -251,17 +252,17 @@ export function DatesFolds({
                     </span>
                   </span>
                   {waitlist.on ? (
-                    <form action={actions.pickWaitlistCouple}>
+                    <StayForm door="supCalendar.pickWaitlistCouple" action={actions.pickWaitlistCouple}>
                       {back('waitlist')}
                       <input type="hidden" name="requested_date" value={w.requestedDate} />
                       <SupplierSubmit tone="neutral" icon={<Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Pick" pendingLabel="Picking…" />
-                    </form>
+                    </StayForm>
                   ) : null}
-                  <form action={actions.notifyWaitlistSlot}>
+                  <StayForm door="supCalendar.notifyWaitlistSlot" action={actions.notifyWaitlistSlot}>
                     {back('waitlist')}
                     <input type="hidden" name="requested_date" value={w.requestedDate} />
                     <SupplierSubmit tone="neutral" icon={<BellRing aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Tell them" pendingLabel="Telling…" />
-                  </form>
+                  </StayForm>
                 </div>
               ))
             )}
@@ -402,11 +403,11 @@ export function DaysSettings({
                       {c.line ? ` · ${c.line}` : ''}
                     </span>
                   </span>
-                  <form action={actions.updatePoolCapacity} className="flex-none">
+                  <StayForm door="supCalendar.updatePoolCapacity" action={actions.updatePoolCapacity} className="flex-none">
                     {back('capacity')}
                     <input type="hidden" name="pool_id" value={c.poolId} />
                     <FormCounter name="capacity" value={c.capacity} min={1} max={Math.max(ceiling, c.capacity)} label={`${c.label} — how many a day`} saveAfterMs={900} data="capacity" />
-                  </form>
+                  </StayForm>
                 </div>
               ))
             )}

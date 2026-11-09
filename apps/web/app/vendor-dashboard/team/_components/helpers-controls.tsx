@@ -21,6 +21,7 @@ import { ChosenRow, FormRows, TypedRow, nudgeFormRows } from '@/app/_components/
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
+import { StayForm, useStaySubmit } from '@/app/_components/stay-form';
 
 type Action = (formData: FormData) => void | Promise<void>;
 
@@ -49,10 +50,12 @@ export function RolePick({
   /** The shipped `updateVendorTeamMember`. */
   action: Action;
 }) {
-  const form = useRef<HTMLFormElement>(null);
+  /* `StayForm` takes no ref — the form is the one this mark sits in. */
+  const mark = useRef<HTMLSpanElement>(null);
   const target = useRef<HTMLInputElement>(null);
   return (
-    <form ref={form} action={action} className="flex-none" data-helpers-role={memberId}>
+    <StayForm door="supTeam.updateVendorTeamMember" action={action} className="flex-none" data-helpers-role={memberId}>
+      <span ref={mark} hidden />
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <input type="hidden" name="team_label" value={teamLabel ?? ''} />
       <input ref={target} type="hidden" name="role" defaultValue={role} />
@@ -63,13 +66,13 @@ export function RolePick({
         onPick={(k) => {
           if (k === role || !target.current) return;
           target.current.value = k;
-          form.current?.requestSubmit();
+          mark.current?.closest('form')?.requestSubmit();
         }}
         dataAttr="data-helpers-role-pick"
         compact
         className="!min-h-11"
       />
-    </form>
+    </StayForm>
   );
 }
 
@@ -93,6 +96,12 @@ export function InviteHelperSheet({
   const mounted = usePortal();
   const headingId = useId();
   const form = useRef<HTMLFormElement>(null);
+  const stay = useStaySubmit('supTeam.inviteVendorTeamMember', () => {
+    setOpen(false);
+    setEmail('');
+    setLabel('');
+    setRole(defaultRole);
+  });
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
@@ -105,11 +114,17 @@ export function InviteHelperSheet({
           ref={form}
           action={action}
           className="mt-3"
+          data-stay="supTeam.inviteVendorTeamMember"
+          aria-busy={stay.pending || undefined}
           onSubmit={(e) => {
             if (!email.trim()) {
               e.preventDefault();
               nudgeFormRows(form.current ?? undefined);
+              return;
             }
+            // 💾 Saved in place (owner 2026-10-26 "a save never resets the screen"): the sheet closes on a landed
+            // invite; a refusal is said under the form, the sheet still open with what was typed.
+            stay.onSubmit(e);
           }}
         >
           <input type="hidden" name="role" value={role} />
@@ -147,6 +162,7 @@ export function InviteHelperSheet({
             />
           </div>
         </form>
+        {stay.refusal}
       </div>
     </Sheet>
   );

@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { Sparkles, Check } from 'lucide-react';
 import { readMonogramDraft, clearMonogramDraft, type MonogramDraft } from '@/lib/monogram-studio/draft';
 import { saveStudioAction } from './studio-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * MonogramDraftRestore — the dashboard half of the public→couple carry-through.
@@ -75,12 +76,12 @@ export function MonogramDraftRestore({ eventId, hasCustomMark }: { eventId: stri
             shows on your Event Hub, QR codes, and save-the-date.
           </p>
           <div className="mt-3.5 flex flex-wrap items-center gap-3">
-            <form action={saveStudioAction}>
+            <StayForm door="monogram.saveStudioAction" action={saveStudioAction}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="svg" value={draft.svg} />
               <input type="hidden" name="config" value={JSON.stringify(draft.config)} />
               <ApplyButton />
-            </form>
+            </StayForm>
             <button
               type="button"
               onClick={() => {

@@ -1,6 +1,6 @@
 /**
  * 📍 NO PAPIC CONTROL NAVIGATES ON A SAVE — every form on the Papic page (and in Home's Papic card, which draws the same
- * components) saves IN PLACE (`papic-stay-form.tsx` → `in-place-actions.ts`).
+ * components) saves IN PLACE (`papic-stay-form.tsx` → `in-place-actions.ts` → the app-wide door, `app/_actions/save-in-place.ts`).
  *
  * Owner, live 2026-10-26: *"saving minimum and maximum on papic resets the whole screen. this should not happen"* ·
  * *"when i turn of a challenge. it should just remove it"* · *"it jumped to a different page"*. Every Papic action ends
@@ -11,7 +11,8 @@
  *       MUST navigate, each listed with its reason;
  *   (2) the redirect an action ends in is read as an answer: news → saved in place; `…_error=` / `add=full` → said on
  *       the row in the page's own words; signed out / off the event → let through;
- *   (3) the door runs exactly the listed actions — no more, no fewer.
+ *   (3) the door runs exactly the listed actions — no more, no fewer — through Papic's own reader and the `photos` gate
+ *       (#6970's door, folded into the app-wide one with no change in behaviour).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,13 +73,21 @@ test('(2) a redirect is read as an answer — saved, refused (said), or let thro
 });
 
 test('(3) the door runs exactly the listed actions, and the form sends through it without navigating', () => {
-  const door = stripComments(readFileSync(join(PAPIC, 'in-place-actions.ts'), 'utf8'));
-  const body = door.slice(door.indexOf('const DOORS'), door.indexOf('};', door.indexOf('const DOORS')));
-  const listed = [...body.matchAll(/^\s*(\w+),$/gm)].map((m) => m[1]);
-  assert.deepEqual([...listed].sort(), [...PAPIC_DOORS].sort());
-  assert.match(door, /if \(answer === 'navigate'\) throw e;\s*return answer;/, 'the door no longer reads the redirect as an answer');
+  const WEB = join(PAPIC, '../../../../..');
+  const registry = stripComments(readFileSync(join(WEB, 'app/_actions/stay-registry/papic.ts'), 'utf8'));
+  const listed = [...registry.matchAll(/^\s*'papic\.(\w+)': papic\((\w+)\),$/gm)];
+  assert.deepEqual(listed.map((m) => m[1]).sort(), [...PAPIC_DOORS].sort(), 'the Papic registry and PAPIC_DOORS disagree');
+  for (const m of listed) assert.equal(m[1], m[2], `papic.${m[1]} runs ${m[2]}`);
+  /* No change in behaviour: Papic's own reader, Papic's own gate area. */
+  assert.match(registry, /const papic = kindRead\(papicInPlaceAnswer, 'photos'\);/, 'the Papic doors no longer read with papicInPlaceAnswer, or no longer gate on photos');
+  const door = stripComments(readFileSync(join(WEB, 'app/_actions/save-in-place.ts'), 'utf8'));
+  assert.match(door, /if \(answer === 'navigate'\) throw e;/, 'the door no longer lets a navigation through');
+  const spelling = stripComments(readFileSync(join(PAPIC, 'in-place-actions.ts'), 'utf8'));
+  assert.match(spelling, /return saveInPlace\(`papic\.\$\{door\}`, formData\);/, 'papicSaveInPlace no longer goes through the app-wide door');
+  assert.doesNotMatch(spelling, /^'use server'/, 'a second server door — Papic is one area of the app-wide door');
   const form = stripComments(readFileSync(join(PAPIC, '_components/papic-stay-form.tsx'), 'utf8'));
-  assert.match(form, /onSubmit=\{\(e\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
-  assert.match(form, /await papicSaveInPlace\(door, fd\)/);
-  assert.match(form, /role="alert"[^>]*data-papic-stay-error/, 'a refusal is not said on the row');
+  assert.match(form, /<StayForm door=\{`papic\.\$\{door\}`\} \{\.\.\.rest\} \/>/, 'PapicStayForm is no longer the app-wide StayForm');
+  const stay = stripComments(readFileSync(join(WEB, 'app/_components/stay-form.tsx'), 'utf8'));
+  assert.match(stay, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
+  assert.match(stay, /role="alert"[^>]*data-stay-error/, 'a refusal is not said on the row');
 });

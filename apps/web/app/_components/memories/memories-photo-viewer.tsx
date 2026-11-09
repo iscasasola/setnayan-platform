@@ -22,6 +22,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { addCandidates, type PhotoTagState } from '@/lib/memories-photo-tags';
 import { creditLine } from '@/lib/capture-credit-pure';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * THE EVENT'S MEMORIES, ONE PHOTO AT A TIME — owner 2026-10-30, live iPhone, on the old "YOUR UPLOAD" sheet (a 64 px
@@ -197,13 +198,14 @@ export function MemoriesPhotoViewer({
     body = <HidePanel eventId={eventId} item={item} supplier={supplier} back={back} onCancel={() => setPanel(null)} />;
   } else if (panel === 'delete') {
     body = (
-      <form action={deletePhotoForever.bind(null, eventId)} data-memories-delete-confirm="">
+      <StayForm door="memories.deletePhotoForever" action={deletePhotoForever.bind(null, eventId)} onSaved={onClose} data-memories-delete-confirm="">
+        <input type="hidden" name="event_id" value={eventId} />
         {back}
         <input type="hidden" name="table" value={item.table} />
         <input type="hidden" name="id" value={item.id} />
         <PanelHead title="Delete forever?" line="Delete this photo and every copy of it? This cannot be undone." />
         <DeleteConfirmRow onKeep={() => setPanel(null)} />
-      </form>
+      </StayForm>
     );
   } else if (panel === 'tag' && isTaggableTable(item.table)) {
     body = <TagPanel eventId={eventId} table={item.table} photoId={item.id} fixture={tagFixture} onDone={() => setPanel(null)} />;
@@ -264,7 +266,7 @@ function HidePanel({
 }) {
   if (item.memSource === 'suppliers' && supplier) {
     return (
-      <form action={setVendorCapturesHidden} data-memories-hide-confirm="supplier">
+      <StayForm door="memories.setVendorCapturesHidden" action={setVendorCapturesHidden} onSaved={onCancel} data-memories-hide-confirm="supplier">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="vendor_id" value={supplier.vendorRowId} />
         <input type="hidden" name="hidden" value={supplier.hidden ? '0' : '1'} />
@@ -281,12 +283,13 @@ function HidePanel({
             Cancel
           </button>
         </div>
-      </form>
+      </StayForm>
     );
   }
   if (item.look === 'screened') {
     return (
-      <form action={approveScreenedCapture.bind(null, eventId)} data-memories-hide-confirm="approve">
+      <StayForm door="memories.approveScreenedCapture" action={approveScreenedCapture.bind(null, eventId)} onSaved={onCancel} data-memories-hide-confirm="approve">
+        <input type="hidden" name="event_id" value={eventId} />
         {back}
         <input type="hidden" name="table" value={item.table} />
         <input type="hidden" name="id" value={item.id} />
@@ -299,12 +302,18 @@ function HidePanel({
             Keep it held
           </button>
         </div>
-      </form>
+      </StayForm>
     );
   }
   const hidden = item.look === 'hidden';
   return (
-    <form action={(item.table === 'papic_photos' ? setSeatPhotoHidden : setCaptureHidden).bind(null, eventId)} data-memories-hide-confirm={hidden ? 'show' : 'hide'}>
+    <StayForm
+      door={item.table === 'papic_photos' ? 'memories.setSeatPhotoHidden' : 'memories.setCaptureHidden'}
+      action={(item.table === 'papic_photos' ? setSeatPhotoHidden : setCaptureHidden).bind(null, eventId)}
+      onSaved={onCancel}
+      data-memories-hide-confirm={hidden ? 'show' : 'hide'}
+    >
+      <input type="hidden" name="event_id" value={eventId} />
       {back}
       <input type="hidden" name={item.table === 'papic_photos' ? 'photo_id' : 'capture_id'} value={item.id} />
       <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
@@ -321,7 +330,7 @@ function HidePanel({
           {hidden ? 'Keep it hidden' : 'Keep showing'}
         </button>
       </div>
-    </form>
+    </StayForm>
   );
 }
 
@@ -347,7 +356,8 @@ function MorePanel({
     <div data-viewer-more-panel="">
       <PanelHead title="More" />
       {canReport ? (
-        <form action={reportCapture.bind(null, eventId)} className="pb-3">
+        <StayForm door="memories.reportCapture" action={reportCapture.bind(null, eventId)} onSaved={onDone} className="pb-3">
+          <input type="hidden" name="event_id" value={eventId} />
           {back}
           <input type="hidden" name="capture_id" value={item.id} />
           <input type="hidden" name="reason" value={reason ?? ''} />
@@ -372,17 +382,23 @@ function MorePanel({
               <Flag aria-hidden className="h-4 w-4" strokeWidth={2} /> Send the report
             </button>
           ) : null}
-        </form>
+        </StayForm>
       ) : null}
       {item.guestId ? (
-        <form action={(blocked ? unblockUploader : blockUploader).bind(null, eventId)} className="pb-2">
+        <StayForm
+          door={blocked ? 'memories.unblockUploader' : 'memories.blockUploader'}
+          action={(blocked ? unblockUploader : blockUploader).bind(null, eventId)}
+          onSaved={onDone}
+          className="pb-2"
+        >
+          <input type="hidden" name="event_id" value={eventId} />
           {back}
           <input type="hidden" name="guest_id" value={item.guestId} />
           <button type="submit" className={PANEL_BTN}>
             <Ban aria-hidden className="h-4 w-4" strokeWidth={1.9} />
             {blocked ? `Let ${who ?? 'this guest'} shoot again` : `Stop ${who ?? 'this guest'} shooting · this event only`}
           </button>
-        </form>
+        </StayForm>
       ) : null}
       <button type="button" className={PANEL_BTN} onClick={onDone}>
         Done

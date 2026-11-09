@@ -13,12 +13,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import Module from 'node:module';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
 import { lockAgreeHalls, lockAgreeHallsParam, lockAgreeNotice } from '@/lib/lock-answer-notice';
+
+/* The Dates rows save through the stay door (owner 2026-10-26 "a save never resets the screen"); its registry is
+   `server-only`, which resolves only under Next — stubbed here so the rows can be drawn in node, as other render tests do. */
+{
+  const M = Module as unknown as { _load: (request: string, ...rest: unknown[]) => unknown };
+  const load = M._load;
+  M._load = function (this: unknown, request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
 
 (globalThis as unknown as { React: unknown }).React = React;
 const HERE = dirname(fileURLToPath(import.meta.url));

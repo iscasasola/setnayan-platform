@@ -20,6 +20,8 @@
  *                        else: `setnayan_create_honoree_v1` = {"s":1,"t":<now>} (you) or {"n":"Maria","t":<now>}.
  *   ?type=wedding        the wedding's own wizard (`OnboardingShell`) on an empty catalogue — to walk the
  *                        names step's own-slot prefill. Never press its final create here either.
+ *   ?flow=approved       with ?type=wedding: the APPROVED card flow production weddings run (`w_names` first,
+ *                        "Which one is you?" — owner 2026-11-08), on the same wedding profile fixture.
  */
 import { notFound } from 'next/navigation';
 import { GenericOnboarding } from '@/app/onboarding/[type]/_components/generic-onboarding';
@@ -65,15 +67,36 @@ const LABEL: Record<string, { label: string; emoji: string }> = {
 export default async function OnboardingLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; services?: string; self?: string }>;
+  searchParams: Promise<{ type?: string; services?: string; self?: string; flow?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const selfName = sp.self?.trim().slice(0, 80) || null;
   // The wedding is its own wizard (matrix §3) — mounted as itself, on an empty catalogue.
   if (sp.type === 'wedding') {
+    // ?flow=approved — the card flow (`w_names` …) that production weddings run once the engine is on.
+    const weddingView =
+      sp.flow === 'approved'
+        ? setupViewForProfile(
+            toProfile({
+              event_type: 'wedding',
+              terminology: null,
+              enabled_surfaces: null,
+              marketplace_enabled: true,
+              look_set: ['house', 'galeriya', 'cyber'],
+              camera_default: 'on',
+            } as unknown as ProfileRow),
+          )
+        : null;
     return (
-      <OnboardingShell authed resume={false} pricing={EMPTY_CATALOGUE} selfName={selfName} />
+      <OnboardingShell
+        authed
+        resume={false}
+        pricing={EMPTY_CATALOGUE}
+        selfName={selfName}
+        setupView={weddingView}
+        setupSteps={weddingView ? resolveSetupSteps(weddingView, CREATION_ASKS.wedding) : []}
+      />
     );
   }
   const type = sp.type && sp.type in DEFAULT_PRESET_BY_TYPE ? sp.type : 'hangout';

@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { answerIncomingRequest, muteInviter } from '../incoming-request-actions';
+import { INCOMING_REQUEST_FAILED } from '@/lib/stay-doors/accLauncher';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * incoming-requests.tsx — "You are invited to {user name}'s {event name}
@@ -72,7 +74,7 @@ export async function IncomingRequests({
                 <b className="font-semibold">{r.event_name ?? 'event'}</b>
                 {kind ? ` ${kind}` : ''} event.
               </p>
-              <form action={answerIncomingRequest} className="mt-3 flex gap-2.5">
+              <StayForm door="accLauncher.answerIncomingRequest" action={answerIncomingRequest} className="mt-3 flex gap-2.5">
                 <input type="hidden" name="guest_id" value={r.guest_id} />
                 <button
                   type="submit"
@@ -90,7 +92,7 @@ export async function IncomingRequests({
                 >
                   No
                 </button>
-              </form>
+              </StayForm>
               {follows.length > 0 ? (
                 // The follow line (owner 2026-09-28: accepted guests follow the
                 // co-hosts) — said up front, so a follow is never a surprise.
@@ -98,12 +100,12 @@ export async function IncomingRequests({
                   Saying yes follows {joinNames(follows)} — you can unfollow any time.
                 </p>
               ) : null}
-              <form action={muteInviter} className="mt-1.5">
+              <StayForm door="accLauncher.muteInviter" action={muteInviter} className="mt-1.5">
                 <input type="hidden" name="inviter_user_id" value={r.owner_user_id} />
                 <button type="submit" className="text-xs text-ink/45 underline-offset-2 hover:underline">
                   Don&apos;t show me invites from {ownerFirst}
                 </button>
-              </form>
+              </StayForm>
             </li>
           );
         })}
@@ -118,7 +120,7 @@ function Flash({ kind }: { kind: 'declined' | 'muted' | 'error' }) {
       ? 'Got it — you said no.'
       : kind === 'muted'
         ? 'You won’t see invitations from them any more.'
-        : 'That didn’t go through. Try again.';
+        : INCOMING_REQUEST_FAILED;
   return (
     <p role={kind === 'error' ? 'alert' : 'status'} className="mb-3 text-sm text-ink/70">
       {text}

@@ -1,6 +1,7 @@
 import { Wallet, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { vendorAskForPayment, vendorWithdrawPaymentAsk } from '../actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * "Ask for a payment" — on the customer, next to what they owe.
@@ -138,7 +139,7 @@ export function PaymentAsksPanel({
                   asked {dayLabel(a.createdAt.slice(0, 10))}
                 </p>
               </div>
-              <form action={vendorWithdrawPaymentAsk} className="shrink-0">
+              <StayForm door="supClients.vendorWithdrawPaymentAsk" action={vendorWithdrawPaymentAsk} className="shrink-0">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="ask_id" value={a.askId} />
                 <SubmitButton
@@ -147,7 +148,7 @@ export function PaymentAsksPanel({
                 >
                   <X aria-hidden className="h-3.5 w-3.5" /> Take it back
                 </SubmitButton>
-              </form>
+              </StayForm>
             </li>
           ))}
         </ul>
@@ -159,7 +160,8 @@ export function PaymentAsksPanel({
       )}
 
       {canAsk ? (
-      <form
+      <StayForm
+        door="supClients.vendorAskForPayment"
         action={vendorAskForPayment}
         className="rounded-xl border border-ink/10 bg-white px-3 py-3"
       >
@@ -213,7 +215,7 @@ export function PaymentAsksPanel({
           They pay you directly, the way they always have. Setnayan never holds
           this money — this just tells them what you are waiting for.
         </p>
-      </form>
+      </StayForm>
       ) : (
         <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
           <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> You can

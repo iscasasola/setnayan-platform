@@ -155,8 +155,10 @@ function tagEnd(code, from) {
   return { end: code.length, selfClosing: false };
 }
 
-const OPEN_RE = /<(form|ConfirmForm|SafeForm)(?=[\s/>])/g;
-const CLOSE_RE = /<\/(form|ConfirmForm|SafeForm)\s*>/g;
+// StayForm / StayConfirmForm / PapicStayForm each render a <form> too (`app/_components/stay-form.tsx` — the same form,
+// saved in place), so a nested one is the same hoisted-$ACTION_ID_ hazard.
+const OPEN_RE = /<(form|ConfirmForm|SafeForm|StayForm|StayConfirmForm|PapicStayForm)(?=[\s/>])/g;
+const CLOSE_RE = /<\/(form|ConfirmForm|SafeForm|StayForm|StayConfirmForm|PapicStayForm)\s*>/g;
 
 function lineOf(src, idx) {
   let line = 1;
@@ -166,7 +168,7 @@ function lineOf(src, idx) {
 
 function scanFile(abs, rel) {
   const src = readFileSync(abs, 'utf8');
-  if (!/<(form|ConfirmForm|SafeForm)[\s/>]/.test(src)) return [];
+  if (!/<(form|ConfirmForm|SafeForm|StayForm|StayConfirmForm|PapicStayForm)[\s/>]/.test(src)) return [];
   const code = stripNonCode(src);
 
   // Collect open/close events in document order.

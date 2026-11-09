@@ -15,7 +15,6 @@ import {
   type DependentKind,
 } from '@/lib/dependent-people';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ConfirmForm } from '@/app/_components/confirm-form';
 import { CopyButton } from '@/app/dashboard/[eventId]/studio/papic/crew/_components/copy-button';
 import {
   deleteDependent,
@@ -26,6 +25,7 @@ import {
   revokeHandoverLink,
   emailHandoverLink,
 } from '../dependent-actions';
+import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
 /**
  * "Alaga" — the dependent capture (Phase 3 family graph · flag-gated).
@@ -217,7 +217,8 @@ export async function DependentsSection() {
                       {claimedByMe ? (
                         // The claimant owns the record now — RA 10173 erasure
                         // is theirs to exercise (the former guardian cannot).
-                        <ConfirmForm
+                        <StayConfirmForm
+                          door="accPeople.deleteDependent"
                           action={deleteDependent}
                           title="Erase this record?"
                           message={`Permanently erase your profile record${fromMe ? '' : ' (your former guardian will lose their copy too)'}? This cannot be undone.`}
@@ -230,11 +231,12 @@ export async function DependentsSection() {
                           >
                             Erase
                           </button>
-                        </ConfirmForm>
+                        </StayConfirmForm>
                       ) : null}
                     </div>
                   ) : mine ? (
-                    <ConfirmForm
+                    <StayConfirmForm
+                      door="accPeople.deleteDependent"
                       action={deleteDependent}
                       title="Remove this record?"
                       message={`Remove ${d.name}? This permanently deletes their record.`}
@@ -248,7 +250,7 @@ export async function DependentsSection() {
                       >
                         Remove
                       </button>
-                    </ConfirmForm>
+                    </StayConfirmForm>
                   ) : (
                     <span className="shrink-0 rounded-full border border-gold/30 bg-gold/[0.08] px-2.5 py-1 text-[0.7rem] font-medium text-gold-deep">
                       Shared by your spouse
@@ -270,7 +272,7 @@ export async function DependentsSection() {
                         <span className="text-[0.7rem] text-ink/45">
                           expires {fmt(d.claim_token_expires_at!.slice(0, 10))}
                         </span>
-                        <form action={revokeHandoverLink}>
+                        <StayForm door="accPeople.revokeHandoverLink" action={revokeHandoverLink}>
                           <input type="hidden" name="dependent_id" value={d.dependent_id} />
                           <SubmitButton
                             className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-terracotta hover:underline"
@@ -278,8 +280,8 @@ export async function DependentsSection() {
                           >
                             Revoke
                           </SubmitButton>
-                        </form>
-                        <form action={emailHandoverLink} className="flex w-full items-center gap-2 sm:w-auto">
+                        </StayForm>
+                        <StayForm door="accPeople.emailHandoverLink" action={emailHandoverLink} className="flex w-full items-center gap-2 sm:w-auto">
                           <input type="hidden" name="dependent_id" value={d.dependent_id} />
                           <input
                             autoComplete="off"
@@ -296,10 +298,10 @@ export async function DependentsSection() {
                           >
                             Email it
                           </SubmitButton>
-                        </form>
+                        </StayForm>
                       </div>
                     ) : (
-                      <form action={createHandoverLink}>
+                      <StayForm door="accPeople.createHandoverLink" action={createHandoverLink}>
                         <input type="hidden" name="dependent_id" value={d.dependent_id} />
                         <SubmitButton
                           className="text-xs font-medium text-ink/55 underline-offset-2 transition-colors hover:text-ink hover:underline"
@@ -309,14 +311,14 @@ export async function DependentsSection() {
                             ? `${d.name} is of age — create their hand-over link`
                             : 'Transfer care to someone else'}
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     )}
                   </div>
                 ) : null}
 
                 {/* Share-with-spouse toggle — my own rows, only if I have a spouse */}
                 {mine && !handedOver && hasSpouse ? (
-                  <form action={setDependentSharing} className="mt-2">
+                  <StayForm door="accPeople.setDependentSharing" action={setDependentSharing} className="mt-2">
                     <input type="hidden" name="dependent_id" value={d.dependent_id} />
                     <input type="hidden" name="share" value={d.shared_with_spouse ? '0' : '1'} />
                     <SubmitButton
@@ -327,7 +329,7 @@ export async function DependentsSection() {
                         ? '✓ Shared with your spouse — tap to make private'
                         : 'Share with your spouse'}
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 ) : null}
 
                 {/* Godparents (ninong / ninang) — editable while a child is
@@ -350,7 +352,8 @@ export async function DependentsSection() {
                               {g.role ? <span className="text-ink/40"> · {g.role}</span> : null}
                             </span>
                             {mine && band === 'child' ? (
-                              <ConfirmForm
+                              <StayConfirmForm
+                                door="accPeople.deleteGodparent"
                                 action={deleteGodparent}
                                 title="Remove godparent?"
                                 message={`Remove ${g.godparent_name}?`}
@@ -364,14 +367,14 @@ export async function DependentsSection() {
                                 >
                                   ×
                                 </button>
-                              </ConfirmForm>
+                              </StayConfirmForm>
                             ) : null}
                           </li>
                         ))}
                       </ul>
                     ) : null}
                     {mine && band === 'child' ? (
-                      <form action={addGodparent} className="mt-2 flex flex-wrap items-end gap-2">
+                      <StayForm door="accPeople.addGodparent" action={addGodparent} className="mt-2 flex flex-wrap items-end gap-2">
                         <input type="hidden" name="dependent_id" value={d.dependent_id} />
                         <input
                           name="godparent_name"
@@ -401,7 +404,7 @@ export async function DependentsSection() {
                         <SubmitButton className="button-secondary h-9 px-3 py-1 text-sm" pendingLabel="Adding…">
                           Add
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     ) : gps.length === 0 ? (
                       <p className="mt-1 text-xs text-ink/40">No godparents added.</p>
                     ) : null}

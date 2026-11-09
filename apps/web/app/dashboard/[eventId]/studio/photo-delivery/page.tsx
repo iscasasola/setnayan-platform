@@ -11,6 +11,7 @@ import {
   PhotoDeliveryPanel,
   type PhotoDeliveryStatus,
 } from './_components/photo-delivery-panel';
+import { StayForm } from '@/app/_components/stay-form';
 import {
   setPhotoDeliverySyncModeAuto,
   setPhotoDeliverySyncModeManual,
@@ -366,7 +367,11 @@ function SyncModeCard({
   bullets: string[];
 }) {
   return (
-    <form action={action} className="contents">
+    <StayForm
+      door={mode === 'auto_sync' ? 'photoDelivery.setPhotoDeliverySyncModeAuto' : 'photoDelivery.setPhotoDeliverySyncModeManual'}
+      action={action}
+      className="contents"
+    >
       <input type="hidden" name="event_id" value={eventId} />
       <button
         type="submit"
@@ -414,6 +419,6 @@ function SyncModeCard({
           ))}
         </ul>
       </button>
-    </form>
+    </StayForm>
   );
 }

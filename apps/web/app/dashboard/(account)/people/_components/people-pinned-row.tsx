@@ -8,7 +8,7 @@ import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { PinnedRow, type PinnedDoor } from '@/app/_components/pinned-row/pinned-row';
 import { SwitchRow } from '@/app/_components/form-row';
 import { PINNED_FACE_LABEL, peopleViewHref, type PeopleView, type PeopleViewGates, type PinnedFace } from '@/lib/people-views';
-import { updateDiscoverableByName } from '../../profile/actions';
+import { saveInPlace } from '@/app/_actions/save-in-place';
 
 /**
  * people-pinned-row.tsx — 📌 THE PEOPLE PAGE'S ONE PINNED ROW (owner 2026-10-28, DECISION_LOG "USER DASHBOARD PART 1 —
@@ -119,9 +119,9 @@ function PeopleSettingsRows({ settings }: { settings: PeopleSettings }) {
           fd.set('discoverable_by_name', next ? 'true' : 'false');
           fd.set('stay', 'people');
           start(async () => {
-            try {
-              await updateDiscoverableByName(fd);
-            } catch {
+            /* The profile's own switch, through its stay door (`accProfile.updateDiscoverableByName`). */
+            const r = await saveInPlace('accProfile.updateDiscoverableByName', fd).catch(() => ({ ok: false as const }));
+            if (!r.ok) {
               setOn(!next);
               setError('That didn’t save — try again in a moment.');
             }

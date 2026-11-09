@@ -1,3 +1,5 @@
+import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
+import { readOpenChangeRequests } from '@/lib/change-requests.server';
 import { redirect } from 'next/navigation';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
@@ -226,7 +228,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead, changeRequests] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -283,6 +285,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     /* 📇 Each task's contact — a name and a phone (4 additions (3), migration 20271303218631) — in the same round. A
        refused read is kept as a failure: the task says so, never "no contact". */
     inMaker ? Promise.resolve(null) : readTaskContacts(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* ✍️ Supplier changes to the guest list, the seat plan and the suppliers (owner 8 Nov 2026) — in the same round,
+       read as the caller: the hosts and the booked coordinator see them; anybody else reads none. */
+    inMaker ? Promise.resolve({ measured: true, rows: [] }) : readOpenChangeRequests(supabase, eventId),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -930,6 +935,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             suggestions={openSuggestions}
             blocks={scheduleBlocks}
           />
+          {/* ✍️ Supplier changes to the guest list, the seat plan and the suppliers (owner 8 Nov 2026) — answered
+              beside the schedule requests, where the hosts and the coordinator already answer suppliers. */}
+          <ChangeRequestsQueue eventId={eventId} rows={changeRequests.rows} measured={changeRequests.measured} />
           {/* The host's own segments — their catalogue, ticked by the couple and
            *  dropped onto this timeline. Renders NOTHING when there is no booked
            *  host/MC or they have written no segments, so a couple without one

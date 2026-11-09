@@ -29,6 +29,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import Module from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +37,17 @@ import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
 import { asksByDate, capacityLine, dayAnswerOf, dayRowsOf, dayStateOf, openAsksOf } from '@/lib/vendor-dates';
 import { dayStateWords } from '@/lib/calendar-grid';
+
+/* The Dates rows save through the stay door (owner 2026-10-26 "a save never resets the screen"); its registry is
+   `server-only`, which resolves only under Next — stubbed here so the rows can be drawn in node, as other render tests do. */
+{
+  const M = Module as unknown as { _load: (request: string, ...rest: unknown[]) => unknown };
+  const load = M._load;
+  M._load = function (this: unknown, request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -247,11 +259,13 @@ test('5 · every Dates form posts the shipped action and comes back to Dates (an
   // EACH form, not a count over the file: the first lines inside every <form> / <ConfirmForm> say where to come back.
   let seen = 0;
   for (const [name, src] of [['dates-folds', FOLDS], ['dates-sheets', SHEETS], ['day-sheet', DAY]] as const) {
-    const starts = [...src.matchAll(/<(?:form|ConfirmForm)\b/g)].map((m) => m.index ?? 0);
+    // A form that saves in place (`StayForm` / `StayConfirmForm`, owner 2026-10-26) is still a Dates form.
+    const starts = [...src.matchAll(/<(?:form|ConfirmForm|StayForm|StayConfirmForm)\b/g)].map((m) => m.index ?? 0);
+    const close = (at: number, tag: string) => (src.indexOf(tag, at) > 0 ? src.indexOf(tag, at) : Infinity);
     starts.forEach((at, i) => {
       seen += 1;
       // From this form's opening to the next form's (or its close): its own fields, nobody else's.
-      const end = Math.min(starts[i + 1] ?? Infinity, src.indexOf('</form>', at) > 0 ? src.indexOf('</form>', at) : Infinity, src.indexOf('</ConfirmForm>', at) > 0 ? src.indexOf('</ConfirmForm>', at) : Infinity);
+      const end = Math.min(starts[i + 1] ?? Infinity, close(at, '</form>'), close(at, '</ConfirmForm>'), close(at, '</StayForm>'), close(at, '</StayConfirmForm>'));
       const own = src.slice(at, end);
       assert.match(own, /\{back(?:\('[a-z]+'\))?\}|<input type="hidden" name="return_to" value="dates" \/>/, `${name}: a form does not say it comes back to Dates — ${own.slice(0, 80)}`);
     });

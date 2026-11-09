@@ -39,6 +39,7 @@ import type { SamahanStory } from '@/lib/samahan-stories';
 import { deleteSamahanMessage, leaveCommunity, postSamahanMessage } from '../../actions';
 import { SamahanStories, type StoriesControl } from './samahan-stories';
 import { CollagePlayer, GroupCollage } from './group-collage';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * group-chatroom.tsx — 💬 THE GROUP IS A CHATROOM (owner 2026-10-28, verbatim: *"groups should look like a chatroom
@@ -162,7 +163,7 @@ function MessageBubble({
         <span className="block whitespace-pre-wrap break-words">{m.body}</span>
       </button>
       {armed ? (
-        <form action={deleteSamahanMessage} className="mt-0.5">
+        <StayForm door="accGroup.deleteSamahanMessage" action={deleteSamahanMessage} className="mt-0.5">
           <input type="hidden" name="community_id" value={communityId} />
           <input type="hidden" name="message_id" value={m.message_id} />
           <SubmitButton
@@ -172,7 +173,7 @@ function MessageBubble({
           >
             <Trash2 aria-hidden className="h-3 w-3" /> Take it down
           </SubmitButton>
-        </form>
+        </StayForm>
       ) : null}
     </li>
   );
@@ -522,16 +523,13 @@ export function GroupChatroom({
             ]}
             field={{
               node: (
-                <form
+                /* Sends IN PLACE (owner 2026-10-26, "a save never resets the screen" — the chat keeps its scroll):
+                   the `accGroup.postSamahanMessage` door; the box empties once the line has landed (a refusal keeps
+                   the words, said under the box). An empty box sends nothing — the action lands it as a no-op. */
+                <StayForm
+                  door="accGroup.postSamahanMessage"
                   action={postSamahanMessage}
-                  onSubmit={(e) => {
-                    if (!text.trim()) {
-                      e.preventDefault();
-                      return;
-                    }
-                    // The form's data is already taken; empty the box for the next line.
-                    setTimeout(() => setText(''), 0);
-                  }}
+                  onSaved={() => setText('')}
                   className="flex h-full min-w-0 flex-1 items-center gap-1 pl-3.5 pr-1"
                   data-group-send-form=""
                 >
@@ -553,7 +551,7 @@ export function GroupChatroom({
                       <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" />
                     </span>
                   ) : null}
-                </form>
+                </StayForm>
               ),
             }}
             right={[{ icon: Camera, label: 'Add a story', onClick: record, testId: 'group-story' }]}

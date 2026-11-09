@@ -14,6 +14,7 @@ import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-re
 import type { StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { clearStudioAction } from './studio-actions';
 import { provideMark, onPlay } from './mark-bench';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * VectorStudio — the couple's Vector Monogram Studio (Phase 5 of the monogram
@@ -251,7 +252,7 @@ export function VectorStudio({
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
             This studio mark is your active monogram.
           </p>
-          <form action={clearStudioAction}>
+          <StayForm door="monogram.clearStudioAction" action={clearStudioAction}>
             <input type="hidden" name="event_id" value={eventId} />
             <button
               type="submit"
@@ -260,7 +261,7 @@ export function VectorStudio({
               <Undo2 aria-hidden className="h-3 w-3" strokeWidth={2} />
               Remove
             </button>
-          </form>
+          </StayForm>
         </div>
       ) : null}
 

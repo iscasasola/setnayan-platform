@@ -5427,6 +5427,7 @@
         "OpenFileLink",
         "PageMasthead",
         "Phase",
+        "StayForm",
         "SubmitButton",
         "TeaserGenerator",
         "TeaserPlan"
@@ -5609,7 +5610,6 @@
         "CardGroup",
         "CardLabel",
         "ChatOriginMark",
-        "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
         "DependentKind",
@@ -5664,6 +5664,8 @@
         "RequestRow",
         "SamahanPeopleSection",
         "Spotlight",
+        "StayConfirmForm",
+        "StayForm",
         "SubmitButton",
         "SwipeToDelete",
         "SwitchRow",
@@ -5752,6 +5754,7 @@
         "Segmented",
         "SettingsGroup",
         "SettingsShell",
+        "StayForm",
         "SubmitButton",
         "SwitchRow",
         "SwitchTrack",
@@ -5851,6 +5854,7 @@
         "ReturnInPlace",
         "SamahanIdentityHeader",
         "SamahanStories",
+        "StayForm",
         "StoriesControl",
         "SubmitButton",
         "ThumbRow",
@@ -5973,6 +5977,7 @@
         "Spotlight",
         "StanceChip",
         "StartPlanningLink",
+        "StayForm",
         "SupplierRecordsNote",
         "Tile",
         "UnreadBellBadge",
@@ -6487,6 +6492,7 @@
         "Sk",
         "Spotlight",
         "StatusIcon",
+        "StayForm",
         "StepKey",
         "SubmitButton",
         "SubmitOrderResult",
@@ -6887,6 +6893,7 @@
         "Section",
         "Sheet",
         "SpecialMessageField",
+        "StayForm",
         "SubmitButton",
         "SupplierChangesRow",
         "Suspense",
@@ -6940,6 +6947,7 @@
         "FlagCard",
         "NewFlagForm",
         "PageMasthead",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -7370,6 +7378,7 @@
         "SoftDeleteForUndoResult",
         "Spotlight",
         "StatusLine",
+        "StayForm",
         "SubmitButton",
         "Suspense",
         "SwipeToDelete",
@@ -7666,6 +7675,7 @@
         "dashboard/[eventId]/invitation/_components/slug-field.tsx",
         "dashboard/[eventId]/invitation/actions.ts",
         "dashboard/[eventId]/invitation/loading.tsx",
+        "dashboard/[eventId]/invitation/mono-error-copy.ts",
         "dashboard/[eventId]/invitation/page.tsx"
       ],
       "destinations": [
@@ -7697,6 +7707,7 @@
         "SlugField",
         "StatusBadge",
         "StatusLine",
+        "StayForm",
         "SubmitButton",
         "SuggestionsRow",
         "TagListDownload"
@@ -8441,6 +8452,7 @@
         "PageMasthead",
         "PostGigDrawer",
         "SearchParams",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -8602,6 +8614,7 @@
         "dashboard/[eventId]/monogram/mark-toggle.tsx",
         "dashboard/[eventId]/monogram/page.tsx",
         "dashboard/[eventId]/monogram/studio-actions.ts",
+        "dashboard/[eventId]/monogram/studio-notices.ts",
         "dashboard/[eventId]/monogram/studio.tsx",
         "dashboard/[eventId]/monogram/upload-actions.ts",
         "dashboard/[eventId]/monogram/upload-mark.tsx",
@@ -8647,6 +8660,7 @@
         "PlayDetail",
         "SDLoader",
         "SavedMark",
+        "StayForm",
         "StudioAnim",
         "StudioAnimKind",
         "StudioApi",
@@ -9066,6 +9080,7 @@
         "SheetState",
         "ShiftSheet",
         "SideBySideView",
+        "StayForm",
         "Stepper",
         "StudioDay",
         "SubmitButton",
@@ -9398,6 +9413,7 @@
         "PrincipalPairRow",
         "SponsorCard",
         "SponsorSwipe",
+        "StayForm",
         "SubmitButton",
         "SwipeToDelete",
         "UndoToastHost"
@@ -9908,6 +9924,7 @@
         "ProgressRing",
         "SetupStatus",
         "Stat",
+        "StayForm",
         "StyleAndAddOns",
         "SubmitButton",
         "VenueCheckCard",
@@ -10003,7 +10020,6 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ConfirmForm",
         "GridPageSkeleton",
         "KwentoActionResult",
         "KwentoQueue",
@@ -10011,6 +10027,8 @@
         "Link",
         "PageMasthead",
         "ReadRefusedNotice",
+        "StayConfirmForm",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -10060,7 +10078,8 @@
       ],
       "blocks": [
         "Link",
-        "MomentShelf"
+        "MomentShelf",
+        "StayForm"
       ]
     },
     "/dashboard/[eventId]/studio/patiktok": {
@@ -10114,6 +10133,7 @@
         "RenderJobRow",
         "RenderStatusPill",
         "SaveShareCard",
+        "StayForm",
         "StudioBuyHero",
         "SubmitButton",
         "TagSheet",
@@ -10158,6 +10178,7 @@
         "OperatorTips",
         "PageMasthead",
         "RecordCTA",
+        "StayForm",
         "SubmitButton",
         "TemplateSlot",
         "TemplatesGrid"
@@ -10193,6 +10214,7 @@
         "PageMasthead",
         "PhotoDeliveryPanel",
         "ReleaseProgressPoller",
+        "StayForm",
         "SubmitButton",
         "SyncModeCard",
         "SyncModeSection"
@@ -10297,6 +10319,7 @@
         "Link",
         "PageMasthead",
         "Phase",
+        "StayForm",
         "SubmitButton",
         "WaxFinish",
         "WaxSealConfig",
@@ -10791,6 +10814,7 @@
         "ShownAsRow",
         "SmallStars",
         "StarRatingInput",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -10888,6 +10912,7 @@
         "ServicesCoveredPicker",
         "ShotListCard",
         "SnapshotChargeLine",
+        "StayForm",
         "SubmitButton",
         "SupplierAnswersForm",
         "SupplierFormAnswers",
@@ -14079,6 +14104,7 @@
         "ScreenRow",
         "SetupSheet",
         "Sheet",
+        "StayForm",
         "Strip",
         "SubmitButton",
         "TileSurface",
@@ -14418,6 +14444,7 @@
         "PrintButton",
         "QuoteShopGiftNote",
         "QuoteWhereFact",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -15317,7 +15344,8 @@
         "MoveButton",
         "QuestionsSection",
         "QuestionsSectionBody",
-        "StarterQuestion"
+        "StarterQuestion",
+        "StayForm"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -15343,6 +15371,7 @@
         "RemoveServiceButton",
         "ServiceForm",
         "ShopNotice",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -15429,6 +15458,7 @@
     "/vendor-dashboard/calendar": {
       "files": [
         "vendor-dashboard/calendar/actions.ts",
+        "vendor-dashboard/calendar/dates-notices.ts",
         "vendor-dashboard/calendar/loading.tsx",
         "vendor-dashboard/calendar/page.tsx"
       ],
@@ -15687,6 +15717,7 @@
         "Sheet",
         "ShopCard",
         "ShopEmpty",
+        "StayForm",
         "StudioPopup",
         "SubmitButton",
         "SuggestSheet",
@@ -15807,6 +15838,7 @@
         "EventLockedPage",
         "Link",
         "PrintButton",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -15936,6 +15968,7 @@
         "DetailPageSkeleton",
         "Link",
         "OpenFileLink",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -15979,6 +16012,7 @@
         "PaidMark",
         "RoiRow",
         "SearchParams",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -16059,7 +16093,6 @@
         "ChatOriginMark",
         "ChosenRow",
         "ClientsShowSort",
-        "ConfirmForm",
         "ContractsSurface",
         "Count",
         "CustomerCalendarMonth",
@@ -16097,6 +16130,7 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
         "HallSheet",
         "InfoTip",
         "InquiryAnswers",
@@ -16140,6 +16174,8 @@
         "ShopWalletSheetData",
         "ShowSortSheet",
         "ShowSortTopic",
+        "StayConfirmForm",
+        "StayForm",
         "SupplierOpenRow",
         "SupplierOpenScope",
         "SupplierSubmit",
@@ -16306,7 +16342,8 @@
         "updateLine"
       ],
       "blocks": [
-        "Link"
+        "Link",
+        "StayForm"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -16372,6 +16409,7 @@
         "vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx",
         "vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx",
+        "vendor-dashboard/messages/[threadId]/_lib/outcome-notice.ts",
         "vendor-dashboard/messages/[threadId]/actions.ts",
         "vendor-dashboard/messages/[threadId]/loading.tsx",
         "vendor-dashboard/messages/[threadId]/outcome-actions.ts",
@@ -16452,6 +16490,7 @@
         "ServiceCardQuoteSeed",
         "Sheet",
         "SnapRow",
+        "StayForm",
         "SubmitButton",
         "ThreadAnswerLine",
         "ThreadAttribution",
@@ -16851,6 +16890,7 @@
         "ListPageSkeleton",
         "PageMasthead",
         "SearchParams",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -16883,7 +16923,6 @@
       ],
       "blocks": [
         "AddPaymentMethod",
-        "ConfirmForm",
         "FileUpload",
         "FormFlash",
         "Icon",
@@ -16891,6 +16930,8 @@
         "PageMasthead",
         "PaidMark",
         "PaymentMethodType",
+        "StayConfirmForm",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -17038,6 +17079,7 @@
     },
     "/vendor-dashboard/proposals": {
       "files": [
+        "vendor-dashboard/proposals/_components/quote-notices.ts",
         "vendor-dashboard/proposals/_components/reuse-inbox.tsx",
         "vendor-dashboard/proposals/_components/template-list.tsx",
         "vendor-dashboard/proposals/actions.ts",
@@ -17060,6 +17102,7 @@
         "ListPageSkeleton",
         "ListPager",
         "ReuseActionResult",
+        "StayForm",
         "SubmitButton",
         "SwipeToDelete",
         "TemplateList",
@@ -17104,6 +17147,7 @@
         "RecommendationsPanel",
         "ShopEmpty",
         "ShopNotice",
+        "StayForm",
         "SubmitButton",
         "SuggestControl",
         "SuggestToCoupleControl"
@@ -17127,6 +17171,7 @@
         "PerformanceLinkForm",
         "SetList",
         "ShopNotice",
+        "StayForm",
         "SubmitButton",
         "SwipeToDelete",
         "UndoToastHost"
@@ -17277,6 +17322,7 @@
         "ShowcaseMediaFields",
         "SlotRows",
         "Snapshot",
+        "StayForm",
         "StayOnPicker",
         "StayOnSection",
         "SubIcon",
@@ -17757,6 +17803,7 @@
         "ShopNotice",
         "StartBadgeUpgradeState",
         "StartUpgradeSheet",
+        "StayForm",
         "SubmitButton",
         "SupplierSubmit",
         "UltraAddonsCard",
@@ -17788,12 +17835,14 @@
         "FormRows",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLSpanElement",
         "HelpersView",
         "InviteHelperSheet",
         "PickMenu",
         "RolePick",
         "Sheet",
         "ShopNotice",
+        "StayForm",
         "SubmitButton",
         "SupplierSubmit",
         "SupplierThumbRow",

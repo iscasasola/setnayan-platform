@@ -19,6 +19,7 @@ import { ShopNotice } from '../../_components/kit';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { InviteHelperSheet, RolePick } from './helpers-controls';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * HELPERS — the screen (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14 "team seats → Helpers";
@@ -172,7 +173,7 @@ export function HelpersView({
                         options={roleOptions}
                         action={actions.update}
                       />
-                      <form action={actions.remove}>
+                      <StayForm door="supTeam.removeVendorTeamMember" action={actions.remove}>
                         <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
                         <SupplierSubmit
                           tone="danger"
@@ -181,7 +182,7 @@ export function HelpersView({
                           pendingLabel="Removing…"
                           className="icon-only"
                         />
-                      </form>
+                      </StayForm>
                     </span>
                   ) : (
                     <Badge tone={isAdmin ? 'ok' : 'quiet'} data="helpers-role">
@@ -236,7 +237,7 @@ export function HelpersView({
               <div className="space-y-3 pb-3">
                 {agents.map((m) => (
                   <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
-                    <form action={actions.update} className="flex min-h-[60px] items-end gap-2">
+                    <StayForm door="supTeam.updateVendorTeamMember" action={actions.update} className="flex min-h-[60px] items-end gap-2">
                       <input type="hidden" name="vendor_team_member_id" value={m.vendor_team_member_id} />
                       <input type="hidden" name="role" value={m.role} />
                       <label className="block min-w-0 flex-1 space-y-1">
@@ -251,7 +252,7 @@ export function HelpersView({
                         label="Save"
                         pendingLabel="Saving…"
                       />
-                    </form>
+                    </StayForm>
                     {m.role === 'agent' ? (
                       <AgentServiceAssignment
                         action={actions.setServices}
@@ -297,7 +298,7 @@ export function HelpersView({
                           <span className="text-[13px] text-ink/60">You can’t vote on a change about yourself.</span>
                         ) : (
                           <>
-                            <form action={actions.vote}>
+                            <StayForm door="supTeam.voteAdminMotion" action={actions.vote}>
                               <input type="hidden" name="motion_id" value={m.motion_id} />
                               <input type="hidden" name="approve" value="true" />
                               <SupplierSubmit
@@ -307,8 +308,8 @@ export function HelpersView({
                                 label={myVote?.approve ? 'You agreed' : 'Agree'}
                                 pendingLabel="…"
                               />
-                            </form>
-                            <form action={actions.vote}>
+                            </StayForm>
+                            <StayForm door="supTeam.voteAdminMotion" action={actions.vote}>
                               <input type="hidden" name="motion_id" value={m.motion_id} />
                               <input type="hidden" name="approve" value="false" />
                               <SupplierSubmit
@@ -317,10 +318,10 @@ export function HelpersView({
                                 label={myVote && !myVote.approve ? 'You said no' : 'Say no'}
                                 pendingLabel="…"
                               />
-                            </form>
+                            </StayForm>
                           </>
                         )}
-                        <form action={actions.cancelMotion}>
+                        <StayForm door="supTeam.cancelAdminMotion" action={actions.cancelMotion}>
                           <input type="hidden" name="motion_id" value={m.motion_id} />
                           <SupplierSubmit
                             tone="neutral"
@@ -328,7 +329,7 @@ export function HelpersView({
                             label="Call off the vote"
                             pendingLabel="…"
                           />
-                        </form>
+                        </StayForm>
                       </div>
                     </div>
                   );
@@ -341,7 +342,7 @@ export function HelpersView({
                     <div key={m.vendor_team_member_id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0" data-helpers-propose="">
                       <p className="text-[15px] font-medium text-ink">{who}</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <form action={actions.propose}>
+                        <StayForm door="supTeam.proposeAdminMotion" action={actions.propose}>
                           <input type="hidden" name="target_user_id" value={m.user_id} />
                           <input type="hidden" name="kind" value="demote" />
                           <input type="hidden" name="new_role" value="agent" />
@@ -351,8 +352,8 @@ export function HelpersView({
                             label="Ask to make them a Team member"
                             pendingLabel="Starting…"
                           />
-                        </form>
-                        <form action={actions.propose}>
+                        </StayForm>
+                        <StayForm door="supTeam.proposeAdminMotion" action={actions.propose}>
                           <input type="hidden" name="target_user_id" value={m.user_id} />
                           <input type="hidden" name="kind" value="demote" />
                           <input type="hidden" name="new_role" value="viewer" />
@@ -362,8 +363,8 @@ export function HelpersView({
                             label="Ask to make them a Helper"
                             pendingLabel="Starting…"
                           />
-                        </form>
-                        <form action={actions.propose}>
+                        </StayForm>
+                        <StayForm door="supTeam.proposeAdminMotion" action={actions.propose}>
                           <input type="hidden" name="target_user_id" value={m.user_id} />
                           <input type="hidden" name="kind" value="remove" />
                           <SupplierSubmit
@@ -372,7 +373,7 @@ export function HelpersView({
                             label="Ask to remove them"
                             pendingLabel="Starting…"
                           />
-                        </form>
+                        </StayForm>
                       </div>
                     </div>
                   );
@@ -390,14 +391,14 @@ export function HelpersView({
             line={adminCount <= 1 ? 'You are the only admin — make someone else an admin first' : 'Leave the admin role · you stay as a Team member'}
             end={
               adminCount <= 1 ? undefined : (
-                <form action={actions.stepDown}>
+                <StayForm door="supTeam.stepDownSelf" action={actions.stepDown}>
                   <SupplierSubmit
                     tone="danger"
                     icon={<LogOut aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
                     label="Step down"
                     pendingLabel="Stepping down…"
                   />
-                </form>
+                </StayForm>
               )
             }
           />
@@ -435,7 +436,7 @@ function AgentServiceAssignment({
 }) {
   const assignedSet = new Set(assigned);
   return (
-    <form action={action} className="mt-3 space-y-2">
+    <StayForm door="supTeam.setVendorAgentServices" action={action} className="mt-3 space-y-2">
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-900/70">
         Their services — they see only these, and those customers
@@ -458,6 +459,6 @@ function AgentServiceAssignment({
           </SubmitButton>
         </>
       )}
-    </form>
+    </StayForm>
   );
 }

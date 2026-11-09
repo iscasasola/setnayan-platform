@@ -12,6 +12,7 @@ import { peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { RequestCard, type PendingRequest } from './_components/request-card';
 import { ClaimAccessCard } from './_components/claim-access-card';
 import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
+import { isBookedCoordinator } from '@/lib/coordinator-trade';
 
 export const metadata: Metadata = { title: 'Access requests' };
 
@@ -37,13 +38,13 @@ function lineByLine(
 }
 
 /**
- * Where the host answers a coordinator's ask (owner ruling 2026-07-27).
+ * Where the host answers a supplier's ask (owner ruling 2026-07-27; widened 8 Nov 2026: *"only coordinator and hosts
+ * has the final say"*).
  *
- * Host-only by RLS: `event_access_requests_host_read` is scoped to
- * `current_event_ids()`, so a delegate coordinator loading this URL sees an
- * empty list rather than other people's requests — and could not answer one
- * anyway, since the answer policy is host-scoped too. That matters: a
- * coordinator who could approve requests could approve their own.
+ * The hosts read every ask here (`event_access_requests_host_read`, couple-scoped). The BOOKED COORDINATOR answers a
+ * non-coordinator supplier's ask from their own client page (`CoordinatorAnswers`), never here; a coordinator's own ask
+ * is the hosts' alone — `answer_area_access_request` refuses anybody answering their own, so a coordinator can never
+ * approve themselves. Whichever of them answers first, the ask leaves this list.
  */
 export default async function AccessRequestsPage({
   params,
@@ -89,17 +90,33 @@ export default async function AccessRequestsPage({
   // Resolve business names in one round-trip rather than per row.
   const profileIds = [...new Set(rows.map((r) => r.vendor_profile_id).filter(Boolean))] as string[];
   const names = new Map<string, string>();
+  // 🧭 Which askers are the BOOKED COORDINATOR (owner 8 Nov 2026) — their share gives Edit, everyone else's gives
+  // "see and propose". Their shop's services + its rows on this event (the couple reads its own event_vendors), in the
+  // same round trip as the names: `isBookedCoordinator`, the mirror of `is_booked_coordinator`.
+  const coordinators = new Set<string>();
   if (profileIds.length > 0) {
-    const { data: profs, error: profsError } = await supabase
-      .from('vendor_profiles')
-      .select('vendor_profile_id, business_name')
-      .in('vendor_profile_id', profileIds);
+    const [{ data: profs, error: profsError }, { data: bookingRows, error: bookingError }] = await Promise.all([
+      supabase.from('vendor_profiles').select('vendor_profile_id, business_name, services').in('vendor_profile_id', profileIds),
+      supabase.from('event_vendors').select('marketplace_vendor_id, status').eq('event_id', eventId).in('marketplace_vendor_id', profileIds),
+    ]);
     // ⚠ the requesters' shop names. Refused, a request shows without one.
     if (profsError) {
       logQueryError('AccessRequestsPage.profs', profsError, { eventId }, 'graceful_degrade');
     }
-    for (const p of (profs ?? []) as Array<{ vendor_profile_id: string; business_name: string }>) {
+    // ⚠ Refused, nobody reads as the coordinator — every line is worded "see and propose", the narrower promise.
+    if (bookingError) {
+      logQueryError('AccessRequestsPage.bookings', bookingError, { eventId }, 'graceful_degrade');
+    }
+    const statuses = new Map<string, string[]>();
+    for (const b of (bookingRows ?? []) as Array<{ marketplace_vendor_id: string | null; status: string | null }>) {
+      if (!b.marketplace_vendor_id || !b.status) continue;
+      statuses.set(b.marketplace_vendor_id, [...(statuses.get(b.marketplace_vendor_id) ?? []), b.status]);
+    }
+    for (const p of (profs ?? []) as Array<{ vendor_profile_id: string; business_name: string; services: string[] | null }>) {
       names.set(p.vendor_profile_id, p.business_name);
+      if (isBookedCoordinator({ services: p.services, bookingStatuses: statuses.get(p.vendor_profile_id) ?? [] })) {
+        coordinators.add(p.vendor_profile_id);
+      }
     }
   }
 
@@ -107,7 +124,8 @@ export default async function AccessRequestsPage({
     .filter((r) => r.status === 'pending')
     .map((r) => ({
       requestId: r.request_id,
-      askerName: (r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'Your coordinator',
+      askerName: (r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'A supplier',
+      askerIsCoordinator: Boolean(r.vendor_profile_id && coordinators.has(r.vendor_profile_id)),
       requestedAreas: r.requested_areas as DelegateArea[],
       note: r.note,
       createdAt: r.created_at,
@@ -173,7 +191,7 @@ export default async function AccessRequestsPage({
                   className="rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm"
                 >
                   <span className="font-medium text-ink">
-                    {(r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'Your coordinator'}
+                    {(r.vendor_profile_id && names.get(r.vendor_profile_id)) || 'A supplier'}
                   </span>
                   <span className="ml-2 text-ink/60">{OUTCOME_COPY[outcome]}</span>
                   <span className="mt-1 block text-xs text-ink/45">

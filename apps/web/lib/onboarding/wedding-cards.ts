@@ -80,6 +80,34 @@ export const WEDDING_QUESTION_SCREENS: ReadonlySet<string> = new Set([
   ...WEDDING_ENGINE_CARDS,
 ]);
 
+// ── 1 · who's getting married? ─────────────────────────────────────────────
+
+/**
+ * "Which one is you?" — asked FIRST on the names card (owner 2026-11-08, verbatim: *"yes. they need to
+ * be one of the 2."*). Exactly the two of the couple, in the role screen's own words (the shell's
+ * ROLE_OPTIONS reads these same rows) — no "someone helping" here. The pick is the wizard's existing
+ * `role`, which the shipped commit already writes to `event_moderators.role_subtype` and to the
+ * creator's own guest row (`creatorCoupleRowId`); nothing new is stored.
+ */
+export type WeddingSelfSide = 'bride' | 'groom';
+export const WEDDING_SELF_SIDES: readonly { key: WeddingSelfSide; label: string; hint: string }[] = [
+  { key: 'bride', label: 'Bride', hint: 'Walking down the aisle.' },
+  { key: 'groom', label: 'Groom', hint: 'Waiting at the front.' },
+];
+
+/** The names card's pick, or null while it is unanswered (a helper from an old draft has not answered it). */
+export function weddingSelfSide(role: string | null | undefined): WeddingSelfSide | null {
+  return role === 'bride' || role === 'groom' ? role : null;
+}
+
+/**
+ * Can the names card be passed? Only once the person has said which one they are AND both first names
+ * are there (they go on the invitation; last names stay optional). The shell's Continue reads this.
+ */
+export function weddingNamesReady(s: { role: string | null; brideFirstName: string; groomFirstName: string }): boolean {
+  return weddingSelfSide(s.role) !== null && s.brideFirstName.trim().length > 0 && s.groomFirstName.trim().length > 0;
+}
+
 // ── 2 · what kind of wedding? ──────────────────────────────────────────────
 
 export type CeremonyChoice = 'church' | 'civil' | 'nikah' | 'garden' | 'undecided';

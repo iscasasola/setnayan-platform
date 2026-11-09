@@ -290,6 +290,21 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'card_claim_words',
+    decision: 'excluded',
+    why:
+      'An admin-authored word list — the claim words the service card maker refuses until reworded (owner 2026-10-26, ' +
+      'migration 20271328838140). `created_by` is the staff account that added a word, an actor stamp on platform ' +
+      'configuration; the row is a phrase and a note about nobody, and the stamp is SET NULL when that account is deleted.',
+  },
+  {
+    table: 'card_claim_word_allowances',
+    decision: 'excluded',
+    why:
+      'Admin configuration: which SHOP may use one claim word (migration 20271328838140). `granted_by` is the staff ' +
+      'account that allowed it, an actor stamp; the row is about a shop and a word, not a person, and goes with the shop.',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:

@@ -56,7 +56,7 @@ import {
  * theft scan that silently stores no hashes looks exactly like a clean
  * marketplace.
  */
-export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library';
+export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
 
 // Fallback only — the live threshold is admin-managed via the "Repost-watch
 // match sensitivity" field on /admin/settings (platform_settings
@@ -80,7 +80,7 @@ type HashRow = {
  * (rare; mostly old logos which are out of scope) we DO route through the
  * SSRF-safe fetch. Returns null on any failure → caller skips the ref.
  */
-async function fetchAssetBytes(ref: string): Promise<Uint8Array | null> {
+export async function fetchAssetBytes(ref: string): Promise<Uint8Array | null> {
   const parsed = parseStoredAsset(ref);
   if (!parsed) return null;
   try {
@@ -98,7 +98,7 @@ async function fetchAssetBytes(ref: string): Promise<Uint8Array | null> {
   }
 }
 
-async function resolveThreshold(
+export async function resolveThreshold(
   admin: ReturnType<typeof createAdminClient>,
 ): Promise<number> {
   try {
@@ -179,6 +179,13 @@ export async function hashAndScanVendorImages(args: {
    * entry here falls back to fetching, exactly as before.
    */
   bytesByRef?: Readonly<Record<string, Uint8Array>>;
+  /**
+   * 🃏 ONE PHOTO = ONE SERVICE CARD (owner 2026-10-26, migration …_service_card_checks_fix_before_create): the card
+   * these refs are on. Written onto every hash — the new ones AND the ones already hashed — so the maker's photo check
+   * (lib/card-photo-check.server.ts) can tell a photo that is on a card from one that is not. Omitted by the portfolio
+   * and moodboard callers, whose hashes name no card.
+   */
+  vendorServiceId?: string | null;
 }): Promise<void> {
   const { vendorProfileId, surface } = args;
   const refs = Array.from(
@@ -213,6 +220,16 @@ export async function hashAndScanVendorImages(args: {
     const already = new Set(
       ((existing ?? []) as { r2_ref: string }[]).map((r) => r.r2_ref),
     );
+    // A photo hashed before (an unchanged cover, a copied card's photo) still has to NAME the card it is on now.
+    if (args.vendorServiceId && already.size > 0) {
+      const { error: nameError } = await admin
+        .from('vendor_image_hashes')
+        .update({ vendor_service_id: args.vendorServiceId })
+        .eq('vendor_profile_id', vendorProfileId)
+        .in('r2_ref', Array.from(already));
+      // Not fatal to the scan below, but a photo left naming no card would not be protected — so it is reported.
+      if (nameError) Sentry.captureException(nameError, { tags: { feature: 'vendor-image-repost-watch' }, extra: { phase: 'name-card' } });
+    }
     const toHash = refs.filter((r) => !already.has(r));
     if (toHash.length === 0) return;
 
@@ -246,6 +263,7 @@ export async function hashAndScanVendorImages(args: {
           r2_ref: ref,
           phash: phashToDbString(phash),
           is_demo: thisIsDemo,
+          ...(args.vendorServiceId ? { vendor_service_id: args.vendorServiceId } : {}),
         },
         { onConflict: 'vendor_profile_id,r2_ref', ignoreDuplicates: false },
       );
@@ -426,4 +444,36 @@ export async function rescanAllVendorImages(): Promise<{
     refsRematched: rematch.refsRematched,
     flagsUpserted: rematch.flagsUpserted,
   };
+}
+
+/**
+ * 🃏 A PHOTO A CARD NO LONGER CARRIES IS FREE AGAIN (owner 2026-10-26, "one photo = one service card"). After a card
+ * saves, every hash that still names it but whose photo is no longer on it lets go of the card — so a replaced cover
+ * can go on another card. The hash itself stays (repost-watch still matches it). Best-effort, like the rest of this
+ * module: a miss leaves the old photo tied to the card until its next save, and never breaks the save.
+ */
+export async function releaseCardPhotos(args: {
+  vendorProfileId: string;
+  vendorServiceId: string;
+  keepRefs: ReadonlyArray<string>;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data, error: readError } = await admin
+      .from('vendor_image_hashes')
+      .select('id, r2_ref')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .eq('vendor_service_id', args.vendorServiceId);
+    if (readError) throw readError;
+    const keep = new Set(args.keepRefs);
+    const gone = ((data ?? []) as { id: number; r2_ref: string }[]).filter((h) => !keep.has(h.r2_ref)).map((h) => h.id);
+    if (gone.length === 0) return;
+    const { error } = await admin.from('vendor_image_hashes').update({ vendor_service_id: null }).in('id', gone);
+    if (error) throw error;
+  } catch (err) {
+    Sentry.captureException(err, {
+      tags: { feature: 'vendor-image-repost-watch' },
+      extra: { phase: 'release-card-photos', vendorServiceId: args.vendorServiceId },
+    });
+  }
 }

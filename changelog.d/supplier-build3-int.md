@@ -45,6 +45,10 @@ This branch merges lanes A → B → C → D → E and origin/main twice. It sup
   - **Analytics gutters:** measured 26 px left and right of the centred card at 320 and 390 px. The cut-off card in the first shots was Chromium's full-page capture catching the snap track mid-re-snap; the shots now use a tall viewport instead.
   - **"Needs you today" draws no "0 · 12 MN – 12 MN".** The window shows only beside a real count; the empty row under it already says "Nothing waiting on you".
   - **The Logo menu offers no "See" or "Adjust profile photo" without a logo.** Upload only, until one exists.
+- **Two reads follow the live taxonomy** (owner: "make sure the services are not hard coded … should live based on the taxonomy"):
+  - `lib/supplier-hero.server.ts`: the placeholder's service→category lookup reads `getTaxonomy().map`, the same live snapshot its photos come from, not the `TAXONOMY_MAP` constant.
+  - `lib/chat-cards.ts`: the Log-a-payment coordinator Agree asks `isCoordinatorTrade` (`lib/coordinator-trade.ts`, TS = SQL = taxonomy) instead of a `'planner_coordinator'` literal. Of that list, only `planner_coordinator` is a `vendor_category` enum value, so every existing booking answers as before.
+  - Guard: `lib/build3-reads-the-live-taxonomy.test.ts`.
 - **Regenerated:** the screens map, admin jobs/map, the migrations manifest, the exposure baseline, the FK behaviour file, the port-control baseline and the no-card baseline. The no-card count fell.
 
 SPEC IMPACT: None. The Upload/menu behaviour follows the owner's 9 Nov rulings already recorded for Build 3. No corpus file changes. One gap is flagged for the owner in the PR: there is no shipped "logo from Portfolio" picker, so the Logo menu's third row adjusts the logo rather than choosing one.

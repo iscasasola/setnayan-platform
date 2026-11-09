@@ -57,17 +57,19 @@ test('1 · the pinned row is title · [the page actions] · ⚙ · ✕, and the 
   assert.match(SHELL, /text-\[20px\] font-bold/, 'the title is not v8.3’s 20 px bold');
 });
 
-test('2 · inside a picked shell the calls and 📎 go to the head; no switch row; Files + Decisions open inside the stack', () => {
+test('2 · inside a picked shell the calls and 📎 go to the head; no head-tools row; Files opens inside the stack', () => {
   assert.match(STREAM, /const headSlot = useContext\(PickedHeadContext\);\s*const inPicked = headSlot !== null;/);
   assert.match(STREAM, /<ChatHostStrip\b[^>]*\bcalls=\{inPicked \? null : headCalls\}/, 'the calls are drawn on the strip inside a picked page (v8.3: the head)');
   const portal = STREAM.slice(STREAM.indexOf('createPortal('), STREAM.indexOf('headSlot,', STREAM.indexOf('createPortal(')));
   assert.match(portal, /\{headCalls\}/, 'the head slot lost the calls');
   assert.match(portal, /icon=\{Paperclip\}[\s\S]*label="Files in this chat"[\s\S]*disabled=\{privateNow !== null\}/, 'the head lost the 📎, or it opens while private (words only)');
-  assert.match(STREAM, /\{inPicked \? null : \(\s*<ThreadViewSwitch\b/, 'the Chat · Decisions · Files row is drawn inside a picked page');
+  // Integration (Build 3 A × B): lane B retired the Chat · Decisions · Files switch for the 📎 head-tools row (open
+  // decisions are pins, closed ones Details › Decisions) — outside a picked shell only; inside, the head carries the 📎.
+  assert.match(STREAM, /\{inPicked \? null : \(\s*<div className="[^"]*" data-chat-head-tools="">/, 'the 📎 head-tools row is drawn inside a picked page');
   const stack = STREAM.slice(STREAM.indexOf('<ChatPinnedStack'), STREAM.indexOf('</ChatPinnedStack>'));
-  assert.match(stack, /\{inPicked && filesOpen \? \([\s\S]*data-picked-files-panel=""[\s\S]*<FilesPanel\b[\s\S]*<DecisionsPanel\b/, 'the 📎 panel is not inside the pinned stack');
+  assert.match(stack, /\{inPicked && filesOpen \? \([\s\S]*data-picked-files-panel=""[\s\S]*<FilesPanel\b/, 'the 📎 panel is not inside the pinned stack');
   assert.match(STREAM, /useState\(initialView !== 'all'\)/, 'a ?view=files|decisions link no longer lands with the panel open');
-  assert.match(STREAM, /\{!inPicked && view === 'decisions' \?/, 'a picked chat can still swap the conversation for Decisions');
+  assert.doesNotMatch(STREAM, /view === 'decisions' \?/, 'Decisions came back into the stream (lane B: they are pins + Details › Decisions)');
 });
 
 test('3 · a picked chat draws no notice row — the words sit behind the strip’s ⓘ', () => {
@@ -90,7 +92,7 @@ test('4 · with a (+) the camera and photo live inside it; every picked chat lab
   assert.match(SHEET, /const rows: readonly SheetRow\[\] = \[\.\.\.SHORTCUT_ROWS, \.\.\.ownRows\];/, 'the (+) sheet lost its Camera / Photo rows');
   assert.match(SHEET, /getElementById\(ATTACH_INPUT\[row\.attach === true \? 'file' : row\.attach\]\)\?\.click\(\)/);
   assert.match(SHEET, /export function ComposerPlusSheet\(\{ more = \[\]/, 'Lane B’s slot for the supplier’s (+) rows is gone');
-  assert.match(LAB, /<ChatSendForm\b[\s\S]*?lead=\{side === 'couple' \? <CoupleThreadToolsSheet\b[^}]*\} \/> : <ComposerPlusSheet\b/, 'a picked chat lab has no (+)');
+  assert.match(LAB, /<ChatSendForm\b[\s\S]*?lead=\{side === 'couple' \? <CoupleThreadToolsSheet\b[^>]*\/> : <ComposerPlusSheet\b/, 'a picked chat lab has no (+)');
 
   const lead = React.createElement('button', { type: 'button', 'data-lab-plus': '' }, '+');
   const html = renderToStaticMarkup(React.createElement(ChatSendForm, { threadId: 't1', sendAction: async () => {}, lead }));

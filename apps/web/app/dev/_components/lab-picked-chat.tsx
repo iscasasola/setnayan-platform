@@ -97,7 +97,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           <ChatSendForm
             threadId={threadId}
             sendAction={actions.send}
-            lead={side === 'couple' ? <CoupleThreadToolsSheet dealReveal={null} /> : <ComposerPlusSheet sheetMark="lab-vendor" more={[]} />}
+            lead={side === 'couple' ? <CoupleThreadToolsSheet dealReveal={null} eventId={LAB_MESSAGES[0]!.event_id} threadId={threadId} /> : <ComposerPlusSheet sheetMark="lab-vendor" more={[]} />}
             attachInputId={CHAT_ATTACH_INPUT_ID}
             userId={side === 'couple' ? LAB_USER : LAB_STAFF}
           />

@@ -66,7 +66,7 @@ test('2 · the stream pins the strip, Lane B\'s pins, the switch and the expiry 
   for (const [what, re] of [
     ['the host strip', /<ChatHostStrip\b/],
     ["Lane B's pins", /\{pins\}/],
-    ['the Chat · Decisions · Files switch', /<ThreadViewSwitch\b/],
+    ['the 📎 head-tools row (lane B’s successor to the Chat · Decisions · Files switch)', /data-chat-head-tools=""/],
     ['the file-expiry line', /data-chat-files-expiry/],
   ] as const) {
     assert.match(inside, re, `${what} is drawn outside the pinned stack`);
@@ -75,7 +75,7 @@ test('2 · the stream pins the strip, Lane B\'s pins, the switch and the expiry 
   // v8.3 round 2: inside a picked shell the 📎 opens Files + Decisions as a PANEL inside the stack, on purpose — so the
   // full views are counted from the stack's close, and the in-stack copies must be that panel and nothing else.
   const below = s.slice(close);
-  for (const scroller of ["{!inPicked && view === 'decisions' ?", '<DecisionsPanel', '<FilesPanel', 'ref={listRef}']) {
+  for (const scroller of ["{!inPicked && view === 'files' ?", '<FilesPanel', 'ref={listRef}']) {
     assert.ok(below.includes(scroller), `${scroller} is not below the pinned stack`);
   }
   for (const panel of ['<DecisionsPanel', '<FilesPanel']) {
@@ -107,8 +107,8 @@ test('3 · pinned stays pinned: the strip and the switch are FIXED; only the pin
   const fixed = s.slice(fixedAt, bodyAt);
   const scrolling = s.slice(bodyAt, close);
   assert.match(fixed, /<ChatHostStrip\b/, 'the who\'s-here strip can scroll away');
-  assert.match(fixed, /<ThreadViewSwitch\b/, 'the Chat · Decisions · Files switch can scroll away');
-  assert.doesNotMatch(scrolling, /<ChatHostStrip\b|<ThreadViewSwitch\b/, 'a fixed row is inside the scrolling region');
+  assert.match(fixed, /data-chat-head-tools=""/, 'the 📎 head-tools row (lane B’s successor to the switch) can scroll away');
+  assert.doesNotMatch(scrolling, /<ChatHostStrip\b|data-chat-head-tools=""/, 'a fixed row is inside the scrolling region');
   assert.match(scrolling, /\{pins\}/);
   assert.match(scrolling, /data-chat-files-expiry/);
 });

@@ -1460,7 +1460,7 @@ export function ChatMessageStream({
         }
       >
       {inPicked && filesOpen ? (
-        <section ref={filesPanelRef} className="pb-2" aria-label="Files and decisions in this chat" data-picked-files-panel="">
+        <section ref={filesPanelRef} className="pb-2" aria-label="Files in this chat" data-picked-files-panel="">
           <div className="flex items-center justify-between gap-2 pt-2">
             <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">
               Files · {files.length} · newest first
@@ -1468,30 +1468,6 @@ export function ChatMessageStream({
             <ActionButton tone="neutral" iconOnly icon={X} label="Close files" onClick={() => setFilesOpen(false)} data-testid="picked-files-close" />
           </div>
           <FilesPanel files={files} />
-          {decisions.length > 0 ? (
-            <>
-              <h2 className="pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55">Decisions · {decisions.length}</h2>
-              <DecisionsPanel
-                entries={decisions}
-                standing={standing}
-                counterpartyLabel={counterpartyLabel}
-                needsYouCount={needsYouCount}
-                reply={{
-                  threadId,
-                  eventId: messages[0]?.event_id ?? '',
-                  vendorProfileId: messages[0]?.vendor_profile_id ?? '',
-                  returnPath: withThreadView(
-                    viewerRole === 'couple' && messages[0]
-                      ? `/dashboard/${messages[0].event_id}/messages/${threadId}`
-                      : `/vendor-dashboard/messages/${threadId}`,
-                    'decisions',
-                  ),
-                  eventDate,
-                  supplierActions: viewerRole === 'vendor' ? supplierReplyActions : undefined,
-                }}
-              />
-            </>
-          ) : null}
         </section>
       ) : null}
       {pins}

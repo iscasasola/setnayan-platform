@@ -8,8 +8,8 @@
  * countdown), Waiting on the other side (ONE quiet folded line) (🚦 9 Nov); the ONE open (+) card pins under them as
  * **Running topic** (8 Nov); the Due-now stack collapses to one row and remembers it per chat, and a NEW due item
  * re-opens it once (9 Nov); "the pinned on top should stay pinned" — this sits OUTSIDE the stream's scroller, inside the
- * chat's pinned region (at most 4/9 of the screen; lane A owns that container — this caps itself too, so it can never
- * cover an open panel).
+ * chat's pinned region (at most 4/9 of the screen). Integrated with lane A, the ONE cap and the ONE scroller are `ChatPinnedStack`'s:
+ * this list draws inside it, under any open panel, so it never caps or scrolls itself — two caps would be two stacks.
  *
  * The level and order are `lib/chat-pins.ts` (the same rule lane A's Chats-row dot reads). Each row wears its topic's
  * icon from `TOPIC_ICON` — never a bell or a clock of its own. A row is the press: "Answer ›" opens its answer IN
@@ -214,7 +214,7 @@ export function ChatPins({
   return (
     <div
       data-chat-pins=""
-      className="max-h-[calc(100dvh*4/9)] shrink-0 overflow-y-auto border-b border-ink/10 bg-cream px-3 shadow-[0_6px_14px_-12px_rgb(0_0_0/0.4)] sm:px-4"
+      className="shrink-0 border-b border-ink/10 bg-cream px-3 shadow-[0_6px_14px_-12px_rgb(0_0_0/0.4)] sm:px-4"
     >
       <ul>
         {stack.blockers.map((f) => row(f, 'blocker'))}

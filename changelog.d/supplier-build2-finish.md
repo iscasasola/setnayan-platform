@@ -21,8 +21,10 @@ Owner 9 Nov: *"finish it"*; on supplier refunds: *"yes build this"*. Stacked on 
 - **Portfolio "services vs photo albums overlap": nothing done** — settled by the owner-approved Build 5 Portfolio
   redesign (every section stays a rail).
 
-Migration `20271334860034_video_link_titles_and_a_refund_notice.sql` (ALTERs only): `gallery_video_titles` + its CHECK
-helper `video_titles_are_short`, and the `client_refund_recorded` notification enum value.
+Migration `20271334860034_video_link_titles_and_a_refund_notice.sql` (additive, backward-compatible): `gallery_video_titles`
+(default `{}`) + its CHECK helper `video_titles_are_short`, its column grants (authenticated SELECT/UPDATE, anon none —
+the 20271217955839 lockdown rule), the `vendor_profiles_self` view re-created to carry it (same body otherwise), and the
+`client_refund_recorded` notification enum value.
 
 SPEC IMPACT: None to the locked decisions — this builds what DECISION_LOG 2026-11-08 ("A RECORDED REFUND LOWERS PAID")
 listed as not yet built, and B2-B owner call (a) (v118's video Title). The corpus is read-only for this lane; the

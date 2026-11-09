@@ -622,7 +622,7 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
  */
 function prettyWaitlistDate(date: string): string {
   try {
-    return new Date(`${date}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+    return new Date(`${date}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
       weekday: 'long',
       month: 'long',
       day: 'numeric',

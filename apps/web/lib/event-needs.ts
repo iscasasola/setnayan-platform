@@ -220,8 +220,15 @@ export function sanitizeNeeds(raw: unknown, fallback: EventNeeds, scope: NeedsSc
 /** What an event row holds. NULL / absent = never asked = ON. */
 export type EventNeedsRow = Partial<Record<EventNeedsColumn, boolean | null>>;
 
-/** The three needs as the dashboard reads them. */
-export type EventNeedsRead = { guestList: boolean; suppliers: boolean; hubDetails: boolean };
+/**
+ * The three needs as the dashboard reads them — plus, where the page read it, whether guests reply.
+ *
+ * `guestsReply` is `events.rsvp_ask_config.guestsReply` ("How do guests get in?" → no reply writes `false`,
+ * `lib/onboarding/event-insert.ts`). It is NOT one of the three columns: the Maker adds it from the event row it
+ * already reads (`readGuestsReply`, lib/rsvp-ask.ts). ABSENT = unknown = guests reply (today's Maker) — only an
+ * explicit `false` drops anything, so a refused read never hides a stage.
+ */
+export type EventNeedsRead = { guestList: boolean; suppliers: boolean; hubDetails: boolean; guestsReply?: boolean };
 
 export function readEventNeeds(row: EventNeedsRow | null | undefined): EventNeedsRead {
   return {
@@ -242,13 +249,27 @@ export function needsHiddenNavKeys(n: EventNeedsRead): string[] {
 /**
  * The Maker's stages this event drops (matrix §3 table + §0b AFTER):
  *   · Event Hub "cover + photos only" → ONE stage, The Day (cover + the Papic gallery);
- *   · no guest list → no RSVP stage and no Save the Date (there is nobody on a list to tell first).
+ *   · no guest list → no RSVP stage and no Save the Date (there is nobody on a list to tell first);
+ *   · guests don't reply (`guestsReply === false`) → no RSVP stage (owner 9 Nov 2026: "have the 4 stages for the
+ *     time being and the RSVP stage only when they have RSVP"). The four public stages stay.
  * Keys are the Maker's own (`MAKER_PAGE_STAGES`: save_the_date · rsvp-stage · rsvp · event · editorial).
  */
 export function needsHidesStage(stage: string, n: EventNeedsRead): boolean {
   if (!n.hubDetails) return stage !== 'event';
   if (!n.guestList) return stage === 'rsvp-stage' || stage === 'save_the_date';
+  if (n.guestsReply === false) return stage === 'rsvp-stage';
   return false;
+}
+
+/**
+ * The stage the Maker opens on when the one asked for is dropped (`needsHidesStage`) — never a blank page.
+ * The RSVP stage sits beside the Invitation, so it lands THERE; anything else (or an Invitation also dropped)
+ * lands on The Day, which no event drops.
+ */
+export function needsLandingStage(wanted: string, hidden: readonly string[]): string {
+  if (!hidden.includes(wanted)) return wanted;
+  if (wanted === 'rsvp-stage' && !hidden.includes('rsvp')) return 'rsvp';
+  return 'event';
 }
 
 /**

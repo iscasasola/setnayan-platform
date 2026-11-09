@@ -1,6 +1,7 @@
 ## 2026-11-09 · feat(chat): the step-by-step (+) cards — Change quote · Payment · Log a payment · Form · Photos & files · Decision · Ask for a change · Guest count · Booking ask (Supplier Build 3 · lane C)
 
-Every card sits on lane B's one-step frame (`chat-step-card.tsx`), is its OWN lazy chunk (`cards/lazy-cards.tsx`),
+Every card sits on lane B's one-step frame (`chat-step-card.tsx`), is lazy (`cards/lazy-cards.tsx`, riding the conversation's own on-demand `thread-parts` chunk — no new chunk
+id in the shared bundle's webpack runtime),
 and sends through the SHIPPED writer — no second write path.
 
 - **Change quote** (supplier): Add · Change · Remove → line → price → Review (tap a line to change it, swipe left to

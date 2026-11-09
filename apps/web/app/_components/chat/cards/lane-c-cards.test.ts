@@ -19,7 +19,7 @@ const cardFiles = readdirSync(join(WEB, CARDS)).filter((f) => f.endsWith('.tsx')
 
 test('⚡ the chat reaches every card ONLY through lazy-cards (next/dynamic) — no card module in the first load', () => {
   const lazy = read(`${CARDS}/lazy-cards.tsx`);
-  for (const m of lazy.matchAll(/export const (\w+) = (.+);/g)) assert.match(m[2]!, /^dynamic\(\(\) => import\(\/\* webpackChunkName: "chat-cards-(plus|stream)" \*\/ '\.\/[\w-]+'\)/, `${m[1]} is not a dynamic import into one of the two named card chunks`);
+  for (const m of lazy.matchAll(/export const (\w+) = (.+);/g)) assert.match(m[2]!, /^dynamic\(\(\) => import\(\/\* webpackChunkName: "thread-parts" \*\/ '\.\/[\w-]+'\)/, `${m[1]} is not a dynamic import into the conversation's own on-demand chunk (thread-parts) — a new chunk id costs the shared bundle`);
   for (const rel of ['app/_components/chat/plus-draft.tsx', 'app/_components/chat-message-stream.tsx']) {
     const src = read(rel);
     assert.match(src, /from '\.\/(chat\/)?cards\/lazy-cards'/, `${rel} must import the cards from lazy-cards`);

@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { safeNext } from '@/lib/safe-next';
+import { pickedReason, workBackHref } from '@/lib/admin/supplier-work';
+import { tellShopRequestAnswered } from '@/lib/supplier-request-notify';
 import { rescanAllVendorImages } from '@/lib/vendor-image-repost-watch';
 import { scanAllVendorMediaForQr } from '@/lib/vendor-qr-media-guard';
 
@@ -60,13 +63,25 @@ export async function resolveRepostFlag(formData: FormData) {
     throw new Error('Pick an action');
   }
 
+  // ➕ FROM ADMIN › WORK (admin supplier slice, owner 2026-10-28: "Flagged cards … Publish or Needs a fix"). The work
+  // row posts `back` and, for Needs a fix, a `reason` picked from the list — the shop reads it. 🔑 A Needs a fix from
+  // the work list WITHOUT a reason from the list is REFUSED (back to the same list, said), never sent as a bare verdict.
+  const fromWork = formData.has('back');
+  const back = safeNext(formData.get('back'), '/admin/work');
+  const reason = pickedReason('cards', formData.get('reason'));
+  if (fromWork && action === 'confirm_theft' && !reason) {
+    redirect(workBackHref(back, 'refused', 'Pick the reason the shop will see.'));
+  }
+
   const admin = createAdminClient();
   const extraNote =
-    typeof note === 'string' && note.trim().length > 0
-      ? ` — ${note.trim().slice(0, 500)}`
-      : '';
+    reason !== null
+      ? ` — ${reason}`
+      : typeof note === 'string' && note.trim().length > 0
+        ? ` — ${note.trim().slice(0, 500)}`
+        : '';
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from('vendor_image_flags')
     .update({
       status: ACTION_STATUS[action],
@@ -74,10 +89,27 @@ export async function resolveRepostFlag(formData: FormData) {
       reviewed_by: userId,
       reviewed_at: new Date().toISOString(),
     })
-    .eq('id', Number(flagId));
+    .eq('id', Number(flagId))
+    .select('flagged_vendor_id');
   if (error) throw new Error(error.message);
 
+  // The shop is told, in the app, only when it was sent back with a reason. Publish
+  // (dismiss) changes nothing on their side — the card stayed up all along (detect-and-flag only, never a takedown).
+  const settled = (data ?? [])[0] as { flagged_vendor_id: string } | undefined;
+  if (settled && action === 'confirm_theft' && reason) {
+    await tellShopRequestAnswered({
+      vendorProfileId: settled.flagged_vendor_id,
+      title: 'A photo on your service card needs a fix',
+      body: reason,
+      relatedUrl: '/vendor-dashboard/shop',
+    });
+  }
+
   revalidatePath('/admin/repost-watch');
+  if (fromWork) {
+    revalidatePath('/admin/work');
+    redirect(workBackHref(back, action === 'dismiss' ? 'published' : 'sent-back'));
+  }
 }
 
 /**

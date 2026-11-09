@@ -159,8 +159,9 @@ function routeFiles(file: string, depth = 4, seen = new Set<string>()): string[]
   if (depth < 0 || seen.has(file) || !existsSync(file)) return [];
   seen.add(file);
   let out = [file];
-  for (const m of src(file).matchAll(/import\s+[^;]*?from\s+'([^']+)'/g)) {
-    const r = resolveImport(m[1] ?? '', file);
+  // …and `import('…')`: a part a route loads on demand (`next/dynamic`, `React.lazy`) is still that route's UI.
+  for (const m of src(file).matchAll(/import\s+[^;]*?from\s+'([^']+)'|\bimport\(\s*(?:\/\*[^*]*\*\/\s*)?'([^']+)'\s*\)/g)) {
+    const r = resolveImport(m[1] ?? m[2] ?? '', file);
     // Only follow into the app tree — a design-system import is not this
     // route's heading.
     //

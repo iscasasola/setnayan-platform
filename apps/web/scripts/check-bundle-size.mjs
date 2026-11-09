@@ -76,7 +76,22 @@ const NEXT_DIR = join(WEB_ROOT, '.next');
 // them would hold back a critical-rated security fix over a KPI it moves by
 // 0.25%. Same rule as above: the ceiling moves by the measured amount and no
 // more, leaving the same 0.5KB of headroom main had before the bump.
-const MAX_SHARED_GZIP_BYTES = 202 * 1024;
+//
+// 202.3KB — raised by 0.3KB on 2026-11-08, owner-approved (verbatim: "ok", to the choice put to him by the
+// release controller), PR #7403 (the picked client loads its pages on demand). No DECISION_LOG row yet.
+//
+// 🔑 SAME SHAPE AS 2026-08-15: NONE OF IT IS APPLICATION CODE IN THE SHARED CHUNKS. framework 58.5 · 5fe533a1
+// 53.1 · 5006 45.6 · main 39.7 · main-app 0.2 are byte-identical to the base (f309382064). What grew is the
+// WEBPACK RUNTIME's lazy-chunk list, 4.8 → 5.1KB gzipped: the ~26 async chunks the picked client's pages now
+// load on demand (Chat/Quotation parts 18 · Hub parts 7 · picked pages 2), each ~10–12 bytes in a list every
+// page downloads. MEASURED locally, dummy env: 207,083 bytes vs 206,848 — and the base had ~16 bytes of
+// headroom, so ANY lazy chunk anywhere would have failed this check.
+// What the 0.3KB buys, First Load JS from the build table (base → #7403):
+//     /vendor-dashboard/clients/[eventId] (+ the customers intercept)   510 → 359 kB
+//     /vendor-dashboard/messages/[threadId]                             396 → 262 kB
+//     /vendor-dashboard/on-the-day                                      286 → 181 kB
+// Same rule as above: moved by the measured amount and no more.
+const MAX_SHARED_GZIP_BYTES = Math.round(202.3 * 1024);
 
 function fail(message, details = []) {
   console.error(`\n❌ ${message}`);
@@ -200,7 +215,7 @@ for (const rel of sharedChunks) {
 perChunk.sort((a, b) => b.gzip - a.gzip);
 
 const totalKB = (totalGzip / 1024).toFixed(1);
-const maxKB = (MAX_SHARED_GZIP_BYTES / 1024).toFixed(0);
+const maxKB = (MAX_SHARED_GZIP_BYTES / 1024).toFixed(1);
 
 const top = perChunk
   .slice(0, 8)

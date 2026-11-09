@@ -3,7 +3,6 @@ import { Check, ChevronRight, ShieldAlert } from 'lucide-react';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
 import {
   approvePaymentFromWorkList,
-  approveVerificationFromWorkList,
   agreeToRequestFromWorkList,
   publishReviewFromWorkList,
   recordPayoutFromWorkList,
@@ -13,13 +12,15 @@ import {
   settleSubscriptionFromWorkList,
   settlePaymentOptionFromWorkList,
 } from '@/app/admin/work/actions';
+// Moved beside the decision engine it calls (admin supplier slice, 2026-10-28) so the engine stopped being a route.
+import { settleVerificationFromWorkList } from '@/app/admin/verify/actions';
 import { formatCount } from '@/lib/format-number';
 
 /** Which server action + hidden field each kind posts. One table so a new fact
  *  queue is a row here, not another branch in the markup. */
 const ACTIONS = {
   'approve-payment': { fn: approvePaymentFromWorkList, field: 'payment_id' },
-  'approve-verification': { fn: approveVerificationFromWorkList, field: 'application_id' },
+  'approve-verification': { fn: settleVerificationFromWorkList, field: 'application_id' },
   'agree-request': { fn: agreeToRequestFromWorkList, field: 'approval_id' },
 } as const;
 

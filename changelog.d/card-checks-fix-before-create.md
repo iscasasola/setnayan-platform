@@ -29,7 +29,7 @@ and then held; there is no per-card review queue. Exactly three checks, and **no
   card dropped (`releaseCardPhotos`).
 - `/admin/repost-watch`: "Suppliers who say a photo is theirs" (list) + "Claim words on service cards" (add/remove words,
   allow a word for one shop).
-- Mapped: Ugat joint J66; erasure / export guardrails + export-completeness decide both new tables; exposure baseline,
+- Mapped: Ugat joint J68 (J66 went to notifications on main, J67 to #7405); erasure / export guardrails + export-completeness decide both new tables; exposure baseline,
   user-FK map and ugat screens regenerated.
 - In-app only — nothing here sends an email.
 

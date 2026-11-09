@@ -150,6 +150,11 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
  * 12 → 2 on 2026-10-26: `readDeclaredViews()` taught T11 every view and matview a migration declares (T11b proves the
  * forms it reads), so the ten view entries were deleted — including `vendor_profiles_self`, whose name the parser now
  * sees even though its projection is still built in a DO block (its own two guards still cover the columns).
+ *
+ * 2 → 3 on 2026-10-28 for `event_type_requests` (admin supplier slice, PR #7006): built against PR #7001's table
+ * before it merges; the read degrades to a said "absent". Back to 2 the moment #7001 lands.
+ *
+ * 3 → 2 on 2026-11-06: #7001 is on main, so T11 resolves `event_type_requests` from its migration; the entry is deleted.
  */
 const KNOWN_UNRESOLVED_CEILING = 2;
 

@@ -197,6 +197,11 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   card_claim_word_allowances:
     'Admin allowance (a shop may use a word). Only user column is granted_by, ON DELETE SET NULL — an actor stamp; the row names a SHOP (CASCADE with it) and a word, about no person.',
 
+  // ── added 2026-10-28 with the tables (admin supplier slice, migration 20271330825868) ──
+  hub_tools:
+    'Setnayan-authored tool library. `updated_by` is the ADMIN who last edited a tool — an actor stamp, nullable + ON DELETE SET NULL; no person is the subject of a tool.',
+  category_hub_settings:
+    'Setnayan configuration per supplier category (default scan mode). `updated_by` is the ADMIN who saved it — an actor stamp, nullable + ON DELETE SET NULL.',
   // ── added 2026-09-03 with the table itself (BA7) ──
   // The ONLY subject-identifying column is `created_by_user_id`, declared
   // nullable + ON DELETE SET NULL in the migration that creates it

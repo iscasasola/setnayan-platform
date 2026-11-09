@@ -557,7 +557,7 @@ export function RequestsSheet({
                 <li key={r.suggestion_id} className="border-b border-ink/[0.06] pb-5 pt-4">
                   <Eyebrow>
                     {r.by} ·{' '}
-                    {r.kind === 'where' ? 'the chapters they serve' : r.kind === 'hours' ? 'the chapter’s hours' : r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
+                    {r.kind === 'where' ? 'the chapters they serve' : r.kind === 'hours' ? 'the chapter’s hours' : r.kind === 'remove' ? 'remove a moment' : r.kind === 'skip' ? 'skip a part today' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
                   </Eyebrow>
                   <h3 className="mt-1 font-display text-[21px] leading-tight text-ink">
                     {r.kind === 'where'
@@ -589,6 +589,8 @@ export function RequestsSheet({
                           ? (r.where?.asked ?? '—')
                           : r.kind === 'remove'
                           ? 'remove it'
+                          : r.kind === 'skip'
+                          ? 'skip it'
                           : r.proposed_start_at || r.proposed_end_at
                           ? whenOf(r.proposed_start_at ?? current?.start_at ?? null, r.proposed_end_at, refDate)
                           : r.proposed_label && current
@@ -634,6 +636,8 @@ export function RequestsSheet({
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'
+                        : r.kind === 'skip'
+                        ? 'Approving skips it today — the parts after it keep their times; guests are told.'
                         : isNoteOnlySuggestion(r)
                           ? 'Nothing on the schedule moves — Noted tells them you read it.'
                           : 'Approving changes the moment on the schedule.'}{' '}

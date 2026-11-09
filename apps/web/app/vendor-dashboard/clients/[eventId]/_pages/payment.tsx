@@ -23,7 +23,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Wallet } from 'lucide-react';
-import { ThumbRow } from '@/components/thumb-row';
+// ⚡ On-demand code (`./lazy`): the same components, loaded with this page rather than the route's first load.
+import { ClientRefunds, ThumbRow } from './lazy';
 import { PriceSummary } from '@/app/_components/price-summary';
 import { formatPhp } from '@/lib/php';
 import { clientPaymentView } from '@/lib/client-payment-view';
@@ -40,7 +41,7 @@ import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/v
 import { SupplierThumbRow } from '../../../_components/supplier-thumb-row';
 import { BookingMoneySummary } from '../_components/booking-money-summary';
 import { customerLandingHref } from '../../../customers/anchors';
-import { ClientRefunds, type ClientRefundView } from '../_components/client-refunds';
+import type { ClientRefundView } from '../_components/client-refunds';
 import { refundedTotalPhp } from '@/lib/client-refunds';
 import type { PickedPageProps } from './context';
 

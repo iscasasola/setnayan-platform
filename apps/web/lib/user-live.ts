@@ -1,0 +1,281 @@
+/**
+ * user-live.ts — the ONE live connection a signed-in person holds, as a state machine with no Supabase in it
+ * (owner 2026-10-29: "chat arrives instantly"; "in time we will have millions of people using our app at the same
+ * time"). The Supabase half is lib/user-live-channel.ts; this half is what the node tests drive on a fake clock
+ * (lib/chat-arrives-instantly.test.ts).
+ *
+ * What it promises, each one a pass-bar line:
+ *
+ *   · ZERO CONNECTIONS FOR AN IDLE PERSON. It joins only while the tab is IN VIEW. Hidden for `hiddenMs` (30 s, the
+ *     repo's standard grace — lib/tab-return.ts HIDDEN_PAUSE_MS) it leaves; back in view it joins again. A tab that
+ *     opens hidden joins nothing until it is looked at.
+ *   · NEVER BLOCKS THE FIRST PAINT. The first join waits a random 0–`joinJitterMs` after it is asked for — and it is
+ *     only ever asked for from an effect, after the page has painted.
+ *   · NO RETRY STORM. A failed join (refused, timed out, closed under us) is torn down — NOT left to the client's own
+ *     forever-rejoin — and tried again after an exponential backoff with full jitter (`retryDelayMs`), capped; after
+ *     `maxFailures` in a row it stops for this tab ('off') and the caller's poll carries on alone.
+ *   · ONE CHANNEL, MANY LISTENERS. The envelope and the inbox share it; the channel closes when the last one leaves.
+ *
+ * Statuses a listener sees:
+ *   joining — asked for, not yet confirmed     live   — confirmed; pings arrive
+ *   paused  — the tab is out of view           down   — failed; a retry is scheduled
+ *   off     — gave up for this tab (the caller polls)
+ */
+import { browserTabEnv, HIDDEN_PAUSE_MS, type TabEnv } from './tab-return';
+
+export type LiveStatus = 'joining' | 'live' | 'paused' | 'down' | 'off';
+
+/**
+ * One broadcast on the person's `user:<uid>` topic: the event name the database sent it with, and its payload — ids
+ * only, never content. `chat_message` (migration 20271328682743: thread_id · message_id · at) is the first; a later
+ * event (a heart on a message) arrives on the same channel with its own name — see `USER_LIVE_EVENTS` in
+ * lib/user-live-channel.ts. Listeners switch on `event`, so a new name is never mistaken for an old one.
+ */
+export type UserPing = { event: string; payload: Record<string, unknown> };
+
+/** The realtime-js subscribe statuses this machine reacts to. */
+export type TransportStatus = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED';
+
+/**
+ * Opens the channel and returns its close (which may resolve later — `removeChannel` resolves once the channel has
+ * left). The machine never opens a second one before the previous close has resolved.
+ */
+export type Transport = (h: {
+  onPing: (p: UserPing) => void;
+  onStatus: (s: TransportStatus | string) => void;
+}) => () => void | Promise<unknown>;
+
+export type LiveListener = { onPing?: (p: UserPing) => void; onStatus?: (s: LiveStatus) => void };
+
+/** The first join waits a random 0–this long: a deploy or a Realtime restart must not see every tab rejoin at once. */
+export const JOIN_JITTER_MS = 1_500;
+/**
+ * Failures in a row before this tab stops trying (the poll carries on). With the delays below the five retries wait
+ * 5 · 15 · 45 · 135 · 300 s (each ×0.5–1.5): a Realtime outage costs a person at most five more joins over ~8 min.
+ */
+export const MAX_LIVE_FAILURES = 6;
+/**
+ * 5 s, not 2: after an outage EVERY tab fails at once, and the first wave of rejoins spreads over this band —
+ * 200 people ≈ 40 joins/s, 10,000 ≈ 2,000/s (Supabase channel joins/s: Free 100 · Pro 500 · Team 2,500).
+ */
+const RETRY_BASE_MS = 5_000;
+const RETRY_CAP_MS = 5 * 60_000;
+/**
+ * A channel must stay live this long before its failure count is forgiven. A server that accepts a join and drops it
+ * seconds later (a flap) is still counted toward the give-up — otherwise every tab would rejoin every ~5 s forever.
+ */
+export const LIVE_STABLE_MS = 60_000;
+
+/** Exponential backoff with FULL jitter: a random point in [0.5, 1.5) × base·3^(n−1), capped. */
+export function retryDelayMs(failures: number, random: () => number = Math.random): number {
+  const step = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 3 ** Math.max(0, failures - 1));
+  return Math.round(step * (0.5 + random()));
+}
+
+export function createUserLive({
+  transport,
+  env = browserTabEnv(),
+  random = Math.random,
+  hiddenMs = HIDDEN_PAUSE_MS,
+  joinJitterMs = JOIN_JITTER_MS,
+  maxFailures = MAX_LIVE_FAILURES,
+}: {
+  transport: Transport;
+  env?: TabEnv;
+  random?: () => number;
+  hiddenMs?: number;
+  joinJitterMs?: number;
+  maxFailures?: number;
+}) {
+  const listeners = new Set<LiveListener>();
+  let status: LiveStatus = 'paused';
+  let close: (() => void | Promise<unknown>) | null = null;
+  let closing: Promise<unknown> = Promise.resolve();
+  let attempt = 0; // bumps on every open/close, so a late callback from an old channel is ignored
+  let failures = 0;
+  let liveSince: number | null = null;
+  let joinTimer: unknown = null;
+  let hideTimer: unknown = null;
+  let unvis: (() => void) | null = null;
+
+  const set = (s: LiveStatus) => {
+    if (s === status) return;
+    status = s;
+    for (const l of [...listeners]) l.onStatus?.(s);
+  };
+
+  const clearJoin = () => {
+    if (joinTimer !== null) env.clearTimeout(joinTimer);
+    joinTimer = null;
+  };
+  const clearHide = () => {
+    if (hideTimer !== null) env.clearTimeout(hideTimer);
+    hideTimer = null;
+  };
+
+  const shut = () => {
+    attempt += 1;
+    if (!close) return;
+    const c = close;
+    close = null;
+    closing = Promise.resolve()
+      .then(c)
+      .catch(() => {});
+  };
+
+  const open = () => {
+    joinTimer = null;
+    if (listeners.size === 0 || close || status === 'off') return;
+    // A retry that comes due while the tab is hidden joins nothing — and says 'paused', so coming back into view
+    // schedules the join (a 'down' left standing here would never be retried).
+    if (!env.isVisible()) {
+      set('paused');
+      return;
+    }
+    const mine = ++attempt;
+    set('joining');
+    // Re-open only once the old channel has left — the client hands back a still-closing channel of the same topic.
+    void closing.then(() => {
+      if (mine !== attempt || listeners.size === 0) return;
+      if (!env.isVisible()) {
+        set('paused');
+        return;
+      }
+      const opened = transport({
+        onPing: (p) => {
+          if (mine !== attempt) return;
+          for (const l of [...listeners]) l.onPing?.(p);
+        },
+        onStatus: (s) => {
+          if (mine !== attempt) return; // our own removeChannel answers CLOSED — not a failure
+          if (s === 'SUBSCRIBED') {
+            liveSince = env.now();
+            set('live');
+            return;
+          }
+          if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') fail();
+        },
+      });
+      if (mine === attempt) {
+        close = opened;
+      } else {
+        // It failed (or was stopped) before it even returned — close what it opened, never leak a channel.
+        closing = Promise.resolve()
+          .then(opened)
+          .catch(() => {});
+      }
+    });
+  };
+
+  const schedule = (ms: number) => {
+    clearJoin();
+    joinTimer = env.setTimeout(open, ms);
+  };
+
+  const fail = () => {
+    shut(); // ours, not realtime-js's forever-rejoin
+    // Live long enough → this is a fresh outage, not a flap: start counting again.
+    if (liveSince !== null && env.now() - liveSince >= LIVE_STABLE_MS) failures = 0;
+    liveSince = null;
+    failures += 1;
+    if (failures >= maxFailures) {
+      clearJoin();
+      set('off');
+      return;
+    }
+    set('down');
+    schedule(retryDelayMs(failures, random));
+  };
+
+  const onVisibility = () => {
+    if (listeners.size === 0) return;
+    if (!env.isVisible()) {
+      if (hideTimer === null && status !== 'paused' && status !== 'off') {
+        hideTimer = env.setTimeout(() => {
+          hideTimer = null;
+          if (env.isVisible()) return;
+          clearJoin();
+          shut();
+          if (status !== 'off') set('paused');
+        }, hiddenMs);
+      }
+      return;
+    }
+    clearHide();
+    if (status === 'paused' && !close && joinTimer === null) {
+      set('joining');
+      schedule(Math.round(random() * joinJitterMs));
+    }
+  };
+
+  const start = () => {
+    unvis = env.onVisibility(onVisibility);
+    if (env.isVisible()) {
+      // 'joining' from the moment the join is asked for (the jitter included) — 'paused' means out of view only.
+      set('joining');
+      schedule(Math.round(random() * joinJitterMs));
+    } else set('paused');
+  };
+
+  const stop = () => {
+    unvis?.();
+    unvis = null;
+    clearJoin();
+    clearHide();
+    shut();
+    failures = 0;
+    status = 'paused';
+  };
+
+  return {
+    /** Listen; the first listener starts the machine, the last one to leave stops it. Returns `leave`. */
+    subscribe(l: LiveListener): () => void {
+      listeners.add(l);
+      if (listeners.size === 1) start();
+      l.onStatus?.(status);
+      return () => {
+        if (!listeners.delete(l)) return;
+        if (listeners.size === 0) stop();
+      };
+    },
+    status: () => status,
+  };
+}
+
+/**
+ * Run `fn` at once, and fold every further call that lands while it runs, or within `gapMs` of its start, into ONE
+ * trailing run. A burst of pings is one read, never one read per ping.
+ */
+export function coalesce(fn: () => unknown, gapMs: number, env: Pick<TabEnv, 'now' | 'setTimeout'> = browserTabEnv()) {
+  let last = -Infinity;
+  let running = false;
+  let pending = false;
+  let timer = false;
+
+  const run = () => {
+    timer = false;
+    pending = false;
+    running = true;
+    last = env.now();
+    Promise.resolve()
+      .then(fn)
+      .catch(() => {})
+      .finally(() => {
+        running = false;
+        if (pending) later();
+      });
+  };
+  const later = () => {
+    if (timer) return;
+    timer = true;
+    env.setTimeout(run, Math.max(0, last + gapMs - env.now()));
+  };
+  return () => {
+    if (running || timer || env.now() - last < gapMs) {
+      pending = true;
+      if (!running) later();
+      return;
+    }
+    run();
+  };
+}

@@ -4040,16 +4040,51 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * 🔔 A NOTICE IS ADDRESSED TO A PERSON, AND MAY KNOW ITS EVENT (iteration 0028; event_id from migration
+     * 20271238868040 "notifications know their event"). Before this joint `notifications` was on no node, so both
+     * notification screens — the couple's /dashboard/notifications and the supplier's /vendor-dashboard/notifications —
+     * sat unmapped on the Root map.
+     *
+     * 🔑 CLAIMED AS AN ABSENCE TOO: there is no vendor_id. A supplier's notices are their own as a PERSON (read by
+     * user_id = auth.uid()), never the shop's — a team member does not see another member's bell.
+     */
+    id: 'J66',
+    claims: [
+      { kind: 'table', table: 'notifications' },
+      { kind: 'fk', table: 'notifications', column: 'user_id', references: 'users' },
+      { kind: 'fk', table: 'notifications', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'notifications', column: 'type' },
+      { kind: 'column', table: 'notifications', column: 'related_url' },
+      { kind: 'column', table: 'notifications', column: 'read_at' },
+      { kind: 'no_column', table: 'notifications', column: 'vendor_id' },
+      { kind: 'no_column', table: 'notifications', column: 'thread_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-USERS', 'TYPE-EVENTS'],
+    title: 'User ↔ Event (a notice to one person, about one event or none)',
+    joint: 'notifications',
+    cardinality: 'Many notices per person; each names at most one event (event_id is NULL for a notice about no event)',
+    implementedBy:
+      'notifications (user_id → users ON DELETE CASCADE · event_id → events ON DELETE SET NULL · type · title · body · related_url · read_at). Read by fetchOwnNotifications (lib/notifications.ts) on both notification screens',
+    writtenBy:
+      'ONLY emitNotification (lib/notification-emit.ts), on the service role — there is no INSERT policy. The recipient flips read_at (notification-actions.ts: mark one / mark all read)',
+    guardedBy:
+      'RLS: notifications_recipient_read (SELECT) and notifications_recipient_update (UPDATE), both user_id = auth.uid(); no INSERT or DELETE policy for any browser role',
+    traps:
+      'event_id is SET NULL, not CASCADE, on purpose — deleting an event keeps its order and payment notices (sever_event_connections avoided exactly that sweep). Rows from before 20271238868040 got event_id only where related_url carried a real event uuid, so a NULL event_id does not prove a notice is about no event.',
+  },
+  {
+    /**
      * 🃏 SERVICE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26, DECISION_LOG "SERVICE CARD CHECKS — FIX BEFORE
      * CREATE" + "ONE PHOTO, ONE SERVICE CARD" + "NO PRICE CHECK ON SERVICE CARDS AT ALL"; migration
-     * …_service_card_checks_fix_before_create, rebuilt from the stale #6956 whose J57 was taken; J65 went to the Booked QR). The shipped maker draws
+     * …_service_card_checks_fix_before_create, rebuilt from the stale #6956 whose J57 was taken; J65 went to the Booked QR, J66 to notifications, J67 to event_change_requests #7405). The shipped maker draws
      * each problem on its row and keeps Create / Save shut; the save re-checks and REFUSES — nothing is held or queued.
      * Three checks: claim words (`card_claim_words`, admin data, with a per-shop allowance), the card matches its
      * service (the live taxonomy + reviewed aliases — no new data), and one photo = one service card: a cover/showcase
      * hash names the CARD it is on (`vendor_image_hashes.vendor_service_id`), so a photo already on another card — any
      * shop, this one included — is refused. "It's mine — report it" is a note on the repost-watch row, read as a list.
      */
-    id: 'J66',
+    id: 'J68',
     claims: [
       { kind: 'table', table: 'card_claim_words' },
       { kind: 'column', table: 'card_claim_words', column: 'phrase' },

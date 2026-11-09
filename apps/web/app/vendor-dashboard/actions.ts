@@ -794,6 +794,9 @@ export async function updateVendorProfileField(
   revalidatePath('/vendor-dashboard/website');
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/profile');
+  // 📂 Today's hero has an Upload door that saves Portfolio through here (Build 3 · integration): its hero re-reads
+  // with this one render, never a second `router.refresh()` from the door.
+  if (field === 'portfolio') revalidatePath('/vendor-dashboard');
   // Gallery & media edits (portfolio / featured videos) also change the PUBLIC
   // microsite, so revalidate /v/[slug] + its bare-root alias — mirrors what the
   // full-form saveVendorProfile relied on via its /vendor-dashboard revalidate.

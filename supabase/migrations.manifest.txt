@@ -8,7 +8,7 @@
 # Regenerate: node apps/web/scripts/lint-migrations-never-deleted.mjs --write
 # NEVER delete a line to go green — restore the migration file instead.
 #
-# versions: 1819
+# versions: 1820
 20260512000000	20260512000000_setnayan_base.sql
 20260513000000	20260513000000_iteration_0000_shell_schema.sql
 20260513010000	20260513010000_iteration_0001_guests.sql
@@ -1828,3 +1828,4 @@
 20271332497337	20271332497337_only_the_supplier_flips_a_lock_and_a_quote_expires.sql
 20271333348826	20271333348826_coordinators_post_private_lines_reach_their_one_reader_and_money_masks.sql
 20271333705710	20271333705710_a_masked_coordinator_reads_no_amount_by_any_route.sql
+20271334537840	20271334537840_a_ping_reaches_only_the_people_in_the_chat.sql

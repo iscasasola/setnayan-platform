@@ -1536,6 +1536,7 @@ html.dark {
   --m-line-soft:  rgba(251,250,247,.10);
 
   --m-ink:        #FBFAF7;
+  --m-espresso:   #2C2A29; /* the SAME on purpose: the photo band under the hero stays espresso in dark */
   --m-slate:      #D6D1C7;
   --m-slate-2:    #B3AEA3;
   --m-slate-3:    #9A958C;

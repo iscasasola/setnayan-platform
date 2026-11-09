@@ -1,7 +1,6 @@
 'use client';
 
 import { lazy, Suspense, useId, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { Image as ImageIcon } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -104,7 +103,7 @@ export function PortfolioUploadBody({
   const [picked, setPicked] = useState(false);
   return (
     <div className="space-y-3" data-portfolio-upload-body="">
-      <p className="text-[13px] text-ink/65">From your files or gallery · it joins your Portfolio</p>
+      <p className="text-[13px] text-ink/65">From your files or your phone’s photos · it joins your Portfolio</p>
       <Suspense
         fallback={
           <p className="py-4 text-[13px] text-ink/60" role="status">
@@ -152,7 +151,6 @@ export function PortfolioUploadDoor({
   data: string;
   coverPick?: boolean;
 }) {
-  const router = useRouter();
   const headingId = useId();
   const [files, setFiles] = useState<File[] | null>(null);
   const [round, setRound] = useState(0);
@@ -179,9 +177,8 @@ export function PortfolioUploadDoor({
             facts={facts}
             files={files}
             coverPick={coverPick}
-            // The hero under the sheet wears the new photo once the page re-reads (Today is not one of the paths the
-            // portfolio save revalidates).
-            onSaved={() => router.refresh()}
+            // The hero under the sheet wears the new photo with the save's own render: the `portfolio` write
+            // revalidates Shop, Your page, Portfolio and Today (`updateVendorProfileField`) — no refresh here.
           />
         </Sheet>
       ) : null}

@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
@@ -88,7 +89,8 @@ export default async function EditPackagePage({
   // 🎁 The Gift row and the card list — read together, in one batch, not one after another.
   const [cards, packs, stock] = await Promise.all([
     fetchBundleCards(supabase, vendorProfileId),
-    fetchShopGiftPacks(supabase),
+    // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
+    fetchShopGiftPacks(createAdminClient()),
     fetchShopGiftStock(supabase, vendorProfileId),
   ]);
 

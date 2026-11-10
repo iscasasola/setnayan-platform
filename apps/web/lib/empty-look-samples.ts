@@ -167,7 +167,7 @@ export const SAMPLE_GUESTS: ReadonlyArray<{
 
 /** Suppliers › Booked — three booked rows (prototype `bookedRows()`). */
 export const SAMPLE_BOOKED: ReadonlyArray<{ initials: string; name: string; service: string; line: string; pill: string }> = [
-  { initials: 'CV', name: 'Casa Verde Gardens', service: 'Venue', line: '₱180,000 · deposit paid', pill: 'Booked' },
+  { initials: 'CV', name: 'Casa Verde Gardens', service: 'Venue', line: '₱180,000 · first payment paid', pill: 'Booked' },
   { initials: 'LS', name: 'Lumina Studio', service: 'Photo & video', line: '₱85,000', pill: 'Booked' },
   { initials: 'KT', name: 'Kusina ni Tita', service: 'Catering', line: 'no price yet', pill: 'Booked' },
 ];

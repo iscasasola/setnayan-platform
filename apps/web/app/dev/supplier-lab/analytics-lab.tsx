@@ -22,7 +22,8 @@ import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-
 import { ServiceScopeSelectClient } from '@/app/vendor-dashboard/performance/_components/service-scope-select-client';
 import { analyticsFigures } from '@/lib/shop-section-figures';
 import { dayBuckets, monthBuckets, type GrowthWindow } from '@/lib/analytics-growing';
-import { buildGrowthRecs, type GrowthRecStats } from '@/lib/vendor-growth-recs';
+import { buildGrowthRecs, type GrowthRecOpts, type GrowthRecStats } from '@/lib/vendor-growth-recs';
+import { cardSells, lostDates, monthsAhead, quoteStates, replyVsBooked, slowMonth, type NewGraphs } from '@/lib/vendor-analytics-graphs';
 import { buildVendorHealthComposite, unmeasuredVendorHealthComposite, type VendorHealthComposite } from '@/lib/vendor-health-composite';
 import { badgeShelf, badgeTracker, milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
 import type { SourceSlice } from '@/lib/vendor-funnel';
@@ -64,8 +65,67 @@ function heatCells(grid: number[][]) {
   return grid.flatMap((cols, r) => cols.map((count, c) => ({ dow: (r + 1) % 7, hr: c * 3, count })));
 }
 
-function labRecs(stats: GrowthRecStats | null, asked: Record<GrowthWindow, number>) {
-  return { '30': buildGrowthRecs(stats, { askedInWindow: asked['30'] }), '12': buildGrowthRecs(stats, { askedInWindow: asked['12'] }) };
+function labRecs(stats: GrowthRecStats | null, asked: Record<GrowthWindow, number>, opts: GrowthRecOpts = {}) {
+  return { '30': buildGrowthRecs(stats, { ...opts, askedInWindow: asked['30'] }), '12': buildGrowthRecs(stats, { ...opts, askedInWindow: asked['12'] }) };
+}
+
+/* ── 📈 The five new graphs (Build 6 Lane I) — fixture ROWS put through the same pure bucketing the page's reads use
+   (`lib/vendor-analytics-graphs.ts`), so the words and the rules are the real ones. ── */
+const LAB_TODAY = '2026-11-06';
+const EMPTY_GRAPHS: NewGraphs = {
+  lost: lostDates([], new Set()),
+  cardsell: [],
+  replyvs: replyVsBooked([], new Set()),
+  slow: monthsAhead([], LAB_TODAY),
+  quotes: quoteStates([], LAB_TODAY),
+};
+const REFUSED_GRAPHS: NewGraphs = { lost: null, cardsell: null, replyvs: null, slow: null, quotes: null };
+const SAMPLE_CARDS = [
+  { serviceId: 'a', name: 'Photo coverage' },
+  { serviceId: 'b', name: 'Same-day edit' },
+];
+const ask = (date: string) => ({ date });
+const thread = (eventId: string, minutes: number) => ({ eventId, createdAt: '2026-10-01T02:00:00Z', firstReplyAt: new Date(Date.parse('2026-10-01T02:00:00Z') + minutes * 60_000).toISOString() });
+const SAMPLE_GRAPHS: NewGraphs = {
+  // 8 asks: 5 Saturdays (3 closed, 2 full) · 2 Fridays (full) · 1 Sunday (closed) — the prototype's own.
+  lost: lostDates(
+    [ask('2026-10-03'), ask('2026-10-10'), ask('2026-10-17'), ask('2026-10-24'), ask('2026-10-31'), ask('2026-10-09'), ask('2026-10-16'), ask('2026-10-11')],
+    new Set(['2026-10-03', '2026-10-10', '2026-10-17', '2026-10-11']),
+  ),
+  cardsell: cardSells(SAMPLE_CARDS, [
+    ...Array.from({ length: 9 }, (_, i) => ({ serviceId: 'a', requested: ['a'], booked: i < 4 })),
+    { serviceId: 'b', requested: ['b'], booked: false },
+    { serviceId: null, requested: ['a', 'b'], booked: false },
+  ]),
+  // Answered within the hour: 3 of 5 booked · later: 0 of 6.
+  replyvs: replyVsBooked(
+    [thread('e1', 20), thread('e2', 35), thread('e3', 50), thread('e4', 15), thread('e5', 40), ...['e6', 'e7', 'e8', 'e9', 'e10', 'e11'].map((e) => thread(e, 180))],
+    new Set(['e1', 'e2', 'e3']),
+  ),
+  // February empty between January (2) and March (3).
+  slow: monthsAhead(['2026-11-21', '2026-12-05', '2026-12-12', '2027-01-09', '2027-01-23', '2027-03-06', '2027-03-13', '2027-03-20', '2027-04-10'], LAB_TODAY),
+  quotes: quoteStates(
+    [
+      { status: 'accepted', validUntil: '2026-10-01', legacy: false },
+      { status: 'accepted', validUntil: '2026-10-15', legacy: false },
+      { status: 'sent', validUntil: '2026-11-30', legacy: false },
+      { status: 'viewed', validUntil: '2026-12-10', legacy: false },
+      { status: 'sent', validUntil: '2026-11-20', legacy: false },
+      { status: 'sent', validUntil: '2026-10-20', legacy: false },
+      { status: 'expired', validUntil: '2026-10-05', legacy: false },
+      { status: 'declined', validUntil: null, legacy: false },
+    ],
+    LAB_TODAY,
+  ),
+};
+/** The same three options the page passes `buildGrowthRecs` — read off the graphs, never typed. */
+function graphRecOpts(g: NewGraphs, firstCard: string | null): GrowthRecOpts {
+  const slow = g.slow ? slowMonth(g.slow) : null;
+  return {
+    lostDates: g.lost ? { closed: g.lost.closed, full: g.lost.full } : null,
+    slowMonth: slow ? { name: slow.name, lastDay: slow.lastDay, serviceId: firstCard } : null,
+    expiredQuotes: g.quotes ? g.quotes.expired : null,
+  };
 }
 
 const SAMPLE_STATS = { avg_response_minutes: 100, response_rate_pct: 92, review_count: 12, profile_completeness_pct: 100, finalized_booking_count: 9, partnership_count: 1 };
@@ -204,7 +264,7 @@ function sample(): Lab {
       },
       bookedBySource: { '30': [], '12': [slice('profile_direct', 'Profile (direct)', 5), slice('host_marketplace_search', 'Marketplace search', null)] },
       attribution: { '30': attribution([1, 50000], [1, 36000]), '12': attribution([5, 231000], [4, 171000]) },
-      recs: labRecs(SAMPLE_STATS, { '30': 6, '12': 38 }),
+      recs: labRecs(SAMPLE_STATS, { '30': 6, '12': 38 }, graphRecOpts(SAMPLE_GRAPHS, 'a')),
       verdict: { shown: true, label: 'Usually responds in 2h', medianMinutes: 100, sample: 5 },
       inquiry: {
         reply: { answeredCount: 31, p50Minutes: 100, p90Minutes: 360, avgMinutes: 140 },
@@ -328,6 +388,7 @@ export function AnalyticsLab({ shop, win, fail }: { shop?: string; win?: string;
   const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
   const lab = fail ? refused() : which === 'sample' ? sample() : which === 'new' ? fresh() : setnaprod();
   const view = buildGrowthView(lab.inputs);
+  const graphs = fail ? REFUSED_GRAPHS : which === 'sample' ? SAMPLE_GRAPHS : EMPTY_GRAPHS;
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics={fail ? 'refused' : which}>
       <GrowthWindowScope initial={win === '12' ? '12' : '30'}>
@@ -343,6 +404,7 @@ export function AnalyticsLab({ shop, win, fail }: { shop?: string; win?: string;
           <div className="mt-2">
             <AnalyticsGrowing
               view={view}
+              graphs={graphs}
               scope={
                 // The sample shop has two services, so the page would draw the scope ▾ beside the window ▾ (2+ only).
                 which === 'sample' && !fail ? (

@@ -142,7 +142,7 @@ export function PlanSheet({
   storeShell?: boolean;
   /** `papersProgress(...)` for the 🔒 on paid plans while unverified. */
   papersProgress: string;
-  /** 🎁 A plan Setnayan gave (see `PlanPicker`'s gift, the same rules). */
+  /** 🎁 A plan Setnayan gave: "Free until …" and ₱0 until its last week, then the current plan's Pay comes back (no forced Free gap). */
   gift?: { untilShort: string; untilFull: string; endsSoon?: boolean; startsShort?: string } | null;
 }) {
   const [cycle, setCycle] = useState<Cycle>(startCycle);

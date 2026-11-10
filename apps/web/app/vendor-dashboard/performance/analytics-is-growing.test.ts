@@ -53,8 +53,9 @@ test('2 · the headline numbers count in the pinned row — and only there', () 
 
 test('3 · Do next is buildGrowthRecs, per window — never a hard-coded list', () => {
   const page = read(PAGE);
-  assert.match(page, /const growthRecs = buildGrowthRecs\(recStats, \{ askedInWindow: pinNow\.totals \? pinNow\.totals\.inquiries : null \}\);/);
-  assert.match(page, /const growthRecsYear = buildGrowthRecs\(recStats, \{ askedInWindow: pinYear\.totals \? pinYear\.totals\.inquiries : null \}\);/);
+  // Build 6 Lane I: each window also hands the five new graphs' numbers (`graphRecOpts`, read off `readNewGraphs`).
+  assert.match(page, /const growthRecs = buildGrowthRecs\(recStats, \{ askedInWindow: pinNow\.totals \? pinNow\.totals\.inquiries : null, \.\.\.graphRecOpts \}\);/);
+  assert.match(page, /const growthRecsYear = buildGrowthRecs\(recStats, \{ askedInWindow: pinYear\.totals \? pinYear\.totals\.inquiries : null, \.\.\.graphRecOpts \}\);/);
   // Both windows pass the shipped "Link up" filter (main, owner 2026-11-06) before they reach Do next.
   assert.match(page, /const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink\(growthRecs, eligiblePartners\);/);
   assert.match(page, /const shownGrowthRecsYear = withoutPartnershipRecWhenNobodyToLink\(growthRecsYear, eligiblePartners\);/);
@@ -85,9 +86,12 @@ test('4 · every read stays honest — refused is "unread", never zero', () => {
   const view = read('app/vendor-dashboard/performance/_components/growth-view.ts');
   assert.match(view, /unread: !cap && !up,/);
   assert.match(view, /unread: inp\.rating === COULDNT_LOAD,/);
+  // Build 6 Lane I: each graph is a tile, and the tile's state carries the refusal — an unread tile draws
+  // "Couldn’t load." and never the Example picture (graph-tile.tsx).
   const tree = read(TREE);
-  assert.match(tree, /unread=\{view\.ahead\.unread\}/);
-  assert.match(tree, /unread=\{view\.rep\.unread\}/);
+  assert.match(tree, /state: st\(view\.ahead\.unread,/);
+  assert.match(tree, /state: st\(view\.rep\.unread,/);
+  assert.match(read('app/vendor-dashboard/performance/_components/graph-tile.tsx'), /g\.state === 'unread' \? \(\s*<span className="ag-ln" role="status">\s*Couldn’t load\./);
   assert.match(read('app/vendor-dashboard/performance/_components/calendar-strip.tsx'), /unread \? \([\s\S]{0,120}Couldn’t load your calendar just now\./);
   assert.match(read('app/vendor-dashboard/performance/_components/stars-fill.tsx'), /unread \? \(\s*'Couldn’t load your reviews just now'/);
   assert.match(read('app/vendor-dashboard/performance/_components/reply-gauge.tsx'), /\{unread \? null : <HabitDots on=\{on\} \/>\}/);

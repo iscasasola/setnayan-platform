@@ -18,7 +18,14 @@ export type GrowthRecKey =
   | 'add_photos'
   | 'ask_reviews'
   | 'build_partnerships'
-  | 'open_saturdays';
+  | 'open_saturdays'
+  // Build 6 Lane I (owner 10 Nov, "tapping shows a recommendation from us") — one rule per new graph, each fed only by
+  // a number its graph already shows (`lib/vendor-analytics-graphs.ts`).
+  | 'open_lost_dates'
+  | 'add_team'
+  | 'offer_on_card'
+  | 'offer_for_month'
+  | 'requote_expired';
 
 /** Coarse expected-impact band → the chip label + tone. */
 export type GrowthImpact = 'high' | 'medium' | 'low';
@@ -76,10 +83,26 @@ const IMPACT_LABEL: Record<GrowthImpact, string> = {
  *   · `unopenedSaturdays` — how many Saturdays a reader says the shop has not opened. `open_saturdays` fires only
  *     above 0. No shipped reader says this yet, so callers pass nothing and the rec does not fire.
  */
-export function buildGrowthRecs(
-  stats: GrowthRecStats | null,
-  opts: { askedInWindow?: number | null; unopenedSaturdays?: number | null } = {},
-): GrowthRec[] {
+export type GrowthRecOpts = {
+  askedInWindow?: number | null;
+  unopenedSaturdays?: number | null;
+  /**
+   * BUILD 6 LANE I — the five new graphs' numbers. Absent or `null` (unread) → the rule does not fire: no advice on a
+   * number we do not have.
+   *   · `lostDates`    graph a — asks you could not take: `closed` → Open that day · `full` → Add a team.
+   *   · `quietCard`    graph b — a card couples OPEN often but rarely ask about. Needs opens per card, which nothing
+   *                    records yet, so no caller passes it and `offer_on_card` does not fire (the rule is ready).
+   *   · `slowMonth`    graph d — the first month ahead with nothing booked between booked months, and the card the
+   *                    offer seeds (`serviceId`; no active card → no door → no rule).
+   *   · `expiredQuotes` graph e — quotations past their Valid until without an answer.
+   */
+  lostDates?: { closed: number; full: number } | null;
+  quietCard?: { serviceId: string; name: string } | null;
+  slowMonth?: { name: string; lastDay: string; serviceId: string | null } | null;
+  expiredQuotes?: number | null;
+};
+
+export function buildGrowthRecs(stats: GrowthRecStats | null, opts: GrowthRecOpts = {}): GrowthRec[] {
   const recs: GrowthRec[] = [];
 
   const responseRate = Number(stats?.response_rate_pct ?? 0);
@@ -178,6 +201,75 @@ export function buildGrowthRecs(
       ctaLabel: 'Open calendar',
       ctaHref: '/vendor-dashboard/calendar',
       weight: 5,
+    });
+  }
+
+  // ── BUILD 6 LANE I — the five new graphs' rules (prototype build6_makers_analytics_2026-11-10, approved 10 Nov) ──
+
+  // a · Dates you lost — couples asked for dates you had CLOSED. Opening them puts you back in front of those couples.
+  if (opts.lostDates && opts.lostDates.closed > 0) {
+    recs.push({
+      key: 'open_lost_dates',
+      title: 'Open that day',
+      body: 'Couples asked for dates you were closed on. Opening them puts you back in front of those couples next time.',
+      impact: 'high',
+      impactLabel: IMPACT_LABEL.high,
+      ctaLabel: 'Open calendar',
+      ctaHref: '/vendor-dashboard/calendar',
+      weight: 40 + Math.min(opts.lostDates.closed, 10) * 4,
+    });
+  }
+  // a · Dates you lost — couples asked for dates you were already FULL on. A second team can take a second booking.
+  if (opts.lostDates && opts.lostDates.full > 0) {
+    recs.push({
+      key: 'add_team',
+      title: 'Add a team',
+      body: 'A full day can take a second booking when a second team can run it. Your schedule stays honest: one team, one event.',
+      impact: 'medium',
+      impactLabel: IMPACT_LABEL.medium,
+      ctaLabel: 'Add a team',
+      ctaHref: '/vendor-dashboard/team',
+      weight: 20 + Math.min(opts.lostDates.full, 10) * 3,
+    });
+  }
+  // b · Which card sells — a card couples open but rarely ask about needs a reason to ask today.
+  if (opts.quietCard) {
+    recs.push({
+      key: 'offer_on_card',
+      title: `Run an offer on ${opts.quietCard.name}`,
+      body: 'A card couples open but rarely ask about needs a reason to ask today — an offer puts one on it.',
+      impact: 'high',
+      impactLabel: IMPACT_LABEL.high,
+      ctaLabel: 'Run an offer',
+      ctaHref: `/vendor-dashboard/services/${opts.quietCard.serviceId}?offpeak=1`,
+      weight: 45,
+    });
+  }
+  // d · Slow months ahead — an offer that runs only in the slow month (the shipped off-season door, pre-filled).
+  if (opts.slowMonth && opts.slowMonth.serviceId) {
+    const m = opts.slowMonth;
+    recs.push({
+      key: 'offer_for_month',
+      title: `Run an offer for ${m.name}`,
+      body: 'An offer that runs only in a slow month fills it without cutting the price of your busy months.',
+      impact: 'high',
+      impactLabel: IMPACT_LABEL.high,
+      ctaLabel: 'Run an offer',
+      ctaHref: `/vendor-dashboard/services/${m.serviceId}?offpeak=1&exp=${m.lastDay}&cond=${encodeURIComponent(`Off-season rate for ${m.name} bookings.`)}`,
+      weight: 42,
+    });
+  }
+  // e · Quotes waiting — an expired quotation shows the couple a blocker, not your price.
+  if (opts.expiredQuotes != null && opts.expiredQuotes > 0) {
+    recs.push({
+      key: 'requote_expired',
+      title: 'Send a new quotation',
+      body: 'An expired quotation shows the couple a blocker, not your price. A fresh one with a Valid-until date puts it back in front of them.',
+      impact: 'high',
+      impactLabel: IMPACT_LABEL.high,
+      ctaLabel: 'Send a new quotation',
+      ctaHref: '/vendor-dashboard/customers',
+      weight: 38 + Math.min(opts.expiredQuotes, 10) * 3,
     });
   }
 

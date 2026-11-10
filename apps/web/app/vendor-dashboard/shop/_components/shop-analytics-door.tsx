@@ -36,7 +36,7 @@ export function ShopAnalyticsDoor({ verified }: { verified: boolean }) {
           data="shop-analytics-door"
           lead={<TrendingUp aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
           title="How is my business doing"
-          line={verified ? 'Every graph, and what we recommend you do next' : 'Views, asks and bookings · the graphs open once you are Verified'}
+          line={verified ? 'Every graph, and what we recommend' : 'Your counts · graphs open once Verified'}
           href={ONE_ANALYTICS_HREF}
         />
       </div>

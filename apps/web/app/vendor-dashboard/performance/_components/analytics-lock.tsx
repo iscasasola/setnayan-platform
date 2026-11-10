@@ -25,7 +25,7 @@ export function AnalyticsLock({ progress }: { progress: string }) {
       <LockedFeature
         lock="analytics"
         need={{ kind: 'verify', progress }}
-        line="Every graph, and what we recommend you do next"
+        line="Graphs + our recommendation"
         preview={
           <div data-growth="">
             <CardSellPic c={GRAPH_SAMPLE.cardsell} />

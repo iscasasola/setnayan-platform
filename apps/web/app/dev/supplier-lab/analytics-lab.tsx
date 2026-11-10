@@ -9,6 +9,7 @@
  *   /dev/supplier-lab?s=analytics&shop=new        a brand-new shop — every empty state
  *   …&win=12                                      the 12-month window open first
  *   …&fail=1                                      every read refused — "Couldn’t load", never a zero
+ *   …&locked=1                                    an UNVERIFIED shop: counts only + the ONE shared lock (Build 6 Lane I)
  *
  * Recommendations are NOT copied from the prototype: they are `buildGrowthRecs` on the fixture stats row, exactly as the
  * page computes them. No plan price is typed here — `annualPlanPhp` is null, so the "~N× your annual plan" line (12 months,
@@ -19,6 +20,8 @@ import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segme
 import { AnalyticsGrowing } from '@/app/vendor-dashboard/performance/_components/analytics-growing';
 import { buildGrowthView, type GrowthInputs, type Totals } from '@/app/vendor-dashboard/performance/_components/growth-view';
 import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
+import { AnalyticsLock } from '@/app/vendor-dashboard/performance/_components/analytics-lock';
+import { papersProgress } from '@/lib/locks';
 import { ServiceScopeSelectClient } from '@/app/vendor-dashboard/performance/_components/service-scope-select-client';
 import { analyticsFigures } from '@/lib/shop-section-figures';
 import { dayBuckets, monthBuckets, type GrowthWindow } from '@/lib/analytics-growing';
@@ -387,9 +390,27 @@ function refused(): Lab {
   };
 }
 
-export function AnalyticsLab({ shop, win, fail }: { shop?: string; win?: string; fail: boolean }) {
+export function AnalyticsLab({ shop, win, fail, locked = false }: { shop?: string; win?: string; fail: boolean; locked?: boolean }) {
   const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
   const lab = fail ? refused() : which === 'sample' ? sample() : which === 'new' ? fresh() : setnaprod();
+  // 🔒 `&locked=1` — an UNVERIFIED shop (Build 6 Lane I): the page's counts-only branch — the pinned counts, the ONE
+  // shared lock, the badges. No graph is drawn because the page reads none.
+  if (locked) {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics="locked">
+        <GrowthWindowScope initial={win === '12' ? '12' : '30'}>
+          <ShopSegments on="insights" figures={analyticsFigures(lab.now, lab.before)} yearFigures={analyticsFigures(lab.year, null)} />
+          <div className="mx-auto w-full max-w-xl">
+            <h1 className="sn-h1">How is my business doing</h1>
+            <AnalyticsLock progress={papersProgress({ done: 2, of: 4 })} />
+            <div className="mt-6">
+              <YourBadges shelf={badgeShelf(lab.badges)} rows={lab.badges ? badgeTracker(lab.badges) : null} />
+            </div>
+          </div>
+        </GrowthWindowScope>
+      </section>
+    );
+  }
   const view = buildGrowthView(lab.inputs);
   const graphs = fail ? REFUSED_GRAPHS : which === 'sample' ? SAMPLE_GRAPHS : EMPTY_GRAPHS;
   return (

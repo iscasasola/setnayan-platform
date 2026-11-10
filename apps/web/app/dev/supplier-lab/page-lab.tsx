@@ -616,7 +616,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false, shop, win }: { state: PageLabState; /** 📈 `&shop=setnaprod|sample|new` on analytics. */ shop?: string; /** 📈 `&win=12` on analytics — the 12-month window open first. */ win?: string; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false, shop, win, locked = false }: { state: PageLabState; /** 🔒 `&locked=1` on analytics — an unverified shop: counts only + the shared lock (Build 6 Lane I). */ locked?: boolean; /** 📈 `&shop=setnaprod|sample|new` on analytics. */ shop?: string; /** 📈 `&win=12` on analytics — the 12-month window open first. */ win?: string; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -677,7 +677,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
   }
   if (state === 'analytics') {
     /* 📈 The real "Analytics, growing" screen on the approved prototype's fixture shops (`analytics-lab.tsx`). */
-    return <AnalyticsLab shop={shop} win={win} fail={fail} />;
+    return <AnalyticsLab shop={shop} win={win} fail={fail} locked={locked} />;
   }
   if (state === 'avatar') {
     return (

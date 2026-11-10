@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 330 jobs, 212 of them form-driven, as of e60c7ae0e5.
+// that performs it. 330 jobs, 213 of them form-driven, as of b9192a6ec.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1994,15 +1994,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "rerunSeoAudit",
-    "phrase": "rerun seo audit",
-    "ownerPath": "/admin/app-performance",
-    "resolvedPath": "/admin/app-performance",
-    "fields": [],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "rescanAllRepostWatch",
     "phrase": "rescan all repost watch",
     "ownerPath": "/admin/repost-watch",
@@ -2820,6 +2811,17 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/categories",
     "resolvedPath": "/admin/categories",
     "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "seoConsole",
+    "phrase": "seo console",
+    "ownerPath": "/admin/app-performance",
+    "resolvedPath": "/admin/app-performance",
+    "fields": [
+      "op"
+    ],
     "refusedWhenEmpty": [],
     "destructive": false
   },

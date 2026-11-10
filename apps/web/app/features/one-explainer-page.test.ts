@@ -170,7 +170,10 @@ test('the FAQ rich result is built from the copy the page actually shows', () =>
     A rich result quoting an answer the page no longer shows is worse than no
     rich result. One constant, rendered and emitted.
   */
-  assert.match(code(BODY), /mainEntity:\s*WHY_FAQ\[locale\]/);
+  // Build 6 Lane K: `whyFaqItems(locale)` — WHY_FAQ plus, in English, the saved answers to what AI gets wrong — is the
+  // ONE list the section renders and the FAQPage emits.
+  assert.match(code(BODY), /mainEntity:\s*whyFaqItems\(locale\)/);
+  assert.match(code(WHY), /const faq = whyFaqItems\(locale\)/);
   assert.match(code(BODY), /'@type':\s*'FAQPage'/);
 });
 

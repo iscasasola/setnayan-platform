@@ -6,6 +6,7 @@
  * It draws the REAL supplier components, so what it shows is what ships.
  *
  *   ?easy=setup&docs=none|checking|fix&gbb=0..3   🧰 a NEW SHOP's six steps done in place (owner 2026-10-28)
+ *     &daily=one|two|unset|unread|halls|off       7️⃣ step 7, How many a day (Build 6 Lane E; `off` = no row, as before)
  *                     &coarse=1  🔢 an /open-shop shop ([coarse, leaf]) — ONE service, three cards (owner 2026-10-29)
  *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
  *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
@@ -331,7 +332,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ hero?: string; shop?: string; win?: string; thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; verified?: string; locked?: string }>;
+  searchParams: Promise<{ hero?: string; shop?: string; win?: string; thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; skip?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string; numbers?: string; place?: string; verified?: string; daily?: string; locked?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -367,7 +368,7 @@ export default async function SupplierLabPage({
     // studio and drew "Lumina Studio · Photo & video" under Tita Nena's steps — two shops on one screen, which the real
     // page cannot do (both read the one `profile`) (Build 3 empty modes, 9 Nov).
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : q.easy === 'setup' ? 'caterer' : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} heroPhoto={q.hero === '1'} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' || q.docs === 'some' || q.docs === 'unread' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} qrSvg={q.easy === 'setup' ? await renderUrlQrSvg(LAB_SHOP_QR_URL, 220).catch(() => null) : null} tourScript={TOURS[SETUP_TOUR_KEY].spotlight ?? null} heroPhoto={q.hero === '1'} daily={q.daily ?? null} />, 'today');
   }
   if (q.s === 'hub') {
     /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */

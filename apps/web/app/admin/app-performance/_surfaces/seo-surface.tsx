@@ -35,6 +35,16 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type { HealthFinding, PriceDriftEntry, HealthStatus } from '@/lib/seo/health-checks';
 import { SeoRerunButton } from './seo-rerun-button';
+import { AiAnswerCheckRow, ResolveDriftButton } from './seo-ai-answer-check';
+import {
+  AI_ANSWER_TAG,
+  AI_ANSWER_RECHECK_DAYS,
+  aiAnswers,
+  lastAskedById,
+  parseAiAnswerRationale,
+  recheckDue,
+} from '@/lib/seo/ai-answers';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { formatCount } from '@/lib/format-number';
 
 type Snapshot = {
@@ -71,6 +81,18 @@ const GSC_WINDOW_DAYS = 14;
 /** The chip list under the table shows the busiest queries of the newest day. */
 const TOP_QUERIES_SHOWN = 15;
 
+/** How many AI-answer rows the check reads — enough for years of monthly checks; the cap is disclosed if reached. */
+const AI_ANSWER_ROWS_READ = 500;
+
+type AiAnswerRow = {
+  id: number;
+  route: string;
+  current_value: string | null;
+  rationale: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+};
+
 export async function SeoSurface() {
   // The RLS-bypassing service-role client below must never run for a non-admin,
   // and a layout is not a safe auth boundary (council fix #1). The studio page
@@ -80,7 +102,7 @@ export async function SeoSurface() {
 
   const admin = createAdminClient();
 
-  const [snapRes, metricsRes] = await Promise.all([
+  const [snapRes, metricsRes, aiRes, bookingFee] = await Promise.all([
     admin
       .from('seo_health_snapshots')
       .select('checked_at, ok_count, warn_count, fail_count, findings, price_drift, generated_by')
@@ -93,6 +115,14 @@ export async function SeoSurface() {
       .eq('source', 'gsc')
       .order('metric_date', { ascending: false })
       .limit(GSC_WINDOW_DAYS),
+    // Build 6 Lane K — the AI-answer check's own rows in the review queue.
+    admin
+      .from('seo_suggestions')
+      .select('id, route, current_value, rationale, status, created_at')
+      .like('rationale', `${AI_ANSWER_TAG}%`)
+      .order('created_at', { ascending: false })
+      .limit(AI_ANSWER_ROWS_READ),
+    getBookingFeeSchedule(admin),
   ]);
 
   // NULL, not a tidy fallback: a refused snapshot read is not "no snapshot
@@ -101,6 +131,12 @@ export async function SeoSurface() {
   const metrics = metricsRes.data as MetricRow[] | null;
   const latestMetric = metrics?.[0] ?? null;
   const nags = (snap?.findings ?? []).filter((f) => f.status !== 'ok');
+  // NULL on a refused read — the check then says it could not load, never "never asked".
+  const aiRows = aiRes.error ? null : ((aiRes.data ?? []) as AiAnswerRow[]);
+  const lastAsked = aiRows ? lastAskedById(aiRows) : null;
+  const drift = (aiRows ?? []).filter((r) => r.status === 'pending');
+  const questions = aiAnswers({ bookingFee });
+  const nowMs = Date.now();
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -206,6 +242,73 @@ export async function SeoSurface() {
           )}
         </>
       )}
+
+      {/* AI-answer check (Build 6 Lane K) */}
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-ink/70">
+          <Bot className="h-4 w-4 text-ink/40" /> AI answer check
+        </h2>
+        <p className="text-xs text-ink/55">
+          Every {AI_ANSWER_RECHECK_DAYS} days, ask an AI assistant each question below in a fresh chat, without naming
+          our features, and paste what it said. Right or wrong, it is saved; a wrong answer waits in the queue until the
+          copy is fixed. The true answers are the ones /llms.txt and the /features FAQ print.
+        </p>
+        {aiRows === null ? (
+          <ErrorState
+            title="Couldn't read the AI answer log"
+            broke={`The read was refused: ${aiRes.error?.message ?? 'unknown error'}`}
+            survived="The saved questions are still listed, but when each was last asked is unknown — not 'never'."
+            todo="Reload. If it repeats, check the seo_suggestions table and its policy."
+          />
+        ) : null}
+        {aiRows && aiRows.length >= AI_ANSWER_ROWS_READ ? (
+          <p className="text-xs text-ink/55">Showing the newest {formatCount(AI_ANSWER_ROWS_READ)} logged answers.</p>
+        ) : null}
+        <ul className="divide-y divide-ink/5">
+          {questions.map((q) => {
+            const last = lastAsked?.get(q.id) ?? null;
+            return (
+              <AiAnswerCheckRow
+                key={q.id}
+                id={q.id}
+                question={q.question}
+                answer={q.answer}
+                corrects={q.corrects}
+                lastAsked={
+                  last ? new Date(last).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) : null
+                }
+                due={lastAsked !== null && recheckDue(last, nowMs)}
+              />
+            );
+          })}
+        </ul>
+        {drift.length > 0 ? (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink/70">
+              Drift to fix ({formatCount(drift.length)})
+            </h3>
+            <ul className="divide-y divide-ink/5">
+              {drift.map((r) => {
+                const parsed = parseAiAnswerRationale(r.rationale);
+                const q = questions.find((x) => x.id === parsed?.id);
+                return (
+                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
+                    <div className="min-w-0 space-y-1">
+                      <div className="text-sm font-medium text-ink">{q?.question ?? parsed?.id ?? r.route}</div>
+                      <div className="text-xs text-ink/60">AI said: {r.current_value}</div>
+                      <div className="text-xs text-ink/55">
+                        {new Date(r.created_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })} · fix on{' '}
+                        {r.route}
+                      </div>
+                    </div>
+                    <ResolveDriftButton rowId={r.id} />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+      </section>
 
       {/* Search Console trend */}
       <section className="space-y-3">

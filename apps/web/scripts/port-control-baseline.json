@@ -12048,32 +12048,39 @@
     },
     "/dev/clients-lab": {
       "files": [
+        "dev/clients-lab/lab-asking.tsx",
         "dev/clients-lab/lab-calendar.ts",
         "dev/clients-lab/lab-decisions.tsx",
         "dev/clients-lab/page.tsx"
       ],
       "destinations": [
         "/dev/clients-lab?v=booked",
-        "/dev/clients-lab?v=events",
-        "/dev/clients-lab?v=pick&page=[seg] : { booked: true, hasChat: true })}"
+        "/dev/clients-lab?v=events"
       ],
       "actions": [],
       "blocks": [
         "ActionButton",
         "BookedQrsList",
+        "ChatBox",
         "ClientsShowSort",
         "CustomersPin",
         "DatesRow",
         "DetailsDecisionsList",
         "DetailsFormsDoor",
         "DetailsNumbersRow",
+        "EventLinesBody",
         "HostsList",
+        "InfoTip",
+        "InquiryAnswers",
+        "LabAskingPick",
+        "LabChat",
         "LabDetailsDecisions",
         "LockedQrGenerator",
         "MeetingsList",
         "PaymentPage",
         "PaymentsList",
         "PickedClientShell",
+        "PipelineStrip",
         "ScheduleCalendar",
         "SearchBox",
         "SupplierBlockRow",
@@ -12958,6 +12965,25 @@
         "FaceTaggingRow",
         "SelfieLab",
         "Suspense"
+      ]
+    },
+    "/dev/service-card-row-lab": {
+      "files": [
+        "dev/service-card-row-lab/lab-rows.tsx",
+        "dev/service-card-row-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "toggleVendorServiceActive"
+      ],
+      "blocks": [
+        "LabRows",
+        "Link",
+        "ServiceCardItem",
+        "ServiceCardView",
+        "SwitchTrack",
+        "UndoToastHost",
+        "VendorServiceRow"
       ]
     },
     "/dev/shop-back-lab": {
@@ -15492,6 +15518,7 @@
         "QuoteDraftBody",
         "ReviewBody",
         "RiseScreen",
+        "RowDoor",
         "RowIcon",
         "RowSkeleton",
         "SVGSVGElement",
@@ -16319,7 +16346,6 @@
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
@@ -16395,7 +16421,6 @@
         "HTMLSpanElement",
         "HallSheet",
         "InfoTip",
-        "InquiryAnswers",
         "InquiryOutcomesRollup",
         "KeptNotesFold",
         "Link",
@@ -17512,7 +17537,9 @@
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
         "vendor-dashboard/services/_components/refinements-editor.tsx",
         "vendor-dashboard/services/_components/service-card-face.tsx",
+        "vendor-dashboard/services/_components/service-card-item.tsx",
         "vendor-dashboard/services/_components/service-card-live-preview.tsx",
+        "vendor-dashboard/services/_components/service-card-menu-row.tsx",
         "vendor-dashboard/services/_components/service-list-editors.tsx",
         "vendor-dashboard/services/_components/service-wizard.tsx",
         "vendor-dashboard/services/_components/services-manager.tsx",
@@ -17572,6 +17599,7 @@
         "ChipGroup",
         "ClaimHit",
         "ClaimWordNotes",
+        "CommitResult",
         "CoverageBrowse",
         "CoverageLeaf",
         "CoveragePanel",
@@ -17584,6 +17612,7 @@
         "DiscountsEditor",
         "DraftItem",
         "DraftOption",
+        "EqualRow",
         "Field",
         "FileUpload",
         "Fold",
@@ -17632,13 +17661,16 @@
         "RowRemove",
         "SelectChip",
         "ServiceCardFace",
+        "ServiceCardItem",
         "ServiceCardLivePreview",
+        "ServiceCardMenuRow",
         "ServiceCardView",
         "ServiceMismatchNote",
         "ServicesEmptyCard",
         "ServicesManagerSearch",
         "SetnayanGiftField",
         "SetnayanGiftLine",
+        "Sheet",
         "SheetKey",
         "Shell",
         "ShowcaseMediaFields",

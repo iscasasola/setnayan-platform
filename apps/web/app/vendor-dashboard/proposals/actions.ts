@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { demoBookingRefusal, DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY } from '@/lib/demo-scope';
 import { emitNotification } from '@/lib/notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { isQuoteAnswer, quoteAnswerNotice, type QuoteAnswer } from '@/lib/quote-answer-notice';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveTokens, type ProposalLineItem } from '@/lib/vendor-proposals';
@@ -405,7 +406,7 @@ async function tellSupplierQuoteAnswered(proposalId: string, response: QuoteAnsw
     body: notice.body,
     // The conversation holds the quote card and its answer; the quotes list is
     // the fallback for a quote that somehow has no thread.
-    relatedUrl: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/proposals',
+    relatedUrl: threadId ? supplierChatHref(row.event_id, threadId) : '/vendor-dashboard/proposals',
     // Which event this notice belongs to — a supplier-side link carries none.
     eventId: row.event_id,
   });

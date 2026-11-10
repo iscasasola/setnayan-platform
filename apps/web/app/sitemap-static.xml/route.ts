@@ -51,7 +51,7 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /pricing — locked at v2.1 brief (CLAUDE.md tenth + eleventh 2026-05-28
   // rows). Annual SKUs being added in Bucket 7. Weekly until pilot.
-  { path: '/pricing', lastmod: '2026-05-29', changefreq: 'weekly', priority: '0.9' },
+  { path: '/pricing', lastmod: '2026-11-10', changefreq: 'weekly', priority: '0.9' },
 
   // /realstories hub moved to sitemap-weddings.xml (iteration 0046 first slice,
   // 2026-06-13) — kept out of sitemap-static to avoid a duplicate URL across
@@ -59,18 +59,18 @@ const STATIC_ROUTES: ReadonlyArray<{
 
   // /features — v2.1 template adoption shipped (CLAUDE.md eleventh
   // 2026-05-28 row PR #581); localized to EN + Taglish 2026-06-13.
-  { path: '/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.85' },
+  { path: '/features', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.85' },
 
   // /tl/features — Taglish edition of /features (localization, 2026-06-13).
   // hreflang reciprocal lives in both pages' metadata.
-  { path: '/tl/features', lastmod: '2026-06-13', changefreq: 'monthly', priority: '0.75' },
+  { path: '/tl/features', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.75' },
 
   // /vendors — v2.1 publisher posture cutover (CLAUDE.md fifth
   // 2026-05-28 row PR #574).
-  { path: '/for-suppliers', lastmod: '2026-09-30', changefreq: 'monthly', priority: '0.8' },
+  { path: '/for-suppliers', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.8' },
 
   // /for-coordinators — new 2026-11-04, ported from the approved 4 Nov prototype.
-  { path: '/for-coordinators', lastmod: '2026-11-04', changefreq: 'monthly', priority: '0.7' },
+  { path: '/for-coordinators', lastmod: '2026-11-10', changefreq: 'monthly', priority: '0.7' },
 
   // /open-shop — the supplier funnel. A short history, because it moved twice
   // in one day and the reasoning matters more than the line.

@@ -25,7 +25,8 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/pakanta-brief.ts', why: 'the song brief asks about the marriage proposal' },
   { prefix: 'lib/blog', why: 'public blog articles about marriage proposals — a separate SEO pass' },
   { prefix: 'lib/category-proposal-draft.ts', why: 'an AI prompt about proposing a new supplier trade — never rendered' },
-  { prefix: 'lib/llms-txt.ts', why: 'the machine-readable site summary for crawlers' },
+  // lib/llms-txt.ts left 2026-11-10 (Build 6 Lane K): its only "proposal" was an "AI Proposal Builder" no code ever had.
+  { prefix: 'lib/seo/stale-claims.ts', why: 'the ban list itself — names "Proposal Builder" so the audit can refuse it' },
   { prefix: 'app/admin/', why: 'the staff console (partnership proposals between suppliers)' },
   { prefix: 'lib/ugat/', why: 'the staff Root map’s own vocabulary' },
   { prefix: 'lib/erasure/', why: 'the DPO’s erasure register (legal text)' },

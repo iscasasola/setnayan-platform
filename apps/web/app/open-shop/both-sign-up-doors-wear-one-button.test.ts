@@ -89,7 +89,8 @@ function wizardPrimaries(): string[] {
 test('every primary button in the open-shop wizard is the shape of /signup’s Create', () => {
   const want = createPx();
   const primaries = wizardPrimaries();
-  assert.ok(primaries.length >= 2, `found ${primaries.length} primary buttons — Continue and Open my shop are both expected`);
+  // Continue is the house ActionButton since Lane P slice 5 (asserted below); Open my shop stays the SubmitButton.
+  assert.ok(primaries.length >= 1, `found ${primaries.length} primary buttons — Open my shop is expected`);
   for (const cls of primaries) {
     const key = cls.match(/(?:^|\s)rounded-(none|sm|md|lg|xl|2xl|3xl|full)(?=\s|$)/)?.[1];
     const px = key ? roundedPx(key) : buttonPrimaryPx();
@@ -97,10 +98,19 @@ test('every primary button in the open-shop wizard is the shape of /signup’s C
   }
 });
 
-test('Back, beside it, is round too', () => {
-  const back = WIZARD.match(/onClick=\{back\}\s*className="([^"]+)"/)?.[1];
-  assert.ok(back, 'the wizard Back button moved — this guard is pointed at nothing');
-  const key = back.match(/(?:^|\s)rounded-(none|sm|md|lg|xl|2xl|3xl|full)(?=\s|$)/)?.[1];
-  assert.ok(key, 'Back wears no rounded-*');
-  assert.equal(roundedPx(key), createPx(), 'Back is a square beside a pill');
+/** The radius the house ActionButton (`.ab`) paints — the full pill token. */
+function actionButtonRadius(): string {
+  const r = GLOBALS.match(/(?:^|\n)\.ab\s*\{[^}]*border-radius:\s*([^;]+);/)?.[1]?.trim();
+  assert.ok(r, '.ab sets no radius — this guard is pointed at nothing');
+  return r;
+}
+
+test('Continue and Back are the house ActionButton — the pill, the shape of /signup’s Create', () => {
+  // Lane P slice 5 (owner 10 Nov: "the rule or uniform buttons … is not followed yet"): the bar's Continue and Back
+  // are the house ActionButton, whose `.ab` is the full pill — the same round as `rounded-full`.
+  assert.match(WIZARD, /<ActionButton\s+tone="brand"\s+main\s+icon=\{ArrowRight\}\s+label="Continue"/, 'Continue is not the house ActionButton');
+  assert.match(WIZARD, /<ActionButton tone="neutral" iconOnly icon=\{ArrowLeft\} label="Back" onClick=\{back\}/, 'Back is not the house ActionButton');
+  const full = TAILWIND.slice(TAILWIND.indexOf('borderRadius: {')).match(/(?:^|\n)\s*'?full'?:\s*'([^']+)'/)?.[1];
+  assert.equal(actionButtonRadius(), full, 'the ActionButton is not the full pill');
+  assert.equal(roundedPx('full'), createPx(), 'the pill is not the shape of /signup’s Create');
 });

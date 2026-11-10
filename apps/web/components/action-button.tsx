@@ -93,6 +93,12 @@ type Common = {
   className?: string;
   title?: string;
   'data-testid'?: string;
+  /**
+   * Any other `data-*` hook rides on the element as given — `data-asks-location` (the store shell hides the button
+   * before first paint, `lib/the-app-never-asks-for-location.test.ts`), a screen's test hook. Additive: the button's
+   * own `data-tone` / `data-main` / `data-waiting` are written after, so a caller cannot change what they say.
+   */
+  [dataAttr: `data-${string}`]: string | undefined;
   /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
   tour?: string;
   /**
@@ -144,6 +150,13 @@ export function actionButtonClass(
     .join(' ');
 }
 
+/** The caller's extra `data-*` hooks (every one but `data-testid`, which is drawn by name). */
+function extraData(props: object): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(props)) if (k.startsWith('data-') && k !== 'data-testid' && typeof v === 'string') out[k] = v;
+  return out;
+}
+
 function renderIcon(icon: Common['icon']) {
   /* 🧩 A node (an element, or the LAZY a production RSC payload makes of a server component's element) is drawn as a
      node; only a component is drawn as a type. `isValidElement` alone let the lazy through as a type — the live
@@ -168,6 +181,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
       const { href, onClick, prefetch, target, disabled } = props;
       return (
         <Link
+          {...extraData(props)}
           ref={ref as RefObject<HTMLAnchorElement>}
           href={href}
           prefetch={prefetch}
@@ -197,6 +211,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
     const p = props as AsButton;
     return (
       <button
+        {...extraData(props)}
         ref={ref as RefObject<HTMLButtonElement>}
         /* Waiting: a press does nothing — not its handler, and not its form. */
         type={waiting ? 'button' : (p.type ?? 'button')}

@@ -853,7 +853,7 @@ export function OpenShopWizard({
                   ) : (
                     <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
                   )}
-                  <button
+                  <button /* button-ok: the Email way is one of the three equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
                     type="button"
                     className={OAUTH_BUTTON_CLASS}
                     aria-pressed={false}
@@ -1384,45 +1384,44 @@ export function OpenShopWizard({
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
               data-open-shop-bar=""
             >
+              {/* 🔘 THE BUTTON RULE (T19, Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons … is not followed
+                  yet"): Back, Reload, the not-yet press and Continue are the house ActionButton, the same parts as every
+                  onboarding flow's step bar (step-bar.tsx). Only the last step's submit stays the SubmitButton — it
+                  carries the form's pending word and the no-touch veil. */}
               {step > 1 ? (
-                <button
-                  type="button"
-                  onClick={back}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
-                  style={{ borderColor: 'var(--m-line)' }}
-                  aria-label="Back"
-                >
-                  <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                </button>
+                <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="open-shop-back" />
               ) : null}
               {stale ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={RotateCw}
+                  label="Tap Reload to keep going"
+                  className="ml-auto"
                   onClick={reloadKeepingDraft}
-                  className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm"
-                  style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-                  data-open-shop-reload=""
-                >
-                  <RotateCw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Tap Reload to keep going
-                </button>
+                  data-testid="open-shop-reload"
+                />
               ) : step < TOTAL_STEPS ? (
                 quiet ? (
                   /* Not yet — still a real press: it says what is missing, under its box. */
-                  <button
-                    type="button"
+                  <ActionButton
+                    tone="neutral"
+                    icon={ArrowRight}
+                    label={step === 2 ? 'Pick a service to continue' : 'Continue'}
+                    className="ml-auto"
                     onClick={next}
-                    className="inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
-                    style={{ background: 'var(--m-paper-2)', color: 'var(--m-ink)' }}
-                    data-open-shop-quiet=""
-                  >
-                    {step === 2 ? 'Pick a service to continue' : 'Continue'}
-                  </button>
+                    data-testid="open-shop-quiet"
+                  />
                 ) : (
-                  <button type="button" onClick={next} className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-open-shop-continue="">
-                    Continue
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={ArrowRight}
+                    label="Continue"
+                    className="ml-auto"
+                    onClick={next}
+                    data-testid="open-shop-continue"
+                  />
                 )
               ) : (
                 <SubmitButton className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">

@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { OnboardingFaith, OnboardingKind, OnboardingRole } from '../types';
 
 /* Personalized reactions (owner 2026-06-05 — verbatim from the prototype). */
@@ -242,13 +243,20 @@ export function WelcomeMoments({ faithOptions, onPickRole, onPickKind, onPickFai
       ) : (
         <div className="moment mo-ask" key={idx}>
           <p className="m-q">{m.q(ans)}</p>
+          {/* 🔘 ONE DROPDOWN for the answers (Lane P slice 5 — any set of choices is ONE PickMenu, owner 10 Nov:
+              "the rule or uniform buttons … is not followed yet"); each answer keeps its line as the option's hint. */}
           <div className="m-opts">
-            {m.opts(ans, faithOptions).map((o) => (
-              <button key={o.value} type="button" className="m-opt" onClick={() => pick(m.field, o.value)}>
-                <span className="m-ot">{o.title}</span>
-                {o.desc && <span className="m-od">{o.desc}</span>}
-              </button>
-            ))}
+            <PickMenu
+              label={m.q(ans)}
+              value={null}
+              buttonText="Pick one"
+              options={m.opts(ans, faithOptions).map((o) => ({ key: String(o.value), label: o.title, ...(o.desc ? { hint: o.desc } : {}) }))}
+              onPick={(k) => {
+                const o = m.opts(ans, faithOptions).find((x) => String(x.value) === k);
+                if (o) pick(m.field, o.value);
+              }}
+              dataAttr="data-moment-pick"
+            />
           </div>
         </div>
       )}

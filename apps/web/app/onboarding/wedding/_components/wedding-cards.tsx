@@ -24,7 +24,7 @@ import { useEffect, useState } from 'react';
 import { Building2, ChevronDown, ChevronUp, MapPin, Minus, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
-import { StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
+import { StepActions, StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
 import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FAITH_REGISTRY, type FaithKey } from '@/lib/faith-registry';
@@ -282,44 +282,40 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
       info="You’ll find your parish and reception with Setnayan. Not booked yet? That’s normal."
     >
       {askArea ? (
-        <>
-          <PickMenu
-            label="Area"
-            value={picked && cityByKey(picked) ? picked : null}
-            buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
-            options={[
-              ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
-              ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
-            ]}
-            onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
-            dataAttr="data-wedding-area"
-            stickyGroups
-          />
-          <div className="mt-3">
-            <ActionButton
-              tone="neutral"
-              quiet
-              icon={more ? ChevronUp : ChevronDown}
-              label={more ? 'Hide more places' : 'More places'}
-              aria-expanded={more}
-              onClick={() => setMore((v) => !v)}
-            />
-          </div>
-          {more ? (
-            <div className="mt-3">
-              <LocationStep
-                value={state.places}
-                onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
-              />
-            </div>
-          ) : null}
-        </>
+        /* 📐 The template's full-width dropdown (`StepPick`, owner 10 Nov "uniform … design templates") — the same box
+           as every other step's, the width of the two buttons under it. */
+        <StepPick
+          label="Area"
+          value={picked && cityByKey(picked) ? picked : null}
+          buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
+          placeholder={picked && !cityByKey(picked) ? 'Another place' : 'Pick an area'}
+          options={[
+            ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
+            ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
+          ]}
+          onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
+          dataAttr="data-wedding-area"
+          stickyGroups
+        />
       ) : (
         <p className="text-sm text-ink/60" data-wedding-area-from-venue>
           Your area comes from your venue.
         </p>
       )}
-      <div className="mt-4">
+      {/* 🔘 Owner 10 Nov, "Button designs": the two equal-weight doors sit in ONE row at EQUAL widths — on a phone
+          where the words do not fit two to a row, each takes the whole row (`StepActions`), never two pills of their
+          own widths stacked. What each opens draws under the row, in the same order as the buttons. */}
+      <StepActions className="mt-4">
+        {askArea ? (
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={more ? ChevronUp : ChevronDown}
+            label={more ? 'Hide more places' : 'More places'}
+            aria-expanded={more}
+            onClick={() => setMore((v) => !v)}
+          />
+        ) : null}
         <ActionButton
           tone="neutral"
           quiet
@@ -329,7 +325,15 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
           data-testid="wedding-have-venue"
           onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
         />
-      </div>
+      </StepActions>
+      {askArea && more ? (
+        <div className="mt-3">
+          <LocationStep
+            value={state.places}
+            onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+          />
+        </div>
+      ) : null}
       {haveVenue ? <WeddingVenues state={state} patch={patch} search={searchVenues} /> : null}
     </SetupFrame>
   );
@@ -409,14 +413,15 @@ function ColoursCard({ frame, state, patch }: SubProps) {
       title="Your colours"
       line="Your motif — on cards, the QR code and what suppliers see."
       info="Your Mood Board starts from this. A stylist or coordinator can fill it in later."
-      quick={['My supplier will fill this in']}
-      onQuick={() => patch({ prefs: { ...state.prefs, feel: null } })}
     >
       <PickMenu
         label="Palette"
         value={feel}
         options={[
           { key: 'theme', label: 'Theme’s own' },
+          /* "My supplier will fill this in" is a choice INSIDE the dropdown, never a pill beside it (owner 10 Nov) —
+             it leaves the palette to the theme until a stylist sets it, exactly as the pill did. */
+          { key: 'supplier', label: 'My supplier will fill this in' },
           ...Object.keys(FEEL_LABEL).map((k) => ({
             key: k,
             label: FEEL_LABEL[k]!,
@@ -429,7 +434,7 @@ function ColoursCard({ frame, state, patch }: SubProps) {
             ),
           })),
         ]}
-        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' ? null : key } })}
+        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' || key === 'supplier' ? null : key } })}
         dataAttr="data-wedding-colours"
       />
     </SetupFrame>

@@ -313,14 +313,7 @@ export function ClaimDoor({
             aria-label={`${label} ${j + 1}`}
             onChange={(e) => onChange(value.map((x, k) => (k === j ? e.target.value : x)))}
           />
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5"
-            aria-label={`Remove ${label.toLowerCase()} ${j + 1}`}
-            onClick={() => onChange(value.filter((_, k) => k !== j))}
-          >
-            <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Remove ${label.toLowerCase()} ${j + 1}`} onClick={() => onChange(value.filter((_, k) => k !== j))} />
         </div>
       ))}
       <span>
@@ -920,7 +913,7 @@ export function ClaimDoor({
               <OAuthButtonRow next={returnTo} withAccountType defaultAccountType="vendor" />
             )
           ) : null}
-          <button
+          <button /* button-ok: the Email way is one of the equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
             type="button"
             className={OAUTH_BUTTON_CLASS}
             aria-pressed={false}
@@ -1003,19 +996,14 @@ export function ClaimDoor({
                 <input type="hidden" name="claim_token" value={record.token} />
                 <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
                 {at > 0 ? (
-                  <button type="button" onClick={back} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5" style={{ borderColor: 'var(--m-line)' }} aria-label="Back">
-                    <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="claim-door-back" />
                 ) : null}
                 {d.screen === 'account' && (signedInAs || emailForm) ? (
                   <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
                     Claim it — open my shop
                   </SubmitButton>
                 ) : primary ? (
-                  <button type="button" onClick={primary.onClick} className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-claim-door-continue="">
-                    {primary.label}
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton tone="brand" main icon={ArrowRight} label={primary.label} className="ml-auto" onClick={primary.onClick} data-testid="claim-door-continue" />
                 ) : null}
               </div>
             </form>

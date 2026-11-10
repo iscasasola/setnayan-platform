@@ -32,7 +32,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { Check, ImagePlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { StepRows } from '@/app/onboarding/_shared/step-field';
+import { StepActions, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
 import {
   defaultLookId,
   moreRows,
@@ -109,9 +109,11 @@ export function SetupFrame({
           one answer is ONE house ActionButton; two or more are ONE PickMenu — never a row of hand-drawn pills. Picking
           one answers (and, on the engine's cards, moves on) exactly as the pill did. */}
       {quick.length === 1 ? (
-        <div className="mt-5 flex">
+        /* 📐 The column's width, like the field or the action above it (owner 10 Nov: "uniform buttons") — never a
+           pill of its own width under a full-width one. */
+        <StepActions className="mt-5">
           <ActionButton tone="neutral" quiet icon={Check} label={quick[0]!} onClick={() => onQuick?.(quick[0]!)} data-testid="setup-quick" />
-        </div>
+        </StepActions>
       ) : quick.length > 1 ? (
         <div className="mt-5">
           <PickMenu
@@ -183,21 +185,24 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
 
         {card === 'setup_photo' ? (
           <div className="flex flex-col gap-2">
-            <ActionButton
-              tone="neutral"
-              icon={ImagePlus}
-              label={coverChoices(view.solemn)[0]!.label}
-              aria-pressed={answers.photo === 'upload'}
-              className="w-full justify-start"
-              onClick={() => onChange({ photo: 'upload' })}
-            />
+            {/* The same row as the quick answer under it — both the column's width (`StepActions`). */}
+            <StepActions>
+              <ActionButton
+                tone="neutral"
+                icon={ImagePlus}
+                label={coverChoices(view.solemn)[0]!.label}
+                aria-pressed={answers.photo === 'upload'}
+                onClick={() => onChange({ photo: 'upload' })}
+              />
+            </StepActions>
             {answers.photo === 'upload' ? <p className="text-xs text-ink/50">You’ll add it from your Event Hub.</p> : null}
           </div>
         ) : null}
 
         {card === 'setup_look' ? (
           <>
-            <PickMenu
+            {/* The template's full-width dropdown (`StepPick`), so "Keep the one picked" under it is the same width. */}
+            <StepPick
               label="Pick a look"
               value={answers.look}
               options={view.looks.map((l) => ({

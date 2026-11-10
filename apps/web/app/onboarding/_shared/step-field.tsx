@@ -30,7 +30,7 @@ import { FORM_TAB_SCOPE, FormRows } from '@/app/_components/form-row';
 
 /** The dropdown's box (StepPick's trigger <button>): the same 48 px, radius 12, 14 px padding, 16 px text as `TypedRow boxed`. */
 export const STEP_BOX_CLASS =
-  'flex h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-ink/15 bg-white px-[14px] text-base text-ink transition-colors duration-sn-control ease-sn dark:border-ink/20 dark:bg-raised'; // no-card-ok: the class of StepPick's dropdown trigger <button> (PickMenu draws it) — a pressable control, not a container
+  'sn-step-box flex h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-ink/15 bg-white px-[14px] text-base text-ink transition-colors duration-sn-control ease-sn dark:border-ink/20 dark:bg-raised'; // no-card-ok: the class of StepPick's dropdown trigger <button> (PickMenu draws it) — a pressable control, not a container
 
 /**
  * The typed rows of a step: the house `FormRows` (one field open at a time) inside the tab scope, so Tab and a
@@ -87,19 +87,42 @@ export function StepGroup({ children }: { children: ReactNode }) {
 export function StepPick(props: Omit<PickMenuProps, 'trigger' | 'className' | 'compact'> & { placeholder?: string }) {
   const { placeholder = 'Pick one', ...menu } = props;
   const current = menu.options.find((o) => o.key === menu.value) ?? null;
+  // ✓ A list with checkmarks (`picked`, e.g. an interfaith wedding's two traditions): the box names every ticked one.
+  const ticked = menu.picked ? menu.options.filter((o) => menu.picked!.includes(o.key)).map((o) => o.label) : null;
   return (
     <PickMenu
       {...menu}
       className={`${STEP_BOX_CLASS} sn-press-ring justify-between text-left hover:border-ink/30`}
       trigger={
         <>
-          <span className={`min-w-0 truncate ${current ? '' : 'text-ink/40'}`}>
-            {current ? current.label : placeholder}
-            {current?.hint ? <span className="font-normal text-ink/50"> · {current.hint}</span> : null}
-          </span>
+          {ticked ? (
+            <span className={`min-w-0 truncate ${ticked.length ? '' : 'text-ink/40'}`}>{ticked.length ? ticked.join(' & ') : placeholder}</span>
+          ) : (
+            <span className={`min-w-0 truncate ${current ? '' : 'text-ink/40'}`}>
+              {current ? current.label : placeholder}
+              {current?.hint ? <span className="font-normal text-ink/50"> · {current.hint}</span> : null}
+            </span>
+          )}
           <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
         </>
       }
     />
+  );
+}
+
+/**
+ * 🔘 EQUAL-WEIGHT ACTIONS (owner 10 Nov, "Button designs" — the house rule): house ActionButtons side by side at EQUAL
+ * widths; when the words do not fit two to a row (a 375 px phone), every button takes the whole row — equal again,
+ * never a pill of its own width beside a wider one. One button alone is the column's width, the same as the step's
+ * fields and dropdowns above it.
+ */
+export const STEP_ACTIONS_CLASS =
+  'grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr))] [&_.ab]:w-full [&_.ab]:justify-center';
+
+export function StepActions({ children, className = '', attrs }: { children: ReactNode; className?: string; attrs?: Readonly<Record<`data-${string}`, string>> }) {
+  return (
+    <div {...attrs} className={`${STEP_ACTIONS_CLASS} ${className}`} data-step-actions="">
+      {children}
+    </div>
   );
 }

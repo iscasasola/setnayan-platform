@@ -338,6 +338,7 @@
         "PlanTiers",
         "QrMoments",
         "RunTheDay",
+        "SupplierPlanTable",
         "T"
       ]
     },
@@ -11890,6 +11891,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "BundleMakerLocked",
         "PackageEditor"
       ]
     },
@@ -16171,6 +16173,7 @@
         "PortfolioView",
         "PutOnPageResult",
         "Rail",
+        "SVGSVGElement",
         "Sheet",
         "SupplierHero",
         "SupplierPageNoticeRow",
@@ -17113,32 +17116,38 @@
     },
     "/vendor-dashboard/packages": {
       "files": [
+        "vendor-dashboard/packages/_components/bundle-maker-locked.tsx",
+        "vendor-dashboard/packages/_components/bundle-preview-sample.tsx",
         "vendor-dashboard/packages/_components/package-editor.tsx",
         "vendor-dashboard/packages/actions.ts",
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/packages",
         "/vendor-dashboard/packages/[seg]",
         "/vendor-dashboard/packages/new"
       ],
       "actions": [],
       "blocks": [
         "ActionButton",
+        "BundlePlanDrafts",
+        "BundlePreviewSample",
         "DraftItem",
         "DraftOption",
         "DraftPackage",
+        "DraftProblem",
+        "EqualRow",
         "Fold",
         "InfoTip",
         "Link",
+        "LockExplainer",
+        "Note",
         "OptionList",
         "PackageCard",
         "PickMenu",
         "ProblemLine",
+        "RiseScreen",
         "SavePackageResult",
         "ServiceCardFace",
-        "Sheet",
-        "SupplierThumbRow",
         "SwipeToDelete",
         "UndoToastHost"
       ]
@@ -17147,12 +17156,10 @@
       "files": [
         "vendor-dashboard/packages/[packageId]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/packages"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
+        "BundleMakerLocked",
         "PackageEditor"
       ]
     },
@@ -17772,6 +17779,7 @@
         "vendor-dashboard/shop/_components/services-empty-card.tsx",
         "vendor-dashboard/shop/_components/shop-analytics-carousel.tsx",
         "vendor-dashboard/shop/_components/shop-badge-row.tsx",
+        "vendor-dashboard/shop/_components/shop-bundle-card.tsx",
         "vendor-dashboard/shop/_components/shop-bundles.tsx",
         "vendor-dashboard/shop/_components/shop-cover.tsx",
         "vendor-dashboard/shop/_components/shop-forms-body.tsx",
@@ -17841,6 +17849,7 @@
         "BadgeTile",
         "BodyPanel",
         "BranchManager",
+        "BundlePreviewSample",
         "CallerVendorProfile",
         "CapacityCard",
         "CardFace",
@@ -17848,6 +17857,7 @@
         "ClientReference",
         "ClientReferencesInput",
         "Collapsible",
+        "CommitResult",
         "ContactsStep",
         "ConversionDealsCard",
         "CopyButton",
@@ -17865,6 +17875,7 @@
         "DocsStep",
         "EditableLine",
         "EditableRow",
+        "EqualRow",
         "Explain",
         "Field",
         "FieldControl",
@@ -17897,6 +17908,7 @@
         "LeafletMarker",
         "LeafletModule",
         "Link",
+        "LockedFeature",
         "LockedIdentityFieldKey",
         "LockedLine",
         "LogoFrame",
@@ -17943,17 +17955,20 @@
         "SaveFileLink",
         "ScannerChoice",
         "SeeRow",
+        "ServiceCardFace",
         "ServiceCoverageRow",
         "ServiceRadiusFields",
         "ServiceRadiusSaveResult",
         "ServiceScannerPick",
         "ServicesManagerSearch",
         "ShareSheet",
+        "Sheet",
         "SheetOpening",
         "ShopAnalytics",
         "ShopAnalyticsCarousel",
         "ShopAnalyticsSection",
         "ShopBadgeRow",
+        "ShopBundleCard",
         "ShopBundles",
         "ShopCover",
         "ShopData",
@@ -17984,6 +17999,7 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "Suspense",
+        "SwipeToDelete",
         "Switch",
         "SwitchTrack",
         "Tally",

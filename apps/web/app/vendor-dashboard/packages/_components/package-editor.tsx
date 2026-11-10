@@ -3,40 +3,40 @@
 /**
  * PACKAGE EDITOR — the form a vendor fills to build a package (PR-3), now THE BUNDLE MAKER.
  *
- * The whole point of this surface: prod has ZERO packages because nothing has
- * ever inserted one, so the couple-side configurator at `/v/[slug]` renders for
- * nothing. This is where a package comes from.
- *
  * ── 7 NOV 2026 — FIXED, NOT RE-DRAWN (owner: "all changes as this designs are to be fixed on the current design. we
- * do not invent or create a new one, we just fix the old one."; DECISION_LOG "THE FOUR MAKERS ARE APPROVED"; the
- * contract is `prototypes/makers_match_2026-11-07` § 4). The same fields, the same copy, the same save — and:
- *   1. SERVICE CARDS FIRST, as locked lines ("Add a card" — one dropdown of the shop's cards; each picked card is a
- *      line with its own from-price and a lock). Extra inclusions come after, as lines — the shipped item fields.
- *   2. Spendable budget + "money freed" move under MORE SETTINGS (a fold); the explanation lives in the ⓘ.
- *   3. Lines REMOVE BY THEIR SWIPE, with Undo — THE ONE SWIPE (`swipe-to-delete.tsx`) and the shipped Undo toast
- *      (`undo-store.ts`). No trash icon on a line. Nothing is written until Save, so Undo puts the line back in the draft.
- *   4. A GIFT ROW — new on bundles: No gift · Setnayan gift · the shop's own packs (lib/package-gift.ts).
- *   5. The THUMB ROW is the shipped `SupplierThumbRow` + `ActionButton`: Cancel grey · Save bundle terracotta (main).
- * 🔒 Held by `the-bundle-maker-keeps-its-gift-and-swipe.test.ts`.
+ * do not invent or create a new one, we just fix the old one."; DECISION_LOG "THE FOUR MAKERS ARE APPROVED"). Kept from
+ * that fix: SERVICE CARDS FIRST as locked lines ("Add a card" — one dropdown of the shop's cards) · extra inclusions
+ * after, as lines · lines REMOVE BY THEIR SWIPE with Undo (THE ONE SWIPE + the shipped Undo toast) · the spendable
+ * budget under MORE SETTINGS.
  *
- * The form runs `validatePackageDraft` on every keystroke and shows problems
- * inline, keyed by `itemRef` / `optionRef`. That is the SAME function the server
- * action re-runs before writing — the client copy is for feedback only and is
- * never trusted. A vendor should never be able to press Save and get a
- * surprise, but the server still decides.
+ * ── 10 NOV 2026 — BUILD 6 · LANE D, THE BUNDLE MAKER'S SUMS (owner 9 Nov; prototype specs
+ * `prototypes/shop_discounts_bundle_card_open_2026-11-09/bundle-maker.html` v3 — the contract; DECISION_LOG 2026-11-09
+ * "A BUNDLE = 2+ SERVICE CARDS + ITS OWN PINNED PRICE + OFFER SWITCHES; GIFTS LIVE ONLY IN OFFERS…"):
+ *   1. THE NEW TOTAL IS PINNED at the top of the scroll ("New total · ₱130,000", one small line under it: "2 cards ·
+ *      ₱139,000 − ₱9,000" · "Pick cards to see it"). It follows every change at once; while a field has the keyboard up
+ *      it slims to its one 44 px line (owner: "when keyboard pops up, it uses almost 50% of the screen").
+ *   2. Each card line shows the card AT ITS LOWEST ("₱110,000 → ₱99,000 · 10% off · limited-time") — `lib/bundle-sums.ts`.
+ *   3. WHAT THE COUPLE GETS gathers every inclusion of the picked cards, merged, each labelled with its card; the extra
+ *      inclusions follow as "beyond the cards".
+ *   4. TOTAL per card, then Cards at their lowest · the EXTRA BUNDLE DISCOUNT in pesos only (above ₱0, below the total)
+ *      · the NEW TOTAL. The typed "Package price" box is gone — the price is computed (the server re-computes it).
+ *   5. PAYMENT PLAN FOR THE BUNDLE — a copy of the default plan, adjustable, adding up to exactly the new total; the last
+ *      payment is the automatic balance (the shipped `resolveSchedule`).
+ *   6. NO GIFT FIELD — gifts live only in offers. ⏭ "Offers on this bundle" (the card maker's switches) arrives with the
+ *      Offer Maker (Build 6 Lane D, another session) — not drawn here until that link exists.
+ *   7. FULL SCREEN (`RiseScreen`, the bars step away); ✕ is Cancel. The thumb row is Save to my shop | Send to this
+ *      couple at equal widths (7 Nov: the bundle maker and the quote maker are one maker).
+ * 🔒 Held by `the-bundle-maker-is-the-prototype.test.ts` and `lib/bundle-sums.test.ts`.
  *
- * NOT every server problem has an inline note: the card-text integrity gate
- * (`text_not_allowed`) is server-only by design, so the `invalid` branch of
- * `save()` renders `res.problems` into the alert rather than pointing at notes
- * that would not exist.
+ * The form runs `validatePackageDraft` + `bundleProblems` on every keystroke and shows problems inline; the server
+ * action re-runs both on the prices IT read before writing — the client copy is for feedback only.
  *
- * Money is edited in PESOS and stored in CENTAVOS. The conversion happens once,
- * at the input boundary, so nothing downstream has to wonder which unit it holds.
+ * Money is edited in PESOS and stored in CENTAVOS; the conversion happens once, at the input boundary.
  */
 
-import { useId, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Lock, ChevronDown, Check, X, Eye, Settings, Globe, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Lock, ChevronDown, Check, Send, Settings, AlertCircle, Info } from 'lucide-react';
 
 import {
   validatePackageDraft,
@@ -46,29 +46,34 @@ import {
   type DraftProblem,
 } from '@/lib/package-authoring';
 import {
-  coupleBundleGift,
-  packageGiftLine,
-  packageGiftMenu,
-  PACKAGE_GIFT_TIP,
-} from '@/lib/package-gift';
-import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
+  bundleProblems,
+  bundleSums,
+  gatherInclusions,
+  pinnedTotalLine,
+  planDraftsOrDefault,
+  resolveBundlePlan,
+  type BundleCardFacts,
+  type BundlePlanDrafts,
+  type BundleProblem,
+} from '@/lib/bundle-sums';
+import { dueLabel, MAX_INSTALLMENTS } from '@/lib/proposal-payment-schedule';
+import { formatPhpRounded } from '@/lib/php';
 import type { VendorPackageWithItems } from '@/lib/vendor-packages';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, EqualRow } from '@/components/action-button';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
-import { Sheet } from '@/app/_components/sheet';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { displayServiceLabel } from '@/lib/vendors';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
-import { savePackage, setPackageActive } from '../actions';
+import { savePackage } from '../actions';
 
-/** One of the shop's service cards, as "Add a card" lists it. Its price is the card's own — never typed here. */
-export type BundleCard = { id: string; name: string; category: string; fromPhp: number | null };
+/** One of the shop's service cards, as "Add a card" lists it — its price, discounts and inclusions are the card's own. */
+export type BundleCard = BundleCardFacts & { category: string };
 
 /** Client-side ref for a row that has no database id yet. */
 let seq = 0;
@@ -79,7 +84,11 @@ const toCentavos = (v: string) => {
   const n = Number(v.replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 };
-const php = (n: number) => `₱${new Intl.NumberFormat('en-PH', { maximumFractionDigits: 0 }).format(n)}`;
+const wholePesos = (v: string) => {
+  const n = Number(v.replace(/[^0-9]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+};
+const php = formatPhpRounded;
 
 function emptyItem(): DraftItem {
   return {
@@ -121,69 +130,78 @@ const cardsFirst = (items: DraftItem[]) => [...items.filter(isCardLine), ...item
 export function PackageEditor({
   packageId,
   initial,
-  isActive,
   frozen,
   canonicalServices,
   cards,
-  giftPacks,
-  giftFree,
   shopName,
+  closeHref,
+  now,
 }: {
   packageId?: string;
   initial: DraftPackage;
-  isActive: boolean;
   /** True when a live booking exists — structure is locked, metadata is not. */
   frozen: boolean;
   canonicalServices: { value: string; label: string }[];
-  /** The shop's service cards — `null` = the read was refused (said on the page, never shown as "none"). */
+  /** The shop's service cards with their prices — `null` = the read was refused (said on the page, never "none"). */
   cards: BundleCard[] | null;
-  /** The giftable packs on the live catalogue — `null` = unread. */
-  giftPacks: ShopGiftPack[] | null;
-  /** What the shop's stock can still offer, per kind — `null` = unread. */
-  giftFree: FreeByKind | null;
-  /** The shop's name, for the couple's "Gift from …" line in the preview. */
+  /** The shop's name, for the couple's card in the preview. */
   shopName: string | null;
+  /** Where ✕ goes back to (the Shop's services list). */
+  closeHref: string;
+  /** The server's clock (ISO), so the first paint's sums equal the server's. */
+  now: string;
 }) {
   const router = useRouter();
+  const clock = useMemo(() => new Date(now), [now]);
   const [draft, setDraft] = useState<DraftPackage>(() => ({
     ...initial,
-    gift: initial.gift ?? '',
+    gift: '',
     items: cardsFirst(initial.items),
   }));
+  const [plan, setPlan] = useState<BundlePlanDrafts>(() => planDraftsOrDefault(initial.plan));
+  const [planTouched, setPlanTouched] = useState(() => Boolean(initial.plan));
   // A saved name that is still the one written from its cards keeps following the cards; a typed one stays put.
   const [nameTouched, setNameTouched] = useState(() => {
     const own = initial.package_name.trim();
     return own.length > 0 && own !== bundleNameFromCards(initial.items.filter(isCardLine).map((i) => i.service_description));
   });
-  /** Save was pressed: the notes show under their fields from now on (the prototype — never before the first try). */
+  /** Save was pressed: the notes show under their fields from now on (never before the first try). */
   const [tried, setTried] = useState(false);
+  /** A field has the keyboard: the pinned New total slims to its one line. */
+  const [typing, setTyping] = useState(false);
   const [pending, start] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(
-    initial.consumable_budget_centavos > 0 || initial.is_consumable_flexible,
-  );
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const previewHeadId = useId();
-
-  const problems = useMemo(() => validatePackageDraft(draft), [draft]);
-  const shown = tried ? problems : [];
-  const packageProblems = shown.filter((p) => !p.itemRef);
-  const problemsFor = (itemRef: string, optionRef?: string) =>
-    shown.filter((p) =>
-      p.itemRef === itemRef && (optionRef ? p.optionRef === optionRef : !p.optionRef),
-    );
+  const [moreOpen, setMoreOpen] = useState(initial.consumable_budget_centavos > 0 || initial.is_consumable_flexible);
 
   const cardById = useMemo(() => new Map((cards ?? []).map((c) => [c.id, c])), [cards]);
   const cardLines = draft.items.filter(isCardLine);
   const extraLines = draft.items.filter((i) => !isCardLine(i));
   const cardsLeft = (cards ?? []).filter((c) => !cardLines.some((l) => l.vendorServiceId === c.id));
+  const picked = cardLines
+    .map((i) => (i.vendorServiceId ? cardById.get(i.vendorServiceId) : undefined))
+    .filter((c): c is BundleCard => Boolean(c));
+
+  // 🧺 THE SUMS — the same functions the server runs on the prices it reads.
+  const extraPhp = Math.round((draft.extra_discount_centavos ?? 0) / 100);
+  const sums = bundleSums(picked, extraPhp, clock);
+  const resolved = resolveBundlePlan(plan, sums.newTotalPhp);
+  const priced: DraftPackage = { ...draft, total_price_centavos: Math.round(sums.newTotalPhp * 100) };
+  const problems: Array<DraftProblem | BundleProblem> = [
+    ...bundleProblems(sums, resolved, php),
+    // The price problems are the bundle's own words; the shipped validator keeps the rest (names, lines, budget).
+    ...validatePackageDraft(priced).filter((p) => p.code !== 'package_price_not_positive' || sums.lines.length >= 2),
+  ];
+  const shown = tried ? problems : [];
+  const problemsFor = (itemRef: string, optionRef?: string) =>
+    (shown.filter((p) => 'itemRef' in p && p.itemRef === itemRef && (optionRef ? p.optionRef === optionRef : !p.optionRef)) as DraftProblem[]);
+  const extraErr = sums.extraPhp > 0 && sums.extraPhp >= sums.cardsTotalPhp ? 'The extra discount has to be below the total.' : null;
+  const planErr = resolved.balances ? null : `The payments add up to more than ${php(sums.newTotalPhp)}.`;
+  const gathered = gatherInclusions(picked);
 
   /** Keep the name written from the cards while the supplier has not typed their own. */
   const named = (d: DraftPackage, touched = nameTouched): DraftPackage =>
-    touched
-      ? d
-      : { ...d, package_name: bundleNameFromCards(d.items.filter(isCardLine).map((i) => i.service_description)) };
+    touched ? d : { ...d, package_name: bundleNameFromCards(d.items.filter(isCardLine).map((i) => i.service_description)) };
 
   const patch = (over: Partial<DraftPackage>) => {
     setSaved(false);
@@ -191,32 +209,15 @@ export function PackageEditor({
   };
   const patchItem = (ref: string, over: Partial<DraftItem>) => {
     setSaved(false);
-    setDraft((d) => ({
-      ...d,
-      items: d.items.map((i) => (i.ref === ref ? { ...i, ...over } : i)),
-    }));
+    setDraft((d) => ({ ...d, items: d.items.map((i) => (i.ref === ref ? { ...i, ...over } : i)) }));
   };
-  const patchOption = (
-    itemRef: string,
-    optRef: string,
-    over: Partial<DraftOption>,
-  ) => {
+  const patchOption = (itemRef: string, optRef: string, over: Partial<DraftOption>) => {
     setSaved(false);
     setDraft((d) => ({
       ...d,
-      items: d.items.map((i) =>
-        i.ref !== itemRef
-          ? i
-          : {
-              ...i,
-              options: i.options.map((o) =>
-                o.ref === optRef ? { ...o, ...over } : o,
-              ),
-            },
-      ),
+      items: d.items.map((i) => (i.ref !== itemRef ? i : { ...i, options: i.options.map((o) => (o.ref === optRef ? { ...o, ...over } : o)) })),
     }));
   };
-
   /** Exactly one standard option — picking one clears the others. */
   const makeStandard = (itemRef: string, optRef: string) => {
     setSaved(false);
@@ -230,10 +231,8 @@ export function PackageEditor({
               options: i.options.map((o) => ({
                 ...o,
                 is_default: o.ref === optRef,
-                // The standard option IS the baseline, so it costs nothing
-                // extra — the database enforces this too.
-                price_delta_centavos:
-                  o.ref === optRef ? 0 : o.price_delta_centavos,
+                // The standard option IS the baseline, so it costs nothing extra — the database enforces this too.
+                price_delta_centavos: o.ref === optRef ? 0 : o.price_delta_centavos,
               })),
             },
       ),
@@ -248,9 +247,8 @@ export function PackageEditor({
   };
 
   /**
-   * 👈 THE LINE'S SWIPE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"; makers § 4
-   * "Lines swipe to remove with Undo"). The line leaves the DRAFT at once; nothing is written until Save, so Undo is
-   * putting it back where it was — the shipped Undo toast, one per page.
+   * 👈 THE LINE'S SWIPE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). The line
+   * leaves the DRAFT at once; nothing is written until Save, so Undo is putting it back where it was.
    */
   const removeLine = (item: DraftItem) => {
     const at = draft.items.findIndex((i) => i.ref === item.ref);
@@ -270,88 +268,96 @@ export function PackageEditor({
     });
   };
 
+  // ── The plan: a copy of the default, adjusted here. Typing an amount makes that payment a fixed one. ──
+  const editPlan = (fn: (p: BundlePlanDrafts) => BundlePlanDrafts) => {
+    setSaved(false);
+    setPlanTouched(true);
+    setPlan((p) => fn({ manual: p.manual.map((m) => ({ ...m })), autoBalance: { ...p.autoBalance } }));
+  };
+  const setPayment = (i: number, value: string) =>
+    editPlan((p) => {
+      p.manual[i] = { ...p.manual[i]!, kind: 'fixed', amountPhp: wholePesos(value), percent: null };
+      return p;
+    });
+  const addPayment = () =>
+    editPlan((p) => {
+      p.manual.push({ label: `Payment ${p.manual.length + 1}`, kind: 'percent', amountPhp: null, percent: 10, due: 'before_event', offsetDays: 14 });
+      return p;
+    });
+  const removePayment = (i: number) => {
+    const gone = plan.manual[i]!;
+    editPlan((p) => ({ ...p, manual: p.manual.filter((_, k) => k !== i) }));
+    pushUndo({
+      label: `${gone.label} removed`,
+      undo: async () => editPlan((p) => {
+        p.manual.splice(Math.min(i, p.manual.length), 0, gone);
+        return p;
+      }),
+    });
+  };
+
   const save = () => {
     setServerError(null);
     setTried(true);
-    // The same validator the server runs: with notes still open, Save shows them where they are and sends nothing.
+    // The same rules the server runs: with notes still open, Save shows them where they are and sends nothing.
     if (problems.length > 0) return;
     start(async () => {
-      const res = await savePackage({ ...draft, items: cardsFirst(draft.items), packageId });
+      const res = await savePackage({
+        ...priced,
+        items: cardsFirst(draft.items),
+        extra_discount_centavos: sums.extraPhp * 100,
+        plan: planTouched ? plan : null,
+        packageId,
+      });
       if (res.status === 'ok') {
         setSaved(true);
-        // ⚡ `savePackage` revalidates (and clears the router cache): its answer redraws this page, and a new package's
-        // replace reads a fresh one — no refresh after it.
+        // ⚡ `savePackage` revalidates: its answer redraws this page, and a new bundle's replace reads a fresh one.
         if (!packageId) router.replace(`/vendor-dashboard/packages/${res.packageId}`);
         return;
       }
+      if (res.status === 'locked') {
+        setServerError('The Bundle Maker opens once your shop is Verified. Tap Get verified on Shop › Bundles.');
+        return;
+      }
       if (res.status === 'frozen') {
-        setServerError(
-          `Someone has already booked this package, so its contents are locked. Changed: ${res.changed.join(', ')}. Publish a new package instead.`,
-        );
+        setServerError(`Someone has already booked this bundle, so its contents are locked. Changed: ${res.changed.join(', ')}. Make a new bundle instead.`);
         return;
       }
       if (res.status === 'invalid') {
-        // The inline notes below come from the CLIENT copy of
-        // validatePackageDraft, which cannot see server-only rules (the
-        // card-text integrity gate raises `text_not_allowed`). Pointing the
-        // vendor at "the notes below" when there are none is a dead end they
-        // cannot get out of — so show what the server actually said, and keep
-        // the pointer only for problems the inline notes really do render.
-        setServerError(
-          res.problems.length > 0
-            ? res.problems.map((p) => p.message).join(' ')
-            : 'Some details still need fixing — see the notes below.',
-        );
+        // The server's own words: some of its rules (the card-text gate, today's card prices) have no inline note.
+        setServerError(res.problems.length > 0 ? res.problems.map((p) => p.message).join(' ') : 'Some details still need fixing — see the notes below.');
         return;
       }
-      setServerError(
-        res.status === 'error' ? res.message : 'That package could not be saved.',
-      );
+      setServerError(res.status === 'error' ? res.message : 'That bundle could not be saved.');
     });
   };
 
-  const togglePublished = () => {
-    if (!packageId) return;
-    setServerError(null);
-    start(async () => {
-      const res = await setPackageActive(packageId, !isActive);
-      if (res.status === 'ok') return;
-      if (res.status === 'invalid')
-        setServerError('Fix the notes below before publishing.');
-      else setServerError('That change could not be saved.');
-    });
-  };
-
-  // One rhythm (the prototype's `.f`): a label · its 48 px box · a quiet hint; each topic after the first opens with
+  // One rhythm (the prototype's `.fld`): a label · its 48 px box · a quiet hint; each topic after the first opens with
   // a divider, never a box around the group.
   const field =
     'h-12 w-full rounded-xl border border-ink/15 bg-cream px-4 text-[15px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: the class of an <input>, a thing you press
   const lab = 'mb-1.5 flex items-center gap-2 text-[14px] font-medium text-ink';
   const small = 'text-[12px] font-normal text-ink/50';
   const hint = 'mt-1.5 text-[12px] leading-snug text-ink/55';
-  const topic = 'border-t border-ink/10 pt-5';
+  const topic = 'border-t border-ink/10 px-4 pt-5';
   const box =
     'flex h-12 w-full items-center justify-between gap-2 rounded-xl border border-ink/15 bg-cream px-4 text-left text-[15px] text-ink disabled:opacity-60'; // no-card-ok: a PickMenu trigger, a <button>
-  /** The legacy option sub-form's field (lines that already carry options keep theirs). */
   const optionField =
     'h-10 w-full rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink focus:border-terracotta focus:outline-none'; // no-card-ok: the class of an <input>
+  const kv = 'flex min-h-9 items-center justify-between gap-3 text-[14px] text-ink';
 
-  const giftMenu = packageGiftMenu(giftPacks, giftFree, draft.gift ?? '');
-  const giftPicked = giftMenu.find((o) => o.key === (draft.gift ?? ''));
-  const coupleGift = coupleBundleGift(draft.gift ?? '', giftPacks, shopName);
-
-  // The couple's card, drawn from the draft by the SHIPPED `PackageCard` — "What the couple gets" is what /v/[slug]
-  // will show, not a second drawing of it.
+  // The couple's card, drawn from the draft by the SHIPPED `PackageCard` — what /v/[slug] will show, not a second
+  // drawing of it — beside the form from 768. Each picked card by `ServiceCardFace`, the ONE face Find renders.
   const previewPkg: VendorPackageWithItems = {
     package_id: packageId ?? 'new',
     vendor_profile_id: '',
     package_name: draft.package_name.trim() || 'Bundle name',
     description: null,
-    total_price_centavos: draft.total_price_centavos,
+    total_price_centavos: priced.total_price_centavos,
     consumable_budget_centavos: draft.consumable_budget_centavos,
     is_consumable_flexible: draft.is_consumable_flexible,
     primary_canonical_service: draft.items[0]?.canonical_service ?? '',
-    is_active: isActive,
+    is_active: false,
     created_at: '',
     updated_at: '',
     items: draft.items
@@ -368,435 +374,497 @@ export function PackageEditor({
         is_required: i.is_required,
       })),
   };
-  // 🧾 THE CARDS IN THIS BUNDLE, AS A HOST SEES THEM (Build 3 Lane E item 9, owner: *"The service cards should look like
-  // how we look at event dashboard suppliers>find"*): each picked card is drawn by `ServiceCardFace` — the ONE face
-  // Suppliers › Find renders (`supplier-sheet.tsx`) — with "in this bundle" as its footer (the face's own `footer`
-  // prop), never a second drawing. Its price is the card's own from-price; nothing is typed here.
-  const pickedCards = cardLines
-    .map((i) => (i.vendorServiceId ? cardById.get(i.vendorServiceId) : undefined))
-    .filter((c): c is BundleCard => Boolean(c));
   const preview = (
     <>
-      {pickedCards.length > 0 ? (
+      {picked.length > 0 ? (
         <div className="space-y-2" data-bundle-find-cards="">
-          {pickedCards.map((c) => (
-            <ServiceCardFace
-              key={c.id}
-              snap={{
-                name: c.name,
-                priceText: c.fromPhp != null ? `from ${php(c.fromPhp)}` : '',
-                discountBadge: null,
-                includesLine: null,
-                notIncluded: [],
-                hasExclusive: false,
-                givesSetnayanGift: false,
-                hasCover: false,
-              }}
-              leafPathLabel={[displayServiceLabel(c.category), shopName].filter(Boolean).join(' · ')}
-              footer={<span className="inline-flex rounded-full bg-ink/[0.06] px-2.5 py-1 text-[12px] font-medium text-ink/70">in this bundle</span>}
-            />
-          ))}
+          {picked.map((c) => {
+            const l = sums.lines.find((x) => x.id === c.id);
+            return (
+              <ServiceCardFace
+                key={c.id}
+                snap={{ name: c.name, priceText: l?.lowestPhp != null ? `from ${php(l.lowestPhp)}` : '', discountBadge: l?.offer ?? null, includesLine: null, notIncluded: [], hasExclusive: false, givesSetnayanGift: false, hasCover: false }}
+                leafPathLabel={[displayServiceLabel(c.category), shopName].filter(Boolean).join(' · ')}
+                footer={<span className="inline-flex rounded-full bg-ink/[0.06] px-2.5 py-1 text-[12px] font-medium text-ink/70">in this bundle</span>}
+              />
+            );
+          })}
         </div>
       ) : null}
-      <PackageCard pkg={previewPkg} gift={coupleGift} />
-      <p className={hint}>
-        {draft.is_consumable_flexible
-          ? 'Money freed by dropping an inclusion stays in the package.'
-          : 'A dropped inclusion lowers what they pay.'}
-      </p>
+      <PackageCard pkg={previewPkg} gift={null} />
     </>
   );
 
+  const thumb = (
+    // 👍 Save to my shop | Send to this couple — at equal widths (one maker for bundles and quotes, 7 Nov). ✕ is Cancel.
+    <EqualRow data="bundle-thumb">
+      <ActionButton tone="ok" main icon={Check} label={pending ? 'Saving…' : 'Save to my shop'} onClick={save} waiting={pending} data-testid="bundle-save" />
+      {/* ⏸ NOT WIRED YET, drawn waiting: sending a bundle as a quote must copy each card at its lowest, the extra
+          discount and this plan into the quote's own lines (9 Nov freeze ruling) — the quote maker's job, next slice. */}
+      <ActionButton tone="brand" main icon={Send} label="Send to this couple" title="Send to this couple — opens from a couple’s chat, coming next" waiting data-bundle-send="" />
+    </EqualRow>
+  );
+
   return (
-    <div className="grid gap-8 md:grid-cols-2 md:gap-10" data-bundle-maker="">
+    <RiseScreen
+      title={draft.package_name.trim() || 'New bundle'}
+      line="Several of your cards as one price"
+      info={
+        <>
+          <b className="block text-ink">A bundle</b>
+          Several of your cards as one price. Each card counts at its lowest price — its price minus the best discount that
+          is on. Your extra bundle discount comes off that sum, in pesos. The bundle’s payment plan starts from your default
+          and has to add up to the new total.
+        </>
+      }
+      thumb={thumb}
+      onClose={() => router.push(closeHref)}
+      data="bundle-maker"
+    >
       <UndoToastHost />
-      <div className="min-w-0 space-y-5">
-        {frozen ? (
-          <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-cream/60 p-3 text-sm text-ink/70">
-            <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-            <span>
-              Someone has booked this package, so what is in it is now fixed — that
-              booking is a promise you have already made. You can still rename it or
-              unlist it. To sell something different, publish a new package.
+      <div
+        className="md:grid md:grid-cols-[minmax(0,1fr)_300px] md:gap-6"
+        data-bundle-maker=""
+        onFocus={(e) => setTyping(e.target instanceof HTMLInputElement)}
+        onBlur={() => setTyping(false)}
+      >
+        <div className="min-w-0 space-y-5 pb-6">
+          {/* 📌 THE PINNED NEW TOTAL (owner 9 Nov: "Bundle maker needs to show the total as pinned also"). It stays put while
+              the body scrolls and follows every change; with the keyboard up it is its one 44 px line. */}
+          <div
+            className="sticky top-0 z-[3] flex min-h-11 items-center justify-between gap-3 border-b border-ink/10 bg-cream px-4 py-2"
+            data-bundle-total-pin={typing ? 'slim' : 'full'}
+            aria-live="polite"
+          >
+            <span className="min-w-0">
+              <b className="block text-[15px] font-semibold leading-tight text-ink">New total</b>
+              {typing ? null : (
+                <small className="block truncate text-[12.5px] text-ink/60" data-bundle-total-line="">
+                  {pinnedTotalLine(sums, php)}
+                </small>
+              )}
             </span>
-          </p>
-        ) : null}
-
-        {saved ? (
-          <p role="status" className="flex items-center gap-2 text-[13px] font-medium text-success-700">
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Bundle saved.
-          </p>
-        ) : null}
-
-        {/* ---- Name ---- */}
-        <div>
-          <label className={lab} htmlFor="pkg-name">Name</label>
-          <input
-            autoComplete="off"
-            id="pkg-name"
-            className={field}
-            value={draft.package_name}
-            placeholder="Complete Wedding Catering"
-            maxLength={120}
-            onChange={(e) => {
-              setNameTouched(true);
-              patch({ package_name: e.target.value });
-            }}
-          />
-          <p className={hint}>
-            {cardLines.length > 0 && !nameTouched ? 'Written for you · change it if you like' : 'Named from the cards you add'}
-          </p>
-        </div>
-
-        {/* ---- Package price ---- */}
-        <div className={topic}>
-          <label className={lab} htmlFor="pkg-price">Package price</label>
-          <div className="relative">
-            <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-ink/70">₱</span>
-            <input
-              id="pkg-price"
-              inputMode="decimal"
-              disabled={frozen}
-              className={`${field} pl-9 font-mono`}
-              value={pesos(draft.total_price_centavos)}
-              placeholder="—"
-              onChange={(e) => patch({ total_price_centavos: toCentavos(e.target.value) })}
-            />
+            <span className="shrink-0 font-mono text-[18px] font-semibold text-ink" data-bundle-total="">
+              {php(sums.newTotalPhp)}
+            </span>
           </div>
-          <p className={hint}>One price for everything below.</p>
-          {packageProblems.length > 0 ? (
-            <ul className="mt-2 space-y-1">
-              {packageProblems.map((p) => (
-                <ProblemLine key={p.code} problem={p} />
-              ))}
-            </ul>
-          ) : null}
-        </div>
 
-        {/* ---- Service cards — FIRST, as locked lines ---- */}
-        <div className={topic} data-bundle-cards="">
-          <p className={lab}>
-            Service cards <span className={small}>{cardLines.length ? `${cardLines.length} ${cardLines.length === 1 ? 'card' : 'cards'}` : 'at least one'}</span>
-          </p>
-          {cardLines.length > 0 ? (
-            <ul className="mb-2 divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
-              {cardLines.map((item) => {
-                const card = item.vendorServiceId ? cardById.get(item.vendorServiceId) : undefined;
-                return (
-                  <SwipeToDelete
-                    key={item.ref}
-                    as="li"
-                    label={`Take ${item.service_description} out of the bundle`}
-                    word="Remove"
-                    radiusClass="rounded-none"
-                    disabled={frozen}
-                    onDelete={() => removeLine(item)}
-                  >
-                    <div className="flex min-h-14 items-center gap-3 px-4 py-2.5" data-bundle-line="card">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[15px] text-ink">{item.service_description}</span>
-                        <span className="block text-[12px] text-ink/55">
-                          your service card · from {card?.fromPhp != null ? php(card.fromPhp) : '₱ —'}
+          {frozen ? (
+            <p className="mx-4 flex items-start gap-2 text-sm text-ink/70">
+              <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+              <span>
+                Someone has booked this bundle, so what is in it and its price are now fixed — that booking is a promise you
+                have already made. You can still rename it or take it offline. To sell something different, make a new bundle.
+              </span>
+            </p>
+          ) : null}
+          {saved ? (
+            <p role="status" className="flex items-center gap-2 px-4 text-[13px] font-medium text-success-700">
+              <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Saved · the bundle shows under Bundles.
+            </p>
+          ) : null}
+
+          {/* ---- Name ---- */}
+          <div className="px-4">
+            <label className={lab} htmlFor="pkg-name">Name</label>
+            <input
+              autoComplete="off"
+              id="pkg-name"
+              className={field}
+              value={draft.package_name}
+              placeholder="Named from the cards you pick"
+              maxLength={120}
+              enterKeyHint="done"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  save();
+                }
+              }}
+              onChange={(e) => {
+                setNameTouched(true);
+                patch({ package_name: e.target.value });
+              }}
+            />
+            <p className={hint}>{cardLines.length > 0 && !nameTouched ? 'Written for you · change it if you like' : 'Named from the cards you add'}</p>
+          </div>
+
+          {/* ---- Service cards — FIRST, as locked lines, each at its lowest ---- */}
+          <div className={topic} data-bundle-cards="">
+            <p className={lab}>
+              Service cards <span className={small}>{cardLines.length ? `${cardLines.length} ${cardLines.length === 1 ? 'card' : 'cards'}` : 'two or more'}</span>
+            </p>
+            {cardLines.length > 0 ? (
+              <ul className="mb-2 divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
+                {cardLines.map((item) => {
+                  const l = sums.lines.find((x) => x.id === item.vendorServiceId);
+                  return (
+                    <SwipeToDelete key={item.ref} as="li" label={`Take ${item.service_description} out of the bundle`} word="Remove" radiusClass="rounded-none" disabled={frozen} onDelete={() => removeLine(item)}>
+                      <div className="flex min-h-14 items-center gap-3 px-4 py-2.5" data-bundle-line="card">
+                        <Lock aria-label="Locked — this line is the card" className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[15px] text-ink">{item.service_description}</span>
+                          <span className="block truncate text-[12px] text-ink/55" data-bundle-card-lowest="">
+                            {l?.pricePhp == null ? 'No price yet · set it on the card' : l.offer ? `${php(l.pricePhp)} → ${php(l.lowestPhp)} · ${l.offer}` : `${php(l.pricePhp)} · no discount on`}
+                          </span>
                         </span>
-                      </span>
-                      <Lock aria-label="Locked — this line is the card" className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+                        <span className="shrink-0 font-mono text-[14px] text-ink">{l?.lowestPhp != null ? php(l.lowestPhp) : '—'}</span>
+                      </div>
+                    </SwipeToDelete>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mb-2 text-[13.5px] text-ink/70" data-bundle-cards-empty="">Pick the cards this bundle sells.</p>
+            )}
+            {frozen ? null : cards === null ? (
+              <p role="alert" className="text-[13px] text-danger-700">Couldn’t read your service cards and their prices right now. Reload to try again.</p>
+            ) : cards.length === 0 ? (
+              <p className={hint}>No service cards yet. Make one under Services, then add it here.</p>
+            ) : cardsLeft.length > 0 ? (
+              <PickMenu
+                label="Add a card"
+                value={null}
+                options={cardsLeft.map((c) => {
+                  const l = bundleSums([c], 0, clock).lines[0]!;
+                  return { key: c.id, label: c.name, hint: l.pricePhp == null ? 'no price yet' : l.offer ? `from ${php(l.pricePhp)} → ${php(l.lowestPhp)}` : `from ${php(l.pricePhp)}` };
+                })}
+                onPick={addCard}
+                dataAttr="data-bundle-add-card"
+                className={box}
+                trigger={
+                  <>
+                    <span className="truncate text-ink/55">{cardLines.length ? 'Add another card' : 'Add a card'}</span>
+                    <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+                  </>
+                }
+              />
+            ) : (
+              <p className="flex items-center gap-1.5 text-[13px] text-success-700">
+                <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Every card is in this bundle
+              </p>
+            )}
+            <p className={hint}>
+              Each card at its <b className="font-semibold text-ink/75">lowest</b> price: the card price minus its best discount that is on.
+              {cardLines.length > 0 && !frozen ? ' Swipe a line left to take it out · Undo in the toast.' : ''}
+            </p>
+            {tried && sums.lines.length < 2 ? <Note>A bundle is two or more of your service cards — add another card.</Note> : null}
+            {tried ? sums.unpriced.map((n) => <Note key={n}>{`${n} has no price yet — set it on the card first.`}</Note>) : null}
+          </div>
+
+          {/* ---- What the couple gets — gathered from the cards, then the extra lines ---- */}
+          <div className={topic} data-bundle-gets="">
+            <div className={lab}>
+              <span>What the couple gets</span>
+              <InfoTip label="" ariaLabel="About inclusions" align="end">
+                <span className="block font-semibold">What’s included</span>
+                <span className="mt-1 block">Everything the picked cards include gathers here, merged, each line labelled with its card. Add a line for anything beyond the cards.</span>
+                <span className="mt-1 block">Swap options are made on the card, under What’s included · details.</span>
+              </InfoTip>
+            </div>
+            {gathered.length > 0 ? (
+              <ul className="divide-y divide-ink/10" data-bundle-gathered="">
+                {gathered.map((g) => (
+                  <li key={g.label} className="flex min-h-11 items-center justify-between gap-3 text-[14.5px] text-ink">
+                    <span className="min-w-0 truncate">{g.label}</span>
+                    <span className="shrink-0 rounded-full bg-ink/[0.06] px-2.5 py-0.5 text-[11.5px] font-medium text-ink/65">{g.card}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="flex items-start gap-2 text-[13.5px] text-ink/65">
+                <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+                Everything the picked cards include gathers here, merged, each line labelled with its card.
+              </p>
+            )}
+
+            <p className="mb-1.5 mt-4 text-[13px] font-medium text-ink/75" data-bundle-extras="">
+              Extra inclusions <span className={small}>beyond the cards · optional</span>
+            </p>
+            {extraLines.length > 0 ? (
+              <ul className="mb-3 divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
+                {extraLines.map((item) => (
+                  <SwipeToDelete key={item.ref} as="li" label={`Remove ${item.service_description.trim() || 'this line'}`} word="Remove" radiusClass="rounded-none" disabled={frozen} onDelete={() => removeLine(item)}>
+                    <div data-bundle-line="extra">
+                      <div className="grid grid-cols-[1fr_7rem] lg:grid-cols-[1fr_9rem_6.5rem]">
+                        <input
+                          aria-label="What this inclusion is"
+                          className="col-span-2 h-12 min-w-0 border-b border-ink/10 bg-transparent px-4 text-[15px] text-ink placeholder:text-ink/40 focus:outline-none lg:col-span-1 lg:border-b-0 disabled:opacity-60"
+                          disabled={frozen}
+                          value={item.service_description}
+                          placeholder="Welcome drink on arrival"
+                          onChange={(e) => patchItem(item.ref, { service_description: e.target.value })}
+                        />
+                        <div className="min-w-0 border-ink/10 lg:border-l">
+                          <PickMenu
+                            label="Category"
+                            value={item.canonical_service || null}
+                            options={canonicalServices.map((c) => ({ key: c.value, label: c.label }))}
+                            onPick={(k) => patchItem(item.ref, { canonical_service: k })}
+                            className="flex h-12 w-full items-center justify-between gap-2 px-4 text-left text-[14px] text-ink disabled:opacity-60"
+                            trigger={
+                              <>
+                                <span className={`truncate ${item.canonical_service ? '' : 'text-ink/45'}`}>{canonicalServices.find((c) => c.value === item.canonical_service)?.label ?? 'Category…'}</span>
+                                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+                              </>
+                            }
+                          />
+                        </div>
+                        <input
+                          aria-label="What this is worth in pesos"
+                          inputMode="decimal"
+                          disabled={frozen}
+                          className="h-12 min-w-0 border-l border-ink/10 bg-transparent px-4 font-mono text-[14px] text-ink placeholder:text-ink/40 focus:outline-none disabled:opacity-60"
+                          value={pesos(item.replacement_value_centavos)}
+                          placeholder="worth ₱"
+                          onChange={(e) => patchItem(item.ref, { replacement_value_centavos: toCentavos(e.target.value) })}
+                        />
+                      </div>
+                      {/* A line that ALREADY carries choices keeps them editable here — no saved bundle is stranded. */}
+                      {item.options.length > 0 ? (
+                        <div className="px-4 pb-3">
+                          <OptionList
+                            item={item}
+                            frozen={frozen}
+                            field={optionField}
+                            problemsFor={problemsFor}
+                            onPatch={patchOption}
+                            onStandard={makeStandard}
+                            onAdd={() => patchItem(item.ref, { options: [...item.options, { ref: newRef(), label: '', price_delta_centavos: 0, is_default: false, is_available: true }] })}
+                            onRemove={(optRef) => patchItem(item.ref, { options: item.options.filter((o) => o.ref !== optRef) })}
+                          />
+                        </div>
+                      ) : null}
+                      {problemsFor(item.ref).length > 0 ? (
+                        <ul className="space-y-1 px-4 pb-3">
+                          {problemsFor(item.ref).map((p) => (
+                            <ProblemLine key={p.code} problem={p} />
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
+                  </SwipeToDelete>
+                ))}
+              </ul>
+            ) : null}
+            {!frozen ? <ActionButton tone="neutral" icon={Plus} label="Add a line" onClick={() => patch({ items: [...draft.items, emptyItem()] })} /> : null}
+          </div>
+
+          {/* ---- Total — each card at its lowest, then their sum ---- */}
+          <div className={topic} data-bundle-sum="">
+            <p className={lab}>Total</p>
+            {sums.lines.length > 0 ? (
+              sums.lines.map((l) => (
+                <div key={l.id} className={kv}>
+                  <span className="min-w-0">
+                    <span className="block truncate">{l.name}</span>
+                    <small className="block text-[12px] text-ink/55">{l.offer ?? 'no discount on'}</small>
+                  </span>
+                  <span className="shrink-0 font-mono">
+                    {l.offer && l.pricePhp != null ? <s className="mr-1.5 text-ink/45">{php(l.pricePhp)}</s> : null}
+                    {l.lowestPhp != null ? php(l.lowestPhp) : '—'}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className={kv}>
+                <span>No cards yet</span>
+                <span className="font-mono">{php(0)}</span>
+              </div>
+            )}
+            <div className={`${kv} border-t border-ink/10 pt-1 font-semibold`}>
+              <span>Cards at their lowest</span>
+              <span className="font-mono" data-bundle-cards-total="">{php(sums.cardsTotalPhp)}</span>
+            </div>
+          </div>
+
+          {/* ---- The extra bundle discount — pesos only ---- */}
+          <div className={topic}>
+            <div className={lab}>
+              <label htmlFor="pkg-extra">Extra bundle discount</label>
+              <InfoTip label="" ariaLabel="About the extra discount" align="start">
+                <span className="block font-semibold">Extra bundle discount</span>
+                <span className="mt-1 block">On top of each card’s own best discount, a peso amount off the bundle. It has to be more than ₱0 and less than the cards’ total.</span>
+              </InfoTip>
+            </div>
+            <div className="relative">
+              <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-ink/70">₱</span>
+              <input
+                id="pkg-extra"
+                inputMode="numeric"
+                disabled={frozen}
+                className={`${field} pl-9 font-mono`}
+                value={sums.extraPhp > 0 ? sums.extraPhp.toLocaleString('en-PH') : ''}
+                placeholder="0"
+                enterKeyHint="done"
+                data-bundle-extra=""
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    save();
+                  }
+                }}
+                onChange={(e) => patch({ extra_discount_centavos: wholePesos(e.target.value) * 100 })}
+              />
+            </div>
+            {extraErr ? <Note>{extraErr}</Note> : <p className={hint}>Pesos only, never a percent · above ₱0 and below {php(sums.cardsTotalPhp)}.</p>}
+          </div>
+
+          {/* ---- The new total — the bundle's one price ---- */}
+          <div className={topic}>
+            <div className="flex items-center justify-between gap-3 text-[17px] font-semibold text-ink">
+              <span>New total</span>
+              <span className="font-mono">{php(sums.newTotalPhp)}</span>
+            </div>
+            <p className={hint}>{php(sums.cardsTotalPhp)} − {php(sums.extraPhp)} · the bundle’s one price.</p>
+          </div>
+
+          {/* ---- The bundle's own payment plan — a copy of the default, adjusted here ---- */}
+          <div className={topic} data-bundle-plan="">
+            <p className={lab}>Payment plan for the bundle</p>
+            <p className="mb-1.5 text-[12.5px] leading-snug text-ink/60">
+              A copy of your default plan · adjust it here · adds up to {php(sums.newTotalPhp)} · the last payment is the balance.
+            </p>
+            <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
+              {plan.manual.map((m, i) => {
+                const row = resolved.installments[i];
+                const amount = Math.round((row?.amount_centavos ?? 0) / 100);
+                const line = (
+                  <div className="flex min-h-14 items-center gap-3 px-4 py-2" data-bundle-payment={i}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] text-ink">{m.label}</span>
+                      <span className="block truncate text-[12px] text-ink/55">
+                        {dueLabel(m.due, m.offsetDays)} · {m.kind === 'percent' ? `${m.percent ?? 0}% of the total` : 'adjusted'}
+                      </span>
+                    </span>
+                    <input // field-ok: an amount cell inside one payment row of the plan list — it re-balances the plan on every key, as the quote maker's installment cells do
+                      aria-label={`${m.label} amount in pesos`}
+                      inputMode="numeric"
+                      disabled={frozen}
+                      className="h-10 w-28 shrink-0 rounded-lg border border-ink/15 bg-cream px-3 text-right font-mono text-[14px] text-ink focus:border-terracotta focus:outline-none"
+                      value={amount > 0 ? amount.toLocaleString('en-PH') : ''}
+                      placeholder="0"
+                      enterKeyHint="done"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          save();
+                        }
+                      }}
+                      onChange={(e) => setPayment(i, e.target.value)}
+                    />
+                  </div>
+                );
+                // The first payment is the booking's own; the later ones swipe out, with Undo.
+                return i === 0 ? (
+                  <li key={`p${i}`}>{line}</li>
+                ) : (
+                  <SwipeToDelete key={`p${i}`} as="li" label={`Remove ${m.label}`} word="Remove" radiusClass="rounded-none" disabled={frozen} onDelete={() => removePayment(i)}>
+                    {line}
                   </SwipeToDelete>
                 );
               })}
+              {resolved.installments
+                .filter((r) => r.is_auto_balance)
+                .map((r) => (
+                  <li key="auto" className="flex min-h-14 items-center gap-3 px-4 py-2" data-bundle-payment="auto">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] text-ink">{r.label}</span>
+                      <span className="block truncate text-[12px] text-ink/55">{dueLabel(r.due, r.offset_days)} · the rest</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[14px] text-ink/70">{php(Math.round(r.amount_centavos / 100))}</span>
+                  </li>
+                ))}
             </ul>
-          ) : null}
-          {frozen ? null : cards === null ? (
-            <p role="alert" className="text-[13px] text-danger-700">Couldn’t read your service cards right now. Reload to try again.</p>
-          ) : cards.length === 0 ? (
-            <p className={hint}>No service cards yet. Make one under Services, then add it here.</p>
-          ) : cardsLeft.length > 0 ? (
-            <PickMenu
-              label="Add a card"
-              value={null}
-              options={cardsLeft.map((c) => ({ key: c.id, label: c.name, hint: c.fromPhp != null ? `from ${php(c.fromPhp)}` : undefined }))}
-              onPick={addCard}
-              dataAttr="data-bundle-add-card"
-              className={box}
-              trigger={
-                <>
-                  <span className="truncate text-ink/55">{cardLines.length ? 'Add another card…' : 'Add a card…'}</span>
-                  <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-                </>
-              }
-            />
-          ) : (
-            <p className="flex items-center gap-1.5 text-[13px] text-success-700">
-              <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Every card is in this bundle
-            </p>
-          )}
-          {cardLines.length > 0 && !frozen ? <p className={hint}>Swipe a card left to take it out of the bundle.</p> : null}
-        </div>
-
-        {/* ---- Extra inclusions — after the cards, as lines ---- */}
-        <div className={topic} data-bundle-extras="">
-          <div className={lab}>
-            <span>Extra inclusions <span className={small}>beyond the cards · optional</span></span>
-            <InfoTip label="" ariaLabel="About inclusions" align="end">
-              <span className="block font-semibold">What’s included</span>
-              <span className="mt-1 block">
-                Each thing the couple gets that no card already says — the crew meals, the set-up. Anything they may
-                swap or drop gets its own line.
-              </span>
-              <span className="mt-1 block">Swap options are made on the card, under What’s included · details.</span>
-            </InfoTip>
+            {planErr ? (
+              <Note>{planErr}</Note>
+            ) : (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-success-700" data-bundle-plan-ok="">
+                <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+                {resolved.installments.length} {resolved.installments.length === 1 ? 'payment' : 'payments'} · adds up to {php(sums.newTotalPhp)}
+              </p>
+            )}
+            {!frozen && plan.manual.length < MAX_INSTALLMENTS ? (
+              <div className="mt-2">
+                <ActionButton tone="neutral" icon={Plus} label="Add a payment" onClick={addPayment} />
+              </div>
+            ) : null}
           </div>
 
-          {extraLines.length > 0 ? (
-            <ul className="mb-3 divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
-              {extraLines.map((item) => (
-                <SwipeToDelete
-                  key={item.ref}
-                  as="li"
-                  label={`Remove ${item.service_description.trim() || 'this line'}`}
-                  word="Remove"
-                  radiusClass="rounded-none"
-                  disabled={frozen}
-                  onDelete={() => removeLine(item)}
-                >
-                  <div data-bundle-line="extra">
-                    <div className="grid grid-cols-[1fr_7rem] lg:grid-cols-[1fr_9rem_6.5rem]">
-                      <input
-                        aria-label="What this inclusion is"
-                        className="col-span-2 h-12 min-w-0 border-b border-ink/10 bg-transparent px-4 text-[15px] text-ink placeholder:text-ink/40 focus:outline-none lg:col-span-1 lg:border-b-0 disabled:opacity-60"
-                        disabled={frozen}
-                        value={item.service_description}
-                        placeholder="Buffet dinner for your guest count"
-                        onChange={(e) => patchItem(item.ref, { service_description: e.target.value })}
-                      />
-                      <div className="min-w-0 border-ink/10 lg:border-l">
-                        <PickMenu
-                          label="Category"
-                          value={item.canonical_service || null}
-                          options={canonicalServices.map((c) => ({ key: c.value, label: c.label }))}
-                          onPick={(k) => patchItem(item.ref, { canonical_service: k })}
-                          className="flex h-12 w-full items-center justify-between gap-2 px-4 text-left text-[14px] text-ink disabled:opacity-60"
-                          trigger={
-                            <>
-                              <span className={`truncate ${item.canonical_service ? '' : 'text-ink/45'}`}>
-                                {canonicalServices.find((c) => c.value === item.canonical_service)?.label ?? 'Category…'}
-                              </span>
-                              <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-                            </>
-                          }
-                        />
-                      </div>
-                      <input
-                        aria-label="What this is worth in pesos"
-                        inputMode="decimal"
-                        disabled={frozen}
-                        className="h-12 min-w-0 border-l border-ink/10 bg-transparent px-4 font-mono text-[14px] text-ink placeholder:text-ink/40 focus:outline-none disabled:opacity-60"
-                        value={pesos(item.replacement_value_centavos)}
-                        placeholder="worth ₱"
-                        onChange={(e) =>
-                          patchItem(item.ref, { replacement_value_centavos: toCentavos(e.target.value) })
-                        }
-                      />
-                    </div>
+          {/* ⏭ OFFERS ON THIS BUNDLE — the card maker's switches, one per shop offer (9 Nov ruling). It waits for the Offer
+              Maker (Build 6 Lane D, another session), which owns the offer → bundle link; nothing is drawn until it exists. */}
 
-                    {/* A line that ALREADY carries choices keeps them editable here — no saved bundle is stranded. New
-                        swap options are made on the card (makers § 4: "no option sub-forms on this page"). */}
-                    {item.options.length > 0 ? (
-                      <div className="px-4 pb-3">
-                        <OptionList
-                          item={item}
-                          frozen={frozen}
-                          field={optionField}
-                          problemsFor={problemsFor}
-                          onPatch={patchOption}
-                          onStandard={makeStandard}
-                          onAdd={() =>
-                            patchItem(item.ref, {
-                              options: [
-                                ...item.options,
-                                { ref: newRef(), label: '', price_delta_centavos: 0, is_default: false, is_available: true },
-                              ],
-                            })
-                          }
-                          onRemove={(optRef) =>
-                            patchItem(item.ref, { options: item.options.filter((o) => o.ref !== optRef) })
-                          }
-                        />
-                      </div>
-                    ) : null}
-
-                    {problemsFor(item.ref).length > 0 ? (
-                      <ul className="space-y-1 px-4 pb-3">
-                        {problemsFor(item.ref).map((p) => (
-                          <ProblemLine key={p.code} problem={p} />
-                        ))}
-                      </ul>
-                    ) : null}
+          {/* ---- More settings — the spendable budget ---- */}
+          <div className={topic}>
+            <Fold
+              data="bundle-more"
+              open={moreOpen}
+              onOpenChange={setMoreOpen}
+              popovers
+              title="More settings"
+              line="Spendable budget · money freed"
+              lead={<Settings aria-hidden className="h-5 w-5 text-ink/60" strokeWidth={1.75} />}
+            >
+              <div className="space-y-4 pb-2 pt-3">
+                <div>
+                  <label className={lab} htmlFor="pkg-budget">
+                    Spendable budget <span className={small}>optional</span>
+                  </label>
+                  <div className="relative">
+                    <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-ink/70">₱</span>
+                    <input id="pkg-budget" inputMode="decimal" disabled={frozen} className={`${field} pl-9 font-mono`} value={pesos(draft.consumable_budget_centavos)} placeholder="—" onChange={(e) => patch({ consumable_budget_centavos: toCentavos(e.target.value) })} />
                   </div>
-                </SwipeToDelete>
-              ))}
-            </ul>
-          ) : null}
-
-          {!frozen ? (
-            <ActionButton
-              tone="neutral"
-              icon={Plus}
-              label="Add a line"
-              onClick={() => patch({ items: [...draft.items, emptyItem()] })}
-            />
-          ) : null}
-          {extraLines.length > 0 && !frozen ? <p className={hint}>Swipe a line left to remove it.</p> : null}
-        </div>
-
-        {/* ---- Gift — NEW on bundles: the card's Gift row ---- */}
-        <div className={topic} data-bundle-gift="">
-          <div className={lab}>
-            <span>Gift <span className={small}>optional</span></span>
-            <InfoTip label="" ariaLabel="About gifts" align="start">
-              <span className="block font-semibold">Gifts</span>
-              {PACKAGE_GIFT_TIP.map((t) => (
-                <span key={t} className="mt-1 block">{t}</span>
-              ))}
-            </InfoTip>
-          </div>
-          <PickMenu
-            label="Gift"
-            value={draft.gift ?? ''}
-            options={giftMenu}
-            onPick={(k) => patch({ gift: k })}
-            dataAttr="data-bundle-gift-pick"
-            className={box}
-            trigger={
-              <>
-                <span className={`truncate ${draft.gift ? '' : 'text-ink/55'}`}>{giftPicked?.label ?? 'No gift'}</span>
-                <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-              </>
-            }
-          />
-          <p className={hint} data-bundle-gift-hint="">{packageGiftLine(draft.gift ?? '', giftPacks, giftFree)}</p>
-        </div>
-
-        {/* ---- More settings — the spendable budget moves here, out of the main body ---- */}
-        <div className={topic}>
-          <Fold
-            data="bundle-more"
-            open={moreOpen}
-            onOpenChange={setMoreOpen}
-            popovers
-            title="More settings"
-            line="Spendable budget · money freed"
-            lead={<Settings aria-hidden className="h-5 w-5 text-ink/60" strokeWidth={1.75} />}
-          >
-            <div className="space-y-4 pb-2 pt-3">
-              <div>
-                <label className={lab} htmlFor="pkg-budget">
-                  Spendable budget <span className={small}>optional</span>
-                </label>
-                <div className="relative">
-                  <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-ink/70">₱</span>
-                  <input
-                    id="pkg-budget"
-                    inputMode="decimal"
-                    disabled={frozen}
-                    className={`${field} pl-9 font-mono`}
-                    value={pesos(draft.consumable_budget_centavos)}
-                    placeholder="—"
-                    onChange={(e) => patch({ consumable_budget_centavos: toCentavos(e.target.value) })}
-                  />
+                </div>
+                <div className="flex items-start gap-2">
+                  <label className="flex min-h-11 flex-1 items-start gap-3 text-[14px] text-ink/80">
+                    <input type="checkbox" disabled={frozen} checked={draft.is_consumable_flexible} onChange={(e) => patch({ is_consumable_flexible: e.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/25 text-terracotta" />
+                    <span>Money freed by dropping an inclusion stays in the bundle</span>
+                  </label>
+                  <InfoTip label="" ariaLabel="About money freed" align="end">
+                    <span className="block font-semibold">Money freed</span>
+                    <span className="mt-1 block">Off: the couple simply pays less. On: they spend it on something else of yours — so you keep the full price.</span>
+                  </InfoTip>
                 </div>
               </div>
-              <div className="flex items-start gap-2">
-                <label className="flex min-h-11 flex-1 items-start gap-3 text-[14px] text-ink/80">
-                  <input
-                    type="checkbox"
-                    disabled={frozen}
-                    checked={draft.is_consumable_flexible}
-                    onChange={(e) => patch({ is_consumable_flexible: e.target.checked })}
-                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-ink/25 text-terracotta"
-                  />
-                  <span>Money freed by dropping an inclusion stays in the package</span>
-                </label>
-                <InfoTip label="" ariaLabel="About money freed" align="end">
-                  <span className="block font-semibold">Money freed</span>
-                  <span className="mt-1 block">
-                    Off: the couple simply pays less. On: they spend it on something else of yours — so you keep the full
-                    package price.
-                  </span>
-                </InfoTip>
-              </div>
-            </div>
-          </Fold>
-        </div>
-
-        {shown.length > 0 ? (
-          <p className="text-xs text-ink/50">
-            {shown.length} thing{shown.length === 1 ? '' : 's'} to fix first
-          </p>
-        ) : null}
-        {serverError ? (
-          <p role="alert" className="text-sm text-red-700">
-            {serverError}
-          </p>
-        ) : null}
-      </div>
-
-      {/* ---- What the couple gets — beside the form from 768 (maximize the screen); a sheet on a phone ---- */}
-      <aside className="hidden md:block" aria-label="What the couple gets">
-        <div className="sticky top-24 rounded-2xl border border-ink/10 p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[17px] font-medium text-ink">What the couple gets</h2>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">live</span>
+            </Fold>
           </div>
-          {preview}
-        </div>
-      </aside>
 
-      <Sheet open={previewOpen} onClose={() => setPreviewOpen(false)} labelledById={previewHeadId}>
-        <div className="space-y-4 p-1">
-          <h2 id={previewHeadId} className="text-[17px] font-medium text-ink">What the couple gets</h2>
-          {preview}
-          <ActionButton tone="ok" icon={Check} label="Done" onClick={() => setPreviewOpen(false)} />
+          {shown.length > 0 ? (
+            <p className="px-4 text-xs text-ink/55">
+              {shown.length} thing{shown.length === 1 ? '' : 's'} to fix first
+            </p>
+          ) : null}
+          {serverError ? (
+            <p role="alert" className="px-4 text-sm text-danger-700">
+              {serverError}
+            </p>
+          ) : null}
         </div>
-      </Sheet>
 
-      {/* ═══ THE THUMB ROW — Cancel (grey) · Save bundle (the one main, terracotta). The shipped row + buttons. ═══ */}
-      <SupplierThumbRow name="bundle" label="Bundle actions">
-        <ActionButton tone="neutral" icon={X} label="Cancel" href="/vendor-dashboard/packages" />
-        <ActionButton
-          tone="neutral"
-          icon={Eye}
-          label="Preview"
-          className="md:hidden"
-          onClick={() => setPreviewOpen(true)}
-        />
-        {packageId ? (
-          <ActionButton
-            tone="neutral"
-            icon={isActive ? EyeOff : Globe}
-            label={isActive ? 'Unlist from my page' : 'Publish to my page'}
-            onClick={togglePublished}
-            waiting={pending || (!isActive && problems.length > 0)}
-          />
-        ) : null}
-        <ActionButton
-          tone="brand"
-          main
-          icon={Check}
-          label={pending ? 'Saving…' : 'Save bundle'}
-          onClick={save}
-          waiting={pending}
-          data-testid="bundle-save"
-        />
-      </SupplierThumbRow>
-    </div>
+        {/* ---- What the couple gets, as they will see it — beside the form from 768 ---- */}
+        <aside className="hidden pt-4 md:block" aria-label="As couples see it">
+          <div className="sticky top-4 space-y-3 pr-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">As couples see it · live</p>
+            {preview}
+          </div>
+        </aside>
+      </div>
+    </RiseScreen>
+  );
+}
+
+/** One problem note under its field — the house error line. */
+function Note({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] leading-snug text-danger-700" data-bundle-note="">
+      <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+      <span>{children}</span>
+    </p>
   );
 }
 
 function ProblemLine({ problem }: { problem: DraftProblem }) {
-  return (
-    <li className="list-none text-xs text-red-700">{problem.message}</li>
-  );
+  return <li className="list-none text-xs text-danger-700">{problem.message}</li>;
 }
 
 function OptionList({
@@ -820,86 +888,40 @@ function OptionList({
 }) {
   return (
     <div className="rounded-lg border border-ink/10 bg-cream/50 p-3">
-      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
-        They pick one — the standard one is in the price, the rest add to it
-      </p>
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">They pick one — the standard one is in the price, the rest add to it</p>
       <ul className="space-y-2">
         {item.options.map((o) => (
           <li key={o.ref} className="flex items-center gap-2">
-            <input
-              type="radio"
-              name={`std-${item.ref}`}
-              aria-label="Make this the standard option"
-              disabled={frozen}
-              checked={o.is_default}
-              onChange={() => onStandard(item.ref, o.ref)}
-              className="h-4 w-4 shrink-0 border-ink/20 text-terracotta"
-            />
-            <input
-              aria-label="Option name"
-              className={`${field} flex-1`}
-              disabled={frozen}
-              value={o.label}
-              placeholder="Chicken teriyaki"
-              onChange={(e) => onPatch(item.ref, o.ref, { label: e.target.value })}
-            />
+            <input type="radio" name={`std-${item.ref}`} aria-label="Make this the standard option" disabled={frozen} checked={o.is_default} onChange={() => onStandard(item.ref, o.ref)} className="h-4 w-4 shrink-0 border-ink/20 text-terracotta" />
+            <input aria-label="Option name" className={`${field} flex-1`} disabled={frozen} value={o.label} placeholder="Chicken teriyaki" onChange={(e) => onPatch(item.ref, o.ref, { label: e.target.value })} />
             <input
               aria-label="Extra cost in pesos"
               inputMode="decimal"
               disabled={frozen || o.is_default}
               className={`${field} w-28 font-mono disabled:opacity-50`}
               value={o.is_default ? '' : pesos(o.price_delta_centavos)}
-              // The default pick shows a BLANK, not "included" (owner
-              // 2026-07-28) — "included" reads as comes-regardless-of-the-pick.
+              // The default pick shows a BLANK, not "included" (owner 2026-07-28).
               placeholder={o.is_default ? '' : '+₱'}
-              onChange={(e) =>
-                onPatch(item.ref, o.ref, {
-                  price_delta_centavos: toCentavos(e.target.value),
-                })
-              }
+              onChange={(e) => onPatch(item.ref, o.ref, { price_delta_centavos: toCentavos(e.target.value) })}
             />
             <label className="flex shrink-0 items-center gap-1 text-[11px] text-ink/55">
-              <input
-                type="checkbox"
-                disabled={frozen || o.is_default}
-                checked={o.is_available}
-                onChange={(e) =>
-                  onPatch(item.ref, o.ref, { is_available: e.target.checked })
-                }
-                className="h-3.5 w-3.5 rounded border-ink/20 text-terracotta"
-              />
+              <input type="checkbox" disabled={frozen || o.is_default} checked={o.is_available} onChange={(e) => onPatch(item.ref, o.ref, { is_available: e.target.checked })} className="h-3.5 w-3.5 rounded border-ink/20 text-terracotta" />
               On
             </label>
-            {/* A field INSIDE an editor keeps its small ✕ (owner 2026-11-03 — "a small ✕ stays only on … fields inside
-                an editor"); an option is a field of its line, not a list row. */}
+            {/* A field INSIDE an editor keeps its small ✕ (owner 2026-11-03); an option is a field of its line, not a list row. */}
             {!frozen && item.options.length > 2 ? (
-              <button
-                type="button"
-                aria-label="Remove this option"
-                onClick={() => onRemove(o.ref)}
-                className="rounded p-1 text-ink/30 hover:text-ink/60"
-              >
+              <button type="button" aria-label="Remove this option" onClick={() => onRemove(o.ref)} className="rounded p-1 text-ink/30 hover:text-ink/60">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               </button>
             ) : null}
           </li>
         ))}
       </ul>
-      {problemsFor(item.ref).length > 0 || item.options.some((o) => problemsFor(item.ref, o.ref).length > 0) ? (
-        <ul className="mt-2 space-y-1">
-          {item.options.flatMap((o) =>
-            problemsFor(item.ref, o.ref).map((p) => (
-              <ProblemLine key={`${o.ref}-${p.code}`} problem={p} />
-            )),
-          )}
-        </ul>
+      {item.options.some((o) => problemsFor(item.ref, o.ref).length > 0) ? (
+        <ul className="mt-2 space-y-1">{item.options.flatMap((o) => problemsFor(item.ref, o.ref).map((p) => <ProblemLine key={`${o.ref}-${p.code}`} problem={p} />))}</ul>
       ) : null}
       {!frozen ? (
-        <button
-          type="button"
-          onClick={onAdd}
-          className="mt-2 text-xs text-mulberry underline underline-offset-2"
-        >
+        <button type="button" onClick={onAdd} className="mt-2 text-xs text-mulberry underline underline-offset-2">
           Add another option
         </button>
       ) : null}

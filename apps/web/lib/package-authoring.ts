@@ -44,6 +44,7 @@
  *
  * Pure: no I/O, no env, no clock. Callers do the DB work.
  */
+import type { BundlePlanDrafts } from './bundle-sums';
 
 export type DraftOption = {
   /** Stable key for error reporting — an id for saved rows, an index for new ones. */
@@ -115,6 +116,14 @@ export type DraftPackage = {
    * gift — every caller that predates the row (the card maker's ★ Customization step) stays exactly as it was.
    */
   gift?: string;
+  /**
+   * 🧺 The Bundle Maker's EXTRA BUNDLE DISCOUNT, in centavos (owner 2026-11-09: pesos only, never a percent; 0 = none).
+   * On a bundle the server computes `total_price_centavos` = the cards at their lowest − this (lib/bundle-sums.ts).
+   * Absent on every caller that predates it.
+   */
+  extra_discount_centavos?: number;
+  /** 🧺 The bundle's own payment plan drafts; null/absent = a copy of the default plan. */
+  plan?: BundlePlanDrafts | null;
 };
 
 export type DraftProblem = {
@@ -560,7 +569,8 @@ export type StructuralChange =
   | 'is_consumable_flexible'
   | 'items'
   // A booked couple was promised the gift that was on the bundle when they booked — changing it is structure.
-  | 'gift';
+  | 'gift'
+  | 'extra_discount_centavos';
 
 /**
  * Which structural fields a draft would change against what is stored.
@@ -585,6 +595,8 @@ export function structuralChanges(
   if (stored.is_consumable_flexible !== draft.is_consumable_flexible)
     changed.push('is_consumable_flexible');
   if ((stored.gift ?? '') !== (draft.gift ?? '')) changed.push('gift');
+  // The extra bundle discount moves the price a booked couple was quoted — structure, like the total it lowers.
+  if ((stored.extra_discount_centavos ?? 0) !== (draft.extra_discount_centavos ?? 0)) changed.push('extra_discount_centavos');
 
   const fingerprint = (p: DraftPackage) =>
     JSON.stringify(

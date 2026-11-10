@@ -6,7 +6,12 @@ import { ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile, businessProfileChecklist, profileGaps, type BusinessProfileItem, type VendorProfileRow } from '@/lib/vendor-profile';
-import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
+import { fetchLatestApplication, requiredDocsComplete, REQUIRED_DOC_COUNT, countCompleteRequiredSlots, type DocUploadMap } from '@/lib/vendor-verification';
+import { countActiveBookings } from '@/lib/package-draft-loader';
+import { readLockShop } from '@/lib/bundle-cards.server';
+import { gatherInclusions } from '@/lib/bundle-sums';
+import { canUse, papersProgress } from '@/lib/locks';
+import type { LockNeed } from '@/app/_components/lock/locked-feature';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
@@ -126,6 +131,8 @@ type ShopData = {
   services: string[];
   /** 📦 The shop's bundles (Lane E item 7: bundles FIRST) — null = unread; [] with `bundlesOn` false = the flag is off. */
   bundles: ShopBundle[] | null;
+  /** 🔒 The Bundle Maker's lock for this shop, or null when it may make bundles. */
+  bundleLock: LockNeed | null;
   /** Fields of the business profile still empty (Your details' row) — the logo is its own first step (`profileGaps`). */
   fieldsLeft: number;
   /** The logo row's editor data (Your details' own close-save row). */
@@ -272,26 +279,50 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     return url ? { url, kind: 'photo' } : { url: await heroPlaceholderUrl(profile.services as string[] | null), kind: 'placeholder' };
   })();
 
+  // 🔒 The Bundle Maker's lock facts, started now and awaited with the bundles (one round of reads, never one after another).
+  const lockRead = packageAuthoringEnabled() ? readLockShop(supabase, vendorId) : Promise.resolve(null);
+
   // 📦 Bundles — the shipped packages (flag-dark until NEXT_PUBLIC_PACKAGE_AUTHORING), listed FIRST (Lane E item 7).
   const bundlesRead: Promise<ShopBundle[] | null> = packageAuthoringEnabled()
     ? (async () => {
         try {
           const { data, error } = await supabase
             .from('vendor_packages')
-            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id)`)
+            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id, display_order, vendor_services(title, starting_price_php, vendor_service_inclusions(label, sort_order)))`)
             .eq('vendor_profile_id', vendorId)
             .order('updated_at', { ascending: false });
           if (error) {
             logQueryError('VendorShopPage.bundles', error, { vendorId }, 'graceful_degrade');
             return null;
           }
-          return (data ?? []).map((p: { package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: { vendor_service_id: string | null }[] | null }) => ({
-            id: p.package_id,
-            name: p.package_name?.trim() || 'Untitled bundle',
-            priceCentavos: p.total_price_centavos ?? null,
-            live: p.is_active === true,
-            cards: (p.vendor_package_items ?? []).filter((i) => i.vendor_service_id).length,
-          }));
+          type Line = { vendor_service_id: string | null; display_order: number | null; vendor_services: { title: string | null; starting_price_php: number | string | null; vendor_service_inclusions?: { label: string; sort_order: number | null }[] | null } | null };
+          const rows = (data ?? []) as Array<{ package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: Line[] | null }>;
+          // 🔒 Open bookings per bundle — the card row refuses Offline and Delete while any is open (11 Nov). One count
+          // each (bundles are few); an unread count stays null and the row says so, never reads as "none".
+          const open = await Promise.all(rows.map((p) => countActiveBookings(supabase, p.package_id)));
+          return rows.map((p, i) => {
+            const cardLines = (p.vendor_package_items ?? []).filter((l) => l.vendor_service_id).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+            const prices = cardLines.map((l) => (l.vendor_services?.starting_price_php == null ? null : Number(l.vendor_services.starting_price_php)));
+            return {
+              id: p.package_id,
+              name: p.package_name?.trim() || 'Untitled bundle',
+              priceCentavos: p.total_price_centavos ?? null,
+              live: p.is_active === true,
+              cardNames: cardLines.map((l) => l.vendor_services?.title?.trim() || 'Service card'),
+              // What the couple gets, as the Bundle Maker gathers it: every card's inclusions, merged (lib/bundle-sums.ts).
+              includes: gatherInclusions(
+                cardLines.map((l) => ({
+                  id: l.vendor_service_id ?? '',
+                  name: l.vendor_services?.title?.trim() || 'Service card',
+                  pricePhp: null,
+                  discounts: [],
+                  inclusions: [...(l.vendor_services?.vendor_service_inclusions ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((i) => ({ label: i.label, worth_php: null })),
+                })),
+              ).map((g) => g.label),
+              cardsAlonePhp: prices.length > 0 && prices.every((x) => x != null && Number.isFinite(x)) ? prices.reduce((a: number, x) => a + (x as number), 0) : null,
+              openBookings: open[i] ?? null,
+            };
+          });
         } catch (err) {
           logQueryError('VendorShopPage.bundles', err, { vendorId });
           return null;
@@ -342,6 +373,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFactsRead,
   ]);
   const bundles = await bundlesRead;
+  // 🔒 THE BUNDLE MAKER'S LOCK — the same `canUse` the save asks (lib/locks.ts). Unread: no lock row is drawn and the
+  // save still refuses on the server, which reads it again.
+  const lockShop = await lockRead;
+  const bundleLock: LockNeed | null =
+    lockShop && !canUse('bundleMaker', lockShop).ok
+      ? { kind: 'verify', progress: papersProgress(verifyApp ? { done: countCompleteRequiredSlots((verifyApp.doc_uploads ?? {}) as DocUploadMap), of: REQUIRED_DOC_COUNT } : null) }
+      : null;
 
   const completion = businessProfileChecklist(profile);
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
@@ -396,6 +434,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     booked,
     services: (profile.services ?? []) as string[],
     bundles,
+    bundleLock,
     // The logo is its own first step on Today, not a hidden 'field left' (`profileGaps`, owner 2026-10-22).
     fieldsLeft: profileGaps(completion).fieldsLeft,
     logoItem: completion.items.find((i) => i.key === 'logo') ?? null,
@@ -716,7 +755,7 @@ async function ShopHome({
           />
           {/* 📦 BUNDLES FIRST — the shipped packages; the old Bundles card's anchor still lands here. */}
           <span id="packages" className="block scroll-mt-24" aria-hidden />
-          {packageAuthoringEnabled() ? <ShopBundles bundles={data.bundles} cards={cardsOf(data)} /> : null}
+          {packageAuthoringEnabled() ? <ShopBundles bundles={data.bundles} cards={cardsOf(data)} lock={data.bundleLock} /> : null}
           <p hidden className="py-3 text-[14px] text-ink/65" data-shop-cards-none="">
             No services match that search.
           </p>

@@ -28,7 +28,8 @@ export const SHOP_SEGMENT_HREF: Readonly<Record<ShopSegment, string>> = {
 
 export const SHOP_SEGMENT_LABEL: Readonly<Record<ShopSegment, string>> = {
   details: 'Details',
-  services: 'Services',
+  // 🏷 Owner 2026-11-09: "Your Bundles and Services instead of Your services" — the section and its head say both.
+  services: 'Bundles and services',
   page: 'Page',
   promote: 'Promote',
   // 🖼 "Portfolio", not the prototype's "Gallery": owner 2026-10-23 — no "gallery" in the UI; a supplier's own photos

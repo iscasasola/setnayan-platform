@@ -134,7 +134,7 @@ export default async function EditPackagePage({
   return (
     // 📐 Maximize the screen: from 820 the form and "What the couple gets" split the width (the editor's grid); the
     // foot clears the floating thumb row.
-    <main className="mx-auto w-full max-w-6xl px-4 pb-36 pt-8 sm:px-6">
+    <div className="mx-auto w-full max-w-6xl px-4 pb-36 pt-8 sm:px-6">
       <Link
         href="/vendor-dashboard/packages"
         className="mb-4 inline-flex items-center gap-1 text-sm text-ink/55 hover:text-ink/80"
@@ -159,6 +159,6 @@ export default async function EditPackagePage({
         frozen={frozen}
         canonicalServices={CANONICAL_SERVICES}
       />
-    </main>
+    </div>
   );
 }

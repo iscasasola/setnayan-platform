@@ -107,6 +107,7 @@ import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithA
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
 import { TypingBand } from '@/app/_components/typing-band';
 import { swipeMayStep, swipeScrollsSideways } from '@/lib/maker-swipe';
+import { gearText } from '@/app/_components/gear-text';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -1850,7 +1851,7 @@ export function StageTools({
       {why
         ? createPortal(
             <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))} action={whyDoor ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => (setWhy(null), pickPartRef.current(whyDoor)) } : undefined}>
-              {why.words}
+              {gearText(why.words)}
             </PeekToast>,
             document.body,
           )

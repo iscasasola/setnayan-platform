@@ -72,7 +72,8 @@ export function DetailsScreen({
   const line = d.fromInvite && p.done < p.of ? `${formatCount(p.done)} of ${formatCount(p.of)} done · from your invite` : detailsLine(p);
   const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
-  const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
+  // Each service by its taxonomy name (`details-data.ts` → `serviceNames`), never its key — Build 5 F5.
+  const services = d.serviceNames;
   // 🏷 Rows that change by request (owner 2026-10-29) and the asks already waiting — the ask card's own inputs.
   const asks = { requestOnly: d.requestOnly, pending: d.openCorrections.map((r) => r.field_key) };
 

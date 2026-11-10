@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { recoverStaleTab } from '@/lib/stale-bundle';
 
 // Seat-plan route error boundary (render-crash investigation · Sync verdict
 // 2026-07-16). WHY this file exists: the seating segment previously had NO
@@ -24,6 +25,8 @@ type Props = {
 export default function SeatingError({ error, reset }: Props) {
   const router = useRouter();
   useEffect(() => {
+    // 🔁 A stale open tab reloads once instead of drawing this card (Build 5 F6 — `recoverStaleTab`).
+    if (recoverStaleTab(error)) return;
     if (process.env.NODE_ENV === 'development') {
       console.error('[seating error boundary]', error);
     }
@@ -36,7 +39,7 @@ export default function SeatingError({ error, reset }: Props) {
   }, [error]);
 
   return (
-    <main className="flex min-h-[60vh] items-center justify-center bg-cream px-6 py-16 text-ink">
+    <div className="flex min-h-[60vh] items-center justify-center bg-cream px-6 py-16 text-ink">
       <div className="w-full max-w-md text-center">
         <p className="mb-5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
           Seat plan
@@ -71,6 +74,6 @@ export default function SeatingError({ error, reset }: Props) {
           </p>
         )}
       </div>
-    </main>
+    </div>
   );
 }

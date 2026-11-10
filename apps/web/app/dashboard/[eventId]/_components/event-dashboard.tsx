@@ -123,7 +123,7 @@ import {
   CHANGE_LINES_EMBED,
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
@@ -2358,7 +2358,7 @@ export async function EventDashboard({
                           ? 'Today is the day'
                           : daysToGo?.kind === 'tomorrow'
                             ? 'Tomorrow is the day'
-                            : `${daysToGo?.kind === 'days' ? daysToGo.days : daysOut} days to go`}
+                            : `${countNoun(daysToGo?.kind === 'days' ? daysToGo.days : daysOut, 'day', 'days')} to go`}
                       </span>
                     ) : null}
                     {/* D-6 · THE FRACTION IS GONE — IT WAS THE BAR'S NUMBER

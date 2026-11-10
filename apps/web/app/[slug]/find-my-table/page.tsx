@@ -20,6 +20,7 @@ import {
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
+import { theDayFor } from '@/lib/event-clock.server';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 
 export const metadata = { title: 'Find your table' };
@@ -186,7 +187,7 @@ export default async function FindMyTablePage({ params }: Props) {
           re-lights the map without a manual reload (seat-finding PR 5). */}
       <PulsedLiveRefresher
         slug={slug}
-        eventDate={event.event_date as string | null}
+        eventDate={theDayFor(event)}
         guest={{ eventId: event.event_id as string, guestId: session.guest_id }}
       />
       <div className="space-y-5">

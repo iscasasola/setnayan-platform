@@ -125,7 +125,8 @@ test('the owned-services gate never learns about the phase', () => {
 test('the shared checkout refuses a day-of service once the event is over', () => {
   const checkout = code('app/dashboard/[eventId]/checkout/actions.ts');
   assert.match(checkout, /dayOfOnlyKeys/, 'the refusal must exist');
-  assert.match(checkout, /getMenuLifecyclePhase\(/, 'and ask the one resolver');
+  // ⏱ The one clock (`eventClockOf(row).menu` = `getMenuLifecyclePhase` on the venue's zone).
+  assert.match(checkout, /eventClockOf\(lifecycleRow\)\.menu/, 'and ask the one resolver');
   // BEFORE the charge resolvers — a filter inside one is the documented bypass.
   const guard = checkout.indexOf('dayOfOnlyKeys');
   // ⚠ the CALL, not the import at the top of the file. The first cut of this
@@ -161,7 +162,7 @@ test('every Papic purchase path refuses once the event is over', () => {
   assert.match(papic, /from '@\/lib\/event-is-over\.server'/, 'one helper, not a second copy');
   // It must not use the capture window, which FAILS OPEN when unset.
   const helper = code('lib/event-is-over.server.ts');
-  assert.match(helper, /getMenuLifecyclePhase\(/);
+  assert.match(helper, /eventClockOf\(data\)\.menu/);
   assert.ok(!/captureWindow|papic_window/.test(helper), 'never the capture window');
 });
 

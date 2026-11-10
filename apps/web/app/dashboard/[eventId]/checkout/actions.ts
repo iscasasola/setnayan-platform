@@ -54,7 +54,7 @@ import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { isVendorSurfaceServiceKey } from '@/lib/vendor-surface-service-keys';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import {
   resolveOrderChargeCentavos,
   refusalMessage,
@@ -514,17 +514,11 @@ export async function submitOrderAction(
     // coordinator whose RLS view of `events` is narrower than the couple's.
     const { data: lifecycleRow } = await createAdminClient()
       .from('events')
-      .select('event_date, event_end_date, cleared_at, timezone')
+      .select('event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
       .eq('event_id', eventIdClean)
       .maybeSingle();
     if (lifecycleRow) {
-      const phase = getMenuLifecyclePhase(
-        (lifecycleRow as { event_date?: string | null }).event_date ?? null,
-        (lifecycleRow as { cleared_at?: string | null }).cleared_at ?? null,
-        (lifecycleRow as { timezone?: string | null }).timezone ?? undefined,
-        undefined,
-        (lifecycleRow as { event_end_date?: string | null }).event_end_date ?? null,
-      );
+      const phase = eventClockOf(lifecycleRow).menu;
       if (phase === 'after') {
         return {
           ok: false,

@@ -1,9 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getDayOfPhase } from '@/lib/day-of-mode';
-import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { openToStrangers } from '@/lib/event-visibility';
 import { rememberedLiveRead } from '@/lib/live-day-cache';
@@ -89,17 +87,9 @@ async function readPulse(slug: string): Promise<EventPulse | null> {
       .limit(2000),
   ]);
 
-  const eventDate = (event.event_date as string | null) ?? null;
-  const tz = eventTimezoneFromCoords(
-    (event.venue_latitude as number | null) ?? null,
-    (event.venue_longitude as number | null) ?? null,
-  );
-  const clock = {
-    day: eventDate ? getDayOfPhase(eventDate, tz) : 'inactive',
-    stage:
-      manualLaunchPhase(event.launch_mode as string | null, event.manual_phase as string | null) ??
-      getLifecyclePhase(eventDate, tz, (event.event_end_date as string | null) ?? null, undefined, (event.std_invitation_launch_date as string | null) ?? null),
-  };
+  // ⏱ THE ONE CLOCK (lib/event-clock.ts) — the stage and the day-of phase from the same inputs, the last day included.
+  const one = eventClockOf(event);
+  const clock = { day: one.day, stage: one.stage };
   const { v, g } = pulseFromRows({
     event,
     clock,

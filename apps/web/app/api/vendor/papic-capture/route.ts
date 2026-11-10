@@ -10,7 +10,7 @@ import {
   fetchVendorPapicCreditsGranted,
 } from '@/lib/vendor-papic-grants';
 import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { readClientCaptureId, CLIENT_CAPTURE_ID_FIELD } from '@/lib/papic-client-capture-id';
 import {
   discardPromoted,
@@ -99,25 +99,15 @@ type VendorRow = {
 async function eventOver(admin: Admin, eventId: string, shotAtMs: number): Promise<boolean> {
   const { data: eventRow, error: eventErr } = await admin
     .from('events')
-    .select('event_date, event_end_date, timezone, cleared_at')
+    .select('event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:events.select(window)', eventErr);
-  const ev = eventRow as {
-    event_date: string | null;
-    event_end_date: string | null;
-    timezone: string | null;
-    cleared_at: string | null;
-  } | null;
+  const ev = eventRow;
   if (!ev) return false;
-  const phase = getMenuLifecyclePhase(
-    ev.event_date,
-    ev.cleared_at,
-    ev.timezone ?? undefined,
-    shotAtMs,
-    ev.event_end_date,
-  );
-  return phase === 'after';
+  // ⏱ The one clock (lib/event-clock.ts) — the row's first and LAST day, the host's close-out and the VENUE's zone
+  // (from its coordinates), asked at the moment the shot was taken.
+  return eventClockOf(ev, { nowMs: shotAtMs }).menu === 'after';
 }
 
 // Tier + capture-points enforcement (service-role reads — the tier must be

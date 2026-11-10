@@ -7,7 +7,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { eventNoun } from '@/lib/event-noun';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { seatAccessWord } from '@/lib/guest-access';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
@@ -79,7 +79,7 @@ export default async function EventHostsPage({ params }: Props) {
     await Promise.all([
       admin
         .from('events')
-        .select('display_name, event_type, event_date, event_end_date, cleared_at, timezone')
+        .select('display_name, event_type, event_date, event_end_date, cleared_at, timezone, venue_latitude, venue_longitude')
         .eq('event_id', eventId)
         .maybeSingle(),
       supabase
@@ -116,13 +116,7 @@ export default async function EventHostsPage({ params }: Props) {
   const eventNounWord = eventNoun(eventType);
   // ONE resolver, the same one the Overview, the rail and the guest list ask.
   const eventHasHappened =
-    getMenuLifecyclePhase(
-      ev?.event_date ?? null,
-      ev?.cleared_at ?? null,
-      ev?.timezone ?? undefined,
-      undefined,
-      ev?.event_end_date ?? null,
-    ) === 'after';
+    eventClockOf(ev).menu === 'after';
 
   const s = seat as { role_subtype: string; display_label: string | null } | null;
   // The guest list's word for the seat (Limited helper); the hired planner keeps its label.

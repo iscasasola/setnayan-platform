@@ -20,6 +20,7 @@ import 'server-only';
  * Held by `app/dashboard/[eventId]/_components/home-cards/home-cards-read-honestly.test.ts`.
  */
 
+import { venueTimezone } from '@/lib/event-clock.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { countdownTargetMs } from '@/lib/countdown-target';
@@ -91,7 +92,7 @@ export async function readHomeHubCard(supabase: SupabaseClient, eventId: string)
     eventDate: event.event_date ?? null,
     eventEndDate: event.event_end_date ?? null,
     clearedAt: event.cleared_at ?? null,
-    timezone: event.timezone ?? null,
+    venueTz: venueTimezone(event),
     slug: event.slug ?? null,
     invitationLaunchDate: event.std_invitation_launch_date ?? null,
   });
@@ -109,7 +110,7 @@ export async function readHomeHubCard(supabase: SupabaseClient, eventId: string)
       resolveProfile(eventType),
       eventWordsFor(eventType),
     ]);
-    const countdownMs = countdownTargetMs(event.event_date ?? null, event.timezone ?? undefined);
+    const countdownMs = countdownTargetMs(event.event_date ?? null, venueTimezone(event));
     const entourage = entourageRes.error ? null : entourageRes.count;
     table = buildGuestsSeeTable({
       widgets,

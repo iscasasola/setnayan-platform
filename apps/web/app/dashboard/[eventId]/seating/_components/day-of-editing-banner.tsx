@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Radio } from 'lucide-react';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { theDayIsOpenAt, theDayWhenKey, type TheDayWhen } from '@/lib/event-clock';
 
 /**
  * Day-of "you're editing live" banner (seat-finding PR 5).
  *
- * Renders only across the wedding-day span (see {@link isEventDayActive}), so
+ * Renders only while The Day is open (the one clock — `theDayIsOpenAt`), so
  * normal pre-wedding planning is unaffected. It encodes the owner's two day-of
  * locks for editors:
  *   • live propagation — a reseat reaches the guest "Find your seat" instantly;
@@ -19,7 +19,8 @@ import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
  * it re-checks the clock on an interval + on tab-focus so it appears/disappears
  * as the window opens/closes without a reload.
  */
-export function DayOfEditingBanner({ eventDate }: { eventDate: string | Date | null | undefined }) {
+export function DayOfEditingBanner({ eventDate }: { eventDate: TheDayWhen }) {
+  const whenKey = theDayWhenKey(eventDate);
   const [live, setLive] = useState(false);
 
   useEffect(() => {
@@ -32,10 +33,12 @@ export function DayOfEditingBanner({ eventDate }: { eventDate: string | Date | n
       finished the night before. That window is right for the surfaces guests
       actually use, and wrong for a message ABOUT them.
 
-      🔑 It now asks the same resolver every other surface asks, so it lets go
-      at 06:00 the morning after, with the rest of the product.
+      🔑 It now asks the ONE clock (owner ruling, 10 Nov 2026) — handed The
+      Day's instants by the seat plan's server page, so it opens at 06:00 on the
+      day and lets go at 06:00 the morning after the LAST day, at the venue, with
+      the rest of the product. (It used to ask with no zone: the device's own.)
     */
-    const tick = () => setLive(getMenuLifecyclePhase(eventDate, null) === 'dayof');
+    const tick = () => setLive(theDayIsOpenAt(eventDate));
     tick();
     const id = setInterval(tick, 60_000);
     const onVisible = () => {
@@ -46,7 +49,8 @@ export function DayOfEditingBanner({ eventDate }: { eventDate: string | Date | n
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [eventDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the instants, not the object's identity
+  }, [whenKey]);
 
   if (!live) return null;
 

@@ -67,7 +67,7 @@ import { measuredOr } from '@/lib/measured-read';
 import { guestListUnreadLine } from '@/lib/guest-list-unread';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
@@ -442,10 +442,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // after his Movie Night: *"i can still invite"*. It could not have known
   // otherwise — nothing here asked when the celebration was, so every
   // affordance on it addressed a party that had not happened yet.
-  const eventRowRead = eventRowOnce(supabase, eventId, 'role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug', () =>
+  const eventRowRead = eventRowOnce(supabase, eventId, 'role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug, venue_latitude, venue_longitude', () =>
     supabase
       .from('events')
-      .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
+      .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
   );
@@ -654,13 +654,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     how the guest list and the dashboard would come to disagree about whether
     the wedding happened.
   */
-  const phase = getMenuLifecyclePhase(
-    (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
-    (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
-    (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
-    undefined,
-    (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
-  );
+  const phase = eventClockOf(eventRow.data).menu;
   const finished = phase === 'after';
   // ⚠ `arrived.count` is null when the read was REFUSED, and `arrivedCount`
   // above collapses that to 0. Fine for a meter; NOT fine for a sentence that

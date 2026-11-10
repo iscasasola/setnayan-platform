@@ -427,11 +427,12 @@ test('2b · the pulse is one remembered answer per event; a closed event asks th
 
 test('2b · the phone asks only while visible on the day, spaced, and a broken pulse falls back to a full refresh', () => {
   const hook = read('lib/use-event-pulse.ts');
-  assert.match(hook, /if \(!isEventDayActive\(eventDate\) \|\| document\.visibilityState !== 'visible'\) return;/);
+  // ⏱ The one clock: the hook asks The Day's instants the server handed it (`theDayIsOpenAt`), never the phone's midnight.
+  assert.match(hook, /if \(!theDayIsOpenAt\(whenRef\.current\) \|\| document\.visibilityState !== 'visible'\) return;/);
   assert.match(hook, /jittered\(PULSE_POLL_MS\)/);
   assert.match(hook, /herdDelay\(PULSE_REFRESH_SPREAD_MS\)/, 'every phone at the venue re-draws in the same instant');
   assert.match(hook, /if \(misses >= PULSE_MISSES_BEFORE_REFRESH\) \{\s*misses = 0;\s*redraw\(null\);/, 'a broken pulse would freeze the page');
-  assert.match(hook, /if \(away > PULSE_AWAY_MS && isEventDayActive\(eventDate\)\) redraw\(null\);/);
+  assert.match(hook, /if \(away > PULSE_AWAY_MS && theDayIsOpenAt\(whenRef\.current\)\) redraw\(null\);/);
 });
 
 test('2b · the guests’ day-of pages use the pulse; the 45 s re-render runs only without a baseline', () => {

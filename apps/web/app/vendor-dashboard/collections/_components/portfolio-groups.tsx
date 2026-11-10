@@ -27,7 +27,7 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
  *            Remove · Save), ▶ at the row's end plays it in a pop-up player, and under the list "Add another link" in
  *            the Shop's "Add a service" style.
  *   §10 #40  AN OPENED ALBUM PINS AND TAKES THE WHOLE BODY — the shared in-body panel (`BodyPanel`, the Makers' panel):
- *            it grows out of its row (520 ms), the top bar and the bottom nav stay, × shrinks it back into the row at the
+ *            it grows out of its row (700 ms), the top bar and the bottom nav stay, × shrinks it back into the row at the
  *            exact prior scroll. Supersedes #24's open-in-place for albums.
  *   The ✓ circle on each album row stays the separate "pick for Show" control (#24).
  *

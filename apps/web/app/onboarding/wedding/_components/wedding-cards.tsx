@@ -21,7 +21,11 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Building2, ChevronDown, ChevronUp, MapPin, Minus, Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
+import { StepActions, StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
+import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FAITH_REGISTRY, type FaithKey } from '@/lib/faith-registry';
 import { FEEL_PALETTES } from '@/lib/feel-palettes';
@@ -33,7 +37,9 @@ import {
   CHURCH_FAITHS,
   ESTIMATE_MAX,
   ESTIMATE_MIN,
+  WEDDING_EVENT_NAME_MAX,
   WEDDING_SELF_SIDES,
+  weddingEventName,
   ceremonyChoiceOf,
   ceremonyChoiceToState,
   budgetRows,
@@ -49,6 +55,7 @@ import { LocationStep } from './location-step';
 import { WeddingVenues, type VenueSearch } from './wedding-venues';
 import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import type { OnboardingState } from '../types';
+import { slugify } from '@/lib/slugs';
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const nameOnly = (raw: string) => (raw || '').replace(/[^\p{L}\s'-]/gu, '');
@@ -96,61 +103,115 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     // the partner's, and never over anything typed. The rows open once the pick is made.
     const side = weddingSelfSide(state.role);
     const sideWord = (k: WeddingSelfSide) => WEDDING_SELF_SIDES.find((o) => o.key === k)!.label;
-    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => (
-      <input
-        aria-label={`${sideWord(rowSide)} — ${label}`}
-        placeholder={label}
-        // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
-        autoComplete={rowSide === side ? token : 'off'}
-        autoCapitalize="words"
-        required={req}
-        value={value}
-        data-wedding-name-row={rowSide}
-        data-wedding-own-row={rowSide === side ? '' : undefined}
-        onChange={(e) => patch({ [key]: nameOnly(e.target.value), monogramFinalized: true } as Partial<OnboardingState>)}
-        className="w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none"
-      />
-    );
-    const rowHead = (rowSide: WeddingSelfSide) => (
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink/55">
-        {sideWord(rowSide)}
-        {rowSide === side ? ' · you' : ''}
-      </p>
+    // 📐 THE ONE FIELD TEMPLATE (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
+    // Like the text of the names"): each name is `TypedRow boxed` — its name above, the 48 px box with its
+    // 14 px inner padding, one ✕ while typing — never a bespoke box whose text sits on the border.
+    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => {
+      const write = (t: string) => patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      return (
+        <TypedRow
+          boxed
+          name={label}
+          value={value}
+          placeholder={label}
+          empty={req ? label : 'Optional'}
+          required={req}
+          clean={nameOnly}
+          autoCapitalize="words"
+          // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
+          autoComplete={rowSide === side ? token : 'off'}
+          attrs={rowSide === side ? { 'data-wedding-name-row': rowSide, 'data-wedding-own-row': '' } : { 'data-wedding-name-row': rowSide }}
+          onType={write}
+          onKeep={write}
+        />
+      );
+    };
+    const rows = (rowSide: WeddingSelfSide) => (
+      <>
+        <StepGroup>
+          {sideWord(rowSide)}
+          {rowSide === side ? ' · you' : ''}
+        </StepGroup>
+        {rowSide === 'bride' ? (
+          <StepRows>
+            {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
+            {field('bride', 'Last name', state.brideLastName, 'brideLastName', false, 'family-name')}
+          </StepRows>
+        ) : (
+          <StepRows>
+            {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
+            {field('groom', 'Last name', state.groomLastName, 'groomLastName', false, 'family-name')}
+          </StepRows>
+        )}
+      </>
     );
     return (
       <SetupFrame
         {...frame}
         title="Who’s getting married?"
         line="Your names, the way you want them written."
-        info="They go on your invitation, your Event Hub and your guest list. Last names are optional."
+        info="They go on your invitation, your Event Hub and your guest list. Last names are optional. Your own side is filled from your account — change it here if you want it written differently."
       >
         <div className="flex flex-col gap-3" data-wedding-names>
-          <p className="text-sm font-medium text-ink">Which one is you?</p>
-          <PickMenu
-            label="Which one is you?"
-            value={side}
-            buttonText={side ? undefined : 'Pick one'}
-            options={WEDDING_SELF_SIDES.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
-            onPick={(key) => {
-              const next = weddingSelfSide(key);
-              if (next) pickSelf(next);
-            }}
-            dataAttr="data-wedding-self"
-          />
+          <StepField label="Which one is you?">
+            <StepPick
+              label="Which one is you?"
+              value={side}
+              options={WEDDING_SELF_SIDES.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
+              onPick={(key) => {
+                const next = weddingSelfSide(key);
+                if (next) pickSelf(next);
+              }}
+              dataAttr="data-wedding-self"
+            />
+          </StepField>
+          {/* Your side first, the partner's under it — one column, equal widths (the template). */}
           {side ? (
             <>
-              {rowHead('bride')}
-              {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
-              {field('bride', 'Last name (optional)', state.brideLastName, 'brideLastName', false, 'family-name')}
-              <p className="text-center font-serif text-xl italic text-ink/50" aria-hidden>
-                &amp;
-              </p>
-              {rowHead('groom')}
-              {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
-              {field('groom', 'Last name (optional)', state.groomLastName, 'groomLastName', false, 'family-name')}
+              {rows(side)}
+              {rows(side === 'bride' ? 'groom' : 'bride')}
             </>
           ) : null}
         </div>
+      </SetupFrame>
+    );
+  }
+
+  if (card === 'w_eventname') {
+    // ✍ "NAME YOUR WEDDING" (Lane P, owner 10 Nov: "we want the event name to be set on the onboarding") —
+    // prefilled from the names (the first person first), editable; the Event Hub address is seeded from it.
+    const name = weddingEventName(state);
+    const address = slugify(name);
+    return (
+      <SetupFrame
+        {...frame}
+        title="Name your wedding"
+        line="It is the title of your Event Hub and its address."
+        info="We wrote it from your names. Change it to anything — “The Casasola Wedding”, “Claire & Ice”. The address under it is taken from the name."
+      >
+        <StepRows attrs={{ 'data-wedding-event-name': '' }}>
+          <TypedRow
+            boxed
+            name="Event name"
+            value={name}
+            placeholder="e.g. Claire & Indalecio"
+            empty="e.g. Claire & Indalecio"
+            required
+            maxLength={WEDDING_EVENT_NAME_MAX}
+            autoComplete="off"
+            autoCapitalize="words"
+            pillAttrs={{ 'data-wedding-event-name-input': '' }}
+            note={
+              address ? (
+                <>
+                  Your Event Hub · <code className="font-mono text-ink/70">setnayan.com/{address}</code>
+                </>
+              ) : null
+            }
+            onType={(t) => patch({ eventName: t.slice(0, WEDDING_EVENT_NAME_MAX) })}
+            onKeep={(t) => patch({ eventName: t.slice(0, WEDDING_EVENT_NAME_MAX) })}
+          />
+        </StepRows>
       </SetupFrame>
     );
   }
@@ -159,34 +220,38 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     const choice = ceremonyChoiceOf(state);
     const churchLabel = (k: FaithKey) => FAITH_REGISTRY.find((e) => e.key === k)?.label ?? k;
     const offered = CHURCH_FAITHS.filter((k) => (activeFaiths ? activeFaiths.includes(k) : !FAITH_REGISTRY.find((e) => e.key === k)?.defaultSoon));
+    // 📐 One labelled field each, both dropdowns the full width of the column (owner 10 Nov on this step:
+    // "bare text pills of different widths"); "Not decided yet" is a choice INSIDE the Ceremony list
+    // (`CEREMONY_CHOICES`), never a third control beside it — the quick pill is gone.
     return (
       <SetupFrame
         {...frame}
         title="What kind of wedding?"
         line="It shapes the paperwork and the programme."
         info="Pick the closest. You can change it from your Event Hub Maker."
-        quick={['Not decided yet']}
-        onQuick={() => patch(ceremonyChoiceToState('undecided'))}
       >
-        <PickMenu
-          label="Ceremony"
-          value={choice}
-          buttonText={choice ? undefined : 'Pick one'}
-          options={CEREMONY_CHOICES.map((c) => ({ key: c, label: CEREMONY_COPY[c].label, hint: CEREMONY_COPY[c].hint }))}
-          onPick={(key) => patch(ceremonyChoiceToState(key as CeremonyChoice, state.faith[0] as FaithKey | undefined))}
-          dataAttr="data-wedding-kind"
-        />
-        {choice === 'church' && offered.length > 1 ? (
-          <div className="mt-3">
-            <PickMenu
-              label="Church"
-              value={state.faith[0] ?? 'catholic'}
-              options={offered.map((k) => ({ key: k, label: churchLabel(k) }))}
-              onPick={(key) => patch(ceremonyChoiceToState('church', key as FaithKey))}
-              dataAttr="data-wedding-church"
+        <div className="flex flex-col gap-3">
+          <StepField label="Ceremony">
+            <StepPick
+              label="Ceremony"
+              value={choice}
+              options={CEREMONY_CHOICES.map((c) => ({ key: c, label: CEREMONY_COPY[c].label, hint: CEREMONY_COPY[c].hint }))}
+              onPick={(key) => patch(ceremonyChoiceToState(key as CeremonyChoice, state.faith[0] as FaithKey | undefined))}
+              dataAttr="data-wedding-kind"
             />
-          </div>
-        ) : null}
+          </StepField>
+          {choice === 'church' && offered.length > 1 ? (
+            <StepField label="Church">
+              <StepPick
+                label="Church"
+                value={state.faith[0] ?? 'catholic'}
+                options={offered.map((k) => ({ key: k, label: churchLabel(k) }))}
+                onPick={(key) => patch(ceremonyChoiceToState('church', key as FaithKey))}
+                dataAttr="data-wedding-church"
+              />
+            </StepField>
+          ) : null}
+        </div>
       </SetupFrame>
     );
   }
@@ -217,45 +282,58 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
       info="You’ll find your parish and reception with Setnayan. Not booked yet? That’s normal."
     >
       {askArea ? (
-        <>
-          <PickMenu
-            label="Area"
-            value={picked && cityByKey(picked) ? picked : null}
-            buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
-            options={[
-              ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
-              ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
-            ]}
-            onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
-            dataAttr="data-wedding-area"
-            stickyGroups
-          />
-          <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
-            {more ? 'Hide more places' : 'More places ›'}
-          </button>
-          {more ? (
-            <div className="mt-3">
-              <LocationStep
-                value={state.places}
-                onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
-              />
-            </div>
-          ) : null}
-        </>
+        /* 📐 The template's full-width dropdown (`StepPick`, owner 10 Nov "uniform … design templates") — the same box
+           as every other step's, the width of the two buttons under it. */
+        <StepPick
+          label="Area"
+          value={picked && cityByKey(picked) ? picked : null}
+          buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
+          placeholder={picked && !cityByKey(picked) ? 'Another place' : 'Pick an area'}
+          options={[
+            ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
+            ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
+          ]}
+          onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
+          dataAttr="data-wedding-area"
+          stickyGroups
+        />
       ) : (
         <p className="text-sm text-ink/60" data-wedding-area-from-venue>
           Your area comes from your venue.
         </p>
       )}
-      <button
-        type="button"
-        className="mt-4 block text-sm text-ink/60 underline"
-        aria-expanded={haveVenue}
-        data-wedding-have-venue
-        onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
-      >
-        {haveVenue ? 'Just the area for now' : 'We already have our venue ›'}
-      </button>
+      {/* 🔘 Owner 10 Nov, "Button designs": the two equal-weight doors sit in ONE row at EQUAL widths — on a phone
+          where the words do not fit two to a row, each takes the whole row (`StepActions`), never two pills of their
+          own widths stacked. What each opens draws under the row, in the same order as the buttons. */}
+      <StepActions className="mt-4">
+        {askArea ? (
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={more ? ChevronUp : ChevronDown}
+            label={more ? 'Hide more places' : 'More places'}
+            aria-expanded={more}
+            onClick={() => setMore((v) => !v)}
+          />
+        ) : null}
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={haveVenue ? MapPin : Building2}
+          label={haveVenue ? 'Just the area for now' : 'We already have our venue'}
+          aria-expanded={haveVenue}
+          data-testid="wedding-have-venue"
+          onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
+        />
+      </StepActions>
+      {askArea && more ? (
+        <div className="mt-3">
+          <LocationStep
+            value={state.places}
+            onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+          />
+        </div>
+      ) : null}
       {haveVenue ? <WeddingVenues state={state} patch={patch} search={searchVenues} /> : null}
     </SetupFrame>
   );
@@ -268,8 +346,6 @@ function PaxCard({ frame, state, patch }: SubProps) {
     if (state.pax !== value) patch({ pax: value });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const btn =
-    'flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink/15 text-2xl leading-none text-ink/70 disabled:cursor-not-allowed disabled:opacity-30';
   return (
     <SetupFrame
       {...frame}
@@ -279,16 +355,12 @@ function PaxCard({ frame, state, patch }: SubProps) {
       footer="Steps of 10. You can change this anytime."
     >
       <div className="flex items-center justify-between gap-3" data-wedding-estimate>
-        <button type="button" aria-label="Fewer guests" className={btn} disabled={value <= ESTIMATE_MIN} onClick={() => patch({ pax: stepEstimate(value, -1) })}>
-          −
-        </button>
+        <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer guests" disabled={value <= ESTIMATE_MIN} onClick={() => patch({ pax: stepEstimate(value, -1) })} />
         <span className="min-w-0 flex-1 text-center">
           <span className="block font-mono text-3xl font-semibold tabular-nums text-ink">{formatCount(value)}</span>
           <span className="mt-0.5 block text-xs text-ink/55">About {formatCount(value)} guests</span>
         </span>
-        <button type="button" aria-label="More guests" className={btn} disabled={value >= ESTIMATE_MAX} onClick={() => patch({ pax: stepEstimate(value, 1) })}>
-          +
-        </button>
+        <ActionButton tone="neutral" iconOnly icon={Plus} label="More guests" disabled={value >= ESTIMATE_MAX} onClick={() => patch({ pax: stepEstimate(value, 1) })} />
       </div>
     </SetupFrame>
   );
@@ -341,14 +413,15 @@ function ColoursCard({ frame, state, patch }: SubProps) {
       title="Your colours"
       line="Your motif — on cards, the QR code and what suppliers see."
       info="Your Mood Board starts from this. A stylist or coordinator can fill it in later."
-      quick={['My supplier will fill this in']}
-      onQuick={() => patch({ prefs: { ...state.prefs, feel: null } })}
     >
       <PickMenu
         label="Palette"
         value={feel}
         options={[
           { key: 'theme', label: 'Theme’s own' },
+          /* "My supplier will fill this in" is a choice INSIDE the dropdown, never a pill beside it (owner 10 Nov) —
+             it leaves the palette to the theme until a stylist sets it, exactly as the pill did. */
+          { key: 'supplier', label: 'My supplier will fill this in' },
           ...Object.keys(FEEL_LABEL).map((k) => ({
             key: k,
             label: FEEL_LABEL[k]!,
@@ -361,7 +434,7 @@ function ColoursCard({ frame, state, patch }: SubProps) {
             ),
           })),
         ]}
-        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' ? null : key } })}
+        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' || key === 'supplier' ? null : key } })}
         dataAttr="data-wedding-colours"
       />
     </SetupFrame>

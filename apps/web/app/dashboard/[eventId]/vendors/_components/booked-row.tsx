@@ -56,6 +56,7 @@ import {
 import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { formatPhp } from '@/lib/php';
+import { BOOKED_PRICE_STAYS_COUPLE } from '@/lib/booked-price-words';
 import { shortDate } from '@/lib/budget-page-view';
 import {
   NEXT_SET_PRICE,
@@ -84,6 +85,7 @@ import { BookedStandInCtx } from './booked-stand-ins';
 import { BookedWhere, BookedWhereLine } from './booked-where';
 import { BookedCountRule } from './booked-count-rule';
 import type { ServiceCounts } from '@/lib/supplier-count';
+import { SAMPLE_BOOKED } from '@/lib/empty-look-samples';
 
 export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 
@@ -122,6 +124,36 @@ function Logo({ url, initials }: { url: string | null; initials: string }) {
         initials
       )}
     </span>
+  );
+}
+
+/**
+ * 👻 BOOKED'S EXAMPLE (Build 5 Lane H; owner 2026-11-09, DECISION_LOG 🧱👻 ×2; prototype frame "Event · Suppliers"):
+ * the row's own head — `Logo`, name, service line, the `Next:` line and the status pill — on the sample team
+ * (`lib/empty-look-samples.ts`), no button and no fold. `BookedBody` mounts it under `ExamplePreview` only when the team
+ * read ANSWERED with nobody booked.
+ */
+export function BookedRowsExample() {
+  return (
+    <ul className="bk-rows mt-2">
+      {SAMPLE_BOOKED.map((r) => (
+        <li key={r.name} className="bk-row">
+          <div className="grid min-w-0 w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left">
+            <Logo url={null} initials={r.initials} />
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-medium text-ink">{r.name}</span>
+              <span className="block truncate text-[13px] text-ink/55">{r.service}</span>
+            </span>
+            <ChevronDown aria-hidden strokeWidth={2} className="h-5 w-5 text-sn-accent" />
+            <span className="col-span-2 col-start-2 flex flex-wrap items-baseline gap-x-2 text-[14px]">
+              <span className="text-ink/55">Next:</span>
+              <span className="text-ink/80">{r.line}</span>
+            </span>
+            <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE.ok}`}>{r.pill}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -676,6 +708,14 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.updated ? <UpdatedLine updated={row.updated} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
+      {/* 🔒 WHAT YOU BOOK IS YOUR PRICE (DECISION_LOG 2026-11-10) — a supplier on Setnayan the couple booked at a price:
+          a later change to their card never reaches this booking unless the couple accepts it. Not for a supplier the
+          couple added themselves (they set that price). */}
+      {!row.own && row.money ? (
+        <p className="text-[12.5px] leading-snug text-ink/55" data-booked-price-stays="">
+          {BOOKED_PRICE_STAYS_COUPLE}
+        </p>
+      ) : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">

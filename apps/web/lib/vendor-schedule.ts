@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { lastDayOf } from '@/lib/event-date-floor';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
 
@@ -100,15 +101,19 @@ export function manilaDate(iso: string): string {
 /**
  * The vendor's explicit day states (locked / whitelist), optionally bounded to
  * a date range for a single-month render. RLS scopes to the vendor's own rows.
- * Fail-soft: returns [] on error (e.g. pre-migration DB) so the calendar page
- * degrades to the 4-state view rather than throwing.
+ *
+ * 🔴 NULL = REFUSED, NEVER `[]` (G7, Build 5, 10 Nov). This used to return `[]`
+ * on error, so a refused read drew the month as every day free — and for two
+ * months one WAS refused: the month read asked for "2026-11-31" (400, `date out
+ * of range`) and every 30-day month quietly lost its held and approve-first
+ * days. Null is logged here; the caller says the month did not load.
  */
 export async function fetchVendorDayStates(
   supabase: SupabaseClient,
   vendorProfileId: string,
   fromDate?: string,
   toDate?: string,
-): Promise<VendorCalendarDayState[]> {
+): Promise<VendorCalendarDayState[] | null> {
   let q = supabase
     .from('vendor_calendar_day_states')
     .select('day_state_id, pool_id, state_date, day_state, note')
@@ -116,7 +121,15 @@ export async function fetchVendorDayStates(
   if (fromDate) q = q.gte('state_date', fromDate);
   if (toDate) q = q.lte('state_date', toDate);
   const { data, error } = await q.order('state_date', { ascending: true });
-  if (error || !data) return [];
+  if (error || !data) {
+    logQueryError(
+      'fetchVendorDayStates',
+      error ?? { message: 'no rows object' },
+      { vendor_profile_id: vendorProfileId, from: fromDate ?? null, to: toDate ?? null },
+      'graceful_degrade',
+    );
+    return null;
+  }
   return (data as {
     day_state_id: string;
     pool_id: string | null;
@@ -130,6 +143,32 @@ export async function fetchVendorDayStates(
     dayState: r.day_state,
     note: r.note,
   }));
+}
+
+/**
+ * 📅 ONE MONTH'S DAY STATES — from the 1st to the month's REAL last day (G7, Build 5, 10 Nov).
+ *
+ * Every month read used to ask `${month}-01` → `${month}-31`. Postgres refuses "2026-11-31" (400) — so April, June,
+ * September, November and every February read nothing, and drew as free. The last day comes from the one helper that
+ * already knows it (`lastDayOf`, lib/event-date-floor.ts: a bare "YYYY-MM" reads at month precision, UTC-safe).
+ * Null = not a month, or the read was refused — never an empty month.
+ */
+export async function fetchVendorMonthDayStates(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  month: string,
+): Promise<VendorCalendarDayState[] | null> {
+  const range = monthDayRange(month);
+  if (!range) return null;
+  return fetchVendorDayStates(supabase, vendorProfileId, range.from, range.to);
+}
+
+/** "2026-11" → { from: "2026-11-01", to: "2026-11-30" }; null for anything that is not a real month. Pure. */
+export function monthDayRange(month: string): { from: string; to: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month.trim());
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) return null;
+  const to = lastDayOf(`${m[1]}-${m[2]}`);
+  return to ? { from: `${m[1]}-${m[2]}-01`, to } : null;
 }
 
 function humanizeCategory(key: string): string {

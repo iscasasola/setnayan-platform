@@ -58,7 +58,11 @@ const PINS: ReadonlyArray<Pin> = [
   { file: 'app/admin/categories/_components/load-map.ts', symbol: 'loadMapData', pattern: IS_DEMO_FALSE, count: 1, what: 'admin category map counts' },
   { file: 'lib/ghost-listing-detector.ts', symbol: 'scanForGhostListings', pattern: IS_DEMO_FALSE, count: 1, what: 'ghost-listing sweep' },
   { file: 'lib/social/flush.ts', symbol: 'sweepVendorFeatures', pattern: IS_DEMO_FALSE, count: 1, what: 'social feature picks' },
-  { file: 'lib/social/flush.ts', symbol: 'sweepMilestones', pattern: IS_DEMO_FALSE, count: 1, what: 'social milestone posts' },
+  // Lane S (2026-11-10): the milestone sweep moved to lib/social/milestones.ts and its numbers are counted IN SQL by
+  // social_milestone_real_counts() (no demo shop, no sample event, no internal account) — the exclusions themselves are
+  // held by the DB replay (tests/db/social-milestones-count-real-data-only.db.test.ts); this pins that the sweep reads it.
+  { file: 'lib/social/milestones.ts', symbol: 'sweepMilestones', pattern: /\.rpc\('social_milestone_real_counts'\)/g, count: 1, what: 'social milestone posts — real counts only' },
+  { file: 'lib/social/lane-s.ts', symbol: 'isBadgeShopPostable', pattern: /row\.is_demo !== false/g, count: 1, what: 'social badge posts never feature a demo shop' },
   { file: 'lib/vendor-image-repost-watch.ts', symbol: 'hashAndScanVendorImages', pattern: IS_DEMO_FALSE, count: 1, what: 'repost watch — the shared demo pools collide by design' },
   { file: 'lib/vendor-image-repost-watch.ts', symbol: 'rematchAllVendorImages', pattern: IS_DEMO_FALSE, count: 1, what: 'repost watch rematch' },
   { file: 'lib/vendor-image-repost-watch.ts', symbol: 'rescanAllVendorImages', pattern: IS_DEMO_FALSE, count: 1, what: 'repost watch rescan' },

@@ -93,7 +93,7 @@ export function seatCouple(
  */
 export function seatSelf(
   role: 'bride' | 'groom' | 'helper' | string,
-  selfName: string | null | undefined,
+  selfName: SelfName,
   current: { brideFirstName: string; groomFirstName: string; brideLastName: string; groomLastName: string },
 ): { brideFirstName?: string; groomFirstName?: string; brideLastName?: string; groomLastName?: string } {
   if (role !== 'bride' && role !== 'groom') return {};
@@ -114,11 +114,31 @@ const SIDE_KEYS = {
 } as const;
 
 /**
+ * Who the signed-in person is, as the account holds it: the display name (one string), or the formal
+ * first + last (`users.first_name` / `last_name`) with the display name as the fallback. One type for
+ * every "which one is you" seat, so there is still ONE prefill path (`seatSelf` / `moveSelf`).
+ */
+export type SelfName =
+  | string
+  | { first: string | null; last: string | null; display: string | null }
+  | null
+  | undefined;
+
+/**
  * The account name as the two name fields hold it — first word → first name, the rest → last name,
  * through the same letters-only rule the fields apply as typed (`sanitizeName`), so a seated value and a
  * typed value are compared like for like. Null for no name or an email local-part.
  */
-export function splitSelfName(selfName: string | null | undefined): { first: string; last: string } | null {
+export function splitSelfName(selfName: SelfName): { first: string; last: string } | null {
+  // The account's FORMAL name, when it has one (`users.first_name` / `last_name`, Profile & settings) —
+  // taken as it is written, so "Maria Clara" + "dela Cruz" never splits on the first space (Lane P,
+  // 10 Nov: "It asked me who i am and it did not fill it up").
+  if (selfName && typeof selfName === 'object') {
+    const first = sanitizeName((selfName.first ?? '').trim().slice(0, 40)).trim();
+    const last = sanitizeName((selfName.last ?? '').trim().slice(0, 60)).trim();
+    if (first && !first.includes('@')) return { first, last };
+    return splitSelfName(selfName.display ?? null);
+  }
   const words = (selfName ?? '').trim().split(/\s+/).filter(Boolean);
   if (words.length === 0 || words[0]!.includes('@')) return null;
   const first = sanitizeName(words[0]!.slice(0, 40)).trim();
@@ -138,7 +158,7 @@ export function splitSelfName(selfName: string | null | undefined): { first: str
 export function moveSelf(
   prev: 'bride' | 'groom' | 'helper' | string | null,
   next: 'bride' | 'groom' | 'helper' | string,
-  selfName: string | null | undefined,
+  selfName: SelfName,
   current: CoupleNames,
 ): Partial<CoupleNames> {
   const self = splitSelfName(selfName);

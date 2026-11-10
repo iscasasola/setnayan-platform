@@ -9,7 +9,7 @@
  *
  *   **Your first booking through Setnayan is free.** After that: 5% up to
  *   ₱100,000, 1% above — only on couples who found you here. ⓘ
- *   (ⓘ: "Minimum fee ₱50 per booking. Bookings you bring in yourself are never charged.")
+ *   (ⓘ: "The smallest fee is ₱50 a booking. No fee on clients you bring in yourself." — reworded 2026-11-10)
  *
  * 🔑 Every number is DERIVED from the schedule the page read, and pinned here
  * against `bookingFeePhp`, the function that bills — so the words cannot drift
@@ -78,8 +78,8 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
   assert.match(src, /bookingFeeBandsLine\(fee\)/, 'the bands are not read from the schedule');
   assert.match(src, /bookingFeeMinimumAmount\(fee\)/, 'the minimum is not read from the schedule');
   assert.doesNotMatch(src, /\d+\s*%|₱\s*\d/, 'a rate or a peso amount is typed into the fee line');
-  assert.match(src, /<InfoTip\b[\s\S]*?Minimum fee \$\{bookingFeeMinimumAmount\(fee\)\} per booking\./, 'the ⓘ lost the minimum');
-  assert.match(src, /'Bookings you bring in yourself are never charged\.'/);
+  assert.match(src, /<InfoTip\b[\s\S]*?The smallest fee is \$\{bookingFeeMinimumAmount\(fee\)\} a booking\./, 'the ⓘ lost the minimum');
+  assert.match(src, /'No fee on clients you bring in yourself\.'/);
   assert.match(src, /'only on couples who found you here\.'/);
   assert.match(src, /\{FIRST_BOOKING_FREE\}/, 'the lead sentence is typed instead of read');
   // NULL = could not read: no rate, no minimum — never the code default.

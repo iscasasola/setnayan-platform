@@ -29,6 +29,10 @@ import {
 import { useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { Check, ImagePlus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TypedRow } from '@/app/_components/form-row';
+import { StepActions, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
 import {
   defaultLookId,
   moreRows,
@@ -38,12 +42,6 @@ import {
   type SetupView,
 } from '@/lib/onboarding/setup-answers';
 
-const SKIN_ACCENT: Record<SetupView['skin'], string> = {
-  wedding: '#8a6a2b',
-  party: '#d0604b',
-  casual: '#2a7f7a',
-  quiet: '#6b6b6b',
-};
 
 
 /**
@@ -84,42 +82,48 @@ export function SetupFrame({
         {formatCount(n)} of {formatCount(total)}
       </p>
       <div className="mt-2 flex items-start gap-2">
-        <h1
-          className={`text-[28px] font-medium leading-[1.12] text-ink sm:text-4xl ${
-            skin === 'wedding' ? 'font-serif italic' : skin === 'quiet' ? 'font-serif font-light' : 'font-sans'
-          }`}
-        >
+        {/* 📐 THE TEMPLATE'S TITLE (Lane P, owner 10 Nov: "our template design should always be followed"):
+            22 px / 600 in the house sans on EVERY skin — the serif italic wedding title and the light serif
+            were a second and third look for one frame. The skin still tints the accent, never the type. */}
+        <h1 className="font-sans text-[22px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink" data-step-title>
           {title}
         </h1>
-        <button
+        <button /* button-ok: the house ⓘ dot, class for class (there-is-one-info-dot.test.ts) — not an action */
           type="button"
           aria-expanded={infoOpen}
           aria-label="More about this"
           onClick={() => setInfoOpen((v) => !v)}
-          className="sn-press sn-press-ring sn-dot-btn mt-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta sm:mt-3"
+          className="sn-press sn-press-ring sn-dot-btn mt-[4px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
         >
           {/* The house ⓘ, class for class — `<InfoTip>`'s trigger (owner 2026-10-25: "the (i) is not consistent
               across the app"). Not InfoTip itself: this one opens the line in the page, under the title. */}
           <span aria-hidden="true">i</span>
         </button>
       </div>
-      <p className="mt-2 text-ink/60">{line}</p>
+      <p className="mt-1 text-sm text-ink/60">{line}</p>
       {infoOpen ? <p className="mt-2 text-sm text-ink/50">{info}</p> : null}
 
       <div className="mt-6">{children}</div>
 
-      {quick.length > 0 ? (
-        <div className="mt-5 flex flex-wrap gap-2">
-          {quick.map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => onQuick?.(q)}
-              className="rounded-full border border-ink/15 bg-paper px-4 py-2 text-sm text-ink/70"
-            >
-              {q}
-            </button>
-          ))}
+      {/* 🔘 THE QUICK ANSWER (Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons … is not followed yet"):
+          one answer is ONE house ActionButton; two or more are ONE PickMenu — never a row of hand-drawn pills. Picking
+          one answers (and, on the engine's cards, moves on) exactly as the pill did. */}
+      {quick.length === 1 ? (
+        /* 📐 The column's width, like the field or the action above it (owner 10 Nov: "uniform buttons") — never a
+           pill of its own width under a full-width one. */
+        <StepActions className="mt-5">
+          <ActionButton tone="neutral" quiet icon={Check} label={quick[0]!} onClick={() => onQuick?.(quick[0]!)} data-testid="setup-quick" />
+        </StepActions>
+      ) : quick.length > 1 ? (
+        <div className="mt-5">
+          <PickMenu
+            label="A quick answer"
+            value={null}
+            buttonText="Or answer quickly"
+            options={quick.map((q) => ({ key: q, label: q }))}
+            onPick={(q) => onQuick?.(q)}
+            dataAttr="data-setup-quick"
+          />
         </div>
       ) : null}
 
@@ -141,15 +145,8 @@ type Props = {
 };
 
 export function SetupCard({ card, view, answers, onChange, onNext, n, total }: Props) {
-  const accent = SKIN_ACCENT[view.skin];
   const copy = cardCopy(card, view);
   const quick = setupQuickAnswers(card, view.solemn);
-
-  const choice = (on: boolean) =>
-    `min-h-[48px] flex-1 rounded-[var(--m-r-md)] border px-4 py-3 text-left text-sm ${
-      on ? 'bg-paper font-semibold text-ink' : 'border-ink/15 bg-paper text-ink/60'
-    }`;
-  const choiceStyle = (on: boolean) => (on ? { borderColor: accent, boxShadow: `inset 0 0 0 1px ${accent}` } : undefined);
 
   function answerQuick(label: string) {
     if (card === 'setup_where') onChange(label === 'At home' ? { where: 'home', whereText: '' } : { where: 'undecided', whereText: '' });
@@ -173,29 +170,39 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
       footer={card === 'setup_more' ? 'You can change any of these anytime' : 'You can change this anytime'}
     >
         {card === 'setup_where' ? (
-          <input
-            value={answers.where === 'place' ? answers.whereText : ''}
-            onChange={(e) => onChange({ where: 'place', whereText: e.target.value })}
-            placeholder={view.solemn ? 'The chapel, parish or home' : 'The venue or place'}
-            className="w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none"
-            style={answers.where === 'place' ? { borderColor: accent } : undefined}
-          />
+          <StepRows attrs={{ 'data-setup-where': '' }}>
+            <TypedRow
+              boxed
+              name={view.solemn ? 'The chapel, parish or home' : 'The venue or place'}
+              value={answers.where === 'place' ? answers.whereText : ''}
+              placeholder={view.solemn ? 'The chapel, parish or home' : 'The venue or place'}
+              empty={view.solemn ? 'The chapel, parish or home' : 'The venue or place'}
+              onType={(t) => onChange({ where: 'place', whereText: t })}
+              onKeep={(t) => onChange({ where: 'place', whereText: t })}
+            />
+          </StepRows>
         ) : null}
 
         {card === 'setup_photo' ? (
           <div className="flex flex-col gap-2">
-            <button type="button" className={choice(answers.photo === 'upload')} style={choiceStyle(answers.photo === 'upload')} onClick={() => onChange({ photo: 'upload' })}>
-              {coverChoices(view.solemn)[0]!.label}
-              {answers.photo === 'upload' ? (
-                <span className="mt-1 block text-xs font-normal text-ink/50">You’ll add it from your Event Hub.</span>
-              ) : null}
-            </button>
+            {/* The same row as the quick answer under it — both the column's width (`StepActions`). */}
+            <StepActions>
+              <ActionButton
+                tone="neutral"
+                icon={ImagePlus}
+                label={coverChoices(view.solemn)[0]!.label}
+                aria-pressed={answers.photo === 'upload'}
+                onClick={() => onChange({ photo: 'upload' })}
+              />
+            </StepActions>
+            {answers.photo === 'upload' ? <p className="text-xs text-ink/50">You’ll add it from your Event Hub.</p> : null}
           </div>
         ) : null}
 
         {card === 'setup_look' ? (
           <>
-            <PickMenu
+            {/* The template's full-width dropdown (`StepPick`), so "Keep the one picked" under it is the same width. */}
+            <StepPick
               label="Pick a look"
               value={answers.look}
               options={view.looks.map((l) => ({
@@ -237,12 +244,14 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
                 <div key={row} data-setup-more-row={row}>
                   <p className="text-sm font-medium text-ink/75">{r.title}</p>
                   <p className="text-xs text-ink/70">{r.line}</p>
-                  <div className="mt-2 flex gap-2">
-                    {r.options.map((o) => (
-                      <button key={o.v} type="button" className={choice(value === o.v)} style={choiceStyle(value === o.v)} onClick={() => onChange({ [row]: o.v } as Partial<SetupAnswers>)}>
-                        {o.label}
-                      </button>
-                    ))}
+                  <div className="mt-2">
+                    <PickMenu
+                      label={r.title}
+                      value={value}
+                      options={r.options.map((o) => ({ key: o.v, label: o.label }))}
+                      onPick={(v) => onChange({ [row]: v } as Partial<SetupAnswers>)}
+                      dataAttr="data-setup-more-pick"
+                    />
                   </div>
                 </div>
               );

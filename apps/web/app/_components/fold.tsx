@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
@@ -143,8 +143,10 @@ export function Fold({
   summaryEnd = false,
   danger = false,
   tip,
+  between,
   open: openProp,
   onOpenChange,
+  rises = false,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -221,6 +223,12 @@ export function Fold({
    * the keyboard's door is the head button, named for the title). Absent → the head is exactly as it was.
    */
   tip?: ReactNode;
+  /**
+   * A PICTURE THAT IS ALWAYS THERE (Shop › Analytics, owner-approved 6 Nov 2026: "each section opens with a picture"):
+   * drawn between the head and the body, visible shut or open — the head still opens and shuts only the body under it.
+   * Outside the pinned head, so it scrolls away under a slim pinned line like any row. Absent → exactly as it was.
+   */
+  between?: ReactNode;
   className?: string;
   /**
    * CONTROLLED, when the caller decides which fold is open (Today's new-shop steps: a save ticks ✓ and the NEXT one
@@ -229,6 +237,13 @@ export function Fold({
    */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * ⤴ THE ROW RISES FULL SCREEN INSTEAD OF OPENING IN PLACE (Build 5 · Lane A slice 2 — owner 10 Nov on a Clients row:
+   * *"The event did not grow fullscreen as planned"*; HOUSE_TEMPLATES T4). The head is the same head, its arrow points
+   * on (›) and it says it opens a screen (`aria-haspopup="dialog"`); a press calls `onOpenChange(true)` and the caller
+   * mounts `RiseScreen`. The fold itself never opens — pass it no body. Absent → the fold is exactly as it was.
+   */
+  rises?: boolean;
 }) {
   const [ownOpen, setOwnOpen] = useState(defaultOpen);
   const controlled = openProp !== undefined;
@@ -284,8 +299,10 @@ export function Fold({
     <button
       type="button"
       data-fold-head=""
-      aria-expanded={open}
-      aria-controls={id}
+      data-fold-rises={rises ? '' : undefined}
+      aria-expanded={rises ? undefined : open}
+      aria-controls={rises ? undefined : id}
+      aria-haspopup={rises ? 'dialog' : undefined}
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       aria-current={current ? 'true' : undefined}
       data-fold-current={current ? '' : undefined}
@@ -331,7 +348,11 @@ export function Fold({
           {aside}
         </span>
       ) : null}
-      <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      {rises ? (
+        <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
+      ) : (
+        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      )}
     </button>
   );
   return (
@@ -369,6 +390,7 @@ export function Fold({
         head
       )}
       </div>
+      {between !== undefined ? <div data-fold-between="">{between}</div> : null}
       <div
         id={id}
         data-fold-body=""

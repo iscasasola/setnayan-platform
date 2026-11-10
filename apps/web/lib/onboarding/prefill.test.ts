@@ -14,6 +14,8 @@ const BLANK: SelfPersonalization = {
   birthdate: null,
   gender: null,
   displayName: null,
+  firstName: null,
+  lastName: null,
 };
 
 test('christening · Catholic religion → catholic_baptism, rite skipped', () => {

@@ -46,6 +46,12 @@ export function startFor(key: string, value: number): number {
   return from;
 }
 
+/** The value last shown under `key` WITHOUT remembering anything — what a figure held back (a section not yet in
+ *  view) should keep showing until it plays. `undefined` = never shown. */
+export function peekShown(key: string): number | undefined {
+  return lastShown.get(key);
+}
+
 /** Test hook: forget every remembered value. */
 export function __resetCountMemory(): void {
   lastShown.clear();
@@ -156,16 +162,19 @@ export function Count({
   value,
   format = 'int',
   id,
+  delayMs,
   className,
   style,
 }: {
   value: number;
   format?: CountFormat | ((n: number) => string);
   id?: string;
+  /** Wait before counting — a stagger inside a section (Analytics, 6 Nov). Absent → at once, as it always was. */
+  delayMs?: number;
   className?: string;
   style?: CSSProperties;
 }) {
-  const n = useCountTo(value, { id });
+  const n = useCountTo(value, { id, delayMs });
   const fmt = typeof format === 'function' ? format : FORMATS[format];
   return (
     <span className={className} style={{ fontVariantNumeric: 'tabular-nums', ...style }} data-count={id}>
@@ -184,6 +193,7 @@ export function Fill({
   value,
   id,
   axis = 'width',
+  delayMs,
   className,
   style,
 }: {
@@ -191,6 +201,8 @@ export function Fill({
   value: number;
   id?: string;
   axis?: 'width' | 'height';
+  /** Wait before sliding — a stagger inside a section (Analytics, 6 Nov). Absent → at once, as it always was. */
+  delayMs?: number;
   className?: string;
   style?: CSSProperties;
 }) {
@@ -212,6 +224,7 @@ export function Fill({
     node.style[axis] = `${from}%`;
     void node.offsetWidth;
     node.style.transition = '';
+    node.style.transitionDelay = delayMs ? `${delayMs}ms` : '';
     let fired = false;
     const raf = requestAnimationFrame(() => {
       fired = true;

@@ -941,12 +941,13 @@ jobs:
   bundle-size-check:
     name: bundle size check
     runs-on: ubuntu-latest
-    # Hard ceiling: 200KB gzipped on the shared client bundle (union of
-    # chunks loaded on every page). CLAUDE.md 2026-05-22 KPI lock —
-    # without this guard, a single chunky import in a shared layout
-    # silently regresses LCP for every couple-facing route. The script
-    # at apps/web/scripts/check-bundle-size.mjs intersects build-manifest
-    # routes, gzips each shared chunk on disk, and fails over budget.
+    # Hard ceiling: 202.3KB gzipped on the shared client JS every app-router
+    # page downloads. CLAUDE.md 2026-05-22 KPI lock — without this guard, a
+    # single chunky import in a shared layout silently regresses LCP for
+    # every couple-facing route. Owner ruling 2026-11-10 "A": it counts the
+    # chunks every app route lists + rootMainFiles, NOT the pages router's
+    # framework/main (no page downloads them) unless an app route lists one,
+    # and prints what it excluded. apps/web/scripts/check-bundle-size.mjs.
     steps:
       - uses: actions/checkout@v4
 

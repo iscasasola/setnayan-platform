@@ -1598,8 +1598,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                     to have run out of, so that branch could never fire — confirmed 0
                     of 12 measured (owned × channel-count × cut-vs-pinned) combinations. */}
                 Switching cameras on air is what the unlock
-                {priceLabel ? ` (${priceLabel})` : ''} buys. Choose which single camera your
-                free broadcast carries with the ★ default control in Setup.
+                {priceLabel ? ` (${priceLabel})` : ''} buys. Without it, your broadcast carries one camera: pick it with the ★
+                default control in Setup.
               </span>
             </p>
           ) : null}
@@ -1616,7 +1616,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               <Radio aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold text-ink">{rehearseFreeNotice(priceLabel)}</span>
-                Going live now broadcasts one camera — free, as always. Your{' '}
+                Going live now broadcasts one camera — included, as always. Your{' '}
                 {zones.length} channels stay here to rehearse with.
               </span>
               <span className="shrink-0 rounded-lg bg-mulberry px-3 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.06em] text-cream">
@@ -2416,7 +2416,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               {oauthReady ? <Clock3 className="h-4 w-4" strokeWidth={1.75} /> : <Lock className="h-4 w-4" strokeWidth={1.75} />}
             </span>
             <p className="max-w-prose text-xs text-ink/60">
-              Your own camera goes live free from your phone or OBS — one camera, always free.
+              Your own camera goes live from your phone or OBS — one camera, always included.
               Rehearsing with every channel here is free too: hand out the join QRs, watch the
               cameras arrive on this screen, and practise your cuts as often as you like. When you
               unlock Live Watch, more than one of them can be on air at once and the picker on your

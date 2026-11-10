@@ -137,8 +137,9 @@ test('2 · v21’s order: invited by → tick what is wrong → one detail per s
     DOOR,
     /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
   );
-  // Slide 1 wears the door's frame: one terracotta Confirm, the grey pills for Sign in & claim and I'm not this supplier.
-  assert.match(DOOR, /primary = \{ label: 'Confirm — continue', onClick: next \};/);
+  // Slide 1 wears the door's frame: one terracotta main verb — "Claim it" (owner 10 Nov; it was "Confirm — continue"),
+  // the grey pills for Sign in & claim and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).
+  assert.match(DOOR, /primary = \{\s*label: 'Claim it',/);
   assert.match(DOOR, /<ActionButton tone="neutral" icon=\{LogIn\} label="Sign in & claim" href=\{signInHref\} \/>/);
   assert.match(DOOR, /label="I’m not this supplier"/);
   // Specialties are optional — never in a Continue gate.

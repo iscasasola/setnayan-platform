@@ -44,6 +44,10 @@
 import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { StepPick } from '@/app/onboarding/_shared/step-field';
+import { countNoun } from '@/lib/format-number';
 
 /**
  * What the calendar reports upward. Structurally the same four fields the
@@ -109,6 +113,7 @@ export function DateCalendar({
   eyebrow = 'Your wedding',
   title = 'When\u2019s the big day?',
   dateExempt = false,
+  undecided = false,
 }: {
   mode: 'specific' | 'window';
   candidates: string[];
@@ -127,7 +132,14 @@ export function DateCalendar({
   title?: string;
   /** 💍 The founders' (is_internal) account: days start today, not on December 19, 2026. */
   dateExempt?: boolean;
+  /**
+   * Offer "Not decided yet" INSIDE the mode dropdown (owner 10 Nov: a choice inside it, never a third control) — it
+   * clears the picked days so the step is left blank. Only where a blank date is allowed (the generic flow's "leave it
+   * blank if you're not sure yet"); the wedding's Continue needs a date, so it does not offer it.
+   */
+  undecided?: boolean;
 }) {
+  const [notYet, setNotYet] = useState(false);
   const today = useMemo(() => {
     const t = new Date();
     t.setHours(0, 0, 0, 0);
@@ -225,6 +237,7 @@ export function DateCalendar({
   };
 
   const clickDay = (cur: Date) => {
+    setNotYet(false);
     if (mode === 'specific') {
       const k = keyOf(cur);
       const idx = multi.findIndex((d) => keyOf(d) === k);
@@ -316,7 +329,7 @@ export function DateCalendar({
       const dd = daysBetween(today, sorted[0]!);
       pickHtml = (
         <>
-          Your date: <b>{fmtFull(sorted[0]!)}</b> · {dd <= 0 ? 'today' : `${dd} days`}{' '}
+          Your date: <b>{fmtFull(sorted[0]!)}</b> · {dd <= 0 ? 'today' : countNoun(dd, 'day', 'days')}{' '}
           <span className="addhint">· or add up to 3 nearby</span>
         </>
       );
@@ -358,19 +371,37 @@ export function DateCalendar({
       <div className="calpick">{pickHtml}</div>
       {warn && <div className="rangewarn">{warn}</div>}
       <div className={hint}>{setRangeMsg}</div>
-      <div className="calmode">
-        <button type="button" className={mode === 'specific' ? 'on' : undefined} onClick={() => setMode('specific')}>
-          Specific dates<span className="ms">1–4 days</span>
-        </button>
-        <button type="button" className={mode === 'window' ? 'on' : undefined} onClick={() => setMode('window')}>
-          Flexible window<span className="ms">a range</span>
-        </button>
+      {/* 🔘 ONE DROPDOWN, never two hand-drawn toggles (Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons and
+          design templates is not followed yet"; any set of choices is ONE PickMenu). */}
+      <div className="calmode-pick" data-datecal-mode="">
+        <StepPick
+          label="How sure are you of the date?"
+          value={notYet ? 'undecided' : mode}
+          options={[
+            { key: 'specific', label: 'Specific dates', hint: '1–4 days' },
+            { key: 'window', label: 'Flexible window', hint: 'a range' },
+            ...(undecided ? [{ key: 'undecided', label: 'Not decided yet' }] : []),
+          ]}
+          onPick={(k) => {
+            if (k === 'undecided') {
+              setNotYet(true);
+              setMulti([]);
+              setRStart(null);
+              setREnd(null);
+              setPickingEnd(false);
+              lift([], null, null);
+              return;
+            }
+            setNotYet(false);
+            setMode(k as 'specific' | 'window');
+          }}
+        />
       </div>
       <div className="cal">
         <div className="calhead">
-          <button className="calnav" type="button" onClick={prevMonth} disabled={atMin} aria-label="Previous month">‹</button>
+          <ActionButton tone="neutral" quiet iconOnly icon={<ChevronLeft />} label="Previous month" onClick={prevMonth} disabled={atMin} />
           <div className="calmonth">{M_FULL[view.m]} {view.y}</div>
-          <button className="calnav" type="button" onClick={nextMonth} disabled={atMax} aria-label="Next month">›</button>
+          <ActionButton tone="neutral" quiet iconOnly icon={<ChevronRight />} label="Next month" onClick={nextMonth} disabled={atMax} />
         </div>
         <div className="caldow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
         <div className="calgrid">
@@ -378,7 +409,7 @@ export function DateCalendar({
             c.d == null ? (
               <div key={`e${i}`} className={c.cls} />
             ) : (
-              <button
+              <button /* button-ok: a calendar day cell — the grid itself, not an action */
                 key={`d${i}`}
                 type="button"
                 className={c.cls}

@@ -118,8 +118,8 @@ export type VendorFunnel = {
  * Postgres for months over a phantom enum label — and the only symptom was a
  * booked count of zero, because `count ?? 0` cannot tell a refusal from an
  * empty result. A caller that must SHOW these numbers to somebody needs the
- * difference; `fetchVendorFunnelTotals` below keeps the plain shape for
- * callers that only aggregate.
+ * difference. (The plain-shape `fetchVendorFunnelTotals`, which folded a refusal into 0, lost its last caller when
+ * My Performance became "Analytics, growing" (#7338 → #7418) and is deleted.)
  */
 export async function fetchVendorFunnelTotalsResult(
   client: {
@@ -181,130 +181,6 @@ export async function fetchVendorFunnelTotalsResult(
     },
     error: null,
   };
-}
-
-export async function fetchVendorFunnelTotals(
-  // Loosely typed to accept either the RLS server client or the admin client —
-  // both share the PostgREST query surface we use here.
-  client: {
-    from: (table: string) => {
-      select: (
-        cols: string,
-        opts?: { count?: 'exact'; head?: boolean },
-      ) => any;
-    };
-  },
-  vendorProfileId: string,
-  sinceIso: string,
-): Promise<{ views: number; inquiries: number; quotes: number; booked: number }> {
-  const [viewsRes, inquiriesRes, quotesRes, bookedRes] = await Promise.all([
-    client
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfileId)
-      .gte('viewed_at', sinceIso),
-    client
-      .from('chat_threads')
-      .select('thread_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfileId)
-      .gte('created_at', sinceIso),
-    client
-      .from('vendor_proposals')
-      .select('proposal_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorProfileId)
-      .in('status', SENT_PROPOSAL_STATUSES as unknown as string[])
-      .gte('created_at', sinceIso),
-    client
-      .from('event_vendors')
-      .select('vendor_id', { count: 'exact', head: true })
-      .eq('marketplace_vendor_id', vendorProfileId)
-      .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
-      .gte('created_at', sinceIso),
-  ]);
-
-  return {
-    views: viewsRes.count ?? 0,
-    inquiries: inquiriesRes.count ?? 0,
-    quotes: quotesRes.count ?? 0,
-    booked: bookedRes.count ?? 0,
-  };
-}
-
-/**
- * Per-service BOOKED count — the ONLY funnel stage that can be honestly
- * segmented by service. `event_vendors.service_id` records the exact
- * vendor_services row a couple booked, so the booked stage can filter to one
- * service; views / inquiries / quotes have no service_id on their source tables
- * and stay shop-level (the My Performance funnel shows a visible note that
- * "views/inquiries/quotes are shop-wide" when a service is selected).
- *
- * Mirrors the booked-stage query in fetchVendorFunnelTotals() EXACTLY
- * (marketplace_vendor_id + BOOKED_EVENT_VENDOR_STATUSES + created_at window),
- * plus `.eq('service_id', serviceId)`. Head/count-only (cheap, indexed via
- * event_vendors_service_id_idx). Same client contract as the funnel.
- */
-export async function fetchServiceBookedCount(
-  client: {
-    from: (table: string) => {
-      select: (
-        cols: string,
-        opts?: { count?: 'exact'; head?: boolean },
-      ) => any;
-    };
-  },
-  vendorProfileId: string,
-  sinceIso: string,
-  serviceId: string,
-): Promise<number> {
-  const { count } = await client
-    .from('event_vendors')
-    .select('vendor_id', { count: 'exact', head: true })
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .eq('service_id', serviceId)
-    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
-    .gte('created_at', sinceIso);
-
-  return count ?? 0;
-}
-
-/**
- * TRUE count of booked rows tied to NO specific service (service_id IS NULL) in
- * a window — the honest denominator for the "Excludes N bookings not tied to a
- * specific service" footnote on the per-service My Performance view.
- *
- * WHY a dedicated reader (not shopTotal − thisService): for a multi-service
- * vendor, shopTotal − thisService = (OTHER services' bookings) + (true
- * NULL-service bookings). Subtracting mislabels other services' bookings as "not
- * tied to a specific service," which is a false statement. This filters
- * `service_id IS NULL` directly, so the footnote counts ONLY genuinely
- * service-less bookings.
- *
- * Mirrors fetchServiceBookedCount() EXACTLY (marketplace_vendor_id +
- * BOOKED_EVENT_VENDOR_STATUSES + created_at window), swapping
- * `.eq('service_id', serviceId)` for `.is('service_id', null)`. Head/count-only.
- * Same client contract as the funnel.
- */
-export async function fetchNullServiceBookedCount(
-  client: {
-    from: (table: string) => {
-      select: (
-        cols: string,
-        opts?: { count?: 'exact'; head?: boolean },
-      ) => any;
-    };
-  },
-  vendorProfileId: string,
-  sinceIso: string,
-): Promise<number> {
-  const { count } = await client
-    .from('event_vendors')
-    .select('vendor_id', { count: 'exact', head: true })
-    .eq('marketplace_vendor_id', vendorProfileId)
-    .is('service_id', null)
-    .in('status', BOOKED_EVENT_VENDOR_STATUSES as unknown as string[])
-    .gte('created_at', sinceIso);
-
-  return count ?? 0;
 }
 
 /** Build the canonical 4-step funnel from the raw totals. */

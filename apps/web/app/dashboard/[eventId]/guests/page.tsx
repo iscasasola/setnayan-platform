@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { readNotCountedNotes } from '@/lib/guest-not-counted.server';
 import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
@@ -13,7 +14,8 @@ import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { isSessionCookieName } from '@/lib/appearance';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
@@ -108,6 +110,7 @@ import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
+import { GuestsExample } from './_components/guests-example';
 
 export const metadata = { title: 'Guests' };
 
@@ -323,6 +326,24 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   */
   if (search.gview === 'share' || search.view === 'share') redirect(guestsSettingsHref(eventId));
   if (search.gview === 'checkin') redirect(`/dashboard/${eventId}/guests/checkin`);
+
+  /*
+    🔑 NO SESSION, NO READ (G6, 2026-11-10). The layout's sign-in redirect does NOT stop this page: Next renders the
+    layout and the page side by side, so a request with no session (signed out, a shared `/guests` link opened in
+    another browser, a link preview) used to start every read below as `anon` — the event row, the floor plan, the
+    not-counted rows, the song requests, the service counts — and each was REFUSED (42501: production errors under
+    `openDashboardEventRow`, `GuestsPage.roleNames`, `loadInviteSetup`, `seating: event_floor_plan`,
+    `supplierCount.*`) before the redirect at the wait threw. Nothing was drawn, but the log read exactly like a
+    signed-in couple whose own reads were refused.
+    The check is the session COOKIE's presence (`isSessionCookieName`, the shape `signedInFromCookie` already
+    tests) — no trip to the database or the auth server, so the page stays two trips deep
+    (`the-guests-page-asks-once.test.ts`). It only answers "is anybody signed in at all"; WHO is signed in is still
+    `getCurrentUser()` (verified) below, and every read is still RLS-checked against the verified token.
+    Guard: `the-guests-page-asks-once.test.ts` test 6.
+  */
+  if (!(await cookies()).getAll().some((c) => isSessionCookieName(c.name))) {
+    redirect(loginRedirectPath(`/dashboard/${eventId}/guests`));
+  }
 
   const supabase = await createClient();
 
@@ -1778,6 +1799,9 @@ function EmptyState({
       <div className="mt-4 flex justify-center">
         <OpenAddGuestTextButton label={finished ? 'Add someone who came' : 'Add a guest'} />
       </div>
+      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the roster on sample rows, greyed under "Example" — only here, after the read
+          was MEASURED and came back with nobody; not for a day that is over (nobody plans a list for it any more). */}
+      {finished ? null : <GuestsExample />}
     </div>
   );
 }

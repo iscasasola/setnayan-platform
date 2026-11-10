@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Gift } from 'lucide-react';
-import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { nextGoalLine, nowLine, type BadgeTile } from '@/lib/shop-badge-row';
@@ -11,7 +11,8 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay, ringGroup, ringPct } from '
 
 /**
  * 🏅 SHOP › BADGES — ONE row of image badges: completed far left, then in progress (the closest saying "N to go"), then not yet (Lane E, 9 Nov). Tap a
- * badge → its sheet: Now · the bar (ladders only) · "Next goal: N — M to go" · the reward box from the ONE reward table
+ * badge → it RISES FULL SCREEN out of itself (Build 5 · Lane A, Shop tab map: "Each Badge → the badge full screen"; the
+ * one `RiseScreen`, bars away, ✕ the exact reverse) with its shipped sheet's content: Now · the bar (ladders only) · "Next goal: N — M to go" · the reward box from the ONE reward table
  * (`lib/badge-rewards.ts`, #7298 with the APPROVED 8 Nov table). No graph (v112). Rating has no goal.
  *
  * The tiles are `shopBadgeRow` (`lib/shop-badge-row.ts`) — built on the shipped tracker, never beside it.
@@ -113,7 +114,7 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
   const reward = tile.row.reward;
   const l = tile.ladder;
   return (
-    <Sheet open onClose={onClose} labelledById={hid} rise>
+    <RiseScreen labelledById={hid} onClose={onClose} data={`badge-${tile.key}`}>
       <div className="space-y-4 px-4 pb-6 pt-2" data-badge-sheet={tile.key}>
         <div className="flex flex-col items-center gap-2 pt-2">
           <ImageBadge shape={tile.shape} face={tile.face} num={tile.num} mini={tile.mini} on={tile.on} uid={`sheet-${tile.key}`} size={120} />
@@ -157,6 +158,6 @@ function BadgeSheet({ tile, onClose }: { tile: BadgeTile; onClose: () => void })
           </Link>
         ) : null}
       </div>
-    </Sheet>
+    </RiseScreen>
   );
 }

@@ -229,7 +229,7 @@ export default async function AboutPage() {
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
               verified Filipino wedding suppliers you message directly, and
-              in-app services — free single-camera livestreaming to YouTube
+              in-app services — single-camera livestreaming to YouTube, included
               (Live Watch), candid photo capture (Papic), a custom wedding
               song (Music Maker), and bespoke monograms. Papic has no limit on
               cameras: every photo uses credits, and your first event starts

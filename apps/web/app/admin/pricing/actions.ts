@@ -14,6 +14,7 @@ import {
   describePriceChange,
   CUSTOMER_PRICE_FIELDS,
 } from '@/lib/retail-price-change';
+import { revalidateAllShopPages } from '@/lib/shop-page-cache';
 
 /**
  * /admin/pricing server actions · per-row catalog editor (2026-08-26 rebuild)
@@ -660,6 +661,7 @@ export async function saveVendorRow(
   });
 
   revalidateCatalogSurfaces();
+  revalidateAllShopPages(); // ⚡ every shop page prices its add-ons from this list
   revalidatePath('/admin/payments');
   return { ok: true, message: `Saved — ₱${priceR.toLocaleString('en-PH')}.` };
 }
@@ -703,6 +705,7 @@ export async function retireVendorRow(
   });
 
   revalidateCatalogSurfaces();
+  revalidateAllShopPages(); // ⚡ every shop page prices its add-ons from this list
   return { ok: true, message: 'Retired — off the public price page.' };
 }
 
@@ -736,6 +739,7 @@ export async function reactivateVendorRow(
   });
 
   revalidateCatalogSurfaces();
+  revalidateAllShopPages(); // ⚡ every shop page prices its add-ons from this list
   return { ok: true, message: 'Back on sale.' };
 }
 

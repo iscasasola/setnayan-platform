@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7602
+# facts: 7604
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     624
-#   col       5489
+#   col       5491
 #   policy    1113
 #   view      9
 #   func      363
@@ -4462,10 +4462,12 @@ col	public.social_posts.status	anon=- authenticated=SIU
 col	public.social_posts.title	anon=- authenticated=SIU
 col	public.social_posts.updated_at	anon=- authenticated=SIU
 col	public.social_publish_settings.autopublish_enabled	anon=- authenticated=SIU
+col	public.social_publish_settings.badge_autopost_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.facebook_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.id	anon=- authenticated=SIU
 col	public.social_publish_settings.instagram_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.last_flush_at	anon=- authenticated=SIU
+col	public.social_publish_settings.milestone_autopost_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.recap_autopost_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.tiktok_enabled	anon=- authenticated=SIU
 col	public.social_publish_settings.updated_at	anon=- authenticated=SIU

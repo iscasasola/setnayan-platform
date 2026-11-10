@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -182,4 +182,54 @@ test('the landmark and the page-slide name are the same element in every tree', 
         'landmark and the element the phone slides must be the same one.',
     );
   }
+});
+
+/*
+  ─── NO PAGE BRINGS A SECOND <main> INTO A LAYOUT THAT ALREADY HAS ONE ───────
+  Build 5 Step 0 row 20 (F2, 2026-11-10): Plan › Booking fees rendered its own
+  `<main>` INSIDE the supplier layout's `<main className="sn-vt-page">` — the
+  same nested-landmark defect as above, one level further in. The tests above
+  only look at the SHELL and the LAYOUTS; nothing looked at what a page puts
+  inside them, so ten files (five supplier pages + the supplier error boundary,
+  three event print/poster pages + the seating error boundary) each shipped a
+  second landmark. An `error.tsx` counts: Next renders it inside its segment's
+  layout, so it lands inside the same `<main>`.
+
+  The layouts are DISCOVERED, not listed — a new layout that takes the landmark
+  is covered the day it ships, and a page added under any of them is checked
+  without anyone remembering to add it here. A page that needs a landmark-like
+  wrapper uses a `<div>` (or `<section>` with a heading); the layout's `<main>`
+  is the page's one landmark.
+*/
+function walkTsx(dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walkTsx(p, out);
+    else if (e.name.endsWith('.tsx') && !e.name.includes('.test.')) out.push(p);
+  }
+  return out;
+}
+
+test('no page or component inside a <main>-bearing layout renders its own <main>', () => {
+  const all = walkTsx(APP);
+  const layouts = all.filter((f) => basename(f) === 'layout.tsx' && /<main\b/.test(code(read(f))));
+  // The anchor: the four trees known on 2026-11-10 — so a broken discovery cannot pass vacuously.
+  for (const known of [...HOSTS, join(APP, 'vendor-dashboard', 'layout.tsx')]) {
+    assert.ok(layouts.includes(known), `${known} no longer found as a <main>-bearing layout — re-check the discovery.`);
+  }
+  const offenders: string[] = [];
+  for (const layout of layouts) {
+    const dir = dirname(layout) + sep;
+    for (const f of all) {
+      if (f === layout || !f.startsWith(dir)) continue;
+      if (/<main\b/.test(code(read(f)))) offenders.push(`${relative(APP, f)}  (inside ${relative(APP, layout)})`);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'These files render a <main> inside a layout that already renders one — a nested landmark. ' +
+      'Make the inner element a <div>:\n  ' +
+      offenders.join('\n  '),
+  );
 });

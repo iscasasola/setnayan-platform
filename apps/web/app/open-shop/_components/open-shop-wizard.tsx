@@ -16,6 +16,7 @@ import {
 } from '@/lib/open-shop-validation';
 import { openShopErrorField, openShopErrorWords, type OpenShopField } from '@/lib/open-shop-error-field';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Fold } from '@/app/_components/fold';
 import { TakenSignIn } from './taken-sign-in';
 import { formatPhoneDigits, phoneBoxState, phoneDigitsFromTyped } from '@/lib/open-shop-phone';
 import { PhoneField } from './phone-field';
@@ -318,6 +319,8 @@ export function OpenShopWizard({
   const formRef = useRef<HTMLFormElement>(null);
   // v18 — the "Events you serve" pills share a row with the label; the house fit pass folds them to icons if it overflows.
   const eventsBulkRef = useRef<HTMLSpanElement>(null);
+  // "Different services for some events? · Customize" — shut until they ask (owner 10 Nov).
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   useFitRow(eventsBulkRef);
 
   const serviceLabel = pickedLabel ?? (service ? (savedServiceLabel ?? serviceLabels?.[service] ?? null) : null);
@@ -850,7 +853,7 @@ export function OpenShopWizard({
                   ) : (
                     <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
                   )}
-                  <button
+                  <button /* button-ok: the Email way is one of the three equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
                     type="button"
                     className={OAUTH_BUTTON_CLASS}
                     aria-pressed={false}
@@ -1080,13 +1083,15 @@ export function OpenShopWizard({
 
               <div className={page2 === 'events' ? `block space-y-3 ${slide}` : 'hidden'} data-open-shop-page="events">
                 <div className="block space-y-2">
-                  {/* ✅ A6 → v18 BUTTON_RULE — two grey pills right of the label, never text links. Each acts on the
-                      events SHOWN (v19: only the ones their services are offered for) and dims when it would do nothing. */}
-                  <span ref={eventsBulkRef} className="flex items-center justify-between gap-2">
-                    <span id="open-shop-events-label" className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                      Events you serve
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5" data-open-shop-events-bulk="">
+                  {/* ✅ A6 → v18 BUTTON_RULE, then the owner's note of 10 Nov ("Button designs"; T19): the label above,
+                      then Select all · Clear as ONE row of two EQUAL-width neutral ActionButtons under it — never two chips
+                      squeezed right of the label. The row changes state as one (`useFitRow`). Each acts on the events
+                      SHOWN (v19: only the ones their services are offered for) and dims when it would do nothing. */}
+                  <span id="open-shop-events-label" className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                    Events you serve
+                  </span>
+                  <span ref={eventsBulkRef} className="block">
+                    <span className="grid grid-cols-2 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-open-shop-events-bulk="">
                       <ActionButton
                         tone="neutral"
                         icon={CheckCheck}
@@ -1129,7 +1134,20 @@ export function OpenShopWizard({
                     </span>
                   )}
                 </div>
-                {/* ④ Under each ticked event, only the services it takes as chips — untick per event (v19). */}
+                {/* ④ Under each ticked event, only the services it takes as chips — untick per event (v19).
+                    🙈 HIDDEN BY DEFAULT (owner 10 Nov, verbatim: "The more comprehensive per part can hide. Only optional
+                    if they wish to customize each event to know what service they can provide."): one quiet row opens it
+                    in place. Default = every picked service at every ticked event (`evOff` stays empty, Continue posts
+                    exactly what it posted). A service on for NO ticked event opens it by itself, so the refusal under the
+                    list is never behind a closed fold. */}
+                <Fold
+                  title="Different services for some events?"
+                  summary={customizeOpen || serviceOnNoEvent ? 'Hide' : 'Customize'}
+                  summaryEnd
+                  open={customizeOpen || serviceOnNoEvent}
+                  onOpenChange={setCustomizeOpen}
+                  data="open-shop-customize"
+                >
                 <ServicesAtEvents
                   events={eventTypeOptions}
                   ticked={events}
@@ -1142,6 +1160,7 @@ export function OpenShopWizard({
                   }}
                   refused={errorField === 'extras'}
                 />
+                </Fold>
                 {/* A refusal for a list this page no longer holds — drawn only when the block above cannot name one. */}
                 {errorField === 'extras' && !serviceOnNoEvent ? fieldError('extras') : null}
               </div>
@@ -1365,45 +1384,44 @@ export function OpenShopWizard({
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
               data-open-shop-bar=""
             >
+              {/* 🔘 THE BUTTON RULE (T19, Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons … is not followed
+                  yet"): Back, Reload, the not-yet press and Continue are the house ActionButton, the same parts as every
+                  onboarding flow's step bar (step-bar.tsx). Only the last step's submit stays the SubmitButton — it
+                  carries the form's pending word and the no-touch veil. */}
               {step > 1 ? (
-                <button
-                  type="button"
-                  onClick={back}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
-                  style={{ borderColor: 'var(--m-line)' }}
-                  aria-label="Back"
-                >
-                  <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                </button>
+                <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="open-shop-back" />
               ) : null}
               {stale ? (
-                <button
-                  type="button"
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={RotateCw}
+                  label="Tap Reload to keep going"
+                  className="ml-auto"
                   onClick={reloadKeepingDraft}
-                  className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm"
-                  style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-                  data-open-shop-reload=""
-                >
-                  <RotateCw className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Tap Reload to keep going
-                </button>
+                  data-testid="open-shop-reload"
+                />
               ) : step < TOTAL_STEPS ? (
                 quiet ? (
                   /* Not yet — still a real press: it says what is missing, under its box. */
-                  <button
-                    type="button"
+                  <ActionButton
+                    tone="neutral"
+                    icon={ArrowRight}
+                    label={step === 2 ? 'Pick a service to continue' : 'Continue'}
+                    className="ml-auto"
                     onClick={next}
-                    className="inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm font-medium"
-                    style={{ background: 'var(--m-paper-2)', color: 'var(--m-ink)' }}
-                    data-open-shop-quiet=""
-                  >
-                    {step === 2 ? 'Pick a service to continue' : 'Continue'}
-                  </button>
+                    data-testid="open-shop-quiet"
+                  />
                 ) : (
-                  <button type="button" onClick={next} className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-open-shop-continue="">
-                    Continue
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={ArrowRight}
+                    label="Continue"
+                    className="ml-auto"
+                    onClick={next}
+                    data-testid="open-shop-continue"
+                  />
                 )
               ) : (
                 <SubmitButton className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">

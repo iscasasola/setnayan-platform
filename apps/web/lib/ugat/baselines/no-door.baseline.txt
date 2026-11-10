@@ -33,6 +33,7 @@
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/date-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/empty-looks-lab	# first run 2026-11-10 · internal (dev, prototypes) · Build 5 Lane H empty-look lab; 404 in production, reached only by typing its address
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -64,6 +65,7 @@
 /dev/search-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/selfie-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-back-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/shop-card-lab	# 2026-11-10 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-layout-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-page-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/shop-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

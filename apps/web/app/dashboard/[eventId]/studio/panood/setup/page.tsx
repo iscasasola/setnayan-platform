@@ -732,7 +732,7 @@ function SetupStatus({ eventId }: { eventId: string }) {
       <div className="sn-row p-3 text-xs text-ink/60">
         <p className="font-medium text-ink/75">The multi-camera control room — the paid upgrade</p>
         <p className="mt-1">
-          Going live with one camera is free. The Setnayan multi-camera control
+          Going live with one camera is included. The Setnayan multi-camera control
           room — switch between several phone cameras, mark highlights, cut to
           standby, with broadcast-style overlays — is the paid upgrade. See what
           it does on the{' '}
@@ -831,7 +831,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
           The multi-camera control room
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
-          Going live with one camera from your own phone or OBS is free. The Setnayan
+          Going live with one camera from your own phone or OBS is included. The Setnayan
           multicam control room is the paid upgrade: one broadcaster who switches between
           several phone cameras, marks highlights, and cuts to standby — each camera a
           phone running the Live Watch operator web client, no install. Open the control room

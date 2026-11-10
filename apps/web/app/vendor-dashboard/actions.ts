@@ -55,6 +55,7 @@ import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG, shopNameTooLong } from '@/lib/business-slug';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -800,6 +801,7 @@ export async function updateVendorProfileField(
     }
   }
 
+  revalidateShopPage(shopId);
   revalidatePath('/vendor-dashboard/shop');
   // Your details · Your page · Your collections draw the same columns (step 5).
   revalidatePath('/vendor-dashboard/profile');
@@ -1217,6 +1219,7 @@ export async function updateVendorWebsiteField(
     return { ok: false, error: error.message };
   }
 
+  revalidateShopPage(shopId);
   revalidatePath('/vendor-dashboard/shop');
   // Your details · Your page · Your collections draw the same columns (step 5).
   revalidatePath('/vendor-dashboard/profile');
@@ -1298,6 +1301,7 @@ export async function applyVendorPageDraft(
     .eq('vendor_profile_id', shopId);
   if (error) return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
 
+  revalidateShopPage(shopId);
   revalidatePath('/vendor-dashboard/website');
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/shop');
@@ -1358,6 +1362,7 @@ export async function updateBusinessStartDate(formData: FormData): Promise<void>
       clearing: value === null,
     });
   }
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/shop');
   // Your details · Your page · Your collections draw the same columns (step 5).
   revalidatePath('/vendor-dashboard/profile');

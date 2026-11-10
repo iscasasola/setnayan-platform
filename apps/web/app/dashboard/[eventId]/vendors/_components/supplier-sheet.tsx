@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Check, Heart, MapPin, MessageCircle, RotateCw, Share2, Star } from 'lucide-react';
+import { Check, Heart, MapPin, MessageCircle, RotateCw, Star, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ActionButton } from '@/components/action-button';
@@ -457,7 +457,7 @@ export default function SupplierSheet({
                   onClick={toggleFollow}
                 />
               ) : null}
-              {data?.sharePath ? <ActionButton tone="neutral" icon={Share2} label="Share" onClick={() => void share()} /> : null}
+              {data?.sharePath ? <ActionButton tone="neutral" icon={Share} label="Share" onClick={() => void share()} /> : null}
             </div>
             {said ? (
               <p className={`mt-1.5 flex flex-wrap items-center gap-2 text-[12px] ${said.tone === 'error' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/70'}`} role="status">

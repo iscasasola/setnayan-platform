@@ -29,6 +29,7 @@ import { NavProgress } from './_components/nav-progress';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
+import { pickNavSlots, SITE_NAV_SLOT_PREFIX } from '@/lib/nav-slot-pick';
 import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
@@ -772,7 +773,9 @@ export default async function RootLayout({
               and pays for it in its own route chunk; the marketing nav reuses
               the lazily-loaded HomeOverlays chunk it already had. See
               `_components/auth/sign-in-here.tsx`. */}
-          <SiteChrome navSlots={navSlots} />
+          {/* ⚡ Only the `public.site-nav.*` labels it reads — the whole registry map was ~31 KB of every page's
+              HTML (lib/nav-slot-pick.ts). */}
+          <SiteChrome navSlots={pickNavSlots(navSlots, { prefixes: [SITE_NAV_SLOT_PREFIX] })} />
           {children}
           {/* SiteFooterChrome = the ONE persistent reskin footer, mounted
               AFTER {children} so it sits at the end of every marketing page in

@@ -48,3 +48,73 @@ export const LAB_INSPIRATION_TILES: InspirationTile[] = [
   ...LOOKS.styling.map((l) => ({ ...l, card: { label: 'Reception styling', priceLabel: `from ${formatPhpRounded(65_000)}`, anchorId: cardAnchorId('S89S-LABSTYL01', 'svc-2') } })),
   { id: 'l6', url: '/realstories/john-jane-g3.jpg', part: 'Centrepieces', card: null },
 ];
+
+/**
+ * 🃏 /dev/shop-preview-lab?view=card — the SERVICE CARD GROWN (Build 5 Lane C) on one full card: every section the grown
+ * card draws (the whole inclusion list + crew, not included + serves, the record, its reviews, nine photos so the "+N"
+ * tile shows, a couple's photo, the clip, inspiration). Made-up names; the repo's own sample pictures. DEV-ONLY.
+ */
+export const LAB_GROWN_CARD: ServiceCard = withInspirationLooks(
+  {
+    ...card('svc-g1', 'S89S-LABGROW01', 'Signature Wedding Bar', `from ${formatPhpRounded(94_000)}`, [
+      'Signature drinks menu',
+      'Two bartenders',
+      'Mobile bar',
+    ]),
+    inclusionsFull: [
+      'Signature drinks menu, made with you',
+      'Two bartenders and one bar back',
+      'Mobile bar with lights',
+      'Glassware for 150 guests',
+      'Ice, garnish and mixers',
+      'Five hours of service',
+    ],
+    inclusionsMore: 3,
+    meta: 'Crew of 3 · crew meal not included',
+    discountLabel: '10% off · early booking',
+    priceDetail: `${formatPhpRounded(620)} / guest · min 150 guests`,
+    notIncluded: ['Crew meal not included', `Transport: ${formatPhpRounded(1500)}`],
+    photos: [
+      '/realstories/jack-jill-g1.jpg',
+      '/realstories/jack-jill-g2.jpg',
+      '/realstories/jack-jill-g3.jpg',
+      '/realstories/jack-rose-g1.jpg',
+      '/realstories/jack-rose-g2.jpg',
+      '/realstories/jack-rose-g3.jpg',
+      '/realstories/john-jane-g1.jpg',
+      '/realstories/john-jane-g2.jpg',
+      '/realstories/john-jane-g3.jpg',
+    ],
+    videoUrl: '/realstories/jack-jill-vclip.mp4',
+    record: {
+      bookedCount: 12,
+      mix: [
+        { eventType: 'wedding', label: 'Wedding', n: 8, pct: 67 },
+        { eventType: 'debut', label: 'Debut', n: 4, pct: 33 },
+      ],
+      ledger: [
+        { label: 'Wedding', month: 'Oct 2026', pax: '100–199 pax' },
+        { label: 'Debut', month: 'Aug 2026', pax: '100–199 pax' },
+      ],
+      milestones: { earned: [10], next: 25 },
+      optionSampleN: 0,
+      optionPicks: [],
+      documentedEvents: 3,
+    },
+    recordRating: { avg: 4.8, count: 12 },
+    givesSetnayanGift: true,
+    coupleLooks: [{ id: 'cl1', url: '/realstories/maria-juan-g1.jpg', credit: 'Ana & Ben · Feb 2027', verifiedBooking: true }],
+    reviews: {
+      hosts: {
+        count: 12,
+        average: 4.8,
+        quote: 'The signature drinks were the talk of the night.',
+        by: 'P. & M. · Oct 2026',
+        verifiedBooking: true,
+      },
+      guests: null,
+    },
+  },
+  LOOKS.bouquets,
+  cardAnchorId('S89S-LABGROW01', 'svc-g1'),
+);

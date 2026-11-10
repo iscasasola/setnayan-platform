@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Heart, LogIn, Mail, MailCheck, Plus, Tag, Trash2, X } from 'lucide-react';
 
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, useFitRow } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -60,6 +60,9 @@ type Screen = 'invite' | 'details' | `ed:${ClaimDetailKey}` | `card:${number}` |
 
 type Picked = { category: string; leaf: string | null; label: string; tileId: string | null; fromRecord: boolean };
 type Card = { name: string; price: string; inclusions: string[]; bundled: boolean; specialties: Record<string, string[]> };
+/** What pressing Claim it fills "Your role at the shop" with (owner 10 Nov: "If that is pressed, this should be owner"). */
+export const CLAIM_OWNER_ROLE = 'Owner';
+
 type Draft = {
   screen: Screen;
   ticked: ClaimDetailKey[];
@@ -67,6 +70,8 @@ type Draft = {
   who: string;
   phone: string;
   role: string;
+  /** "Your role at the shop" was filled Owner by pressing Claim it (not typed) — the account slide says why. */
+  roleFromClaim?: boolean;
   price: string;
   inclusions: string[];
   plan: { label: string; amount: string }[];
@@ -207,6 +212,9 @@ export function ClaimDoor({
   }, [d, record.token]);
 
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
+  // The invite slide's two equal-weight choices: one row, one state (icon + word → word → icon).
+  const inviteRowRef = useRef<HTMLDivElement>(null);
+  useFitRow(inviteRowRef);
   // 🎁 Setnayan's own personal invite (owner 7 Nov: "yes"): no couple to "see yours", no event, nothing booked — so
   // its words name the Setnayan team, it shows the offer, and it has no bundle slide.
   const team = record.from === 'setnayan';
@@ -305,14 +313,7 @@ export function ClaimDoor({
             aria-label={`${label} ${j + 1}`}
             onChange={(e) => onChange(value.map((x, k) => (k === j ? e.target.value : x)))}
           />
-          <button
-            type="button"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5"
-            aria-label={`Remove ${label.toLowerCase()} ${j + 1}`}
-            onClick={() => onChange(value.filter((_, k) => k !== j))}
-          >
-            <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Remove ${label.toLowerCase()} ${j + 1}`} onClick={() => onChange(value.filter((_, k) => k !== j))} />
         </div>
       ))}
       <span>
@@ -397,10 +398,12 @@ export function ClaimDoor({
             </span>
           </InfoTip>
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* 🔘 Owner 10 Nov, "Button designs" (T19): the two equal-weight choices sit in ONE row at EQUAL widths, both
+            neutral, and change state as one (`useFitRow`). Claim it is the main verb — the bar's filled button. */}
+        <div ref={inviteRowRef} className={`grid gap-2 [&_.ab]:w-full [&_.ab]:justify-center ${signedInAs ? 'grid-cols-1' : 'grid-cols-2'}`} data-claim-door-choices="">
           {signedInAs ? null : <ActionButton tone="neutral" icon={LogIn} label="Sign in & claim" href={signInHref} />}
           {declineAction ? (
-            <form action={declineAction}>
+            <form action={declineAction} className="contents">
               <input type="hidden" name="claim_token" value={record.token} />
               <ActionButton tone="neutral" type="submit" icon={<X aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label="I’m not this supplier" />
             </form>
@@ -410,7 +413,15 @@ export function ClaimDoor({
         </div>
       </div>
     );
-    primary = { label: 'Confirm — continue', onClick: next };
+    // "Claim it" (owner 10 Nov): pressing it says "I run this business" — so "Your role at the shop" on the account
+    // slide is filled Owner (never over a role they already typed), and the draft carries it through Google / Apple.
+    primary = {
+      label: 'Claim it',
+      onClick: () => {
+        if (!d.role.trim()) set({ role: CLAIM_OWNER_ROLE, roleFromClaim: true });
+        next();
+      },
+    };
   } else if (d.screen === 'details') {
     title = 'These are your business details.';
     line = `Tick what is wrong. The rest stays as ${record.inviterName} ${team ? 'set it up' : 'entered it'}.`;
@@ -770,7 +781,25 @@ export function ClaimDoor({
     title = 'Your account';
     line = signedInAs ? `Signed in as ${signedInAs}.` : 'This creates your Setnayan account.';
     const returnTo = claimDoorHref(record.token) + '&step=account';
-    const roleBox = field('Your role at the shop', <Box value={d.role} maxLength={64} placeholder="e.g. Owner" autoComplete="organization-title" onChange={(e) => set({ role: e.target.value })} />, undefined, 'optional');
+    // Claim it was pressed → the role reads Owner, plain ink, still editable, with the hint saying why (owner 10 Nov).
+    const roleHint =
+      d.roleFromClaim && d.role.trim() === CLAIM_OWNER_ROLE ? (
+        <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-role-why="">
+          You pressed Claim it, so you run this business. Change it if you are not the owner.
+        </span>
+      ) : undefined;
+    const roleBox = field(
+      'Your role at the shop',
+      <Box
+        value={d.role}
+        maxLength={64}
+        placeholder="e.g. Owner"
+        autoComplete="organization-title"
+        onChange={(e) => set({ role: e.target.value, roleFromClaim: false })}
+      />,
+      roleHint,
+      d.roleFromClaim ? undefined : 'optional',
+    );
     if (signedInAs) {
       body = (
         <div className="grid gap-4" data-claim-door-account="">
@@ -884,7 +913,7 @@ export function ClaimDoor({
               <OAuthButtonRow next={returnTo} withAccountType defaultAccountType="vendor" />
             )
           ) : null}
-          <button
+          <button /* button-ok: the Email way is one of the equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
             type="button"
             className={OAUTH_BUTTON_CLASS}
             aria-pressed={false}
@@ -967,19 +996,14 @@ export function ClaimDoor({
                 <input type="hidden" name="claim_token" value={record.token} />
                 <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
                 {at > 0 ? (
-                  <button type="button" onClick={back} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5" style={{ borderColor: 'var(--m-line)' }} aria-label="Back">
-                    <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="claim-door-back" />
                 ) : null}
                 {d.screen === 'account' && (signedInAs || emailForm) ? (
                   <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
                     Claim it — open my shop
                   </SubmitButton>
                 ) : primary ? (
-                  <button type="button" onClick={primary.onClick} className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" data-claim-door-continue="">
-                    {primary.label}
-                    <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  </button>
+                  <ActionButton tone="brand" main icon={ArrowRight} label={primary.label} className="ml-auto" onClick={primary.onClick} data-testid="claim-door-continue" />
                 ) : null}
               </div>
             </form>

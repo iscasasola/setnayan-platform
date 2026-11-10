@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
@@ -108,7 +108,10 @@ export function SupplierSetupFolds({
     <section data-today-setup="" data-tour="today-setup" aria-label="Get your shop live" className="pb-2">
       <div className="flex min-h-11 items-center gap-2" data-first-row="">
         <p className="home-k2 flex-1">Get your shop live</p>
-        {gear}
+        {/* 🔑 KEYED: `gear` comes from the server page (`<TodaySettings />`) as a lazy RSC element, so it resolves only while
+            this row's children array is reconciled — unkeyed there, React warns "Each child in a list should have a unique
+            key prop" (2026-11-10). One keyed Fragment makes it the Fragment's only child, which is never key-checked. */}
+        {gear ? <Fragment key="gear">{gear}</Fragment> : null}
       </div>
       <p className="text-[24px] font-bold leading-tight text-ink" data-setup-headline="" aria-live="polite">
         {setupHeadline(view)}

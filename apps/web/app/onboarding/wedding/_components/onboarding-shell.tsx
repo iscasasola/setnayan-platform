@@ -42,7 +42,11 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronLeft, ChevronsRight, Heart, Infinity as InfinityIcon, Minus, Pencil, Plus, RotateCw, Send, ShoppingBag, Sparkles, Trash2, Wallet, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { StepBar } from '@/app/onboarding/_shared/step-bar';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { StepPick } from '@/app/onboarding/_shared/step-field';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
@@ -116,14 +120,14 @@ import { WelcomeMoments } from './welcome-moments';
 import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
-import { formatCount } from '@/lib/format-number';
-import { moveSelf, seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
+import { countNoun, formatCount } from '@/lib/format-number';
+import { moveSelf, seatCouple, seatSelf, takeCouple, type CoupleCarry, type SelfName } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { PasswordField } from '@/app/_components/password-field';
-import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
+import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingEventName, weddingEventNameReady, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -180,7 +184,7 @@ const NO_SETUP_STEPS: readonly SetupCardId[] = [];
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_eventname','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -311,7 +315,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
   setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_guests:'Continue', setup_more:'Continue',
   // 🧭 The approved wedding cards (lib/onboarding/wedding-cards.ts).
-  w_names:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
+  w_names:'Continue', w_eventname:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -748,7 +752,7 @@ function RefineStep({
     is the graceful fallback when no photo is set / it 404s before generation. */
 function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string; label: string; photo: string | null; selected: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`pcard refine-card${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
+    <button /* button-ok: a photo choice tile — the picture is the answer */ type="button" className={`pcard refine-card${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg refine-img ${photo ? 'haspic' : 'imgph'}`} style={photo ? { backgroundImage: `url(${photo})` } : undefined}>
         {photo ? null : <span className="g">{emoji}</span>}
       </div>
@@ -764,7 +768,7 @@ function RefineCard({ emoji, label, photo, selected, onClick }: { emoji: string;
     reception-setting + AI-team basics pickers (the refine cards use RefineCard above). */
 function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; label: string; photoKey?: string; selected: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={`pcard${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
+    <button /* button-ok: a photo choice tile — the picture is the answer */ type="button" className={`pcard${selected ? ' sel' : ''}`} aria-pressed={selected} onClick={onClick}>
       <div className={`pimg ${photoKey ? 'haspic' : 'imgph'}`} style={photoKey ? { backgroundImage: `url(${PREFS_ASSET(photoKey)})` } : undefined}>
         {photoKey ? null : <span className="g">{emoji}</span>}
       </div>
@@ -830,7 +834,7 @@ function PickCard({ cat, label, desc, selected, photoUrl, onClick }: { cat: stri
   return (
     // key flips with `selected` so the button remounts on each pick → the .sn-bounce
     // selection-feedback animation replays every time this card becomes selected.
-    <button key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
+    <button /* button-ok: a service photo tile — the picture is the answer */ key={selected ? 'on' : 'off'} type="button" className={`svccard${selected ? ' sel sn-bounce' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
       <span className="svcph" style={{ backgroundImage: `url("${bg}")` }} />
       <span className="svcck" aria-hidden="true">✓</span>
       <span className="svclb">{label}</span>
@@ -1039,7 +1043,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const clock = `${pad(Math.floor(rem / 3600000))}:${pad(Math.floor((rem % 3600000) / 60000))}:${pad(Math.floor((rem % 60000) / 1000))}`;
   return (
-    <div className="cd" role="timer" aria-label={`${days} days until your wedding`}>
+    <div className="cd" role="timer" aria-label={`${countNoun(days, 'day', 'days')} until your wedding`}>
       <div className="cd-main"><span className="cd-days">{days}</span><span className="cd-dayslbl">{days === 1 ? 'day' : 'days'} to go</span></div>
       <div className="cd-clock" aria-hidden="true">{clock}</div>
     </div>
@@ -1206,8 +1210,8 @@ export function OnboardingShell({
    * keep precedence. Already safeNext()-validated in page.tsx.
    */
   nextPath?: string | null;
-  /** The signed-in account's own display name — seats THEIR slot once they say bride or groom. */
-  selfName?: string | null;
+  /** The signed-in account's own name (formal first + last, else the display name) — seats THEIR slot once they say bride or groom. */
+  selfName?: SelfName;
   /**
    * Services-step view-model (Papic + Setnayan AI), resolved server-side in
    * page.tsx. NULL = the flag is off; the screen is already filtered out of the
@@ -1998,6 +2002,32 @@ export function OnboardingShell({
   useEffect(() => {
     coupleCarry.current = takeCouple();
   }, []);
+  /*
+   * 🪪 THE SIDE ALREADY PICKED IS FILLED TOO (Lane P, owner 10 Nov, verbatim: *"It asked me who i am and
+   * it did not fill it up."*). `selectRole` seats your row only at the moment of a pick — so a resumed
+   * draft (or a role carried from the old role screen) arrived with "Groom" already chosen and the
+   * GROOM · YOU boxes empty, and nothing ever filled them. Once, after the draft is read, the picked
+   * side takes the account name through the SAME seat (`seatSelf`: own row only, empty boxes only,
+   * never the partner's, never over anything typed). A carried couple still wins, through `seatCouple`.
+   */
+  const seatedOnArrival = useRef(false);
+  useEffect(() => {
+    if (!hydrated || seatedOnArrival.current) return;
+    seatedOnArrival.current = true;
+    setState((s) => {
+      const seated: Partial<Record<'brideFirstName' | 'groomFirstName' | 'brideLastName' | 'groomLastName', string>> =
+        coupleCarry.current ? seatCouple(s.role ?? '', coupleCarry.current, s) : seatSelf(s.role ?? '', selfName, s);
+      if (Object.keys(seated).length === 0) return s;
+      return {
+        ...s,
+        ...(seated.brideFirstName !== undefined ? { brideFirstName: sanitizeName(seated.brideFirstName) } : {}),
+        ...(seated.groomFirstName !== undefined ? { groomFirstName: sanitizeName(seated.groomFirstName) } : {}),
+        ...(seated.brideLastName !== undefined ? { brideLastName: sanitizeName(seated.brideLastName) } : {}),
+        ...(seated.groomLastName !== undefined ? { groomLastName: sanitizeName(seated.groomLastName) } : {}),
+      };
+    });
+  }, [hydrated, selfName]);
+
   const selectRole = (r: OnboardingRole) =>
     setState((s) => {
       // A carried couple wins; otherwise the person's OWN slot starts from their account name
@@ -2278,6 +2308,9 @@ export function OnboardingShell({
       case 'w_names':
         // "Which one is you?" answered, and both first names (they go on the invitation); last names optional.
         return weddingNamesReady(state);
+      case 'w_eventname':
+        // "Name your wedding" (Lane P): a name with a letter or digit — prefilled from the names, so it starts ready.
+        return weddingEventNameReady(state);
       case 'w_kind':
         return state.kind !== null && (state.kind === 'civil' || state.faith.length >= 1);
       case 'w_area':
@@ -2547,7 +2580,7 @@ export function OnboardingShell({
       hasDate && {
         k: 'date',
         t: days ? `⏱ ${days}d` : '⏱ Date',
-        cap: days ? `${days} days until you become one.` : 'Your countdown is on your page.',
+        cap: days ? `${countNoun(days, 'day', 'days')} until you become one.` : 'Your countdown is on your page.',
       },
       recapReception && { k: 'venue', t: '🏛 ' + recapReception, cap: 'Your reception — with a map — is on your page.' },
     ].filter((c): c is { k: string; t: string; cap: string } => Boolean(c));
@@ -2619,6 +2652,8 @@ export function OnboardingShell({
   const RESUME_NEXT = '/onboarding/wedding?resume=1';
   const buildCommitPayload = useCallback(
     (s: OnboardingState): OnboardingCommitPayload => ({
+      // "Name your wedding" (Lane P) — exactly what the step showed: the couple's words, or the names it follows.
+      eventName: weddingEventName(s),
       brideFirstName: s.brideFirstName,
       brideLastName: s.brideLastName,
       groomFirstName: s.groomFirstName,
@@ -3001,7 +3036,7 @@ export function OnboardingShell({
                 </span>
               </Link>
             ) : (
-              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back">
+              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back"> {/* button-ok: the step frame's ‹ Back ring in the header (T32 head, shared btn-ring — first-screen-can-cancel.test.ts) */}
                 <span className="btn-ring-face" aria-hidden>
                   <ChevronLeft size={16} strokeWidth={2} />
                 </span>
@@ -3021,14 +3056,11 @@ export function OnboardingShell({
             {/* Owner-uploaded background music (owner 2026-06-08) — only when admin set a
                 track. margin-left:auto right-aligns it; sits beside Skip when shown. */}
             {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} srcs={bgMusicUrls} /> : null}
-            <button
-              className="skip"
-              type="button"
-              onClick={() => go(1)}
-              style={{ display: CAN_SKIP_BY_ID[activeId] ? 'inline-block' : 'none' }}
-            >
-              Skip
-            </button>
+            {/* 🔘 THE BUTTON RULE (T19 · owner 10 Nov: "the rule or uniform buttons … is not followed yet"): Skip is the
+                house ActionButton, quiet — a secondary that does not compete with the step's Continue. */}
+            {CAN_SKIP_BY_ID[activeId] ? (
+              <ActionButton tone="neutral" quiet icon={ChevronsRight} label="Skip" className="ml-auto" onClick={() => go(1)} />
+            ) : null}
           </div>
           {activeId === 'welcome' && !momentsActive && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar" style={momentsActive ? { visibility: 'hidden' } : undefined}>
@@ -3115,17 +3147,14 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <div className="stack" data-single="">
-                {ROLE_OPTIONS.map((o) => (
-                  // key includes `role` on the selected card so it remounts when the
-                  // selection moves → the .sn-bounce replays on each newly-picked role.
-                  <button type="button" key={role === o.value ? `${o.value}-sel-${role}` : o.value} className={`opt${sel(role === o.value)}${role === o.value ? ' sn-bounce' : ''}`} aria-pressed={role === o.value} onClick={() => selectRole(o.value)}>
-                    <div className="otrow">
-                      <div className="ot">{o.title}</div>
-                      <span className="check" />
-                    </div>
-                    <div className="od">{o.desc}</div>
-                  </button>
-                ))}
+                {/* 🔘 ONE DROPDOWN (Lane P slice 5 — any set of choices is ONE PickMenu, owner 10 Nov); each choice keeps its line as the hint. */}
+                <StepPick
+                  label="You are"
+                  value={role ?? null}
+                  options={ROLE_OPTIONS.map((o) => ({ key: o.value, label: o.title, hint: o.desc }))}
+                  onPick={(k) => selectRole(k as Parameters<typeof selectRole>[0])}
+                  dataAttr="data-wedding-role"
+                />
               </div>
             </div>
           </section>
@@ -3144,17 +3173,14 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               <div className="stack" data-single="">
-                {KIND_OPTIONS.map((o) => (
-                  // key includes `kind` on the selected card so it remounts when the
-                  // selection moves → the .sn-bounce replays on each newly-picked kind.
-                  <button type="button" key={kind === o.value ? `${o.value}-sel-${kind}` : o.value} className={`opt${sel(kind === o.value)}${kind === o.value ? ' sn-bounce' : ''}`} aria-pressed={kind === o.value} onClick={() => selectKind(o.value)}>
-                    <div className="otrow">
-                      <div className="ot">{o.title}</div>
-                      <span className="check" />
-                    </div>
-                    <div className="od">{o.desc}</div>
-                  </button>
-                ))}
+                {/* 🔘 ONE DROPDOWN (Lane P slice 5 — any set of choices is ONE PickMenu, owner 10 Nov); each choice keeps its line as the hint. */}
+                <StepPick
+                  label="What kind of wedding?"
+                  value={kind ?? null}
+                  options={KIND_OPTIONS.map((o) => ({ key: o.value, label: o.title, hint: o.desc }))}
+                  onPick={(k) => selectKind(k as Parameters<typeof selectKind>[0])}
+                  dataAttr="data-wedding-kind-pick"
+                />
               </div>
             </div>
           </section>
@@ -3176,34 +3202,31 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               {faithView.mode === 'civil' ? null : (
-                <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
-                  {FAITH_CHIPS.map((c, _i, all) => {
-                    // Gate on the launch status when we have it (admin
-                    // /admin/wedding-types); fall back to the built-in soon
-                    // flag if the status read was unavailable.
-                    const soon = activeFaiths ? !activeFaiths.includes(c.value) : c.soon;
-                    const picked = faith.includes(c.value);
+                <div className="stack" data-single="">
+                  {/* 🔘 ONE DROPDOWN (Lane P fix — any set of choices is ONE PickMenu, owner 10 Nov; it was a row of
+                      chips). An interfaith wedding ticks two (`picked`, the list stays open until Done); a single
+                      tradition is one pick. A not-yet faith is listed greyed with "Coming soon" — and left out inside
+                      the iPhone/Android app (the chips' `data-coming-soon`), unless NO faith is pickable (a failed
+                      status read), when hiding them all would leave the step with nothing on it. */}
+                  {(() => {
+                    const isSoon = (c: (typeof FAITH_CHIPS)[number]) => (activeFaiths ? !activeFaiths.includes(c.value) : c.soon);
+                    const anyPickable = FAITH_CHIPS.some((c) => !isSoon(c));
+                    const options = FAITH_CHIPS.filter((c) => !(storeShell && anyPickable && isSoon(c))).map((c) => ({
+                      key: c.value,
+                      label: c.label,
+                      ...(isSoon(c) ? { disabledNote: 'Coming soon' } : {}),
+                    }));
                     return (
-                      <span
-                        // key folds in this chip's selected state so it remounts when it
-                        // becomes selected → the .sn-bounce replays on each pick.
-                        key={picked ? `${c.value}-sel` : c.value}
-                        className={`chip${sel(picked)}${soon ? ' is-soon' : ''}${picked ? ' sn-bounce' : ''}`}
-                        onClick={soon ? undefined : () => selectFaith(c.value)}
-                        aria-disabled={soon || undefined}
-                        // A not-yet faith is a "soon" chip: hidden inside the
-                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR)
-                        // — unless NO faith is pickable (a failed status read), when
-                        // hiding them all would leave the step with nothing on it.
-                        data-coming-soon={
-                          soon && all.some((x) => (activeFaiths ? activeFaiths.includes(x.value) : !x.soon)) ? '' : undefined
-                        }
-                      >
-                        {c.label}
-                        {soon && <span className="soon">soon</span>}
-                      </span>
+                      <StepPick
+                        label={faithView.h1}
+                        value={faithView.mode === 'mixed' ? null : (faith[0] ?? null)}
+                        {...(faithView.mode === 'mixed' ? { picked: faith, placeholder: 'Pick two' } : {})}
+                        options={options}
+                        onPick={(k) => selectFaith(k as OnboardingFaith)}
+                        dataAttr="data-wedding-faith"
+                      />
                     );
-                  })}
+                  })()}
                 </div>
               )}
             </div>
@@ -3246,24 +3269,20 @@ export function OnboardingShell({
                 {monoReady && state.monogramFinalized ? (
                   <div className="mono-locked">
                     <span className="mono-locked-tag"><span className="ic" aria-hidden="true">✓</span> Monogram set</span>
-                    <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
-                      <span className="ic" aria-hidden="true">{'↻'}</span> Change design
-                    </button>
+                    <ActionButton tone="neutral" icon={RotateCw} label="Change design" onClick={cycleDesign} />
                   </div>
                 ) : (
                   <>
-                    <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
-                      <span className="ic" aria-hidden="true">{'↻'}</span> Generate another design
-                    </button>
-                    <button
-                      type="button"
-                      className="mono-btn mono-use"
+                    <ActionButton tone="neutral" icon={RotateCw} label="Generate another design" onClick={cycleDesign} />
+                    <ActionButton
+                      tone="brand"
+                      main
+                      icon={Check}
+                      label="Use this monogram"
                       onClick={() => patch({ monogramFinalized: true })}
                       disabled={!monoReady}
                       title={monoReady ? undefined : 'Add both first names to see your monogram'}
-                    >
-                      Use this monogram
-                    </button>
+                    />
                   </>
                 )}
               </div>
@@ -3347,8 +3366,8 @@ export function OnboardingShell({
               </div>
             </div>
             <div className="tapzone">
-              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={loveStart}>Tell it</button>
-              <button type="button" className="ghost" onClick={loveSkip}><u>Add it later</u></button>
+              <ActionButton tone="brand" main icon={ArrowRight} label="Tell it" className="mb-1.5 w-full justify-center" onClick={loveStart} />
+              <ActionButton tone="neutral" quiet icon={ChevronsRight} label="Add it later" onClick={loveSkip} />
             </div>
           </section>
 
@@ -3370,14 +3389,12 @@ export function OnboardingShell({
                 />
               </div>
               <div className="sparkchips">
-                {[
+                <PickMenu label="What do you remember first?" value={state.loveStory.spark_anchor || null} buttonText="Pick one" options={[
                   { stem: '☂ the weather — ', label: '☂ the weather' },
                   { stem: '🎵 the song that was playing — ', label: '🎵 a song' },
                   { stem: '📍 the place — ', label: '📍 the place' },
                   { stem: '😅 the awkward part — ', label: '😅 the awkward part' },
-                ].map((c) => (
-                  <button type="button" key={state.loveStory.spark_anchor === c.stem ? `${c.stem}-sel` : c.stem} className={`sc${sel(state.loveStory.spark_anchor === c.stem)}${state.loveStory.spark_anchor === c.stem ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.spark_anchor === c.stem} onClick={() => dropSpark(c.stem)}>{c.label}</button>
-                ))}
+                ].map((c) => ({ key: c.stem, label: c.label }))} onPick={(k) => dropSpark(k as Parameters<typeof dropSpark>[0])} dataAttr="data-love-spark" />
               </div>
               <div className={`followup${state.loveStory.spark.trim() ? ' show' : ''}`}>
                 <div className="fu-q">Why did that stick?</div>
@@ -3414,14 +3431,12 @@ export function OnboardingShell({
                 />
               </div>
               <div className="sparkchips">
-                {[
+                <PickMenu label="What almost kept you apart?" value={state.loveStory.obstacle_kind || null} buttonText="Pick one" options={[
                   { kind: 'distance', label: 'Time apart?' },
                   { kind: 'family', label: 'Family questions?' },
                   { kind: 'different_paths', label: 'Different dreams?' },
                   { kind: 'doubt', label: 'Just wasn’t sure?' },
-                ].map((c) => (
-                  <button type="button" key={state.loveStory.obstacle_kind === c.kind ? `${c.kind}-sel` : c.kind} className={`sc${sel(state.loveStory.obstacle_kind === c.kind)}${state.loveStory.obstacle_kind === c.kind ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.obstacle_kind === c.kind} onClick={() => pickCue(c.kind)}>{c.label}</button>
-                ))}
+                ].map((c) => ({ key: c.kind, label: c.label }))} onPick={(k) => pickCue(k as Parameters<typeof pickCue>[0])} dataAttr="data-love-almost" />
               </div>
               <div className={`followup${state.loveStory.obstacle.trim() ? ' show' : ''}`}>
                 <div className="fu-q">What kept you going?</div>
@@ -3433,7 +3448,7 @@ export function OnboardingShell({
                   onChange={(e) => setLoveText('obstacle_kept', e.target.value)}
                 />
               </div>
-              <button type="button" className="ghost" style={{ textAlign: 'left', marginTop: 9 }} onClick={skipAlmost}><u>Ours was easy — skip</u></button>
+              <ActionButton tone="neutral" quiet icon={ChevronsRight} label="Ours was easy — skip" className="mt-2" onClick={skipAlmost} />
             </div>
           </section>
 
@@ -3443,15 +3458,13 @@ export function OnboardingShell({
               <div className="eyebrow">Your love story · 3 of 4 · the yes</div>
               <h1 className="q">The proposal</h1>
               <div className="sparkchips">
-                {[
+                <PickMenu label="Where was the proposal?" value={state.loveStory.proposal_setting || null} buttonText="Pick one" options={[
                   { prop: 'beach', label: 'Beach' },
                   { prop: 'surprise', label: 'A surprise' },
                   { prop: 'home', label: 'At home' },
                   { prop: 'trip', label: 'On a trip' },
                   { prop: 'meaningful', label: 'Somewhere meaningful' },
-                ].map((c) => (
-                  <button type="button" key={state.loveStory.proposal_setting === c.prop ? `${c.prop}-sel` : c.prop} className={`sc${sel(state.loveStory.proposal_setting === c.prop)}${state.loveStory.proposal_setting === c.prop ? ' sn-bounce' : ''}`} aria-pressed={state.loveStory.proposal_setting === c.prop} onClick={() => pickProposal(c.prop)}>{c.label}</button>
-                ))}
+                ].map((c) => ({ key: c.prop, label: c.label }))} onPick={(k) => pickProposal(k as Parameters<typeof pickProposal>[0])} dataAttr="data-love-proposal" />
               </div>
               <div className="stem">
                 <span className="stem-pre">I knew the moment{'…'}</span>
@@ -3465,13 +3478,11 @@ export function OnboardingShell({
               </div>
               <div className="walbl">Who asked?</div>
               <div className="whoasked">
-                {[
+                <PickMenu label="Who asked?" value={state.loveStory.proposal_voice || null} buttonText="Pick one" options={[
                   { voice: 'me', label: 'I asked' },
                   { voice: 'them', label: 'They asked' },
                   { voice: 'both', label: 'We both knew' },
-                ].map((c) => (
-                  <button type="button" key={c.voice} className={`wa${sel(state.loveStory.proposal_voice === c.voice)}`} aria-pressed={state.loveStory.proposal_voice === c.voice} onClick={() => pickProposalVoice(c.voice)}>{c.label}</button>
-                ))}
+                ].map((c) => ({ key: c.voice, label: c.label }))} onPick={(k) => pickProposalVoice(k as Parameters<typeof pickProposalVoice>[0])} dataAttr="data-love-voice" />
               </div>
               <div className="stem tight" style={{ marginTop: 12 }}>
                 <span className="stem-pre">{feelPrompt}</span>
@@ -3550,15 +3561,13 @@ export function OnboardingShell({
                 ))}
               </div>
               {!momentOpen && (
-                <button type="button" className="loveaddmom" onClick={() => openMomentForm()}>＋ a moment that mattered</button>
+                <ActionButton tone="neutral" icon={Plus} label="a moment that mattered" onClick={() => openMomentForm()} />
               )}
               {momentOpen && (
                 <div className="momentform">
                   <div className="mf-lbl">{momentEditIdx != null ? 'Edit this moment' : 'Add a moment'}</div>
                   <div className="mf-chips">
-                    {MOMENT_CHIPS.map((c) => (
-                      <button type="button" key={c} className="mf-chip" onClick={() => setMfTitle(c)}>{c}</button>
-                    ))}
+                    <PickMenu label="A moment" value={null} buttonText="Pick a moment" options={MOMENT_CHIPS.map((c) => ({ key: c, label: c }))} onPick={(k) => setMfTitle(k)} dataAttr="data-love-moment" />
                   </div>
                   <input className="field mf-title" placeholder="Our first trip together…" maxLength={48} autoComplete="off" value={mfTitle} onChange={(e) => setMfTitle(e.target.value)} />
                   <div className="mf-when">
@@ -3568,9 +3577,9 @@ export function OnboardingShell({
                     <span className="mf-opt">month &amp; day optional</span>
                   </div>
                   <div className="mf-actions">
-                    <button type="button" className="mf-add" onClick={submitMoment}>{momentEditIdx != null ? 'Save ♥' : 'Add to our story ♥'}</button>
-                    {momentEditIdx != null && <button type="button" className="mf-remove" onClick={removeMoment}>Remove</button>}
-                    <button type="button" className="mf-cancel" onClick={closeMomentForm}>Cancel</button>
+                    <ActionButton tone="brand" main icon={Heart} label={momentEditIdx != null ? 'Save ♥' : 'Add to our story ♥'} onClick={submitMoment} />
+                    {momentEditIdx != null && <ActionButton tone="danger" icon={Trash2} label="Remove" onClick={removeMoment} />}
+                    <ActionButton tone="neutral" quiet icon={X} label="Cancel" onClick={closeMomentForm} />
                   </div>
                 </div>
               )}
@@ -3588,13 +3597,11 @@ export function OnboardingShell({
                 </div>
               </div>
               <div className="chips">
-                {([
+                <PickMenu label="The tone" value={loveTone} buttonText="Pick one" options={([
                   { tone: 'warm' as const, label: 'Warm' },
                   { tone: 'playful' as const, label: 'Playful' },
                   { tone: 'formal' as const, label: 'Formal' },
-                ]).map((c) => (
-                  <button type="button" key={c.tone} className={`chip${sel(loveTone === c.tone)}`} aria-pressed={loveTone === c.tone} onClick={() => pickTone(c.tone)}>{c.label}</button>
-                ))}
+                ]).map((c) => ({ key: c.tone, label: c.label }))} onPick={(k) => pickTone(k as Parameters<typeof pickTone>[0])} dataAttr="data-love-tone" />
               </div>
               <div className="lovebadge">● Appears as &quot;Our Love Story&quot;</div>
             </div>
@@ -3616,8 +3623,8 @@ export function OnboardingShell({
               <div className="livecap"><span className="pulse" />Updates live as you tell it</div>
             </div>
             <div className="tapzone">
-              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 6 }} onClick={() => go(1)}>This is us</button>
-              <button type="button" className="ghost" onClick={() => goToId('love_spark')}><u>Change a line</u></button>
+              <ActionButton tone="brand" main icon={ArrowRight} label="This is us" className="mb-1.5 w-full justify-center" onClick={() => go(1)} />
+              <ActionButton tone="neutral" quiet icon={Pencil} label="Change a line" onClick={() => goToId('love_spark')} />
             </div>
           </section>
 
@@ -3733,9 +3740,7 @@ export function OnboardingShell({
               {budgetBandValue === 'no_limit' ? (
                 <div className="bdg-nolimit-row">
                   <span className="bdg-nolimit-note">No ceiling — the best of everything.</span>
-                  <button type="button" className="bdg-nolimit-exit" onClick={() => onBudgetAmount(budgetCeilingV)}>
-                    Set a budget instead
-                  </button>
+                  <ActionButton tone="neutral" icon={Wallet} label="Set a budget instead" onClick={() => onBudgetAmount(budgetCeilingV)} />
                 </div>
               ) : (
                 <>
@@ -3763,9 +3768,7 @@ export function OnboardingShell({
                         }}
                       />
                     </div>
-                    <button type="button" className="bdg-nolimit" onClick={() => applyBudget('no_limit', null)}>
-                      No limit
-                    </button>
+                    <ActionButton tone="neutral" quiet icon={InfinityIcon} label="No limit" onClick={() => applyBudget('no_limit', null)} />
                   </div>
                   <input
                     type="range"
@@ -4012,7 +4015,7 @@ export function OnboardingShell({
                     const sel = g.leaves.filter((c) => state.picks.includes(c.cat)).length;
                     return (
                       <div className={`exgroup${open ? ' open' : ''}`} key={g.label}>
-                        <button type="button" className="exhead" onClick={() => setExtrasOpen(open ? -1 : gi)}>
+                        <button /* button-ok: an accordion head — the group's own row (its name, its count, its chevron) */ type="button" className="exhead" onClick={() => setExtrasOpen(open ? -1 : gi)}>
                           <span className="exname">{g.label}</span>
                           <span className="exmeta">
                             {sel > 0
@@ -4304,9 +4307,7 @@ export function OnboardingShell({
                   {natives.length > 0 && <div className="grouplbl">★ Matches your preference</div>}
                   {natives.map((v) => card(v, false))}
                   {travels.length > 0 && natives.length > 0 && !showFarther && (
-                    <button className="expand" type="button" onClick={() => setShowFarther(true)}>
-                      Expand search — see {travels.length} farther {travels.length === 1 ? 'venue' : 'venues'} ↓
-                    </button>
+                    <ActionButton tone="neutral" icon={ChevronDown} label={`Expand search — see ${travels.length} farther ${travels.length === 1 ? 'venue' : 'venues'}`} onClick={() => setShowFarther(true)} />
                   )}
                   {travels.length > 0 && (natives.length === 0 || showFarther) && (
                     <>
@@ -4326,7 +4327,7 @@ export function OnboardingShell({
               </div>
             )}
             <div className="byowrap">
-              <button className="byo-add" type="button" onClick={() => setByoOpen(true)}>{byoAdded ? '+ Add another venue' : '+ Add your own venue'}</button>
+              <ActionButton tone="neutral" icon={Plus} label={byoAdded ? 'Add another venue' : 'Add your own venue'} onClick={() => setByoOpen(true)} />
               {byoDone && <div className="byo-done">{byoDone}</div>}
             </div>
           </section>
@@ -4361,7 +4362,7 @@ export function OnboardingShell({
               </div>
             </div>
             <div className="tapzone">
-              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my suppliers</button>
+              <ActionButton tone="brand" main icon={Sparkles} label="Yes — match the rest of my suppliers" className="mb-2.5 w-full justify-center" onClick={() => aiAnswer(true)} />
               <div className="stayfree"><u onClick={() => aiAnswer(false)}>No thanks, I{'’'}ll browse on my own</u></div>
             </div>
           </section>
@@ -4557,7 +4558,7 @@ export function OnboardingShell({
                   <span className="aikeep-anchor">instead of a hired coordinator</span>
                 </div>
               )}
-              <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
+              <ActionButton tone="brand" main icon={Sparkles} label={committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`} className="w-full justify-center" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }} />
               <div className="aikeep-later"><u onClick={() => go(1)}>Maybe later — I&apos;ll browse on my own (free)</u></div>
             </div>
             {matchAvail === true && (
@@ -4568,9 +4569,9 @@ export function OnboardingShell({
                 </div>
                 <div className="opt-step">
                   <span className="opt-step-l">inquiries per category</span>
-                  <button type="button" className="opt-step-b" aria-label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })}>−</button>
+                  <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })} />
                   <span className="opt-step-v">{state.inquiriesPerCategory}</span>
-                  <button type="button" className="opt-step-b" aria-label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })}>+</button>
+                  <ActionButton tone="neutral" iconOnly icon={Plus} label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })} />
                 </div>
               </div>
             )}
@@ -4609,9 +4610,7 @@ export function OnboardingShell({
                         "this used to be free". Same condition as the savings line below. */}
                     <div className="svc-dprice"><span className="svc-dset">{p.label || pesoB(p.set)}</span>{save > 0 && <span className="svc-dwas">{pesoB(p.out)}</span>}</div>
                     {save > 0 && <div className="svc-dsave">You save {pesoB(save)} vs {INAPP_VS[fk] ?? 'hiring it elsewhere'}</div>}
-                    <button type="button" className={`svc-add${added ? ' added' : ''}`} onClick={() => toggleInterested(fk)}>
-                      {added ? '♥ Saved to your wedding' : '♡ Save to my wedding'}
-                    </button>
+                    <ActionButton tone="ok" icon={Heart} aria-pressed={added} label={added ? '♥ Saved to your wedding' : '♡ Save to my wedding'} className="w-full justify-center" onClick={() => toggleInterested(fk)} />
                   </div>
                 </div>
               );
@@ -4622,7 +4621,7 @@ export function OnboardingShell({
                 const on = (focusedService || INAPP_KEYS[0]) === k;
                 const added = state.interestedServices.includes(k);
                 return (
-                  <button type="button" key={k} className={`svc-chip${on ? ' on' : ''}`} onClick={() => setFocusedService(k)}>
+                  <button /* button-ok: a service photo chip in the carousel — the picture is the choice */ type="button" key={k} className={`svc-chip${on ? ' on' : ''}`} onClick={() => setFocusedService(k)}>
                     <div className="svc-chip-p" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }}>{added && <span className="svc-chip-chk" aria-label="Saved">♥</span>}</div>
                     <div className="svc-chip-i"><div className="svc-chip-n">{BUNDLE_ITEMS[k] ?? k}</div><div className="svc-chip-pr">{pp.label || pesoB(pp.set)}</div></div>
                   </button>
@@ -4649,7 +4648,7 @@ export function OnboardingShell({
                         <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
                         <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}{recommendedSet.has(k) ? <span className="svc-rec">Recommended</span> : null}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
                         <div className="svc-row-p">{p.label || pesoB(p.set)}</div>
-                        <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
+                        <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)} />
                       </div>
                     );
                   })}
@@ -4674,11 +4673,11 @@ export function OnboardingShell({
             )}
             {state.interestedServices.length > 0 ? (
               <>
-                <button type="button" className="svc-buy" onClick={() => void handleFinish(true)} disabled={committing}>{committing ? 'Setting up…' : 'Purchase Now'}</button>
-                <button type="button" className="svc-freelink" onClick={() => void handleFinish(false)} disabled={committing}>Will purchase later, <u>continue for FREE</u></button>
+                <ActionButton tone="ok" main icon={ShoppingBag} label={committing ? 'Setting up…' : 'Purchase Now'} className="w-full justify-center" onClick={() => void handleFinish(true)} disabled={committing} />
+                <ActionButton tone="neutral" quiet icon={ArrowRight} label="Will purchase later, continue for FREE" className="w-full justify-center" onClick={() => void handleFinish(false)} disabled={committing} />
               </>
             ) : (
-              <button type="button" className="svc-buy" onClick={() => void handleFinish(false)} disabled={committing}>{committing ? 'Setting up…' : 'Go to my dashboard'}</button>
+              <ActionButton tone="brand" main icon={ArrowRight} label={committing ? 'Setting up…' : 'Go to my dashboard'} className="w-full justify-center" onClick={() => void handleFinish(false)} disabled={committing} />
             )}
           </section>
         </div>
@@ -4694,21 +4693,24 @@ export function OnboardingShell({
             </p>
           )}
           {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || AIGATE_NOCTA.has(activeId) || momentsActive) && (
-            <button
-              className="btn btn-primary"
-              type="button"
-              onClick={() => {
-                if (!canContinue || committing) return;
-                // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
-                // terminal — commit straight to the dashboard instead of advancing.
-                if (isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)) { void handleFinish(false); return; }
-                go(1);
+            /* 🔘 THE STEP'S MAIN VERB IS THE HOUSE ActionButton (T19 + T32 bottom bar: "main verb filled terracotta"),
+               the full width of the bar — never a hand-styled `.btn-primary`. */
+            <StepBar
+              wide
+              className="flex-1"
+              main={{
+                label: committing ? 'Creating your plan…' : nextLabel,
+                'data-testid': 'onboarding-continue',
+                onClick: () => {
+                  if (!canContinue || committing) return;
+                  // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
+                  // terminal — commit straight to the dashboard instead of advancing.
+                  if (isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)) { void handleFinish(false); return; }
+                  go(1);
+                },
+                disabled: !canContinue || committing,
               }}
-              disabled={!canContinue || committing}
-              style={!canContinue || committing ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
-            >
-              {committing ? 'Creating your plan…' : nextLabel}
-            </button>
+            />
           )}
         </div>
 
@@ -4721,8 +4723,8 @@ export function OnboardingShell({
           <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" autoComplete="off" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
           <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" autoComplete="off" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
           <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" autoComplete="off" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
-          <button className="byo-send" type="button" onClick={sendByo}>Send invite &amp; connect</button>
-          <button className="sheet-cancel" type="button" onClick={() => setByoOpen(false)}>Cancel</button>
+          <ActionButton tone="brand" main icon={Send} label="Send invite & connect" className="w-full justify-center" onClick={sendByo} />
+          <ActionButton tone="neutral" quiet icon={X} label="Cancel" className="w-full justify-center" onClick={() => setByoOpen(false)} />
         </div>
       </div>
     </div>

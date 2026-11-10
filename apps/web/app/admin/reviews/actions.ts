@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { sendReviewFlagOutcomeEmail } from '@/lib/vendor-email-triggers';
 import { setGuestReviewHidden } from '@/lib/guest-reviews';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -351,7 +352,9 @@ async function setGuestReviewVisibility(formData: FormData, userId: string) {
   const reviewId = formData.get('review_id');
   const hide = formData.get('hide') === '1';
   if (typeof reviewId !== 'string' || reviewId.length === 0) throw new Error('Invalid review_id');
-  const ok = await setGuestReviewHidden(createAdminClient(), reviewId, hide, userId);
-  if (!ok) throw new Error('That guest review could not be updated.');
+  const shopId = await setGuestReviewHidden(createAdminClient(), reviewId, hide, userId);
+  if (!shopId) throw new Error('That guest review could not be updated.');
+  // ⚡ The shop's page shows its guest reviews — its cached copy redraws with (or without) this one.
+  revalidateShopPage(shopId);
   revalidatePath('/admin/reviews');
 }

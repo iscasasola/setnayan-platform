@@ -74,7 +74,8 @@ test('a chip lights from the list, so both directions cannot disagree', () => {
   const src = stripComments(read(WIZARD));
   assert.match(
     src,
-    /chip\(celebrationDates\.includes\(anchorOptions\.onTheDayISO\)\)/,
+    // The chip is the house ActionButton since Lane P slice 5; its pressed state is still read from the list.
+    /aria-pressed=\{celebrationDates\.includes\(anchorOptions\.onTheDayISO\)\}/,
     'the lit state must be derived from the committed list, never from a parallel field',
   );
 });

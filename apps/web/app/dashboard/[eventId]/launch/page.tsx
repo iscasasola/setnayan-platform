@@ -3,7 +3,7 @@ import { PRINTS_PAGE_SURFACE, isPrintsPageSurface, printsForward, printsForwardH
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { startAhead } from '@/lib/start-ahead';
 import { MAKER_LATE_UNREAD, type MakerLate } from '@/lib/maker-late';
-import { needsHidesStage, needsHidesStudioTile } from '@/lib/event-needs';
+import { needsHidesStage, needsHidesStudioTile, needsLandingStage } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -63,7 +63,7 @@ import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { hubMainGround, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { mainColoursOf, sanitizeMainColourDraft } from '@/lib/main-colours';
 import type { MarchStep } from '@/lib/march-drag';
-import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import { readGuestsReply, resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { readMakerRevealStages } from './_components/maker-made-once';
 import { MoodBoardStudioBody } from '../studio/mood-board/_components/mood-board-editor';
@@ -421,7 +421,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date')
+      // `rsvp_ask_config` added 2026-11-09 the same way: "guests don't reply" drops the Maker's RSVP stage.
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode, std_invitation_launch_date, rsvp_ask_config')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -485,6 +486,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     event_type?: string | null;
     planning_mode?: string | null;
     std_invitation_launch_date?: string | null;
+    rsvp_ask_config?: unknown;
   } | null;
 
   /*
@@ -925,12 +927,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
   // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
-  const eventNeeds = await needsRead;
+  /* 🗳 …and whether guests reply, from the event row read above (owner 9 Nov 2026: "the RSVP stage only when they
+     have RSVP"). A refused row reads as "they reply" — today's Maker, the stage drawn. */
+  const eventNeeds = { ...(await needsRead), guestsReply: readGuestsReply(eventRow?.rsvp_ask_config) };
   /* 🖨 …and an event that needs no Event Hub details ("cover + photos only") has no Prints, as it had no Prints tile. */
   if (printsPage && !eventNeeds.hubDetails) redirect(`/dashboard/${eventId}`);
   const hiddenStages = MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, eventNeeds));
   const wantedStage = initialStage ?? liveStage ?? 'rsvp';
-  const makerStage = (hiddenStages as readonly string[]).includes(wantedStage) ? 'event' : wantedStage;
+  const makerStage = needsLandingStage(wantedStage, hiddenStages);
 
   const controller = (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the

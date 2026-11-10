@@ -2,8 +2,9 @@
  * rise-motion.ts — ⤴ THE RISE: the ONE open/close motion of a picked row or a sheet (THE ONE BUILD F1, spec §0.6 and
  * §9 #16, 8 Nov 2026).
  *
- * The measured rules (spec §0.6): open 520 ms on `cubic-bezier(.2,.8,.2,1)`; the close is the EXACT reverse (the same
- * frames played backwards from the same origin rect); no jump over 40 px and no pause over 90 ms — a single transform
+ * The measured rules (spec §0.6): open 700 ms on `cubic-bezier(.2,.8,.2,1)` (owner 2026-11-10, DECISION_LOG "SIX ANSWERS"
+ * (2), *"0.7s"* — was 520 ms; 700 is the family speed `--sn-pill-dur`, which `--sn-dur-rise` reads); the close is the
+ * EXACT reverse (the same frames played backwards from the same origin rect); no jump over 40 px and no pause over 90 ms — a single transform
  * animation from the tapped row's rect to the sheet's own rect gives both. Under reduced motion it is a 120 ms
  * cross-fade (no movement). The numbers are tokens too (`--sn-dur-rise`, `--sn-ease-rise`, `--sn-dur-rise-reduced` in
  * globals.css) for anything drawn in CSS.
@@ -11,9 +12,10 @@
  * Consumers: the picked client in Clients (it rises from the tapped list row and falls back into it). Neutral module —
  * the frames are pure (tested); `riseFromRect` uses the Web Animations API and does nothing on the server.
  * 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts (the rise's numbers and its reverse)
+ * 🔒 lib/the-rise-is-0-7s.test.ts (700 ms, one number, nobody keeps their own)
  */
 
-export const RISE_MS = 520;
+export const RISE_MS = 700;
 export const RISE_EASE = 'cubic-bezier(.2,.8,.2,1)';
 export const RISE_REDUCED_MS = 120;
 

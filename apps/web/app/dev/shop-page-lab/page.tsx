@@ -178,6 +178,9 @@ function LabShelf() {
     verified: true,
     logoUrl: null,
     isDemo,
+    // 🃏 The shop card (10 Nov): no portfolio photo → the shipped placeholder, marked; Verified as the one pill.
+    cover: { url: '/placeholders/vendor.webp', sample: true },
+    badges: [verifiedBadge()],
   });
   const data: FrontDoorData = {
     articles: [],

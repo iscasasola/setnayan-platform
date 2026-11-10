@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Search } from 'lucide-react';
+import { tierHasLapsed } from '@/lib/vendor-tier-lapse';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -52,7 +53,11 @@ import {
 } from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
-import { PlanPicker, type PlanPick } from './plan-picker';
+import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
+import { changeKind, payToday, planChanges, planRowLine, sheetPlans } from '@/lib/plan-sheet';
+import { papersProgress } from '@/lib/locks';
+import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { PlanRows } from './plan-rows';
 import { startSubscriptionPurchase } from '../actions';
 import { AiAddonCard } from './ai-addon-card';
@@ -161,11 +166,29 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // Soft-probe tier_state + tier_expires_at + verification_state (none in the
   // shared profile select). verification_state gates the Vendor AI add-on.
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
+  const readTierRow = () =>
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+  let { data: tierRow } = await readTierRow();
+  // ⏳ A PLAN THAT HAS RUN OUT IS ENDED BEFORE THIS SCREEN DRAWS IT (Lane G · Step 0 rows 14–15, 2026-11-10).
+  // The layout's lapse sweep runs AFTER the response, so this page — the one that prints the plan and its day —
+  // drew the ended plan as current ("You are on Solo · until Oct 19, 2026") on the visit that ended it. When the
+  // row says the day has passed, ask the same sweep now and read again. Downgrade-only and idempotent; a refused
+  // sweep leaves the first read in place (the layout's after() still runs).
+  if (tierHasLapsed(tierRow as { tier_state?: string | null; tier_expires_at?: string | null } | null, Date.now())) {
+    const { error: sweepErr } = await supabase.rpc('sweep_vendor_tier_expiry', {
+      p_vendor_id: profile.vendor_profile_id,
+    });
+    if (sweepErr) {
+      console.error('[supabase-error] subscription/plan-screen · rpc:sweep_vendor_tier_expiry', sweepErr);
+    } else {
+      const reread = await readTierRow();
+      if (!reread.error && reread.data) tierRow = reread.data;
+    }
+  }
   const currentTier = asVendorTier(
     (tierRow as { tier_state?: string | null } | null)?.tier_state,
   );
@@ -266,8 +289,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // read fails CLOSED, so a bad read shows the paid price rather than a ₱0 the
   // server would refuse. Flag off → both false/0 and the card is unchanged.
   const first5FreeEnabled = isVendorAddonFirst5FreeEnabled();
+  // `event_vendors` has NO vendor SELECT policy: on this shop's session the count is a silent 0, which reads as
+  // "inside the free window" and prices the add-on at ₱0. Admin client, scoped by the shop's own id.
   const committedBookings = first5FreeEnabled
-    ? await fetchVendorCommittedBookingCount(supabase, profile.vendor_profile_id)
+    ? await fetchVendorCommittedBookingCount(createAdminClient(), profile.vendor_profile_id)
     : Number.NaN;
   const boothFirst5Free = addonIsFreeUnderFirst5({
     sku: 'ads_3d_plan',
@@ -392,9 +417,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       });
   const feeRow = bookingFeeRow(feeStanding, bookingFeeDueCount);
 
-  // The plan as ONE dropdown — every plan with its catalogue price per cycle.
+  // Every plan with its catalogue price per cycle — the plan sheet's rows read these.
   const expiresOn = isPaid && tierExpiresAt ? fmtDate(tierExpiresAt) : null;
-  const pickCurrent = currentTier === 'verified' ? 'free' : currentTier;
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
     ...visibleTiers.map((tier) => ({
@@ -414,6 +438,68 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     })),
   ];
   const currentCycleKey: 'monthly' | 'annual' = currentCycle === 'annual' ? 'annual' : cycle;
+
+  // 📋 THE PLAN SHEET (Build 5 · Lane B, Door 2) — the same plans and prices as above, as rows that open in place: what
+  // changes (TIER_CAPS) and what you pay today (`payToday`, the plan-change RPC's own arithmetic). The unused value of
+  // the current plan is the server's `vendor_unused_plan_value_php` (admin-only, called for THIS shop's own id); a
+  // failed read is said on the row ("the exact amount shows on your order"), never guessed.
+  const paywallOn = isVendorFeatureGateEnabled();
+  const [unusedPhp, papersRead, storeShell] = await Promise.all([
+    isPaid
+      ? (async () => {
+          const { data, error } = await createAdminClient().rpc('vendor_unused_plan_value_php', {
+            p_vendor_id: profile.vendor_profile_id,
+          });
+          if (error) {
+            logQueryError('subscription/plan-screen · rpc:vendor_unused_plan_value_php', error);
+            return null;
+          }
+          const n = Number(data);
+          return Number.isFinite(n) ? n : null;
+        })().catch(() => null)
+      : Promise.resolve(0),
+    isVerifiedVendor
+      ? Promise.resolve(null)
+      : fetchLatestApplication(supabase, profile.vendor_profile_id)
+          .then((a) => ({ done: countCompleteRequiredSlots((a?.doc_uploads ?? {}) as DocUploadMap), of: REQUIRED_DOC_COUNT }))
+          .catch((err) => {
+            console.error('[supabase-error] subscription/plan-screen · latest application', err);
+            return null;
+          }),
+    isStoreShellRequest(),
+  ]);
+  const pickBy = new Map(plans.map((p) => [p.key, p]));
+  const sheet: SheetPlan[] = sheetPlans(currentTier)
+    .filter((t) => t === 'free' || t === 'verified' || (visibleTiers as readonly string[]).includes(t))
+    .map((t) => {
+      const paid = t === 'solo' || t === 'pro' || t === 'enterprise';
+      const pick = paid ? pickBy.get(t) : undefined;
+      const price = pick?.price ?? {};
+      const kind = changeKind(currentTier, tierExpiresAt, t, now);
+      return {
+        key: t,
+        name: planWord(t),
+        line:
+          t === currentTier
+            ? expiresOn
+              ? `Active until ${expiresOn}`
+              : isVerifiedVendor || t !== 'free'
+                ? 'Nothing to pay · nothing renews by itself'
+                : 'Not verified yet · nothing to pay'
+            : planRowLine(currentTier, t, paywallOn, expiresOn),
+        paid,
+        price,
+        tooShort: pick?.tooShort ?? {},
+        today: Object.fromEntries(
+          (Object.entries(price) as [keyof typeof price, number][]).map(([cy, v]) => [
+            cy,
+            payToday({ kind, price: v, unusedPhp, creditPhp: heldCreditPhp, currentRaw: currentTier, endsOn: expiresOn }),
+          ]),
+        ),
+        pickLine: planPickLine(currentTier, t, expiresOn),
+        changes: planChanges(currentTier, t, paywallOn),
+      };
+    });
   const currentPrice =
     currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise'
       ? priceBySku.get(skuFor(currentTier, currentCycleKey)) ?? null
@@ -512,12 +598,15 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           </>
         }
         picker={
-          <PlanPicker
-            plans={plans}
-            current={pickCurrent}
+          <PlanSheet
+            plans={sheet}
+            current={currentTier}
             cycle={currentCycleKey}
             verified={isVerifiedVendor}
             action={startSubscriptionPurchase}
+            expiresOn={expiresOn}
+            storeShell={storeShell}
+            papersProgress={papersProgress(papersRead)}
             gift={
               gift
                 ? {
@@ -701,8 +790,8 @@ function Column({ embedded, children }: { embedded: boolean; children: ReactNode
       {children}
     </div>
   ) : (
-    <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
       {children}
-    </main>
+    </div>
   );
 }

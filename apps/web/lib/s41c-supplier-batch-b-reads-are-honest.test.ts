@@ -22,7 +22,8 @@
  *
  * This file proves both shapes landed:
  *   - `lib/demand-radar.ts` + `DemandRadarCard` (shape 2)
- *   - `lib/funnel-benchmark.ts` + `FunnelBenchmarkCard` (shape 2)
+ *   - `lib/funnel-benchmark.ts` + the §6 "Shops like yours" rows in `AnalyticsGrowing` (shape 2 —
+ *     `FunnelBenchmarkCard` was retired by "Analytics, growing", owner-approved 6 Nov 2026)
  *   - `lib/live-shops.ts`, `lib/live-studio-window-server.ts` (shape 1,
  *     executed against a stubbed client — the log call itself is asserted)
  *   - the remaining shape-1 sites (source-asserted: the exact log line sits
@@ -44,7 +45,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
 import { countLiveShops } from '@/lib/live-shops';
 
-// Some rendered components (e.g. DemandRadarCard, FunnelBenchmarkCard) use
+// Some rendered components (e.g. DemandRadarCard) use
 // `<>…</>` fragment shorthand and are compiled here under the classic JSX
 // transform (tsx honours this project's `"jsx": "preserve"` tsconfig, unlike
 // esbuild's own default), which expects a `React` global in scope.
@@ -78,14 +79,12 @@ const STUB = path.join(process.cwd(), '__server_only_stub_s41c_batch_b__.js');
 let demandRadar: typeof import('@/lib/demand-radar');
 let funnelBenchmark: typeof import('@/lib/funnel-benchmark');
 let DemandRadarCard: typeof import('@/app/vendor-dashboard/demand/_components/demand-radar-card').DemandRadarCard;
-let FunnelBenchmarkCard: typeof import('@/app/vendor-dashboard/performance/_components/funnel-benchmark-card').FunnelBenchmarkCard;
 let windowServer: typeof import('@/lib/live-studio-window-server');
 
 before(async () => {
   demandRadar = await import('@/lib/demand-radar');
   funnelBenchmark = await import('@/lib/funnel-benchmark');
   ({ DemandRadarCard } = await import('@/app/vendor-dashboard/demand/_components/demand-radar-card'));
-  ({ FunnelBenchmarkCard } = await import('@/app/vendor-dashboard/performance/_components/funnel-benchmark-card'));
   windowServer = await import('@/lib/live-studio-window-server');
 });
 
@@ -184,22 +183,24 @@ test('funnel benchmark: a genuine empty RPC read stays EMPTY_FUNNEL_BENCHMARK-sh
   assert.equal((result as { hasBand: boolean }).hasBand, false);
 });
 
-test('FunnelBenchmarkCard: unreadable renders DIFFERENT copy than genuinely-empty', () => {
-  const unreadableHtml = renderToStaticMarkup(
-    React.createElement(FunnelBenchmarkCard, {
-      benchmark: funnelBenchmark.EMPTY_FUNNEL_BENCHMARK,
-      unreadable: true,
-    }),
-  );
-  const emptyHtml = renderToStaticMarkup(
-    React.createElement(FunnelBenchmarkCard, {
-      benchmark: funnelBenchmark.EMPTY_FUNNEL_BENCHMARK,
-      unreadable: false,
-    }),
-  );
-  assert.match(unreadableHtml, /couldn.t load your peer comparison/i);
-  assert.doesNotMatch(unreadableHtml, /Not enough shops like yours yet/);
-  assert.match(emptyHtml, /Not enough shops like yours yet/);
+/* `FunnelBenchmarkCard` was retired by "Analytics, growing" (owner-approved 6 Nov 2026): the same read now draws
+   as §6 "Shops like yours" inside `AnalyticsGrowing`. The promise is unchanged — a refused read and a genuinely
+   empty band say DIFFERENT things — so it is pinned where it now lives: the page maps the sentinel to
+   `benchUnread`, the view carries it, and the tree draws "Couldn't load" BEFORE (never instead of) the honest
+   "Not enough shops like yours yet". */
+test('§6 Shops like yours: unreadable renders DIFFERENT copy than genuinely-empty', () => {
+  const at = (rel: string) => stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', rel), 'utf8'));
+  const page = at('app/vendor-dashboard/performance/page.tsx');
+  assert.match(page, /funnelBenchmarkUnreadable = funnelBenchmarkRead === FUNNEL_BENCHMARK_UNREADABLE;/, "the page maps the sentinel to its own flag");
+  assert.match(page, /benchUnread: funnelBenchmarkUnreadable,/, "…and hands it to the view as benchUnread");
+  const view = at('app/vendor-dashboard/performance/_components/growth-view.ts');
+  assert.match(view, /bench: \{ show: inp\.showMarket, unread: inp\.benchUnread,/, 'the view carries the refused read as its own flag');
+  const tree = at('app/vendor-dashboard/performance/_components/analytics-growing.tsx');
+  const unread = tree.indexOf('{view.bench.unread ? (');
+  const couldnt = tree.indexOf('Couldn’t load shops like yours just now.', unread);
+  const rows = tree.indexOf(') : view.bench.rows ? (', unread);
+  const empty = tree.indexOf('Not enough shops like yours yet', rows);
+  assert.ok(unread > 0 && couldnt > unread && rows > couldnt && empty > rows, 'unread → "Couldn’t load", then rows, then the honest empty line — in that order');
 });
 
 // ── shape 1 · executed against a stubbed client ─────────────────────────────

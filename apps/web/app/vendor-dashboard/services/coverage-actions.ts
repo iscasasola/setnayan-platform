@@ -19,6 +19,7 @@ import {
 import { buildLeafIndex } from '@/lib/service-card-kind';
 import { coverageLeafForKind } from '@/lib/service-card-maker';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /** Validate a faiths[] submission against the ACTIVE `faith_vocab` keys (the
  *  DB is the vocab authority per the vendor_coverages.faiths column comment;
@@ -157,6 +158,7 @@ async function writeCoverageServes(formData: FormData): Promise<CoverageServesRe
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) return { ok: false, message: error.message, savedKey: null };
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
   return {
@@ -214,6 +216,7 @@ export async function deleteCoverage(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) back(base, 'error', error.message);
   await syncProfileFromCoverages(supabase, profile.vendor_profile_id);
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath(BASE);
   revalidatePath('/vendor-dashboard/shop');
   back(base, 'saved');

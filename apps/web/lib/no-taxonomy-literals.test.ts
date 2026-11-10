@@ -136,7 +136,8 @@ test('the rows moved on 2026-11-09 stay on the live taxonomy', () => {
   assert.match(src('lib/supplier-sheet-read.ts'), /getTaxonomy\(\)/);
   // The front door's "What you run" group word — live group label (moved once #7416 landed).
   assert.deepEqual(imports('app/_components/frontdoor/data.ts'), []);
-  assert.match(src('app/_components/frontdoor/data.ts'), /taxonomy\.folderLabel\[folder\]/);
+  // Since the shop card (#7454) the label comes from the shelf's one batched snapshot (`tax`), via folderLabelOf.
+  assert.match(src('app/_components/frontdoor/data.ts'), /\btax\.folderLabel\[folder\]/);
   // /explore — the JSON-LD group list and the ?folder= filter read the live order.
   const explore = src('app/(shell)/explore/page.tsx');
   assert.match(explore, /buildVendorsItemListJsonLd\(vendorsSiteUrl, pageTax\)/);

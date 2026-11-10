@@ -69,7 +69,13 @@ test('3 · read once, inside the page’s own batch, and shown on the upsell too
   const page = src('app/vendor-dashboard/performance/page.tsx');
   assert.equal([...page.matchAll(/readShopTrackerFacts\(/g)].length, 1, 'the tracker facts are read more than once');
   assert.match(page, /const badgeFactsRead: Promise<TrackerFacts \| null> = safeRead\(\s*readShopTrackerFacts\(profile\.vendor_profile_id\),\s*null,/);
-  const batchStart = page.indexOf('marketRegionRow,\n    pricePosition,\n    badgeFacts,\n  ] = await Promise.all([');
+  /* Re-anchored 6 Nov 2026 ("Analytics, growing"): Batch A grew three reads (the lanes' two series and the booked
+     dates) between `pricePosition` and `badgeFacts`, so the anchor is the batch's LAST name — `badgeFacts` closing the
+     destructure that `marketRegionRow` and `pricePosition` open into — not three adjacent lines. */
+  const close = page.search(/\n\s*badgeFacts,\n\s*\] = await Promise\.all\(\[/);
+  const destructure = close > 0 ? page.slice(page.lastIndexOf('const [', close), close) : '';
+  assert.match(destructure, /\bmarketRegionRow,[\s\S]*\bpricePosition,/, 'the badges are not part of Batch A');
+  const batchStart = close > 0 ? page.lastIndexOf('const [', close) : -1;
   assert.ok(batchStart > 0, 'the badges are not part of Batch A');
   const batch = page.slice(batchStart, page.indexOf(']);', batchStart));
   assert.match(batch, /\n\s*badgeFactsRead,\s*$/, 'Batch A does not await the badges');

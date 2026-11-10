@@ -24,7 +24,7 @@
 export const WITHHELD_CARD = {
   kicker: 'Live Watch',
   title: 'Unlock to broadcast all your cameras',
-  body: 'Your free broadcast carries one camera — the channel marked ★ default in the controller. Switching between cameras on air is what the Live Watch unlock buys.',
+  body: 'Without the unlock, your broadcast carries one camera — the channel marked ★ default in the controller. Switching between cameras on air is what the Live Watch unlock buys.',
   hint: 'Just changed your default channel? Close this window and open it again from the controller.',
 } as const;
 

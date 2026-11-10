@@ -36,6 +36,7 @@ import {
   useLayoutEffect,
   type ComponentType,
   type MouseEventHandler,
+  useRef,
   type ReactElement,
   type ReactNode,
   type RefObject,
@@ -92,6 +93,12 @@ type Common = {
   className?: string;
   title?: string;
   'data-testid'?: string;
+  /**
+   * Any other `data-*` hook rides on the element as given — `data-asks-location` (the store shell hides the button
+   * before first paint, `lib/the-app-never-asks-for-location.test.ts`), a screen's test hook. Additive: the button's
+   * own `data-tone` / `data-main` / `data-waiting` are written after, so a caller cannot change what they say.
+   */
+  [dataAttr: `data-${string}`]: string | undefined;
   /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
   tour?: string;
   /**
@@ -143,6 +150,13 @@ export function actionButtonClass(
     .join(' ');
 }
 
+/** The caller's extra `data-*` hooks (every one but `data-testid`, which is drawn by name). */
+function extraData(props: object): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(props)) if (k.startsWith('data-') && k !== 'data-testid' && typeof v === 'string') out[k] = v;
+  return out;
+}
+
 function renderIcon(icon: Common['icon']) {
   /* 🧩 A node (an element, or the LAZY a production RSC payload makes of a server component's element) is drawn as a
      node; only a component is drawn as a type. `isValidElement` alone let the lazy through as a type — the live
@@ -167,6 +181,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
       const { href, onClick, prefetch, target, disabled } = props;
       return (
         <Link
+          {...extraData(props)}
           ref={ref as RefObject<HTMLAnchorElement>}
           href={href}
           prefetch={prefetch}
@@ -196,6 +211,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
     const p = props as AsButton;
     return (
       <button
+        {...extraData(props)}
         ref={ref as RefObject<HTMLButtonElement>}
         /* Waiting: a press does nothing — not its handler, and not its form. */
         type={waiting ? 'button' : (p.type ?? 'button')}
@@ -264,7 +280,31 @@ function applyState(buttons: HTMLElement[], state: FitState): void {
 function fits(row: HTMLElement, field: HTMLElement | null): boolean {
   if (row.scrollWidth > row.clientWidth + 1) return false;
   if (field && field.offsetWidth + 1 < FIELD_FLOOR * row.clientWidth) return false;
+  // An EqualRow's cells are fixed shares of the row, so the ROW never overflows — the word spills inside its own
+  // button instead ("Download QR" ran into its edge at 375, 10 Nov). A centred word eats the PADDING first, which
+  // `scrollWidth` does not count, so the measure is the content box: a state fits only when every button's icon and
+  // word sit inside their own padding.
+  // (`?.`: the fit guard drives this pass with a measured fake row that carries only the measures.)
+  if (row.hasAttribute?.('data-equal-row')) {
+    for (const b of Array.from(row.querySelectorAll<HTMLElement>('.ab'))) {
+      if (spillsItsPadding(b)) return false;
+    }
+  }
   return true;
+}
+
+function spillsItsPadding(b: HTMLElement): boolean {
+  if (b.scrollWidth > b.clientWidth + 1) return true;
+  const cs = getComputedStyle(b);
+  const box = b.getBoundingClientRect();
+  const left = box.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft);
+  const right = box.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight);
+  for (const k of Array.from(b.children)) {
+    const r = k.getBoundingClientRect();
+    if (r.width === 0) continue; // hidden by the state (`.word-only svg`, `.icon-only .lbl`)
+    if (r.left < left - 1 || r.right > right + 1) return true;
+  }
+  return false;
 }
 
 /** One fit pass over a row; returns the state it chose. Exported for the guard. */
@@ -317,4 +357,23 @@ export function useFitRow(ref: RefObject<HTMLElement | null>): void {
       window.removeEventListener('resize', run);
     };
   }, [run, ref]);
+}
+
+/* ─── EqualRow — rule 5, EQUAL-WEIGHT CHOICES AT EQUAL WIDTHS ─────────────────
+ * HOUSE_TEMPLATES T19 (owner 9 Nov, memory `buttons-uniform-rows-balanced`: "uniform buttons, equal-weight choices at
+ * equal widths"; DECISION_LOG 2026-11-10 🔘 "UNIFORM ACTIONBUTTONS"): the choices sit in ONE row and every cell is the
+ * same width — a grid of equal columns, each button filling its cell (an icon-only one too, `[data-equal-row] > .ab`
+ * in globals.css), never a full-width button over odd-width pills. The row fits as ONE (`useFitRow`): icon + word →
+ * word → icons on the secondaries, never a mix. The one shape for every such row (the chat cards' `EqualRow` is this).
+ * 🔒 lib/equal-weight-choices-sit-at-equal-widths.test.ts */
+export const EQUAL_ROW_CLASS = 'grid auto-cols-fr grid-flow-col gap-2';
+
+export function EqualRow({ children, className, data }: { children: ReactNode; className?: string; data?: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useFitRow(ref);
+  return (
+    <div ref={ref} className={className ? `${EQUAL_ROW_CLASS} ${className}` : EQUAL_ROW_CLASS} data-equal-row={data ?? ''}>
+      {children}
+    </div>
+  );
 }

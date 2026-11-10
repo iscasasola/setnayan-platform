@@ -133,6 +133,8 @@ export type HostUserRow = {
   slug: string | null;
   public_profile_enabled: boolean | null;
   deleted_at: string | null;
+  /** The stored photo ref (raw). Shown on a card ONLY under the host-photo consent rule (`hostPhotoRef`). */
+  profile_photo_url?: string | null;
 };
 export type HostRows = { members: HostMemberRow[]; users: HostUserRow[] };
 
@@ -156,7 +158,7 @@ async function readHostRows(eventIds: string[]): Promise<HostRows> {
   if (ids.length === 0) return { members, users: [] };
   const { data: users, error: usersError } = await admin
     .from('users')
-    .select('user_id, display_name, slug, public_profile_enabled, deleted_at')
+    .select('user_id, display_name, slug, public_profile_enabled, deleted_at, profile_photo_url')
     .in('user_id', ids);
   if (usersError) throw new ReadRefused('hostNames', usersError);
   return { members, users: (users ?? []) as HostUserRow[] };
@@ -370,8 +372,10 @@ async function readPublicPeople(limit: number): Promise<PublicPersonRow[]> {
 /** The columns both shop readers need, named once. */
 // 🧪 `is_demo` — a demo shop is on the shelf since 2026-11-06 and its card wears "(DEMO ONLY)". Read with the service
 // role (below): the column is not anon-readable (migration 20271014385411) and stays that way.
+// 🃏 The shop card (owner 10 Nov): `vendor_profile_id` keys the batched badge reads; `portfolio_r2_keys` +
+// `microsite_hero_photo_key` decide the cover (`shopCoverKey`); `in_business_since_year` is the Years pill's fact.
 const SHOP_COLUMNS =
-  'business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url, is_demo';
+  'vendor_profile_id, business_name, business_slug, location_city, services, verification_state, next_renewal_due_at, logo_url, is_demo, portfolio_r2_keys, microsite_hero_photo_key, in_business_since_year';
 
 /** The same list for the front door's shop SEARCH — a function for the reason `coverColumns` is one. */
 export const shopColumns = (): typeof SHOP_COLUMNS => SHOP_COLUMNS;
@@ -457,7 +461,7 @@ export function makeHomePublicReads<C extends FeaturedChapter>(deps: HomePublicR
     }),
     /** The listed events' `couple` members and their profile rows. */
     rememberedHostRows: deps.remember((eventIds: string[]) => readHostRows(eventIds), {
-      key: 'home:discover-hosts-v1',
+      key: 'home:discover-hosts-v2',
       tags: [HOME_SHELF_TAGS.events, HOME_SHELF_TAGS.people],
     }),
     /** The rows a shelved card's cover is drawn from, and the two facts its look can turn on. */
@@ -477,7 +481,7 @@ export function makeHomePublicReads<C extends FeaturedChapter>(deps: HomePublicR
     }),
     /** The shop shelf's rows and the exact live count. */
     rememberedLiveShopRows: deps.remember((limit: number) => readLiveShopRows(limit), {
-      key: 'home:live-shops-v1',
+      key: 'home:live-shops-v2',
       tags: [HOME_SHELF_TAGS.shops],
     }),
     /** The featured storyteller chapters. */

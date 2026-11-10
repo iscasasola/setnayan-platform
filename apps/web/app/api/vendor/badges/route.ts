@@ -1,10 +1,11 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { grantOwedBadgeRewards, readBadgeRewardFacts } from '@/lib/badge-rewards.server';
 import { badgesForPrint } from '@/lib/shop-badges';
+import { composeBadgeSocialPost } from '@/lib/social/badge-post';
 import { badgePrintSvg, type PrintGround } from '@/lib/shop-badge-print';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // `granted` = how many rewards/upgrades THIS call paid, so a badge page can redraw once to show them.
     const granted = await readBadgeRewardFacts(admin, profile.vendor_profile_id, facts)
       .then((rewardFacts) => grantOwedBadgeRewards(admin, profile.vendor_profile_id, rewardFacts))
-      .then((sweep) => sweep.granted + (sweep.upgrades?.granted ?? 0))
+      .then((sweep) => {
+        // 📣 Lane S (2026-11-10): a badge just earned composes ONE post for Setnayan's own Page — after the response,
+        // never on the supplier's path; the composer gates and never throws (lib/social/badge-post.ts).
+        const keys = sweep.grantedKeys ?? [];
+        if (keys.length > 0) after(() => composeBadgeSocialPost(profile.vendor_profile_id, keys));
+        return sweep.granted + (sweep.upgrades?.granted ?? 0);
+      })
       .catch((err) => {
         console.error('[badge-rewards] sweep failed', err);
         return 0;

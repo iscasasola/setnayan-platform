@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { grantOwedBadgeRewards } from '@/lib/badge-rewards.server';
@@ -11,6 +12,8 @@ import {
   type SpotlightAwardType,
 } from '@/lib/spotlight-awards';
 import { formatCount } from '@/lib/format-number';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { composeBadgeSocialPost } from '@/lib/social/badge-post';
 
 /**
  * Setnayan HQ · Spotlight Awards server actions — the ONLY write path into
@@ -116,13 +119,16 @@ export async function removeAward(formData: FormData): Promise<void> {
   if (!UUID_RE.test(awardId)) back('error', 'Invalid award id.');
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: removed, error } = await admin
     .from('vendor_spotlight_awards')
     .delete()
-    .eq('award_id', awardId);
+    .eq('award_id', awardId)
+    .select('vendor_profile_id');
   if (error) back('error', error.message);
 
   revalidateSurfaces();
+  // ⚡ The shop's page names its awards — its cached copy redraws without this one.
+  for (const r of (removed ?? []) as Array<{ vendor_profile_id?: string | null }>) revalidateShopPage(r.vendor_profile_id);
   back('ok', 'Award removed.');
 }
 
@@ -166,7 +172,7 @@ export async function addAwardManually(formData: FormData): Promise<void> {
   // Rising → Event Plus, once per award per month; Top Pick / Most Booked also a 4-week upgrade, lib/badge-upgrades.ts). Only the award is handed in, so nothing else is granted here; the
   // database's (shop, award, month) key makes a re-add pay nothing. A failure is logged — the supplier's next badge
   // read pays it — and never blocks the award.
-  await grantOwedBadgeRewards(admin, vendorId, {
+  const sweep = await grantOwedBadgeRewards(admin, vendorId, {
     verified: null,
     completedEvents: null,
     trustedReviews: null,
@@ -176,7 +182,12 @@ export async function addAwardManually(formData: FormData): Promise<void> {
     inspirationPhotos: null,
     awards: [{ type: awardType, periodMonth: period }],
   });
+  // 📣 Lane S (2026-11-10): the award just earned composes ONE post for Setnayan's own Page, after the response
+  // (lib/social/badge-post.ts — gated, compose-once, never throws).
+  const earnedKeys = sweep.grantedKeys ?? [];
+  if (earnedKeys.length > 0) after(() => composeBadgeSocialPost(vendorId, earnedKeys));
 
   revalidateSurfaces();
+  revalidateShopPage(vendorId);
   back('ok', `Award added for ${vendor.business_name ?? 'vendor'}.`);
 }

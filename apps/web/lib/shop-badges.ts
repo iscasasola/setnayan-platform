@@ -168,6 +168,17 @@ export function shopBadges(f: ShopBadgeFacts): ShopBadge[] {
   return out;
 }
 
+/** The most pills a shop CARD wears (owner 10 Nov, DECISION_LOG "DISCOVER'S SHOP CARD — APPROVED": "up to 2"). */
+export const CARD_BADGE_CAP = 2;
+
+/**
+ * 🃏 THE PILLS A SHOP CARD WEARS (Discover's shelf, its search): up to `CARD_BADGE_CAP`, Verified first, then the
+ * highest other — `shopBadges`' own order, cut. Never a second ordering: a card cannot rank a badge the page does not.
+ */
+export function cardBadges(f: ShopBadgeFacts): ShopBadge[] {
+  return shopBadges(f).slice(0, CARD_BADGE_CAP);
+}
+
 /**
  * 🖨 THE PRINT PIPELINE'S ONE QUESTION — what goes on a card or a tarp. The print renderers call this with facts READ
  * AT PRINT TIME (`readShopBadgeFacts`), never with a value saved when the design was made: a medal un-earned since

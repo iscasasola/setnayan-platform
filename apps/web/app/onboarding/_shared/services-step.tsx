@@ -82,7 +82,8 @@
 import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
 import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Camera, CheckCircle2, Globe2, Sparkles, Users, UserRound } from 'lucide-react';
+import { Camera, CheckCircle2, Globe2, Minus, Plus, Sparkles, Users, UserRound, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import { InfoTip } from '@/app/_components/info-tip';
 
@@ -216,24 +217,16 @@ function Stepper({
   decLabel: string;
   incLabel: string;
 }) {
-  const btn =
-    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 ' +
-    'text-xl leading-none text-ink/70 transition hover:bg-ink/[0.05] ' +
-    'disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent';
   return (
     <div className="flex items-center justify-between gap-3">
-      <button type="button" onClick={onDec} disabled={!canDec} aria-label={decLabel} className={btn}>
-        −
-      </button>
+      <ActionButton tone="neutral" iconOnly icon={Minus} label={decLabel} onClick={onDec} disabled={!canDec} />
       <span className="min-w-0 flex-1 text-center">
         <span className="block font-mono text-2xl font-semibold tabular-nums text-ink">
           {value}
         </span>
         <span className="mt-0.5 block text-xs text-ink/55">{sub}</span>
       </span>
-      <button type="button" onClick={onInc} disabled={!canInc} aria-label={incLabel} className={btn}>
-        +
-      </button>
+      <ActionButton tone="neutral" iconOnly icon={Plus} label={incLabel} onClick={onInc} disabled={!canInc} />
     </div>
   );
 }
@@ -393,21 +386,16 @@ function PackPoolPicker({
       />
       <PriceLine pricePhp={poolPriceAt(type, view)} listPricePhp={poolListPriceAt(type, view)} />
       <div className="mt-3 flex gap-2">
-        <button
-          type="button"
+        <ActionButton
+          tone="ok"
+          main
+          icon={added ? CheckCircle2 : Plus}
           aria-pressed={added}
+          label={added ? `Papic added ✓ · ${peso(poolPriceAt(type, view))}` : `Add Papic · ${peso(poolPriceAt(type, view))}`}
+          className="flex-1 justify-center"
           onClick={() => onChange(stepPool(type, selection, view - poolStepOf(type, selection)))}
-          className="min-h-[48px] flex-1 rounded-[var(--m-r-md)] border border-ink/15 bg-ink px-4 py-3 text-sm font-semibold text-paper"
-        >
-          {added ? `Papic added ✓ · ${peso(poolPriceAt(type, view))}` : `Add Papic · ${peso(poolPriceAt(type, view))}`}
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange({ ...selection, poolRungKey: null })}
-          className="min-h-[48px] rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-sm text-ink/70"
-        >
-          Not now
-        </button>
+        />
+        <ActionButton tone="neutral" quiet icon={X} label="Not now" onClick={() => onChange({ ...selection, poolRungKey: null })} />
       </div>
       <p className="mt-2 text-center text-xs text-ink/50">
         Nothing is charged until you pay. {type.freePoints.toLocaleString('en-PH')} credits come free with every
@@ -786,7 +774,7 @@ export function ServicesStep({
               Elsewhere the card keeps its original "find it in your studio"
               wording, because a tick that charges nothing is a fake door. */}
           {interactive ? (
-            <button
+            <button /* button-ok: THE TICK (owner 2026-08-11) — a tick box that adds a paid line; the Ticks kind, pinned by every-switch-wears-the-one-look.test.ts */
               type="button"
               role="switch"
               aria-checked={selection.ai}
@@ -880,7 +868,7 @@ export function ServicesStep({
           ) : null}
 
           {interactive ? (
-            <button
+            <button /* button-ok: THE TICK for Event Hub Pro (owner 2026-08-11), pinned by event-hub-pro-on-the-services-step.test.ts */
               type="button"
               className={`mt-5 flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
                 selection.hubPro

@@ -79,7 +79,7 @@ export async function fetchVendorFirstStepsState(
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),
       readVendorServiceCards(supabase, vendorProfileId),
-      countVendorCustomers(supabase, vendorProfileId),
+      countVendorCustomers(vendorProfileId),
       hasRegistrationNumber(supabase, vendorProfileId),
       // Step 4 — a shop-wide day off belongs to no schedule, so Today's schedules read cannot see it. Asked only
       // here, on a shop not yet approved (the one that sees this rail), and only when the caller counted the rest.
@@ -198,17 +198,25 @@ async function countShopWideDaysOff(supabase: SupabaseClient, vendorProfileId: s
  * Couples on this vendor's books — the same population My Customers shows:
  * every event they are attached to. Counts shortlist rows too, because both QRs
  * put a couple here and the step is "bring in the customers you already have".
+ *
+ * ⚠ ADMIN CLIENT, NOT THE SHOP'S SESSION (audit 2026-11-10, C2). `event_vendors` has NO vendor SELECT policy, so
+ * on the shop's own session this count is a silent 0 and the step could never read as done. Scoped by the id of
+ * the profile the caller resolved from the shop's own session — the sanctioned shape named in
+ * `app/vendor-dashboard/a-shop-cannot-read-its-own-booking.test.ts`.
  */
-async function countVendorCustomers(
-  supabase: SupabaseClient,
-  vendorProfileId: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from('event_vendors')
-    .select('vendor_id', { count: 'exact', head: true })
-    .eq('marketplace_vendor_id', vendorProfileId);
-  if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:event_vendors.select', error);
-  return error || count == null ? 0 : count;
+async function countVendorCustomers(vendorProfileId: string): Promise<number> {
+  try {
+    const { count, error } = await createAdminClient()
+      .from('event_vendors')
+      .select('vendor_id', { count: 'exact', head: true })
+      .eq('marketplace_vendor_id', vendorProfileId);
+    if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:event_vendors.select', error);
+    return error || count == null ? 0 : count;
+  } catch (err) {
+    // Fail-soft like every read in this rail: an unreachable admin client reads "not done yet", never a crash.
+    console.error('[supabase-error] lib/vendor-first-steps.server.ts · countVendorCustomers', err);
+    return 0;
+  }
 }
 
 /**

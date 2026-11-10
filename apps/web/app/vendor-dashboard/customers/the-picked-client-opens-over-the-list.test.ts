@@ -7,7 +7,7 @@
  *      so the two addresses can never draw two different clients.
  *   2. The shell is a pop-up layer: portaled onto <body>, its z-index is the `--sn-z-pop` token (never a raw number),
  *      it is a modal dialog, and Esc / ✕ close it.
- *   3. Motion: one helper (`pickedMotion`) gives the open's frames + timing — 520 ms on the shared ease, a 120 ms
+ *   3. Motion: one helper (`pickedMotion`) gives the open's frames + timing — 700 ms on the shared ease, a 120 ms
  *      fade under reduced motion, nothing on a hard load — and the close plays the SAME frames with
  *      `direction: 'reverse'`, so it is the exact reverse by construction.
  *   4. A page switch costs no request: `history.replaceState(?tab=)`, never a router push.
@@ -74,7 +74,7 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
 });
 
 test('3 · the close is the open played backwards', () => {
-  assert.equal(PICKED_OPEN_MS, 520);
+  assert.equal(PICKED_OPEN_MS, 700);
   assert.match(read(MOTION), /PICKED_OPEN_MS = RISE_MS;/, 'the picked client keeps its own copy of the rise again');
   assert.equal(PICKED_FADE_MS, 120);
   assert.equal(PICKED_PAGE_SLIDE_MS, 700, '§10 #26: the page slide is 0.7 s');

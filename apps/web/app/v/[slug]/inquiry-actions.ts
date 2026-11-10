@@ -24,7 +24,8 @@
  */
 
 import { revalidatePath } from 'next/cache';
-import { supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { inquiryServicesLine, supplierInquiryBody } from '@/lib/supplier-inquiry-opening';
+import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
@@ -284,9 +285,10 @@ export async function startServiceInquiry(input: {
   // explicitly on the dashboard.
   const events = await fetchUserEvents(supabase, user.id, 'couple');
   const requestedEventId = String(input.eventId ?? '').trim();
-  const eventId = requestedEventId
-    ? (events.find((e) => e.event_id === requestedEventId)?.event_id ?? null)
-    : (events[0]?.event_id ?? null);
+  const theEvent = requestedEventId
+    ? (events.find((e) => e.event_id === requestedEventId) ?? null)
+    : (events[0] ?? null);
+  const eventId = theEvent?.event_id ?? null;
   if (!eventId) return { status: 'no_event' };
 
   const admin = createAdminClient();
@@ -349,10 +351,10 @@ export async function startServiceInquiry(input: {
         new Set([initialServiceId, ...input.alsoServiceIds.map((s) => String(s).trim())].filter(Boolean)),
       );
   const { data: ownedServices } = general || requestedIds.length === 0
-    ? { data: [] as { vendor_service_id: string; category: string | null }[] }
+    ? { data: [] as { vendor_service_id: string; category: string | null; title: string | null }[] }
     : await admin
         .from('vendor_services')
-        .select('vendor_service_id, category')
+        .select('vendor_service_id, category, title')
         .eq('vendor_profile_id', vendorProfileId)
         .eq('is_active', true)
         .in('vendor_service_id', requestedIds);
@@ -532,10 +534,27 @@ export async function startServiceInquiry(input: {
       input.requestBundleQuote && input.alsoServiceIds.length > 0
         ? '\n\nWe’d love to book a few of your services together — could you send us one bundle price?'
         : '';
+    // 📋 Every service picked, named in the message (Build 5 F3): the cards by their own titles, the card-less services
+    // by the ONE taxonomy name, in pick order. 📅 No date on the event → the opening says "no date yet".
+    const kindLabel = await cardKindLabeller();
+    const titleById = new Map(
+      (ownedServices ?? []).map((s) => [s.vendor_service_id as string, ((s as { title?: string | null }).title ?? '').trim()]),
+    );
+    const cardName = (id: string) => {
+      const kind = ownedById.get(id);
+      return titleById.get(id) || (kind ? kindLabel(kind) : '');
+    };
+    const servicesLine = general
+      ? ''
+      : inquiryServicesLine([
+          ...(keyed ? [] : [cardName(initialServiceId)]),
+          ...input.alsoServiceIds.map((s) => String(s).trim()).filter((id) => id && id !== initialServiceId && ownedById.has(id)).map(cardName),
+          ...providedKeys.map(kindLabel),
+        ]);
     const delivery = await postThreadMessage(
       supabase,
       threadId,
-      `${supplierInquiryBody(await resolveProfileByEvent(eventId))}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+      `${supplierInquiryBody(await resolveProfileByEvent(eventId), { dated: Boolean(theEvent?.event_date) })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
     );
     // Reported only when the build was inside that message; otherwise the note
     // stays best-effort exactly as it has always been.

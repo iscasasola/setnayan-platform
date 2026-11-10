@@ -41,6 +41,7 @@ import { deriveVendorFraudState } from '@/lib/fraud-enforcement';
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 function requireVendorId(formData: FormData): string {
@@ -109,6 +110,7 @@ export async function dismissVendorSignals(formData: FormData) {
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('shops');
     if (unsuspErr) throw new Error(`Could not un-suspend: ${unsuspErr.message}`);
+    revalidateShopPage(vendorProfileId);
     await writeFraudEnforcementAudit(admin, {
       vendorProfileId,
       action: 'unsuspend',
@@ -175,6 +177,7 @@ export async function unsuspendVendor(formData: FormData) {
     evidenceSnapshot: snapshot,
   });
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/fraud');
   revalidatePath('/admin');
 }
@@ -292,11 +295,12 @@ export async function executeFraudWipeBan(
 
   const { data: vendorRow } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name, user_id, demotion_count, fraud_banned_at, contact_email')
+    .select('vendor_profile_id, business_name, user_id, demotion_count, fraud_banned_at, contact_email, verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (!vendorRow) throw new Error('Supplier not found');
   const vendor = vendorRow as {
+    verification_state: string | null;
     business_name: string | null;
     user_id: string | null;
     demotion_count: number | null;
@@ -335,6 +339,13 @@ export async function executeFraudWipeBan(
       fraud_suspended_at: nowIso, // banned implies frozen; keep the timestamp set
       public_visibility: 'hidden',
       demotion_count: (vendor.demotion_count ?? 0) + 1,
+      // 🔴 Lane G item 1 (audit C1, 2026-11-10): the ban bumped demotion_count but left the state 'verified', so the
+      // booking gate — which read only that column — still let a shortlisting couple lock a banned shop. The gate now
+      // also reads fraud_banned_at; the state follows the count so the badge and every state-only reader agree.
+      // Only a verified shop is demoted: 'demoted' means "was verified and lost the badge".
+      ...(vendor.verification_state === 'verified'
+        ? { verification_state: 'demoted' as const, last_demoted_at: nowIso }
+        : {}),
     })
     .eq('vendor_profile_id', vendorProfileId);
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
@@ -398,6 +409,7 @@ export async function executeFraudWipeBan(
     }
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/fraud');
   revalidatePath('/admin');
 }

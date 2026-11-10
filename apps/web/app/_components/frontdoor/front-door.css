@@ -92,6 +92,7 @@
   --fd-warm: #fbf0e9;       /* the "W" kind tag */
   --fd-warm-ink: #7a4a2e;
   --fd-warm-line: #e6cdbc;
+  --fd-logo-ground: #ffffff; /* the ground a shop's logo sits on in the card circle (owner 10 Nov) */
   --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
@@ -145,6 +146,7 @@ html.dark .fd {
   --fd-warm: #3a2a22;
   --fd-warm-ink: #f3b59a;
   --fd-warm-line: rgba(243, 181, 154, 0.3);
+  --fd-logo-ground: #fbfaf7; /* a logo is drawn for a light ground — it keeps one in dark */
 }
 
 .fd *,
@@ -1105,6 +1107,9 @@ html.dark .fd {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* 📱 A one-word name (a shop called "FlowerStore.ph") has no place to break, so at 320 px it ran out of its
+     88-px column and was cut mid-letter ("FlowerStore.p") — the clamp only trims LINES. Break it onto line 2. */
+  overflow-wrap: anywhere;
 }
 .fd-by {
   font-size: 12px;
@@ -1710,6 +1715,59 @@ h2.fd-sechead,
   font-size: 22px;
   letter-spacing: 0.06em;
   color: var(--fd-gold);
+}
+
+/* 🃏 THE SHOP CARD (owner 10 Nov, DECISION_LOG "DISCOVER'S SHOP CARD — APPROVED").
+   The big tile is the shop's COVER — `.fd-thumb img` crops it to fill, which is right for a photo. The LOGO left the
+   tile for the circle, where it is shown WHOLE (contain, on a light ground) — `.fd-thumb img`'s cover crop was cutting
+   square logos top and bottom. "Sample photo" is the hero's own chip: a category picture never passes as their work. */
+/* `.fd-thumb img` sizes it; named so the cover's crop is a stated rule, not an inherited accident. */
+.fd-thumb .fd-shopcover {
+  object-fit: cover;
+}
+.fd-sample {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  background: rgba(30, 28, 26, 0.72);
+  color: #f5f1e8;
+  border-radius: var(--m-r-xs);
+  padding: 2px 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  font-family: var(--fd-sys);
+}
+.fd-ava-logo,
+.fd-ava-photo {
+  overflow: hidden;
+}
+.fd-ava-logo {
+  background: var(--fd-logo-ground);
+}
+.fd-ava-logo img,
+.fd-ava-photo img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.fd-ava-logo img {
+  object-fit: contain;
+  padding: 3px;
+}
+.fd-ava-photo img {
+  object-fit: cover;
+}
+/* The pills sit under the line; the 4-line clamp would cut them off a demo shop with a two-line name. The title keeps
+   its own 2-line clamp. */
+.fd-itxt-shop {
+  display: block;
+  overflow: visible;
+}
+.fd-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 /* ── DISCOVER · THE EVENT CARD (2026-09-29) ───────────────────────────────

@@ -1,11 +1,13 @@
 /**
  * /dev/supplier-plan-lab — simpler supplier dashboard STEP 6 on fixture data: Plan · Helpers · Settings ·
  * Notifications · Help · How is my business doing. No sign-in, no database. DEV-ONLY: production builds 404
- * this route (the same kill-switch as `/dev/supplier-lab`). It mounts the REAL screens — `PlanRows` + `PlanPicker`,
+ * this route (the same kill-switch as `/dev/supplier-lab`). It mounts the REAL screens — `PlanRows` + `PlanSheet` (+ the shared lock and Door 1),
  * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing` and the Help rows — so what it shows
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
+ *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
+ *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
  *   ?s=helpers         Helpers (who=parish: owner + a free Helper · studio: admins, team members, an open vote)
  *   ?s=settings        Settings (&staff=1 — a scoped team member)
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
@@ -25,7 +27,12 @@
 import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
-import { PlanPicker, type PlanPick } from '@/app/vendor-dashboard/subscription/_components/plan-picker';
+import { PlanSheet, type PlanPick, type SheetPlan } from '@/app/vendor-dashboard/subscription/_components/plan-sheet';
+import { changeKind, limitAsk, payToday, planChanges, planRowLine, sheetPlans, type PlanLimitKey } from '@/lib/plan-sheet';
+import { papersProgress } from '@/lib/locks';
+import { planWord } from '@/lib/vendor-plan-change-words';
+import { LabLimit, LabLock } from './lab-open';
+import type { LockKey } from '@/lib/locks';
 import { startSubscriptionPurchase } from '@/app/vendor-dashboard/subscription/actions';
 import { HelpersView } from '@/app/vendor-dashboard/team/_components/helpers-view';
 import {
@@ -82,6 +89,37 @@ const LAB_PRICES: Record<string, { monthly: number; annual: number }> = {
   enterprise: { monthly: 6000, annual: 62400 },
 };
 
+/** The plan sheet's rows from the lab's picks — the same lib calls the Plan screen makes (`plan-screen.tsx`). */
+function labSheet(tier: string, picks: readonly PlanPick[], expiresOn: string | null, expiresAt: string | null, nowMs: number): SheetPlan[] {
+  const by = new Map(picks.map((p) => [p.key, p]));
+  return sheetPlans(tier).map((t) => {
+    const paid = t === 'solo' || t === 'pro' || t === 'enterprise';
+    const pick = paid ? by.get(t) : undefined;
+    const price = pick?.price ?? {};
+    const kind = changeKind(tier, expiresAt, t, nowMs);
+    return {
+      key: t,
+      name: planWord(t),
+      line: t === tier ? (expiresOn ? `Active until ${expiresOn}` : 'Nothing to pay · nothing renews by itself') : planRowLine(tier, t, false, expiresOn),
+      paid,
+      price,
+      tooShort: pick?.tooShort ?? {},
+      today: Object.fromEntries(
+        (Object.entries(price) as [keyof typeof price, number][]).map(([cy, v]) => [
+          cy,
+          payToday({ kind, price: v, unusedPhp: 400, creditPhp: 0, currentRaw: tier, endsOn: expiresOn }),
+        ]),
+      ),
+      pickLine: planPickLine(tier, t, expiresOn),
+      changes: planChanges(tier, t, false),
+    };
+  });
+}
+
+/** Lab-only "now" and term ends, so the sheet's today/then lines are stable in a screenshot. */
+const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
+const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
+
 function planFixture(who: Who, unverified: boolean, fail: boolean) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
@@ -107,7 +145,17 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
       expiresOn={shop.expires}
       expiresSoon={who === 'caterer'}
       isPaid={shop.tier !== 'free'}
-      picker={<PlanPicker plans={plans} current={shop.tier} cycle={shop.cycle} verified={!unverified} action={startSubscriptionPurchase} />}
+      picker={
+        <PlanSheet
+          plans={labSheet(shop.tier, plans, who === 'caterer' ? '8 Dec 2026' : shop.expires, LAB_EXPIRES_AT[shop.tier] ?? null, LAB_SHEET_NOW)}
+          current={shop.tier}
+          cycle={shop.cycle}
+          verified={!unverified}
+          action={startSubscriptionPurchase}
+          expiresOn={who === 'caterer' ? '8 Dec 2026' : shop.expires}
+          papersProgress={papersProgress({ done: 2, of: 4 })}
+        />
+      }
       feeRow={bookingFeeRow(standing, who === 'studio' ? 1 : 0)}
       gives={planGivesLines(shop.tier, false)}
       receipts={
@@ -157,12 +205,14 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       expiresSoon={false}
       isPaid={tier !== 'free'}
       picker={
-        <PlanPicker
-          plans={plans}
+        <PlanSheet
+          plans={labSheet(tier, plans, null, null, now)}
           current={tier}
           cycle="monthly"
           verified
           action={startSubscriptionPurchase}
+          expiresOn={null}
+          papersProgress={papersProgress(null)}
           gift={
             gift
               ? { untilShort: '31 Jan', untilFull: '31 Jan 2027', endsSoon: giftEndsSoon(gift), startsShort: dayAfterWords(gift.untilDay) }
@@ -311,6 +361,38 @@ export default async function SupplierPlanLabPage({
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
         : planFixture(who, sp.unverified === '1', sp.fail === '1');
+  }
+  // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
+  else if (s === 'lock') {
+    const key = (sp.lock ?? 'quotation') as LockKey;
+    body = (
+      <LabLock
+          lock={key}
+          need={
+            sp.plan
+              ? { kind: 'plan', plan: sp.plan, price: `${planWord(sp.plan)} · lab price / 28 days`, href: '/vendor-dashboard/subscription' }
+              : { kind: 'verify', progress: papersProgress({ done: 2, of: 4 }) }
+          }
+          preview={
+            <div className="space-y-1.5 text-[13.5px] text-ink">
+              <div className="flex justify-between"><span>Photo coverage · 8 hours</span><b>lab price</b></div>
+              <div className="flex justify-between"><span>Same-day edit</span><b>lab price</b></div>
+              <div className="flex justify-between border-t border-ink/10 pt-1.5"><span>Total · due 1 Dec</span><b>lab price</b></div>
+            </div>
+          }
+        />
+    );
+  }
+  // ⤴ ?s=limit&tier=solo&key=bookingsPerDate&want=2 — Door 1, going past a plan limit (&unverified=1).
+  else if (s === 'limit') {
+    const key = (sp.key ?? 'bookingsPerDate') as PlanLimitKey;
+    const tier = sp.tier ?? 'solo';
+    const ask = limitAsk(tier, key, Number(sp.want ?? '2'), false);
+    body = ask ? (
+      <LabLimit ask={ask} verified={sp.unverified !== '1'} price="lab price / 28 days" />
+    ) : (
+      <p>Within the limit — no sheet.</p>
+    );
   }
   else if (s === 'helpers') return helpersFixture(who);
   else if (s === 'settings')

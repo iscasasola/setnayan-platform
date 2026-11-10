@@ -265,7 +265,31 @@ function applyState(buttons: HTMLElement[], state: FitState): void {
 function fits(row: HTMLElement, field: HTMLElement | null): boolean {
   if (row.scrollWidth > row.clientWidth + 1) return false;
   if (field && field.offsetWidth + 1 < FIELD_FLOOR * row.clientWidth) return false;
+  // An EqualRow's cells are fixed shares of the row, so the ROW never overflows — the word spills inside its own
+  // button instead ("Download QR" ran into its edge at 375, 10 Nov). A centred word eats the PADDING first, which
+  // `scrollWidth` does not count, so the measure is the content box: a state fits only when every button's icon and
+  // word sit inside their own padding.
+  // (`?.`: the fit guard drives this pass with a measured fake row that carries only the measures.)
+  if (row.hasAttribute?.('data-equal-row')) {
+    for (const b of Array.from(row.querySelectorAll<HTMLElement>('.ab'))) {
+      if (spillsItsPadding(b)) return false;
+    }
+  }
   return true;
+}
+
+function spillsItsPadding(b: HTMLElement): boolean {
+  if (b.scrollWidth > b.clientWidth + 1) return true;
+  const cs = getComputedStyle(b);
+  const box = b.getBoundingClientRect();
+  const left = box.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft);
+  const right = box.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight);
+  for (const k of Array.from(b.children)) {
+    const r = k.getBoundingClientRect();
+    if (r.width === 0) continue; // hidden by the state (`.word-only svg`, `.icon-only .lbl`)
+    if (r.left < left - 1 || r.right > right + 1) return true;
+  }
+  return false;
 }
 
 /** One fit pass over a row; returns the state it chose. Exported for the guard. */

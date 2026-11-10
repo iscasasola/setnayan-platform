@@ -12,7 +12,7 @@
  *      (`useFitRow`); the chat cards' `EqualRow` IS it (re-exported, no second copy); the CSS lets every button fill its
  *      cell, an icon-only one too (after `.ab.icon-only`, one class stronger).
  *   2. The QR card's three doors are the direct cells of one EqualRow — and still Share · Copy link · Download, in order.
- *   3. The Share door's Copy · Save · Share are ActionButtons of ONE width — no odd chip left.
+ *   3. The Share door's Copy · Save · Share are presses of ONE width — no odd chip left.
  *
  * SABOTAGE (each run once, each went red): put the QR row back in `flex flex-wrap` → 2; give Save its old chip → 3;
  * move the CSS rule above `.ab.icon-only` → 1.
@@ -92,7 +92,7 @@ test('2 · the QR card: Share · Copy link · Download are the cells of ONE equa
   }
 });
 
-test('3 · the Share door: Copy · Save · Share are ActionButtons of ONE width', () => {
+test('3 · the Share door: Copy · Save · Share are presses of ONE width', () => {
   const cover = code('app/vendor-dashboard/shop/_components/shop-cover.tsx');
   const sheet = cover.slice(cover.indexOf('function ShareSheet('), cover.indexOf('\n}\n', cover.indexOf('function ShareSheet(')));
   assert.ok(sheet.length > 0, 'anti-vacuity: the Share door moved');
@@ -100,7 +100,19 @@ test('3 · the Share door: Copy · Save · Share are ActionButtons of ONE width'
   assert.match(cover, /SHARE_DOOR_PRESS = actionButtonClass\('neutral', \{ extra: SHARE_DOOR_W \}\)/);
   assert.match(sheet, /<CopyButton [^>]*className=\{SHARE_DOOR_PRESS\}/, 'Copy is not the door’s one press');
   assert.match(sheet, /<SaveFileLink [^>]*className=\{SHARE_DOOR_PRESS\}/, 'Save is not the door’s one press');
-  assert.match(sheet, /<ActionButton\s+tone="neutral"\s+icon=\{Share\}\s+label="Share"\s+className=\{SHARE_DOOR_W\}/, 'Share is not the door’s one press');
+  // Share keeps the shipped `<Share aria-hidden …/> Share` shape that lib/share-buttons-use-one-icon.test.ts anchors on.
+  assert.match(sheet, /<button\s+type="button"\s+className=\{SHARE_DOOR_PRESS\}[\s\S]{0,400}?<Share aria-hidden[^/]*\/>\s*Share\s*<\/button>/, 'Share is not the door’s one press');
   assert.doesNotMatch(sheet, /rounded-full bg-ink\/\[0\.06\]/, 'an odd-width chip is back in the Share door');
   assert.equal([...sheet.matchAll(/SHARE_DOOR_(?:PRESS|W)\}/g)].length, 3, 'the door does not have exactly three presses of one width');
+});
+
+test('4 · an equal row fits only when every word sits inside its own button (the 375 px "Download QR" spill)', () => {
+  // Equal cells never make the ROW overflow, and a centred word eats the padding before `scrollWidth` notices — so
+  // the fit pass measures each button's content box. Without it the row stays "full" while the word runs into the edge.
+  const src = code('components/action-button.tsx');
+  const fits = src.slice(src.indexOf('function fits('), src.indexOf('export function fitRow'));
+  assert.match(fits, /hasAttribute\?\.\('data-equal-row'\)[\s\S]*spillsItsPadding\(b\)/, 'fits() no longer checks each button of an equal row');
+  const spill = src.slice(src.indexOf('function spillsItsPadding'));
+  assert.match(spill, /paddingLeft[\s\S]*paddingRight/, 'the spill measure ignores the padding');
+  assert.match(spill, /getBoundingClientRect\(\)[\s\S]*r\.left < left[\s\S]*r\.right > right/, 'the spill measure does not compare the icon and word to the content box');
 });

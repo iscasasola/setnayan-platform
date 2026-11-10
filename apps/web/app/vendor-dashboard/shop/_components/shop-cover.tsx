@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -393,17 +393,19 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
             <b className="block text-[14.5px] font-medium text-ink">Send to a couple</b>
             <span className="block text-[12.5px] text-ink/60">Opens your phone&rsquo;s share sheet</span>
           </span>
-          <ActionButton
-            tone="neutral"
-            icon={Share}
-            label="Share"
-            className={SHARE_DOOR_W}
+          <button
+            type="button"
+            className={SHARE_DOOR_PRESS}
+            data-share-door-share=""
             onClick={async () => {
               const r = await shareShopLink(url, name);
               if (r === 'copied') toast.success('Link copied.');
               else if (r === 'failed') toast.error('Couldn’t share just now — copy the link instead.');
             }}
-          />
+          >
+            <Share aria-hidden strokeWidth={1.9} />
+            Share
+          </button>
         </div>
       </div>
     </RiseScreen>

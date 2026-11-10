@@ -39,6 +39,9 @@ import { stripComments } from '@/lib/strip-comments';
 const WEB = join(import.meta.dirname, '..', '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
+// The rows are rendered with their body as createElement's third argument (react/no-children-prop); widened here so TS does
+// not insist on a `children` prop the third argument already supplies.
+type AnyRow = React.ComponentType<Record<string, unknown>>;
 
 test('1 · every Clients row rises, and the risen body is the event’s fixed lines in order', () => {
   const roster = code('app/vendor-dashboard/customers/_components/customers-roster.tsx');
@@ -66,8 +69,9 @@ test('2 · a rising row is the same head, its arrow on (›); shut, its body wai
   const { SupplierOpenRow } = await import('@/app/vendor-dashboard/_components/supplier-open-row');
   const html = renderToStaticMarkup(
     React.createElement(
-      SupplierOpenRow,
-      { id: 'customer-e1', data: 'customer-row', title: 'Indalecio & Claire · Wedding · Dec 18', line: 'Asking · Photo & video', rise: true, children: React.createElement('p', { 'data-probe': '' }, 'THE BODY') },
+      SupplierOpenRow as AnyRow,
+      { id: 'customer-e1', data: 'customer-row', title: 'Indalecio & Claire · Wedding · Dec 18', line: 'Asking · Photo & video', rise: true },
+      React.createElement('p', { 'data-probe': '' }, 'THE BODY'),
     ),
   );
   assert.match(html, /data-open-rises=""/, 'the row does not say it rises');
@@ -82,7 +86,7 @@ test('2 · a rising row is the same head, its arrow on (›); shut, its body wai
 
   // The shipped fold, unchanged for every other row: no `rises` → ▾ and aria-expanded, exactly as before.
   const { Fold } = await import('@/app/_components/fold');
-  const plain = renderToStaticMarkup(React.createElement(Fold, { title: 'Bookings', children: 'x' }));
+  const plain = renderToStaticMarkup(React.createElement(Fold as AnyRow, { title: 'Bookings' }, 'x'));
   assert.match(plain, /aria-expanded="false"/);
   assert.doesNotMatch(plain, /data-fold-rises|aria-haspopup/, 'every fold now rises');
 });
@@ -93,8 +97,9 @@ test('3 · risen, it is the ONE RiseScreen, headed by the event, holding the bod
   // A row a link names is up from the first paint — the screen simply appears (no tap behind it).
   const html = renderToStaticMarkup(
     React.createElement(
-      SupplierOpenRow,
-      { id: 'customer-e1', data: 'customer-row', title: 'Indalecio & Claire · Wedding · Dec 18', line: 'Asking · Photo & video', rise: true, defaultOpen: true, children: React.createElement('p', { 'data-probe': '' }, 'THE BODY') },
+      SupplierOpenRow as AnyRow,
+      { id: 'customer-e1', data: 'customer-row', title: 'Indalecio & Claire · Wedding · Dec 18', line: 'Asking · Photo & video', rise: true, defaultOpen: true },
+      React.createElement('p', { 'data-probe': '' }, 'THE BODY'),
     ),
   );
   assert.match(html, /data-rise-screen="customer-row"/, 'the risen row is not the shared RiseScreen');

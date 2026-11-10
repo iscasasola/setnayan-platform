@@ -18,7 +18,10 @@ Build 5 plan Step 0 rows 30–31 + the T19 equal-width rule; owner approved the 
 - **Equal-weight choices at equal widths (T19)** — the house `EqualRow` (components/action-button.tsx: equal grid
   columns, fits as one via `useFitRow`, every button fills its cell incl. icon-only); the chat cards' copy now re-exports
   it. The QR card (Today's step 6 · every Your-QR-codes card) draws Share · Copy link · Download QR in it; the risen Share
-  door's Copy · Save · Share are ActionButtons of one width (Save wears the Share icon, the file-button rule).
+  door's Copy · Save · Share are `.ab` presses of one width (Save wears the Share icon, the file-button rule; Share keeps
+  the `<Share aria-hidden …/> Share` shape its icon guard anchors on). An equal row now fits on each BUTTON's content box:
+  equal cells never make the row overflow and a centred word eats the padding before `scrollWidth` sees it, so
+  "Download QR" ran into its edge at 375 while the row read "full"; it now steps to words-only, as one.
 - 🔒 `customers/a-client-row-rises-full-screen.test.ts` · `_components/today-pins-needs-you-today.test.ts` ·
   `lib/equal-weight-choices-sit-at-equal-widths.test.ts` (9 of 10 red on main; sabotaged). Re-aimed
   `the-today-page-speaks-to-every-supplier.test.ts` "first taps" (the ⚙ left the cover by ruling).

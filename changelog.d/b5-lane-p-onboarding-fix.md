@@ -25,5 +25,9 @@ breaks; each is fixed, copy, behaviour and every `data-testid` unchanged.
   Note: existing callers' `data-*` hooks (seat plan, guests, people roster) were silently dropped before and now
   reach the DOM.
 - Guard: `LocationStep`'s bare-button ratchet falls 1 → 0.
+- **Review round:** the summary hero's "MARIA & JOSE" no longer runs under the "Set na 'yan…" headline at 320–390 px
+  (the phone hero's `transform:scale(.78)` was undone by its own `rise` animation, leaving a −8 px margin dragging the
+  headline over the names; it is `zoom` now, with a real gap). The Area step's "Pick an area" is the full-width
+  `StepPick`, like every other step's dropdown.
 
 SPEC IMPACT: None

@@ -1163,3 +1163,11 @@
 .onbw .dash-site{background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible;}
 .onbw #screen-congrats .dash-sec{padding-left:0;padding-right:0;}
 .onbw #screen-congrats .recap.tight{padding:6px 0;}
+/* 📐 THE NAMES NEVER RUN UNDER THE HEADLINE (Lane P fix, 10 Nov — "MARIA & JOSE" sat under "Set na 'yan…" at
+   phone widths). The phone hero shrank the lockup with `transform:scale(.78)` and pulled the headline up with a
+   −8 px margin — but `.dash-mono`'s own `rise` animation (fill `both`) ends on `transform:none`, so the scale never
+   held and the margin dragged the headline over the names line. `zoom` shrinks the lockup in LAYOUT (no transform
+   for the animation to undo), and the headline keeps a real gap under the names. */
+@media (max-width:1023px){
+  .onbw #screen-congrats .dash-mono{transform:none;zoom:.78;margin:0 auto 10px;}
+}

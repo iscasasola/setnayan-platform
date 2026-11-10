@@ -282,10 +282,13 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
       info="You’ll find your parish and reception with Setnayan. Not booked yet? That’s normal."
     >
       {askArea ? (
-        <PickMenu
+        /* 📐 The template's full-width dropdown (`StepPick`, owner 10 Nov "uniform … design templates") — the same box
+           as every other step's, the width of the two buttons under it. */
+        <StepPick
           label="Area"
           value={picked && cityByKey(picked) ? picked : null}
           buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
+          placeholder={picked && !cityByKey(picked) ? 'Another place' : 'Pick an area'}
           options={[
             ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
             ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),

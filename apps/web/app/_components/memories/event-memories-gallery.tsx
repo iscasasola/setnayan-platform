@@ -66,6 +66,8 @@ import {
   type ZoomScale,
 } from '@/lib/gallery-zoom';
 import { useGridPinch } from './use-grid-pinch';
+import { ExamplePreview } from '@/app/_components/states/empty-state';
+import { SAMPLE_MEMORIES } from '@/lib/empty-look-samples';
 
 /** "Follow the moments in order" — a way of LOOKING, remembered on this device like the zoom (no shared state). */
 const MOMENTS_KEY = 'sn-memories-moments';
@@ -304,6 +306,11 @@ export function EventMemoriesGallery({
                   ? emptyLine
                   : 'Nothing in this album yet.'}
         </p>
+        {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the READ answered with no photo at all, in All, nothing narrowing it →
+            the grid itself, faded, under "Example". A refused read returned above; a search or filter never gets one. */}
+        {host && items.length === 0 && album === 'all' && !q.trim() && !needsLook && chapter === ALL_CHAPTERS ? (
+          <MemoriesExample gridClass={gridClass} />
+        ) : null}
       </>
     );
   } else if (album === 'challenges') {
@@ -753,5 +760,21 @@ function MemoriesThumbRow({
         </OnBody>
       ) : null}
     </>
+  );
+}
+
+/** 👻 Memories' Example — the grid's own square tiles on eight sample photos (`lib/empty-look-samples.ts`). */
+export function MemoriesExample({ gridClass }: { gridClass: string }) {
+  return (
+    <ExamplePreview flush>
+      <div className={gridClass}>
+        {SAMPLE_MEMORIES.map((src) => (
+          <span key={src} className="relative block aspect-square w-full overflow-hidden bg-ink/[0.06]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+          </span>
+        ))}
+      </div>
+    </ExamplePreview>
   );
 }

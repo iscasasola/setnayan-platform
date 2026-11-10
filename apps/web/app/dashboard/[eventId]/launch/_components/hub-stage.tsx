@@ -6,6 +6,8 @@ import { SlugField } from '@/app/dashboard/[eventId]/invitation/_components/slug
 import { HubSavesImmediately } from '@/app/dashboard/[eventId]/website/_components/hub-draft-field';
 import { OB } from '@/app/_components/site-stage/obsidian';
 import { SiteStage, type SiteStageStage } from '@/app/_components/site-stage/site-stage';
+import { ExamplePreview } from '@/app/_components/states/empty-state';
+import { SAMPLE_HUB } from '@/lib/empty-look-samples';
 
 /* The obsidian colour table moved to `app/_components/site-stage/obsidian.ts`
    so the shared (client) stage can read it without importing this server file.
@@ -154,7 +156,11 @@ export function HubStage({
             initialDevice="desktop"
             urlParam="stage"
           />
-        ) : (
+        ) : null}
+        {/* 👻 THE EMPTY LOOK (Build 5 Lane H, prototype frame "Event · Hub"): the event READ (a live phase) and there is
+            no address yet, so the stage draws no frame — the miniature it will become, faded, under "Example". */}
+        {livePhase && initialPhase && !slug ? <HubStageExample /> : null}
+        {livePhase && initialPhase ? null : (
           /* NOT "you have no page". We could not read the event, so we say
              exactly that and nothing more — and we draw NO frame, because a
              frame here would be a picture of a page we never confirmed. */
@@ -243,5 +249,39 @@ export function HubStage({
       </dl>
 
     </section>
+  );
+}
+
+/** 👻 The Hub's Example — a phone-sized miniature of the couple's page and its four facts, on the shared sample. */
+export function HubStageExample() {
+  return (
+    <ExamplePreview>
+      <div className="mx-auto w-[146px] overflow-hidden rounded-2xl" style={{ border: `1px solid ${OB.hairline}`, backgroundColor: OB.card }}>
+        <div className="relative aspect-[9/16]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={SAMPLE_HUB.photo} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-x-0 bottom-0 p-3 text-center" style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
+            <b className="block text-[13px] font-semibold" style={{ color: OB.text }}>
+              {SAMPLE_HUB.title}
+            </b>
+            <span className="block text-[10px]" style={{ color: OB.soft }}>
+              {SAMPLE_HUB.line}
+            </span>
+          </div>
+        </div>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+        {SAMPLE_HUB.facts.map(([k, v]) => (
+          <div key={k} className="p-1.5">
+            <dt className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: OB.gold }}>
+              {k}
+            </dt>
+            <dd className="mt-1 truncate text-[13px] font-medium" style={{ color: OB.text }}>
+              {v}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </ExamplePreview>
   );
 }

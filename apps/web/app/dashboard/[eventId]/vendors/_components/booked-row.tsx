@@ -85,6 +85,7 @@ import { BookedStandInCtx } from './booked-stand-ins';
 import { BookedWhere, BookedWhereLine } from './booked-where';
 import { BookedCountRule } from './booked-count-rule';
 import type { ServiceCounts } from '@/lib/supplier-count';
+import { SAMPLE_BOOKED } from '@/lib/empty-look-samples';
 
 export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 
@@ -123,6 +124,36 @@ function Logo({ url, initials }: { url: string | null; initials: string }) {
         initials
       )}
     </span>
+  );
+}
+
+/**
+ * 👻 BOOKED'S EXAMPLE (Build 5 Lane H; owner 2026-11-09, DECISION_LOG 🧱👻 ×2; prototype frame "Event · Suppliers"):
+ * the row's own head — `Logo`, name, service line, the `Next:` line and the status pill — on the sample team
+ * (`lib/empty-look-samples.ts`), no button and no fold. `BookedBody` mounts it under `ExamplePreview` only when the team
+ * read ANSWERED with nobody booked.
+ */
+export function BookedRowsExample() {
+  return (
+    <ul className="bk-rows mt-2">
+      {SAMPLE_BOOKED.map((r) => (
+        <li key={r.name} className="bk-row">
+          <div className="grid min-w-0 w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left">
+            <Logo url={null} initials={r.initials} />
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-medium text-ink">{r.name}</span>
+              <span className="block truncate text-[13px] text-ink/55">{r.service}</span>
+            </span>
+            <ChevronDown aria-hidden strokeWidth={2} className="h-5 w-5 text-sn-accent" />
+            <span className="col-span-2 col-start-2 flex flex-wrap items-baseline gap-x-2 text-[14px]">
+              <span className="text-ink/55">Next:</span>
+              <span className="text-ink/80">{r.line}</span>
+            </span>
+            <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE.ok}`}>{r.pill}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

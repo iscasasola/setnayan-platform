@@ -12,7 +12,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  * THE PLAN SCREEN'S ROWS (simpler supplier dashboard step 6; owner-APPROVED 2026-10-14; prototype SCREENS.plan):
  *
  *   You are on <plan> · <what you pay> · until <date>          (the answer line)
- *   Your plan ▾ · Cycle ▾ · What you pay [Pay]                 (`PlanPicker`, handed in)
+ *   Pay every ▾ · the plan rows (What changes · What you pay)    (`PlanSheet`, handed in — Build 5 Lane B)
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>

@@ -181,6 +181,20 @@ export async function fetchUserEventsOrReconnect(
 }
 
 /**
+ * 👻 DID THE BOARD'S READ ANSWER? (Build 5 Lane H, the empty look.) `fetchUserEvents` degrades to `[]` on every
+ * non-blip error — RLS denial included — so `[]` alone cannot say "none". This asks the SAME cached read whether it
+ * errored: zero extra trips. A greyed-out "Example" is drawn only when this is `false`, never beside a refused read.
+ */
+export async function userEventsReadRefused(
+  supabase: SupabaseClient,
+  userId: string,
+  memberType?: EventWithRole['member_type'],
+): Promise<boolean> {
+  const { error } = await readUserEvents(supabase, userId, memberType);
+  return Boolean(error);
+}
+
+/**
  * The one read behind both. A schema-cache blip is retried for a few seconds
  * (`withSchemaRetry`) before anyone decides what its failure means.
  */

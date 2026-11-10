@@ -45,3 +45,14 @@ export function formatCount(
 export function countNoun(n: number, one: string, many: string): string {
   return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
+
+/**
+ * A DAY COUNT AHEAD, IN WORDS — "today" · "tomorrow" · "in 3 days" · "in 1,240 days".
+ * Build 5 F5 (2026-11-10): a step read **"in 1 days"** — the count was right and the words were not. One day ahead is
+ * "tomorrow", never "in 1 day"; nought (or a count already behind) is "today". Lower case, so it sits mid-line.
+ */
+export function inDaysWords(n: number): string {
+  if (n <= 0) return 'today';
+  if (n === 1) return 'tomorrow';
+  return `in ${formatCount(n)} days`;
+}

@@ -12,6 +12,7 @@ import { PickMenu } from '../../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { useStagePanelNow } from './store';
 import { MAKER_PARTS, type MakerPartKey } from '@/lib/maker-parts';
+import { gearText } from '@/app/_components/gear-text';
 
 /**
  * 🧩 THE PROTOTYPE'S PIECES, IN REACT (`maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
@@ -254,7 +255,7 @@ export function StageAbout() {
   return (
     <span className={STAGE_BAR_ABOUT} data-stage-about="">
       <Explain title={name} className="!h-[38px] !w-11 pt-2.5">
-        {about}
+        {gearText(about)}
       </Explain>
     </span>
   );

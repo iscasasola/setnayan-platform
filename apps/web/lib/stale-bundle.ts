@@ -335,3 +335,41 @@ export function reloadForInterruptedRequest(
   else whenOnline(reload);
   return true;
 }
+
+/**
+ * ── ONE CALL FOR EVERY ERROR BOUNDARY (Build 5 F6, 2026-11-10) ───────────────
+ *
+ * The three reload shapes above were wired into `app/error.tsx` (and `global-error.tsx`) ONLY. But Next hands an
+ * error to the NEAREST boundary, and the supplier dashboard has its own (`app/vendor-dashboard/error.tsx`) — so the
+ * exact case the webpack-runtime shape was written for (Create on a service card → `/vendor-dashboard/shop?saved=1`
+ * on a tab older than the deploy) never reached the root boundary's reload. It drew the crash page, and the crash
+ * fired the browser's error report + its on-error replay to Sentry's ingest, which answered **429** — the one 429 in
+ * the console on that walk. A recovered stale tab sends nothing and draws no crash.
+ *
+ * Returns true when a reload is under way (the boundary should report nothing and draw as little as possible).
+ * Same one-per-session budget (`STALE_RELOAD_KEY`) as before — a second failure shows the boundary's card.
+ */
+export function recoverStaleTab(error: unknown): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const storage = window.sessionStorage;
+    const reload = () => window.location.reload();
+    if (isDeploymentSkewError(error)) return reloadForDeploymentSkew(storage, reload, error);
+    if (isStaleBundleError(error)) return reloadForStaleBundle(storage, reload);
+    if (isInterruptedRequestError(error)) {
+      const whenOnline = (go: () => void) => window.addEventListener('online', go, { once: true });
+      return reloadForInterruptedRequest(storage, reload, navigator.onLine !== false, whenOnline);
+    }
+  } catch {
+    // Storage refused outright: no marker means no safe one-shot, so no reload — the card shows as before.
+  }
+  return false;
+}
+
+/**
+ * Sentry's `beforeSend` filter: a stale tab is deploy skew the boundary cures with one reload — not a bug to file,
+ * and not worth an error event plus a full on-error session replay against the Sentry quota (the 429, F6).
+ */
+export function isRecoverableTabError(error: unknown): boolean {
+  return isDeploymentSkewError(error) || isStaleBundleError(error);
+}

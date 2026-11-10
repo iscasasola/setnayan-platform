@@ -8,6 +8,7 @@
  * 🔒 lib/shop-permit-line.test.ts
  */
 import { badgeDeadline, deadlineLabel, type BadgeFacts } from './verified-badge';
+import { inDaysWords } from '@/lib/format-number';
 
 export type PermitLine = { line: string; badge: { tone: 'ok' | 'wait' | 'quiet'; word: string } | null };
 
@@ -21,7 +22,7 @@ export function shopPermitLine(facts: BadgeFacts | null, now: Date = new Date())
         ? { line: 'No renewal date on file', badge: null }
         : { line: 'Setnayan reads its date when it checks your papers', badge: null };
     case 'ahead':
-      return { line: `Renews ${deadlineLabel(due!)} · in ${d.daysLeft} days`, badge: { tone: 'ok', word: 'Current' } };
+      return { line: `Renews ${deadlineLabel(due!)} · ${inDaysWords(d.daysLeft)}`, badge: { tone: 'ok', word: 'Current' } };
     case 'reminder':
       return {
         line: `Renews ${deadlineLabel(due!)} · in ${d.daysLeft} ${d.daysLeft === 1 ? 'day' : 'days'} — send the renewed one`,

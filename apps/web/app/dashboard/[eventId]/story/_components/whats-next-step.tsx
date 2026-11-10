@@ -32,6 +32,7 @@ import {
   backCoverOf,
   type NextCandidate,
 } from '@/lib/whats-next';
+import { inDaysWords } from '@/lib/format-number';
 
 /**
  * The three the prototype puts on cards, in its order. Not a rule about which
@@ -190,7 +191,7 @@ export function WhatsNextStep({
               <span className="mt-0.5 block font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-ink/50">
                 {candidate.dateLabel
                   ? `${candidate.dateLabel}${
-                      candidate.inDays === null ? '' : ` · in ${candidate.inDays} days`
+                      candidate.inDays === null ? '' : ` · ${inDaysWords(candidate.inDays)}`
                     }`
                   : candidate.timing === 'waiting'
                     ? 'When there is someone to celebrate'

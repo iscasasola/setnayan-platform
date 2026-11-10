@@ -701,8 +701,8 @@ function Column({ embedded, children }: { embedded: boolean; children: ReactNode
       {children}
     </div>
   ) : (
-    <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10" data-plan-screen="">
       {children}
-    </main>
+    </div>
   );
 }

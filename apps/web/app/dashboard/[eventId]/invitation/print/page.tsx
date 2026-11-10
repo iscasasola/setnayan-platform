@@ -76,7 +76,7 @@ export default async function PrintSheetPage({ params }: Props) {
         </p>
       </div>
 
-      <main className="print-sheet">
+      <div className="print-sheet">
         {qrCards.map(({ guest, svg }) => (
           <article key={guest.guest_id} className="print-card">
             <div className="print-qr" dangerouslySetInnerHTML={{ __html: svg }} />
@@ -94,7 +94,7 @@ export default async function PrintSheetPage({ params }: Props) {
             </div>
           </article>
         ))}
-      </main>
+      </div>
     </>
   );
 }

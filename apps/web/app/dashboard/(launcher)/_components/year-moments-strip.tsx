@@ -12,6 +12,7 @@ import {
   type SelfForMoments,
 } from '@/lib/year-moments';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
+import { inDaysWords } from '@/lib/format-number';
 
 /**
  * "Your year" home strip (date-anchor model). A compact, self-fetching preview
@@ -76,9 +77,7 @@ function fmt(iso: string): string {
 }
 
 function countdown(days: number): string {
-  if (days === 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  if (days < 30) return `in ${days} days`;
+  if (days < 30) return inDaysWords(days);
   const months = Math.round(days / 30);
   return months <= 1 ? 'in ~1 month' : `in ~${months} months`;
 }

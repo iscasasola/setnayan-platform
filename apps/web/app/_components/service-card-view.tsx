@@ -84,8 +84,11 @@ export function ServiceCardView({
    * satisfy a type, or a second non-interactive copy of the card — and a second
    * copy is the exact thing moving this component out of the profile page was
    * meant to prevent.
+   *
+   * 🃏 It is handed the card's own box (Build 5 Lane C): the Service card grown RISES from that rectangle and falls
+   * back into it on ✕ (`lib/rise-motion.ts`).
    */
-  onOpen?: () => void;
+  onOpen?: (from: HTMLElement | null) => void;
   /**
    * TWO DESTINATIONS ON ONE CARD (owner, 2026-09-09) — the BODY opens this
    * service's details; the LOGO opens the shop. This is the body's half.
@@ -317,7 +320,7 @@ export function ServiceCardView({
       ) : detailsEnabled ? (
         <button
           type="button"
-          onClick={onOpen}
+          onClick={(e) => onOpen?.(e.currentTarget.parentElement)}
           aria-label={`View details for ${c.label}`}
           className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         />

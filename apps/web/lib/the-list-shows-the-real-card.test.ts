@@ -216,7 +216,8 @@ test('the card view can be rendered by a SERVER component', () => {
   // second non-interactive copy of the card — and the second copy is precisely
   // what moving this component out was meant to prevent.
   const view = src('../app/_components/service-card-view.tsx');
-  assert.match(view, /onOpen\?:\s*\(\)\s*=>\s*void/, 'onOpen went back to required');
+  // It may hand the card's box to the opener (Build 5 Lane C, the Service card grown rises from it) — still OPTIONAL.
+  assert.match(view, /onOpen\?:\s*\([^)]*\)\s*=>\s*void/, 'onOpen went back to required');
   assert.ok(
     !/onOpen:\s*\(\)\s*=>\s*void;/.test(view),
     'onOpen is required again — a server component can no longer render the card',

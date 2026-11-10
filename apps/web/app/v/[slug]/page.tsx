@@ -3958,6 +3958,7 @@ function ServicesPricingSection({
         detailsEnabled={detailsEnabled}
         inquireMode={inquireMode}
         openServicePublicId={openServicePublicId}
+        shopName={businessName}
       />
     </section>
   );

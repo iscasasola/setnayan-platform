@@ -30,6 +30,7 @@ import {
 import { DEFAULT_EVENT_TZ } from './schedule';
 import { getLifecyclePhase } from './invitation-widgets';
 import {
+  EVENT_CLOCK_COLUMNS,
   clockCode,
   clockPartOpen,
   clockRowOf,
@@ -169,6 +170,13 @@ test('§2 · the Event Hub cache key carries the clock, so a stage flip names a 
   assert.equal(parseHubViewKey(k(OPENS))?.clock, 'el');
   assert.equal(parseHubViewKey('v1.7.a.-.-.-')?.clock, null, 'an old key still parses');
   assert.equal(parseHubViewKey('v2.7.zz.a.-.-.-'), null, 'a clock code that is not one does not');
+});
+
+test('§2 · the live wall reads every clock column (its typed-out list equals EVENT_CLOCK_COLUMNS)', () => {
+  const wall = readFileSync(join(__dirname, 'live-wall.ts'), 'utf8');
+  const listed = /const WALL_EVENT_COLUMNS =\s*'([^']+)'/.exec(wall)?.[1] ?? '';
+  const cols = new Set(listed.split(',').map((c) => c.trim()));
+  for (const c of EVENT_CLOCK_COLUMNS.split(',').map((x) => x.trim())) assert.ok(cols.has(c), `the wall does not read ${c}`);
 });
 
 test('§2 · a loosely typed row feeds the clock without casts', () => {

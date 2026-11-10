@@ -25,7 +25,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestSessionVerifyMaterials, resolveGuestSessionSecret } from '@/lib/guest-session';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
-import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { eventClockOf } from '@/lib/event-clock.server';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
@@ -49,6 +48,12 @@ function getSecret(): Uint8Array {
   if (!resolution.ok) throw new Error(`[live-wall] ${resolution.reason}`);
   return new TextEncoder().encode(resolution.material);
 }
+
+
+/** The wall's event columns: its name and override, and the ONE clock's columns (`EVENT_CLOCK_COLUMNS`, typed out so
+ *  the held-row guard can read it — `lib/the-event-has-one-clock.test.ts` holds the two equal). */
+const WALL_EVENT_COLUMNS =
+  'display_name, live_mode_override, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude';
 
 export type WallDisplaySession = { session_id: string; event_id: string };
 
@@ -575,10 +580,10 @@ export async function getWallSnapshot(
       p_since: sinceIso ?? '-infinity',
     }),
     // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
-    eventRowOnce(admin, eventId, `display_name, live_mode_override, ${EVENT_CLOCK_COLUMNS}`, () =>
+    eventRowOnce(admin, eventId, WALL_EVENT_COLUMNS, () =>
       admin
         .from('events')
-        .select(`display_name, live_mode_override, ${EVENT_CLOCK_COLUMNS}`)
+        .select(WALL_EVENT_COLUMNS)
         .eq('event_id', eventId)
         .maybeSingle(),
     ),

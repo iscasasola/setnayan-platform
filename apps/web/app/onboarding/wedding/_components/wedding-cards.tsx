@@ -22,6 +22,8 @@
 
 import { useEffect, useState } from 'react';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
+import { StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
+import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FAITH_REGISTRY, type FaithKey } from '@/lib/faith-registry';
 import { FEEL_PALETTES } from '@/lib/feel-palettes';
@@ -96,58 +98,73 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     // the partner's, and never over anything typed. The rows open once the pick is made.
     const side = weddingSelfSide(state.role);
     const sideWord = (k: WeddingSelfSide) => WEDDING_SELF_SIDES.find((o) => o.key === k)!.label;
-    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => (
-      <input
-        aria-label={`${sideWord(rowSide)} — ${label}`}
-        placeholder={label}
-        // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
-        autoComplete={rowSide === side ? token : 'off'}
-        autoCapitalize="words"
-        required={req}
-        value={value}
-        data-wedding-name-row={rowSide}
-        data-wedding-own-row={rowSide === side ? '' : undefined}
-        onChange={(e) => patch({ [key]: nameOnly(e.target.value), monogramFinalized: true } as Partial<OnboardingState>)}
-        className="w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none"
-      />
-    );
-    const rowHead = (rowSide: WeddingSelfSide) => (
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink/55">
-        {sideWord(rowSide)}
-        {rowSide === side ? ' · you' : ''}
-      </p>
+    // 📐 THE ONE FIELD TEMPLATE (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
+    // Like the text of the names"): each name is `TypedRow boxed` — its name above, the 48 px box with its
+    // 14 px inner padding, one ✕ while typing — never a bespoke box whose text sits on the border.
+    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => {
+      const write = (t: string) => patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      return (
+        <TypedRow
+          boxed
+          name={label}
+          value={value}
+          placeholder={label}
+          empty={req ? label : 'Optional'}
+          required={req}
+          clean={nameOnly}
+          autoCapitalize="words"
+          // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
+          autoComplete={rowSide === side ? token : 'off'}
+          attrs={rowSide === side ? { 'data-wedding-name-row': rowSide, 'data-wedding-own-row': '' } : { 'data-wedding-name-row': rowSide }}
+          onType={write}
+          onKeep={write}
+        />
+      );
+    };
+    const rows = (rowSide: WeddingSelfSide) => (
+      <>
+        <StepGroup>
+          {sideWord(rowSide)}
+          {rowSide === side ? ' · you' : ''}
+        </StepGroup>
+        {rowSide === 'bride' ? (
+          <StepRows>
+            {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
+            {field('bride', 'Last name', state.brideLastName, 'brideLastName', false, 'family-name')}
+          </StepRows>
+        ) : (
+          <StepRows>
+            {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
+            {field('groom', 'Last name', state.groomLastName, 'groomLastName', false, 'family-name')}
+          </StepRows>
+        )}
+      </>
     );
     return (
       <SetupFrame
         {...frame}
         title="Who’s getting married?"
         line="Your names, the way you want them written."
-        info="They go on your invitation, your Event Hub and your guest list. Last names are optional."
+        info="They go on your invitation, your Event Hub and your guest list. Last names are optional. Your own side is filled from your account — change it here if you want it written differently."
       >
         <div className="flex flex-col gap-3" data-wedding-names>
-          <p className="text-sm font-medium text-ink">Which one is you?</p>
-          <PickMenu
-            label="Which one is you?"
-            value={side}
-            buttonText={side ? undefined : 'Pick one'}
-            options={WEDDING_SELF_SIDES.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
-            onPick={(key) => {
-              const next = weddingSelfSide(key);
-              if (next) pickSelf(next);
-            }}
-            dataAttr="data-wedding-self"
-          />
+          <StepField label="Which one is you?">
+            <StepPick
+              label="Which one is you?"
+              value={side}
+              options={WEDDING_SELF_SIDES.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
+              onPick={(key) => {
+                const next = weddingSelfSide(key);
+                if (next) pickSelf(next);
+              }}
+              dataAttr="data-wedding-self"
+            />
+          </StepField>
+          {/* Your side first, the partner's under it — one column, equal widths (the template). */}
           {side ? (
             <>
-              {rowHead('bride')}
-              {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
-              {field('bride', 'Last name (optional)', state.brideLastName, 'brideLastName', false, 'family-name')}
-              <p className="text-center font-serif text-xl italic text-ink/50" aria-hidden>
-                &amp;
-              </p>
-              {rowHead('groom')}
-              {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
-              {field('groom', 'Last name (optional)', state.groomLastName, 'groomLastName', false, 'family-name')}
+              {rows(side)}
+              {rows(side === 'bride' ? 'groom' : 'bride')}
             </>
           ) : null}
         </div>

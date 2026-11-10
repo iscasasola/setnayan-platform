@@ -117,7 +117,7 @@ import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { countNoun, formatCount } from '@/lib/format-number';
-import { moveSelf, seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
+import { moveSelf, seatCouple, seatSelf, takeCouple, type CoupleCarry, type SelfName } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
@@ -1206,8 +1206,8 @@ export function OnboardingShell({
    * keep precedence. Already safeNext()-validated in page.tsx.
    */
   nextPath?: string | null;
-  /** The signed-in account's own display name — seats THEIR slot once they say bride or groom. */
-  selfName?: string | null;
+  /** The signed-in account's own name (formal first + last, else the display name) — seats THEIR slot once they say bride or groom. */
+  selfName?: SelfName;
   /**
    * Services-step view-model (Papic + Setnayan AI), resolved server-side in
    * page.tsx. NULL = the flag is off; the screen is already filtered out of the
@@ -1998,6 +1998,32 @@ export function OnboardingShell({
   useEffect(() => {
     coupleCarry.current = takeCouple();
   }, []);
+  /*
+   * 🪪 THE SIDE ALREADY PICKED IS FILLED TOO (Lane P, owner 10 Nov, verbatim: *"It asked me who i am and
+   * it did not fill it up."*). `selectRole` seats your row only at the moment of a pick — so a resumed
+   * draft (or a role carried from the old role screen) arrived with "Groom" already chosen and the
+   * GROOM · YOU boxes empty, and nothing ever filled them. Once, after the draft is read, the picked
+   * side takes the account name through the SAME seat (`seatSelf`: own row only, empty boxes only,
+   * never the partner's, never over anything typed). A carried couple still wins, through `seatCouple`.
+   */
+  const seatedOnArrival = useRef(false);
+  useEffect(() => {
+    if (!hydrated || seatedOnArrival.current) return;
+    seatedOnArrival.current = true;
+    setState((s) => {
+      const seated: Partial<Record<'brideFirstName' | 'groomFirstName' | 'brideLastName' | 'groomLastName', string>> =
+        coupleCarry.current ? seatCouple(s.role ?? '', coupleCarry.current, s) : seatSelf(s.role ?? '', selfName, s);
+      if (Object.keys(seated).length === 0) return s;
+      return {
+        ...s,
+        ...(seated.brideFirstName !== undefined ? { brideFirstName: sanitizeName(seated.brideFirstName) } : {}),
+        ...(seated.groomFirstName !== undefined ? { groomFirstName: sanitizeName(seated.groomFirstName) } : {}),
+        ...(seated.brideLastName !== undefined ? { brideLastName: sanitizeName(seated.brideLastName) } : {}),
+        ...(seated.groomLastName !== undefined ? { groomLastName: sanitizeName(seated.groomLastName) } : {}),
+      };
+    });
+  }, [hydrated, selfName]);
+
   const selectRole = (r: OnboardingRole) =>
     setState((s) => {
       // A carried couple wins; otherwise the person's OWN slot starts from their account name

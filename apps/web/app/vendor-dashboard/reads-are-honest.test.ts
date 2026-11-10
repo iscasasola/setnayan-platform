@@ -183,3 +183,16 @@ test('a refused read never renders as a money figure or a headcount of zero', ()
     );
   }
 });
+
+// Owner 2026-11-10: with the completed-events read refused, the Shop cover printed "—" in the events slot, which read
+// as "Verified — Pro plan". `completedEvents` is null ONLY when `lib/shop-badges.server.ts` was refused (no row is 0).
+test('the Shop cover says when its events count could not load — never "—" or 0', () => {
+  const cover = read('shop/_components/shop-cover.tsx');
+  assert.match(cover, /const EVENTS_UNREAD = 'Couldn\u2019t load events';/);
+  assert.match(cover, /\{d\.events \?\? EVENTS_UNREAD\}/, 'the cover line must say the events count was not read');
+  assert.match(cover, /d\.events \?\? EVENTS_UNREAD\]/, 'the pinned row must say the events count was not read');
+  assert.doesNotMatch(cover, /d\.events \?\? '\u2014'/, 'an unread events count drew "—" again');
+  assert.doesNotMatch(cover, /d\.events \?\? ['"`]?0/, 'an unread events count drew 0');
+  const page = read('shop/page.tsx');
+  assert.match(page, /events: facts\?\.completedEvents == null \? null :/, 'the page must hand a refused read on as null, not 0');
+});

@@ -3,7 +3,7 @@ import { BellRing, CalendarX2, ChevronLeft, Clock, MapPin, MessageSquare, QrCode
 import { ActionButton } from '@/components/action-button';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { CALENDAR_HATCH } from '@/lib/calendar-grid';
-import { dayLongWords, rangeWords, type DayAnswer, type DayGroup } from '@/lib/vendor-dates';
+import { dayLongWords, rangeWords, SET_HOW_MANY_A_DAY_HREF, type DayAnswer, type DayGroup } from '@/lib/vendor-dates';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
@@ -124,7 +124,10 @@ export function DaySheet({
         </p>
       ) : (
         <p className="mt-2 text-[15px] text-ink/70" data-dates-day-answer="not-set">
-          Schedule not set — open How many a day on Dates to make one.
+          Set how many events you take a day so couples see if your date is open.{' '}
+          <Link href={SET_HOW_MANY_A_DAY_HREF} className="font-semibold text-ink underline underline-offset-2" data-dates-set-it="">
+            Set it
+          </Link>
         </p>
       )}
 

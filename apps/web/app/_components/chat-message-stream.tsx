@@ -137,7 +137,7 @@ import {
   showsExpiryWarning,
 } from '@/lib/chat-file-rules';
 import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
-import { askUnreadRecount, CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead } from '@/lib/chat-read-live';
+import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead } from '@/lib/chat-read-live';
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
@@ -467,7 +467,7 @@ export function ChatMessageStream({
    * it comes back). The stream is mounted only where the Chat view is on screen (the full-screen route; the picked
    * client's Chat page — Details and Quotation mount no stream), so this keeps "only the Chat view marks". What the
    * server drew is not live: the page (or `MarkReadWhenShown`) already marked it. Each mark is said to the other side on
-   * the presence channel below, and the envelope recounts once.
+   * the presence channel below; the Messages envelope catches up on its own next ask (poll or ping).
    */
   const router = useRouter();
   const knownIdsRef = useRef<Set<string> | null>(null);
@@ -483,7 +483,6 @@ export function ChatMessageStream({
           .then(() => {
             if (gone) return;
             sayReadRef.current(at);
-            askUnreadRecount();
           })
           .catch(() => undefined);
       },
@@ -520,6 +519,7 @@ export function ChatMessageStream({
     if (refresh && !refreshTimerRef.current) {
       refreshTimerRef.current = setTimeout(() => {
         refreshTimerRef.current = null;
+        // one-render: keep (realtime) — a Setnayan line arrived on the live channel; nothing was pressed here.
         if (typeof document === 'undefined' || document.visibilityState === 'visible') router.refresh();
       }, LIVE_LINE_REFRESH_MS);
     }

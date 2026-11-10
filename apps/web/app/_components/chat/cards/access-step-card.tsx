@@ -14,7 +14,6 @@
  * shipped ask draws), then Send.
  */
 import { useId, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { FLOOR_AREA_LABEL, FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -24,7 +23,6 @@ import { Problem } from './card-bits';
 
 export function AccessStepCard({ eventId, onClose, onSent }: { eventId: string; onClose?: () => void; onSent?: () => void }) {
   const formId = useId();
-  const router = useRouter();
   const [picked, setPicked] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -68,8 +66,7 @@ export function AccessStepCard({ eventId, onClose, onSent }: { eventId: string; 
         const r = await askHostForAccess(eventId, picked, null);
         setSending(false);
         if (!r.ok) return setProblem(r.error ?? 'Could not send that.');
-        // one-render: keep (client-write) — the waiting ask is a new pin; re-read so the pin row shows it.
-        router.refresh();
+        // No refresh: the ask revalidates, and its Setnayan line re-draws the open chat once (`lib/chat-live-refresh.ts`).
         onSent?.();
       }}
     >

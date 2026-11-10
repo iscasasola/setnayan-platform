@@ -28,11 +28,6 @@
 
 /** The presence channel's broadcast event a side sends when it has read the thread. */
 export const CHAT_READ_BROADCAST = 'read';
-/**
- * The stream, after a LIVE mark (never the mark on open) → the Messages envelope re-asks its count once, so a badge a
- * ping just raised for the message you are reading comes back down without waiting for the next poll.
- */
-export const CHAT_UNREAD_RECOUNT_EVENT = 'setnayan:chat-unread-recount';
 /** One burst of live messages → one write, this long after the last of them. */
 export const LIVE_READ_DEBOUNCE_MS = 1200;
 
@@ -110,10 +105,4 @@ export function createReadDebouncer(opts: {
       timer = null;
     },
   };
-}
-
-/** After a live mark: ask this tab's Messages envelope to count again (one read). */
-export function askUnreadRecount(): void {
-  if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event(CHAT_UNREAD_RECOUNT_EVENT));
 }

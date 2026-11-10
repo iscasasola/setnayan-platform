@@ -80,14 +80,14 @@ AS $$
     -- Setnayan's own accounts: internal, team, admin.
     SELECT u.user_id
       FROM public.users u
-     WHERE u.is_internal = TRUE
-        OR u.is_team_member = TRUE
+     WHERE u.is_internal IS TRUE
+        OR u.is_team_member IS TRUE
         OR u.account_type = 'admin'
   ),
   real_events AS (
     SELECT e.event_id
       FROM public.events e
-     WHERE e.is_sample = FALSE
+     WHERE e.is_sample IS FALSE
        AND NOT EXISTS (
              SELECT 1
                FROM public.event_members em
@@ -104,7 +104,7 @@ AS $$
          FROM public.vendor_profiles vp
         WHERE vp.public_visibility = 'verified'
           AND vp.verification_state = 'verified'
-          AND vp.is_demo = FALSE
+          AND vp.is_demo IS FALSE
           AND NOT EXISTS (SELECT 1 FROM test_people tp WHERE tp.user_id = vp.user_id)),
     'guests_invited',
       (SELECT count(*)
@@ -116,14 +116,14 @@ AS $$
         WHERE NOT EXISTS (SELECT 1 FROM test_people tp WHERE tp.user_id = u.user_id)
           AND NOT EXISTS (
                 SELECT 1 FROM public.vendor_profiles vp
-                 WHERE vp.user_id = u.user_id AND vp.is_demo = TRUE)
+                 WHERE vp.user_id = u.user_id AND vp.is_demo IS TRUE)
           AND NOT EXISTS (
                 SELECT 1
                   FROM public.event_members em
                   JOIN public.events e ON e.event_id = em.event_id
                  WHERE em.user_id = u.user_id
                    AND em.member_type = 'couple'
-                   AND e.is_sample = TRUE))
+                   AND e.is_sample IS TRUE))
   );
 $$;
 

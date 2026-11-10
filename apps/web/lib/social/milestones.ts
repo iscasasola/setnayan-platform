@@ -97,10 +97,12 @@ export async function sweepMilestones(admin: Admin): Promise<void> {
       continue;
     }
 
-    await admin
+    // Linking the watermark to its post is bookkeeping — the post is already queued; a failure only leaves post_id NULL.
+    const { error: linkErr } = await admin
       .from('social_milestones')
       .update({ post_id: (postData as { post_id: string }).post_id })
       .eq('metric', metric)
       .eq('threshold', highest);
+    if (linkErr) logQueryError('runSocialFlush (milestone watermark link)', linkErr, { metric });
   }
 }

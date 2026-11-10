@@ -446,7 +446,7 @@
 .addons { margin-top: 6px; background: var(--sf-soft); border-radius: var(--m-r-md); padding: 14px 16px; display: grid; gap: 4px; }
 .ak { font-weight: 700; color: var(--sf-ink); }
 .addonRow { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
-.addonRow b { color: var(--sf-ink); }
+.addonRow b { color: var(--sf-ink); white-space: nowrap; }
 .helper { text-align: center; }
 
 /* the full plan comparison (Build 6 Lane J): five columns, pinned plan column, sideways scroll INSIDE the card only */
@@ -464,10 +464,11 @@
 .cmpHead { margin: 0; font-size: 1.4rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; color: var(--sf-ink); padding-inline: 20px; }
 .cmpScroll { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .cmpScroll:focus-visible { outline-offset: -3px; }
-.cmp { width: 100%; min-width: 620px; border-collapse: separate; border-spacing: 0; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.cmp { width: 100%; min-width: 600px; border-collapse: separate; border-spacing: 0; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .cmp th, .cmp td { padding: 11px 10px; text-align: center; vertical-align: top; border-top: 1px solid var(--sf-line); color: var(--sf-text); line-height: 1.35; }
 .cmp thead th { border-top: 0; font-weight: 800; color: var(--sf-ink); font-size: .95rem; position: sticky; top: 0; background: var(--sf-paper); }
-.cmp th[scope="row"], .cmpCorner { position: sticky; left: 0; z-index: 1; background: var(--sf-paper); text-align: left; font-weight: 600; color: var(--sf-ink); width: 34%; min-width: 132px; padding-left: 20px; box-shadow: 1px 0 0 var(--sf-line); }
+.cmp th[scope="row"], .cmpCorner { position: sticky; left: 0; z-index: 1; background: var(--sf-paper); text-align: left; font-weight: 600; color: var(--sf-ink); width: 128px; min-width: 128px; padding-left: 16px; box-shadow: 1px 0 0 var(--sf-line); }
+@media (min-width: 720px) { .cmp th[scope="row"], .cmpCorner { width: 30%; padding-left: 20px; } }
 .cmpGroup th { position: sticky; left: 0; text-align: left; padding: 18px 20px 8px; font-family: var(--sf-mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--sf-accent); font-weight: 700; border-top: 0; background: var(--sf-paper); }
 .cmpWhy { display: block; margin-top: 4px; font-weight: 400; font-size: .8rem; color: var(--sf-muted); }
 .cmpYes { color: var(--sf-ink) !important; font-weight: 700; }

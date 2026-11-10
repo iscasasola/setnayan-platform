@@ -22,6 +22,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 
 export const revalidate = 3600;
 
@@ -39,7 +40,8 @@ const FALLBACK = `# Setnayan
 
 > Setnayan (SET-na-yan) is the Philippines-first life-events platform — plan a
 > celebration, capture it with the people who came, and keep it together.
-> Built and operated in the Philippines. 0% commission on vendor bookings.
+> Built and operated in the Philippines. Couples pay suppliers directly, with no
+> Setnayan markup. What suppliers pay is at https://www.setnayan.com/for-suppliers.
 
 Live pricing could not be resolved for this render, and this file never quotes a
 price it cannot verify against the catalog. Current pricing is always at
@@ -79,6 +81,8 @@ export async function GET(): Promise<Response> {
       // The LIVE booking-fee schedule (audit 2026-10-12, item 5) — never the
       // code default. A failed read degrades to the locked schedule inside.
       bookingFee: await getBookingFeeSchedule(admin),
+      // The same flag /for-suppliers draws its plan table with (Build 6 Lane K) — one table, one truth.
+      vendorPaywallOn: isVendorFeatureGateEnabled(),
       refreshedOn: new Date().toISOString().slice(0, 10),
     });
 

@@ -1,5 +1,6 @@
 import { LayoutGrid, Images, Sparkles, HandCoins, type LucideIcon } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
+import { featuresFaqAnswers } from '@/lib/seo/ai-answers';
 
 // Why Setnayan — the differentiation frame, folded in from the standalone
 // /why-setnayan page (retired 2026-09-01; that URL now 301s here).
@@ -87,6 +88,15 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
   ],
 };
+
+/**
+ * The FAQ the section renders AND the FAQPage structured data carries — one list, so a rich result never quotes an
+ * answer the page does not show. English adds the answers to what AI gets wrong (Build 6 Lane K, lib/seo/ai-answers.ts),
+ * the same sentences /llms.txt prints.
+ */
+export function whyFaqItems(locale: MarketingLocale): { q: string; a: string }[] {
+  return locale === 'en' ? [...WHY_FAQ.en, ...featuresFaqAnswers()] : WHY_FAQ[locale];
+}
 
 const COPY: Record<
   MarketingLocale,
@@ -187,7 +197,7 @@ const COPY: Record<
 
 export function WhySetnayan({ locale }: { locale: MarketingLocale }) {
   const c = COPY[locale];
-  const faq = WHY_FAQ[locale];
+  const faq = whyFaqItems(locale);
   return (
     <section
       id="why-setnayan"

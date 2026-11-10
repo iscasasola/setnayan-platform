@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from '@/lib/chat';
 import { emitNotification } from '@/lib/notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
@@ -208,7 +209,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
           type: 'schedule_suggestion',
           title: `Meeting requested: ${label}`,
           body: 'Open the chat to accept, propose a new time, or decline.',
-          relatedUrl: `/vendor-dashboard/messages/${thread.thread_id}`,
+          relatedUrl: supplierChatHref(thread.event_id, thread.thread_id),
         });
       }
     } else {
@@ -331,7 +332,7 @@ async function notifyChangeCounterparty(
           type: 'schedule_suggestion',
           title: `Couple ${verb}: ${title.slice(0, 60)}`,
           body: 'Open the chat to respond.',
-          relatedUrl: `/vendor-dashboard/messages/${thread.thread_id}`,
+          relatedUrl: supplierChatHref(thread.event_id, thread.thread_id),
         });
       }
     } else {

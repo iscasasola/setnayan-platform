@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { emitNotification } from '@/lib/notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { formatPhp } from '@/lib/php';
 import { decideLogPayment } from '@/lib/accepted-quote-terms';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
@@ -575,7 +576,7 @@ export async function logPayment(formData: FormData) {
           title: 'A couple logged a payment',
           body: `The couple recorded a ${formatPhp(amount)} payment.${proofLine} Confirm it was received.`,
           relatedUrl: thread?.thread_id
-            ? `/vendor-dashboard/messages/${thread.thread_id}`
+            ? supplierChatHref(eventId, thread.thread_id)
             : '/vendor-dashboard/messages',
           eventId,
         });

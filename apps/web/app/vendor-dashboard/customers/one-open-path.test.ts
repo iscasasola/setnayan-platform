@@ -54,6 +54,30 @@ test('a Clients row opens its client on the page its kind means — and its word
   assert.equal(doorWordsFor(row({ lane: 'talking' })).label, 'Open the quotation');
 });
 
+test('a Clients row’s OWN press goes through the path — not only its door (owner 11 Nov)', async () => {
+  // The v118 #38 landing shipped as a function, but the row itself still opened a card of its own; the owner pressed an
+  // Asking row and got a sheet with no page menu and no chat. The press is held here, rendered: the row's door IS hrefFor.
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { RosterRowView } = await import('./_components/customers-roster');
+  const row = (o: Partial<RosterRow>) =>
+    ({ eventId: 'e1', lane: 'booked', waitingKind: null, waitingSince: null, threadId: 't1', eventDate: '2026-12-01', quoted: false, title: 'A & B', identityRevealed: true, kind: 'Wedding', note: null, returning: false, ...o }) as RosterRow;
+  for (const r of [
+    row({ lane: 'waiting', waitingKind: 'inquiry' }),
+    row({ lane: 'waiting', waitingKind: 'booking_ask' }),
+    row({ lane: 'holding' }),
+    row({ lane: 'talking', quoted: true }),
+    row({ lane: 'booked' }),
+    row({ lane: 'finished' }),
+  ]) {
+    const html = renderToStaticMarkup(React.createElement(RosterRowView, { r, nowMs: Date.UTC(2026, 10, 11), query: '' }));
+    const to = hrefFor(r, '2026-11-11');
+    assert.ok(to?.startsWith('/vendor-dashboard/clients/e1?tab='), `${r.lane} does not open the picked client`);
+    assert.ok(html.includes(`data-opens-to="${to}"`), `a ${r.lane}${r.waitingKind ? ` (${r.waitingKind})` : ''} row's own press does not open ${to}`);
+  }
+});
+
 test('tile rows and Today’s Reply cards go through the same path; no client link is built by hand', () => {
   assert.equal(clientPageHref('e1', 'payments'), '/vendor-dashboard/clients/e1?tab=payments');
   assert.equal(clientPageHref('e1', 'payments', { booked: false }), '/vendor-dashboard/clients/e1?tab=quote');

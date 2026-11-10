@@ -21,6 +21,8 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Building2, ChevronDown, ChevronUp, MapPin, Minus, Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
 import { StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
 import { TypedRow } from '@/app/_components/form-row';
@@ -293,9 +295,16 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
             dataAttr="data-wedding-area"
             stickyGroups
           />
-          <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
-            {more ? 'Hide more places' : 'More places ›'}
-          </button>
+          <div className="mt-3">
+            <ActionButton
+              tone="neutral"
+              quiet
+              icon={more ? ChevronUp : ChevronDown}
+              label={more ? 'Hide more places' : 'More places'}
+              aria-expanded={more}
+              onClick={() => setMore((v) => !v)}
+            />
+          </div>
           {more ? (
             <div className="mt-3">
               <LocationStep
@@ -310,15 +319,17 @@ function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenu
           Your area comes from your venue.
         </p>
       )}
-      <button
-        type="button"
-        className="mt-4 block text-sm text-ink/60 underline"
-        aria-expanded={haveVenue}
-        data-wedding-have-venue
-        onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
-      >
-        {haveVenue ? 'Just the area for now' : 'We already have our venue ›'}
-      </button>
+      <div className="mt-4">
+        <ActionButton
+          tone="neutral"
+          quiet
+          icon={haveVenue ? MapPin : Building2}
+          label={haveVenue ? 'Just the area for now' : 'We already have our venue'}
+          aria-expanded={haveVenue}
+          data-testid="wedding-have-venue"
+          onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
+        />
+      </div>
       {haveVenue ? <WeddingVenues state={state} patch={patch} search={searchVenues} /> : null}
     </SetupFrame>
   );
@@ -331,8 +342,6 @@ function PaxCard({ frame, state, patch }: SubProps) {
     if (state.pax !== value) patch({ pax: value });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const btn =
-    'flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-ink/15 text-2xl leading-none text-ink/70 disabled:cursor-not-allowed disabled:opacity-30';
   return (
     <SetupFrame
       {...frame}
@@ -342,16 +351,12 @@ function PaxCard({ frame, state, patch }: SubProps) {
       footer="Steps of 10. You can change this anytime."
     >
       <div className="flex items-center justify-between gap-3" data-wedding-estimate>
-        <button type="button" aria-label="Fewer guests" className={btn} disabled={value <= ESTIMATE_MIN} onClick={() => patch({ pax: stepEstimate(value, -1) })}>
-          −
-        </button>
+        <ActionButton tone="neutral" iconOnly icon={Minus} label="Fewer guests" disabled={value <= ESTIMATE_MIN} onClick={() => patch({ pax: stepEstimate(value, -1) })} />
         <span className="min-w-0 flex-1 text-center">
           <span className="block font-mono text-3xl font-semibold tabular-nums text-ink">{formatCount(value)}</span>
           <span className="mt-0.5 block text-xs text-ink/55">About {formatCount(value)} guests</span>
         </span>
-        <button type="button" aria-label="More guests" className={btn} disabled={value >= ESTIMATE_MAX} onClick={() => patch({ pax: stepEstimate(value, 1) })}>
-          +
-        </button>
+        <ActionButton tone="neutral" iconOnly icon={Plus} label="More guests" disabled={value >= ESTIMATE_MAX} onClick={() => patch({ pax: stepEstimate(value, 1) })} />
       </div>
     </SetupFrame>
   );

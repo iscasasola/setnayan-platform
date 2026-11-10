@@ -64,8 +64,8 @@ test('a kind pick shows its row; the budget follows the estimate', async () => {
 });
 
 test('the estimate buttons stop at both ends', async () => {
-  assert.match((await render('w_pax', { pax: 10 })), /aria-label="Fewer guests"[^>]*disabled/);
-  assert.match((await render('w_pax', { pax: 500 })), /aria-label="More guests"[^>]*disabled/);
+  assert.match((await render('w_pax', { pax: 10 })), /<button[^>]*disabled=""[^>]*aria-label="Fewer guests"/);
+  assert.match((await render('w_pax', { pax: 500 })), /<button[^>]*disabled=""[^>]*aria-label="More guests"/);
 });
 
 test('🔑 names: "Which one is you?" comes first — no name rows until it is answered', async () => {

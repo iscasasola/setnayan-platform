@@ -399,9 +399,9 @@ export function DateCalendar({
       </div>
       <div className="cal">
         <div className="calhead">
-          <ActionButton tone="neutral" quiet iconOnly icon={ChevronLeft} label="Previous month" onClick={prevMonth} disabled={atMin} />
+          <ActionButton tone="neutral" quiet iconOnly icon={<ChevronLeft />} label="Previous month" onClick={prevMonth} disabled={atMin} />
           <div className="calmonth">{M_FULL[view.m]} {view.y}</div>
-          <ActionButton tone="neutral" quiet iconOnly icon={ChevronRight} label="Next month" onClick={nextMonth} disabled={atMax} />
+          <ActionButton tone="neutral" quiet iconOnly icon={<ChevronRight />} label="Next month" onClick={nextMonth} disabled={atMax} />
         </div>
         <div className="caldow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
         <div className="calgrid">

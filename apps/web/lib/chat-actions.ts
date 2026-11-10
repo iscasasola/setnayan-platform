@@ -11,6 +11,7 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
@@ -194,7 +195,7 @@ export async function notifyOtherParty(args: {
       type: 'chat_message',
       title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
       body: preview,
-      relatedUrl: toShop ? `/vendor-dashboard/messages/${args.threadId}` : `/dashboard/${args.eventId}/messages/${args.threadId}`,
+      relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : `/dashboard/${args.eventId}/messages/${args.threadId}`,
     });
     return;
   }
@@ -274,7 +275,8 @@ export async function notifyOtherParty(args: {
           type: 'vendor_inquiry_received',
           title,
           body,
-          relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+          // 🚪 The picked client on its Chat, where the ask is the top band (owner 11 Nov) — not the bare thread page.
+          relatedUrl: supplierChatHref(args.eventId, args.threadId),
           eventId: args.eventId,
         });
     } else {
@@ -285,14 +287,14 @@ export async function notifyOtherParty(args: {
               type: 'chat_message',
               title: `New message from ${eventName}`,
               body: preview,
-              relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+              relatedUrl: supplierChatHref(args.eventId, args.threadId),
             })
           : emitNotification({
               userId,
               type: 'chat_message_in_app',
               title: `New message from ${eventName}`,
               body: preview,
-              relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+              relatedUrl: supplierChatHref(args.eventId, args.threadId),
             });
     }
     if (told.shopOwner) await tellShop(told.shopOwner, true);

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
+import { recoverStaleTab } from '@/lib/stale-bundle';
 
 /**
  * /vendor-dashboard route-segment error boundary.
@@ -68,6 +69,10 @@ type Props = {
 
 export default function VendorDashboardError({ error, reset }: Props) {
   useEffect(() => {
+    // 🔁 A STALE OPEN TAB IS NOT A CRASH (Build 5 F6, 2026-11-10) — the root boundary's one reload, here too: this
+    // boundary catches the supplier pages first, so without it Create → Shop on a tab older than the deploy drew this
+    // card (and sent Sentry an error + replay, which it answered with a 429). `lib/stale-bundle.ts` › recoverStaleTab.
+    if (recoverStaleTab(error)) return;
     // Sentry SDK auto-captures via the global handler. Dev-mode console
     // surfaces the error in the local terminal for debugging.
     if (process.env.NODE_ENV === 'development') {
@@ -83,7 +88,7 @@ export default function VendorDashboardError({ error, reset }: Props) {
   }, [error]);
 
   return (
-    <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
           Setnayan · Shop console
@@ -125,6 +130,6 @@ export default function VendorDashboardError({ error, reset }: Props) {
           </p>
         )}
       </div>
-    </main>
+    </div>
   );
 }

@@ -35,6 +35,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { anchorForType, nextAnniversary, parseISO } from './event-anchor';
+import { inDaysWords } from '@/lib/format-number';
 
 /**
  * The three things we can honestly say about WHEN a candidate happens.
@@ -254,7 +255,7 @@ export function backCoverOf(
     return {
       title: candidate.label,
       when: candidate.dateLabel,
-      sub: candidate.inDays === null ? null : `in ${candidate.inDays} days`,
+      sub: candidate.inDays === null ? null : inDaysWords(candidate.inDays),
     };
   }
   if (candidate.timing === 'waiting') {

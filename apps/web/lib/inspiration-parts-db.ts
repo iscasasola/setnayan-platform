@@ -11,9 +11,16 @@
  * an admin edits a part. `source` says which path answered.
  *
  * Cached per request via React `cache()` — one read per render tree however many readers ask.
- * Server-only (reads cookies through the Supabase client). The three are readable by any SIGNED-IN account
- * (RLS: authenticated SELECT; anon holds no grant), so a signed-out read errors and answers the fallback — as
- * since step ①.
+ * Server-only. The three are readable by any SIGNED-IN account (RLS: authenticated SELECT; `anon` holds no grant —
+ * the exposure freeze, `20271287668170`), and they are the same for every viewer (`USING (TRUE)`).
+ *
+ * 🔒 READ WITH THE SERVICE ROLE (G6, 2026-11-10). Until then this read went through the viewer's cookie client, and
+ * the readers grew past "signed in": the public shop page (`/v/[slug]`), Find inspiration and the supplier pages
+ * all draw the parts, and every request with no session read as `anon` — refused (42501, 58 production errors on
+ * each relation, 36 visitors, since 28 Oct) — and silently answered the SEED, not the admin's edited parts (a
+ * renamed or hidden part showed its old self to every signed-out visitor). Granting `anon` would widen the exposure
+ * surface (`exposure-freeze.db.test.ts`); the caller asking with the role that may is the narrower fix. The rows
+ * reach only the server render, never PostgREST for a stranger. Guard: `inspiration-parts-are-read-to-the-end.test.ts`.
  *
  * ⚠ `inspiration_part_categories` is NOT read any more: until ③c drops it, a trigger double-writes it from the
  * same derivation, only so a revert of the app keeps working.
@@ -35,7 +42,7 @@
  */
 import { cache } from 'react';
 
-import { createClient } from './supabase/server';
+import { createAdminClient } from './supabase/admin';
 import {
   fallbackInspirationParts,
   snapshotFromPartRows,
@@ -148,7 +155,9 @@ export async function readInspirationPartTables(client: PartTablesClient): Promi
 
 export const getInspirationParts = cache(async (): Promise<InspirationPartsSnapshot> => {
   try {
-    const sb = await createClient();
+    // 🔒 The service role, never the viewer's cookie client (see the header): a signed-out read was refused and drew
+    // the seed instead of the admin's parts.
+    const sb = createAdminClient();
     // 📄 Every row, paged to the server's exact count (`readInspirationPartTables` above). One un-ranged select of
     // `inspiration_part_services` was capped at 1,000 of ~2,769 rows with `error: null` once PR #7058 seeded the
     // starter parts. A read that stops short is an ERROR here — it takes the fallback, never a partial snapshot.

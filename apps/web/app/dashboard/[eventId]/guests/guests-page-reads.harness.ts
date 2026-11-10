@@ -61,10 +61,12 @@ const ACCESS = `${b64u({ alg: 'HS256', typ: 'JWT' })}.${b64u({ sub: USER_ID, aud
 const USER = { id: USER_ID, aud: 'authenticated', role: 'authenticated', email: 'couple@setnayan.test', app_metadata: { provider: 'email' }, user_metadata: {}, is_anonymous: false, created_at: '2026-01-01T00:00:00Z' };
 const SESSION = { access_token: ACCESS, token_type: 'bearer', expires_in: 3600, expires_at: 4102444800, refresh_token: 'harness-refresh', user: USER };
 const COOKIES = [{ name: 'sb-db-auth-token', value: `base64-${Buffer.from(JSON.stringify(SESSION)).toString('base64url')}` }];
+/** The request's cookies: the couple's session, or none at all (`STATE.signedOut`). */
+const cookiesNow = () => (STATE.signedOut ? [] : COOKIES);
 const jar = {
-  get: (name: string) => COOKIES.find((c) => c.name === name),
-  getAll: () => COOKIES,
-  has: (name: string) => COOKIES.some((c) => c.name === name),
+  get: (name: string) => cookiesNow().find((c) => c.name === name),
+  getAll: () => cookiesNow(),
+  has: (name: string) => cookiesNow().some((c) => c.name === name),
   set: () => undefined,
   delete: () => undefined,
 };
@@ -202,6 +204,8 @@ const STATE = {
   refuseOneRead: false,
   /** The viewer is a delegate (an accepted co-host) the couple never shared the guest list with. */
   delegateWithoutGuestList: false,
+  /** The request carries NO session cookie — signed out, or a `/guests` link opened in another browser (G6). */
+  signedOut: false,
 };
 
 type Sent = { step: number; what: string; key: string; table: string; select: string; who: string; by?: string };
@@ -358,6 +362,7 @@ async function main() {
     cardAlone: await view(() => import('./open-guest-card').then((m) => m.openGuestCard(EVENT_ID, GUESTS[2]!.guest_id, 'list'))),
     oneReadRefused: undefined as unknown as ViewReport,
     delegateWithoutGuestList: undefined as unknown as ViewReport,
+    signedOut: undefined as unknown as ViewReport,
   };
   // 🧯 THE ONE READ IS REFUSED: every asker must send its own read and the list must still be drawn.
   STATE.refuseOneRead = true;
@@ -367,6 +372,10 @@ async function main() {
   STATE.delegateWithoutGuestList = true;
   out.delegateWithoutGuestList = await view(() => page());
   STATE.delegateWithoutGuestList = false;
+  // 🔑 NO SESSION: sent to sign in before a single read leaves as `anon` (G6, 2026-11-10).
+  STATE.signedOut = true;
+  out.signedOut = await view(() => page());
+  STATE.signedOut = false;
   process.stdout.write(`GUESTS_PAGE_READS ${JSON.stringify(out)}\n`);
 }
 

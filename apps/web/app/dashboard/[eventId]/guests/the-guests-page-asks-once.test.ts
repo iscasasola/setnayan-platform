@@ -65,7 +65,10 @@ type View = {
   ms: number;
   steps: string[];
 };
-type Report = Record<'page' | 'pageWithCard' | 'cardAlone' | 'layoutAndPage' | 'oneReadRefused' | 'delegateWithoutGuestList', View>;
+type Report = Record<
+  'page' | 'pageWithCard' | 'cardAlone' | 'layoutAndPage' | 'oneReadRefused' | 'delegateWithoutGuestList' | 'signedOut',
+  View
+>;
 
 const WEB = join(__dirname, '..', '..', '..', '..');
 
@@ -143,4 +146,17 @@ test('5 · 🚪 a delegate who may not see the guest list is sent to their own v
   const v = REPORT.delegateWithoutGuestList;
   assert.equal(v.namesHanded, null, 'a delegate without the guest list was drawn a list');
   assert.match(v.redirectedTo ?? '', /\/dashboard\/[^/]+\/hosts$/, `the delegate was sent to ${v.redirectedTo}`);
+});
+
+/*
+  🔑 G6 (2026-11-10): production logged the guest list's reads REFUSED as `anon` — `openDashboardEventRow`,
+  `GuestsPage.roleNames`, `loadInviteSetup`, `seating: event_floor_plan`, `supplierCount.*` (42501, for weeks). The
+  layout's sign-in redirect does not stop the page: Next renders both side by side, so a request with NO session
+  started every read before the page's own redirect at the wait. Sabotage: delete the session-cookie check at the top
+  of `page.tsx` and this goes red with ~20 requests sent.
+*/
+test('6 · 🔑 no session → sent to sign in, and not one read leaves as anon', () => {
+  const v = REPORT.signedOut;
+  assert.match(v.redirectedTo ?? '', /^\/login/, `a signed-out request was sent to ${v.redirectedTo}`);
+  assert.equal(v.calls, 0, `a signed-out request still sent ${v.calls} request(s) as anon:\n${shape(v)}`);
 });

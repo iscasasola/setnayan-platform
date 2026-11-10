@@ -3,7 +3,7 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
-import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
 import { formatCount } from '@/lib/format-number';
@@ -16,7 +16,9 @@ import { ANALYTICS_PERIODS, SERIES_LABEL, periodLine, type AnalyticsPeriod, type
  * and NO dots (`dots={false}`, owner v110 "No dot pagers on carousels") — both props from L1's foundation. No
  * "See all", no highlight on the centred card.
  *
- * Each face is the SHIPPED card's `compact` variant, drawn on the server and handed in. Tap → the card's sheet:
+ * Each face is the SHIPPED card's `compact` variant, drawn on the server and handed in. Tap → the card RISES FULL SCREEN
+ * out of itself (Build 5 · Lane A, Shop tab map: "Each Analytics card → the graph full screen"; the one `RiseScreen`,
+ * bars away, ✕ the exact reverse — the content below is the card's shipped sheet, unchanged):
  * By month · By quarter · By year (ONE PickMenu), this period as a line with the last one as a dashed ghost and
  * "+N% vs last …" — only for the three cards with a history (ahead · deals · worth); price and compare are
  * snapshots, so their sheet shows the card large with no line, never an invented one. "What it tells you" (one fixed
@@ -101,9 +103,9 @@ function AnalyticsSheet({ card, recs, nowMs, onClose }: { card: AnalyticsCardDat
   const line = useMemo(() => (hasLine ? periodLine(card.series ?? null, period, nowMs) : null), [hasLine, card.series, period, nowMs]);
   const tips = recs.filter((r) => TIP_KEYS[card.key].includes(r.key));
   return (
-    <Sheet open onClose={onClose} labelledById={hid} rise>
-      <div className="space-y-4 px-4 pb-6 pt-2" data-analytics-sheet={card.key}>
-        <div className="flex items-center justify-between gap-3 pr-12">
+    <RiseScreen labelledById={hid} onClose={onClose} data={`analytics-${card.key}`}>
+      <div className="space-y-4 px-4 pb-6 pt-3" data-analytics-sheet={card.key}>
+        <div className="flex items-center justify-between gap-3">
           <h2 id={hid} className="text-[17px] font-semibold text-ink">
             {ANALYTICS_CARD_LABEL[card.key]}
           </h2>
@@ -149,7 +151,7 @@ function AnalyticsSheet({ card, recs, nowMs, onClose }: { card: AnalyticsCardDat
           </div>
         ) : null}
       </div>
-    </Sheet>
+    </RiseScreen>
   );
 }
 

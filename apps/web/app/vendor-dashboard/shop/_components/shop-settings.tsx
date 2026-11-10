@@ -76,7 +76,9 @@ export function ShopSettings({
   }, [open, section, body]);
 
   return (
-    <MenuSettingsButton menu="shop" open={open} onOpenChange={(next) => go(next)}>
+    // ⤴ Rise full screen (Build 5 · Lane A, owner 2026-11-10 "fullscreen everything"): the ⚙ — the pinned row's, or the
+    // cover's through `?gear=1` — rises into the ONE full screen out of the ⚙ that was tapped; never a popup sheet.
+    <MenuSettingsButton menu="shop" rise open={open} onOpenChange={(next) => go(next)}>
       <div className="px-4 pb-6 pt-2" data-shop-settings="">
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60" data-shop-settings-loading="">

@@ -85,7 +85,7 @@ export default async function VendorBookingFeesPage() {
   const feeSchedule = await getLiveBookingFeeSchedule();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href="/vendor-dashboard/subscription"
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -173,7 +173,7 @@ export default async function VendorBookingFeesPage() {
           <WaivedFeeRows charges={waived} />
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

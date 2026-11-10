@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicDisplayName } from '@/lib/find-your-seat';
-import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * ⭐👥 GUEST REVIEWS — what a guest who was THERE saw (owner, 6 Nov 2026).
@@ -263,13 +262,15 @@ export async function readGuestReviewsForAdmin(admin: SupabaseClient, limit = 50
 /**
  * Hide or show one guest review (Admin › Reviews). Service role; the page's action has already checked `requireAdmin`.
  * Hidden → off the shop page, the shop's list and the guests' line at once; kept for the record.
+ * Returns the review's shop (`vendor_profile_id`) so the ACTION clears that shop's cached page — this module is also
+ * imported by a client form (`guest-review-form.tsx`), so it must never import `next/cache` itself. null = not saved.
  */
 export async function setGuestReviewHidden(
   admin: SupabaseClient,
   reviewId: string,
   hidden: boolean,
   adminUserId: string,
-): Promise<boolean> {
+): Promise<string | null> {
   const { data, error } = await admin
     .from('vendor_guest_reviews')
     .update(hidden ? { hidden_at: new Date().toISOString(), hidden_by_user_id: adminUserId } : { hidden_at: null, hidden_by_user_id: null })
@@ -277,12 +278,10 @@ export async function setGuestReviewHidden(
     .select('review_id, vendor_profile_id');
   if (error) {
     console.error('[supabase-error] lib/guest-reviews.ts · from:vendor_guest_reviews.update(hidden)', error);
-    return false;
+    return null;
   }
   const rows = (data ?? []) as Array<{ vendor_profile_id?: string | null }>;
-  // ⚡ The shop's page shows its guest reviews — its cached copy redraws with (or without) this one.
-  for (const r of rows) revalidateShopPage(r.vendor_profile_id);
-  return rows.length === 1;
+  return rows.length === 1 ? (rows[0]!.vendor_profile_id ?? null) : null;
 }
 
 /** The guests' own line — count + average of what is not hidden. null = the read failed (say so, never "0"). */

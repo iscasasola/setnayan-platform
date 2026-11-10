@@ -322,7 +322,7 @@ const NOT_A_SHOP_SAVE: Record<string, string> = {
   'app/admin/spotlight-awards/actions.ts :: toggleHomepageFeatured':
     "the homepage strip's own flag — the shop page names a shop's awards (`fetchVendorCurrentAwards` reads `award_type`), not whether `/` features them",
   'app/admin/reviews/actions.ts :: dismissReviewFlag':
-    "a flag is the admin queue's — the shop page draws no flag (lib/reviews.ts only INSERTS them); the action's guest-review hide/show branch clears the shop's copy inside `setGuestReviewHidden` (lib/guest-reviews.ts)",
+    "a flag is the admin queue's — the shop page draws no flag (lib/reviews.ts only INSERTS them); the action's guest-review hide/show branch clears the shop's copy itself (`setGuestReviewVisibility` → `revalidateShopPage`)",
   'app/api/vendor/papic-capture/route.ts :: POST':
     "the event-day camera's raw captures, one write per photo during an event — a shop page shows the portfolio photos a supplier IMPORTS (`papic-portfolio-import`, which revalidates); the copy's 60 s window covers the rest",
 };

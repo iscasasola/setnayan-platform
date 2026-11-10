@@ -191,7 +191,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
     );
   }
 
-  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(shopBack ?? TEAM);
   if (shopBack) redirect(`${shopBack}?invited=1`);
   return back('invited=1');
@@ -266,7 +266,7 @@ export async function updateVendorTeamMember(formData: FormData) {
     .eq('vendor_profile_id', ctx.vendorProfileId);
   if (error) return err(error.message);
 
-  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }
@@ -307,7 +307,7 @@ export async function removeVendorTeamMember(formData: FormData) {
   const removedUserId = target.user_id as string;
   after(() => revokeAllSessions(removedUserId).catch(() => {}));
 
-  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }
@@ -519,7 +519,7 @@ export async function stepDownSelf() {
         : error.message,
     );
   }
-  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
   return back('saved=1');
 }

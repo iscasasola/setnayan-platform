@@ -71,7 +71,7 @@ test('the rail gets only the slots its shell reads, and only in the app variant'
   assert.match(shell, /\(inApp && navLabels\?\.\[slot\]\?\.label\) \|\| fallback/);
   assert.equal((shell.match(/\bnavLabels\b/g) ?? []).length, 3, 'the shell reads navLabels somewhere new — check what it needs');
   const rail = code('app/_components/frontdoor/app-rail-shell.tsx');
-  assert.match(rail, /navLabels=\{variant === 'app' \? pickNavSlots\(navLabels, \{ keys: RAIL_NAV_SLOT_KEYS \}\) : undefined\}/);
+  assert.match(rail, /navLabels=\{variant === 'app' \? pickNavSlots(?:<\{ label: string \}>)?\(navLabels, \{ keys: RAIL_NAV_SLOT_KEYS \}\) : undefined\}/);
   assert.doesNotMatch(rail, /navLabels=\{navLabels\}/);
 });
 

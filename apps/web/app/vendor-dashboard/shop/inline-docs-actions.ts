@@ -600,7 +600,7 @@ export async function saveRegistrationNumberInline(
     .eq('vendor_profile_id', auth.vendorProfileId);
 
   if (!claimErr) {
-    revalidateShopPage(vendorProfileId);
+    revalidateShopPage(auth.vendorProfileId);
     revalidatePath('/vendor-dashboard/shop');
     revalidatePath('/vendor-dashboard/verify');
     return { ok: true, needsReview: false };
@@ -819,7 +819,7 @@ export async function saveVerificationIdentityField(
     .eq('vendor_profile_id', auth.vendorProfileId);
   if (error) return { ok: false, error: error.message };
 
-  revalidateShopPage(vendorProfileId);
+  revalidateShopPage(auth.vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');
   return { ok: true };

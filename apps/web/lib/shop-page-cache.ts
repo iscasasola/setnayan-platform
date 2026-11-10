@@ -1,3 +1,4 @@
+import 'server-only';
 import { revalidateTag, unstable_cache } from 'next/cache';
 import { SHOP_PAGES_TAG, shopPageTag, shopSlugTag } from './shop-view';
 

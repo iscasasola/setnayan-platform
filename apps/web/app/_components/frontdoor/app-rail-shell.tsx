@@ -183,7 +183,7 @@ export async function AppRailShell({
         ⚡ ONLY THE SLOTS THE SHELL READS (lib/nav-slot-pick.ts): `slotLabel` reads the registry in the `app` variant
         alone, and only `RAIL_NAV_SLOT_KEYS`. The whole map (~31 KB) used to ride the doorway's HTML for nothing.
       */
-      navLabels={variant === 'app' ? pickNavSlots(navLabels, { keys: RAIL_NAV_SLOT_KEYS }) : undefined}
+      navLabels={variant === 'app' ? pickNavSlots<{ label: string }>(navLabels, { keys: RAIL_NAV_SLOT_KEYS }) : undefined}
       /*
         🧭 NO TOOL LISTS (owner 2026-10-01, built 2026-10-23): the rail hands the
         shell no Planner · Builder · Together · Studio rows on any tree. Every

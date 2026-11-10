@@ -25,6 +25,7 @@ Guards (each sabotage-checked):
   - middleware order
   - every shop-table save reaches `revalidateShopPage`
 - `lib/a-nav-gets-only-the-slots-it-reads.test.ts`: the picks, plus a byte budget.
+- `lib/no-client-module-reaches-next-cache.test.ts`: a client component never reaches `next/cache`. Revalidate calls live in the actions, and `lib/shop-page-cache.ts` is `server-only`.
 
 Follow-ups, not in this PR:
 - the bare `/{slug}` shop address still renders live

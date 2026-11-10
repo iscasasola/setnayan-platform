@@ -10,6 +10,7 @@ import { readAllPages, readInChunks } from '@/lib/read-all-pages';
 import {
   fetchVendorBlocksDetailed,
   fetchVendorDayStates,
+  fetchVendorMonthDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
 } from '@/lib/vendor-schedule';
@@ -1109,7 +1110,8 @@ function startMonthReads(
   todayIso: string,
 ) {
   return Promise.all([
-    fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+    // The month's REAL last day (G7) — never `${month}-31`, which Postgres refuses for every 30-day month and February.
+    fetchVendorMonthDayStates(supabase, vendorProfileId, month),
     // The month's waiting list (its marks) and every date ahead (the Waiting list fold).
     fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
     fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
@@ -1164,7 +1166,9 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [dayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
+  const [monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
+  // 🔴 G7: refused (null) is not "nothing held" — the month says so over itself (`initialDayStatesRead`).
+  const dayStates = monthDayStates ?? [];
   const blocks = blocksRead.blocks;
   const blocksIncomplete = !blocksRead.complete;
 
@@ -1234,6 +1238,7 @@ async function customersMonth({
     /** The month's props — `CustomersPin` mounts the shipped `CustomersCalendar` with them, on top of the screen. */
     month: {
       initialDayStates: dayStates,
+      initialDayStatesRead: monthDayStates !== null,
       initialWaitlist: monthWaitlist,
       inquiries: asksByDate(asks),
       initialMonth: month,
@@ -1375,7 +1380,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     const d = iso.slice(0, 10);
     return `asked ${rangeWords(d, d, todayIso)}`;
   };
-  const holds = dayStates.filter((s) => s.stateDate === day);
+  // 🔴 G7: a refused day-state read is said over the day (below), never read as "no hold on this day".
+  const holds = (dayStates ?? []).filter((s) => s.stateDate === day);
   // The day, schedule by schedule — every block through the ONE rule (`lib/not-available.ts`, repeats + hours).
   const groups = dayGroupsOf(day, {
     today: todayIso,
@@ -1477,6 +1483,11 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
       {!blocksRead.complete ? (
         <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
           Some of your blocked dates couldn&rsquo;t load, so this day may show as open. Reload the page to try again.
+        </p>
+      ) : null}
+      {dayStates === null ? (
+        <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-dates-day-unread="">
+          This day&rsquo;s hold couldn&rsquo;t load, so a day you held may show as open. Reload the page to try again.
         </p>
       ) : null}
       <DaySheet data={data} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />

@@ -84,11 +84,10 @@ export function SetupFrame({
         {formatCount(n)} of {formatCount(total)}
       </p>
       <div className="mt-2 flex items-start gap-2">
-        <h1
-          className={`text-[28px] font-medium leading-[1.12] text-ink sm:text-4xl ${
-            skin === 'wedding' ? 'font-serif italic' : skin === 'quiet' ? 'font-serif font-light' : 'font-sans'
-          }`}
-        >
+        {/* 📐 THE TEMPLATE'S TITLE (Lane P, owner 10 Nov: "our template design should always be followed"):
+            22 px / 600 in the house sans on EVERY skin — the serif italic wedding title and the light serif
+            were a second and third look for one frame. The skin still tints the accent, never the type. */}
+        <h1 className="font-sans text-[22px] font-semibold leading-[1.1] tracking-[-0.01em] text-ink" data-step-title>
           {title}
         </h1>
         <button
@@ -96,14 +95,14 @@ export function SetupFrame({
           aria-expanded={infoOpen}
           aria-label="More about this"
           onClick={() => setInfoOpen((v) => !v)}
-          className="sn-press sn-press-ring sn-dot-btn mt-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta sm:mt-3"
+          className="sn-press sn-press-ring sn-dot-btn mt-[4px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
         >
           {/* The house ⓘ, class for class — `<InfoTip>`'s trigger (owner 2026-10-25: "the (i) is not consistent
               across the app"). Not InfoTip itself: this one opens the line in the page, under the title. */}
           <span aria-hidden="true">i</span>
         </button>
       </div>
-      <p className="mt-2 text-ink/60">{line}</p>
+      <p className="mt-1 text-sm text-ink/60">{line}</p>
       {infoOpen ? <p className="mt-2 text-sm text-ink/50">{info}</p> : null}
 
       <div className="mt-6">{children}</div>

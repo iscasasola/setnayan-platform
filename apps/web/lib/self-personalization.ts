@@ -36,6 +36,9 @@ export type SelfPersonalization = {
   gender: Sex | null;
   /** What they call themselves, trimmed; null when they have not set one. */
   displayName: string | null;
+  /** Their formal first / last name (Profile & settings · `users.first_name` / `last_name`), trimmed; null when unset. */
+  firstName: string | null;
+  lastName: string | null;
 };
 
 export const EMPTY_SELF_PERSONALIZATION: SelfPersonalization = {
@@ -44,6 +47,8 @@ export const EMPTY_SELF_PERSONALIZATION: SelfPersonalization = {
   birthdate: null,
   gender: null,
   displayName: null,
+  firstName: null,
+  lastName: null,
 };
 
 /**
@@ -60,7 +65,7 @@ export const getSelfPersonalization = cache(
     const supabase = await createClient();
     const { data } = await supabase
       .from('users')
-      .select('religion, civil_status, birth_date, sex, display_name')
+      .select('religion, civil_status, birth_date, sex, display_name, first_name, last_name')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -81,6 +86,9 @@ export const getSelfPersonalization = cache(
         typeof data.display_name === 'string' && data.display_name.trim()
           ? data.display_name.trim()
           : null,
+      // The formal name, for the forms that ask first + last apart (the wedding's "Which one is you?").
+      firstName: typeof data.first_name === 'string' && data.first_name.trim() ? data.first_name.trim() : null,
+      lastName: typeof data.last_name === 'string' && data.last_name.trim() ? data.last_name.trim() : null,
     };
   },
 );

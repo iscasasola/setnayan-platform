@@ -46,6 +46,7 @@ import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
+import type { SelfName } from '@/lib/onboarding/couple-handoff';
 
 /**
  * Force dynamic rendering · skip static prerender (mirrors /pricing/page.tsx).
@@ -166,13 +167,15 @@ export default async function OnboardingWeddingPage({
   // resumed draft.
   let religionDefault: string | null = null;
   // Their own name, for THEIR slot once they say bride or groom (owner 2026-11-08). Same self read.
-  let selfName: string | null = null;
+  // The formal first + last when the account holds them (Lane P, 10 Nov: "It asked me who i am and it
+  // did not fill it up"), else the display name — one `SelfName`, the same seat path (`moveSelf`).
+  let selfName: SelfName = null;
   if (user) {
     // Shared self-profile reader (2026-07-13) — same religion value as the prior
     // inline `users` select, now via one canonical helper reused across flows.
-    const { religion, displayName } = await getSelfPersonalization();
+    const { religion, displayName, firstName, lastName } = await getSelfPersonalization();
     if (religion && (activeFaiths ?? []).includes(religion)) religionDefault = religion;
-    selfName = displayName;
+    selfName = firstName ? { first: firstName, last: lastName, display: displayName } : displayName;
   }
 
   // The services step (Papic + Setnayan AI), resolved server-side because the

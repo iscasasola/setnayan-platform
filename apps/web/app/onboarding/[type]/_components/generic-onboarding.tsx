@@ -19,7 +19,8 @@ import {
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
@@ -81,6 +82,7 @@ import {
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { SelfCelebrantLock } from '@/app/_components/self-celebrant-lock';
 import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
+import { StepBar } from '@/app/onboarding/_shared/step-bar';
 import {
   defaultPresetFor,
   limitLineFor,
@@ -1231,21 +1233,24 @@ export function GenericOnboarding(props: Props) {
           }
           cta={
             <>
-              <button
-                type="button"
-                data-needs-cta=""
+              <ActionButton
+                tone="brand"
+                main
+                icon={ArrowRight}
+                className="w-full justify-center"
+                data-testid="needs-cta"
                 onClick={() => (needsOnly ? void handleCreate() : go(1))}
                 disabled={!canContinue || committing}
-                className="h-12 w-full rounded-full bg-mulberry text-[15px] font-semibold text-paper transition hover:opacity-90 disabled:opacity-40"
-              >
-                {needsOnly
-                  ? blockedTerminal
-                    ? 'Go to my dashboard'
-                    : committing
-                      ? 'Making…'
-                      : 'Make the event'
-                  : 'Continue'}
-              </button>
+                label={
+                  needsOnly
+                    ? blockedTerminal
+                      ? 'Go to my dashboard'
+                      : committing
+                        ? 'Making…'
+                        : 'Make the event'
+                    : 'Continue'
+                }
+              />
               {needsOnly && error ? (
                 <p className="mt-2 text-sm text-mulberry">
                   {error === 'sign_in' ? (
@@ -1940,37 +1945,20 @@ export function GenericOnboarding(props: Props) {
       {/* nav — absent on "What do you need?", whose button sits under its rows (frame 3) */}
       <div data-glass-row="onboarding-nav" className="sn-glass-row sticky bottom-0" hidden={screen === 'needs'}>
         <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-3 px-5 py-4">
-          <button
-            type="button"
-            onClick={() => go(-1)}
-            disabled={step === 0 || committing}
-            className="rounded-full px-4 py-2 text-sm font-medium text-ink/60 disabled:opacity-0"
-          >
-            Back
-          </button>
-          {isLast ? (
-            <button
-              type="button"
-              onClick={handleCreate}
-              disabled={committing}
-              className="rounded-full bg-mulberry px-7 py-3 text-sm font-semibold text-paper transition hover:opacity-90 disabled:opacity-60"
-            >
-              {blockedTerminal
-                ? 'Go to my dashboard'
-                : committing
-                  ? 'Creating…'
-                  : `Create my ${label.toLowerCase()}`}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => go(1)}
-              disabled={!canContinue}
-              className="rounded-full bg-mulberry px-7 py-3 text-sm font-semibold text-paper transition hover:opacity-90 disabled:opacity-40"
-            >
-              Continue
-            </button>
-          )}
+          {/* 🔘 THE ONE BOTTOM BAR (step-bar.tsx, Lane P slice 5): Back + the main verb are the house ActionButton,
+              the same bar the wedding draws. Back keeps its slot on step 0 (drawn invisible) so the verb never jumps. */}
+          <StepBar
+            back={{ onClick: () => go(-1), disabled: step === 0 || committing, hidden: step === 0 }}
+            main={
+              isLast
+                ? {
+                    onClick: () => void handleCreate(),
+                    disabled: committing,
+                    label: blockedTerminal ? 'Go to my dashboard' : committing ? 'Creating…' : `Create my ${label.toLowerCase()}`,
+                  }
+                : { onClick: () => go(1), disabled: !canContinue, label: 'Continue' }
+            }
+          />
         </div>
       </div>
     </main>

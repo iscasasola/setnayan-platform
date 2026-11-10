@@ -138,9 +138,12 @@ test('every other event type: step 0 draws ✕ to the picker, later steps ‹ �
   assert.match(face, /w-\[34px\]/);
   assert.match(face, /\brounded-full\b/);
 
-  const nav = between(src, 'data-glass-row="onboarding-nav"', 'isLast ?');
-  assert.match(nav, /onClick=\{\(\) => go\(-1\)\}/, 'later screens lost their bottom Back');
-  assert.match(nav, />\s*Back\s*</);
+  // The bottom Back is the ONE step bar's (step-bar.tsx, Lane P slice 5) — the house ActionButton worded "Back".
+  const nav = between(src, 'data-glass-row="onboarding-nav"', '</main>');
+  assert.match(nav, /<StepBar\b/, 'the generic nav no longer draws the shared step bar');
+  assert.match(nav, /back=\{\{ onClick: \(\) => go\(-1\)/, 'later screens lost their bottom Back');
+  const bar = code(join(HERE, '_shared', 'step-bar.tsx'));
+  assert.match(bar, /label=\{back\.label \?\? 'Back'\}/, 'the step bar\u2019s Back lost its word');
 });
 
 test('Get-together: the form opens with "‹ Back" to the picker', () => {

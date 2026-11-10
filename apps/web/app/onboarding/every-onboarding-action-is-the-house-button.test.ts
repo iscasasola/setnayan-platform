@@ -26,7 +26,7 @@ const web = process.cwd();
 
 /** Bare `<button>` per component, measured 2026-11-10 (Lane P). Lower it; never raise it. */
 const BARE: Readonly<Record<string, number>> = {
-  'onboarding/[type]/_components/generic-onboarding.tsx › GenericOnboarding': 12,
+  'onboarding/[type]/_components/generic-onboarding.tsx › GenericOnboarding': 8,
   'onboarding/[type]/_components/specialty-fields.tsx › Roster': 2,
   'onboarding/[type]/_components/specialty-fields.tsx › OpenMultiselect': 1,
   'onboarding/[type]/_components/specialty-fields.tsx › Field': 3,
@@ -38,7 +38,6 @@ const BARE: Readonly<Record<string, number>> = {
   'onboarding/_shared/services-step.tsx › ServicesStep': 2,
   'onboarding/_shared/setup-card.tsx › SetupFrame': 2,
   'onboarding/_shared/setup-card.tsx › SetupCard': 2,
-  'onboarding/simple/_components/simple-setup-flow.tsx › Paced': 3,
   'onboarding/wedding/_components/location-step.tsx › LocationStep': 4,
   'onboarding/wedding/_components/onboarding-music.tsx › OnboardingMusic': 1,
   'onboarding/wedding/_components/onboarding-shell.tsx › RefineCard': 1,
@@ -50,7 +49,6 @@ const BARE: Readonly<Record<string, number>> = {
   'onboarding/wedding/_components/welcome-moments.tsx › WelcomeMoments': 1,
   'open-shop/_components/city-pin.tsx › CityPin': 2,
   'open-shop/_components/claim-door.tsx › ClaimDoor': 6,
-  'open-shop/_components/open-shop-wizard.tsx › OpenShopWizard': 5,
   'open-shop/_components/plan-sheet.tsx › PlanBody': 2,
   'open-shop/_components/service-cards.tsx › ServiceCards': 1,
   'open-shop/_components/service-cards.tsx › Specialties': 1,

@@ -21,6 +21,9 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ArrowRight } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { StepBar } from '@/app/onboarding/_shared/step-bar';
 import { nudgeFormRows } from '@/app/_components/form-row';
 import {
   setupCardAnswered,
@@ -159,9 +162,7 @@ function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: 
                 Make the event
               </SubmitButton>
             ) : (
-              <button type="button" className="button-primary h-12 w-full" onClick={next}>
-                Continue
-              </button>
+              <ActionButton tone="brand" main icon={ArrowRight} label="Continue" className="w-full justify-center" onClick={next} />
             )
           }
         />
@@ -182,19 +183,11 @@ function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: 
         <SimpleSuppliersOnContext.Provider value={needs.suppliers}>{finish}</SimpleSuppliersOnContext.Provider>
       </div>
       {!only && step > 0 && step < last ? (
-        <div className="flex gap-3">
-          <button type="button" className="button-secondary" onClick={() => setStep((s) => Math.max(0, s - 1))}>
-            Back
-          </button>
-          <button
-            type="button"
-            className="button-primary"
-            disabled={card !== null && !setupCardAnswered(card, answers)}
-            onClick={next}
-          >
-            Continue
-          </button>
-        </div>
+        /* 🔘 THE ONE BOTTOM BAR (step-bar.tsx, Lane P slice 5) — the same Back + Continue every flow draws. */
+        <StepBar
+          back={{ onClick: () => setStep((s) => Math.max(0, s - 1)) }}
+          main={{ label: 'Continue', onClick: next, disabled: card !== null && !setupCardAnswered(card, answers) }}
+        />
       ) : null}
     </>
   );

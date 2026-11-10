@@ -42,8 +42,9 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, ChevronsRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronsRight, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { StepBar } from '@/app/onboarding/_shared/step-bar';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
@@ -4725,21 +4726,21 @@ export function OnboardingShell({
           {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || AIGATE_NOCTA.has(activeId) || momentsActive) && (
             /* 🔘 THE STEP'S MAIN VERB IS THE HOUSE ActionButton (T19 + T32 bottom bar: "main verb filled terracotta"),
                the full width of the bar — never a hand-styled `.btn-primary`. */
-            <ActionButton
-              tone="brand"
-              main
-              icon={ArrowRight}
-              label={committing ? 'Creating your plan…' : nextLabel}
-              className="w-full flex-1 justify-center"
-              data-testid="onboarding-continue"
-              onClick={() => {
-                if (!canContinue || committing) return;
-                // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
-                // terminal — commit straight to the dashboard instead of advancing.
-                if (isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)) { void handleFinish(false); return; }
-                go(1);
+            <StepBar
+              wide
+              className="flex-1"
+              main={{
+                label: committing ? 'Creating your plan…' : nextLabel,
+                'data-testid': 'onboarding-continue',
+                onClick: () => {
+                  if (!canContinue || committing) return;
+                  // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
+                  // terminal — commit straight to the dashboard instead of advancing.
+                  if (isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)) { void handleFinish(false); return; }
+                  go(1);
+                },
+                disabled: !canContinue || committing,
               }}
-              disabled={!canContinue || committing}
             />
           )}
         </div>

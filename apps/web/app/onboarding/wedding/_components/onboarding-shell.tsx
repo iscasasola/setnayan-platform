@@ -42,7 +42,8 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronsRight, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
@@ -3032,7 +3033,7 @@ export function OnboardingShell({
                 </span>
               </Link>
             ) : (
-              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back">
+              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back"> {/* button-ok: the step frame's ‹ Back ring in the header (T32 head, shared btn-ring — first-screen-can-cancel.test.ts) */}
                 <span className="btn-ring-face" aria-hidden>
                   <ChevronLeft size={16} strokeWidth={2} />
                 </span>
@@ -3052,14 +3053,11 @@ export function OnboardingShell({
             {/* Owner-uploaded background music (owner 2026-06-08) — only when admin set a
                 track. margin-left:auto right-aligns it; sits beside Skip when shown. */}
             {bgMusicUrl ? <OnboardingMusic src={bgMusicUrl} srcs={bgMusicUrls} /> : null}
-            <button
-              className="skip"
-              type="button"
-              onClick={() => go(1)}
-              style={{ display: CAN_SKIP_BY_ID[activeId] ? 'inline-block' : 'none' }}
-            >
-              Skip
-            </button>
+            {/* 🔘 THE BUTTON RULE (T19 · owner 10 Nov: "the rule or uniform buttons … is not followed yet"): Skip is the
+                house ActionButton, quiet — a secondary that does not compete with the step's Continue. */}
+            {CAN_SKIP_BY_ID[activeId] ? (
+              <ActionButton tone="neutral" quiet icon={ChevronsRight} label="Skip" className="ml-auto" onClick={() => go(1)} />
+            ) : null}
           </div>
           {activeId === 'welcome' && !momentsActive && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar" style={momentsActive ? { visibility: 'hidden' } : undefined}>
@@ -4725,9 +4723,15 @@ export function OnboardingShell({
             </p>
           )}
           {!((activeId === 'account' && !authed) || activeId === 'summary' || LOVE_NOCTA.has(activeId) || AIGATE_NOCTA.has(activeId) || momentsActive) && (
-            <button
-              className="btn btn-primary"
-              type="button"
+            /* 🔘 THE STEP'S MAIN VERB IS THE HOUSE ActionButton (T19 + T32 bottom bar: "main verb filled terracotta"),
+               the full width of the bar — never a hand-styled `.btn-primary`. */
+            <ActionButton
+              tone="brand"
+              main
+              icon={ArrowRight}
+              label={committing ? 'Creating your plan…' : nextLabel}
+              className="w-full flex-1 justify-center"
+              data-testid="onboarding-continue"
               onClick={() => {
                 if (!canContinue || committing) return;
                 // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
@@ -4736,10 +4740,7 @@ export function OnboardingShell({
                 go(1);
               }}
               disabled={!canContinue || committing}
-              style={!canContinue || committing ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
-            >
-              {committing ? 'Creating your plan…' : nextLabel}
-            </button>
+            />
           )}
         </div>
 

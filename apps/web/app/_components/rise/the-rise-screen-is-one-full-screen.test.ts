@@ -108,7 +108,7 @@ test('4 · ONE part: nobody else draws a risen screen; a ⚙ rises through the s
   const { MenuSettingsButton } = await import('@/app/_components/menu-settings-button');
   const draw = (rise: boolean) =>
     renderToStaticMarkup(
-      React.createElement(MenuSettingsButton, { menu: 'shop', open: true, onOpenChange: () => {}, rise, children: React.createElement('p', null, 'rows') }),
+      React.createElement(MenuSettingsButton, { menu: 'shop', open: true, onOpenChange: () => {}, rise }, React.createElement('p', null, 'rows')),
     );
   const risen = draw(true);
   assert.match(risen, /data-rise-screen="settings-shop"/, 'the ⚙ with `rise` does not open the risen screen');

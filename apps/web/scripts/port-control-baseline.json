@@ -3995,6 +3995,7 @@
       ],
       "destinations": [
         "/admin/accounts?tab=events&q=[seg]",
+        "/admin/payments/supplier-refunds",
         "/admin/payments?filter=[seg]",
         "/admin/payments?filter=[seg]${platform ?",
         "/admin/payments?filter=[seg]${target ?"
@@ -4020,6 +4021,7 @@
         "FormRows",
         "HTMLInputElement",
         "InboxMatcher",
+        "Link",
         "OrderEventInfoResult",
         "OrdersNeedingQuote",
         "PageMasthead",
@@ -4036,6 +4038,23 @@
         "Stat",
         "SubmitButton",
         "TypedRow"
+      ]
+    },
+    "/admin/payments/supplier-refunds": {
+      "files": [
+        "admin/payments/supplier-refunds/page.tsx",
+        "admin/payments/supplier-refunds/supplier-refunds-view.tsx"
+      ],
+      "destinations": [
+        "/admin/payments"
+      ],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "KpiStatCard",
+        "Link",
+        "PageMasthead",
+        "SupplierRefundsView"
       ]
     },
     "/admin/payouts": {
@@ -11923,6 +11942,7 @@
     },
     "/dev/chat-cards-c-lab": {
       "files": [
+        "dev/chat-cards-c-lab/lab.tsx",
         "dev/chat-cards-c-lab/page.tsx"
       ],
       "destinations": [],
@@ -11936,6 +11956,7 @@
         "FormAnswerCard",
         "FormStepCard",
         "GuestRecountCard",
+        "Lab",
         "LogPaymentCard",
         "PaymentStepCard",
         "QuoteStepCard"
@@ -11943,12 +11964,14 @@
     },
     "/dev/chat-cards-lab": {
       "files": [
+        "dev/chat-cards-lab/lab.tsx",
         "dev/chat-cards-lab/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "AgreedNowView",
+        "Lab",
         "MeetingStepCard",
         "SupplierLocksView"
       ]
@@ -13123,6 +13146,7 @@
         "CouplePhotoShareReply",
         "CouplePhotosLab",
         "CouplePhotosList",
+        "CoverPhotoMenu",
         "CrewEventHub",
         "CrewNameForm",
         "CrewPanel",
@@ -13177,6 +13201,7 @@
         "LibraryLab",
         "Link",
         "LockedQrGenerator",
+        "LogoPhotoMenu",
         "MessageEveryoneRows",
         "ModuleConfigurator",
         "MoneyLab",
@@ -17584,6 +17609,7 @@
         "vendor-dashboard/shop/_components/gallery-media.tsx",
         "vendor-dashboard/shop/_components/held-name-claim.tsx",
         "vendor-dashboard/shop/_components/photo-menus.tsx",
+        "vendor-dashboard/shop/_components/portfolio-form.tsx",
         "vendor-dashboard/shop/_components/profile-checklist-editor.tsx",
         "vendor-dashboard/shop/_components/public-line-card.tsx",
         "vendor-dashboard/shop/_components/reach-map.tsx",
@@ -17754,6 +17780,7 @@
         "RegNumberSaveResult",
         "RegistrationNumberLine",
         "RequestOnlyRow",
+        "RiseScreen",
         "RoiAttributionCard",
         "Row",
         "RowIcon",
@@ -17769,7 +17796,6 @@
         "ServiceScannerPick",
         "ServicesManagerSearch",
         "ShareSheet",
-        "Sheet",
         "SheetOpening",
         "ShopAnalytics",
         "ShopAnalyticsCarousel",
@@ -17824,6 +17850,7 @@
         "VerifyPairs",
         "VerifySection",
         "VideoLinksEditor",
+        "ViewShopScreen",
         "VisibilitySaveResult",
         "VoiceGate",
         "VoiceMatchCard",
@@ -17922,6 +17949,7 @@
         "vendor-dashboard/subscription/loading.tsx",
         "vendor-dashboard/subscription/page.tsx",
         "vendor-dashboard/subscription/photo-challenge-actions.ts",
+        "vendor-dashboard/subscription/specialized-tools-purchase.ts",
         "vendor-dashboard/subscription/ultra-addon-actions.ts"
       ],
       "destinations": [
@@ -17966,6 +17994,7 @@
         "PlanSearch",
         "Sheet",
         "ShopNotice",
+        "SpecializedToolsActionState",
         "StartBadgeUpgradeState",
         "StartUpgradeSheet",
         "StayForm",

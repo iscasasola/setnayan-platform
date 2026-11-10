@@ -38,6 +38,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 import { riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
 
 // Note presses from the moment this part is on the client, so the first door tapped already has an origin.
@@ -84,6 +85,10 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
   const headingId = useId();
   const infoId = useId();
   const [infoOpen, setInfoOpen] = useState(false);
+  const infoRef = useRef<HTMLDivElement | null>(null);
+  // ⓘ opens like every other expand in the app — through the ONE reveal (owner 2026-11-04): if the words run past the
+  // screen they glide into view; when they fit, nothing moves.
+  const intendInfo = useRevealOnOpen(infoOpen, () => ({ head: infoRef.current }));
 
   // 🫥 The bars step away while the screen is up, and come back the exact reverse when it goes (T4).
   useChromeAway(true);
@@ -159,12 +164,15 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
           {actions ? <span className="flex shrink-0 items-center gap-1.5">{actions}</span> : null}
           {info ? (
             <span className="inline-flex shrink-0" data-rise-info-button="">
-              <ActionButton tone="neutral" iconOnly icon={Info} label="About this screen" onClick={() => setInfoOpen((v) => !v)} aria-expanded={infoOpen} />
+              <ActionButton tone="neutral" iconOnly icon={Info} label="About this screen" onClick={() => {
+                intendInfo();
+                setInfoOpen((v) => !v);
+              }} aria-expanded={infoOpen} />
             </span>
           ) : null}
         </div>
         {info && infoOpen ? (
-          <div id={infoId} role="note" className="border-t border-ink/10 bg-raised" data-rise-info="">
+          <div ref={infoRef} id={infoId} role="note" className="border-t border-ink/10 bg-raised" data-rise-info="">
             <div className="mx-auto w-full max-w-3xl px-4 py-2.5 text-[13.5px] leading-relaxed text-ink/75">{info}</div>
           </div>
         ) : null}

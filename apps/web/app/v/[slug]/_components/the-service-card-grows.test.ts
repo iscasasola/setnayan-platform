@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '../../../../lib/strip-comments';
 
 const HERE = __dirname;
 const SHEET = readFileSync(join(HERE, 'service-details-sheet.tsx'), 'utf8');
@@ -49,6 +50,6 @@ test('📌 one section head pins at a time under the bar, and a tap glides to it
 });
 
 test('the Setnayan exclusive never reaches the grown card', () => {
-  const code = SHEET.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const code = stripComments(SHEET);
   assert.doesNotMatch(code, /exclusive_perk|exclusivePerk|hasExclusive/);
 });

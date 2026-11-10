@@ -10,4 +10,10 @@ Owner, 10 Nov: *"On the onboarding the rule or uniform buttons and design templa
 - Guards updated to follow the parts, not weakened: `first-screen-can-cancel.test.ts` (the generic bottom Back is the
   step bar's), `both-sign-up-doors-wear-one-button.test.ts` (Continue/Back are the `.ab` pill).
 
+- Bare `<button>` count across `app/onboarding` + `app/open-shop`: **108 → 17**. Spared with `button-ok` (not
+  action buttons): photo choice tiles, calendar day cells, the header ‹ rings, the ⓘ dot, THE TICK rows
+  (owner 2026-08-11), the extras accordion head, and the Email way (it wears the OAuth buttons' shape).
+- The generic date step's mode dropdown offers "Not decided yet" (clears the picks); the wedding's does not —
+  its date step's Continue needs a date.
+
 SPEC IMPACT: None

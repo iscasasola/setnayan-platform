@@ -13281,10 +13281,12 @@
     },
     "/dev/supplier-plan-lab": {
       "files": [
+        "dev/supplier-plan-lab/lab-open.tsx",
         "dev/supplier-plan-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/supplier-plan-lab?s=notifs"
+        "/dev/supplier-plan-lab?s=notifs",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "startSubscriptionPurchase"
@@ -13297,11 +13299,16 @@
         "DatesRow",
         "GrantedReward",
         "HelpersView",
+        "LabLimit",
+        "LabLock",
+        "LimitSheet",
+        "LockExplainer",
         "MarchRead",
         "NotificationsView",
-        "PlanPicker",
         "PlanRows",
+        "PlanSheet",
         "QuoteShopGiftNote",
+        "Reopen",
         "SettingsView",
         "ShopGiftsLedger",
         "ShopGiftsSection",
@@ -17999,9 +18006,9 @@
         "vendor-dashboard/subscription/_components/booth-addon-card.tsx",
         "vendor-dashboard/subscription/_components/papic-challenge-card.tsx",
         "vendor-dashboard/subscription/_components/plan-change-notice.tsx",
-        "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/plan-sheet.tsx",
         "vendor-dashboard/subscription/_components/ultra-addons-card.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
@@ -18029,6 +18036,8 @@
       "blocks": [
         "ActionButton",
         "AiAddonCard",
+        "AlsoRows",
+        "Badge",
         "BadgeUpgradeChoice",
         "BadgeUpgradeRow",
         "BadgeUpgradesSection",
@@ -18042,17 +18051,20 @@
         "GridPageSkeleton",
         "Icon",
         "InfoTip",
+        "LimitRow",
         "Link",
+        "LockButton",
         "PaidMark",
         "PapicChallengeCard",
+        "PayRow",
         "PaymentsPausedNote",
         "PhotoChallengeActionState",
         "PickMenu",
         "PlanChangeNotice",
-        "PlanPicker",
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "PlanSheet",
         "Sheet",
         "ShopNotice",
         "SpecializedToolsActionState",

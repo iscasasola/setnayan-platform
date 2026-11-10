@@ -3310,6 +3310,8 @@ function brandMarkOps(doc: PrintDoc, look: Pick<PrintLook, 'ink'>): PrintOp[] {
 
 /** One sheet, carrying the brand. */
 export function brandSheet(doc: PrintDoc, look: Pick<PrintLook, 'theme' | 'ink'>, kind: PrintBrand): PrintDoc {
+  // 🏷 Event Pro (Build 6 Lane L): no Setnayan mark on the piece at all.
+  if (kind === 'none') return doc;
   const ops = kind === 'mark' ? brandMarkOps(doc, look) : brandLineOps(doc, look);
   return { ...doc, ops: [...doc.ops, ...ops] };
 }
@@ -3322,6 +3324,7 @@ export function brandPiece(docs: PrintDoc[], look: PrintLook): PrintDoc[] {
   // A piece that drew the brand in its own composition (the printed phone card's foot, `cardFoot`) already carries it.
   if (docs.some((d) => d.ops.some((o) => o.t === 'path' && o.brand))) return docs;
   const kind: PrintBrand = printBrandOf(look);
+  if (kind === 'none') return docs;
   const at = kind === 'mark' && docs.length > 1 ? docs.length - 1 : 0;
   return docs.map((d, i) => (i === at ? brandSheet(d, look, kind) : d));
 }

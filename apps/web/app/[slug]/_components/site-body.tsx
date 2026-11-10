@@ -1,4 +1,5 @@
 import { Fragment, isValidElement } from 'react';
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import { effectiveRoleOf, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import Link from 'next/link';
@@ -504,6 +505,9 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** 🏷 The event plan's Setnayan mark (`eventSetnayanMark`, Build 6 Lane L): Free = the watermark · Event Plus = one
+   *  quiet "Made with Setnayan" · Event Pro = none. Absent → read from `proWatermarkHidden` as before. */
+  setnayanMark?: SetnayanMark | null;
   /** 💎 The Event Hub Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
    *  Auto-scroll are Motion's. Absent: every part while the footer is off (Full Pro), none otherwise — the old meaning. */
   hubParts?: readonly HubPartId[];
@@ -668,6 +672,7 @@ export async function SiteBody({
   doorwayFacts = null,
   giftPageReader = null,
   proWatermarkHidden,
+  setnayanMark = null,
   hubParts,
   isEditorCanvas = false,
   editorialDraft = null,
@@ -4425,6 +4430,7 @@ export async function SiteBody({
       editorCanvas={!showGuestBars}
       stageLabel={STAGE_BAR[pageStage].label}
       hideWatermark={proWatermarkHidden}
+      setnayanMark={setnayanMark}
       magicTraveller={magicTraveller}
       /* ✕ One exit, top-left, back to Setnayan — never in a Maker preview,
          which carries its own way back (`makerWayBack`). */

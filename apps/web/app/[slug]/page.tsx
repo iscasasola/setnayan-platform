@@ -1040,6 +1040,7 @@ async function invitationBody({
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    setnayanMark,
     hubParts,
     bespokeSvg,
     studioAnim,
@@ -1288,6 +1289,7 @@ async function invitationBody({
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
           proWatermarkHidden={proWatermarkHidden}
+          setnayanMark={setnayanMark}
         />
       );
     }
@@ -1811,6 +1813,7 @@ async function invitationBody({
        door would stand (`doorways.pabuya`) on a Welcome that carries E-Gifts. */
     giftPageReader: (e: GiftPageEvent) => loadGiftPage(admin, e),
     proWatermarkHidden,
+    setnayanMark,
     hubParts,
     isEditorCanvas,
     // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the
@@ -1990,6 +1993,7 @@ async function invitationBody({
             animatedMonogram={animatedMonogram}
             bespokeSvg={bespokeSvg}
             proWatermarkHidden={proWatermarkHidden}
+            setnayanMark={setnayanMark}
           />
           <SampleViewerInert canvas={isEditorCanvas} />
         </>

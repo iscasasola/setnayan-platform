@@ -1,4 +1,5 @@
 import { RoomFooter } from '../_components/room-footer';
+import { EventHubHeaderBrand, EventSetnayanMarkLine } from '../_components/event-setnayan-mark';
 import type { RoomLink } from '../_lib/room-links';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { partDoorHidden } from '../_lib/part-door.server';
@@ -11,7 +12,6 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import { Logo } from '@/app/_components/logo';
 import {
   DEFAULT_ENTRANCE,
   type EntrancePos,
@@ -100,7 +100,7 @@ export default async function FindMyTablePage({ params }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+      <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="Open this from your invitation"
           body="Find your table is part of your personal invitation. Open your invitation link (or scan your QR), then tap “Find my table”."
@@ -121,7 +121,7 @@ export default async function FindMyTablePage({ params }: Props) {
   if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
   if (!(await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true }))) {
     return (
-      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+      <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <SeatsShowOnTheDay eventDate={event.event_date as string | null} />
       </Shell>
     );
@@ -153,7 +153,7 @@ export default async function FindMyTablePage({ params }: Props) {
   // absence below is recoverable by the guest; "try again" is.
   if (assignmentErr || tablesErr) {
     return (
-      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+      <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="We couldn't load the floor plan"
           body="Something went wrong on our side — your table is fine. Refresh the page, or open it again in a moment."
@@ -171,7 +171,7 @@ export default async function FindMyTablePage({ params }: Props) {
 
   if (tables.length === 0) {
     return (
-      <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+      <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
         <PromptCard
           title="The floor plan is on its way"
           body={`${words.TheHost} is still arranging the venue layout. Check back closer to the day — your table map will appear here.`}
@@ -181,7 +181,7 @@ export default async function FindMyTablePage({ params }: Props) {
   }
 
   return (
-    <Shell roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
+    <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
       {/* Day-of: silently re-pull this guest's assignment so a live reseat
           re-lights the map without a manual reload (seat-finding PR 5). */}
       <PulsedLiveRefresher
@@ -271,11 +271,14 @@ async function resolveEntrance(
 // ─────────────────────────────────────────────────────────────────────────
 
 function Shell({
+  eventId = null,
   displayName,
   slug,
   children,
   roomLinks,
 }: {
+  /** 🏷 The event — its plan decides the Setnayan mark (`EventSetnayanMarkLine`, Build 6 Lane L). */
+  eventId?: string | null;
   displayName: string;
   slug: string;
   children: React.ReactNode;
@@ -286,10 +289,7 @@ function Shell({
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
           <Link href={`/${slug}`} className="flex min-h-[44px] items-center gap-2 text-ink">
-            <Logo height={28} />
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-              Setnayan
-            </span>
+            <EventHubHeaderBrand eventId={eventId} />
           </Link>
           <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
             {displayName}
@@ -299,7 +299,7 @@ function Shell({
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
       <footer className="border-t border-ink/10 px-4 py-8 text-center">
         <p className="font-serif text-lg italic text-terracotta-700">See you soon.</p>
-        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
+        <EventSetnayanMarkLine eventId={eventId} className="mt-3 text-xs text-ink/70" />
       </footer>
       <RoomFooter links={roomLinks} />
     </main>

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
 import { effectiveRoleOf } from '@/lib/guest-proxy';
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -210,7 +211,12 @@ export async function loadPassCardKit(
   eventId: string,
   opts: { seatsFor?: string[] } = {},
 ): Promise<PassCardKit | null> {
-  const [first, ownsPro] = await Promise.all([loadPrintSet(eventId, { mode: 'screen', withEventQr: false }), printOwnsPro(eventId)]);
+  const [first, ownsPro, planMark] = await Promise.all([
+    loadPrintSet(eventId, { mode: 'screen', withEventQr: false }),
+    printOwnsPro(eventId),
+    // 🏷 The event plan's Setnayan mark (Build 6 Lane L): an Event Pro pass carries none.
+    eventSetnayanMark(admin, eventId),
+  ]);
   let set = first;
   if (!set) return null;
   if (isProPrint(set.theme) && !ownsPro) {
@@ -235,7 +241,7 @@ export async function loadPassCardKit(
     // The look's shape, pattern and centre (the Setnayan mark, or the couple's
     // own on Pro) stay.
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
-    data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
+    data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro && planMark !== 'none' } },
   };
   return { set, arrive, arriveAt: arrive ? arriveMoment.at : null, party, seats };
 }

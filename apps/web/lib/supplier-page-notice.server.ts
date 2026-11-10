@@ -3,7 +3,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { isR2Configured, r2Copy, R2_BUCKETS } from '@/lib/r2';
+import { isR2Configured, r2GetBytes, R2_BUCKETS } from '@/lib/r2';
+import { cleanCopyKeyFor, publishMarkedSupplierPhoto } from '@/lib/supplier-photo-publish.server';
 import { presignClientRef } from '@/lib/r2-client-ref.server';
 import { cleanupDelete } from '@/lib/cleanup-delete';
 import { supplierPageAlbumCopyScope } from '@/lib/cleanup-delete-scope';
@@ -35,6 +36,22 @@ export async function deleteSupplierPageCopy(vendorProfileId: string | null | un
     if (done === 'refused') console.error('[supplier-page-notice] refused to delete a page copy outside the shop folder');
   } catch (err) {
     console.error('[supplier-page-notice] could not delete the page copy', err);
+  }
+  // 🔏 The page copy is MARKED (Build 6 Lane L) and has a private clean copy and a pairing row: both go with it, so the
+  // re-mark job can never write a removed photo back, and no clean copy of a guest's photo is kept.
+  try {
+    const page = parseR2Ref(pageRef);
+    const originalRef = `r2://${R2_BUCKETS.vendorVerification}/${cleanCopyKeyFor(page.key)}`;
+    const done = await cleanupDelete(originalRef, supplierPageAlbumCopyScope(vendorProfileId));
+    if (done === 'refused') console.error('[supplier-page-notice] refused to delete a clean copy outside the shop folder');
+    const { error } = await createAdminClient()
+      .from('supplier_photo_originals')
+      .delete()
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('public_ref', pageRef);
+    if (error) logQueryError('supplierPageNotice.deletePairing', error, { vendorProfileId });
+  } catch (err) {
+    console.error('[supplier-page-notice] could not delete the clean copy of a page copy', err);
   }
 }
 
@@ -139,10 +156,14 @@ export async function publishDueSupplierPagePhotos(limit = 50): Promise<number> 
     const from = parseR2Ref(album.r2_object_key);
     const to = parseR2Ref(n.page_ref);
     if (from.bucket !== R2_BUCKETS.media || to.bucket !== R2_BUCKETS.media) continue;
+    // 🔏 THE PAGE COPY CARRIES THE SHOP'S SEAL (Build 6 Lane L): the album photo is marked on the way to the page,
+    // with its private clean copy and pairing (`publishMarkedSupplierPhoto`). FAIL-CLOSED: a mark that cannot be made
+    // publishes NOTHING — the notice stays waiting and is tried again next run. Never a raw copy.
     try {
-      await r2Copy({ bucket: R2_BUCKETS.media, fromKey: from.key, toKey: to.key });
+      const album = await r2GetBytes({ bucket: R2_BUCKETS.media, key: from.key });
+      await publishMarkedSupplierPhoto({ vendorProfileId: n.vendor_profile_id, publicKey: to.key, bytes: album.bytes });
     } catch (err) {
-      console.error('[supplier-page-publish] copy failed — stays waiting', err);
+      console.error('[supplier-page-publish] mark failed — stays waiting', err);
       continue;
     }
     const { data: ok, error: pubErr } = await admin.rpc('publish_supplier_page_photo', { p_notice_id: n.notice_id });

@@ -42,7 +42,7 @@ export function AiAnswerCheckRow(props: {
     <li className="space-y-2 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="text-sm font-medium text-ink">{props.question}</div>
-        <span className={`text-xs ${props.due ? 'text-amber-700' : 'text-ink/55'}`}>
+        <span className={`text-xs ${props.due ? 'text-[color:var(--sn-warning-deep)]' : 'text-ink/55'}`}>
           {props.lastAsked ? `last asked ${props.lastAsked}` : 'never asked'}
           {props.due ? ' · due' : ''}
         </span>

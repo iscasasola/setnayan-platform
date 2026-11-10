@@ -24,8 +24,8 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /\bgallery\b/i, why: 'the guest photo place is called Memories — the old word is retired (owner 2026-10-23)' },
   // Nothing in the app builds proposals — the line was in llms.txt with no code behind it.
   { pattern: /Proposal Builder/i, why: 'no proposal builder exists in the app (grep finds it only in old llms.txt copy)' },
-  // No public API in V1 (CLAUDE.md locked decision).
-  { pattern: /\bread API\b|\bpublic API\b/i, why: 'there is no public API in V1 (locked decision)' },
+  // No public API in V1 (CLAUDE.md, settled).
+  { pattern: /\bread API\b|\bpublic API\b/i, why: 'there is no public API in V1 (a settled decision in CLAUDE.md)' },
   // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Plus and Event Pro.
   { pattern: /Setnayan AI (?:costs|is sold|for ₱)|buy Setnayan AI\b/i, why: 'Setnayan AI is not sold on its own (owner 2026-11-04)' },
   // An unqualified "No" to the commission question is the error every AI repeats (google-ai-says-2026-11-10.md §5).

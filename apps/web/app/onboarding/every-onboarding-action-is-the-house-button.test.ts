@@ -31,7 +31,6 @@ const BARE: Readonly<Record<string, number>> = {
   'onboarding/[type]/_components/specialty-fields.tsx › OpenMultiselect': 1,
   'onboarding/[type]/_components/specialty-fields.tsx › Field': 3,
   'onboarding/[type]/_components/specialty-fields.tsx › SpecialtyFields': 1,
-  'onboarding/_shared/date-calendar.tsx › DateCalendar': 5,
   'onboarding/_shared/needs-step.tsx › NeedsStep': 1,
   'onboarding/_shared/services-step.tsx › Stepper': 2,
   'onboarding/_shared/services-step.tsx › PackPoolPicker': 2,

@@ -1619,6 +1619,7 @@ export function GenericOnboarding(props: Props) {
           <div className="mt-6" ref={dateCalendarRef}>
             <DateCalendar
               chrome="bare"
+              undecided
               dateExempt={dateExempt}
               mode={dateMode}
               candidates={celebrationDates}

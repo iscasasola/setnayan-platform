@@ -47,6 +47,7 @@
 .sn-datecal .calday.disabled{color:var(--cal-ink-faint);opacity:.3;cursor:not-allowed;}
 .sn-datecal .calday.sel{background:var(--cal-mulberry);color:#fff;font-weight:700;}
 .sn-datecal .calday.today:not(.sel){box-shadow:inset 0 0 0 1px var(--cal-gold);}
+.sn-datecal .calmode-pick{margin-bottom:9px;}
 .sn-datecal .calmode{display:flex;gap:6px;background:var(--cal-gold-wash);border:1px solid var(--cal-line-2);border-radius: var(--m-r-md);padding:4px;margin-bottom:9px;}
 .sn-datecal .calmode button{flex:1;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:600;color:var(--cal-ink-soft);padding:9px 6px;border-radius: var(--m-r-sm);cursor:pointer;transition:.15s;line-height:1.15;}
 .sn-datecal .calmode button.on{background:var(--cal-surface);color:var(--cal-ink);box-shadow:0 2px 7px rgba(30,26,18,.1);}

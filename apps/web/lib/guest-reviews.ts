@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicDisplayName } from '@/lib/find-your-seat';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * ⭐👥 GUEST REVIEWS — what a guest who was THERE saw (owner, 6 Nov 2026).
@@ -273,12 +274,15 @@ export async function setGuestReviewHidden(
     .from('vendor_guest_reviews')
     .update(hidden ? { hidden_at: new Date().toISOString(), hidden_by_user_id: adminUserId } : { hidden_at: null, hidden_by_user_id: null })
     .eq('review_id', reviewId)
-    .select('review_id');
+    .select('review_id, vendor_profile_id');
   if (error) {
     console.error('[supabase-error] lib/guest-reviews.ts · from:vendor_guest_reviews.update(hidden)', error);
     return false;
   }
-  return ((data ?? []) as unknown[]).length === 1;
+  const rows = (data ?? []) as Array<{ vendor_profile_id?: string | null }>;
+  // ⚡ The shop's page shows its guest reviews — its cached copy redraws with (or without) this one.
+  for (const r of rows) revalidateShopPage(r.vendor_profile_id);
+  return rows.length === 1;
 }
 
 /** The guests' own line — count + average of what is not hidden. null = the read failed (say so, never "0"). */

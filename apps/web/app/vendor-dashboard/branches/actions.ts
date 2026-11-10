@@ -25,6 +25,7 @@ import { formatCount } from '@/lib/format-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
 import { parseCoordPair } from '@/lib/parse-coord';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 function err(message: string): BranchActionState {
   return { status: 'error', message };
@@ -272,6 +273,7 @@ export async function createBranch(
       branch_subscription_active: true,
     });
     if (incErr) return err('Could not add the branch. Please try again.');
+    revalidateShopPage(vendorProfileId);
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
@@ -333,6 +335,7 @@ export async function createBranch(
     return err('Could not start the branch payment. Please try again.');
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidateBranchSurfaces();
   // ⚠ MANAGEMENT STAYS INLINE — the owner's 2026-07-02 lock ("no more jumping
   // to a new page, just expand it there") is about adding and running branches,
@@ -414,6 +417,7 @@ export async function cancelBranch(
     .eq('parent_vendor_profile_id', vendorProfileId);
   if (uErr) return err('Could not cancel the branch.');
 
+  revalidateShopPage(vendorProfileId);
   revalidateBranchSurfaces();
   return { status: 'success', kind: 'cancelled', message: 'Branch cancelled.' };
 }

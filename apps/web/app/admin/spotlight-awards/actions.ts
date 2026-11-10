@@ -11,6 +11,7 @@ import {
   type SpotlightAwardType,
 } from '@/lib/spotlight-awards';
 import { formatCount } from '@/lib/format-number';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Setnayan HQ · Spotlight Awards server actions — the ONLY write path into
@@ -116,13 +117,16 @@ export async function removeAward(formData: FormData): Promise<void> {
   if (!UUID_RE.test(awardId)) back('error', 'Invalid award id.');
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: removed, error } = await admin
     .from('vendor_spotlight_awards')
     .delete()
-    .eq('award_id', awardId);
+    .eq('award_id', awardId)
+    .select('vendor_profile_id');
   if (error) back('error', error.message);
 
   revalidateSurfaces();
+  // ⚡ The shop's page names its awards — its cached copy redraws without this one.
+  for (const r of (removed ?? []) as Array<{ vendor_profile_id?: string | null }>) revalidateShopPage(r.vendor_profile_id);
   back('ok', 'Award removed.');
 }
 
@@ -178,5 +182,6 @@ export async function addAwardManually(formData: FormData): Promise<void> {
   });
 
   revalidateSurfaces();
+  revalidateShopPage(vendorId);
   back('ok', `Award added for ${vendor.business_name ?? 'vendor'}.`);
 }

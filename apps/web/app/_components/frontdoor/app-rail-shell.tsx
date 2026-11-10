@@ -44,6 +44,8 @@ import { DOORWAY_PAGE_SEARCH_PATHS } from './shell-page-search';
 import 'server-only';
 
 import { getNavSlotMap } from '@/lib/nav-registry';
+import { pickNavSlots } from '@/lib/nav-slot-pick';
+import { RAIL_NAV_SLOT_KEYS } from './rail-nav-slots';
 
 import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
@@ -177,7 +179,11 @@ export async function AppRailShell({
       /* /help and /features search in their own bottom row (signed in and out) — no top-bar box there. */
       pageSearchPaths={variant === 'doorway' ? DOORWAY_PAGE_SEARCH_PATHS : undefined}
       account={account}
-      navLabels={navLabels}
+      /*
+        ⚡ ONLY THE SLOTS THE SHELL READS (lib/nav-slot-pick.ts): `slotLabel` reads the registry in the `app` variant
+        alone, and only `RAIL_NAV_SLOT_KEYS`. The whole map (~31 KB) used to ride the doorway's HTML for nothing.
+      */
+      navLabels={variant === 'app' ? pickNavSlots(navLabels, { keys: RAIL_NAV_SLOT_KEYS }) : undefined}
       /*
         🧭 NO TOOL LISTS (owner 2026-10-01, built 2026-10-23): the rail hands the
         shell no Planner · Builder · Together · Studio rows on any tree. Every

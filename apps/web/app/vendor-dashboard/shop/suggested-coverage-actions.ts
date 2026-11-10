@@ -11,6 +11,7 @@ import {
   resolveSuggestedTradeLeaves,
   markSignupSuggestionResolved,
 } from '@/lib/vendor-signup-coverage-suggest-reader';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server actions behind My Shop's "Your website suggests you also do…" card
@@ -110,6 +111,7 @@ export async function applySuggestedCoverage(
 
   await markSignupSuggestionResolved(vendorProfileId, pending.dossierId);
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/services');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);

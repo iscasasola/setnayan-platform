@@ -28,6 +28,7 @@ import {
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
 import { isSafeNext } from '@/lib/safe-next';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Papic Challenges — the vendor turns guest photo missions ON FOR THEIR SHOP.
@@ -286,6 +287,7 @@ export async function sponsorPhotoChallenge(
       },
     });
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath(returnPath);
     revalidatePath('/vendor-dashboard/subscription');
     return {

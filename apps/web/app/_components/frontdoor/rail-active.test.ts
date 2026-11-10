@@ -500,7 +500,8 @@ test('the app shell asks for the app variant, and reads the nav registry', () =>
       'and not on the desktop, with no error anywhere',
   );
   assert.ok(
-    /navLabels=\{navLabels\}/.test(APP_SHELL),
+    // Passed as the rail's own slots only (speed 2026-11-10, lib/a-nav-gets-only-the-slots-it-reads.test.ts).
+    /navLabels=\{variant === 'app' \? pickNavSlots\(navLabels, \{ keys: RAIL_NAV_SLOT_KEYS \}\) : undefined\}/.test(APP_SHELL),
     'the resolved labels are fetched and then not passed — read but never used',
   );
 });

@@ -83,6 +83,7 @@ import { savePackage } from '../packages/actions';
 import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -914,6 +915,7 @@ export async function createVendorService(formData: FormData) {
     );
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
   redirect(`${await servicesReturnBase()}?saved=1`);
@@ -1218,6 +1220,7 @@ export async function updateVendorService(formData: FormData) {
     );
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
   redirect(`${await servicesReturnBase()}?saved=1`);
@@ -1296,6 +1299,7 @@ export async function setServiceLinks(formData: FormData) {
     }
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
   redirect(`${await servicesReturnBase()}?saved=1`);
@@ -2228,6 +2232,7 @@ export async function commitVendorService(formData: FormData) {
     after(() => releaseCardPhotos({ vendorProfileId: profile.vendor_profile_id, vendorServiceId: cardForHashes, keepRefs }));
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
   // (savePackage revalidates /vendor-dashboard/packages itself on success.)
@@ -2351,6 +2356,7 @@ export async function toggleVendorServiceActive(formData: FormData) {
     );
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
   redirect(`${await servicesReturnBase()}?saved=1`);
@@ -2497,6 +2503,7 @@ export async function deleteVendorService(formData: FormData) {
       );
     }
 
+    revalidateShopPage(profile.vendor_profile_id);
     revalidatePath('/vendor-dashboard/services');
     revalidatePath('/vendor-dashboard/shop');
     return redirect(`${await servicesReturnBase()}?retired=1`);

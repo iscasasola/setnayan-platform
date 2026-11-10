@@ -32,6 +32,7 @@ import {
   NOT_SERVED_TOGETHER_MESSAGE,
   servedTogetherWith,
 } from '@/lib/partners-you-served-with.server';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 const PANEL_PATH = '/vendor-dashboard/partnerships';
 
@@ -117,6 +118,7 @@ export async function proposePartnership(formData: FormData) {
     back(error.message);
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
   redirect(`${PANEL_PATH}?proposed=1`);
 }
@@ -157,6 +159,7 @@ async function respondToPartnership(
     back('That request is no longer pending — it may have been withdrawn or already answered.');
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
   revalidatePath('/explore');
   redirect(`${PANEL_PATH}?${next === 'accepted' ? 'accepted' : 'declined'}=1`);
@@ -199,6 +202,7 @@ export async function withdrawPartnership(formData: FormData) {
     back('That request can no longer be withdrawn — it may already be accepted, declined, or removed.');
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
   revalidatePath('/explore');
   redirect(`${PANEL_PATH}?withdrawn=1`);
@@ -299,6 +303,7 @@ export async function changePartnershipKind(formData: FormData) {
     back(insertErr.message);
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
   redirect(`${PANEL_PATH}?proposed=1`);
 }

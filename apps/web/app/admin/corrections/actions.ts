@@ -23,6 +23,7 @@ import {
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG } from '@/lib/business-slug';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 // /admin/corrections actions — resolution path for the request-a-correction
 // queue (verified vendors' locked identity fields, owner 2026-07-02).
 //
@@ -280,6 +281,7 @@ export async function applyCorrectionRequest(formData: FormData) {
     relatedUrl: '/vendor-dashboard/shop',
   });
 
+  revalidateShopPage(request.vendor_profile_id);
   revalidatePath('/admin/corrections');
   revalidatePath('/vendor-dashboard/profile');
   revalidatePath('/vendor-dashboard/shop');

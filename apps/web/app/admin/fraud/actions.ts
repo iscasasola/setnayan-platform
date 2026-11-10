@@ -41,6 +41,7 @@ import { deriveVendorFraudState } from '@/lib/fraud-enforcement';
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 function requireVendorId(formData: FormData): string {
@@ -109,6 +110,7 @@ export async function dismissVendorSignals(formData: FormData) {
     // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
     clearHomeShelf('shops');
     if (unsuspErr) throw new Error(`Could not un-suspend: ${unsuspErr.message}`);
+    revalidateShopPage(vendorProfileId);
     await writeFraudEnforcementAudit(admin, {
       vendorProfileId,
       action: 'unsuspend',
@@ -175,6 +177,7 @@ export async function unsuspendVendor(formData: FormData) {
     evidenceSnapshot: snapshot,
   });
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/fraud');
   revalidatePath('/admin');
 }
@@ -398,6 +401,7 @@ export async function executeFraudWipeBan(
     }
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/fraud');
   revalidatePath('/admin');
 }

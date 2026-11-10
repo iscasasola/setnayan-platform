@@ -20,6 +20,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { arrivalParams, withShopArrival } from '@/lib/shop-back';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -86,6 +87,7 @@ export async function joinVendorWaitlist(formData: FormData): Promise<void> {
     redirect(back('error'));
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(backTo);
   redirect(back('joined'));
 }

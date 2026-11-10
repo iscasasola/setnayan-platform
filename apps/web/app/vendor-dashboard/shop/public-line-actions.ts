@@ -10,6 +10,7 @@ import { parseTagline, parseWebsiteUrl } from '@/lib/vendor-public-line';
 import { maybeSuggestCoverageFromWebsite } from '@/lib/vendor-signup-coverage-suggest-server';
 import { buildVendorDeepSearchInputs } from '@/lib/vendor-deep-search-run';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server action behind My Shop → Business Profile → "Your line and your link"
@@ -117,6 +118,7 @@ export async function updatePublicLine(
   }
 
   // The shop editor, and every public surface that renders these two.
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
   revalidatePath('/explore');

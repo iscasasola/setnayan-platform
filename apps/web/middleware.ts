@@ -20,6 +20,8 @@ import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
 import { hubViewRewritePath } from '@/lib/hub-view-route';
 import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
+import { SHOP_VIEW_SEGMENT, isShopViewPath, shopRequestShape } from '@/lib/shop-view';
+import { envFlagEnabled } from '@/lib/env-flag';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -451,6 +453,29 @@ async function middlewareCore(request: NextRequest) {
   if (hubView) {
     const rewrite = request.nextUrl.clone();
     rewrite.pathname = hubView;
+    for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
+    return NextResponse.rewrite(rewrite);
+  }
+
+  // ⚡ THE CACHED SHOP PAGE (speed, 2026-11-10 · lib/shop-view.ts) — the same two steps for `/v/{slug}`: its own
+  // address is never served to the outside, and a stranger's open (no session, no demo cookie, no native shell, no
+  // query the page reads) is answered from the shop's cached copy. No database question here: the copy itself answers
+  // 404 / forward / the page, exactly as the live render would for a stranger. ⏻ `SHOP_CACHE_DISABLED=1` → all live.
+  if (isShopViewPath(pathname) && process.env.HUB_VIEW_LAB_DIRECT !== '1') return new NextResponse('Not found', { status: 404 });
+  const shopView = envFlagEnabled(process.env.SHOP_CACHE_DISABLED)
+    ? null
+    : shopRequestShape({
+        method: request.method,
+        pathname,
+        searchParams: request.nextUrl.searchParams,
+        cookieNames: request.cookies.getAll().map((c) => c.name),
+        clientTypeCookie: request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value ?? null,
+        userAgent: request.headers.get('user-agent'),
+        isServerAction: request.headers.has('next-action'),
+      });
+  if (shopView) {
+    const rewrite = request.nextUrl.clone();
+    rewrite.pathname = `/v/${shopView.slug}/${SHOP_VIEW_SEGMENT}`;
     for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
     return NextResponse.rewrite(rewrite);
   }

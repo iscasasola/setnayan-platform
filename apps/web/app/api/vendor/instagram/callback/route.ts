@@ -6,6 +6,7 @@ import {
   fetchInstagramBusinessAccount,
   getMetaAppOAuthConfig,
 } from '@/lib/vendor-instagram';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 // Vendor Instagram connect — OAuth callback.
 //
@@ -133,6 +134,7 @@ export async function GET(req: NextRequest) {
     return redirectWithError(url, 'persist_failed');
   }
 
+  revalidateShopPage(vendorProfileId);
   const target = new URL(SHOP_PATH, url);
   target.searchParams.set('ig_connected', '1');
   target.hash = IG_SECTION_HASH;

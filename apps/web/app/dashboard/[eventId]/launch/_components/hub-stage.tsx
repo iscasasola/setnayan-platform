@@ -256,7 +256,7 @@ export function HubStage({
 export function HubStageExample() {
   return (
     <ExamplePreview>
-      <div className="mx-auto w-[146px] overflow-hidden rounded-[18px]" style={{ border: `1px solid ${OB.hairline}`, backgroundColor: OB.card }}>
+      <div className="mx-auto w-[146px] overflow-hidden rounded-2xl" style={{ border: `1px solid ${OB.hairline}`, backgroundColor: OB.card }}>
         <div className="relative aspect-[9/16]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={SAMPLE_HUB.photo} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
@@ -270,9 +270,9 @@ export function HubStageExample() {
           </div>
         </div>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-px" style={{ backgroundColor: OB.hairline }}>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
         {SAMPLE_HUB.facts.map(([k, v]) => (
-          <div key={k} className="p-3" style={{ backgroundColor: OB.page }}>
+          <div key={k} className="p-1.5">
             <dt className="font-mono text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: OB.gold }}>
               {k}
             </dt>

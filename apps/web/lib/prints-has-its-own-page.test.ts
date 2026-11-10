@@ -52,8 +52,6 @@ test('1 · Studio has no Prints tile — no key, no editor, no words, no card, n
   }
   /* No tile opens a print — the page is the print's one home. */
   for (const k of STUDIO_TILE_KEYS) assert.equal(isPrintsItem(STUDIO_TILE_ITEM[k]), false, `the ${k} tile opens a print`);
-  const { TILE_ICON } = await import(`../${L}/_components/studio-home`);
-  assert.equal(has(TILE_ICON as object), false, 'the Studio home keeps a Prints mark');
 });
 
 test('1 · the Maker has no Prints door — Page ▾, Settings and the menu’s parts lead nowhere near a print', async () => {

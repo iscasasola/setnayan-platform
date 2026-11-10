@@ -74,16 +74,6 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
-test('1b · the Studio home: seven tiles (RSVP left in R1; Wedding March and Seat plan in R4; Prints in R8) on the warm page, ✓ / Missing as read', async () => {
-  const { StudioHome } = await import(`../${L}/studio-home`);
-  const out = await html(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  /* Counted from the keys (R8 took Prints out): every tile drawn, one Missing. */
-  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, STUDIO_TILE_KEYS.length);
-  assert.ok(out.includes(STUDIO_PAGE_BG), 'the home is not on the prototype’s warm page');
-  assert.ok(out.includes(`${STUDIO_TILE_KEYS.length - 1} of ${STUDIO_TILE_KEYS.length} ready`), 'the head’s count is not the tiles’');
-  assert.equal((out.match(/>Missing</g) ?? []).length, 1);
-});
-
 test('2 · the opening line: ONE dropdown in Studio, never a pill row — the shipped Maker keeps its chips', async () => {
   const { OpeningLineField } = await import(`../${L}/opening-line-field`);
   const { MakerContext } = await import(`../${L}/maker-context`);

@@ -226,9 +226,6 @@ export const MAKER_DESK_CSS =
   /* 🎨 The Mood Board's five main colours stay grouped at the start of the row, as the phone and the attire rows draw
      them — at 1100 px the phone's spread (justify-between) set them edge to edge (controller's check of #6658). */
   `${WS} [data-mood-board-five]{justify-content:flex-start!important;column-gap:20px}` +
-  /* The home of tiles, in four columns (kept until the owner says whether it goes — the bar no longer leads there). */
-  `${D} [data-studio-home]>*{max-width:${DESK_STUDIO_WIDE_PX}px;margin-inline:auto}` +
-  `${D} [data-studio-home] [data-studio-cards]{grid-template-columns:repeat(4,minmax(0,1fr))}` +
   /* The phone's form skin (rows, the warm page, the switches) — the same rules, on the desktop's screen. */
   deskScoped(STUDIO_SKIN_CSS + STUDIO_INFO_HAIRLINE_CSS, D) +
   '}' +

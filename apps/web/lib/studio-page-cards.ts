@@ -12,7 +12,8 @@
  * RSVP card and programmes among the prints, RSVP's "meal, plus-one, song requests"). A Love Story is told in
  * MOMENTS — never chapters (owner 2026-10-08).
  *
- * Pure strings: no React, no I/O. `studio-home.tsx` (loaded when Studio is first opened) reads them; nothing here
+ * Pure strings: no React, no I/O. The Studio home that drew them as cards was retired with Studio (Build 6 Lane F,
+ * 2026-11-10); `STUDIO_TILE_UNREAD` is still read by the tiles' own model, and nothing here
  * reaches the Maker's first load.
  */
 import type { StudioTileKey } from './studio-tile-defs';

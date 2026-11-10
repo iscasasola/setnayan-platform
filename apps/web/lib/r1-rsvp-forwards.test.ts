@@ -45,15 +45,7 @@ test('1 · Studio has no RSVP tile — not a key, not an editor, not a card', as
   assert.ok(!(STUDIO_TILE_KEYS as readonly string[]).includes('rsvp'), 'the RSVP tile is back in Studio');
   assert.ok(!Object.values(STUDIO_TILE_ITEM).includes('rsvp'), 'a Studio tile still opens the Maker’s RSVP item');
   assert.ok(!('rsvp' in STUDIO_TILES), 'the RSVP tile’s words are back');
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { StudioHome } = await import('../app/dashboard/[eventId]/launch/_components/studio-home');
-  const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: false, done: true, status: '' }));
-  const html = renderToStaticMarkup(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  const drawn = [...html.matchAll(/data-studio-tile="([a-z]+)"/g)].map((m) => m[1]);
-  assert.equal(drawn.length, STUDIO_TILE_KEYS.length, 'anti-vacuity: the Studio home drew no cards');
-  assert.ok(!drawn.includes('rsvp'), 'the Studio home draws an RSVP card');
-  assert.match(html, new RegExp(`>\\d+ of ${STUDIO_TILE_KEYS.length} ready<`), 'Studio’s "n of N ready" does not count the tiles that are there');
-  console.log(`  studio: ${drawn.length} cards — ${drawn.join(' · ')}`);
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F): the Studio home of cards is retired with Studio — nothing draws it. */
 });
 
 test('2 · the old Maker address lands on Guests ⚙, on a row it draws — before anything is read', () => {

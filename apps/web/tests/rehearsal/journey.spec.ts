@@ -342,16 +342,13 @@ test('the launch-critical journey', async ({ browser }) => {
     check('✓ Apply is off — nothing is waiting');
   }, ['A · Host']);
 
-  await walk.step('B · Event Hub', 'Studio', () => host, async (check) => {
-    const sides = host.getByRole('group', { name: 'Stages or Studio' }).first();
-    await sides.locator('[data-seg="studio"]:visible').first().click();
-    await expect(sides.locator('[data-seg="studio"]:visible').first()).toHaveAttribute('aria-pressed', 'true');
-    await expect(host.locator('[data-studio-home]:visible').first()).toBeVisible();
-    await expect(host.locator('[data-studio-home]:visible').first().locator('[data-studio-tile]')).toHaveCount(11);
-    check('Studio shows its eleven tiles');
-    await expect(host.locator('[data-studio-tile="info"]:visible').first()).toBeVisible();
-    await expect(host.locator('[data-studio-ready]:visible').first()).toContainText('of 11 ready');
-    check(`it says "${(await host.locator('[data-studio-ready]:visible').first().innerText()).trim()}"`);
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F, owner: "Studio technically is gone"): the bar's selector is the stage
+     pill alone — no Studio half, no Studio home of tiles. */
+  await walk.step('B · Event Hub', 'One stage pill, no Studio', () => host, async (check) => {
+    const pill = host.getByRole('group', { name: 'Stage' }).first();
+    await expect(pill.locator('[data-studio-half]:visible')).toHaveCount(1);
+    await expect(host.locator('[data-seg="studio"]:visible')).toHaveCount(0);
+    check('the Maker’s bar is one stage pill — Studio is gone');
   }, ['A · Host']);
 
   await walk.step('B · Event Hub', 'Change the draft — a new note to guests', () => host, async (check) => {

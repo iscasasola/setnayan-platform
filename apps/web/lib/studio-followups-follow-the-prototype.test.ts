@@ -246,8 +246,6 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
   const { isDetailsItemKey } = await import('./maker-details-items');
   for (const k of STUDIO_TILE_KEYS) assert.ok(isDetailsItemKey(STUDIO_TILES[k].item), `${k} opens something that is not a Details item`);
-  const home = read(`${L}/studio-home.tsx`);
-  assert.doesNotMatch(home, /<a\s|<Link\b|href=|router\.|location\./, 'a Studio tile is a link out');
   const shell = read(`${L}/maker-shell.tsx`);
   const open = shell.slice(shell.indexOf('const openStudio = ('), shell.indexOf('};', shell.indexOf('const openStudio = (')));
   assert.ok(open.length > 0);

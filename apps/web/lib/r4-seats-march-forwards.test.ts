@@ -95,19 +95,11 @@ test('1 · Studio has no Wedding March or Seat plan tile — not a key, not an e
   for (const item of ['march', 'seating']) {
     assert.ok(!Object.values(STUDIO_TILE_ITEM).includes(item as never), `a Studio tile still opens the Maker’s ${item} item`);
   }
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { StudioHome } = await import('../app/dashboard/[eventId]/launch/_components/studio-home');
-  const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: false, done: true, status: '' }));
-  const html = renderToStaticMarkup(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  const drawn = [...html.matchAll(/data-studio-tile="([a-z]+)"/g)].map((m) => m[1]);
-  assert.equal(drawn.length, STUDIO_TILE_KEYS.length, 'anti-vacuity: the Studio home drew no cards');
-  assert.ok(!drawn.includes('march') && !drawn.includes('seats'), 'the Studio home draws a march or a seat card');
-  assert.match(html, new RegExp(`>\\d+ of ${STUDIO_TILE_KEYS.length} ready<`), 'Studio’s "n of N ready" does not count the tiles that are there');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F): the Studio home of cards is retired with Studio — nothing draws it. */
   // The Maker's own count: no tile reads the seat plan or the march any more.
   for (const k of STUDIO_TILE_KEYS) {
     assert.ok(!STUDIO_TILES[k].reads.some((r) => r === 'seating' || r === 'march'), `the ${k} tile still reads the seat plan or the march`);
   }
-  console.log(`  studio: ${drawn.length} cards — ${drawn.join(' · ')}`);
 });
 
 test('2 · the old Maker address lands on the Guests view — before anything is read; inside the Maker each is a door', () => {

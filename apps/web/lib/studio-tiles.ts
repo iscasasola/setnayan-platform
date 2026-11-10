@@ -32,7 +32,8 @@
  *
  * Pure: no I/O, no React. The launch page builds the models on the server
  * (only while the new Maker is on) and hands them to `MakerShell`; the shell
- * and `studio-home.tsx` import TYPES only, so nothing here reaches the phone.
+ * imports TYPES only, so nothing here reaches the phone (the Studio home that drew
+ * these as cards was retired with Studio, Build 6 Lane F, 2026-11-10).
  */
 import { wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';

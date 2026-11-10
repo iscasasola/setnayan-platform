@@ -75,8 +75,8 @@ export function LockExplainer({
         {preview ? (
           <div className="pt-5">
             <p className="hc-k2">What it looks like</p>
-            {/* View-only: nothing in the preview can be pressed or reached by Tab. */}
-            <div inert className="pointer-events-none mt-3 select-none rounded-2xl border border-ink/10 bg-raised p-3" data-lock-preview="">
+            {/* View-only: nothing in the preview can be pressed or reached by Tab. Dividers, not a frame — a frame only on what you press. */}
+            <div inert className="pointer-events-none mt-3 select-none border-y border-ink/10 py-3" data-lock-preview="">
               {preview}
             </div>
           </div>

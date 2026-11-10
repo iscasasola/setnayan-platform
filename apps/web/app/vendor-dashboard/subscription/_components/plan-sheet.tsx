@@ -28,7 +28,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { Fold } from '@/app/_components/fold';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ActionButton } from '@/components/action-button';
-import { LockButton, GET_VERIFIED_HREF } from '@/app/_components/lock/locked-feature';
+import { LockButton } from '@/app/_components/lock/locked-feature';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { formatPhp } from '@/lib/php';
@@ -296,7 +296,7 @@ export function PlanSheet({
                     </div>
                     {p.key === 'verified' && !verified ? (
                       <div className="pt-3">
-                        <ActionButton tone="brand" main icon={BadgeCheck} label="Get verified" href={GET_VERIFIED_HREF} />
+                        <ActionButton tone="brand" main icon={BadgeCheck} label="Get verified" href="/vendor-dashboard/profile#docs" />
                       </div>
                     ) : null}
                     {p.paid ? <div className="pt-3">{button(p, dir === 'up' ? 'up' : 'down')}</div> : null}

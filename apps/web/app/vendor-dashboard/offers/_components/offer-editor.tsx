@@ -26,6 +26,8 @@ import { createPortal } from 'react-dom';
 import { CalendarDays, Check, ChevronDown, Gift, ImageIcon, Info, Percent, Sparkles, Tag, Trash2, Wallet, X } from 'lucide-react';
 import { ActionButton, EqualRow } from '@/components/action-button';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { formatCount } from '@/lib/format-number';
 import { LazyDateSheet } from '@/app/_components/date-sheet-lazy';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
@@ -347,7 +349,7 @@ export function OfferEditor({
       {d.who === 'first_n' ? (
         <>
           <AmountBox lead="First" trail="couples" label="How many couples" value={d.firstNCap} onChange={(n) => set({ firstNCap: n == null ? null : Math.round(n) })} onKeyDown={enterIsDone} data="cap" className="mt-1.5" />
-          <Hint>{d.firstNCap ? `${Math.max(0, d.firstNCap - d.firstNTaken)} of ${d.firstNCap} left · switches itself off at 0` : 'Switches itself off once they are all taken.'}</Hint>
+          <Hint>{d.firstNCap ? `${formatCount(Math.max(0, d.firstNCap - d.firstNTaken))} of ${formatCount(d.firstNCap)} left · switches itself off at 0` : 'Switches itself off once they are all taken.'}</Hint>
         </>
       ) : null}
       {d.who === 'season' ? (
@@ -749,7 +751,8 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
               const bad = verdictOf ? !verdictOf.ok : false;
               const pack = g.kind === 'sn' ? ctx.packs.find((p) => p.code === g.code) : null;
               return (
-                <li key={`${g.kind}-${i}`} className="flex items-start gap-2 py-2">
+                <SwipeToDelete key={`${g.kind}-${i}`} as="li" label={`Remove ${giftName(g, ctx)}`} word="Remove" radiusClass="rounded-none" onDelete={() => setList(card?.id ?? null, list.filter((_, j) => j !== i))}>
+                <div className="flex items-start gap-2 py-2">
                   {g.kind === 'sn' ? <Gift aria-hidden className="mt-0.5 h-4 w-4 flex-none" style={{ color: bad ? 'rgb(var(--color-warn))' : 'var(--m-orange-deep)' }} /> : <Sparkles aria-hidden className="mt-0.5 h-4 w-4 flex-none" style={{ color: 'var(--m-orange-deep)' }} />}
                   <span className="min-w-0 flex-1">
                     {g.kind === 'typed' ? (
@@ -783,10 +786,8 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                       {[pack ? stockLine(pack, ctx) : g.kind === 'addon' ? (ctx.addons.find((a) => a.id === g.addonId)?.fromPhp != null ? `worth ${peso(ctx.addons.find((a) => a.id === g.addonId)!.fromPhp!)}` : 'price on request') : '', verdictOf?.why ?? ''].filter(Boolean).join(' · ')}
                     </small>
                   </span>
-                  <button type="button" aria-label={`Remove ${giftName(g, ctx)}`} onClick={() => setList(card?.id ?? null, list.filter((_, j) => j !== i))} className="sn-press grid h-8 w-8 flex-none place-items-center rounded-full text-ink/50">
-                    <X aria-hidden className="h-4 w-4" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })
           ) : (

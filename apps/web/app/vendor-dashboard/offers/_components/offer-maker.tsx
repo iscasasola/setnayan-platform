@@ -34,6 +34,7 @@ import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickBestDiscount } from '@/lib/vendor-service-public';
+import { formatCount } from '@/lib/format-number';
 import {
   firstPaymentWords,
   giftName,
@@ -72,7 +73,7 @@ export function summaryLine(offers: readonly Offer[], cards: readonly OfferCard[
     if (o) wins.set(priceWords(o), (wins.get(priceWords(o)) ?? 0) + 1);
   }
   const top = [...wins.entries()].sort((a, b) => b[1] - a[1])[0];
-  return `${run} running${rest ? ` · ${rest} not` : ''}${top ? ` · most cards show ${top[0]}` : ' · no price offer reaches a card'}`;
+  return `${formatCount(run)} running${rest ? ` · ${formatCount(rest)} not` : ''}${top ? ` · most cards show ${top[0]}` : ' · no price offer reaches a card'}`;
 }
 
 /** The mix, spelled out under the name: every part, in order. */
@@ -322,7 +323,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
       <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-4">
         <h2 className="sn-eye">Offers</h2>
         <small className="text-[12px] text-ink/55" data-offers-count="">
-          {offers ? `${live.length ? `${running} of ${live.length} running · ` : ''}the best one wins` : ''}
+          {offers ? `${live.length ? `${formatCount(running)} of ${formatCount(live.length)} running · ` : ''}the best one wins` : ''}
         </small>
       </div>
       {offers === null ? (

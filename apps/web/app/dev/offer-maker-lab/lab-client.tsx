@@ -17,11 +17,11 @@ const CARDS = [
 ];
 const OFFERS: Offer[] = [
   o({ id: 'd1', name: 'Shop-wide 10%', pctOff: 10, sortOrder: 0 }),
-  o({ id: 'd2', name: 'First 5 bookings', phpOff: 5000, who: 'first_n', firstNCap: 5, firstNTaken: 2, sortOrder: 1 }),
+  o({ id: 'd2', name: 'First couples', phpOff: 5000, who: 'first_n', firstNCap: 5, firstNTaken: 2, sortOrder: 1 }),
   o({ id: 'd3', name: 'Ber-months season', pctOff: 10, phpOff: 5000, reachesAll: false, cards: ['c2', 'c4'], who: 'season', seasonFrom: '2026-09-01', seasonTo: '2026-12-31', sortOrder: 2 }),
   o({ id: 'd4', name: 'Early bird · a year ahead', pctOff: 10, gifts: [{ kind: 'addon', addonId: 1 }, { kind: 'sn', code: 'PAPIC_GUEST_1K' }], who: 'early_bird', minLeadMonths: 12, untilDate: '2027-03-31', sortOrder: 3 }),
   o({ id: 'd5', name: 'Returning client', phpOff: 3000, who: 'returning', untilDate: '2026-10-31', sortOrder: 4 }),
-  o({ id: 'd6', name: 'Reserve for ₱5,000', firstPayment: 5000, untilDate: '2026-11-30', sortOrder: 5 }),
+  o({ id: 'd6', name: 'Reserve for less', firstPayment: 5000, untilDate: '2026-11-30', sortOrder: 5 }),
 ];
 
 function data(empty: boolean): OfferMakerData {

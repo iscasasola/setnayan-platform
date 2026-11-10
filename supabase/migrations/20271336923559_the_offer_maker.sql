@@ -119,6 +119,11 @@ CREATE POLICY vendor_offers_admin_all ON public.vendor_offers
   USING ((SELECT public.is_console_admin()))
   WITH CHECK ((SELECT public.is_console_admin()));
 
+-- Never an anonymous surface: the public read is TO authenticated, and the couples' pages read offers with the service
+-- role (lib/offers.server.ts). This closes the default table grant to anon too.
+REVOKE ALL ON public.vendor_offers FROM anon;
+REVOKE ALL ON SEQUENCE public.vendor_offers_id_seq FROM anon;
+
 COMMENT ON TABLE public.vendor_offers IS
   'Shop › Offers (the Offer Maker, Build 6 Lane D, owner 2026-11-09/10/11). One row per offer for the whole shop: name · which cards (reaches_all or vendor_offer_cards) · what they get (pct_off then php_off · a lower first_payment · gifts) · who (everyone · early_bird · first_n · season = the EVENT date window, the off-season offer · returning) · until_date (last day to book; NULL = until switched off) · is_on. Couples see only the single best price result on a card — never stacked — decided in pickBestDiscount (lib/vendor-service-public.ts), which reads these offers projected onto each card beside the per-card vendor_service_discounts rows. Display only: the quote is where a price is agreed, and a sent quote or a booking keeps what it got.';
 COMMENT ON COLUMN public.vendor_offers.first_n_taken IS
@@ -167,6 +172,8 @@ CREATE POLICY vendor_offer_cards_admin_all ON public.vendor_offer_cards
   FOR ALL
   USING ((SELECT public.is_console_admin()))
   WITH CHECK ((SELECT public.is_console_admin()));
+
+REVOKE ALL ON public.vendor_offer_cards FROM anon;
 
 -- 🔒 An offer only ever reaches ITS OWN shop's cards. RLS checks the row's vendor_profile_id; this
 -- checks that the offer and the card belong to that same shop (a shop can never put its offer on

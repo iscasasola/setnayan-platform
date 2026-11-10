@@ -775,7 +775,7 @@ export default async function HomeLab({
                         askReady: false,
                         goLive: q.v11 === '1' ? `/panood/control/${E}` : null,
                       }
-                    : { status: 'Not on yet · one camera is free', owned: false, askReady: true },
+                    : { status: 'Not on yet · one camera included', owned: false, askReady: true },
               }
             : null
         }

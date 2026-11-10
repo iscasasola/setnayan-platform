@@ -7,8 +7,15 @@ Build 5 Lane R. Measured on the live site, logged out, at 320 · 360 · 375 · 3
 - **The hero's "Unlimited cameras" ⓘ was cut off after one line** on `/` at every phone width. The hero is `overflow: hidden` and the line sits on its bottom edge. That one bubble now opens upward (`front-door-landing.css`). This was already broken on live and is not a side effect of the change above.
 - **A long one-word name was cut off mid-letter** on `/` at 320 px ("FlowerStore.p"). `.fd-ttl` now has `overflow-wrap: anywhere`.
 - **Equal-weight choices at unequal widths (T19).** `/for-coordinators` and `/for-suppliers` "Ask about this date | Pick another day" were 160 | 143 px in one row and two odd-width pills stacked at 320 px. They now share the row equally, or take the full width each when stacked. The `/for-coordinators` Edit | View | Off segments were 44 | 50 | 44 and are now equal.
-- **"Free" printed for the live-stream camera** (owner ruling: never). `app/page.tsx` Live Watch feature line now says "(one camera included; multicam control room as an add-on)", with no price. None of the other front pages (`/features`, `/pricing`, `/for-suppliers`, `/for-coordinators`) uses the same wording.
+- **"Free" printed for the live-stream camera** (owner flagged "Live stream says '1 camera free'"; ruling: never "free" for the camera). Every live-stream line now says "included", and none prints a price:
+  - the Home Live tile, `lib/home-first-screen.ts` ("1 camera free" became "1 camera included");
+  - the in-app Live Watch sheet (`iap-live-watch-sheet.tsx`);
+  - the app's Live Watch status (`lib/iap/where-bought.ts`);
+  - the Live Watch controller and studio pages;
+  - the `/about` and `/privacy` lines, the help entry, `llms.txt`, the add-ons blurb, the on-air pinned-camera notice, and the front-page JSON-LD line in `app/page.tsx`.
 
-Guard: `lib/a-closed-tip-takes-no-room.test.ts` fails 4 out of 4 against the old `globals.css`/`info-tip.tsx` and passes after the fix. It also holds that the hero ⓘ opens upward.
+  Papic's "Cameras are free and unlimited" and its free credits are a different product and are left alone. So are code comments and the rehearsal wording ("Rehearse free", the "Free live stream" overlay), which do not call the camera free.
+
+Guards: `lib/the-live-camera-is-never-free.test.ts` fails 13 of 14 against the old copy (`app/page.tsx` was already fixed in an earlier commit). `lib/a-closed-tip-takes-no-room.test.ts` fails 4 out of 4 against the old `globals.css`/`info-tip.tsx` and passes after the fix. It also holds that the hero ⓘ opens upward.
 
 SPEC IMPACT: None.

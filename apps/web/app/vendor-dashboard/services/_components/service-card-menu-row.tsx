@@ -9,10 +9,11 @@
  *
  *   ✏ Edit          an icon button: the Card Maker for this card — the same door the card face opens.
  *   ↗ Share         an icon button, "Share to a client". The owner's Share posts THIS card into one client event's chat
- *                   (*"It is share to an client event. To enter to a chat. That is notified so the client can see."*).
- *                   ⏸ NOT WIRED YET, and drawn waiting: the card-in-chat post already ships (`offerServiceCore`,
- *                   `chat_messages.offered_service_id`), but its notice is `chat_message`, which is on the frozen EMAIL
- *                   allowlist — the house rule is no new emails without the owner's word. Held for his call.
+ *                   (*"It is share to an client event. To enter to a chat. That is notified so the client can see."*):
+ *                   it opens "Share to a client event" (`ServiceCardShareSheet`, prototype frame G) — this shop's
+ *                   client events; a pick posts the card through the shipped `offerServiceCore` and the client is told
+ *                   IN THE APP ONLY (`service_card_shared`, not on the email allowlist). Never a link, never a system
+ *                   share sheet.
  *   Online/Offline  the shipped worded switch (T20, the #7427 look — `SwitchTrack`), the shipped
  *                   `toggleVendorServiceActive` behind the SAME gates: going online asks the publish gate
  *                   (`publishRefusalFor` — every missing thing at once); going offline waits for every open booking
@@ -24,12 +25,13 @@
  *
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
  */
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Pencil, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StayForm, type StaySave } from '@/app/_components/stay-form';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { PlanHoldTag } from './plan-hold-tag';
+import { ServiceCardShareSheet, type ServiceCardShareProps } from './service-card-share-sheet';
 
 export type ServiceCardMenuRowProps = {
   vendorServiceId: string;
@@ -43,10 +45,15 @@ export type ServiceCardMenuRowProps = {
   action: (fd: FormData) => unknown;
   /** The saver — `saveInPlace` itself, unless a lab hands in a stand-in. */
   save?: StaySave;
+  /** Share to a client event: this shop's client events and the server's post (`shareServiceCardToClient`). */
+  share: ServiceCardShareProps;
 };
 
-export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save }: ServiceCardMenuRowProps) {
-  const formId = `card-online-${useId().replace(/:/g, '')}`;
+export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, share }: ServiceCardMenuRowProps) {
+  const uid = useId().replace(/:/g, '');
+  const formId = `card-online-${uid}`;
+  const shareTitleId = `card-share-${uid}`;
+  const [sharing, setSharing] = useState(false);
 
   return (
     <div data-card-menu={vendorServiceId}>
@@ -58,8 +65,8 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
           iconOnly
           label="Share to a client"
           name="Share to a client"
-          title="Share to a client’s chat — coming next"
-          waiting
+          title={`Share ${cardName} to a client event`}
+          onClick={() => setSharing(true)}
           data-card-share={vendorServiceId}
         />
         <span className="ml-auto" />
@@ -85,6 +92,16 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
           <input type="hidden" name="is_active" value={isActive ? 'false' : 'true'} />
         </StayForm>
       )}
+      <ServiceCardShareSheet
+        open={sharing}
+        onClose={() => setSharing(false)}
+        labelledById={shareTitleId}
+        vendorServiceId={vendorServiceId}
+        cardName={cardName}
+        isActive={isActive}
+        targets={share.targets}
+        share={share.share}
+      />
     </div>
   );
 }

@@ -14,7 +14,7 @@
  *   · SWIPE LEFT DELETES, through the shipped swipe, after the house delete warning (Cancel · Delete at equal widths),
  *     then the shipped Undo — the write waits for the Undo window.
  *   · OFF AND DELETE ARE REFUSED WHILE ANY BOOKING OF IT IS OPEN — the line under the row says so, and the server
- *     refuses the same (`setPackageActive` / `deletePackage`).
+ *     refuses the same (`bundleCardRow` → `setPackageActive` / `deletePackage`).
  *   · ↗ Share is drawn WAITING, as on the service card: posting into a client's chat sends a notice that is on the
  *     frozen email allowlist — held for the owner's call (PR #7464 says the same).
  *
@@ -32,7 +32,7 @@ import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/ser
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { BUNDLE_DELETE_WARNING, bundleHoldLine } from '@/lib/bundle-card-row';
-import { deletePackage, setPackageActive, type SavePackageResult } from '@/app/vendor-dashboard/packages/actions';
+import { bundleCardRow, type SavePackageResult } from '@/app/vendor-dashboard/packages/actions';
 
 const php = formatPhpRounded;
 
@@ -79,7 +79,7 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
     setRefusal(null);
     const next = !live;
     start(async () => {
-      const res = await setPackageActive(bundle.id, next);
+      const res = await bundleCardRow(bundle.id, next ? 'online' : 'offline');
       const why = refusalOf(res);
       if (why) setRefusal(why);
       else setLive(next);
@@ -103,7 +103,7 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
       hide: () => setGone(true),
       restore: () => setGone(false),
       commit: async (): Promise<CommitResult> => {
-        const why = refusalOf(await deletePackage(bundle.id));
+        const why = refusalOf(await bundleCardRow(bundle.id, 'delete'));
         if (why) {
           setRefusal(why);
           return { ok: false, error: why };

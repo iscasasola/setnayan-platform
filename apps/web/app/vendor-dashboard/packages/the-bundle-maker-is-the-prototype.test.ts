@@ -115,9 +115,9 @@ test('8 · Enter sends — the typed fields save on Enter', () => {
 
 test('9 · a booked bundle keeps its price; going offline and deleting wait for its bookings', () => {
   assert.match(ACTIONS, /scope === 'metadata_only' && isBundle\) \{[\s\S]{0,600}total_price_centavos: stored\.total_price_centavos/, 'a booked bundle takes today’s re-computed price');
-  const active = ACTIONS.slice(ACTIONS.indexOf('export async function setPackageActive('));
+  const active = ACTIONS.slice(ACTIONS.indexOf('async function setPackageActive('));
   assert.match(active, /if \(!isActive\) \{\s*const open = await countActiveBookings/, 'going offline no longer waits for the open bookings');
   assert.match(active, /if \(open === null\) return \{ status: 'error'/, 'an unread booking count lets a bundle go offline');
-  const del = ACTIONS.slice(ACTIONS.indexOf('export async function deletePackage('));
+  const del = ACTIONS.slice(ACTIONS.indexOf('async function deletePackage('));
   assert.match(del, /if \(countErr \|\| count === null\) return \{ status: 'error'/, 'an unread booking count reads as zero and deletes a booked bundle');
 });

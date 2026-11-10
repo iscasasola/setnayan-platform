@@ -553,7 +553,7 @@ async function writeItems(
  * Publish / unpublish — the bundle card's Online/Offline switch. Going online is allowed at any scope; going OFFLINE
  * waits for every open booking (2026-11-11, the service card row rule).
  */
-export async function setPackageActive(
+async function setPackageActive(
   packageId: string,
   isActive: boolean,
 ): Promise<SavePackageResult> {
@@ -608,7 +608,7 @@ export async function setPackageActive(
  * couple would lose the record of what they bought. A booked package is
  * unlisted, never deleted.
  */
-export async function deletePackage(packageId: string): Promise<SavePackageResult> {
+async function deletePackage(packageId: string): Promise<SavePackageResult> {
   if (!packageAuthoringEnabled()) return { status: 'disabled' };
   const { supabase, profile } = await ensureProfile();
 
@@ -640,4 +640,15 @@ export async function deletePackage(packageId: string): Promise<SavePackageResul
   revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
+}
+
+/**
+ * 🧺 THE BUNDLE CARD ROW'S ONE SERVER DOOR — Online · Offline · Delete (Build 6 · Lane D; owner 11 Nov: a bundle card
+ * wears the service card row). ONE export for the three switches, not three: every exported server action is a Vercel
+ * route, and the budget is held by `scripts/lint-server-action-budget.mjs`. Each op is the shipped function above —
+ * Offline and Delete both wait for every open booking, and an unread count refuses.
+ */
+export async function bundleCardRow(packageId: string, op: 'online' | 'offline' | 'delete'): Promise<SavePackageResult> {
+  if (op === 'delete') return deletePackage(packageId);
+  return setPackageActive(packageId, op === 'online');
 }

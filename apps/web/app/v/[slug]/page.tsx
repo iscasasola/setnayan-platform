@@ -1834,7 +1834,7 @@ export async function renderVendorBySlug({
       ? inquireEventState.options.map((o) => ({
           eventId: o.eventId,
           label: o.dateISO
-            ? `${o.title} · ${new Date(`${o.dateISO}T00:00:00+08:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}`
+            ? `${o.title} · ${new Date(`${o.dateISO}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' })}`
             : o.title,
         }))
       : [];
@@ -3522,7 +3522,7 @@ export async function renderVendorBySlug({
             <div className="mt-4 rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-4 sm:p-5">
               <p className="text-sm font-semibold text-ink">
                 {displayLabel} is booked on{' '}
-                {new Date(`${waitlistDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+                {new Date(`${waitlistDate}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',

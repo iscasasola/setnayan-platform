@@ -42,6 +42,7 @@
  */
 
 import { revalidatePath } from 'next/cache';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -514,7 +515,7 @@ export async function submitOrderAction(
     // coordinator whose RLS view of `events` is narrower than the couple's.
     const { data: lifecycleRow } = await createAdminClient()
       .from('events')
-      .select('event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
+      .select(`${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventIdClean)
       .maybeSingle();
     if (lifecycleRow) {

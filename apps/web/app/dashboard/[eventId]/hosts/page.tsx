@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -79,7 +80,7 @@ export default async function EventHostsPage({ params }: Props) {
     await Promise.all([
       admin
         .from('events')
-        .select('display_name, event_type, event_date, event_end_date, cleared_at, timezone, venue_latitude, venue_longitude')
+        .select(`display_name, event_type, timezone, ${EVENT_CLOCK_COLUMNS}`)
         .eq('event_id', eventId)
         .maybeSingle(),
       supabase

@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -69,7 +70,7 @@ export default async function AddOnDetailPage({ params }: Props) {
         .from('events')
         // ⚠ the three lifecycle columns ride along in the SAME read — no extra
         // round trip. They decide whether the buy path below is still open.
-        .select('community_id, event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
+        .select(`community_id, ${EVENT_CLOCK_COLUMNS}`)
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);

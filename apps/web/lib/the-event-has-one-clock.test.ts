@@ -17,6 +17,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+import { stripComments } from './strip-comments';
+
 import {
   getDayOfPhase,
   getMenuLifecyclePhase,
@@ -172,11 +174,17 @@ test('§2 · the Event Hub cache key carries the clock, so a stage flip names a 
   assert.equal(parseHubViewKey('v2.7.zz.a.-.-.-'), null, 'a clock code that is not one does not');
 });
 
-test('§2 · the live wall reads every clock column (its typed-out list equals EVENT_CLOCK_COLUMNS)', () => {
-  const wall = readFileSync(join(__dirname, 'live-wall.ts'), 'utf8');
-  const listed = /const WALL_EVENT_COLUMNS =\s*'([^']+)'/.exec(wall)?.[1] ?? '';
-  const cols = new Set(listed.split(',').map((c) => c.trim()));
-  for (const c of EVENT_CLOCK_COLUMNS.split(',').map((x) => x.trim())) assert.ok(cols.has(c), `the wall does not read ${c}`);
+test('§2 · a typed-out column list still carries every clock column (the wall, the guest list)', () => {
+  for (const [file, name] of [
+    ['lib/live-wall.ts', 'WALL_EVENT_COLUMNS'],
+    ['app/dashboard/[eventId]/guests/page.tsx', 'GUESTS_EVENT_COLUMNS'],
+  ] as const) {
+    const src = readFileSync(join(WEB, file), 'utf8');
+    const listed = new RegExp(`const ${name} =\\s*'([^']+)'`).exec(src)?.[1] ?? '';
+    assert.ok(listed, `${file}: ${name} is gone`);
+    const cols = new Set(listed.split(',').map((c) => c.trim()));
+    for (const c of EVENT_CLOCK_COLUMNS.split(',').map((x) => x.trim())) assert.ok(cols.has(c), `${file} does not read ${c}`);
+  }
 });
 
 test('§2 · a loosely typed row feeds the clock without casts', () => {
@@ -210,12 +218,8 @@ function sources(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Code with comments blanked (line numbers kept), so a docblock that NAMES an old rule is not a reader of it. */
-function code(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-    .replace(/(^|[^:'"`\\])\/\/[^\n]*/g, (m, p: string) => p + ' '.repeat(m.length - p.length));
-}
+/** Code with comments removed (the repo's ONE stripper), so a docblock that NAMES an old rule is not a reader of it. */
+const code = (src: string): string => stripComments(src);
 
 /** Each rule: a shape of "computing the event day yourself", and why it is wrong. */
 const RULES: Array<{ name: string; re: RegExp }> = [

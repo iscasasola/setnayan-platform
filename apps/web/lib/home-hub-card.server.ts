@@ -1,4 +1,5 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 /**
  * lib/home-hub-card.server.ts — WHAT HOME'S EVENT HUB CARD READS (owner 2026-10-23, approved
@@ -62,7 +63,7 @@ export async function readHomeHubCard(supabase: SupabaseClient, eventId: string)
     supabase
       .from('events')
       .select(
-        'slug, landing_page_visibility, event_date, event_end_date, cleared_at, timezone, std_invitation_launch_date, event_type, website_open_browse, gifts_on, venue_name, venue_address, venue_latitude, venue_longitude, love_story, special_message, what_to_bring, our_photos',
+        `slug, landing_page_visibility, timezone, event_type, website_open_browse, gifts_on, venue_name, venue_address, love_story, special_message, what_to_bring, our_photos, ${EVENT_CLOCK_COLUMNS}`,
       )
       .eq('event_id', eventId)
       .maybeSingle(),

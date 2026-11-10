@@ -4,7 +4,7 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { spreadForDisplay } from '@/lib/table-order';
 import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
-import { theDayInstantsOf } from '@/lib/event-clock';
+import { theDayInstantsOf, EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { eventClockNow } from '@/lib/event-clock.server';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
@@ -120,7 +120,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, event_end_date, venue_latitude, venue_longitude, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone')
+        .select(`event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone, ${EVENT_CLOCK_COLUMNS}`)
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),

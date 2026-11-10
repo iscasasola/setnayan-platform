@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured } from '@/lib/r2';
@@ -99,7 +100,7 @@ type VendorRow = {
 async function eventOver(admin: Admin, eventId: string, shotAtMs: number): Promise<boolean> {
   const { data: eventRow, error: eventErr } = await admin
     .from('events')
-    .select('event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
+    .select(`${EVENT_CLOCK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:events.select(window)', eventErr);

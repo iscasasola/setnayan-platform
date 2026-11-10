@@ -1,4 +1,5 @@
 import { papicCardHref } from '@/lib/papic-home-href';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { venueTimezone } from '@/lib/event-clock.server';
 import { PRINTS_PAGE_SURFACE, isPrintsPageSurface, printsForward, printsForwardHref } from '@/lib/prints-page';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -423,7 +424,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
       // `rsvp_ask_config` added 2026-11-09 the same way: "guests don't reply" drops the Maker's RSVP stage.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, venue_latitude, venue_longitude, event_type, planning_mode, std_invitation_launch_date, rsvp_ask_config')
+      .select(`slug, timezone, event_type, planning_mode, rsvp_ask_config, ${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page

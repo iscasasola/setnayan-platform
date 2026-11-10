@@ -232,7 +232,7 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   const g = src('app/dashboard/[eventId]/guests/page.tsx');
   // ⏱ The one clock (lib/event-clock.ts) — `eventClockOf(row).menu` IS `getMenuLifecyclePhase` on the venue's zone.
   assert.match(g, /eventClockOf\(eventRow\.data\)\.menu/, 'the Guests page must resolve the phase');
-  assert.match(g, /event_date, event_end_date, cleared_at, timezone/, 'it must read the date');
+  assert.match(g, /const GUESTS_EVENT_COLUMNS =\s*'role_palette, estimated_pax, timezone, slug, event_date, event_end_date,/, 'it must read the date');
   // ⤷ Maker PR 4f: the round + and its "Still adding someone?" left with the
   // phone title; the thumb row's "Search or add" is drawn after the event too
   // (no phase gate on it), and its Add opens the same sheet, which holds the

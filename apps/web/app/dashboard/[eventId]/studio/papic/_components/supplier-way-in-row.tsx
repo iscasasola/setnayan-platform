@@ -1,4 +1,5 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 import { Camera } from 'lucide-react';
 
@@ -44,7 +45,7 @@ export async function SupplierWayInRow({ eventId }: { eventId: string }) {
       .not('marketplace_vendor_id', 'is', null),
     supabase
       .from('events')
-      .select('event_date, event_end_date, timezone, cleared_at, venue_latitude, venue_longitude')
+      .select(`timezone, ${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);

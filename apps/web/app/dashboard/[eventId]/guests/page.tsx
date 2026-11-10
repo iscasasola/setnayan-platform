@@ -112,6 +112,12 @@ import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 import { GuestsExample } from './_components/guests-example';
 
+/** The guest list's event columns: its own, and every one of the ONE clock's (`EVENT_CLOCK_COLUMNS`, lib/event-clock.ts)
+ *  for "has this happened". Typed out so the held-row guard can read it; `lib/the-event-has-one-clock.test.ts` holds
+ *  that it still carries the clock's whole list. */
+const GUESTS_EVENT_COLUMNS =
+  'role_palette, estimated_pax, timezone, slug, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude';
+
 export const metadata = { title: 'Guests' };
 
 // The `?inspect=` selection param is read by the inspector shell (useSearchParams);
@@ -442,10 +448,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // after his Movie Night: *"i can still invite"*. It could not have known
   // otherwise — nothing here asked when the celebration was, so every
   // affordance on it addressed a party that had not happened yet.
-  const eventRowRead = eventRowOnce(supabase, eventId, 'role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug, venue_latitude, venue_longitude', () =>
+  const eventRowRead = eventRowOnce(supabase, eventId, GUESTS_EVENT_COLUMNS, () =>
     supabase
       .from('events')
-      .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug, venue_latitude, venue_longitude')
+      .select(GUESTS_EVENT_COLUMNS)
       .eq('event_id', eventId)
       .maybeSingle(),
   );

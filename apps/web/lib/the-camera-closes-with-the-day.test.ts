@@ -26,6 +26,7 @@
  * supplier delivers ON the day, and a lane that shut before it would be useless
  * on the one day it exists for.
  */
+import { EVENT_CLOCK_COLUMNS } from './event-clock';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -124,12 +125,9 @@ test('the route reads the LAST day and the venue’s zone, not just the first da
   // the row the route hands over really CARRIES them. Dropping a column from the select is the regression now.
   const src = route();
   assert.match(src, /eventClockOf\(ev, \{ nowMs: shotAtMs \}\)/, 'the resolver call must be findable');
+  assert.match(src, /\.select\(`\$\{EVENT_CLOCK_COLUMNS\}`\)/, 'the row must be the clock\'s own columns, or the clock reads them as absent');
   for (const col of ['event_date', 'event_end_date', 'cleared_at', 'venue_latitude', 'venue_longitude']) {
-    assert.match(
-      src,
-      new RegExp(`\\.select\\('[^']*\\b${col}\\b`),
-      `${col} must be SELECTed, or the clock reads it as absent`,
-    );
+    assert.ok(EVENT_CLOCK_COLUMNS.split(',').map((c) => c.trim()).includes(col), `EVENT_CLOCK_COLUMNS must carry ${col}`);
   }
   assert.doesNotMatch(src, /\.timezone\b/, 'the venue’s zone comes from its coordinates, never events.timezone');
 });

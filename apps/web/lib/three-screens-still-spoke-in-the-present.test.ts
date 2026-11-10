@@ -35,7 +35,7 @@ test('the Hosts page uses the event’s own noun, and knows it is over', () => {
   // ⏱ The one clock — `eventClockOf(row).menu` is the shipped phase resolver on the venue's zone.
   assert.match(h, /eventClockOf\(ev\)\.menu === 'after'/, 'and the shipped phase resolver');
   assert.match(h, /What you could do on this \$\{eventNounWord\}/, 'past tense after the day');
-  assert.match(h, /event_date, event_end_date, cleared_at, timezone/, 'it must read the dates');
+  assert.match(h, /\.select\(`display_name, event_type, timezone, \$\{EVENT_CLOCK_COLUMNS\}`\)/, 'it must read the dates');
 });
 
 test('the seat plan stops telling you guests are watching once it is over', () => {

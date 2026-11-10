@@ -1,4 +1,5 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventClockOf } from '@/lib/event-clock.server';
@@ -34,7 +35,7 @@ export async function eventIsOver(
   try {
     const { data } = await supabase
       .from('events')
-      .select('event_date, event_end_date, cleared_at, venue_latitude, venue_longitude')
+      .select(`${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle();
     if (!data) return false;

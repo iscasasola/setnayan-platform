@@ -15,7 +15,7 @@
  */
 
 import { venueTimezone } from '@/lib/event-clock.server';
-import { clockRowOf } from '@/lib/event-clock';
+import { clockRowOf, EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     // `timezone` + `event_end_date`: the phase gate below decides whether a
     // page view counts as a Save-the-Date view, and it was answering from the
     // server's UTC clock rather than the venue's.
-    .select('event_id, event_date, event_end_date, event_type, venue_latitude, venue_longitude, std_invitation_launch_date')
+    .select(`event_id, event_type, ${EVENT_CLOCK_COLUMNS}`)
     .ilike('slug', slug)
     .maybeSingle();
 

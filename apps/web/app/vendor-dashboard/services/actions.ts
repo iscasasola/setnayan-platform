@@ -1734,7 +1734,10 @@ export async function commitVendorService(formData: FormData) {
       .eq('vendor_service_id', serviceId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    if (wasError) return back(BOOKINGS_UNREAD);
+    if (wasError) {
+      console.error('[supabase-error] services: read the card before turning it off', wasError);
+      return back(BOOKINGS_UNREAD);
+    }
     if ((wasRow as { is_active?: boolean | null } | null)?.is_active === true) {
       const stillOpen = await offlineRefusal(supabase, profile.vendor_profile_id, serviceId);
       if (stillOpen) return back(stillOpen);
@@ -2313,7 +2316,10 @@ async function offlineRefusal(
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (ownError) return BOOKINGS_UNREAD;
+  if (ownError) {
+    console.error('[supabase-error] services: read the card before the open-bookings check', ownError);
+    return BOOKINGS_UNREAD;
+  }
   if (!own) return null; // not this shop's card — the update below matches nothing and says so
   const bookings = (await readCardBookings(createAdminClient(), [serviceId]))?.get(serviceId) ?? null;
   if (!bookings) return BOOKINGS_UNREAD;
@@ -2565,7 +2571,10 @@ async function deleteOrRetireOwnService(
     .eq('vendor_service_id', idRaw)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
-  if (ownError) return { ok: false, error: BOOKINGS_UNREAD };
+  if (ownError) {
+    console.error('[supabase-error] services: read the card before removing it', ownError);
+    return { ok: false, error: BOOKINGS_UNREAD };
+  }
   if (!own) return { ok: false, error: 'This card is not in your shop.' };
 
   // ⚠ AN UNREADABLE READ MUST NOT MEAN "NOBODY BOOKED". It used to fail toward RETIRING (hiding) the card; with open

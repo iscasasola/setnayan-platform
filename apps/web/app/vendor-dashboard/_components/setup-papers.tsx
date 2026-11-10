@@ -7,6 +7,9 @@ import { FileUpload, filenameFromRef } from '@/app/_components/file-upload';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useToast } from '@/app/_components/toast/toast-provider';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
 import { PAPER_FILES, PAPER_MAX_MB, PAPER_STATE_WORD, PAPER_TYPES, papersIn, type SetupPaper } from '@/lib/setup-papers';
 import { loadInlineDocs, updateDocUploadInline } from '../shop/inline-docs-actions';
@@ -21,6 +24,11 @@ import { CouldNotLoad } from '../shop/_components/could-not-load';
  *   · A ROW WITH A FILE: a small thumbnail · name · "✓ Saved · <file name>". Tapping it opens the preview, with
  *     **Replace** and **Remove** under it — the prototype's DTI row.
  *   · Papers Setnayan holds (Under review · Approved) say so as the row's line; nothing to press.
+ *   · A SAVED PAPER SWIPES LEFT TO REMOVE, WITH UNDO (house T14, owner 2026-11-03 "SWIPE LEFT TO DELETE ON EVERY LIST
+ *     ROW"; v21 `docRow` `data-swipe="doc:…"`, Build 5 item T). The swipe and the Remove inside the preview are ONE
+ *     remove: the row goes back to "Add" at once, the Undo toast stands for its window, and only then is the empty
+ *     ref written (`deleteWithUndo`). A new file picked inside the window writes the remove FIRST (`flush`), so the
+ *     late remove can never wipe the new copy. The one `UndoToastHost` is mounted here, once per Today.
  *
  * The upload is the SHIPPED one — `FileUpload` into the private `vendor-verification` bucket under
  * `vendors/<id>/verification/<slot>`, saved by the shipped `updateDocUploadInline` (the path `verify-pairs.tsx`
@@ -98,6 +106,7 @@ export function SetupPapers({
           />
         ))}
       </ul>
+      <UndoToastHost />
     </div>
   );
 }
@@ -127,6 +136,9 @@ function PaperRow({
   const [problem, setProblem] = useState<string | null>(null);
   const picked = useRef(false);
   const landed = useRef(false);
+  // 👈 A remove waiting out its Undo window: the row reads as empty until then (`deleteWithUndo` writes it after).
+  const [removed, setRemoved] = useState(false);
+  const pendingRemove = useRef<{ flush: () => Promise<void> } | null>(null);
 
   const save = (ref: string) => {
     start(async () => {
@@ -138,8 +150,7 @@ function PaperRow({
       try {
         const res = await run;
         if (res.ok) {
-          toast.success(ref ? `${p.label} saved.` : `${p.label} removed.`);
-          if (!ref) setLocal(null);
+          toast.success(`${p.label} saved.`);
         } else {
           toast.error(res.error);
         }
@@ -147,6 +158,27 @@ function PaperRow({
         toast.error('That did not save — check your connection and try again.');
       }
     });
+  };
+  const remove = () => {
+    if (open) onToggle();
+    const fd = new FormData();
+    fd.set('slot_key', p.key);
+    fd.set('r2_ref', '');
+    const handle = deleteWithUndo({
+      label: `${p.label} removed`,
+      hide: () => setRemoved(true),
+      restore: () => setRemoved(false),
+      commit: async () => {
+        if (pendingRemove.current === handle) pendingRemove.current = null;
+        const run = queue.then(() => updateDocUploadInline(null, fd));
+        queue = run.catch(() => undefined);
+        const res = await run;
+        if (res.ok) setLocal(null);
+        return res;
+      },
+      failed: `Couldn’t remove your ${p.label}. It’s back — try again.`,
+    });
+    pendingRemove.current = handle;
   };
   const pick = () => {
     setProblem(null);
@@ -156,7 +188,7 @@ function PaperRow({
   // What the row shows as its file: the one just picked (a local address) or the one on record.
   const name = local?.name ?? (p.ref ? filenameFromRef(p.ref) : null);
   const thumb = local ? (local.image ? local.url : null) : displayUrl && name && isImageName(name) ? displayUrl : null;
-  const hasFile = p.editable && (p.ref != null || local != null);
+  const hasFile = p.editable && !removed && (p.ref != null || local != null);
   const held = p.state === 'review' || p.state === 'approved';
   const busy = pct !== null || pending;
 
@@ -215,20 +247,22 @@ function PaperRow({
   return (
     <li ref={root} data-setup-paper={p.key} data-paper-state={p.state} className="py-1">
       {hasFile ? (
-        <button
-          type="button"
-          onClick={() => {
-            intend();
-            onToggle();
-          }}
-          aria-expanded={open}
-          className="sn-press flex min-h-[56px] w-full items-center gap-3 text-left"
-          data-setup-paper-open=""
-        >
-          {tile}
-          {words}
-          {open ? null : <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />}
-        </button>
+        <SwipeToDelete label={`Remove ${p.label}`} word="Remove" onDelete={remove} disabled={busy} radiusClass="rounded-lg" surfaceClass="bg-cream">
+          <button
+            type="button"
+            onClick={() => {
+              intend();
+              onToggle();
+            }}
+            aria-expanded={open}
+            className="sn-press flex min-h-[56px] w-full items-center gap-3 text-left"
+            data-setup-paper-open=""
+          >
+            {tile}
+            {words}
+            {open ? null : <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />}
+          </button>
+        </SwipeToDelete>
       ) : (
         <div className="flex min-h-[56px] items-center gap-3">
           {tile}
@@ -260,7 +294,7 @@ function PaperRow({
           </div>
           <div className="flex flex-wrap gap-2">
             <ActionButton tone="neutral" icon={<RefreshCw aria-hidden strokeWidth={1.9} />} label="Replace" onClick={pick} disabled={busy} data-testid="setup-paper-replace" />
-            <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove" onClick={() => save('')} disabled={busy} data-testid="setup-paper-remove" />
+            <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Remove" onClick={remove} disabled={busy} data-testid="setup-paper-remove" />
           </div>
         </div>
       ) : null}
@@ -289,6 +323,10 @@ function PaperRow({
             variant="wide"
             disabled={busy}
             onFilePicked={(f) => {
+              // A remove still in its Undo window is written NOW, ahead of this file's save in the queue.
+              void pendingRemove.current?.flush();
+              pendingRemove.current = null;
+              setRemoved(false);
               picked.current = true;
               landed.current = false;
               setLocal({ url: URL.createObjectURL(f), image: f.type.startsWith('image/'), name: f.name });

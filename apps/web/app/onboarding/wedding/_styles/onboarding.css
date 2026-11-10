@@ -23,7 +23,13 @@
     --sans:var(--font-sans),'Manrope',-apple-system,system-ui,sans-serif;
     --serif:var(--font-display),'Cormorant Garamond',Georgia,serif;
     --mono:var(--font-mono),'DM Mono',ui-monospace,monospace;
-  }.onbw *{box-sizing:border-box;margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
+  }
+/* 📐 THE PROTOTYPE'S RESET STOPS AT THE SETUP CARDS (Lane P fix, 10 Nov — the names step's text sat on its box's
+   edge). `.onbw *` (0,1,0) out-ranked every Tailwind spacing class inside .onbw, so the approved flow's cards
+   (`SetupFrame`, drawn with the house parts: TypedRow boxed, StepPick, ActionButton) lost their 14 px inner padding
+   and every margin. The reset keeps its weight for the prototype's own screens; a [data-setup-card] subtree is
+   spaced by its own classes. Tailwind's preflight still zeroes the browser's defaults there. */
+.onbw :where(*:not([data-setup-card], [data-setup-card] *)){box-sizing:border-box;margin:0;padding:0}.onbw{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
     -webkit-font-smoothing:antialiased;display:flex;justify-content:center;
     min-height:100vh;padding:0;}.onbw .phone{width:100%;max-width:430px;height:100vh;height:100dvh;background:var(--paper);overflow:hidden;
     display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,0,0,.12);}
@@ -1140,3 +1146,20 @@
 .onbw .btn-ring:hover .btn-ring-face,.onbw .btn-ring:focus-visible .btn-ring-face{border-color:var(--ink);}
 .onbw .btn-ring:focus-visible{outline:none;}
 .onbw .btn-ring:focus-visible .btn-ring-face{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--gold);}
+
+/* 🔘 HOUSE BUTTONS ON THE PROTOTYPE'S SCREENS (Lane P fix, 10 Nov — "Use this monogram" ran to the screen's edge).
+   The reset above took the ActionButton's own 14 px sides off; give them back (an icon-only button stays a 40 px
+   circle). The monogram's two actions sit at EQUAL widths, two to a row where they fit, else each the whole row. */
+.onbw .ab{padding:0 14px;}
+.onbw .ab.icon-only{padding:0;}
+/* The template's dropdown box (`StepPick`, `.sn-step-box`) keeps its 14 px inner sides on the prototype's screens too
+   (the role, kind and tradition steps) — its words never touch the box's edge. */
+.onbw .sn-step-box{padding:0 14px;}
+.onbw .mono-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:8px;}
+.onbw .mono-controls > .ab{width:100%;justify-content:center;}
+/* 📐 THE RECAP IS NOT A CARD (Lane P fix, 10 Nov — lint-no-card's rule: no box around a whole section). "You did
+   the hard part" drew its whole recap inside one rounded, bordered, shadowed sheet; it now sits on the page, its
+   sections parted by the hairline dividers they already carry, its rows on the screen's own gutter. */
+.onbw .dash-site{background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible;}
+.onbw #screen-congrats .dash-sec{padding-left:0;padding-right:0;}
+.onbw #screen-congrats .recap.tight{padding:6px 0;}

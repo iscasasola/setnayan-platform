@@ -74,8 +74,10 @@ type Props = {
 const LABEL = 'block text-[11px] font-bold uppercase tracking-[0.08em] text-ink/55';
 // no-card-ok: the edge of an <input> — a field you type into is a pressable thing
 const INPUT = 'mt-1 h-11 w-full rounded-xl border border-ink/20 bg-paper px-3.5 text-[15px] text-ink outline-none placeholder:text-ink/40 focus:border-mulberry'; // no-card-ok: <input> field edge
-/** A row is a <button role="checkbox"> (frame 3 draws ticks, not switches) — framed because it is pressed (owner 2026-10-11). */
-const ROW = 'flex min-h-[48px] w-full items-center gap-2.5 rounded-xl border bg-paper px-3 py-2.5 text-left text-[14px] text-ink'; // no-card-ok: a <button role="checkbox">
+/** A row is a <button role="checkbox"> (frame 3 draws ticks, not switches). 📐 Lane P fix (owner 10 Nov, "uniform …
+ *  design templates"): no box around each row any more — the rows are parted by hairline dividers on the list, the
+ *  form-row template's look; the tick circle is what shows it is on. */
+const ROW = 'flex min-h-[48px] w-full items-center gap-2.5 py-2.5 text-left text-[14px] text-ink';
 
 export function NeedsStep({
   title,
@@ -169,7 +171,7 @@ export function NeedsStep({
         </div>
       </div>
 
-      <ul className="flex flex-col gap-2" aria-label="What this event needs">
+      <ul className="flex flex-col divide-y divide-ink/10" aria-label="What this event needs">
         {rows.map((row) => {
           const on = needOn(row, needs);
           const locked = row === 'papic';
@@ -183,9 +185,7 @@ export function NeedsStep({
                 onClick={() => (locked ? undefined : onToggle(row))}
                 data-need-row={row}
                 data-on={on ? '' : undefined}
-                className={`${ROW} ${
-                  on ? 'border-[color:rgb(var(--color-ok)/0.35)]' : 'border-ink/15'
-                } ${locked ? 'cursor-default' : ''}`}
+                className={`${ROW} ${locked ? 'cursor-default' : ''}`}
               >
                 <span
                   aria-hidden

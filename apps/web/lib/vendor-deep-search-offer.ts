@@ -8,11 +8,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import { deepSearchStillKept } from '@/lib/deep-search-findings';
 import {
-  VENDOR_DEEP_SEARCH_PERIOD_DAYS,
   deepSearchEligibility,
-  deepSearchHasFreeAllowance,
-  deepSearchCycleStartMs,
-  countDeepSearchUsesSince,
   resolveDeepSearchPricePhp,
   VENDOR_DEEP_SEARCH_FALLBACK_PHP,
 } from '@/lib/vendor-deep-search-addon';
@@ -21,15 +17,13 @@ import {
  * 🔎 WHAT RUN DEEP SEARCH WILL DO FOR THIS SHOP, RIGHT NOW — one resolver for every surface that offers it.
  *
  * MOVED, NOT REWRITTEN, from `/vendor-dashboard/deep-search/page.tsx` (owner-locked 2026-07-22 + the 2026-07-25 band),
- * so Shop › Details' card (Supplier dashboard v13, 2026-10-29) and the Deep Search page offer the SAME price, the same
- * free search and the same rails — and both mirror the run action (`deep-search/actions.ts`), which re-decides all of
- * it server-side at Run. The band is INJECTED as `cyclePricePhp`, never written over the resolver's answer (the
- * 2026-07-25 trap: overwriting it would delete the Pro+ free search).
+ * so Shop › Details' card (Supplier dashboard v13, 2026-10-29) and the Deep Search page offer the SAME price and the
+ * same rails — and both mirror the run action (`deep-search/actions.ts`), which re-decides all of it server-side at Run.
  *
- * Reads, started together: the catalogue price (only while the tiered band is off — on, the band is the price), this
- * cycle's use count (only for a verified shop on a plan with a free search — nobody else's price depends on it) and the
- * open pay rails (only when the run would cost something). A Free/Solo shop's card costs one read; nothing is asked
- * twice.
+ * ⚖ 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO FREE SEARCH ON PRO/ULTRA"): one price on
+ * every plan, one search per purchase, NO free search — so there is no cycle, no use count and no "free now" any more.
+ *
+ * Reads: the catalogue price, then the open pay rails (only for a verified shop — Run always costs something).
  */
 export type DeepSearchOffer = {
   /** The shop is verified — the one requirement no switch lifts. */
@@ -37,16 +31,12 @@ export type DeepSearchOffer = {
   /** The plan this offer was priced for — the caller asks the paywall switch with it (`vendorPaywallApplies`, at
    *  the call site where `upsells-obey-the-switch.test.ts` can see the question being asked). */
   tier: string | null;
-  /** Pro+ with this cycle's free search unused. */
-  isFreeNow: boolean;
-  hasFreeAllowance: boolean;
-  /** What Run charges now (the cycle price when this run is free — the runner's "then ₱N each"). */
+  /** What Run charges — the catalogue's one per-search price (never ₱0). */
   pricePhp: number;
-  /** This shop's per-search price on its plan. */
+  /** This shop's per-search price on its plan (= `pricePhp`; kept for the page's history column). */
   cyclePricePhp: number;
-  /** Both sides of the band, for the ⓘ. */
+  /** Both sides of the band, for the ⓘ (one row on both sides since 2026-11-09). */
   band: { entryPhp: number; growthPhp: number };
-  periodDays: number;
   openRails: readonly OpenRail[];
 };
 
@@ -63,38 +53,23 @@ export async function loadDeepSearchOffer(
   const { tier } = input;
   // TRY-FIRST (2026-09-30): eligibility is verification alone here; the plan is asked at Run, through `planAsks`.
   const eligible = deepSearchEligibility({ tier, verification: input.verification, tierPaywall: false }).ok;
-  const hasFreeAllowance = deepSearchHasFreeAllowance(tier);
 
-  // Both sides of the band, READ from the catalogue (owner 2026-11-04: two prices by plan, each its own row).
-  const catalogRead = fetchVendorAddonBandPrices(supabase, 'deep_search_about_you');
-  const usesRead =
-    eligible && hasFreeAllowance
-      ? countDeepSearchUsesSince(
-          admin,
-          input.vendorProfileId,
-          new Date(deepSearchCycleStartMs(input.tierExpiresAt, Date.now())).toISOString(),
-        )
-      : Promise.resolve(1);
-  const [bandRead, usesThisCycle] = await Promise.all([catalogRead, usesRead]);
+  // Both sides of the band, READ from the catalogue (one row on both sides since 2026-11-09).
+  const bandRead = await fetchVendorAddonBandPrices(supabase, 'deep_search_about_you');
 
   // A side that did not read falls back to the runner's own fallback (the same one its charge uses).
   const ownSide = vendorAddonPriceBand(tier) === 'growth' ? bandRead.growthPhp : bandRead.entryPhp;
-  const cyclePricePhp = ownSide ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
-  const priceNow = eligible ? resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp }) : cyclePricePhp;
-  const isFreeNow = eligible && priceNow <= 0;
-  // The rails matter only when Run would cost something; a free run and an unverified shop never show them.
-  const openRails = eligible && !isFreeNow ? openRailOptions(await fetchPlatformSettings(supabase)) : [];
+  const cyclePricePhp = resolveDeepSearchPricePhp({ cyclePricePhp: ownSide ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP });
+  // The rails matter only for a shop that can run it; an unverified shop never shows them.
+  const openRails = eligible ? openRailOptions(await fetchPlatformSettings(supabase)) : [];
 
   return {
     eligible,
     tier,
-    isFreeNow,
-    hasFreeAllowance,
-    pricePhp: priceNow > 0 ? priceNow : cyclePricePhp,
+    pricePhp: cyclePricePhp,
     cyclePricePhp,
     // Flat (band off): the catalogue's one price is both sides — never a typed figure.
     band: { entryPhp: bandRead.entryPhp ?? cyclePricePhp, growthPhp: bandRead.growthPhp ?? cyclePricePhp },
-    periodDays: VENDOR_DEEP_SEARCH_PERIOD_DAYS,
     openRails,
   };
 }

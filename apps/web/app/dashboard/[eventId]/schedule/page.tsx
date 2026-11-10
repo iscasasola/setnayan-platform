@@ -134,6 +134,7 @@ import { readTradeChapters, suggestedChapters } from '@/lib/trade-chapters';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
+import { scheduleLensFromParam } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
   BROADCASTS_UNREADABLE,
@@ -174,6 +175,8 @@ type Props = {
      * 2026-11-01, "CHECKLIST MERGES INTO PLANNING STAGE").
      */
     filter?: string;
+    /** `vendor:<vendor_id>` = the day opens on that supplier's View as (owner 9 Nov, "theirs first"). Else Master. */
+    lens?: string;
   }>;
 };
 
@@ -187,7 +190,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     maker: makerParam,
     sheet: sheetParam,
     filter: filterParam,
+    lens: lensParam,
   } = await searchParams;
+  const initialLens = scheduleLensFromParam(lensParam);
   const openRequests = sheetParam === 'requests';
   const planFilter: 'all' | 'todo' = filterParam === 'todo' ? 'todo' : 'all';
   /* 🧭 JOURNEY IS GONE (owner 2026-11-01: "i don't think we need journey anymore? since everything from event created
@@ -1079,6 +1084,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             }}
             // 📅 `?sheet=requests` — Home's "N to approve" opens the supplier requests sheet with the page (placement, no write).
             openRequests={openRequests}
+            // 👁 `?lens=vendor:<id>` — a door from a supplier lands on their part; the name comes from the event's list.
+            {...(initialLens ? { initialLens } : {})}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}
             eventDateKey={eventDateKey}

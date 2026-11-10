@@ -29,6 +29,7 @@ export function ProfileChecklistEditor({
   showProgress = true,
   flat = false,
   asks,
+  pickedLogo = null,
 }: {
   items: BusinessProfileItem[];
   data: ProfileFieldData;
@@ -46,8 +47,10 @@ export function ProfileChecklistEditor({
    * (or "Change asked · waiting") instead of a save the server would refuse. Absent → every row as it was.
    */
   asks?: { requestOnly: readonly LockedIdentityFieldKey[]; pending: readonly string[] };
+  /** 📂 Shop › Logo's "Upload photo": the file the device picker chose — the logo row opens with it, into its framer. */
+  pickedLogo?: readonly File[] | null;
 }) {
-  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(pickedLogo && pickedLogo.length > 0 ? 'logo' : null);
 
   const done = items.filter((i) => i.ok).length;
   const total = items.length;
@@ -138,6 +141,7 @@ export function ProfileChecklistEditor({
               // open slot from (and force-commit) the row they moved to.
               onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
               flat={flat}
+              pickedFiles={item.key === 'logo' ? pickedLogo : null}
             />
           ),
         )}

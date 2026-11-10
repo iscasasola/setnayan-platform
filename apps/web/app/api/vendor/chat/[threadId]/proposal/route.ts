@@ -21,6 +21,9 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   lock_requested: 409,
   // 🎁 the quote's own gifts are over the booking's gift limit or more than the shop's stock — nothing was sent.
   gift_refused: 422,
+  // 📅 no lifetime quotation (2026-11-09): sent without a Valid until — nothing was written.
+  needs_valid_until: 422,
+  plan_not_in_full: 422,
   failed: 500,
 };
 

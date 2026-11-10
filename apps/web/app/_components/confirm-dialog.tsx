@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -41,6 +41,13 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  /**
+   * ⚖ ONE ROW, EQUAL WIDTHS, THE ANSWER FIRST (owner, 9 Nov — Build 3's "Leave · Not now" / "Join chat · Not now"):
+   * the two answers share the row half and half, the answer on the left. Absent → the box is exactly as it was.
+   */
+  equalRow?: boolean;
+  /** The answer's icon, when the default bin / tick would say the wrong thing (a door out, a door back in). */
+  confirmIcon?: ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | string }>;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -52,6 +59,8 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   destructive = false,
+  equalRow = false,
+  confirmIcon,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -109,16 +118,30 @@ export function ConfirmDialog({
       <div className="px-5 pb-4 pt-[22px] text-center">
         <h3 className="text-[17px] font-semibold leading-snug text-ink">{title}</h3>
         <div className="mt-2 text-[14.5px] leading-normal text-ink/70">{body}</div>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <ActionButton tone="neutral" icon={X} label={cancelLabel} onClick={onCancel} />
-          <ActionButton
-            tone={destructive ? 'danger' : 'brand'}
-            main
-            icon={destructive ? Trash2 : Check}
-            label={confirmLabel}
-            onClick={onConfirm}
-          />
-        </div>
+        {equalRow ? (
+          <div className="mt-5 grid grid-cols-2 gap-2" data-confirm-equal-row="">
+            <ActionButton
+              tone={destructive ? 'danger' : 'brand'}
+              main
+              icon={confirmIcon ?? (destructive ? Trash2 : Check)}
+              label={confirmLabel}
+              onClick={onConfirm}
+              className="w-full"
+            />
+            <ActionButton tone="neutral" icon={X} label={cancelLabel} onClick={onCancel} className="w-full" />
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <ActionButton tone="neutral" icon={X} label={cancelLabel} onClick={onCancel} />
+            <ActionButton
+              tone={destructive ? 'danger' : 'brand'}
+              main
+              icon={confirmIcon ?? (destructive ? Trash2 : Check)}
+              label={confirmLabel}
+              onClick={onConfirm}
+            />
+          </div>
+        )}
       </div>
     </dialog>
   );

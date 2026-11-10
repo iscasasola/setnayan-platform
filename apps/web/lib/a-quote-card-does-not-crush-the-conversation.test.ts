@@ -44,9 +44,10 @@ test('the conversation has a floor it cannot be squeezed below', () => {
   const floored = s.match(/min-h-\[\d+rem\][^"`]*flex-1[^"`]*overflow-y-auto/g) ?? [];
   assert.equal(
     floored.length,
-    3,
-    `expected ALL THREE view scrollers to keep a floor (the conversation, ` +
-      `Decisions and Files — 2026-09-19 gave Files one too); found ${floored.length}. The message list is the only flex-1 ` +
+    2,
+    // Build 3 · lane B retired the Decisions view (open ones are the pins, closed ones Details › Decisions).
+    `expected BOTH view scrollers to keep a floor (the conversation, ` +
+      `and Files — 2026-09-19 gave Files one too); found ${floored.length}. The message list is the only flex-1 ` +
       'child of a fixed-height column, so any sibling that grows takes the ' +
       'conversation with it — measured at 32px against 498px of content.',
   );

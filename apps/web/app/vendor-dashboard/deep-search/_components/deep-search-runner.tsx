@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { Search, ShieldCheck, Gift } from 'lucide-react';
+import { Search, ShieldCheck } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -11,7 +11,6 @@ import {
   runVendorDeepSearch,
   type VendorDeepSearchActionState,
 } from '../actions';
-import { DossierView } from './dossier-view';
 
 /**
  * Deep Search runner — the eligible-vendor run/buy surface (owner-locked
@@ -21,13 +20,12 @@ import { DossierView } from './dossier-view';
  *     asks for a paid plan is decided on the SERVER by vendorPaywallApplies()
  *     and arrives as `planAsks` — a ◆ note here, the ask itself at Run. While
  *     VENDOR_TIER_FEATURE_GATE is off it is false for everyone.
- *   • eligible + free this cycle (Pro+ with 0 uses) → "Run free Deep Search".
- *   • eligible + paid (Solo always · Pro+ after the free one) → manual
- *     apply-then-pay, "Run Deep Search — ₱500".
+ *   • eligible → manual apply-then-pay, "Run Deep Search — ₱N": ONE search per
+ *     purchase, the one catalogue price on every plan. ⛔ No free search (owner
+ *     2026-11-09, DECISION_LOG 🔎💳 — Pro/Ultra lost the 1 free per 28 days).
  *
- * The FREE run executes in the server action and returns the dossier straight
- * back — rendered inline. A PAID run opens an apply-then-pay order and runs on
- * admin approval; the vendor sees it in their history on the next load.
+ * The run opens an apply-then-pay order and runs on admin approval; the vendor
+ * sees it in their history on the next load.
  */
 
 const IDLE: VendorDeepSearchActionState = { status: 'idle' };
@@ -36,22 +34,18 @@ const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 export type DeepSearchRunnerProps = {
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
-   *  (the server action refuses the same case). A free grant ignores it. */
+   *  (the server action refuses the same case). */
   openRails: readonly OpenRail[];
   /** The shop is verified — the one requirement no switch lifts. */
   eligible: boolean;
   /** Server-decided: Run asks for a paid plan (◆ note only; never a lock). */
   planAsks: boolean;
-  /** Resolved price is ₱0 (Pro+ with the free allowance unused this cycle). */
-  isFreeNow: boolean;
-  /** Does this tier get a free search per cycle at all (Pro/Ultra)? */
-  hasFreeAllowance: boolean;
-  /** Standing per-search price (₱500) from the admin-managed catalog. */
+  /** The one per-search price, from the admin-managed catalog. */
   pricePhp: number;
 };
 
 export function DeepSearchRunner(props: DeepSearchRunnerProps) {
-  const { eligible, planAsks, isFreeNow, hasFreeAllowance, pricePhp, openRails } = props;
+  const { eligible, planAsks, pricePhp, openRails } = props;
 
   const toast = useToast();
   const [state, formAction] = useActionState(runVendorDeepSearch, IDLE);
@@ -61,10 +55,6 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
     if (state === handled.current) return;
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
-    if (state.status === 'ran') {
-      // ⚡ The action revalidates: its own answer redrew the page — no second render.
-      toast.success(state.message);
-    }
   }, [state, toast]);
 
   if (!eligible) {
@@ -94,63 +84,37 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
       ) : null}
       {/* Honest price line */}
       <div className="flex flex-wrap items-center gap-2">
-        {isFreeNow ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-800">
-            <Gift className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            1 free this cycle
-          </span>
-        ) : (
-          <span className="text-sm font-medium text-ink">{peso(pricePhp)} per search</span>
-        )}
-        {hasFreeAllowance ? (
-          <span className="text-xs text-ink/55">
-            {isFreeNow
-              ? `Then ${peso(pricePhp)} each · resets every 28 days.`
-              : `You’ve used this cycle’s free search — next resets in your new cycle.`}
-          </span>
-        ) : (
-          <span className="text-xs text-ink/55">Every search is {peso(pricePhp)} on your plan.</span>
-        )}
+        <span className="text-sm font-medium text-ink">{peso(pricePhp)} per search</span>
+        <span className="text-xs text-ink/55">Each purchase runs one search.</span>
       </div>
 
       <form action={formAction} className="mt-3 space-y-3">
-        {/* The paid path needs a pay channel; the free run ignores it. */}
-        {!isFreeNow ? (
-          openRails.length > 0 ? (
-            <fieldset>
-              <legend className="text-xs font-medium text-ink">Pay with</legend>
-              <div className="mt-1.5 flex flex-wrap gap-3">
-                {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-                {openRails.map((r, n) => (
-                    <label key={r.id} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                      <input type="radio" name="channel" value={r.id} defaultChecked={n === 0} />
-                      {r.label}
-                    </label>
-                  ))}
-              </div>
-            </fieldset>
-          ) : (
-            <PaymentsPausedNote />
-          )
-        ) : null}
+        {openRails.length > 0 ? (
+          <fieldset>
+            <legend className="text-xs font-medium text-ink">Pay with</legend>
+            <div className="mt-1.5 flex flex-wrap gap-3">
+              {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
+              {openRails.map((r, n) => (
+                  <label key={r.id} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+                    <input type="radio" name="channel" value={r.id} defaultChecked={n === 0} />
+                    {r.label}
+                  </label>
+                ))}
+            </div>
+          </fieldset>
+        ) : (
+          <PaymentsPausedNote />
+        )}
 
         <SubmitButton
-          disabled={!isFreeNow && openRails.length === 0}
+          disabled={openRails.length === 0}
           className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
-          pendingLabel={isFreeNow ? 'Searching the web…' : 'Starting…'}
+          pendingLabel="Starting…"
         >
           <Search className="h-4 w-4" strokeWidth={2} aria-hidden />
-          {isFreeNow ? 'Run free Deep Search' : `Run Deep Search — ${peso(pricePhp)}`}
+          {`Run Deep Search — ${peso(pricePhp)}`}
         </SubmitButton>
       </form>
-
-      {/* FREE run finished → the dossier, inline. */}
-      {state.status === 'ran' ? (
-        <div className="mt-5">
-          {/* 📄 Running a search also makes its PDF (owner 2026-10-29) — Share it straight from the fresh result. */}
-          <DossierView dossier={state.dossier} pdf={{ dossierId: state.dossierId, searchedAt: state.searchedAt }} />
-        </div>
-      ) : null}
 
       {/* PAID run → apply-then-pay instructions. */}
       {state.status === 'ordered' ? (

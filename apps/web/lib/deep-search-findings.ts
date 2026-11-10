@@ -7,10 +7,10 @@
  *   promises a heading the result or the file does not carry.
  *
  * ── THE PRICE IS NEVER TYPED HERE ──────────────────────────────────────────
- * The band words are BUILT from the one price source the run action charges from: the two catalogue rows of the band
- * (`vendor_billing_catalog.vendor_deep_search` for Pro/Ultra, `vendor_deep_search_entry` for Free/Verified/Solo — owner
- * 2026-11-04), read by the caller (`fetchVendorAddonBandPrices`). Who gets the free search
- * each 28 days is `deepSearchHasFreeAllowance` (Pro and up) — the old "1 free on Solo" line was wrong (owner note 2).
+ * The band words are BUILT from the one price source the run action charges from, read by the caller
+ * (`fetchVendorAddonBandPrices`). Since 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN") both
+ * sides of the band are the ONE `vendor_billing_catalog.vendor_deep_search` row, one search per purchase, and there is
+ * NO free search on any plan — so the words never promise one.
  *
  * ── HOW LONG A SEARCH IS KEPT ───────────────────────────────────────────────
  * `DEEP_SEARCH_KEEP_DAYS` is the ONE number: the retention sweep (`lib/vendor-dossier-retention.ts`) deletes a result
@@ -53,16 +53,16 @@ export function deepSearchCounts(d: VendorDossier): Record<Exclude<DeepSearchFin
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
 /**
- * The band in words, for the card's ⓘ: "₱1,000 a search on Free and Solo · ₱500 on Pro and Ultra, with 1 free every
- * 28 days on Pro and Ultra." One price for everyone reads "₱500 a search on every plan, with 1 free …".
+ * The band in words, for the card's ⓘ: one price for everyone reads "₱499 a search on every plan, one search per
+ * purchase." (2026-11-09). Two prices — should an admin ever split the rows again — read "₱X a search on Free, Verified
+ * and Solo · ₱Y on Pro and Ultra, one search per purchase." Never a free search.
  */
-export function deepSearchBandWords(band: { entryPhp: number; growthPhp: number }, periodDays: number): string {
+export function deepSearchBandWords(band: { entryPhp: number; growthPhp: number }): string {
   const entry = `${TIER_LABEL.free}, Verified and ${TIER_LABEL.solo}`;
   const growth = `${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}`;
-  const free = `1 free every ${periodDays} days on ${growth}`;
   return band.entryPhp === band.growthPhp
-    ? `${peso(band.entryPhp)} a search on every plan, with ${free}.`
-    : `${peso(band.entryPhp)} a search on ${entry} · ${peso(band.growthPhp)} on ${growth}, with ${free}.`;
+    ? `${peso(band.entryPhp)} a search on every plan, one search per purchase.`
+    : `${peso(band.entryPhp)} a search on ${entry} · ${peso(band.growthPhp)} on ${growth}, one search per purchase.`;
 }
 
 /** The date a result stops being kept (and its PDF with it). */

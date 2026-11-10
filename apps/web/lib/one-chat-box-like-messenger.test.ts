@@ -124,8 +124,9 @@ test('the stream is flush inside the frame — no card inside the card', () => {
     assert.equal(count(s, /<ChatMessageStream\s+flush\b/g), 1, `${name}: the stream lost \`flush\``);
   }
   const stream = read(STREAM);
-  // One chrome string, applied to all three scrollers.
-  assert.equal(count(stream, /\$\{scrollerChrome\}/g), 3, 'a scroller stopped using the shared chrome');
+  // One chrome string, applied to both scrollers (chat · files). Build 3 · lane B retired the Decisions view: open
+  // decisions are the PINS now, closed ones live on Details › Decisions — so there are two scrollers, not three.
+  assert.equal(count(stream, /\$\{scrollerChrome\}/g), 2, 'a scroller stopped using the shared chrome');
   assert.match(stream, /flush \? '[^']+' : '[^']*rounded-xl border[^']*'/);
 });
 
@@ -182,7 +183,11 @@ test('ONE ＋ on each side opens every tool — no icon beside it, the paperclip
   assert.doesNotMatch(send, /\baccessories\b/, 'the composer grew an accessories slot again');
   // 📷 · 🖼 are shortcuts into the ONE attachment input, and they step aside while a message is being written.
   assert.equal(count(send, /name="attachment"/g), 1, 'a second file input posts its own attachment — the shortcuts must hand over to the one');
-  assert.match(send, /\{!hasDraft \? \(/, 'the camera and photo shortcuts no longer step aside for a draft');
+  // Build 3 · Lane A (owner, 9 Nov — "the buttons move to the side away from the screen"): they still step aside for a
+  // draft, now as one slide with the ＋ and 🔒 — the tools group goes `out` whenever a draft (or a private recipient) is set.
+  assert.match(send, /const toolsOut = Boolean\(privateTo\) \|\| hasDraft;/, 'the camera and photo shortcuts no longer step aside for a draft');
+  const tools = send.slice(send.indexOf('className="sn-composer-tools"'), send.indexOf('sn-composer-box'));
+  assert.ok(tools.includes('data-chat-camera') && tools.includes('data-chat-photo'), 'the camera and photo shortcuts are outside the sliding tools');
   assert.ok(count(send, /setHasDraft\(/g) >= 2, 'hasDraft is never cleared after a send');
 });
 

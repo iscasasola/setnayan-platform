@@ -160,7 +160,7 @@ test('SABOTAGE-PROVEN: every supplier photo upload opens the Frame step (square)
     ['app/vendor-dashboard/services/_components/canvas-maker.tsx', 'service-card', 1],
     ['app/vendor-dashboard/services/_components/services-manager.tsx', 'service-card', 1],
     ['app/vendor-dashboard/services/_components/service-wizard.tsx', 'service-card', 1],
-    ['app/vendor-dashboard/shop/_components/gallery-media.tsx', 'portfolio', 1],
+    ['app/vendor-dashboard/shop/_components/portfolio-form.tsx', 'portfolio', 1],
   ];
   for (const [file, prev, n] of sites) {
     const src = code(file);

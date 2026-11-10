@@ -101,6 +101,7 @@ export function EditableRow({
   onClose,
   onReopenAfterError,
   flat = false,
+  pickedFiles = null,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
@@ -121,6 +122,8 @@ export function EditableRow({
    * when another row is open, so a late rejection never steals the open slot).
    */
   onReopenAfterError: () => void;
+  /** 📂 The logo row only: a file a picker outside chose (Shop › Logo › Upload photo) — fed to its uploader once. */
+  pickedFiles?: readonly File[] | null;
 }) {
   const toast = useToast();
   const [state, formAction, isPending] = useActionState<FieldSaveResult | null, FormData>(
@@ -349,7 +352,7 @@ export function EditableRow({
               settle effect re-opens the row with a friendly error. */}
           <form ref={formRef} action={formAction} noValidate className="space-y-3">
             <input type="hidden" name="field" value={item.key} />
-            <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} />
+            <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} pickedFiles={revertNonce === 0 ? pickedFiles : null} />
             {heldName ? <HeldNameClaim key={heldName} name={heldName} /> : null}
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <span
@@ -640,7 +643,7 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
  * (`picture="logo"` → `logo_focal_x` / `logo_focal_y` / `logo_zoom`) when the row closes, so it is moved without a
  * re-upload.
  */
-function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: () => void }) {
+function LogoRowControl({ data, onDirty, pickedFiles = null }: { data: ProfileFieldData; onDirty: () => void; pickedFiles?: readonly File[] | null }) {
   const [ref, setRef] = useState<string>(data.logo_url ?? '');
   const [preview, setPreview] = useState<string | null>(
     data.logo_url ? (data.logoDisplayMap[data.logo_url] ?? null) : null,
@@ -675,6 +678,7 @@ function LogoRowControl({ data, onDirty }: { data: ProfileFieldData; onDirty: ()
         variant="square"
         roundPreview
         pills={{ replace: 'Replace photo' }}
+        pickedFiles={pickedFiles}
         onChange={(v) => {
           const next = Array.isArray(v) ? (v[0] ?? '') : (v ?? '');
           setRef(next);
@@ -700,10 +704,12 @@ function FieldControl({
   item,
   data,
   onDirty,
+  pickedFiles = null,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
   onDirty: () => void;
+  pickedFiles?: readonly File[] | null;
 }) {
   switch (item.key) {
     case 'logo':
@@ -714,7 +720,7 @@ function FieldControl({
           required
           help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every supplier card."
         >
-          <LogoRowControl data={data} onDirty={onDirty} />
+          <LogoRowControl data={data} onDirty={onDirty} pickedFiles={pickedFiles} />
         </Field>
       );
     case 'business_name':

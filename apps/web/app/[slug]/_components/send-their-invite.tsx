@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Share } from 'lucide-react';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 
 /**
@@ -68,9 +69,7 @@ export function SendTheirInvite({
         onClick={send}
         className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-cream"
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M8 10V2M5 5l3-3 3 3M3 9v4h10V9" />
-        </svg>
+        <Share aria-hidden className="h-4 w-4" strokeWidth={1.5} />
         {label}
       </button>
       {said ? (

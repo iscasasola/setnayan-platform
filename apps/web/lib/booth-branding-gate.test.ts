@@ -34,7 +34,10 @@ test('tier factor: only pro/enterprise CAN brand', () => {
   assert.equal(boothCanBrand('enterprise'), true);
   assert.equal(boothCanBrand('custom'), false, 'the retired Custom plan reads as Free — fails closed');
   assert.equal(boothCanBrand('free'), false);
-  assert.equal(boothCanBrand('verified'), false, 'the legacy FREE tier — "not for free"');
+  // ⚠ MOVED 2026-11-09 BY AN OWNER RULING (Build 4): the branded booth is opened by the Specialized tools
+  // unlock, sold to *"verified suppliers only and up"*. Verified now CAN brand — but only with an active
+  // entitlement (the second half of the gate, pinned below), never on the tier alone.
+  assert.equal(boothCanBrand('verified'), true, 'Verified and up (owner 2026-11-09)');
   assert.equal(boothCanBrand(null), false);
   assert.equal(boothCanBrand('not-a-tier'), false, 'an unknown tier fails closed');
 });
@@ -54,10 +57,11 @@ test('brandable tier WITHOUT the add-on → NOT branded (generic booth)', () => 
 });
 
 test('add-on active but tier NOT brandable → NOT branded', () => {
-  // Solo moved from refused to admitted by the same 2026-08-29 ruling; the free
-  // plans did not.
+  // Solo moved from refused to admitted by the 2026-08-29 ruling, Verified by the 2026-11-09 one
+  // (Specialized tools, Verified and up). The unverified Free plan did not move.
   assert.equal(boothIsBranded(vendor({ tier: 'solo', boothAddonActive: true })), true);
-  assert.equal(boothIsBranded(vendor({ tier: 'verified', boothAddonActive: true })), false);
+  assert.equal(boothIsBranded(vendor({ tier: 'verified', boothAddonActive: true })), true);
+  assert.equal(boothIsBranded(vendor({ tier: 'verified', boothAddonActive: false })), false, 'never on the tier alone');
   assert.equal(boothIsBranded(vendor({ tier: 'free', boothAddonActive: true })), false);
   assert.equal(boothIsBranded(vendor({ tier: null, boothAddonActive: true })), false);
 });

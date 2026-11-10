@@ -8,6 +8,10 @@
  *
  * (1) RUN: the next / previous / first / last panel tab, by the tab's own id, wrapping round.
  * (2) The handler is given the tab's ID — never its place in the strip.
+ *
+ * 2026-11-09 (Build 3 · Lane A): the two-sided workspace strip (`relationship-tab-shell.tsx`) is RETIRED — both sides
+ * open the ONE picked shell (`app/_components/picked/picked-shell.tsx`). The rule moved with the keys into
+ * `picked/picked-nav.ts`; this guard now reads the picked menu.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,11 +23,11 @@ import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
-const SHELL = 'app/_components/relationship-tab-shell.tsx';
+const SHELL = 'app/_components/picked/picked-shell.tsx';
 const src = stripComments(readFileSync(join(__dirname, '..', SHELL), 'utf8'));
 
 test('(1) RUN — an arrow moves ONE panel tab; a link tab in the strip never shifts the count', async () => {
-  const { nextPanelTabId } = await import('../app/_components/relationship-tab-shell');
+  const { nextPanelTabId } = await import('../app/_components/picked/picked-nav');
   // The couple's workspace: "Chat" is a link tab (a door, never picked) — the panels are the five after it.
   const panels = ['quote', 'payments', 'files', 'call', 'details'];
   assert.equal(nextPanelTabId(panels, 'quote', 'ArrowRight'), 'payments', '→ from Quote skips Payments');
@@ -51,11 +55,13 @@ test('(1) RUN — an arrow moves ONE panel tab; a link tab in the strip never sh
 });
 
 test('(2) the key handler is given the tab’s ID — never its place in the whole strip', () => {
-  assert.match(src, /onKeyDown=\{\(e\) => onKeyDown\(e, t\.id\)\}/, 'a tab hands the handler something other than its own id');
+  assert.match(src, /onKeyDown=\{\(e\) => onKeyDown\(e, m\.id\)\}/, 'a tab hands the handler something other than its own id');
   assert.match(src, /const nextId = nextPanelTabId\(ids, id, e\.key\);/, 'the handler no longer asks the one rule');
-  assert.doesNotMatch(src, /onKeyDown\(e, idx\)|\(idx [+-] 1/, 'the strip position is counted against the panels-only list again');
-  // The list it counts in is the panels only — a link tab is a door, not a place.
-  assert.match(src, /const ids = useMemo\(\(\) => visible\.filter\(\(t\) => !t\.href\)\.map\(\(t\) => t\.id\), \[visible\]\);/, 'anti-vacuity: the panel list changed shape');
+  assert.doesNotMatch(src, /onKeyDown\(e, idx\)|\(idx [+-] 1/, 'the strip position is counted against the page list again');
+  // The list it counts in is the menu's own page ids.
+  assert.match(src, /const ids = useMemo\(\(\) => menu\.map\(\(m\) => m\.id\), \[menu\]\);/, 'anti-vacuity: the page list changed shape');
   // Unhandled keys are left alone: preventDefault comes only after the rule answered.
-  assert.match(src, /if \(nextId === null\) return;\s*e\.preventDefault\(\);/, 'a key that is not the strip’s is swallowed');
+  assert.match(src, /if \(nextId === null\) return;\s*e\.preventDefault\(\);/, 'a key that is not the menu’s is swallowed');
+  // Roving focus: only the picked page is in the Tab order.
+  assert.match(src, /tabIndex=\{on \? 0 : -1\}/, 'every page is a Tab stop — the arrows are the way along the menu');
 });

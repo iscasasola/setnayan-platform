@@ -328,7 +328,7 @@ function StepShell({
 }) {
   return (
     <div
-      className="overflow-hidden rounded-xl border bg-white"
+      className="overflow-hidden rounded-xl border bg-[color:var(--m-paper)]"
       style={{ borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
     >
       <button

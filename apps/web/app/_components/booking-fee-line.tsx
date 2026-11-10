@@ -29,7 +29,7 @@ import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 /** Who the fee applies to — the visible label the ⓘ sits beside. */
 export const FEE_LINE_WHO = 'only on couples who found you here.';
 /** The second sentence behind the ⓘ. */
-export const FEE_LINE_OWN_CLIENTS = 'Bookings you bring in yourself are never charged.';
+export const FEE_LINE_OWN_CLIENTS = 'No fee on clients you bring in yourself.';
 
 export function BookingFeeLine({
   fee,
@@ -46,7 +46,7 @@ export function BookingFeeLine({
       {fee ? bookingFeeBandsLine(fee) : 'a booking fee'} —{' '}
       <InfoTip label={FEE_LINE_WHO} ariaLabel="About the booking fee" align="end">
         {fee
-          ? `Minimum fee ${bookingFeeMinimumAmount(fee)} per booking.`
+          ? `The smallest fee is ${bookingFeeMinimumAmount(fee)} a booking.`
           : 'Its rate is shown in full before you agree to any booking.'}{' '}
         {FEE_LINE_OWN_CLIENTS}
       </InfoTip>

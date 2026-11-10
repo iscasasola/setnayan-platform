@@ -1,17 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
+import * as addon from './vendor-deep-search-addon';
 import {
   deepSearchEligibility,
-  deepSearchHasFreeAllowance,
-  deepSearchCycleStartMs,
   resolveDeepSearchPricePhp,
   VENDOR_DEEP_SEARCH_FALLBACK_PHP,
-  VENDOR_DEEP_SEARCH_PERIOD_DAYS,
   type DeepSearchEligibilityInput,
 } from './vendor-deep-search-addon';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-const PERIOD_MS = VENDOR_DEEP_SEARCH_PERIOD_DAYS * DAY_MS;
 
 // ── deepSearchEligibility ────────────────────────────────────────────────────
 
@@ -54,146 +52,29 @@ test('denied: paid tier but unverified → unverified (gate order tier → verif
   });
 });
 
-// ── deepSearchHasFreeAllowance ───────────────────────────────────────────────
+// ── resolveDeepSearchPricePhp — owner 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO
+//    FREE SEARCH ON PRO/ULTRA"): the catalogue price on every run, never ₱0 ──────────────────────────────────────────
 
-test('free allowance: Pro/Enterprise yes; Solo no', () => {
-  assert.equal(deepSearchHasFreeAllowance('pro'), true);
-  assert.equal(deepSearchHasFreeAllowance('enterprise'), true);
-  assert.equal(deepSearchHasFreeAllowance('solo'), false);
-  assert.equal(deepSearchHasFreeAllowance('free'), false);
-  assert.equal(deepSearchHasFreeAllowance(null), false);
+test('price: the catalogue price on every run — never ₱0, the free search is gone', () => {
+  assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: 499 }), 499);
+  assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: 750 }), 750, 'an admin reprice flows straight through');
 });
 
-// ── resolveDeepSearchPricePhp ────────────────────────────────────────────────
-
-test('price: Solo ALWAYS pays ₱500 — free allowance never applies', () => {
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 500 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 1, cyclePricePhp: 500 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 9, cyclePricePhp: 500 }), 500);
-});
-
-test('price: Pro first search of the cycle is FREE (₱0), then ₱500', () => {
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: 500 }), 0);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 500 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 2, cyclePricePhp: 500 }), 500);
-});
-
-test('price: Enterprise also gets the first-free-then-₱500 allowance', () => {
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 0, cyclePricePhp: 500 }), 0);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 1, cyclePricePhp: 500 }), 500);
-});
-
-test('price: an admin reprice flows straight through on a paid run', () => {
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 750 }), 750);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 750 }), 750);
-});
-
-test('price: missing/invalid catalog value falls back to the fallback on a paid run', () => {
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: -5 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: null }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: Number.NaN }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  // A Pro vendor's FREE first search is ₱0 regardless of a missing catalog price.
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: null }), 0);
-});
-
-// ── deepSearchCycleStartMs ───────────────────────────────────────────────────
-
-test('cycle: current cycle start is the most recent 28-day boundary at/before now', () => {
-  const now = Date.parse('2026-07-22T00:00:00.000Z');
-  // Monthly plan: expiry a few days out. Boundaries fall on expiry − k·28d.
-  const exp = new Date(now + 5 * DAY_MS).toISOString();
-  const start = deepSearchCycleStartMs(exp, now);
-  // Nearest boundary ≤ now is expiry − 28d = now + 5d − 28d = now − 23d.
-  assert.equal(start, now - 23 * DAY_MS);
-  // now sits inside [start, start + 28d).
-  assert.ok(start <= now && now < start + PERIOD_MS);
-});
-
-test('cycle: annual plan (expiry many months out) still resets every 28 days', () => {
-  const now = Date.parse('2026-07-22T00:00:00.000Z');
-  const exp = new Date(now + 300 * DAY_MS).toISOString();
-  const start = deepSearchCycleStartMs(exp, now);
-  // now must land inside a 28-day window, and the window must be phase-aligned to
-  // expiry (expiry − start is a whole number of periods).
-  assert.ok(start <= now && now < start + PERIOD_MS);
-  assert.equal((Date.parse(exp) - start) % PERIOD_MS, 0);
-});
-
-test('cycle: exactly on a boundary — now === expiry keeps expiry as the start', () => {
-  const now = Date.parse('2026-07-22T00:00:00.000Z');
-  const exp = new Date(now).toISOString();
-  assert.equal(deepSearchCycleStartMs(exp, now), now);
-});
-
-test('cycle: missing/invalid expiry → rolling 28-day window ending now', () => {
-  const now = Date.parse('2026-07-22T00:00:00.000Z');
-  assert.equal(deepSearchCycleStartMs(null, now), now - PERIOD_MS);
-  assert.equal(deepSearchCycleStartMs(undefined, now), now - PERIOD_MS);
-  assert.equal(deepSearchCycleStartMs('not-a-date', now), now - PERIOD_MS);
-});
-
-// ── integration: cycle-start + count feeding the price ───────────────────────
-
-test('integration: a Pro vendor with a use inside the cycle now pays ₱500', () => {
-  const now = Date.parse('2026-07-22T00:00:00.000Z');
-  const exp = new Date(now + 5 * DAY_MS).toISOString();
-  const start = deepSearchCycleStartMs(exp, now); // now − 23d
-  // A use 2 days ago is inside the current cycle → counts → price ₱500.
-  const usedAt = now - 2 * DAY_MS;
-  const usesThisCycle = usedAt >= start ? 1 : 0;
-  assert.equal(usesThisCycle, 1);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle, cyclePricePhp: 500 }), 500);
-
-  // A use 25 days ago is BEFORE this cycle's start (now − 23d) → doesn't count →
-  // the free search is available again.
-  const oldUse = now - 25 * DAY_MS;
-  const usesThisCycle2 = oldUse >= start ? 1 : 0;
-  assert.equal(usesThisCycle2, 0);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: usesThisCycle2, cyclePricePhp: 500 }), 0);
-});
-
-// ── 2026-07-25 tiered band, INJECTED as the cycle price ─────────────────────
-// THE REGRESSION THIS GUARDS: resolveDeepSearchPricePhp returns ₱0 for a Pro+
-// vendor's FIRST run of the cycle *before* it reads cyclePricePhp. Replacing the
-// resolver's OUTPUT with the band price — rather than passing the band IN — would
-// silently delete the Pro+ free search, a revenue-visible regression with no
-// type error and no failing test elsewhere.
-
-test('band injection preserves the Pro+ free run of the cycle', () => {
-  for (const band of [1000, 500]) {
-    assert.equal(
-      resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: band }),
-      0,
-      `pro / band ${band}`,
-    );
-    assert.equal(
-      resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 0, cyclePricePhp: band }),
-      0,
-      `enterprise / band ${band}`,
-    );
+test('price: missing/invalid catalogue value falls back — and still never ₱0', () => {
+  for (const v of [undefined, null, 0, -5, Number.NaN]) {
+    assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: v }), VENDOR_DEEP_SEARCH_FALLBACK_PHP, String(v));
   }
+  assert.ok(VENDOR_DEEP_SEARCH_FALLBACK_PHP > 0);
 });
 
-test('band injection prices the 2nd+ run of the cycle at the band', () => {
-  assert.equal(
-    resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 500 }),
-    500,
+test('🔒 no free-search allowance survives — no allowance helper, no cycle, no was_free claim in the run action', () => {
+  for (const gone of ['deepSearchHasFreeAllowance', 'deepSearchCycleStartMs', 'countDeepSearchUsesSince', 'VENDOR_DEEP_SEARCH_PERIOD_DAYS']) {
+    assert.equal(gone in addon, false, `${gone} is exported again — the Pro/Ultra free search is back`);
+  }
+  const action = stripComments(
+    readFileSync(fileURLToPath(new URL('../app/vendor-dashboard/deep-search/actions.ts', import.meta.url)), 'utf8'),
   );
-  assert.equal(
-    resolveDeepSearchPricePhp({ tier: 'enterprise', usesThisCycle: 3, cyclePricePhp: 500 }),
-    500,
-  );
-});
-
-test('Solo has NO free allowance — it pays the entry band on every run', () => {
-  assert.equal(
-    resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 1000 }),
-    1000,
-  );
-  assert.equal(
-    resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 5, cyclePricePhp: 1000 }),
-    1000,
-  );
+  assert.doesNotMatch(action, /was_free:\s*true/, 'the run action claims a free search again');
+  assert.doesNotMatch(action, /wasFree:\s*true/, 'the run action runs a free search again');
+  assert.match(action, /requested_total_php:\s*pricePhp/, 'the one order no longer carries the resolved price');
 });

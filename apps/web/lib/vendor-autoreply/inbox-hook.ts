@@ -150,6 +150,8 @@ export async function runVendorAutoReply(
       .select('body')
       .eq('thread_id', input.threadId)
       .eq('sender_role', 'couple')
+      // 🔒 The AI never reads a private message (owner 2026-11-09) — shared lines only.
+      .is('recipient_user_id', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

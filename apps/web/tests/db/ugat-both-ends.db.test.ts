@@ -99,7 +99,10 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // 45 → 44: wish list 2/5 ships event_wish_items' writers. One to go (4/5).
 // 51 → 41 on 2026-10-26: the retired Mood Board render schema is DROPPED (migration 20271289858095), paying
 // down the 10 render rpc-no-caller rows rd/retire-mood-board-renders added.
-const EXPECTED_BASELINE_ROWS = 42;
+// 42 → 46 on 2026-11-09 (Supplier Build 3 · lane B): current_thread_ids paid down (migration 20271330575424 gave it a
+// body and the chat policies call it), and five lane-B RPCs ranked in one commit ahead of the UI that calls them —
+// each with its named payer in the baseline's header. Each .rpc() that lands takes its row out and this down by one.
+const EXPECTED_BASELINE_ROWS = 46;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

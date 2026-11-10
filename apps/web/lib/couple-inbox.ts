@@ -125,3 +125,50 @@ export async function readCoupleUnread(
     return COUPLE_UNREAD_UNKNOWN;
   }
 }
+
+/** PURE. How many messages from someone else are newer than my last read of ONE thread (never read ⇒ all of them). */
+export function unreadMessagesIn(
+  messages: ReadonlyArray<{ created_at: string }>,
+  lastReadAt: string | null,
+): number {
+  const seen = lastReadAt ? new Date(lastReadAt).getTime() : 0;
+  return messages.filter((m) => new Date(m.created_at).getTime() > seen).length;
+}
+
+/** The most a picked page's Chat badge counts (it draws "99+" past it); one read never pulls a whole thread. */
+export const PICKED_CHAT_UNREAD_CAP = 100;
+
+/**
+ * 🔴 THE PICKED PAGE'S CHAT BADGE (v8.3, approved 9 Nov: the unread count on the Chat tab). The SAME rule as the ✉ list's
+ * dot (`readCoupleUnread`: a message from someone else — a NULL sender counts — newer than my `chat_thread_reads`
+ * marker), counted for one thread, read in parallel with the page's own reads. Both sides use it: a supplier's staff
+ * user has their own marker too. `null` = the read was refused — the tab then draws no badge; the list's own dot (its
+ * own read) still says it, and nothing here says "nothing unread".
+ */
+export async function readThreadUnreadCount(
+  supabase: SupabaseClient,
+  userId: string,
+  threadId: string,
+): Promise<number | null> {
+  try {
+    const [msgRes, readRes] = await Promise.all([
+      supabase
+        .from('chat_messages')
+        .select('created_at')
+        .eq('thread_id', threadId)
+        .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`)
+        .order('created_at', { ascending: false })
+        .limit(PICKED_CHAT_UNREAD_CAP),
+      supabase.from('chat_thread_reads').select('last_read_at').eq('user_id', userId).eq('thread_id', threadId).maybeSingle(),
+    ]);
+    if (msgRes.error || readRes.error) {
+      logQueryError('readThreadUnreadCount', msgRes.error ?? readRes.error, { thread_id: threadId }, 'graceful_degrade');
+      return null;
+    }
+    const lastRead = (readRes.data as { last_read_at: string | null } | null)?.last_read_at ?? null;
+    return unreadMessagesIn((msgRes.data ?? []) as Array<{ created_at: string }>, lastRead);
+  } catch (caught) {
+    logQueryError('readThreadUnreadCount (threw)', caught, { thread_id: threadId }, 'graceful_degrade');
+    return null;
+  }
+}

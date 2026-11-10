@@ -265,7 +265,7 @@ test('every reader left on the pool read carries a stated reason', () => {
     'app/vendor-dashboard/customers/page.tsx',
     'app/vendor-dashboard/shop/promote/_components/share-your-work-data.ts',
     'app/vendor-dashboard/proposals/surface.tsx',
-    'app/vendor-dashboard/services/_components/services-manager.tsx',
+    'lib/offer-maker.server.ts',
     'app/v/[slug]/page.tsx',
     'lib/interconnect/probes.ts',
   ];
@@ -277,6 +277,8 @@ test('every reader left on the pool read carries a stated reason', () => {
   //        Shop › Services for Shop › How it is going (owner "Yes to all", 2026-10-21, item 4).
   // 7 → 6: the Recaps and Stories pages became forwards to Shop › Promote › Share your work (owner 2026-11-06), whose
   //        ONE loader reads the pool once for both lists, with the same stated reason.
+  // 6 → 6: services-manager.tsx's off-season nudge left (DECISION_LOG 2026-11-11, Build 6 Lane D); its DEMAND read of the
+  //         slow months moved with the off-season offer into the Offer Maker (lib/offer-maker.server.ts), same reason.
   assert.equal(LEFT.length, 6, 'six readers stay on the pool read — measured, not remembered');
   for (const file of LEFT) {
     const raw = readFileSync(join(ROOT, file), 'utf8');

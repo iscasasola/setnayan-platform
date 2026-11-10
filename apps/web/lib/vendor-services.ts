@@ -183,6 +183,17 @@ export type VendorServiceDiscount = {
   expires_at: string | null;
   conditions_md: string | null;
   sort_order: number;
+  /**
+   * 🏷 Set only on a candidate PROJECTED from a shop offer (`offerCandidatesFor`, lib/offers.ts — Build 6 Lane D),
+   * never on a stored `vendor_service_discounts` row:
+   *   · `then_php` — the ₱ that comes off what is left after the % (one offer mixing % and ₱; % first, owner 9 Nov);
+   *   · `event_from` / `event_to` — "Event date in a season": the EVENT window (YYYY-MM-DD) the offer is for;
+   *   · `offer` — which offer it is, and the words its badge reads.
+   */
+  then_php?: number | null;
+  event_from?: string | null;
+  event_to?: string | null;
+  offer?: { id: string; name: string; label: string } | null;
 };
 
 /**

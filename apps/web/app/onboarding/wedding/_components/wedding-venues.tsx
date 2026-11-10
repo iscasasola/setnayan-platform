@@ -25,6 +25,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BranchPinMap } from '@/app/vendor-dashboard/_components/branch-pin-map';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { ceremonyChoiceOf } from '@/lib/onboarding/wedding-cards';
 import {
   VENUES_FIRST_PAGE,
@@ -260,9 +262,16 @@ function VenueRoleRow({
         <p className="mt-2 text-xs text-ink/55">Nothing listed for these dates{query ? ' and that name' : ''} yet. Add it yourself, or pick later.</p>
       ) : null}
       {rows.length > VENUES_FIRST_PAGE ? (
-        <button type="button" className="mt-2 text-sm text-ink/60 underline" onClick={() => setFarther((v) => !v)}>
-          {farther ? 'Show fewer' : 'Show farther options ›'}
-        </button>
+        <div className="mt-2 flex">
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={farther ? ChevronUp : ChevronDown}
+            label={farther ? 'Show fewer' : 'Show farther options'}
+            aria-expanded={farther}
+            onClick={() => setFarther((v) => !v)}
+          />
+        </div>
       ) : null}
       {pick?.kind === 'listed' ? (
         <p className="mt-2 text-xs text-ink/55">On your shortlist. You book it from Suppliers, and it shows on your Event Hub once booked.</p>

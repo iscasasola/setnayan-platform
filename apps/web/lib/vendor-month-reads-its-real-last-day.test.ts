@@ -18,6 +18,7 @@ import { test } from 'node:test';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fetchVendorDayStates, fetchVendorMonthDayStates, monthDayRange } from './vendor-schedule';
+import { stripComments } from '@/lib/strip-comments';
 
 test('each month ends on its real last day — Feb 28/29, Apr 30, Nov 30, Dec 31', () => {
   assert.deepEqual(monthDayRange('2026-02'), { from: '2026-02-01', to: '2026-02-28' });
@@ -61,7 +62,7 @@ test('a refused day-state read is NULL — never [] (which draws every day free)
   assert.equal(await fetchVendorMonthDayStates(fakeClient({ data: [], error: null }).client, 'S89B-TEST', '2026-11-31'), null);
 });
 
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+const code = (src: string) => stripComments(src);
 const src = (rel: string) => code(readFileSync(rel, 'utf8'));
 
 test('the screens say a refused month or day — never draw it as free', () => {

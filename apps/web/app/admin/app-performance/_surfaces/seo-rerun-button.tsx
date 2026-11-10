@@ -14,7 +14,7 @@
 
 import { useState, useTransition } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { rerunSeoAudit } from './seo-actions';
+import { seoConsole } from './seo-actions';
 
 export function SeoRerunButton() {
   const [pending, startTransition] = useTransition();
@@ -29,7 +29,7 @@ export function SeoRerunButton() {
           startTransition(async () => {
             setResult(null);
             try {
-              setResult(await rerunSeoAudit());
+              setResult(await seoConsole());
             } catch {
               setResult({ ok: false, message: 'Re-run failed. Check server logs.' });
             }

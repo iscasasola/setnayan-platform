@@ -50,7 +50,20 @@ export type RerunResult = {
   message: string;
 };
 
-export async function rerunSeoAudit(): Promise<RerunResult> {
+/**
+ * THE ONE EXPORT of this file — the SEO console's dispatcher. No form → re-run the audit (the masthead button);
+ * `op` = 'log' | 'resolve' → the AI-answer check (Build 6 Lane K). One export, not three, because every exported
+ * server action is a Vercel route and the repo holds them to a ceiling (`scripts/lint-server-action-budget.mjs`,
+ * preference 1: reuse an existing action). Both halves answer `{ ok, message }`.
+ */
+export async function seoConsole(formData?: FormData): Promise<RerunResult> {
+  const op = formData ? String(formData.get('op') ?? '') : '';
+  if (op === 'resolve') return resolveAiAnswerDrift(formData!);
+  if (op === 'log') return logAiAnswerCheck(formData!);
+  return rerunSeoAudit();
+}
+
+async function rerunSeoAudit(): Promise<RerunResult> {
   await requireAdmin();
 
   const health = await runSeoHealthAudit();
@@ -89,15 +102,7 @@ export async function rerunSeoAudit(): Promise<RerunResult> {
  * Admin-only, re-checked here because a server action is invocable on its own (see requireAdmin above).
  */
 
-export type AiAnswerLogResult = { ok: boolean; message: string };
-
-/**
- * ONE action for the check — `op` = 'log' (an answer the AI gave) or 'resolve' (a drift row fixed). One export, not two,
- * because the repo holds exported server actions to a ceiling (`lint-server-action-budget.mjs`).
- */
-export async function aiAnswerCheck(formData: FormData): Promise<AiAnswerLogResult> {
-  return String(formData.get('op') ?? '') === 'resolve' ? resolveAiAnswerDrift(formData) : logAiAnswerCheck(formData);
-}
+export type AiAnswerLogResult = RerunResult;
 
 async function logAiAnswerCheck(formData: FormData): Promise<AiAnswerLogResult> {
   await requireAdmin();

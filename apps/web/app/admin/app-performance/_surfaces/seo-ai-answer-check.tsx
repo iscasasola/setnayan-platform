@@ -8,7 +8,7 @@
 import { useState, useTransition } from 'react';
 import { TypedRow } from '@/app/_components/form-row';
 import { AI_SAID_MAX_CHARS } from '@/lib/seo/ai-answers';
-import { aiAnswerCheck, type AiAnswerLogResult } from './seo-actions';
+import { seoConsole, type AiAnswerLogResult } from './seo-actions';
 
 export function AiAnswerCheckRow(props: {
   id: string;
@@ -30,7 +30,7 @@ export function AiAnswerCheckRow(props: {
       fd.set('verdict', verdict);
       fd.set('ai_said', said);
       try {
-        const r = await aiAnswerCheck(fd);
+        const r = await seoConsole(fd);
         setResult(r);
         if (r.ok) setSaid('');
       } catch {
@@ -106,7 +106,7 @@ export function ResolveDriftButton({ rowId }: { rowId: number }) {
             fd.set('op', 'resolve');
             fd.set('row_id', String(rowId));
             try {
-              setResult(await aiAnswerCheck(fd));
+              setResult(await seoConsole(fd));
             } catch {
               setResult({ ok: false, message: 'Could not save.' });
             }

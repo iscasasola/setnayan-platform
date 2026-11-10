@@ -266,8 +266,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // read fails CLOSED, so a bad read shows the paid price rather than a ₱0 the
   // server would refuse. Flag off → both false/0 and the card is unchanged.
   const first5FreeEnabled = isVendorAddonFirst5FreeEnabled();
+  // `event_vendors` has NO vendor SELECT policy: on this shop's session the count is a silent 0, which reads as
+  // "inside the free window" and prices the add-on at ₱0. Admin client, scoped by the shop's own id.
   const committedBookings = first5FreeEnabled
-    ? await fetchVendorCommittedBookingCount(supabase, profile.vendor_profile_id)
+    ? await fetchVendorCommittedBookingCount(createAdminClient(), profile.vendor_profile_id)
     : Number.NaN;
   const boothFirst5Free = addonIsFreeUnderFirst5({
     sku: 'ads_3d_plan',

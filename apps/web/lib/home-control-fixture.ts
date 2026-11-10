@@ -67,6 +67,25 @@ export function fixtureControlUnread(eventId: string, over: Partial<HomeControlI
 }
 
 /**
+ * 👻 A NEW EVENT, EVERY READ ANSWERED AND EMPTY (Build 5 Lane H, prototype `empty_looks_user_event_2026-11-10/` frame
+ * "Event · Today"): no guests, no Hub stage, nothing booked or agreed, no plan seeded, no chapters. Each widget draws
+ * its honest face AND its greyed Example — the opposite of `fixtureControlUnread`, which must draw none.
+ */
+export function fixtureControlEmpty(eventId: string, over: Partial<HomeControlInput> = {}): HomeControlInput {
+  return fixtureControl(eventId, {
+    next: pickHomeNext({ guide: null, hasDate: false, guests: { total: 0, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false }),
+    countdown: { value: '—', label: 'no date yet', days: null, hasDate: false, long: null, placeLine: null },
+    guests: { coming: 0, noReply: 0, toInvite: 0, declined: 0, total: 0 },
+    hub: { stage: null, publicUrl: null, where: 'No address yet', dayShort: null, guide: null },
+    suppliers: { booked: 0, of: 6, toDecide: [], replied: 0 },
+    budget: { paidPhp: 0, owingPhp: 0, pays: [] },
+    checklist: { done: 0, total: 0, open: 0, dueThisWeek: 0, next: [] },
+    schedule: { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false },
+    ...over,
+  });
+}
+
+/**
  * 📅 THE SCHEDULE WIDGET'S SAMPLE — the approved prototype's own lines (`home_frames_where_you_act_2026-11-01/`, its
  * "Pretend it is" states; labelled there as sample data): 40 days out, one week out, the day at 9:15 AM.
  */

@@ -7,13 +7,23 @@
  * prototype (`prototypes/empty_looks_user_event_2026-11-10/`) compares what the app draws.
  *
  *   ?board=user        the user dashboard's shelves, empty: Planning · Now happening · Worth planning · Ended · Told
- *   &example=0         …as shipped on origin/main before Lane H (the "Now" frame)
+ *   ?board=event       the event parts with no lab of their own: Hub (the real `HubStage`, no address) · Schedule
+ *                      (the empty rail's panel) · Memories (the gallery's empty line)
+ *   &example=0         …as shipped on origin/main before Lane H (the "Now" frame; the Hub keeps its Example — it lives in HubStage)
+ *
+ * The other event parts are drawn by their own labs: `/dev/home-lab?empty=1` (Today) · `/dev/guests-lab?empty=1` ·
+ * `/dev/suppliers-lab?…&empty=1` (Booked) · `/dev/budget-lab?state=empty`.
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CollectionEmptyState } from '@/app/_components/collection-card';
 import { PlanningExample, ShelfExample } from '@/app/dashboard/(launcher)/_components/board-examples';
 import { EmptyYear } from '@/app/dashboard/(launcher)/_components/year-moments-strip';
+import { HubStage } from '@/app/dashboard/[eventId]/launch/_components/hub-stage';
+import { ChaptersExample } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
+import { MemoriesExample } from '@/app/_components/memories/event-memories-gallery';
+import { resolveHubFacts, resolveHubStageSelection, resolveHubStanding } from '@/lib/event-hub-control';
+import { PUBLIC_SITE_PAGES } from '@/lib/public-site-pages';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +100,43 @@ function UserBoard({ example }: { example: boolean }) {
   );
 }
 
+/** A new event, every read answered: the Hub with no address, the empty rail, the empty gallery. */
+function EventBoard({ example }: { example: boolean }) {
+  const read = { measured: true, eventDate: null, eventEndDate: null, clearedAt: null, timezone: 'Asia/Manila', slug: null };
+  const standing = resolveHubStanding(read);
+  const facts = resolveHubFacts(read, { shared: true, measured: true, invited: 0, replied: 0 });
+  return (
+    <>
+      <Shelf title="Event Hub" sub="no address yet">
+        <HubStage
+          slug={null}
+          standing={standing}
+          facts={facts}
+          livePhase={standing.stage}
+          initialPhase={resolveHubStageSelection({ param: undefined, live: standing.stage })}
+          stages={PUBLIC_SITE_PAGES.map((p) => ({ phase: p.phaseParam, blurb: p.blurb }))}
+          editHref="/dev/empty-looks-lab"
+          rolesByPhase={{}}
+          armedRole={null}
+        />
+      </Shelf>
+      <Shelf title="Schedule" sub="event day">
+        {/* The empty rail's panel as `EmptyRail` draws it for an editor with no templates. */}
+        <div className="max-w-[520px] rounded-2xl bg-white/90 px-5 pb-4 pt-5 shadow-[0_28px_54px_-30px_rgba(30,26,18,0.5)]">
+          <p className="text-[13.5px] text-ink/65">Nothing on the rail yet — tap a time to add the first moment.</p>
+          {example ? <ChaptersExample /> : null}
+        </div>
+      </Shelf>
+      <Shelf title="Memories" sub="all">
+        <div className="-mx-4" style={{ ['--mem-cols' as string]: '3' }}>
+          <p className="px-4 py-10 text-center text-[14px] text-ink/60">Your photos land here as your guests and suppliers shoot.</p>
+          {example ? <MemoriesExample gridClass="grid gap-[1.5px] [grid-template-columns:repeat(var(--mem-cols),minmax(0,1fr))]" /> : null}
+        </div>
+      </Shelf>
+    </>
+  );
+}
+
 export default async function EmptyLooksLab({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -99,7 +146,7 @@ export default async function EmptyLooksLab({ searchParams }: { searchParams: Pr
       <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55">
         Empty looks lab · {example ? 'Proposed' : 'Now'}
       </p>
-      <UserBoard example={example} />
+      {sp.board === 'event' ? <EventBoard example={example} /> : <UserBoard example={example} />}
     </main>
   );
 }

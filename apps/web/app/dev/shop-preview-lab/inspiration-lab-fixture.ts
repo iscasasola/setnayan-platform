@@ -72,8 +72,8 @@ export const LAB_GROWN_CARD: ServiceCard = withInspirationLooks(
     inclusionsMore: 3,
     meta: 'Crew of 3 · crew meal not included',
     discountLabel: '10% off · early booking',
-    priceDetail: '₱620 / guest · min 150 guests',
-    notIncluded: ['Crew meal not included', 'Transport: ₱1,500'],
+    priceDetail: `${formatPhpRounded(620)} / guest · min 150 guests`,
+    notIncluded: ['Crew meal not included', `Transport: ${formatPhpRounded(1500)}`],
     photos: [
       '/realstories/jack-jill-g1.jpg',
       '/realstories/jack-jill-g2.jpg',

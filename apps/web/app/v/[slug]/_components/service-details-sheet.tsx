@@ -172,12 +172,12 @@ export function ServiceDetailsSheet({
     </p>
   ) : null;
 
-  const sections: { key: SectionKey; title: string; count: string; body: ReactNode }[] = [];
+  const sections: { key: SectionKey; title: string; note: string; body: ReactNode }[] = [];
   if (inclusions.length > 0) {
     sections.push({
       key: 'included',
       title: 'What’s included',
-      count: lines(inclusions.length, 'line', 'lines'),
+      note: lines(inclusions.length, 'line', 'lines'),
       body: (
         <>
           <ul className="space-y-0.5">
@@ -198,7 +198,7 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'not',
       title: 'Not included',
-      count: 'billed by the quote',
+      note: 'billed by the quote',
       body: (
         <>
           <ul className="flex flex-wrap gap-1.5">
@@ -218,14 +218,14 @@ export function ServiceDetailsSheet({
     });
   }
   if (inclusions.length === 0 && c.notIncluded.length === 0 && servesLine) {
-    sections.push({ key: 'serves', title: 'Serves', count: 'who it is for', body: servesLine });
+    sections.push({ key: 'serves', title: 'Serves', note: 'who it is for', body: servesLine });
   }
   // The record this card has earned — the SAME compiled object the card renders, from the page's one batched read.
   if (c.record) {
     sections.push({
       key: 'record',
       title: 'The record',
-      count: `Booked ${formatCount(c.record.bookedCount)}×`,
+      note: `Booked ${formatCount(c.record.bookedCount)}×`,
       body: <CardRecordSection record={c.record} variant="couple" rating={c.recordRating} />,
     });
   }
@@ -235,7 +235,7 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'reviews',
       title: 'Reviews',
-      count: `${formatCount(n)} · ${avg.toFixed(1)}★`,
+      note: `${formatCount(n)} · ${avg.toFixed(1)}★`,
       body: <CardReviewsBlock reviews={c.reviews} />,
     });
   }
@@ -244,7 +244,7 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'photos',
       title: 'Photos',
-      count: formatCount(photos.length + couples.length),
+      note: formatCount(photos.length + couples.length),
       body: (
         <>
           {photos.length > 0 ? (
@@ -300,7 +300,7 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'clip',
       title: 'Clip',
-      count: 'up to 30 s',
+      note: 'up to 30 s',
       body: playing ? (
         // Plays where it was tapped — the row becomes the player, nothing opens over it.
         // eslint-disable-next-line jsx-a11y/media-has-caption
@@ -328,7 +328,7 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'inspiration',
       title: 'Inspiration',
-      count: formatCount(looks.length),
+      note: formatCount(looks.length),
       body: (
         <ul className="grid grid-cols-3 gap-1" data-grown-inspiration="">
           {looks.map((l) => (
@@ -434,12 +434,12 @@ export function ServiceDetailsSheet({
                 }}
                 data-grown-head={s.key}
                 data-stuck={stuck === s.key ? '' : undefined}
-                aria-label={`${s.title} · ${s.count} · back to its top`}
+                aria-label={`${s.title} · ${s.note} · back to its top`}
               >
                 <span id={`grown-h-${s.key}`} className="text-[14px] font-semibold text-ink">
                   {s.title}
                 </span>
-                <small className="ml-auto min-w-0 truncate text-right text-[12px] text-ink/55">{s.count}</small>
+                <small className="ml-auto min-w-0 truncate text-right text-[12px] text-ink/55">{s.note}</small>
               </button>
               <div className="px-4 pb-3 pt-1">{s.body}</div>
             </section>

@@ -12,7 +12,7 @@
  * than one coverage group — a single-group vendor has nothing to filter.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
 import type { CoupleLook } from '@/lib/service-card-view-model';
 import Image from 'next/image';
@@ -59,8 +59,11 @@ export function ServicesGallery({
    */
   openServicePublicId = null,
   viewerSignedIn = false,
+  shopName = null,
 }: {
   groups: ServiceGroup[];
+  /** The shop's name — the grown card's face says "by {shop}" under the card's name. */
+  shopName?: string | null;
   /**
    * 👁 A SIGNED-IN viewer (owner 2026-10-30, "set who gets to see it"): after the page, ask once for the NON-public
    * couple photos this viewer is inside the audience of (the database decides; signed URLs). The server-rendered
@@ -72,6 +75,8 @@ export function ServicesGallery({
   openServicePublicId?: string | null;
 }) {
   const [active, setActive] = useState<string>(ALL);
+  // 🃏 The tapped card's box — the Service card grown rises from it and falls back into it (Build 5 Lane C).
+  const originRef = useRef<HTMLElement | null>(null);
 
   const cardIds = useMemo(() => groups.flatMap((g) => g.cards.map((c) => c.id)), [groups]);
   const [extraLooks, setExtraLooks] = useState<Record<string, CoupleLook[]>>({});
@@ -158,7 +163,10 @@ export function ServicesGallery({
                   <ServiceCardView
                     card={withViewerLooks(c)}
                     detailsEnabled={detailsEnabled}
-                    onOpen={() => setOpenCardId(c.id)}
+                    onOpen={(from) => {
+                      originRef.current = from;
+                      setOpenCardId(c.id);
+                    }}
                   />
                 </li>
               ))}
@@ -174,6 +182,8 @@ export function ServicesGallery({
         <ServiceDetailsSheet
           card={openCard}
           inquireMode={inquireMode}
+          shopName={shopName}
+          from={originRef.current}
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

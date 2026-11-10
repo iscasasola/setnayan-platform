@@ -96,6 +96,7 @@ import { ServiceCardFace } from './service-card-face';
 import { commitVendorService, deleteVendorService } from '../actions';
 import { canPublishService, inclusionsAreSet } from '@/lib/service-publish-gate';
 import { priceWaitsFor, priceWaitsLine } from '@/lib/price-waits';
+import { BOOKED_PRICE_STAYS_SUPPLIER, saysBookedPriceStays } from '@/lib/booked-price-words';
 import {
   addCoverageForCard,
   updateCoverageServesInPlace,
@@ -250,6 +251,7 @@ export function CanvasMaker({
   detailsKind = null,
   recordSlot = null,
   editing = null,
+  bookedNow,
   errorLine = null,
   returnTo,
   unread = [],
@@ -314,6 +316,12 @@ export function CanvasMaker({
   recordSlot?: ReactNode;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
+  /**
+   * 🔒 How many bookings this card has (`readCardBookedCount`) — `null` = could not be read, `undefined` = not measured
+   * (a new card, a lab). A booked or unread card says on its price row that a booking holds its agreed price
+   * (`BOOKED_PRICE_STAYS_SUPPLIER`, DECISION_LOG 2026-11-10 "WHAT YOU BOOK IS YOUR PRICE").
+   */
+  bookedNow?: number | null;
   /** A refusal carried back on the address (`?error=`), said on the card. */
   errorLine?: string | null;
   /** This screen's own address — the save returns here with a refusal. */
@@ -1156,6 +1164,11 @@ export function CanvasMaker({
                 }
               />
               <p className={HINT} data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</p>
+              {editing && bookedNow !== undefined && saysBookedPriceStays(bookedNow) ? (
+                <p className={HINT} data-booked-price-stays="">
+                  {BOOKED_PRICE_STAYS_SUPPLIER}
+                </p>
+              ) : null}
               <div className="mt-3">
                 {priceWaits ? <p className="text-[14px] text-ink/70" data-maker-price-waits="">{priceWaitsLine(priceFacts)}</p> : null}
                 {/* The box waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}

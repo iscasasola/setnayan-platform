@@ -121,12 +121,17 @@ test('1b · the stage is the shared Badge — soft fill, no border (look call 7)
   assert.doesNotMatch(ROSTER, /border:\s*`1px solid/, 'the roster hand-draws a bordered pill again');
 });
 
-test('1c · the row opens; its door says its next step and goes where the step is taken', async () => {
+test('1c · the row opens where its step is taken; its door (from 701) says its next step', async () => {
   const html = await render(FIXTURE);
   assert.doesNotMatch(html, /data-row-next/, 'the next-step pill is back inside the row');
-  // Opened, each row's ONE door names its next step (its accessible name) — the chat, where a booking ask is answered.
-  // 2026-10-30 · a row is the EVENT — "<the event's own name> · <Kind> · <Mon D>" (`eventRowTitle`), never one person's
-  // first name (owner: "Customers still show people and not events"); the people are inside, under Hosted by.
+  // 🚪 ON A PHONE THE ROW IS THE DOOR (owner 11 Nov — every-client-row-opens-the-picked-client.test.ts): pressing it opens
+  // the picked client on the page its step is taken on. 2026-10-30 · a row is the EVENT — "<the event's own name> ·
+  // <Kind> · <Mon D>" (`eventRowTitle`), never one person's first name; the people are inside, under Hosted by.
+  const { hrefFor } = await import('./_components/customers-roster');
+  for (const r of FIXTURE) {
+    assert.ok(html.includes(`data-opens-to="${hrefFor(r)}"`), `${r.title} does not open where its step is taken (${hrefFor(r)})`);
+  }
+  // From 701 the opened row's ONE door names its next step (its accessible name) — drawn in the right column.
   assert.match(html, /aria-label="Ana &amp; Miguel · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — Reply"/);
   assert.match(html, /aria-label="Katrina Ocampo · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — See the quote"/);
   assert.match(html, /aria-label="Jun &amp; Liza Cruz · Wedding · Oct 4 — See details"/);

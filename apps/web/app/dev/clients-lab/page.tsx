@@ -45,6 +45,7 @@ import { hostRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/h
 import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-list';
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
 import { LabDetailsDecisions } from './lab-decisions';
+import { LabAskingPick } from './lab-asking';
 import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
 import { ScheduleCalendar } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-calendar';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -102,7 +103,11 @@ const ROSTER = (lane: string) =>
         data="booking"
         title={c.label}
         line={['8 Nov · Booked', '8 Nov · Booked', '10 Nov · Booked', '12 Nov · Asked'][i]}
-        href={`/dev/clients-lab?v=pick&page=${clientLandingPage(i === 3 ? { asking: true, hasChat: true } : { booked: true, hasChat: true })}`}
+        href={
+          i === 3
+            ? `/dev/clients-lab?v=pick&stage=asking&page=${clientLandingPage({ asking: true, hasChat: true })}`
+            : `/dev/clients-lab?v=pick&page=${clientLandingPage({ booked: true, hasChat: true })}`
+        }
       />
     </div>
   ));
@@ -327,6 +332,11 @@ export default async function ClientsLabPage({ searchParams }: Props) {
         </main>
       </div>
     );
+  }
+
+  // 🚪 A NEW REQUEST opens the same picked client (owner 11 Nov): the unbooked menu, on Chat, the ask as its top band.
+  if (v === 'pick' && one(sp.stage) === 'asking') {
+    return <LabAskingPick page={(one(sp.page) ?? 'chat') as PickedClientPage} accepted={one(sp.accepted) === '1'} />;
   }
 
   if (v === 'pick') {

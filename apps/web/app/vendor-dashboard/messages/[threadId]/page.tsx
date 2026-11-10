@@ -1885,11 +1885,15 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             </InfoTip>
           </p>
           <EventLinesBody lines={askLines} />
+          {/* 💬 Inside the picked client (owner 11 Nov, "Accepted it and still did not show the chatbox") Ask and Accept stay
+              IN its Chat page — never out to another screen; full screen, Accept starts the quote in this chat as shipped. */}
           <InquiryAnswers
             threadId={threadId}
             returnTo={`/vendor-dashboard/messages/${threadId}`}
             pinned
-            acceptTo={`/vendor-dashboard/messages/${threadId}?compose=quote`}
+            {...(embedded
+              ? { chatHref: `/vendor-dashboard/clients/${thread.event_id}?tab=chat` }
+              : { acceptTo: `/vendor-dashboard/messages/${threadId}?compose=quote` })}
             acceptInquiry={acceptInquiry}
             declineInquiry={declineInquiry}
           />

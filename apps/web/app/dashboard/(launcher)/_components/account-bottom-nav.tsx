@@ -14,6 +14,9 @@ import type { AccountBarTab } from '@/lib/account-bar';
  * · Memories · People, plus Shop for an account that owns one. WHICH tabs is not
  * decided here — the layouts ask `accountBarTabs()` (lib/account-bar.ts) and
  * hand the answer in, so the server, this bar and the guard share one rule.
+ * 🔁 Their ORDER was re-ruled 11 Nov 2026 (owner: *"Events - People - Shop -
+ * Memories - Discover"*, DECISION_LOG "THE ACCOUNT BAR ORDER"); that order is
+ * also `accountBarTabs()`'s, and the record below is written in it.
  *
  * ── WHAT IT REPLACES ───────────────────────────────────────────────────────────
  * `HomePillNav`, a hand-rolled floating glass pill (Home · Memories · ＋ · People
@@ -27,8 +30,8 @@ import type { AccountBarTab } from '@/lib/account-bar';
  *   · "Spaces" → "Shop", and only for an owner. Admin is never a tab.
  *
  * ── EVERY TARGET IS AN EXISTING, RENDERED DOOR ─────────────────────────────────
- * `/dashboard?hub=1` · `/` · `/dashboard/library` · `/dashboard/people` ·
- * `/vendor-dashboard`. Events carries `?hub=1` for the reason the avatar sheet's
+ * `/dashboard?hub=1` · `/dashboard/people` · `/vendor-dashboard` ·
+ * `/dashboard/library` · `/`. Events carries `?hub=1` for the reason the avatar sheet's
  * Home does: plain `/dashboard` re-fires the board's auto-jump for a couple with
  * one upcoming event, so "Events" would drop them back inside the wedding they
  * were leaving. The tab still LIGHTS on the board's path (matching ignores the
@@ -52,26 +55,6 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
     activeMatchAlsoExact: ['/dashboard'],
     activeMatch: '/dashboard/create-event',
   },
-  discover: {
-    key: 'discover',
-    label: 'Discover',
-    href: '/',
-    // The rail's glyph for the same door (owner 2026-09-21: Compass is Suppliers).
-    icon: Telescope,
-    activeMatch: '/',
-    activeMatchExact: true,
-    // The signed-in search's results page is Discover's answer — the widest
-    // place, everything you may reach (lib/shell-search.ts) — so Discover is
-    // lit there. Where Discover is not a tab (the store app), nothing is.
-    activeMatchAlsoExact: ['/dashboard/search'],
-  },
-  memories: {
-    key: 'memories',
-    label: 'Memories',
-    href: '/dashboard/library',
-    icon: Sparkles,
-    activeMatch: '/dashboard/library',
-  },
   people: {
     key: 'people',
     label: 'People',
@@ -85,6 +68,26 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
     href: '/vendor-dashboard',
     icon: Store,
     activeMatch: '/vendor-dashboard',
+  },
+  memories: {
+    key: 'memories',
+    label: 'Memories',
+    href: '/dashboard/library',
+    icon: Sparkles,
+    activeMatch: '/dashboard/library',
+  },
+  discover: {
+    key: 'discover',
+    label: 'Discover',
+    href: '/',
+    // The rail's glyph for the same door (owner 2026-09-21: Compass is Suppliers).
+    icon: Telescope,
+    activeMatch: '/',
+    activeMatchExact: true,
+    // The signed-in search's results page is Discover's answer — the widest
+    // place, everything you may reach (lib/shell-search.ts) — so Discover is
+    // lit there. Where Discover is not a tab (the store app), nothing is.
+    activeMatchAlsoExact: ['/dashboard/search'],
   },
 };
 

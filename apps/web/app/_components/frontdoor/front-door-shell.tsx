@@ -14,7 +14,7 @@
  *
  * ─── THE RAIL, IN ORDER (owner 2026-10-01, built 2026-10-23) ──────────────
  *   Signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
- *   Signed in   Discover · My Home (Events · Memories · People · shop · HQ) ·
+ *   Signed in   Discover · My Home (Events · People · shop · Memories · HQ) ·
  *               Features
  *   then the small print. No Planner · Builder · Together · Studio lists —
  *   /features shows every tool. Inside an event the rail is focused: one way
@@ -1473,14 +1473,6 @@ export function FrontDoorShell({
                   <span className="fd-icon-caption">Events</span>
                   <Count value={account.eventCount} />
                 </Link>
-                <Link href="/dashboard/library" {...rowProps('alaala')}>
-                  <RailIcon as={Sparkles} />
-                  <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.alaala, 'Memories')}
-                  </span>
-                  <span className="fd-icon-caption">Memories</span>
-                  <Count value={account.alaalaCount} />
-                </Link>
                 {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
                     *"this is the your year concept integrated here. deleting
                     the your year menu"*).
@@ -1576,7 +1568,8 @@ export function FrontDoorShell({
                 heading; they now follow People directly. They stay
                 CAPABILITY-GATED — each renders only for someone the door
                 admits, never as a greyed row — so a couple with neither sees
-                exactly Events · Memories · People.
+                exactly Events · People · Memories (the order re-ruled
+                2026-11-11, "THE ACCOUNT BAR ORDER" — Memories follows Shop).
               */}
               {account.shopName ? (
                 <Link href="/vendor-dashboard" {...rowProps('shop')}>
@@ -1592,6 +1585,18 @@ export function FrontDoorShell({
                   <span className="fd-ct">your shop</span>
                 </Link>
               ) : null}
+              {/* MEMORIES — AFTER SHOP, NOT AFTER EVENTS (owner 2026-11-11, verbatim: *"arrangement of use dashboard
+                  should be Events - People - Shop - Memories - Discover"*, DECISION_LOG "THE ACCOUNT BAR ORDER"). The
+                  rail's My Home reads in the bar's order; HQ, which is never a bar tab, stays last (2026-09-21).
+                  Discover is this rail's first row, shared with the signed-out rail — it did not move. */}
+              <Link href="/dashboard/library" {...rowProps('alaala')}>
+                <RailIcon as={Sparkles} />
+                <span className="fd-label-text">
+                  {slotLabel(RAIL_SLOT.alaala, 'Memories')}
+                </span>
+                <span className="fd-icon-caption">Memories</span>
+                <Count value={account.alaalaCount} />
+              </Link>
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
                   <span className="fd-gi" aria-hidden="true">

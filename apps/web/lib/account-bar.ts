@@ -24,11 +24,19 @@
  *     so if `/` is ever refused in a shell again the bar drops the tab in the
  *     same change instead of drawing a press that lands where you stood.
  *
+ *
+ * 🔁 THE ORDER, RE-RULED (owner, 11 Nov 2026, verbatim: *"arrangement of use
+ *    dashboard should be Events - People - Shop - Memories - Discover"* —
+ *    DECISION_LOG 2026-11-11 "THE ACCOUNT BAR ORDER"). Which tabs, and for
+ *    whom, is unchanged from the rulings above; only their order is new. Shop
+ *    still draws only for an owner and Discover only where `/` opens — each in
+ *    its ruled place when drawn.
+ *
  * Pure and dependency-free so the server layouts, the client bar and the guard
  * all ask the same function (`app/dashboard/(launcher)/the-account-bar-is-the-ruling.test.ts`).
  */
 
-export type AccountBarTab = 'events' | 'discover' | 'memories' | 'people' | 'shop';
+export type AccountBarTab = 'events' | 'people' | 'shop' | 'memories' | 'discover';
 
 /** Does this account OWN a shop (not merely work in one)? The prototype's gate. */
 export function ownsAShop(ctx: { hasVendor: boolean; canOpenShop: boolean }): boolean {
@@ -43,9 +51,11 @@ export function accountBarTabs({
   ownsShop: boolean;
   discoverOpen: boolean;
 }): AccountBarTab[] {
-  const tabs: AccountBarTab[] = ['events'];
-  if (discoverOpen) tabs.push('discover');
-  tabs.push('memories', 'people');
+  // THE ORDER (owner 2026-11-11, DECISION_LOG "THE ACCOUNT BAR ORDER"): Events · People · Shop · Memories ·
+  // Discover. The two gated tabs keep their places when they are drawn and leave no gap when they are not.
+  const tabs: AccountBarTab[] = ['events', 'people'];
   if (ownsShop) tabs.push('shop');
+  tabs.push('memories');
+  if (discoverOpen) tabs.push('discover');
   return tabs;
 }

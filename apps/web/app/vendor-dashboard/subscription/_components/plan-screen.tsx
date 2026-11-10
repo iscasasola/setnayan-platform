@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Search } from 'lucide-react';
+import { tierHasLapsed } from '@/lib/vendor-tier-lapse';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -161,11 +162,29 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // Soft-probe tier_state + tier_expires_at + verification_state (none in the
   // shared profile select). verification_state gates the Vendor AI add-on.
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
+  const readTierRow = () =>
+    supabase
+      .from('vendor_profiles')
+      .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+  let { data: tierRow } = await readTierRow();
+  // ⏳ A PLAN THAT HAS RUN OUT IS ENDED BEFORE THIS SCREEN DRAWS IT (Lane G · Step 0 rows 14–15, 2026-11-10).
+  // The layout's lapse sweep runs AFTER the response, so this page — the one that prints the plan and its day —
+  // drew the ended plan as current ("You are on Solo · until Oct 19, 2026") on the visit that ended it. When the
+  // row says the day has passed, ask the same sweep now and read again. Downgrade-only and idempotent; a refused
+  // sweep leaves the first read in place (the layout's after() still runs).
+  if (tierHasLapsed(tierRow as { tier_state?: string | null; tier_expires_at?: string | null } | null, Date.now())) {
+    const { error: sweepErr } = await supabase.rpc('sweep_vendor_tier_expiry', {
+      p_vendor_id: profile.vendor_profile_id,
+    });
+    if (sweepErr) {
+      console.error('[supabase-error] subscription/plan-screen · rpc:sweep_vendor_tier_expiry', sweepErr);
+    } else {
+      const reread = await readTierRow();
+      if (!reread.error && reread.data) tierRow = reread.data;
+    }
+  }
   const currentTier = asVendorTier(
     (tierRow as { tier_state?: string | null } | null)?.tier_state,
   );

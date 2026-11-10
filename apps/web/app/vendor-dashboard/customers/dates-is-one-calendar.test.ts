@@ -35,7 +35,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
-import { asksByDate, capacityLine, dayAnswerOf, dayRowsOf, dayStateOf, openAsksOf } from '@/lib/vendor-dates';
+import { asksByDate, capacityLine, dayAnswerOf, dayRowsOf, dayStateOf, HOW_MANY_A_DAY_ANCHOR, openAsksOf, SET_HOW_MANY_A_DAY_HREF } from '@/lib/vendor-dates';
 import { dayStateWords } from '@/lib/calendar-grid';
 
 /* The Dates rows save through the stay door (owner 2026-10-26 "a save never resets the screen"); its registry is
@@ -185,14 +185,21 @@ test('3 · "Free" only where a schedule says so; a shop with no schedule is "Not
   assert.deepEqual(rows.map((r) => r.title), ['Nothing on this day']);
   assert.equal(capacityLine([]), 'Not set');
   assert.match(FOLDS, /data-dates-not-set=""[^>]*>\s*Not set\./, 'How many a day with no schedule does not say "Not set"');
-  assert.match(PAGE, /Schedule not set/, 'Dates with no schedule does not say so over the month');
+  // Owner 2026-11-10: "Schedule not set — open ⚙ › How many a day" read as "how many DAYS" — the line now says what it
+  // is for and carries "Set it", which opens the ⚙ straight at How many a day.
+  assert.match(PAGE, /Set how many events you take a day so couples see if your date is open\./, 'Dates with no schedule does not say so over the month');
+  assert.match(PAGE, /href=\{SET_HOW_MANY_A_DAY_HREF\}[^>]*>\s*Set it\s*</, 'the month\'s no-schedule line has no "Set it"');
+  assert.match(FOLDS, /title="How many a day"[^>]*anchor=\{HOW_MANY_A_DAY_ANCHOR\}/, '"Set it" has no How many a day fold to open');
+  assert.equal(SET_HOW_MANY_A_DAY_HREF, `/vendor-dashboard/customers?seg=dates&gear=1#${HOW_MANY_A_DAY_ANCHOR}`);
   // The answer: none without a schedule; then the four words, each where it is true.
   assert.equal(dayAnswerOf({ schedules: 0, capacity: 0, taken: 0, asking: 0, closedWhy: null, partWords: [] }), null, 'a shop with no schedule was told a day is free');
   assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 0, asking: 0, closedWhy: null, partWords: [] })?.word, 'Free');
   assert.deepEqual(dayAnswerOf({ schedules: 1, capacity: 2, taken: 1, asking: 0, closedWhy: null, partWords: ['morning'] }), { tone: 'ok', word: 'Still has room', line: '1 booked · 1 more fits · morning not available' });
   assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 1, asking: 0, closedWhy: null, partWords: [] })?.word, 'Full');
   assert.equal(dayAnswerOf({ schedules: 1, capacity: 1, taken: 1, asking: 0, closedWhy: 'Masses', partWords: [] })?.word, 'Not available');
-  assert.match(DAY, /Schedule not set — open How many a day/, 'the day with no schedule does not say "Not set"');
+  assert.match(DAY, /Set how many events you take a day so couples see if your date is open\./, 'the day with no schedule does not say "Not set"');
+  assert.match(DAY, /href=\{SET_HOW_MANY_A_DAY_HREF\}[^>]*>\s*Set it\s*</, 'the day with no schedule has no "Set it"');
+  assert.doesNotMatch(PAGE + DAY, /Schedule not set/, 'the "how many DAYS" misread is back');
   for (const [name, src] of [['customers-calendar', MONTH], ['dates-folds', FOLDS]] as const) {
     // "Free on every plan" (a venue's halls, 2026-10-14 🏛) is about the plan, never a day.
     assert.doesNotMatch(src, /\bFree\b(?! on every plan)/, `${name} calls a day "Free" without the day's answer`);

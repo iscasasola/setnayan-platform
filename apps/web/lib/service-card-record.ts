@@ -507,3 +507,22 @@ export async function fetchServiceCardRecord(
   const map = await fetchServiceCardRecords(supabase, [vendorServiceId]);
   return map.get(vendorServiceId) ?? EMPTY_CARD_RECORD;
 }
+
+/**
+ * 🔒 HOW MANY BOOKINGS THIS ONE CARD HAS — or `null` when that could not be read (Build 5 Lane C, "THE BOOKED PRICE
+ * STAYS"). The Card Maker's price row says "Couples who already booked keep their price" on a booked card
+ * (`lib/booked-price-words.ts`). Unlike `fetchServiceCardRecords` (fail-soft to an empty map, which a decoration can
+ * afford), this keeps a refused read apart from "nobody booked": an error is `null`, never `0` (T29).
+ */
+export async function readCardBookedCount(supabase: SupabaseClient, vendorServiceId: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc('service_card_records', { p_service_ids: [vendorServiceId] });
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error('[supabase-error] service card booked count', error);
+    return null;
+  }
+  const row = ((data ?? []) as { vendor_service_id?: unknown; record?: unknown }[]).find(
+    (r) => r?.vendor_service_id === vendorServiceId,
+  );
+  return row ? compileCardRecord(row.record).bookedCount : 0;
+}

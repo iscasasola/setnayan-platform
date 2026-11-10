@@ -34,6 +34,7 @@ import {
   notifyWaitlistForFreedDate,
   notifyWaitlistForFreedRange,
 } from '@/lib/vendor-waitlist';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -224,6 +225,7 @@ export async function addManualBlock(formData: FormData): Promise<void> {
   const { error } = await insertManualBlock(supabase, profile.vendor_profile_id, { poolId, startDate, endDate, label, repeat, dayPart });
   if (error) fail('save_failed');
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   if (inPlace) {
     revalidatePath('/vendor-dashboard');
@@ -325,6 +327,7 @@ export async function importExternalClient(formData: FormData): Promise<void> {
     if (more.error || (more.data as { status?: string } | null)?.status !== 'ok') backToCalendar(formData, 'save_failed');
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   const newBlock = (data as { block_id?: string } | null)?.block_id ?? null;
   backToCalendar(formData, 'client_imported', typeof newBlock === 'string' ? newBlock : null);
@@ -396,6 +399,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
     );
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   if (inPlace) return;
   backToCalendar(formData, 'block_removed');
@@ -490,6 +494,7 @@ export async function updateWaitlistSettings(formData: FormData): Promise<void> 
     .update({ waitlist_enabled: enabled, max_waitlist_acceptances: cap })
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) backToCalendar(formData, 'save_failed');
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, tierCap === 0 ? 'waitlist_not_in_plan' : 'waitlist_settings_saved');
 }
@@ -608,6 +613,7 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     }
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'waitlist_picked');
 }
@@ -673,6 +679,7 @@ export async function setCalendarDayState(formData: FormData): Promise<void> {
   if (status === 'bad_state' || status === 'bad_date') backToCalendar(formData, 'bad_dates');
   if (status !== 'ok' && status !== 'cleared') backToCalendar(formData, 'save_failed');
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
@@ -695,6 +702,7 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) backToCalendar(formData, 'save_failed');
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, capacity === raw ? 'capacity_saved' : 'capacity_clamped');
 }
@@ -770,6 +778,7 @@ export async function reassignCategoryPool(formData: FormData): Promise<void> {
     }
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'pool_saved');
 }
@@ -836,6 +845,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
     if (memErr) backToCalendar(formData, 'save_failed');
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_created');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_created');
@@ -887,6 +897,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
   // The hall sheet says nothing about services — a hall's cards are said on each card ("Uses"), so its save must
   // never read as "no services on this schedule" and empty the membership.
   if (isHall && str(formData, 'is_hall') === 'on') {
+    revalidateShopPage(profile.vendor_profile_id);
     revalidateScheduleSurfaces();
     backToCalendar(formData, 'calendar_saved');
   }
@@ -932,6 +943,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
       .in('vendor_service_id', toRemove);
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   if (str(formData, 'return_to') === 'dates') backToCalendar(formData, 'calendar_saved');
   backToCalendarPool(str(formData, 'return_month'), poolId, 'calendar_saved');

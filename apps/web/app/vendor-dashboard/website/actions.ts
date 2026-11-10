@@ -18,6 +18,7 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ plan item — Solo and up since
@@ -240,6 +241,7 @@ export async function setShopPublished(show: boolean): Promise<ShowPageResult> {
     console.error('[supabase-error] app/vendor-dashboard/website/actions.ts · setShopPublished', error.message);
     return { ok: false, error: 'That did not save. Nothing changed — please try again.' };
   }
+  revalidateShopPage(owner.vendorId);
   revalidatePath('/vendor-dashboard/website');
   return { ok: true, shown: show };
 }

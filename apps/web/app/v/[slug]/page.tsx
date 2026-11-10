@@ -219,6 +219,9 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { ShopViewBeacon } from './_components/shop-view-beacon';
+import { wearShopPageTags } from '@/lib/shop-page-cache';
+import { onTheCachedHub } from '@/lib/hub-request';
 import { PortfolioPhotoTiles } from './_components/portfolio-photo-tiles';
 // 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
 import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
@@ -416,6 +419,8 @@ export type PublicVendorRow = {
  * never the source of truth on its own — admin status is.
  */
 async function isAdminInDemoMode(): Promise<boolean> {
+  // ⚡ A stranger's cached copy (lib/shop-view.ts): the middleware sends nobody there who carries the demo cookie.
+  if (onTheCachedHub()) return false;
   const cookieStore = await cookies();
   if (cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value !== '1') return false;
   const supabase = await createClient();
@@ -903,8 +908,15 @@ async function resolveTileByCardKind(
 export async function renderVendorBySlug({
   slug,
   searchParams,
+  cachedCopy = false,
 }: {
   slug: string;
+  /**
+   * ⚡ A stranger's copy for the cache (`app/v/[slug]/cached/page.tsx`, lib/shop-view.ts): the copy wears the shop's
+   * tag, and the view is counted by the beacon in the browser rather than `after()` (rendered once, opened many times).
+   * Everything the page DRAWS is the same — the request readers below already answer for a stranger there.
+   */
+  cachedCopy?: boolean;
   // Permissive index (string values) so the bare-root dispatcher — whose
   // searchParams shape differs — can pass its own through. The body reads only
   // string-valued keys (reviewsPage, wl, utm*, src).
@@ -939,6 +951,8 @@ export async function renderVendorBySlug({
   }
 
   if (!vendor) notFound();
+  // ⚡ Filed under the shop's tag BEFORE any gate can 404 it — a hidden shop's copy clears when a save opens it.
+  if (cachedCopy) await wearShopPageTags({ vendorProfileId: vendor.vendor_profile_id });
 
   // 🔒 WHO MAY OPEN THIS PAGE — ONE rule, `shopPageGate` (lib/own-shop-preview.ts). PUBLIC when the shop is live
   // (`isShopLive`: listed AND documents approved) — a demo shop included since 2026-11-06, marked "(DEMO ONLY)"; an admin in demo mode needs only the listing
@@ -2407,18 +2421,24 @@ export async function renderVendorBySlug({
     const viewSource = search.src ?? 'profile_direct';
     const viewVendorProfileId = vendor.vendor_profile_id;
     const viewEventId = coupleEventId;
-    after(() =>
-      recordVendorProfileView({
-        vendorProfileId: viewVendorProfileId,
-        source: viewSource,
-        utm: utmParam,
-        eventId: viewEventId,
-      }),
-    );
+    // ⚡ The cached copy counts its views in the browser (`ShopViewBeacon`, rendered below) — this render runs once
+    // for many opens. Same action, same row; the campaign tags are read off the address there.
+    if (!cachedCopy) {
+      after(() =>
+        recordVendorProfileView({
+          vendorProfileId: viewVendorProfileId,
+          source: viewSource,
+          utm: utmParam,
+          eventId: viewEventId,
+        }),
+      );
+    }
   }
+  const countViewInBrowser = cachedCopy && !isDemoVendor && teamPreview === null;
 
   return (
     <main className="min-h-dvh bg-cream">
+      {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorJsonLd) }}
@@ -3938,6 +3958,7 @@ function ServicesPricingSection({
         detailsEnabled={detailsEnabled}
         inquireMode={inquireMode}
         openServicePublicId={openServicePublicId}
+        shopName={businessName}
       />
     </section>
   );

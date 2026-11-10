@@ -16,6 +16,7 @@ import {
   needsHiddenNavKeys,
   needsHidesStage,
   needsHidesStudioTile,
+  needsLandingStage,
   readEventNeeds,
   sanitizeNeeds,
   setupPatchFromNeeds,
@@ -135,3 +136,39 @@ test('off is absent: the bar, the Maker stages and the Studio tiles drop it', ()
   assert.deepEqual(['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'prints'].filter((t) => needsHidesStudioTile(t, open)), []);
   assert.deepEqual(switchOnRows(simple, M), ['guests', 'suppliers', 'hub']);
 });
+
+/* 🗳 Owner 9 Nov 2026: "have the 4 stages for the time being and the RSVP stage only when they have RSVP". The Maker's
+   RSVP stage (the reply form · When yes · When no) is drawn only when guests reply — `rsvp_ask_config.guestsReply`,
+   which onboarding's "How do guests get in?" → no reply writes as `false`. The four public stages never move. */
+test('the RSVP stage shows only when guests reply — no list or "no reply" drops it, absent or true keeps it', () => {
+  const STAGES = ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial'];
+  const shown = (n: Parameters<typeof needsHidesStage>[1]) => STAGES.filter((s) => !needsHidesStage(s, n));
+  const listed = readEventNeeds({});
+  // No guest list → hidden (with Save the Date, as before).
+  assert.equal(needsHidesStage('rsvp-stage', readEventNeeds({ guest_list_on: false })), true);
+  // Guests don't reply → hidden; the four public stages stay.
+  assert.equal(needsHidesStage('rsvp-stage', { ...listed, guestsReply: false }), true);
+  assert.deepEqual(shown({ ...listed, guestsReply: false }), ['save_the_date', 'rsvp', 'event', 'editorial']);
+  // Guests reply, or nobody said (a refused read, an older event) → shown: today's Maker.
+  assert.equal(needsHidesStage('rsvp-stage', { ...listed, guestsReply: true }), false);
+  assert.equal(needsHidesStage('rsvp-stage', listed), false);
+  assert.deepEqual(shown({ ...listed, guestsReply: true }), STAGES);
+  assert.deepEqual(shown(listed), STAGES);
+  // "No reply" never brings back what a stronger need dropped.
+  assert.deepEqual(shown({ ...readEventNeeds({ hub_details_on: false }), guestsReply: true }), ['event']);
+});
+
+test('a dropped stage never opens a blank Maker — the RSVP stage lands on the Invitation beside it', () => {
+  const noReply = STAGES_HIDDEN({ ...readEventNeeds({}), guestsReply: false });
+  assert.equal(needsLandingStage('rsvp-stage', noReply), 'rsvp');
+  assert.equal(needsLandingStage('rsvp', noReply), 'rsvp');
+  assert.equal(needsLandingStage('save_the_date', noReply), 'save_the_date');
+  // The Invitation dropped too ("cover + photos only") → The Day, which no event drops.
+  assert.equal(needsLandingStage('rsvp-stage', STAGES_HIDDEN(readEventNeeds({ hub_details_on: false }))), 'event');
+  // No guest list: a Save the Date asked for still lands on The Day, as it did.
+  assert.equal(needsLandingStage('save_the_date', STAGES_HIDDEN(readEventNeeds({ guest_list_on: false }))), 'event');
+});
+
+function STAGES_HIDDEN(n: Parameters<typeof needsHidesStage>[1]): string[] {
+  return ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial'].filter((s) => needsHidesStage(s, n));
+}

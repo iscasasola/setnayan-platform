@@ -28,6 +28,7 @@ import {
   nextPhotoChallengeExpiry,
   fetchVendorPhotoChallengePricePhp,
 } from '@/lib/vendor-photo-challenge';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -220,6 +221,7 @@ export async function createAdminVendorInvite(
     return { status: 'error', message: error?.message ?? 'Insert failed' };
   }
 
+  revalidateShopPage(stagedProfile.vendor_profile_id);
   revalidatePath('/admin/vendors');
   const claimUrl = `${SITE_URL}/vendor/claim/${claimToken}`;
   const [prices, launch] = await Promise.all([readPlanPrices(), getLaunchOffer()]);
@@ -294,6 +296,7 @@ export async function revokeAdminVendorInvite(formData: FormData) {
     .eq('invite_id', inviteId);
   if (error) throw new Error(error.message);
 
+  revalidateShopPage(invite.claimed_vendor_profile_id);
   revalidatePath('/admin/vendors');
 }
 
@@ -390,6 +393,7 @@ export async function saveUnclaimedVendorProfile(formData: FormData) {
     }
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(`/admin/vendors/${vendorProfileId}/edit`);
   revalidatePath('/admin/vendors');
 }
@@ -518,6 +522,7 @@ export async function setVendorTier(formData: FormData): Promise<void> {
   // 2026-07-21: "token can retire, there should be nothing that needs token
   // anymore"). The RPC still exists; nothing calls it.
 
+  revalidateShopPage(vendorId);
   revalidatePath(`/admin/vendors/${vendorId}/plan`);
   revalidatePath('/admin/vendors');
 
@@ -749,6 +754,7 @@ export async function executeVendorSkuComp(
     console.error('[executeVendorSkuComp] audit log insert failed', auditErr.message);
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(`/admin/vendors/${vendorProfileId}/plan`);
   revalidatePath('/admin/vendors');
   revalidatePath(GIFTS_RETURN_TARGET);
@@ -823,6 +829,7 @@ export async function setVendorFoundingSupplier(formData: FormData): Promise<voi
     console.error('[setVendorFoundingSupplier] audit log insert failed', auditErr.message);
   }
 
+  revalidateShopPage(vendorId);
   revalidatePath(`/admin/vendors/${vendorId}/plan`);
   revalidatePath('/admin/vendors');
   redirect(`/admin/vendors/${vendorId}/plan?founding=${next ? 'granted' : 'removed'}`);

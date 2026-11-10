@@ -23,6 +23,7 @@ import { backgroundWritesAllowed } from '@/lib/background-writes';
 import { STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 import { hasSessionCookie, shouldCount, visitFacts, visitorKey } from '@/lib/visits/visit-capture';
 import { isHubViewPath } from '@/lib/hub-view-key';
+import { isShopViewPath } from '@/lib/shop-view';
 
 /** Production, or a database on this machine (the lab). Never a preview, never `next dev` on prod. */
 export function visitWritesAllowed(env: Partial<Record<string, string | undefined>> = process.env): boolean {
@@ -61,6 +62,8 @@ function servedPath(request: NextRequest, response: NextResponse): string {
       // 🗄 The cached Event Hub (lib/hub-view-key.ts) is the SAME page the guest asked for; its key names a guest
       // (id + seal) and must never reach the visits table. The page they opened is `/{slug}`.
       if (isHubViewPath(target)) return request.nextUrl.pathname;
+      // ⚡ The cached shop copy (lib/shop-view.ts) is the same shop page — counted under `/v/{slug}`, as before.
+      if (isShopViewPath(target)) return request.nextUrl.pathname;
       return target;
     } catch {
       /* fall through */

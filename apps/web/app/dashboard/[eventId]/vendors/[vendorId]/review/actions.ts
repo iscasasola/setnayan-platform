@@ -13,6 +13,7 @@ import {
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
@@ -680,6 +681,7 @@ export async function recommendVendor(formData: FormData) {
     );
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=on`);
 }
@@ -711,6 +713,7 @@ async function withdrawRecommendation(formData: FormData) {
     .eq('vendor_profile_id', vendorProfileId)
     .eq('recommended_by_user_id', user.id);
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/review`);
   redirect(`/dashboard/${eventId}/vendors/${vendorId}/review?recommend=off`);
 }

@@ -7,6 +7,7 @@
  *   ?reason=documents|in_review|listing|demo   which banner (default: demo — SetnaProd's state)
  *   ?view=stranger                             the not-found page a stranger gets for the same address
  *   ?view=inspiration                          🔗🖼 Services (each card's looks strip) + the Inspiration section (2026-10-30)
+ *   ?view=card                                 🃏 one full card — tap it: the Service card grown (Build 5 Lane C)
  *   ?events=N                                  the shop's badge pills under its name, as the page draws them
  *                                              (`lib/shop-badges.ts`: Verified · the step N reached · ★ 4.8 from 31)
  */
@@ -20,7 +21,7 @@ import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { shopBadges } from '@/lib/shop-badges';
 import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
 import { ShopInspirationSection } from '@/app/v/[slug]/_components/shop-inspiration-section';
-import { LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
+import { LAB_GROWN_CARD, LAB_INSPIRATION_CARDS, LAB_INSPIRATION_TILES } from './inspiration-lab-fixture';
 
 export default async function ShopPreviewLabPage({
   searchParams,
@@ -30,6 +31,21 @@ export default async function ShopPreviewLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   if (sp.view === 'stranger') return <SlugNotFound />;
+  if (sp.view === 'card') {
+    /* 🃏 The shop page's Services with ONE full card and the details flag ON — tap it and it grows (Build 5 Lane C). */
+    return (
+      <main className="min-h-dvh bg-cream" data-lab-grown-card="">
+        <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+          <ServicesGallery
+            groups={[{ key: 'bar', label: 'Bar & drinks', cards: [LAB_GROWN_CARD] }]}
+            detailsEnabled
+            inquireMode="focus"
+            shopName="Bloom & Co."
+          />
+        </article>
+      </main>
+    );
+  }
   if (sp.view === 'inspiration') {
     /* 🔗🖼 The shop page's Services (each card with its looks strip) + the Inspiration section, on lab data — the REAL
        components the page mounts (owner 2026-10-30, "connected four ways"). */

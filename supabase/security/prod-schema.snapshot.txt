@@ -7,7 +7,7 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1823
+# ledger: 1824
 # tables: 487
 # columns: 5928
 # notnull: 3580
@@ -1835,6 +1835,7 @@
 20271334537840
 20271334860034
 20271335272180
+20271335513615
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at

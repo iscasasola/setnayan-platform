@@ -48,6 +48,15 @@ export function cachedHubViewer(): CachedHubViewer | null {
 export const CACHED_HUB_ROUTE = '/[slug]/cached/[key]';
 
 /**
+ * ⚡ The cached SHOP page (`app/v/[slug]/cached/page.tsx`, `lib/shop-view.ts`, 2026-11-10) — a stranger's copy of a
+ * shop, under the same rule as the hub's: the middleware rewrites there only a request with NO Supabase session, no
+ * demo / view-as cookie and no native-shell mark, so every request reader below answers what the live render would
+ * have read for that request (no account, a web browser) without asking it. No guest pass exists on a shop page, so
+ * `cachedHubViewer()` stays null there — only the route question below answers for it.
+ */
+export const CACHED_SHOP_ROUTE = '/v/[slug]/cached';
+
+/**
  * 🛑 IS THIS RENDER THE CACHED EVENT HUB — from its FIRST moment, before the viewer is held (HOTFIX 2026-11-02).
  *
  * `cachedHubViewer()` answers only AFTER the route held the viewer, and the route can hold it only after it read the
@@ -60,11 +69,14 @@ export const CACHED_HUB_ROUTE = '/[slug]/cached/[key]';
  * reads the same store first). Every reader whose answer does NOT depend on WHICH guest (the account, the
  * cookie-scoped client, the platform marks, the "view as free" switch) asks THIS, so it is right however early it
  * runs. Only the guest pass itself (`readHeldPass`) needs the held viewer.
+ *
+ * ⚡ Also true on the cached SHOP page (`CACHED_SHOP_ROUTE`) — a stranger's copy, so the same answers hold.
  */
 export function onTheCachedHub(): boolean {
   if (cachedHubViewer()) return true;
   try {
-    return workAsyncStorage.getStore()?.route === CACHED_HUB_ROUTE;
+    const route = workAsyncStorage.getStore()?.route;
+    return route === CACHED_HUB_ROUTE || route === CACHED_SHOP_ROUTE;
   } catch {
     return false;
   }

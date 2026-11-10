@@ -7,6 +7,7 @@ import {
   validateServiceRadiusPair,
   type ServiceRadiusPair,
 } from '@/lib/vendor-service-radius';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server action behind the My Shop "Coverage reach" card — the vendor declares
@@ -97,6 +98,7 @@ export async function updateServiceRadius(
     return { ok: false, error: friendly };
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   // Shop › Details › Where you work draws these too (the −/＋ steppers save in place, 2026-10-29).
   revalidatePath('/vendor-dashboard/profile');

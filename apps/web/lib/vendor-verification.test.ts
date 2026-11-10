@@ -19,6 +19,7 @@ import {
   feeLabelForCentavos,
   isBookableVerificationState,
   isMarketplaceVendorBookable,
+  marketplaceVendorBookingRefusal,
   VERIFICATION_STATES,
 } from './vendor-verification';
 
@@ -113,20 +114,24 @@ test('isBookableVerificationState: ONLY "verified" is bookable', () => {
 
 /** Minimal supabase-client stub: one vendor_profiles row lookup by id. */
 function stubClient(
-  row: { verification_state?: unknown } | null,
+  row: Record<string, unknown> | null,
   opts: { error?: boolean } = {},
 ): SupabaseClient {
   return {
     from() {
       return {
-        select() {
+        select(cols: string) {
+          // A stub that ignores the select would let a call site drop a gate
+          // column and stay green — return only what was asked for.
+          const asked = cols.split(',').map((c) => c.trim());
+          const picked = row ? Object.fromEntries(asked.filter((c) => c in row).map((c) => [c, row[c]])) : null;
           return {
             eq() {
               return {
                 async maybeSingle() {
                   return opts.error
                     ? { data: null, error: { message: 'boom' } }
-                    : { data: row, error: null };
+                    : { data: picked, error: null };
                 },
               };
             },
@@ -137,21 +142,23 @@ function stubClient(
   } as unknown as SupabaseClient;
 }
 
-test('isMarketplaceVendorBookable: true only for a verified profile', async () => {
-  assert.equal(
-    await isMarketplaceVendorBookable(
-      stubClient({ verification_state: 'verified' }),
-      'vp-1',
-    ),
-    true,
-  );
+/** A verified, listed, clean shop — the only bookable shape. */
+const LIVE = {
+  verification_state: 'verified',
+  public_visibility: 'verified',
+  fraud_suspended_at: null,
+  fraud_banned_at: null,
+};
+
+test('isMarketplaceVendorBookable: true only for a verified, listed, clean profile', async () => {
+  assert.equal(await isMarketplaceVendorBookable(stubClient(LIVE), 'vp-1'), true);
 });
 
 test('isMarketplaceVendorBookable: false for every non-verified state', async () => {
   for (const s of ['unverified', 'pending_review', 'demoted', 'rejected']) {
     assert.equal(
       await isMarketplaceVendorBookable(
-        stubClient({ verification_state: s }),
+        stubClient({ ...LIVE, verification_state: s }),
         'vp-1',
       ),
       false,
@@ -160,11 +167,43 @@ test('isMarketplaceVendorBookable: false for every non-verified state', async ()
   }
 });
 
+// 🔴 Lane G item 1 (audit C1, 2026-11-10): admin hide, fraud suspend and fraud
+// ban all leave verification_state = 'verified'. Each must still refuse.
+test('isMarketplaceVendorBookable: an admin-hidden / archived verified shop is NOT bookable', async () => {
+  for (const v of ['hidden', 'archived', 'coming_soon']) {
+    assert.equal(
+      await marketplaceVendorBookingRefusal(stubClient({ ...LIVE, public_visibility: v }), 'vp-1'),
+      'not_listed',
+      `public_visibility=${v} must refuse`,
+    );
+  }
+});
+
+test('isMarketplaceVendorBookable: a fraud-suspended verified shop is NOT bookable', async () => {
+  const row = { ...LIVE, fraud_suspended_at: '2026-11-10T00:00:00Z' };
+  assert.equal(await isMarketplaceVendorBookable(stubClient(row), 'vp-1'), false);
+  assert.equal(await marketplaceVendorBookingRefusal(stubClient(row), 'vp-1'), 'suspended');
+});
+
+test('isMarketplaceVendorBookable: a fraud-banned verified shop is NOT bookable', async () => {
+  const row = { ...LIVE, fraud_suspended_at: '2026-11-10T00:00:00Z', fraud_banned_at: '2026-11-10T00:00:00Z' };
+  assert.equal(await isMarketplaceVendorBookable(stubClient(row), 'vp-1'), false);
+  assert.equal(await marketplaceVendorBookingRefusal(stubClient(row), 'vp-1'), 'banned');
+});
+
+test('isMarketplaceVendorBookable: a select that drops a gate column fails CLOSED', async () => {
+  // Only verification_state present (the pre-fix select) → not bookable.
+  assert.equal(
+    await isMarketplaceVendorBookable(stubClient({ verification_state: 'verified' }), 'vp-1'),
+    false,
+  );
+});
+
 test('isMarketplaceVendorBookable: fail-closed on a missing row or a read error', async () => {
   assert.equal(await isMarketplaceVendorBookable(stubClient(null), 'vp-x'), false);
   assert.equal(
     await isMarketplaceVendorBookable(
-      stubClient({ verification_state: 'verified' }, { error: true }),
+      stubClient(LIVE, { error: true }),
       'vp-x',
     ),
     false,
@@ -172,7 +211,7 @@ test('isMarketplaceVendorBookable: fail-closed on a missing row or a read error'
   // Unknown / garbage state → parseVerificationState → 'unverified' → false.
   assert.equal(
     await isMarketplaceVendorBookable(
-      stubClient({ verification_state: 'weird' }),
+      stubClient({ ...LIVE, verification_state: 'weird' }),
       'vp-x',
     ),
     false,

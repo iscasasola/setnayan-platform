@@ -58,7 +58,7 @@ export type CoverData = {
   coverUrl: string | null;
   city: string | null;
   verified: { isVerified: boolean; inReview: boolean; stepsDone: number };
-  /** "★ 4.8 · 120 events" pieces — null = unread ("—", never 0). */
+  /** "★ 4.8 · 120 events" pieces — null = the read was refused: the events piece says `EVENTS_UNREAD`, never "—" or 0. */
   rating: string | null;
   /** "38 reviews" — the trusted-review count beside the ★ (null = unread or none); with `rating` it is the link into
    *  Your page › Reviews and stories (Build 2 §10 #31). */
@@ -85,6 +85,10 @@ export type CoverData = {
  * own history state and keeps `useSearchParams` in step (a restore, never a fetch) — the cover's ⚙ opens the pinned
  * row's `ShopSettings` this way. `value === null` removes it. The hash is dropped, as the old `router.replace` did.
  */
+
+/** The events count when its read was refused (house honest-read rule, `reads-are-honest.test.ts`): said, never "—" or 0
+    — a "—" beside "Verified — Pro plan" read as part of that line (owner 2026-11-10). */
+const EVENTS_UNREAD = 'Couldn’t load events';
 export function replaceAddressParam(key: string, value: string | null) {
   try {
     const url = new URL(window.location.href);
@@ -189,7 +193,7 @@ export function ShopCover({
   };
   // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
   const openGear = () => replaceAddressParam('gear', '1');
-  const counts = [d.rating ? `★ ${d.rating}` : null, d.events].filter(Boolean).join(' · ') || '—';
+  const counts = [d.rating ? `★ ${d.rating}` : null, d.events ?? EVENTS_UNREAD].filter(Boolean).join(' · ');
 
   return (
     <>
@@ -252,7 +256,7 @@ export function ShopCover({
                   {d.reviews ? ` · ${d.reviews}` : ''}
                 </Link>
               ) : null}
-              <span className="text-white/75">{d.events ?? '—'}</span>
+              <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
               <a href="#plan" className="inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
                 {d.planLabel} plan
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />

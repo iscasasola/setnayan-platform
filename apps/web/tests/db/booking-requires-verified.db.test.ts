@@ -44,9 +44,12 @@ async function newVendor(
     // admin approval path — `vendor_profiles_verified_requires_stamp`
     // (20271017100000) rejects a verified row without it, and the other four
     // states legitimately have no verification date.
-    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+    // A verified shop is also LISTED (public_visibility='verified'), as /admin/verify writes the two together —
+    // since Lane G item 1 (2026-11-10) the gate asks both, plus the two fraud stamps.
+    `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at, public_visibility)
      VALUES ($1, 'Book Gate Vendor', 'Manila', ARRAY['photography']::text[], $2::public.vendor_verification_state,
-             CASE WHEN $2 = 'verified' THEN NOW() END)
+             CASE WHEN $2 = 'verified' THEN NOW() END,
+             (CASE WHEN $2 = 'verified' THEN 'verified' ELSE 'hidden' END)::public.vendor_public_visibility)
      RETURNING vendor_profile_id`,
     [u.rows[0]!.id, state],
   );
@@ -220,4 +223,85 @@ test('GRANDFATHERING: an existing lock survives the vendor being demoted afterwa
   );
   assert.equal(check.rows[0]!.status, 'deposit_paid', 'grandfathered lock advanced');
   assert.equal(check.rows[0]!.notes, 'edited after demotion', 'grandfathered lock edited');
+});
+
+// ─── 🔴 Lane G item 1 (Build 5 · audit C1, 2026-11-10) ─────────────────────
+// Admin hide, fraud suspend and fraud ban all leave verification_state =
+// 'verified'. Before this, each of the three shops below could still be locked.
+
+test('a VERIFIED shop that an admin ARCHIVED cannot be locked', async () => {
+  const event = await newEvent();
+  const vendor = await newVendor('vis-archived@bookgate.test', 'verified');
+  await db.query(`UPDATE public.vendor_profiles SET public_visibility = 'archived' WHERE vendor_profile_id = $1`, [vendor]);
+  const err = await tryInsertVendor(event, { marketplaceVendorId: vendor, status: 'contracted' });
+  assert.ok(err, 'an archived shop must not lock');
+  assert.match(String(err), /vendor_not_verified: .*reason=not_listed/);
+});
+
+test('KNOWN GAP, pinned: the DB still lets an admin-HIDDEN verified shop lock (the app gate refuses it)', async () => {
+  // 20271335513615's header: 'hidden' is the column default and ~90 DB fixtures seed verified shops at it.
+  // When the shared fixture lands and the trigger refuses 'hidden', flip this assertion — do not delete it.
+  const event = await newEvent();
+  const vendor = await newVendor('vis-hidden@bookgate.test', 'verified');
+  await db.query(`UPDATE public.vendor_profiles SET public_visibility = 'hidden' WHERE vendor_profile_id = $1`, [vendor]);
+  const err = await tryInsertVendor(event, { marketplaceVendorId: vendor, status: 'contracted' });
+  assert.equal(err, null);
+});
+
+test('a VERIFIED shop under a fraud SUSPEND cannot be locked (INSERT and UPDATE)', async () => {
+  const event = await newEvent();
+  const vendor = await newVendor('suspended@bookgate.test', 'verified');
+  const shortlisted = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+     VALUES ($1, 'photographer', 'Suspended', 'shortlisted', $2) RETURNING vendor_id`,
+    [event, vendor],
+  );
+  await db.query(
+    `UPDATE public.vendor_profiles SET fraud_suspended_at = NOW(), public_visibility = 'hidden' WHERE vendor_profile_id = $1`,
+    [vendor],
+  );
+  let blocked: string | null = null;
+  try {
+    await db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [
+      shortlisted.rows[0]!.vendor_id,
+    ]);
+  } catch (err) {
+    blocked = err instanceof Error ? err.message : String(err);
+  }
+  assert.ok(blocked, 'the couple who shortlisted a suspended shop must not lock it');
+  assert.match(String(blocked), /vendor_not_verified: .*reason=suspended/);
+
+  // Even with the visibility left 'verified' (the fraud stamp alone), it refuses.
+  const stampOnly = await newVendor('suspended-stamp-only@bookgate.test', 'verified');
+  await db.query(`UPDATE public.vendor_profiles SET fraud_suspended_at = NOW() WHERE vendor_profile_id = $1`, [stampOnly]);
+  const err = await tryInsertVendor(event, { marketplaceVendorId: stampOnly, status: 'contracted' });
+  assert.match(String(err), /vendor_not_verified: .*reason=suspended/);
+});
+
+test('a VERIFIED shop under a fraud BAN cannot be locked', async () => {
+  const event = await newEvent();
+  const vendor = await newVendor('banned@bookgate.test', 'verified');
+  await db.query(
+    `UPDATE public.vendor_profiles SET fraud_banned_at = NOW(), fraud_suspended_at = NOW() WHERE vendor_profile_id = $1`,
+    [vendor],
+  );
+  const err = await tryInsertVendor(event, { marketplaceVendorId: vendor, status: 'contracted' });
+  assert.ok(err, 'a banned shop must not lock');
+  assert.match(String(err), /vendor_not_verified: .*reason=banned/);
+});
+
+test('GRANDFATHERING holds for a suspend too: an existing lock still advances', async () => {
+  const event = await newEvent();
+  const vendor = await newVendor('grandfather-suspend@bookgate.test', 'verified');
+  const row = await db.query<{ vendor_id: string }>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+     VALUES ($1, 'photographer', 'Grandfathered Suspend', 'contracted', $2) RETURNING vendor_id`,
+    [event, vendor],
+  );
+  await db.query(`UPDATE public.vendor_profiles SET fraud_suspended_at = NOW() WHERE vendor_profile_id = $1`, [vendor]);
+  await db.query(`UPDATE public.event_vendors SET status = 'deposit_paid' WHERE vendor_id = $1`, [row.rows[0]!.vendor_id]);
+  const check = await db.query<{ status: string }>(`SELECT status FROM public.event_vendors WHERE vendor_id = $1`, [
+    row.rows[0]!.vendor_id,
+  ]);
+  assert.equal(check.rows[0]!.status, 'deposit_paid');
 });

@@ -142,8 +142,15 @@ function stubAdmin(verified: boolean, rpcStatus = 'changed', rpcSink: { calls: R
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
+  // The booking gate reads all four of `SHOP_BOOKABLE_COLUMNS` (lib/vendor-visibility.ts) and refuses a column it
+  // was not given — so the stub answers the row the real read returns: a listed, unfrozen shop.
   b.maybeSingle = async () => ({
-    data: { verification_state: verified ? 'verified' : 'unverified' },
+    data: {
+      verification_state: verified ? 'verified' : 'unverified',
+      public_visibility: 'verified',
+      fraud_suspended_at: null,
+      fraud_banned_at: null,
+    },
     error: null,
   });
   return {

@@ -51,6 +51,7 @@ import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity'
 import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
 import { freeByKind } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
@@ -238,6 +239,7 @@ export async function savePackage(
       if (wrote) return wrote;
     }
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/packages');
     return { status: 'ok', packageId: input.packageId };
   }
@@ -499,6 +501,7 @@ export async function setPackageActive(
     .eq('vendor_profile_id', profile.vendor_profile_id as string);
   if (error) return { status: 'error', message: error.message };
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
 }
@@ -536,6 +539,7 @@ async function deletePackage(packageId: string): Promise<SavePackageResult> {
     .eq('vendor_profile_id', profile.vendor_profile_id as string);
   if (error) return { status: 'error', message: error.message };
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
 }

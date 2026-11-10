@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
+import { tierMayLapse } from '@/lib/vendor-tier-lapse';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -324,7 +325,7 @@ export default async function VendorDashboardLayout({
 
   // Login-driven vendor TIER lapse (no cron) — post-response, downgrade-only,
   // idempotent. sweep_vendor_tier_expiry reverts a tier past its tier_expires_at
-  // (pro/enterprise → verified-or-free). Deferring to after() keeps it off the render path of a
+  // (solo/pro/enterprise → verified-or-free). Deferring to after() keeps it off the render path of a
   // layout that re-renders on every navigation; `supabase` is captured in the
   // closure (holds the access token in memory), so the post-response call still
   // authenticates. Only fired for a sweepable PAID tier — for free/verified it
@@ -333,8 +334,9 @@ export default async function VendorDashboardLayout({
   // tier_state so a lapsed vendor stops reading Pro/Ultra ceilings.
   if (
     tierProbe.vendorId &&
-    vendorTier != null &&
-    (['pro', 'enterprise'] as readonly string[]).includes(vendorTier)
+    // 🔑 One list with the SQL (`lib/vendor-tier-lapse.ts`). This line used to be an inline ['pro','enterprise'],
+    // so a Solo plan — which the sweep has lapsed since 20271286893359 — was never asked to (Lane G rows 14–15).
+    tierMayLapse(vendorTier)
   ) {
     const vendorId = tierProbe.vendorId;
     after(async () => {

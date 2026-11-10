@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * lib/vendor-analytics-graphs.ts — THE FIVE NEW ANALYTICS GRAPHS, worded once (Build 6 Lane I, owner 10 Nov: *"what
  * other graphs do we add? No dupes. we want graphs that will help them. tapping shows a recommendation from us on what
@@ -74,9 +75,9 @@ export function lostLine(l: LostDates | null): string {
   parts.sort((a, b) => b.n - a.n);
   const top = parts
     .slice(0, 3)
-    .map((p) => `${p.n} ${p.w}`)
+    .map((p) => `${formatCount(p.n)} ${p.w}`)
     .join(', ');
-  return `${l.total} ask${l.total === 1 ? '' : 's'} you couldn’t take (${l.closed} closed, ${l.full} full) · most on ${top}.`;
+  return `${formatCount(l.total)} ask${l.total === 1 ? '' : 's'} you couldn’t take (${formatCount(l.closed)} closed, ${formatCount(l.full)} full) · most on ${top}.`;
 }
 
 // ── b · Which card sells ────────────────────────────────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ export function cardSellLine(c: readonly CardSell[] | null): string {
   const asked = c.filter((x) => x.asked > 0);
   if (asked.length === 0) return 'No couple has asked about a card yet.';
   const top = asked[0]!;
-  return `${top.name} is asked about most: ${top.asked} asked, ${top.booked} booked.`;
+  return `${top.name} is asked about most: ${formatCount(top.asked)} asked, ${formatCount(top.booked)} booked.`;
 }
 
 // ── c · Reply speed vs bookings ─────────────────────────────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ export function replyVsBooked(
 export function replyVsLine(r: ReplyVsBooked | null): string {
   if (r === null) return 'Couldn’t load.';
   if (r.fast.n + r.slow.n === 0) return 'Comes alive with your first answered inquiry.';
-  return `Couples you answered within the hour booked ${r.fast.booked} of ${r.fast.n}; the ones you answered later, ${r.slow.booked} of ${r.slow.n}.`;
+  return `Couples you answered within the hour booked ${formatCount(r.fast.booked)} of ${formatCount(r.fast.n)}; the ones you answered later, ${formatCount(r.slow.booked)} of ${formatCount(r.slow.n)}.`;
 }
 
 // ── d · Slow months ahead ───────────────────────────────────────────────────────────────────────────────────────────
@@ -200,8 +201,8 @@ export function slowLine(months: readonly MonthCount[] | null): string {
   const total = months.reduce((s, m) => s + m.count, 0);
   if (total === 0) return 'Nothing booked in the next 12 months yet.';
   const s = slowMonth(months);
-  if (!s) return `${total} booked date${total === 1 ? '' : 's'} across the next 12 months — no gap between busy months.`;
-  return `${s.name} has nothing booked while the months beside it have ${Math.max(s.before, s.after)}.`;
+  if (!s) return `${formatCount(total)} booked date${total === 1 ? '' : 's'} across the next 12 months — no gap between busy months.`;
+  return `${s.name} has nothing booked while the months beside it have ${formatCount(Math.max(s.before, s.after))}.`;
 }
 
 // ── e · Quotes waiting ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -235,7 +236,7 @@ export function quoteStates(
 export function quotesLine(q: QuoteStates | null): string {
   if (q === null) return 'Couldn’t load.';
   if (q.sent === 0) return 'No quotation sent yet.';
-  return `${q.waiting} waiting on an answer · ${q.expired} expired · ${q.accepted} of ${q.sent} accepted.`;
+  return `${formatCount(q.waiting)} waiting on an answer · ${formatCount(q.expired)} expired · ${formatCount(q.accepted)} of ${formatCount(q.sent)} accepted.`;
 }
 
 // ── everything the five graphs read, in one shape ──────────────────────────────────────────────────────────────────

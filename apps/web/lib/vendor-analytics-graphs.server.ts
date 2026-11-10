@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { manilaDay } from '@/lib/analytics-growing';
+import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import {
   cardSells,
   lostDates,
@@ -94,11 +95,14 @@ export async function readLostDates(session: SupabaseClient, vendorProfileId: st
     pagedRows('lost.blocks', vendorProfileId, (a, b) =>
       session
         .from('vendor_calendar_blocks')
-        .select('blocked_at, blocked_until')
+        .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
         .eq('vendor_profile_id', vendorProfileId)
         .in('block_source', ['manual', 'synced_calendar'])
+        // Every block that can touch the asks: a one-off overlapping them, or a REPEAT that began on or before the
+        // last one (its first day may be months back) — then the ONE rule (`lib/not-available.ts`) says which days it
+        // closes. A part of the day (a morning) leaves the date open, so it is not "closed".
         .lt('blocked_at', endIso)
-        .gt('blocked_until', startIso)
+        .or(notAvailableWindowFilter(startIso))
         .order('blocked_at', { ascending: true })
         .range(a, b),
     ),
@@ -123,13 +127,11 @@ export async function readLostDates(session: SupabaseClient, vendorProfileId: st
   }
   const askDates = [...new Set(unique.map((u) => u.date))];
   for (const r of blocks) {
-    const from = Date.parse(str(r.blocked_at) ?? '');
-    const until = Date.parse(str(r.blocked_until) ?? '');
-    if (!Number.isFinite(from) || !Number.isFinite(until)) continue;
-    for (const d of askDates) {
-      const dayStart = Date.parse(`${d}T00:00:00+08:00`);
-      if (from < dayStart + DAY_MS && until > dayStart) closed.add(d);
-    }
+    const at = str(r.blocked_at);
+    const until = str(r.blocked_until);
+    if (!at || !until) continue;
+    const shape = notAvailableShapeOf({ ...r, blocked_at: at, blocked_until: until });
+    for (const d of askDates) if (blockClosesDay(shape, d)) closed.add(d);
   }
   return lostDates(unique, closed);
 }

@@ -23,6 +23,11 @@
  * 🖨 THE DOOR ALONE (owner 2026-10-31, on the Prints page's ⚙: *"the ⚙ on Prints opens Prints' own settings"*): with no
  * `children`, the button is the door only — the caller's own sheet answers `open` (Prints' `StudioPrintSettings`, whose
  * fields must stay mounted while it is shut, so it can never be this frame's children, which mount only while open).
+ *
+ * ⤴ RISE FULL SCREEN (Build 5 · Lane A, owner 2026-11-10 *"fullscreen everything"* — every page ⚙ rises full screen
+ * instead of opening a popup; prototype `settings_full_screen_2026-11-10`): with `rise`, the same rows open in the ONE
+ * `RiseScreen` — it grows out of the ⚙ you tapped, the bars slide away, ✕ is the exact reverse — headed by the same
+ * name, the same one line and the same ⓘ words. One door, one frame per mode; never a second ⚙.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -31,6 +36,7 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MENU_SETTINGS_TIP, SETTINGS_ENTRY, type SettingsMenu } from '@/lib/menu-settings';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { gearText } from '@/app/_components/gear-text';
 
 export function MenuSettingsButton({
@@ -40,6 +46,7 @@ export function MenuSettingsButton({
   tour,
   cover = false,
   line,
+  rise = false,
   children,
 }: {
   menu: SettingsMenu;
@@ -51,6 +58,8 @@ export function MenuSettingsButton({
   cover?: boolean;
   /** The sheet's one line and its ⓘ, when this viewer's sheet holds other rows than the menu's (Home's ⚙ for a helper). */
   line?: { line: string; tip: string };
+  /** ⤴ Open the rows in Rise full screen (out of this ⚙) instead of the sheet. Default false: every other ⚙ as before. */
+  rise?: boolean;
   /** The sheet's rows — the shipped controls. Absent: the door only; the caller draws the sheet `open` names. */
   children?: ReactNode;
 }) {
@@ -71,7 +80,17 @@ export function MenuSettingsButton({
           className={cover ? 'home-cover-ab' : undefined}
         />
       </span>
-      {open && children !== undefined ? (
+      {open && children !== undefined && rise ? (
+        <RiseScreen
+          title={entry.sheet}
+          line={line?.line ?? entry.line}
+          info={gearText(line?.tip ?? entry.tip ?? MENU_SETTINGS_TIP)}
+          onClose={() => onOpenChange(false)}
+          data={`settings-${menu}`}
+        >
+          <div data-menu-settings-sheet={menu}>{children}</div>
+        </RiseScreen>
+      ) : open && children !== undefined ? (
         <OnBody>
           <Sheet open onClose={() => onOpenChange(false)} labelledById={headingId} title={entry.sheet} wide>
             <div data-menu-settings-sheet={menu}>

@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
-import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -40,6 +40,13 @@ const REVIEWS_HREF = `${YOUR_PAGE_HREF}#reviews`;
  * ⚙ ONE settings door: `ShopSettings` (the shipped `MenuSettingsButton` sheet) sits on the pinned row; the cover's ⚙
  * opens the SAME sheet through the address (`replaceAddressParam` keeps `useSearchParams` in step) — never a second
  * sheet.
+ *
+ * ⤴ RISE FULL SCREEN — THE SHOP TAB MAP (Build 5 · Lane A, owner 10 Nov on the Shop screenshot: *"Most of these will be
+ * the fullscreen grow design"*; corpus `00-BUILD-5-PLAN.md` "Lane A · Rise full screen — the Shop tab map"). Every door
+ * here opens the ONE `RiseScreen` out of the door you tapped (bars away, ✕ the exact reverse), never a popup sheet:
+ * ⚙ → the Shop settings · Logo 📷 → the logo menu · View shop → the shop as couples see it, in the app (with "Open in
+ * browser ↗"), no new tab · Share · Promote · QR · Cover → each its own full screen. The bodies are the same shipped
+ * bodies; only the frame they open in changed.
  * L1's `CollapsingTop` (foundation) replaces the fade below when it lands — the content stays.
  */
 export type CoverData = {
@@ -109,23 +116,19 @@ function sheetInAddress(params: { get(k: string): string | null }): CoverSheet |
   return null;
 }
 
-/** A sheet whose body came with the page (null = still on its way). */
+/** A cover door's screen, whose body came with the page (null = still on its way) — risen full screen out of its door. */
 function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
-  const hid = useId();
   if (!open) return null;
   return (
-    <Sheet open onClose={onClose} labelledById={hid} title={title} rise>
-      <div className="px-4 pb-6 pt-1" data-shop-sheet={data}>
-        <h2 id={hid} className="sr-only">
-          {title}
-        </h2>
+    <RiseScreen title={title} onClose={onClose} data={`shop-${data}`}>
+      <div className="px-4 pb-6 pt-3" data-shop-sheet={data}>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60">
             Opening…
           </p>
         )}
       </div>
-    </Sheet>
+    </RiseScreen>
   );
 }
 
@@ -147,6 +150,8 @@ export function ShopCover({
   const coverRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
+  // 👀 View shop rises the shop as couples see it, in the app — client state only (nothing to read; the page loads itself).
+  const [viewOpen, setViewOpen] = useState(false);
 
   // The pinned row fades in over the last 48 px of the cover (v108/v110 item 2: "last 48 px crossfade").
   useEffect(() => {
@@ -201,10 +206,10 @@ export function ShopCover({
           <PinWord barAbove>Shop</PinWord>
           <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{counts}</span>
           {d.publicPath ? (
-            <a href={d.publicPath} target="_blank" rel="noreferrer" tabIndex={pin < 0.5 ? -1 : undefined} className="inline-flex h-9 items-center gap-1 rounded-full bg-ink px-3 text-[13px] font-semibold text-[color:var(--m-paper)]">
+            <button type="button" onClick={() => setViewOpen(true)} tabIndex={pin < 0.5 ? -1 : undefined} className="inline-flex h-9 items-center gap-1 rounded-full bg-ink px-3 text-[13px] font-semibold text-[color:var(--m-paper)]" data-view-shop-pin="">
               View shop
               <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            </a>
+            </button>
           ) : null}
           <ShopSettings body={gearBody} local />
         </div>
@@ -293,11 +298,10 @@ export function ShopCover({
             </span>
           </button>
           {d.publicPath ? (
-            <a
-              href={d.publicPath}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-ink px-4 text-[color:var(--m-paper)]"
+            <button
+              type="button"
+              onClick={() => setViewOpen(true)}
+              className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-ink px-4 text-left text-[color:var(--m-paper)]"
               data-view-shop=""
             >
               <b className="text-[14.5px] font-semibold">View shop</b>
@@ -305,7 +309,7 @@ export function ShopCover({
                 {d.websiteLive ? 'as couples see it' : 'a preview for your team'}
                 <ExternalLink aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
               </span>
-            </a>
+            </button>
           ) : (
             <Link href="/vendor-dashboard/profile" className="flex min-h-[48px] min-w-0 flex-1 items-center rounded-full border border-ink/15 px-4 text-[13.5px] font-medium text-ink">
               Add your shop name to get your address
@@ -324,6 +328,7 @@ export function ShopCover({
       </div>
 
       {shareOpen && d.shareUrl ? <ShareSheet url={d.shareUrl} slug={d.slug} name={d.name} onClose={() => setShareOpen(false)} /> : null}
+      {viewOpen && d.publicPath ? <ViewShopScreen path={d.publicPath} live={d.websiteLive} shareUrl={d.shareUrl} onClose={() => setViewOpen(false)} /> : null}
       <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
       <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
       <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody} data="logo" />
@@ -347,14 +352,10 @@ function CoverIcon({ label, icon, onClick, disabled = false, data }: { label: st
 
 /** 🔗 Share (v96): Copy your link · Photo card · the phone's share sheet. Nothing to read — browser-only. */
 function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | null; name: string; onClose: () => void }) {
-  const hid = useId();
   const toast = useToast();
   return (
-    <Sheet open onClose={onClose} labelledById={hid} title="Share your shop" rise>
+    <RiseScreen title="Share your shop" onClose={onClose} data="shop-share">
       <div className="divide-y divide-ink/10 px-4 pb-6" data-shop-sheet="share">
-        <h2 id={hid} className="sr-only">
-          Share your shop
-        </h2>
         <div className="flex items-center justify-between gap-3 py-3">
           <span className="min-w-0">
             <b className="block text-[14.5px] font-medium text-ink">Copy your link</b>
@@ -392,6 +393,33 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
           </button>
         </div>
       </div>
-    </Sheet>
+    </RiseScreen>
+  );
+}
+
+/**
+ * 👀 VIEW SHOP — the shop as couples see it, risen full screen INSIDE the app (Shop tab map: "the public shop full screen
+ * (no new tab)"; v119 `pageRise`: the page, with "Open in browser ↗" at the head). The page is the shop's own public
+ * address, framed same-origin (`X-Frame-Options: SAMEORIGIN`, next.config.ts) — so it is exactly what couples get, never
+ * a redrawn copy. Before the page is approved for couples it is the team preview, and the line says so.
+ */
+function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live: boolean; shareUrl: string | null; onClose: () => void }) {
+  const where = shareUrl ? shareUrl.replace(/^https?:\/\/(www\.)?/, '') : path;
+  return (
+    <RiseScreen
+      title="Your page"
+      line={`${where} · ${live ? 'as couples see it' : 'a preview for your team'}`}
+      actions={
+        <a href={path} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1 rounded-full border border-ink/15 bg-raised px-3 text-[13px] font-medium text-ink" data-view-shop-browser="">
+          Open in browser
+          <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        </a>
+      }
+      fill
+      onClose={onClose}
+      data="shop-view"
+    >
+      <iframe src={path} title={live ? 'Your shop, as couples see it' : 'Your shop, a preview for your team'} className="min-h-0 w-full flex-1 border-0 bg-cream" data-view-shop-frame="" />
+    </RiseScreen>
   );
 }

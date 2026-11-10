@@ -3202,34 +3202,31 @@ export function OnboardingShell({
             </div>
             <div className="tapzone">
               {faithView.mode === 'civil' ? null : (
-                <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
-                  {FAITH_CHIPS.map((c, _i, all) => {
-                    // Gate on the launch status when we have it (admin
-                    // /admin/wedding-types); fall back to the built-in soon
-                    // flag if the status read was unavailable.
-                    const soon = activeFaiths ? !activeFaiths.includes(c.value) : c.soon;
-                    const picked = faith.includes(c.value);
+                <div className="stack" data-single="">
+                  {/* 🔘 ONE DROPDOWN (Lane P fix — any set of choices is ONE PickMenu, owner 10 Nov; it was a row of
+                      chips). An interfaith wedding ticks two (`picked`, the list stays open until Done); a single
+                      tradition is one pick. A not-yet faith is listed greyed with "Coming soon" — and left out inside
+                      the iPhone/Android app (the chips' `data-coming-soon`), unless NO faith is pickable (a failed
+                      status read), when hiding them all would leave the step with nothing on it. */}
+                  {(() => {
+                    const isSoon = (c: (typeof FAITH_CHIPS)[number]) => (activeFaiths ? !activeFaiths.includes(c.value) : c.soon);
+                    const anyPickable = FAITH_CHIPS.some((c) => !isSoon(c));
+                    const options = FAITH_CHIPS.filter((c) => !(storeShell && anyPickable && isSoon(c))).map((c) => ({
+                      key: c.value,
+                      label: c.label,
+                      ...(isSoon(c) ? { disabledNote: 'Coming soon' } : {}),
+                    }));
                     return (
-                      <span
-                        // key folds in this chip's selected state so it remounts when it
-                        // becomes selected → the .sn-bounce replays on each pick.
-                        key={picked ? `${c.value}-sel` : c.value}
-                        className={`chip${sel(picked)}${soon ? ' is-soon' : ''}${picked ? ' sn-bounce' : ''}`}
-                        onClick={soon ? undefined : () => selectFaith(c.value)}
-                        aria-disabled={soon || undefined}
-                        // A not-yet faith is a "soon" chip: hidden inside the
-                        // app before first paint (lib/store-shell.ts COMING_SOON_ATTR)
-                        // — unless NO faith is pickable (a failed status read), when
-                        // hiding them all would leave the step with nothing on it.
-                        data-coming-soon={
-                          soon && all.some((x) => (activeFaiths ? activeFaiths.includes(x.value) : !x.soon)) ? '' : undefined
-                        }
-                      >
-                        {c.label}
-                        {soon && <span className="soon">soon</span>}
-                      </span>
+                      <StepPick
+                        label={faithView.h1}
+                        value={faithView.mode === 'mixed' ? null : (faith[0] ?? null)}
+                        {...(faithView.mode === 'mixed' ? { picked: faith, placeholder: 'Pick two' } : {})}
+                        options={options}
+                        onPick={(k) => selectFaith(k as OnboardingFaith)}
+                        dataAttr="data-wedding-faith"
+                      />
                     );
-                  })}
+                  })()}
                 </div>
               )}
             </div>

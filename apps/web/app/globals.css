@@ -849,6 +849,28 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   padding-bottom: 0;
 }
 
+/* 🔁 A REFUSED SAVE GETS ITS OWN LINE — app-wide (Build 5 F1; owner screenshot 10 Nov, "Toggle issue"). `StayForm` /
+   `StayConfirmForm` (app/_components/stay-form.tsx) print a refusal as a SIBLING of their form, so wherever the form sits
+   in a flex ROW the `<p data-stay-error>` became one more flex item: it took half the row and crushed the card or the
+   buttons beside it into a one-word column. Fixed once, here, for every StayForm parent — no per-page patch:
+   ▸ a row (`.flex` / `.inline-flex`, not `.flex-col`) that is HOLDING a refusal wraps, and the refusal takes the whole
+     width on the last line, under everything in the row (order-last — the #7427 Shop card-row shape, now everywhere);
+   ▸ in a grid it spans every column. Outside a grid `grid-column` does nothing; in a block parent the `<p>` is already
+     its own line.
+   Only a row that is HOLDING a refusal changes (`:has`), so no layout moves until a save is refused. A column is left
+   alone: there the line already sits under its form, and `order` would drop it to the column's end.
+   🔒 app/_components/stay-form-refusal-own-line.test.ts */
+[data-stay-error] {
+  grid-column: 1 / -1;
+}
+:is(.flex, .inline-flex):not(.flex-col, .flex-col-reverse):has(> [data-stay-error]) {
+  flex-wrap: wrap;
+}
+:is(.flex, .inline-flex):not(.flex-col, .flex-col-reverse) > [data-stay-error] {
+  flex-basis: 100%;
+  order: 9999;
+}
+
 @layer components {
   /* ══════════════════════════════════════════════════════════════════════
      SCALED TILE — one item, at the size its own contents earn.

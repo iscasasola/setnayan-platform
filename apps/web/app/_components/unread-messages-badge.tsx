@@ -30,6 +30,7 @@
 import { useEffect, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
+import { CHAT_UNREAD_RECOUNT_EVENT } from '@/lib/chat-read-live';
 // ⚡ The browser client (`@/lib/supabase/client` → supabase-js + its auth client, ~43KB gzipped) is
 // import()ed where it is first used, never statically: this file is in the first load of every signed-in page, and
 // a static import was one of the three edges that put the whole client in the Maker's first load
@@ -64,9 +65,20 @@ export function UnreadMessagesBadge({ userId, initialUnread, href, tour }: Props
         if (!gone) stop = followEnvelope({ supabase: createClient(), userId, onValue: setUnread });
       }),
     );
+    // ⚡ A chat that marked a LIVE message read asks for one fresh count (`lib/chat-read-live.ts`) — the ping for that
+    // message may have raised this badge a moment before the mark landed.
+    const recount = () => {
+      void Promise.all([client, import('@/lib/chat')]).then(async ([{ createClient }, { readUnreadMessageThreads }]) => {
+        if (gone) return;
+        const n = await readUnreadMessageThreads(createClient());
+        if (!gone && n !== null) setUnread(n);
+      });
+    };
+    window.addEventListener(CHAT_UNREAD_RECOUNT_EVENT, recount);
     return () => {
       gone = true;
       stop?.();
+      window.removeEventListener(CHAT_UNREAD_RECOUNT_EVENT, recount);
     };
   }, [userId]);
 

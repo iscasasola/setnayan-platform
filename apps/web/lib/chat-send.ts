@@ -23,6 +23,7 @@ import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
+import { readShopChatPeople } from './chat-shop-people.server';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 
 /**
@@ -197,10 +198,24 @@ export async function sendChatMessageCore(
       .maybeSingle(),
   ]);
 
+  // 👥 THE SHOP'S TEAM SPEAKS TOO (chat gaps, 8 Nov). The owner is the quick check above; anybody else on the shop
+  // side is asked of the SAME three branches `chat_messages_member_insert` admits (owner/admin team members, and a
+  // member below admin on an event their assigned service serves) — `readShopChatPeople`, never wider than RLS. The
+  // block guard (`chat_pair_is_blocked`) already counts the whole team, and the database still has the final say.
+  let shopPeople: { ownerUserId: string | null; userIds: string[] } | null = null;
+  const shopPeopleRead = async () => {
+    shopPeople ??= await readShopChatPeople(createAdminClient(), {
+      vendorProfileId: thread.vendor_profile_id,
+      eventId: thread.event_id,
+    });
+    return shopPeople;
+  };
   let senderRole: 'couple' | 'vendor';
   if (coupleCheck.data) {
     senderRole = 'couple';
   } else if (vendorCheck.data) {
+    senderRole = 'vendor';
+  } else if ((await shopPeopleRead()).userIds.includes(user.id)) {
     senderRole = 'vendor';
   } else {
     return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
@@ -214,7 +229,8 @@ export async function sendChatMessageCore(
       return { ok: false, code: 'private_words_only', message: PRIVATE_WORDS_ONLY_MESSAGE };
     }
     const partyAdmin = createAdminClient();
-    const [asHost, asShop] = await Promise.all([
+    // The shop side is the owner AND the team members who may chat here (a host can reply privately to a team member).
+    const [asHost, shop] = await Promise.all([
       partyAdmin
         .from('event_members')
         .select('user_id')
@@ -222,13 +238,9 @@ export async function sendChatMessageCore(
         .eq('user_id', privateTo)
         .eq('member_type', 'couple')
         .maybeSingle(),
-      partyAdmin
-        .from('vendor_profiles')
-        .select('user_id')
-        .eq('vendor_profile_id', thread.vendor_profile_id)
-        .eq('user_id', privateTo)
-        .maybeSingle(),
+      shopPeopleRead(),
     ]);
+    const asShop = { data: shop.userIds.includes(privateTo) ? privateTo : null };
     if (!asHost.data && !asShop.data) {
       return { ok: false, code: 'private_recipient', message: 'That person is not in this chat — your message was not sent.' };
     }

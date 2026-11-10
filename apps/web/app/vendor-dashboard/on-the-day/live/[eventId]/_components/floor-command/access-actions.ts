@@ -14,6 +14,9 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { accessAskedLine } from '@/lib/chat-gap-lines';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { normalizeRequestedAreas } from '@/lib/floor-command';
@@ -78,6 +81,15 @@ export async function askHostForAccess(
     }
     return { ok: false, error: error.message };
   }
+
+  // 🔗 THE CHAT SAYS SO (chat gaps, 8 Nov — the (+)'s "Ask for access" and this page's ask are the same ask). One plain
+  // Setnayan line in this event × shop conversation — the part names only, never the free-text note. Best-effort: the
+  // ask is already made; a missing thread just means there is no chat to tell.
+  await postThreadSystemLine(createAdminClient(), {
+    eventId,
+    vendorProfileId: profile.vendor_profile_id,
+    body: accessAskedLine({ shopName: profile.business_name ?? '', areas }),
+  });
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/access-requests`);

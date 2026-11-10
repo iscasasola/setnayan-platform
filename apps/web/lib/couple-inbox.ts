@@ -93,9 +93,11 @@ export async function readCoupleUnread(
         .from('chat_messages')
         .select('thread_id, created_at')
         .in('thread_id', threadIds as string[])
-        // `IS DISTINCT FROM auth.uid()`: a NULL sender (a bot, a system note)
-        // is someone else too — `neq` alone would drop it.
-        .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`)
+        // A PERSON other than me wrote it. A NULL sender (a Setnayan line, the
+        // auto-reply) is never unread, for anyone (chat gaps, 8 Nov — the SQL
+        // counters say the same since 20271336137492). `neq` drops NULL itself.
+        .not('sender_user_id', 'is', null)
+        .neq('sender_user_id', userId)
         .order('created_at', { ascending: false })
         .limit(600),
       supabase
@@ -156,7 +158,8 @@ export async function readThreadUnreadCount(
         .from('chat_messages')
         .select('created_at')
         .eq('thread_id', threadId)
-        .or(`sender_user_id.is.null,sender_user_id.neq.${userId}`)
+        .not('sender_user_id', 'is', null)
+        .neq('sender_user_id', userId)
         .order('created_at', { ascending: false })
         .limit(PICKED_CHAT_UNREAD_CAP),
       supabase.from('chat_thread_reads').select('last_read_at').eq('user_id', userId).eq('thread_id', threadId).maybeSingle(),

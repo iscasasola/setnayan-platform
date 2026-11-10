@@ -148,7 +148,14 @@ test('notices: the fan-out notifies every host, and a private line leaves before
   const src = stripComments(fs.readFileSync(path.join(HERE, 'chat-actions.ts'), 'utf8'));
   const fn = src.slice(src.indexOf('export async function notifyOtherParty'), src.indexOf('async function findPriorLockedEventName'));
   assert.ok(fn.length > 200, 'notifyOtherParty moved — re-point this test');
-  assert.match(fn, /\.from\('event_members'\)[\s\S]*?\.eq\('member_type', 'couple'\)[\s\S]*?for \(const m of members/, 'the supplier side notifies every host');
+  // 👥 Since 20271330575424 a host reads a supplier chat only as its MEMBER, so the shop's message tells the hosts IN
+  // this thread (`readThreadHostPeople`) — no longer every host of the event, who would get a preview of a conversation
+  // they are not in, or left (chat gaps, 8 Nov 2026).
+  assert.match(
+    fn,
+    /readThreadHostPeople\(admin, \{ threadId: args\.threadId, eventId: args\.eventId \}\)[\s\S]*?for \(const userId of told\.hostsAsBefore\)/,
+    'the supplier side notifies every host in this thread',
+  );
   assert.match(fn, /const preview = args\.body\.slice\(0, 140\)/, 'the notice carries the body');
   // The private branch: ONE notice, to args.privateTo, then return — before ANY fan-out.
   const branch = /if \(args\.privateTo\) \{([\s\S]*?)\n  \}\n/.exec(fn);
@@ -158,7 +165,7 @@ test('notices: the fan-out notifies every host, and a private line leaves before
   assert.match(body, /userId: args\.privateTo,/, 'the private notice is not addressed to the recipient');
   assert.match(body, /\n    return;\s*$/, 'the private branch does not return — it falls through to the fan-out');
   const at = fn.indexOf(branch[0]);
-  assert.ok(at < fn.indexOf(".from('event_members')"), 'the private branch runs AFTER the hosts are read');
+  assert.ok(at < fn.indexOf('readThreadHostPeople('), 'the private branch runs AFTER the hosts are read');
   assert.ok(at < fn.indexOf("if (args.senderRole === 'couple')"), 'the private branch runs after the shop fan-out begins');
   // …and the send core: the recipient rides the row only as the gated spread, never with a file, never to the AI,
   // and the same `privateTo` is what the notice gets.

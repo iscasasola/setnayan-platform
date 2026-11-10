@@ -16,10 +16,10 @@ import assert from 'node:assert/strict';
 import { PLUS_CARD_TOPIC, hostPlusRows, plusGate, supplierPlusRows, type RunningTopic } from './chat-plus';
 import { CHAT_TOPICS } from './topic-icons';
 
-test('1 · supplier rows: Quote · Payment · Meeting · Form · Photos & files · Decision · Report a problem', () => {
+test('1 · supplier rows: Quote · Payment · Meeting · Form · Photos & files · Decision · Ask for access · Report a problem', () => {
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Quote', 'Payment', 'Meeting', 'Form', 'Photos & files', 'Decision', 'Report a problem'],
+    ['Quote', 'Payment', 'Meeting', 'Form', 'Photos & files', 'Decision', 'Ask for access', 'Report a problem'],
   );
   assert.equal(supplierPlusRows({ paid: true })[0]!.label, 'Change quote');
   const photos = supplierPlusRows({ paid: false }).find((r) => r.key === 'photos')!;
@@ -39,7 +39,8 @@ test('1b · host rows: Meeting · Log a payment · File · Decision · Report a 
 
 test('1c · a row that cannot open yet is shut with its reason — never hidden', () => {
   const shut = supplierPlusRows({ paid: false }).filter((r) => r.shutUntilAgreement);
-  assert.deepEqual(shut.map((r) => r.key), ['payment', 'form']);
+  // Ask for access is the shipped ask, which is for a supplier booked on the event (chat gaps, 8 Nov).
+  assert.deepEqual(shut.map((r) => r.key), ['payment', 'form', 'access']);
   for (const r of shut) assert.ok(r.shutUntilAgreement!.reason.length > 0);
 });
 

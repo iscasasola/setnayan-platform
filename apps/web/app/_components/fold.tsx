@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
@@ -146,6 +146,7 @@ export function Fold({
   between,
   open: openProp,
   onOpenChange,
+  rises = false,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -236,6 +237,13 @@ export function Fold({
    */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * ⤴ THE ROW RISES FULL SCREEN INSTEAD OF OPENING IN PLACE (Build 5 · Lane A slice 2 — owner 10 Nov on a Clients row:
+   * *"The event did not grow fullscreen as planned"*; HOUSE_TEMPLATES T4). The head is the same head, its arrow points
+   * on (›) and it says it opens a screen (`aria-haspopup="dialog"`); a press calls `onOpenChange(true)` and the caller
+   * mounts `RiseScreen`. The fold itself never opens — pass it no body. Absent → the fold is exactly as it was.
+   */
+  rises?: boolean;
 }) {
   const [ownOpen, setOwnOpen] = useState(defaultOpen);
   const controlled = openProp !== undefined;
@@ -291,8 +299,10 @@ export function Fold({
     <button
       type="button"
       data-fold-head=""
-      aria-expanded={open}
-      aria-controls={id}
+      data-fold-rises={rises ? '' : undefined}
+      aria-expanded={rises ? undefined : open}
+      aria-controls={rises ? undefined : id}
+      aria-haspopup={rises ? 'dialog' : undefined}
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       aria-current={current ? 'true' : undefined}
       data-fold-current={current ? '' : undefined}
@@ -338,7 +348,11 @@ export function Fold({
           {aside}
         </span>
       ) : null}
-      <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      {rises ? (
+        <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
+      ) : (
+        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform duration-sn-pill ease-sn-spring motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      )}
     </button>
   );
   return (

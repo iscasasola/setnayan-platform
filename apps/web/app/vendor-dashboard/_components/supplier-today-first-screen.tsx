@@ -236,6 +236,12 @@ export type SupplierTodayFirstScreenProps = {
   nextEvents?: ReactNode;
   /** 📊 The five stats (`TodayStats`). */
   stats?: ReactNode;
+  /**
+   * ⚙ Today's ONE settings mount (`TodaySettings`), at the right end of the pinned Needs-you-today row (DECISION_LOG
+   * 2026-11-10 📌: "The ⚙ moves onto the pinned Needs you today row, at its right end"). Null on a new shop — its six
+   * steps draw their own ⚙ — and then this heading does not pin either: the setup heading is the pinned row.
+   */
+  gear?: ReactNode;
   /** 📋 Needs you today — every row, in order; each JUMPS (`nextHref(row.target)`). */
   needs: readonly TodayNeed[];
   /** "N · 12 MN – 12 MN" — the same count as the cover's chip (null = the desk could not be read and shows nothing). */
@@ -283,6 +289,7 @@ const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', '
  */
 export function SupplierTodayFirstScreen({
   cover = null,
+  gear = null,
   nextEvents = null,
   stats = null,
   needs,
@@ -326,12 +333,33 @@ export function SupplierTodayFirstScreen({
       <div data-today-needs="" data-tour="today-needs" id="whats-new">
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
             section) is Today's own page tour's. */}
-        <p className="hc-k2" data-tour="today-next">
+        {/* 📌 THE ONE PINNED ROW ON TODAY (owner 10 Nov: *"Needs you today is the correct one to be pinned rather than
+            the row above it."*): the heading + its count + Today's ⚙ stick under the bar while the rows scroll under
+            them; the cover, Next events and the stats scroll away. The pinned-row template (Clients' `customers-pin`):
+            sticky at the top, the page's own ground, the soft hairline (never a cut line), joined to the pin line
+            (`data-pinned-row`). A new shop (no ⚙ handed in) leaves it in the flow — its setup heading pins instead. */}
+        <div
+          className={
+            setup
+              ? 'hc-k2'
+              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sn-pin-hair sm:-mx-6 sm:px-6'
+          }
+          style={setup ? undefined : { background: 'var(--sn-canvas)', marginTop: 0, marginBottom: 0 }}
+          data-tour="today-next"
+          data-today-needs-pin={setup ? undefined : ''}
+          data-pinned-row={setup ? undefined : ''}
+          data-first-row={setup ? undefined : ''}
+        >
           <span>Needs you today</span>
           {/* Only a real count: 0 or an unread desk draws nothing here — the empty row under it says "Nothing waiting on
               you", and a bare "0 · 12 MN – 12 MN" read as a stray mark (Build 3 empty modes, 9 Nov). */}
           {needsCount ? <em data-today-needs-count="">{`${formatCount(needsCount)} · 12 MN – 12 MN`}</em> : null}
-        </p>
+          {gear ? (
+            <span className={`inline-flex shrink-0 normal-case tracking-normal ${needsCount ? '' : 'ml-auto'}`} data-today-needs-gear="">
+              {gear}
+            </span>
+          ) : null}
+        </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
           {needs.map((n) => (
             <TodayRow

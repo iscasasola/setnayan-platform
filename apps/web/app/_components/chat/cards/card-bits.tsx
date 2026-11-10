@@ -53,14 +53,8 @@ export function Problem({ text }: { text: string | null }) {
   );
 }
 
-/** Equal-weight choices: one row, equal widths (owner 9 Nov — "buttons uniform, rows balanced"). */
-export function EqualRow({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid auto-cols-fr grid-flow-col gap-2 [&>*]:w-full [&>*]:justify-center" data-equal-row="">
-      {children}
-    </div>
-  );
-}
+/** Equal-weight choices: one row, equal widths (owner 9 Nov — "buttons uniform, rows balanced") — the house one. */
+export { EqualRow } from '@/components/action-button';
 
 /** THE ONE LEDGER, as every face prints it: each payment, its state, and "Plan pays all … ✓". */
 export function LedgerStrip({ ledger }: { ledger: Ledger }) {

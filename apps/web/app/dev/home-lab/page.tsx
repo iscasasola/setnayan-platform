@@ -125,7 +125,7 @@ import { cookies } from 'next/headers';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, PapicCard, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { fixtureControl, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
+import { fixtureControl, fixtureControlEmpty, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
 import { planningProgress } from '@/lib/preparation';
 import { labPlanningList } from '../schedule-lab/lab-planning';
 
@@ -378,7 +378,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; moved?: string; page?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string; moved?: string; page?: string; empty?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -670,7 +670,9 @@ export default async function HomeLab({
           ? { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false }
           : fixtureSchedule(schedPhase, q.plan === 'pro');
   const weekOut = schedPhase === 'week' && labSchedule !== null && labSchedule !== 'unread';
-  const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
+  /* 👻 `?empty=1` — THE EMPTY LOOK (Build 5 Lane H): a new event, every read answered and empty — each widget's honest
+     face with its greyed Example under it (`fixtureControlEmpty`, the same fixture the guard renders). */
+  const labControl = q.empty === '1' ? fixtureControlEmpty(E) : (unread ? fixtureControlUnread : fixtureControl)(E, {
     next,
     schedule: labSchedule,
     countdown: labDate

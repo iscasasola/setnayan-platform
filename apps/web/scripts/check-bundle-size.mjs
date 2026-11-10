@@ -2,34 +2,66 @@
 /**
  * check-bundle-size.mjs
  *
- * Fails when the shared client bundle (chunks loaded on every page) exceeds
- * the locked target. Today: 200KB gzipped hard ceiling per CLAUDE.md decision
- * log row 2026-05-22 (engineering KPIs locked alongside LCP <1.5s mobile 4G PH,
- * INP <100ms, CLS <0.05).
+ * Fails when the shared client JavaScript that EVERY app-router page downloads
+ * exceeds the locked budget: 202.3KB gzipped (CLAUDE.md decision log row
+ * 2026-05-22 engineering KPIs, locked alongside LCP <1.5s mobile 4G PH, INP
+ * <100ms, CLS <0.05; history of each move in the comment above
+ * MAX_SHARED_GZIP_BYTES below).
  *
  * Why this exists: bundle size has zero observability until users complain
- * about cold-start latency. Pilot cohort is small enough that one bad PR
- * (a chunky chart lib, a moment.js drop-in, an unintentional `'use client'`
- * boundary on a heavy module) silently regresses LCP for the entire couple
- * surface. This guard catches the regression at PR-merge time, before it
- * compounds.
+ * about cold-start latency. One bad PR (a chunky chart lib, a moment.js
+ * drop-in, an unintentional `'use client'` boundary on a heavy module) silently
+ * regresses LCP for every page. This guard catches the regression at PR-merge
+ * time, before it compounds.
  *
- * What it measures: the union of chunks shared by every route under
- * `app/` (the framework + main-app + shared vendor split that Next emits
- * for every client navigation). Per-route chunks are NOT counted — a single
- * dashboard page can carry a heavier per-route bundle as long as the shared
- * surface stays inside the budget.
+ * ── OWNER RULING 2026-11-10, answered "A" ─────────────────────────────────────
+ * DECISION_LOG "THE BUNDLE BUDGET MEASURES WHAT A PAGE ACTUALLY DOWNLOADS".
+ * Until this ruling the check also counted `framework-*` (58.5KB) and `main-*`
+ * (39.7KB) — the PAGES ROUTER's chunks, taken from build-manifest.json's
+ * `/_app` + `/_error` lists. No page of this app downloads them: measured on
+ * the live site with performance.getEntriesByType('resource'), the home page
+ * and /maria-and-jose load `webpack-*` and `main-app-*` of those files and
+ * never `framework-*` or `main-*`. Counting ~98KB nobody downloads left main at
+ * 202.3/202.3KB, so every PR failed at random.
  *
- * Usage:
- *   pnpm bundle-size-check    # from apps/web (runs build first if .next missing)
+ * 🔑 THE KPI NUMBER IS UNCHANGED — still 202.3KB gzipped. What changed is what
+ * is counted, so the number now measures something a phone actually pays for.
+ *
+ * WHAT IS COUNTED (each chunk once, gzipped from the file on disk):
+ *   1. The chunks EVERY app-router entry lists — the intersection over every
+ *      route in `.next/app-build-manifest.json` `pages` (Next 15.5's
+ *      AppBuildManifestPlugin writes each entry as main-app's files + the
+ *      entry's own files, so this is at least main-app's set).
+ *   2. `rootMainFiles` from `.next/build-manifest.json` — the files Next's
+ *      app-render bootstraps on every app-router page (`getRequiredScripts`):
+ *      the webpack runtime, the app-router core chunks and `main-app-*`.
+ *   3. THE GUARD (part of the ruling): any PAGES-ROUTER chunk — anything in a
+ *      build-manifest.json `pages` list (`/_app`, `/_error`: framework, main,
+ *      pages/_app, pages/_error), or named `framework-*`, `main-*` (not
+ *      main-app), `pages/_app*`, `pages/_error*` — that appears in ANY app
+ *      route's load list is counted, even if only one route lists it. The day
+ *      an app route really downloads `framework-*`, it is paid for here.
+ *
+ * WHAT IS EXCLUDED is printed on every run, chunk by chunk with the reason, so
+ * nothing is hidden: pages-router chunks no app route lists, the pages
+ * router's own client manifests (`lowPriorityFiles`), and the `nomodule`
+ * polyfills only legacy browsers fetch. Per-route chunks are NOT counted — a
+ * page can carry a heavier bundle of its own as long as the shared surface
+ * stays inside the budget; the Maker's own first load has its own ceiling in
+ * `check-maker-js-budget.mjs` (CI runs both in the `bundle size check` job).
+ *
+ * Usage (after `next build`):
+ *   pnpm bundle-size-check    # from apps/web
  *   node scripts/check-bundle-size.mjs
+ * Tests: lib/the-bundle-check-counts-what-pages-load.test.ts (fixture manifests,
+ * no build).
  *
  * Tuning: edit MAX_SHARED_GZIP_BYTES below. If raising the ceiling, leave a
  * one-line comment explaining why + which decision-log row authorized it.
  */
 
-import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { join, resolve, dirname, relative } from 'node:path';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
@@ -37,6 +69,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
 const NEXT_DIR = join(WEB_ROOT, '.next');
 
+// ⚠ Every measurement quoted in the history below (2026-08-15 → 2026-11-08) was
+// taken under the OLD counting, which included framework-* and main-*. The
+// ceiling itself is unchanged by the 2026-11-10 ruling; only the counting is.
+//
 // 201KB gzipped — CLAUDE.md 2026-05-22 KPI lock, raised by 1KB on 2026-08-15.
 // The decision log row is `DECISION_LOG.md` 2026-08-15 (one shell mount).
 //
@@ -91,7 +127,127 @@ const NEXT_DIR = join(WEB_ROOT, '.next');
 //     /vendor-dashboard/messages/[threadId]                             396 → 262 kB
 //     /vendor-dashboard/on-the-day                                      286 → 181 kB
 // Same rule as above: moved by the measured amount and no more.
-const MAX_SHARED_GZIP_BYTES = Math.round(202.3 * 1024);
+export const MAX_SHARED_GZIP_BYTES = Math.round(202.3 * 1024);
+
+// ── What a chunk is ──────────────────────────────────────────────────────────
+
+/** Pages-router chunk names, for the guard when a manifest list is not enough. */
+export function looksLikePagesRouterChunk(file) {
+  return (
+    /(^|\/)framework-[^/]*\.js$/.test(file) ||
+    /(^|\/)main-(?!app-)[^/]*\.js$/.test(file) ||
+    /(^|\/)pages\/_(app|error)[-.][^/]*$/.test(file)
+  );
+}
+
+function listsOf(manifestPages) {
+  if (!manifestPages || typeof manifestPages !== 'object') return [];
+  return Object.entries(manifestPages).filter(([, v]) => Array.isArray(v));
+}
+
+function intersection(lists) {
+  let acc = null;
+  for (const list of lists) {
+    const s = new Set(list);
+    acc = acc === null ? s : new Set([...acc].filter((c) => s.has(c)));
+  }
+  return acc ?? new Set();
+}
+
+/**
+ * Decide which chunks are the shared app-router download. Pure: takes the two
+ * parsed manifests, returns what is counted and what is excluded, each with a
+ * reason. No file system, so the tests drive it with small fixtures.
+ *
+ * @returns {{
+ *   appRoutes: number,
+ *   counted: { chunk: string, reason: string }[],
+ *   excluded: { chunk: string, reason: string }[],
+ *   guardHits: { chunk: string, routes: string[] }[],
+ * }}
+ */
+export function selectSharedChunks({ buildManifest, appBuildManifest }) {
+  const appEntries = listsOf(appBuildManifest?.pages);
+  if (appEntries.length === 0) {
+    throw new Error(
+      'app-build-manifest.json lists no app-router routes, so what every app page downloads cannot be measured.',
+    );
+  }
+
+  // 2. What app-render bootstraps on every app page. With webpack,
+  // rootMainFilesTree is {} and rootMainFiles is the list; if a tree is ever
+  // present, a file every route's tree lists is equally shared.
+  const tree = buildManifest?.rootMainFilesTree;
+  const treeLists = tree && typeof tree === 'object' ? Object.values(tree).filter(Array.isArray) : [];
+  const rootMain = new Set([
+    ...(buildManifest?.rootMainFiles ?? appBuildManifest?.rootMainFiles ?? []),
+    ...(treeLists.length ? intersection(treeLists) : []),
+  ]);
+
+  // Pages-router chunks: everything build-manifest's page lists name, except
+  // the files app-render also bootstraps (the webpack runtime is one runtime
+  // chunk shared by both routers).
+  const pagesRouterChunks = new Set();
+  for (const [, list] of listsOf(buildManifest?.pages)) {
+    for (const c of list) if (!rootMain.has(c)) pagesRouterChunks.add(c);
+  }
+
+  const counted = new Map();
+  const add = (chunk, reason) => {
+    if (!counted.has(chunk)) counted.set(chunk, reason);
+  };
+
+  for (const c of rootMain) add(c, 'rootMainFiles — bootstrapped on every app-router page');
+  for (const c of intersection(appEntries.map(([, l]) => l))) {
+    add(c, 'listed by every app-router route');
+  }
+
+  // 3. THE GUARD.
+  const hitRoutes = new Map();
+  for (const [route, list] of appEntries) {
+    for (const c of list) {
+      if (rootMain.has(c)) continue;
+      if (pagesRouterChunks.has(c) || looksLikePagesRouterChunk(c)) {
+        if (!hitRoutes.has(c)) hitRoutes.set(c, []);
+        hitRoutes.get(c).push(route);
+      }
+    }
+  }
+  const guardHits = [...hitRoutes].map(([chunk, routes]) => ({ chunk, routes }));
+  for (const { chunk, routes } of guardHits) {
+    // A guard hit is counted even when the intersection already holds it; the
+    // reason says so, because that is the case the ruling is about.
+    counted.set(
+      chunk,
+      `GUARD — pages-router chunk in an app route's load list (${routes.length} route${routes.length === 1 ? '' : 's'}, e.g. ${routes[0]})`,
+    );
+  }
+
+  const excluded = new Map();
+  const exclude = (chunk, reason) => {
+    if (!counted.has(chunk) && !excluded.has(chunk)) excluded.set(chunk, reason);
+  };
+  for (const c of pagesRouterChunks) {
+    exclude(c, 'pages router only — no app-router route lists it');
+  }
+  for (const c of buildManifest?.lowPriorityFiles ?? []) {
+    exclude(c, "pages router's client manifest — app-router pages do not load it");
+  }
+  for (const c of buildManifest?.polyfillFiles ?? []) {
+    exclude(c, 'nomodule polyfills — only legacy browsers fetch them');
+  }
+
+  const toList = (m) => [...m].map(([chunk, reason]) => ({ chunk, reason }));
+  return { appRoutes: appEntries.length, counted: toList(counted), excluded: toList(excluded), guardHits };
+}
+
+/** Manifest entries are relative to .next/; a `/_next/` URL form is accepted too. */
+export function chunkPath(nextDir, rel) {
+  const clean = rel.startsWith('/_next/') ? rel.slice('/_next/'.length) : rel;
+  return join(nextDir, clean);
+}
+
+// ── The run ──────────────────────────────────────────────────────────────────
 
 function fail(message, details = []) {
   console.error(`\n❌ ${message}`);
@@ -107,17 +263,6 @@ function ok(message, details = []) {
   process.exit(0);
 }
 
-if (!existsSync(NEXT_DIR)) {
-  fail('No .next/ directory found.', [
-    'Run `pnpm --filter @setnayan/web build` first, or set NEXT_BUILD_AUTO=1.',
-    `Looked at: ${NEXT_DIR}`,
-  ]);
-}
-
-// build-manifest.json maps every page route to the chunks it needs. Pages
-// share most of these — the union of chunks listed under every route IS the
-// shared client bundle (modulo per-route chunks). app-build-manifest.json
-// does the same for the /app router.
 function loadManifest(name) {
   const path = join(NEXT_DIR, name);
   if (!existsSync(path)) return null;
@@ -128,126 +273,105 @@ function loadManifest(name) {
   }
 }
 
-const buildManifest = loadManifest('build-manifest.json');
-const appBuildManifest = loadManifest('app-build-manifest.json');
-
-if (!buildManifest && !appBuildManifest) {
-  fail('Neither build-manifest.json nor app-build-manifest.json exists in .next/.', [
-    'Did the build complete? Check for errors in the preceding step.',
-  ]);
-}
-
-// Collect the chunks that EVERY route loads — that's the shared client
-// surface. We compute the intersection of route → chunks across all routes
-// in the app-router manifest (the canonical one for Next 13+). Fall back
-// to build-manifest.json if app-router manifest is empty.
-function intersectionAcrossRoutes(manifest) {
-  if (!manifest || !manifest.pages) return new Set();
-  const routes = Object.keys(manifest.pages);
-  if (routes.length === 0) return new Set();
-  let acc = null;
-  for (const route of routes) {
-    const chunks = new Set(manifest.pages[route] || []);
-    if (acc === null) {
-      acc = chunks;
-    } else {
-      acc = new Set([...acc].filter((c) => chunks.has(c)));
-    }
-  }
-  return acc || new Set();
-}
-
-const appShared = appBuildManifest
-  ? intersectionAcrossRoutes({
-      pages: Object.fromEntries(
-        Object.entries(appBuildManifest.pages || appBuildManifest).filter(
-          ([, v]) => Array.isArray(v),
-        ),
-      ),
-    })
-  : new Set();
-const pagesShared = buildManifest ? intersectionAcrossRoutes(buildManifest) : new Set();
-
-// The app router manifest also exposes a `rootMainFiles` list — those are
-// loaded on every app-router navigation even when the route's per-page
-// list is empty. Include them.
-const rootMainFiles = new Set(
-  (appBuildManifest && appBuildManifest.rootMainFiles) || [],
-);
-
-const sharedChunks = new Set([...appShared, ...pagesShared, ...rootMainFiles]);
-
-if (sharedChunks.size === 0) {
-  fail('Could not identify any shared client chunks.', [
-    'This usually means the build did not emit a manifest — check for build errors.',
-  ]);
-}
-
-// Size each chunk by reading the file from .next/ and gzipping it. We use
-// the on-disk file rather than `next/server`'s reported sizes because the
-// manifest doesn't carry size data and gzip is what the browser actually
-// receives.
-function chunkPath(rel) {
-  // build-manifest entries are relative to .next/, except for /_next/static
-  // which is the public-facing URL — strip the leading slash + _next/.
-  const clean = rel.startsWith('/_next/') ? rel.slice('/_next/'.length) : rel;
-  return join(NEXT_DIR, clean);
-}
-
-let totalGzip = 0;
-const perChunk = [];
-for (const rel of sharedChunks) {
-  const p = chunkPath(rel);
-  if (!existsSync(p)) {
-    // Manifest may list pages/_app.js style virtual entries that don't
-    // physically exist; skip silently rather than failing.
-    continue;
-  }
-  const stat = statSync(p);
-  if (!stat.isFile()) continue;
+function gzipOf(rel) {
+  const p = chunkPath(NEXT_DIR, rel);
+  if (!existsSync(p) || !statSync(p).isFile()) return null;
   const buf = readFileSync(p);
-  const gz = gzipSync(buf).length;
-  totalGzip += gz;
-  perChunk.push({ chunk: rel, raw: buf.length, gzip: gz });
+  return { raw: buf.length, gzip: gzipSync(buf).length };
 }
 
-// Sort biggest first so logs are useful.
-perChunk.sort((a, b) => b.gzip - a.gzip);
+function main() {
+  if (!existsSync(NEXT_DIR)) {
+    fail('No .next/ directory found.', [
+      'Run `pnpm --filter @setnayan/web build` first.',
+      `Looked at: ${NEXT_DIR}`,
+    ]);
+  }
 
-const totalKB = (totalGzip / 1024).toFixed(1);
-const maxKB = (MAX_SHARED_GZIP_BYTES / 1024).toFixed(1);
+  const buildManifest = loadManifest('build-manifest.json');
+  const appBuildManifest = loadManifest('app-build-manifest.json');
+  if (!appBuildManifest) {
+    fail('No app-build-manifest.json in .next/.', [
+      'This check measures what app-router pages download and reads that manifest to know it.',
+      'Did the build complete? If Next stopped writing it, port the check — do not let it pass on nothing.',
+    ]);
+  }
 
-const top = perChunk
-  .slice(0, 8)
-  .map(
-    (e) =>
-      `${(e.gzip / 1024).toFixed(1)}KB gz · ${(e.raw / 1024).toFixed(0)}KB raw · ${e.chunk}`,
+  let sel;
+  try {
+    sel = selectSharedChunks({ buildManifest, appBuildManifest });
+  } catch (err) {
+    fail(err.message);
+  }
+
+  let totalGzip = 0;
+  const perChunk = [];
+  const missing = [];
+  for (const { chunk, reason } of sel.counted) {
+    const size = gzipOf(chunk);
+    if (!size) {
+      missing.push(chunk);
+      continue;
+    }
+    totalGzip += size.gzip;
+    perChunk.push({ chunk, reason, ...size });
+  }
+  if (perChunk.length === 0) {
+    fail('Could not identify any shared client chunks on disk.', [
+      'This usually means the build did not emit a manifest — check for build errors.',
+    ]);
+  }
+  perChunk.sort((a, b) => b.gzip - a.gzip);
+
+  const totalKB = (totalGzip / 1024).toFixed(1);
+  const maxKB = (MAX_SHARED_GZIP_BYTES / 1024).toFixed(1);
+  const kb = (n) => `${(n / 1024).toFixed(1)}KB`;
+
+  console.log(`\nShared client bundle (chunks every app-router page downloads, ${sel.appRoutes} app routes):`);
+  console.log(`  ${perChunk.length} chunks · ${totalKB}KB gzipped total`);
+  console.log(`  budget: ${maxKB}KB gzipped (CLAUDE.md 2026-05-22 KPI lock · owner ruling 2026-11-10 "A")\n`);
+  console.log(`Counted:`);
+  for (const e of perChunk) {
+    console.log(`  ${kb(e.gzip)} gz · ${(e.raw / 1024).toFixed(0)}KB raw · ${e.chunk} — ${e.reason}`);
+  }
+  for (const c of missing) console.log(`  ⚠ listed but not on disk, so not sized: ${c}`);
+
+  const excludedSized = sel.excluded.map((e) => ({ ...e, size: gzipOf(e.chunk) }));
+  const excludedKB = kb(excludedSized.reduce((n, e) => n + (e.size?.gzip ?? 0), 0));
+  console.log(
+    `\nexcluded (${excludedSized.length}, ${excludedKB} gz — not downloaded by app-router pages): ` +
+      (excludedSized.length
+        ? excludedSized
+            .map((e) => `${e.chunk}${e.size ? ` (${kb(e.size.gzip)})` : ''} — ${e.reason}`)
+            .join(' · ')
+        : 'none'),
   );
+  if (sel.guardHits.length) {
+    console.log(
+      `\n⚠ GUARD: ${sel.guardHits.length} pages-router chunk(s) found in app routes' load lists — COUNTED above: ` +
+        sel.guardHits.map((h) => `${h.chunk} (${h.routes.length} routes)`).join(' · '),
+    );
+  }
 
-console.log(`\nShared client bundle (chunks loaded on every page):`);
-console.log(`  ${sharedChunks.size} chunks · ${totalKB}KB gzipped total`);
-console.log(`  budget: ${maxKB}KB gzipped (CLAUDE.md 2026-05-22 KPI lock)\n`);
-console.log(`Top contributors:`);
-for (const line of top) console.log(`  ${line}`);
-
-if (totalGzip > MAX_SHARED_GZIP_BYTES) {
-  const overKB = ((totalGzip - MAX_SHARED_GZIP_BYTES) / 1024).toFixed(1);
-  fail(
-    `Shared client bundle exceeds budget by ${overKB}KB gzipped.`,
-    [
+  if (totalGzip > MAX_SHARED_GZIP_BYTES) {
+    const overKB = ((totalGzip - MAX_SHARED_GZIP_BYTES) / 1024).toFixed(1);
+    fail(`Shared client bundle exceeds budget by ${overKB}KB gzipped.`, [
       `Measured: ${totalKB}KB · Budget: ${maxKB}KB`,
-      'Top contributors are listed above. Common fixes:',
+      'Counted chunks are listed above. Common fixes:',
       '  · Dynamic-import heavy components (charts, maps, PDF viewers).',
       '  · Move imports behind `next/dynamic({ ssr: false })`.',
       '  · Check for accidentally-client modules: any `"use client"` file',
       '    transitively pulled into a shared layout will widen the budget.',
       '  · If the regression is intentional + justified, update the CLAUDE.md',
       '    decision log AND raise MAX_SHARED_GZIP_BYTES in the same PR.',
-    ],
-  );
+    ]);
+  }
+
+  const remainingKB = ((MAX_SHARED_GZIP_BYTES - totalGzip) / 1024).toFixed(1);
+  ok(`Shared client bundle within budget (${remainingKB}KB headroom).`, [
+    `Measured: ${totalKB}KB · Budget: ${maxKB}KB`,
+  ]);
 }
 
-const remainingKB = ((MAX_SHARED_GZIP_BYTES - totalGzip) / 1024).toFixed(1);
-ok(`Shared client bundle within budget (${remainingKB}KB headroom).`, [
-  `Measured: ${totalKB}KB · Budget: ${maxKB}KB`,
-]);
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isMain) main();

@@ -246,7 +246,8 @@ export type RosterAnswers = {
  * "Customers ▾ — Events · Dates · Money · QR. One row per event; opened = the fixed lines + For your service"). No box.
  *
  * 🔁 IT OPENS NOW, it no longer jumps (the 2026-10-28 "jump to chat full screen" row, superseded by the approved v13):
- * the row is the shared `SupplierOpenRow` — in place on a phone, in the right column from 701 — and opened it shows the
+ * the row is the shared `SupplierOpenRow` — ⤴ RISEN FULL SCREEN on a phone (Build 5 · Lane A slice 2, owner 10 Nov), in
+ * the right column from 701 — and opened it shows the
  * event's fixed lines (`EventLinesBody`) and its door into the client, worded by the page it lands on (#38: Open the
  * chat · Open the quotation · Open their details · Open their Hub), or, for an inquiry, Decline · Ask · Accept in place.
  */
@@ -299,6 +300,9 @@ export function RosterRowView({
         titleNode={<Marked text={title} query={query} />}
         line={rowWords}
         lineWrap
+        // ⤴ On a phone the event RISES FULL SCREEN (owner 10 Nov: "The event did not grow fullscreen as planned") —
+        // Event type · Celebrant · Hosted by · Location / Date / Pax · Service requested · For your service, then its door.
+        rise
         lead={avatar}
         aside={
           <Badge tone={badge.tone} data="customer-stage">

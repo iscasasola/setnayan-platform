@@ -39,6 +39,8 @@
  * ignoring them — the failure-that-looks-like-success this repo keeps paying for.
  */
 
+import { ExamplePreview } from '@/app/_components/states/empty-state';
+import { SAMPLE_CHAPTERS } from '@/lib/empty-look-samples';
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { SCHEDULE_FOCUS_EVENT, takeQueuedScheduleFocus } from './schedule-focus';
 import { SCHEDULE_CANVAS_STALE_EVENT, SCHEDULE_QUIET_FIELD, quietDayActions } from './schedule-live';
@@ -1693,7 +1695,36 @@ function EmptyRail({
       ) : (
         <p className="text-[13.5px] text-ink/65">Nothing on the rail yet — tap a time to add the first moment.</p>
       )}
+      <ChaptersExample />
     </div>
+  );
+}
+
+/**
+ * 👻 THE EVENT DAY'S EXAMPLE (Build 5 Lane H; owner 2026-11-09, DECISION_LOG 🧱👻 ×2; prototype frame "Event ·
+ * Schedule"): three sample chapters on the rail's own hour column and block — the time, the chapter, where and how long,
+ * and the time free between them (`lib/empty-look-samples.ts`), greyed under "Example". Drawn only by `EmptyRail`, which
+ * the rail mounts on a day it READ with no moments on it; the "+ Add a chapter" pill stays the door.
+ */
+export function ChaptersExample() {
+  return (
+    <ExamplePreview className="mt-3">
+      <ol className="flex flex-col">
+        {SAMPLE_CHAPTERS.map((c) => (
+          <li key={c.name} className="flex min-h-14 gap-3">
+            <span className="w-[52px] flex-none pt-1 text-right text-[11.5px] tabular-nums text-ink/55">{c.time}</span>
+            <span className="relative min-w-0 flex-1 border-l-[1.5px] border-ink/10 pb-2 pl-3">
+              <span aria-hidden className="absolute -left-[5px] top-2 h-2 w-2 rounded-full bg-ink/45" />
+              <span className="block rounded-xl border-l-[3px] border-ink/40 bg-ink/[0.06] px-2.5 py-2 text-[13.5px] font-semibold text-ink">
+                {c.name}
+                <small className="block text-[11.5px] font-normal text-ink/55">{c.place}</small>
+              </span>
+              {c.gap ? <span className="block py-1.5 text-[11.5px] text-ink/55">{c.gap}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </ExamplePreview>
   );
 }
 

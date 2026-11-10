@@ -29,7 +29,8 @@ import { offlineSavingOpen } from '@/lib/offline-copies';
 import { QUIET_MAX_COPIES, type QuietCopy } from '@/lib/quiet-schedule-refresh';
 import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
+import { fetchUserEvents, fetchUserEventsOrReconnect, userEventsReadRefused, type EventWithRole } from '@/lib/events';
+import { PlanningExample, ShelfExample } from './_components/board-examples';
 import { rethrowIfSchemaBlip } from '@/lib/read-retry';
 import {
   canWriteStoryFor,
@@ -327,6 +328,15 @@ export default async function LauncherPage({
         return [] as CommunityWithRole[];
       }),
     ]);
+
+  // 👻 THE EMPTY LOOK (Build 5 Lane H): a shelf draws its greyed-out Example only when every membership read the board
+  // shows ANSWERED. Each call re-asks the same cached read above — no extra trip. A refused read keeps the shelf's
+  // shipped line alone: an Example there would dress a failure as a fresh start.
+  const boardReadAnswered = !(
+    await Promise.all(
+      (['couple', 'guest', 'coordinator'] as const).map((m) => userEventsReadRefused(supabase, user.id, m).catch(() => true)),
+    )
+  ).some(Boolean);
 
   // ⚠ `events` STAYS THE ORGANISER-ONLY SET, deliberately. Everything below it
   // — the landing auto-jump, the checklists, the "% planned" rings, the decision
@@ -1303,6 +1313,7 @@ export default async function LauncherPage({
             itself the morning after.
           </p>
         ) : null}
+        {happeningNow.length === 0 && boardReadAnswered ? <ShelfExample shelf="now" /> : null}
         <CollectionGrid>
           {happeningNow.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
@@ -1350,6 +1361,7 @@ export default async function LauncherPage({
             to [] on a refused read, and a person with finished celebrations
             has an empty Planning shelf too — so it never says "no events". */}
         {upcoming.length === 0 ? (
+          <>
           <CollectionEmptyState
             title="Start an event"
             body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
@@ -1363,6 +1375,8 @@ export default async function LauncherPage({
               </Link>
             }
           />
+          {boardReadAnswered ? <PlanningExample /> : null}
+          </>
         ) : (
         <CollectionGrid layout="poster">
           {upcomingOnPage.map((event, i) => (
@@ -1512,7 +1526,9 @@ export default async function LauncherPage({
               ? 'Events move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
               : 'Events move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
-        ) : (
+        ) : null}
+        {unwritten.length === 0 && boardReadAnswered ? <ShelfExample shelf="ended" /> : null}
+        {unwritten.length === 0 ? null : (
           <>
             {/* THE CARD IS THE CHOICE (owner 2026-08-22). This shelf used to pair
                 a plain card — opening the event dashboard — with a SEPARATE
@@ -1586,6 +1602,8 @@ export default async function LauncherPage({
               : 'This is where the events you have written up live.'}
           </p>
         ) : null}
+        {/* 👻 Only when the stories were MEASURED: unmeasured, `written` is empty because the read never came back. */}
+        {written.length === 0 && storiesMeasured && boardReadAnswered ? <ShelfExample shelf="told" /> : null}
         <CollectionGrid>
           {written.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>

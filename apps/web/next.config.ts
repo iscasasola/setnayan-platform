@@ -475,6 +475,22 @@ const nextConfig: NextConfig = {
         ...(split.cacheGroups ?? {}),
         ...oneCopyPerLayoutGroups(findLayoutAnchors(path.join(__dirname, 'app'))),
       };
+      // 🏷 NEXT'S BIG-LIBRARY CHUNKS GO UNNAMED (2026-11-10). Next's `lib` group
+      // gives every node_modules module over 160KB its own chunk NAMED by an
+      // 8-hex hash (`04ba8493`, `166d7eef` …). A lazy chunk with a name costs the
+      // webpack runtime — on EVERY page, under the shared-bundle lock — a second
+      // map entry (`2604:"04ba8493"`) besides its content hash; an unnamed one is
+      // keyed by its id alone. MEASURED on the live runtime (247 lazy chunks, 12
+      // of them lib-named): −106 B gzipped. Without a name webpack groups the
+      // group's modules by the set of chunks that load them, so a big library
+      // still never lands in a chunk that does not already need it: same bytes,
+      // same pages; at most two libraries that are always loaded together share
+      // one file. Our own `webpackChunkName` groups (maker-details …) are untouched
+      // — their names are what groups them.
+      const lib = split.cacheGroups.lib;
+      if (lib && typeof lib === 'object') {
+        split.cacheGroups.lib = { ...lib, name: false };
+      }
     }
     // ✂ A SHORTER CHUNK HASH, ONE FILENAME SHAPE (2026-10-25, Next 15.5.28).
     // The webpack runtime loads on EVERY page and spells out every lazy chunk's
@@ -498,8 +514,15 @@ const nextConfig: NextConfig = {
     // runtime 4,999 → 4,860 B (−139 B) with nothing else changed. 9 hex = 36 bits
     // (~1 in 7×10^10 that a changed chunk reuses its old name); still above the
     // service worker's ≥ 8 hex rule.
+    //
+    // 8 hex since 2026-11-10 — the floor: the service worker's `IMMUTABLE_PATH`
+    // (public/sw.js) only treats a name with ≥ 8 hex as content-hashed, so this
+    // can go no lower. Main sat at 202.3KB against the 202.3KB lock with 0.0KB
+    // headroom and flipped pass/fail on hash noise alone. MEASURED on the live
+    // runtime (247 lazy-chunk entries): 9 → 8 hex is −152 B gzipped. 8 hex = 32
+    // bits (~1 in 4×10^9 that a changed chunk keeps its old name).
     if (!isServer && !dev && config.output) {
-      const CHUNK_HASH = '[contenthash:9]';
+      const CHUNK_HASH = '[contenthash:8]';
       const { filename, chunkFilename } = config.output;
       if (typeof filename === 'string' && filename.startsWith('static/chunks/')) {
         config.output.filename = filename.replace('[contenthash]', CHUNK_HASH);

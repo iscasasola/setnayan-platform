@@ -110,6 +110,7 @@ import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
+import { GuestsExample } from './_components/guests-example';
 
 export const metadata = { title: 'Guests' };
 
@@ -1798,6 +1799,9 @@ function EmptyState({
       <div className="mt-4 flex justify-center">
         <OpenAddGuestTextButton label={finished ? 'Add someone who came' : 'Add a guest'} />
       </div>
+      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the roster on sample rows, greyed under "Example" — only here, after the read
+          was MEASURED and came back with nobody; not for a day that is over (nobody plans a list for it any more). */}
+      {finished ? null : <GuestsExample />}
     </div>
   );
 }

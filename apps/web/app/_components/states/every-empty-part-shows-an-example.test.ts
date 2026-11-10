@@ -137,13 +137,85 @@ const PARTS: Part[] = [
     mount: /<WorthPlanningExample \/>/,
     gate: /unsure \? null : <WorthPlanningExample \/>/,
   },
+  // ── The event dashboard (Today's tiles + To do are rendered whole, below) ──
+  {
+    name: 'Event · Guests',
+    render: async () => React.createElement((await import('@/app/dashboard/[eventId]/guests/_components/guests-example')).GuestsExample),
+    file: 'app/dashboard/[eventId]/guests/page.tsx',
+    mount: /<GuestsExample \/>/,
+    // The `!measured` branch (a refused read) returns "We couldn't load your guest list" before this line.
+    gate: /finished \? null : <GuestsExample \/>/,
+  },
+  {
+    name: 'Event · Suppliers › Booked',
+    render: async () => {
+      const { ExamplePreview } = await import('./empty-state');
+      const { BookedRowsExample } = await import('@/app/dashboard/[eventId]/vendors/_components/booked-row');
+      return React.createElement(ExamplePreview, null, React.createElement(BookedRowsExample));
+    },
+    file: 'app/dashboard/[eventId]/vendors/_components/booked-body.tsx',
+    mount: /<BookedRowsExample \/>/,
+    gate: /booked\.length === 0 \? \([\s\S]{0,600}waiting\.length === 0 \? \(\s*<ExamplePreview className="mt-4">\s*<BookedRowsExample \/>/,
+  },
+  {
+    name: 'Event · Schedule',
+    render: async () => React.createElement((await import('@/app/dashboard/[eventId]/schedule/_components/day-rail')).ChaptersExample),
+    file: 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx',
+    mount: /<ChaptersExample \/>/,
+    // EmptyRail is drawn only on an answered, empty rail (the page returns early on a refused `blocks` read).
+    gate: /rows\.length === 0 \? \(\s*<EmptyRail/,
+  },
+  {
+    name: 'Event · Budget',
+    render: async () => React.createElement((await import('@/app/dashboard/[eventId]/budget/_components/budget-example')).BudgetExample),
+    file: 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',
+    mount: /<BudgetExample \/>/,
+    // A refused group is `null`, so `?.length === 0` is false for it: all three must have ANSWERED empty.
+    gate: /list\.suppliers\?\.length === 0 && list\.orders\?\.length === 0 && list\.expenses\?\.length === 0 \? <BudgetExample \/>/,
+  },
+  {
+    name: 'Event · Memories',
+    render: async () =>
+      React.createElement((await import('@/app/_components/memories/event-memories-gallery')).MemoriesExample, { gridClass: 'grid' }),
+    file: 'app/_components/memories/event-memories-gallery.tsx',
+    mount: /<MemoriesExample gridClass=\{gridClass\} \/>/,
+    // Inside the `shown.length === 0` branch, which a refused read (`unreadable`) never reaches.
+    gate: /host && items\.length === 0 && album === 'all' && !q\.trim\(\) && !needsLook && chapter === ALL_CHAPTERS \? \(\s*<MemoriesExample/,
+  },
+  {
+    name: 'Event · Hub',
+    render: async () => React.createElement((await import('@/app/dashboard/[eventId]/launch/_components/hub-stage')).HubStageExample),
+    file: 'app/dashboard/[eventId]/launch/_components/hub-stage.tsx',
+    mount: /<HubStageExample \/>/,
+    // A live phase = the event was read; no address = the stage draws no frame of its own.
+    gate: /livePhase && initialPhase && !slug \? <HubStageExample \/>/,
+  },
+  {
+    name: 'Event · To do',
+    render: async () => React.createElement('div'),
+    file: 'app/dashboard/[eventId]/_components/home-todo-list.tsx',
+    mount: /<ExamplePreview>/,
+    gate: /checklist\.total === 0 && rows\.length === 0 \? \(\s*<ExamplePreview>/,
+  },
+  {
+    name: "Event · Who's here",
+    render: async () => React.createElement('div'),
+    file: 'app/dashboard/[eventId]/_components/home-cards/home-whos-here-card.tsx',
+    mount: /<ExamplePreview className="mt-1">/,
+    gate: /teamState === 'live' && peers && peers\.length === 0 \? \(\s*<ExamplePreview/,
+  },
 ];
 
+/** Parts whose Example is drawn inline in a bigger component — rendered whole in the Today test below. */
+const RENDERED_WHOLE = new Set(['Event · To do', "Event · Who's here"]);
+
 for (const p of PARTS) {
-  test(`👻 ${p.name} — renders its Example from the shared sample`, async () => {
-    const out = await html(await p.render());
-    assertIsExample(out, p.name);
-  });
+  if (!RENDERED_WHOLE.has(p.name)) {
+    test(`👻 ${p.name} — renders its Example from the shared sample`, async () => {
+      const out = await html(await p.render());
+      assertIsExample(out, p.name);
+    });
+  }
 
   test(`🔒 ${p.name} — mounted, and only behind its "read answered and empty" gate`, () => {
     const src = read(p.file);
@@ -151,6 +223,26 @@ for (const p of PARTS) {
     assert.match(src, p.gate, `${p.name}: the Example is mounted without its gate — it could show on a refused read or beside real content`);
   });
 }
+
+/* ─── Event · Today — Home rendered whole on three fixtures ─────────────────── */
+
+test('👻 Event · Today — an empty event draws every widget\'s Example; a refused read and a full one draw none', async () => {
+  const { fixtureControl, fixtureControlEmpty, fixtureControlUnread } = await import('@/lib/home-control-fixture');
+  const { drawHome, loadHome, slice } = await import('@/app/dashboard/[eventId]/home-render.harness');
+  await loadHome();
+  const empty = drawHome({ control: fixtureControlEmpty('e1') });
+  const compact = slice(empty, 'data-home-control="compact"', ['data-home-control="detail"']);
+  const KEYS = ['guests', 'hub', 'sup', 'budget', 'sched'] as const;
+  for (const key of KEYS) {
+    const tile = slice(compact, `data-home-tile="${key}"`, KEYS.filter((k) => k !== key).map((k) => `data-home-tile="${k}"`).concat('data-home-todo'));
+    assert.ok(tile.length > 0, `Today: the ${key} tile is not drawn on an empty event`);
+    assertIsExample(tile, `Today · ${key}`);
+  }
+  const todo = slice(empty, 'data-home-todo', ['data-home-your-event']);
+  assertIsExample(todo, 'Today · To do');
+  assert.doesNotMatch(drawHome({ control: fixtureControlUnread('e1') }), /data-example/, 'a REFUSED read drew an Example — it would pass a sample off as the event');
+  assert.doesNotMatch(drawHome({ control: fixtureControl('e1') }), /data-example/, 'a FULL event still draws an Example');
+});
 
 test('🧾 the sample couple lives in ONE fixture — no part types its own', () => {
   for (const file of new Set(PARTS.map((p) => p.file))) {

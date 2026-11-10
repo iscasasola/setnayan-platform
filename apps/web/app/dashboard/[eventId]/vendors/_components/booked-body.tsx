@@ -32,7 +32,8 @@ import {
   WAITING_INFO,
   type BookedView,
 } from '@/lib/booked-rows';
-import { BookedRowList, WaitingRowItem } from './booked-row';
+import { BookedRowList, BookedRowsExample, WaitingRowItem } from './booked-row';
+import { ExamplePreview } from '@/app/_components/states/empty-state';
 import type { ServiceCounts } from '@/lib/supplier-count';
 import { WhereAsk } from './booked-where';
 import { GoToFind } from './go-to-find';
@@ -141,6 +142,13 @@ export function BookedBody({
             <p className={SUB}>{BOOKED_EMPTY}</p>
             {/* The empty state gives the first action (2026-10-12 look sweep). */}
             <GoToFind className="mt-3" />
+            {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the team on sample rows, greyed under "Example" — only on this branch,
+                where the read answered (`kind: 'view'`) and nobody is booked or waiting for a yes. */}
+            {waiting.length === 0 ? (
+              <ExamplePreview className="mt-4">
+                <BookedRowsExample />
+              </ExamplePreview>
+            ) : null}
           </div>
         ) : (
           <>

@@ -39,9 +39,23 @@ const MIGRATED: { name: string; file: string; from: string; to: string; inputs: 
     name: 'wedding 1 · Who’s getting married? (w_names)',
     file: 'app/onboarding/wedding/_components/wedding-cards.tsx',
     from: "if (card === 'w_names') {",
-    to: "if (card === 'w_kind') {",
+    to: "if (card === 'w_eventname') {",
     // one field() helper, drawn four times (two per side)
     inputs: 1,
+  },
+  {
+    name: 'wedding 2 · Name your wedding (w_eventname)',
+    file: 'app/onboarding/wedding/_components/wedding-cards.tsx',
+    from: "if (card === 'w_eventname') {",
+    to: "if (card === 'w_kind') {",
+    inputs: 1,
+  },
+  {
+    name: 'wedding 3 · What kind of wedding? (w_kind)',
+    file: 'app/onboarding/wedding/_components/wedding-cards.tsx',
+    from: "if (card === 'w_kind') {",
+    to: "if (card === 'w_area')",
+    inputs: 0,
   },
 ];
 
@@ -80,5 +94,7 @@ for (const s of MIGRATED) {
     assert.equal(serif, 0, 'no serif type (the “&” divider and the serif title are gone)');
     assert.equal(pill, 0, 'a set of choices is StepPick (the full-width dropdown), not a bare PickMenu pill');
     assert.match(src, /<StepField\b/, 'each field is labelled above');
+    // "Not decided yet" is a choice INSIDE the dropdown, never a third control beside it (owner 10 Nov).
+    assert.doesNotMatch(src, /\bquick=\{/, 'no quick-answer pill beside the field');
   });
 }

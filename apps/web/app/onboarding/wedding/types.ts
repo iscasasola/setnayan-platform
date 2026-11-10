@@ -76,6 +76,11 @@ export interface OnboardingState {
 
   // -- Phase 2 fields (screens 4-8: name · date · region · pax · budget) --
 
+  /**
+   * "Name your wedding" (Lane P) — null while it follows the names (`weddingEventName`), the couple's
+   * own words once they type (even ''). Written to `events.display_name` at the commit.
+   */
+  eventName: string | null;
   /** Bride first name (screen 4) — monogram initial + seeds the guest list (first guest). */
   brideFirstName: string;
   /** Bride last name (screen 4) — joined into events.bride_name + the guest-list row. */
@@ -429,6 +434,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   faith: [],
   ceremonyUndecided: false,
   venues: EMPTY_VENUES,
+  eventName: null,
   brideFirstName: '',
   brideLastName: '',
   groomFirstName: '',

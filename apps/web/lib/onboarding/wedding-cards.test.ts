@@ -61,7 +61,7 @@ const VIEW: SetupView = {
 
 // ── the order ─────────────────────────────────────────────────────────────
 
-test('the approved order — names · kind · date · area · estimate · budget · … · services (12 cards, not 13)', () => {
+test('the approved order — names · event name · kind · date · area · estimate · budget · … · services (13 cards)', () => {
   const all = weddingFlowScreens({
     engineCards: ['setup_where', 'setup_photo', 'setup_look', 'setup_guests', 'setup_more'],
     skipAccount: false,
@@ -69,6 +69,7 @@ test('the approved order — names · kind · date · area · estimate · budget
   });
   assert.deepEqual(all, [
     'w_names',
+    'w_eventname',
     'w_kind',
     'date',
     'w_area',
@@ -81,7 +82,8 @@ test('the approved order — names · kind · date · area · estimate · budget
     'services_step',
     'congrats',
   ]);
-  assert.equal(all.length, 12, 'owner d24: sign-up drops the "How do guests get in?" card — 13 cards became 12');
+  // owner d24: sign-up dropped the "How do guests get in?" card (13 → 12); Lane P (owner 10 Nov) adds "Name your wedding" (12 → 13).
+  assert.equal(all.length, 13, 'Lane P adds "Name your wedding"; setup_entry stays gone');
   assert.ok(!(WEDDING_FLOW_ORDER as readonly string[]).includes('setup_entry'));
   assert.ok(!(WEDDING_ENGINE_CARDS as readonly string[]).includes('setup_entry'));
 });
@@ -89,7 +91,7 @@ test('the approved order — names · kind · date · area · estimate · budget
 test('the engine cards a wedding does NOT keep (where · guests · more) never appear', () => {
   const all = weddingFlowScreens({ engineCards: ['setup_where', 'setup_guests', 'setup_more'], skipAccount: true, services: false });
   for (const gone of ['setup_where', 'setup_guests', 'setup_more']) assert.ok(!all.includes(gone), gone);
-  assert.deepEqual(all, ['w_names', 'w_kind', 'date', 'w_area', 'w_pax', 'w_budget', 'w_colours', 'congrats']);
+  assert.deepEqual(all, ['w_names', 'w_eventname', 'w_kind', 'date', 'w_area', 'w_pax', 'w_budget', 'w_colours', 'congrats']);
 });
 
 test('the account gate and the services step drop out when they should', () => {

@@ -16,9 +16,10 @@
  */
 import type { FaithKey } from '@/lib/faith-registry';
 import type { BudgetBand } from '@/lib/budget-bands-shared';
+import { DISPLAY_NAME_MAX, joinCoupleNames } from '@/lib/typed-names';
 
 /** The wedding's own cards — the ones the generic engine has no card for. */
-export const WEDDING_CARD_IDS = ['w_names', 'w_kind', 'w_area', 'w_pax', 'w_budget', 'w_colours'] as const;
+export const WEDDING_CARD_IDS = ['w_names', 'w_eventname', 'w_kind', 'w_area', 'w_pax', 'w_budget', 'w_colours'] as const;
 export type WeddingCardId = (typeof WEDDING_CARD_IDS)[number];
 
 /**
@@ -40,6 +41,8 @@ export const WEDDING_ENGINE_CARDS = ['setup_photo', 'setup_look'] as const;
  */
 export const WEDDING_FLOW_ORDER = [
   'w_names',
+  // Lane P (owner 10 Nov: "we want the event name to be set on the onboarding") — right after the names it is written from.
+  'w_eventname',
   'w_kind',
   'date',
   'w_area',
@@ -216,3 +219,25 @@ export function budgetRows(bands: readonly BudgetBand[], guests: number): Budget
 
 /** The band pre-selected when the card opens ("Classic · The sweet spot"). */
 export const BUDGET_DEFAULT_BAND = 'classic';
+
+// ── 2 · name your wedding ──────────────────────────────────────────────────
+
+/** The event name's longest form — the page name's own cap (`DISPLAY_NAME_MAX`, `events.display_name`). */
+export const WEDDING_EVENT_NAME_MAX = DISPLAY_NAME_MAX;
+
+/**
+ * "Name your wedding" (Lane P, owner 10 Nov, verbatim: *"we want the event name to be set on the
+ * onboarding"*). Until the couple types, the name FOLLOWS the names through the one composition
+ * (`joinCoupleNames`, the first person first — "Claire & Indalecio"); once typed (`eventName !== null`)
+ * it is theirs, even when emptied (then Continue waits). This is exactly what the commit writes to
+ * `events.display_name`, and the Event Hub address is seeded from it — nothing new in the schema.
+ */
+export function weddingEventName(s: { eventName: string | null; brideFirstName: string; groomFirstName: string }): string {
+  if (s.eventName !== null) return s.eventName.slice(0, WEDDING_EVENT_NAME_MAX);
+  return joinCoupleNames(s.brideFirstName, s.groomFirstName).slice(0, WEDDING_EVENT_NAME_MAX);
+}
+
+/** Can "Name your wedding" be passed? A name with at least one letter or digit. */
+export function weddingEventNameReady(s: { eventName: string | null; brideFirstName: string; groomFirstName: string }): boolean {
+  return /[\p{L}\p{N}]/u.test(weddingEventName(s));
+}

@@ -34,7 +34,9 @@ import {
   CHURCH_FAITHS,
   ESTIMATE_MAX,
   ESTIMATE_MIN,
+  WEDDING_EVENT_NAME_MAX,
   WEDDING_SELF_SIDES,
+  weddingEventName,
   ceremonyChoiceOf,
   ceremonyChoiceToState,
   budgetRows,
@@ -50,6 +52,7 @@ import { LocationStep } from './location-step';
 import { WeddingVenues, type VenueSearch } from './wedding-venues';
 import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import type { OnboardingState } from '../types';
+import { slugify } from '@/lib/slugs';
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const nameOnly = (raw: string) => (raw || '').replace(/[^\p{L}\s'-]/gu, '');
@@ -169,38 +172,85 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     );
   }
 
+  if (card === 'w_eventname') {
+    // ✍ "NAME YOUR WEDDING" (Lane P, owner 10 Nov: "we want the event name to be set on the onboarding") —
+    // prefilled from the names (the first person first), editable; the Event Hub address is seeded from it.
+    const name = weddingEventName(state);
+    const address = slugify(name);
+    return (
+      <SetupFrame
+        {...frame}
+        title="Name your wedding"
+        line="It is the title of your Event Hub and its address."
+        info="We wrote it from your names. Change it to anything — “The Casasola Wedding”, “Claire & Ice”. The address under it is taken from the name."
+      >
+        <div className="flex flex-col gap-3" data-wedding-event-name>
+          <StepField
+            label="Event name"
+            htmlFor="w-event-name"
+            hint={
+              address ? (
+                <>
+                  Your Event Hub · <code className="font-mono text-ink/70">setnayan.com/{address}</code>
+                </>
+              ) : null
+            }
+          >
+            <StepInput
+              id="w-event-name"
+              aria-label="Event name"
+              placeholder="e.g. Claire & Indalecio"
+              autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="next"
+              maxLength={WEDDING_EVENT_NAME_MAX}
+              required
+              value={name}
+              data-wedding-event-name-input
+              onChange={(e) => patch({ eventName: e.target.value.slice(0, WEDDING_EVENT_NAME_MAX) })}
+            />
+          </StepField>
+        </div>
+      </SetupFrame>
+    );
+  }
+
   if (card === 'w_kind') {
     const choice = ceremonyChoiceOf(state);
     const churchLabel = (k: FaithKey) => FAITH_REGISTRY.find((e) => e.key === k)?.label ?? k;
     const offered = CHURCH_FAITHS.filter((k) => (activeFaiths ? activeFaiths.includes(k) : !FAITH_REGISTRY.find((e) => e.key === k)?.defaultSoon));
+    // 📐 One labelled field each, both dropdowns the full width of the column (owner 10 Nov on this step:
+    // "bare text pills of different widths"); "Not decided yet" is a choice INSIDE the Ceremony list
+    // (`CEREMONY_CHOICES`), never a third control beside it — the quick pill is gone.
     return (
       <SetupFrame
         {...frame}
         title="What kind of wedding?"
         line="It shapes the paperwork and the programme."
         info="Pick the closest. You can change it from your Event Hub Maker."
-        quick={['Not decided yet']}
-        onQuick={() => patch(ceremonyChoiceToState('undecided'))}
       >
-        <PickMenu
-          label="Ceremony"
-          value={choice}
-          buttonText={choice ? undefined : 'Pick one'}
-          options={CEREMONY_CHOICES.map((c) => ({ key: c, label: CEREMONY_COPY[c].label, hint: CEREMONY_COPY[c].hint }))}
-          onPick={(key) => patch(ceremonyChoiceToState(key as CeremonyChoice, state.faith[0] as FaithKey | undefined))}
-          dataAttr="data-wedding-kind"
-        />
-        {choice === 'church' && offered.length > 1 ? (
-          <div className="mt-3">
-            <PickMenu
-              label="Church"
-              value={state.faith[0] ?? 'catholic'}
-              options={offered.map((k) => ({ key: k, label: churchLabel(k) }))}
-              onPick={(key) => patch(ceremonyChoiceToState('church', key as FaithKey))}
-              dataAttr="data-wedding-church"
+        <div className="flex flex-col gap-3">
+          <StepField label="Ceremony">
+            <StepPick
+              label="Ceremony"
+              value={choice}
+              options={CEREMONY_CHOICES.map((c) => ({ key: c, label: CEREMONY_COPY[c].label, hint: CEREMONY_COPY[c].hint }))}
+              onPick={(key) => patch(ceremonyChoiceToState(key as CeremonyChoice, state.faith[0] as FaithKey | undefined))}
+              dataAttr="data-wedding-kind"
             />
-          </div>
-        ) : null}
+          </StepField>
+          {choice === 'church' && offered.length > 1 ? (
+            <StepField label="Church">
+              <StepPick
+                label="Church"
+                value={state.faith[0] ?? 'catholic'}
+                options={offered.map((k) => ({ key: k, label: churchLabel(k) }))}
+                onPick={(key) => patch(ceremonyChoiceToState('church', key as FaithKey))}
+                dataAttr="data-wedding-church"
+              />
+            </StepField>
+          ) : null}
+        </div>
       </SetupFrame>
     );
   }

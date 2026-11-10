@@ -123,7 +123,7 @@ import { WeddingCard } from './wedding-cards';
 import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { joinCoupleNames, sanitizeName } from '@/lib/typed-names';
 import { PasswordField } from '@/app/_components/password-field';
-import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
+import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, WEDDING_SELF_SIDES, weddingEventName, weddingEventNameReady, weddingFlowScreens, weddingNamesReady, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -180,7 +180,7 @@ const NO_SETUP_STEPS: readonly SetupCardId[] = [];
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_eventname','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -311,7 +311,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
   setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_guests:'Continue', setup_more:'Continue',
   // 🧭 The approved wedding cards (lib/onboarding/wedding-cards.ts).
-  w_names:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
+  w_names:'Continue', w_eventname:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -2304,6 +2304,9 @@ export function OnboardingShell({
       case 'w_names':
         // "Which one is you?" answered, and both first names (they go on the invitation); last names optional.
         return weddingNamesReady(state);
+      case 'w_eventname':
+        // "Name your wedding" (Lane P): a name with a letter or digit — prefilled from the names, so it starts ready.
+        return weddingEventNameReady(state);
       case 'w_kind':
         return state.kind !== null && (state.kind === 'civil' || state.faith.length >= 1);
       case 'w_area':
@@ -2645,6 +2648,8 @@ export function OnboardingShell({
   const RESUME_NEXT = '/onboarding/wedding?resume=1';
   const buildCommitPayload = useCallback(
     (s: OnboardingState): OnboardingCommitPayload => ({
+      // "Name your wedding" (Lane P) — exactly what the step showed: the couple's words, or the names it follows.
+      eventName: weddingEventName(s),
       brideFirstName: s.brideFirstName,
       brideLastName: s.brideLastName,
       groomFirstName: s.groomFirstName,

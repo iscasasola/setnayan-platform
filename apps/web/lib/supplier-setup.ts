@@ -278,3 +278,61 @@ export function nextOpenAfter(
   const at = folds.findIndex((f) => f.key === open);
   return [...folds.slice(at + 1), ...folds.slice(0, at)].find((f) => !f.done)?.key ?? null;
 }
+
+/**
+ * 7️⃣ STEP 7 — HOW MANY A DAY, ON TODAY (owner 10 Nov 2026, Build 6 Lane E; prototype
+ * `supplier_clients_2026-11-07/supplier-menu-r2.v119.html` `todayNew`: "step 7 is Build 6" — a row UNDER the six, its
+ * stepper on the row, never counted in "N of 6"). It is the SAME number Clients ⚙ › How many a day sets —
+ * `vendor_schedule_pools.daily_booking_capacity`, written by the shipped `updatePoolCapacity` through the same
+ * `FormCounter` — never a second field. Venues are asked "How many halls?" (the plan's words).
+ *
+ *   unread   the schedules read was refused — said, never a stepper standing on a guessed 1
+ *   not_set  no schedule yet — "Set how many events you take a day…" + [Set it] (the Clients wording, #7423)
+ *   set      one stepper per schedule (a shop with one schedule has its stepper on the row itself)
+ *   halls    a venue whose schedules are all halls — each hall is named in Your halls, so the row counts them and
+ *            opens Your halls; a stepper here would have to invent unnamed halls
+ *
+ * 🔒 app/vendor-dashboard/_components/setup-step-7-is-how-many-a-day.test.ts
+ */
+export const DAILY_STEP_N = 7;
+
+export type SetupDailySchedule = { poolId: string; name: string; capacity: number; hall?: boolean };
+
+export type SetupDailyView = {
+  state: 'unread' | 'not_set' | 'set' | 'halls';
+  title: string;
+  line: string;
+  /** The schedules a stepper is drawn for (`set` only), oldest first. */
+  rows: { poolId: string; name: string; capacity: number }[];
+};
+
+export const DAILY_TITLE = 'How many events can you take on one day?';
+export const DAILY_TITLE_VENUE = 'How many halls?';
+export const DAILY_NOT_SET = 'Set how many events you take a day so couples see if your date is open.';
+export const DAILY_UNREAD = 'Couldn’t load your schedule';
+
+export function setupDailyView(input: {
+  /** The shop's active schedules — NULL when that read was refused. */
+  schedules: readonly SetupDailySchedule[] | null;
+  /** A venue (a venue category, or any hall) — asked "How many halls?". */
+  venue: boolean;
+}): SetupDailyView {
+  const title = input.venue ? DAILY_TITLE_VENUE : DAILY_TITLE;
+  if (input.schedules === null) return { state: 'unread', title, line: DAILY_UNREAD, rows: [] };
+  const plain = input.schedules.filter((s) => !s.hall);
+  const halls = input.schedules.filter((s) => s.hall);
+  if (plain.length > 0) {
+    return {
+      state: 'set',
+      title,
+      line: input.venue ? 'Count your halls. 2 halls = 2.' : 'Count your teams. 2 crews = 2.',
+      // A stepper starts at 1 — a stored 0 or less is never shown as a number the supplier did not set.
+      rows: plain.map((s) => ({ poolId: s.poolId, name: s.name, capacity: Math.max(1, Math.trunc(s.capacity) || 1) })),
+    };
+  }
+  if (halls.length > 0) {
+    const word = `${formatCount(halls.length)} hall${halls.length === 1 ? '' : 's'}`;
+    return { state: 'halls', title, line: [word, ...halls.map((h) => h.name)].join(' · '), rows: [] };
+  }
+  return { state: 'not_set', title, line: DAILY_NOT_SET, rows: [] };
+}

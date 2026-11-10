@@ -52,7 +52,8 @@ import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figure
  */
 
 /** Raw, filter-agnostic month inputs cached per month for instant re-derive. */
-type MonthInputs = { dayStates: VendorCalendarDayState[]; waitlist: WaitlistDateGroup[] };
+/** `dayStatesRead: false` ⇒ the month's held / approve-first days were refused (G7) — said over the month, never drawn free. */
+type MonthInputs = { dayStates: VendorCalendarDayState[]; dayStatesRead?: boolean; waitlist: WaitlistDateGroup[] };
 
 const ym = (m: CalendarMonth) => `${m.y}-${String(m.m).padStart(2, '0')}`;
 
@@ -65,6 +66,7 @@ export const CLIENTS_LET_GO_DAY_EVENT = 'sn:clients-let-go-day';
 
 export function CustomersCalendar({
   initialDayStates,
+  initialDayStatesRead = true,
   initialWaitlist,
   inquiries = [],
   initialMonth,
@@ -122,6 +124,8 @@ export function CustomersCalendar({
   halls?: boolean;
   /** The first-painted month's raw day states + waiting list (server-fetched). */
   initialDayStates: VendorCalendarDayState[];
+  /** False ⇒ those day states were refused — the month says so (G7: "2026-11-31" drew November as all free). */
+  initialDayStatesRead?: boolean;
   initialWaitlist: WaitlistDateGroup[];
   /** Dates couples are asking about, counted (`pendingInquiryDates`). */
   inquiries?: { requestedDate: string; count: number }[];
@@ -154,7 +158,7 @@ export function CustomersCalendar({
   const [scope, setScope] = useState('all');
   const [pending, startTransition] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
-    () => new Map([[initialMonth, { dayStates: initialDayStates, waitlist: initialWaitlist }]]),
+    () => new Map([[initialMonth, { dayStates: initialDayStates, dayStatesRead: initialDayStatesRead, waitlist: initialWaitlist }]]),
   );
 
   /* The ONE dropdown: every calendar, one of them, or (Pro+) one person's calendars. */
@@ -248,8 +252,11 @@ export function CustomersCalendar({
       if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
         const res = await fetchMonth(next);
-        if (!res) return; // the month draws from what is here; a reload reads it whole
-        setMonthInputs((prev) => new Map(prev).set(next, { dayStates: res.dayStates, waitlist: res.waitlist }));
+        // Refused whole: nothing of this month is here — it is SAID unread, never drawn as a month of free days.
+        if (!res) return setMonthInputs((prev) => new Map(prev).set(next, { dayStates: [], dayStatesRead: false, waitlist: [] }));
+        setMonthInputs((prev) =>
+          new Map(prev).set(next, { dayStates: res.dayStates, dayStatesRead: res.dayStatesRead !== false, waitlist: res.waitlist }),
+        );
       });
     },
     [monthInputs, fetchMonth, todayIso, onClients, oneScreen],
@@ -447,6 +454,8 @@ export function CustomersCalendar({
   const base = { y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) };
   const monthsOffered = Array.from({ length: 14 }, (_, i) => stepMonth(base, i - 1));
   const near = picked ? nearWord(todayIso, picked) : '';
+  // 🔴 G7: a month whose held / approve-first days were refused is SAID unread — the grid alone would read it as free.
+  const dayStatesUnread = monthInputs.get(month)?.dayStatesRead === false;
 
   return (
     <div ref={rootRef} data-dates-month={place} aria-busy={pending}>
@@ -458,6 +467,11 @@ export function CustomersCalendar({
       ) : pools.length === 1 && !oneScreen ? (
         <p className="mb-2 mt-1 text-[14px] font-medium text-ink" data-dates-one-schedule="">
           {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
+        </p>
+      ) : null}
+      {dayStatesUnread ? (
+        <p role="status" className="mb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-dates-month-unread="">
+          This month&rsquo;s held days couldn&rsquo;t load, so a day you held may show as open here. Reload the page to try again.
         </p>
       ) : null}
       {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}

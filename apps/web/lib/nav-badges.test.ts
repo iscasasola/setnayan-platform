@@ -85,6 +85,8 @@ test('the vendor badge sums the two counts but never hides the split', () => {
   assert.equal(b?.tone, 'orange', 'work waiting wears the accent; a guest count does not');
   assert.match(b!.label!, /3 new inquiries/);
   assert.match(b!.label!, /2 unread threads/);
+  // Build 5 F5 (2026-11-10): the owner read "1 new inquiries" — the noun follows the count on both halves.
+  assert.equal(vendorCustomersBadge(1, 1)!.label, '1 new inquiry · 1 unread thread');
   // "5" alone could be five people asking to book or five unread lines of chat.
   // Those deserve different urgency, so the dot carries the sum and the label
   // carries the split.

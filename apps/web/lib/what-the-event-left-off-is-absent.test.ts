@@ -78,8 +78,12 @@ test('the Maker drops the stages and Studio tiles of what is off, and never open
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /hiddenStages=\{hiddenStages\}/);
   assert.match(page, /\.filter\(\(t\) => !needsHidesStudioTile\(t\.key, eventNeeds\)\)/, 'Studio tiles ignore the needs');
-  assert.match(page, /includes\(wantedStage\) \? 'event' : wantedStage/, 'the Maker can open on a stage this event does not have');
+  // The landing rule itself (RSVP stage → the Invitation, else The Day) is `needsLandingStage`, pinned in event-needs.test.ts.
+  assert.match(page, /const makerStage = needsLandingStage\(wantedStage, hiddenStages\);/, 'the Maker can open on a stage this event does not have');
+  // 🗳 Owner 9 Nov 2026 — "the RSVP stage only when they have RSVP": the needs carry whether guests reply, from the row read.
+  assert.match(page, /guestsReply: readGuestsReply\(eventRow\?\.rsvp_ask_config\)/, 'the Maker is not told whether guests reply');
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.match(shell, /needsLandingStage\(RSVP_STAGE_KEY, hiddenStages \?\? \[\]\)/, 'an open RSVP stage that is dropped leaves a blank work area');
   assert.match(shell, /!hiddenStages\?\.includes\(s\)\)/, 'the stage lists ignore the needs');
   assert.match(shell, /hiddenStages,\n\s*\}\);/, 'Page ▾ is not told what is hidden');
   const bar = read('app/dashboard/[eventId]/launch/_components/maker-bar.ts');

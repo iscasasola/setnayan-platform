@@ -13,6 +13,7 @@ import {
   type ResolvedSchema,
 } from '@/lib/vendor-service-attributes';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Iteration 0044 — vendor attribute payload writer.
@@ -163,6 +164,7 @@ export async function saveVendorServiceAttribute(formData: FormData) {
       );
     }
 
+    revalidateShopPage(profile.vendor_profile_id);
     revalidatePath('/vendor-dashboard/attributes');
     const missingParam = stillMissing.length > 0
       ? `&missing=${encodeURIComponent(stillMissing.join(','))}`
@@ -237,6 +239,7 @@ export async function removeVendorServiceAttribute(formData: FormData) {
       );
     }
 
+    revalidateShopPage(profile.vendor_profile_id);
     revalidatePath('/vendor-dashboard/attributes');
     redirect('/vendor-dashboard/attributes?removed=1');
   } catch (err) {

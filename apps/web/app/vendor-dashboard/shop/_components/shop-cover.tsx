@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
+import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
@@ -313,7 +313,7 @@ export function ShopCover({
           )}
         </div>
         <div className="grid grid-cols-4 gap-2">
-          <CoverIcon label="Share" icon={<Share2 aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
+          <CoverIcon label="Share" icon={<Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
           <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('promote')} data="promote" />
           <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('qr')} data="qr" />
           <button type="button" onClick={() => openSheet('cover')} className={COVER_PILL} data-shop-cover-edit="">
@@ -387,7 +387,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
               else if (r === 'failed') toast.error('Couldn’t share just now — copy the link instead.');
             }}
           >
-            <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Share
           </button>
         </div>

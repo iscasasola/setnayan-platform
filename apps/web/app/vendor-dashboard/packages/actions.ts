@@ -31,6 +31,7 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import {
@@ -50,6 +51,7 @@ import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity'
 import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
 import { freeByKind } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
@@ -237,6 +239,7 @@ export async function savePackage(
       if (wrote) return wrote;
     }
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/packages');
     return { status: 'ok', packageId: input.packageId };
   }
@@ -298,7 +301,8 @@ async function giftStockRefusal(
 ): Promise<string | null> {
   if (!gift || gift === PACKAGE_GIFT_SETNAYAN) return null;
   const [packs, stock] = await Promise.all([
-    fetchShopGiftPacks(supabase),
+    // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
+    fetchShopGiftPacks(createAdminClient()),
     fetchShopGiftStock(supabase, vendorProfileId),
   ]);
   if (!packs || !stock) return 'Couldn’t read your gift stock right now, so nothing was saved. Try again.';
@@ -497,6 +501,7 @@ export async function setPackageActive(
     .eq('vendor_profile_id', profile.vendor_profile_id as string);
   if (error) return { status: 'error', message: error.message };
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
 }
@@ -534,6 +539,7 @@ async function deletePackage(packageId: string): Promise<SavePackageResult> {
     .eq('vendor_profile_id', profile.vendor_profile_id as string);
   if (error) return { status: 'error', message: error.message };
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
 }

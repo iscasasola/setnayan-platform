@@ -25,6 +25,7 @@ import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE, TERMS_VERSION, hasAgreedToTerms } 
 import { decideOpenShopAccount } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -272,6 +273,7 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
     if (res.status !== 'ok') console.warn('[claim-door] the bundle was not saved:', res.status);
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard');
   // 🎁 Setnayan's invite is already claimed (above, by the shipped call) — it lands where finalize lands it: Shop ›
   // Your details (prototype frame B4). Finalize would only see "claimed by you" and send them to the dashboard.

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { nextAvailableSlot } from '@/lib/social/governor';
 import { runSocialFlush } from '@/lib/social/flush';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server actions backing the admin Social Queue (Social Sharing & Featuring
@@ -145,6 +146,7 @@ export async function markVendorFeatured(formData: FormData) {
       `/admin/social-queue?error=${encodeURIComponent(error.message)}`,
     );
   }
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/social-queue');
   redirect('/admin/social-queue?vendor_posted=1');
 }

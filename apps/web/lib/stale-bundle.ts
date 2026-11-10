@@ -126,11 +126,39 @@ const STALE_PATTERNS = [
 
 export function isStaleBundleError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
-  const e = error as { name?: unknown; message?: unknown };
+  const e = error as { name?: unknown; message?: unknown; stack?: unknown };
   if (e.name === 'ChunkLoadError') return true;
   const message = typeof e.message === 'string' ? e.message : '';
   if (!message) return false;
-  return STALE_PATTERNS.some((p) => p.test(message));
+  if (STALE_PATTERNS.some((p) => p.test(message))) return true;
+  return isWebpackRuntimeMissingModule(e);
+}
+
+/**
+ * ── THE THIRD SHAPE: webpack asked for a MODULE the new build no longer has (2026-11-10) ──
+ *
+ * Seen live on the owner's phone: Create on a service card SAVED (row in the
+ * database), then `/vendor-dashboard/shop?saved=1&created=draft` drew "Something
+ * on our end didn't work". Console:
+ *
+ *     TypeError: Cannot read properties of undefined (reading 'call')
+ *         at c (…/_next/static/chunks/webpack-<hash>.js:1:128)
+ *
+ * That is webpack's own `__webpack_require__` calling `modules[id].call(...)` for an
+ * id the old tab knows and the current deploy does not. A reload drew the page
+ * fine. No pattern above matched it, so the boundary showed a crash for a save
+ * that had worked.
+ *
+ * ⚠ NARROW ON PURPOSE — "a REAL crash is not mistaken for a stale tab" stays true:
+ * the same message from APP code (`x.call` on undefined in our own chunk) is a
+ * real bug. Only when the TOP stack frame is the webpack RUNTIME chunk is it this.
+ */
+function isWebpackRuntimeMissingModule(e: { name?: unknown; message?: unknown; stack?: unknown }): boolean {
+  if (e.name !== 'TypeError') return false;
+  if (typeof e.message !== 'string' || !/reading 'call'/.test(e.message)) return false;
+  if (typeof e.stack !== 'string') return false;
+  const firstFrame = e.stack.split('\n').find((l) => /^\s*at\s/.test(l)) ?? '';
+  return /\/_next\/static\/chunks\/webpack-[^/]*\.js/.test(firstFrame);
 }
 
 /**
@@ -306,4 +334,42 @@ export function reloadForInterruptedRequest(
   if (online) reload();
   else whenOnline(reload);
   return true;
+}
+
+/**
+ * ── ONE CALL FOR EVERY ERROR BOUNDARY (Build 5 F6, 2026-11-10) ───────────────
+ *
+ * The three reload shapes above were wired into `app/error.tsx` (and `global-error.tsx`) ONLY. But Next hands an
+ * error to the NEAREST boundary, and the supplier dashboard has its own (`app/vendor-dashboard/error.tsx`) — so the
+ * exact case the webpack-runtime shape was written for (Create on a service card → `/vendor-dashboard/shop?saved=1`
+ * on a tab older than the deploy) never reached the root boundary's reload. It drew the crash page, and the crash
+ * fired the browser's error report + its on-error replay to Sentry's ingest, which answered **429** — the one 429 in
+ * the console on that walk. A recovered stale tab sends nothing and draws no crash.
+ *
+ * Returns true when a reload is under way (the boundary should report nothing and draw as little as possible).
+ * Same one-per-session budget (`STALE_RELOAD_KEY`) as before — a second failure shows the boundary's card.
+ */
+export function recoverStaleTab(error: unknown): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const storage = window.sessionStorage;
+    const reload = () => window.location.reload();
+    if (isDeploymentSkewError(error)) return reloadForDeploymentSkew(storage, reload, error);
+    if (isStaleBundleError(error)) return reloadForStaleBundle(storage, reload);
+    if (isInterruptedRequestError(error)) {
+      const whenOnline = (go: () => void) => window.addEventListener('online', go, { once: true });
+      return reloadForInterruptedRequest(storage, reload, navigator.onLine !== false, whenOnline);
+    }
+  } catch {
+    // Storage refused outright: no marker means no safe one-shot, so no reload — the card shows as before.
+  }
+  return false;
+}
+
+/**
+ * Sentry's `beforeSend` filter: a stale tab is deploy skew the boundary cures with one reload — not a bug to file,
+ * and not worth an error event plus a full on-error session replay against the Sentry quota (the 429, F6).
+ */
+export function isRecoverableTabError(error: unknown): boolean {
+  return isDeploymentSkewError(error) || isStaleBundleError(error);
 }

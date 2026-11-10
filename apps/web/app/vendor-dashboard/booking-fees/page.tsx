@@ -85,7 +85,7 @@ export default async function VendorBookingFeesPage() {
   const feeSchedule = await getLiveBookingFeeSchedule();
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href="/vendor-dashboard/subscription"
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -144,8 +144,9 @@ export default async function VendorBookingFeesPage() {
           <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
             {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
-            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> The free one still
-            shows the fee it would have carried, so the next one is no surprise.
+            {/* Owner 2026-11-10: "messages that needs to be reworded" — plainer words. */}
+            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> Your free booking
+            still shows what its fee would have been, so you know what the next one costs.
           </p>
         </div>
       ) : (
@@ -172,7 +173,7 @@ export default async function VendorBookingFeesPage() {
           <WaivedFeeRows charges={waived} />
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }
 

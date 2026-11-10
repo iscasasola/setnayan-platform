@@ -7,7 +7,7 @@ import { CanvasMaker } from '../_components/canvas-maker';
 import { RefinementsEditor } from '../_components/refinements-editor';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
-import { cardRecordHasSomethingToSayToTheShop, fetchServiceCardRecords } from '@/lib/service-card-record';
+import { cardRecordHasSomethingToSayToTheShop, fetchServiceCardRecords, readCardBookedCount } from '@/lib/service-card-record';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { setServiceHalls } from '../../calendar/actions';
@@ -46,7 +46,9 @@ export default async function EditServiceCardPage({
   // 🏛 A VENUE'S HALLS (owner 2026-10-14, step 2): "Uses" — which halls this card books. Moved here from the retired
   // inline editor (step 3) by the supplier batch. Read only for a venue card — every other card pays nothing.
   const sellsVenue = card.category === 'venue' || card.category === 'religious_venue';
-  const [ctx, details, records, hallsRes] = await Promise.all([
+  // 🔒 "Couples who already booked keep their price" (Build 5 Lane C) — said on the price row of a card couples booked.
+  // Its own read, so a refused read (null) is never taken for "nobody booked" (0).
+  const [ctx, details, records, hallsRes, bookedNow] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     cardRecordEnabled() ? fetchServiceCardRecords(supabase, [serviceId]).catch(() => null) : Promise.resolve(null),
@@ -66,6 +68,7 @@ export default async function EditServiceCardPage({
             () => ({ data: null }),
           )
       : Promise.resolve({ data: [] }),
+    readCardBookedCount(supabase, serviceId),
   ]);
   const hallRows = ((hallsRes as { data: unknown }).data ?? []) as {
     pool_id: string;
@@ -122,6 +125,7 @@ export default async function EditServiceCardPage({
         }
         initial={card.initial}
         editing={card.editing}
+        bookedNow={bookedNow}
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}

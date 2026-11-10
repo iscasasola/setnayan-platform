@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { redirect } from 'next/navigation';
 
 import { requireAdminAction } from '@/lib/admin/require-admin';
@@ -140,6 +141,7 @@ async function tellTheSupplier(shopId: string, cardId: string, notice: CardModer
 
 async function refreshPublic(shopId: string): Promise<void> {
   revalidatePath(`/admin/vendors/${shopId}`);
+  revalidateShopPage(shopId);
   const admin = createAdminClient();
   const { data } = await admin
     .from('vendor_profiles')

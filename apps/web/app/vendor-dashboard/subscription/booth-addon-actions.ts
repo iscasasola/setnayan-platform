@@ -25,6 +25,7 @@ import {
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -203,8 +204,10 @@ export async function activateVendor3dBooth(
   // charges rather than gives away. Flag off → `first5Free` is false and the
   // trial path below runs byte-identically to today.
   const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  // `event_vendors` has NO vendor SELECT policy: on this shop's session the count is a silent 0, which reads as
+  // "inside the free window" and grants the add-on at ₱0. Admin client, scoped by the session-resolved shop id.
   const committedBookings = first5Enabled
-    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    ? await fetchVendorCommittedBookingCount(createAdminClient(), vendorProfileId)
     : Number.NaN;
   const first5Free = addonIsFreeUnderFirst5({
     sku: 'ads_3d_plan',
@@ -319,6 +322,7 @@ export async function activateVendor3dBooth(
       });
     }
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/subscription');
     revalidatePath('/vendor-dashboard/shop');
     return {

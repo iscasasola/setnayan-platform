@@ -20,6 +20,7 @@ import {
   resolveVendorAiAddonPricePhp,
   nextVendorAiAddonExpiry,
 } from '@/lib/vendor-addon-pricing';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Vendor AI ("the AI Chatbot") add-on — buy/activate a 28-day cycle.
@@ -225,6 +226,7 @@ export async function activateVendorAiAddon(
       });
     }
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/subscription');
     revalidatePath('/vendor-dashboard/shop');
     return {

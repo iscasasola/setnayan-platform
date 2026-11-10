@@ -30,7 +30,7 @@ import type { PostEventMakerRead } from '@/lib/post-event-scenes';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
 import { postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
 import { postEventStyleOptions, resolvePostEventStyle } from '@/lib/post-event-style-resolve';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 
 export type SceneMini = {
   eyebrow?: string;
@@ -138,7 +138,7 @@ export function buildMakerNavigatorData(input: {
   minis['f:gifts'] = { eyebrow: 'E-Gifts', title: 'E-Gifts' };
 
   const byType: Partial<Record<WidgetType, SceneMini>> = {
-    countdown: { eyebrow: 'Counting down', title: facts.daysToGo !== null ? `${facts.daysToGo} days` : 'Countdown', line: facts.dateLabel ?? undefined },
+    countdown: { eyebrow: 'Counting down', title: facts.daysToGo !== null ? countNoun(facts.daysToGo, 'day', 'days') : 'Countdown', line: facts.dateLabel ?? undefined },
     schedule: {
       eyebrow: 'Run of show',
       title: facts.firstBlock?.label ?? 'Run of show',

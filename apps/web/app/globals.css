@@ -849,6 +849,28 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   padding-bottom: 0;
 }
 
+/* 🔁 A REFUSED SAVE GETS ITS OWN LINE — app-wide (Build 5 F1; owner screenshot 10 Nov, "Toggle issue"). `StayForm` /
+   `StayConfirmForm` (app/_components/stay-form.tsx) print a refusal as a SIBLING of their form, so wherever the form sits
+   in a flex ROW the `<p data-stay-error>` became one more flex item: it took half the row and crushed the card or the
+   buttons beside it into a one-word column. Fixed once, here, for every StayForm parent — no per-page patch:
+   ▸ a row (`.flex` / `.inline-flex`, not `.flex-col`) that is HOLDING a refusal wraps, and the refusal takes the whole
+     width on the last line, under everything in the row (order-last — the #7427 Shop card-row shape, now everywhere);
+   ▸ in a grid it spans every column. Outside a grid `grid-column` does nothing; in a block parent the `<p>` is already
+     its own line.
+   Only a row that is HOLDING a refusal changes (`:has`), so no layout moves until a save is refused. A column is left
+   alone: there the line already sits under its form, and `order` would drop it to the column's end.
+   🔒 app/_components/stay-form-refusal-own-line.test.ts */
+[data-stay-error] {
+  grid-column: 1 / -1;
+}
+:is(.flex, .inline-flex):not(.flex-col, .flex-col-reverse):has(> [data-stay-error]) {
+  flex-wrap: wrap;
+}
+:is(.flex, .inline-flex):not(.flex-col, .flex-col-reverse) > [data-stay-error] {
+  flex-basis: 100%;
+  order: 9999;
+}
+
 @layer components {
   /* ══════════════════════════════════════════════════════════════════════
      SCALED TILE — one item, at the size its own contents earn.
@@ -3513,10 +3535,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      family feels, change this line. */
   --sn-pill-dur:    700ms;
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
-  /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: open/close
-     520 ms, the close the EXACT reverse, no jump over 40 px, no pause over 90 ms). Read by `lib/rise-motion.ts`
-     (`riseFromRect`); under reduced motion it is a 120 ms cross-fade. */
-  --sn-dur-rise:    520ms;
+  /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: the close
+     the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH is the family speed — owner 2026-11-10
+     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*): Rise full screen runs 0.7 s, so it reads `--sn-pill-dur` and has no
+     number of its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it
+     is a 120 ms cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts */
+  --sn-dur-rise:    var(--sn-pill-dur);
   --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
   --sn-dur-rise-reduced: 120ms;
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
@@ -5404,6 +5428,29 @@ html.dark [data-art='candlelight'] {
   .sn-switch,
   .sn-switch::after,
   .sn-switch > .sn-switch-knob {
+    transition: none !important;
+  }
+}
+/* 🟢 The WORDED switch (owner 2026-11-10: "online green and greyed out to offline") — `SWITCH_TRACK_WORDED` in
+   `app/_components/switch-track.tsx`. Declared AFTER the shared rules so, at the same weight, green/grey win here only. */
+.sn-switch--worded {
+  background-color: rgb(var(--color-ink) / 0.38);
+}
+.sn-switch--worded[data-on='true'] {
+  background-color: var(--sn-success);
+}
+.sn-switch-word {
+  transition: opacity var(--sn-pill-dur) var(--sn-ease);
+}
+.sn-switch--worded .sn-switch-word--on,
+.sn-switch--worded[data-on='true'] .sn-switch-word--off {
+  opacity: 0;
+}
+.sn-switch--worded[data-on='true'] .sn-switch-word--on {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sn-switch-word {
     transition: none !important;
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { DEPLOYMENT_SKEW_FAILURE_KEY, STALE_RELOAD_KEY } from '@/lib/stale-bundle';
+import { DEPLOYMENT_SKEW_FAILURE_KEY, STALE_RELOAD_KEY, isRecoverableTabError } from '@/lib/stale-bundle';
 import { STYLESHEET_FAILURE_KEY } from '@/lib/stylesheet-recovery';
 
 // Lazy-loads Sentry's browser SDK after the page has become interactive.
@@ -219,7 +219,11 @@ export function DeferredObservability() {
             // request data, extra context, error messages), plus a fail-closed
             // biometric face-vector scrub (RA 10173 · One-Pool spec §3.4 step 5)
             // so a 128-d descriptor can never leave the browser in an event.
-            beforeSend: (event) => scrubPii(scrubFaceVectorsFromEvent(event)),
+            // 🔁 A STALE OPEN TAB IS NOT SENT (Build 5 F6, 2026-11-10): the boundary cures it with one reload
+            // (`recoverStaleTab`), and filing it cost an error event plus a whole on-error replay against the Sentry
+            // quota — Sentry's ingest answered 429 on the Create → Shop walk. Dropped here, so no replay is cut for it.
+            beforeSend: (event, hint) =>
+              isRecoverableTabError(hint?.originalException) ? null : scrubPii(scrubFaceVectorsFromEvent(event)),
             // Session replays are expensive — disable steady-state
             // capture and only record when an error actually fires.
             replaysSessionSampleRate: 0,

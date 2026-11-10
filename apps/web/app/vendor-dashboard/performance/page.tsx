@@ -219,6 +219,12 @@ export default async function PerformanceHome({
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) redirect('/vendor-dashboard');
 
+  // 📊 THE BOOKED STAGE IS READ ON THE ADMIN CLIENT (audit 2026-11-10, C2). `event_vendors` has NO vendor SELECT
+  // policy, so every funnel/booked reader below answered Booked = 0 on this shop's session, drawn as a real number.
+  // Scoped by `profile.vendor_profile_id`, resolved above from the shop's own session — the sanctioned shape in
+  // `app/vendor-dashboard/a-shop-cannot-read-its-own-booking.test.ts`, which now checks these call sites too.
+  const bookingsAdmin = createAdminClient();
+
   // ── Tier gating (flag-dark). Resolve tier up front so a free/verified vendor
   //    short-circuits to the upsell WITHOUT running the full data batch.
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
@@ -277,8 +283,8 @@ export default async function PerformanceHome({
   // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
   // on a refusal, never zeros), so "the 30 days before" is the difference and an unread window says "—". Started here,
   // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
-  const pinNowRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
-  const pinSince60Read = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
+  const pinNowRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
+  const pinSince60Read = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
   const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
@@ -354,7 +360,7 @@ export default async function PerformanceHome({
     safeRead(fetchVendorServices(supabase, profile.vendor_profile_id), [], 'services'),
     safeRead(fetchV2VendorCatalog(), [], 'catalog'),
     safeRead(
-      fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+      fetchVendorFunnelTotals(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)),
       EMPTY_FUNNEL_TOTALS,
       'funnel_totals',
     ),
@@ -401,25 +407,25 @@ export default async function PerformanceHome({
     // are gated to canAdvanced; the year funnel total stays ungated to preserve
     // the prior behavior (basic tier never renders any of it either way).
     canAdvanced
-      ? safeRead(fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(28)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_month')
+      ? safeRead(fetchVendorFunnelTotals(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(28)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_month')
       : Promise.resolve(EMPTY_FUNNEL_TOTALS),
     canAdvanced
-      ? safeRead(fetchVendorFunnelTotals(supabase, profile.vendor_profile_id, isoDaysAgo(30)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_day')
+      ? safeRead(fetchVendorFunnelTotals(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)), EMPTY_FUNNEL_TOTALS, 'funnel_totals_day')
       : Promise.resolve(EMPTY_FUNNEL_TOTALS),
     canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'booked_by_source_year')
+      ? safeRead(fetchBookedBySource(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)), [], 'booked_by_source_year')
       : Promise.resolve([]),
     canAdvanced
       ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), [], 'views_by_source_year')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'booked_by_source_month')
+      ? safeRead(fetchBookedBySource(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(28)), [], 'booked_by_source_month')
       : Promise.resolve([]),
     canAdvanced
       ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(28)), [], 'views_by_source_month')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'booked_by_source_day')
+      ? safeRead(fetchBookedBySource(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)), [], 'booked_by_source_day')
       : Promise.resolve([]),
     canAdvanced
       ? safeRead(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), [], 'views_by_source_day')
@@ -618,21 +624,21 @@ export default async function PerformanceHome({
     ),
     serviceId
       ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365)),
+          fetchNullServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)),
           null,
           'null_excluded_year',
         )
       : Promise.resolve(null),
     serviceId
       ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28)),
+          fetchNullServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(28)),
           null,
           'null_excluded_month',
         )
       : Promise.resolve(null),
     serviceId
       ? safeRead(
-          fetchNullServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30)),
+          fetchNullServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)),
           null,
           'null_excluded_day',
         )
@@ -665,9 +671,9 @@ export default async function PerformanceHome({
   // so a failed count degrades to an empty callout, never the whole cockpit.
   const [serviceBookedYear, serviceBookedMonth, serviceBookedDay] = serviceId
     ? await Promise.all([
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(365), serviceId), null, 'service_booked_year'),
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(28), serviceId), null, 'service_booked_month'),
-        safeRead(fetchServiceBookedCount(supabase, profile.vendor_profile_id, isoDaysAgo(30), serviceId), null, 'service_booked_day'),
+        safeRead(fetchServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365), serviceId), null, 'service_booked_year'),
+        safeRead(fetchServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(28), serviceId), null, 'service_booked_month'),
+        safeRead(fetchServiceBookedCount(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30), serviceId), null, 'service_booked_day'),
       ])
     : [null, null, null];
 

@@ -230,7 +230,7 @@ test('🔑 a shop whose name is still withheld is not named by its photos or its
   assert.match(READER, /photos:\s*profile && revealed\s*\?/);
   assert.match(READER, /sharePath: profile && revealed && profile\.business_slug \? `\/v\/\$\{profile\.business_slug\}` : null,/);
   // …and the sheet offers Share only when there is a page to share.
-  assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share2\} label="Share"/);
+  assert.match(SHEET, /\{data\?\.sharePath \? <ActionButton tone="neutral" icon=\{Share\} label="Share"/);
 });
 
 test('🔑 while the request is out one line says so; a refusal says so with Try again — never an empty section', () => {

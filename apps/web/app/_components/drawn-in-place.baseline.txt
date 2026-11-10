@@ -28,6 +28,5 @@ app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx
 app/papic/_components/papic-buy-shell.tsx
 app/pay/[reference]/_components/pay-panel.tsx
 app/tour/budget/_components/tour-budget-planner.tsx
-app/v/[slug]/_components/service-details-sheet.tsx
 app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx
 app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx

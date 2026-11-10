@@ -59,6 +59,7 @@ import {
   TERMS_VERSION,
   hasAgreedToTerms,
 } from '@/lib/terms-agreement';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -743,6 +744,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     if (err) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_service_attributes.upsert', err);
   }
 
+  revalidateShopPage(vendorProfileId, chosenSlug); // ⚡ the address may hold a 404 copy from before the shop existed
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');
   // ✉ A1 — the shop is open, the account is not confirmed yet: say so, on this page, with the address.

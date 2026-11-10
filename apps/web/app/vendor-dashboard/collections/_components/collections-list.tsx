@@ -211,7 +211,7 @@ function CollectionRowView({
         <div className="flex items-center gap-2">
           <button type="button" onClick={onOpen} aria-expanded={open} className={`sn-press min-w-0 flex-1 text-left ${rowClass}`}>
             {inner}
-            <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-ink/40 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} style={{ transitionDuration: '520ms' }} strokeWidth={2} />
+            <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-ink/40 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} style={{ transitionDuration: 'var(--sn-dur-rise)' }} strokeWidth={2} />
           </button>
           {r.pageSwitch ? (
             <button type="button" role="switch" aria-checked={on} aria-label="Show on my page" onClick={onToggle} className={SWITCH_BUTTON}>
@@ -233,10 +233,10 @@ function CollectionRowView({
             </button>
           ) : null}
         </div>
-        {/* Opens IN PLACE — the list pushes down and glides (the house 520 ms; off under reduced motion). */}
+        {/* Opens IN PLACE — the list pushes down and glides (the house rise, `--sn-dur-rise`; off under reduced motion). */}
         <div
           className="grid transition-[grid-template-rows] motion-reduce:transition-none"
-          style={{ gridTemplateRows: open ? '1fr' : '0fr', transitionDuration: '520ms', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
+          style={{ gridTemplateRows: open ? '1fr' : '0fr', transitionDuration: 'var(--sn-dur-rise)', transitionTimingFunction: 'cubic-bezier(.2,.8,.2,1)' }}
           aria-hidden={!open}
         >
           <div className="min-h-0 overflow-hidden">

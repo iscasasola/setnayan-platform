@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
-import { Check, ChevronRight, Copy, RotateCcw, Share, Share2, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, RotateCcw, Share, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
 import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
@@ -333,7 +333,7 @@ function OneLinkRow({ link }: { link: OneLink }) {
     >
       <span ref={acts} className={ACTS}>
         <ActionButton tone="brand" main icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy'} onClick={copy} />
-        <ActionButton tone="neutral" icon={Share2} label="Share" onClick={share} />
+        <ActionButton tone="neutral" icon={Share} label="Share" onClick={share} />
       </span>
     </FormRow>
   );

@@ -15,6 +15,7 @@
  *   &checks=1                     🃏 the card checks — fix before Create (owner 2026-10-26) on fixtures: the six seed claim
  *                                 words, this lab's trades (with an alias), and a photo ask that says the cover is on
  *                                 another shop's card and a showcase photo on another of this shop's cards
+ *   &booked=1                     🔒 an edited card couples have booked — the price row says they keep their price (Build 5 Lane C)
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
  *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
  *                                 the photos…) can be checked over that sheet, not only on the standalone page
@@ -324,6 +325,7 @@ export default async function CardMakerLabPage({
         giftFree={LAB_GIFT_FREE}
         initial={fx && sp.gift === 'pack' ? { ...fx.initial, giftPackCode: 'PAPIC_GUEST' } : (fx?.initial ?? null)}
         editing={fx?.editing ?? null}
+        bookedNow={sp.booked === '1' ? 3 : undefined}
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
         checkRules={checkRules}

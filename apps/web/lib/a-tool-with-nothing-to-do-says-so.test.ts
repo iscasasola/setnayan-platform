@@ -148,8 +148,9 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
      claim is unchanged: a tap on a grey tool says ONE plain line and sets nothing. */
   assert.match(tools, /const pickTool = \(t: MakerPartTool\) => \{\s*if \(!toolWorks\(t\)\) return setWhy\(\(w\) => \(\{ words: whyNot\(t\), n: \(w\?\.n \?\? 0\) \+ 1 \}\)\);\s*setTool\(t\);/);
   assert.match(tools, /return sample \?\? empty \?\? makerPartToolWhy\(picked, t\);/, 'the part’s own line is no longer the default');
+  /* ⚙ `gearText` keeps the line word for word and draws its ⚙ as the real Settings icon (Build 5 F5, 2026-11-10). */
   /* 🖼 …the toast may end in ONE door: a cover word's Background line selects the Cover Scene (`whyDoor`). */
-  assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}(?: action=\{whyDoor \? \{ label: MAKER_COVER_SCENE_DOOR, onPress: \(\) => \(setWhy\(null\), pickPartRef\.current\(whyDoor\)\) \} : undefined\})?>\s*\{why\.words\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
+  assert.match(tools, /<PeekToast key=\{why\.n\} tone="note" data="tool-why" onGone=\{\(\) => setWhy\(\(w\) => \(w\?\.n === why\.n \? null : w\)\)\}(?: action=\{whyDoor \? \{ label: MAKER_COVER_SCENE_DOOR, onPress: \(\) => \(setWhy\(null\), pickPartRef\.current\(whyDoor\)\) \} : undefined\})?>\s*\{(?:gearText\()?why\.words\)?\}\s*<\/PeekToast>/, 'the line is not said through the app’s toast');
   /* Picking a part (a tap on the page) opens the tool that HAS something there. */
   assert.match(tools, /const toolFor = useCallback\(\(k: MakerPartKey \| null\): MakerPartTool => makerPartToolFor\(k, toolRef\.current\), \[\]\);/);
   assert.equal((tools.match(/askTool\(toolFor\(k\), k\);/g) ?? []).length, 2, 'a pick can still ask the work area for a tool it has no panel for');

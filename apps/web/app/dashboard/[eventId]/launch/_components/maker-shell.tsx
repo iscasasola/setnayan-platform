@@ -89,6 +89,7 @@ import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type Low
 import { MAKER_LT_HEIGHT } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
+import { needsLandingStage } from '@/lib/event-needs';
 import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import { usePrintsForward } from './prints-forward';
 import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
@@ -624,6 +625,17 @@ export function MakerShell({
     if (selection && !(selection.kind === 'tool' && selection.key === 'details')) setSettingsOn(false);
   }, [selection]);
   useEffect(() => setSettingsOn(false), [stage]);
+  /* 🗳 THE RSVP STAGE, DROPPED WHILE IT IS OPEN (owner 9 Nov 2026: "the RSVP stage only when they have RSVP") — a
+     refresh that brings `hiddenStages` with it (guests no longer reply) closes the layer and lands on the
+     Invitation beside it (`needsLandingStage`), never a blank work area. */
+  const rsvpStageOpen = selection?.kind === 'tool' && selection.key === 'rsvp-stage';
+  const rsvpStageHidden = hiddenStages?.includes(RSVP_STAGE_KEY) ?? false;
+  useEffect(() => {
+    if (!rsvpStageOpen || !rsvpStageHidden) return;
+    select(null);
+    const land = needsLandingStage(RSVP_STAGE_KEY, hiddenStages ?? []);
+    setStage(isStagePhase(land) ? land : 'event');
+  }, [rsvpStageOpen, rsvpStageHidden, hiddenStages, select]);
   /* The part on screen, as the layer on screen says it ("RSVP form", "Names"). */
   const [ltWhere, setLtWhere] = useState<string | null>(null);
 

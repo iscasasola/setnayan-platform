@@ -72,6 +72,7 @@ import type { RoadFact, StorySpineFacts } from './spine-data';
 import { ArrangedSheet } from './arranged-sheet';
 import { placeSheetsOnDays, refsOnSheets, withoutPlacedMedia } from '@/lib/story-sheet';
 import type { DrawnSheet } from '@/lib/story-pages';
+import { countNoun } from '@/lib/format-number';
 
 /** The tallest a bar is drawn, in axis units. `BASELINE_Y` in the clock is 50. */
 const MAX_BAR = 46;
@@ -887,7 +888,7 @@ export function StorySpine({
               <>
                 <PartHead
                   title="The road"
-                  note={`${daysTold - days.length} days · how the day was made`}
+                  note={`${countNoun(daysTold - days.length, 'day', 'days')} · how the day was made`}
                 />
                 {roadPlaced.map((r) => (
                   <RoadEntry key={r.fact.key} fact={r.fact} x={r.x} stage={ROAD_STAGE} />

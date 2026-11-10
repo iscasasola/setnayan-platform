@@ -37,6 +37,7 @@ import {
 } from '@/lib/vendor-deep-search';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -183,6 +184,7 @@ async function transitionVendorVisibility(opts: {
     .update(updatePayload)
     .eq('vendor_profile_id', opts.vendorProfileId);
   if (updErr) return { ok: false, error: plainRefusal('AdminVerifyActions (updErr)', updErr) };
+  revalidateShopPage(opts.vendorProfileId);
 
   // vendor_tier_history audit row — only when verification_state actually
   // moved (matches Step 3 of applyApplicationDecision). No application drove
@@ -400,6 +402,7 @@ export async function liftFindLock(formData: FormData) {
     );
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/verify');
   revalidatePath('/explore');
   revalidatePath('/vendor-dashboard');
@@ -435,6 +438,7 @@ export async function verifyVendorExperience(formData: FormData) {
     redirect(`/admin/verify?error=${encodeURIComponent(plainRefusal('AdminVerifyActions (redirect)', error))}`);
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/verify');
   revalidatePath('/explore');
   redirect('/admin/verify?exp_verified=1');
@@ -597,6 +601,7 @@ async function applyApplicationDecision(
       .update(vendorUpdatePayload)
       .eq('vendor_profile_id', vendor.vendor_profile_id);
     if (vendorUpdErr) return { ok: false, error: plainRefusal('AdminVerifyActions (vendorUpdErr)', vendorUpdErr) };
+    revalidateShopPage(vendor.vendor_profile_id);
   }
 
   // ---- Step 2b: papers approved → a vouch's papers deadline is met. ----
@@ -902,6 +907,7 @@ async function applyApplicationDecisionForDemote(opts: {
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('shops');
   if (updErr) return { ok: false, error: plainRefusal('AdminVerifyActions (updErr)', updErr) };
+  revalidateShopPage(opts.vendorProfileId);
 
   // Best-effort tier_history insert — UUIDs that don't match a real row will
   // FK-violate; in that case fall back to a null application_id.

@@ -3,6 +3,7 @@
 import { startTransition, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AUTO_RETRY_DELAY_MS, claimAutoRetry } from '@/lib/invitation-retry';
+import { recoverStaleTab } from '@/lib/stale-bundle';
 
 // Guest-site error boundary (2026-08-05).
 //
@@ -83,6 +84,8 @@ export default function InvitationError({ error, reset }: Props) {
   }, [opening]);
 
   useEffect(() => {
+    // 🔁 A stale open tab reloads once — a refresh cannot cure it, the new build can (Build 5 F6 — `recoverStaleTab`).
+    if (recoverStaleTab(error)) return;
     if (process.env.NODE_ENV === 'development') {
       console.error('[invitation error boundary]', error);
     }

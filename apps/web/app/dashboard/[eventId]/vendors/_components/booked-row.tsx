@@ -56,6 +56,7 @@ import {
 import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { formatPhp } from '@/lib/php';
+import { BOOKED_PRICE_STAYS_COUPLE } from '@/lib/booked-price-words';
 import { shortDate } from '@/lib/budget-page-view';
 import {
   NEXT_SET_PRICE,
@@ -676,6 +677,14 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.updated ? <UpdatedLine updated={row.updated} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
+      {/* 🔒 WHAT YOU BOOK IS YOUR PRICE (DECISION_LOG 2026-11-10) — a supplier on Setnayan the couple booked at a price:
+          a later change to their card never reaches this booking unless the couple accepts it. Not for a supplier the
+          couple added themselves (they set that price). */}
+      {!row.own && row.money ? (
+        <p className="text-[12.5px] leading-snug text-ink/55" data-booked-price-stays="">
+          {BOOKED_PRICE_STAYS_COUPLE}
+        </p>
+      ) : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">

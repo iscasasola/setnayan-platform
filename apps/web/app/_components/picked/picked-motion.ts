@@ -1,12 +1,12 @@
 /**
  * 🎬 THE PICKED PAGE'S MOTION — open rises from the tapped row, close is the exact reverse (B1 step 5, spec §0.6:
- * open/close 520 ms, close = exact reverse, no jump > 40 px, no pause > 90 ms; reduced motion = a 120 ms fade).
+ * open/close the rise (700 ms since 10 Nov), close = exact reverse, no jump > 40 px, no pause > 90 ms; reduced motion = a 120 ms fade).
  *
  * The list row records WHERE it was tapped (its rect) and WHICH list it was (the URL) just before the soft
  * navigation; the shell reads it once on mount. A hard load (Today, a notification, a typed URL) finds nothing and
  * simply appears — and its ✕ goes to the Clients list instead of `history.back()`, which could leave the app.
  *
- * The numbers are L1's ONE rise (`lib/rise-motion.ts` — 520 ms, its ease, the 120 ms reduced fade), read here at
+ * The numbers are L1's ONE rise (`lib/rise-motion.ts` — 700 ms, its ease, the 120 ms reduced fade), read here at
  * integration so the picked client and every other rise move alike; this file keeps the origin bookkeeping.
  *
  * 🪞 ONE MOTION, BOTH SIDES (Supplier Build 3 · Lane A, 9 Nov 2026). The supplier's picked client and the host's

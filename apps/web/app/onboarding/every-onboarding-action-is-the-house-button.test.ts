@@ -27,7 +27,6 @@ const web = process.cwd();
 /** Bare `<button>` per component, measured 2026-11-10 (Lane P). Lower it; never raise it. */
 const BARE: Readonly<Record<string, number>> = {
   'onboarding/_shared/needs-step.tsx › NeedsStep': 1,
-  'onboarding/wedding/_components/location-step.tsx › LocationStep': 1,
   'onboarding/wedding/_components/onboarding-music.tsx › OnboardingMusic': 1,
   'onboarding/wedding/_components/onboarding-shell.tsx › OnboardingShell': 1,
   'onboarding/wedding/_components/song-preview-list.tsx › SongPreviewList': 1,

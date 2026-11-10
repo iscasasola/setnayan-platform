@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { LocateFixed, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import {
   CITIES,
@@ -287,28 +287,17 @@ export function LocationStep({
           </label>
           {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
               first paint — it declares no location (DECISION_LOG 2026-10-19 (1)). */}
-          <button
-            type="button"
-            className={`locgps${mode === 'near' ? ' on' : ''}${gpsLoading ? ' loading' : ''}`}
+          <ActionButton
+            tone="neutral"
+            icon={LocateFixed}
+            label="Near me"
+            name="Use my current location"
             aria-pressed={mode === 'near'}
-            aria-label="Use my current location"
+            filled={mode === 'near'}
+            waiting={gpsLoading}
             data-asks-location=""
             onClick={nearMe}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-              <circle cx="12" cy="12" r="4" />
-            </svg>
-            <span>Near me</span>
-          </button>
+          />
         </div>
       </div>
     </>

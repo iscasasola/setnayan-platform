@@ -203,7 +203,9 @@ export async function savePackage(
   }
 
   if (input.packageId) {
-    const read = await loadPackageDraft(supabase, vendorProfileId, input.packageId);
+    // Held once: `input` is re-assigned below (a booked bundle keeps its stored price), which drops TS's narrowing.
+    const packageId: string = input.packageId;
+    const read = await loadPackageDraft(supabase, vendorProfileId, packageId);
     if (!read.ok) {
       if (read.reason === 'not_found') return { status: 'not_found' };
       // A FAILED READ IS NOT AN EMPTY PACKAGE. Everything below deletes the
@@ -217,7 +219,7 @@ export async function savePackage(
     }
     const stored = read.loaded.draft;
 
-    const bookings = await countActiveBookings(supabase, input.packageId);
+    const bookings = await countActiveBookings(supabase, packageId);
     if (bookings === null) {
       // Same rule as above, one level out: an unreadable booking count read as
       // zero would unfreeze a BOOKED package and unlock the branch that deletes
@@ -257,7 +259,7 @@ export async function savePackage(
         ...bundleCols(input, isBundle),
         updated_at: new Date().toISOString(),
       })
-      .eq('package_id', input.packageId)
+      .eq('package_id', packageId)
       .eq('vendor_profile_id', vendorProfileId);
     if (upErr) return { status: 'error', message: upErr.message };
 
@@ -266,16 +268,16 @@ export async function savePackage(
       const { error: delErr } = await supabase
         .from('vendor_package_items')
         .delete()
-        .eq('package_id', input.packageId);
+        .eq('package_id', packageId);
       if (delErr) return { status: 'error', message: delErr.message };
 
-      const wrote = await writeItems(supabase, input.packageId, input);
+      const wrote = await writeItems(supabase, packageId, input);
       if (wrote) return wrote;
     }
 
     revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/packages');
-    return { status: 'ok', packageId: input.packageId };
+    return { status: 'ok', packageId: packageId };
   }
 
   // ---- CREATE ----

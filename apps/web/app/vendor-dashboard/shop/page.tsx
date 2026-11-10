@@ -296,7 +296,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
             return null;
           }
           type Line = { vendor_service_id: string | null; display_order: number | null; vendor_services: { title: string | null; starting_price_php: number | string | null; vendor_service_inclusions?: { label: string; sort_order: number | null }[] | null } | null };
-          const rows = (data ?? []) as Array<{ package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: Line[] | null }>;
+          const rows = (data ?? []) as unknown as Array<{ package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: Line[] | null }>;
           // 🔒 Open bookings per bundle — the card row refuses Offline and Delete while any is open (11 Nov). One count
           // each (bundles are few); an unread count stays null and the row says so, never reads as "none".
           const open = await Promise.all(rows.map((p) => countActiveBookings(supabase, p.package_id)));

@@ -432,7 +432,7 @@ export function PackageEditor({
           {/* 📌 THE PINNED NEW TOTAL (owner 9 Nov: "Bundle maker needs to show the total as pinned also"). It stays put while
               the body scrolls and follows every change; with the keyboard up it is its one 44 px line. */}
           <div
-            className="sticky top-0 z-[3] flex min-h-11 items-center justify-between gap-3 border-b border-ink/10 bg-cream px-4 py-2"
+            className="sn-pin-hair sticky top-0 z-[3] flex min-h-11 items-center justify-between gap-3 bg-cream px-4 py-2"
             data-bundle-total-pin={typing ? 'slim' : 'full'}
             aria-live="polite"
           >

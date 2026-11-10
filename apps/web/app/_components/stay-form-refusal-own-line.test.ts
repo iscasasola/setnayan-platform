@@ -13,13 +13,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const stay = readFileSync(join(__dirname, 'stay-form.tsx'), 'utf8');
 const css = readFileSync(join(__dirname, '..', 'globals.css'), 'utf8');
 
 /** Every top-level rule `selector { body }` in globals.css whose selector mentions `data-stay-error`. */
 function stayErrorRules(): Array<{ selector: string; body: string }> {
-  const noComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const noComments = stripComments(css);
   const out: Array<{ selector: string; body: string }> = [];
   for (const m of noComments.matchAll(/([^{}]*data-stay-error[^{}]*)\{([^{}]*)\}/g)) {
     out.push({ selector: m[1]!.trim(), body: m[2]! });

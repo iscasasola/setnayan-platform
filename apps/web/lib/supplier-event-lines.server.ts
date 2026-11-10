@@ -3,6 +3,7 @@ import 'server-only';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readInChunks } from '@/lib/read-all-pages';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import { displayServiceLabel } from '@/lib/vendors';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
@@ -134,7 +135,7 @@ export async function readSupplierEventLines(
     }>(ids, (part) =>
       admin
         .from('guests')
-        .select('event_id, display_name, first_name, last_name, role')
+        .select(`${ENTOURAGE_COLUMNS}, event_id`)
         .is('deleted_at', null)
         .in('role', ['bride', 'groom', 'celebrant'])
         .in('event_id', part),

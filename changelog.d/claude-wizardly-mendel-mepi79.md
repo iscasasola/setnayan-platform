@@ -8,7 +8,9 @@ one recommendation + the five new graphs), both already on main. What those two 
   The Shop tab's Analytics section is now ONE door into Shop › Analytics (`shop-analytics-door.tsx`): it states no
   number about the shop and reads nothing, so the Shop tab drops its whole analytics batch (`lib/shop-analytics.server.ts`,
   `lib/shop-analytics-series.ts` and the carousel are deleted). Owners and admins only, as before; the tour stop keeps its
-  anchor. 🔒 new `shop/one-analytics-not-two.test.ts` (sabotage-checked: a carousel face back on the Shop tab fails it).
+  anchor. The five carousel faces (`capacity-card` · `conversion-deals-card` · `price-position-card` ·
+  `roi-attribution-card` · `funnel-benchmark-card`, + their `card-face` shell and its face test) were mounted nowhere
+  after that and are deleted too (ugat-both-ends caught the orphan). 🔒 new `shop/one-analytics-not-two.test.ts` (sabotage-checked: a carousel face back on the Shop tab fails it).
 - **"Which card sells" counts OPENS** (#7439's flag 1): migration `20271337268841_service_card_opens.sql` — the SAME shape
   as the portfolio photo views: a day ledger (hashed viewer, one per viewer per card per Manila day), ONE service-role
   writer `record_service_card_view` (refuses the shop's own people, admins and any card not the shop's), ONE reader

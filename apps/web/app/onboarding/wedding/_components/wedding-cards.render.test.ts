@@ -86,7 +86,7 @@ test('🔑 names: your row carries the name tokens; the partner’s row is empty
     // Each name is a `TypedRow boxed` (the one Field template): at rest its words sit in the pill; the open field (with
     // its autocomplete token) is drawn on a tap, so the token is pinned at the source below.
     const rows = (s: string) =>
-      [...html.matchAll(new RegExp(`<div[^>]*data-wedding-name-row="${s}"[\\s\\S]*?data-form-row-words=""[^>]*>([^<]*)<`, 'g'))].map((m) => [m[0], m[1]] as const);
+      [...html.matchAll(new RegExp(`<div[^>]*data-wedding-name-row="${s}"[\\s\\S]*?data-form-row-words=""[^>]*>([^<]*)<`, 'g'))].map((m) => [m[0], m[1] ?? ''] as const); // a row with no words reads as empty, never undefined
     const mine = rows(side);
     const theirs = rows(partner);
     assert.equal(mine.length, 2, side);

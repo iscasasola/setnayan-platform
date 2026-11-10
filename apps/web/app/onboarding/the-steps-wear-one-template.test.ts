@@ -74,7 +74,8 @@ test('the typed answer is TypedRow boxed: 48 px, radius 12, 14 px inner padding,
   // Step 0 row 35: "two outlines and two ✕" — open, ONE ✕ (inside, it empties), never the outer leave-as-it-was ✕ too.
   assert.equal(open.match(/<ClearButton\b/g)?.length ?? 0, 1, 'one ✕, inside the box');
   assert.doesNotMatch(open, /\{x\}/, 'no second ✕ beside the box');
-  assert.match(open, /onKeyDown=\{onKeys\}/, 'Enter keeps, Esc leaves it as it was — the row’s own keys');
+  assert.match(open, /\{lineField\}/, 'the SAME field as the plain line — its keys (Enter keeps, Esc leaves it as it was) and its live words');
+  assert.match(rowSrc, /const lineField = \(\s*<input\b[\s\S]{0,800}?onKeyDown=\{onKeys\}/, 'the shared field carries the row’s keys');
   // The dropdown wears the same box; the label above is 14 px / 500.
   const parts = read('app/onboarding/_shared/step-field.tsx');
   const box = /export const STEP_BOX_CLASS =\s*'([^']+)'/.exec(parts)?.[1] ?? '';

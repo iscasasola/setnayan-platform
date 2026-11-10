@@ -173,3 +173,45 @@ export function isShopLive(row: {
  * once is what stops a call site selecting only half of it.
  */
 export const SHOP_LIVE_COLUMNS = 'public_visibility, verification_state' as const;
+
+/**
+ * ─── THE ONE DEFINITION OF "A COUPLE MAY BOOK THIS SHOP" ────────────────────
+ *
+ * Lane G item 1 (Build 5 plan · audit C1, 2026-11-10). The booking gate used to
+ * read ONLY `verification_state`. Admin hide (`public_visibility='hidden'`),
+ * a fraud auto-suspend (`fraud_suspended_at`) and a fraud wipe+ban
+ * (`fraud_banned_at`) all leave `verification_state = 'verified'` — so a shop
+ * that had vanished from Find could still be locked by a couple who had it on
+ * their shortlist, and the couple was charged a booking fee.
+ *
+ * Bookable = live (`isShopLive`, both columns) AND not fraud-suspended AND not
+ * fraud-banned. The database half is `enforce_booking_requires_verified_vendor`
+ * (re-created by `20271335513615_the_booking_gate_reads_hide_suspend_and_ban.sql`),
+ * which asks the same four columns. Fail-closed: an absent column reads as not
+ * bookable, so a `.select()` must name all of `SHOP_BOOKABLE_COLUMNS`.
+ */
+export type ShopBookingRefusal = 'missing' | 'not_verified' | 'not_listed' | 'suspended' | 'banned';
+
+export function shopBookingRefusal(row: {
+  public_visibility?: unknown;
+  verification_state?: unknown;
+  fraud_suspended_at?: unknown;
+  fraud_banned_at?: unknown;
+} | null | undefined): ShopBookingRefusal | null {
+  if (!row) return 'missing';
+  // Ban first: a banned shop is also suspended (the wipe+ban stamps both).
+  // `undefined` (the column was not selected) is refused, never read as "clear".
+  if (row.fraud_banned_at !== null) return 'banned';
+  if (row.fraud_suspended_at !== null) return 'suspended';
+  if (row.verification_state !== 'verified') return 'not_verified';
+  if (!isShopLive(row)) return 'not_listed';
+  return null;
+}
+
+export function isShopBookable(row: Parameters<typeof shopBookingRefusal>[0]): boolean {
+  return shopBookingRefusal(row) === null;
+}
+
+/** The columns `isShopBookable` needs, for a PostgREST `.select()`. */
+export const SHOP_BOOKABLE_COLUMNS =
+  'public_visibility, verification_state, fraud_suspended_at, fraud_banned_at' as const;

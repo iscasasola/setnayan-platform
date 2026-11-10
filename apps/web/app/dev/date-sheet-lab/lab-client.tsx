@@ -8,16 +8,14 @@ import { LazyDateSheet } from '@/app/_components/date-sheet-lazy';
 import { CALENDAR_BLOCKED_WORD, type CalendarDay, type CalendarDayState } from '@/lib/calendar-grid';
 import {
   addDays,
-  busyWords,
   meetingChoices,
-  missingScheduleWords,
   paymentAskChoices,
   shortDay,
   timeWords,
   validUntilChoices,
-  type DateSheetBusy,
   type DateSheetSlots,
 } from '@/lib/date-sheet';
+import { foldMeetingAvailability, meetingAboutWords, meetingRefusal, meetingSlots, meetingWindowDays } from '@/lib/meeting-availability';
 import { TIME_SLOTS } from '@/lib/appointment-slots';
 
 /* The prototype's own fixtures (v3.1): today Nov 9, the event Nov 28, the supplier "Lumina". */
@@ -36,27 +34,38 @@ const STATES = new Map<CalendarDay, CalendarDayState>([
   ['2027-01-09', { dots: ['booked'] }],
 ]);
 
-/** Both sides' busy days for the meeting: the supplier's blocks / bookings, the hosts' own schedule. */
-const BUSY_DAYS: Readonly<Record<CalendarDay, DateSheetBusy>> = {
-  '2026-11-10': { who: 'Lumina' },
-  '2026-11-14': { who: 'Lumina' },
-  '2026-11-15': { who: 'Maria' },
-  '2026-11-19': { who: 'You', what: 'the venue ocular' },
-  '2026-11-20': { who: 'Lumina' },
-  '2026-11-21': { who: 'Lumina' },
-};
-const BUSY_TIMES: Readonly<Record<string, DateSheetBusy>> = {
-  '10:00': { who: 'Lumina' },
-  '10:30': { who: 'Lumina' },
-  '14:00': { who: 'Maria' },
-  '15:00': { who: 'You', what: 'the florist meeting' },
-  '17:30': { who: 'Lumina' },
-};
-const SLOTS: DateSheetSlots = {
-  times: TIME_SLOTS.map((t) => t.value).filter((t) => t >= '09:00' && t <= '18:00'),
-  busy: (_day, t) => BUSY_TIMES[t] ?? null,
-  free: ['Lumina', 'Maria', 'You'],
-};
+/**
+ * Both sides' raw reads for the meeting, as `readMeetingAvailability` would get them, folded by the SAME rule the app
+ * uses (`foldMeetingAvailability`) — so the lab draws what a real meeting would draw. Lumina: an all-day block on Nov 20,
+ * a weekly Saturday-afternoon block, booked (the lock refuses) Nov 14 · 21, her own meetings with other couples at 10 AM
+ * and 5:30 PM. The hosts: the florist meeting at 3 PM, the venue ocular all of Nov 19. Tita Lu has no schedule to read.
+ */
+const LAB_WINDOW = { from: TODAY, to: addDays(EVENT, -1) };
+const LAB_DAYS = meetingWindowDays(LAB_WINDOW.from, LAB_WINDOW.to);
+const MEETING = foldMeetingAvailability({
+  viewer: 'host',
+  supplierName: 'Lumina',
+  hostName: 'Ana & Ben',
+  ...LAB_WINDOW,
+  blocks: [
+    { startDate: '2026-11-20', endDate: '2026-11-20' },
+    { startDate: '2026-11-14', endDate: '2026-11-14', repeat: 'weekly', dayPart: 'afternoon' },
+  ],
+  calendar: { set: true, refused: ['2026-11-14', '2026-11-21'] },
+  supplierMeetings: LAB_DAYS.flatMap((day) => [
+    { day, start: '10:00', minutes: 60, label: 'the site visit', withThisSupplier: false },
+    { day, start: '17:30', minutes: 30, label: 'the call', withThisSupplier: false },
+  ]),
+  eventMeetings: [
+    ...LAB_DAYS.map((day) => ({ day, start: '15:00', minutes: 60, label: 'the florist meeting', withThisSupplier: false })),
+    { day: '2026-11-19', start: '09:00', minutes: 540, label: 'the venue ocular', withThisSupplier: false },
+  ],
+  alsoAsked: ['Tita Lu'],
+});
+const SLOTS: DateSheetSlots = meetingSlots(
+  MEETING,
+  TIME_SLOTS.map((t) => t.value).filter((t) => t >= '09:00' && t <= '18:00'),
+);
 
 const ok = () => ({ ok: true as const });
 
@@ -66,7 +75,7 @@ export function DateSheetLabClient() {
   const [avail, setAvail] = useState<CalendarDay | null>(null);
   return (
     <div data-date-sheet-lab="">
-      <p className="text-[11px] font-bold uppercase tracking-[.12em] text-ink/55">Lab · Build 3 · Lane D part 1</p>
+      <p className="text-[11px] font-bold uppercase tracking-[.12em] text-ink/55">Lab · Build 3 · Lane D</p>
       <h1 className="mt-1 text-[22px] font-bold text-ink">The one date sheet</h1>
       <p className="mt-1 text-[14px] text-ink/70">Today is Nov 9, 2026; the sample event is Nov 28. Tap any field.</p>
       <FormRows className="mt-4" data="lab">
@@ -134,14 +143,14 @@ function MeetingRow() {
         <LazyDateSheet
           data="meet"
           title="Meeting"
-          about={`From today to the day before the event (${shortDay(last)}). ${missingScheduleWords(['Tita Lu'])}.`}
+          about={`From today to the day before the event (${shortDay(last)}). ${meetingAboutWords(MEETING)}.`}
           value={pick?.day ?? null}
           time={pick?.time ?? null}
           today={TODAY}
           min={TODAY}
           max={last}
           choices={meetingChoices(TODAY, last)}
-          refuse={(d) => (BUSY_DAYS[d] ? busyWords(BUSY_DAYS[d]) : null)}
+          refuse={meetingRefusal(MEETING)}
           slots={SLOTS}
           onSet={(p) => {
             setPick(p);

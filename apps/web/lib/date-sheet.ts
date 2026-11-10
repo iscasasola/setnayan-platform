@@ -127,10 +127,15 @@ export function hourWords(t: SheetTime): string {
 /** One quick choice: the day it means and its word ("14 days"); the sheet shows the day under it ("Nov 23"). */
 export type DateSheetChoice = { day: CalendarDay; label: string };
 
-/** Keep only the choices that may be picked — a choice past the last allowed day is HIDDEN, never greyed. */
-function inBounds(list: DateSheetChoice[], min: CalendarDay | null, max: CalendarDay | null): DateSheetChoice[] {
+/**
+ * Keep only the choices that may be picked — a choice past the last allowed day (or before the first) is HIDDEN, never
+ * greyed. The sheet itself asks this of whatever list a screen hands it (`date-sheet.tsx`), so a screen that builds its
+ * own choices cannot show one past `max` either.
+ */
+export function choicesInRange(list: readonly DateSheetChoice[], min: CalendarDay | null, max: CalendarDay | null): DateSheetChoice[] {
   return list.filter((c) => dayAllowed(c.day, { min, max }));
 }
+const inBounds = choicesInRange;
 
 /**
  * Valid until (a quotation): 7 days · 14 days · 30 days, none pre-selected; a choice after `lastDay` (the event) is

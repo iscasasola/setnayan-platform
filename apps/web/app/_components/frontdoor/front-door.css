@@ -1105,6 +1105,9 @@ html.dark .fd {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* 📱 A one-word name (a shop called "FlowerStore.ph") has no place to break, so at 320 px it ran out of its
+     88-px column and was cut mid-letter ("FlowerStore.p") — the clamp only trims LINES. Break it onto line 2. */
+  overflow-wrap: anywhere;
 }
 .fd-by {
   font-size: 12px;

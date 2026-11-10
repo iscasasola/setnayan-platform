@@ -210,7 +210,7 @@
 .when em { font-style: normal; color: var(--sf-ok); }
 .when em.nb { color: var(--sf-muted); }
 .sheetBtns { display: flex; flex-wrap: wrap; gap: 8px; }
-.sheetBtns button { font: 600 .9rem var(--font-hanken), sans-serif; border-radius: var(--m-r-full); min-height: 44px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--sf-line); background: var(--sf-paper); color: var(--sf-ink); }
+.sheetBtns button { flex: 1 1 0; white-space: nowrap; font: 600 .9rem var(--font-hanken), sans-serif; border-radius: var(--m-r-full); min-height: 44px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--sf-line); background: var(--sf-paper); color: var(--sf-ink); }
 .sheetBtns .primary { background: var(--sf-accent); color: var(--sf-accent-ink); border-color: var(--sf-accent); }
 .sheetBtns button:disabled { opacity: .45; cursor: default; }
 .sheetNote { font-size: .84rem; color: var(--sf-muted); }

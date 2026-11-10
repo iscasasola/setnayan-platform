@@ -5,7 +5,8 @@
  * Draws the REAL shared sheet (`app/_components/date-sheet.tsx`, through its one lazy door) on the four uses of the
  * approved prototype v3.1 (`Setnayan-specs/prototypes/date_picker_2026-11-09/`): a payment ask's "By when", a quotation's
  * "Valid until", a meeting (both sides' availability, then the slot list) and the supplier's "Check a date". Three are
- * the shipped `DateRow` with `sheet`; the meeting is a FormRow pill that mounts the sheet with its slots.
+ * the shipped `DateRow` with `sheet`; the meeting is a FormRow pill that mounts the sheet with its slots, folded from
+ * raw-shaped fixtures by the same rule a real meeting uses (`lib/meeting-availability.ts`).
  * Today is fixed at Nov 9, 2026 and the sample event at Nov 28, so every screenshot reads the same. Names are samples:
  * nobody real.
  */

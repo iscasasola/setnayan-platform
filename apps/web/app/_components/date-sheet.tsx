@@ -12,6 +12,7 @@ import {
   DATE_SHEET_REASON_MS,
   DATE_SHEET_SWIPE_PX,
   busyWords,
+  choicesInRange,
   dateSheetCanSet,
   dateSheetMonthPx,
   dateSheetNeighbours,
@@ -110,11 +111,13 @@ const familyEase = () => token('--sn-pill-spring') || 'ease-out';
 
 type Step = 'choices' | 'month' | 'time';
 
-export function DateSheet({ title, about = null, value, time = null, today, min = null, max = null, choices = null, states = null, refuse = null, slots = null, onSet, onCancel, data }: DateSheetProps) {
+export function DateSheet({ title, about = null, value, time = null, today, min = null, max = null, choices: given = null, states = null, refuse = null, slots = null, onSet, onCancel, data }: DateSheetProps) {
   const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const headId = useId();
-  const hasChoices = (choices?.length ?? 0) > 0;
+  /* A choice outside [min, max] is HIDDEN, never greyed — whatever list the screen handed in. */
+  const choices = choicesInRange(given ?? [], min, max);
+  const hasChoices = choices.length > 0;
   const fair = (day: CalendarDay | null) => (day && !(refuse && refuse(day) !== null) ? day : null);
   const [day, setDay] = useState<CalendarDay | null>(() => fair(value));
   const [at, setAt] = useState<SheetTime | null>(() => (slots && fair(value) ? time : null));
@@ -199,7 +202,7 @@ export function DateSheet({ title, about = null, value, time = null, today, min 
 
         <div data-date-sheet-body="" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-2 pt-1">
           {step === 'choices' ? (
-            <Choices title={title} choices={choices ?? []} day={day} refuse={refuse} onChoose={choose} onMonth={() => setStep('month')} />
+            <Choices title={title} choices={choices} day={day} refuse={refuse} onChoose={choose} onMonth={() => setStep('month')} />
           ) : step === 'month' ? (
             <MonthStrip
               view={view}

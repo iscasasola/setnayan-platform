@@ -61,6 +61,7 @@ import {
   coverIsSet,
   inclusionsAreSet,
   priceIsSet,
+  publishRefusalFor,
   unmetForALiveCard,
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
@@ -2335,13 +2336,11 @@ export async function toggleVendorServiceActive(formData: FormData) {
       ),
     };
     const unmet = row.is_active === true ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
-    const firstUnmet = unmet[0];
-    if (firstUnmet) {
-      return redirect(
-        `${await servicesReturnBase()}?error=${encodeURIComponent(
-          PUBLISH_REFUSAL_MESSAGE[firstUnmet],
-        )}`,
-      );
+    // 🃏 EVERY missing thing at once, never only the first (owner 10 Nov, "EDIT · SHARE · GO ONLINE": the card lacked
+    // a cover AND what's included, and was refused for the photo alone). One missing → its own sentence, unchanged.
+    const refusal = publishRefusalFor(unmet);
+    if (refusal) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
     }
   }
 

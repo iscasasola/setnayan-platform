@@ -105,6 +105,13 @@ export function publicAssetTarget(
 
   if (isAbsoluteAssetUrl(trimmed)) return { kind: 'passthrough', url: trimmed };
 
+  // 🏪 A SITE PATH — a file the app itself ships under `public/` ("/onboarding/refinements/…"). Written only by a
+  // reviewed seed (the SetnaProd sample shop, Build 5 Lane H: "images from files already in the repo"). No object key
+  // starts with "/" (every write path builds `vendors/…`, `events/…`), so this can never swallow a real R2 object; and a
+  // protocol-relative "//host" was already taken as a URL above. The display signer passes the same value through
+  // (`parseStoredAsset` → legacy), so the public host and the signed path agree.
+  if (trimmed.startsWith('/')) return { kind: 'passthrough', url: trimmed };
+
   // A bare object key. Every bare key in this system belongs to the one bucket
   // bound to the public host.
   return { kind: 'object', bucket: PUBLIC_R2_BUCKET, key: trimmed };

@@ -154,6 +154,16 @@ test('a legacy absolute URL passes through untouched', () => {
   }
 });
 
+test('a site path (a file the app ships under public/) passes through — never turned into an R2 key', () => {
+  for (const url of ['/onboarding/refinements/photo_booth/traditional.webp', '/marketing/2026-11-04/hero-wedding.webp']) {
+    assert.deepEqual(
+      publicAssetTarget(url),
+      { kind: 'passthrough', url },
+      `${url} is a file on our own site — as an R2 key it would 404 (the SetnaProd sample shop stores these)`,
+    );
+  }
+});
+
 test('anything that cannot be addressed publicly resolves to null, never to a 404', () => {
   const unaddressable = [
     null,

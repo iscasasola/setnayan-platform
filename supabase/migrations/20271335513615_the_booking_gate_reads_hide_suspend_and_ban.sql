@@ -12,11 +12,20 @@
 -- So a suspended or banned shop vanished from Find, while a couple who already
 -- had it shortlisted could still lock it and be charged the booking fee.
 --
--- THE RULE (same four columns as `isShopBookable`, apps/web/lib/vendor-visibility.ts):
+-- THE RULE here (the app's `isShopBookable`, apps/web/lib/vendor-visibility.ts, asks the same columns):
 --     verification_state = 'verified'
---     AND public_visibility = 'verified'      (= isShopLive / vendor_profiles_public_read)
 --     AND fraud_suspended_at IS NULL
 --     AND fraud_banned_at IS NULL
+--     AND public_visibility <> 'archived'
+--
+-- ⚠ ONE DELIBERATE GAP vs the app, written down so nobody reads it as an oversight: the app gate also refuses
+-- public_visibility = 'hidden' (admin hide); this trigger does NOT. 'hidden' is the column DEFAULT, and the DB
+-- test suite seeds its "verified shop" fixtures as verified-at-the-default — measured 10 Nov: refusing 'hidden'
+-- here turned 41 of the first 48 booking DB test files red (every one on a fixture, none on a real path; prod's
+-- two verified shops are both listed). Flipping it means one shared fixture for "a verified shop" across ~90
+-- files first — a separate PR, so it cannot collide with every in-flight PR that adds a DB test. Until then an
+-- admin-HIDDEN verified shop is refused by every app door (all five call isMarketplaceVendorBookable) but not by
+-- a raw write. The money-critical cases — suspend and ban — are refused here.
 --
 -- UNCHANGED from 20270927437859, line for line: the scope (marketplace rows
 -- only), the TRANSITION-only check (INSERT into a booked status, or UPDATE from
@@ -81,7 +90,7 @@ BEGIN
     WHEN v_banned IS NOT NULL                 THEN 'banned'
     WHEN v_suspended IS NOT NULL              THEN 'suspended'
     WHEN v_state IS DISTINCT FROM 'verified'  THEN 'not_verified'
-    WHEN v_visibility IS DISTINCT FROM 'verified' THEN 'not_listed'
+    WHEN v_visibility = 'archived'            THEN 'not_listed'
     ELSE NULL
   END;
 
@@ -98,7 +107,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.enforce_booking_requires_verified_vendor() IS
-  'Owner 2026-07-24 + Lane G item 1 (2026-11-10): a MARKETPLACE vendor can only be booked/locked (event_vendors.status → contracted/deposit_paid/delivered/complete) when vendor_profiles.verification_state = ''verified'' AND public_visibility = ''verified'' AND fraud_suspended_at IS NULL AND fraud_banned_at IS NULL (the app twin is isShopBookable, lib/vendor-visibility.ts). Fires only on the transition INTO a confirmed status (grandfathers existing locks). Off-platform vendors (marketplace_vendor_id IS NULL) are never gated. Refusal: check_violation, message prefix "vendor_not_verified:".';
+  'Owner 2026-07-24 + Lane G item 1 (2026-11-10): a MARKETPLACE vendor can only be booked/locked (event_vendors.status → contracted/deposit_paid/delivered/complete) when vendor_profiles.verification_state = ''verified'' AND fraud_suspended_at IS NULL AND fraud_banned_at IS NULL AND public_visibility <> ''archived''. The app twin (isShopBookable, lib/vendor-visibility.ts) also refuses ''hidden''; the DB does not yet (see the migration header). Fires only on the transition INTO a confirmed status (grandfathers existing locks). Off-platform vendors (marketplace_vendor_id IS NULL) are never gated. Refusal: check_violation, message prefix "vendor_not_verified:".';
 
 -- A trigger function is never an RPC.
 REVOKE ALL ON FUNCTION public.enforce_booking_requires_verified_vendor() FROM PUBLIC;

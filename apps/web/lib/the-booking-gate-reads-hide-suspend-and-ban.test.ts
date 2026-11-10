@@ -10,7 +10,8 @@
  *   1. the pure rule `shopBookingRefusal` refuses each of the three, and fails closed on an absent column;
  *   2. the app gate selects ALL the rule's columns (a select that drops one silently fails closed for everybody,
  *      and a select that drops one AND a rule that tolerated `undefined` would let the shop through);
- *   3. the LATEST migration that defines the trigger function asks the same four columns;
+ *   3. the LATEST migration that defines the trigger function asks the same columns (it refuses suspend, ban and
+ *      archived; 'hidden' is a documented gap — see 20271335513615's header and the pinned DB test);
  *   4. the wipe+ban demotes a verified shop, so every state-only reader agrees with the gate.
  */
 import test from 'node:test';
@@ -80,7 +81,7 @@ test('3 · the latest definition of the DB trigger function asks all four column
   const sql = readFileSync(join(MIGRATIONS, latest!), 'utf8');
   const body = sql.slice(sql.search(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.enforce_booking_requires_verified_vendor/i));
   const fnBody = body.slice(0, body.indexOf('$$;'));
-  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at']) {
+  for (const col of ['verification_state', 'public_visibility', 'fraud_suspended_at', 'fraud_banned_at', "'archived'"]) {
     assert.ok(fnBody.includes(col), `${latest} must read vendor_profiles.${col}`);
   }
   // Four app paths match the refusal on this prefix — the reason is named after it, never instead of it.

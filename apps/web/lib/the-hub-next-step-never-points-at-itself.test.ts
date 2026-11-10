@@ -37,7 +37,7 @@ const event = (over: Partial<HubEventRead> = {}): HubEventRead => ({
   eventDate: '2026-12-18',
   eventEndDate: null,
   clearedAt: null,
-  timezone: MNL,
+  venueTz: MNL,
   slug: 'maria-and-jomar',
   ...over,
 });

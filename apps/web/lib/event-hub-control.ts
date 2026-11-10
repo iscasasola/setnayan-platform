@@ -278,7 +278,7 @@ function dayFact(read: HubEventRead, nowMs?: number): HubFact {
   const label = 'The day';
   if (!read.measured) return { label, value: null, known: false };
   if (!read.eventDate) return { label, value: 'Not set yet', known: true };
-  const days = daysUntilEventDay(read.eventDate, venueTodayISO(read.timezone, nowMs));
+  const days = daysUntilEventDay(read.eventDate, venueTodayISO(read.venueTz, nowMs));
   if (days === null) return { label, value: 'Not set yet', known: true };
   if (days === 0) return { label, value: 'Today', known: true };
   if (days === 1) return { label, value: 'Tomorrow', known: true };

@@ -41,8 +41,8 @@ const svgLogo = (bg: string, fg: string, word: string) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" fill="${bg}"/><rect x="0" y="0" width="120" height="14" fill="${fg}"/><rect x="0" y="106" width="120" height="14" fill="${fg}"/><text x="60" y="70" font-family="Georgia,serif" font-size="22" font-weight="700" text-anchor="middle" fill="${fg}">${word}</text></svg>`,
   )}`;
-const FLOWER_LOGO = svgLogo('#ffffff', '#c2185b', 'FLOWER');
-const SETNA_LOGO = svgLogo('#1f3a2c', '#e8c77a', 'SETNA');
+const FLOWER_LOGO = svgLogo('rgb(255,255,255)', 'rgb(194,24,91)', 'FLOWER');
+const SETNA_LOGO = svgLogo('rgb(31,58,44)', 'rgb(232,199,122)', 'SETNA');
 
 type LabShop = FrontDoorShop & { nowFolderLabel: string };
 const shop = (s: Omit<LabShop, 'badges'> & { facts: ShopBadgeFacts }): LabShop => {

@@ -126,7 +126,8 @@ export async function loadMakerContext(
       .select('category_key, pool_id')
       .eq('vendor_profile_id', vendorProfileId),
     // 🎁 the Gift row — in the same batch, never one read after another. Each fails soft to null (logged inside).
-    fetchShopGiftPacks(supabase).catch(() => null),
+    // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
+    fetchShopGiftPacks(createAdminClient()).catch(() => null),
     fetchShopGiftStock(supabase, vendorProfileId).catch(() => null),
     // 🃏 the card checks — fails soft per half (never to an empty list, which would read as "nothing to fix").
     loadCardCheckRules(vendorProfileId).catch((): CardCheckRules => ({ claimWords: null, trades: null })),

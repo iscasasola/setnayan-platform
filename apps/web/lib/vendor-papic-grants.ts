@@ -208,15 +208,24 @@ export async function fetchVendorPapicPackPricePhp(
  * 🛍 The Papic packs a SHOP may buy into its wallet — the SAME packs couples buy (owner 2026-11-04): every active,
  * unretired `PAPIC_GUEST*` catalogue row with an active, non-top-up tier row, smallest first. Price and credits are
  * READ; `null` on any read error (render "unavailable", never a remembered figure).
+ *
+ * 🔒 `admin` MUST BE THE SERVICE-ROLE CLIENT (G6, 2026-11-10). `gift_price_php` is withheld from `anon` +
+ * `authenticated` on purpose — 20271201188010 grants the catalogue column by column, the final price sheet
+ * (20271308555594) added the gift price after it, and `the-catalog-keeps-its-margin.db.test.ts` lists it in
+ * DENIED_COLUMNS: a supplier's gift price is shown to that supplier from the server, never readable by a browser.
+ * PostgREST refuses the WHOLE query that names it, so the five callers that passed the supplier's SESSION client
+ * were each refused (42501 — ~105 production errors from 4 Nov: Shop › Promote, a new card, a bundle's Gift row) and
+ * the packs read "unavailable" for every supplier; a bundle's gift could not be saved at all. Guard:
+ * `lib/catalog-denied-columns-read-by-service-role.test.ts` (every caller passes a service-role client).
  */
-export async function fetchShopPapicPacks(client: SupabaseClient): Promise<ShopPapicPack[] | null> {
+export async function fetchShopPapicPacks(admin: SupabaseClient): Promise<ShopPapicPack[] | null> {
   try {
     const [catalog, tiers] = await Promise.all([
-      client
+      admin
         .from('platform_retail_catalog_v2')
         .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
         .like('service_code', 'PAPIC_GUEST%'),
-      client.from('papic_pass_tiers').select('service_code, points, is_active, is_topup').like('service_code', 'PAPIC_GUEST%'),
+      admin.from('papic_pass_tiers').select('service_code, points, is_active, is_topup').like('service_code', 'PAPIC_GUEST%'),
     ]);
     if (catalog.error || tiers.error) {
       console.error('[supabase-error] vendor-papic-grants: shop packs', catalog.error ?? tiers.error);

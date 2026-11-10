@@ -116,6 +116,14 @@ export function signedInFromCookie(cookie: string): boolean {
   return /(?:^|;\s*)sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?=/.test(cookie);
 }
 
+/**
+ * The same shape, one cookie NAME at a time — for a server page holding the request's jar (`(await cookies()).getAll()`).
+ * The PKCE code verifier (`…-auth-token-code-verifier`) is not a session and does not match.
+ */
+export function isSessionCookieName(name: string): boolean {
+  return /^sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?$/.test(name);
+}
+
 /** Is `pathname` under a ready-list prefix? */
 export function isDarkReady(pathname: string, ready: readonly string[] = DARK_READY): boolean {
   return ready.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/'));

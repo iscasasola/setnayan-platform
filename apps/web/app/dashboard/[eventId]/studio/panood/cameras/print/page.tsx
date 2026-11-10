@@ -182,14 +182,14 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
       ) : null}
 
       {cards.length === 0 ? (
-        <main className="screen-only" style={{ padding: 24 }}>
+        <div className="screen-only" style={{ padding: 24 }}>
           <p className="text-sm text-ink/70">
             There are no join cards to print yet. Open the control room and make a join QR for
             each channel you want someone to shoot.
           </p>
-        </main>
+        </div>
       ) : (
-        <main className="print-sheet">
+        <div className="print-sheet">
           {cards.map((c) => (
             <article key={c.zoneId} className="print-card">
               <p className="print-eyebrow">Live Watch · CH {c.channel}</p>
@@ -203,7 +203,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
               <p className="print-footer">{c.claimUrl}</p>
             </article>
           ))}
-        </main>
+        </div>
       )}
     </>
   );

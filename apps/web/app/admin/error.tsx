@@ -14,6 +14,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { recoverStaleTab } from '@/lib/stale-bundle';
 
 export default function AdminError({
   error,
@@ -23,6 +24,8 @@ export default function AdminError({
   reset: () => void;
 }) {
   useEffect(() => {
+    // 🔁 A stale open tab reloads once instead of drawing this card (Build 5 F6 — `recoverStaleTab`).
+    if (recoverStaleTab(error)) return;
     // Mirror to the console for DevTools copy/paste.
     // eslint-disable-next-line no-console
     console.error('[admin-error]', error);

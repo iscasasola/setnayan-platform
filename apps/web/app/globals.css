@@ -3535,10 +3535,12 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      family feels, change this line. */
   --sn-pill-dur:    700ms;
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
-  /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: open/close
-     520 ms, the close the EXACT reverse, no jump over 40 px, no pause over 90 ms). Read by `lib/rise-motion.ts`
-     (`riseFromRect`); under reduced motion it is a 120 ms cross-fade. */
-  --sn-dur-rise:    520ms;
+  /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: the close
+     the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH is the family speed — owner 2026-11-10
+     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*): Rise full screen runs 0.7 s, so it reads `--sn-pill-dur` and has no
+     number of its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it
+     is a 120 ms cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts */
+  --sn-dur-rise:    var(--sn-pill-dur);
   --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
   --sn-dur-rise-reduced: 120ms;
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading

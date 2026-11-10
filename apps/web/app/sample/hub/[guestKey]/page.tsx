@@ -27,6 +27,7 @@ import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
 import { EntourageSection } from '@/app/[slug]/_components/entourage-section';
 import { DressCodeWidget } from '@/app/[slug]/_components/dress-code-widget';
 import { PaidMark } from '@/app/_components/paid-mark';
+import { countNoun } from '@/lib/format-number';
 
 /**
  * `/sample/hub/[guestKey]` — the Event Hub as one sample guest (owner 2026-11-02:
@@ -91,7 +92,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
       <InvitationShell monogramText="M & J" exitHref="/sample" stageLabel="Invitation">
         <div data-sample-hub={guest.guestKey} className="space-y-14">
           <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
-            Sample event · {day.daysToGo} days to go
+            Sample event · {countNoun(day.daysToGo, 'day', 'days')} to go
           </p>
 
           <MeGreeting greeting={greeting} />

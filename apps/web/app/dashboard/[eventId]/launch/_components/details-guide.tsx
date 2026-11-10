@@ -16,6 +16,7 @@ import {
   type GuidedScreen,
   type GuidedStep,
 } from '@/lib/details-guided-flow';
+import { gearText } from '@/app/_components/gear-text';
 
 /**
  * DETAILS › WHAT'S LEFT — the guided flow's own pieces (Details part 5; the pure
@@ -210,7 +211,7 @@ export function GuideReady({
                   >
                     <span className="flex flex-col">
                       {l.title}
-                      <span className="text-[12px] text-ink/60">{l.guests ? GUIDE_GUESTS_LINE : l.view ? GUIDE_VIEW_LINE[l.view] : l.unlocks}</span>
+                      <span className="text-[12px] text-ink/60">{l.guests ? gearText(GUIDE_GUESTS_LINE) : l.view ? GUIDE_VIEW_LINE[l.view] : l.unlocks}</span>
                     </span>
                     <span
                       className={`shrink-0 text-[13px] font-semibold ${
@@ -309,7 +310,7 @@ export function GuideLinkScreen({
               data-details-guide-link-go={link}
               className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
             >
-              {l?.guests ? GUIDE_GUESTS_GO : l?.view ? GUIDE_VIEW_GO[l.view] : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
+              {l?.guests ? gearText(GUIDE_GUESTS_GO) : l?.view ? GUIDE_VIEW_GO[l.view] : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
             </Link>
           ) : null}
         </div>

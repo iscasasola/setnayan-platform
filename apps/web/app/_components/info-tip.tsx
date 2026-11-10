@@ -38,7 +38,7 @@
  * balances, errors and consequences stay on the page.
  */
 
-import { useEffect, useId, useReducer, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useReducer, useRef, type ReactNode } from 'react';
 import { TIP_CLOSED, tipReducer } from './info-tip-state';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -74,6 +74,7 @@ export function InfoTip({
   const [state, dispatch] = useReducer(tipReducer, TIP_CLOSED);
   const rootRef = useRef<HTMLElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
   const tipId = useId();
   // One open at a time (lib/one-open.ts): a tap-PINNED tip is an open popover —
   // pinning it closes any other open dropdown/menu/fold, and one opening closes
@@ -103,6 +104,22 @@ export function InfoTip({
       window.removeEventListener('keydown', onKeyDown, true);
     };
   }, [state.open]);
+
+  // 📱 AN OPEN BUBBLE STAYS ON THE SCREEN (Build 5 Lane R, 2026-11-10). A bubble hangs from its (i), so on a 320-px
+  // phone an (i) 54 px in ran its 288-px bubble 18 px past the right edge — the last words were cut off. On open,
+  // measure it and slide it back inside a 16-px gutter (`--sn-tip-nudge`, read by `.sn-tip`'s `translate`).
+  // Measured from LAYOUT (offsets), never from the on-screen rect: mid-fade the rect still carries the last nudge.
+  useLayoutEffect(() => {
+    const tip = tipRef.current;
+    const root = rootRef.current;
+    if (!state.open || !tip || !root) return;
+    const w = tip.offsetWidth;
+    const left = root.getBoundingClientRect().left + tip.offsetLeft - (align === 'center' ? w / 2 : 0);
+    const vw = document.documentElement.clientWidth;
+    const nudge = left + w > vw - 16 ? vw - 16 - (left + w) : left < 16 ? 16 - left : 0;
+    if (nudge) tip.style.setProperty('--sn-tip-nudge', `${Math.round(nudge)}px`);
+    else tip.style.removeProperty('--sn-tip-nudge');
+  }, [state.open, align]);
 
   // A block label (heading or paragraph) needs a block wrapper — a <span>
   // around an <h2> or a <p> is invalid HTML.
@@ -134,6 +151,7 @@ export function InfoTip({
         <span aria-hidden="true">i</span>
       </button>
       <span
+        ref={tipRef}
         id={tipId}
         role="tooltip"
         className="sn-tip"

@@ -247,7 +247,7 @@ const softwareAppJsonLd = {
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
-    'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
+    'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
     'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Hub Pro’s Logo & QR part animates it)',

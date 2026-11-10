@@ -255,7 +255,7 @@ test('2 · GATE ON — Papic opens its page; an owned Live Watch says where it w
   // What a person READS (an href is where a tap goes — the public Event Hub opens in the app's own browser sheet).
   assert.doesNotMatch(html.replace(/href="[^"]*"/g, ''), /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
   // Not owned: Activate (Apple's sheet), never Go live.
-  const notOwned = home({ papic: null, liveWatch: { status: 'Not on yet · one camera is free', owned: false, askReady: true, goLive: null } });
+  const notOwned = home({ papic: null, liveWatch: { status: 'Not on yet · one camera included', owned: false, askReady: true, goLive: null } });
   assert.doesNotMatch(notOwned, />Go live</);
 });
 
@@ -286,7 +286,7 @@ test('2 · Live Watch reads where it was bought — and claims nothing it cannot
   assert.equal(liveWatchHomeStatus({ active: true, owned: true, where: 'app' }), 'On · bought in the app');
   assert.equal(liveWatchHomeStatus({ active: true, owned: true, where: null }), 'On');
   assert.equal(liveWatchHomeStatus({ active: false, owned: true, where: 'app' }), 'Being switched on');
-  assert.equal(liveWatchHomeStatus({ active: false, owned: false, where: null }), 'Not on yet · one camera is free');
+  assert.equal(liveWatchHomeStatus({ active: false, owned: false, where: null }), 'Not on yet · one camera included');
   assert.equal(liveWatchHomeStatus({ active: null, owned: true, where: 'app' }), '—', 'a failed read says "—"');
   // One spelling of the App Store channel: the fulfilment writes what Home reads.
   assert.match(code('lib/iap/fulfil.server.ts'), /export const APP_STORE_CHANNEL = APP_STORE_CHANNEL_KEY;/);

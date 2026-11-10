@@ -98,8 +98,8 @@ export function IapLiveWatchSheet({
               </p>
             ) : (
               <p className="mt-1 text-sm text-ink/70">
-                One unlock covers the whole event — every stream, every camera, no day limit. Your free single camera
-                stays free.
+                One unlock covers the whole event — every stream, every camera, no day limit. One camera is always
+                included.
               </p>
             )}
             <div role="note" className="mt-3 max-h-48 space-y-2 overflow-y-auto text-xs leading-relaxed text-ink/80">

@@ -430,7 +430,7 @@ export function paidSlimWords(key: HomeSkuKey, price: string | null, comebackHou
   // not-added AI line says 'Try it' with no price"); the price lives on its own page, where it is bought.
   if (key === 'ai') return 'Try it';
   if (!price) return 'See the price';
-  if (key === 'live') return `1 camera free · ${price} for more`;
+  if (key === 'live') return `1 camera included · ${price} for more`;
   if (key === 'booth') return `Free to record · ${price} to save & share`;
   return price;
 }

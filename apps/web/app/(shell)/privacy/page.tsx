@@ -1539,7 +1539,7 @@ export default function PrivacyPage() {
             optional and off by default. When a host turns it on for an event,{' '}
             <strong>Live Watch uses YouTube API Services</strong> to set up and
             run that event&rsquo;s live broadcast, and embeds the player on the
-            event page. Single-camera streaming is free for any host; the
+            event page. Single-camera streaming is included for any host; the
             multi-camera control room is a paid upgrade. Your use of YouTube is
             also governed by{' '}
             <a

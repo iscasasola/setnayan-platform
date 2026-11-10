@@ -43,5 +43,5 @@ export function liveWatchHomeStatus(input: {
   const { active, owned, where } = input;
   if (active === null || owned === null) return '—';
   if (active) return where === 'web' ? 'On · bought on the web' : where === 'app' ? 'On · bought in the app' : 'On';
-  return owned ? 'Being switched on' : 'Not on yet · one camera is free';
+  return owned ? 'Being switched on' : 'Not on yet · one camera included';
 }

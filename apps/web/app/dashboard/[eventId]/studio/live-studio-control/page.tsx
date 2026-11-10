@@ -259,7 +259,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
           href={controllerHref}
           className="inline-flex items-center gap-2 rounded-full border border-terracotta bg-cream px-5 py-2 text-sm font-semibold text-terracotta-700 transition-colors hover:bg-terracotta/10"
         >
-          Open the controller — go live free with one camera
+          Open the controller — go live with one camera, included
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </Link>
       ) : null}
@@ -326,7 +326,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
               onChange: setYoutubeLiveReadyAck,
             },
         footnote:
-          'Apply-then-pay flow · we confirm price before payment · no refunds: if you cannot use it, its value becomes Papic credits for this event. Cameras join as phones via the event QR — no per-camera fee. The free single-camera livestream is unchanged.',
+          'Apply-then-pay flow · we confirm price before payment · no refunds: if you cannot use it, its value becomes Papic credits for this event. Cameras join as phones via the event QR — no per-camera fee. The single-camera livestream stays included.',
         }}
       />
     </div>
@@ -408,19 +408,19 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
             'Guests can pick their own view and switch live',
             'Cameras join as phones via the event QR — no install, no per-camera fee',
             'Plays right on your event page, in your colors',
-            'One price, per event — the free single-camera livestream stays free',
+            'One price, per event — the single-camera livestream stays included',
           ],
         }}
         description={{
           paragraphs: [
             'An event happens in more than one place at once — the ceremony up front, the reception floor, the photo booth in the corner, sometimes a whole second venue. Live Watch lets you direct all of it: line up your cameras, then cut whichever one matters most onto the Main Stage every remote guest is watching.',
             `You set it up in the controller (${priceLabel}, one price per event): name each camera, group them by venue, mark a default, and cut between them live on the day. Each camera is just a phone your paparazzi join by scanning the event QR — no install, no per-camera fee. Guests who want to wander can pick their own view; everyone else follows your directed Main Stage.`,
-            'Live Watch merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream stays free; Live Watch is the multi-camera upgrade.',
+            'Live Watch merges the two things people asked for — a directed broadcast and a choose-your-own-camera experience — into one tool. The single-camera livestream is always included; Live Watch is the multi-camera upgrade.',
           ],
           plans: [planRow],
           notIncluded: [
             'Your camera people are friends or family with phones — not a hired crew.',
-            'The free single-camera livestream is a separate, always-free service — Live Watch is the paid multi-camera upgrade.',
+            'The single-camera livestream is a separate service, always included — Live Watch is the paid multi-camera upgrade.',
             'No compositing in this version — picture-in-picture, split-screen, and graphics overlays are a later Pro layer. Live Watch cuts cleanly between whole cameras.',
             'A Setnayan-provided camera kit is an optional add-on, not included in this price.',
             'Build state: the switching controller and picker are in place; live multi-camera streaming rolls out as the streaming infrastructure comes online.',

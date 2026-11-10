@@ -804,7 +804,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0011',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your day streamed live so everyone who can’t be there is — free with a single camera.',
+    blurb: 'Your day streamed live so everyone who can’t be there is — one camera included.',
     cta: 'Set up',
     studioGroup: 'capture',
     // Single-cam live broadcast is FREE for every host (owner model 2026-06-26 —

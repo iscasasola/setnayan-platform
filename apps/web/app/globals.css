@@ -6145,7 +6145,6 @@ div:has(> [data-apply-pro-sheet]),
   top: 100%;
   z-index: var(--sn-z-pop);
   width: max-content;
-  max-width: min(18rem, calc(100vw - 32px));
   /* The bubble wraps in its own width, whatever its trigger does. A tip inside a `whitespace-nowrap` heading (the
      Categories map's column heads) inherited `nowrap`: its text ran one 1,300-px line out of the 18rem box — off
      screen when open, and while CLOSED (hidden, still laid out) it widened the page to 1,856 px at 1,280.
@@ -6154,17 +6153,31 @@ div:has(> [data-apply-pro-sheet]),
   padding-top: 8px;
   opacity: 0;
   visibility: hidden;
-  translate: var(--sn-tip-x, 0) -4px;
+  /* 📱 A CLOSED TIP TAKES NO ROOM (Build 5 Lane R, measured 2026-11-10). Hidden is still laid out: a closed 288-px
+     bubble hanging from an (i) 44 px in made `/` 332 px wide and `/pricing` 338 px wide at a 320-px phone — the whole
+     page slid sideways. Closed, the box is 0 × 0 and clips; the size returns AFTER the fade (same delay as
+     `visibility`), so closing still fades the full bubble and opening is instant.
+     🔒 lib/a-closed-tip-takes-no-room.test.ts */
+  max-width: 0;
+  max-height: 0;
+  overflow: hidden;
+  /* The open bubble is nudged back inside the screen by `<InfoTip>` (`--sn-tip-nudge`, px). */
+  translate: calc(var(--sn-tip-x, 0px) + var(--sn-tip-nudge, 0px)) -4px;
   pointer-events: none;
   transition:
     opacity var(--sn-dur-control) var(--sn-ease),
     translate var(--sn-dur-control) var(--sn-ease),
-    visibility 0s linear var(--sn-dur-control);
+    visibility 0s linear var(--sn-dur-control),
+    max-width 0s linear var(--sn-dur-control),
+    max-height 0s linear var(--sn-dur-control);
 }
 .sn-tip[data-open='true'] {
   opacity: 1;
   visibility: visible;
-  translate: var(--sn-tip-x, 0) 0;
+  max-width: min(18rem, calc(100vw - 32px));
+  max-height: 100vh;
+  overflow: visible;
+  translate: calc(var(--sn-tip-x, 0px) + var(--sn-tip-nudge, 0px)) 0;
   pointer-events: auto;
   transition-delay: 0s;
 }

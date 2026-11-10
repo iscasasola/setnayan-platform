@@ -37,8 +37,8 @@ import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import { shopBadgeRow, type BadgeTile } from '@/lib/shop-badge-row';
-import { loadShopAnalytics, type ShopAnalytics } from '@/lib/shop-analytics.server';
-import { stripMarks, stripMonths } from '@/lib/analytics-growing';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import type { VendorTeamRole } from '@/lib/vendor-team';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
 import { CoverPhotoMenu, LogoPhotoMenu } from './_components/photo-menus';
@@ -52,14 +52,8 @@ import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
-import { ShopAnalyticsCarousel, type AnalyticsCardData } from './_components/shop-analytics-carousel';
+import { ShopAnalyticsDoor } from './_components/shop-analytics-door';
 import { PromoteBody } from './promote/_components/promote-body';
-import { CapacityCard } from '../performance/_components/capacity-card';
-import { ConversionDealsCard } from '../performance/_components/conversion-deals-card';
-import { PricePositionCard } from '../performance/_components/price-position-card';
-import { RoiAttributionCard } from '../performance/_components/roi-attribution-card';
-import { FunnelBenchmarkCard } from '../performance/_components/funnel-benchmark-card';
-import { CardFace } from '../performance/_components/card-face';
 
 const PAGE_HREF = '/vendor-dashboard/website';
 
@@ -67,7 +61,7 @@ const PAGE_HREF = '/vendor-dashboard/website';
  * /vendor-dashboard/shop — THE SHOP TAB (THE ONE BUILD, lane C4; owner-approved prototype v113/v114 `V.shop`).
  *
  * ONE scroll (v110 item 11): the cover (logo · name · Verified · ★ · events · plan · View shop ↗ · Share · Promote · QR ·
- * ⚙) → Analytics (five cards) → Badges (ONE row, each in its progress ring) → Makers (one row of tiles: Forms Maker ·
+ * ⚙) → Analytics (ONE door into Shop › Analytics — Build 6 Lane I) → Badges (ONE row, each in its progress ring) → Makers (one row of tiles: Forms Maker ·
  * Scanner, each opening into the body) → Services → the thumb row (＋ Add a service). Build 2 (§10 #31): no loose rows
  * under the cover — Your page is the Shop ⚙'s first row, Your details the account sheet's; the cover's "★ · N reviews"
  * opens Your page › Reviews and stories. The `Shop ▾` section picker left this page: Analytics is in this scroll, Portfolio
@@ -115,8 +109,11 @@ type ShopData = {
   /** "38 reviews" beside the ★ — the cover's link into Your page › Reviews and stories (§10 #31). */
   reviews: string | null;
   events: string | null;
-  /** 📊 The five Analytics cards — a started read, streamed by `ShopAnalyticsSection` (never part of the one wait). */
-  analytics: Promise<ShopAnalytics | null>;
+  /**
+   * 📊 Who is looking — the one read the Analytics door needs (Build 6 Lane I: the five-card carousel is gone, ONE
+   * Analytics lives at Shop › Analytics). A started read, streamed by `ShopAnalyticsSection`; null = refused.
+   */
+  analyticsRole: Promise<VendorTeamRole | null>;
   /** 🖼 The hero (Lane E 11–12): the cover photo, else the category placeholder — and its caption. */
   hero: { url: string; kind: 'photo' | 'placeholder' };
   heroCaption: string | null;
@@ -312,15 +309,11 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
-  // 📊 Analytics — the five cards, gated by the plan (its role read starts now, beside the shop's own row). NOT in the
-  // one wait: the cards STREAM in their own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for them.
-  const analyticsRead: Promise<ShopAnalytics | null> = loadShopAnalytics(
-    supabase,
-    profile,
-    user.id,
-    ownRead.then((own) => own?.tier_state ?? null),
-  ).catch((err: unknown) => {
-    logQueryError('VendorShopPage.analytics', err, { vendorId });
+  // 📊 Analytics — ONE door into Shop › Analytics (Build 6 Lane I; the five-card carousel and its whole analytics batch
+  // are gone — every one of its facts is a tile there). Its one read, the role (owners and admins only, as there), starts
+  // now and STREAMS in its own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for it.
+  const analyticsRoleRead: Promise<VendorTeamRole | null> = resolveVendorRole(supabase, user.id).catch((err: unknown) => {
+    logQueryError('VendorShopPage.analyticsRole', err, { vendorId });
     return null;
   });
 
@@ -385,7 +378,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
-    analytics: analyticsRead,
+    analyticsRole: analyticsRoleRead,
     hero,
     heroCaption:
       hero.kind === 'photo'
@@ -430,24 +423,21 @@ function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): Profi
   };
 }
 
-/** 📊 The Analytics section, once its read lands — unread says so, never empty cards. */
-async function ShopAnalyticsSection({ read }: { read: Promise<ShopAnalytics | null> }) {
-  const analytics = await read;
-  if (analytics === null) {
+/**
+ * 📊 The Analytics section, once its one read (the role) lands: the ONE door into Shop › Analytics for its owners and
+ * admins (that page's own rule). A refused role read draws the door too — the page it opens re-checks the role on the
+ * server, so the worst case is a bounce, never a fact shown to the wrong person.
+ */
+async function ShopAnalyticsSection({ read, verified }: { read: Promise<VendorTeamRole | null>; verified: boolean }) {
+  const role = await read;
+  if (role && !canManageVendor(role)) {
     return (
-      <p role="status" className="px-4 pt-5 text-[13.5px] text-ink/65" data-shop-analytics-unread="">
-        Couldn&rsquo;t load your analytics just now.
+      <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
+        Analytics are for the shop&rsquo;s owner and admins.
       </p>
     );
   }
-  if (analytics.access === 'ok') {
-    return <ShopAnalyticsCarousel cards={analyticsCards(analytics)} recs={analytics.recs} nowMs={Date.now()} />;
-  }
-  return (
-    <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
-      Analytics are for the shop&rsquo;s owner and admins.
-    </p>
-  );
+  return <ShopAnalyticsDoor verified={verified} />;
 }
 
 /** A sheet opened before its streamed body landed — the same words the sheet says for a body still on its way. */
@@ -459,7 +449,7 @@ function SheetOpening({ line = 'Opening…' }: { line?: string }) {
   );
 }
 
-/** The streaming stand-in: the section's own heading and one card's height, so nothing jumps when the cards land. */
+/** The streaming stand-in: the section's own heading and one row's height, so nothing jumps when the door lands. */
 function AnalyticsPlaceholder() {
   return (
     <section aria-busy="true" aria-label="Analytics, loading" data-shop-analytics-loading="" className="scroll-mt-24">
@@ -467,56 +457,10 @@ function AnalyticsPlaceholder() {
         <span className="sn-eye">Analytics</span>
       </div>
       <div className="px-4">
-        <div className="h-[196px] animate-pulse rounded-2xl bg-ink/[0.05]" />
+        <div className="h-[60px] animate-pulse rounded-2xl bg-ink/[0.05]" />
       </div>
     </section>
   );
-}
-
-/** The five faces — each the SHIPPED card's `compact` variant; a plan-locked card says which plan shows it. */
-function analyticsCards(a: Extract<ShopAnalytics, { access: 'ok' }>): AnalyticsCardData[] {
-  const locked = (title: string, plan: string) => (
-    <CardFace title={title} window="Your plan" line={`Shows on ${plan} and up`} data="locked">
-      <Link href="#plan" className="mt-4 inline-flex text-[13px] font-medium" style={{ color: 'var(--m-orange-deep)' }}>
-        What each plan includes ›
-      </Link>
-    </CardFace>
-  );
-  const ahead =
-    a.ahead === 'locked'
-      ? { face: locked('What’s ahead', 'Pro'), locked: true }
-      : {
-          face: (
-            <CapacityCard
-              compact
-              data={a.ahead.capacity}
-              strip={
-                a.ahead.booked === null
-                  ? null
-                  : {
-                      months: stripMonths(a.todayIso),
-                      ...stripMarks(a.todayIso, a.ahead.booked, (a.ahead.capacity?.waitlist ?? []).map((w) => ({ date: w.date }))),
-                    }
-              }
-            />
-          ),
-          locked: false,
-        };
-  return [
-    { key: 'ahead', ...ahead, series: a.series.ahead },
-    a.deals === 'locked'
-      ? { key: 'deals', face: locked('Quotes that turn into bookings', 'Pro'), locked: true }
-      : { key: 'deals', face: <ConversionDealsCard compact data={a.deals} />, locked: false, series: a.series.deals },
-    a.price === 'locked'
-      ? { key: 'price', face: locked('Where your price sits', 'Pro'), locked: true }
-      : { key: 'price', face: <PricePositionCard compact result={a.price ?? { status: 'unreadable' }} />, locked: false },
-    a.worth === 'locked'
-      ? { key: 'worth', face: locked('What Setnayan added', 'Solo'), locked: true }
-      : { key: 'worth', face: <RoiAttributionCard compact attribution={a.worth} unread={a.worth === null} annualPlanPhp={null} windowLabel="in the last 12 months" />, locked: false, series: a.series.worth },
-    a.compare === 'locked'
-      ? { key: 'compare', face: locked('Compared with similar suppliers', 'Pro'), locked: true }
-      : { key: 'compare', face: <FunnelBenchmarkCard compact benchmark={a.compare.benchmark} unreadable={a.compare.unreadable} />, locked: false },
-  ];
 }
 
 /** The services head's line: "Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live". */
@@ -684,10 +628,11 @@ async function ShopHome({
           </Suspense>
         </div>
 
-        {/* 📊 ANALYTICS — five cards (spec §4). Owners and admins only (the cards carry booking revenue). Streamed: the
-            cover and the badges draw first, the cards arrive in place of a same-height placeholder. */}
+        {/* 📊 ANALYTICS — ONE door into Shop › Analytics (Build 6 Lane I: the five-card carousel is gone; every one of its
+            facts is a tile on that page, each rising to our recommendation). Owners and admins only. Streamed: the cover
+            and the badges draw first, the door arrives in place of a same-height placeholder. */}
         <Suspense fallback={<AnalyticsPlaceholder />}>
-          <ShopAnalyticsSection read={data.analytics} />
+          <ShopAnalyticsSection read={data.analyticsRole} verified={data.isVerified} />
         </Suspense>
 
         {/* 🏅 BADGES — ONE row: completed first, then in progress, then not yet (Lane E item 2). */}

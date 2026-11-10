@@ -119,5 +119,13 @@ test('6 · the page reads the five graphs on the right clients and hands them do
   assert.match(page, /const newGraphsRead = readNewGraphs\(\{\s*session: supabase,\s*admin: bookingsAdmin,/);
   assert.match(page, /const newGraphs = await newGraphsRead;/);
   assert.match(page, /graphs=\{newGraphs\}/);
-  assert.ok(!/quietCard:/.test(page), 'no table records card OPENS — "Run an offer on <card>" must never fire on a guess');
+  // 🔁 UPDATED ON PURPOSE (Build 6 Lane I, card opens): "Run an offer on <card>" fires ONLY from the graph's own read —
+  // the opens `service_card_opens` counts, through the one pure rule. Never a guessed open: no other source may feed it.
+  assert.match(page, /const quiet = quietCard\(newGraphs\.cardsell\);/, 'the quiet card is not read off the graph');
+  assert.match(page, /quietCard: quiet \? \{ serviceId: quiet\.serviceId, name: quiet\.name \} : null,/);
+  assert.equal([...page.matchAll(/quietCard:/g)].length, 1, 'a second source feeds "Run an offer on <card>"');
+  // The opens are read on the shop's OWN session (counts only), never the admin client.
+  const server = read('lib/vendor-analytics-graphs.server.ts');
+  assert.match(server, /session\.rpc\('service_card_opens'/);
+  assert.doesNotMatch(server, /admin\.rpc\('service_card_opens'/);
 });

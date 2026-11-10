@@ -86,7 +86,8 @@ export const LOCKS = {
     problem: 'You can’t tell what sells or why couples leave.',
     solution: 'See what couples view, ask about and book.',
     opens: 'verified',
-    server: null,
+    // Build 6 Lane I: the Analytics page reads only the counts for an unverified shop and returns before any graph read.
+    server: 'app/vendor-dashboard/performance/page.tsx',
   },
   teamSeats: {
     name: 'Team seats',

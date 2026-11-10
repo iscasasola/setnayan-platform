@@ -12,6 +12,8 @@ import type { GrowthRec, GrowthRecKey } from '@/lib/vendor-growth-recs';
 import {
   GRAPH_SOURCE,
   cardSellLine,
+  quietCard,
+  quietCardProblem,
   lostLine,
   quotesLine,
   replyVsLine,
@@ -199,7 +201,9 @@ export function AnalyticsGrowing({
   };
 
   const cs = graphs.cardsell;
-  const csEmpty = !cs || cs.every((c) => c.asked === 0);
+  const csEmpty = !cs || cs.every((c) => c.asked === 0 && !c.opened);
+  // The Problem of "Run an offer on <card>" is that card's OWN three numbers (the rule fires on exactly them).
+  const csQuiet = quietCard(cs);
   const cardsell: GraphSpec = {
     k: 'cardsell',
     title: 'Which card sells',
@@ -208,9 +212,15 @@ export function AnalyticsGrowing({
     state: st(cs === null, csEmpty),
     pic: <CardSellPic c={csEmpty ? S.cardsell : cs!} />,
     line: csEmpty ? 'Shows once couples ask about your cards.' : cardSellLine(cs),
-    problem: csEmpty ? 'Shows once couples ask about your cards.' : cardSellLine(cs),
+    problem: csEmpty ? 'Shows once couples ask about your cards.' : csQuiet ? quietCardProblem(csQuiet) : cardSellLine(cs),
     rec: recOf('cardsell'),
-    details: <One>How many times each card was opened is not counted yet, so this graph never advises on opens — only on what couples asked about and booked.</One>,
+    details: (
+      <One>
+        {cs && cs.some((c) => c.opened === null)
+          ? 'How many times each card was opened couldn’t be read, so this graph advises only on what couples asked about and booked.'
+          : 'Opened = a couple opening the card (each couple once a day; you and your team never count). A card opened often but rarely asked about is the one an offer helps.'}
+      </One>
+    ),
     door: { label: 'Open your cards', href: '/vendor-dashboard/shop' },
   };
 

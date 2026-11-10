@@ -14,6 +14,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
+import { recordVendorProfileView } from '@/lib/record-vendor-view';
 import type { CoupleLook } from '@/lib/service-card-view-model';
 import Image from 'next/image';
 import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
@@ -60,6 +61,7 @@ export function ServicesGallery({
   openServicePublicId = null,
   viewerSignedIn = false,
   shopName = null,
+  countOpensFor = null,
 }: {
   groups: ServiceGroup[];
   /** The shop's name — the grown card's face says "by {shop}" under the card's name. */
@@ -73,6 +75,12 @@ export function ServicesGallery({
   detailsEnabled?: boolean;
   inquireMode?: ServiceInquireMode;
   openServicePublicId?: string | null;
+  /**
+   * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
+   * (a demo shop, the team's own preview, a lab). Each open of the grown card is ONE open of that card; the database
+   * refuses the shop's own people and admins and dedupes per viewer per card per day (`record_service_card_view`).
+   */
+  countOpensFor?: string | null;
 }) {
   const [active, setActive] = useState<string>(ALL);
   // 🃏 The tapped card's box — the Service card grown rises from it and falls back into it (Build 5 Lane C).
@@ -113,6 +121,12 @@ export function ServicesGallery({
     }
     return null;
   });
+
+  // 📈 One open of the card per time it grows (a tap or the deep link). Fire-and-forget: it changes nothing on screen.
+  useEffect(() => {
+    if (!countOpensFor || !openCardId) return;
+    void recordVendorProfileView({ vendorProfileId: countOpensFor, serviceId: openCardId }).catch(() => {});
+  }, [countOpensFor, openCardId]);
 
   // Only offer filtering when there's more than one coverage group to switch
   // between; otherwise the chips are dead weight.

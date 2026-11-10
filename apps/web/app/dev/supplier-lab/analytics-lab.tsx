@@ -23,7 +23,7 @@ import { ServiceScopeSelectClient } from '@/app/vendor-dashboard/performance/_co
 import { analyticsFigures } from '@/lib/shop-section-figures';
 import { dayBuckets, monthBuckets, type GrowthWindow } from '@/lib/analytics-growing';
 import { buildGrowthRecs, type GrowthRecOpts, type GrowthRecStats } from '@/lib/vendor-growth-recs';
-import { cardSells, lostDates, monthsAhead, quoteStates, replyVsBooked, slowMonth, type NewGraphs } from '@/lib/vendor-analytics-graphs';
+import { cardSells, lostDates, monthsAhead, quietCard, quoteStates, replyVsBooked, slowMonth, type NewGraphs } from '@/lib/vendor-analytics-graphs';
 import { buildVendorHealthComposite, unmeasuredVendorHealthComposite, type VendorHealthComposite } from '@/lib/vendor-health-composite';
 import { badgeShelf, badgeTracker, milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
 import type { SourceSlice } from '@/lib/vendor-funnel';
@@ -96,7 +96,9 @@ const SAMPLE_GRAPHS: NewGraphs = {
     ...Array.from({ length: 9 }, (_, i) => ({ serviceId: 'a', requested: ['a'], booked: i < 4 })),
     { serviceId: 'b', requested: ['b'], booked: false },
     { serviceId: null, requested: ['a', 'b'], booked: false },
-  ]),
+    // The opens (`service_card_opens`): Same-day edit opened about as often as Photo coverage, asked about far less —
+    // the prototype's "Run an offer on [card]" case.
+  ], new Map([['a', 88], ['b', 84]])),
   // Answered within the hour: 3 of 5 booked · later: 0 of 6.
   replyvs: replyVsBooked(
     [thread('e1', 20), thread('e2', 35), thread('e3', 50), thread('e4', 15), thread('e5', 40), ...['e6', 'e7', 'e8', 'e9', 'e10', 'e11'].map((e) => thread(e, 180))],
@@ -118,11 +120,12 @@ const SAMPLE_GRAPHS: NewGraphs = {
     LAB_TODAY,
   ),
 };
-/** The same three options the page passes `buildGrowthRecs` — read off the graphs, never typed. */
+/** The same options the page passes `buildGrowthRecs` — read off the graphs, never typed. */
 function graphRecOpts(g: NewGraphs, firstCard: string | null): GrowthRecOpts {
   const slow = g.slow ? slowMonth(g.slow) : null;
   return {
     lostDates: g.lost ? { closed: g.lost.closed, full: g.lost.full } : null,
+    quietCard: ((q) => (q ? { serviceId: q.serviceId, name: q.name } : null))(quietCard(g.cardsell)),
     slowMonth: slow ? { name: slow.name, lastDay: slow.lastDay, serviceId: firstCard } : null,
     expiredQuotes: g.quotes ? g.quotes.expired : null,
   };

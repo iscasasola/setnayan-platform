@@ -30,7 +30,7 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 /** What each graph reads, in words — drawn small under the title (the prototype's "its data, named"). */
 export const GRAPH_SOURCE = {
   lost: 'Counts · dates couples asked for that you were full or closed on, by weekday (the date waitlist × your calendar)',
-  cardsell: 'Counts per service card · asked (inquiries naming the card) · booked (bookings on the card)',
+  cardsell: 'Counts per service card · opened (couples opening the card) · asked (inquiries naming the card) · booked (bookings on the card)',
   replyvs: 'Counts · inquiries by your first-reply time, and how many of each booked (your chats × your bookings)',
   slow: 'Counts · live bookings by month, the next 12 (your schedule)',
   quotes: 'Counts · your quotations by state (status · Valid until) — accepted, waiting, expired, declined',
@@ -82,14 +82,29 @@ export function lostLine(l: LostDates | null): string {
 
 // ── b · Which card sells ────────────────────────────────────────────────────────────────────────────────────────────
 
-export type CardSell = { serviceId: string; name: string; asked: number; booked: number };
+export type CardSell = {
+  serviceId: string;
+  name: string;
+  /**
+   * Distinct viewer-days the card was OPENED into the grown card (`service_card_opens`, migration 20271337268841).
+   * `null` = the opens were not read (refused, or not recorded yet) — then the graph draws asked and booked only and
+   * never advises on opens. Never 0 for "unread".
+   */
+  opened: number | null;
+  asked: number;
+  booked: number;
+};
 
-/** Per card: asked = rows naming the card (requested list or the card itself); booked = a booked row on the card. */
+/**
+ * Per card: asked = rows naming the card (requested list or the card itself); booked = a booked row on the card;
+ * opened = the card's count in `opens` (a card nobody opened is 0), or null for every card when `opens` was not read.
+ */
 export function cardSells(
   cards: readonly { serviceId: string; name: string }[],
   rows: readonly { serviceId: string | null; requested: readonly string[]; booked: boolean }[],
+  opens: ReadonlyMap<string, number> | null = null,
 ): CardSell[] {
-  const out = cards.map((c) => ({ serviceId: c.serviceId, name: c.name, asked: 0, booked: 0 }));
+  const out: CardSell[] = cards.map((c) => ({ serviceId: c.serviceId, name: c.name, opened: opens ? (opens.get(c.serviceId) ?? 0) : null, asked: 0, booked: 0 }));
   const at = new Map(out.map((c) => [c.serviceId, c]));
   for (const r of rows) {
     const named = new Set<string>(r.requested);
@@ -103,7 +118,35 @@ export function cardSells(
       if (c) c.booked += 1;
     }
   }
-  return out.sort((a, b) => b.asked - a.asked || b.booked - a.booked || a.name.localeCompare(b.name));
+  return out.sort((a, b) => b.asked - a.asked || b.booked - a.booked || (b.opened ?? 0) - (a.opened ?? 0) || a.name.localeCompare(b.name));
+}
+
+/**
+ * The floor under the quiet-card rule: below this many opens a card's ask rate is noise, so it is never called quiet.
+ * Not money — it decides only whether "Run an offer on [card]" is offered.
+ */
+export const QUIET_CARD_MIN_OPENS = 20;
+
+/**
+ * 📈 THE QUIET CARD (graph b → `offer_on_card`): a card couples OPEN often but rarely ASK about. Fires only on numbers
+ * the graph shows: the card has at least `QUIET_CARD_MIN_OPENS` opens, and its asks per open are at most HALF of the
+ * best-asking card's (itself past the same floor) — the prototype's "opened as often as X but asked about 4× less".
+ * Opens unread → null (never advice on a number we do not have). The quietest such card wins.
+ */
+export function quietCard(c: readonly CardSell[] | null): { serviceId: string; name: string; opened: number; asked: number; booked: number } | null {
+  if (!c) return null;
+  const counted = c.filter((x): x is CardSell & { opened: number } => x.opened !== null && x.opened >= QUIET_CARD_MIN_OPENS);
+  if (counted.length < 2) return null;
+  const rate = (x: { opened: number; asked: number }) => x.asked / x.opened;
+  const best = Math.max(...counted.map(rate));
+  if (best <= 0) return null;
+  const quiet = counted.filter((x) => rate(x) <= best / 2).sort((a, b) => rate(a) - rate(b) || b.opened - a.opened)[0];
+  return quiet ? { serviceId: quiet.serviceId, name: quiet.name, opened: quiet.opened, asked: quiet.asked, booked: quiet.booked } : null;
+}
+
+/** The quiet card's Problem line — its own three numbers, in the graph's window. */
+export function quietCardProblem(q: { name: string; opened: number; asked: number; booked: number }): string {
+  return `${q.name}: ${formatCount(q.opened)} opened, ${formatCount(q.asked)} asked, ${formatCount(q.booked)} booked in the last 12 months.`;
 }
 
 export function cardSellLine(c: readonly CardSell[] | null): string {
@@ -111,7 +154,8 @@ export function cardSellLine(c: readonly CardSell[] | null): string {
   const asked = c.filter((x) => x.asked > 0);
   if (asked.length === 0) return 'No couple has asked about a card yet.';
   const top = asked[0]!;
-  return `${top.name} is asked about most: ${formatCount(top.asked)} asked, ${formatCount(top.booked)} booked.`;
+  const opened = top.opened === null ? '' : `${formatCount(top.opened)} opened, `;
+  return `${top.name} is asked about most: ${opened}${formatCount(top.asked)} asked, ${formatCount(top.booked)} booked.`;
 }
 
 // ── c · Reply speed vs bookings ─────────────────────────────────────────────────────────────────────────────────────

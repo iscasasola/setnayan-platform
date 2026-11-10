@@ -136,23 +136,55 @@ export async function readLostDates(session: SupabaseClient, vendorProfileId: st
   return lostDates(unique, closed);
 }
 
-/** b · asked and booked per service card, the last 12 months (event_vendors → admin). */
+/**
+ * b · opened · asked · booked per service card, the last 12 months. Asked and booked: `event_vendors` → admin. Opened:
+ * `service_card_opens` on the shop's OWN session (migration 20271337268841 — counts only, the shop's own people and
+ * admins; anyone else is refused). A refused opens read leaves `opened: null` on every card ("not read" — the graph
+ * then draws asked and booked and never advises on opens); it never zeroes them and never sinks asked/booked.
+ */
 export async function readCardSells(
   admin: SupabaseClient,
   vendorProfileId: string,
   cards: readonly { serviceId: string; name: string }[],
   nowMs: number,
+  session?: SupabaseClient,
 ): Promise<CardSell[] | null> {
   const since = new Date(nowMs - 365 * DAY_MS).toISOString();
-  const rows = await pagedRows('cardsell.event_vendors', vendorProfileId, (a, b) =>
-    admin
-      .from('event_vendors')
-      .select('service_id, requested_service_ids, status')
-      .eq('marketplace_vendor_id', vendorProfileId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: true })
-      .range(a, b),
-  );
+  const opensRead: Promise<Map<string, number> | null> = session
+    ? Promise.resolve(
+        session.rpc('service_card_opens', { p_vendor_profile_id: vendorProfileId, p_since: manilaDay(nowMs - 365 * DAY_MS) }),
+      ).then(
+        ({ data, error }) => {
+          if (error || !Array.isArray(data)) {
+            logQueryError('AnalyticsGraphs.cardsell.opens', error ?? new Error('no rows returned'), { vendorProfileId }, 'graceful_degrade');
+            return null;
+          }
+          const m = new Map<string, number>();
+          for (const r of data as Row[]) {
+            const id = str(r.vendor_service_id);
+            const n = Number(r.opens);
+            if (id && Number.isFinite(n)) m.set(id, n);
+          }
+          return m;
+        },
+        (err: unknown) => {
+          logQueryError('AnalyticsGraphs.cardsell.opens', err, { vendorProfileId }, 'graceful_degrade');
+          return null;
+        },
+      )
+    : Promise.resolve(null);
+  const [rows, opens] = await Promise.all([
+    pagedRows('cardsell.event_vendors', vendorProfileId, (a, b) =>
+      admin
+        .from('event_vendors')
+        .select('service_id, requested_service_ids, status')
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .range(a, b),
+    ),
+    opensRead,
+  ]);
   if (rows === null) return null;
   const booked = new Set<string>(BOOKED_EVENT_VENDOR_STATUSES);
   return cardSells(
@@ -162,6 +194,7 @@ export async function readCardSells(
       requested: Array.isArray(r.requested_service_ids) ? (r.requested_service_ids as unknown[]).filter((x): x is string => typeof x === 'string') : [],
       booked: booked.has(str(r.status) ?? ''),
     })),
+    opens,
   );
 }
 
@@ -260,7 +293,7 @@ export async function readNewGraphs(input: {
     });
   const [lost, cardsell, replyvs, slow, quotes] = await Promise.all([
     soft(readLostDates(session, vendorProfileId, nowMs), 'lost'),
-    soft(readCardSells(admin, vendorProfileId, cards, nowMs), 'cardsell'),
+    soft(readCardSells(admin, vendorProfileId, cards, nowMs, session), 'cardsell'),
     soft(readReplyVsBooked(session, admin, vendorProfileId, nowMs), 'replyvs'),
     soft(readMonthsAhead(session, vendorProfileId, nowMs), 'slow'),
     soft(readQuoteStates(session, vendorProfileId, nowMs), 'quotes'),

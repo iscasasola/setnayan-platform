@@ -29,7 +29,6 @@ const UI_ONLY_STILL_TO_WIRE = [
   'offerMaker',
   'bundleMaker',
   'promote',
-  'analytics',
   'teamSeats',
   'beingFound',
   'reviews',
@@ -86,6 +85,13 @@ test('a UI-only lock is a bug: every lock names its server gate or is on the to-
   }
   // The plans lock: the purchase is refused for an unverified shop on the server (NOT_VERIFIED).
   assert.match(readFileSync(join(WEB, LOCKS.plans.server), 'utf8'), /NOT_VERIFIED/);
+  // The analytics lock (Build 6 Lane I): the page asks `canUse('analytics', …)` and returns BEFORE any graph read.
+  const perf = stripComments(readFileSync(join(WEB, LOCKS.analytics.server), 'utf8'));
+  const gate = perf.search(/if \(!canUse\('analytics',/);
+  assert.ok(gate > 0, 'the Analytics page does not ask canUse(analytics)');
+  for (const graphRead of ['readNewGraphs(', 'getVendorFunnelBenchmark(', 'fetchVendorPricePosition(', 'fetchViewsSeries(']) {
+    assert.ok(perf.indexOf(graphRead) > gate, `${graphRead} runs before the analytics lock`);
+  }
 });
 
 test('Door 1 saves at the current limit and offers Upgrade or Keep, equal widths', () => {

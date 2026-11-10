@@ -45,7 +45,7 @@ import {
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import { readNewGraphs } from '@/lib/vendor-analytics-graphs.server';
-import { slowMonth } from '@/lib/vendor-analytics-graphs';
+import { quietCard, slowMonth } from '@/lib/vendor-analytics-graphs';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
@@ -88,6 +88,9 @@ import { GrowthWindowScope } from '../_components/growth-window';
 import { AnalyticsGrowing } from './_components/analytics-growing';
 import { buildGrowthView, type PricePositionUnreadable } from './_components/growth-view';
 import { shopGearBody } from '../shop/_components/shop-settings-body';
+import { canUse, papersProgress } from '@/lib/locks';
+import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
+import { AnalyticsLock } from './_components/analytics-lock';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
 
@@ -242,6 +245,55 @@ export default async function PerformanceHome({
         icon={<Gauge aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
       </>
+    );
+  }
+
+  // 🔒 ANALYTICS BEYOND SIMPLE COUNTS OPENS ONCE VERIFIED (Build 6 Lane I on Build 5 Lane B's shared lock; DECISION_LOG
+  // 2026-11-10 "FREE (UNVERIFIED): THE LAST SEVEN"; corpus free-unverified-limits §5 "views and inquiries stay as
+  // numbers"). THE RULE IS HERE, on the server: an unverified shop reads ONLY its counts (the pinned opened · asked ·
+  // booked row, 30 days and 12 months) and its badges — no graph read runs — and sees the graphs as the ONE shared lock.
+  if (!canUse('analytics', { verified: profile.public_visibility === 'verified', tier }).ok) {
+    const [countsNow, countsSince60, countsYear, lockedFacts, lockedRewards, papers] = await Promise.all([
+      fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null })),
+      fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null })),
+      fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null })),
+      badgeFactsRead,
+      badgeRewardsRead,
+      fetchLatestApplication(supabase, profile.vendor_profile_id)
+        .then((a) => ({ done: countCompleteRequiredSlots((a?.doc_uploads ?? {}) as DocUploadMap), of: REQUIRED_DOC_COUNT }))
+        .catch((err: unknown) => {
+          logQueryError('PerformancePage.lockedPapers', err, { vendorProfileId: profile.vendor_profile_id });
+          return null;
+        }),
+    ]);
+    const before30 =
+      countsNow.totals && countsSince60.totals
+        ? {
+            views: countsSince60.totals.views - countsNow.totals.views,
+            inquiries: countsSince60.totals.inquiries - countsNow.totals.inquiries,
+            quotes: countsSince60.totals.quotes - countsNow.totals.quotes,
+            booked: countsSince60.totals.booked - countsNow.totals.booked,
+          }
+        : null;
+    return (
+      <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8" data-analytics-counts-only="">
+        <GrowthWindowScope initial={search.momentum === 'year' ? '12' : '30'}>
+          <ShopSegments
+            on="insights"
+            figures={analyticsFigures(countsNow.totals, before30)}
+            yearFigures={analyticsFigures(countsYear.totals, null)}
+            gearBody={shopGearBody(sp)}
+          />
+          <BadgeRewardSweep />
+          <div className="mx-auto w-full max-w-xl tab:max-w-none">
+            <h1 className="sn-h1">How is my business doing</h1>
+            <AnalyticsLock progress={papersProgress(papers)} />
+            <div className="mt-6">
+              <YourBadges shelf={badgeShelf(lockedFacts)} rows={trackerRows(lockedFacts, lockedRewards)} />
+            </div>
+          </div>
+        </GrowthWindowScope>
+      </section>
     );
   }
 
@@ -500,12 +552,14 @@ export default async function PerformanceHome({
         partnership_count: partnershipErr ? 99 : (partnershipCount ?? 0),
       }
     : null;
-  // The five new rules read only what their graph shows (a null graph fires nothing). No table records which card a
-  // couple OPENED, so `quietCard` is never passed and "Run an offer on <card>" stays silent — never a guessed open.
+  // The five new rules read only what their graph shows (a null graph fires nothing). "Run an offer on <card>" reads
+  // the card opens (`service_card_opens`, Build 6 Lane I) — unread opens fire nothing, never a guessed open.
   const newGraphs = await newGraphsRead;
   const slow = newGraphs.slow ? slowMonth(newGraphs.slow) : null;
+  const quiet = quietCard(newGraphs.cardsell);
   const graphRecOpts = {
     lostDates: newGraphs.lost ? { closed: newGraphs.lost.closed, full: newGraphs.lost.full } : null,
+    quietCard: quiet ? { serviceId: quiet.serviceId, name: quiet.name } : null,
     slowMonth: slow ? { name: slow.name, lastDay: slow.lastDay, serviceId: graphCards[0]?.serviceId ?? null } : null,
     expiredQuotes: newGraphs.quotes ? newGraphs.quotes.expired : null,
   };

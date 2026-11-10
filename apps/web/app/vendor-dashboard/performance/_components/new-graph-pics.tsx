@@ -49,22 +49,34 @@ export function LostPic({ l }: { l: LostDates }) {
 /** b · Which card sells — per card, asked and booked bars. Opens per card are not recorded, so no opened bar. */
 export function CardSellPic({ c }: { c: readonly CardSell[] }) {
   const rows = c.slice(0, 5);
-  const max = Math.max(1, ...rows.map((r) => r.asked));
-  const rowH = 30;
+  // Opened is drawn only when it was read (`opened !== null`) — the prototype's three bars: opened · asked · booked.
+  const withOpens = rows.some((r) => r.opened !== null);
+  const max = Math.max(1, ...rows.map((r) => Math.max(r.asked, r.opened ?? 0)));
+  const rowH = withOpens ? 34 : 30;
+  const bar = (v: number) => Math.max(2, (v / max) * (W - 70));
   return (
     <>
-      <svg viewBox={`0 0 ${W} ${Math.max(rows.length, 1) * rowH}`} className="ag-svg" role="img" aria-label="Asked and booked per service card" data-graph-pic="cardsell">
+      <svg
+        viewBox={`0 0 ${W} ${Math.max(rows.length, 1) * rowH}`}
+        className="ag-svg"
+        role="img"
+        aria-label={withOpens ? 'Opened, asked and booked per service card' : 'Asked and booked per service card'}
+        data-graph-pic="cardsell"
+      >
         {rows.map((r, i) => {
           const y = i * rowH;
           const name = r.name.length > 26 ? `${r.name.slice(0, 25)}…` : r.name;
+          const bars: [number, string][] = [...(withOpens ? ([[r.opened ?? 0, 'ag-pale']] as [number, string][]) : []), [r.asked, 'ag-mul'], [r.booked, 'ag-ok2']];
           return (
             <g key={r.serviceId}>
               <text className="ag-lbl" x={0} y={y + 11}>
                 {name}
               </text>
-              <rect className="ag-mul" x={0} y={y + 15} width={Math.max(2, (r.asked / max) * (W - 70))} height={4} rx={1.5} />
-              <rect className="ag-ok2" x={0} y={y + 21} width={Math.max(2, (r.booked / max) * (W - 70))} height={4} rx={1.5} />
+              {bars.map(([v, cls], j) => (
+                <rect key={cls} className={cls} x={0} y={y + 15 + j * 6} width={bar(v)} height={4} rx={1.5} />
+              ))}
               <text className="ag-bk" x={W} y={y + 24} textAnchor="end">
+                {withOpens ? `${formatCount(r.opened ?? 0)} · ` : ''}
                 {formatCount(r.asked)} · {formatCount(r.booked)}
               </text>
             </g>
@@ -72,6 +84,7 @@ export function CardSellPic({ c }: { c: readonly CardSell[] }) {
         })}
       </svg>
       <div className="ag-leg">
+        {withOpens ? <span>▬ opened</span> : null}
         <span className="ag-leg-mul">▬ asked</span>
         <span className="ag-leg-ok">▬ booked</span>
       </div>

@@ -2,7 +2,7 @@
 
 - Today's new-shop setup gains **step 7** under the six (never counted in "N of 6 done", per prototype v119
   `todayNew`): **"How many events can you take on one day?"** — venues: **"How many halls?"** — with a stepper from 1
-  and the line "Count your teams. 2 crews = 2." (venues: "Count your halls. 2 halls = 2."). It is the SAME number as
+  and the line "Count your crews. 2 crews = 2." (venues: "Count your halls. 2 halls = 2."). It is the SAME number as
   Clients ⚙ › How many a day: the shipped `FormCounter` in a `StayForm` on the `supCalendar.updatePoolCapacity` door,
   writing `vendor_schedule_pools.daily_booking_capacity`, saved in place a pause after the last tap. One stepper per
   schedule when a shop has several.

@@ -325,7 +325,7 @@ export function setupDailyView(input: {
     return {
       state: 'set',
       title,
-      line: input.venue ? 'Count your halls. 2 halls = 2.' : 'Count your teams. 2 crews = 2.',
+      line: input.venue ? 'Count your halls. 2 halls = 2.' : 'Count your crews. 2 crews = 2.',
       // A stepper starts at 1 — a stored 0 or less is never shown as a number the supplier did not set.
       rows: plain.map((s) => ({ poolId: s.poolId, name: s.name, capacity: Math.max(1, Math.trunc(s.capacity) || 1) })),
     };

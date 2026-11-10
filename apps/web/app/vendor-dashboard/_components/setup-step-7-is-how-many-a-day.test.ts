@@ -4,7 +4,7 @@
  * Owner 10 Nov 2026 (corpus `plans/supplier_build_6_2026-11-10/00-BUILD-6-PLAN.md` § Lane E; prototype
  * `prototypes/supplier_clients_2026-11-07/supplier-menu-r2.v119.html` `todayNew`, row `data-step="7"`): "Today setup
  * step 7: 'How many events can you take on one day?' (venues: 'How many halls?'), a stepper starting at 1; the new
- * 'Schedule not set' copy with [Set it]." Build 5 Lane A ruled the Clients ⚙ stepper the same way: "Count your teams.
+ * 'Schedule not set' copy with [Set it]." Build 5 Lane A ruled the Clients ⚙ stepper the same way: "Count your crews.
  * 2 crews = 2."
  *
  * Held as properties:
@@ -48,7 +48,7 @@ test('1 · the words — the title per kind of shop, the line, the stepper from 
   assert.equal(one.state, 'set');
   assert.equal(one.title, 'How many events can you take on one day?');
   assert.equal(DAILY_TITLE, one.title);
-  assert.equal(one.line, 'Count your teams. 2 crews = 2.');
+  assert.equal(one.line, 'Count your crews. 2 crews = 2.');
   assert.deepEqual(one.rows, [{ poolId: 'p1', name: 'Photo Video', capacity: 1 }]);
 
   const venue = setupDailyView({ schedules: [{ poolId: 'p1', name: 'Reception venue', capacity: 3 }], venue: true });

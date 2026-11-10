@@ -134,8 +134,9 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   },
   /**
    * 🧰 THE SUPPLIER'S TODAY ⚙ (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙
-   * PER PAGE": "Today ⚙ notifications + run-the-day"). It ends Today's pinned counts row — and, on a new shop, the
-   * "Get your shop live" row (one component, `TodaySettings`, one mount of this door).
+   * PER PAGE": "Today ⚙ notifications + run-the-day"). It sits top-right on Today's photo header and rides onto the
+   * pinned Needs-you-today row once the header has scrolled away (owner 11 Nov) — and, on a new shop, it ends the
+   * "Get your shop live" row (one component, `TodaySettings`, one mount of this door at a time).
    */
   today: {
     door: 'first-row-gear',

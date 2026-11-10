@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { useHeroPin } from '../../_components/use-hero-pin';
 import { ListFilter, Plus } from 'lucide-react';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { ThumbRow } from '@/components/thumb-row';
@@ -98,27 +99,8 @@ export function PortfolioView({
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
   const [words, setWords] = useState('');
   const bandRef = useRef<HTMLDivElement>(null);
-  const [pin, setPin] = useState(0);
-
-  useEffect(() => {
-    const el = bandRef.current;
-    if (!el) return;
-    let raf = 0;
-    const measure = () => {
-      raf = 0;
-      const v = Math.max(0, Math.min(1, (48 + 44 - el.getBoundingClientRect().bottom) / 48));
-      setPin((p) => (Math.abs(p - v) < 0.01 ? p : v));
-    };
-    const on = () => {
-      if (!raf) raf = requestAnimationFrame(measure);
-    };
-    measure();
-    window.addEventListener('scroll', on, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', on);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
+  // 📌 The hero → pinned-row hand-off, shared with Today's ⚙ (`useHeroPin`, the same math as shipped here).
+  const pin = useHeroPin(() => bandRef.current);
 
   const count = allowanceUnread ? 'Couldn’t read your photo allowance' : portfolioCountLabel(photos, free);
   const n = (x: number, one: string, many: string) => `${x.toLocaleString('en-PH')} ${x === 1 ? one : many}`;

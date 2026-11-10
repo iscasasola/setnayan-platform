@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
+import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, Pencil, Sparkles, Star, Store, Share } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
@@ -206,7 +206,7 @@ export function PageParts({
           ) : (
             <ActionButton tone="neutral" icon={Eye} label="View my page" waiting className="min-h-11" />
           )}
-          <ActionButton tone="neutral" icon={Share2} label="Share my page" onClick={share} waiting={!d.publicPath || !d.live} className="min-h-11" />
+          <ActionButton tone="neutral" icon={Share} label="Share my page" onClick={share} waiting={!d.publicPath || !d.live} className="min-h-11" />
         </div>
         {d.showBeforeVerified?.offer ? (
           <ShowBeforeVerifiedRow shown={d.showBeforeVerified.shown} />

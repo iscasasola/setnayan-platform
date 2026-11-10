@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Share2, Check } from 'lucide-react';
+import { Check, Share } from 'lucide-react';
 import { ReportPageButton } from '@/app/_components/report-page-button';
 
 /**
@@ -94,7 +94,7 @@ export function PublicPageActions({
               </>
             ) : (
               <>
-                <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Share
               </>
             )}

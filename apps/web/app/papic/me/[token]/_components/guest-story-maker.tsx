@@ -35,7 +35,6 @@ import {
   ListChecks,
   Music,
   RotateCcw,
-  Share2,
   Sparkles,
 } from 'lucide-react';
 import { renderReel, type RenderClip, type RenderTemplate } from '@/lib/reel-render';
@@ -539,7 +538,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
               onClick={onShare}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
             >
-              <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Share my Story
             </button>
             <button

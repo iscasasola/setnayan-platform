@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Link2, MessageCircle, MessagesSquare, PhoneCall, Send, Share, Share2, Undo2 } from 'lucide-react';
+import { Check, Link2, MessageCircle, MessagesSquare, PhoneCall, Send, Share, Undo2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useHeadPin } from '@/app/_components/inspector/use-head-pin';
 import { ActionButton } from '@/components/action-button';
@@ -434,7 +434,7 @@ export function GuestInviteCell({
               className={step}
               data-guest-invite-share=""
             >
-              <Share2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              <Share aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
               {twoLines(INVITE_APP_NAMES.more, file === undefined ? 'Getting their ticket…' : inviteAppHint('more', device))}
             </button>
             {copyLinkRow}

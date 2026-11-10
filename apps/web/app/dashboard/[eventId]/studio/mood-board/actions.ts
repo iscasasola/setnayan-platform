@@ -839,10 +839,10 @@ export async function fetchGalleryAssets(input: {
     .select(
       shopFiltered
         ? `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
-       shop:vendor_profiles!inner ( business_name, services, business_slug, hq_region ),
+       shop:vendor_profiles!inner ( business_name, services, business_slug, hq_region, is_demo ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`
         : `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
-       shop:vendor_profiles ( business_name, services, business_slug ),
+       shop:vendor_profiles ( business_name, services, business_slug, is_demo ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
       { count: 'exact' },
     )

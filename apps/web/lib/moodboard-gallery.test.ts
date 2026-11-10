@@ -318,6 +318,15 @@ test('⭐ WITHHELD · a photo whose SHOP is unreadable is never shown uncredited
   assert.equal(withheld, 1);
 });
 
+test('🏪 WITHHELD · a DEMO shop\'s look never reaches a couple\'s gallery (it carries no sample label there)', () => {
+  const { assets, withheld } = shapeGalleryPage('flowers', [
+    row({ shop: { business_name: 'SetnaProd', services: [], is_demo: true } }),
+    row({ asset_id: 'A2' }),
+  ], fallbackInspirationParts());
+  assert.deepEqual(assets.map((a) => a.assetId), ['A2'], 'only the real shop\'s look is shown');
+  assert.equal(withheld, 1);
+});
+
 test('⭐ WITHHELD · a shop with a blank business_name is not a credit', () => {
   const { assets, withheld } = shapeGalleryPage('flowers', [
     row({ shop: { business_name: '   ', services: [] } }),

@@ -329,7 +329,7 @@ export type RawGalleryRow = {
   storage_path: string;
   vendor_profile_id: string | null;
   /** The embedded shop. `null` when RLS refused it — see GalleryPage.withheld. */
-  shop: { business_name: string | null; services: string[] | null; business_slug?: string | null } | null;
+  shop: { business_name: string | null; services: string[] | null; business_slug?: string | null; is_demo?: boolean | null } | null;
   ranges: ReadonlyArray<{ slot_id: number; sampled_hex: string }>;
   /** The generated column, not `source_event_id` — see GalleryAsset.isEventLinked. */
   is_event_linked: boolean | null;
@@ -364,7 +364,9 @@ export function shapeGalleryPage(
   for (const row of rows) {
     const vendorProfileId = row.vendor_profile_id;
     const shopName = row.shop?.business_name?.trim() ?? '';
-    if (!vendorProfileId || !shopName) {
+    // 🏪 A DEMO shop's look is a SAMPLE (SetnaProd, DECISION_LOG 2026-11-10 🏪). A couple's gallery has no sample
+    // label, so a sample there would read as a real supplier's work — it is withheld like a photo whose shop is unseen.
+    if (!vendorProfileId || !shopName || row.shop?.is_demo === true) {
       withheld += 1;
       continue;
     }

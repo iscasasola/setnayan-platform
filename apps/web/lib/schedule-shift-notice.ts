@@ -15,6 +15,20 @@ export function scheduleShiftHref(eventId: string, onTheDay: boolean): string {
   return onTheDay ? `/vendor-dashboard/on-the-day/live/${eventId}#schedule` : `/vendor-dashboard/clients/${eventId}`;
 }
 
+/**
+ * The same rule for every other notice that names the live console (a crew skip ask, a guest's takedown): the console
+ * on the day; any other day the picked client on the page that holds the same thing (Schedule · Hub) — never the
+ * console's redirect, a dead end. 🔒 lib/supplier-notices-open-the-picked-client.test.ts
+ */
+export function supplierLiveOrClientHref(eventId: string, onTheDay: boolean, tab: 'schedule' | 'hub'): string {
+  return onTheDay ? `/vendor-dashboard/on-the-day/live/${eventId}` : `/vendor-dashboard/clients/${eventId}?tab=${tab}`;
+}
+
+/** Today's date in Manila (YYYY-MM-DD) — what `isOnTheDay` compares against. */
+export function todayInManila(nowMs: number = Date.now()): string {
+  return new Date(nowMs + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 /** Is `todayManila` (YYYY-MM-DD) within the event's day(s)? A missing date is never "on the day". */
 export function isOnTheDay(eventDate: string | null, eventEndDate: string | null, todayManila: string): boolean {
   if (!eventDate) return false;

@@ -8,6 +8,7 @@ import { checkRetime } from './floor-command';
 import { notifyScheduleShifted } from './schedule-shift-notify.server';
 import { notifyScheduleRequest } from './schedule-request-notify.server';
 import { emitNotification } from './notification-emit';
+import { isOnTheDay, supplierLiveOrClientHref, todayInManila } from '@/lib/schedule-shift-notice';
 import { fetchOwnVendorProfile } from './vendor-profile';
 import {
   changedWords,
@@ -226,12 +227,17 @@ async function askToSkip(supabase: SupabaseClient, eventId: string, part: PartRo
       const owner = (shop as { user_id: string | null } | null)?.user_id;
       if (owner) {
         const who = row.suggested_by_name?.split(' · ')[0]?.trim() || 'Your crew';
+        // 🚪 The floor (live console) only ON the day; any other day the picked client's Schedule — never the console's
+        // redirect, a dead end (the same rule as the shift notice, `scheduleShiftHref`).
+        const { data: dates } = await admin.from('events').select('event_date, event_end_date').eq('event_id', eventId).maybeSingle();
+        const day = (dates ?? null) as { event_date?: string | null; event_end_date?: string | null } | null;
+        const onTheDay = isOnTheDay(day?.event_date ?? null, day?.event_end_date ?? null, todayInManila());
         await emitNotification({
           userId: owner,
           type: 'schedule_ask',
           title: `${who} asks to skip ${part.label}`.slice(0, 160),
-          body: 'Approve or decline it on your floor.',
-          relatedUrl: `/vendor-dashboard/on-the-day/live/${eventId}`,
+          body: onTheDay ? 'Approve or decline it on your floor.' : 'Approve or decline it on their schedule.',
+          relatedUrl: supplierLiveOrClientHref(eventId, onTheDay, 'schedule'),
         });
       }
     }

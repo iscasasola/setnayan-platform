@@ -202,7 +202,7 @@ html.dark .fc{
 .fc .fc-sheet .fc-when em{font-style:normal;color:var(--fc-ok)}
 .fc .fc-sheet .fc-when em.fc-nb{color:var(--muted)}
 .fc .fc-sheet-btns{display:flex;flex-wrap:wrap;gap:8px}
-.fc .fc-sheet-btns button{flex:1 1 0;white-space:nowrap;font:600 .9rem var(--f-body);border-radius:var(--m-r-full);min-height:44px;padding:9px 16px;cursor:pointer;border:1px solid var(--fc-line);background:var(--fc-paper);color:var(--fc-ink)}
+.fc .fc-sheet-btns button{flex:1 1 calc(50% - 4px);white-space:nowrap;font:600 .9rem var(--f-body);border-radius:var(--m-r-full);min-height:44px;padding:9px 16px;cursor:pointer;border:1px solid var(--fc-line);background:var(--fc-paper);color:var(--fc-ink)}
 .fc .fc-sheet-btns .fc-primary{background:var(--fc-accent);color:var(--accent-ink);border-color:var(--fc-accent)}
 .fc .fc-sheet-btns button:disabled{opacity:.45;cursor:default}
 .fc .fc-sheet-note{font-size:.84rem;color:var(--muted)}

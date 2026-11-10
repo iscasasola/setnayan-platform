@@ -63,6 +63,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx', 'tile — a staged photo / clip waiting to be submitted'],
   ['app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx', 'editor sheet — the moment sheet’s own “Delete moment” at its foot (an ask the host approves)'],
   ['app/dashboard/[eventId]/schedule/_components/chapters-host.tsx', 'confirm — the “Delete chapter” sheet a swipe on the rail opens: its own Delete (the rows themselves are on the swipe)'],
+  ['app/vendor-dashboard/services/_components/service-card-item.tsx', 'confirm — the delete-warning sheet a swipe on the service card opens: its own Delete (the card rows themselves are on the swipe)'],
   ['app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx', 'editor field — a meaningful date’s date / kind / note inputs inside step 3’s form'],
   ['app/vendor-dashboard/invite/_components/locked-qr-generator.tsx', 'chip + editor field — a picked service chip, and a draft payment (name, date, ₱) inside the QR deal form'],
   ['app/dashboard/[eventId]/budget/_components/budget-sheets.tsx', 'editor — the expense sheet’s own Remove at its foot (the expense rows are on the swipe)'],

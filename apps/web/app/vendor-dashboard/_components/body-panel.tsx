@@ -36,6 +36,8 @@ export function BodyPanel({
   onClose,
   data,
   children,
+  titleLines = 1,
+  bleed = false,
 }: {
   /** The tapped tile or row — the panel grows out of it and shrinks back into it. */
   origin: HTMLElement | null;
@@ -49,6 +51,10 @@ export function BodyPanel({
   /** `data-body-panel` value (the guard's and the lab's anchor). */
   data: string;
   children: ReactNode;
+  /** 2 = a long name wraps to two lines before it is cut (Portfolio's opened collection, owner-approved 9 Nov). */
+  titleLines?: 1 | 2;
+  /** The body runs edge to edge (Portfolio's full-bleed photo grid); its own rows then keep their 16-px gutters. */
+  bleed?: boolean;
 }) {
   const hid = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -174,7 +180,7 @@ export function BodyPanel({
         <div className="flex min-h-[64px] flex-none items-center gap-3 border-b border-ink/10 px-4 py-2.5" data-body-panel-head="">
           {lead ? <span className="flex flex-none items-center">{lead}</span> : null}
           <span className="min-w-0 flex-1">
-            <b id={hid} className="block truncate text-[17px] font-semibold leading-tight text-ink">
+            <b id={hid} className={`block text-[17px] font-semibold leading-tight text-ink ${titleLines === 2 ? 'line-clamp-2' : 'truncate'}`}>
               {title}
             </b>
             {sub ? <small className="block truncate text-[13px] text-ink/60">{sub}</small> : null}
@@ -190,7 +196,7 @@ export function BodyPanel({
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-3" data-body-panel-body="">
+        <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6 ${bleed ? '' : 'px-4 pt-3'}`} data-body-panel-body="">
           {children}
         </div>
       </div>

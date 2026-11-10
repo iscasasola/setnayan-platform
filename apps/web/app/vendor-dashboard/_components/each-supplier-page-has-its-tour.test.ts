@@ -48,7 +48,8 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_today_v3: ['supplier-messages', 'today-cover', 'today-next-events', 'today-stats', 'today-needs', 'today-show'],
   // 2026-10-28: People ▾ · the four counts · ⚙ are the pinned row now — the ⚙ is its own stop.
   vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-gear', 'customers-search', 'customers-add'],
-  vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
+  // Approved Portfolio (owner 9 Nov): the Everything filter is dropped; who-sees-it moved into the Portfolio ⚙ — its stop.
+  vendor_collections_v1: ['collections-gear', 'collections-list', 'collections-add'],
 };
 
 test('1 · each page tour is a spotlight with the drawn stops, in order', () => {

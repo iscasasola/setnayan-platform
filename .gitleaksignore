@@ -189,3 +189,8 @@ ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic
 a853e2a422fb214dcab13cda675fa61b007a4b22:apps/web/lib/badge-rewards.test.ts:generic-api-key:266
 # #7367 (2026-11-07): Papic pack code PAPIC_GUEST_500 in the bundle-gift db test. A catalogue code, not a credential.
 22775754a112ca11e0f2d99ac02ce0d18393d13f:apps/web/tests/db/a-bundle-carries-its-cards-and-a-gift.db.test.ts:generic-api-key:114
+#
+# Same rule flags the supplier photo mark job's read of the display columns
+# (Build 6 Lane L): the selected identifiers are storage-path column names, not
+# credentials. Pinned by its introducing commit, as above.
+63ac7474edd36172ce3ebf93da9966c7b7c8260a:apps/web/scripts/remark-supplier-photos.ts:generic-api-key:68

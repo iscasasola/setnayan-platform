@@ -356,8 +356,9 @@ test('the core never fills a cover — and an unlisted event is never a card to 
     now: Date.parse('2026-10-03T04:00:00Z'),
   });
   assert.deepEqual(out.world.map((c) => [c.key, c.scene, c.paper]), [['pub', null, null]]);
-  // The loader dresses exactly the shelved cards, after the allow-list ran.
+  // The loader dresses exactly the shelved cards, after the allow-list ran (since the shop-card build it awaits the
+  // covers and the host photos together in one Promise.all, so the anchor is the call, not its `await`).
   const select = LOADER.indexOf('selectDiscoverShelves({');
-  const dress = LOADER.indexOf('await dressCards([...shelves.people, ...shelves.world])');
+  const dress = LOADER.indexOf('dressCards([...shelves.people, ...shelves.world])');
   assert.ok(select > -1 && dress > select, 'covers must be read only for cards that passed selectDiscoverShelves');
 });

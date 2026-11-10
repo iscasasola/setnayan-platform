@@ -22,6 +22,8 @@ export type CoordinatorPrices = {
   plans: Readonly<Record<GrowTier, PlanPrice>>;
   branch: string | null;
   seat: string | null;
+  /** Every active row by sku_code, formatted — the shared plan table and Ultra's full add-on list (Build 6 Lane J). */
+  bySku: Readonly<Record<string, string | null>>;
 };
 
 const SKU: Readonly<Record<GrowTier, string>> = { solo: 'solo', pro: 'pro', enterprise: 'enterprise' };
@@ -40,5 +42,6 @@ export async function readCoordinatorPrices(): Promise<CoordinatorPrices> {
     plans: { solo: plan('solo'), pro: plan('pro'), enterprise: plan('enterprise') },
     branch: price(BRANCH_SKU_CODE),
     seat: price(SEAT_SKU_CODE),
+    bySku: Object.fromEntries(rows.map((r) => [r.sku_code, price(r.sku_code)])),
   };
 }

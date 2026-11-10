@@ -124,6 +124,15 @@ export function giftPackLine(pack: Pick<ShopGiftPack, 'kind' | 'credits' | 'titl
   return pack.kind === 'papic' ? `${giftCount(pack.credits)} Papic credits` : `Unlocks ${pack.title} on their event`;
 }
 
+/**
+ * Does a shop on this plan pay the GIFT price? Verified and up do; Free (unverified) pays the list price (owner
+ * 2026-11-04, "okay 10% for verified and up accounts" · "free only SRP"). The ONE answer — the server read
+ * (`fetchVendorPaysGiftPrice`) and the /for-suppliers plan table both ask it.
+ */
+export function tierPaysGiftPrice(tier: string | null | undefined): boolean {
+  return typeof tier === 'string' && tier !== 'free';
+}
+
 /** What this shop pays for ONE pack: the gift price when it is Verified-and-up and the pack has one, else the list. */
 export function giftUnitPrice(
   pack: ShopGiftPack,

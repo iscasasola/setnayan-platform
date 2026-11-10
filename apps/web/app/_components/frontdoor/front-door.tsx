@@ -28,7 +28,11 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes, type EventTypeRow } from '@/lib/event-types-db';
-import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { FrontDoorLanding, frontPageSample, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
+import type { PlanFacts } from './front-door-landing-data';
+import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
+import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
+import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
 import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
@@ -99,9 +103,21 @@ export async function FrontDoor({ q }: { q?: string }) {
   */
   const signedOut = !account.signedIn;
   const landing = signedOut && !searchQuery;
-  const [eventTypes, planPrices]: [ReadonlyArray<Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>>, PlanPrices] = landing
-    ? await Promise.all([getCreatableEventTypes(), fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([]))])
-    : [[], planPricesFrom([])];
+  // ONE catalogue read feeds both the plan prices and (Lane J) the credits each plan grants — never typed.
+  const [eventTypes, catalog, freeGrant] = landing
+    ? await Promise.all([
+        getCreatableEventTypes(),
+        fetchV2CustomerCatalog().catch(() => []),
+        readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
+      ])
+    : [[], [], null];
+  const planPrices: PlanPrices = planPricesFrom(catalog);
+  // 🧾 Lane J: the credits each plan grants (`included_papic_credits`) and the live free-credit sentence
+  // (`papicFreeCreditPromise`, null when the free grant is switched off).
+  const planFacts: PlanFacts = {
+    ...planCreditsFrom(catalog),
+    freePapic: freeGrant ? (papicFreeCreditPromise(freeGrant)?.sentence ?? null) : null,
+  };
 
   return (
     <>
@@ -211,6 +227,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         <FrontDoorLanding
           eventTypes={eventTypes}
           planPrices={planPrices}
+          planFacts={planFacts}
           /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
           floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
           sample={frontPageSample(new Date())}

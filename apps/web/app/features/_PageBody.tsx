@@ -117,13 +117,19 @@ export function FeaturesPageBody({
         {results ? (
           <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">{results}</div>
         ) : (
-          <>
+          /* 🚫✂️ LIGHT "NO SELECT" — /features only (owner 10 Nov: *"we dont want them to be able to select text to copy
+             and tell AI to make a website"* → *"Yes, light only"*; DECISION_LOG 2026-11-10). `user-select: none` on the
+             feature cards and sections, NOTHING more: the text stays in the HTML (search engines, AI crawlers,
+             /llms.txt, screen readers and the browser's Find all keep working), links and buttons still work, robots
+             is untouched, no right-click or key blocker. The search field above is outside it on purpose.
+             🔒 `features-stay-readable.test.ts`. */
+          <div className="select-none" data-features-no-select="">
             <FeatureGroups locale={locale} />
             <EcosystemBand locale={locale} />
             <WhySetnayan locale={locale} />
             <HowItWorks locale={locale} />
             <FinalCTA locale={locale} />
-          </>
+          </div>
         )}
       </main>
     </>

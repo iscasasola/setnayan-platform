@@ -31,10 +31,14 @@ const LAB_PRICES = {
   enterpriseAnnual: '₱ · · ·',
   branch: '₱ · · ·',
   seat: '₱ · · ·',
+  // Every SKU the plan table names reads the same placeholder (Build 6 Lane J) — no figure is typed.
+  bySku: new Proxy({} as Record<string, string | null>, { get: () => '₱ · · ·' }),
 };
 
-export default async function ForSuppliersLabPage() {
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ paywall?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
+  // `?paywall=1` draws the table as it reads with the plan paywall ON; the default is production's switch, OFF.
+  const paywallOn = (await searchParams).paywall === '1';
   const origin = siteOrigin();
   const page = myPageUrl(origin, SAMPLE_SHOP.slug);
   const urls = {
@@ -52,7 +56,7 @@ export default async function ForSuppliersLabPage() {
   };
   return (
     <main style={{ ['--fd-bar' as string]: '0px' }}>
-      <SupplierFrontPage prices={LAB_PRICES} fee={{ schedule: BOOKING_FEE, enabled: true }} codes={codes} />
+      <SupplierFrontPage prices={LAB_PRICES} fee={{ schedule: BOOKING_FEE, enabled: true }} codes={codes} paywallOn={paywallOn} />
     </main>
   );
 }

@@ -18,6 +18,7 @@ import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
+import { FREE_FINDABLE } from './plan-table-data';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import {
   PORTFOLIO_FREE_BASE,
@@ -68,10 +69,14 @@ export function tierOfPlansRow(row: RegExp): VendorTier | null {
 
 /* ───────────────────────── the steps: Free → Verified → Grow ───────────────────────── */
 
-/** "1 category · 1 service card · not in search yet" — Free's line, from its caps. */
+/**
+ * "1 category · 1 service card · found until your first inquiry" — Free's line, from its caps. The search half is the
+ * 7 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts): an unverified shop shows in
+ * search until its first inquiry, then waits for Verified. (It said "not in search yet" until Lane J — false since 7 Nov.)
+ */
 export function freeSpec(): string {
   const c = TIER_CAPS.free;
-  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} · not in search yet`;
+  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
 }
 
 /** "20 km around you · the Verified seal · get paid in the app" — Verified's line. */

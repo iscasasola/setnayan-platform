@@ -50,6 +50,7 @@ import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SampleMarker } from '@/app/_components/sample-marker';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { EmptyShelf } from './empty-shelf';
 
 /**
@@ -267,41 +268,59 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
   );
 }
 
-function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
+/**
+ * 🃏 THE SHOP CARD — Discover's shelf AND its search hits (`front-door-results.tsx` draws THIS, never a copy).
+ * Owner 10 Nov, DECISION_LOG "DISCOVER'S SHOP CARD — APPROVED" (prototype `shop-card` v3):
+ *   · big picture = the shop's COVER (`s.cover`: the shop page's own rule, resolved by the hero's own reader); none →
+ *     the category's picture with the hero's "Sample photo" chip, so it never passes as their work;
+ *   · circle = the LOGO, shown whole (contain, on a light ground); initials only with no logo;
+ *   · line = the group (Admin › Categories) · city — the pill replaced " · verified";
+ *   · up to 2 `ShopBadgePill`s (`s.badges`, Verified first).
+ *
+ * A plain <img>, NOT next/image, for both pictures, and that is deliberate: an r2:// logo or portfolio photo resolves
+ * to a PRESIGNED url whose signature changes on every render — next/image would re-transform it each time and Vercel
+ * bills per transformation, on the highest-traffic public page.
+ */
+export function ShopCard({
+  s,
+  href,
+}: {
+  s: FrontDoorData['shops'][number];
+  /** The shop's address WITH its arrival (`withShopArrival`) — each caller says where the shop was opened from. */
+  href: string;
+}) {
+  const line = [s.folderLabel, s.city].filter(Boolean).join(' · ');
   return (
-    /* 🧭 `?src=discover` — the shop page's "Back" returns HERE, to Discover (lib/shop-back.ts; owner 2026-11-07, "back to
-       suppliers? it went to a wrong shell"). Without it the shop could not tell Discover from a shared link. */
-    <Link href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.discover })} className="fd-item">
+    <Link href={href} className="fd-item" data-shop-card="">
       <div className="fd-thumb fd-thumb-shop">
-        {/*
-          A plain <img>, NOT next/image, and that is deliberate. An r2:// logo
-          resolves to a PRESIGNED url whose signature changes on every render —
-          next/image would re-transform it each time and Vercel bills per
-          transformation. A logo is small; optimising it is not worth a
-          per-render charge on the highest-traffic public page.
-          eslint-disable-next-line @next/next/no-img-element
-        */}
-        {s.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={s.logoUrl} alt="" className="fd-shoplogo" loading="lazy" />
-        ) : (
-          <span className="fd-shopmark">{initialsOf(s.name)}</span>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={s.cover.url} alt="" className="fd-shopcover" loading="lazy" />
+        {s.cover.sample ? <span className="fd-sample">Sample photo</span> : null}
       </div>
       <div className="fd-imeta">
-        <span className="fd-ava" aria-hidden="true">
-          {initialsOf(s.name)}
-        </span>
-        <div className="fd-itxt">
+        {s.logoUrl ? (
+          <span className="fd-ava fd-ava-logo" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={s.logoUrl} alt="" loading="lazy" />
+          </span>
+        ) : (
+          <span className="fd-ava" aria-hidden="true">
+            {initialsOf(s.name)}
+          </span>
+        )}
+        <div className="fd-itxt fd-itxt-shop">
           <p className="fd-ttl">{s.name}</p>
           {/* 🧪 A demo shop is on the shelf, marked (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"). The bare
               chip, not the ⓘ: this whole card is one link, and a button inside a link is not allowed. */}
           {s.isDemo ? <SampleMarker /> : null}
-          <p className="fd-by">
-            {s.folderLabel}
-            {s.verified ? ' · verified' : ''}
-          </p>
-          {s.city ? <p className="fd-by">{s.city}</p> : null}
+          {line ? <p className="fd-by">{line}</p> : null}
+          {s.badges.length > 0 ? (
+            <div className="fd-pills">
+              {s.badges.map((b) => (
+                <ShopBadgePill key={b.key} badge={b} size="xs" ground="auto" />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </Link>
@@ -423,7 +442,10 @@ export function FrontDoorFeed({
           {shops.length > 0 ? (
             <div className="fd-grid">
               {shops.map((s) => (
-                <ShopCard key={s.href} s={s} />
+                /* 🧭 `?src=discover` — the shop page's "Back" returns HERE, to Discover (lib/shop-back.ts; owner
+                   2026-11-07, "back to suppliers? it went to a wrong shell"). Without it the shop could not tell
+                   Discover from a shared link. */
+                <ShopCard key={s.href} s={s} href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.discover })} />
               ))}
             </div>
           ) : null}

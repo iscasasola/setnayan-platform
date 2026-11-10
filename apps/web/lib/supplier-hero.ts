@@ -19,6 +19,23 @@
 /** The shipped placeholder file — the last link of the chain. */
 export const HERO_PLACEHOLDER_FILE = '/placeholders/vendor.webp';
 
+/**
+ * 🖼 THE SHOP'S COVER PHOTO — the ONE rule (Your page's pick while it is still on the portfolio, else the first
+ * portfolio photo; null when there is none). Shop's hero (`vendor-dashboard/shop/page.tsx`) and Discover's shop card
+ * (`app/_components/frontdoor/data.ts`, owner 10 Nov "DISCOVER'S SHOP CARD — APPROVED") both ask THIS, so the card
+ * opens on the same picture the shop page does. 🔒 app/_components/frontdoor/the-shop-card-wears-the-shop.test.ts
+ */
+export function shopCoverKey(portfolio: readonly string[] | null | undefined, pick: string | null | undefined): string | null {
+  const k = (portfolio ?? []).filter(Boolean);
+  if (pick && k.includes(pick)) return pick;
+  return k[0] ?? null;
+}
+
+/** Whether the cover is Your page's pick (true) or the first photo (false) — Shop's hero caption. */
+export function coverIsYourPagePick(portfolio: readonly string[] | null | undefined, pick: string | null | undefined): boolean {
+  return Boolean(pick) && shopCoverKey(portfolio, pick) === pick;
+}
+
 /** The latest photo: the last key of the portfolio array (null when there is none). */
 export function latestPhotoKey(keys: readonly string[] | null | undefined): string | null {
   const k = (keys ?? []).filter(Boolean);

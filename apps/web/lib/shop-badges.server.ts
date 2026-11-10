@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
-import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
+import { AWARD_LABELS, currentPeriodMonth, fetchVendorCurrentAwards, type SpotlightAwardType } from '@/lib/spotlight-awards';
 import type { ShopBadgeFacts, TrackerFacts } from '@/lib/shop-badges';
 
 /**
@@ -71,6 +71,84 @@ export async function readShopBadgeFacts(
     awards: [...new Set(awards)].map((a) => AWARD_LABELS[a]),
     nowYear: now.getFullYear(),
   };
+}
+
+/**
+ * 🃏 THE SAME FACTS FOR A WHOLE SHELF OF SHOPS — one read per table, never one per card (house rule: one batched read
+ * per screen). Discover's shop card (owner 10 Nov) calls this with the shelf's rows, which already carry the shop's
+ * own columns — so Verified (`hasVerifiedBadge`, computed by the caller exactly as `readShopBadgeFacts` does) and the
+ * year it opened travel in, and only the three stats tables are read here.
+ *
+ * Same contract as `readShopBadgeFacts`: a refused table is null for EVERY shop on the shelf (no medal, no ★ — never a
+ * zero); a shop with no row in an answered table has nothing there yet; awards fail soft to none.
+ */
+export async function readShopBadgeFactsForShops(
+  admin: SupabaseClient,
+  shops: readonly { vendorProfileId: string; verified: boolean; inBusinessSinceYear: number | null }[],
+  at?: Date,
+): Promise<Map<string, ShopBadgeFacts>> {
+  const now = at ?? new Date();
+  const out = new Map<string, ShopBadgeFacts>();
+  const ids = [...new Set(shops.map((s) => s.vendorProfileId).filter(Boolean))];
+  if (ids.length === 0) return out;
+  const [completed, trusted, awards] = await Promise.all([
+    admin
+      .from('vendor_public_completed_events_stats')
+      .select('vendor_profile_id, public_completed_count')
+      .in('vendor_profile_id', ids)
+      .then(({ data, error }) => {
+        if (error) {
+          logQueryError('shopBadges.completedMany', error, { shops: ids.length }, 'graceful_degrade');
+          return null;
+        }
+        const rows = (data ?? []) as { vendor_profile_id: string; public_completed_count: number | null }[];
+        return new Map(rows.map((r) => [r.vendor_profile_id, Number(r.public_completed_count ?? 0)]));
+      }),
+    admin
+      .from('vendor_trusted_review_stats')
+      .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+      .in('vendor_profile_id', ids)
+      .then(({ data, error }) => {
+        if (error) {
+          logQueryError('shopBadges.trustedMany', error, { shops: ids.length }, 'graceful_degrade');
+          return null;
+        }
+        const rows = (data ?? []) as { vendor_profile_id: string; trusted_avg_rating: number | null; trusted_review_count: number | null }[];
+        return new Map(
+          rows.map((r) => [
+            r.vendor_profile_id,
+            { trusted_avg_rating: Number(r.trusted_avg_rating ?? 0), trusted_review_count: Number(r.trusted_review_count ?? 0) },
+          ]),
+        );
+      }),
+    admin
+      .from('vendor_spotlight_awards')
+      .select('vendor_profile_id, award_type')
+      .in('vendor_profile_id', ids)
+      .eq('period_month', currentPeriodMonth(now))
+      .then(({ data, error }) => {
+        if (error) {
+          logQueryError('shopBadges.awardsMany', error, { shops: ids.length }, 'graceful_degrade');
+          return new Map<string, SpotlightAwardType[]>();
+        }
+        const byShop = new Map<string, SpotlightAwardType[]>();
+        for (const r of (data ?? []) as { vendor_profile_id: string; award_type: SpotlightAwardType }[]) {
+          byShop.set(r.vendor_profile_id, [...(byShop.get(r.vendor_profile_id) ?? []), r.award_type]);
+        }
+        return byShop;
+      }),
+  ]);
+  for (const s of shops) {
+    out.set(s.vendorProfileId, {
+      verified: s.verified,
+      completedEvents: completed ? (completed.get(s.vendorProfileId) ?? 0) : null,
+      trusted: trusted ? (trusted.get(s.vendorProfileId) ?? { trusted_avg_rating: 0, trusted_review_count: 0 }) : null,
+      inBusinessSinceYear: s.inBusinessSinceYear,
+      awards: [...new Set(awards.get(s.vendorProfileId) ?? [])].map((a) => AWARD_LABELS[a]),
+      nowYear: now.getFullYear(),
+    });
+  }
+  return out;
 }
 
 /**

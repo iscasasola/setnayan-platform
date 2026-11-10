@@ -48,6 +48,7 @@ import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type ScannerLine } from './_components/shop-makers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
+import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
@@ -255,7 +256,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const portfolio = (profile.portfolio_r2_keys ?? []) as string[];
   const coverRead = (async (): Promise<string | null> => {
     const own = await ownRead;
-    const heroKey = own?.microsite_hero_photo_key && portfolio.includes(own.microsite_hero_photo_key) ? own.microsite_hero_photo_key : (portfolio[0] ?? null);
+    const heroKey = shopCoverKey(portfolio, own?.microsite_hero_photo_key);
     if (!heroKey) return null;
     try {
       return await displayUrlForStoredAsset(heroKey);
@@ -388,7 +389,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     hero,
     heroCaption:
       hero.kind === 'photo'
-        ? own?.microsite_hero_photo_key && portfolio.includes(own.microsite_hero_photo_key)
+        ? coverIsYourPagePick(portfolio, own?.microsite_hero_photo_key)
           ? 'Cover · Your page'
           : 'Cover · first photo'
         : null,

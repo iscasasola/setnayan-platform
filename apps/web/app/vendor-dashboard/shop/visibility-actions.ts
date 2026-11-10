@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server action behind My Shop → Business Profile → "Where else you show up" —
@@ -101,6 +102,7 @@ export async function updateVisibilityPreferences(
     return { ok: false, error: friendly };
   }
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
 
   return { ok: true, sameDayAvailable, socialFeatureOptOut };

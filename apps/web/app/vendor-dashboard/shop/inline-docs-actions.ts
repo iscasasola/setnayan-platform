@@ -51,6 +51,7 @@ import {
   fetchVerifiedLock,
 } from '@/lib/vendor-corrections';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server actions behind the INLINE verification documents row on My Shop (owner
@@ -599,6 +600,7 @@ export async function saveRegistrationNumberInline(
     .eq('vendor_profile_id', auth.vendorProfileId);
 
   if (!claimErr) {
+    revalidateShopPage(auth.vendorProfileId);
     revalidatePath('/vendor-dashboard/shop');
     revalidatePath('/vendor-dashboard/verify');
     return { ok: true, needsReview: false };
@@ -817,6 +819,7 @@ export async function saveVerificationIdentityField(
     .eq('vendor_profile_id', auth.vendorProfileId);
   if (error) return { ok: false, error: error.message };
 
+  revalidateShopPage(auth.vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');
   return { ok: true };

@@ -6,6 +6,7 @@ import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 // POST /api/vendor/papic-portfolio-import
 //
@@ -157,5 +158,6 @@ export async function POST(req: Request) {
     }
   });
 
+  revalidateShopPage(vendorProfileId);
   return NextResponse.json({ ok: true, photoId });
 }

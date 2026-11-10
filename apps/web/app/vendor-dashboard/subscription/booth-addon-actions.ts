@@ -25,6 +25,7 @@ import {
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -321,6 +322,7 @@ export async function activateVendor3dBooth(
       });
     }
 
+    revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/subscription');
     revalidatePath('/vendor-dashboard/shop');
     return {

@@ -42,6 +42,7 @@ import { bypassExpiryFrom } from '@/lib/verification-bypass';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * The same gate every other admin vendor action uses, copied rather than
@@ -169,6 +170,7 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
     },
   });
 
+  revalidateShopPage(vendorId);
   revalidatePath('/admin/accounts');
   revalidatePath('/admin/verify');
   revalidatePath('/explore');
@@ -204,6 +206,7 @@ export async function revokeVerificationBypass(formData: FormData): Promise<void
     actor_user_id: adminUserId,
     metadata: { revoked_early: true },
   });
+  revalidateShopPage(vendorId);
   revalidatePath('/admin/accounts');
   revalidatePath('/explore');
 }

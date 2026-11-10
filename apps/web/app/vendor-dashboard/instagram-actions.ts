@@ -15,6 +15,7 @@ import {
   type InstagramMediaItem,
 } from '@/lib/vendor-instagram';
 import { resolveMetaAppOAuth } from '@/lib/integration-config';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 // Vendor Instagram sync + management — server actions.
 //
@@ -232,6 +233,7 @@ async function syncInstagramMedia(): Promise<SyncResult> {
     })
     .eq('vendor_profile_id', vendorProfileId);
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(SHOP_PATH);
   return {
     ok: true,
@@ -275,6 +277,7 @@ export async function toggleInstagramMediaVisibility(
     .eq('vendor_ig_media_id', mediaId)
     .eq('vendor_profile_id', vendorProfileId);
 
+  revalidateShopPage(vendorProfileId);
   revalidatePath(SHOP_PATH);
 }
 
@@ -294,5 +297,6 @@ export async function disconnectInstagram(): Promise<void> {
     .from('vendor_ig_connections')
     .delete()
     .eq('vendor_profile_id', vendorProfileId);
+  revalidateShopPage(vendorProfileId);
   revalidatePath(SHOP_PATH);
 }

@@ -9,6 +9,7 @@ import {
   ALLOWED_VENUE_SETTINGS,
   parseCompatibility,
 } from '@/lib/vendor-compatibility';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
  * Server action behind My Shop → Business Profile → "Weddings you're a fit
@@ -109,6 +110,7 @@ export async function updateVenueMatching(
   }
 
   // Both the shop editor and the public profile that renders the badges.
+  revalidateShopPage(vendorProfileId);
   revalidatePath('/vendor-dashboard/shop');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
 

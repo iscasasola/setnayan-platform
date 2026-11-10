@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { findOrCreateSongId, isMusicToolCategory } from '@/lib/songs';
 import { parseVideoLink } from '@/lib/video-embed';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 const BASE = '/vendor-dashboard/repertoire';
 
@@ -75,6 +76,7 @@ export async function addRepertoireSong(formData: FormData) {
     );
   if (error) back({ q, error: error.message });
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath(BASE);
   back({ q, saved: true });
 }
@@ -90,6 +92,7 @@ export async function removeRepertoireSong(songId: number): Promise<{ ok: true }
     .eq('song_id', songId);
   if (error) return { ok: false, error: error.message };
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath(BASE);
   return { ok: true };
 }
@@ -149,6 +152,7 @@ export async function setPerformanceLink(formData: FormData) {
     back({ q, error: 'That song is not in your repertoire, so the link was not saved.' });
   }
 
+  revalidateShopPage(profile.vendor_profile_id);
   revalidatePath(BASE);
   back({ q, saved: true });
 }

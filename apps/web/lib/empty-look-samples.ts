@@ -225,3 +225,26 @@ export const SAMPLE_HUB = {
     ['Replied', '128'],
   ],
 } as const;
+
+/* ─── SUPPLIER PORTFOLIO (`app/vendor-dashboard/collections/_components/collections-list.tsx`) ─────────────────────── */
+
+/**
+ * 🖼 PORTFOLIO — one sample tile per collection section, drawn under an "Example" chip while that section is EMPTY
+ * (owner 11 Nov, "SUPPLIER ASKS b–e ANSWERED" (c) "yes": every collection kept, a placeholder / Example tile when empty;
+ * approved prototype `shop_discounts_bundle_card_open_2026-11-09/portfolio.html`). Invented names, shipped stock photos.
+ */
+export type SamplePortfolioTile = { name: string; sub: string; photo: string };
+
+export const SAMPLE_PORTFOLIO: Readonly<Record<string, SamplePortfolioTile>> = {
+  page: { name: 'Cover', sub: '14 photos', photo: '/marketing/2026-11-04/hero-wedding.webp' },
+  cards: { name: 'Wedding photo & video', sub: '6 photos', photo: '/event-types/wedding.webp' },
+  albums: { name: SAMPLE_COUPLE, sub: '48 photos · 12 Dec', photo: '/marketing/2026-11-04/real-sister.webp' },
+  own: { name: 'Your own shots', sub: '18 photos', photo: '/event-types/debut.webp' },
+  delivered: { name: SAMPLE_COUPLE, sub: '60 photos', photo: '/marketing/2026-11-04/real-cousin.webp' },
+  instagram: { name: 'Instagram', sub: '24 posts', photo: '/marketing/2026-11-04/hero-debut.webp' },
+  moodboard: { name: 'Garden gold', sub: '2 looks', photo: '/event-types/anniversary.webp' },
+  inspiration: { name: 'Reception styling', sub: '5 photos', photo: '/event-types/birthday.webp' },
+  songs: { name: 'Your repertoire', sub: '24 songs', photo: '/event-types/concert.webp' },
+  stories: { name: SAMPLE_COUPLE, sub: 'Tagaytay · Dec 2026', photo: '/marketing/2026-11-04/hero-reunion.webp' },
+  video: { name: 'Same-day edit', sub: 'YouTube', photo: '/event-types/wedding.webp' },
+};

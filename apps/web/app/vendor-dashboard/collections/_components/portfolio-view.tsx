@@ -9,10 +9,10 @@ import { SupplierHero, type SupplierHeroPicture } from '../../_components/suppli
 import { collectionRows, type CollectionKey, type CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { portfolioCountLabel } from '@/lib/portfolio-count-label';
-import { CollectionsList, type AlbumPreview } from './collections-list';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { CollectionsList } from './collections-list';
 import { PortfolioShow } from './portfolio-show';
-import { PortfolioSettings } from './portfolio-settings';
-import { PortfolioGroupsView } from './portfolio-groups';
+import { PortfolioSettings, type ShowChoice } from './portfolio-settings';
 import type { PortfolioGroups } from '@/lib/portfolio-groups';
 
 /**
@@ -22,9 +22,12 @@ import type { PortfolioGroups } from '@/lib/portfolio-groups';
  *                cap; no GB meter — storage is out of this build) · N collections · Upload · ⚙
  *   pinned row — "Portfolio · N of 50 free photos · Show · ⚙", fading in as the band leaves (CSS stand-in until L1's
  *                `CollapsingTop`)
- *   albums     — the shipped collection rows (`CollectionsList`), each album OPENING IN PLACE (3 columns, first 9, "+N")
- *                and its ✓ circle the separate "pick for Show" control — never rows named after clients
- *   Show       — greyed until an album is picked; full screen, swipe, no edit / price / caption (`PortfolioShow`)
+ *   sections   — THE APPROVED PORTFOLIO (owner 9 Nov, Apple Photos › Collections; DECISION_LOG "PORTFOLIO PROTOTYPE
+ *                APPROVED FOR BUILD 5"): every collection a titled section (› opens, ˅ folds) with a rail of large
+ *                photo tiles (`CollectionsList`); an opened one is a full-bleed photo grid. Who sees each collection,
+ *                the page switch and the album Show plays live in the Portfolio's OWN ⚙ (`PortfolioSettings`, owner
+ *                11 Nov (d)) — never rows named after clients, never a ✓ per row.
+ *   Show       — greyed until an album is picked (in the ⚙); full screen, swipe, no edit / price / caption (`PortfolioShow`)
  *   thumb row  — Search photos · ⇅ (Sort: As listed · By name, and Show ▶) · ＋ Add photos (the shipped uploader's fold,
  *                `#gallery-media`) — the shape of Shop's row (Lane E item 4, owner 9 Nov: "There should be a search bar
  *                there that could help them find on their photos"). Search narrows every album, story and collection IN
@@ -34,10 +37,9 @@ import type { PortfolioGroups } from '@/lib/portfolio-groups';
  * the category placeholder (item 12); its Upload pill is gone — the thumb row's ＋ is the one add (item 3), surfaced on
  * the hero only while it is a placeholder. Every section draws as a finished card, empty or not (item 1).
  *
- * Build 2 (lane B2-B, §10 #35/#40): ABOVE the shipped collection rows, the three groups the owner named — All your
- * events · Your services · Inspiration you curated — then Stories couples published, All photos and Video links
- * (`PortfolioGroupsView`). An album there opens INTO THE BODY (the shared in-body panel); its ✓ picks it for Show
- * exactly like a collection's. The collection rows stay below (the switch, Instagram, your shots, the uploader).
+ * Build 2 (lane B2-B, §10 #35/#40): the three groups the owner named — All your events · Your services · Inspiration
+ * you curated — then Stories couples published, All photos and Video links, are REORGANIZED into the sections' rails
+ * (approved Portfolio (3): same sections, same doors, none dropped). An album opens INTO THE BODY (the shared panel).
  * 🔒 collections/the-portfolio-is-all-media.test.ts
  */
 export type ShowAlbum = { title: string; urls: string[] };
@@ -47,7 +49,6 @@ export function PortfolioView({
   input,
   saved,
   gallery,
-  previews,
   showAlbums,
   photos,
   videoLinks,
@@ -63,12 +64,13 @@ export function PortfolioView({
   hero = null,
   moodboard = null,
   songs = 'off',
+  instagramPhotos = [],
+  uploadFacts = null,
 }: {
   vendorId: string;
   input: CollectionsInput;
   saved: PageSaved;
   gallery: ReactNode;
-  previews: Partial<Record<CollectionKey, AlbumPreview>>;
   /** Every photo each pickable album can Show (already loaded — no new read). */
   showAlbums: Partial<Record<CollectionKey, ShowAlbum>>;
   photos: number;
@@ -90,13 +92,23 @@ export function PortfolioView({
   hero?: SupplierHeroPicture | null;
   moodboard?: { looks: number; declined: number } | null;
   songs?: { count: number; withVideo: number } | null | 'off';
+  /** The connected Instagram's posts (display URLs) — the Instagram section's tiles. */
+  instagramPhotos?: string[];
+  /** The ONE uploader's facts — an empty On my page's Upload opens the device picker in place. Null = no door facts. */
+  uploadFacts?: PortfolioUploadFacts | null;
 }) {
-  // One pick for Show across both lists: a collection's key, or a group album's "<group>:<key>".
+  // One pick for Show (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
   const [picked, setPicked] = useState<string | null>(null);
-  const [groupAlbum, setGroupAlbum] = useState<ShowAlbum | null>(null);
   const [showing, setShowing] = useState(false);
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
   const [words, setWords] = useState('');
+  // Every album that holds photos — the choices Show can play (no new read: the collections' and the groups' own URLs).
+  const albums = new Map<string, ShowAlbum>();
+  for (const [k, a] of Object.entries(showAlbums) as [CollectionKey, ShowAlbum | undefined][]) if (a && a.urls.length > 0) albums.set(k, a);
+  for (const [g, list] of [['events', groups?.events], ['services', groups?.services], ['inspiration', groups?.inspiration]] as const) {
+    if (Array.isArray(list)) for (const a of list) if (a.urls.length > 0) albums.set(`${g}:${a.key}`, { title: a.title, urls: a.urls });
+  }
+  const showChoices: ShowChoice[] = [...albums.entries()].map(([key, a]) => ({ key, title: a.title }));
   const bandRef = useRef<HTMLDivElement>(null);
   const [pin, setPin] = useState(0);
 
@@ -123,9 +135,23 @@ export function PortfolioView({
   const count = allowanceUnread ? 'Couldn’t read your photo allowance' : portfolioCountLabel(photos, free);
   const n = (x: number, one: string, many: string) => `${x.toLocaleString('en-PH')} ${x === 1 ? one : many}`;
   const collections = collectionRows(input).length;
-  const album = !picked ? undefined : picked in showAlbums ? showAlbums[picked as CollectionKey] : (groupAlbum ?? undefined);
+  const album = picked ? albums.get(picked) : undefined;
   const canShow = Boolean(album && album.urls.length > 0);
-  const settings = (cover: boolean) => <PortfolioSettings cover={cover} photos={photos} free={free} allowanceUnread={allowanceUnread} walletBalance={walletBalance} />;
+  const settings = (cover: boolean) => (
+    <PortfolioSettings
+      cover={cover}
+      photos={photos}
+      free={free}
+      allowanceUnread={allowanceUnread}
+      walletBalance={walletBalance}
+      vendorId={vendorId}
+      input={input}
+      saved={saved}
+      showChoices={showChoices}
+      picked={picked}
+      onPick={setPicked}
+    />
+  );
   const showButton = (
     <button
       type="button"
@@ -142,10 +168,12 @@ export function PortfolioView({
   return (
     <>
       {/* 📌 Pinned row */}
-      <div className="sticky top-0 z-[6] -mb-11 h-11" data-pinned-row="" data-portfolio-pin="">
+      {/* 🪤 The pinned row lies over the band's top 44 px while it is hidden — it lets taps through to the band's ⚙ then
+          (measured 2026-11-10: the hidden row swallowed every tap on the ⚙). */}
+      <div className="pointer-events-none sticky top-0 z-[6] -mb-11 h-11" data-pinned-row="" data-portfolio-pin="">
         <div
           className="flex h-11 items-center gap-2 px-4"
-          style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : undefined, background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
+          style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : 'auto', background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
           aria-hidden={pin < 0.5 ? true : undefined}
         >
           <PinWord barAbove>Portfolio</PinWord>
@@ -159,7 +187,14 @@ export function PortfolioView({
       <div ref={bandRef} data-portfolio-top="">
         <SupplierHero
           eyebrow="Portfolio · all your media"
-          gear={pin < 0.5 ? settings(true) : null}
+          gear={
+            pin < 0.5 ? (
+              // 🔦 The tour's "Who sees what" stop: who sees each collection and what Show plays live in this ⚙ now.
+              <span className="inline-flex" data-tour="collections-gear">
+                {settings(true)}
+              </span>
+            ) : null
+          }
           title={
             <>
               {n(photos, 'photo', 'photos')} · {n(videoLinks, 'video link', 'video links')}
@@ -178,37 +213,24 @@ export function PortfolioView({
         />
       </div>
 
-      <section className="space-y-3 px-4 pt-4" data-supplier-collections="">
+      <section className="pt-1" data-supplier-collections="">
         {igFlash}
-        {groups ? (
-          <PortfolioGroupsView
-            groups={groups}
-            allPhotos={allPhotos ?? []}
-            libraryOpen={libraryOpen ?? false}
-            videoLinks={videoLinkUrls ?? []}
-            videoTitles={videoTitles}
-            moodboard={moodboard}
-            songs={songs}
-            picked={picked}
-            onPick={(k, a) => {
-              setGroupAlbum(a);
-              setPicked((cur) => (cur === k ? null : k));
-            }}
-          />
-        ) : null}
-        <p className="sn-eye pt-4">Collections · tap one to open it · ✓ to pick it for Show</p>
-        <p hidden className="py-3 text-[14px] text-ink/65" data-portfolio-search-none="">
+        <p hidden className="px-4 py-3 text-[14px] text-ink/65" data-portfolio-search-none="">
           Nothing here matches “{words.trim()}”.
         </p>
         <CollectionsList
-          vendorId={vendorId}
           input={input}
-          saved={saved}
           gallery={gallery}
-          previews={previews}
-          picked={picked as CollectionKey | null}
-          onPick={(k) => setPicked((cur) => (cur === k ? null : k))}
+          groups={groups ?? { events: [], services: [], inspiration: 'off', stories: [] }}
+          allPhotos={allPhotos ?? []}
           order={order}
+          instagramPhotos={instagramPhotos}
+          libraryOpen={libraryOpen ?? false}
+          videoLinks={videoLinkUrls ?? []}
+          videoTitles={videoTitles}
+          moodboard={moodboard}
+          songs={songs}
+          uploadFacts={uploadFacts}
         />
       </section>
 
@@ -269,26 +291,26 @@ export function PortfolioView({
 }
 
 /**
- * 🔎 Search photos — narrows every album row, story and collection on the page IN PLACE by its words (the house move:
- * Shop's Search services, no request). A section left with nothing matching steps aside; "Nothing here matches" says so.
+ * 🔎 Search photos — narrows every rail IN PLACE by its words (the house move: Shop's Search services, no request). A
+ * section whose own name matches keeps all its tiles; otherwise only its matching tiles stay, and a section left with
+ * nothing steps aside. "Nothing here matches" says so.
  */
 function findInPortfolio(words: string) {
   const needle = words.trim().toLowerCase();
   const root = document.querySelector<HTMLElement>('[data-portfolio-tab],[data-portfolio-tab-lab]');
   if (!root) return;
   let shown = 0;
-  const items = root.querySelectorAll<HTMLElement>('[data-album-row],[data-portfolio-story],[data-collection-row],[data-video-link]');
-  items.forEach((el) => {
-    const hit = !needle || (el.textContent ?? '').toLowerCase().includes(needle);
-    const host = (el.closest('li') as HTMLElement | null) ?? el;
-    host.style.display = hit ? '' : 'none';
-    if (hit) shown += 1;
-  });
-  root.querySelectorAll<HTMLElement>('[data-portfolio-card]').forEach((card) => {
-    if (!needle) return void (card.style.display = '');
-    const inside = card.querySelectorAll('[data-album-row],[data-portfolio-story],[data-video-link]');
-    const any = [...inside].some((el) => ((el.closest('li') as HTMLElement | null) ?? (el as HTMLElement)).style.display !== 'none');
-    card.style.display = any ? '' : 'none';
+  root.querySelectorAll<HTMLElement>('[data-portfolio-section]').forEach((sec) => {
+    const head = sec.querySelector('[data-portfolio-section-head]')?.textContent?.toLowerCase() ?? '';
+    const whole = !needle || head.includes(needle);
+    let any = false;
+    sec.querySelectorAll<HTMLElement>('[data-portfolio-tile],[data-portfolio-pill]').forEach((el) => {
+      const hit = whole || (el.getAttribute('aria-label') ?? el.textContent ?? '').toLowerCase().includes(needle);
+      el.style.display = hit ? '' : 'none';
+      if (hit) any = true;
+    });
+    sec.style.display = whole || any ? '' : 'none';
+    if (whole || any) shown += 1;
   });
   const none = root.querySelector<HTMLElement>('[data-portfolio-search-none]');
   if (none) none.hidden = !needle || shown > 0;

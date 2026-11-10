@@ -227,11 +227,18 @@ test('4 · the way in: Today and Portfolio draw “Add to the inspiration librar
      the shared predicate asked of the LIVE parts, and Shop is pinned to draw it zero times (no second door). */
   const shopSrc = code('app/vendor-dashboard/shop/page.tsx');
   assert.equal((shopSrc.match(/INSPIRATION_LIBRARY_HREF/g) ?? []).length, 0, 'Shop draws a second library door');
-  const groupsSrc = code('app/vendor-dashboard/collections/_components/portfolio-groups.tsx');
-  assert.equal((groupsSrc.match(/href=\{INSPIRATION_LIBRARY_HREF\}/g) ?? []).length, 1, 'Portfolio must draw the library row exactly once');
-  const at = groupsSrc.indexOf('data="portfolio-inspiration-library"');
-  assert.ok(at > groupsSrc.indexOf("'Inspiration you curated'"), 'the library row is not under Inspiration you curated');
-  assert.match(groupsSrc.slice(at - 200, at), /libraryOpen \? \(/, 'Portfolio draws the row without asking whether the library lets the shop in');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (approved Portfolio, owner 9 Nov — Apple Photos › Collections): the inspiration card
+     became the "Moodboard library" SECTION (the library IS that page), its curated looks a rail of tiles. NOT WEAKENED:
+     the library's door is still built exactly once, and it is still drawn only behind the shared predicate — as the
+     filled section's head pill, or as the empty section's one door. */
+  const listSrc = code('app/vendor-dashboard/collections/_components/collections-list.tsx');
+  assert.equal(
+    (listSrc.match(/label: INSPIRATION_LIBRARY_ROW\.label, href: INSPIRATION_LIBRARY_HREF/g) ?? []).length,
+    1,
+    'Portfolio must build the library door exactly once',
+  );
+  assert.match(listSrc, /\{libraryOpen \? <AddTile door=\{libraryDoor\}/, 'the filled section draws the door without asking whether the library lets the shop in');
+  assert.match(listSrc, /door=\{libraryOpen \? libraryDoor : null\}/, 'the empty section draws the door without asking whether the library lets the shop in');
   const dataSrc = code('app/vendor-dashboard/collections/collections-data.ts');
   assert.match(dataSrc, /const parts = await getInspirationParts\(\);/, 'Portfolio does not read the live parts');
   assert.match(dataSrc, /const access = moodboardLibraryAccessForProfile\(profile, parts\);/, 'Portfolio does not ask the shared predicate');

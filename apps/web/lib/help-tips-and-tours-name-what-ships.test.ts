@@ -17,7 +17,7 @@
  *   3. the token wallet (retired 2026-05-11 — apply-then-pay, PHP-direct);
  *   4. "celebration" (the house word is "event");
  *   5. More as a PLACE on a bar that has no More — the supplier bar (Today · Customers · Shop · Hub, since
- *      2026-10-21), the account bar (Events · Discover · Memories · People), and the iPhone app's event bar
+ *      2026-10-21), the account bar (Events · People · Shop · Memories · Discover, 2026-11-11), and the iPhone app's event bar
  *      (Home · Guests · Suppliers · Hub, #6725). The bar's labels are READ from its own source, so when the web
  *      event bar loses More too (#6791) this is extended by adding one audience, not by rewording a list.
  *

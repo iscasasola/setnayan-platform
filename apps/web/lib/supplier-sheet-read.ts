@@ -16,7 +16,7 @@ import { isFollowingVendor } from '@/lib/follow';
 import { isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { TAXONOMY_MAP, WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 
 /* ─── THE SHEET'S ONE REQUEST (owner 2026-10-08 · the minimum-request rules) ──
  * Opening a supplier's sheet used to re-render the whole Suppliers page on the
@@ -46,7 +46,7 @@ export async function readSupplierSheet(
   input: { vendorProfileId: string; userId: string; tile: string | null },
 ): Promise<SupplierSheetData> {
   const { vendorProfileId, userId } = input;
-  const [reviews, completed, profile, services, following] = await Promise.all([
+  const [reviews, completed, profile, services, following, taxonomy] = await Promise.all([
     fetchReviewsForVendor(supabase, vendorProfileId, { limit: 12 })
       .then((rows) => sheetReviews(rows))
       .catch((err) => {
@@ -77,6 +77,8 @@ export async function readSupplierSheet(
       console.error('[supplier-sheet] follow read failed', err);
       return null;
     }),
+    // Never refuses: an empty or failed read answers with the seed snapshot.
+    getTaxonomy(),
   ]);
 
   // A shop whose name is still withheld is not named by its photos or its
@@ -103,8 +105,10 @@ export async function readSupplierSheet(
           services.map((s) => s.category),
           input.tile,
           (category) => {
-            const tile = TAXONOMY_MAP[category]?.tile ?? (category in WEDDING_TILE_LABEL ? (category as WeddingTile) : null);
-            return tile ? { tile, label: WEDDING_TILE_LABEL[tile] } : null;
+            // The live taxonomy (Admin › Categories) — a renamed or moved category reads its new name.
+            const tile = taxonomy.map[category]?.tile ?? (category in taxonomy.tileLabel ? category : null);
+            const label = tile ? taxonomy.tileLabel[tile] : undefined;
+            return tile && label ? { tile, label } : null;
           },
         )
       : null,

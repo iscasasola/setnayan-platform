@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1824
+# ledger: 1826
 # tables: 487
-# columns: 5928
-# notnull: 3580
+# columns: 5930
+# notnull: 3582
 [ledger]
 20260512000000
 20260513000000
@@ -1836,6 +1836,8 @@
 20271334860034
 20271335272180
 20271335513615
+20271336072378
+20271336539756
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -6045,10 +6047,12 @@ social_posts.status
 social_posts.title
 social_posts.updated_at
 social_publish_settings.autopublish_enabled
+social_publish_settings.badge_autopost_enabled
 social_publish_settings.facebook_enabled
 social_publish_settings.id
 social_publish_settings.instagram_enabled
 social_publish_settings.last_flush_at
+social_publish_settings.milestone_autopost_enabled
 social_publish_settings.recap_autopost_enabled
 social_publish_settings.tiktok_enabled
 social_publish_settings.updated_at
@@ -10291,9 +10295,11 @@ social_posts.status
 social_posts.title
 social_posts.updated_at
 social_publish_settings.autopublish_enabled
+social_publish_settings.badge_autopost_enabled
 social_publish_settings.facebook_enabled
 social_publish_settings.id
 social_publish_settings.instagram_enabled
+social_publish_settings.milestone_autopost_enabled
 social_publish_settings.recap_autopost_enabled
 social_publish_settings.tiktok_enabled
 social_publish_settings.updated_at

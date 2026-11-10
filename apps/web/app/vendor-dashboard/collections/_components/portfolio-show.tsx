@@ -15,8 +15,20 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
  * close. Reduced motion: no smooth scroll and no fade. The photos are the album's already-loaded URLs — no new read.
  * 🔒 collections/the-portfolio-is-all-media.test.ts
  */
-export function PortfolioShow({ title, urls, onClose }: { title: string; urls: readonly string[]; onClose: () => void }) {
-  const [at, setAt] = useState(0);
+export function PortfolioShow({
+  title,
+  urls,
+  onClose,
+  start = 0,
+}: {
+  title: string;
+  urls: readonly string[];
+  onClose: () => void;
+  /** 🖼 Opened from a photo in an opened collection: Show begins ON that photo (approved Portfolio, "one tap opens the
+   *  photo full-screen, swipeable"). Absent → the first, as shipped. */
+  start?: number;
+}) {
+  const [at, setAt] = useState(start);
   const [host, setHost] = useState<HTMLElement | null>(null);
   const track = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -44,6 +56,15 @@ export function PortfolioShow({ title, urls, onClose }: { title: string; urls: r
     };
   }, [onClose]);
 
+
+  // Land on the tapped photo once the track is drawn (no motion — it simply opens there).
+  useEffect(() => {
+    const t = track.current;
+    if (!host || !t || start <= 0) return;
+    t.scrollLeft = start * t.clientWidth;
+    // Once, when the track first exists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [host]);
 
   if (!host) return null;
   return createPortal(

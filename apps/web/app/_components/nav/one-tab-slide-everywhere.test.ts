@@ -5,6 +5,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { activeTabIndex, tabSlideDir, type SlideTab } from '@/lib/nav-slide';
 import { stripComments } from '@/lib/strip-comments';
+import { accountBarTabs } from '@/lib/account-bar';
+import { accountBarItems } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 
 /**
  * ONE TAB SLIDE ON EVERY DASHBOARD.
@@ -17,7 +19,7 @@ import { stripComments } from '@/lib/strip-comments';
  * `<BottomNav>`. Two things kept it off the other two dashboards, and neither
  * threw or logged anything:
  *
- *   · THE ACCOUNT (Events · Discover · Memories · People): its content carried
+ *   · THE ACCOUNT (Events · People · Memories · Discover, + Shop for an owner): its content carried
  *     no `view-transition-name`, so the controller started a transition that
  *     animated NOTHING — the page swapped under a frozen screen.
  *   · THE SHOP (Today · Customers · Shop · Hub): the controller found the lit
@@ -47,7 +49,9 @@ const CSS = read('app', 'globals.css');
 /* ── 1 · behaviour ─────────────────────────────────────────────────────── */
 
 const SHOP = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/on-the-day'];
-const ACCOUNT = ['/dashboard', '/', '/dashboard/library', '/dashboard/people', '/vendor-dashboard'];
+// The account bar's addresses IN ITS ORDER — read from the real bar, not re-typed, so a re-ruled order (owner
+// 2026-11-11, "THE ACCOUNT BAR ORDER": Events · People · Shop · Memories · Discover) reaches this guard by itself.
+const ACCOUNT = accountBarItems(accountBarTabs({ ownsShop: true, discoverOpen: true })).map((t) => t.href.split('?')[0]!);
 const bar = (paths: string[], lit: number): SlideTab[] => paths.map((path, i) => ({ path, current: i === lit }));
 
 test('1 · a shop page lit through activeMatch slides — the bar names its own lit tab', () => {
@@ -62,13 +66,18 @@ test('1 · a shop page lit through activeMatch slides — the bar names its own 
 });
 
 test('1 · the account bar slides by its order, one slide however far the press', () => {
-  const lit = bar(ACCOUNT, 3); // People
+  // Premise: the order the bar draws is the ruled one (owner 2026-11-11), so the indices below mean what they say.
+  assert.deepEqual(ACCOUNT, ['/dashboard', '/dashboard/people', '/vendor-dashboard', '/dashboard/library', '/']);
+  const lit = bar(ACCOUNT, 1); // People
   assert.equal(tabSlideDir(0, activeTabIndex(lit, '/dashboard/people')), 'back', 'People → Events');
-  assert.equal(tabSlideDir(4, activeTabIndex(lit, '/dashboard/people')), 'fwd', 'People → Shop');
-  assert.equal(tabSlideDir(3, 3), null, 'the lit tab itself is not a slide');
+  assert.equal(tabSlideDir(2, activeTabIndex(lit, '/dashboard/people')), 'fwd', 'People → Shop');
+  assert.equal(tabSlideDir(4, activeTabIndex(lit, '/dashboard/people')), 'fwd', 'People → Discover, one slide however far');
+  assert.equal(tabSlideDir(1, 1), null, 'the lit tab itself is not a slide');
+  // Discover is the LAST tab now: pressing anything from it slides back.
+  assert.equal(tabSlideDir(3, activeTabIndex(bar(ACCOUNT, 4), '/')), 'back', 'Discover → Memories');
   // The address fallback still works for a bar that lights nothing: Discover is `/`, exact.
-  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/'), 1);
-  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/dashboard/library'), 2);
+  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/'), 4);
+  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/dashboard/library'), 3);
   // A dashboard's home is exact, never a prefix of its own pages.
   assert.equal(activeTabIndex(bar(SHOP, -1), '/vendor-dashboard/shop'), 2);
 });

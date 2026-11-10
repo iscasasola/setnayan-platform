@@ -776,7 +776,6 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     );
   }
   const f = FIX[who];
-  const saved = pageSavedFrom(DEFAULT_MICROSITE, f.services, []);
   const lp = labPortfolio(who, port);
   return (
     <>
@@ -784,9 +783,8 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
         <ShopSegments on="gallery" figures={galleryFigures({ photos: f.collections.page?.photos ?? 0, videos: f.collections.page?.videos ?? 0, credits: fail ? null : lp.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
-          vendorId={`lab-${who}`}
           input={f.collections}
-          saved={saved}
+          groups={{ events: [], services: [], inspiration: 'off', stories: [] }}
           gallery={
             <GalleryMedia
               vendorProfileId={`lab-${who}`}

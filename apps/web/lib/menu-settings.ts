@@ -186,14 +186,15 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
    * C4 only"; L1 adds the `portfolio` key to `SettingsMenu`): the right end of the Portfolio tab's pinned row
    * (`collections/_components/portfolio-settings.tsx`, one mount). Your free photos and what past them costs. Storage
    * purchase is out of this build (spec §1, owner 8 Nov: "later") — the sheet says "not on sale yet", never a price.
-   * No "what Show includes" switches (map row 70: INVENTED; spec §9 #18).
+   * No "what Show includes" switches (map row 70: INVENTED; spec §9 #18). Approved Portfolio (owner 9 Nov; 11 Nov (d)):
+   * who sees each collection, the page switch and "Show plays" moved IN from the collections list.
    */
   portfolio: {
     door: 'first-row-gear',
     sheet: 'Portfolio settings',
-    line: 'Your free photos, and what comes after them.',
+    line: 'Who sees each collection, what Show plays, and your free photos.',
     live: true,
-    tip: 'Rare, shop-wide things about your portfolio. Adding, sorting and showing your photos stays on the Portfolio page.',
+    tip: 'Who sees what lives here, not on the list. Adding, opening and sorting your photos stays on the Portfolio page.',
   },
   /**
    * 🧑‍🤝‍🧑 THE PICKED CLIENT'S ⚙ (THE ONE BUILD, 8 Nov 2026 — spec B1 step 5: the picked client's pinned row is

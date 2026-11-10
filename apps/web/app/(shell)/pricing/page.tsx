@@ -286,7 +286,7 @@ export default async function PricingPage() {
           category: 'Wedding supplier subscription',
           offers: {
             '@type': 'Offer',
-            url: `${SITE_URL}/vendors`,
+            url: `${SITE_URL}/for-suppliers`, // Lane J: `/vendors` only 308s here
             price: String(Math.round(s.price_php)),
             priceCurrency: 'PHP',
             availability: 'https://schema.org/InStock',
@@ -339,7 +339,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} />}
               title="An Event Hub that looks like yours"
               line="One page your guests open — your look, your reveal."
-              tip={`A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Hub Pro${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
+              tip={`A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Pro${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
             />
             <WhyPoint
               shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}
@@ -385,7 +385,7 @@ export default async function PricingPage() {
               }
               title="Plan together"
               line="Co-hosts on your event; every unlock covers everyone on it."
-              tip="Invite a co-host and they plan beside you. Anything you add, from Event Hub Pro to Live Watch, is unlocked for the event — nobody pays twice."
+              tip="Invite a co-host and they plan beside you. Anything you add, from Event Pro to Live Watch, is unlocked for the event — nobody pays twice."
             />
             <TogetherRow
               icon={

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, Search } from 'lucide-react';
-import { tierHasLapsed } from '@/lib/vendor-tier-lapse';
+import { endedPlanReadsFree, tierHasLapsed } from '@/lib/vendor-tier-lapse';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -189,6 +189,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       if (!reread.error && reread.data) tierRow = reread.data;
     }
   }
+  // 🔒 A REFUSED SWEEP NEVER DRAWS A PAST DAY AS THE FUTURE (Build 5 row 14 + Lane W, 2026-11-11). If the row still
+  // says a plan whose day has passed, read it as the sweep would have written it — Free/Verified, no end day — which
+  // is what every gate already enforces. Held by lib/an-ended-plan-never-reads-as-current.test.ts.
+  tierRow = endedPlanReadsFree(tierRow, Date.now());
   const currentTier = asVendorTier(
     (tierRow as { tier_state?: string | null } | null)?.tier_state,
   );

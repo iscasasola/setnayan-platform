@@ -8,6 +8,11 @@
  *
  *   · Events · Discover · Memories · People — four for everyone;
  *   · Shop is a fifth tab ONLY for an account that owns a shop;
+ *   · 🔁 THE ORDER, RE-RULED 11 Nov 2026 (owner, verbatim: *"arrangement of use
+ *     dashboard should be Events - People - Shop - Memories - Discover"* —
+ *     DECISION_LOG 2026-11-11 "THE ACCOUNT BAR ORDER"): Events · People · Shop ·
+ *     Memories · Discover. Which tabs, and for whom, is unchanged; Shop and
+ *     Discover keep their ruled places when drawn and leave no gap when not;
  *   · Admin is never a tab; there is no floating ＋ Create;
  *   · Discover is a tab wherever `/` OPENS — and since the owner's 2026-11-02
  *     ruling ("let everything go live", DECISION_LOG "EVERY PAGE HELD BACK FROM
@@ -34,6 +39,7 @@ import { AccountBottomNav } from './_components/account-bottom-nav';
 import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
 import { stripComments } from '@/lib/strip-comments';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { TOURS } from '@/lib/tours';
 
 // tsconfig's `"jsx": "preserve"` → classic runtime under tsx (precedent:
 // the-phone-bar-is-anchored.test.ts).
@@ -58,21 +64,22 @@ const OWNER = { hasVendor: true, canOpenShop: false, isAdmin: false };
 const TEAM_MEMBER = { hasVendor: true, canOpenShop: true, isAdmin: false };
 const INTERNAL = { hasVendor: false, canOpenShop: true, isAdmin: true };
 
-test('📱 web: a couple gets four, a shop OWNER five (Shop last), a team member and an internal account four', () => {
-  const four = ['Events', 'Discover', 'Memories', 'People'];
+test('📱 web: a couple gets four, a shop OWNER five (Shop third, after People), a team member and an internal account four', () => {
+  // THE ORDER (owner 2026-11-11, "THE ACCOUNT BAR ORDER"): Events · People · Shop · Memories · Discover.
+  const four = ['Events', 'People', 'Memories', 'Discover'];
   assert.deepEqual(drawn({ ...COUPLE, discoverOpen: true }).labels, four);
-  assert.deepEqual(drawn({ ...OWNER, discoverOpen: true }).labels, [...four, 'Shop']);
+  assert.deepEqual(drawn({ ...OWNER, discoverOpen: true }).labels, ['Events', 'People', 'Shop', 'Memories', 'Discover']);
   assert.deepEqual(drawn({ ...TEAM_MEMBER, discoverOpen: true }).labels, four, 'a team member owns nothing — no Shop tab');
   assert.deepEqual(drawn({ ...INTERNAL, discoverOpen: true }).labels, four, 'Admin is never a tab');
 });
 
 test('📲 the app opens Discover, so it draws the web\'s bar — and a shell that refused `/` would drop only that tab', () => {
   // In the app now: Discover opens there (see the middleware test below), so the same four (five for an owner).
-  assert.deepEqual(drawn({ ...COUPLE, discoverOpen: true }).labels, ['Events', 'Discover', 'Memories', 'People']);
-  assert.deepEqual(drawn({ ...OWNER, discoverOpen: true }).labels, ['Events', 'Discover', 'Memories', 'People', 'Shop']);
+  assert.deepEqual(drawn({ ...COUPLE, discoverOpen: true }).labels, ['Events', 'People', 'Memories', 'Discover']);
+  assert.deepEqual(drawn({ ...OWNER, discoverOpen: true }).labels, ['Events', 'People', 'Shop', 'Memories', 'Discover']);
   // The rule itself is unchanged: where `/` does not open, no press to it is drawn.
-  assert.deepEqual(drawn({ ...COUPLE, discoverOpen: false }).labels, ['Events', 'Memories', 'People']);
-  assert.deepEqual(drawn({ ...OWNER, discoverOpen: false }).labels, ['Events', 'Memories', 'People', 'Shop']);
+  assert.deepEqual(drawn({ ...COUPLE, discoverOpen: false }).labels, ['Events', 'People', 'Memories']);
+  assert.deepEqual(drawn({ ...OWNER, discoverOpen: false }).labels, ['Events', 'People', 'Shop', 'Memories']);
 });
 
 test('the bar grid has exactly one column per tab it draws (3 · 4 · 5 re-spread, no blank slot)', () => {
@@ -103,8 +110,29 @@ test('every door is an existing one — and none is Admin or a floating Create, 
           assert.ok(!labels.some((l) => /admin|hq|spaces/i.test(l)), `a retired/forbidden tab word: ${labels.join(' · ')}`);
           assert.ok(!/create-event/.test(html), 'a Create control is back in the bar — Create lives on the board');
           assert.equal(hrefs[0], '/dashboard?hub=1', 'Events is the first tab, and keeps ?hub=1 (no auto-jump)');
+          // 🔁 THE ORDER (owner 2026-11-11): whatever subset is drawn, it reads in the ruled order, no tab out of place.
+          const RULED = ['Events', 'People', 'Shop', 'Memories', 'Discover'];
+          assert.deepEqual(
+            labels,
+            RULED.filter((l) => labels.includes(l)),
+            `the bar reads ${labels.join(' · ')} — the ruled order is Events · People · Shop · Memories · Discover`,
+          );
         }
   assert.equal(combos, 16);
+});
+
+test('🔦 the account-bar tour walks the bar\'s tabs in the bar\'s own order', () => {
+  // The spotlight lights `tab-<last path segment>` stops; a reorder of the bar that left the tour walking the old
+  // order would hop the light back and forth along the bar (owner 2026-11-11, "THE ACCOUNT BAR ORDER").
+  const { hrefs } = drawn({ ...OWNER, discoverOpen: true });
+  const barTokens = hrefs.map((h) => `tab-${h.split('?')[0]!.split('/').filter(Boolean).at(-1) ?? ''}`);
+  const tourTabs = TOURS.customer_account_bar_v2.spotlight!.steps.map((s) => s.anchor).filter((a) => a.startsWith('tab-'));
+  assert.ok(tourTabs.length >= 3, `the account-bar tour lights ${tourTabs.length} tabs — this guard reads nothing`);
+  assert.deepEqual(
+    tourTabs,
+    barTokens.filter((t) => tourTabs.includes(t)),
+    `the tour walks ${tourTabs.join(' → ')}, out of the bar's order (${barTokens.join(' · ')})`,
+  );
 });
 
 test('the slot loads the bar in its own chunk, server-rendered', () => {

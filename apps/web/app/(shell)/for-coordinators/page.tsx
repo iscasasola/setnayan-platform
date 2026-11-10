@@ -97,6 +97,9 @@ import {
   type FoldGroup,
 } from './_facts';
 import { readCoordinatorPrices } from './_prices.server';
+import { addonLines } from '@/app/for-suppliers/_components/plan-table-data';
+import { SupplierPlanTable } from '@/app/for-suppliers/_components/supplier-plan-table';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 
 import './_for-coordinators.css';
 
@@ -499,6 +502,7 @@ export default async function ForCoordinatorsPage() {
     { text: 'Dashboard access and invites' },
   ];
   const helperWord = countWord(FREE_HELPER_SEATS).toLowerCase();
+  const addOns = addonLines(prices.bySku).filter((a) => a.price !== 'Price unavailable');
 
   return (
     <div className="fc" id="fc-root">
@@ -1080,21 +1084,17 @@ export default async function ForCoordinatorsPage() {
                 <h3>Grow</h3>
                 <p>Pick the size that fits. Prices are per 4 weeks.</p>
                 <PlanTiers tiers={tiers} start="pro" />
-                {prices.branch || prices.seat ? (
+                {addOns.length > 0 ? (
                   <div className="fc-addons">
                     <p className="fc-ak">Bigger than {planName(addOnPlan)}? Add more.</p>
-                    {prices.branch ? (
-                      <p>
-                        <span>+1 branch</span>
-                        <b>{prices.branch}</b>
+                    {/* Lane J: every add-on the top plan may buy (owner 2026-11-06), from the SKU each one charges —
+                        it listed two of the six. Shared with /for-suppliers (`addonLines`). */}
+                    {addOns.map((a) => (
+                      <p key={a.kind}>
+                        <span>{a.label}</span>
+                        <b>{a.price}</b>
                       </p>
-                    ) : null}
-                    {prices.seat ? (
-                      <p>
-                        <span>+1 team seat</span>
-                        <b>{prices.seat}</b>
-                      </p>
-                    ) : null}
+                    ))}
                     <p className="fc-fine">Per 4 weeks. Only {planName(addOnPlan)} can add these.</p>
                   </div>
                 ) : null}
@@ -1112,12 +1112,24 @@ export default async function ForCoordinatorsPage() {
                 the event day.
               </p>
             </div>
+            {/* Lane J: the full side-by-side, the SAME table /for-suppliers draws (one plans widget, 2026-11-05). */}
+            <SupplierPlanTable
+              paywallOn={isVendorFeatureGateEnabled()}
+              prices={{
+                monthly: { solo: prices.plans.solo.month, pro: prices.plans.pro.month, enterprise: prices.plans.enterprise.month },
+                annual: { solo: prices.plans.solo.year, pro: prices.plans.pro.year, enterprise: prices.plans.enterprise.year },
+                bySku: prices.bySku,
+              }}
+            />
             <div className="fc-plans-cta">
               <Link className="fc-btn" href="/open-shop">
                 Open your shop free
               </Link>
               <InfoToggle id="fc-i13" label="About prices">
-                <p>Only Verified shops are shown in search. Couples pay you directly; Setnayan never holds a peso.</p>
+                <p>
+                  Verified shops are always shown in search. A shop still waiting for its papers is shown until its first
+                  inquiry. Couples pay you directly; Setnayan never holds a peso.
+                </p>
               </InfoToggle>
             </div>
           </div>

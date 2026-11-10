@@ -20,3 +20,9 @@ Left: the account slide's "Use another way · Sign in & claim" equal row; open-s
 `hq_address` write fix (section F/G of the prototype).
 
 SPEC IMPACT: None — builds the approved prototype and ruling.
+
+- **The button rule reaches onboarding (T19 guard extended).** `app/onboarding/every-onboarding-action-is-the-house-button.test.ts`
+  holds every component under `app/onboarding/**` and `app/open-shop/**` to its measured bare-`<button>` count (115 in
+  33 components on 10 Nov), per component, both ways: a rise fails naming the component, a new component may hold
+  none, a fall must be written down. `// button-ok: <why>` spares a control that is not an action (a day cell).
+  Sabotaged: a bare `<button>` in a new component → red, naming it. The count is the debt the next slices pay down.

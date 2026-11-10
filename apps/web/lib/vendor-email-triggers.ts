@@ -568,7 +568,7 @@ export async function sendWaitlistSlotOpenedEmail(
 
   const prettyDate = (() => {
     try {
-      return new Date(`${requestedDate}T00:00:00+08:00`).toLocaleDateString('en-PH', {
+      return new Date(`${requestedDate}T00:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
         weekday: 'long',
         year: 'numeric',
         month: 'long',

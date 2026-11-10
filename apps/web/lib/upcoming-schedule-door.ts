@@ -139,7 +139,8 @@ export function vendorThreadHref(threadId: string): string {
  * full-screen thread page. 🔒 lib/supplier-notices-open-the-picked-client.test.ts
  */
 export function supplierChatHref(eventId: string | null | undefined, threadId: string): string {
-  return eventId ? customerCardHref(eventId, 'chat') : vendorThreadHref(threadId);
+  // Written out (not via `customerCardHref`) so the email-link guard can read both pages from this body.
+  return eventId ? `/vendor-dashboard/clients/${eventId}?tab=chat` : `/vendor-dashboard/messages/${threadId}`;
 }
 
 /** What the rule needs to know about one booked date. */

@@ -21,3 +21,6 @@ Left: the date dropdown ("One date — or up to 4 · A flexible window · Not de
 simple / sign-up steps onto the shared parts.
 
 SPEC IMPACT: None — builds the approved prototype.
+
+- **Merged slice 1's Field-template fix forward:** "Event name" is `TypedRow boxed` (its address as the row's note),
+  not a second input; `lib/telemetry/flows.ts` `WEDDING_SCREENS` mirrors `FLOW_IDS` with `w_eventname`.

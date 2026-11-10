@@ -11,17 +11,20 @@ onboarding. Like the text of the names."* Step 0 rows 33–35; approved prototyp
 - **The formal name first.** `getSelfPersonalization` also reads `users.first_name` / `last_name`; the
   wedding page hands them to the shell as one `SelfName` (`couple-handoff.ts`), taken as written ("Maria
   Clara" + "dela Cruz" never splits on the first space), falling back to the display name as before.
-- **The shared step parts** — `app/onboarding/_shared/step-field.tsx`: `StepField` (label above, muted
-  "optional"), `StepInput` (48 px, radius 12, 14 px inner padding, 16 px text, Enter moves to the next
-  field, on the last presses Continue), `StepPick` (the house PickMenu at full width in the input's box),
-  `StepGroup` (the mono "Groom · you" caption).
+- **The names are the ONE Field template.** `TypedRow` (`app/_components/form-row.tsx`) gains a one-line `boxed`
+  look (T32): the name above, a 48 px box, radius 12, 14 px inner padding, 16 px text; open, the box keeps its shape
+  with ONE ✕ inside (Step 0 row 35's "two outlines and two ✕" was the inner clear + the outer leave-as-it-was ✕).
+  No second input: `app/onboarding/_shared/step-field.tsx` keeps only `StepField` (label above), `StepPick` (the
+  house PickMenu at full width in the same box), `StepRows` (FormRows inside the tab scope) and `StepGroup`.
+  `field-template.baseline.txt` shrinks by one (`wedding-cards.tsx` 1 → 0 raw boxes).
 - **Wedding 1 · Who's getting married?** on those parts: "Which one is you?" is the full-width dropdown,
   your side first, each name a labelled field; the serif "&" divider is gone.
 - **SetupFrame's title** is the template's 22 px / 600 house sans on every skin (no serif italic wedding
   title, no light serif) — every setup card, one look.
 - Guards: `app/onboarding/the-steps-wear-one-template.test.ts` (T32's missing guard — the parts' measurements;
-  per-step anchors for migrated steps, grows per slice), `lib/onboarding/the-picked-side-fills-from-the-account.test.ts`;
-  `lib/person-fields-carry-autofill.test.ts` now also reads `<StepInput`. Both new tests fail on origin/main.
+  per-step anchors for migrated steps, grows per slice; one ✕ in the open boxed field — sabotaged with a second ✕, red),
+  `lib/onboarding/the-picked-side-fills-from-the-account.test.ts`; `wedding-cards.render.test.ts` reads the rows as
+  TypedRows. Both new tests fail on origin/main.
 
 Left for the next slices: wedding "Name your wedding" step + required parts + "Not decided yet" inside the
 dropdowns (rows 36–37), the other steps onto the parts, then the open-shop notes (Claim it ⇒ Owner,

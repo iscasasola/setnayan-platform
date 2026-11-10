@@ -453,10 +453,16 @@ export function TypedRow({
   /** Bumped by the screen to open this row's field (a jump from elsewhere that lands ON this fact). 0 = never asked. */
   openAsk?: number;
   /**
-   * ✍ A LONG ANSWER SHOWN AS A BOX, AT REST TOO (`long` only — the guest card's notes, owner-approved prototype
-   * `guest_card_groups_and_papic_2026-10-23.html`): its name ABOVE, and the words in a multi-line box under it — the same box
-   * the open field is — instead of a one-line pill beside a name squeezed into a narrow column. A tap opens the field, as the
-   * pill does. Absent → the row is exactly as it was.
+   * ✍ AN ANSWER SHOWN AS A BOX, AT REST TOO: its name ABOVE, and the words in a box under it — the same box the open field
+   * is — instead of a pill beside a name squeezed into a narrow column. A tap opens the field, as the pill does.
+   *   · `long` (the guest card's notes, owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): a
+   *     multi-line box;
+   *   · one line (THE ONBOARDING STEP FIELD — Build 5 Lane P, owner 10 Nov: *"inconsistent design template on the
+   *     onboarding. Like the text of the names"*; HOUSE_TEMPLATES T32, prototype `onboarding_every_step_2026-11-10`): a
+   *     48 px box, radius 12, 14 px inner padding, 16 px text — the text never touches the edge. Open, the name stays
+   *     above and the box keeps its shape with ONE ✕ inside it (it empties the box; Esc leaves it as it was); Enter keeps
+   *     and goes on, as on every row.
+   * Absent → the row is exactly as it was.
    */
   boxed?: boolean;
   name: string;
@@ -705,6 +711,7 @@ export function TypedRow({
           inputMode={amount ? 'numeric' : inputMode}
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
+          boxed={boxed}
           entersAdd={Boolean(onEnter)}
           leaving={mode === 'leaving'}
           onwards={onwards}
@@ -712,6 +719,27 @@ export function TypedRow({
           onEnd={end}
           onGone={closed}
         />
+      ) : boxed && !long ? (
+        <div key={`box-${back}`} data-form-row-back={back > 0 ? '' : undefined} data-form-row-boxed="line" className="flex flex-col gap-[5px] pb-3 pt-2.5">
+          <RowName name={name} about={about} needed={needed} nameId={nameId} />
+          <button
+            className={`sn-press sn-press-ring flex h-12 w-full min-w-0 items-center gap-2 rounded-xl border bg-white px-[14px] text-left text-[16px] dark:bg-raised ${
+              wrong || failed ? 'border-danger-700' : needed ? 'border-sn-accent ring-[3px] ring-sn-accent/15' : 'border-ink/15'
+            }`}
+            ref={pill}
+            type="button"
+            {...pillAttrs}
+            data-form-row-pill="typed"
+            aria-label={`${name}: ${words || 'not set yet'}. Tap to change`}
+            aria-busy={state.kind === 'saving' || undefined}
+            onClick={open}
+          >
+            <span data-form-row-words="" className={`min-w-0 flex-1 truncate ${words ? 'text-ink' : 'text-ink/45'}`}>
+              {words || placeholder || empty}
+            </span>
+            {state.kind === 'saved' ? <Check aria-hidden data-form-row-mark="tick" className={`${MARK} text-success-700`} strokeWidth={2.6} /> : null}
+          </button>
+        </div>
       ) : long && boxed ? (
         <div key={`box-${back}`} data-form-row-back={back > 0 ? '' : undefined} data-form-row-boxed="" className="flex flex-col gap-2 pb-3 pt-2.5">
           <RowName name={name} about={about} needed={needed} nameId={nameId} />
@@ -793,6 +821,7 @@ export function FormRowField({
   inputMode,
   autoCapitalize,
   autoComplete,
+  boxed = false,
   entersAdd = false,
   leaving,
   onwards = false,
@@ -818,6 +847,8 @@ export function FormRowField({
   autoComplete?: string;
   /** ⏎ An add box (the row's `onEnter`): Enter is "go" — it keeps and adds, and never moves on to the next row. */
   entersAdd?: boolean;
+  /** The row's `boxed` one-line look (the onboarding step field): name above, a 48 px box, one ✕ inside. */
+  boxed?: boolean;
   leaving: boolean;
   onEnd: (exit: FieldExit, typed: string) => void;
   onGone: () => void;
@@ -946,6 +977,41 @@ export function FormRowField({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeys}
         />
+      </div>
+    );
+  }
+  if (boxed) {
+    /* 📐 THE ONBOARDING STEP FIELD, OPEN (T32): the name stays above, the box keeps the resting box's shape, and there is
+       ONE ✕ — inside, emptying the box (Step 0 row 35: "two outlines and two ✕ drawn over each other"). Esc leaves it as it
+       was; Enter and a tap-out keep it. */
+    return (
+      <div ref={wrap} data-form-row-field="boxed" data-leaving={leaving ? '' : undefined} onAnimationEnd={gone} className="sn-row-field flex flex-col gap-[5px] pb-3 pt-2.5">
+        <span id={nameId} className="text-[15px] font-medium leading-tight text-ink">
+          {name}
+        </span>
+        <span
+          data-form-row-box=""
+          className={`flex h-12 w-full min-w-0 items-center gap-1.5 rounded-xl border border-sn-accent bg-white pl-[14px] ${clears ? 'pr-1.5' : 'pr-[14px]'} dark:bg-raised ring-[3px] ring-sn-accent/15`} // no-card-ok: the open text field's own frame (its <input> sits inside with the ✕) — a control, never a container
+        >
+          <input
+            {...shared}
+            inputMode={inputMode}
+            enterKeyHint={entersAdd ? 'go' : onwards ? 'next' : 'done'}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={onKeys}
+          />
+          {clears ? (
+            <ClearButton
+              label={`Clear ${name}`}
+              data-form-row-clear=""
+              className="sn-press sn-hit flex h-full w-11 flex-none items-center justify-end bg-transparent p-0"
+              discClassName={FORM_ROW_CLEAR_DISC}
+              onClear={() => {
+                if (box.current) clearTyped(box.current);
+              }}
+            />
+          ) : null}
+        </span>
       </div>
     );
   }

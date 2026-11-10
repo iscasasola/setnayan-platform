@@ -8,30 +8,41 @@
  * names."* · HOUSE_TEMPLATES T32 (the onboarding step frame, open-shop v21) · the approved prototype
  * `prototypes/onboarding_every_step_2026-11-10/index.html` § "The template":
  *   · every field is LABELLED ABOVE (14 px / 500), a small muted word for "optional";
- *   · the shared input is 48 px, radius 12, 14 px inner padding — the text never touches the edge —
- *     16 px text; prefilled text is plain ink, a placeholder is muted;
+ *   · a typed answer is the ONE Field template — `TypedRow boxed` (`app/_components/form-row.tsx`): its name
+ *     above, a 48 px box, radius 12, 14 px inner padding — the text never touches the edge — 16 px text, ONE ✕
+ *     inside while typing, Enter keeps it. There is no second input here (lint:field-template);
  *   · every set of choices is ONE full-width dropdown with a chevron (`StepPick`, the house PickMenu
  *     wearing the input's box) — "Not decided yet" is a choice INSIDE it, never a third control;
  *   · two things of one kind stack, every control the width of the column;
- *   · Enter commits a field and moves to the next one; on the last field Enter is Continue.
+ *   · Tab (and a phone's "next") goes on to the next row inside the step's `StepRows` (TypedRow's own tab scope).
  *
  * ONE place for these parts: a step that writes its own `<input className=…>` or its own label style is
  * the drift the owner saw (the wedding names were "a different text style and sit against the box
  * edge"). `app/onboarding/the-steps-wear-one-template.test.ts` fails when a migrated step does.
  */
 
-import { forwardRef, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickArrowClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
 import type { PickMenuProps } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
+import { FORM_TAB_SCOPE, FormRows } from '@/app/_components/form-row';
 
-/** The box every onboarding input and dropdown wears: 48 px, radius 12, 14 px inner padding, 16 px text. */
+/** The dropdown's box (StepPick's trigger <button>): the same 48 px, radius 12, 14 px padding, 16 px text as `TypedRow boxed`. */
 export const STEP_BOX_CLASS =
-  'flex h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-ink/15 bg-paper px-[14px] text-base text-ink transition-colors duration-sn-control ease-sn dark:border-ink/20 dark:bg-raised';
+  'flex h-12 w-full min-w-0 items-center gap-2 rounded-xl border border-ink/15 bg-white px-[14px] text-base text-ink transition-colors duration-sn-control ease-sn dark:border-ink/20 dark:bg-raised'; // no-card-ok: the class of StepPick's dropdown trigger <button> (PickMenu draws it) — a pressable control, not a container
 
-/** The input itself: the box, a muted placeholder, the accent ring on focus. */
-export const STEP_INPUT_CLASS = `${STEP_BOX_CLASS} placeholder:text-ink/40 outline-none focus:border-sn-accent focus:ring-1 focus:ring-sn-accent`;
+/**
+ * The typed rows of a step: the house `FormRows` (one field open at a time) inside the tab scope, so Tab and a
+ * phone's "next" go from one `TypedRow boxed` to the next.
+ */
+export function StepRows({ children, attrs }: { children: ReactNode; attrs?: Readonly<Record<`data-${string}`, string>> }) {
+  return (
+    <div {...{ [FORM_TAB_SCOPE]: '' }}>
+      <FormRows attrs={attrs}>{children}</FormRows>
+    </div>
+  );
+}
 
 /** One labelled field: the label above (with an optional muted word), the control, one hint under it. */
 export function StepField({
@@ -68,48 +79,6 @@ export function StepGroup({ children }: { children: ReactNode }) {
     </p>
   );
 }
-
-/**
- * Enter commits the field and moves to the NEXT field of the step; on the last one it presses the step's
- * Continue (the first enabled `[data-step-continue]`, else the shell's `.btn-primary`). Shift+Enter is
- * left alone (a long text's new line). Exported so a test pins it.
- */
-export function enterMovesOn(e: KeyboardEvent<HTMLInputElement>): void {
-  if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-  const here = e.currentTarget;
-  const scope = here.closest('[data-setup-card]') ?? here.form ?? document.body;
-  const fields = Array.from(scope.querySelectorAll<HTMLInputElement>('input[data-step-input]:not([disabled])'));
-  const next = fields[fields.indexOf(here) + 1];
-  e.preventDefault();
-  if (next) {
-    next.focus();
-    return;
-  }
-  here.blur();
-  const go =
-    document.querySelector<HTMLButtonElement>('[data-step-continue]:not([disabled])') ??
-    document.querySelector<HTMLButtonElement>('.screen.active ~ * .btn-primary:not([disabled]), .btn-primary:not([disabled])');
-  go?.click();
-}
-
-/** The shared input. Every prop of a plain `<input>`; the class and Enter-moves-on come from here. */
-export const StepInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function StepInput(
-  { className = '', onKeyDown, ...props },
-  ref,
-) {
-  return (
-    <input
-      ref={ref}
-      {...props}
-      data-step-input=""
-      onKeyDown={(e) => {
-        onKeyDown?.(e);
-        if (!e.defaultPrevented) enterMovesOn(e);
-      }}
-      className={`${STEP_INPUT_CLASS} ${className}`}
-    />
-  );
-});
 
 /**
  * The one full-width dropdown: the house PickMenu (its list, its sheet on a phone, its keys) wearing the

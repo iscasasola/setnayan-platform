@@ -56,7 +56,7 @@ function tsxFiles(dir: string, out: string[] = []): string[] {
 /** Each `<input …>` / `<textarea …>` opening tag, brace- and quote-aware. */
 function elements(src: string): { attrs: string; line: number }[] {
   const out: { attrs: string; line: number }[] = [];
-  const re = /<(input|textarea|StepInput)\b/g; // StepInput = the onboarding shared input (Lane P)
+  const re = /<(input|textarea)\b/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) {
     let i = m.index + m[0].length;

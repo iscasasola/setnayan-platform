@@ -22,7 +22,8 @@
 
 import { useEffect, useState } from 'react';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
-import { StepField, StepGroup, StepInput, StepPick } from '@/app/onboarding/_shared/step-field';
+import { StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
+import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FAITH_REGISTRY, type FaithKey } from '@/lib/faith-registry';
 import { FEEL_PALETTES } from '@/lib/feel-palettes';
@@ -97,27 +98,29 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     // the partner's, and never over anything typed. The rows open once the pick is made.
     const side = weddingSelfSide(state.role);
     const sideWord = (k: WeddingSelfSide) => WEDDING_SELF_SIDES.find((o) => o.key === k)!.label;
-    // 📐 THE SHARED STEP PARTS (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
-    // Like the text of the names"): each name is a labelled field (label above, "optional" muted), the
-    // shared 48 px input with its inner padding — never a bespoke box whose text sits on the border.
-    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => (
-      <StepField label={label} small={req ? undefined : 'optional'} htmlFor={`w-names-${rowSide}-${token}`}>
-        <StepInput
-          id={`w-names-${rowSide}-${token}`}
-          aria-label={`${sideWord(rowSide)} — ${label}`}
+    // 📐 THE ONE FIELD TEMPLATE (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
+    // Like the text of the names"): each name is `TypedRow boxed` — its name above, the 48 px box with its
+    // 14 px inner padding, one ✕ while typing — never a bespoke box whose text sits on the border.
+    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => {
+      const write = (t: string) => patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      return (
+        <TypedRow
+          boxed
+          name={label}
+          value={value}
           placeholder={label}
+          empty={req ? label : 'Optional'}
+          required={req}
+          clean={nameOnly}
+          autoCapitalize="words"
           // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
           autoComplete={rowSide === side ? token : 'off'}
-          autoCapitalize="words"
-          enterKeyHint="next"
-          required={req}
-          value={value}
-          data-wedding-name-row={rowSide}
-          data-wedding-own-row={rowSide === side ? '' : undefined}
-          onChange={(e) => patch({ [key]: nameOnly(e.target.value), monogramFinalized: true } as Partial<OnboardingState>)}
+          attrs={rowSide === side ? { 'data-wedding-name-row': rowSide, 'data-wedding-own-row': '' } : { 'data-wedding-name-row': rowSide }}
+          onType={write}
+          onKeep={write}
         />
-      </StepField>
-    );
+      );
+    };
     const rows = (rowSide: WeddingSelfSide) => (
       <>
         <StepGroup>
@@ -125,15 +128,15 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
           {rowSide === side ? ' · you' : ''}
         </StepGroup>
         {rowSide === 'bride' ? (
-          <>
+          <StepRows>
             {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
             {field('bride', 'Last name', state.brideLastName, 'brideLastName', false, 'family-name')}
-          </>
+          </StepRows>
         ) : (
-          <>
+          <StepRows>
             {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
             {field('groom', 'Last name', state.groomLastName, 'groomLastName', false, 'family-name')}
-          </>
+          </StepRows>
         )}
       </>
     );

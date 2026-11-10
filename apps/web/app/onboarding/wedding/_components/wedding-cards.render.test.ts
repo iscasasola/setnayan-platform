@@ -5,6 +5,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import * as React from 'react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -71,9 +73,9 @@ test('🔑 names: "Which one is you?" comes first — no name rows until it is a
   assert.match(before, /Which one is you\?/);
   assert.match(before, /data-wedding-self/);
   assert.match(before, />Pick one</);
-  assert.ok(!/<input/.test(before), 'no name row is drawn before the pick');
+  assert.ok(!/data-wedding-name-row/.test(before), 'no name row is drawn before the pick');
   // an old draft's helper has not answered it either
-  assert.ok(!/<input/.test(await render('w_names', { role: 'helper' })));
+  assert.ok(!/data-wedding-name-row/.test(await render('w_names', { role: 'helper' })));
 });
 
 test('🔑 names: your row carries the name tokens; the partner’s row is empty with autofill off', async () => {
@@ -81,19 +83,30 @@ test('🔑 names: your row carries the name tokens; the partner’s row is empty
     const partner = side === 'bride' ? 'groom' : 'bride';
     const own = side === 'bride' ? { brideFirstName: 'Ice', brideLastName: 'Casasola' } : { groomFirstName: 'Ice', groomLastName: 'Casasola' };
     const html = await render('w_names', { role: side, ...own });
-    const rows = (s: string) => [...html.matchAll(new RegExp(`<input[^>]*data-wedding-name-row="${s}"[^>]*>`, 'g'))].map((m) => m[0]);
+    // Each name is a `TypedRow boxed` (the one Field template): at rest its words sit in the pill; the open field (with
+    // its autocomplete token) is drawn on a tap, so the token is pinned at the source below.
+    const rows = (s: string) =>
+      [...html.matchAll(new RegExp(`<div[^>]*data-wedding-name-row="${s}"[\\s\\S]*?data-form-row-words=""[^>]*>([^<]*)<`, 'g'))].map((m) => [m[0], m[1]] as const);
     const mine = rows(side);
     const theirs = rows(partner);
     assert.equal(mine.length, 2, side);
     assert.equal(theirs.length, 2, side);
-    assert.match(mine[0]!, /autoComplete="given-name"|autocomplete="given-name"/i, `${side}: own first name`);
-    assert.match(mine[1]!, /autocomplete="family-name"/i, `${side}: own last name`);
-    assert.match(mine[0]!, /value="Ice"/);
-    assert.match(mine[1]!, /value="Casasola"/);
+    assert.match(mine[0]![0], /data-wedding-own-row=""/, `${side}: your row is marked yours`);
+    assert.equal(mine[0]![1], 'Ice');
+    assert.equal(mine[1]![1], 'Casasola');
     for (const t of theirs) {
-      assert.match(t, /autocomplete="off"/i, `${side}: the partner's row keeps autofill off`);
-      assert.match(t, /value=""/, `${side}: the partner's row is not prefilled`);
+      assert.doesNotMatch(t[0], /data-wedding-own-row/, `${side}: the partner's row is not yours`);
+      assert.ok(!/Ice|Casasola/.test(t[1]), `${side}: the partner's row is not prefilled`);
     }
     assert.match(html, new RegExp(`${side === 'bride' ? 'Bride' : 'Groom'} · you`));
   }
+});
+
+test('🔑 names: the open field offers the phone’s saved name on your row only — autofill off on the partner’s', () => {
+  const cards = readFileSync(join(process.cwd(), 'app/onboarding/wedding/_components/wedding-cards.tsx'), 'utf8');
+  assert.match(cards, /autoComplete=\{rowSide === side \? token : 'off'\}/);
+  assert.match(cards, /'brideFirstName', true, 'given-name'\)/);
+  assert.match(cards, /'brideLastName', false, 'family-name'\)/);
+  assert.match(cards, /'groomFirstName', true, 'given-name'\)/);
+  assert.match(cards, /'groomLastName', false, 'family-name'\)/);
 });

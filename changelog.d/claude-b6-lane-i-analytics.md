@@ -18,8 +18,6 @@ The approved prototype `build6_makers_analytics_2026-11-10` ("Proposed · one An
   shipped off-season offer door, pre-filled) · `requote_expired`. Each fires only on a number its graph shows.
 - **Empty = the real picture with sample data, faded, "Example"** (`graph-sample.ts`); **refused = "Couldn’t load."** —
   never the Example, never a zero, never advice.
-- Deleted three dead `event_vendors` readers in `lib/vendor-funnel.ts` (`fetchVendorFunnelTotals`,
-  `fetchServiceBookedCount`, `fetchNullServiceBookedCount` — no callers since #7418) and their #7435 guard bills.
 - 🔒 `performance/every-graph-is-a-tile.test.ts` (sabotage-checked) · `lib/vendor-analytics-graphs.test.ts`;
   re-anchored `analytics-is-growing.test.ts` (recs take the graphs' options; unread is the tile's state).
 

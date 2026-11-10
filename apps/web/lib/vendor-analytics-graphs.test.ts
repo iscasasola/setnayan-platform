@@ -23,6 +23,7 @@ import {
   weekdayIndex,
 } from './vendor-analytics-graphs';
 import { buildGrowthRecs } from './vendor-growth-recs';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -157,7 +158,7 @@ test('the five new rules fire only on a number their graph shows — absent or u
 });
 
 test('the reads: event_vendors only on the admin client, every other table on the session, every refusal is null', () => {
-  const src = readFileSync(join(HERE, 'vendor-analytics-graphs.server.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const src = stripComments(readFileSync(join(HERE, 'vendor-analytics-graphs.server.ts'), 'utf8'));
   const evReads = [...src.matchAll(/\.from\(\s*'event_vendors'\s*\)/g)];
   assert.equal(evReads.length, 2, 'cardsell + replyvs read event_vendors');
   for (const m of evReads) assert.match(src.slice(Math.max(0, m.index! - 80), m.index!), /admin/, 'event_vendors must be read on the admin client');

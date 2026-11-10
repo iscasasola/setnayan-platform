@@ -228,7 +228,7 @@
 [data-growth] .ag-gtiles { display: grid; gap: 8px; margin-top: 8px; }
 @media (min-width: 900px) { [data-growth] .ag-gtiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 [data-growth] .ag-hero .ag-gtile { margin: 4px 0 0; }
-[data-growth] .ag-gtile { display: block; width: 100%; text-align: left; border: 1px solid var(--m-line); border-radius: 16px; background: var(--m-paper); padding: 12px 14px; position: relative; color: inherit; font: inherit; cursor: pointer; transition: border-color 160ms ease; }
+[data-growth] .ag-gtile { display: block; width: 100%; text-align: left; border: 1px solid var(--m-line); border-radius: var(--m-r-md); background: var(--m-paper); padding: 12px 14px; position: relative; color: inherit; font: inherit; cursor: pointer; transition: border-color 160ms ease; }
 [data-growth] .ag-gtile:active { border-color: rgb(var(--color-mulberry)); }
 [data-growth] .ag-gtile:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 [data-growth] .ag-th { display: flex; align-items: flex-start; gap: 8px; }
@@ -274,10 +274,10 @@
 
 /* the risen graph (inside the one RiseScreen — its own `[data-growth]` root, since the screen is drawn on <body>) */
 [data-growth].ag-risen { display: grid; gap: 14px; padding: 16px 16px 24px; }
-[data-growth] .ag-gbig { border: 1px solid var(--m-line); border-radius: 18px; background: var(--m-paper); padding: 14px; }
+[data-growth] .ag-gbig { border: 1px solid var(--m-line); border-radius: var(--m-r-md); background: var(--m-paper); padding: 14px; }
 [data-growth] .ag-gbig .ag-gp { margin-top: 12px; }
 [data-growth] .ag-gbig .ag-ln { margin: 10px 0 0; font-size: 14px; color: var(--m-slate); line-height: 1.4; }
-[data-growth] .ag-recbox { border: 1px solid var(--m-line); border-radius: 18px; background: var(--m-paper); padding: 14px; display: grid; gap: 10px; }
+[data-growth] .ag-recbox { border: 1px solid var(--m-line); border-radius: var(--m-r-md); background: var(--m-paper); padding: 14px; display: grid; gap: 10px; }
 [data-growth] .ag-rech { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.25; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 [data-growth] .ag-recbox .ag-ichip { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: var(--m-r-full); font-size: 11px; font-weight: 500; white-space: nowrap; }
 [data-growth] .ag-ps { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 10px; font-size: 14px; line-height: 1.4; color: var(--m-slate); margin: 0; }

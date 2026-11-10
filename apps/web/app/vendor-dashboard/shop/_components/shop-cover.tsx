@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -350,6 +351,14 @@ function CoverIcon({ label, icon, onClick, disabled = false, data }: { label: st
   );
 }
 
+/**
+ * The Share door's three presses — Copy · Save · Share — are ONE shape at ONE width (T19, the Button Rule: owner 9 Nov
+ * "buttons uniform, rows balanced"; Build 5 · Lane A slice 2 — they were three odd-width chips). Each sits at the end of
+ * its own row, so they line up as one column of equal pills.
+ */
+const SHARE_DOOR_W = 'w-[7.25rem] shrink-0';
+export const SHARE_DOOR_PRESS = actionButtonClass('neutral', { extra: SHARE_DOOR_W });
+
 /** 🔗 Share (v96): Copy your link · Photo card · the phone's share sheet. Nothing to read — browser-only. */
 function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | null; name: string; onClose: () => void }) {
   const toast = useToast();
@@ -361,7 +370,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
             <b className="block text-[14.5px] font-medium text-ink">Copy your link</b>
             <span className="block truncate text-[12.5px] text-ink/60">{url.replace(/^https?:\/\//, '')}</span>
           </span>
-          <CopyButton value={url} label="Copy" copiedLabel="Copied" className="inline-flex h-9 items-center gap-1 rounded-full bg-ink/[0.06] px-3 text-[13px] font-medium text-ink" />
+          <CopyButton value={url} label="Copy" copiedLabel="Copied" className={SHARE_DOOR_PRESS} />
         </div>
         {slug ? (
           <div className="flex items-center justify-between gap-3 py-3">
@@ -369,8 +378,13 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
               <b className="block text-[14.5px] font-medium text-ink">Photo card</b>
               <span className="block text-[12.5px] text-ink/60">A ready image for Facebook and Instagram</span>
             </span>
-            <SaveFileLink href={shopPhotoCardPath(slug)} filename={`${slug}-card.png`} className="inline-flex h-9 items-center rounded-full bg-ink/[0.06] px-3 text-[13px] font-medium text-ink">
-              {(s) => (s === 'saving' ? 'Saving…' : 'Save')}
+            <SaveFileLink href={shopPhotoCardPath(slug)} filename={`${slug}-card.png`} className={SHARE_DOOR_PRESS} data-share-door-save="">
+              {(s) => (
+                <>
+                  <Share aria-hidden strokeWidth={1.9} />
+                  <span className="lbl">{s === 'saving' ? 'Saving…' : 'Save'}</span>
+                </>
+              )}
             </SaveFileLink>
           </div>
         ) : null}
@@ -379,18 +393,17 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
             <b className="block text-[14.5px] font-medium text-ink">Send to a couple</b>
             <span className="block text-[12.5px] text-ink/60">Opens your phone&rsquo;s share sheet</span>
           </span>
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-1 rounded-full bg-ink/[0.06] px-3 text-[13px] font-medium text-ink"
+          <ActionButton
+            tone="neutral"
+            icon={Share}
+            label="Share"
+            className={SHARE_DOOR_W}
             onClick={async () => {
               const r = await shareShopLink(url, name);
               if (r === 'copied') toast.success('Link copied.');
               else if (r === 'failed') toast.error('Couldn’t share just now — copy the link instead.');
             }}
-          >
-            <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Share
-          </button>
+          />
         </div>
       </div>
     </RiseScreen>

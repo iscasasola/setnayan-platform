@@ -36,6 +36,7 @@ import {
   useLayoutEffect,
   type ComponentType,
   type MouseEventHandler,
+  useRef,
   type ReactElement,
   type ReactNode,
   type RefObject,
@@ -317,4 +318,23 @@ export function useFitRow(ref: RefObject<HTMLElement | null>): void {
       window.removeEventListener('resize', run);
     };
   }, [run, ref]);
+}
+
+/* ─── EqualRow — rule 5, EQUAL-WEIGHT CHOICES AT EQUAL WIDTHS ─────────────────
+ * HOUSE_TEMPLATES T19 (owner 9 Nov, memory `buttons-uniform-rows-balanced`: "uniform buttons, equal-weight choices at
+ * equal widths"; DECISION_LOG 2026-11-10 🔘 "UNIFORM ACTIONBUTTONS"): the choices sit in ONE row and every cell is the
+ * same width — a grid of equal columns, each button filling its cell (an icon-only one too, `[data-equal-row] > .ab`
+ * in globals.css), never a full-width button over odd-width pills. The row fits as ONE (`useFitRow`): icon + word →
+ * word → icons on the secondaries, never a mix. The one shape for every such row (the chat cards' `EqualRow` is this).
+ * 🔒 lib/equal-weight-choices-sit-at-equal-widths.test.ts */
+export const EQUAL_ROW_CLASS = 'grid auto-cols-fr grid-flow-col gap-2';
+
+export function EqualRow({ children, className, data }: { children: ReactNode; className?: string; data?: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useFitRow(ref);
+  return (
+    <div ref={ref} className={className ? `${EQUAL_ROW_CLASS} ${className}` : EQUAL_ROW_CLASS} data-equal-row={data ?? ''}>
+      {children}
+    </div>
+  );
 }

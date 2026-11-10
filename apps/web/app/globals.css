@@ -10141,6 +10141,11 @@ input.sn-switch:focus-visible {
 .ab.icon-only .lbl { display: none; }
 /* 3a's middle state — a row too narrow for icon + word shows words only. */
 .ab.word-only svg { display: none; }
+/* T19 rule 5 — an EqualRow's cells are equal, so each button fills its cell, an icon-only one too (`EqualRow`,
+   components/action-button.tsx). Written after `.icon-only` and one class stronger, so the fit pass never shrinks a
+   cell's button back to 40 px. 🔒 lib/equal-weight-choices-sit-at-equal-widths.test.ts */
+[data-equal-row] > .ab,
+[data-equal-row] > .ab.icon-only { width: 100%; min-width: 0; }
 /* ── THE LINK FORM PRESSES AT 44 TOO (2026-10-13, controller sweep) ──────────
  * A `<button class="ab">` paints 44 tall (the base layer's `button { min-height:
  * 44px }` outranks `height: 40px`); an `<a class="ab">` — ActionButton with

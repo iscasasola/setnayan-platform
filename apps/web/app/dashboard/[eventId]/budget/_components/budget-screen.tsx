@@ -67,6 +67,7 @@ import {
 import type { CostCategoryOption } from '@/lib/event-costs';
 import { formatCount } from '@/lib/format-number';
 import { BudgetSummary, Peso } from './budget-summary';
+import { BudgetExample } from './budget-example';
 import styles from './budget-page.module.css';
 import { useRidingRow } from '@/app/_components/typing-band';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
@@ -242,6 +243,10 @@ export function BudgetScreen({
           retrying={retrying}
         />
       </div>
+
+      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): all three groups READ and empty → the books filled, faded, under "Example".
+          A refused group is `null` and never reaches this. */}
+      {list.suppliers?.length === 0 && list.orders?.length === 0 && list.expenses?.length === 0 ? <BudgetExample /> : null}
 
       {/* The thumb row: fixed over the list, in the lower third. Portalled to
           <body> — inside the dashboard a transformed ancestor would capture a

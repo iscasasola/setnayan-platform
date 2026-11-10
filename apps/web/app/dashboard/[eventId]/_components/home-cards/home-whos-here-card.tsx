@@ -36,6 +36,8 @@ import {
 import { useEventTeamPresence } from '../event-team-presence';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
 import { formatCount } from '@/lib/format-number';
+import { ExamplePreview } from '@/app/_components/states/empty-state';
+import { SAMPLE_TEAM } from '@/lib/empty-look-samples';
 
 /** The guest's card — loaded on the first tap, never with Home. */
 const GuestSheet = dynamic(() => import('./home-whos-here-guest-sheet'), { ssr: false });
@@ -181,6 +183,23 @@ export function HomeWhosHereCard({
               </li>
             ))}
           </ul>
+        ) : null}
+        {/* 👻 THE EMPTY LOOK (Build 5 Lane H): presence ANSWERED and nobody else is here — the same faces on the sample
+            team, greyed under "Example". Never while joining, off or failed (those say so above). */}
+        {teamState === 'live' && peers && peers.length === 0 ? (
+          <ExamplePreview className="mt-1">
+            <ul className="flex flex-wrap gap-x-4 gap-y-2">
+              {SAMPLE_TEAM.map((p) => (
+                <li key={p.name} className="flex min-w-0 items-center gap-2">
+                  <FaceWithDot name={p.name} photo={null} now />
+                  <span className="min-w-0 leading-tight">
+                    <span className="block truncate text-[13.5px] font-medium">{p.name}</span>
+                    <span className="block truncate text-[11.5px] text-ink/55">{p.role} · Active now</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </ExamplePreview>
         ) : null}
       </div>
 

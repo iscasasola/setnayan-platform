@@ -108,7 +108,11 @@ import { fileURLToPath } from 'node:url';
 // unallow). A scan of every "use server" export found none that nothing references, so nothing could be un-exported in
 // trade. No fresh `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's
 // production build; read that job before merging.
-export const CEILING = 1241;
+// 1241 → 1242 (2026-11-12, Build 6 Lane D — the Offer Maker): ONE dispatcher (`offerMaker` in
+// app/vendor-dashboard/offers/actions.ts: load · save · switch · remove) instead of the four exports it would have been.
+// Main reached 1241 on its own the same day; no unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1242;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

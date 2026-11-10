@@ -181,6 +181,12 @@ export default async function PerformanceHome({
   const role = await resolveVendorRole(supabase, user.id);
   if (!canManageVendor(role)) redirect('/vendor-dashboard');
 
+  // 📊 THE BOOKED STAGE IS READ ON THE ADMIN CLIENT (audit 2026-11-10, C2). `event_vendors` has NO vendor SELECT
+  // policy, so every funnel/booked reader below answered Booked = 0 on this shop's session, drawn as a real number.
+  // Scoped by `profile.vendor_profile_id`, resolved above from the shop's own session — the sanctioned shape in
+  // `app/vendor-dashboard/a-shop-cannot-read-its-own-booking.test.ts`, which now checks these call sites too.
+  const bookingsAdmin = createAdminClient();
+
   // ── Tier gating (flag-dark). Resolve tier up front so a free/verified vendor
   //    short-circuits to the upsell WITHOUT running the full data batch.
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
@@ -241,9 +247,9 @@ export default async function PerformanceHome({
   // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
   // 🌱 Analytics, growing (owner-approved 6 Nov 2026): the 12-month figures are read the SAME honest way, so the pinned
   // row, the sentence and the funnel follow the ONE window — the old 365-day read folded a refusal into zeros.
-  const pinNowRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
-  const pinSince60Read = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
-  const pinYearRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
+  const pinNowRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
+  const pinSince60Read = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
+  const pinYearRead = fetchVendorFunnelTotalsResult(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)).catch(() => ({ totals: null, error: null }));
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
   const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
@@ -349,13 +355,13 @@ export default async function PerformanceHome({
     // INSTANTLY client-side (no refetch). Shop-level (views/inquiries/quotes carry no service_id). Pro+ only.
     // A REJECTED read is `null` ("Couldn’t load"), never `[]` ("none yet").
     canAdvanced
-      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), null, 'booked_by_source_year')
+      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(365)), null, 'booked_by_source_year')
       : Promise.resolve([]),
     canAdvanced
       ? safeRead<SourceSlice[] | null>(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(365)), null, 'views_by_source_year')
       : Promise.resolve([]),
     canAdvanced
-      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), null, 'booked_by_source_day')
+      ? safeRead<SourceSlice[] | null>(fetchBookedBySource(bookingsAdmin, profile.vendor_profile_id, isoDaysAgo(30)), null, 'booked_by_source_day')
       : Promise.resolve([]),
     canAdvanced
       ? safeRead<SourceSlice[] | null>(fetchViewsBySource(supabase, profile.vendor_profile_id, isoDaysAgo(30)), null, 'views_by_source_day')

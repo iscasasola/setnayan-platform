@@ -63,3 +63,18 @@ Owner-approved 6 Nov 2026 (prototype `analytics-proto/index.html`, claude.ai/art
   - Shrunk: `every-fold-reveals-on-open.baseline.txt`, because the funnel no longer hand-rolls a fold.
 
 SPEC IMPACT: None — the screen is #7338's owner-approved design (6 Nov); the ONE BUILD spec's line "#7338 (replaced)" is the controller's to update.
+
+## 2026-11-10 · fix(analytics): #7418 brought onto main and made green (Build 6 Lane I, item 1)
+
+- Merged `origin/main` (129 commits, clean).
+- **The Booked stage reads on the admin client** (conforms to #7435, audit C2): `performance/page.tsx` makes
+  `bookingsAdmin = createAdminClient()` beside the role check and hands it to the five `event_vendors` funnel reads
+  (`fetchVendorFunnelTotalsResult` ×3 · `fetchBookedBySource` ×2), scoped by the shop id resolved from the session.
+  `event_vendors` has no vendor SELECT policy, so on the session these answered Booked = 0, drawn as a real number.
+- Regenerated the two generated files the PR left red on purpose: `lib/ugat/screens.generated.json` (the two lines
+  #7338 changed) and `scripts/port-control-baseline.json`.
+- ⚠ For whoever merges second of #7418 / #7435: #7435's `LIB_READERS` lists `fetchVendorFunnelTotals`,
+  `fetchServiceBookedCount` and `fetchNullServiceBookedCount`; this page no longer calls them, so their three lines
+  must be deleted ("has no callers left").
+
+SPEC IMPACT: None.

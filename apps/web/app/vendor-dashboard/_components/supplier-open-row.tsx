@@ -21,11 +21,19 @@
  *   · NO REQUEST ON OPEN: every body arrives with the page's ONE batched read; opening a row only moves it.
  *
  * Outside a `SupplierOpenScope` (an event day, a new shop's Today, a test) a row is exactly the plain `Fold`.
+ *
+ * ⤴ `rise` — BELOW 701 THE ROW RISES FULL SCREEN instead of opening under itself (Build 5 · Lane A slice 2; owner
+ * 10 Nov on a Clients row, *"The event did not grow fullscreen as planned"*; DECISION_LOG 2026-11-10 "RISE FULL SCREEN
+ * IS THE NAME; FULL SCREEN EVERYTHING"; HOUSE_TEMPLATES T4). The same head (its arrow ›), the same body — drawn ONCE
+ * (shut: in the fold's inert body; risen: inside the shipped `RiseScreen`): it grows out of the row, the bars slide away, ✕ / Esc / Back fall back into the row
+ * and the list is on the same pixel. From 701 it still opens in the right column (the wide Rise is Lane R's owner pick).
  * 🔒 app/vendor-dashboard/_components/a-supplier-row-opens-beside-itself.test.ts
+ * 🔒 app/vendor-dashboard/customers/a-client-row-rises-full-screen.test.ts
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Fold } from '@/app/_components/fold';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { SupplierColumns } from './supplier-columns';
 
 /** Where the right column starts — the frame's own line (`supplier-frame.css`, `.sn-cols` from 701). */
@@ -145,6 +153,7 @@ export function SupplierOpenRow({
   data,
   defaultOpen = false,
   lineWrap = false,
+  rise = false,
   children,
 }: {
   /** Unique within the page — the row's handle (`data-open-row`). */
@@ -168,10 +177,14 @@ export function SupplierOpenRow({
   defaultOpen?: boolean;
   /** The row's line takes two lines before it is cut (a line that carries money — Customers › Events). */
   lineWrap?: boolean;
+  /** ⤴ Below 701 the row rises full screen (`RiseScreen`) instead of opening under itself. Absent → as it was. */
+  rise?: boolean;
   /** What opening shows — drawn by the page, with its answers. */
   children: ReactNode;
 }) {
   const scope = useContext(OpenScope);
+  // ⤴ Risen: a row a link names is up from the first paint (it simply appears — no tap behind it).
+  const [risen, setRisen] = useState(rise && defaultOpen);
   // A row a link names is open from the FIRST paint (the server's too) — not one frame later.
   const [arriving, setArriving] = useState(defaultOpen);
   const seeded = useRef(false);
@@ -181,6 +194,48 @@ export function SupplierOpenRow({
     if (defaultOpen) scope.open(id);
     setArriving(false);
   }, [scope, defaultOpen, id]);
+
+  // A risen row on a window that grows past 701 moves into the right column — never risen AND beside.
+  const wideNow = Boolean(scope?.wide);
+  useEffect(() => {
+    if (!rise || !wideNow || !risen) return;
+    setRisen(false);
+    scope?.open(id);
+  }, [rise, wideNow, risen, scope, id]);
+
+  // ⤴ THE RISE (phone): the row's head opens the one full screen; the fold itself never opens — the body is drawn ONCE,
+  // in the shut fold until it rises, then inside the screen. From 701 a scoped row keeps its right column (below).
+  if (rise && !scope?.wide) {
+    return (
+      <div data-open-row={id} data-open-rises="">
+        <Fold
+          title={title}
+          titleNode={titleNode}
+          line={line ?? ''}
+          wrap
+          lineWrap={lineWrap}
+          lead={lead}
+          aside={aside}
+          endPress={endPress}
+          data={data}
+          rises
+          open={false}
+          onOpenChange={(next) => next && setRisen(true)}
+        >
+          {/* Shut, the body waits in the fold's shut (inert, hidden) body, as every row's does — the page's one read, in
+              the HTML. Risen, it MOVES into the screen: never in both. */}
+          {risen ? null : children}
+        </Fold>
+        {risen ? (
+          <RiseScreen title={paneTitle ?? title} line={line} onClose={() => setRisen(false)} data={data ?? id}>
+            <div className="px-4 pt-1" data-open-risen={id}>
+              {children}
+            </div>
+          </RiseScreen>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!scope) {
     return (

@@ -20,8 +20,8 @@
  * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD, v113): the Next card and its three numbers are retired — the first screen is
  * the cover (greeting the SHOP, its ⚙), Next events, the five stats and Needs you today. The same claims on what is
  * drawn now: every craft's words · "to come in" is the booked total less what is confirmed · an unread payday says
- * "couldn't load" · on an event day the photo card says Today · the first taps are the cover's ⚙, then the next
- * event's card (A2 §3 table).
+ * "couldn't load" · on an event day the photo card says Today · the first tap is the next event's card, and the ONE ⚙
+ * rides the pinned Needs-you-today row (10 Nov — it left the cover).
  *
  * 🪤 `globalThis.React` before the DYNAMIC import — tsconfig sets
  * `"jsx": "preserve"`, so components compile to bare `React.createElement`.
@@ -142,15 +142,18 @@ test('on an event day the photo card says Today — in words that fit every craf
   assert.doesNotMatch(card, /on-the-day/, 'the card opens the live console instead of the client’s Hub page');
 });
 
-// ── 🔒 THE FIRST TAPS: THE COVER'S ⚙, THEN THE NEXT EVENT ─────────────────────
+// ── 🔒 THE FIRST TAPS: THE NEXT EVENT — THE ⚙ RIDES THE PINNED "NEEDS YOU TODAY" ROW ─────
+// DECISION_LOG 2026-11-10 📌: the cover scrolls away and "the ⚙ moves onto the pinned Needs you today row, at its
+// right end" — so the first tap is the next event's card, and the ONE ⚙ sits in the Needs-you-today heading.
 
-test('the first taps on Today are the cover’s ⚙, then the next event’s card', async () => {
+test('the first tap on Today is the next event’s card; the one ⚙ is on the pinned Needs-you-today row', async () => {
   const html = await render();
   const taps = [...html.matchAll(/<(a|button)\b[^>]*>/g)].map((m) => m[0]);
   assert.ok(taps.length >= 3, 'anti-vacuity: nothing tappable was drawn');
-  assert.match(taps[0]!, /aria-label="Today settings"/, `the first tap is not the cover’s ⚙: ${taps[0]}`);
-  assert.match(taps[1]!, /data-today-next-event="e1"/, `the second tap is not the next event: ${taps[1]}`);
+  assert.match(taps[0]!, /data-today-next-event="e1"/, `the first tap is not the next event: ${taps[0]}`);
   assert.equal(taps.filter((t) => /aria-label="Today settings"/.test(t)).length, 1, 'more than one ⚙ on Today');
+  const pin = html.slice(html.indexOf('data-today-needs-pin'), html.indexOf('data-today-needs-rows'));
+  assert.match(pin, /aria-label="Today settings"/, 'the ⚙ is not on the pinned Needs-you-today row');
 });
 
 test('Today renders the first screen before anything tappable on the page', () => {

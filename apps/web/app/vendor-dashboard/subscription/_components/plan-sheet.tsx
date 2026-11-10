@@ -93,14 +93,20 @@ function LimitRow({ l, compare }: { l: LimitChange; compare: boolean }) {
   );
 }
 
-function PayRow({ title, line, amount }: { title: string; line: string; amount: string | null }) {
+/** `pesos` is a catalogue amount (formatted here, with its commas); `cycle` the term it buys ("/ 28 days"). */
+function PayRow({ title, line, pesos, cycle }: { title: string; line: string; pesos: number | null; cycle?: Cycle }) {
   return (
     <div className="flex min-h-11 items-center gap-3 border-t border-ink/10 py-1.5" data-plan-pay-row="">
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-ink">{title}</span>
         <span className="block text-[12.5px] text-ink/60">{line}</span>
       </span>
-      {amount ? <b className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">{amount}</b> : null}
+      {pesos !== null ? (
+        <b className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">
+          {formatPhp(pesos)}
+          {cycle ? ` / ${CYCLE_WORD[cycle]}` : ''}
+        </b>
+      ) : null}
     </div>
   );
 }
@@ -246,10 +252,10 @@ export function PlanSheet({
                               ? `On ${expiresOn} to stay on ${p.name} · nothing renews by itself`
                               : `To stay on ${p.name} · nothing renews by itself`
                         }
-                        amount={onGift && !keepGift ? formatPhp(0) : price !== undefined ? formatPhp(price) : null}
+                        pesos={onGift && !keepGift ? 0 : price !== undefined ? price : null}
                       />
                     ) : (
-                      <PayRow title="What you pay" line={p.pickLine} amount={null} />
+                      <PayRow title="What you pay" line={p.pickLine} pesos={null} />
                     )}
                     {tooShort ? <p className="pt-2 text-[13px] text-ink/70">{tooShort}</p> : null}
                     {(!onGift || keepGift) && p.paid ? <div className="pt-3">{button(p, 'renew')}</div> : null}
@@ -273,22 +279,23 @@ export function PlanSheet({
                       <p className="hc-k2">What you pay</p>
                       <div className="pt-2">
                         {!p.paid ? (
-                          <PayRow title="Nothing to pay" line={p.pickLine} amount={null} />
+                          <PayRow title="Nothing to pay" line={p.pickLine} pesos={null} />
                         ) : price === undefined ? (
-                          <PayRow title="Not sold on this cycle right now" line="Pick the other one above" amount={null} />
+                          <PayRow title="Not sold on this cycle right now" line="Pick the other one above" pesos={null} />
                         ) : tooShort ? (
-                          <PayRow title="Pick a longer term" line={tooShort} amount={null} />
+                          <PayRow title="Pick a longer term" line={tooShort} pesos={null} />
                         ) : (
                           <>
                             <PayRow
                               title="Today"
                               line={today?.line ?? p.pickLine}
-                              amount={today && today.amount !== null ? formatPhp(today.amount) : null}
+                              pesos={today && today.amount !== null ? today.amount : null}
                             />
                             <PayRow
                               title="Then"
                               line={`${EVERY_WORD[cycle]}${dir === 'down' && expiresOn ? ` from ${expiresOn}` : ''}`}
-                              amount={`${formatPhp(price)} / ${CYCLE_WORD[cycle]}`}
+                              pesos={price}
+                              cycle={cycle}
                             />
                           </>
                         )}

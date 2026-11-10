@@ -18,6 +18,7 @@
  *
  * PURE: no I/O. 🔒 lib/locks.test.ts
  */
+import { formatCount } from './format-number';
 import { asVendorTier, isTierAtLeast, type VendorTier } from './vendor-tier-caps';
 
 export type LockOpens = 'verified' | Exclude<VendorTier, 'free' | 'verified'>;
@@ -156,6 +157,6 @@ export function canUse(key: LockKey, shop: LockShop): CanUse {
 /** "2 of 4 papers in · then a short call" — the verify lock's progress, from the shipped four-paper count. */
 export function papersProgress(input: { done: number; of: number } | null): string {
   if (!input) return 'Couldn’t read your papers — open Get verified to see them';
-  if (input.done >= input.of) return `All ${input.of} papers in · Setnayan checks them, then a short call`;
-  return `${input.done} of ${input.of} papers in · then a short call`;
+  if (input.done >= input.of) return `All ${formatCount(input.of)} papers in · Setnayan checks them, then a short call`;
+  return `${formatCount(input.done)} of ${formatCount(input.of)} papers in · then a short call`;
 }

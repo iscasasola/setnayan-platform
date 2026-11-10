@@ -14,7 +14,7 @@ import {
   FREE_SPECIALIZATION_SETS,
   SPECIALIZATION_MIN_TIER,
   VENDOR_SPECIALIZATIONS,
-  resolveVendorSpecializationAccess,
+  resolveVendorSpecializationAccess as resolveForProduction,
   specializationFreeWindowActive,
   specializationSetForServices,
   specializationSetsForServices,
@@ -27,6 +27,18 @@ import {
 } from './vendor-specialization-gate';
 import { VENDOR_TIERS, type VendorTier } from './vendor-tier-caps';
 import { MUSIC_CANONICALS } from './songs';
+
+/**
+ * 🧰 THE PAYWALL FIXTURE. Since 2026-11-09 (owner, Build 4 — the free tier of Specialized tools: Scanner,
+ * Headcount, Run of show, Emcee script, Song Desk, Floor Command + March, Live Watch) EVERY specialization set
+ * is free, so production has no paid set left. The paywall mechanism below — the Solo floor, lapse, the free
+ * window, "locked holds nothing" — still exists for the next paid set, so these tests keep exercising it
+ * against the pre-ruling free set (the floor-command desk only). `resolveForProduction` is the gate exactly as
+ * the console calls it; the 🆓 tests below use it to pin what production does now.
+ */
+const PAYWALL_FIXTURE_FREE_SETS: ReadonlySet<VendorSpecializationSet> = new Set<VendorSpecializationSet>(['floor_command']);
+const resolveVendorSpecializationAccess: typeof resolveForProduction = (input) =>
+  resolveForProduction({ freeSets: PAYWALL_FIXTURE_FREE_SETS, ...input });
 
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0); // 2026-07-26T12:00:00Z
 const FUTURE = new Date(NOW + 30 * 864e5).toISOString();
@@ -158,8 +170,33 @@ test('TIERS BELOW THE FLOOR (free, verified) → generic kit only', () => {
 
 // ─── 🆓 The coordinator's day-of desk is free (owner 2026-11-04 / 2026-11-05: "keep it free") ──
 
-test('only the floor-command desk is free — the song desk and script & cues keep the Solo floor', () => {
-  assert.deepEqual([...FREE_SPECIALIZATION_SETS], ['floor_command']);
+test('🆓 every set is free since 2026-11-09 — Song Desk and Emcee script joined the floor-command desk', () => {
+  // Owner, Build 4 ("BUILD 4 ANSWERS"): Song Desk and Emcee script (Script & cues) are in the free tier.
+  // Until then this test pinned ['floor_command'] and said the other two "keep the Solo floor".
+  assert.deepEqual([...FREE_SPECIALIZATION_SETS].sort(), ['floor_command', 'song_desk', 'stage_script']);
+  for (const def of VENDOR_SPECIALIZATIONS) {
+    assert.ok(FREE_SPECIALIZATION_SETS.has(def.id), `${def.id} is a specialization the free tier left paid`);
+  }
+});
+
+test('🆓 in production a Free band, a Free host and a Free coordinator each hold their desk', () => {
+  for (const [services, set] of [[BAND, 'song_desk'], [HOST, 'stage_script'], [COORDINATOR, 'floor_command']] as const) {
+    for (const subscription of [null, sub('free'), sub('verified'), sub('pro', PAST)]) {
+      const access = resolveForProduction({ subscription, services, now: NOW, freeUntilIso: null });
+      assert.equal(access.reason, 'free_set', `${set} · ${subscription?.tier_state ?? 'none'}`);
+      assert.equal(holdsSpecialization(access, set), true, `${set} · ${subscription?.tier_state ?? 'none'}`);
+    }
+  }
+});
+
+test('🆓 in production a Free band that also coordinates holds BOTH desks', () => {
+  const access = resolveForProduction({
+    subscription: sub('free'),
+    services: [...BAND, ...COORDINATOR],
+    now: NOW,
+    freeUntilIso: null,
+  });
+  assert.deepEqual([...access.unlockedSets].sort(), ['floor_command', 'song_desk']);
 });
 
 test('a COORDINATOR on any tier, or none, holds the floor-command desk — no Solo needed', () => {
@@ -179,7 +216,7 @@ test('a lapsed coordinator keeps the floor-command desk mid-event', () => {
   assert.equal(access.reason, 'free_set');
 });
 
-test('a free band that also coordinates gets the floor, never the paid song desk', () => {
+test('(paywall fixture) a free band that also coordinates gets the floor, never a PAID song desk', () => {
   const access = resolveVendorSpecializationAccess({
     subscription: sub('free'),
     services: [...BAND, ...COORDINATOR],

@@ -57,12 +57,20 @@ function useSlimPin(on: boolean, depth: number) {
     pin.setAttribute('data-fold-pin', inner ? 'inner' : 'page');
     pin.style.top = inner ? `${offset}px` : `calc(var(--sn-pin-top, 0px) + ${offset}px)`;
     // A pinned head needs a ground, or the rows scroll through it: the nearest painted background above it.
-    let bg = '';
-    for (let el: HTMLElement | null = root; el && !bg; el = el.parentElement) {
-      const c = getComputedStyle(el).backgroundColor;
-      if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) bg = c;
-    }
-    pin.style.backgroundColor = bg || 'var(--sn-canvas)';
+    // 🌙 Read again when the theme flips (Build 3 empty modes, 9 Nov): the copy is a computed colour, so a head pinned
+    // in light kept its white after `html.dark` arrived — a white bar over Today's open setup step.
+    const ground = () => {
+      pin.style.backgroundColor = '';
+      let bg = '';
+      for (let el: HTMLElement | null = root; el && !bg; el = el.parentElement) {
+        const c = getComputedStyle(el).backgroundColor;
+        if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) bg = c;
+      }
+      pin.style.backgroundColor = bg || 'var(--sn-canvas)';
+    };
+    ground();
+    const theme = new MutationObserver(ground);
+    theme.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     const leave = inner ? null : joinPinLine();
     let raf = 0;
     let slim = false;
@@ -86,6 +94,7 @@ function useSlimPin(on: boolean, depth: number) {
     window.addEventListener('resize', soon);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      theme.disconnect();
       document.removeEventListener('scroll', soon, { capture: true });
       window.removeEventListener('resize', soon);
       leave?.();

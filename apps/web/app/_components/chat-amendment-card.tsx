@@ -26,6 +26,7 @@ import {
   type AmendmentStatus,
 } from '@/lib/proposal-amendments';
 import { formatCount } from '@/lib/format-number';
+import { HOSTS_ONLY } from '@/lib/money-mask';
 
 export type AmendmentItemView = {
   item_id: string;
@@ -58,6 +59,12 @@ type Props = {
    * `lib/lock-freeze-copy.ts`. NEVER default this to "locked".
    */
   lockHandshake?: ThreadLockHandshake | null;
+  /**
+   * 🔒 The server hid this reader's amounts (a coordinator without Budget & payments — `chat_money_hidden`). The
+   * amounts already arrived as null; every place a figure would be reads "₱ — hosts only", and the booking line
+   * (which names the price) is the hosts' to see.
+   */
+  moneyHidden?: boolean;
 };
 
 const STATUS: Record<AmendmentStatus, { label: string; cls: string }> = {
@@ -82,6 +89,7 @@ export function ChatAmendmentCard({
   returnPath,
   counterpartyLabel = null,
   lockHandshake = null,
+  moneyHidden = false,
 }: Props) {
   const [counterOpen, setCounterOpen] = useState(false);
   const isProposer = data.raised_by === viewerRole;
@@ -177,14 +185,16 @@ export function ChatAmendmentCard({
                 )
               ) : (
                 <span className={`shrink-0 font-medium ${it.kind === 'discount' ? 'text-terracotta' : 'text-ink/70'}`}>
-                  {amountText(it.kind, it.amount_php)}
+                  {moneyHidden && isMoneyKind(it.kind) ? HOSTS_ONLY : amountText(it.kind, it.amount_php)}
                 </span>
               )}
             </li>
           ))}
         </ul>
 
-        {newTotal != null ? (
+        {moneyHidden ? (
+          <p className="mt-2.5 border-t border-ink/10 pt-2 text-sm font-medium text-ink">New total: {HOSTS_ONLY}</p>
+        ) : newTotal != null ? (
           <p className="mt-2.5 border-t border-ink/10 pt-2 text-sm font-medium text-ink">
             New total: ₱{newTotal.toLocaleString('en-PH')}
           </p>
@@ -239,7 +249,11 @@ export function ChatAmendmentCard({
       {/* Lock — only the customer (couple) locks an ACCEPTED deal that has a
           price; freezes the agreed price for the payment step. A Deal with no
           quoted price shows a line instead of the button. */}
-      {isAccepted ? (
+      {isAccepted && moneyHidden ? (
+        <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
+          <p className="text-xs text-ink/70">The price and booking are the hosts’ to see.</p>
+        </div>
+      ) : isAccepted ? (
         <div className="border-t border-ink/10 bg-ink/[0.02] px-3.5 py-2.5">
           {data.lockedAt ? (
             <p

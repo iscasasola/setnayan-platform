@@ -43,7 +43,7 @@ test('from 820 up the maker splits evenly: the surface, then "As couples see it"
   assert.ok(grid > 0 && form > grid && card > form, 'the fields must come before the preview inside the split');
 });
 
-test("the preview stays in view from 820 up and is the Eye's sheet on a phone", () => {
+test('the preview stays in view from 820 up, and is PINNED at the top on a phone (Lane E, owner 9 Nov: "Ok")', () => {
   const src = read(MAKER);
   const at = src.indexOf('data-maker-card=""');
   const tag = src.slice(src.lastIndexOf('<aside', at), at);
@@ -51,9 +51,13 @@ test("the preview stays in view from 820 up and is the Eye's sheet on a phone", 
   const classes = (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean);
   assert.ok(classes.includes('hidden') && classes.includes('md:block'), 'the side preview must hide on a phone (it is the sheet there)');
   for (const cls of classes.filter((c) => c !== 'hidden')) {
-    assert.ok(cls.startsWith('md:'), `"${cls}" applies on a phone — there the preview is the Eye's sheet`);
+    assert.ok(cls.startsWith('md:'), `"${cls}" applies on a phone — there the preview is the pinned card`);
   }
-  assert.match(src, /icon=\{Eye\} label="As couples see it" onClick=\{\(\) => setSheet\('preview'\)\}/, 'the phone lost its way to the preview');
+  // 🔁 2026-11-09 (Build 3 Lane E): the 👁 button and its sheet are gone — the card is pinned under the row on a phone.
+  assert.doesNotMatch(src, /setSheet\('preview'\)|id="canvas-preview"/, 'the 👁 preview sheet is back');
+  const pinned = src.slice(src.lastIndexOf('<div', src.indexOf('data-maker-card-pinned=""')), src.indexOf('data-maker-card-pinned=""'));
+  assert.match(pinned, /sticky top-0/, 'the phone card is not pinned');
+  assert.match(pinned, /md:hidden/, 'the pinned card doubles the side preview from 820 up');
 });
 
 test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {

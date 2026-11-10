@@ -1,0 +1,46 @@
+/**
+ * 🔒 The locks' TypeScript side says what the SQL says: every refusal the database can return has words, every RPC the
+ * switch calls exists, and a check that cannot be made REFUSES (an ask written past a lock is the bug).
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { askRefusal, flipLock, LOCK_REFUSAL_WORDS } from './supplier-locks';
+
+const MIG = join(__dirname, '..', '..', '..', 'supabase', 'migrations');
+const sql = readdirSync(MIG)
+  .filter((f) => f.endsWith('.sql'))
+  .map((f) => readFileSync(join(MIG, f), 'utf8'))
+  .join('\n');
+
+const fake = (answer: { data: unknown; error: unknown }) => ({ rpc: async () => answer }) as unknown as SupabaseClient;
+
+test('every word supplier_lock_refusal can return has a sentence here', () => {
+  const body = sql.slice(sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.supplier_lock_refusal'));
+  for (const w of ['quote_locked', 'plan_locked', 'form_locked', 'not_found']) {
+    assert.ok(body.includes(`'${w}'`), `the SQL no longer returns ${w}`);
+    assert.ok(LOCK_REFUSAL_WORDS[w as keyof typeof LOCK_REFUSAL_WORDS], `no words for ${w}`);
+  }
+});
+
+test('the RPCs the switch and the check call exist in the migrations', () => {
+  for (const fn of ['supplier_lock_refusal', 'vendor_set_proposal_lock', 'vendor_set_form_lock']) {
+    assert.ok(new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`).test(sql), fn);
+  }
+});
+
+test('askRefusal: null = may ask; a lock is named; a failed check refuses', async () => {
+  assert.equal(await askRefusal(fake({ data: null, error: null }), 'quote', 'p'), null);
+  assert.equal(await askRefusal(fake({ data: 'plan_locked', error: null }), 'plan', 'p'), 'plan_locked');
+  assert.equal(await askRefusal(fake({ data: null, error: { code: '42501' } }), 'form', 'f', 'e'), 'unreadable');
+  assert.equal(await askRefusal(fake({ data: 'something_new', error: null }), 'quote', 'p'), 'unreadable');
+});
+
+test('flipLock: the server word comes back; an error is "failed", never ok', async () => {
+  assert.equal(await flipLock(fake({ data: 'ok', error: null }), 'quote', 'p', true, 'e'), 'ok');
+  assert.equal(await flipLock(fake({ data: 'not_allowed', error: null }), 'form', 'f', true, 'e'), 'not_allowed');
+  assert.equal(await flipLock(fake({ data: null, error: { code: 'x' } }), 'plan', 'p', false, 'e'), 'failed');
+});

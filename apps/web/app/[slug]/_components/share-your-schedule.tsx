@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Share } from 'lucide-react';
 
 /**
  * 📤 PRINT OR SHARE (plan §11b) — the guest's own schedule, handed to the phone's share sheet as text (Messages, Notes,
@@ -34,9 +35,7 @@ export function ShareYourSchedule({ text, label }: { text: string; label: string
         data-your-schedule-share
         className="inline-flex min-h-[44px] items-center gap-2 rounded-full px-5 text-[15px] text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.04]"
       >
-        <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M8 10V2M5 5l3-3 3 3M3 9v4h10V9" />
-        </svg>
+        <Share aria-hidden className="h-4 w-4" strokeWidth={1.5} />
         {label}
       </button>
       {said ? (

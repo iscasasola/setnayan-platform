@@ -462,11 +462,22 @@ test('D · nobody can post into a stranger’s conversation by pairing their own
 });
 
 test('D · NEUTRALISED: with the guard off, the stranger-thread injection lands (the door was real)', async () => {
+  /* Since 20271330575424 the COUPLE's variant has a second door: chat_messages_member_insert admits a host only
+     into a thread they are a live member of (current_thread_ids()), so with the guard off RLS still refuses it —
+     asserted below as RLS, not the guard. The SUPPLIER's variant passes RLS on its own shop
+     (current_vendor_profile_ids()), so the guard is still its only door: that is the injection this proof lands. */
   const err = await sendAsWithoutGuard(
+    F.vendorUser,
+    row({ thread_id: F.strangerThreadId, event_id: F.strangerEventId }),
+  );
+  assert.equal(err, null, `with the guard disabled the injection still failed (${err}) — the proof is vacuous`);
+
+  const couple = await sendAsWithoutGuard(
     F.couple,
     row({ thread_id: F.strangerThreadId, vendor_profile_id: F.strangerVendorId }),
   );
-  assert.equal(err, null, `with the guard disabled the injection still failed (${err}) — the proof is vacuous`);
+  assert.ok(couple, 'with the guard off, a host posted into a thread they are not a member of — the membership policy is gone');
+  assert.match(couple, /row-level security/, `the couple's stranger-thread post was refused, but not by RLS: ${couple}`);
 });
 
 /* ── D · THE FILE ─────────────────────────────────────────────────────────── */

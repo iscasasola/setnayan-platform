@@ -8,9 +8,10 @@
  * on the face), the ORDER, and which rows are hidden. The ladders are the engine's own (`MILESTONE_THRESHOLDS`,
  * `BADGE_REWARDS[...].steps`) — no number is typed here.
  *
- * 🔑 THE ORDER (v112): the badge closest to its next step first — furthest along its current rung (the prototype's
- * `nextToEarn`: (n − step reached) / (next − step reached)) — saying "N to go"; then the other ladders, each saying where
- * it stands; then what is earned or live; then what is not yet; then what is not counted or could not be read.
+ * 🔑 THE ORDER (Lane E, 9 Nov — see `band` below): what is COMPLETED first, far left; then the badges IN PROGRESS to
+ * their next level, the closest first (furthest along its current rung — the prototype's `nextToEarn`:
+ * (n − step reached) / (next − step reached)) saying "N to go"; then what is not yet; then what is not counted or could
+ * not be read.
  *
  * 🔑 HONEST: an unread count is "Couldn't load" on a grey face with "—", never "0". A badge with no counter in the
  * app says "Not counted yet" (1st Pick, the first 5★ review — spec §4: shown, never counted, pays nothing). The
@@ -332,11 +333,18 @@ function foundingTile(i: BadgeRowInput): BadgeTile | null {
   };
 }
 
-/** 0 · a ladder with a step to go · 1 · earned or live · 2 · not yet · 3 · not counted or unread. */
+/**
+ * 🏅 THE ORDER (Build 3 Lane E item 2, owner 9 Nov: *"in the badges, must be on the left most is the badges that are
+ * completed and then the badges that are in progress to the next level"* — and ✅ "in progress" = a ladder with at
+ * least one step done; a ladder at zero sits with "not yet"):
+ *   0 · completed (earned or live, and not a ladder still climbing) · 1 · in progress (a ladder with a step reached and
+ *   a next one to go — closest first) · 2 · not yet (a ladder at zero included) · 3 · not counted or unread.
+ * Supersedes v112's "closest goal first, earned after".
+ */
 function band(t: BadgeTile): number {
-  if (t.ladder && t.ladder.toGo !== null) return 0;
   if (t.sub === NOT_COUNTED_YET || t.sub === COULDNT_LOAD) return 3;
-  return t.on ? 1 : 2;
+  if (t.ladder && t.ladder.toGo !== null) return t.ladder.reached !== null ? 1 : 2;
+  return t.on ? 0 : 2;
 }
 
 /**
@@ -360,7 +368,7 @@ export function shopBadgeRow(i: BadgeRowInput): BadgeTile[] | null {
     const ba = band(a.t);
     const bb = band(b.t);
     if (ba !== bb) return ba - bb;
-    if (ba === 0) {
+    if (ba === 1) {
       const p = b.t.ladder!.pct - a.t.ladder!.pct;
       if (p !== 0) return p;
       const d = a.t.ladder!.toGo! - b.t.ladder!.toGo!;
@@ -369,7 +377,9 @@ export function shopBadgeRow(i: BadgeRowInput): BadgeTile[] | null {
     return a.n - b.n;
   });
   const out = order.map((o) => o.t);
-  if (out[0] && band(out[0]) === 0) out[0] = { ...out[0], goal: true, sub: `${fmt(out[0].ladder!.toGo!)} to go` };
+  // The closest in-progress badge is the ONE goal that stands out ("N to go"); it sits right after the completed ones.
+  const g = out.findIndex((t) => band(t) === 1);
+  if (g >= 0) out[g] = { ...out[g]!, goal: true, sub: `${fmt(out[g]!.ladder!.toGo!)} to go` };
   return out;
 }
 

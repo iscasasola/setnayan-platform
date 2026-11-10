@@ -248,7 +248,7 @@ test('2 · only the Chat view marks the conversation read — and only once it i
   const chatNode = page.slice(page.indexOf('data-picked-client-page="chat"'), page.indexOf('data-picked-client-page="chat"') + 400);
   assert.match(chatNode, /<MarkReadWhenShown threadId=\{threadId\} \/>/, 'the Chat node does not mount the marker');
   // The shell mounts only the page on screen — the reason a mount means "Chat is shown".
-  const shell = readFileSync(join(__dirname, '_components', 'picked-client-shell.tsx'), 'utf8');
+  const shell = readFileSync(join(__dirname, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx'), 'utf8') /* the ONE picked shell */;
   assert.match(shell, /\{bodies\[page\]\}/, 'the shell no longer mounts only the shown page — a mount would not mean "shown"');
   const marker = readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8');
   assert.match(marker, /useEffect\(\(\) => \{\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount');

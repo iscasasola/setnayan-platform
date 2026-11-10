@@ -21,16 +21,19 @@ export function AskSubmit({
   icon,
   label,
   pendingLabel,
+  className = '',
 }: {
   tone: ActionTone;
   main?: boolean;
   icon: ReactElement;
   label: string;
   pendingLabel: string;
+  /** Extra classes — the blocker's equal-width row passes `w-full`. */
+  className?: string;
 }) {
   return (
     // `.ab` draws 40 px; the answer is 44 (look call 3).
-    <SubmitButton className={actionButtonClass(tone, { main, extra: '!h-11 !min-h-11' })} pendingLabel={pendingLabel} aria-label={label} title={label}>
+    <SubmitButton className={actionButtonClass(tone, { main, extra: `!h-11 !min-h-11 ${className}`.trim() })} pendingLabel={pendingLabel} aria-label={label} title={label}>
       {icon}
       <span className="lbl">{label}</span>
     </SubmitButton>

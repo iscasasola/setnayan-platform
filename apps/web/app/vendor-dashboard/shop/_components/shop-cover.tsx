@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Check, ChevronRight, Copy, ExternalLink, Image as ImageIcon, Pencil, Printer, QrCode, Settings, Share2, ShieldCheck, Star } from 'lucide-react';
+import { Camera, Check, ChevronRight, ExternalLink, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { VendorAvatar } from '@/app/_components/vendor-avatar';
@@ -13,6 +13,9 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import type { LogoFrame } from '@/lib/open-shop-logo';
 import { shareShopLink, shopPhotoCardPath } from '@/lib/share-shop-link';
 import { ShopSettings } from './shop-settings';
+import { HERO_UPLOAD_PILL, SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
+import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
 
 /** The cover's "★ · N reviews" — Your page › Reviews and stories (its `Fold anchor="reviews"` opens on the hash). */
@@ -62,6 +65,12 @@ export type CoverData = {
   slug: string | null;
   /** The full URL to copy and share. */
   shareUrl: string | null;
+  /** 🖼 The hero's picture (Lane E 11–12): the cover photo, or the category placeholder. Absent = `coverUrl` as is. */
+  hero?: SupplierHeroPicture | null;
+  /** "Cover · Your page" / "Cover · first photo". */
+  heroCaption?: string | null;
+  /** 📂 The Upload door's facts (owner 9 Nov: Upload opens the device's picker, here). Absent = no door. */
+  uploadFacts?: PortfolioUploadFacts | null;
 };
 
 /**
@@ -197,109 +206,116 @@ export function ShopCover({
         </div>
       </div>
 
-      <div ref={coverRef} className="relative overflow-hidden rounded-b-3xl text-white" data-shop-cover="" data-tour="shop-details" style={{ background: 'var(--m-ink)' }}>
-        {d.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- a presigned display URL; next/image cannot optimise it
-          <img src={d.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : null}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(20,14,8,.15) 0%, rgba(20,14,8,.35) 45%, rgba(20,14,8,.82) 100%)' }} aria-hidden />
-        <div className="relative px-4 pb-5 pt-4">
-          <div className="flex items-start justify-between">
-            <button type="button" onClick={() => openSheet('logo')} className="relative rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
-              <VendorAvatar
-                logoUrl={d.logoUrl}
-                frame={d.logoFrame}
-                initials={d.initials}
-                className="flex h-[54px] w-[54px] items-center justify-center rounded-full text-lg font-semibold ring-2 ring-white/90"
-              />
-              <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-raised text-ink shadow">
-                <Pencil aria-hidden className="h-3 w-3" strokeWidth={2} />
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => openSheet('cover')}
-              className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-1.5 text-[12.5px] font-medium backdrop-blur"
-              data-shop-cover-edit=""
-            >
-              <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Cover
-            </button>
-          </div>
-          {d.logoUnavailable ? <p className="mt-1 text-[12px] text-white/80">Couldn&rsquo;t load your logo just now.</p> : null}
-
-          {d.city ? <p className="mt-3 text-[11.5px] font-medium uppercase tracking-[0.18em] text-white/80">{d.city}</p> : <div className="mt-3" />}
-          <h1 className="font-[family-name:var(--font-display)] text-[34px] font-semibold leading-[1.08]" data-shop-name="">
-            {d.name}
-          </h1>
-          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[13.5px] text-white/90">
-            {d.verified.isVerified ? (
-              <a href="#docs" className="inline-flex items-center gap-1">
-                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
-                Verified
-              </a>
-            ) : d.verified.inReview ? (
-              <a href="#docs">Verification in review</a>
-            ) : (
-              <a href="#docs" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
-                <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Get verified · {d.verified.stepsDone} of 2
-              </a>
-            )}
-            <span aria-hidden>·</span>
-            <Star aria-hidden className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
-            {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
-            {d.rating ? (
-              <>
-                <Link href={REVIEWS_HREF} className="underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
-                  {d.rating}
-                  {d.reviews ? ` · ${d.reviews}` : ''}
-                </Link>
-                {d.events ? <span>· {d.events}</span> : null}
-              </>
-            ) : (
-              <span>{counts.replace(/^★ /, '')}</span>
-            )}
-          </p>
-          <a href="#plan" className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/35 bg-white/10 px-3 py-1.5 text-[13px] backdrop-blur" data-shop-plan="">
-            <b className="font-semibold">{d.planLabel} plan</b>
-            <span className="text-white/80">· what it includes</span>
-            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          </a>
-
-          <div className="mt-4 flex items-stretch gap-2">
-            {d.publicPath ? (
-              <a
-                href={d.publicPath}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-h-[58px] flex-1 flex-col justify-center rounded-2xl bg-[color:var(--m-paper)] px-4 text-ink"
-                data-view-shop=""
-              >
-                <b className="text-[15px] font-semibold">View shop</b>
-                <span className="inline-flex items-center gap-1 text-[11.5px] text-ink/60">
-                  {d.websiteLive ? 'as couples see it' : 'a preview for your team'}
-                  <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={2} />
-                </span>
-              </a>
-            ) : (
-              <Link href="/vendor-dashboard/profile" className="flex min-h-[58px] flex-1 items-center rounded-2xl bg-[color:var(--m-paper)] px-4 text-[13.5px] font-medium text-ink">
-                Add your shop name to get your address
-              </Link>
-            )}
-            <CoverIcon label="Share" icon={<Share2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
-            <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => openSheet('promote')} data="promote" />
-            <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />} onClick={() => openSheet('qr')} data="qr" />
+      {/* 🖼 THE ONE SUPPLIER HERO (Lane E item 10) — the same part, height and gutters as Today and Portfolio. It wears
+          the cover photo (Your page's pick, else the first portfolio photo), or the category placeholder (item 12). */}
+      <div ref={coverRef} data-shop-cover="" data-tour="shop-details">
+        <SupplierHero
+          eyebrow={<>Shop{d.shareUrl ? ` · ${d.shareUrl.replace(/^https?:\/\/(www\.)?/, '')}` : d.city ? ` · ${d.city}` : ''}</>}
+          gear={
             <button
               type="button"
               onClick={openGear}
               aria-label="Shop settings"
-              className="grid h-11 w-11 shrink-0 place-items-center self-center rounded-full border border-white/35 bg-white/10 backdrop-blur"
+              className="grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
               data-shop-cover-gear=""
             >
               <Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </button>
-          </div>
+          }
+          title={d.name}
+          titleData="shop-name"
+          sub={
+            <>
+              {d.verified.isVerified ? (
+                <a href="#docs" className="inline-flex items-center gap-1 font-semibold">
+                  <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Verified
+                </a>
+              ) : d.verified.inReview ? (
+                <a href="#docs">Verification in review</a>
+              ) : (
+                <a href="#docs" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5">
+                  <ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Get verified · {d.verified.stepsDone} of 2
+                </a>
+              )}
+              {/* ⭐ "★ 4.8 · 38 reviews" opens Your page › Reviews and stories — the full reviews list, unchanged (§10 #31). */}
+              {d.rating ? (
+                <Link href={REVIEWS_HREF} className="inline-flex items-center gap-1 underline decoration-white/45 underline-offset-[3px]" data-shop-reviews-link="">
+                  <Star aria-hidden className="h-3 w-3 fill-current" strokeWidth={0} />
+                  {d.rating}
+                  {d.reviews ? ` · ${d.reviews}` : ''}
+                </Link>
+              ) : null}
+              <span className="text-white/75">{d.events ?? '—'}</span>
+              <a href="#plan" className="inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
+                {d.planLabel} plan
+                <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+              </a>
+            </>
+          }
+          picture={d.hero ?? (d.coverUrl ? { url: d.coverUrl, kind: 'photo' } : null)}
+          caption={d.heroCaption ?? null}
+          upload={
+            d.uploadFacts
+              ? {
+                  door: (
+                    <PortfolioUploadDoor facts={d.uploadFacts} coverPick className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
+                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+                      Upload
+                    </PortfolioUploadDoor>
+                  ),
+                }
+              : null
+          }
+          data={{ 'shop-hero': '' }}
+        />
+      </div>
+      {d.logoUnavailable ? <p className="px-4 pt-2 text-[12px] text-ink/65">Couldn&rsquo;t load your logo just now.</p> : null}
+
+      {/* 🚪 The cover's doors, under the hero (they rode on the old cover band): the logo · View shop ↗ · Share · Promote ·
+          QR · Cover. Nothing was dropped when the band became the one hero. */}
+      <div className="space-y-2 px-4 pt-3" data-shop-cover-doors="">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => openSheet('logo')} className="relative shrink-0 rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
+            <VendorAvatar
+              logoUrl={d.logoUrl}
+              frame={d.logoFrame}
+              initials={d.initials}
+              className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold ring-1 ring-ink/10"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-raised text-ink shadow">
+              <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
+            </span>
+          </button>
+          {d.publicPath ? (
+            <a
+              href={d.publicPath}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-ink px-4 text-[color:var(--m-paper)]"
+              data-view-shop=""
+            >
+              <b className="text-[14.5px] font-semibold">View shop</b>
+              <span className="inline-flex min-w-0 items-center gap-1 truncate text-[11.5px] opacity-75">
+                {d.websiteLive ? 'as couples see it' : 'a preview for your team'}
+                <ExternalLink aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+              </span>
+            </a>
+          ) : (
+            <Link href="/vendor-dashboard/profile" className="flex min-h-[48px] min-w-0 flex-1 items-center rounded-full border border-ink/15 px-4 text-[13.5px] font-medium text-ink">
+              Add your shop name to get your address
+            </Link>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <CoverIcon label="Share" icon={<Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
+          <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('promote')} data="promote" />
+          <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('qr')} data="qr" />
+          <button type="button" onClick={() => openSheet('cover')} className={COVER_PILL} data-shop-cover-edit="">
+            <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            Cover
+          </button>
         </div>
       </div>
 
@@ -312,15 +328,13 @@ export function ShopCover({
   );
 }
 
+/** The cover's equal-weight doors: one row, equal widths, a 40 px pill with an icon and a word (the house rule). */
+const COVER_PILL =
+  'inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-raised px-2 text-[13px] font-medium text-ink disabled:opacity-40';
+
 function CoverIcon({ label, icon, onClick, disabled = false, data }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; data: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex min-h-[58px] w-[54px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/30 bg-white/10 text-[11px] backdrop-blur disabled:opacity-40"
-      data-shop-cover-icon={data}
-    >
+    <button type="button" onClick={onClick} disabled={disabled} className={COVER_PILL} data-shop-cover-icon={data}>
       {icon}
       {label}
     </button>
@@ -369,7 +383,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
               else if (r === 'failed') toast.error('Couldn’t share just now — copy the link instead.');
             }}
           >
-            <Copy aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Share
           </button>
         </div>

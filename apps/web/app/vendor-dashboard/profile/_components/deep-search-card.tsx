@@ -90,7 +90,7 @@ export function DeepSearchCard({
       </ul>
 
       <InfoTip label="How it’s priced" labelAs="p" labelClassName="text-sm text-ink/70" align="start">
-        {deepSearchBandWords(offer.band, offer.periodDays)} Each search is kept {DEEP_SEARCH_KEEP_DAYS} days with its PDF,
+        {deepSearchBandWords(offer.band)} Each search is kept {DEEP_SEARCH_KEEP_DAYS} days with its PDF,
         then deleted.
       </InfoTip>
 
@@ -98,8 +98,6 @@ export function DeepSearchCard({
         <DeepSearchRunner
           eligible={offer.eligible}
           planAsks={vendorPaywallApplies(isTierAtLeast(offer.tier, 'solo'))}
-          isFreeNow={offer.isFreeNow}
-          hasFreeAllowance={offer.hasFreeAllowance}
           pricePhp={offer.pricePhp}
           openRails={offer.openRails}
         />

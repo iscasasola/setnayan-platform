@@ -68,7 +68,8 @@ test('a sheet may hide the confirm ONLY when it carries a real control of its ow
     }
     tags.push(src.slice(m.index ?? 0, i + 1));
   }
-  assert.ok(tags.length >= 5, `expected the shipped sheets, found ${tags.length}`);
+  // 4 since 2026-11-09: the 👁 "As couples see it" sheet left (Build 3 Lane E — the Find card is pinned instead).
+  assert.ok(tags.length >= 4, `expected the shipped sheets, found ${tags.length}`);
 
   for (const tag of tags) {
     const id = /id="([^"]+)"/.exec(tag)?.[1] ?? '(unnamed)';

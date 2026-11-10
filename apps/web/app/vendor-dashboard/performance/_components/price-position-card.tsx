@@ -53,16 +53,14 @@ export function PricePositionCard({
             ? 'Add a starting price to see where you sit'
             : `You ${result.key.ownPricePhp !== null ? `start at ${peso(result.key.ownPricePhp)}` : 'have no price'} · median ${peso(result.band.medianPhp)}`;
     return (
-      <CardFace title="Where your price sits" window="Your region" line={line} data="price">
+      <CardFace title="Where your price sits" window="Your region" line={line} data="price" quiet={result.status !== 'positioned' && result.status !== 'no_own_price'}>
         {result.status === 'positioned' || result.status === 'no_own_price' ? (
           <BandRail
             band={result.band}
             ownPricePhp={result.status === 'positioned' ? result.key.ownPricePhp : null}
             percentile={result.status === 'positioned' ? result.percentile : null}
           />
-        ) : (
-          <div className="mt-6 h-2.5 rounded-full border-[1.5px] border-dashed border-ink/20" aria-hidden />
-        )}
+        ) : null}
       </CardFace>
     );
   }

@@ -50,6 +50,15 @@ const GENERIC: readonly DayOfModuleId[] = [
   'issues_log',
 ];
 
+/**
+ * 🧰 THE PAYWALL FIXTURE. Since 2026-11-09 (owner, Build 4 — the free tier of Specialized tools) every
+ * specialization set is free, so production has no paid set left for the frame's LOCKED / upsell branches to
+ * draw. Those branches still exist for the next paid set, so these tests keep exercising them against the
+ * pre-ruling free set (the floor-command desk only). `the free tier: every set is free in production` below
+ * pins what production actually does.
+ */
+const PAYWALL_FIXTURE_FREE_SETS: ReadonlySet<VendorSpecializationSet> = new Set<VendorSpecializationSet>(['floor_command']);
+
 /** Build access the way production does: real tiles through the real gate. */
 function accessFor(
   services: readonly string[],
@@ -59,6 +68,7 @@ function accessFor(
   return resolveVendorSpecializationAccess({
     subscription: tier === null ? null : { tier_state: tier, tier_expires_at: expiry },
     services,
+    freeSets: PAYWALL_FIXTURE_FREE_SETS,
   });
 }
 
@@ -335,5 +345,20 @@ test('the generic kit is still untouched by every picker path', () => {
       pick(accessFor(['live_band', 'host_mc'], 'solo'), active).genericModuleIds,
       GENERIC,
     );
+  }
+});
+
+// ─── 🧰 The free tier (owner 2026-11-09) ────────────────────────────────────
+
+test('the free tier: every set is free in production — a Free band and a Free host get their desk', () => {
+  // Owner, Build 4: Song Desk and Emcee script (Script & cues) are in the free tier with Floor Command —
+  // every supplier, no purchase. The production default is passed nothing, exactly as the console does.
+  for (const services of [['live_band'], ['host_mc'], ['coordinator']]) {
+    const access = resolveVendorSpecializationAccess({
+      subscription: { tier_state: 'free', tier_expires_at: null },
+      services,
+    });
+    assert.equal(access.reason, 'free_set', services.join());
+    assert.equal(frame(access, new Set(access.unlockedSets)).specialization?.state, 'ready', services.join());
   }
 });

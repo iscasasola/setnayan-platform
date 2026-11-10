@@ -120,7 +120,7 @@ export async function unlockCategoryWithInquiry(input: {
   // Membership gate — events RLS restricts the read to members.
   const { data: ev } = await supabase
     .from('events')
-    .select('event_id')
+    .select('event_id, event_date')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return { status: 'not_a_member' };
@@ -272,7 +272,10 @@ export async function unlockCategoryWithInquiry(input: {
         msg.set('thread_id', thread.thread_id);
         msg.set(
           'body',
-          supplierInquiryBody(await resolveProfileByEvent(eventId)),
+          // 📅 No date on the event → "no date yet", never "for our date" (Build 5 F3).
+          supplierInquiryBody(await resolveProfileByEvent(eventId), {
+            dated: Boolean((ev as { event_date?: string | null }).event_date),
+          }),
         );
         // sendChatMessage posts as 'couple' + fires vendor_inquiry_received on
         // the first message. No return_to → it returns without redirecting.

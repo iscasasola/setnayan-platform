@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchVendorBlocksDetailed,
-  fetchVendorDayStates,
+  fetchVendorMonthDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
   type SchedulePool,
@@ -43,6 +43,8 @@ import { readOpenAsks } from './open-asks';
  */
 export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?: boolean }): Promise<{
   dayStates: VendorCalendarDayState[];
+  /** False ⇒ the held / approve-first days were refused — the month SAYS so, never draws those days as free (G7). */
+  dayStatesRead: boolean;
   waitlist: WaitlistDateGroup[];
   whole?: {
     pools: SchedulePool[];
@@ -67,27 +69,30 @@ export async function fetchCustomerCalendarMonth(month: string, opts?: { whole?:
   const vendorProfileId = profile.vendor_profile_id;
   if (!opts?.whole) {
     const [dayStates, waitlist] = await Promise.all([
-      fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+      fetchVendorMonthDayStates(supabase, vendorProfileId, month),
       fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
     ]);
-    return { dayStates, waitlist };
+    return { dayStates: dayStates ?? [], dayStatesRead: dayStates !== null, waitlist };
   }
   try {
     const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead] = await Promise.all([
       fetchVendorPools(supabase, vendorProfileId),
       fetchVendorPoolBookings(supabase, vendorProfileId),
       fetchVendorBlocksDetailed(supabase, vendorProfileId),
-      fetchVendorDayStates(supabase, vendorProfileId, `${month}-01`, `${month}-31`),
+      fetchVendorMonthDayStates(supabase, vendorProfileId, month),
       fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
       // A refused threads read is not "nobody asked" — it becomes `inquiries: null` below.
       fetchVendorThreadsDetailed(supabase, vendorProfileId).catch(() => null),
     ]);
+    // The Schedule page's month has no partial state: refused held days ⇒ the whole read is refused, and it SAYS so.
+    if (dayStates === null) return null;
     const asks =
       threadsRead && threadsRead.complete
         ? await readOpenAsks(threadsRead.threads, new Set(bookings.map((b) => b.eventId))).catch(() => null)
         : null;
     return {
       dayStates,
+      dayStatesRead: true,
       waitlist,
       whole: {
         pools,

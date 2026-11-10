@@ -73,7 +73,13 @@ export function CapacityCard({
       data ? { bookedDays: data.load.upcomingBookedDays, waitingCouples: data.waitlistTotal, waitingDates: data.waitlist.length } : null,
     );
     return (
-      <CardFace title="What’s ahead" window="Next 13 weeks" line={line} data="ahead">
+      <CardFace
+        title="What’s ahead"
+        window="Next 13 weeks"
+        line={line}
+        data="ahead"
+        quiet={!data || strip == null || (data.load.upcomingBookedDays === 0 && data.waitlistTotal === 0)}
+      >
         <div data-growth="">
           <CalendarStrip months={strip?.months ?? []} booked={strip?.booked ?? []} waiting={strip?.waiting ?? []} unread={strip == null} />
         </div>

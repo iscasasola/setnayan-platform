@@ -36,7 +36,7 @@
  */
 
 import type { NavBadge } from '@/app/_components/nav/types';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 
 /**
  * The couple's Guests tab — a live head-count.
@@ -82,6 +82,7 @@ export function vendorCustomersBadge(
   return {
     count: total,
     tone: 'orange',
-    label: `${formatCount(inquiries)} new inquiries · ${threads} unread threads`,
+    // One count, one noun (Build 5 F4, Lane W walk 2 item 3: "1 new inquiries") — the app's `countNoun`.
+    label: `${countNoun(inquiries, 'new inquiry', 'new inquiries')} · ${countNoun(threads, 'unread thread', 'unread threads')}`,
   };
 }

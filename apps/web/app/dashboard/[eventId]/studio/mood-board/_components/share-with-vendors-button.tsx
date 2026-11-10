@@ -14,7 +14,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Send } from 'lucide-react';
+import { Share } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { shareMoodBoardWithVendors } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -85,7 +85,7 @@ export function ShareWithVendorsButton({
           </>
         ) : (
           <>
-            <Send className="h-4 w-4" aria-hidden />
+            <Share className="h-4 w-4" aria-hidden />
             Share with suppliers
           </>
         )}

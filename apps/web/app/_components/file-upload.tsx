@@ -129,6 +129,13 @@ type FileUploadBaseProps = {
    */
   onFilePicked?: (file: File) => void;
   /**
+   * 📂 Files the person ALREADY chose through a door outside this widget — a hero's "Upload", Shop's Cover / Logo
+   * menus' "Upload photo" (owner 9 Nov: *"Upload is upload on files not go to a page"*). Fed ONCE, on mount, through
+   * the same `handleFiles` door a pick here uses (its checks, its room, the watermark, the QR guard, compression).
+   * Optional; existing callers are unaffected.
+   */
+  pickedFiles?: readonly File[] | null;
+  /**
    * 🥧 The figure this component already prints for the upload in flight (0–100, from `xhr.upload` progress), handed
    * up as is — null when nothing is in flight. For a parent that draws the same number elsewhere (the Maker's style
    * card pie, owner 2026-10-08). Never a second measurement, never a request. Optional; existing callers are unaffected.
@@ -559,6 +566,7 @@ export function FileUpload({
   initialDisplayUrls,
   onChange,
   onFilePicked,
+  pickedFiles = null,
   validateFile,
   label,
   help,
@@ -964,6 +972,15 @@ export function FileUpload({
       audioGuard,
     ],
   );
+
+  // 📂 The files a door outside handed in (`pickedFiles`) — once, on mount, through the one intake above.
+  const pickedFed = useRef(false);
+  useEffect(() => {
+    if (pickedFed.current || !pickedFiles || pickedFiles.length === 0) return;
+    pickedFed.current = true;
+    void handleFiles([...pickedFiles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount: what was picked before this mounted
+  }, []);
 
   /**
    * Single-file upload pipeline:

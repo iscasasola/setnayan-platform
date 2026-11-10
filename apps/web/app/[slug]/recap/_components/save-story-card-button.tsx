@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Share2, Loader2, Check } from 'lucide-react';
+import { Loader2, Check, Share } from 'lucide-react';
 import { saveImageToDevice } from '@/lib/save-to-device';
 
 /**
@@ -59,7 +59,7 @@ export function SaveStoryCardButton({
         ) : state === 'done' ? (
           <Check aria-hidden className="h-3 w-3 text-gild" strokeWidth={2} />
         ) : (
-          <Share2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          <Share aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         )}
         {state === 'done' ? 'Saved' : 'Story'}
       </button>
@@ -79,7 +79,7 @@ export function SaveStoryCardButton({
       ) : state === 'done' ? (
         <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
       ) : (
-        <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       )}
       {state === 'done' ? 'Saved' : 'Save story card'}
     </button>

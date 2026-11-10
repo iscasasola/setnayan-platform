@@ -71,8 +71,8 @@ async function seedShop(shop: string): Promise<{ eventId: string; eventVendorId:
     [eventId, eventVendorId],
   );
   const proposalId = await one<string>(
-    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, total_centavos)
-     VALUES ($1, $2, 'Quote', 'sent', 5000000) RETURNING proposal_id AS v`,
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, total_centavos, valid_until)
+     VALUES ($1, $2, 'Quote', 'sent', 5000000, (NOW() AT TIME ZONE 'Asia/Manila')::date + 7) RETURNING proposal_id AS v`,
     [shop, eventId],
   );
   await db.query(

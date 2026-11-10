@@ -391,6 +391,9 @@ function productTitleFor(serviceKey: string): string {
   if (serviceKey === 'EVENT_SUBDOMAIN' || serviceKey === 'vendor_subdomain') return 'Custom Subdomain';
   if (serviceKey === 'vendor_ai_addon') return 'Vendor AI';
   if (serviceKey === 'vendor_3d_booth') return '3D Booth';
+  if (serviceKey === 'vendor_specialized_tools' || serviceKey === 'vendor_specialized_tools_annual') {
+    return 'Specialized tools';
+  }
   return 'Setnayan subscription';
 }
 

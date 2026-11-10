@@ -114,7 +114,10 @@ test('every client-page redirect in the clients tree goes through the rule', () 
   // 2026-10-29 (S8, owner "it should not jump to old pages"): notes and the challenge now SAVE IN PLACE — four success
   // redirects removed (only the notes' failure still lands, through one `noteSaved` call) — so the floor is 24.
   // Those saves are held by `clients/[eventId]/the-event-card-saves-in-place.test.ts`, never by this count.
-  assert.ok(calls >= 24, `expected at least 24 rule-built landings, found ${calls}`);
+  // 2026-11-09 (Supplier Build 3 · lane C): `vendorAskForPayment` became `askForPaymentCore` + its redirects, so its
+  // three landings (amount · notbooked · sent/error) are now two calls — every outcome still lands through the rule,
+  // one call for "sent" and one for each NAMED refusal — so the floor is 23.
+  assert.ok(calls >= 23, `expected at least 23 rule-built landings, found ${calls}`);
 });
 
 test('a surface resolves to a tab the shell it is aimed at actually renders', () => {

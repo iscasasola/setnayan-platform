@@ -77,7 +77,9 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // sentence — one more scoring job, so the last zero-hit page fell off at 146. The rule above, raised by one.
 // 148 since the two met in one tree (merge of main into the admin supplier slice, 2026-11-05): both jobs score, so
 // the rule above is raised by one for each — re-measure with the probe below, never trust this number.
-export const MODEL_CHOICE_CAP = 148;
+// 149 since 2026-11-09: one more PAGE, Admin › Payments › Supplier refunds (read only, Supplier Build 2) — every page
+// must still reach the model, so the rule above, raised by one.
+export const MODEL_CHOICE_CAP = 149;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

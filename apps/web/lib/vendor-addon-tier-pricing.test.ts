@@ -31,15 +31,26 @@ test('band: unknown / missing tier fails to the entry row (never the cheaper one
 
 // ── owner 2026-11-04: "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN" ──────
 
-test('Deep Search and the AI chatbot read a different catalogue row per band', () => {
-  assert.equal(vendorAddonSkuCode('deep_search_about_you', 'solo'), 'vendor_deep_search_entry');
-  assert.equal(vendorAddonSkuCode('deep_search_about_you', 'pro'), 'vendor_deep_search');
+test('the AI chatbot reads a different catalogue row per band (kept by the 2026-11-09 ruling)', () => {
   assert.equal(vendorAddonSkuCode('ai_chatbot_basic', 'verified'), 'vendor_ai_addon_entry');
   assert.equal(vendorAddonSkuCode('ai_chatbot_basic', 'enterprise'), 'vendor_ai_addon');
 });
 
-test('3D booth and Papic Challenges are one price — the same row on both sides', () => {
-  for (const sku of ['ads_3d_plan', 'papic_challenge'] as VendorAddonSku[]) {
+// ── owner 2026-11-09: "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN" ──────────────
+
+test('Deep Search is ONE price on every plan — the vendor_deep_search row, never the retired entry row', () => {
+  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', null]) {
+    assert.equal(vendorAddonSkuCode('deep_search_about_you', tier), 'vendor_deep_search', String(tier));
+  }
+  assert.doesNotMatch(
+    readFileSync(fileURLToPath(new URL('./vendor-addon-tier-pricing.ts', import.meta.url)), 'utf8'),
+    /'vendor_deep_search_entry'/,
+    'the retired ₱799 entry row is named again',
+  );
+});
+
+test('3D booth, Papic Challenges and Deep Search are one price — the same row on both sides', () => {
+  for (const sku of ['ads_3d_plan', 'papic_challenge', 'deep_search_about_you'] as VendorAddonSku[]) {
     const b = VENDOR_ADDON_BAND_SKU_CODES[sku];
     assert.equal(b.entry, b.growth, sku);
   }

@@ -188,6 +188,20 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'A made-up supplier card’s "from" price in the DEV-ONLY Inquire pop-up lab (404 in production), set beside "Price on request" rows — not a Setnayan SKU.',
   },
   {
+    file: 'app/dev/supplier-chat-lab/page.tsx',
+    literal: '₱33,750',
+    sku: null,
+    reason:
+      'A made-up 2nd-payment amount on a Due-now pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/supplier-chat-lab/page.tsx',
+    literal: '₱11,250',
+    sku: null,
+    reason:
+      'A made-up receipt amount on a Waiting pin in the DEV-ONLY supplier chat lab (404 in production; Build 3 lane B) — a supplier’s own payment, not a Setnayan SKU.',
+  },
+  {
     file: 'app/dev/clients-lab/page.tsx',
     literal: '₱80,000',
     sku: null,

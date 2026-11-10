@@ -284,7 +284,15 @@ test('5 · reward stock: live reward lines use it, a lapsed quote frees it, the 
   assert.deepEqual(await reward(), { earned: 300, used: 150 }, 'a bought line was counted as reward');
   assert.deepEqual(await reward(b.eventId), { earned: 300, used: 0 }, 'the replaced event still holds reward');
 
-  await db.query(`UPDATE public.vendor_proposals SET valid_until = (NOW() - INTERVAL '3 days')::date WHERE proposal_id = $1`, [proposalId]);
+  // Time passes: the quote was sent with an honest Valid until, and that day is now behind us. The send-time rule
+  // (`vendor_proposals_valid_until`, "no lifetime quotation") refuses a past date ON A SEND — a lapse is the clock
+  // moving, not a send — so the trigger is stood aside for this one write only, exactly as the clock would.
+  await db.exec(`ALTER TABLE public.vendor_proposals DISABLE TRIGGER vendor_proposals_valid_until`);
+  try {
+    await db.query(`UPDATE public.vendor_proposals SET valid_until = (NOW() - INTERVAL '3 days')::date WHERE proposal_id = $1`, [proposalId]);
+  } finally {
+    await db.exec(`ALTER TABLE public.vendor_proposals ENABLE TRIGGER vendor_proposals_valid_until`);
+  }
   assert.deepEqual(await reward(), { earned: 300, used: 0 }, 'a lapsed quote still holds reward stock');
 });
 

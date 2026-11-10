@@ -183,7 +183,6 @@ app/vendor-dashboard/clients/[eventId]/actions.ts	discarded-in-try	rpc:stamp_set
 app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts	discarded	from:orders.delete	1
 app/vendor-dashboard/clients/[eventId]/production-sheet/actions.ts	discarded	from:vendor_portion_rules.delete	1
 app/vendor-dashboard/deep-search/actions.ts	discarded	from:orders.delete	1
-app/vendor-dashboard/deep-search/actions.ts	discarded	from:vendor_deep_search_uses.delete	1
 app/vendor-dashboard/instagram-actions.ts	discarded	from:vendor_ig_connections.delete	1
 app/vendor-dashboard/instagram-actions.ts	discarded	from:vendor_ig_connections.update	2
 app/vendor-dashboard/instagram-actions.ts	discarded	from:vendor_ig_media.delete	1

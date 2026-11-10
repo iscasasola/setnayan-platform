@@ -7,7 +7,7 @@
  *      so the two addresses can never draw two different clients.
  *   2. The shell is a pop-up layer: portaled onto <body>, its z-index is the `--sn-z-pop` token (never a raw number),
  *      it is a modal dialog, and Esc / ✕ close it.
- *   3. Motion: one helper (`pickedMotion`) gives the open's frames + timing — 520 ms on the shared ease, a 120 ms
+ *   3. Motion: one helper (`pickedMotion`) gives the open's frames + timing — 700 ms on the shared ease, a 120 ms
  *      fade under reduced motion, nothing on a hard load — and the close plays the SAME frames with
  *      `direction: 'reverse'`, so it is the exact reverse by construction.
  *   4. A page switch costs no request: `history.replaceState(?tab=)`, never a router push.
@@ -28,12 +28,13 @@ import {
   PICKED_OPEN_MS,
   PICKED_PAGE_SLIDE_EASE,
   PICKED_PAGE_SLIDE_MS,
-} from '../clients/[eventId]/_components/picked-client-motion';
+} from '../../_components/picked/picked-motion';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
-const SHELL = '../clients/[eventId]/_components/picked-client-shell.tsx';
-const MOTION = '../clients/[eventId]/_components/picked-client-motion.ts';
+// Supplier Build 3 · Lane A (9 Nov 2026): the screen is the ONE picked shell both sides open through.
+const SHELL = '../../_components/picked/picked-shell.tsx';
+const MOTION = '../../_components/picked/picked-motion.ts';
 
 test('1 · one intercepting slot over the list, re-exporting the ONE client page', () => {
   const layout = read('layout.tsx');
@@ -45,6 +46,16 @@ test('1 · one intercepting slot over the list, re-exporting the ONE client page
     intercept,
     "export { default } from '../../../../clients/[eventId]/page';",
     'the intercept must only re-export the client page — never a second body',
+  );
+  // ✉️ Build 3 · Lane A: the envelope's Chats draws the SAME client over itself — the same slot shape, the same re-export.
+  const chats = read('../messages/layout.tsx');
+  assert.match(chats, /\{ children, client \}/, 'Chats must take the `client` slot');
+  assert.match(chats, /\{children\}\s*\{client\}/, 'the client is drawn over the still-mounted Chats');
+  assert.match(read('../messages/@client/default.tsx'), /return null;/);
+  assert.equal(
+    read('../messages/@client/(..)clients/[eventId]/page.tsx').trim(),
+    "export { default } from '../../../../clients/[eventId]/page';",
+    'the Chats intercept must only re-export the client page — never a second body',
   );
 });
 
@@ -63,7 +74,7 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
 });
 
 test('3 · the close is the open played backwards', () => {
-  assert.equal(PICKED_OPEN_MS, 520);
+  assert.equal(PICKED_OPEN_MS, 700);
   assert.match(read(MOTION), /PICKED_OPEN_MS = RISE_MS;/, 'the picked client keeps its own copy of the rise again');
   assert.equal(PICKED_FADE_MS, 120);
   assert.equal(PICKED_PAGE_SLIDE_MS, 700, '§10 #26: the page slide is 0.7 s');

@@ -93,14 +93,16 @@ test('4 · the sent-quote page’s next step goes through the same rule', () => 
 test('5 · both shells paint the tab the URL names, on the server', () => {
   // The supplier side is the picked client since THE ONE BUILD (8 Nov 2026): it paints the page the URL names.
   assert.equal(count(client, /initialPage=\{visiblePickedPage\(rawTab, isBooked\)\}/g), 1, 'the client page hard-codes its initial page');
-  assert.equal(count(workspace, /initialTabId=\{rawLanding\}/g), 1, 'the workspace hard-codes its initial tab');
+  // 🪞 The couple side is the host's picked supplier since Supplier Build 3 · Lane A (9 Nov 2026): the same rule — the
+  // page the URL names (`?tab=chat` from a Chats row), Details when none. No redirect is left for a door to loop into.
+  assert.equal(count(workspace, /initialPage=\{visiblePickedSupplierPage\(rawLanding, pickedMenu\)\}/g), 1, 'the workspace hard-codes its initial page');
   for (const [rel, src] of [[CLIENT_PAGE, client], [WORKSPACE, workspace]] as const) {
     assert.equal(count(src, /initialTabId="chat"/g), 0, `${rel} names the link tab as its initial tab — that is never selectable`);
+    assert.equal(count(src, /initialPage="chat"/g), 0, `${rel} hard-codes Chat as its first page`);
   }
-  // `rawLanding` must be in scope for the shell, i.e. hoisted out of the
-  // redirect's block — the redirect itself is unchanged.
+  assert.equal(count(workspace, /if \(relationshipShellEnabled && chatThread\)/g), 0, 'the workspace forwards a chat landing again');
   assert.ok(
-    workspace.indexOf("const rawLanding = typeof search.tab === 'string'") < workspace.indexOf('if (relationshipShellEnabled && chatThread)'),
-    'rawLanding is declared inside the redirect block and out of the shell’s scope',
+    workspace.indexOf("const rawLanding = typeof search.tab === 'string'") >= 0,
+    'the workspace no longer reads the page its URL names',
   );
 });

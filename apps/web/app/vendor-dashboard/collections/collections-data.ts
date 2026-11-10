@@ -27,6 +27,7 @@ import { fetchVendorPoolBookings, type PoolBookingEntry } from '@/lib/vendor-sch
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { fetchShopInspirationLooks, type ShopInspirationClient } from '@/lib/shop-inspiration.server';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { videoTitlesOf } from '@/lib/video-link-titles';
 import {
   ALBUM_OPEN_MAX,
   eventAlbums,
@@ -61,6 +62,9 @@ export type CollectionsData = {
   /** 💳 The shop wallet the portfolio spends past its free room. `null` = unread — never 0. */
   walletBalance: number | null;
   galleryVideoLinks: string[];
+  /** 🎬 Each video link's title, keyed by the link (`lib/video-link-titles.ts`). null = the row was unread — the editor
+   *  then offers no Title field, so a save can never wipe titles it could not see. */
+  videoTitles: Record<string, string> | null;
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;
   igMedia: VendorIgMediaRow[];
@@ -99,7 +103,8 @@ export async function loadCollectionsData(
   const ownRead = (async () => {
     const { data, error } = await supabase
       .from('vendor_profiles')
-      .select(`tier_state, ${MICROSITE_COLUMNS}`)
+      // `gallery_video_titles` rides this one row read (Video links' titles, migration 20271334860034) — no new request.
+      .select(`tier_state, gallery_video_titles, ${MICROSITE_COLUMNS}`)
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
     if (error) logQueryError('VendorCollections.ownRow', error, { vendorId }, 'graceful_degrade');
@@ -384,6 +389,7 @@ export async function loadCollectionsData(
     portfolioAllowanceUnread: !allowance.ok,
     walletBalance,
     galleryVideoLinks,
+    videoTitles: own ? videoTitlesOf(own.gallery_video_titles) : null,
     igConfigured,
     igConnection: ig.connection,
     igMedia: ig.media,

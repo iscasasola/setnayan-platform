@@ -30,14 +30,21 @@
 //      stream before the server answers (`lib/chat-optimistic.ts`), and a send
 //      that fails says "Not sent · Try again" in words — never a silent loss.
 
-import { useRef, useState, type ReactNode } from 'react';
-import { Camera, ImageIcon, Paperclip, SendHorizontal, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
+import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
+import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
+import { pressMs } from './press-feel';
+import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { prepareChatFile, uploadPreparedChatFile } from '@/lib/chat-file-prepare';
 import { CHAT_ATTACHMENT_ACCEPT, chatAttachmentLimit } from '@/lib/chat-attachment-limits';
+import { CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 import { useTapAway } from '@/app/_components/typing-band';
 import {
@@ -54,6 +61,9 @@ import {
 const MEDIA_ACCEPT = CHAT_ATTACHMENT_ACCEPT.split(',')
   .filter((t) => t.startsWith('image/') || t.startsWith('video/'))
   .join(',');
+
+/** A visible 📷 / 🖼 shortcut (only on a composer with no ＋). */
+const SHORTCUT = 'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]';
 
 type Props = {
   threadId: string;
@@ -83,8 +93,53 @@ type Props = {
 // that simply will not send as the only symptom.
 
 export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId }: Props) {
+  // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
+  // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
+  // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
+  const privateTo = usePrivateTo(threadId);
+  // 🔒 The composer's own door: the people in this chat (the strip's faces, you excluded); none → no 🔒.
+  const chatPeople = useChatPeople(threadId);
+  const [pickingPrivate, setPickingPrivate] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  /* ↔ THE COMPOSER SLIDES (owner, 9 Nov: "fully animate the message when the text box expands and the buttons move to the
+     side away from the screen" — 03-FINAL-RULINGS). Typing, or a private recipient, sends the ＋ · 🔒 · 📎 · 📷 · 🖼 out to the
+     LEFT while the box grows into their room in the same motion; an empty box, or × out of private, brings them back. One
+     movement at the house speed (`--sn-pill-dur`, the family spring — `.sn-composer-tools` in globals.css); Send stays put.
+     While private they also LEAVE the page once they are out (words only: no ＋, no file input) — and a composer drawn
+     already private never draws them at all. Reduced motion: the same end states, no movement. */
+  const toolsOut = Boolean(privateTo) || hasDraft;
+  const reduceMotion = usePrefersReducedMotion();
+  const [toolsMounted, setToolsMounted] = useState(!privateTo);
+  const [toolsShown, setToolsShown] = useState(!toolsOut);
+  useEffect(() => {
+    if (!toolsOut) {
+      setToolsMounted(true);
+      // One frame drawn "out" first, so the way back in is a slide, not a jump.
+      let inner = 0;
+      const outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(() => setToolsShown(true));
+      });
+      return () => {
+        cancelAnimationFrame(outer);
+        cancelAnimationFrame(inner);
+      };
+    }
+    setToolsShown(false);
+    if (!privateTo) return;
+    if (reduceMotion) {
+      setToolsMounted(false);
+      return;
+    }
+    const ms = pressMs(getComputedStyle(document.documentElement).getPropertyValue('--sn-pill-dur'));
+    const t = window.setTimeout(() => setToolsMounted(false), ms);
+    return () => window.clearTimeout(t);
+  }, [toolsOut, privateTo, reduceMotion]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Any door (a face · the 🔒 · Reply privately) turning private mode on puts the cursor in the box.
+  const privateUserId = privateTo?.userId ?? null;
+  useEffect(() => {
+    if (privateUserId) textareaRef.current?.focus();
+  }, [privateUserId]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -112,6 +167,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     setFileName(null);
     setFileError(null);
   };
+  // 🔒 Going private lets go of a picked file (the attach controls are not drawn while it is on — words only).
+  const goingPrivate = privateTo !== null;
+  useEffect(() => {
+    if (!goingPrivate) return;
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setFileName(null);
+  }, [goingPrivate]);
 
   /** Judge a picked file against its ceiling and show its chip — shared by the ＋ sheet's picker and the shortcuts. */
   const acceptFile = (file: File | null): boolean => {
@@ -223,6 +285,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         const fileVal = formData.get('attachment');
         const hasFile = fileVal instanceof File && fileVal.size > 0;
         if (!bodyVal && !hasFile) return;
+        // 🔒 Words only, said in words — never a private file sent anyway (the server refuses it too).
+        if (privateTo && hasFile) {
+          setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+          return;
+        }
 
         // From here until the send settles, a second Enter is a double send —
         // the photo compression below is awaited too, not only sendAction.
@@ -248,6 +315,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           fileName: hasFile ? (formData.get('attachment') as File).name : null,
           at: Date.now(),
           state: 'sending',
+          privateTo: privateTo?.name ?? null,
         };
         window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
         if (textareaRef.current) {
@@ -268,6 +336,19 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       className="flex flex-col gap-1.5"
     >
       <input type="hidden" name="thread_id" value={threadId} />
+      {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
+
+      {/* 🔒 The 🔒's list — pick one person, the message box goes private for them. */}
+      {!privateTo && pickingPrivate && chatPeople.length > 0 ? (
+        <PrivatePeopleList
+          people={chatPeople}
+          onPick={(to) => {
+            setPickingPrivate(false);
+            setPrivateTo(threadId, to);
+            textareaRef.current?.focus();
+          }}
+        />
+      ) : null}
 
       {/* Chosen-file chip — shown once a file is picked, before send. */}
       {fileName ? (
@@ -298,8 +379,31 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
 
-      <div className="flex items-end gap-0.5" data-chat-composer-row="">
+      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
+        {toolsMounted ? (
+        <div
+          className="sn-composer-tools"
+          data-chat-composer-tools={toolsShown ? 'in' : 'out'}
+          {...(toolsShown ? {} : { 'aria-hidden': true, inert: true })}
+        >
+        <div className="flex min-w-0 items-end gap-0.5">
         {lead ?? null}
+        {/* 🔒 Message someone privately, any time (owner, 9 Nov) — beside the ＋; only when someone else is in the chat. */}
+        {chatPeople.length > 0 ? (
+          <ActionButton
+            tone="info"
+            quiet
+            iconOnly
+            icon={Lock}
+            label="Privately"
+            name="Message someone in this chat privately"
+            aria-expanded={pickingPrivate}
+            aria-haspopup={true}
+            className="h-11 w-11 shrink-0"
+            onClick={() => setPickingPrivate((was) => !was)}
+            data-testid="chat-private-open"
+          />
+        ) : null}
         {/* Paperclip attach button — opens the OS file picker. With `attachInputId` the button is gone (the ＋ sheet's
             "Share a file" opens the picker) but the input stays, clipped, so the picked file still rides this form. */}
         <label
@@ -324,32 +428,56 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             }}
           />
         </label>
-        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). They step aside while a message is being written,
-            so the field takes their room; both hand the file to the ONE input above. */}
-        {!hasDraft ? (
+        {/* 📷 · 🖼 — Messenger's two shortcuts (prototype frame B). With a ＋ (`lead`) they live INSIDE it (v8.3, approved
+            9 Nov: (+) · 🔒 · box · Send): the labels are clipped and the sheet's Camera / Photo rows click their inputs by
+            id. Without one they stay visible beside the paperclip. Both hand the file to the ONE input above. */}
           <>
-            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Camera" data-chat-camera="">
+            <label className={lead ? 'sr-only' : SHORTCUT} title="Camera" data-chat-camera="">
               <span className="sr-only">Camera</span>
               <Camera aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
-              <input ref={cameraRef} type="file" accept={MEDIA_ACCEPT} capture="environment" className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
+              <input ref={cameraRef} id={CHAT_CAMERA_INPUT_ID} type="file" accept={MEDIA_ACCEPT} capture="environment" className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
-            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Photo" data-chat-photo="">
+            <label className={lead ? 'sr-only' : SHORTCUT} title="Photo" data-chat-photo="">
               <span className="sr-only">Photo</span>
               <ImageIcon aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
-              <input ref={photoRef} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
+              <input ref={photoRef} id={CHAT_PHOTO_INPUT_ID} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
           </>
+        </div>
+        </div>
         ) : null}
 
+        {/* 📏 Once the tools have slid away (typing, or private) the box meets ChatBox's 16 px gutter itself (v8.3: the
+            row is 16 px from each edge in both end states); beside the tools it keeps its 4 px breathing room. */}
+        {/* 🔒 PRIVATE MODE LIVES INSIDE THE BOX (owner, 9 Nov) — the same box, never a second row: an info outline, a 🔒 at its
+            left, "Private message to Jose" while empty, and an × inside at its right that returns it to "Message"
+            (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
+        <div
+          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsOut ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
+          data-chat-message-box=""
+          {...(privateTo ? { 'data-chat-private-box': '' } : {})}
+        >
+          {privateTo ? (
+            <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />
+          ) : null}
         <textarea
           ref={textareaRef}
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder="Message"
-          aria-label="Message"
-          className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
+          placeholder={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
+          aria-label={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
+          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-ink/[0.06] px-3.5 placeholder:text-ink/45'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
+          onPaste={(e) => {
+            // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.
+            if (!privateTo) return;
+            const dt = e.clipboardData;
+            const hasFile = dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file');
+            if (!hasFile) return;
+            e.preventDefault();
+            setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+          }}
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}
           onInput={(e) => {
@@ -388,10 +516,28 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             e.currentTarget.form?.requestSubmit();
           }}
         />
+          {privateTo ? (
+            <ActionButton
+              tone="info"
+              quiet
+              iconOnly
+              icon={X}
+              label="To everyone"
+              name={`Stop the private message to ${privateTo.name} — the next message goes to everyone`}
+              className="absolute -bottom-[3px] right-0"
+              onClick={() => {
+                setPrivateTo(threadId, null);
+                textareaRef.current?.focus();
+              }}
+              data-testid="chat-private-clear"
+            />
+          ) : null}
+        </div>
         <SubmitButton
           aria-label="Send"
           pendingLabel=""
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05] disabled:opacity-60"
+          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${privateTo ? PRIVATE_MARK : 'text-sn-accent'} hover:bg-ink/[0.05] disabled:opacity-60`}
+          {...(privateTo ? { 'data-chat-private-send': '' } : {})}
         >
           <SendHorizontal className="h-[22px] w-[22px]" strokeWidth={1.9} />
         </SubmitButton>

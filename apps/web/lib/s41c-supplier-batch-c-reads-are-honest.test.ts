@@ -39,7 +39,6 @@ import { isPersistableCanonicalService } from '@/lib/requirements-capture';
 import { findSameDayVendors } from '@/lib/same-day-vendors';
 import { fetchDayOfOverride, fetchSongRequestsPaused } from '@/lib/vendor-dayof-config';
 import { fetchVerifiedLock } from '@/lib/vendor-corrections';
-import { countDeepSearchUsesSince } from '@/lib/vendor-deep-search-addon';
 import { getSetnayanFeePct, SETNAYAN_PAY_FEE_PCT } from '@/lib/vendor-earnings';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -137,18 +136,9 @@ test('vendor-corrections: fetchVerifiedLock on a REFUSED read stays `false` (fai
 });
 
 // ── vendor-deep-search-addon.ts · vendor_deep_search_uses.select ───────────
-
-test('vendor-deep-search-addon: countDeepSearchUsesSince on a REFUSED read stays the SAFE-HIGH 1 (fails toward charging), and is now logged', async () => {
-  const { result, calls } = await captureConsoleError(() =>
-    countDeepSearchUsesSince(stubClient(REFUSED), 'vp_1', '2026-08-01T00:00:00.000Z'),
-  );
-  assert.equal(result, 1);
-  assert.equal(calls.length, 1);
-  assert.match(
-    String(calls[0]![0]),
-    /\[supabase-error\] lib\/vendor-deep-search-addon\.ts · from:vendor_deep_search_uses\.select/,
-  );
-});
+// RETIRED 2026-11-09: `countDeepSearchUsesSince` counted the Pro/Ultra free search's cycle, which the owner removed
+// (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN"). With no free search there is nothing to count, so the
+// read is gone with it — `vendor-deep-search-addon.test.ts` pins that it stays gone.
 
 // ── vendor-earnings.ts · platform_settings.select ────────────────────────────
 // ⚠ Known overlap: open PR #5680 also touches lib/vendor-earnings.ts, but not
@@ -231,7 +221,7 @@ const LOG_SITE_FLOORS: { file: string; sites: { label: string; floor: number }[]
   ] },
   { file: 'lib/vendor-deep-search-addon.ts', sites: [
     { label: '[supabase-error] vendor-deep-search-addon: price (using fallback)', floor: 1 },
-    { label: '[supabase-error] lib/vendor-deep-search-addon.ts · from:vendor_deep_search_uses.select', floor: 1 },
+    // the `vendor_deep_search_uses.select` site retired with the free search (2026-11-09) — see above.
   ] },
   { file: 'lib/vendor-earnings.ts', sites: [
     { label: '[supabase-error] lib/vendor-earnings.ts · from:platform_settings.select', floor: 1 },

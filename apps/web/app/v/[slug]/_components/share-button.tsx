@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Share2, Check } from 'lucide-react';
+import { Check, Share } from 'lucide-react';
 import { shareableShopUrl } from '@/lib/shop-back';
 
 /**
@@ -56,7 +56,7 @@ export function ShareButton({
         </>
       ) : (
         <>
-          <Share2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          <Share className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           Share
         </>
       )}

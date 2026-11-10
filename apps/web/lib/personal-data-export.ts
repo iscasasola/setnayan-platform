@@ -14,7 +14,9 @@ import {
   LEDGER_EXPORT_PROJECTION,
   LEDGER_SUPPLIER_PROJECTION,
   RECEIPT_LINK_TTL_SECONDS,
+  REFUND_EXPORT_PROJECTION,
   shapeLedgerRows,
+  shapeRefundRows,
   type LedgerExportRow,
   type LedgerSupplierRow,
   type ReceiptLink,
@@ -310,6 +312,7 @@ export async function buildPersonalDataExport(
     ownColourChangesRes,
     ledgerRes,
     ledgerSuppliersRes,
+    ledgerRefundsRes,
     ownSuggestionsRes,
     couplePhotoSharesRes,
     ownCrewPassesRes,
@@ -811,6 +814,18 @@ export async function buildPersonalDataExport(
       if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
       return supabase.from('event_vendors').select(LEDGER_SUPPLIER_PROJECTION).in('event_id', owned.ids);
     })(),
+    // …and the money each supplier says they GAVE BACK on those same couple events (Supplier Build 2, 2026-11-09):
+    // `event_vendor_refunds`, couple-grain on the session client (its couple-read policy is the second bound).
+    (async () => {
+      const owned = await coupleEventIds;
+      if (owned.ids === null) return { data: [] as unknown[], error: owned.error };
+      if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
+      return supabase
+        .from('event_vendor_refunds')
+        .select(REFUND_EXPORT_PROJECTION)
+        .in('event_id', owned.ids)
+        .order('refunded_on', { ascending: true });
+    })(),
     // RA 10173 (2026-10-19) — PHOTOS THE SUBJECT SUGGESTED to a couple's board as a booked supplier (migration
     // 20271279311294). AUTHOR-scoped on suggested_by_user_id: the row records an act THIS person made; the couple who
     // kept or declined it is not its data subject (their decision is the outcome on the row, not their data). Read
@@ -902,6 +917,9 @@ export async function buildPersonalDataExport(
     tokenBalancesRes,
     teamMembershipsRes,
     supplierScansRes,
+    chatSeatsRes,
+    blockerShowsRes,
+    privateReceivedRes,
   ] = await Promise.all([
     // What Setnayan told this person in the app. Recipient-scoped: every row is
     // addressed to them. A body can quote a chat message somebody sent them, so
@@ -1101,6 +1119,34 @@ export async function buildPersonalDataExport(
           .eq('scanned_by_user_id', user.id)
           .order('claimed_at', { ascending: true })
       : Promise.resolve(null),
+    // The supplier conversations this person is a HOST in (migration 20271330575424), when they joined, when they
+    // left, and the note they left behind (20271330723629). Read privileged because `left_note` is withheld from the
+    // `authenticated` column grant (the member reads their own through chat_thread_my_left_note()); bounded by
+    // user_id = the subject. `added_by_user_id` is NOT selected — who seated them is the other host's act.
+    admin
+      ? admin
+          .from('chat_thread_members')
+          .select('thread_id, joined_at, left_at, left_note')
+          .eq('user_id', user.id)
+          .order('joined_at', { ascending: true })
+      : Promise.resolve(null),
+    // How many times this person was shown each unanswered chat blocker (migration 20271331503438) — the count that
+    // sets their "Return to chat in N" hold. Own-read policy, subject-scoped.
+    supabase
+      .from('chat_blocker_shows')
+      .select('thread_id, blocker_kind, subject_key, shown_count, first_shown_at, last_shown_at')
+      .eq('user_id', user.id),
+    // 🔒 RA 10173 access right (owner FINAL RULINGS 2026-11-09): the PRIVATE lines sent TO this person
+    // (`recipient_user_id` = the subject, migration 20271329968207). Their sender's own copy is
+    // `chat_messages_authored`; this is the recipient's. Privileged when the key is present, because a host who
+    // has since left the conversation still owns what was said to them; bounded by recipient_user_id = the
+    // subject, fixed projection. Without the key, the person's own session reads it (the restrictive policy lets
+    // a recipient read their own private lines).
+    (admin ?? supabase)
+      .from('chat_messages')
+      .select('message_id, thread_id, sender_role, body, created_at')
+      .eq('recipient_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -1166,6 +1212,7 @@ export async function buildPersonalDataExport(
   const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
   const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
   const ledgerSuppliers = listOutcome<LedgerSupplierRow>('payment_ledger_suppliers', ledgerSuppliersRes);
+  const ledgerRefunds = listOutcome<Record<string, unknown>>('supplier_refunds_received', ledgerRefundsRes);
   const notificationsReceived = listOutcome('notifications_received', notificationsRes);
   const receipts = listOutcome('receipts', receiptsRes);
   const orderHistory = listOutcome('order_history', orderHistoryRes);
@@ -1190,6 +1237,9 @@ export async function buildPersonalDataExport(
   const tokenBalances = listOutcome('retired_token_balances', tokenBalancesRes);
   const teamMemberships = listOutcome('supplier_team_memberships', teamMembershipsRes);
   const supplierScans = listOutcome('supplier_scans_made', supplierScansRes, adminUnavailable);
+  const chatSeats = listOutcome('chat_conversations_hosted', chatSeatsRes, adminUnavailable);
+  const blockerShows = listOutcome('chat_blocker_shows', blockerShowsRes);
+  const privateReceived = listOutcome('chat_private_messages_received', privateReceivedRes);
 
   // Receipt links for the ledger: presigned from the payment-proof folder of the
   // row's OWN event (the only folder its writer accepts), with the expiry the
@@ -1288,6 +1338,7 @@ export async function buildPersonalDataExport(
     ownColourChanges,
     ledger,
     ledgerSuppliers,
+    ledgerRefunds,
     couplePhotoShares,
     ownCrewPasses,
     ownHearts,
@@ -1332,6 +1383,9 @@ export async function buildPersonalDataExport(
     tokenBalances,
     teamMemberships,
     supplierScans,
+    chatSeats,
+    blockerShows,
+    privateReceived,
   ]);
 
   const exported = {
@@ -1466,6 +1520,9 @@ export async function buildPersonalDataExport(
     payment_ledger: shapeLedgerRows(ledger.rows, ledgerSuppliers.rows, receiptLinks),
     payment_ledger_note:
       'Every payment you logged against a supplier on an event you own, with the supplier’s confirmation, any “it never reached me” and Setnayan’s ruling. receipt_link is presigned and stops working at receipt_link_expires_at; the durable record of each receipt is proof_r2_key.',
+    // Supplier Build 2 (2026-11-09) — the refunds a supplier recorded giving you back on an event you own, each naming
+    // the supplier. A removed one stays, with removed_at. See lib/export-payment-ledger (REFUND_EXPORT_*).
+    supplier_refunds_received: shapeRefundRows(ledgerRefunds.rows, ledgerSuppliers.rows),
     // ── Added 2026-11-05: the record types that were missing (see
     // lib/export-completeness.ts). Each is scoped to you.
     // What Setnayan told you in the app. An admin-prepared file leaves out each
@@ -1506,6 +1563,13 @@ export async function buildPersonalDataExport(
     // Claim scans you made as a supplier's crew — what you scanned for which shop, when, and its number. The guest
     // you scanned is theirs, not yours, and is not in your file.
     supplier_scans_made: supplierScans.rows,
+    // The supplier conversations you are (or were) a host in — joined, left, and the note you left.
+    chat_conversations_hosted: chatSeats.rows,
+    // How often each unanswered chat reminder was shown to you.
+    chat_blocker_shows: blockerShows.rows,
+    // The private messages sent TO you inside a shared chat — only you and their sender could read them. An
+    // admin-prepared file carries no message text (the same rule as chat_messages_authored).
+    chat_private_messages_received: forAdmin ? withoutMessageText(privateReceived.rows) : privateReceived.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/
@@ -1518,6 +1582,7 @@ export async function buildPersonalDataExport(
       'active loved-one claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
       'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
+      'in supplier_refunds_received, the account ids of the supplier-side people who recorded or removed a refund (their identifiers, not yours — the amount, day, reason and when ARE included)',
       // 2026-11-05 — what the new sections deliberately leave out, so a field
       // that is missing reads as a decision, not an accident.
       'Setnayan staff’s internal notes on your records — the note on an account-deletion request, the reason written for a comp, the notes on a help message — and the ids of the staff who handled them. When each was handled IS included.',

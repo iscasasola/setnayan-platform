@@ -114,7 +114,13 @@ export function RoiAttributionCard({
         ? `No bookings ${windowLabel} yet`
         : `${formatCount(sn)} of ${formatCount(attribution.totalBookings)} bookings came through Setnayan`;
     return (
-      <CardFace title="What Setnayan added" window={windowLabel.charAt(0).toUpperCase() + windowLabel.slice(1)} line={line} data="worth">
+      <CardFace
+        title="What Setnayan added"
+        window={windowLabel.charAt(0).toUpperCase() + windowLabel.slice(1)}
+        line={line}
+        data="worth"
+        quiet={unread || !attribution || attribution.totalBookings === 0}
+      >
         <div className="space-y-3 pt-2">
           {[
             { label: 'From Setnayan', n: sn, color: 'var(--m-orange)' },

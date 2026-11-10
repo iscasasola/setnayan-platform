@@ -14,7 +14,7 @@ import { anyModalOpen } from '@/lib/use-modal-a11y';
  *
  *   WHERE   between the top bar (`header.fd-topbar`) and the bottom nav (`[data-bottom-dock]`) — both stay on screen —
  *           and across the page's own column (`frame`), so on a wide screen it covers the page, never the rail.
- *   OPEN    it grows out of the tapped tile or row: a `clip-path` from that rect to the whole body, 520 ms on the house
+ *   OPEN    it grows out of the tapped tile or row: a `clip-path` from that rect to the whole body, 700 ms on the house
  *           rise ease (`lib/rise-motion.ts`) — the SAME motion as a picked client rising from its Clients row. The
  *           content fades in over the second half, so nothing is drawn squashed.
  *   CLOSE   × (or Escape) plays the exact reverse back INTO the same tile/row, then unmounts; the page under it was

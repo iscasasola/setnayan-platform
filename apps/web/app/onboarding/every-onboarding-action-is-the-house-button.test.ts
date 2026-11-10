@@ -26,7 +26,6 @@ const web = process.cwd();
 
 /** Bare `<button>` per component, measured 2026-11-10 (Lane P). Lower it; never raise it. */
 const BARE: Readonly<Record<string, number>> = {
-  'onboarding/[type]/_components/generic-onboarding.tsx › GenericOnboarding': 8,
   'onboarding/[type]/_components/specialty-fields.tsx › Roster': 2,
   'onboarding/[type]/_components/specialty-fields.tsx › OpenMultiselect': 1,
   'onboarding/[type]/_components/specialty-fields.tsx › Field': 3,

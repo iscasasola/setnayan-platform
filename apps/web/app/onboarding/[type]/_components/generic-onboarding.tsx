@@ -19,7 +19,8 @@ import {
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ChevronLeft, X } from 'lucide-react';
+import { ArrowRight, CalendarCheck, CalendarDays, ChevronLeft, X } from 'lucide-react';
+import { StepPick } from '@/app/onboarding/_shared/step-field';
 import { ActionButton } from '@/components/action-button';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import { useRouter } from 'next/navigation';
@@ -1460,21 +1461,14 @@ export function GenericOnboarding(props: Props) {
           <p className="mt-6 text-sm font-medium text-ink/70">What is it?</p>
           {/* Positive origins only — the DB CHECK admits no memorial option, so
               the picker cannot offer one either. */}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ANCHOR_ORIGINS.map((o) => (
-              <button
-                key={o}
-                type="button"
-                onClick={() => setAnchorOrigin(o)}
-                className={`min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold ${
-                  anchorOrigin === o
-                    ? 'border-mulberry bg-mulberry/10 text-ink'
-                    : 'border-ink/15 bg-paper text-ink/60'
-                }`}
-              >
-                {ANCHOR_ORIGIN_LABELS[o]}
-              </button>
-            ))}
+          <div className="mt-2">
+            <StepPick
+              label="What is it?"
+              value={anchorOrigin}
+              options={ANCHOR_ORIGINS.map((o) => ({ key: o, label: ANCHOR_ORIGIN_LABELS[o] }))}
+              onPick={(k) => setAnchorOrigin(k)}
+              dataAttr="data-anchor-origin"
+            />
           </div>
           <p className="mt-4 text-xs text-ink/70">
             This is what makes it come back every year, and what your reminder
@@ -1492,24 +1486,17 @@ export function GenericOnboarding(props: Props) {
             If it comes back, we’ll line up next year’s when this one wraps.
             You can change this later.
           </p>
-          <div className="mt-6 flex gap-2">
-            {[
-              { v: true, label: 'Yes — every year' },
-              { v: false, label: 'Just this once' },
-            ].map((o) => (
-              <button
-                key={String(o.v)}
-                type="button"
-                onClick={() => setRecurs(o.v)}
-                className={`min-h-[48px] flex-1 rounded-[var(--m-r-md)] border px-4 text-sm font-semibold ${
-                  recurs === o.v
-                    ? 'border-mulberry bg-mulberry/10 text-ink'
-                    : 'border-ink/15 bg-paper text-ink/60'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
+          <div className="mt-6">
+            <StepPick
+              label="Is this a yearly thing?"
+              value={recurs ? 'yes' : 'no'}
+              options={[
+                { key: 'yes', label: 'Yes — every year' },
+                { key: 'no', label: 'Just this once' },
+              ]}
+              onPick={(k) => setRecurs(k === 'yes')}
+              dataAttr="data-recurs"
+            />
           </div>
         </div>
       );
@@ -1553,13 +1540,6 @@ export function GenericOnboarding(props: Props) {
           'The day you’re marking'
         );
       })();
-      const chip = (on: boolean) =>
-        [
-          'min-h-[44px] rounded-[var(--m-r-md)] border px-3 text-sm font-semibold',
-          on
-            ? 'border-mulberry bg-mulberry/10 text-ink'
-            : 'border-ink/15 bg-paper text-ink/60',
-        ].join(' ');
       return (
         <div>
           <Eyebrow>The basics</Eyebrow>
@@ -1583,31 +1563,25 @@ export function GenericOnboarding(props: Props) {
                whatever the calendar lands on re-lights the matching chip, so
                "Another day" can't keep claiming a day that IS the anchor day. */
             <div className="mt-6 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className={chip(celebrationDates.includes(anchorOptions.onTheDayISO))}
+              <ActionButton
+                tone="neutral"
+                icon={CalendarCheck}
+                label={`On the day · ${onTheDayLabel}`}
+                aria-pressed={celebrationDates.includes(anchorOptions.onTheDayISO)}
                 disabled={!canPickCelebrationDay(anchorOptions.onTheDayISO)}
                 onClick={() => pickCelebrationDay(anchorOptions.onTheDayISO)}
-              >
-                On the day · {onTheDayLabel}
-              </button>
+              />
               {anchorOptions.saturdayAfterISO && saturdayLabel ? (
-                <button
-                  type="button"
-                  className={chip(celebrationDates.includes(anchorOptions.saturdayAfterISO))}
+                <ActionButton
+                  tone="neutral"
+                  icon={CalendarCheck}
+                  label={`The Saturday after · ${saturdayLabel}`}
+                  aria-pressed={celebrationDates.includes(anchorOptions.saturdayAfterISO)}
                   disabled={!canPickCelebrationDay(anchorOptions.saturdayAfterISO)}
                   onClick={() => pickCelebrationDay(anchorOptions.saturdayAfterISO!)}
-                >
-                  The Saturday after · {saturdayLabel}
-                </button>
+                />
               ) : null}
-              <button
-                type="button"
-                className={chip(activePick === 'other')}
-                onClick={showTheCalendar}
-              >
-                Another day
-              </button>
+              <ActionButton tone="neutral" icon={CalendarDays} label="Another day" aria-pressed={activePick === 'other'} onClick={showTheCalendar} />
             </div>
           ) : null}
           {/* THE CALENDAR — the same one the wedding has had since 2026-06-09:
@@ -1697,26 +1671,13 @@ export function GenericOnboarding(props: Props) {
         <div>
           <Eyebrow>{typeQuestion.eyebrow}</Eyebrow>
           <Title>{typeQuestion.question}</Title>
-          <div className="mt-6 flex flex-col gap-3">
-            {typeQuestion.options.map((o) => {
-              const on = selected === o.key;
-              return (
-                <button
-                  key={o.key}
-                  type="button"
-                  onClick={() => pickDetail(typeQuestion.id, o.key)}
-                  className={[
-                    'rounded-[var(--m-r-md)] border p-4 text-left transition',
-                    on
-                      ? 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry'
-                      : 'border-ink/12 bg-paper hover:border-ink/30',
-                  ].join(' ')}
-                >
-                  <span className="block font-semibold text-ink">{o.title}</span>
-                  <span className="mt-0.5 block text-sm text-ink/60">{o.desc}</span>
-                </button>
-              );
-            })}
+          <div className="mt-6">
+            <StepPick
+              label={typeQuestion.question}
+              value={selected ?? null}
+              options={typeQuestion.options.map((o) => ({ key: o.key, label: o.title, ...(o.desc ? { hint: o.desc } : {}) }))}
+              onPick={(k) => pickDetail(typeQuestion.id, k)}
+            />
           </div>
         </div>
       );
@@ -1749,26 +1710,13 @@ export function GenericOnboarding(props: Props) {
         <div>
           <Eyebrow>{axis.eyebrow}</Eyebrow>
           <Title>{axis.question}</Title>
-          <div className="mt-6 flex flex-col gap-3">
-            {axis.options.map((o) => {
-              const on = selected === o.key;
-              return (
-                <button
-                  key={o.key}
-                  type="button"
-                  onClick={() => pickAxis(axis.id, o.key)}
-                  className={[
-                    'rounded-[var(--m-r-md)] border p-4 text-left transition',
-                    on
-                      ? 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry'
-                      : 'border-ink/12 bg-paper hover:border-ink/30',
-                  ].join(' ')}
-                >
-                  <span className="block font-semibold text-ink">{o.title}</span>
-                  <span className="mt-0.5 block text-sm text-ink/60">{o.desc}</span>
-                </button>
-              );
-            })}
+          <div className="mt-6">
+            <StepPick
+              label={axis.question}
+              value={selected ?? null}
+              options={axis.options.map((o) => ({ key: o.key, label: o.title, ...(o.desc ? { hint: o.desc } : {}) }))}
+              onPick={(k) => pickAxis(axis.id, k)}
+            />
           </div>
         </div>
       );
@@ -1914,7 +1862,7 @@ export function GenericOnboarding(props: Props) {
             </span>
           </Link>
         ) : (
-          <button type="button" onClick={() => go(-1)} disabled={committing} aria-label="Back" className={TOP_RING}>
+          <button /* button-ok: the step frame's ‹ Back ring in the header (T32 head — first-screen-can-cancel.test.ts) */ type="button" onClick={() => go(-1)} disabled={committing} aria-label="Back" className={TOP_RING}>
             <span aria-hidden className={TOP_RING_FACE}>
               <ChevronLeft size={16} strokeWidth={2} />
             </span>

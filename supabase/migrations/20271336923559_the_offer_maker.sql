@@ -39,7 +39,8 @@
 -- NO NUMBER HERE GOVERNS MONEY. Nothing below types a rate, a fee or a limit: the gift limit is the
 -- admin's live gift_limit_pct of the live booking fee (lib/shop-gifts.ts), read at the moment of use.
 --
--- RLS (canonical, copied from vendor_service_discounts / vendor_service_addons — no invented pattern):
+-- RLS (canonical, copied from vendor_service_discounts / vendor_service_addons — no invented pattern), every policy
+-- TO authenticated (a policy with no TO clause is PUBLIC, i.e. anon too — and anon holds no grant on these tables):
 --   public read  — authenticated, the shop is published and the offer is switched on;
 --   vendor all   — the shop's own members (current_vendor_profile_ids);
 --   admin all    — console admins.
@@ -110,12 +111,14 @@ CREATE POLICY vendor_offers_public_read
 DROP POLICY IF EXISTS vendor_offers_vendor_all ON public.vendor_offers;
 CREATE POLICY vendor_offers_vendor_all ON public.vendor_offers
   FOR ALL
+  TO authenticated
   USING (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()))
   WITH CHECK (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
 
 DROP POLICY IF EXISTS vendor_offers_admin_all ON public.vendor_offers;
 CREATE POLICY vendor_offers_admin_all ON public.vendor_offers
   FOR ALL
+  TO authenticated
   USING ((SELECT public.is_console_admin()))
   WITH CHECK ((SELECT public.is_console_admin()));
 
@@ -164,12 +167,14 @@ CREATE POLICY vendor_offer_cards_public_read
 DROP POLICY IF EXISTS vendor_offer_cards_vendor_all ON public.vendor_offer_cards;
 CREATE POLICY vendor_offer_cards_vendor_all ON public.vendor_offer_cards
   FOR ALL
+  TO authenticated
   USING (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()))
   WITH CHECK (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
 
 DROP POLICY IF EXISTS vendor_offer_cards_admin_all ON public.vendor_offer_cards;
 CREATE POLICY vendor_offer_cards_admin_all ON public.vendor_offer_cards
   FOR ALL
+  TO authenticated
   USING ((SELECT public.is_console_admin()))
   WITH CHECK ((SELECT public.is_console_admin()));
 

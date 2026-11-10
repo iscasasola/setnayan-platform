@@ -21,6 +21,7 @@ async function band(floorKitFree: boolean): Promise<string> {
     React.createElement(FrontDoorLanding, {
       eventTypes: [],
       planPrices: { plus: null, pro: null },
+      planFacts: { plusCredits: null, proCredits: null, freePapic: null },
       floorKitFree,
       sample: null,
       shelves: null,

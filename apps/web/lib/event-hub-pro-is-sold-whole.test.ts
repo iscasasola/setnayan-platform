@@ -107,7 +107,7 @@ test('with no part on sale /pricing draws no parts dropdown and no "just the par
   const on = renderToStaticMarkup(React.createElement(HubProWays, { everythingLabel: 'Everything · ₱5,000', partsLabel: 'Just the parts you need · from ₱500', parts: null }));
   assert.match(on, /data-hub-ways="all"/, 'the guard cannot see the dropdown when parts ARE on sale — it is blind');
   const page = code('app/(shell)/pricing/page.tsx');
-  assert.match(page, /are Event Hub Pro\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
+  assert.match(page, /are Event Pro\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
   // The parts list itself only holds rows the catalogue has ACTIVE (`_pricing-reads.ts`).
   assert.match(code('app/(shell)/pricing/_pricing-reads.ts'), /const n = r && r\.is_active \? Number\(r\.retail_price_php\) : NaN;/);
 });

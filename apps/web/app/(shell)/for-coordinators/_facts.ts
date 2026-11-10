@@ -34,7 +34,7 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 
-import { FREE_FINDABLE } from '@/app/for-suppliers/_components/supplier-front-data';
+import { FREE_FINDABLE } from '@/app/for-suppliers/_components/plan-table-data';
 
 import { countWord, type ClaimSwitch } from './_claims';
 

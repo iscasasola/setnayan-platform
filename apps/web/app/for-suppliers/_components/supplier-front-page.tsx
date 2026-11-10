@@ -33,7 +33,6 @@ import {
   SAMPLE_SHOP,
   VERIFIED_PAPERS,
   VERIFIED_REACH,
-  addonLines,
   addonsFine,
   foldGroups,
   freeSpec,
@@ -46,6 +45,7 @@ import {
   verifiedSpec,
   type GrowTier,
 } from './supplier-front-data';
+import { addonLines } from './plan-table-data';
 import { SupplierPlanTable } from './supplier-plan-table';
 import {
   CheckADateDemo,

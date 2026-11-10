@@ -3,14 +3,14 @@
  * owner 10 Nov 2026: *"update the full FREE vs VERIFIED vs SOLO vs PRO vs ULTRA for suppliers on the for suppliers
  * page"*).
  *
- * Every cell comes from `planTable` (supplier-front-data.ts), which reads the code that enforces it — this file only
+ * Every cell comes from `planTable` (plan-table-data.ts), which reads the code that enforces it — this file only
  * draws. No number, no peso, no plan name is typed here (`supplier-plan-table-tells-the-truth.test.ts`).
  *
  * Phone: the table keeps its five columns and scrolls sideways INSIDE its own card (the plan column stays pinned), so
  * the page itself keeps its 16 px gutters and never scrolls sideways at 320–390. A locked row carries its Problem →
  * Solution line under the name (owner 10 Nov: "always show the Problem and Solution").
  */
-import { TABLE_TIERS, planTable, tableTierName, type PlanTablePrices, type TableCell } from './supplier-front-data';
+import { TABLE_TIERS, planTable, tableTierName, type PlanTablePrices, type TableCell } from './plan-table-data';
 import s from './supplier-front.module.css';
 
 function Cell({ cell }: { cell: TableCell }) {

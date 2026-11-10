@@ -97,7 +97,7 @@ import {
   type FoldGroup,
 } from './_facts';
 import { readCoordinatorPrices } from './_prices.server';
-import { addonLines } from '@/app/for-suppliers/_components/supplier-front-data';
+import { addonLines } from '@/app/for-suppliers/_components/plan-table-data';
 import { SupplierPlanTable } from '@/app/for-suppliers/_components/supplier-plan-table';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 

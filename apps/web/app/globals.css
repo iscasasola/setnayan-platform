@@ -10154,6 +10154,11 @@ input.sn-switch:focus-visible {
 .ab.icon-only .lbl { display: none; }
 /* 3a's middle state — a row too narrow for icon + word shows words only. */
 .ab.word-only svg { display: none; }
+/* T19 rule 5 — an EqualRow's cells are equal, so each button fills its cell, an icon-only one too (`EqualRow`,
+   components/action-button.tsx). Written after `.icon-only` and one class stronger, so the fit pass never shrinks a
+   cell's button back to 40 px. 🔒 lib/equal-weight-choices-sit-at-equal-widths.test.ts */
+[data-equal-row] > .ab,
+[data-equal-row] > .ab.icon-only { width: 100%; min-width: 0; }
 /* ── THE LINK FORM PRESSES AT 44 TOO (2026-10-13, controller sweep) ──────────
  * A `<button class="ab">` paints 44 tall (the base layer's `button { min-height:
  * 44px }` outranks `height: 40px`); an `<a class="ab">` — ActionButton with
@@ -10617,6 +10622,24 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
 .sn-keep-qr { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 3px 3px 3px 3px; background: #fff; }
 .sn-keep-rule { width: 30px; height: 2px; background: rgb(var(--color-gild) / 0.45); }
 
+
+/* 👻 THE EXAMPLE — an empty part's greyed-out preview (owner 2026-11-09, DECISION_LOG 🧱👻 ×2; Build 5 Lane H; approved
+   prototype `prototypes/empty_looks_user_event_2026-11-10/` `.exwrap · .exchip · .ex`). ONE rule for every register —
+   mounted only by `ExamplePreview` (`app/_components/states/empty-state.tsx`). The sample is faded, grey and not
+   pressable; the "Example" chip is not faded, so a sample figure never reads as a real one. */
+@layer components {
+  .sn-example-wrap { position: relative; padding-top: 14px; min-width: 0; }
+  .sn-example-chip {
+    position: absolute; right: 0; top: 0; z-index: 3;
+    font: 600 9px/1.5 var(--font-mono, ui-monospace, monospace); letter-spacing: .14em; text-transform: uppercase;
+    padding: 0 7px; border-radius: 999px;
+    border: 1px solid rgb(var(--color-ink) / .35); color: rgb(var(--color-ink) / .7);
+    background: rgb(var(--color-cream));
+  }
+  .sn-example-flush .sn-example-chip { right: 16px; }
+  .sn-example { opacity: .42; filter: grayscale(1); pointer-events: none; user-select: none; -webkit-user-select: none; }
+  .sn-example * { pointer-events: none !important; }
+}
 
 /* ═══ 🪗 .sn-acc-head — EVERY FOLDABLE HEADER, ONE MARK (owner 2026-10-27, "APPROVED — FOLDABLE HEADERS ARE MARKED BY
    THE ICON CHIP", verbatim "1"; supersedes the closed/open tint and the full-width band rows). The header's round icon

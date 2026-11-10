@@ -36,7 +36,7 @@ function entryAllowance(key: 'agentAccounts' | 'waitlistAcceptances'): number {
 }
 
 /** A counted feature as the shop actually gets it — the plan's own number, or the entry plan's while the paywall is off. */
-function allowance(planValue: number, key: 'agentAccounts' | 'waitlistAcceptances', paywallOn: boolean): number {
+export function allowance(planValue: number, key: 'agentAccounts' | 'waitlistAcceptances', paywallOn: boolean): number {
   if (planValue > 0) return planValue;
   return paywallOn ? planValue : entryAllowance(key);
 }

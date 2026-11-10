@@ -10861,3 +10861,21 @@ input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appe
   }
 }
 
+
+/* 👻 THE EXAMPLE — an empty part's greyed-out preview (owner 2026-11-09, DECISION_LOG 🧱👻 ×2; Build 5 Lane H; approved
+   prototype `prototypes/empty_looks_user_event_2026-11-10/` `.exwrap · .exchip · .ex`). ONE rule for every register —
+   mounted only by `ExamplePreview` (`app/_components/states/empty-state.tsx`). The sample is faded, grey and not
+   pressable; the "Example" chip is not faded, so a sample figure never reads as a real one. */
+@layer components {
+  .sn-example-wrap { position: relative; padding-top: 14px; min-width: 0; }
+  .sn-example-chip {
+    position: absolute; right: 0; top: 0; z-index: 3;
+    font: 600 9px/1.5 var(--font-mono, ui-monospace, monospace); letter-spacing: .14em; text-transform: uppercase;
+    padding: 0 7px; border-radius: 999px;
+    border: 1px solid rgb(var(--color-ink) / .35); color: rgb(var(--color-ink) / .7);
+    background: rgb(var(--color-cream));
+  }
+  .sn-example-flush .sn-example-chip { right: 16px; }
+  .sn-example { opacity: .42; filter: grayscale(1); pointer-events: none; user-select: none; -webkit-user-select: none; }
+  .sn-example * { pointer-events: none !important; }
+}

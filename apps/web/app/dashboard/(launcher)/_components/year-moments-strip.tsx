@@ -13,6 +13,7 @@ import {
 } from '@/lib/year-moments';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
 import { inDaysWords } from '@/lib/format-number';
+import { WorthPlanningExample } from './board-examples';
 
 /**
  * "Your year" home strip (date-anchor model). A compact, self-fetching preview
@@ -247,7 +248,7 @@ function Tile({
  * "turning 0"). "Add your birthday" is a correct instruction either way; "you
  * haven't added one" would not be.
  */
-function EmptyYear({
+export function EmptyYear({
   unsure = false,
   heading = 'This year',
 }: {
@@ -274,6 +275,9 @@ function EmptyYear({
           Add your birthday
         </Link>
       </div>
+      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the strip's own list with two sample days, greyed under "Example" — only
+          when the read ANSWERED (`unsure` keeps the line alone). */}
+      {unsure ? null : <WorthPlanningExample />}
     </Tile>
   );
 }

@@ -19,7 +19,7 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
-import { joinCoupleNames } from '@/lib/typed-names';
+import { cleanDisplayName, joinCoupleNames } from '@/lib/typed-names';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -224,6 +224,11 @@ function onboardingRegionToPsgc(region: string | null | undefined): string | nul
 // with the picker's available-only supply filter) — imported at the top.
 
 export type OnboardingCommitPayload = {
+  /**
+   * "Name your wedding" (Lane P, owner 10 Nov) → events.display_name, and the slug is seeded from it.
+   * Optional: an older client (or a draft from before the step) sends none → the names, as before.
+   */
+  eventName?: string | null;
   /** bride/groom first + last (screen 4) → events.bride_name/groom_name (joined) + the first two guest-list rows */
   brideFirstName: string;
   brideLastName: string;
@@ -498,7 +503,11 @@ export async function commitOnboardingWedding(
   const brideFullName = [brideFirst, brideLast].filter(Boolean).join(' ');
   const groomFullName = [groomFirst, groomLast].filter(Boolean).join(' ');
   // The first event name, through the one composition (`joinCoupleNames`) — a new event reads the first person first.
-  const displayName = joinCoupleNames(brideFirst, groomFirst) || 'Our Wedding';
+  // "Name your wedding" (Lane P, owner 10 Nov: "we want the event name to be set on the onboarding") wins
+  // when it was given; otherwise the one composition, as before.
+  // Through the page name's own cleaner (`cleanDisplayName`): a name it refuses falls back to the names.
+  const namedInOnboarding = cleanDisplayName(payload.eventName);
+  const displayName = namedInOnboarding || joinCoupleNames(brideFirst, groomFirst) || 'Our Wedding';
 
   let admin: ReturnType<typeof createAdminClient>;
   try {

@@ -118,7 +118,7 @@ function Roster({
             ))}
           </div>
           <div className="mt-2 flex">
-            <ActionButton tone="danger" quiet icon={Trash2} label="Remove" onClick={() => remove(i)} />
+            <ActionButton tone="neutral" quiet icon={Trash2} label="Remove" onClick={() => remove(i)} />
           </div>
         </div>
       ))}
@@ -145,7 +145,7 @@ function OpenMultiselect({
       {values.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {values.map((v) => (
-            <ActionButton key={v} tone="neutral" icon={X} label={v} name={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} />
+            <ActionButton key={v} tone="neutral" icon={X} label={v} onClick={() => onChange(values.filter((x) => x !== v))} />
           ))}
         </div>
       )}

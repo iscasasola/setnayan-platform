@@ -3,13 +3,17 @@ import 'server-only';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readInChunks } from '@/lib/read-all-pages';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import { displayServiceLabel } from '@/lib/vendors';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { sanitizeRoleNames } from '@/lib/role-names';
 import {
   alsoOfferFrom,
+  eventCelebrantWords,
   forYourServicePages,
+  requestedServices,
+  type AskedInterest,
   eventDayWords,
   hostRoleWord,
   hostsInOrder,
@@ -52,7 +56,7 @@ export async function readSupplierEventLines(
   if (ids.length === 0) return out;
   const me = input.vendorProfileId;
 
-  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead] = await Promise.all([
+  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead, honoreesRead] = await Promise.all([
     readInChunks<{
       thread_id: string;
       event_id: string;
@@ -77,10 +81,12 @@ export async function readSupplierEventLines(
       event_date_precision: string | null;
       estimated_pax: number | null;
       role_names: unknown;
+      honoree_label: string | null;
+      signature_details: unknown;
     }>(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names')
+        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names, honoree_label, signature_details')
         .in('event_id', part),
     ),
     // Every HOST of the event — the couple and every co-host (a live co-host seat makes a `couple` member,
@@ -116,6 +122,24 @@ export async function readSupplierEventLines(
     readInChunks<{ event_id: string; user_id: string | null; role_subtype: string | null }>(ids, (part) =>
       admin.from('event_moderators').select('event_id, user_id, role_subtype').is('removed_at', null).in('event_id', part),
     ),
+    /*
+      🎂 WHO EACH EVENT IS FOR — the guest-list honorees (main role celebrant · bride · groom; the one product-wide rule,
+      `lib/event-celebrants.server.ts`). Needs only the event ids, so it rides this first round (Today's depth holds).
+    */
+    readInChunks<{
+      event_id: string;
+      display_name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      role: string | null;
+    }>(ids, (part) =>
+      admin
+        .from('guests')
+        .select(`${ENTOURAGE_COLUMNS}, event_id`)
+        .is('deleted_at', null)
+        .in('role', ['bride', 'groom', 'celebrant'])
+        .in('event_id', part),
+    ),
   ]);
   for (const [site, r] of [
     ['threads', threadsRead],
@@ -123,6 +147,7 @@ export async function readSupplierEventLines(
     ['members', membersRead],
     ['plan', planRead],
     ['services', servicesRead],
+    ['honorees', honoreesRead],
   ] as const) {
     if (r.error) logQueryError(`readSupplierEventLines.${site}`, r.error, { vendorProfileId: me }, 'graceful_degrade');
   }
@@ -155,7 +180,10 @@ export async function readSupplierEventLines(
   const hostGuestIds = [
     ...new Set(membersRead.rows.filter((m) => m.guest_id && inScope(m.event_id)).map((m) => m.guest_id as string)),
   ];
-  const [usersRead, earlierRead, hostGuestsRead] = await Promise.all([
+  // 📋 Every service the couple asked on the shop's thread (Build 5 F3) — needs the thread ids, so round two, beside the
+  // names (no deeper).
+  const askedThreadIds = [...new Set([...threadOf.entries()].filter(([id]) => inScope(id)).map(([, t]) => t.thread_id))];
+  const [usersRead, earlierRead, hostGuestsRead, interestsRead] = await Promise.all([
     readInChunks<{ user_id: string; display_name: string | null; first_name: string | null }>(people, (part) =>
       admin.from('users').select('user_id, display_name, first_name').in('user_id', part),
     ),
@@ -170,7 +198,23 @@ export async function readSupplierEventLines(
     readInChunks<{ guest_id: string; role: string | null }>(hostGuestIds, (part) =>
       admin.from('guests').select('guest_id, role').in('guest_id', part),
     ),
+    readInChunks<AskedInterest & { thread_id: string; created_at: string | null }>(askedThreadIds, (part) =>
+      admin
+        .from('thread_service_interests')
+        .select('thread_id, vendor_service_id, category_key, source, status, created_at')
+        .in('thread_id', part),
+    ),
   ]);
+  if (interestsRead.error) logQueryError('readSupplierEventLines.interests', interestsRead.error, { vendorProfileId: me }, 'graceful_degrade');
+  const interestsOf = new Map<string, AskedInterest[]>();
+  for (const i of [...interestsRead.rows].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))) {
+    interestsOf.set(i.thread_id, [...(interestsOf.get(i.thread_id) ?? []), i]);
+  }
+  const honoreesOf = new Map<string, Array<{ name: string | null }>>();
+  for (const g of honoreesRead.rows) {
+    const name = (g.display_name ?? '').trim() || `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim() || null;
+    honoreesOf.set(g.event_id, [...(honoreesOf.get(g.event_id) ?? []), { name }]);
+  }
   if (hostGuestsRead.error) logQueryError('readSupplierEventLines.hostGuests', hostGuestsRead.error, { vendorProfileId: me }, 'graceful_degrade');
   if (seatsRead.error) logQueryError('readSupplierEventLines.seats', seatsRead.error, { vendorProfileId: me }, 'graceful_degrade');
   const guestRoleOf = new Map(hostGuestsRead.rows.map((g) => [g.guest_id, g.role]));
@@ -221,7 +265,6 @@ export async function readSupplierEventLines(
     fromPhp: s.starting_price_php,
     live: s.is_active !== false,
   }));
-  const serviceName = new Map(services.map((s) => [s.id, s.name]));
   const earlier = (earlierRead.data ?? []) as Array<{
     thread_id: string;
     event_id: string;
@@ -256,16 +299,15 @@ export async function readSupplierEventLines(
     const ev = eventOf.get(eventId) ?? null;
     const t = threadOf.get(eventId) ?? null;
     const mine = (planOf.get(eventId) ?? []).filter((r) => r.marketplace_vendor_id === me);
-    const requestedIds = new Set<string>();
-    for (const r of mine) {
-      if (r.service_id) requestedIds.add(r.service_id);
-      for (const s of r.requested_service_ids ?? []) requestedIds.add(s);
-    }
-    const requested = planRead.error
-      ? null
-      : requestedIds.size > 0
-        ? [...requestedIds].map((id) => ({ name: serviceName.get(id) ?? 'A service you no longer list' }))
-        : [...new Set(mine.map((r) => r.category).filter((c): c is string => Boolean(c)))].map((c) => ({ name: displayServiceLabel(c) }));
+    // The plan row's anchor ∪ every service the couple asked on the thread (a refused read of either is said, never empty).
+    const asked = requestedServices({
+      plan: mine,
+      interests: t ? (interestsOf.get(t.thread_id) ?? []) : [],
+      services,
+      labelOf: displayServiceLabel,
+    });
+    const requestedIds = asked.askedIds;
+    const requested = planRead.error || interestsRead.error ? null : asked.requested;
     const eventCategories = (planOf.get(eventId) ?? []).map((r) => r.category).filter((c): c is string => Boolean(c));
     const eventTiles = tilesForVendorCategories(mine.map((r) => r.category).filter((c): c is string => Boolean(c)));
     const first = t?.is_returning && t.created_by_user_id
@@ -277,7 +319,13 @@ export async function readSupplierEventLines(
       stage,
       read: !eventsRead.error && ev !== null,
       type: ev?.event_type && ev.event_type !== 'unspecified' ? eventTypeLabel(ev.event_type) : null,
-      celebrant: ev?.display_name?.trim() || null,
+      celebrant: ev
+        ? eventCelebrantWords({
+            honorees: honoreesOf.get(eventId) ?? [],
+            signatureDetails: ev.signature_details,
+            honoreeLabel: ev.honoree_label,
+          })
+        : null,
       location: ev?.venue_name?.trim() || null,
       date: eventDayWords(ev?.event_date ?? null, ev?.event_date_precision ?? null),
       pax: t?.pax_current ?? t?.pax_at_inquiry ?? ev?.estimated_pax ?? null,

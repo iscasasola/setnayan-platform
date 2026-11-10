@@ -31,6 +31,7 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MENU_SETTINGS_TIP, SETTINGS_ENTRY, type SettingsMenu } from '@/lib/menu-settings';
+import { gearText } from '@/app/_components/gear-text';
 
 export function MenuSettingsButton({
   menu,
@@ -76,7 +77,7 @@ export function MenuSettingsButton({
             <div data-menu-settings-sheet={menu}>
               <p className="px-4 pt-3 text-[12.5px] text-ink/60" data-menu-settings-line="">
                 <InfoTip label={line?.line ?? entry.line} align="start">
-                  {line?.tip ?? entry.tip ?? MENU_SETTINGS_TIP}
+                  {gearText(line?.tip ?? entry.tip ?? MENU_SETTINGS_TIP)}
                 </InfoTip>
               </p>
               {children}

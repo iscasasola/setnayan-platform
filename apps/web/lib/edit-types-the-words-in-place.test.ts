@@ -303,7 +303,8 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
 
   /* WORD FOR WORD: the sentences handed to the pop-up are the store's, untouched. */
   const kit = read(`${L}/stage-panel/kit.tsx`);
-  assert.match(kit, /<Explain title=\{name\} className="[^"]*">\s*\{about\}\s*<\/Explain>/);
+  // `gearText` keeps the words word for word and only draws the ⚙ as the real Settings icon (Build 5 F5, 2026-11-10).
+  assert.match(kit, /<Explain title=\{name\} className="[^"]*">\s*\{(?:gearText\()?about\)?\}\s*<\/Explain>/);
   /* Where it is: once, straight after the line, over the handle and the line — never on the selector's band. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.equal((tools.match(/<StageAbout \/>/g) ?? []).length, 1);

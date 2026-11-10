@@ -15,7 +15,7 @@
  * `history.replaceState` — a page switch costs NO request (B1 §8 M5).
  *
  * ── HOW IT OPENS AND CLOSES ──────────────────────────────────────────────────────────────────────────────────
- * From a list (a soft tap, drawn in the list's intercepting slot over it): it rises from the tapped row in 520 ms and
+ * From a list (a soft tap, drawn in the list's intercepting slot over it): it rises from the tapped row in 700 ms and
  * ✕ is the exact reverse into the same row, then `router.back()` — the list never re-renders, so its scroll stays.
  * From anywhere else (hard load, Today, a notification): it is simply there, and ✕ goes to `closeHref`.
  * Reduced motion: a 120 ms fade both ways (`./picked-motion.ts`).

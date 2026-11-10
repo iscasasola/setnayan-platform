@@ -1675,7 +1675,8 @@ export async function commitVendorService(formData: FormData) {
       const before = (had as { gift_pack_code?: string | null } | null)?.gift_pack_code ?? null;
       if (before !== code) {
         const [packs, stock] = await Promise.all([
-          fetchShopGiftPacks(supabase).catch(() => null),
+          // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
+          fetchShopGiftPacks(createAdminClient()).catch(() => null),
           fetchShopGiftStock(supabase, profile.vendor_profile_id).catch(() => null),
         ]);
         const pack = packs?.find((p) => p.code === code) ?? null;

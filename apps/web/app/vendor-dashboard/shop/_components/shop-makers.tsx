@@ -16,7 +16,7 @@ import { ServiceScannerPick } from './service-scanner-pick';
  *
  * Build 2 §10 #33 (owner 8 Nov: *"should share a single row… expand like pressing an event from clients… keep the navs
  * and just take up the body part"*): the Makers are ONE ROW OF TILES; a tile opens INTO THE BODY through the shared
- * in-body panel (`BodyPanel` — between the top bar and the bottom nav, both stay; 520 ms out of the tile; × shrinks it
+ * in-body panel (`BodyPanel` — between the top bar and the bottom nav, both stay; 700 ms out of the tile; × shrinks it
  * back into the tile at the exact prior scroll). Pop-ups opened from inside (the Form Maker sheet) sit above it.
  *
  *   Forms Maker → C3's Form Maker, shop-wide (`ShopFormsMaker`: your forms · suggested · ＋ New form). Its reads are the

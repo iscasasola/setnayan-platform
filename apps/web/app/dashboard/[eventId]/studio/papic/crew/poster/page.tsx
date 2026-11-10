@@ -103,7 +103,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   const eventName = (event as { display_name?: string | null } | null)?.display_name ?? null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl bg-white px-8 py-12 text-center text-ink print:px-0 print:py-0">
+    <div className="mx-auto min-h-screen max-w-2xl bg-white px-8 py-12 text-center text-ink print:px-0 print:py-0">
       <p className="text-xs uppercase tracking-[0.3em] text-ink/50">Be our photographer</p>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">
         {eventName ?? 'Our event'}
@@ -133,6 +133,6 @@ export default async function PapicPoolPosterPage({ params }: Props) {
         Print this page, or save it as a PDF. One code — everyone scans the same
         one.
       </p>
-    </main>
+    </div>
   );
 }

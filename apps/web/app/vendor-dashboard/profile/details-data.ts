@@ -29,6 +29,7 @@ import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
 import { fetchCorrectionRequests, identityLockOf, type LockedIdentityFieldKey, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
 import {
   fetchPendingSignupCoverageSuggestion,
@@ -75,6 +76,13 @@ export type DetailsData = {
   /** Unfinished profile items but the logo — its own first step (`profileGaps`, owner 2026-10-22). */
   fieldsLeft: number;
   profileFields: ProfileFieldData;
+  /**
+   * "What you do" in words — each of `profileFields.services` by its TAXONOMY name, never its key. Build 5 F5
+   * (2026-11-10): the line read "pabati · day_of_coordinator", because `serviceLabels` names only the 30 coarse
+   * categories and a service-level key fell through to itself. The coarse label wins, then the admin's service name
+   * (`canonical_service_schemas.display_name_en`, `lib/service-labels.ts` — the one source), then the key's own words.
+   */
+  serviceNames: string[];
   businessStartDate: string | null;
   compatibleVenueSettings: string[] | null;
   compatibleCeremonyTypes: string[] | null;
@@ -241,6 +249,7 @@ export async function loadDetailsData(
     }
   })();
   const vocabRead = fetchVendorServicePickerVocab();
+  const serviceLabelsRead = readServiceLabels();
   const correctionsRead = fetchCorrectionRequests(supabase, { status: 'open', vendorProfileId: vendorId });
   const suggestionRead = fetchPendingSignupCoverageSuggestion(vendorId, profile.services ?? []).catch((err) => {
     logQueryError('VendorDetails.coverageSuggestion', err, { vendorId });
@@ -317,6 +326,10 @@ export async function loadDetailsData(
       lastDeepSearchRead,
     ]);
   const fromInvite = (await inviteRead) !== null;
+  const canonicalLabels = await serviceLabelsRead;
+  const serviceNames = ((profile.services ?? []) as string[]).map(
+    (s) => vocab.serviceLabels?.[s] ?? serviceLabelOf(canonicalLabels, s),
+  );
 
 
   const completion = businessProfileChecklist(profile);
@@ -399,6 +412,7 @@ export async function loadDetailsData(
     profileComplete: completion.complete,
     fieldsLeft: profileGaps(completion).fieldsLeft,
     profileFields,
+    serviceNames,
     businessStartDate,
     compatibleVenueSettings: profile.compatible_venue_settings ?? null,
     compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,

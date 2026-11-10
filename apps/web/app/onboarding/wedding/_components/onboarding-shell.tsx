@@ -116,7 +116,7 @@ import { WelcomeMoments } from './welcome-moments';
 import { resolvePick } from '../_data/wedding-cities';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 import { moveSelf, seatCouple, takeCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
@@ -1039,7 +1039,7 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const clock = `${pad(Math.floor(rem / 3600000))}:${pad(Math.floor((rem % 3600000) / 60000))}:${pad(Math.floor((rem % 60000) / 1000))}`;
   return (
-    <div className="cd" role="timer" aria-label={`${days} days until your wedding`}>
+    <div className="cd" role="timer" aria-label={`${countNoun(days, 'day', 'days')} until your wedding`}>
       <div className="cd-main"><span className="cd-days">{days}</span><span className="cd-dayslbl">{days === 1 ? 'day' : 'days'} to go</span></div>
       <div className="cd-clock" aria-hidden="true">{clock}</div>
     </div>
@@ -2547,7 +2547,7 @@ export function OnboardingShell({
       hasDate && {
         k: 'date',
         t: days ? `⏱ ${days}d` : '⏱ Date',
-        cap: days ? `${days} days until you become one.` : 'Your countdown is on your page.',
+        cap: days ? `${countNoun(days, 'day', 'days')} until you become one.` : 'Your countdown is on your page.',
       },
       recapReception && { k: 'venue', t: '🏛 ' + recapReception, cap: 'Your reception — with a map — is on your page.' },
     ].filter((c): c is { k: string; t: string; cap: string } => Boolean(c));

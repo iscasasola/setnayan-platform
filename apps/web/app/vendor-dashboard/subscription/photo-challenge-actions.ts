@@ -217,8 +217,10 @@ export async function sponsorPhotoChallenge(
   // named here rather than quietly narrowed, because narrowing an owner ruling
   // is his call and the flag is off in production either way.
   const first5Enabled = isVendorAddonFirst5FreeEnabled();
+  // `event_vendors` has NO vendor SELECT policy: on this shop's session the count is a silent 0, which reads as
+  // "inside the free window" and grants the add-on at ₱0. Admin client, scoped by the session-resolved shop id.
   const committedBookings = first5Enabled
-    ? await fetchVendorCommittedBookingCount(supabase, vendorProfileId)
+    ? await fetchVendorCommittedBookingCount(admin, vendorProfileId)
     : Number.NaN;
   const first5Free = addonIsFreeUnderFirst5({
     sku: 'papic_challenge',

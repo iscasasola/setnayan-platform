@@ -44,6 +44,7 @@
 import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
+import { countNoun } from '@/lib/format-number';
 
 /**
  * What the calendar reports upward. Structurally the same four fields the
@@ -316,7 +317,7 @@ export function DateCalendar({
       const dd = daysBetween(today, sorted[0]!);
       pickHtml = (
         <>
-          Your date: <b>{fmtFull(sorted[0]!)}</b> · {dd <= 0 ? 'today' : `${dd} days`}{' '}
+          Your date: <b>{fmtFull(sorted[0]!)}</b> · {dd <= 0 ? 'today' : countNoun(dd, 'day', 'days')}{' '}
           <span className="addhint">· or add up to 3 nearby</span>
         </>
       );

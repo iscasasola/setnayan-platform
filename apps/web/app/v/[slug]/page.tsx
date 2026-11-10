@@ -1868,6 +1868,11 @@ export async function renderVendorBySlug({
     })),
     inquireProvidedKeys,
     inquireKindLabel,
+    // A kind whose priced card is not live yet says so, never "Price on request" (Build 5 F4) — unless the shop hides
+    // its prices, when no card's price would show either.
+    hidePricesPublicly
+      ? []
+      : allServices.filter((s) => !s.is_active && s.starting_price_php !== null && s.starting_price_php > 0).map((s) => s.category ?? ''),
   );
   // Creator Economy PR-C/PR-D — provenance from the arrival URL, read ONCE for both the composer and the pop-up.
   // startServiceInquiry re-validates both server-side, so an unknown ?src is inert.

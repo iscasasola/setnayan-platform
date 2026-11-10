@@ -45,7 +45,7 @@ export type ServiceCardMenuRowProps = {
   action: (fd: FormData) => unknown;
   /** The saver — `saveInPlace` itself, unless a lab hands in a stand-in. */
   save?: StaySave;
-  /** Share to a client event: this shop's client events and the server's post (`shareServiceCardToClient`). */
+  /** Share to a client event: this shop's client events and the server's post (the shipped `offerServiceInterest`). */
   share: ServiceCardShareProps;
 };
 

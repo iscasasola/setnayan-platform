@@ -14,7 +14,7 @@
  *   • the stay-on pick stops asking every card it leaves off for open bookings BEFORE it writes.
  * The email half (in the app only) is `lib/a-shared-card-never-emails.test.ts`.
  *
- * SABOTAGE (each seen red, restored): put `waiting` back on Share · drop the `isShareableThread` check from the action ·
+ * SABOTAGE (each seen red, restored): put `waiting` back on Share · drop the `isShareableThread` check from the core ·
  * read pending threads into the picker · move the stay-on refusal after `apply_service_plan_pick` · make `sharedToast`
  * always say "notified".
  */
@@ -27,7 +27,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { stripComments } from '@/lib/strip-comments';
 import { isShareableThread } from '@/lib/service-share-targets';
 import { BOOKINGS_UNREAD, cardsLeftOffRefusal } from '@/lib/service-open-bookings';
-import { SHARE_WORDS, sharedToast } from './_components/service-card-share-sheet';
+import { SHARE_WORDS, shareRefusal, sharedToast } from './_components/service-card-share-sheet';
 
 /* ── `server-only` shim (the shape of lib/a-locked-deal-reaches-the-budget.test.ts) — the reader is server-only. ── */
 type CjsModuleCtor = {
@@ -60,7 +60,7 @@ const read = (...p: string[]) => stripComments(readFileSync(join(__dirname, ...p
 const ROW = read('_components', 'service-card-menu-row.tsx');
 const SHEET = read('_components', 'service-card-share-sheet.tsx');
 const MANAGER = read('_components', 'services-manager.tsx');
-const ACTIONS = read('actions.ts');
+const CORE = stripComments(readFileSync(join(process.cwd(), 'lib', 'offer-service-core.ts'), 'utf8'));
 const STAY_ON = read('stay-on-actions.ts');
 
 function body(src: string, sig: string): string {
@@ -80,22 +80,22 @@ test('the Share icon is live and opens the "Share to a client event" sheet', () 
   assert.equal(SHARE_WORDS.title, 'Share to a client event');
   assert.match(SHEET, /<Sheet open=\{open\}[^>]*title=\{SHARE_WORDS\.title\}/, 'the share sheet is not the house Sheet');
   assert.match(SHEET, /Posts “\$\{cardName\}” into their chat\. They get a notice\./, 'frame G’s line changed');
+  assert.match(SHEET, /fd\.set\('via', 'share'\);/, 'the sheet does not ask for the share door (in-app-only notice)');
   assert.doesNotMatch(ROW + SHEET, /navigator\.share|clipboard|shareShopLink/, 'Share became a link / system share');
 });
 
 test('the manager hands every row the client events and the server action', () => {
   assert.match(MANAGER, /readShareTargets\(supabase, createAdminClient\(\), profile\.vendor_profile_id\)/);
-  assert.match(MANAGER, /share: \{ targets: shareTargets, share: shareServiceCardToClient \}/);
+  assert.match(MANAGER, /share: \{ targets: shareTargets, share: offerServiceInterest \}/, 'Share is not the shipped offer');
   assert.match(MANAGER, /shareRead\.status === 'ok' \? shareRead\.targets : null/, 'an unread list must reach the sheet as null');
 });
 
-test('the action re-asks which chat it is, then posts through the SHIPPED offerServiceCore', () => {
-  const b = body(ACTIONS, 'export async function shareServiceCardToClient(');
-  const check = b.indexOf('isShareableThread(t)');
-  const post = b.indexOf('offerServiceCore(');
-  assert.ok(check > 0 && post > check, 'the thread is not re-checked BEFORE the post');
-  assert.match(b, /\.eq\('vendor_profile_id', profile\.vendor_profile_id\)/, 'the thread is not scoped to this shop');
-  assert.doesNotMatch(b, /from\('chat_messages'\)/, 'Share writes its own chat message beside the shipped post');
+test('the post re-asks which chat it is BEFORE it writes, in the SHIPPED offerServiceCore', () => {
+  const check = CORE.indexOf("notice === 'shared' && !isShareableThread(");
+  const owner = CORE.indexOf("return { status: 'not_owner' };");
+  const write = CORE.indexOf(".from('chat_messages').insert(");
+  assert.ok(owner > 0 && check > owner && write > check, 'the chat is not re-checked after ownership and before the card is posted');
+  assert.doesNotMatch(SHEET + ROW, /from\('chat_messages'\)/, 'Share writes its own chat message beside the shipped post');
 });
 
 test('a client event = an accepted conversation the couple has not removed', () => {
@@ -152,7 +152,7 @@ test('readShareTargets: one row per event, soonest first, named and dated; a ref
 test('an Offline card says so before any pick (the server refuses it the same)', () => {
   assert.match(SHEET, /\{!isActive \? \([\s\S]{0,200}SHARE_WORDS\.offline/, 'an Offline card is offered a list it cannot post to');
   assert.match(ROW, /isActive=\{isActive\}/, 'the row does not tell the sheet whether the card is Online');
-  assert.ok(ACTIONS.includes(`'${SHARE_WORDS.offline}'`), 'the server’s refusal and the sheet’s line say different things');
+  assert.equal(shareRefusal({ status: 'invalid_service' }), SHARE_WORDS.offline, 'the server’s refusal and the sheet’s line differ');
 });
 
 test('the toast says "notified" only when somebody was', () => {

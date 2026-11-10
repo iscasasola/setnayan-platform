@@ -10,11 +10,12 @@
  *   • `service_card_shared` reaches EMAIL_ENABLED_TYPES (or the marketing-gated set) in notification-emit.ts;
  *   • the couple ↔ supplier register stops declaring it app-only;
  *   • `offerServiceCore` stops sending it for `notice: 'shared'`, or sends it for the in-chat ＋ offer instead;
- *   • the Share action stops asking for `notice: 'shared'` (it would email again, as `chat_message`);
+ *   • the Share door (`offerServiceInterest` with `via=share`) stops asking for `notice: 'shared'` (it would email
+ *     again, as `chat_message`);
  *   • the enum value loses its migration (the insert would be refused and the client told nothing).
  *
  * SABOTAGE (each seen red, restored): add 'service_card_shared' to EMAIL_ENABLED_TYPES · flip its register entry to
- * reach:'email' · drop `notice: 'shared'` from shareServiceCardToClient · send 'chat_message' in the shared branch.
+ * reach:'email' · make `via=share` ask for notice 'chat' in offerServiceInterest · send 'chat_message' in the shared branch.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +30,7 @@ const WEB = process.cwd();
 const src = (...p: string[]) => stripComments(readFileSync(join(WEB, ...p), 'utf8'));
 const EMIT = src('lib', 'notification-emit.ts');
 const CORE = src('lib', 'offer-service-core.ts');
-const ACTIONS = src('app', 'vendor-dashboard', 'services', 'actions.ts');
+const OFFER = src('app', 'vendor-dashboard', 'messages', '[threadId]', 'actions.ts');
 
 /** The members of one Set literal in notification-emit.ts (same reader as the frozen-allowlist guard). */
 function members(name: string): string[] {
@@ -66,18 +67,21 @@ test('it is a real notification kind: labelled, a push level, an enum value in a
 
 test('offerServiceCore sends service_card_shared ONLY for notice: shared; the ＋ offer keeps chat_message', () => {
   assert.match(CORE, /notice = 'chat'/, 'the default notice is no longer the in-chat offer');
-  const branch = CORE.slice(CORE.indexOf("notice === 'shared'"));
-  assert.ok(branch.length > 0 && CORE.includes("notice === 'shared'"), 'the shared branch is gone');
-  const [shared, chat] = branch.split(/\n\s*:\s*\{/);
-  assert.match(shared ?? '', /type: 'service_card_shared'/, 'the shared branch does not send service_card_shared');
-  assert.doesNotMatch(shared ?? '', /type: 'chat_message'/, 'the shared branch sends chat_message (an email)');
-  assert.match(chat ?? '', /type: 'chat_message'/, 'the in-chat ＋ offer stopped sending chat_message');
+  const at = CORE.indexOf("if (notice === 'shared') {");
+  assert.ok(at > 0, 'the shared branch is gone — re-anchor this guard');
+  const elseAt = CORE.indexOf('} else {', at);
+  const shared = CORE.slice(at, elseAt);
+  const chat = CORE.slice(elseAt, CORE.indexOf('}\n', CORE.indexOf('});', elseAt)));
+  assert.match(shared, /type: 'service_card_shared'/, 'the shared branch does not send service_card_shared');
+  assert.doesNotMatch(shared, /type: 'chat_message'/, 'the shared branch sends chat_message (an email)');
+  assert.match(chat, /type: 'chat_message'/, 'the in-chat ＋ offer stopped sending chat_message');
 });
 
-test('the Share action asks for notice: shared (else it would email as chat_message)', () => {
-  const at = ACTIONS.indexOf('export async function shareServiceCardToClient(');
-  assert.ok(at > 0, 'shareServiceCardToClient moved — re-anchor this guard');
-  const body = ACTIONS.slice(at, ACTIONS.indexOf('\nexport async function', at + 10));
-  assert.match(body, /offerServiceCore\(supabase, \{ threadId, vendorServiceId, notice: 'shared' \}\)/);
-  assert.doesNotMatch(body, /emitNotification|sendEmail/, 'the Share action sends its own notice beside the shipped one');
+test('the Share door asks for notice: shared (else it would email as chat_message)', () => {
+  const at = OFFER.indexOf('export async function offerServiceInterest(');
+  assert.ok(at > 0, 'offerServiceInterest moved — re-anchor this guard');
+  const body = OFFER.slice(at);
+  assert.match(body, /const via = formData\.get\('via'\) === 'share' \? 'share' : 'chat';/);
+  assert.match(body, /notice: via === 'share' \? 'shared' : 'chat'/, 'via=share no longer asks for the in-app-only notice');
+  assert.doesNotMatch(body, /emitNotification|sendEmail/, 'the door sends its own notice beside the shipped one');
 });

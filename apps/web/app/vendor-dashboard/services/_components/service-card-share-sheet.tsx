@@ -8,8 +8,8 @@
  *   · the house bottom `Sheet`, head "Share to a client event";
  *   · one line: Posts “<card>” into their chat. They get a notice.;
  *   · this shop's client events (`readShareTargets`), one row each — initials · event name · date · chevron. A tap posts
- *     the card into THAT event's chat (`shareServiceCardToClient` → the shipped `offerServiceCore`) and the client is
- *     told IN THE APP (`service_card_shared`, never an email);
+ *     the card into THAT event's chat — the SHIPPED offer (`offerServiceInterest` with `via=share` → `offerServiceCore`,
+ *     which re-checks the chat is open) — and the client is told IN THE APP (`service_card_shared`, never an email);
  *   · then the sheet closes and the toast says "<Client> notified" (frame H's line). If nobody could be told (an event
  *     with no host on it), it says "Posted in <Client>'s chat" — never "notified" on no evidence.
  *
@@ -23,14 +23,13 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import type { ShareTarget } from '@/lib/service-share-targets';
-
-export type ShareResult = { ok: true; notified: number } | { ok: false; error: string };
+import type { OfferServiceResult } from '@/lib/offer-service-core';
 
 export type ServiceCardShareProps = {
   /** This shop's client events; `null` = the read failed. */
   targets: readonly ShareTarget[] | null;
-  /** The server's post — `shareServiceCardToClient` (a lab hands in a stand-in). */
-  share: (vendorServiceId: string, threadId: string) => Promise<ShareResult>;
+  /** The server's post — the shipped `offerServiceInterest` (a lab hands in a stand-in). */
+  share: (fd: FormData) => Promise<OfferServiceResult>;
 };
 
 export const SHARE_WORDS = {
@@ -40,6 +39,22 @@ export const SHARE_WORDS = {
   /** Said before any pick on an Offline card — the server refuses it the same (`offerServiceCore`: online cards only). */
   offline: 'This card is Offline. Turn it Online, then share it.',
 } as const;
+
+/** What a refused post says, in place, from the shipped offer's answer. `null` = it posted. */
+export function shareRefusal(r: OfferServiceResult): string | null {
+  switch (r.status) {
+    case 'ok':
+      return null;
+    case 'invalid_service':
+      return SHARE_WORDS.offline;
+    case 'not_owner':
+      return 'That chat is not one of yours any more, so nothing was posted. Refresh and pick again.';
+    case 'not_signed_in':
+      return 'Sign in again, then share.';
+    default:
+      return r.message;
+  }
+}
 
 /** The toast after a post — frame H's "<Client> notified", said only when somebody was. */
 export function sharedToast(clientName: string, notified: number): string {
@@ -77,15 +92,19 @@ export function ServiceCardShareSheet({
     if (pending) return;
     setPending(t.threadId);
     setRefusal(null);
-    let r: ShareResult;
+    const fd = new FormData();
+    fd.set('thread_id', t.threadId);
+    fd.set('vendor_service_id', vendorServiceId);
+    fd.set('via', 'share');
+    let r: OfferServiceResult;
     try {
-      r = await share(vendorServiceId, t.threadId);
+      r = await share(fd);
     } catch {
-      r = { ok: false, error: 'We could not post your card just now. Nothing was sent — try again.' };
+      r = { status: 'error', message: 'We could not post your card just now. Nothing was sent — try again.' };
     }
     setPending(null);
-    if (!r.ok) {
-      setRefusal(r.error);
+    if (r.status !== 'ok') {
+      setRefusal(shareRefusal(r));
       return;
     }
     onClose();

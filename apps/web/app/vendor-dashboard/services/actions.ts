@@ -19,8 +19,6 @@ import {
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
-import { offerServiceCore } from '@/lib/offer-service-core';
-import { isShareableThread } from '@/lib/service-share-targets';
 import {
   deriveBranchStatus,
   fetchLatestBranchOrders,
@@ -2525,56 +2523,6 @@ export async function removeVendorServiceFromList(
   const { supabase, profile } = await ensureProfile();
   if (typeof vendorServiceId !== 'string' || vendorServiceId.length === 0) return { ok: false, error: 'Missing service id' };
   return deleteOrRetireOwnService(supabase, profile, vendorServiceId);
-}
-
-/**
- * 🔗 SHARE A CARD INTO ONE CLIENT EVENT'S CHAT — the Share icon under a card (owner 2026-11-11, verbatim: *"Share does
- * not share to anyone. It is share to an client event. To enter to a chat. That is notified so the client can see."*).
- *
- * RULE 0: this is the SHIPPED card-in-chat post (`offerServiceCore` — the same ownership gate, the same "online cards
- * only" gate, the same `chat_messages.offered_service_id` card the stream already draws). The one difference is the
- * notice: `notice: 'shared'` → `service_card_shared`, in the app only, never an email.
- *
- * 🔒 THE SERVER RE-ASKS WHICH CHAT IT IS: the thread must be this shop's, accepted and not removed by the couple
- * (`isShareableThread` — the picker's own predicate), so a stale sheet cannot post into a closed conversation.
- * Answered as a value (the sheet stays where it is and says what happened).
- * 🔒 app/vendor-dashboard/services/share-posts-the-card-into-a-client-chat.test.ts
- */
-export async function shareServiceCardToClient(
-  vendorServiceId: string,
-  threadId: string,
-): Promise<{ ok: true; notified: number } | { ok: false; error: string }> {
-  const { supabase, profile } = await ensureProfile();
-  if (typeof vendorServiceId !== 'string' || !vendorServiceId || typeof threadId !== 'string' || !threadId) {
-    return { ok: false, error: 'Pick a client event to share to.' };
-  }
-  const { data: thread, error: threadError } = await supabase
-    .from('chat_threads')
-    .select('thread_id, event_id, inquiry_status, archived_at')
-    .eq('thread_id', threadId)
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  if (threadError) {
-    return { ok: false, error: 'We could not open that chat just now, so nothing was posted. Try again in a moment.' };
-  }
-  const t = thread as { event_id: string; inquiry_status: string | null; archived_at: string | null } | null;
-  if (!t || !isShareableThread(t)) {
-    return { ok: false, error: 'That chat is closed, so nothing was posted. Pick another client event.' };
-  }
-  const result = await offerServiceCore(supabase, { threadId, vendorServiceId, notice: 'shared' });
-  switch (result.status) {
-    case 'ok':
-      revalidatePath(`/vendor-dashboard/messages/${threadId}`);
-      return { ok: true, notified: result.notified };
-    case 'invalid_service':
-      return { ok: false, error: 'This card is Offline. Turn it Online, then share it.' };
-    case 'not_owner':
-      return { ok: false, error: 'That chat is not one of yours any more, so nothing was posted. Refresh and pick again.' };
-    case 'not_signed_in':
-      return { ok: false, error: 'Sign in again, then share.' };
-    default:
-      return { ok: false, error: result.message };
-  }
 }
 
 /** The one delete-or-retire, shared by the maker's Delete and the list's swipe. */

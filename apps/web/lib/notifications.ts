@@ -612,7 +612,7 @@ export type NotificationType =
   | 'supplier_report'
   /* 🔗 A SUPPLIER SHARED A SERVICE CARD INTO THE CLIENT'S CHAT (owner 2026-11-11, verbatim: *"Share does not share to
      anyone. It is share to an client event. To enter to a chat. That is notified so the client can see."*). Sent by
-     `offerServiceCore` when the Share icon under a card on Shop › Services posts it (`shareServiceCardToClient`). The
+     `offerServiceCore` when the Share icon under a card on Shop › Services posts it (`offerServiceInterest` with `via=share`). The
      in-chat ＋ offer keeps `chat_message`. ⚠ IN-APP ONLY (no new emails): NOT on EMAIL_ENABLED_TYPES —
      `a-shared-card-never-emails.test.ts`. ⚠ ENUM value in its own migration (notification_type_service_card_shared). */
   | 'service_card_shared';

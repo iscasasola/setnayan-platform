@@ -19,7 +19,7 @@ import { toggleVendorServiceActive } from '@/app/vendor-dashboard/services/actio
 import { publishRefusalFor, unmetPublishRequirements, type PublishFacts } from '@/lib/service-publish-gate';
 import type { StaySave } from '@/app/_components/stay-form';
 import type { ShareTarget } from '@/lib/service-share-targets';
-import type { ShareResult } from '@/app/vendor-dashboard/services/_components/service-card-share-sheet';
+import type { OfferServiceResult } from '@/lib/offer-service-core';
 
 export type LabCard = {
   id: string;
@@ -48,9 +48,9 @@ async function labRemove(): Promise<{ ok: true; retired: boolean }> {
 
 /** The share's stand-in: posts nothing, answers as the server does — the Offline card is refused in the server's words. */
 function labShare(c: LabCard) {
-  return async (): Promise<ShareResult> => {
+  return async (): Promise<OfferServiceResult> => {
     await new Promise((r) => setTimeout(r, 350));
-    return c.live ? { ok: true, notified: 2 } : { ok: false, error: 'This card is Offline. Turn it Online, then share it.' };
+    return c.live ? { status: 'ok', notified: 2 } : { status: 'invalid_service' };
   };
 }
 

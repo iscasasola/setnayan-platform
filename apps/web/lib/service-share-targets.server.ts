@@ -26,8 +26,8 @@ import {
  * The ownership proof that makes that read legitimate is the thread read above it, scoped to this shop.
  *
  * ⚠ A READ THAT FAILED IS `unreadable`, NEVER AN EMPTY LIST — "No client events yet" to a shop with twelve would be
- * the same lie the 2026-08-20 sweep removed everywhere else. The share action re-checks the thread on the server
- * (`shareServiceCardToClient`), so this list only decides what is offered.
+ * the same lie the 2026-08-20 sweep removed everywhere else. The post re-checks the thread on the server
+ * (`offerServiceCore` with `notice: 'shared'`), so this list only decides what is offered.
  *
  * 🔒 app/vendor-dashboard/services/share-posts-the-card-into-a-client-chat.test.ts
  */

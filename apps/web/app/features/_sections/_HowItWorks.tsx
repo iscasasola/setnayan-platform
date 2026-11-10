@@ -1,8 +1,16 @@
-import { Heart, Briefcase, Mailbox, Shield, Globe, QrCode, type LucideIcon } from 'lucide-react';
+import { Heart, Briefcase, ClipboardList, Mailbox, Shield, Globe, QrCode, type LucideIcon } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 
-// How it works — the six kinds of people on Setnayan and how the flow connects.
+// How it works — who's who on Setnayan and how the flow connects.
+//
+// 🧾 BUILD 6 LANE J (owner 10 Nov: "/features Fix this as well") — four claims corrected, both locales:
+//   · the host's add-ons named the retired "Event Hub Pro" and sold Setnayan AI on its own (it comes inside Event
+//     Plus and Event Pro since 4 Nov) → the two plans + the add-ons that are sold;
+//   · the supplier was "Free profile, optional paid tier" → Free · Verified · Solo · Pro · Ultra;
+//   · "Reply-only chat — hosts reach out" → suppliers bring and import their own clients and chat with them;
+//   · Coordinators were missing although /for-coordinators sells to them → their own card.
+//   The heading no longer counts ("six kinds") — a count typed beside a list goes stale the day the list moves.
 // Folded in from the standalone /how-it-works page (retired 2026-09-01; that URL
 // and /tl/how-it-works now 301 here).
 //
@@ -52,7 +60,7 @@ import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 // Icons are language-neutral and zip with COPY[locale].roles by index — keep
 // the two arrays the same length + order.
 
-const ROLE_ICONS: LucideIcon[] = [Heart, Briefcase, Mailbox, Shield, Globe, QrCode];
+const ROLE_ICONS: LucideIcon[] = [Heart, Briefcase, ClipboardList, Mailbox, Shield, Globe, QrCode];
 
 // ─── NO ROUTE PATHS, NO CODE NAMES (QA 2026-10-22, F2) ──────────────────────
 // Each role card used to print an entry path under its name in a <code> span —
@@ -78,7 +86,7 @@ const COPY: Record<
 > = {
   en: {
     eyebrow: 'How it works · who’s who',
-    heading: 'The six kinds of people on Setnayan.',
+    heading: 'Who’s who on Setnayan.',
     intro:
       'The complete map of who’s who and where each person spends their time — one paragraph per role, plus how the flow connects.',
     roles: [
@@ -88,16 +96,25 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — the guest list, seat plan, budget, schedule and mood board live here',
           'The Event Hub Maker: five stages, drafted until you press Apply',
-          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, more)',
+          'Event Plus or Event Pro (Setnayan AI comes inside both), and add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {
         label: 'Supplier',
-        who: 'You sell to hosts. Free profile, optional paid tier for more reach.',
+        who: 'You sell to hosts. Your shop is free, and Verified is free too. Solo, Pro and Ultra add reach, a team and branches.',
         where: [
           'Today · Clients · Shop · Portfolio — the next thing to answer, your people, dates and event days, your services and page, your photos and videos',
-          'Reply-only chat — hosts reach out, you reply with quotes + files',
+          'One chat per client — hosts who find you, and the clients you bring or import yourself — with quotes, payments and files',
           'Verification badge, reviews from completed events',
+        ],
+      },
+      {
+        label: 'Coordinator',
+        who: 'You coordinate or plan events for clients. Your own shop, like a supplier’s, with the tools to run the day.',
+        where: [
+          'One login for every event you run — each client’s event opens from your dashboard',
+          'One schedule; each supplier sees their part and asks you for time changes',
+          'Door check-in and the seat scanner on the day',
         ],
       },
       {
@@ -142,7 +159,7 @@ const COPY: Record<
       {
         from: 'Host',
         to: 'Suppliers',
-        what: 'Host browses the supplier marketplace and opens a chat thread with one (suppliers cannot message a host first).',
+        what: 'Host browses the supplier marketplace and opens a chat thread with one — or a supplier brings their own client in.',
       },
       {
         from: 'Supplier',
@@ -173,7 +190,7 @@ const COPY: Record<
   },
   tl: {
     eyebrow: 'Paano ito gumagana · sino-sino',
-    heading: 'Ang anim na uri ng tao sa Setnayan.',
+    heading: 'Sino-sino sa Setnayan.',
     intro:
       'Ang buong mapa ng sino-sino at saan gumugugol ng oras ang bawat isa — isang talata bawat role, kasama kung paano nag-uugnay ang daloy.',
     roles: [
@@ -183,16 +200,25 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — nandito ang guest list, seat plan, budget, schedule at mood board',
           'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
-          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, at iba pa)',
+          'Event Plus o Event Pro (kasama na sa dalawa ang Setnayan AI), at add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {
         label: 'Supplier',
-        who: 'Nagbebenta ka sa mga host. Free profile, optional na bayad na tier para sa mas maraming reach.',
+        who: 'Nagbebenta ka sa mga host. Libre ang shop mo, at libre rin ang Verified. Dagdag na reach, team at branches sa Solo, Pro at Ultra.',
         where: [
           'Today · Clients · Shop · Portfolio — ang susunod na sasagutin, ang mga tao, petsa at event day mo, ang services at page mo, ang mga larawan at video mo',
-          'Reply-only chat — ang host ang lalapit, ikaw ang sasagot with quotes + files',
+          'Isang chat bawat client — ang mga host na nakahanap sa iyo, at ang mga client na dala o in-import mo — may quotes, bayad at files',
           'Verification badge, reviews from completed events',
+        ],
+      },
+      {
+        label: 'Coordinator',
+        who: 'Nagko-coordinate o nagpaplano ka ng events para sa mga client. May sarili kang shop, gaya ng supplier, at mga tool para sa araw ng event.',
+        where: [
+          'Isang login para sa bawat event na hawak mo — bubukas ang event ng bawat client mula sa dashboard mo',
+          'Iisang schedule; nakikita ng bawat supplier ang bahagi nila at sa iyo sila humihingi ng palit-oras',
+          'Door check-in at seat scanner sa araw ng event',
         ],
       },
       {
@@ -237,7 +263,7 @@ const COPY: Record<
       {
         from: 'Host',
         to: 'Suppliers',
-        what: 'Nagba-browse ang host sa marketplace ng suppliers at nagbubukas ng chat thread sa isa (hindi pwedeng mauna ang supplier na mag-message).',
+        what: 'Nagba-browse ang host sa marketplace ng suppliers at nagbubukas ng chat thread sa isa — o dinadala ng supplier ang sarili niyang client.',
       },
       {
         from: 'Supplier',

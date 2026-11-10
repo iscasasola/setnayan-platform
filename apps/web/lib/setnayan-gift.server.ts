@@ -1,4 +1,5 @@
 import 'server-only';
+import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { bookingFeePhp } from '@/lib/booking-fee';
@@ -64,7 +65,7 @@ export async function fetchVendorPaysGiftPrice(
     return false;
   }
   const tier = (data as { tier_state?: string | null } | null)?.tier_state;
-  return typeof tier === 'string' && tier !== 'free';
+  return tierPaysGiftPrice(tier);
 }
 
 /** The live gift ladder, or null when either table could not be read. */

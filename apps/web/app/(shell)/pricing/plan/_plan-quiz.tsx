@@ -237,7 +237,7 @@ function Result({
                 </span>
               </button>
               <InfoTip label="Buying while I set up my event" align="start">
-                Event Hub Pro and Setnayan AI are cheaper while you are setting up your event. Switch off to see the regular prices.
+                Some items are cheaper while you are setting up your event. Switch off to see the regular prices.
               </InfoTip>
             </div>
           ) : null}

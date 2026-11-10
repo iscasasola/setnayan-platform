@@ -34,6 +34,8 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 
+import { FREE_FINDABLE } from '@/app/for-suppliers/_components/plan-table-data';
+
 import { countWord, type ClaimSwitch } from './_claims';
 
 export { DELEGATE_GRACE_DAYS, FREE_HELPER_SEATS, PORTFOLIO_FREE_BASE };
@@ -57,10 +59,14 @@ export function planName(t: VendorTier): string {
 export const GROW_TIERS = ['solo', 'pro', 'enterprise'] as const;
 export type GrowTier = (typeof GROW_TIERS)[number];
 
-/** Free's spec line — "1 category · 1 service card · not in search yet". */
+/**
+ * Free's spec line — "1 category · 1 service card · found until your first inquiry". The search half is the rule the
+ * database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts, 7 Nov) — the SAME words /for-suppliers says
+ * (`FREE_FINDABLE`). It said "not in search yet" until Build 6 Lane J, false since 7 Nov.
+ */
 export function freeSpec(): string {
   const c = TIER_CAPS.free;
-  return `${many(c.parentCategories, 'category', 'categories')} · ${many(c.servicesPerLeaf, 'service card', 'service cards')} · not in search yet`;
+  return `${many(c.parentCategories, 'category', 'categories')} · ${many(c.servicesPerLeaf, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
 }
 
 /** Verified's spec line — "20 km around you · the Verified seal · get paid in the app". */

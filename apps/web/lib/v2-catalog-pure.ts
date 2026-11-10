@@ -49,6 +49,12 @@ export type V2CustomerSku = {
    * has carried two prices since 2026-08-12 and `/pricing` showed one.
    */
   onboarding_price_php: number | null;
+  /**
+   * The Papic credits this product grants when it is paid (`included_papic_credits`, admin-managed — the number the
+   * activation hook tops the event up to; migration `the_final_price_sheet`). NULL = the product grants none. Read so
+   * the front page's Event Plus / Event Pro cards print the catalogue's number, never a typed one (Build 6 Lane J).
+   */
+  included_papic_credits?: number | null;
   saas_overhead_cost_php: number;
   is_token_able: boolean;
   description: string | null;

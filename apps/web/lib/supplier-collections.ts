@@ -1,6 +1,7 @@
 /**
  * YOUR COLLECTIONS — every photo and video a supplier owns, one list (simpler supplier dashboard, step 5 · prototype
- * moment 8, `SCREENS.collections`: count · who sees it · a "show on my page" switch · one filter dropdown).
+ * moment 8, `SCREENS.collections`: count · who sees it · a "show on my page" switch). Since the approved Portfolio
+ * (owner 9 Nov) the list draws them as sections and their who-sees-it lives in the Portfolio's own ⚙.
  *
  * 🔑 EVERY ROW IS A SHIPPED STORE, READ WHERE IT ALREADY LIVES — no new table:
  *   page       the page gallery          `vendor_profiles.portfolio_r2_keys` + `gallery_video_links` (+ Instagram posts,
@@ -29,17 +30,23 @@ import type { BadgeTone } from '@/app/_components/badge';
 
 export type CollectionKey = 'page' | 'cards' | 'albums' | 'own' | 'delivered' | 'instagram' | 'moodboard';
 
-/** Who sees it — the three answers the prototype's filter offers. */
+/** Who sees it — the three answers the Portfolio ⚙ says per collection (approved Portfolio, owner 9 Nov). */
 export type CollectionWho = 'page' | 'private' | 'couple';
 
-export type CollectionsFilter = 'all' | CollectionWho;
-
-export const COLLECTION_FILTERS: readonly { key: CollectionsFilter; label: string }[] = [
-  { key: 'all', label: 'Everything' },
-  { key: 'page', label: 'On my page' },
-  { key: 'private', label: 'Private' },
-  { key: 'couple', label: 'Shared with a couple' },
-];
+/**
+ * 🖼 The approved Portfolio's short section names for the shipped collections (prototype
+ * `shop_discounts_bundle_card_open_2026-11-09/portfolio.html`, its `COLL`). The list's sections and the ⚙'s who-sees-it
+ * rows say the same name. (The "Everything" filter and "N collections · one place" were dropped by the approval (6).)
+ */
+export const COLLECTION_SECTION_NAME: Readonly<Record<CollectionKey, string>> = {
+  page: 'On my page',
+  cards: 'Service cards',
+  albums: 'Albums by event',
+  own: 'Your own shots',
+  delivered: 'Delivered to couples',
+  instagram: 'Instagram',
+  moodboard: 'Moodboard library',
+};
 
 export const WHO_BADGE: Readonly<Record<CollectionWho, { tone: BadgeTone; word: string }>> = {
   page: { tone: 'ok', word: 'On my page' },
@@ -215,16 +222,4 @@ export function collectionRows(input: CollectionsInput): CollectionRow[] {
   }
 
   return rows;
-}
-
-export function filterRows(rows: readonly CollectionRow[], f: CollectionsFilter): CollectionRow[] {
-  return f === 'all' ? [...rows] : rows.filter((r) => r.who === f);
-}
-
-/** "7 collections · about 312 photos · one place" — the total only when every count was read. */
-export function collectionsLine(rows: readonly CollectionRow[]): string {
-  const head = n(rows.length, 'collection', 'collections');
-  if (rows.some((r) => r.unread)) return `${head} · one place`;
-  const total = rows.reduce((a, r) => a + (r.items ?? 0), 0);
-  return total > 0 ? `${head} · about ${total.toLocaleString('en-PH')} photos and videos · one place` : `${head} · one place`;
 }

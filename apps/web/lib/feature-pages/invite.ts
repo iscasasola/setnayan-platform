@@ -468,8 +468,8 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       tl: ['Magdagdag ng text layer na may initials o pangalan ninyo, tapos isang image o isa sa pitong frame.', 'Bigyan ng galaw ang bawat layer: draw on, rise o fade in, tapos still o drift. Iginuguhit ng “Show how it’s written” ang mga letra ayon sa pagkakasulat nito.', 'I-Apply, at lalabas ang logo sa Event Hub mo sa mga kulay mo.'],
     },
     different: {
-      en: ['Layers, not a fixed template: text, image and frame, each moved on its own.', 'An image layer can drop its white background.', 'The animated logo is included in Event Hub Pro, or can be unlocked on its own.'],
-      tl: ['Mga layer, hindi nakapirming template: text, image at frame, bawat isa ay hiwalay na gumagalaw.', 'Puwedeng tanggalin ng image layer ang puting background nito.', 'Kasama ang animated na logo sa Event Hub Pro, o puwede itong i-unlock nang mag-isa.'],
+      en: ['Layers, not a fixed template: text, image and frame, each moved on its own.', 'An image layer can drop its white background.', 'The animated logo comes with Event Pro.'],
+      tl: ['Mga layer, hindi nakapirming template: text, image at frame, bawat isa ay hiwalay na gumagalaw.', 'Puwedeng tanggalin ng image layer ang puting background nito.', 'Kasama ang animated na logo sa Event Pro.'],
     },
     worksWith: [
       { slug: 'mood-board', how: { en: 'Your logo is drawn in your palette.', tl: 'Iginuguhit ang logo sa palette mo.' } },
@@ -478,12 +478,12 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'What can I build?', a: 'A logo from text, image and frame layers, in the studio’s typefaces and your colours.' },
-        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It is included in Event Hub Pro or sold on its own, priced in the live catalogue.' },
+        { q: 'What does the upgrade add?', a: 'The animation: each layer drawing on, rising or fading in on your Event Hub. It comes with Event Pro, priced in the live catalogue.' },
         { q: 'Do I need design skills?', a: 'No. Type your initials, pick a frame, and choose how each layer moves.' },
       ],
       tl: [
         { q: 'Ano ang puwede kong buuin?', a: 'Logo mula sa text, image at frame layers, sa mga typeface ng studio at sa kulay mo.' },
-        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Hub Pro o mabibili nang mag-isa, nasa live catalogue ang presyo.' },
+        { q: 'Ano ang idinadagdag ng upgrade?', a: 'Ang animation: ang pag-draw on, pag-angat o pag-fade in ng bawat layer sa Event Hub mo. Kasama ito sa Event Pro, nasa live catalogue ang presyo.' },
         { q: 'Kailangan ba ng design skills?', a: 'Hindi. I-type ang initials, pumili ng frame, at piliin kung paano gagalaw ang bawat layer.' },
       ],
     },
@@ -500,8 +500,10 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
         },
       },
     ],
-    // 💎 The animation upgrade is Event Hub Pro's Logo & QR part now (the standalone monogram is retired, 2026-10-22).
-    price: { kind: 'free-plus', catalogue: 'retail', codes: ['COUPLE_HUB_PART_LOGO_QR'] },
+    // 💎 The animation upgrade is Event Pro's Logo & QR part (the standalone monogram is retired, 2026-10-22). Lane J:
+    // the part's own row is off sale, so the price it read alone was "See pricing" — Event Pro's row is the door today,
+    // and the part's price shows by itself the day its row goes on sale (the lowest active row wins).
+    price: { kind: 'free-plus', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR'] },
     moreHref: '/palogo',
     evidence: ['app/(shell)/palogo/page.tsx', 'lib/monogram.ts', 'lib/logo-layers.ts', 'app/dashboard/[eventId]/monogram/page.tsx'],
   },

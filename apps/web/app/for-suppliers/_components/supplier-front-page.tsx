@@ -45,6 +45,8 @@ import {
   verifiedSpec,
   type GrowTier,
 } from './supplier-front-data';
+import { addonLines } from './plan-table-data';
+import { SupplierPlanTable } from './supplier-plan-table';
 import {
   CheckADateDemo,
   CtaDock,
@@ -74,6 +76,9 @@ export type SupplierFrontPrices = {
   enterpriseAnnual: string | null;
   branch: string | null;
   seat: string | null;
+  /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`) — the plan table and
+   *  Ultra's add-ons name a price by the SKU its purchase charges. */
+  bySku: Readonly<Record<string, string | null>>;
 };
 /** The booking fee as the page read it: the live schedule (null when unreadable) and whether the fee is switched on. */
 export type SupplierFrontFee = { schedule: BookingFeeSchedule | null; enabled: boolean };
@@ -174,10 +179,14 @@ export function SupplierFrontPage({
   prices,
   fee,
   codes,
+  paywallOn,
   afterPlans,
 }: {
   prices: SupplierFrontPrices;
   fee: SupplierFrontFee;
+  /** `isVendorFeatureGateEnabled()`, read by the page: while the plan paywall is off, the table prints the seats and
+   *  waiting list the actions actually allow (Build 5 Lane B's `allowance`), not a cap nobody enforces. */
+  paywallOn: boolean;
   codes: SupplierFrontCodes;
   /** Drawn at the foot of Plans — the page's door to the couple prices (`the-two-pricing-pages-point-at-each-other`). */
   afterPlans?: ReactNode;
@@ -240,7 +249,7 @@ export function SupplierFrontPage({
               <div className={s.facts}>
                 <span>Free to join</span>
                 <span>Couples pay you directly</span>
-                <span>Only Verified shops are shown</span>
+                <span>Verified shops are always shown</span>
               </div>
               <Info label="How the fee works">
                 <p>
@@ -916,25 +925,34 @@ export function SupplierFrontPage({
                 <GrowTiers cards={grow} start="pro" />
                 <div className={s.addons}>
                   <p className={s.ak}>{ADDONS_HEAD}</p>
-                  <p className={s.addonRow}>
-                    <span>+1 branch</span>
-                    <b>{prices.branch ?? 'Price unavailable'}</b>
-                  </p>
-                  <p className={s.addonRow}>
-                    <span>+1 team seat</span>
-                    <b>{prices.seat ?? 'Price unavailable'}</b>
-                  </p>
+                  {addonLines(prices.bySku).map((a) => (
+                    <p key={a.kind} className={s.addonRow}>
+                      <span>{a.label}</span>
+                      <b>{a.price}</b>
+                    </p>
+                  ))}
                   <p className={s.fine}>{addonsFine()}</p>
                 </div>
               </div>
             </div>
             {helper ? <p className={`${s.fine} ${s.helper}`}>{helper}</p> : null}
+            <SupplierPlanTable
+              paywallOn={paywallOn}
+              prices={{
+                monthly: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly },
+                annual: { solo: prices.soloAnnual, pro: prices.proAnnual, enterprise: prices.enterpriseAnnual },
+                bySku: prices.bySku,
+              }}
+            />
             <div className={s.plansCta} data-rv="">
               <a className={s.btn} href={OPEN_SHOP} data-sf-cta="">
                 {CTA}
               </a>
               <Info label="About prices">
-                <p>Only Verified shops are shown in search. Couples pay you directly; Setnayan never holds a peso.</p>
+                <p>
+                  Verified shops are always shown in search. A shop still waiting for its papers is shown until its first
+                  inquiry. Couples pay you directly; Setnayan never holds a peso.
+                </p>
               </Info>
             </div>
             {afterPlans}

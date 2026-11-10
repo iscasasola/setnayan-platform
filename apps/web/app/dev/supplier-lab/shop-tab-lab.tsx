@@ -319,7 +319,6 @@ function portfolioLab(fail: boolean, none: boolean) {
           vendorId="lab"
           input={input}
           saved={saved}
-          previews={none ? {} : { page: { urls: PHOTOS.slice(0, 9), total: 38 }, ...(fail ? {} : { cards: { urls: PHOTOS.slice(3, 9), total: input.cards?.photos ?? 0 } }) }}
           showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
           photos={none ? 0 : 38}
           videoLinks={none ? 0 : 12}
@@ -334,6 +333,7 @@ function portfolioLab(fail: boolean, none: boolean) {
           allPhotos={none ? [] : [...PHOTOS].reverse()}
           libraryOpen={!fail}
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
+          uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
         />
       </div>

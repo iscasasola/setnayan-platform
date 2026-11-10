@@ -34,6 +34,7 @@
  */
 
 import Image from 'next/image';
+import { Explain } from '@/app/_components/explain';
 import { Check, ImageIcon, Info, MessageCircle, Play, Tag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -97,7 +98,6 @@ export function ServiceDetailsSheet({
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [pinned, setPinned] = useState(false);
   const [stuck, setStuck] = useState<SectionKey | null>(null);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [allPhotos, setAllPhotos] = useState(false);
   const [playing, setPlaying] = useState(false);
 
@@ -376,16 +376,15 @@ export function ServiceDetailsSheet({
           >
             {c.label}
           </b>
-          <button
-            type="button"
-            onClick={() => setAboutOpen((v) => !v)}
-            aria-expanded={aboutOpen}
-            aria-controls="grown-about"
-            aria-label="About this card"
-            className={roundBtn}
+          {/* ⓘ — the house explanation (`<Explain>`): what a couple does NOT need before acting; the card's caption lives here. */}
+          <Explain
+            title="About this card"
+            data="grown-about"
+            className={pinned ? 'bg-[var(--m-paper)]' : 'bg-[var(--m-paper)]/90 backdrop-blur-md'}
           >
-            <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </button>
+            The whole card: the price and the best offer, what is included and not, who it serves, its record and reviews,
+            then every photo, the clip and inspiration. Starting price set by the supplier. Final quotes happen in chat.
+          </Explain>
         </div>
 
         <div ref={scrollRef} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden pb-24" data-grown-scroll="">
@@ -419,13 +418,6 @@ export function ServiceDetailsSheet({
             {c.givesSetnayanGift ? <SetnayanGiftLine className="mt-1.5 flex items-start gap-1.5 text-[12px] font-medium text-terracotta-700" /> : null}
           </div>
 
-          {/* ⓘ — what a couple does NOT need before acting (the card's caption moved here). */}
-          {aboutOpen ? (
-            <div id="grown-about" className="mx-4 mb-2 rounded-xl px-3 py-2.5 text-[13px] leading-snug text-ink/70" style={{ background: 'var(--m-paper-2)' }} data-grown-about="">
-              <p>The whole card: the price and the best offer, what is included and not, who it serves, its record and reviews, then every photo, the clip and inspiration.</p>
-              <p className="mt-1.5">Starting price set by the supplier. Final quotes happen in chat.</p>
-            </div>
-          ) : null}
 
           {sections.map((s) => (
             <section key={s.key} data-grown-sec={s.key} aria-labelledby={`grown-h-${s.key}`}>

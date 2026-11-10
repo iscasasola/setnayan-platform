@@ -7,6 +7,8 @@ Build 5 Lane R. Measured on the live site, logged out, at 320 · 360 · 375 · 3
 - **A long one-word name was cut off mid-letter** on `/` at 320 px ("FlowerStore.p"). `.fd-ttl` now has `overflow-wrap: anywhere`.
 - **Equal-weight choices at unequal widths (T19).** `/for-coordinators` and `/for-suppliers` "Ask about this date | Pick another day" were 160 | 143 px in one row and two odd-width pills stacked at 320 px. They now share the row equally, or take the full width each when stacked. The `/for-coordinators` Edit | View | Off segments were 44 | 50 | 44 and are now equal.
 
+- **"Free" printed for the live-stream camera** (owner ruling: never). `app/page.tsx` Live Watch feature line now says "(one camera included; multicam control room as an add-on)", with no price. None of the other front pages (`/features`, `/pricing`, `/for-suppliers`, `/for-coordinators`) uses the same wording.
+
 Guard: `lib/a-closed-tip-takes-no-room.test.ts` fails 4 out of 4 against the old `globals.css`/`info-tip.tsx` and passes after the fix.
 
 SPEC IMPACT: None.

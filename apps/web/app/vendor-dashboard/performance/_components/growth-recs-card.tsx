@@ -6,6 +6,9 @@ import {
   Handshake,
   CalendarDays,
   ArrowRight,
+  Users,
+  Tag,
+  Send,
 } from 'lucide-react';
 import type { GrowthRec, GrowthRecKey, GrowthImpact } from '@/lib/vendor-growth-recs';
 
@@ -22,6 +25,12 @@ export const REC_ICON: Record<GrowthRecKey, React.ReactNode> = {
   ask_reviews: <Star className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   build_partnerships: <Handshake className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
   open_saturdays: <CalendarDays className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  // Build 6 Lane I — the prototype's icons (cal · users · tag · tag · send).
+  open_lost_dates: <CalendarDays className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  add_team: <Users className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  offer_on_card: <Tag className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  offer_for_month: <Tag className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
+  requote_expired: <Send className="h-5 w-5" strokeWidth={1.75} aria-hidden />,
 };
 
 export function impactChipStyle(impact: GrowthImpact): React.CSSProperties {

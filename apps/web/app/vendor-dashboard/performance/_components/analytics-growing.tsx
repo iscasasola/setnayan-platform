@@ -2,19 +2,27 @@
 
 import { formatCount } from '@/lib/format-number';
 import './analytics-growing.css';
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
-import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { GROWTH_WINDOWS, type GrowthWindow } from '@/lib/analytics-growing';
+import { COULDNT_LOAD, GROWTH_WINDOWS, type GrowthWindow } from '@/lib/analytics-growing';
 import type { GrowthRec, GrowthRecKey } from '@/lib/vendor-growth-recs';
+import {
+  GRAPH_SOURCE,
+  cardSellLine,
+  lostLine,
+  quotesLine,
+  replyVsLine,
+  slowLine,
+  type NewGraphs,
+} from '@/lib/vendor-analytics-graphs';
 import { useGrowthWindow } from '../../_components/growth-window';
 import { Reanimate } from './reanimate';
-import { HeldCount, HeldFill, SectionBatch } from './growth-motion';
+import { HeldCount, HeldFill } from './growth-motion';
 import { GrowthLanes, LaneKeys } from './growth-lanes';
-import { DoNext, RecRow } from './do-next';
+import { DoNext } from './do-next';
 import { SourceBars } from './source-bars';
 import { ReplyGauge } from './reply-gauge';
 import { FunnelPreviewCard } from './funnel-preview-card';
@@ -22,18 +30,31 @@ import { CalendarStrip } from './calendar-strip';
 import { StarsFill } from './stars-fill';
 import { ProgressRing } from './progress-ring';
 import { PriceRail } from './price-rail';
+import { CardSellPic, LostPic, QuotesPic, ReplyVsPic, SlowPic } from './new-graph-pics';
+import { GraphSection, GraphTile, type GraphSpec, type GraphState } from './graph-tile';
+import { GRAPH_SAMPLE } from './graph-sample';
 import type { GrowthView, Row, SourceRow } from './growth-view';
 
 /**
- * 🌱 ANALYTICS, GROWING — Shop › Analytics as a page a supplier WATCHES their business grow on (owner-approved 6 Nov
- * 2026; prototype "Analytics, growing" — owner: "I want it to feel like animated and see the growth of the business
- * and not like link or menus only", then "where are the recommendations?"). One window ▾, a hero that draws itself in
- * (the lanes, the sentence, Do next), and six sections in the order a supplier asks — each the shipped `Fold` with a
- * picture that is always there and plays once as it scrolls into view, its details folded under it.
+ * 🌱📈 ONE ANALYTICS — Shop › Analytics (owner-approved 6 Nov 2026 "Analytics, growing", made ONE with the live carousel
+ * and given the five new graphs in Build 6 Lane I, approved 10 Nov: *"No dupes. we want graphs that will help them.
+ * tapping shows a recommendation from us on what they need to do."* → *"All five"*).
  *
- * Nothing new is computed here: `growth-view.ts` words the page's own reads once; this only draws them. The headline
- * numbers count in the PINNED ROW (owner call — no twin in the hero).
- * 🔒 lib/analytics-growing.test.ts · lib/vendor-growth-recs.test.ts · performance/analytics-is-growing.test.ts
+ * One window ▾, the lanes (a tile too), the sentence and Do next — unchanged from 6 Nov — then the six sections in the
+ * order a supplier asks, each a row of GRAPH TILES (`graph-tile.tsx`): every graph once, its data named, tap = it
+ * rises with ONE recommendation from `buildGrowthRecs` (only when that rule fired). Each live Shop carousel card is
+ * folded into the tile that owns its fact — the dedupe table:
+ *
+ *   What’s ahead                      → § What’s ahead · The next 13 weeks        (open_saturdays)
+ *   Quotes that turn into bookings    → § Asking · Quotes waiting                 (requote_expired)
+ *   Where your price sits             → § How I compare · Where your price sits   (none → "Nothing to fix right now")
+ *   What Setnayan added               → § Am I booking? · Setnayan vs your own book (build_partnerships)
+ *   Compared with similar suppliers   → § How I compare · Compared with similar suppliers (reply_faster)
+ *
+ * Nothing new is computed about the shop here: `growth-view.ts` words the page's reads and
+ * `lib/vendor-analytics-graphs.ts` the five new ones; this only draws them. Counts only on the tiles — no price.
+ * 🔒 lib/analytics-growing.test.ts · lib/vendor-growth-recs.test.ts · performance/analytics-is-growing.test.ts ·
+ *    performance/every-graph-is-a-tile.test.ts · lib/vendor-analytics-graphs.test.ts
  */
 
 const TIPS = {
@@ -54,8 +75,23 @@ const TIPS = {
   price: 'How your starting price compares to other published suppliers in your region. A band shows only once enough suppliers have published a price — we never estimate a range from a handful.',
 } as const;
 
-/** Which section each recommendation belongs under (one row under that section's picture, only when its rule fired). */
-const SEC_REC: Record<string, GrowthRecKey> = { finding: 'add_photos', asking: 'reply_faster', booking: 'build_partnerships', ahead: 'open_saturdays', rep: 'ask_reviews' };
+
+/** Which rule each graph may show (prototype GRAPHS[].rec). `null` = the graph advises nothing, by design. */
+export const GRAPH_REC: Readonly<Record<string, readonly GrowthRecKey[]>> = {
+  lanes: ['reply_faster'],
+  sources: ['add_photos'],
+  cardsell: ['offer_on_card'],
+  reply: [],
+  replyvs: ['reply_faster'],
+  quotes: ['requote_expired'],
+  split: ['build_partnerships'],
+  calendar: ['open_saturdays'],
+  lost: ['open_lost_dates', 'add_team'],
+  slow: ['offer_for_month'],
+  rep: ['ask_reviews'],
+  bench: ['reply_faster'],
+  price: [],
+};
 
 function Sub({ t, when, tip }: { t: string; when?: string; tip?: string }) {
   return (
@@ -105,65 +141,17 @@ function SourceRowsList({ list, empty }: { list: SourceRow[] | null; empty: stri
   return <Rows rows={list.map((s) => ({ title: s.label, line: s.count === null ? 'fewer than 5 · hidden' : undefined, strong: s.count === null ? '—' : String(s.count) }))} />;
 }
 
-/** One section: the shipped Fold, its picture always visible (`between`), played once by Reanimate. */
-function Section({
-  id,
-  index,
-  title,
-  when,
-  line,
-  pic,
-  children,
-  anchor,
-  pro = false,
-}: {
-  id: string;
-  index: number;
-  title: string;
-  when?: string;
-  line: string;
-  pic: ReactNode;
-  children: ReactNode;
-  anchor?: string;
-  pro?: boolean;
-}) {
-  const mounted = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
-  const [batch, setBatch] = useState(0);
-  return (
-    <Reanimate still className="ag-sec" onPlay={() => setBatch(performance.now() - mounted.current < 200 ? index * 120 : 0)}>
-      <SectionBatch value={batch}>
-        <Fold
-          title={title}
-          data={`growth-${id}`}
-          anchor={anchor}
-          line={line}
-          lineWrap
-          popovers
-          titleNode={
-            <>
-              {title}
-              {pro ? ' ◆' : ''}
-              {when ? <span className="ag-when"> · {when}</span> : null}
-            </>
-          }
-          between={<div className="ag-pic">{pic}</div>}
-        >
-          <div className="ag-body">
-            <p className="ag-details-k">Details</p>
-            {children}
-          </div>
-        </Fold>
-      </SectionBatch>
-    </Reanimate>
-  );
-}
+const st = (unread: boolean, empty: boolean): GraphState => (unread ? 'unread' : empty ? 'empty' : 'ok');
 
 export function AnalyticsGrowing({
   view,
+  graphs,
   scope = null,
   badges,
 }: {
   view: GrowthView;
+  /** The five new graphs (Build 6 Lane I) — each `null` when refused ("Couldn’t load"). */
+  graphs: NewGraphs;
   /** The service scope ▾ (`ServiceScopeSelector`), beside the window ▾ — only with 2+ active services. */
   scope?: ReactNode;
   /** `YourBadges`, drawn by the page (server) — §5's details. */
@@ -175,26 +163,415 @@ export function AnalyticsGrowing({
   const setWin = ctx ? ctx.setWindow : setOwn;
   const w = view.windows[win];
   const byKey = new Map<GrowthRecKey, GrowthRec>(w.recs.map((r) => [r.key, r]));
-  const secRec = (id: string) => {
-    const r = byKey.get(SEC_REC[id]!);
-    return r ? <RecRow rec={r} sm delay={650} /> : null;
+  /** The graph's rule, only if it fired in this window. */
+  const recOf = (k: string): GrowthRec | null => {
+    for (const key of GRAPH_REC[k] ?? []) {
+      const r = byKey.get(key);
+      if (r) return r;
+    }
+    return null;
   };
   const b = w.booking;
+  const S = GRAPH_SAMPLE;
+
+  const windowPick = (
+    <PickMenu
+      label="Window — every number below follows this"
+      value={win}
+      options={GROWTH_WINDOWS.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
+      onPick={(k) => setWin(k as GrowthWindow)}
+      dataAttr="data-growth-window-pick"
+    />
+  );
+
+  // ── the tiles, in the six-section order (approved 6 Nov) — every graph once ──
+  const sources: GraphSpec = {
+    k: 'sources',
+    title: 'Where couples found you',
+    src: 'Counts · profile opens by where they came from · sources under 5 stay hidden',
+    state: st(w.finding.sources === null || w.finding.line === COULDNT_LOAD, (w.finding.sources?.length ?? 0) === 0),
+    pic: <SourceBars rows={(w.finding.sources?.length ?? 0) === 0 ? S.sources : w.finding.sources} />,
+    line: (w.finding.sources?.length ?? 0) === 0 ? 'Fills in with your first profile opens.' : w.finding.line,
+    problem: (w.finding.sources?.length ?? 0) === 0 ? 'Fills in with your first profile opens.' : w.finding.line,
+    rec: recOf('sources'),
+    details: <One>Where couples found your page before opening it — sources under 5 stay hidden so the read stays reliable.</One>,
+    door: { label: 'Share your shop link', href: '/vendor-dashboard/shop/promote' },
+  };
+
+  const cs = graphs.cardsell;
+  const csEmpty = !cs || cs.every((c) => c.asked === 0);
+  const cardsell: GraphSpec = {
+    k: 'cardsell',
+    title: 'Which card sells',
+    src: GRAPH_SOURCE.cardsell,
+    tag: 'new',
+    state: st(cs === null, csEmpty),
+    pic: <CardSellPic c={csEmpty ? S.cardsell : cs!} />,
+    line: csEmpty ? 'Shows once couples ask about your cards.' : cardSellLine(cs),
+    problem: csEmpty ? 'Shows once couples ask about your cards.' : cardSellLine(cs),
+    rec: recOf('cardsell'),
+    details: <One>How many times each card was opened is not counted yet, so this graph never advises on opens — only on what couples asked about and booked.</One>,
+    door: { label: 'Open your cards', href: '/vendor-dashboard/shop' },
+  };
+
+  const replyUnread = view.reply.chip.word === COULDNT_LOAD;
+  const replyEmpty = view.reply.gauge.minutes === null;
+  const reply: GraphSpec = {
+    k: 'reply',
+    title: 'How fast you answer',
+    src: 'Median minutes to your first reply · last 12 months · 3 answered before Setnayan says “usually responds in …”',
+    state: st(replyUnread, replyEmpty),
+    pic: replyEmpty ? <ReplyGauge minutes={S.reply.minutes} answered={S.reply.answered} /> : <ReplyGauge minutes={view.reply.gauge.minutes} answered={view.reply.gauge.answered} />,
+    line: replyEmpty ? 'Comes alive with your first inquiry.' : w.asking.line,
+    problem: replyEmpty ? 'Comes alive with your first inquiry.' : w.asking.line,
+    rec: recOf('reply'),
+    details: (
+      <>
+        <Sub t="What couples see about your replies" tip={TIPS.reply} />
+        <div className="ag-row">
+          <span className="ag-t">
+            <span className="ag-title ag-lw">{view.reply.title}</span>
+            <span className="ag-line">{view.reply.line}</span>
+          </span>
+          <span className={`ag-chip ag-${view.reply.chip.tone}`}>{view.reply.chip.word}</span>
+        </div>
+        {view.reply.shown ? null : (
+          <Link className="ag-door" href="/vendor-dashboard/customers">
+            <Users aria-hidden strokeWidth={1.9} />
+            Go to your customers
+          </Link>
+        )}
+        {view.speed ? (
+          <>
+            <Sub t="What type of customer inquires" tip={TIPS.sources} />
+            <SourceRowsList list={w.asking.byType} empty="No inquiries in this window yet." />
+            <Sub t="Reply speed" when="12 months" tip={TIPS.speed} />
+            <Rows rows={view.speed} />
+            {view.slipped ? (
+              <>
+                <Sub t="Where leads slipped" when="12 months" tip={TIPS.slipped} />
+                <One>{view.slipped}</One>
+              </>
+            ) : null}
+            {view.heat ? (
+              <>
+                <Sub t="When couples message you" when="12 months" tip={TIPS.heat} />
+                <Heat grid={view.heat} />
+              </>
+            ) : null}
+          </>
+        ) : (
+          <One>Answer couples as they arrive — what type of customer asks, your reply speed, slipped leads and busy times fill in from your first inquiries.</One>
+        )}
+      </>
+    ),
+    door: { label: 'Go to messages', href: '/vendor-dashboard/messages' },
+  };
+
+  const rv = graphs.replyvs;
+  const rvEmpty = !rv || rv.fast.n + rv.slow.n === 0;
+  const replyvs: GraphSpec = {
+    k: 'replyvs',
+    title: 'Reply speed vs bookings',
+    src: GRAPH_SOURCE.replyvs,
+    tag: 'new',
+    state: st(rv === null, rvEmpty),
+    pic: <ReplyVsPic r={rvEmpty ? S.replyvs : rv!} />,
+    line: rvEmpty ? 'Comes alive with your first answered inquiry.' : replyVsLine(rv),
+    problem: rvEmpty ? 'Comes alive with your first answered inquiry.' : replyVsLine(rv),
+    rec: recOf('replyvs'),
+    door: { label: 'Go to messages', href: '/vendor-dashboard/messages' },
+  };
+
+  const q = graphs.quotes;
+  const qEmpty = !q || q.sent === 0;
+  const quotes: GraphSpec = {
+    k: 'quotes',
+    title: 'Quotes waiting',
+    src: GRAPH_SOURCE.quotes,
+    tag: 'new',
+    state: st(q === null, qEmpty),
+    pic: <QuotesPic q={qEmpty ? S.quotes : q!} />,
+    line: qEmpty ? 'Fills in when you send your first quotation.' : quotesLine(q),
+    problem: qEmpty ? 'Fills in when you send your first quotation.' : quotesLine(q),
+    rec: recOf('quotes'),
+    details: view.deals ? (
+      <>
+        <Sub t="Deals" when="12 months" tip={TIPS.deals} />
+        <Rows rows={view.deals} />
+      </>
+    ) : undefined,
+    door: { label: 'Open your clients', href: '/vendor-dashboard/customers' },
+  };
+
+  const splitEmpty = !b.split || b.split.setnayan.n + b.split.own.n === 0;
+  const split: GraphSpec = {
+    k: 'split',
+    title: 'Setnayan vs your own book',
+    src: 'Counts · bookings by where they came from — through Setnayan, or a client you brought in',
+    tag: 'absorb',
+    state: st(b.line === COULDNT_LOAD, splitEmpty),
+    pic: <SplitPic n={splitEmpty ? S.split : { setnayan: b.split!.setnayan.n, own: b.split!.own.n }} />,
+    line: splitEmpty ? 'Fills in with your first booking.' : b.line,
+    problem: splitEmpty ? 'Fills in with your first booking.' : b.line,
+    rec: recOf('split'),
+    details: (
+      <>
+        <p className="ag-subt" style={{ marginTop: 0 }}>
+          <InfoTip label="Your booking funnel" align="start">
+            {TIPS.funnel}
+          </InfoTip>
+        </p>
+        <FunnelPreviewCard steps={b.funnel} />
+        {b.value && b.split ? (
+          <>
+            <Rows rows={[{ title: 'Booked value', line: b.value.line, strong: b.value.php }]} />
+            <Sub t="Setnayan vs your own book" tip={TIPS.split} />
+            <Attribution split={b.split} roi={b.roi} />
+            <Sub t="Where your bookings come from" tip={TIPS.sources} />
+            <SourceRowsList list={b.bookedSources} empty="No source has 5 bookings yet." />
+          </>
+        ) : (
+          <One>Booked value, Setnayan vs your own book, where bookings come from and your deals fill in with your first booking.</One>
+        )}
+      </>
+    ),
+    door: { label: 'Import a client', href: '/vendor-dashboard/customers' },
+  };
+
+  const calEmpty = view.ahead.marks.booked.length === 0 && view.ahead.marks.waiting.length === 0;
+  const calendar: GraphSpec = {
+    k: 'calendar',
+    title: 'The next 13 weeks',
+    src: 'Live bookings by day · dates couples asked for that you weren’t free on (the waitlist)',
+    tag: 'absorb',
+    state: st(view.ahead.unread, calEmpty),
+    pic: calEmpty ? (
+      <CalendarStrip months={view.ahead.months} booked={S.calendar.booked} waiting={S.calendar.waiting} />
+    ) : (
+      <CalendarStrip months={view.ahead.months} booked={view.ahead.marks.booked} waiting={view.ahead.marks.waiting} />
+    ),
+    line: calEmpty ? 'Nothing booked ahead · no couples waiting.' : view.ahead.line,
+    problem: calEmpty ? 'Nothing booked ahead · no couples waiting.' : view.ahead.line,
+    rec: recOf('calendar'),
+    details: (
+      <>
+        <Sub t="Your calendar" tip={TIPS.ahead} />
+        {view.ahead.rows ? (
+          <>
+            <Rows rows={view.ahead.rows} />
+            {view.ahead.dates ? (
+              <>
+                <Sub t="Dates in demand" />
+                <Rows rows={view.ahead.dates} />
+              </>
+            ) : null}
+          </>
+        ) : (
+          <One>Dates couples want but you’re not free on show up here once your calendar fills — a signal to add a slot or raise your price.</One>
+        )}
+        {view.demand.show ? (
+          <>
+            <Sub t={`Demand near you${view.pro ? ' ◆' : ''}`} when="your region" tip={TIPS.demand} />
+            {view.demand.unread ? (
+              <One>Couldn’t load the demand near you just now.</One>
+            ) : view.demand.rows ? (
+              <>
+                <Rows rows={view.demand.rows} />
+                {view.demand.months ? (
+                  <>
+                    <Sub t="Busiest months ahead" />
+                    <Rows rows={view.demand.months} />
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <One>
+                <b>Not enough demand data yet</b> — the radar fills in once there’s enough activity in your area to show without revealing any single couple.
+              </One>
+            )}
+          </>
+        ) : null}
+      </>
+    ),
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+  };
+
+  const l = graphs.lost;
+  const lEmpty = !l || l.total === 0;
+  const lost: GraphSpec = {
+    k: 'lost',
+    title: 'Dates you lost',
+    src: GRAPH_SOURCE.lost,
+    tag: 'new',
+    state: st(l === null, lEmpty),
+    pic: <LostPic l={lEmpty ? S.lost : l!} />,
+    line: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
+    problem: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
+    rec: recOf('lost'),
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+  };
+
+  const sm = graphs.slow;
+  const smEmpty = !sm || sm.every((m) => m.count === 0);
+  const slow: GraphSpec = {
+    k: 'slow',
+    title: 'Slow months ahead',
+    src: GRAPH_SOURCE.slow,
+    tag: 'new',
+    state: st(sm === null, smEmpty),
+    pic: <SlowPic months={smEmpty ? S.slow : sm!} />,
+    line: smEmpty ? 'Fills in as couples book dates.' : slowLine(sm),
+    problem: smEmpty ? 'Fills in as couples book dates.' : slowLine(sm),
+    rec: recOf('slow'),
+    door: { label: 'Open your calendar', href: '/vendor-dashboard/calendar' },
+  };
+
+  const repEmpty = view.rep.rating === null;
+  const rep: GraphSpec = {
+    k: 'rep',
+    title: 'What couples say · your badges',
+    src: 'Your average across trusted reviews · the badges you have earned',
+    state: st(view.rep.unread, repEmpty),
+    pic: (
+      <>
+        <StarsFill rating={repEmpty ? S.rep.rating : view.rep.rating} count={repEmpty ? S.rep.count : view.rep.count} />
+        {!repEmpty && view.badgeRing ? (
+          <span className="ag-rep" style={{ marginTop: 14 }}>
+            <ProgressRing size={64} r={26} sw={5} pct={(view.badgeRing.have / view.badgeRing.goal) * 100} id="ag:ring:badge" delay={120} ghost={view.badgeRing.have === 0}>
+              {view.badgeRing.have ? <HeldCount value={view.badgeRing.have} id="ag:ring:badgeN" delay={120} className="ag-ringn" /> : <b style={{ fontSize: 17 }}>0</b>}
+            </ProgressRing>
+            <span className="ag-rt">
+              <span className="ag-title">
+                {formatCount(view.badgeRing.have)} of {formatCount(view.badgeRing.goal)} events
+              </span>
+              <span className="ag-line">Next badge: {view.badgeRing.goalWord}</span>
+            </span>
+          </span>
+        ) : null}
+      </>
+    ),
+    line: repEmpty ? 'Your first review lands here.' : view.rep.line,
+    problem: repEmpty ? 'Your first review lands here.' : view.rep.line,
+    rec: recOf('rep'),
+    details: (
+      <>
+        {badges}
+        <Sub t="What couples say" when="all time" tip={TIPS.rep} />
+        {view.rep.rows ? (
+          <>
+            <Rows rows={view.rep.rows} />
+            {view.rep.dist ? (
+              <>
+                <Sub t="Rating breakdown" />
+                {view.rep.dist.map((n, i) => {
+                  const tot = view.rep.dist!.reduce((a, c) => a + c, 0) || 1;
+                  return (
+                    <div key={i} className="ag-dist">
+                      <span className="ag-s">{5 - i}★</span>
+                      <div className="ag-track">
+                        <i style={{ width: `${(n / tot) * 100}%`, minWidth: n ? 3 : 0 }} />
+                      </div>
+                      <span className="ag-n">{n}</span>
+                    </div>
+                  );
+                })}
+              </>
+            ) : null}
+            {view.rep.monthly ? (
+              <>
+                <Sub t="Reviews per month" when="12 months" />
+                <Bars values={view.rep.monthly} />
+              </>
+            ) : null}
+          </>
+        ) : (
+          <One>No reviews yet — your rating, how many reviews you answer and reviews per month start with your first review.</One>
+        )}
+      </>
+    ),
+    door: { label: 'See reviews', href: '/vendor-dashboard/website#reviews' },
+  };
+
+  const benchEmpty = !view.bench.rows;
+  const bench: GraphSpec = {
+    k: 'bench',
+    title: `Compared with similar suppliers${view.pro ? ' ◆' : ''}`,
+    src: 'Your place among shops in your category and area · Reply rate · Reply time · Inquiry → booking · never another shop’s numbers',
+    tag: 'absorb',
+    state: st(view.bench.unread, benchEmpty),
+    pic: <BenchPic rows={benchEmpty ? S.bench : view.bench.rows!} />,
+    line: benchEmpty ? 'Not enough shops like yours yet.' : view.compare.line,
+    problem: benchEmpty ? 'Not enough shops like yours yet.' : view.compare.line,
+    rec: recOf('bench'),
+    details: (
+      <>
+        <Sub t="Your health score" when="now" tip={TIPS.health} />
+        <Health h={view.health} />
+        {view.health.unread || view.health.composite === null ? null : view.health.pillars.map((p) => <RowView key={p.label} r={{ title: p.label, line: p.hint }} />)}
+        <Sub t="Shops like yours" when="your category & area" tip={TIPS.bench} />
+        {view.bench.unread ? (
+          <One>Couldn’t load shops like yours just now.</One>
+        ) : view.bench.rows ? (
+          <Rows rows={view.bench.rows.map((r) => ({ title: r.title, line: r.line, strong: r.word }))} />
+        ) : (
+          <One>
+            <b>Not enough shops like yours yet</b> — a comparison appears once the group is big enough that no single shop can be picked out of it.
+          </One>
+        )}
+      </>
+    ),
+    door: { label: 'Go to messages', href: '/vendor-dashboard/messages' },
+  };
+
+  const priceEmpty = !view.price.positioned;
+  // Words only on the rail — no amount on a tile (the risen details carry your own starting price).
+  const priceRail = view.price.show ? <PriceRail positioned={{ low: '', med: '', high: '', at: priceEmpty ? S.price.at : view.price.positioned!.at }} unread={view.price.unread} /> : null;
+  const price: GraphSpec | null = priceRail
+    ? {
+        k: 'price',
+        pic: priceRail,
+        title: `Where your price sits${view.pro ? ' ◆' : ''}`,
+        src: 'Your starting price against the low · median · high of published prices for your service in your region · words, never another shop’s price',
+        tag: 'absorb',
+        state: st(view.price.unread, priceEmpty),
+        line: priceEmpty ? 'Add a starting price to see where you sit.' : view.price.positioned!.word,
+        problem: priceEmpty ? 'Add a starting price to see where you sit.' : view.price.positioned!.word,
+        rec: recOf('price'),
+        details: (
+          <>
+            <Sub t="Where your price sits" when={view.price.when} tip={TIPS.price} />
+            {view.price.positioned ? (
+              <RowView r={{ title: 'Your starting price', line: view.price.positioned.word, strong: view.price.positioned.own }} />
+            ) : (
+              <One>{view.price.unread ? 'Couldn’t load the market just now.' : 'Not enough market data yet.'}</One>
+            )}
+          </>
+        ),
+        door: { label: 'Set a starting price', href: '/vendor-dashboard/shop' },
+      }
+    : null;
+
+  const lanes: GraphSpec = {
+    k: 'lanes',
+    title: 'Opened → asked → booked',
+    src: 'Counts over the window · opened (profile views by day) · asked (inquiries by arrival) · booked (bookings confirmed)',
+    state: 'ok',
+    pic: <GrowthLanes key={win} unit={w.lanes.unit} labels={w.lanes.labels} views={w.lanes.views} asked={w.lanes.asked} booked={w.lanes.booked} />,
+    line: <>{w.sentence.map((s, i) => (s.b ? <b key={i}>{s.t}</b> : <span key={i}>{s.t}</span>))}</>,
+    problem: w.sentence.map((s) => s.t).join(''),
+    rec: recOf('lanes'),
+    door: { label: 'Share your shop link', href: '/vendor-dashboard/shop/promote' },
+  };
 
   return (
     <div data-growth="" data-growth-window={win}>
       <div className="ag-topctl">
-        <PickMenu
-          label="Window — every number below follows this"
-          value={win}
-          options={GROWTH_WINDOWS.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
-          onPick={(k) => setWin(k as GrowthWindow)}
-          dataAttr="data-growth-window-pick"
-        />
+        {windowPick}
         {scope}
       </div>
 
-      {/* HERO — the lanes + the sentence + Do next (the headline numbers count in the pinned row above). */}
+      {/* HERO — the lanes as a tile, then the sentence + Do next (approved 6 Nov, unchanged). */}
       <Reanimate still className="ag-hero">
         <LaneKeys
           tip={
@@ -203,303 +580,82 @@ export function AnalyticsGrowing({
             </InfoTip>
           }
         />
-        <GrowthLanes key={win} unit={w.lanes.unit} labels={w.lanes.labels} views={w.lanes.views} asked={w.lanes.asked} booked={w.lanes.booked} />
+        <GraphTile g={{ ...lanes, line: null }} window={windowPick} />
         <p className="ag-say" data-growth-sentence="">
           {w.sentence.map((s, i) => (s.b ? <b key={i}>{s.t}</b> : <span key={i}>{s.t}</span>))}
         </p>
         <DoNext recs={w.recs} />
       </Reanimate>
 
-      <div className="ag-folds">
-        {/* §1 Are couples finding me? — picture: the source bars grow */}
-        <Section
-          id="finding"
-          index={0}
-          title="Are couples finding me?"
-          line={w.finding.line}
-          pic={
-            <>
-              <SourceBars rows={w.finding.sources} />
-              {secRec('finding')}
-            </>
-          }
-        >
-          <One>Where couples found your page before opening it — sources under 5 stay hidden so the read stays reliable.</One>
-        </Section>
-
-        {/* §2 Are they asking, and do I answer? — picture: the reply gauge + habit dots */}
-        <Section
-          id="asking"
-          index={1}
-          title="Are they asking, and do I answer?"
-          line={w.asking.line}
-          pic={
-            <>
-              <ReplyGauge minutes={view.reply.gauge.minutes} answered={view.reply.gauge.answered} unread={view.reply.chip.word === 'Couldn’t load'} />
-              {secRec('asking')}
-            </>
-          }
-        >
-          <Sub t="What couples see about your replies" tip={TIPS.reply} />
-          <div className="ag-row">
-            <span className="ag-t">
-              <span className="ag-title ag-lw">{view.reply.title}</span>
-              <span className="ag-line">{view.reply.line}</span>
-            </span>
-            <span className={`ag-chip ag-${view.reply.chip.tone}`}>{view.reply.chip.word}</span>
-          </div>
-          {view.reply.shown ? null : (
-            <Link className="ag-door" href="/vendor-dashboard/customers">
-              <Users aria-hidden strokeWidth={1.9} />
-              Go to your customers
-            </Link>
-          )}
-          {view.speed ? (
-            <>
-              <Sub t="What type of customer inquires" tip={TIPS.sources} />
-              <SourceRowsList list={w.asking.byType} empty="No inquiries in this window yet." />
-              <Sub t="Reply speed" when="12 months" tip={TIPS.speed} />
-              <Rows rows={view.speed} />
-              {view.slipped ? (
-                <>
-                  <Sub t="Where leads slipped" when="12 months" tip={TIPS.slipped} />
-                  <One>{view.slipped}</One>
-                </>
-              ) : null}
-              {view.heat ? (
-                <>
-                  <Sub t="When couples message you" when="12 months" tip={TIPS.heat} />
-                  <Heat grid={view.heat} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <One>Answer couples as they arrive — what type of customer asks, your reply speed, slipped leads and busy times fill in from your first inquiries.</One>
-          )}
-        </Section>
-
-        {/* §3 Am I booking? — picture: the funnel filling stage by stage */}
-        <Section
-          id="booking"
-          index={2}
-          anchor="funnel"
-          title="Am I booking?"
-          line={b.line}
-          pic={
-            <>
-              <p className="ag-subt" style={{ marginTop: 0 }}>
-                <InfoTip label="Your booking funnel" align="start">
-                  {TIPS.funnel}
-                </InfoTip>
-              </p>
-              <FunnelPreviewCard steps={b.funnel} />
-              {secRec('booking')}
-            </>
-          }
-        >
-          {b.value && b.split ? (
-            <>
-              <Rows rows={[{ title: 'Booked value', line: b.value.line, strong: b.value.php }]} />
-              <Sub t="Setnayan vs your own book" tip={TIPS.split} />
-              <Attribution split={b.split} roi={b.roi} />
-              <Sub t="Where your bookings come from" tip={TIPS.sources} />
-              <SourceRowsList list={b.bookedSources} empty="No source has 5 bookings yet." />
-              {view.deals ? (
-                <>
-                  <Sub t="Deals" when="12 months" tip={TIPS.deals} />
-                  <Rows rows={view.deals} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <One>Booked value, Setnayan vs your own book, where bookings come from and your deals fill in with your first booking.</One>
-          )}
-        </Section>
-
-        {/* §4 What’s ahead — picture: the calendar strip */}
-        <Section
-          id="ahead"
-          index={3}
-          title="What’s ahead"
-          when="from today"
-          line={view.ahead.line}
-          pic={
-            <>
-              <CalendarStrip months={view.ahead.months} booked={view.ahead.marks.booked} waiting={view.ahead.marks.waiting} unread={view.ahead.unread} />
-              {secRec('ahead')}
-            </>
-          }
-        >
-          <Sub t="Your calendar" tip={TIPS.ahead} />
-          {view.ahead.rows ? (
-            <>
-              <Rows rows={view.ahead.rows} />
-              {view.ahead.dates ? (
-                <>
-                  <Sub t="Dates in demand" />
-                  <Rows rows={view.ahead.dates} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <One>Dates couples want but you’re not free on show up here once your calendar fills — a signal to add a slot or raise your price.</One>
-          )}
-          {view.demand.show ? (
-            <>
-              <Sub t={`Demand near you${view.pro ? ' ◆' : ''}`} when="your region" tip={TIPS.demand} />
-              {view.demand.unread ? (
-                <One>Couldn’t load the demand near you just now.</One>
-              ) : view.demand.rows ? (
-                <>
-                  <Rows rows={view.demand.rows} />
-                  {view.demand.months ? (
-                    <>
-                      <Sub t="Busiest months ahead" />
-                      <Rows rows={view.demand.months} />
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                <One>
-                  <b>Not enough demand data yet</b> — the radar fills in once there’s enough activity in your area to show without revealing any single couple.
-                </One>
-              )}
-            </>
-          ) : null}
-        </Section>
-
-        {/* §5 Reputation & badges — picture: the stars fill + the badge tracker ring */}
-        <Section
-          id="rep"
-          index={4}
-          title="Reputation & badges"
-          when="all time"
-          line={view.rep.line}
-          pic={
-            <>
-              <StarsFill rating={view.rep.rating} count={view.rep.count} unread={view.rep.unread} />
-              {view.badgeRing ? (
-                <div className="ag-rep" style={{ marginTop: 14 }}>
-                  <ProgressRing size={64} r={26} sw={5} pct={(view.badgeRing.have / view.badgeRing.goal) * 100} id="ag:ring:badge" delay={120} ghost={view.badgeRing.have === 0}>
-                    {view.badgeRing.have ? (
-                      <HeldCount value={view.badgeRing.have} id="ag:ring:badgeN" delay={120} className="ag-ringn" />
-                    ) : (
-                      <b style={{ fontSize: 17 }}>0</b>
-                    )}
-                  </ProgressRing>
-                  <span className="ag-rt">
-                    <span className="ag-title">
-                      {formatCount(view.badgeRing.have)} of {formatCount(view.badgeRing.goal)} events
-                    </span>
-                    <span className="ag-line">Next badge: {view.badgeRing.goalWord}</span>
-                  </span>
-                </div>
-              ) : null}
-              {secRec('rep')}
-            </>
-          }
-        >
-          {badges}
-          <Sub t="What couples say" when="all time" tip={TIPS.rep} />
-          {view.rep.rows ? (
-            <>
-              <Rows rows={view.rep.rows} />
-              {view.rep.dist ? (
-                <>
-                  <Sub t="Rating breakdown" />
-                  {view.rep.dist.map((n, i) => {
-                    const tot = view.rep.dist!.reduce((a, c) => a + c, 0) || 1;
-                    return (
-                      <div key={i} className="ag-dist">
-                        <span className="ag-s">{5 - i}★</span>
-                        <div className="ag-track">
-                          <i style={{ width: `${(n / tot) * 100}%`, minWidth: n ? 3 : 0 }} />
-                        </div>
-                        <span className="ag-n">{n}</span>
-                      </div>
-                    );
-                  })}
-                </>
-              ) : null}
-              {view.rep.monthly ? (
-                <>
-                  <Sub t="Reviews per month" when="12 months" />
-                  <Bars values={view.rep.monthly} />
-                </>
-              ) : null}
-            </>
-          ) : (
-            <One>No reviews yet — your rating, how many reviews you answer and reviews per month start with your first review.</One>
-          )}
-        </Section>
-
-        {/* §6 How I compare — picture: the health ring + pillars + the price rail */}
-        <Section
-          id="compare"
-          index={5}
-          title="How I compare"
-          when="now"
-          pro={view.pro}
-          line={view.compare.line}
-          pic={
-            <>
-              <Health h={view.health} />
-              {view.price.show ? (
-                <div style={{ marginTop: 16 }}>
-                  <PriceRail positioned={view.price.positioned} unread={view.price.unread} />
-                </div>
-              ) : null}
-            </>
-          }
-        >
-          <Sub t="Your health score" when="now" tip={TIPS.health} />
-          {view.health.unread ? (
-            <One>Couldn’t load your health score just now.</One>
-          ) : view.health.composite === null ? (
-            <One>Responsiveness · Reputation · Demand · Conversion · Delivery — none scored yet; each fills in from your own replies, reviews, bookings and delivery.</One>
-          ) : (
-            view.health.pillars.map((p) => <RowView key={p.label} r={{ title: p.label, line: p.hint }} />)
-          )}
-          {view.bench.show ? (
-            <>
-              <Sub t="Shops like yours" when="your category & area" tip={TIPS.bench} />
-              {view.bench.unread ? (
-                <One>Couldn’t load shops like yours just now.</One>
-              ) : view.bench.rows ? (
-                <div className="ag-rows">
-                  {view.bench.rows.map((r) => (
-                    <div key={r.title} className="ag-row">
-                      <span className="ag-t">
-                        <span className="ag-title">{r.title}</span>
-                        <span className="ag-line">{r.line}</span>
-                        <div className="ag-track ag-thin" style={{ marginTop: 6 }}>
-                          <HeldFill value={r.pct} id={`ag:bench:${r.title}`} />
-                        </div>
-                      </span>
-                      <span className="ag-chip ag-quiet">{r.word}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <One>
-                  <b>Not enough shops like yours yet</b> — a comparison appears once the group is big enough that no single shop can be picked out of it.
-                </One>
-              )}
-            </>
-          ) : null}
-          {view.price.show ? (
-            <>
-              <Sub t="Where your price sits" when={view.price.when} tip={TIPS.price} />
-              {view.price.positioned ? (
-                <RowView r={{ title: 'Your starting price', line: view.price.positioned.word, strong: view.price.positioned.own }} />
-              ) : (
-                <One>{view.price.unread ? 'Couldn’t load the market just now.' : 'Not enough market data yet.'}</One>
-              )}
-            </>
-          ) : null}
-        </Section>
+      <div className="ag-folds" data-graph-sections="">
+        <GraphSection id="finding" title="Are couples finding me?">
+          <GraphTile g={sources} window={windowPick} />
+          <GraphTile g={cardsell} />
+        </GraphSection>
+        <GraphSection id="asking" title="Are they asking, and do I answer?">
+          <GraphTile g={reply} />
+          <GraphTile g={replyvs} />
+          <GraphTile g={quotes} />
+        </GraphSection>
+        <GraphSection id="booking" title="Am I booking?">
+          <GraphTile g={split} window={windowPick} />
+        </GraphSection>
+        <GraphSection id="ahead" title="What’s ahead" when="next 13 weeks · 12 months">
+          <GraphTile g={calendar} />
+          <GraphTile g={lost} />
+          <GraphTile g={slow} />
+        </GraphSection>
+        <GraphSection id="rep" title="Reputation & badges" when="all time">
+          <GraphTile g={rep} />
+        </GraphSection>
+        {view.bench.show || view.price.show ? (
+          <GraphSection id="compare" title="How I compare" when="your category · region">
+            {view.bench.show ? <GraphTile g={bench} /> : null}
+            {price ? <GraphTile g={price} /> : null}
+          </GraphSection>
+        ) : null}
       </div>
     </div>
+  );
+}
+
+/** Setnayan vs your own book, counts only (the tile; the pesos stay in the risen details, as approved). */
+function SplitPic({ n }: { n: { setnayan: number; own: number } }) {
+  const max = Math.max(1, n.setnayan, n.own);
+  return (
+    <span className="ag-sb ag-split" data-graph-pic="split">
+      {(
+        [
+          ['From Setnayan', n.setnayan, false],
+          ['Your imported clients', n.own, true],
+        ] as const
+      ).map(([label, v, ownBook]) => (
+        <span key={label} className="ag-sbr">
+          <span className="ag-sbl">{label}</span>
+          <span className={ownBook ? 'ag-track ag-own' : 'ag-track'}>
+            <i style={{ width: `${Math.max((v / max) * 100, v > 0 ? 6 : 0)}%` }} />
+          </span>
+          <span className="ag-sbn tabular-nums">{formatCount(v)}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Compared with similar suppliers — each measure placed in a quarter, in words (never another shop's number). */
+function BenchPic({ rows }: { rows: readonly { title: string; pct: number; word: string }[] }) {
+  return (
+    <span className="ag-sb" data-graph-pic="bench">
+      {rows.map((r) => (
+        <span key={r.title} className="ag-sbr">
+          <span className="ag-sbl">{r.title}</span>
+          <span className="ag-track ag-thin">
+            <HeldFill value={r.pct} id={`ag:bench:${r.title}`} />
+          </span>
+          <span className="ag-sbn">{r.word}</span>
+        </span>
+      ))}
+    </span>
   );
 }
 

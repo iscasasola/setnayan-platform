@@ -44,6 +44,9 @@ import {
 } from '@/lib/demand-radar';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchVendorServices } from '@/lib/vendor-services';
+import { readNewGraphs } from '@/lib/vendor-analytics-graphs.server';
+import { slowMonth } from '@/lib/vendor-analytics-graphs';
+import { displayServiceLabel } from '@/lib/vendors';
 import { fetchVendorInquiryAnalytics } from '@/lib/vendor-inquiry-analytics';
 import { fetchVendorConversionAnalytics } from '@/lib/vendor-conversion-analytics';
 import { fetchVendorReputationAnalytics } from '@/lib/vendor-reputation-analytics';
@@ -409,6 +412,20 @@ export default async function PerformanceHome({
     // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
     badgeFactsRead,
   ]);
+  // 📈 The five new graphs (Build 6 Lane I — lost dates · which card sells · reply speed vs bookings · slow months ·
+  // quotes waiting), started the moment the shop's cards are known and awaited at the recommendations below, so they
+  // ride beside the pins and the partnership count. Each refusal is its own `null` ("Couldn’t load"), never a zero.
+  // `event_vendors` (cardsell + replyvs) on `bookingsAdmin` — it has no vendor SELECT policy (see above).
+  const graphCards = services
+    .filter((s) => s.is_active)
+    .map((s) => ({ serviceId: s.vendor_service_id, name: s.title?.trim() || displayServiceLabel(s.category) }));
+  const newGraphsRead = readNewGraphs({
+    session: supabase,
+    admin: bookingsAdmin,
+    vendorProfileId: profile.vendor_profile_id,
+    cards: graphCards,
+    nowMs,
+  });
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
   const [pinNow, pinSince60, pinYear] = await Promise.all([pinNowRead, pinSince60Read, pinYearRead]);
   const totalsBefore30 =
@@ -483,8 +500,17 @@ export default async function PerformanceHome({
         partnership_count: partnershipErr ? 99 : (partnershipCount ?? 0),
       }
     : null;
-  const growthRecs = buildGrowthRecs(recStats, { askedInWindow: pinNow.totals ? pinNow.totals.inquiries : null });
-  const growthRecsYear = buildGrowthRecs(recStats, { askedInWindow: pinYear.totals ? pinYear.totals.inquiries : null });
+  // The five new rules read only what their graph shows (a null graph fires nothing). No table records which card a
+  // couple OPENED, so `quietCard` is never passed and "Run an offer on <card>" stays silent — never a guessed open.
+  const newGraphs = await newGraphsRead;
+  const slow = newGraphs.slow ? slowMonth(newGraphs.slow) : null;
+  const graphRecOpts = {
+    lostDates: newGraphs.lost ? { closed: newGraphs.lost.closed, full: newGraphs.lost.full } : null,
+    slowMonth: slow ? { name: slow.name, lastDay: slow.lastDay, serviceId: graphCards[0]?.serviceId ?? null } : null,
+    expiredQuotes: newGraphs.quotes ? newGraphs.quotes.expired : null,
+  };
+  const growthRecs = buildGrowthRecs(recStats, { askedInWindow: pinNow.totals ? pinNow.totals.inquiries : null, ...graphRecOpts });
+  const growthRecsYear = buildGrowthRecs(recStats, { askedInWindow: pinYear.totals ? pinYear.totals.inquiries : null, ...graphRecOpts });
   // 🤝 The "Link up" card lands on the served-with list (owner 2026-11-06) — with nobody on it, it does not fire.
   // Read only when the card would show, in either window.
   const servedWith = [...growthRecs, ...growthRecsYear].some((r) => r.key === 'build_partnerships')
@@ -651,6 +677,7 @@ export default async function PerformanceHome({
           <div className="mt-2">
             <AnalyticsGrowing
               view={growthView}
+              graphs={newGraphs}
               scope={
                 showSelector ? (
                   <ServiceScopeSelector

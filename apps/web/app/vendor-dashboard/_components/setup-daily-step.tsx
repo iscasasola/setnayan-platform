@@ -6,6 +6,11 @@ import { DAILY_STEP_N, type SetupDailyView } from '@/lib/supplier-setup';
 import { SET_HOW_MANY_A_DAY_HREF } from '@/lib/vendor-dates';
 import { StepChip } from './supplier-setup-folds';
 
+/** "2 crews = 2." never breaks across two lines (seen at 375 px, 11 Nov): its spaces become non-breaking. */
+function keepTogether(line: string): string {
+  return line.replace(/(\d+) (crews|halls) = (\d+)/, '$1\u00a0$2\u00a0=\u00a0$3');
+}
+
 /** Your halls live in the Clients ⚙ too — a venue whose schedules are all halls opens it there. */
 export const YOUR_HALLS_HREF = '/vendor-dashboard/customers?seg=dates&gear=1';
 
@@ -66,7 +71,7 @@ export function SetupDailyStep({
             style={{ color: view.state === 'unread' ? 'rgb(var(--color-danger))' : undefined }}
             data-setup-daily-line=""
           >
-            <span className={view.state === 'unread' ? '' : 'text-ink/60'}>{view.line}</span>
+            <span className={view.state === 'unread' ? '' : 'text-ink/60'}>{keepTogether(view.line)}</span>
           </span>
         </span>
         {one ? counter(one, view.title) : null}
@@ -97,7 +102,7 @@ export function SetupDailyStep({
         </div>
       ) : null}
 
-      {lab ? (
+      {lab && view.state === 'set' ? (
         <p className="ml-11 pt-1 text-[12.5px] text-ink/55" data-setup-daily-lab-note="">
           Lab: the number moves; nothing is saved.
         </p>

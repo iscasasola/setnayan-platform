@@ -131,6 +131,7 @@ test('4 · the SAME field — the Clients ⚙ counter, its door and its action; 
   );
   assert.match(html, /data-counter="setup-daily"/);
   assert.match(html, /data-counter-value="1"/, 'the stepper starts at 1');
+  assert.match(html, /2\u00a0crews\u00a0=\u00a02\./, '"2 crews = 2." never breaks across two lines');
   assert.match(html, /data-counter-less=""[^>]*disabled=""/, 'it never goes below 1');
 
   const step = code('app/vendor-dashboard/_components/setup-daily-step.tsx');

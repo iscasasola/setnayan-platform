@@ -980,6 +980,20 @@ export function FormRowField({
       </div>
     );
   }
+  /* The one-line field — ONE element, drawn by the plain line and by the boxed one alike (it tells every change, `setText`). */
+  const lineField = (
+    <input
+      {...shared}
+      inputMode={inputMode}
+      enterKeyHint={entersAdd ? 'go' : onwards ? 'next' : 'done'}
+      /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
+         number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
+         already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */
+      onInput={mark ? (e) => void keepPesoTyping(e.currentTarget, 0) : undefined}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={onKeys}
+    />
+  );
   if (boxed) {
     /* 📐 THE ONBOARDING STEP FIELD, OPEN (T32): the name stays above, the box keeps the resting box's shape, and there is
        ONE ✕ — inside, emptying the box (Step 0 row 35: "two outlines and two ✕ drawn over each other"). Esc leaves it as it
@@ -993,13 +1007,7 @@ export function FormRowField({
           data-form-row-box=""
           className={`flex h-12 w-full min-w-0 items-center gap-1.5 rounded-xl border border-sn-accent bg-white pl-[14px] ${clears ? 'pr-1.5' : 'pr-[14px]'} dark:bg-raised ring-[3px] ring-sn-accent/15`} // no-card-ok: the open text field's own frame (its <input> sits inside with the ✕) — a control, never a container
         >
-          <input
-            {...shared}
-            inputMode={inputMode}
-            enterKeyHint={entersAdd ? 'go' : onwards ? 'next' : 'done'}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeys}
-          />
+          {lineField}
           {clears ? (
             <ClearButton
               label={`Clear ${name}`}
@@ -1038,17 +1046,7 @@ export function FormRowField({
             {mark}
           </span>
         ) : null}
-        <input
-          {...shared}
-          inputMode={inputMode}
-          enterKeyHint={entersAdd ? 'go' : onwards ? 'next' : 'done'}
-          /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
-             number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
-             already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */
-          onInput={mark ? (e) => void keepPesoTyping(e.currentTarget, 0) : undefined}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeys}
-        />
+        {lineField}
         {clears ? (
           <ClearButton
             label={`Clear ${name}`}

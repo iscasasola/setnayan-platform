@@ -243,7 +243,7 @@ export const SAMPLE_PORTFOLIO: Readonly<Record<string, SamplePortfolioTile>> = {
   delivered: { name: SAMPLE_COUPLE, sub: '60 photos', photo: '/marketing/2026-11-04/real-cousin.webp' },
   instagram: { name: 'Instagram', sub: '24 posts', photo: '/marketing/2026-11-04/hero-debut.webp' },
   moodboard: { name: 'Garden gold', sub: '2 looks', photo: '/event-types/anniversary.webp' },
-  inspiration: { name: 'Reception styling', sub: '5 photos', photo: '/event-types/celebration.webp' },
+  inspiration: { name: 'Reception styling', sub: '5 photos', photo: '/event-types/birthday.webp' },
   songs: { name: 'Your repertoire', sub: '24 songs', photo: '/event-types/concert.webp' },
   stories: { name: SAMPLE_COUPLE, sub: 'Tagaytay · Dec 2026', photo: '/marketing/2026-11-04/hero-reunion.webp' },
   video: { name: 'Same-day edit', sub: 'YouTube', photo: '/event-types/wedding.webp' },

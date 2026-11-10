@@ -112,12 +112,12 @@ export function CollectionsList({
 
   /* ── ON MY PAGE — the page gallery ─────────────────────────────────────────── */
   const pagePhotos: OpenedPhotos = { title: SECTION_NAME.page, sub: rows.page?.line ?? '', urls: allPhotos, total: allPhotos.length, href: null };
-  const pageDoor: Door = uploadFacts ? { kind: 'upload', facts: uploadFacts } : { kind: 'link', label: 'Add photos', href: '#gallery-media', icon: ic(Images) };
+  const pageDoor: Door = uploadFacts ? { kind: 'upload', facts: uploadFacts } : { kind: 'link', label: 'Add photos', href: '#gallery-media', icon: Images };
   const onMyPage = (
     <PortfolioSection
       id="page"
       title={SECTION_NAME.page}
-      pill={allPhotos.length > 0 ? { kind: 'link', label: 'Edit', href: '#gallery-media', icon: ic(Pencil) } : null}
+      pill={allPhotos.length > 0 ? { kind: 'link', label: 'Edit', href: '#gallery-media', icon: Pencil } : null}
       onOpen={() => openPhotos('page', pagePhotos)(headEl('page'))}
     >
       {allPhotos.length === 0 ? (
@@ -142,7 +142,7 @@ export function CollectionsList({
     icon: ReactNode,
     count: string | null,
   ) => (
-    <PortfolioSection id={id} title={SECTION_NAME[id]} count={count} onOpen={{ href }}>
+    <PortfolioSection id={id} title={SECTION_NAME[id]} countLabel={count} onOpen={{ href }}>
       {albums === null || albums.length === 0 ? (
         <EmptyRail id={id} line={empty} door={door} icon={icon} unread={albums === null} />
       ) : (
@@ -159,7 +159,7 @@ export function CollectionsList({
   const countSection = (id: 'own' | 'delivered', href: string, filled: string | null, empty: string, door: Door, icon: ReactNode) => {
     const r = rows[id];
     return (
-      <PortfolioSection id={id} title={SECTION_NAME[id]} count={filled} onOpen={{ href }}>
+      <PortfolioSection id={id} title={SECTION_NAME[id]} countLabel={filled} onOpen={{ href }}>
         {!r || r.unread || !filled ? (
           <EmptyRail id={id} line={empty} door={door} icon={icon} unread={!r || r.unread} />
         ) : (
@@ -177,7 +177,7 @@ export function CollectionsList({
   const ig = input.instagram;
   const igSection =
     ig === null || ig.configured ? (
-      <PortfolioSection id="instagram" title={SECTION_NAME.instagram} count={ig?.connected ? rows.instagram?.line.replace(/^Connected · /, '') ?? null : null} onOpen={{ href: '#gallery-media' }}>
+      <PortfolioSection id="instagram" title={SECTION_NAME.instagram} countLabel={ig?.connected ? rows.instagram?.line.replace(/^Connected · /, '') ?? null : null} onOpen={{ href: '#gallery-media' }}>
         {ig && ig.connected && instagramPhotos.length > 0 ? (
           <Rail data="instagram">
             {instagramPhotos.slice(0, 12).map((u, i) => (
@@ -194,7 +194,7 @@ export function CollectionsList({
           <EmptyRail
             id="instagram"
             line={ig?.connected ? 'Connected · no posts pulled yet' : 'Not connected'}
-            door={{ kind: 'link', label: ig?.connected ? 'Sync now' : 'Connect', href: '#gallery-media', icon: ic(AtSign) }}
+            door={{ kind: 'link', label: ig?.connected ? 'Sync now' : 'Connect', href: '#gallery-media', icon: AtSign }}
             icon={ic(AtSign)}
             unread={ig === null}
           />
@@ -204,13 +204,13 @@ export function CollectionsList({
 
   /* ── Moodboard library — the looks you curated, and the library's one door ─── */
   const looks = groups.inspiration === 'off' ? 'off' : sorted(groups.inspiration, (a) => a.title);
-  const libraryDoor: Extract<Door, { kind: 'link' }> = { kind: 'link', label: INSPIRATION_LIBRARY_ROW.label, href: INSPIRATION_LIBRARY_HREF, icon: ic(Sparkles) };
+  const libraryDoor: Extract<Door, { kind: 'link' }> = { kind: 'link', label: INSPIRATION_LIBRARY_ROW.label, href: INSPIRATION_LIBRARY_HREF, icon: Sparkles };
   const moodboardSection =
     looks === 'off' ? null : (
       <PortfolioSection
         id="moodboard"
         title={SECTION_NAME.moodboard}
-        count={moodboard && moodboard.looks > 0 ? n(moodboard.looks, 'set', 'sets') : null}
+        countLabel={moodboard && moodboard.looks > 0 ? n(moodboard.looks, 'set', 'sets') : null}
         onOpen={{ href: INSPIRATION_LIBRARY_HREF }}
       >
         {looks === null || looks.length === 0 ? (
@@ -235,12 +235,12 @@ export function CollectionsList({
   /* ── Song bank — music categories only ─────────────────────────────────────── */
   const songsSection =
     songs === 'off' ? null : (
-      <PortfolioSection id="songs" title="Song bank" count={songs && songs.count > 0 ? n(songs.count, 'song', 'songs') : null} onOpen={{ href: SONG_BANK_HREF }}>
+      <PortfolioSection id="songs" title="Song bank" countLabel={songs && songs.count > 0 ? n(songs.count, 'song', 'songs') : null} onOpen={{ href: SONG_BANK_HREF }}>
         {songs === null || songs.count === 0 ? (
           <EmptyRail
             id="songs"
             line="No songs yet · couples request and preview from it"
-            door={{ kind: 'link', label: 'Add a song', href: SONG_BANK_HREF, icon: ic(Music) }}
+            door={{ kind: 'link', label: 'Add a song', href: SONG_BANK_HREF, icon: Music }}
             icon={ic(Music)}
             unread={songs === null}
           />
@@ -265,7 +265,7 @@ export function CollectionsList({
     <PortfolioSection
       id="stories"
       title="Stories couples published"
-      pill={stories && stories.length > 0 ? { kind: 'link', label: 'Share them', href: '/vendor-dashboard/shop/promote#share', icon: ic(Share) } : null}
+      pill={stories && stories.length > 0 ? { kind: 'link', label: 'Share them', href: '/vendor-dashboard/shop/promote#share', icon: Share } : null}
       onOpen={{ href: '/vendor-dashboard/shop/promote#share' }}
     >
       {stories === null || stories.length === 0 ? (
@@ -285,11 +285,11 @@ export function CollectionsList({
     <PortfolioSection
       id="video"
       title="Video links"
-      pill={videoLinks.length > 0 ? { kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: ic(Link2) } : null}
+      pill={videoLinks.length > 0 ? { kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 } : null}
       onOpen={() => openVideo(headEl('video'))}
     >
       {videoLinks.length === 0 ? (
-        <EmptyRail id="video" line="No links yet · YouTube, Vimeo or Facebook" door={{ kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: ic(Link2) }} icon={ic(Play)} />
+        <EmptyRail id="video" line="No links yet · YouTube, Vimeo or Facebook" door={{ kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 }} icon={ic(Play)} />
       ) : (
         <Rail data="video">
           {videoLinks.map((l, i) => (
@@ -306,13 +306,13 @@ export function CollectionsList({
   const more = (
     <PortfolioSection id="more" title="More" onOpen={null}>
       <MorePills>
-        <MorePill icon={ic(Images)} label="All photos" count={formatCount(allPhotos.length)} open={(el) => openPhotos('all', { ...pagePhotos, title: 'All photos' })(el)} data="all" />
-        <MorePill icon={ic(Play)} label="Video links" count={formatCount(videoLinks.length)} open={(el) => openVideo(el)} data="video" />
+        <MorePill icon={ic(Images)} label="All photos" countLabel={formatCount(allPhotos.length)} open={(el) => openPhotos('all', { ...pagePhotos, title: 'All photos' })(el)} data="all" />
+        <MorePill icon={ic(Play)} label="Video links" countLabel={formatCount(videoLinks.length)} open={(el) => openVideo(el)} data="video" />
         {looks !== 'off' && looks !== null ? (
           <MorePill
             icon={ic(Sparkles)}
             label="Inspiration you curated"
-            count={formatCount(allLooks.reduce((a, x) => a + x.total, 0))}
+            countLabel={formatCount(allLooks.reduce((a, x) => a + x.total, 0))}
             open={(el) => openPhotos('inspiration', { title: 'Inspiration you curated', sub: 'looks Setnayan approved for couples', urls: lookUrls, total: lookUrls.length, href: null })(el)}
             data="inspiration"
           />
@@ -329,7 +329,7 @@ export function CollectionsList({
         sorted(groups.services, (a) => a.title),
         '/vendor-dashboard/shop#services',
         'No service card has a photo yet',
-        { kind: 'link', label: 'Add a cover', href: '/vendor-dashboard/shop#services', icon: ic(LayoutGrid) },
+        { kind: 'link', label: 'Add a cover', href: '/vendor-dashboard/shop#services', icon: LayoutGrid },
         ic(LayoutGrid),
         groups.services && groups.services.length > 0 ? n(groups.services.length, 'card', 'cards') : null,
       )}
@@ -338,7 +338,7 @@ export function CollectionsList({
         sorted(groups.events, (a) => a.title),
         '/vendor-dashboard/collections/albums',
         'Nothing yet · fills when a couple shares their Papic photos with you',
-        { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: ic(Users) },
+        { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: Users },
         ic(BookImage),
         groups.events && groups.events.length > 0 ? n(groups.events.length, 'event', 'events') : null,
       )}
@@ -347,7 +347,7 @@ export function CollectionsList({
         '/vendor-dashboard/on-the-day',
         own && own.items > 0 ? n(own.items, 'shot', 'shots') : null,
         'Nothing yet · what you shoot with Papic at an event lands here',
-        { kind: 'link', label: 'Open On the day', href: '/vendor-dashboard/on-the-day', icon: ic(Camera) },
+        { kind: 'link', label: 'Open On the day', href: '/vendor-dashboard/on-the-day', icon: Camera },
         ic(Camera),
       )}
       {countSection(
@@ -355,7 +355,7 @@ export function CollectionsList({
         '/vendor-dashboard/customers',
         delivered && delivered.items > 0 ? n(delivered.couples, 'couple', 'couples') : null,
         'Nothing yet · what you send a couple lands here',
-        { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: ic(Send) },
+        { kind: 'link', label: 'Open Clients', href: '/vendor-dashboard/customers', icon: Send },
         ic(Send),
       )}
       {igSection}

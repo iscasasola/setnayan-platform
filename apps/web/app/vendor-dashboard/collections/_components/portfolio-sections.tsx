@@ -1,12 +1,13 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Info, Plus } from 'lucide-react';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { SAMPLE_PORTFOLIO } from '@/lib/empty-look-samples';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
 
 /**
@@ -27,9 +28,11 @@ import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
  * 🔒 collections/the-portfolio-is-collections.test.ts
  */
 
+type DoorIcon = ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | string }>;
+
 export type Door =
-  | { kind: 'link'; label: string; href: string; icon: ReactNode }
-  | { kind: 'press'; label: string; onPress: () => void; icon: ReactNode }
+  | { kind: 'link'; label: string; href: string; icon: DoorIcon }
+  | { kind: 'press'; label: string; onPress: () => void; icon: DoorIcon }
   | { kind: 'upload'; facts: PortfolioUploadFacts };
 
 /** A door never runs past its tile or its head: the word is cut with "…" before the pill leaves its box. */
@@ -38,9 +41,9 @@ const FIT = 'max-w-full min-w-0 [&_.lbl]:min-w-0 [&_.lbl]:truncate';
 /** The header's one door, beside the title: a link or a press, on the button rule. */
 function DoorButton({ door, data }: { door: Exclude<Door, { kind: 'upload' }>; data: string }) {
   return door.kind === 'link' ? (
-    <ActionButton tone="neutral" icon={<span className="inline-flex">{door.icon}</span>} label={door.label} href={door.href} className={FIT} data-portfolio-door={data} />
+    <ActionButton tone="neutral" icon={door.icon} label={door.label} href={door.href} className={FIT} data-portfolio-door={data} />
   ) : (
-    <ActionButton tone="neutral" icon={<span className="inline-flex">{door.icon}</span>} label={door.label} onClick={door.onPress} className={FIT} data-portfolio-door={data} />
+    <ActionButton tone="neutral" icon={door.icon} label={door.label} onClick={door.onPress} className={FIT} data-portfolio-door={data} />
   );
 }
 
@@ -57,15 +60,15 @@ export function UploadDoor({ facts, data }: { facts: PortfolioUploadFacts; data:
 export function PortfolioSection({
   id,
   title,
-  count = null,
+  countLabel = null,
   pill = null,
   onOpen,
   children,
 }: {
   id: string;
   title: string;
-  /** The quiet count beside the title ("14 photos"); hidden when a pill takes the room. */
-  count?: string | null;
+  /** The quiet count beside the title ("14 photos", already formatted); hidden when a pill takes the room. */
+  countLabel?: string | null;
   /** The section's one door at the head (Edit · Add a link) — only on a FILLED section; an empty one carries its door
    *  on the placeholder tile, so there is never a second. */
   pill?: Exclude<Door, { kind: 'upload' }> | null;
@@ -75,6 +78,9 @@ export function PortfolioSection({
 }) {
   const [folded, setFolded] = useState(false);
   const bodyId = useId();
+  const sectionRef = useRef<HTMLElement>(null);
+  // An unfolded section whose rail runs low glides its head to the pin line — the app-wide reveal-on-open, shared hook.
+  const intend = useRevealOnOpen(!folded, () => ({ head: sectionRef.current }));
   const head = (
     <>
       <span className="line-clamp-2 min-w-0 text-[20px] font-semibold leading-[1.15] tracking-[-0.01em] text-ink">{title}</span>
@@ -84,7 +90,7 @@ export function PortfolioSection({
   // The title keeps its room (a long one wraps to two lines); the count gives way first; the ˅ holds the right end.
   const headClass = 'sn-press flex min-w-0 flex-[0_1_auto] items-center gap-1 text-left';
   return (
-    <section aria-label={title} className="pt-5" data-portfolio-section={id} data-folded={folded ? '' : undefined}>
+    <section ref={sectionRef} aria-label={title} className="pt-5" data-portfolio-section={id} data-folded={folded ? '' : undefined}>
       <div className="flex min-h-11 items-center gap-2 px-4 pb-2.5" data-portfolio-section-head="">
         {onOpen === null ? (
           <h2 className="flex min-w-0 flex-[0_1_auto] items-center">
@@ -107,19 +113,22 @@ export function PortfolioSection({
           <span className="ml-auto flex min-w-0 max-w-[46%] flex-none">
             <DoorButton door={pill} data={id} />
           </span>
-        ) : count ? (
+        ) : countLabel ? (
           <span className="ml-auto min-w-0 flex-[0_6_auto] truncate font-mono text-[12.5px] text-ink/55 max-[340px]:hidden" data-portfolio-count="">
-            {count}
+            {countLabel}
           </span>
         ) : null}
         <button
           type="button"
-          onClick={() => setFolded((f) => !f)}
+          onClick={() => {
+            intend();
+            setFolded((f) => !f);
+          }}
           aria-expanded={!folded}
           aria-controls={bodyId}
           aria-label={`${folded ? 'Show' : 'Hide'} ${title}`}
           // The 44-px target's ring sits on the 16-px gutter: the 6 px either side of the 32-px ring hang into the padding.
-          className={`${pill || count ? '' : 'ml-auto '}-mr-1.5 grid h-11 w-11 flex-none place-items-center`}
+          className={`${pill || countLabel ? '' : 'ml-auto '}-mr-1.5 grid h-11 w-11 flex-none place-items-center`}
           data-portfolio-fold={id}
         >
           <span
@@ -250,7 +259,7 @@ export function EmptyRail({
         </ExamplePreview>
       ) : null}
       <div
-        className={`${unread ? '' : 'mt-[14px]'} flex h-[150px] w-[220px] flex-none snap-start flex-col justify-between rounded-card border border-dashed border-ink/20 bg-[color:var(--m-paper)] p-3`}
+        className={`${unread ? '' : 'mt-[14px]'} flex h-[150px] w-[220px] flex-none snap-start flex-col justify-between rounded-card bg-ink/[0.04] p-3`}
         role={unread ? 'status' : undefined}
         data-portfolio-empty={id}
         data-portfolio-unread={unread ? id : undefined}
@@ -273,6 +282,7 @@ export function EmptyRail({
 
 /** The rail's last tile when it ADDS to the collection (Moodboard library's "Add to the inspiration library"). */
 export function AddTile({ door, data }: { door: Extract<Door, { kind: 'link' }>; data: string }) {
+  const Icon = door.icon;
   return (
     <Link
       href={door.href}
@@ -280,7 +290,7 @@ export function AddTile({ door, data }: { door: Extract<Door, { kind: 'link' }>;
       data-portfolio-door={data}
     >
       <span aria-hidden className="grid h-10 w-10 place-items-center rounded-full border border-ink/15 text-sn-accent [&_svg]:h-5 [&_svg]:w-5">
-        {door.icon}
+        <Icon aria-hidden strokeWidth={1.9} />
       </span>
       <span className="text-[13px] font-semibold leading-tight text-ink">{door.label}</span>
     </Link>
@@ -299,13 +309,14 @@ export function MorePills({ children }: { children: ReactNode }) {
 export function MorePill({
   icon,
   label,
-  count,
+  countLabel,
   open,
   data,
 }: {
   icon: ReactNode;
   label: string;
-  count: string;
+  /** Already formatted (`formatCount`). */
+  countLabel: string;
   open: ((el: HTMLElement) => void) | { href: string };
   data: string;
 }) {
@@ -315,11 +326,12 @@ export function MorePill({
         {icon}
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <small className="flex-none font-mono text-[12px] text-ink/45">{count}</small>
+      <small className="flex-none font-mono text-[12px] text-ink/45">{countLabel}</small>
     </>
   );
+  // A pressable pill — the class list of the <button> / <Link> drawn just below.
   const cls =
-    'sn-press flex h-12 w-full min-w-0 items-center gap-2.5 rounded-lg border border-ink/10 bg-[color:var(--m-paper)] pl-3.5 pr-3 text-left text-[14.5px] font-medium text-ink';
+    'sn-press flex h-12 w-full min-w-0 items-center gap-2.5 rounded-lg border border-ink/10 bg-[color:var(--m-paper)] pl-3.5 pr-3 text-left text-[14.5px] font-medium text-ink'; // no-card-ok: a pressable pill (a <button> or <Link>), not a box
   return typeof open === 'function' ? (
     <button type="button" onClick={(e) => open(e.currentTarget)} className={cls} data-portfolio-pill={data}>
       {inner}

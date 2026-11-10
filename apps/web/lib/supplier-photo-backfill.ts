@@ -14,6 +14,8 @@
  * Nothing here reads or writes storage.
  */
 
+import { formatCount } from './format-number';
+
 /** The display columns that publish a supplier photo, as the script reads them. */
 export const SUPPLIER_PHOTO_COLUMNS = [
   'vendor_profiles.portfolio_r2_keys',
@@ -95,12 +97,12 @@ export function describeBackfill(plan: BackfillPlan, pendingRemarks: number): st
     perShop.set(p.vendor_profile_id, (perShop.get(p.vendor_profile_id) ?? 0) + 1);
   }
   return [
-    `already marked (paired): ${plan.paired}`,
-    `unmarked photos to mark: ${plan.photos.length}`,
-    ...[...perColumn].map(([c, n]) => `  ${c}: ${n}`),
-    ...[...perShop].map(([s, n]) => `  shop ${s}: ${n}`),
-    `unmarked clips (need a re-upload, not touched): ${plan.clips.length}`,
-    `refs outside the shop's own folder (not touched): ${plan.foreign}`,
-    `marked photos whose shop changed Verified (re-mark): ${pendingRemarks}`,
+    `already marked (paired): ${formatCount(plan.paired)}`,
+    `unmarked photos to mark: ${formatCount(plan.photos.length)}`,
+    ...[...perColumn].map(([c, n]) => `  ${c}: ${formatCount(n)}`),
+    ...[...perShop].map(([s, n]) => `  shop ${s}: ${formatCount(n)}`),
+    `unmarked clips (need a re-upload, not touched): ${formatCount(plan.clips.length)}`,
+    `refs outside the shop's own folder (not touched): ${formatCount(plan.foreign)}`,
+    `marked photos whose shop changed Verified (re-mark): ${formatCount(pendingRemarks)}`,
   ];
 }

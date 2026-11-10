@@ -22,7 +22,7 @@ export function SetnayanMarkLine({ mark, className, style }: { mark: SetnayanMar
     );
   }
   return (
-    <p className={className} style={style} data-setnayan-mark="watermark">
+    <p className={className} style={style}>
       {SETNAYAN_WATERMARK_WORDS}
     </p>
   );

@@ -716,7 +716,8 @@ export const loadMedia = cache(
     // does the theme gate. Three readers, one order lookup. `admin` is unused
     // for it now — the cached reader builds its own so its key is the id alone.
     const proWatermarkHidden = await proWatermarkHiddenAhead;
-    const setnayanMark: SetnayanMark = await setnayanMarkAhead.catch((): SetnayanMark => (proWatermarkHidden ? 'none' : 'watermark'));
+    // Never throws: each plan read inside it falls back to "not held" (the free watermark).
+    const setnayanMark: SetnayanMark = await setnayanMarkAhead;
     const hubParts = await hubPartsAhead.catch((): HubPartId[] => []);
     /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
        to ride out of this loader as `siteColorVars` and be painted by the ONE

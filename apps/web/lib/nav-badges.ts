@@ -82,7 +82,7 @@ export function vendorCustomersBadge(
   return {
     count: total,
     tone: 'orange',
-    // Build 5 F5 (2026-11-10): read "1 new inquiries" — the noun follows the count (`countNoun`, the one plural helper).
+    // One count, one noun (Build 5 F4, Lane W walk 2 item 3: "1 new inquiries") — the app's `countNoun`.
     label: `${countNoun(inquiries, 'new inquiry', 'new inquiries')} · ${countNoun(threads, 'unread thread', 'unread threads')}`,
   };
 }

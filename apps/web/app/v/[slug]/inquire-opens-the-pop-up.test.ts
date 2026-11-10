@@ -25,6 +25,7 @@ import {
   inquireServiceList,
   NO_SERVICES_LINE,
   PRICE_ON_REQUEST,
+  inquireRowNote,
 } from '../../../lib/shop-inquire';
 import { stripComments } from '../../../lib/strip-comments';
 
@@ -134,8 +135,9 @@ test('every provided service is listed: cards as before, card-less ones by name 
   );
   assert.deepEqual(mixed.map((s) => s.serviceId), ['card-bar', 'card-x', 'k:pabati', 'k:day_of_coordinator']);
   assert.equal(PRICE_ON_REQUEST, 'Price on request');
-  // …and the pop-up prints it on the card-less rows.
-  assert.match(sheet, /note=\{s\.price \|\| \(s\.provided \? PRICE_ON_REQUEST : undefined\)\}/);
+  // …and the pop-up prints it on the card-less rows (through the one row-note decision, Build 5 F4).
+  assert.match(sheet, /note=\{inquireRowNote\(s\)\}/);
+  assert.equal(inquireRowNote(rondo[0]!), PRICE_ON_REQUEST);
 });
 
 test('the names come from the ONE taxonomy resolver — never a label map on the shop page', () => {

@@ -11,11 +11,12 @@ import { startServiceInquiry, type StartServiceInquiryResult } from '@/app/v/[sl
 import {
   INQUIRE_UNDO_MS,
   inquireClearedHref,
+  inquireOpeningPicks,
   inquireResumeHref,
   inquireResumeOf,
+  inquireRowNote,
   inquireSendPicks,
   NO_SERVICES_LINE,
-  PRICE_ON_REQUEST,
   type InquireListItem,
 } from '@/lib/shop-inquire';
 
@@ -92,8 +93,8 @@ export function InquireSheet({
     (at?: Step, picks?: string[]) => {
       setNote(null);
       setSent(null);
-      const known = (picks ?? []).filter((id) => services.some((s) => s.serviceId === id));
-      setChosen(known.length > 0 ? known : services[0] ? [services[0].serviceId] : []);
+      // ☝ Only what they tapped — never the first service by default (Build 5 F4).
+      setChosen(inquireOpeningPicks(services, picks));
       setEventId(events.length === 1 ? (events[0]?.eventId ?? null) : null);
       setStep(at ?? (general ? 'event' : 'services'));
     },
@@ -252,7 +253,7 @@ export function InquireSheet({
                   key={s.serviceId}
                   name={s.label}
                   on={chosen.includes(s.serviceId)}
-                  note={s.price || (s.provided ? PRICE_ON_REQUEST : undefined)}
+                  note={inquireRowNote(s)}
                   onChange={(next) =>
                     setChosen((cur) => (next ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))
                   }

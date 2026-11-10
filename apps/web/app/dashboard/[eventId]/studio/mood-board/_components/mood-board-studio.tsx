@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Check, Clock, PenLine, Plus, Search, Send, Sparkles, Trash2, X } from 'lucide-react';
+import { Check, Clock, PenLine, Plus, Search, Sparkles, Trash2, X, Share } from 'lucide-react';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { formatCount } from '@/lib/format-number';
 import { useOneOpen } from '@/lib/one-open';
@@ -919,7 +919,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
             part holds a photo the couple uploaded — the sheet picks the photo, the card, the credit and asks consent. */}
         {ownPhotosOf(slot.slotKey).length > 0 ? (
           <div className={`${at === 'fold' ? 'hidden lg:flex' : 'flex'} min-h-11 items-center`} data-mood-board-share={slot.slotKey}>
-            <ActionButton tone="neutral" quiet icon={Send} label="Share with your supplier" name={`Share a ${slot.label} photo with your supplier`} onClick={() => setSharing({ slot: slot.slotKey, label: slot.label })} />
+            <ActionButton tone="neutral" quiet icon={Share} label="Share with your supplier" name={`Share a ${slot.label} photo with your supplier`} onClick={() => setSharing({ slot: slot.slotKey, label: slot.label })} />
           </div>
         ) : null}
         {/* 🤝🖼 A SUPPLIER'S PHOTO, WAITING beside the couple's own (prototype frame 3): "From Bloom & Co." · "A photo for

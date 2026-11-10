@@ -59,9 +59,15 @@ export function inquireResumeOf(search: string): { serviceIds: string[] } | null
  *   · a provided service whose key a card already carries → the card row only, never a second row.
  *   · a card whose category is not among the provided services → still listed (as before).
  *
- * Cards first (the first card stays the default pick), then the card-less services in the shop's own order.
+ * Cards first, then the card-less services in the shop's own order. NOTHING is picked by default
+ * (`inquireOpeningPicks`): only the card the couple tapped.
  */
 export const PRICE_ON_REQUEST = 'Price on request';
+/**
+ * A card-less row whose kind HAS a priced card the shop has not put live yet (Build 5 F4, Lane W walk 2 item 4: Photo
+ * booth read "Price on request" though its hidden card is ₱14,999). The price is the shop's, it is just not public yet.
+ */
+export const PRICE_WHEN_LIVE = 'Price shown once the card is live';
 /** The pop-up's id for a provided service with no card — never a vendor_service_id, so it cannot be mistaken for one. */
 export const PROVIDED_PREFIX = 'k:';
 
@@ -72,13 +78,39 @@ export type InquireListItem = {
   category: string | null;
   /** A service the shop provides with no active card — no price, filed on the event under its own key. */
   provided?: boolean;
+  /** A provided row whose kind has a PRICED card that is not live yet — said "price shown once the card is live". */
+  waiting?: boolean;
 };
+
+/** The small line under a row in the pop-up: the card's price, else why there is none. */
+export function inquireRowNote(item: InquireListItem): string | undefined {
+  if (item.price) return item.price;
+  if (item.waiting) return PRICE_WHEN_LIVE;
+  return item.provided ? PRICE_ON_REQUEST : undefined;
+}
+
+/**
+ * ☝ WHAT IS PICKED WHEN THE POP-UP OPENS (Build 5 F4, Lane W walk 2 item 1b: the sheet opened with Mobile bar ON though
+ * only Photo booth was tapped). Only what the couple pressed — the card whose "Inquire about this" they tapped, or the
+ * picks `?isvc=` brings back — and only ids that are rows of the list. Nothing tapped (the shop's own Inquire button),
+ * or nothing that matches → NOTHING picked. Never "the first service" as a default.
+ */
+export function inquireOpeningPicks(
+  services: ReadonlyArray<InquireListItem>,
+  picks: ReadonlyArray<string> | null | undefined,
+): string[] {
+  const ids = new Set(services.map((s) => s.serviceId));
+  return [...new Set((picks ?? []).filter((id) => ids.has(id)))];
+}
 
 export function inquireServiceList(
   cards: ReadonlyArray<{ serviceId: string; label: string; price: string; category: string | null }>,
   providedKeys: ReadonlyArray<string> | null | undefined,
   labelOf: (key: string) => string,
+  /** Kinds that have a PRICED card the shop has not put live yet (`PRICE_WHEN_LIVE`). */
+  pricedNotLiveKinds?: ReadonlyArray<string> | null,
 ): InquireListItem[] {
+  const waiting = new Set((pricedNotLiveKinds ?? []).map((k) => (k ?? '').trim()).filter(Boolean));
   const out: InquireListItem[] = cards.map((c) => ({ ...c }));
   const carried = new Set(cards.map((c) => (c.category ?? '').trim()).filter(Boolean));
   const seen = new Set<string>();
@@ -86,7 +118,14 @@ export function inquireServiceList(
     const key = typeof raw === 'string' ? raw.trim() : '';
     if (!key || carried.has(key) || seen.has(key)) continue;
     seen.add(key);
-    out.push({ serviceId: `${PROVIDED_PREFIX}${key}`, label: labelOf(key), price: '', category: key, provided: true });
+    out.push({
+      serviceId: `${PROVIDED_PREFIX}${key}`,
+      label: labelOf(key),
+      price: '',
+      category: key,
+      provided: true,
+      ...(waiting.has(key) ? { waiting: true } : {}),
+    });
   }
   return out;
 }

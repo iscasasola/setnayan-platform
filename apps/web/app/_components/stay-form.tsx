@@ -102,6 +102,9 @@ export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved
       }
     });
   };
+  // 🔁 The refusal is a SIBLING of the form, so in a flex row it is one more flex item. `[data-stay-error]` is the hook
+  // `app/globals.css` uses to wrap that row and give the line the full width under it — keep the attribute on this `<p>`.
+  // 🔒 app/_components/stay-form-refusal-own-line.test.ts
   const refusal = error ? (
     <p role="alert" className="text-[12.5px] leading-snug text-terracotta-700" data-stay-error={door}>
       {error}

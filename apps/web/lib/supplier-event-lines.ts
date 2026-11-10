@@ -93,7 +93,11 @@ export type EventLines = {
   read: boolean;
   /** "Debut" — null when the event has no type. */
   type: string | null;
-  /** The event's own name ("Kat Arroyo", "Indalecio & Claire"). */
+  /**
+   * WHO THE EVENT IS FOR — never the event's name (Build 5 F3, owner screenshot 2026-11-10: the row read the event's
+   * name "TEST SetnaProd walk" as its Celebrant). `eventCelebrantWords`: the guest-list honorees, else the celebrant the
+   * onboarding asked for. Null = nobody is named ("Not named yet").
+   */
   celebrant: string | null;
   /** The venue, or null when they have not set one ("Not set yet"). */
   location: string | null;
@@ -212,6 +216,106 @@ export function forYourServicePages(input: {
   const card = `/vendor-dashboard/clients/${id}?tab=details`;
   out.push({ key: 'card', label: 'Their event card', line: 'Notes, files, quote and payments', href: card });
   return out;
+}
+
+/** "Ana" · "Ana & Ben" · "Ana, Ben & Cara" — names in the order given, said the way a person reads them. */
+function joinNames(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+/**
+ * 🎂 THE CELEBRANT LINE (Build 5 F3 — owner screenshot 2026-11-10 + Lane W walk 2 item 2: the CELEBRANT row showed the
+ * event's NAME, `celebrant: ev.display_name`). Who the day is FOR, in the product's one order:
+ *
+ *   1 · the guest-list honorees — rows whose MAIN role is celebrant · bride · groom (`lib/event-celebrants.server.ts`,
+ *       "WHO IS A CELEBRANT — ONE RULE ACROSS THE PRODUCT"): a wedding's bride and groom, a birthday's celebrant row;
+ *   2 · the celebrant the onboarding ASKED (`events.signature_details.celebrant_name`, or `celebrant_names` for an
+ *       anniversary) — the walk's birthday had only this ("Ice Casasola", prefilled "for you");
+ *   3 · the create step's honoree first name (`events.honoree_label`).
+ *
+ * None of them → null, drawn "Not named yet". 🔴 NEVER the event's display name — that is the TITLE ("the title keeps
+ * the event name"), and a title is not a person.
+ */
+export function eventCelebrantWords(input: {
+  honorees: ReadonlyArray<{ name: string | null }>;
+  signatureDetails: unknown;
+  honoreeLabel: string | null;
+}): string | null {
+  const fromList = [...new Set(input.honorees.map((h) => (h.name ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean))];
+  if (fromList.length > 0) return joinNames(fromList);
+  const sig = input.signatureDetails && typeof input.signatureDetails === 'object' ? (input.signatureDetails as Record<string, unknown>) : null;
+  for (const key of ['celebrant_name', 'celebrant_names']) {
+    const v = sig?.[key];
+    if (typeof v === 'string' && v.trim()) return v.replace(/\s+/g, ' ').trim();
+  }
+  return (input.honoreeLabel ?? '').replace(/\s+/g, ' ').trim() || null;
+}
+
+/** One `thread_service_interests` row, as the requested line reads it. */
+export type AskedInterest = {
+  vendor_service_id: string | null;
+  category_key: string | null;
+  source: string;
+  status: string | null;
+};
+
+/**
+ * 📋 "SERVICE REQUESTED" — EVERY SERVICE THE COUPLE ASKED (Build 5 F3, owner screenshot 2026-11-10: an inquiry for
+ * Mobile bar + Photo booth showed the supplier Mobile bar only). The plan row (`event_vendors`) carries the ask's
+ * ANCHOR only; every other service the couple picked lives on the thread (`thread_service_interests`, written by
+ * `startServiceInquiry` as `initial` + `couple_added`). So the line is the union, in the order they were asked:
+ *
+ *   · the plan row's cards (`service_id` · `requested_service_ids`);
+ *   · each interest the COUPLE made (`initial`, `couple_added`; a `withdrawn` one is not asked any more) — a card by its
+ *     name, a card-less service by its taxonomy name. A key a listed card already carries is that card, not a second
+ *     line. `linked` (rides along inside a price) and `vendor_offered` (the shop's own offer) are not the couple's ask;
+ *   · nothing from either → the plan row's categories, as before.
+ *
+ * `askedIds` also counts a live card whose kind was asked by key, so "You also offer" never offers back what they asked.
+ */
+export function requestedServices(input: {
+  plan: ReadonlyArray<{ service_id: string | null; requested_service_ids: readonly string[] | null; category: string | null }>;
+  interests: readonly AskedInterest[];
+  services: ReadonlyArray<{ id: string; name: string; category: string | null }>;
+  labelOf: (key: string) => string;
+}): { requested: EventLineService[]; askedIds: Set<string> } {
+  const byId = new Map(input.services.map((s) => [s.id, s]));
+  const askedIds = new Set<string>();
+  for (const r of input.plan) {
+    if (r.service_id) askedIds.add(r.service_id);
+    for (const s of r.requested_service_ids ?? []) askedIds.add(s);
+  }
+  const askedKeys: string[] = [];
+  for (const i of input.interests) {
+    if (i.source !== 'initial' && i.source !== 'couple_added') continue;
+    if (i.status === 'withdrawn') continue;
+    if (i.vendor_service_id) askedIds.add(i.vendor_service_id);
+    else if (i.category_key?.trim()) askedKeys.push(i.category_key.trim());
+  }
+  const out: EventLineService[] = [];
+  const said = new Set<string>();
+  const say = (name: string) => {
+    const k = name.trim().toLowerCase();
+    if (!k || said.has(k)) return;
+    said.add(k);
+    out.push({ name: name.trim() });
+  };
+  const carried = new Set<string>();
+  for (const id of askedIds) {
+    const s = byId.get(id);
+    if (s?.category) carried.add(s.category);
+    say(s?.name ?? 'A service you no longer list');
+  }
+  for (const key of askedKeys) {
+    if (carried.has(key)) continue;
+    say(input.labelOf(key));
+    for (const s of input.services) if (s.category === key) askedIds.add(s.id);
+  }
+  if (out.length === 0) {
+    for (const c of input.plan.map((r) => r.category).filter((c): c is string => Boolean(c))) say(input.labelOf(c));
+  }
+  return { requested: out, askedIds };
 }
 
 /** The four words a row says, from the roster's lanes. */

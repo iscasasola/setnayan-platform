@@ -88,7 +88,7 @@ const FIXTURE = [
 
 // ── 1 · THE LOOK ──────────────────────────────────────────────────────────
 
-test('1 · rows are hairlines that OPEN — the shared fold head, its terracotta ▾, no tile, no box (v13 · look call 8)', async () => {
+test('1 · rows are hairlines that OPEN — the shared fold head, its terracotta › (it rises), no tile, no box (v13 · look call 8)', async () => {
   // 🔁 v13 (owner "Approved.", 2026-10-29: "One row per event; opened = the fixed lines + For your service"): a row is
   // no longer a door to the chat — it is the shared `SupplierOpenRow` (the `Fold`), opening in place on a phone and in
   // the right column from 701. Still a hairline row, still no box.
@@ -101,10 +101,11 @@ test('1 · rows are hairlines that OPEN — the shared fold head, its terracotta
   }
   assert.doesNotMatch(html, /sn-tile/, 'the list sits in a tile again');
   assert.equal((html.match(/data-fold-head=""/g) ?? []).length, 3, 'a row is not the shared fold head');
-  // The ▾: one per row, the accent, never grey.
-  const arrows = html.match(/<svg[^>]*lucide-chevron-down[^>]*>/g) ?? [];
-  assert.equal(arrows.length, 3, 'a row lost its ▾');
-  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row ▾ is not terracotta: ${a}`);
+  // The arrow: one per row, the accent, never grey. ⤴ Since 10 Nov a row RISES FULL SCREEN (owner: "The event did not
+  // grow fullscreen as planned"), so its arrow points on — › — not ▾ (`a-client-row-rises-full-screen.test.ts`).
+  const arrows = html.match(/<svg[^>]*lucide-chevron-right[^>]*>/g) ?? [];
+  assert.equal(arrows.length, 3, 'a row lost its ›');
+  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row › is not terracotta: ${a}`);
 });
 
 test('1b · the stage is the shared Badge — soft fill, no border (look call 7)', async () => {

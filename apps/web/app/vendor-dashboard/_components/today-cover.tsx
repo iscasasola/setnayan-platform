@@ -77,6 +77,9 @@ export function TodayCover({
 }
 
 /**
+ * ⛔ NOT MOUNTED SINCE 10 NOV — Today's one pinned row is "Needs you today" (DECISION_LOG 2026-11-10 📌; the cover now
+ * scrolls away, `supplier-today-screen.tsx`). Kept only while its words' guard still renders it; the undershell sweep
+ * deletes it with that assertion.
  * 📌 ROW 1 ONCE THE COVER HAS COLLAPSED (v113 pinned row): "Good morning, <Shop>" · "9 tasks · 7 Nov" · ⚙. The count
  * goes FIRST so a narrow row never cuts it. Handed to `CollapsingTop` as `row` when the foundation lands.
  */

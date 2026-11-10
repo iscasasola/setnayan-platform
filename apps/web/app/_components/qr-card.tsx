@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Copy, Share } from 'lucide-react';
-import { actionButtonClass } from '@/components/action-button';
+import { actionButtonClass, EqualRow } from '@/components/action-button';
 import { QrActions } from '@/app/_components/qr-actions';
 import { SaveFileLink } from './save-file-link';
 
@@ -147,7 +147,9 @@ export function QrCard({
       {note}
       {state === 'ready' ? (
         <>
-          <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+          {/* T19: the three are equal-weight doors on one code — ONE row, EQUAL widths (owner 9 Nov "buttons uniform,
+              rows balanced"; Build 5 · Lane A slice 2). The row fits as one: icon + word → word → icons. */}
+          <EqualRow className="mt-1 w-full max-w-[24rem]" data="qr-card">
             <button type="button" onClick={share} className={actionButtonClass(primary === 'share' ? 'brand' : 'neutral', { main: primary === 'share' })} data-qr-share="">
               <Share aria-hidden strokeWidth={1.9} />
               <span className="lbl">Share</span>
@@ -170,7 +172,7 @@ export function QrCard({
                 </>
               )}
             </SaveFileLink>
-          </div>
+          </EqualRow>
           {said ? (
             <span role="status" className="text-[12.5px] text-ink/60">
               {said}

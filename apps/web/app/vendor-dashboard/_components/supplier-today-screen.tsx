@@ -5,9 +5,8 @@ import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { SupplierTodayFirstScreen, type TodayOutcome } from './supplier-today-first-screen';
-import { TodayCover, TodayPinnedRow } from './today-cover';
-import { TodayStats, TodayStatsPinned } from './today-stats';
-import { CollapsingTop, CollapsingTopStack } from '@/app/_components/collapsing-top/collapsing-top';
+import { TodayCover } from './today-cover';
+import { TodayStats } from './today-stats';
 
 type Act = (formData: FormData) => void | Promise<void>;
 
@@ -75,39 +74,20 @@ export function SupplierTodayScreen({
   hero?: Parameters<typeof TodayCover>[0]['hero'];
 }) {
   /*
-    📌 THE TOP SCROLLS UP AND LOCKS (L1's `CollapsingTop`, wired at integration — C1 NEEDS L1 #1): the cover locks to
-    its pinned row (greeting · counts), then the stats strip locks under it to its one-line row. One stack, no element
-    of its own, so both stick inside the Today column. The ⚙ stays ON THE COVER only: Today draws exactly one ⚙
-    (`the-today-page-speaks-to-every-supplier.test.ts`), so the locked row carries none — scrolling back up shows it.
+    📌 ONE PINNED ROW, AND IT IS "NEEDS YOU TODAY" (owner 10 Nov on the Supplier Menu Plan, Today scrolled: *"Needs you
+    today is the correct one to be pinned rather than the row above it."*; DECISION_LOG 2026-11-10 📌 "SUPPLIER TODAY:
+    NEEDS YOU TODAY IS THE PINNED ROW"). The cover (greeting · date · tasks), Next events and the stats strip SCROLL
+    AWAY with the page — no `CollapsingTop` locks them any more; the Needs-you-today heading with its count is the one
+    row that sticks, and Today's ONE ⚙ moved onto its right end (`SupplierTodayFirstScreen` `gear`). A new shop (the
+    six steps) keeps its own setup heading as the pinned row and draws its ⚙ there, so none is handed in here.
+    🔒 app/vendor-dashboard/_components/today-pins-needs-you-today.test.ts
   */
-  const top = (
-    <CollapsingTop
-      data={{ 'today-top': '' }}
-      row={
-        <div className="flex w-full items-center gap-2 px-4 sm:px-6">
-          <TodayPinnedRow shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} />
-        </div>
-      }
-    >
-      <TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} gear={<TodaySettings cover />} hero={hero} />
-    </CollapsingTop>
-  );
-  const statsTop = (
-    <CollapsingTop
-      data={{ 'today-stats-top': '' }}
-      row={
-        <div className="w-full px-2 sm:px-4">
-          <TodayStatsPinned stats={view.stats} />
-        </div>
-      }
-    >
-      <TodayStats stats={view.stats} />
-    </CollapsingTop>
-  );
+  const top = <TodayCover shopName={shopName} tasks={view.needsCount} todayIso={todayIso} now={now} hero={hero} />;
+  const statsTop = <TodayStats stats={view.stats} />;
   return (
-    <CollapsingTopStack>
-      <SupplierTodayFirstScreen
+    <SupplierTodayFirstScreen
         cover={top}
+        gear={setup ? null : <TodaySettings />}
         nextEvents={nextEvents}
         stats={statsTop}
         needs={view.needs}
@@ -139,6 +119,5 @@ export function SupplierTodayScreen({
           </>
         }
       />
-    </CollapsingTopStack>
   );
 }

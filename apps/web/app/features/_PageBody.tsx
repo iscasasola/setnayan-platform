@@ -1,7 +1,7 @@
 import { FeaturesHero } from './_sections/_Hero';
 import { FeatureGroups } from './_sections/_FeatureGroups';
 import { EcosystemBand } from './_sections/_Ecosystem';
-import { WhySetnayan, WHY_FAQ } from './_sections/_WhySetnayan';
+import { WhySetnayan, whyFaqItems } from './_sections/_WhySetnayan';
 import { HowItWorks } from './_sections/_HowItWorks';
 import { FinalCTA } from './_sections/_FinalCTA';
 import { featuresHubItemList, SITE_URL } from '@/lib/feature-pages/seo';
@@ -58,7 +58,7 @@ function featuresJsonLd(locale: MarketingLocale) {
         '@type': 'FAQPage',
         '@id': `${url}#faq`,
         inLanguage: inLanguageTag(locale),
-        mainEntity: WHY_FAQ[locale].map((item) => ({
+        mainEntity: whyFaqItems(locale).map((item) => ({
           '@type': 'Question',
           name: item.q,
           acceptedAnswer: { '@type': 'Answer', text: item.a },

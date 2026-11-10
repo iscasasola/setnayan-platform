@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { emitNotification } from '@/lib/notification-emit';
+import { isOnTheDay, supplierLiveOrClientHref, todayInManila } from '@/lib/schedule-shift-notice';
 import {
   isSupplierOwned,
   supplierTakedownNotice,
@@ -84,14 +85,19 @@ export async function tellTheSupplierItCameDown(
     if (!userId) return;
 
     const notice = supplierTakedownNotice(hit);
+    // 🚪 The live console opens only ON the day — any other day it redirects away (a dead end). Off the day, the
+    // picked client's Hub page, which mounts the same Hub body (owner 11 Nov: every way into a client lands there).
+    const { data: dates } = await admin.from('events').select('event_date, event_end_date').eq('event_id', eventId).maybeSingle();
+    const day = (dates ?? null) as { event_date?: string | null; event_end_date?: string | null } | null;
+    const onTheDay = isOnTheDay(day?.event_date ?? null, day?.event_end_date ?? null, todayInManila());
     await emitNotification({
       userId,
       type: 'guest_takedown_honored',
       title: notice.title,
       body: notice.body,
       // Both the "What you've shot" strip and the portfolio album render on
-      // this one page, so a single link lands the supplier where the tile was.
-      relatedUrl: `/vendor-dashboard/on-the-day/live/${eventId}`,
+      // the live page, so on the day a single link lands the supplier where the tile was.
+      relatedUrl: supplierLiveOrClientHref(eventId, onTheDay, 'hub'),
     });
   } catch (e) {
     console.error('[takedown] supplier notice threw:', e);

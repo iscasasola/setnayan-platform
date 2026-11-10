@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { resolveCounterpartyUserIds } from '@/lib/chat-block';
 import { emitNotification } from '@/lib/notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { mintTurnIceServers } from '@/lib/turn';
 
@@ -135,7 +136,7 @@ export async function startThreadCall(
     );
     const relatedUrl =
       role === 'couple'
-        ? `/vendor-dashboard/messages/${thread.thread_id}`
+        ? supplierChatHref(thread.event_id, thread.thread_id)
         : `/dashboard/${thread.event_id}/messages/${thread.thread_id}`;
     const kindLabel = kind === 'video' ? 'video' : 'voice';
     for (const uid of recipients) {

@@ -131,6 +131,18 @@ export function vendorThreadHref(threadId: string): string {
   return `/vendor-dashboard/messages/${threadId}`;
 }
 
+/**
+ * 💬 Where a supplier's NOTICE about one conversation opens (owner 11 Nov — every way into a client lands in the picked
+ * client: *"When that is pressed it jump to the supplie-client card that was already planned with the
+ * details-chat-form-quote-files-report and more menus"*; DECISION_LOG 2026-11-08 "a row opens the picked client on its
+ * Chat tab"): the picked client's Chat page, which draws this same thread. Only a thread that names no event keeps the
+ * full-screen thread page. 🔒 lib/supplier-notices-open-the-picked-client.test.ts
+ */
+export function supplierChatHref(eventId: string | null | undefined, threadId: string): string {
+  // Written out (not via `customerCardHref`) so the email-link guard can read both pages from this body.
+  return eventId ? `/vendor-dashboard/clients/${eventId}?tab=chat` : `/vendor-dashboard/messages/${threadId}`;
+}
+
 /** What the rule needs to know about one booked date. */
 export type UpcomingDoorInput = {
   eventId: string;

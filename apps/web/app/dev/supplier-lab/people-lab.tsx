@@ -42,7 +42,6 @@ import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-th
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import { SearchBox } from '@/app/_components/search-box';
 import { importExternalClient, removeBlock } from '@/app/vendor-dashboard/calendar/actions';
-import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { eventDayWords, forYourServicePages, stageOfLane, type EventLines } from '@/lib/supplier-event-lines';
 
 /**
@@ -265,7 +264,6 @@ export function PeopleLab({
             anchor={null}
             emptyLine={count(k) === 0 ? 'Nobody here yet.' : undefined}
             lines={Object.fromEntries(fixtures.map((f) => [f.eventId, labLines(f)]))}
-            answers={{ acceptInquiry, declineInquiry }}
             list={k === 'all' ? null : k}
           />
           {isBooked ? (

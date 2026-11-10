@@ -118,8 +118,8 @@ export type VendorFunnel = {
  * Postgres for months over a phantom enum label — and the only symptom was a
  * booked count of zero, because `count ?? 0` cannot tell a refusal from an
  * empty result. A caller that must SHOW these numbers to somebody needs the
- * difference; `fetchVendorFunnelTotals` below keeps the plain shape for
- * callers that only aggregate.
+ * difference. (The plain-shape `fetchVendorFunnelTotals`, which folded a refusal into 0, lost its last caller when
+ * My Performance became "Analytics, growing" (#7338 → #7418) and is deleted.)
  */
 export async function fetchVendorFunnelTotalsResult(
   client: {

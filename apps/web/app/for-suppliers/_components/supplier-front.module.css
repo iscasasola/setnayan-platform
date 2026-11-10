@@ -448,6 +448,32 @@
 .addonRow { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
 .addonRow b { color: var(--sf-ink); }
 .helper { text-align: center; }
+
+/* the full plan comparison (Build 6 Lane J): five columns, pinned plan column, sideways scroll INSIDE the card only */
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* The card carries the page's tokens itself (the same aliases `.root` sets) so /for-coordinators can draw the SAME
+   table on its own stylesheet — the owner's "one plans widget for both pages" (DECISION_LOG 2026-11-05). */
+.cmpCard {
+  --sf-paper: var(--m-paper); --sf-line: var(--m-line); --sf-ink: var(--m-ink); --sf-text: var(--m-slate);
+  --sf-muted: var(--m-slate-2); --sf-accent: var(--m-mulberry); --sf-r: var(--m-r-lg);
+  --sf-mono: var(--font-space-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sf-shadow: var(--m-shadow-md, 0 1px 2px rgba(44, 42, 41, .06), 0 8px 28px rgba(44, 42, 41, .08));
+  font-family: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+}
+.cmpCard { background: var(--sf-paper); border-radius: var(--sf-r); box-shadow: var(--sf-shadow); padding: 20px 0 8px; min-width: 0; display: grid; gap: 12px; }
+.cmpHead { margin: 0; font-size: 1.4rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; color: var(--sf-ink); padding-inline: 20px; }
+.cmpScroll { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.cmpScroll:focus-visible { outline-offset: -3px; }
+.cmp { width: 100%; min-width: 620px; border-collapse: separate; border-spacing: 0; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.cmp th, .cmp td { padding: 11px 10px; text-align: center; vertical-align: top; border-top: 1px solid var(--sf-line); color: var(--sf-text); line-height: 1.35; }
+.cmp thead th { border-top: 0; font-weight: 800; color: var(--sf-ink); font-size: .95rem; position: sticky; top: 0; background: var(--sf-paper); }
+.cmp th[scope="row"], .cmpCorner { position: sticky; left: 0; z-index: 1; background: var(--sf-paper); text-align: left; font-weight: 600; color: var(--sf-ink); width: 34%; min-width: 132px; padding-left: 20px; box-shadow: 1px 0 0 var(--sf-line); }
+.cmpGroup th { position: sticky; left: 0; text-align: left; padding: 18px 20px 8px; font-family: var(--sf-mono); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--sf-accent); font-weight: 700; border-top: 0; background: var(--sf-paper); }
+.cmpWhy { display: block; margin-top: 4px; font-weight: 400; font-size: .8rem; color: var(--sf-muted); }
+.cmpYes { color: var(--sf-ink) !important; font-weight: 700; }
+.cmpNo { color: var(--sf-muted) !important; }
+.cmpLock { color: var(--m-orange-deep) !important; font-weight: 600; }
+.cmp td:last-child, .cmp thead th:last-child { padding-right: 20px; }
 .plansCta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 20px; }
 
 /* ===== close: the owner, in her place ===== */

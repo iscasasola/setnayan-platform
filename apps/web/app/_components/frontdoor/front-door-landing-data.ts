@@ -7,11 +7,14 @@
  *
  * 🔑 WHAT IS NOT HERE, ON PURPOSE:
  *   • the event types — read from `event_type_vocab` (`getCreatableEventTypes`), never listed;
- *   • any peso figure — Event Plus and Event Pro have no catalog row yet, and every price is read from
+ *   • any peso figure or credit count — every price and every included-credit number is read from
  *     `platform_retail_catalog_v2` or not shown (see `front-door-landing.tsx`, the plans section);
  *   • the sample's names, date and guest keys — read from the Maria and Jose fixtures
  *     (`lib/sample-event/*`), never typed here.
  */
+
+import { formatCount } from '@/lib/format-number';
+import { FREE_THEMES } from '@/lib/invite-themes';
 
 /* ─── HERO ───────────────────────────────────────────────────────────────────────────────────── */
 
@@ -315,42 +318,56 @@ export const SUPPLIER_STAGES: readonly { term: string; line: string }[] = [
 
 /* ─── WHAT YOU GET ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * What the three plan cards may say, READ by the caller (Build 6 Lane J — "the plan tables tell the truth"):
+ *   · `plusCredits` / `proCredits` — the catalogue's `included_papic_credits` for EVENT_PLUS / COUPLE_WEBSITE_PRO, the
+ *     number the activation hook actually tops the event up to (`activateEventPlan`); null = unread → no number said;
+ *   · `freePapic` — the live free-credit sentence (`papicFreeCreditPromise`), null when the free grant is off.
+ * The theme count is `FREE_THEMES.length` (lib/invite-themes.ts), never typed.
+ */
+export type PlanFacts = { plusCredits: number | null; proCredits: number | null; freePapic: string | null };
+
+const creditsLine = (n: number | null): string[] =>
+  n !== null && n > 0 ? [`${formatCount(n)} Papic credits — ${formatCount(n)} photos from your guests’ phones`] : [];
+
 /** The Free plan's tools, in the four groups the Features hub uses. The count on the card is this list's length. */
-export const FREE_GROUPS: readonly { name: string; items: readonly string[] }[] = [
-  {
-    name: 'Plan it',
-    items: [
-      'Budget',
-      'Guest list',
-      'Seat plan in 2D and 3D',
-      'Schedule',
-      'Date picker',
-      'Mood board',
-      'Find, compare and book suppliers',
-    ],
-  },
-  {
-    name: 'Invite & gather',
-    items: [
-      'Your Event Hub, 3 themes',
-      'A QR ticket and Apple Wallet pass for every guest',
-      'What everyone wears',
-      'Wedding march and entourage',
-      'E-Gifts',
-      'Groups',
-      'Your logo and prints',
-    ],
-  },
-  {
-    name: 'The day',
-    items: [
-      'Check-in at the door',
-      'The schedule, live',
-      'Papic cameras on every guest’s phone — 50 free credits on your first event',
-    ],
-  },
-  { name: 'Keep the memories', items: ['Memories, kept for life', 'Real Stories'] },
-];
+export function freeGroups(f: PlanFacts): readonly { name: string; items: readonly string[] }[] {
+  return [
+    {
+      name: 'Plan it',
+      items: [
+        'Budget',
+        'Guest list',
+        'Seat plan in 2D and 3D',
+        'Schedule',
+        'Date picker',
+        'Mood board',
+        'Find, compare and book suppliers',
+      ],
+    },
+    {
+      name: 'Invite & gather',
+      items: [
+        `Your Event Hub, ${formatCount(FREE_THEMES.length)} themes`,
+        'A QR ticket and Apple Wallet pass for every guest',
+        'What everyone wears',
+        'Wedding march and entourage',
+        'E-Gifts',
+        'Groups',
+        'Your logo and prints',
+      ],
+    },
+    {
+      name: 'The day',
+      items: [
+        'Check-in at the door',
+        'The schedule, live',
+        f.freePapic ? `Papic cameras on every guest’s phone — ${f.freePapic}` : 'Papic cameras on every guest’s phone',
+      ],
+    },
+    { name: 'Keep the memories', items: ['Memories, kept for life', 'Real Stories'] },
+  ];
+}
 
 export const FREE_PEEK: readonly string[] = [
   'Guest list, seat plan, budget and schedule',
@@ -358,21 +375,30 @@ export const FREE_PEEK: readonly string[] = [
   'Papic cameras on every guest’s phone',
 ];
 
-/** Event Plus: what the card shows first, then what it adds beyond Free. */
-export const PLUS_PEEK: readonly string[] = ['All 10 themes', 'Your own music', 'Your own web address'];
-export const PLUS_MORE: readonly string[] = [
-  'Only a small Setnayan mark',
-  'Entrance animation',
-  'Setnayan AI — tells you what’s next and flags what’s at risk',
-  '100 Papic credits — 100 photos from your guests’ phones',
-];
+/**
+ * Event Plus: what the card shows first, then what it adds beyond Free — ONLY what a paid Event Plus order unlocks in
+ * the app today (`activateEventPlan`: Setnayan AI + the included credits; `hubOwnershipFrom`: what was paid counts
+ * toward Event Pro). ⚠ Until Lane J the card also sold "All 10 themes · Your own music · Your own web address ·
+ * Entrance animation · Only a small Setnayan mark" — a Plus order unlocks none of them (themes, music and the address
+ * are Event Hub Pro parts; the watermark comes off with Event Pro only). They come back the day the app grants them.
+ */
+export function plusPeek(f: PlanFacts): readonly string[] {
+  return ['Setnayan AI — tells you what’s next and flags what’s at risk', ...creditsLine(f.plusCredits)];
+}
+export const PLUS_MORE: readonly string[] = ['What you pay counts toward Event Pro — upgrade for the difference'];
 
 /** Event Pro: what the card shows first, then what it adds beyond Plus. */
 export const PRO_PEEK: readonly string[] = [
   'Design every part of your Event Hub — the reveal, background, photos, style, motion, logo & QR, music, prints, the after-the-event page and your address',
   'Your own scenes, your own reveal',
 ];
-export const PRO_MORE: readonly string[] = ['No Setnayan marks — fully yours', '1,000 Papic credits — 1,000 guest photos'];
+/**
+ * ⚠ Was "No Setnayan marks — fully yours": today Event Pro takes the watermark off the Event Hub page, while the seat
+ * and find-my-table pages still print "Powered by Setnayan" (Lane L builds the marks by plan). Says what is true now.
+ */
+export function proMore(f: PlanFacts): readonly string[] {
+  return ['No Setnayan watermark on your Event Hub', ...creditsLine(f.proCredits)];
+}
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */
 export const ADD_ONS: readonly { photo: string; title: string; line: string; href: string }[] = [

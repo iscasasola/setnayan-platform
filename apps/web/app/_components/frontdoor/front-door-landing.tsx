@@ -42,12 +42,13 @@ import { formatPeso } from '@/lib/v2-catalog-pure';
 import {
   ADD_ONS,
   COORDINATOR_TOOLS,
-  FREE_GROUPS,
   FREE_PEEK,
   PLUS_MORE,
-  PLUS_PEEK,
-  PRO_MORE,
   PRO_PEEK,
+  freeGroups,
+  plusPeek,
+  proMore,
+  type PlanFacts,
   SOLVES,
   SOLVES_SHOWN_FIRST,
   SUPPLIER_STAGES,
@@ -150,6 +151,20 @@ export function planPricesFrom(
   return { plus: php(PLAN_PRICE_CODES.plus), pro: php(PLAN_PRICE_CODES.pro) };
 }
 
+/**
+ * The credits Event Plus and Event Pro grant, from the same rows (`included_papic_credits` — the number the
+ * activation hook tops the event up to). Never typed: an unread or empty row is null and the card names no number.
+ */
+export function planCreditsFrom(
+  rows: ReadonlyArray<{ service_code: string; included_papic_credits?: number | null }>,
+): Pick<PlanFacts, 'plusCredits' | 'proCredits'> {
+  const n = (code: string): number | null => {
+    const v = Number(rows.find((r) => r.service_code === code)?.included_papic_credits);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  return { plusCredits: n(PLAN_PRICE_CODES.plus), proCredits: n(PLAN_PRICE_CODES.pro) };
+}
+
 function PlanPrice({ php }: { php: number | null }) {
   if (php === null) return <span className="fl-price fl-price-none">per event</span>;
   return (
@@ -241,6 +256,7 @@ export type EventTypeTile = { key: string; label: string; photo: string };
 export function FrontDoorLanding({
   eventTypes,
   planPrices,
+  planFacts,
   floorKitFree = false,
   sample,
   shelves,
@@ -249,6 +265,8 @@ export function FrontDoorLanding({
   eventTypes: readonly Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>[];
   /** Event Plus and Event Pro from the price list (`planPricesFrom`). */
   planPrices: PlanPrices;
+  /** The included credits and the free-credit sentence the plan cards may say (`planCreditsFrom` + the free grant). */
+  planFacts: PlanFacts;
   /**
    * Is the coordinator's floor kit (live schedule · requests inbox · seat scanner) free right now? The caller asks
    * the paywall's own rule (`specializationFreeWindowActive`). Defaults to false — never claim free on a guess.
@@ -263,6 +281,9 @@ export function FrontDoorLanding({
   const tiles: EventTypeTile[] = eventTypes.map((t) => ({ key: t.key, label: t.label, photo: eventTypePhotoSrc(t) }));
   const half = Math.ceil(tiles.length / 2);
 
+  const FREE_GROUPS = freeGroups(planFacts);
+  const PLUS_PEEK = plusPeek(planFacts);
+  const PRO_MORE = proMore(planFacts);
   const freeItems = FREE_GROUPS.flatMap((g) => g.items);
   const plusItems = [...PLUS_PEEK, ...PLUS_MORE];
   const plusCount = plusItems.length + freeItems.length;
@@ -521,7 +542,7 @@ export function FrontDoorLanding({
               <h3>Event Plus</h3>
               <PlanPrice php={planPrices.plus} />
             </div>
-            <p className="fl-plan-one">A nicer, more personal Event Hub.</p>
+            <p className="fl-plan-one">Setnayan AI and Papic credits for your event.</p>
             <Dots items={PLUS_PEEK} />
             <div className="fl-pmore">
               <div>

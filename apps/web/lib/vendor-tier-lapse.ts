@@ -26,3 +26,24 @@ export function tierHasLapsed(
   const endMs = Date.parse(row.tier_expires_at);
   return Number.isFinite(endMs) && endMs < nowMs;
 }
+
+/**
+ * The row as it should READ: a plan whose day has passed reads as Free (Verified for a verified shop) with no end
+ * day, exactly what `sweep_vendor_tier_expiry` would write. Any other row comes back unchanged (same object).
+ *
+ * 🔑 WHY (Build 5 row 14 + Lane W, 2026-11-11). The Plan screen asks the sweep before it draws a run-out plan, but a
+ * REFUSED sweep left the first read in place and the page printed "You are on Solo · until Oct 19, 2026" — a past day
+ * drawn as the future, identical to a live plan. The database's gates already treat that row as Free (they re-check
+ * `tier_expires_at`), so the screen must say the same thing whether or not the write-back landed.
+ */
+export function endedPlanReadsFree<
+  T extends { tier_state?: string | null; tier_expires_at?: string | null; verification_state?: string | null },
+>(row: T | null, nowMs: number): T | null {
+  if (!row || !tierHasLapsed(row, nowMs)) return row;
+  return {
+    ...row,
+    tier_state: row.verification_state === 'verified' ? 'verified' : 'free',
+    tier_expires_at: null,
+    ...('tier_billing_cycle' in row ? { tier_billing_cycle: null } : {}),
+  };
+}

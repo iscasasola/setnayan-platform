@@ -24,7 +24,8 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { SupplierFrontPage, type SupplierFrontCodes } from '@/app/for-suppliers/_components/supplier-front-page';
-import { SAMPLE_SHOP } from '@/app/for-suppliers/_components/supplier-front-data';
+import { SAMPLE_SHOP, growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
+import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
@@ -157,19 +158,22 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       offer(
         'solo-vendor-subscription',
         'Solo Supplier (28-day prepaid block)',
-        `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise(fee)}`,
+        // Lane J: the plan's caps, read (this said "1 marketplace category · solo operator" — Solo is 2 · 1 seat since 4 Nov).
+        `${growSpec('solo')}. ${supplierCommissionPromise(fee)}`,
         p.num.soloMonthly,
       ),
       offer(
         'pro-vendor-subscription',
         'Pro Supplier (28-day prepaid block)',
-        '3 marketplace categories · 3 team accounts · custom Setnayan page + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
+        // Lane J: was "3 marketplace categories · 3 team accounts" — Pro is 8 · 5 since 4 Nov.
+        `${growSpec('pro')}. 28-day prepaid blocks.`,
         p.num.proMonthly,
       ),
       offer(
         'enterprise-subscription',
         'Ultra Supplier (28-day prepaid block)',
-        'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
+        // Lane J: was "All marketplace categories · reach up to 100 km" — Ultra is 15 categories, nationwide, since 4 Nov.
+        `${growSpec('enterprise')}. 28-day prepaid blocks.`,
         p.num.enterpriseMonthly,
       ),
       {
@@ -228,7 +232,9 @@ export default async function ForSuppliersPage() {
             enterpriseAnnual: p.enterpriseAnnual,
             branch: p.branch,
             seat: p.seat,
+            bySku: p.bySku,
           }}
+          paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           codes={codes}
           afterPlans={

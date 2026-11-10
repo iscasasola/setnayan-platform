@@ -2,8 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Check, ChevronRight, ExternalLink, Image as ImageIcon, Info, Link2, Music, Play, Plus, Sparkles, Users } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { ChevronRight, Link2, Play, Plus } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import type { KeepAnswer } from '@/lib/form-row';
@@ -15,381 +14,106 @@ import { updateVendorProfileField } from '../../actions';
 import { formatCount } from '@/lib/format-number';
 import { parseVideoLink } from '@/lib/video-embed';
 import { VIDEO_TITLE_MAX, videoRowName, videoTitlesFor } from '@/lib/video-link-titles';
-import { groupCount, type PortfolioAlbum, type PortfolioGroups, type PortfolioStory } from '@/lib/portfolio-groups';
-import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
+import { PortfolioShow } from './portfolio-show';
 
 /**
- * 🖼 PORTFOLIO, GROUPED (Build 2, lane B2-B — v118 `?tab=portfolio`).
+ * 🖼 THE OPENED COLLECTION (approved Portfolio, owner 9 Nov — "And this is how it expands if we open an album", with
+ * iOS Photos › Library; DECISION_LOG "PORTFOLIO PROTOTYPE APPROVED FOR BUILD 5" (1) and (2)).
  *
- *   §10 #35  ALL YOUR EVENTS · YOUR SERVICES · INSPIRATION YOU CURATED (each a list of albums, `lib/portfolio-groups.ts`),
- *            then STORIES COUPLES PUBLISHED (the parity item — the same stories Promote › Share your work shares), then ALL
- *            PHOTOS (the page gallery), then VIDEO LINKS: a row per link — tap opens it in place to edit (Link ·
- *            Remove · Save), ▶ at the row's end plays it in a pop-up player, and under the list "Add another link" in
- *            the Shop's "Add a service" style.
- *   §10 #40  AN OPENED ALBUM PINS AND TAKES THE WHOLE BODY — the shared in-body panel (`BodyPanel`, the Makers' panel):
- *            it grows out of its row (700 ms), the top bar and the bottom nav stay, × shrinks it back into the row at the
- *            exact prior scroll. Supersedes #24's open-in-place for albums.
- *   The ✓ circle on each album row stays the separate "pick for Show" control (#24).
- *
- * 🔑 NO NEW TABLE. Video links are the shipped `vendor_profiles.gallery_video_links` (URLs only, ≤ 10), saved through
- * the shipped `updateVendorProfileField('gallery_videos')` — RULE 0: the column existed. Each link's optional Title
- * (≤ 80) lives beside it in `gallery_video_titles`, keyed by the link (migration 20271334860034, `lib/video-link-titles.ts`);
- * a row with no title is named by the link's host.
- * 🔒 collections/the-portfolio-is-all-media.test.ts · lib/portfolio-groups.test.ts
+ *   · It RISES out of the tapped tile or section head through the ONE in-body panel (`BodyPanel`, §10 #40): the top
+ *     bar and the bottom nav stay, × shrinks it back into the same tile at the exact prior scroll.
+ *   · Its head is the collection's name — a long album name WRAPS TO TWO LINES before it is cut — and its count.
+ *   · Its body is a dense FULL-BLEED 3-column grid with 2-px gaps — the approved exception to the 16-px gutter rule;
+ *     every text and button row in it keeps 16/16. Past what was loaded, a "+N" tile goes to the album's own screen.
+ *   · One tap on a photo opens it full screen, swipeable (the shipped Show, landing on that photo).
+ * Deferred (listed as follow-ups on the PR): the viewer's slide animation, Share → Send to a chat, Select.
+ * 🔒 collections/the-portfolio-is-collections.test.ts · _components/the-body-panel-keeps-the-navs.test.ts
  */
-export type PickKey = string;
+export type OpenedPhotos = {
+  title: string;
+  /** "48 photos" · "Sun 8 Nov · 180 photos". */
+  sub: string;
+  urls: string[];
+  /** How many the collection holds (the "+N" tile counts the rest). */
+  total: number;
+  /** Where the whole collection lives, when it has its own screen. */
+  href: string | null;
+};
 
-export function PortfolioGroupsView({
-  groups,
-  allPhotos,
-  libraryOpen,
-  videoLinks,
-  videoTitles = {},
-  picked,
-  onPick,
-  moodboard = null,
-  songs = 'off',
+export function OpenedCollection({
+  origin,
+  frame,
+  data,
+  onClose,
+  photos = null,
+  children = null,
 }: {
-  groups: PortfolioGroups;
-  /** The page gallery's display URLs, newest first (its own order reversed). */
-  allPhotos: string[];
-  libraryOpen: boolean;
-  videoLinks: string[];
-  /** Each link's title, keyed by the link. null = unread: no Title field, and a save never touches titles. */
-  videoTitles?: Record<string, string> | null;
-  picked: PickKey | null;
-  onPick: (key: PickKey, album: { title: string; urls: string[] }) => void;
-  /** 🎨 Moodboard library counts (Lane E: "Moodboard library lives inside portfolio") — said on the inspiration card's
-   *  library row (the same page); `null` = not theirs or unread. */
-  moodboard?: { looks: number; declined: number } | null;
-  /** 🎵 Song bank (Lane E: a Portfolio section, music categories only) — 'off' = not a music shop; null = unread. */
-  songs?: { count: number; withVideo: number } | null | 'off';
+  origin: HTMLElement | null;
+  frame: HTMLElement | null;
+  data: string;
+  onClose: () => void;
+  /** A photo collection — the full-bleed grid. */
+  photos?: OpenedPhotos | null;
+  /** Anything else the collection IS (Video links: the shipped editor), drawn on the gutter. */
+  children?: React.ReactNode;
 }) {
-  const [open, setOpen] = useState<{ key: PickKey; album: PortfolioAlbum } | null>(null);
-  const rows = useRef<Record<string, HTMLElement | null>>({});
-  const frame = useRef<HTMLElement | null>(null);
-
-  const group = (
-    id: string,
-    title: string,
-    sub: string,
-    albums: PortfolioAlbum[] | null,
-    empty: string,
-    door: { label: string; href: string; icon: React.ReactElement } | null,
-    extra?: React.ReactNode,
-  ) => (
-    <PortfolioCard id={id} title={<>{title}{groupCount(albums)}</>} sub={sub}>
-      {albums === null ? (
-        <p role="status" className="py-1 text-[13.5px] text-ink/65" data-portfolio-group-unread={id}>
-          Couldn&rsquo;t load these just now — nothing was lost.
-        </p>
-      ) : albums.length === 0 ? (
-        <EmptyLine line={empty} door={door} data={id} />
-      ) : (
-        <ul className="-mb-1 divide-y divide-ink/10">
-          {albums.map((a) => {
-            const key = `${id}:${a.key}`;
-            return (
-              <li key={key}>
-                <AlbumRow
-                  a={a}
-                  picked={picked === key}
-                  open={open?.key === key}
-                  rowRef={(el) => {
-                    rows.current[key] = el;
-                    if (el && !frame.current) frame.current = el.closest('[data-portfolio-tab],[data-portfolio-tab-lab]');
-                  }}
-                  onOpen={() => setOpen({ key, album: a })}
-                  onPick={() => onPick(key, { title: a.title, urls: a.urls })}
-                />
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {extra}
-    </PortfolioCard>
-  );
-
-  const stories = groups.stories;
+  const [showAt, setShowAt] = useState<number | null>(null);
+  const title = photos?.title ?? (data === 'video' ? 'Video links' : 'Collection');
+  const more = photos ? photos.total - photos.urls.length : 0;
   return (
-    <div className="space-y-3" data-portfolio-groups="">
-      {group('events', 'All your events', 'one album per event · newest first', groups.events, 'Nothing yet · fills when a couple shares their Papic photos with you', {
-        label: 'Open Clients',
-        href: '/vendor-dashboard/customers',
-        icon: <Users aria-hidden strokeWidth={1.9} />,
-      })}
-      {group('services', 'Your services', 'the photos on each service card', groups.services, 'No service card has a photo yet', {
-        label: 'Add a cover to a card',
-        href: '/vendor-dashboard/shop#services',
-        icon: <ImageIcon aria-hidden strokeWidth={1.9} />,
-      })}
-      {groups.inspiration === 'off'
-        ? null
-        : group(
-            'inspiration',
-            'Inspiration you curated',
-            'looks Setnayan approved for couples',
-            groups.inspiration,
-            libraryOpen ? 'None approved yet · your photos help couples find you' : 'None approved yet',
-            // The empty card's door IS the shipped library row; with looks the row sits under them, as shipped.
-            libraryOpen ? { label: INSPIRATION_LIBRARY_ROW.label, href: INSPIRATION_LIBRARY_HREF, icon: <Sparkles aria-hidden strokeWidth={1.9} /> } : null,
-            // 🎨 "Moodboard library lives inside portfolio" (owner 9 Nov): the library IS this door's page
-            // (`INSPIRATION_LIBRARY_HREF` = /vendor-dashboard/moodboard-library), so it is said here, once — with its
-            // sets counted — never as a second card to the same page.
-            libraryOpen ? (
-              groups.inspiration?.length ? (
-              <div className="mt-1 border-t border-ink/10">
-                <DatesRow
-                  data="portfolio-inspiration-library"
-                  title={INSPIRATION_LIBRARY_ROW.label}
-                  line={moodboard && moodboard.looks > 0 ? `Moodboard library · ${formatCount(moodboard.looks)} ${moodboard.looks === 1 ? 'set' : 'sets'}${moodboard.declined > 0 ? ` · ${formatCount(moodboard.declined)} declined` : ''}` : INSPIRATION_LIBRARY_ROW.line}
-                  href={INSPIRATION_LIBRARY_HREF}
-                />
-              </div>
-              ) : null
-            ) : null,
-          )}
-
-      {/* 🎵 SONG BANK — music categories only (its main page is Shop › Makers › Specialized tools › Song bank). */}
-      {songs !== 'off' ? (
-        <PortfolioCard id="songs" title={<>Song bank{songs && songs.count > 0 ? ` · ${formatCount(songs.count)}` : ''}</>} sub="music suppliers">
-          {songs === null ? (
-            <p role="status" className="py-1 text-[13.5px] text-ink/65" data-portfolio-group-unread="songs">
-              Couldn&rsquo;t load your songs just now — nothing was lost.
-            </p>
-          ) : songs.count === 0 ? (
-            <EmptyLine line="No songs yet · couples request and preview from it" door={{ label: 'Add a song', href: SONG_BANK_HREF, icon: <Music aria-hidden strokeWidth={1.9} /> }} data="songs" />
+    <BodyPanel origin={origin} frame={frame} title={title} sub={photos?.sub} onClose={onClose} data={`collection-${data}`} titleLines={2} bleed>
+      {photos ? (
+        <div data-collection-open={data}>
+          {photos.urls.length === 0 ? (
+            <p className="px-4 py-4 text-[13.5px] text-ink/65">These photos couldn&rsquo;t be shown just now.</p>
           ) : (
-            <DatesRow
-              data="portfolio-songs"
-              title={`${formatCount(songs.count)} ${songs.count === 1 ? 'song' : 'songs'}`}
-              line={songs.withVideo > 0 ? `${formatCount(songs.withVideo)} with video · couples request and preview` : 'couples request and preview from it'}
-              href={SONG_BANK_HREF}
-            />
+            <ul className="grid grid-cols-3 gap-[2px]" data-collection-grid="" data-bleed="">
+              {photos.urls.map((u, i) => (
+                <li key={`${i}-${u}`} className="aspect-square overflow-hidden bg-ink/5">
+                  <button type="button" onClick={() => setShowAt(i)} aria-label={`Photo ${formatCount(i + 1)} of ${formatCount(photos.total)}`} className="block h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
+                    <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  </button>
+                </li>
+              ))}
+              {more > 0 ? (
+                <li className="aspect-square">
+                  {photos.href ? (
+                    <Link href={photos.href} className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
+                      +{formatCount(more)}
+                    </Link>
+                  ) : (
+                    <span className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
+                      +{formatCount(more)}
+                    </span>
+                  )}
+                </li>
+              ) : null}
+            </ul>
           )}
-        </PortfolioCard>
-      ) : null}
-
-      <StoriesGroup stories={stories} />
-
-      <PortfolioCard
-        id="all"
-        title={<>All photos · {formatCount(allPhotos.length)}</>}
-        sub="the photos on your page · newest first"
-        right={allPhotos.length > 0 ? <PickCircle picked={picked === 'all'} title="All photos" onPick={() => onPick('all', { title: 'All photos', urls: allPhotos })} /> : null}
-      >
-        {allPhotos.length === 0 ? (
-          // No second door on purpose: the ＋ in the thumb row is the one add (Lane E item 3).
-          <EmptyLine line="Nothing yet · the ＋ below adds photos" door={null} data="all" />
-        ) : (
-          <ul className="grid grid-cols-3 gap-1" data-portfolio-all="">
-            {allPhotos.map((u) => (
-              <li key={u} className="aspect-square overflow-hidden rounded-md bg-ink/5" data-portfolio-photo="">
-                {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
-                <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
-              </li>
-            ))}
-          </ul>
-        )}
-      </PortfolioCard>
-
-      <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
-
-      {open ? (
-        <BodyPanel
-          origin={rows.current[open.key] ?? null}
-          frame={frame.current}
-          title={open.album.title}
-          sub={open.album.line}
-          lead={<Cover urls={open.album.urls} />}
-          onClose={() => setOpen(null)}
-          data={`album-${open.key.split(':')[0]}`}
-        >
-          <AlbumGrid a={open.album} />
-        </BodyPanel>
-      ) : null}
-    </div>
-  );
-}
-
-/** The album's first four photos, 2 × 2 (v113/v118's album rows). */
-function Cover({ urls }: { urls: string[] }) {
-  return (
-    <span aria-hidden className="grid h-12 w-12 flex-none grid-cols-2 gap-0.5 overflow-hidden rounded-lg bg-ink/5">
-      {urls.slice(0, 4).map((u) => (
-        // eslint-disable-next-line @next/next/no-img-element -- presigned display URLs
-        <img key={u} src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
-      ))}
-    </span>
-  );
-}
-
-function PickCircle({ picked, title, onPick }: { picked: boolean; title: string; onPick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      aria-pressed={picked}
-      aria-label={picked ? `${title} — picked for Show` : `Pick ${title} for Show`}
-      className="grid h-11 w-11 shrink-0 place-items-center rounded-full"
-      data-album-pick=""
-    >
-      <span className={`grid h-6 w-6 place-items-center rounded-full border-[1.5px] ${picked ? 'border-transparent bg-[color:var(--m-orange)] text-white' : 'border-ink/25 text-transparent'}`}>
-        <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
-      </span>
-    </button>
-  );
-}
-
-function AlbumRow({
-  a,
-  picked,
-  open,
-  rowRef,
-  onOpen,
-  onPick,
-}: {
-  a: PortfolioAlbum;
-  picked: boolean;
-  open: boolean;
-  rowRef: (el: HTMLElement | null) => void;
-  onOpen: () => void;
-  onPick: () => void;
-}) {
-  return (
-    <div ref={rowRef} className="flex items-center gap-1" data-album-row={a.key}>
-      <button type="button" onClick={onOpen} aria-expanded={open} aria-haspopup="dialog" className="sn-press flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-2.5 text-left">
-        <Cover urls={a.urls} />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium leading-tight text-ink">{a.title}</span>
-          <span className="mt-0.5 block truncate text-[13px] text-ink/60">{a.line}</span>
-        </span>
-      </button>
-      {a.urls.length > 0 ? <PickCircle picked={picked} title={a.title} onPick={onPick} /> : null}
-      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
-    </div>
-  );
-}
-
-/** The opened album: its photos 3 across; past the panel's worth, a "+N" tile to the album's own screen (when it has one). */
-function AlbumGrid({ a }: { a: PortfolioAlbum }) {
-  const more = a.total - a.urls.length;
-  return (
-    <div data-album-open="">
-      {a.urls.length === 0 ? (
-        <p className="py-3 text-[13.5px] text-ink/65">These photos couldn&rsquo;t be shown just now.</p>
-      ) : (
-        <ul className="grid grid-cols-3 gap-1" data-album-grid="">
-          {a.urls.map((u) => (
-            <li key={u} className="aspect-square overflow-hidden rounded-md bg-ink/5">
-              {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
-              <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
-            </li>
-          ))}
-          {more > 0 ? (
-            <li className="aspect-square">
-              {a.href ? (
-                <Link href={a.href} className="grid h-full w-full place-items-center rounded-md bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
-                  +{formatCount(more)}
-                </Link>
-              ) : (
-                <span className="grid h-full w-full place-items-center rounded-md bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
-                  +{formatCount(more)}
-                </span>
-              )}
-            </li>
+          {photos.href ? (
+            <div className="px-4 pt-3">
+              <DatesRow data="album-page" title="The whole album" line="Every photo · put one on your page" href={photos.href} />
+            </div>
           ) : null}
-        </ul>
-      )}
-      {a.href ? (
-        <div className="pt-3">
-          <DatesRow data="album-page" title="The whole album" line="Every photo · put one on your page" href={a.href} />
+          {showAt !== null ? <PortfolioShow title={photos.title} urls={photos.urls} start={showAt} onClose={() => setShowAt(null)} /> : null}
         </div>
-      ) : null}
-    </div>
-  );
-}
-
-/** 📣 STORIES COUPLES PUBLISHED — the same list Promote › Share your work shares from; each opens the couple's story. */
-function StoriesGroup({ stories }: { stories: PortfolioStory[] | null }) {
-  return (
-    <PortfolioCard id="stories" title={<>Stories couples published{groupCount(stories)}</>} sub="your shop is credited · share them from Promote">
-      {stories === null ? (
-        <p role="status" className="py-1 text-[13.5px] text-ink/65" data-portfolio-group-unread="stories">
-          Couldn&rsquo;t load these just now — nothing was lost.
-        </p>
-      ) : stories.length === 0 ? (
-        <EmptyLine line="None yet · a couple you worked with publishes their event to Stories" door={null} data="stories" />
       ) : (
-        <ul className="-mb-1 divide-y divide-ink/10" data-portfolio-stories="">
-          {stories.map((s) => (
-            <li key={s.eventId}>
-              <a href={`/${s.slug}`} target="_blank" rel="noreferrer" className="sn-press flex min-h-[60px] items-center gap-3 py-2.5" data-portfolio-story={s.slug}>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium text-ink">{s.hostNames}</span>
-                  {s.line ? <span className="block truncate text-[13px] text-ink/60">{s.line}</span> : null}
-                </span>
-                <ExternalLink aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
-              </a>
-            </li>
-          ))}
-          <li>
-            <DatesRow data="portfolio-stories-share" title="Share them" line="Facebook · Pinterest · the story card" href="/vendor-dashboard/shop/promote#share" />
-          </li>
-        </ul>
+        <div className="px-4 pt-3">{children}</div>
       )}
-    </PortfolioCard>
+    </BodyPanel>
   );
 }
 
 /** 🎵 The song bank's main page (the shipped repertoire screen). */
-const SONG_BANK_HREF = '/vendor-dashboard/repertoire';
-
-/**
- * 🗂 ONE PORTFOLIO SECTION, AS A FINISHED CARD (Lane E item 1: *"Portfolio does not look good empty"*): the eyebrow
- * and its quiet line on one row, then the body. Every section draws — empty or not — in this one shape.
- */
-function PortfolioCard({ id, title, sub, right = null, children }: { id: string; title: React.ReactNode; sub: string; right?: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section
-      aria-labelledby={`pf-${id}-h`}
-      className="rounded-2xl px-4 pb-3 pt-3"
-      style={{ background: 'var(--m-paper)', boxShadow: '0 1px 2px color-mix(in srgb, var(--m-ink) 6%, transparent)' }}
-      data-portfolio-group={id}
-      data-portfolio-card=""
-    >
-      <div className="flex items-start justify-between gap-3 pb-1.5">
-        <h2 id={`pf-${id}-h`} className="sn-eye min-w-0 pt-0.5">
-          {title}
-        </h2>
-        {right ?? <p className="max-w-[55%] text-right text-[12px] leading-snug text-ink/55">{sub}</p>}
-      </div>
-      {right ? <p className="-mt-1 pb-1 text-[12px] text-ink/55">{sub}</p> : null}
-      {children}
-    </section>
-  );
-}
-
-/** The empty card's body: ONE honest line and (at most) ONE door — no grey text wall, no "0 · 0 · 0". */
-function EmptyLine({ line, door, data }: { line: string; door: { label: string; href: string; icon: React.ReactElement } | null; data: string }) {
-  return (
-    <div className="space-y-2.5 pb-1" data-portfolio-empty={data}>
-      <p className="flex items-start gap-2 text-[14px] leading-snug text-ink/75">
-        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
-        <span>{line}</span>
-      </p>
-      {door ? <ActionButton tone="neutral" icon={door.icon} label={door.label} href={door.href} /> : null}
-    </div>
-  );
-}
-
-const MAX_LINKS = 10;
+export const SONG_BANK_HREF = '/vendor-dashboard/repertoire';
 
 /** "youtube.com/watch?v=sde-rs" — the link without its scheme, for the row's second line. */
 function shortLink(url: string): string {
   return url.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
 }
+
+const MAX_LINKS = 10;
 
 /**
  * 🎬 VIDEO LINKS (§10 #35) — the shipped column, edited row by row. Tap a row → it opens in place: its Link on the house
@@ -476,7 +200,7 @@ export function VideoLinks({ initial, initialTitles }: { initial: string[]; init
         </h2>
         <p className="max-w-[55%] text-right text-[12px] leading-snug text-ink/55">{links.length > 0 ? 'tap one to edit · ▶ plays it' : 'YouTube · Vimeo · Facebook'}</p>
       </div>
-      {rows.length === 0 ? <EmptyLine line="No links yet" door={null} data="video" /> : null}
+      {rows.length === 0 ? <p className="pb-1 text-[14px] text-ink/75" data-portfolio-empty="video-editor">No links yet</p> : null}
       <ul className="divide-y divide-ink/10" data-video-links="">
         {rows.map((l, i) => {
           const p = l ? parseVideoLink(l) : null;

@@ -93,8 +93,18 @@ test('(2) quick choices: per use, none pre-selected, a choice past the last allo
   );
   assert.equal(S.nextWeekday('2026-11-14', 6), '2026-11-21', '"This Saturday" on a Saturday is next week');
   assert.deepEqual(S.paymentAskChoices(today).map((c) => c.label), ['Today', 'Tomorrow', 'In a week']);
+  /* The sheet itself hides a choice outside [min, max], whatever list a screen hands it (not only the helpers above). */
+  const handed = [
+    { day: '2026-11-08', label: 'Yesterday' },
+    { day: '2026-11-16', label: '7 days' },
+    { day: '2026-12-09', label: '30 days' },
+  ];
+  assert.deepEqual(S.choicesInRange(handed, today, '2026-11-28').map((c) => c.label), ['7 days'], 'a choice outside the range is shown');
+  assert.equal(S.choicesInRange(handed, null, null).length, 3);
   const src = read(SHEET);
-  assert.match(src, /useState<Step>\(hasChoices \? 'choices' : 'month'\)/, 'it does not open on the choices (or on the month when there are none)');
+  assert.match(src, /const choices = choicesInRange\(given \?\? \[\], min, max\);/, "the sheet shows a screen's choice past max");
+  assert.match(src, /const hasChoices = choices\.length > 0;/, 'a list emptied by the range does not open on the month');
+  assert.match(src, /useState<Step>\(hasChoices \? 'choices' : 'month'\)/,'it does not open on the choices (or on the month when there are none)');
   assert.match(src, /data-date-sheet-pick=""[^>]*onClick=\{onMonth\}/, '"Pick a date" does not open the month');
 });
 

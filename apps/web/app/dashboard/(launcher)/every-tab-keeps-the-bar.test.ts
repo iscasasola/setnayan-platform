@@ -14,7 +14,7 @@
  * its page and every layout above it. From those files the server components
  * they render are followed (a client component is a leaf: it is the bar, or it
  * draws one). Along that tree the bar mounts are counted:
- *   · Events · Discover · Memories · People → exactly ONE `<AccountBarSlot>`;
+ *   · Events · People · Memories · Discover → exactly ONE `<AccountBarSlot>`;
  *   · Shop → the shop's own bar, exactly one, and no account bar beside it.
  * A tab whose landing draws none fails, and so does one that draws two (two docks
  * share one view-transition name, and the browser then skips every slide).
@@ -35,6 +35,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { accountBarItems } from './_components/account-bottom-nav';
+import { accountBarTabs } from '@/lib/account-bar';
 import { stripComments } from '@/lib/strip-comments';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 
@@ -116,12 +117,13 @@ function barMounts(entry: string[]): Count {
   return count;
 }
 
-const TABS = accountBarItems(['events', 'discover', 'memories', 'people', 'shop']);
+// Every tab the bar can draw, in the ruled order (owner 2026-11-11, "THE ACCOUNT BAR ORDER"), read from the real rule.
+const TABS = accountBarItems(accountBarTabs({ ownsShop: true, discoverOpen: true }));
 
 test('the sweep reads the real bar: five tabs, five addresses', () => {
   assert.deepEqual(
     TABS.map((t) => t.key),
-    ['events', 'discover', 'memories', 'people', 'shop'],
+    ['events', 'people', 'shop', 'memories', 'discover'],
   );
 });
 

@@ -106,7 +106,7 @@ test('bar tabs carry tab-<last path segment>, and every tab step names a real ta
   assert.match(nav.src, /data-tour=\{tabTourToken\(item\.href\)\}/, 'the bar no longer stamps its tabs');
   const tabs = steps.filter(({ s }) => s.anchor.startsWith('tab-')).map(({ s }) => s.anchor.slice(4));
   assert.ok(tabs.length >= 4, 'expected the guests / vendors / shop / customers tab steps');
-  // + the account bar (Events · Discover · Memories · People — `customer_account_bar_v2`, owner 2026-10-22/25).
+  // + the account bar (Events · People · Shop · Memories · Discover since 2026-11-11 — `customer_account_bar_v2`, owner 2026-10-22/25).
   const menus = SOURCES.filter(({ f }) => /customer-menu\.ts$|vendor-bottom-nav\.tsx$|account-bottom-nav\.tsx$/.test(f)).map(({ src }) => src).join('\n');
   for (const seg of tabs) {
     // A tab's token ignores its query (`/dashboard?hub=1` → tab-dashboard), as `tabTourToken` does.
@@ -229,7 +229,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',
   'customers-search': 'app/vendor-dashboard/customers/page.tsx',
   'customers-add': 'app/vendor-dashboard/customers/page.tsx',
-  'collections-filter': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
+  // Approved Portfolio (owner 9 Nov): the filter left; the ⚙ on the Portfolio band is the "Who sees what" stop.
+  'collections-gear': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
   'collections-list': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
   // THE ONE BUILD (C4): the Portfolio tab's thumb row draws it (`portfolio-view.tsx`).
   'collections-add': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',

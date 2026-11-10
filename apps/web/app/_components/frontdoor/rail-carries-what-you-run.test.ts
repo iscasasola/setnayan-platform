@@ -174,6 +174,7 @@ test('Your Story is retired from the rail, and is NOT gated where it moved', () 
 test('Shop and HQ sit inside My Home — no second group, no "What you run"', () => {
   // 🔁 REVERSED 2026-09-21 (owner): *"my home and what you run must be
   // combined. So it is My Home · Events · Memories · People · Shop · Admin"*.
+  // (Memories moved after Shop 2026-11-11, "THE ACCOUNT BAR ORDER" — still no divider, still People → Shop → HQ.)
   // This test used to require the "What you run" heading (gated on a row
   // following it). The heading and its divider are gone; the gated rows now
   // follow People inside My Home.

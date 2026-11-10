@@ -1222,7 +1222,7 @@ export default async function LauncherPage({
           removed is the visible duplicate, never the page's identity. */}
       <h1 className="sr-only">Your events</h1>
 
-      {/* 🔦 The account bar's first-visit spotlight (Events · Memories · People — owner 2026-10-22), after the
+      {/* 🔦 The account bar's first-visit spotlight (Events · People · Memories — owner 2026-10-22; the bar's order since 2026-11-11), after the
           host's journey so the two never stack. A server component: it reads its own seen keys and ships only
           this tour's words (`lib/tours-stay-on-the-server.test.ts`). */}
       <Spotlight tourKey="customer_account_bar_v2" after="host_spotlight_v1" />

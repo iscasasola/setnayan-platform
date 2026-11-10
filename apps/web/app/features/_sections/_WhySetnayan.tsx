@@ -53,11 +53,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Is it really free?',
-      a: 'Yes — the planning is free to start: guest list, RSVP, seating, budget, and a 4-in-1 Event Hub. You only pay for the premium experiences (like Papic or Setnayan AI) if and when you want them.',
+      a: 'Yes — the planning is free to start: guest list, RSVP, seating, budget, and an Event Hub through all five stages. You only pay for more (Event Plus, Event Pro, or Papic credits) if and when you want it.',
     },
     {
       q: 'Does it work for Filipino events specifically?',
-      a: 'Setnayan is built Philippines-first — it understands Filipino customs, ceremony types, and local suppliers, and books at 0% commission. It’s not a generic planner with a PHP price tag bolted on.',
+      a: 'Setnayan is built Philippines-first — it understands Filipino customs, ceremony types, and local suppliers, and couples book suppliers at 0% commission. It’s not a generic planner with a PHP price tag bolted on.',
     },
     {
       q: 'What does Setnayan bring that I can’t get elsewhere?',
@@ -75,11 +75,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Libre ba talaga?',
-      a: 'Oo — libre pagsimula ang planning: guest list, RSVP, seating, budget, at 4-in-1 Event Hub. Magbabayad ka lang para sa mga premium experience (tulad ng Papic o Setnayan AI) kung at kailan mo gusto.',
+      a: 'Oo — libre pagsimula ang planning: guest list, RSVP, seating, budget, at Event Hub sa limang stage. Magbabayad ka lang para sa dagdag (Event Plus, Event Pro, o Papic credits) kung at kailan mo gusto.',
     },
     {
       q: 'Gumagana ba ito para sa mga Filipino event?',
-      a: 'Philippines-first ang pagkakagawa ng Setnayan — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at 0% commission ang booking. Hindi ito generic na planner na tinapalan lang ng presyong PHP.',
+      a: 'Philippines-first ang pagkakagawa ng Setnayan — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at 0% commission ang booking ng host sa supplier. Hindi ito generic na planner na tinapalan lang ng presyong PHP.',
     },
     {
       q: 'Ano ang dala ng Setnayan na wala sa iba?',
@@ -125,7 +125,7 @@ const COPY: Record<
     brings: [
       {
         title: 'All your planning, free',
-        body: 'Guest list, RSVP, seating, budget, and a 4-in-1 Event Hub — free to start.',
+        body: 'Guest list, RSVP, seating, budget, and an Event Hub through all five stages — free to start.',
       },
       {
         title: 'Live guest Memories',
@@ -137,7 +137,7 @@ const COPY: Record<
       },
       {
         title: '0% commission, Filipino-first',
-        body: 'Built for Filipino events and customs; book your suppliers at zero commission, always.',
+        body: 'Built for Filipino events and customs; you book suppliers at 0% commission and pay them directly.',
       },
     ],
     faqHeading: 'Questions people ask first',
@@ -166,7 +166,7 @@ const COPY: Record<
     brings: [
       {
         title: 'Buong planning mo, libre',
-        body: 'Guest list, RSVP, seating, budget, at 4-in-1 Event Hub — libre pagsimula.',
+        body: 'Guest list, RSVP, seating, budget, at Event Hub sa limang stage — libre pagsimula.',
       },
       {
         title: 'Live na guest Memories',
@@ -178,7 +178,7 @@ const COPY: Record<
       },
       {
         title: '0% commission, Filipino-first',
-        body: 'Ginawa para sa mga Pilipinong pagdiriwang at kaugalian; i-book ang suppliers mo nang zero commission, palagi.',
+        body: 'Ginawa para sa mga Pilipinong event at kaugalian; i-book ang suppliers mo nang 0% commission at direkta mo silang bayaran.',
       },
     ],
     faqHeading: 'Mga unang itinatanong',

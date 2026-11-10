@@ -7,7 +7,7 @@
  *   2 · Apply runs EVERY part through the same `websiteFieldPatch` the one-field save uses (allowlist + plan asks),
  *       and writes them in ONE update — all or nothing;
  *   3 · the draft is the supplier's browser only, wrapped, keyed per shop (no new server storage);
- *   4 · Your collections' switch is a draft change too — it never saves.
+ *   4 · Your collections' switch (now in the Portfolio ⚙) is a draft change too — it never saves.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,7 +21,8 @@ const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'))
 
 const PARTS = 'app/vendor-dashboard/website/_components/page-parts.tsx';
 const DRAFT = 'app/vendor-dashboard/website/_components/use-page-draft.ts';
-const COLLECTIONS = 'app/vendor-dashboard/collections/_components/collections-list.tsx';
+// Approved Portfolio (owner 9 Nov; 11 Nov (d)): the page switch moved from the collections list into the Portfolio ⚙.
+const COLLECTIONS = 'app/vendor-dashboard/collections/_components/portfolio-settings.tsx';
 const ACTIONS = 'app/vendor-dashboard/actions.ts';
 
 /** The body of an exported async function, up to the next top-level export. */
@@ -73,9 +74,9 @@ test('3 · the draft lives in this browser only — wrapped, per shop', () => {
 test('4 · Your collections’ switch is a draft change, never a save', () => {
   const c = src(COLLECTIONS);
   assert.match(c, /usePageDraft\(vendorId, saved\)/, 'the switch is not wired to the page draft');
-  assert.match(c, /const togglePage = \(\) => \{[\s\S]*?setDraft\(/, 'the switch does not change the draft');
+  assert.match(c, /const togglePage = \([^)]*\) => \{[\s\S]*?setDraft\(/, 'the switch does not change the draft');
   for (const one of ['updateVendorWebsiteField', 'updateVendorProfileField', 'applyVendorPageDraft']) {
-    assert.ok(!c.includes(one), `collections-list.tsx calls ${one} — the switch would publish without Apply`);
+    assert.ok(!c.includes(one), `portfolio-settings.tsx calls ${one} — the switch would publish without Apply`);
   }
   assert.match(c, /Shown on your page after Apply/, 'the switch no longer says it waits for Apply');
 });

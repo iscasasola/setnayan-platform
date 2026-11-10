@@ -215,7 +215,7 @@ export async function fetchV2CustomerCatalog(
   }
   let query = admin
     .from('platform_retail_catalog_v2')
-    .select('service_code, title, retail_price_php, onboarding_price_php, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
+    .select('service_code, title, retail_price_php, onboarding_price_php, included_papic_credits, saas_overhead_cost_php, is_token_able, description, billing_period, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
     // RETIRED SKUs must not surface on /pricing, /vendors, the admin discount
     // picker, or the onboarding bundle — honor the is_active flag (owner 2026-06-08:
     // the only way to retire a customer SKU is is_active=false). Previously this
@@ -269,6 +269,7 @@ export async function fetchV2CustomerCatalog(
     // field's docblock on V2CustomerSku.
     onboarding_price_php:
       row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
+    included_papic_credits: row.included_papic_credits == null ? null : Number(row.included_papic_credits),
     saas_overhead_cost_php: Number(row.saas_overhead_cost_php),
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
@@ -415,6 +416,10 @@ export const getVendorPrices = cache(async () => {
     branch: fmt(branch),
     seat: fmt(seat),
     tokenUnit: fmt(tokenUnit),
+    // Every ACTIVE row by its sku_code, formatted — the /for-suppliers plan table (Build 6 Lane J) names an add-on by
+    // the SKU the purchase charges (Deep Search, the chatbot bands, the tools unlock, Ultra's add-ons). A row that is
+    // missing or switched off is simply absent here, so the table prints "—", never a guess.
+    bySku: Object.fromEntries(rows.map((r) => [r.sku_code, fmt(r.price_php)])) as Readonly<Record<string, string | null>>,
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
     // `null` = unreadable: the Offer is omitted, never priced from a guess.
     num: {

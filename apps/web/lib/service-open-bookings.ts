@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🔒 A CARD WITH AN OPEN BOOKING CANNOT BE DELETED OR TURNED OFF (owner 10 Nov on PR #7464, verbatim: *"You cannot
@@ -46,7 +47,7 @@ function shortDate(iso: string | null): string {
 export function openBookingsRefusal(open: readonly OpenBooking[]): string | null {
   if (open.length === 0) return null;
   const head =
-    open.length === 1 ? '1 booking still open — finish it first' : `${open.length} bookings still open — finish them first`;
+    open.length === 1 ? '1 booking still open — finish it first' : `${formatCount(open.length)} bookings still open — finish them first`;
   const lines = open.map((b) => {
     const date = shortDate(b.eventDate);
     return date ? `${b.eventName} · ${date}` : b.eventName;

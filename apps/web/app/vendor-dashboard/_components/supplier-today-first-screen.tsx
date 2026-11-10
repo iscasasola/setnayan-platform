@@ -237,9 +237,10 @@ export type SupplierTodayFirstScreenProps = {
   /** 📊 The five stats (`TodayStats`). */
   stats?: ReactNode;
   /**
-   * ⚙ Today's ONE settings mount (`TodaySettings`), at the right end of the pinned Needs-you-today row (DECISION_LOG
-   * 2026-11-10 📌: "The ⚙ moves onto the pinned Needs you today row, at its right end"). Null on a new shop — its six
-   * steps draw their own ⚙ — and then this heading does not pin either: the setup heading is the pinned row.
+   * ⚙ The pinned Needs-you-today row's ⚙ SLOT (`TodayGearSlot at="pin"`): since 11 Nov (owner *"Today settings yes"*)
+   * Today's ONE ⚙ sits on the photo header and fills this slot only once the header has scrolled away (`TodayGearRide`,
+   * Portfolio's `pin`). Null on a new shop — its six steps draw their own ⚙ — and then this heading does not pin
+   * either: the setup heading is the pinned row.
    */
   gear?: ReactNode;
   /** 📋 Needs you today — every row, in order; each JUMPS (`nextHref(row.target)`). */
@@ -334,8 +335,8 @@ export function SupplierTodayFirstScreen({
         {/* 🔦 `today-next`: the app-wide supplier tour's Today stop (it lit the retired Next card); `today-needs` (the
             section) is Today's own page tour's. */}
         {/* 📌 THE ONE PINNED ROW ON TODAY (owner 10 Nov: *"Needs you today is the correct one to be pinned rather than
-            the row above it."*): the heading + its count + Today's ⚙ stick under the bar while the rows scroll under
-            them; the cover, Next events and the stats scroll away. The pinned-row template (Clients' `customers-pin`):
+            the row above it."*): the heading + its count stick under the bar while the rows scroll under them, and
+            Today's ⚙ rides onto its right end once the header has gone (owner 11 Nov); the cover, Next events and the stats scroll away. The pinned-row template (Clients' `customers-pin`):
             sticky at the top, the page's own ground, the soft hairline (never a cut line), joined to the pin line
             (`data-pinned-row`). A new shop (no ⚙ handed in) leaves it in the flow — its setup heading pins instead. */}
         <div

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { SHOP_BOOKABLE_COLUMNS, shopBookingRefusal, type ShopBookingRefusal } from '@/lib/vendor-visibility';
+
 /**
  * Vendor Verification flow — shared types + helpers.
  *
@@ -76,41 +78,57 @@ export function isBookableVerificationState(
 }
 
 /**
- * True when a MARKETPLACE vendor is currently verified — the booking gate.
- * Reads `vendor_profiles.verification_state`; a missing row or read error
- * resolves to NOT verified (fail-closed — the couple's lock is a commitment, so
- * an unreadable state must not silently pass).
+ * The booking gate: WHY a marketplace vendor cannot be booked right now, or
+ * `null` when it can. Reads the four columns of `isShopBookable`
+ * (`lib/vendor-visibility.ts`) — verified, listed, not fraud-suspended, not
+ * fraud-banned. Before Lane G item 1 (audit C1, 2026-11-10) this read only
+ * `verification_state`, so an admin-hidden, suspended or banned shop stayed
+ * bookable by any couple who had it shortlisted.
+ *
+ * A missing row or a refused read resolves to a refusal (fail-closed — the
+ * couple's lock is a commitment, so an unreadable state must not silently
+ * pass); a refused read is `'unreadable'` and leaves a `[supabase-error]` line.
  *
  * Pass a client that can read the row even for a NON-verified profile — public
  * RLS on `vendor_profiles` is verified-only, so callers use the admin/service
- * client, having already proven the couple owns the booking. Off-platform /
- * manual vendors (no `vendor_profile_id`) carry no verification concept and are
- * never passed here — callers skip the check when `marketplace_vendor_id` is
- * NULL.
+ * client (or the shop's own session, which reads its own row), having already
+ * proven who is asking. Off-platform / manual vendors (no `vendor_profile_id`)
+ * carry no verification concept and are never passed here — callers skip the
+ * check when `marketplace_vendor_id` is NULL.
+ *
+ * The database half is the trigger `enforce_booking_requires_verified_vendor`;
+ * it asks the same four columns.
+ */
+export async function marketplaceVendorBookingRefusal(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<ShopBookingRefusal | 'unreadable' | null> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_profiles')
+      .select(SHOP_BOOKABLE_COLUMNS)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_profiles.select', error);
+      return 'unreadable';
+    }
+    return shopBookingRefusal(data as Parameters<typeof shopBookingRefusal>[0]);
+  } catch {
+    return 'unreadable';
+  }
+}
+
+/**
+ * True when a MARKETPLACE vendor can be booked right now — the boolean form of
+ * `marketplaceVendorBookingRefusal`. Every booking door calls this (held by
+ * `lib/bookings-closed-doors.test.ts`).
  */
 export async function isMarketplaceVendorBookable(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('vendor_profiles')
-      .select('verification_state')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (error) {
-      console.error('[supabase-error] lib/vendor-verification.ts · from:vendor_profiles.select', error);
-      return false;
-    }
-    if (!data) return false;
-    return isBookableVerificationState(
-      parseVerificationState(
-        (data as { verification_state?: unknown }).verification_state,
-      ),
-    );
-  } catch {
-    return false;
-  }
+  return (await marketplaceVendorBookingRefusal(supabase, vendorProfileId)) === null;
 }
 
 /**

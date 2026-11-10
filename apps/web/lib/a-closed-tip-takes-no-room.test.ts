@@ -57,3 +57,13 @@ test('the open bubble is nudged inside a 16-px gutter', () => {
   assert.ok(/setProperty\('--sn-tip-nudge'/.test(TIP), '<InfoTip> must set --sn-tip-nudge on open');
   assert.ok(/vw - 16/.test(TIP) && /16 - left/.test(TIP), '<InfoTip> must keep both edges 16 px inside the screen');
 });
+
+test('the front-door hero ⓘ opens upward, inside the clipped hero', () => {
+  // The hero is `overflow: hidden` (its photo) and the Papic line sits on its bottom edge: a bubble hanging below it
+  // was cut after one line at every phone width (measured 320 px: bubble bottom 895, hero bottom 798).
+  const css = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'frontdoor', 'front-door-landing.css'), 'utf8'));
+  const m = css.match(/\.fd \.fl-truths-papic \.sn-tip\s*\{([^}]*)\}/);
+  assert.ok(m, 'the hero Papic ⓘ has no `.fd .fl-truths-papic .sn-tip` rule — it hangs below and the hero clips it');
+  assert.match(m[1] ?? '', /bottom:\s*100%/, 'the hero Papic ⓘ must open upward (bottom: 100%)');
+  assert.match(m[1] ?? '', /top:\s*auto/, 'the hero Papic ⓘ must release `top`');
+});

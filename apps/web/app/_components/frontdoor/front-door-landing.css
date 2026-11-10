@@ -241,6 +241,14 @@
 .fd .fl-truths-papic {
   flex-basis: 100%;
 }
+/* 📱 It opens UPWARD. The hero clips (`overflow: hidden`, for its photo) and this line sits on its bottom edge, so a
+   bubble hanging below it was cut off after one line (measured at 320 px: bubble bottom 895, hero bottom 798). */
+.fd .fl-truths-papic .sn-tip {
+  top: auto;
+  bottom: 100%;
+  padding-top: 0;
+  padding-bottom: 8px;
+}
 
 /* ── shared section frame ──────────────────────────────────────────────────────────────────────── */
 

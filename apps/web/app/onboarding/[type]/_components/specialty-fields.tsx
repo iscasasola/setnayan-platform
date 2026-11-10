@@ -19,6 +19,10 @@
 // what is already saved on live rows) and humanises anything it does not know,
 // so a database-authored spec cannot reintroduce raw keys.
 import { specialtyOptionLabel } from '@/lib/onboarding/specialty-option-labels';
+import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { StepPick } from '@/app/onboarding/_shared/step-field';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { SpecialtyField, SpecialtyItemField } from '@/lib/onboarding/specialty-catalog';
 import { isSpecialtyFieldVisible } from '@/lib/onboarding/specialty-values';
 
@@ -27,10 +31,6 @@ type Row = Record<string, unknown>;
 
 const INPUT =
   'w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-ink outline-none focus:border-mulberry';
-const CHIP =
-  'rounded-[var(--m-r-md)] border px-3 py-2 text-sm text-left transition';
-const CHIP_ON = 'border-mulberry bg-mulberry/5 ring-1 ring-mulberry text-ink';
-const CHIP_OFF = 'border-ink/12 bg-paper text-ink/80 hover:border-ink/30';
 
 function asStr(v: unknown): string {
   return typeof v === 'string' || typeof v === 'number' ? String(v) : '';
@@ -117,22 +117,14 @@ function Roster({
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            className="mt-2 text-sm text-ink/50 underline hover:text-mulberry"
-          >
-            Remove
-          </button>
+          <div className="mt-2 flex">
+            <ActionButton tone="danger" quiet icon={Trash2} label="Remove" onClick={() => remove(i)} />
+          </div>
         </div>
       ))}
-      <button
-        type="button"
-        onClick={add}
-        className="self-start rounded-[var(--m-r-md)] border border-dashed border-ink/25 px-4 py-2 text-sm text-ink/70 hover:border-mulberry hover:text-mulberry"
-      >
-        + Add {rows.length > 0 ? 'another' : field.label.toLowerCase()}
-      </button>
+      <div className="flex">
+        <ActionButton tone="neutral" icon={Plus} label={`Add ${rows.length > 0 ? 'another' : field.label.toLowerCase()}`} onClick={add} />
+      </div>
     </div>
   );
 }
@@ -153,14 +145,7 @@ function OpenMultiselect({
       {values.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {values.map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => onChange(values.filter((x) => x !== v))}
-              className={`${CHIP} ${CHIP_ON}`}
-            >
-              {v} ✕
-            </button>
+            <ActionButton key={v} tone="neutral" icon={X} label={v} name={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))} />
           ))}
         </div>
       )}
@@ -201,36 +186,24 @@ function Field({
       );
     case 'boolean':
       return (
-        <div className="flex gap-2">
-          {[
-            ['Yes', true],
-            ['No', false],
-          ].map(([lbl, v]) => (
-            <button
-              key={String(v)}
-              type="button"
-              onClick={() => onChange(v)}
-              className={`${CHIP} ${value === v ? CHIP_ON : CHIP_OFF}`}
-            >
-              {lbl as string}
-            </button>
-          ))}
-        </div>
+        <StepPick
+          label={field.label}
+          value={value === true ? 'yes' : value === false ? 'no' : null}
+          options={[
+            { key: 'yes', label: 'Yes' },
+            { key: 'no', label: 'No' },
+          ]}
+          onPick={(k) => onChange(k === 'yes')}
+        />
       );
     case 'select':
       return (
-        <div className="flex flex-wrap gap-2">
-          {(field.options ?? []).map((o) => (
-            <button
-              key={o}
-              type="button"
-              onClick={() => onChange(asStr(value) === o ? '' : o)}
-              className={`${CHIP} ${asStr(value) === o ? CHIP_ON : CHIP_OFF}`}
-            >
-              {specialtyOptionLabel(o)}
-            </button>
-          ))}
-        </div>
+        <StepPick
+          label={field.label}
+          value={asStr(value) || null}
+          options={(field.options ?? []).map((o) => ({ key: o, label: specialtyOptionLabel(o) }))}
+          onPick={(o) => onChange(asStr(value) === o ? '' : o)}
+        />
       );
     case 'multiselect': {
       const vals = asArr(value);
@@ -238,21 +211,15 @@ function Field({
         return <OpenMultiselect values={vals} onChange={onChange} />;
       }
       return (
-        <div className="flex flex-wrap gap-2">
-          {field.options.map((o) => {
-            const on = vals.includes(o);
-            return (
-              <button
-                key={o}
-                type="button"
-                onClick={() => onChange(on ? vals.filter((x) => x !== o) : [...vals, o])}
-                className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
-              >
-                {specialtyOptionLabel(o)}
-              </button>
-            );
-          })}
-        </div>
+        <PickMenu
+          label={field.label}
+          value={null}
+          buttonText={vals.length > 0 ? vals.map(specialtyOptionLabel).join(', ') : 'Pick any'}
+          picked={vals}
+          options={field.options.map((o) => ({ key: o, label: specialtyOptionLabel(o) }))}
+          onPick={(o) => onChange(vals.includes(o) ? vals.filter((x) => x !== o) : [...vals, o])}
+          doneButton
+        />
       );
     }
     case 'person_roster':
@@ -303,13 +270,7 @@ export function SpecialtyFields({
             <span className="min-w-0 truncate text-sm text-ink/70">
               {f.label} · <span className="font-medium text-ink">{asStr(value[f.key])}</span>
             </span>
-            <button
-              type="button"
-              className="ml-auto min-h-[44px] shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
-              onClick={() => onChangeAnswered?.(f.key)}
-            >
-              Change
-            </button>
+            <ActionButton tone="neutral" quiet icon={Pencil} label="Change" className="ml-auto shrink-0" onClick={() => onChangeAnswered?.(f.key)} />
           </div>
         ) : (
         <div key={f.key}>

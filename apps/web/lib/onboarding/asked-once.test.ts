@@ -67,6 +67,7 @@ test('an answered field is drawn as the answer with Change — never as a box', 
   assert.ok(branch > 0 && field > branch, 'the answered branch must come before the input');
   const row = fields.slice(branch, field);
   assert.match(row, /data-specialty-answered=\{f\.key\}/);
-  assert.match(row, />\s*Change\s*</);
+  // The Change is the house ActionButton since Lane P slice 5.
+  assert.match(row, /<ActionButton\b[^>]*label="Change"/);
   assert.doesNotMatch(row, /<input|<Field/, 'the answered row must not be a box to fill');
 });

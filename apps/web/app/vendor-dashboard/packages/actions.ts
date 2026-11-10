@@ -31,6 +31,7 @@ import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import {
@@ -298,7 +299,8 @@ async function giftStockRefusal(
 ): Promise<string | null> {
   if (!gift || gift === PACKAGE_GIFT_SETNAYAN) return null;
   const [packs, stock] = await Promise.all([
-    fetchShopGiftPacks(supabase),
+    // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
+    fetchShopGiftPacks(createAdminClient()),
     fetchShopGiftStock(supabase, vendorProfileId),
   ]);
   if (!packs || !stock) return 'Couldn’t read your gift stock right now, so nothing was saved. Try again.';

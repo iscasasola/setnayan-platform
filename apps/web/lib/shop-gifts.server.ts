@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
@@ -31,12 +32,16 @@ export type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
  * 💎 Event Plus and Event Pro as gift rows (slice 2) — their title, list price and gift price, READ from
  * `platform_retail_catalog_v2` (never typed). One unlock each (`credits: 1`). Only what is on sale. Null on a read
  * failure.
+ *
+ * 🔒 `admin` MUST be the service-role client (G6, 2026-11-10): `gift_price_php` is withheld from `anon` +
+ * `authenticated` (see `fetchShopPapicPacks`), so a session client's read is refused whole (42501) and Event Plus /
+ * Pro read as "unavailable". Guard: `lib/catalog-denied-columns-read-by-service-role.test.ts`.
  */
 export async function fetchShopGiftUnlockRows(
-  client: SupabaseClient,
+  admin: SupabaseClient,
 ): Promise<Array<{ code: string; title: string; credits: number; pricePhp: number; giftPricePhp: number | null }> | null> {
   const codes = Object.values(SHOP_GIFT_UNLOCK_CODE);
-  const { data, error } = await client
+  const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
     .in('service_code', codes);
@@ -68,9 +73,12 @@ export async function fetchShopGiftUnlockRows(
   return out;
 }
 
-/** The giftable packs on the live catalogue — Papic smallest first, then Event Plus, Event Pro; null on a read failure. */
-export async function fetchShopGiftPacks(client: SupabaseClient): Promise<ShopGiftPack[] | null> {
-  const [papic, unlocks] = await Promise.all([fetchShopPapicPacks(client), fetchShopGiftUnlockRows(client)]);
+/**
+ * The giftable packs on the live catalogue — Papic smallest first, then Event Plus, Event Pro; null on a read failure.
+ * 🔒 `admin` MUST be the service-role client — the gift price is withheld from a session (G6, see above).
+ */
+export async function fetchShopGiftPacks(admin: SupabaseClient): Promise<ShopGiftPack[] | null> {
+  const [papic, unlocks] = await Promise.all([fetchShopPapicPacks(admin), fetchShopGiftUnlockRows(admin)]);
   return papic && unlocks ? shopGiftPacksFrom([...papic, ...unlocks]) : null;
 }
 
@@ -200,7 +208,8 @@ export async function fetchShopGiftBought(
     s.add(e.kind);
     kinds.set(e.order_id, s);
   }
-  const packs = await fetchShopGiftPacks(client);
+  // 🔒 The titles come from the catalogue, whose gift price a session may not read (G6) — the service role reads it.
+  const packs = await fetchShopGiftPacks(createAdminClient());
   const titleOf = new Map((packs ?? []).map((p) => [p.code, p.title]));
   return (
     (purchases.data ?? []) as Array<{

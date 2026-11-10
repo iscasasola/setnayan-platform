@@ -36,8 +36,6 @@ const BARE: Readonly<Record<string, number>> = {
   'onboarding/_shared/services-step.tsx › Stepper': 2,
   'onboarding/_shared/services-step.tsx › PackPoolPicker': 2,
   'onboarding/_shared/services-step.tsx › ServicesStep': 2,
-  'onboarding/_shared/setup-card.tsx › SetupFrame': 2,
-  'onboarding/_shared/setup-card.tsx › SetupCard': 2,
   'onboarding/wedding/_components/location-step.tsx › LocationStep': 4,
   'onboarding/wedding/_components/onboarding-music.tsx › OnboardingMusic': 1,
   'onboarding/wedding/_components/onboarding-shell.tsx › RefineCard': 1,

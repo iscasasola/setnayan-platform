@@ -409,14 +409,15 @@ function ColoursCard({ frame, state, patch }: SubProps) {
       title="Your colours"
       line="Your motif — on cards, the QR code and what suppliers see."
       info="Your Mood Board starts from this. A stylist or coordinator can fill it in later."
-      quick={['My supplier will fill this in']}
-      onQuick={() => patch({ prefs: { ...state.prefs, feel: null } })}
     >
       <PickMenu
         label="Palette"
         value={feel}
         options={[
           { key: 'theme', label: 'Theme’s own' },
+          /* "My supplier will fill this in" is a choice INSIDE the dropdown, never a pill beside it (owner 10 Nov) —
+             it leaves the palette to the theme until a stylist sets it, exactly as the pill did. */
+          { key: 'supplier', label: 'My supplier will fill this in' },
           ...Object.keys(FEEL_LABEL).map((k) => ({
             key: k,
             label: FEEL_LABEL[k]!,
@@ -429,7 +430,7 @@ function ColoursCard({ frame, state, patch }: SubProps) {
             ),
           })),
         ]}
-        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' ? null : key } })}
+        onPick={(key) => patch({ prefs: { ...state.prefs, feel: key === 'theme' || key === 'supplier' ? null : key } })}
         dataAttr="data-wedding-colours"
       />
     </SetupFrame>

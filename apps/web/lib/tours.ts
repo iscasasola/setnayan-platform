@@ -2303,7 +2303,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
-  /* 🔦 YOUR COLLECTIONS — a first-visit page tour (owner 2026-10-25). Its own address, so the Shop tour no longer starts here (`lib/supplier-page-tours.ts`). */
+  /* 🔦 YOUR COLLECTIONS — a first-visit page tour (owner 2026-10-25). Approved Portfolio (owner 9 Nov): the filter stop became the ⚙'s "Who sees what". Its own address, so the Shop tour no longer starts here (`lib/supplier-page-tours.ts`). */
   vendor_collections_v1: {
     key: 'vendor_collections_v1',
     label: 'Supplier — Collections page spotlight',
@@ -2312,14 +2312,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     spotlight: {
       steps: [
         {
-          anchor: 'collections-filter',
-          title: 'Show which collections',
-          body: 'Everything, what’s on your page, what’s private, or shared with a couple.',
+          anchor: 'collections-gear',
+          title: 'Who sees what',
+          body: 'Who sees each collection, and which album Show plays, live in ⚙.',
         },
         {
           anchor: 'collections-list',
           title: 'Every photo and video you own',
-          body: 'One row per collection. A switch puts one on your page.',
+          body: 'One section per collection. › opens it, ˅ folds it.',
         },
         {
           anchor: 'collections-add',
@@ -2329,7 +2329,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Couples see what you switch on, on your page.',
+        body: 'Couples see what is on your page once you Apply.',
         button: 'Done',
       },
     },

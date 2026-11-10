@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectionRows, collectionsLine, filterRows, type CollectionsInput } from './supplier-collections';
+import { COLLECTION_SECTION_NAME, collectionRows, type CollectionsInput } from './supplier-collections';
 
 const studio: CollectionsInput = {
   page: { photos: 24, videos: 4, shown: true },
@@ -52,7 +52,6 @@ test('a count that could not be read says so — never "nothing yet", never 0', 
     assert.equal(r.unread, true);
     assert.equal(r.line, 'Could not be read just now');
   }
-  assert.equal(collectionsLine(rows), '7 collections · one place');
 });
 
 test('Instagram not switched on for the product, and a shop that supplies no looks, have no row', () => {
@@ -64,13 +63,6 @@ test('Instagram not switched on for the product, and a shop that supplies no loo
   assert.deepEqual(rows.map((r) => r.key), ['page', 'cards', 'albums', 'own', 'delivered']);
 });
 
-test('the filter dropdown keeps only the rows for who sees them', () => {
-  const rows = collectionRows(studio);
-  assert.deepEqual(filterRows(rows, 'private').map((r) => r.key), ['albums', 'own']);
-  assert.deepEqual(filterRows(rows, 'couple').map((r) => r.key), ['delivered', 'moodboard']);
-  assert.equal(filterRows(rows, 'all').length, rows.length);
-});
-
-test('the answer line totals only what was read', () => {
-  assert.equal(collectionsLine(collectionRows(studio)), '7 collections · about 608 photos and videos · one place');
+test('every collection has its section name — the approved Portfolio shows each one, none dropped', () => {
+  for (const r of collectionRows(studio)) assert.ok(COLLECTION_SECTION_NAME[r.key], `${r.key} has no section name`);
 });

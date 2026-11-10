@@ -5925,6 +5925,7 @@
       "files": [
         "dashboard/(launcher)/_components/account-bar-slot.tsx",
         "dashboard/(launcher)/_components/account-bottom-nav.tsx",
+        "dashboard/(launcher)/_components/board-examples.tsx",
         "dashboard/(launcher)/_components/create-event-panel.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
@@ -5977,6 +5978,7 @@
         "EventPoster",
         "EventScene",
         "EventsThumbRow",
+        "ExamplePreview",
         "Flash",
         "ForTagMark",
         "GlassEventCard",
@@ -5992,6 +5994,7 @@
         "NewEventCard",
         "NewThingTile",
         "PermanenceWarning",
+        "PlanningExample",
         "PlanningHeaderActions",
         "PutAwaySwitch",
         "QuietScheduleRefresh",
@@ -6000,6 +6003,7 @@
         "RemoveDialog",
         "SaveFileLink",
         "SectionLabel",
+        "ShelfExample",
         "ShelfInfo",
         "SidePanel",
         "Spotlight",
@@ -6009,6 +6013,7 @@
         "SupplierRecordsNote",
         "Tile",
         "UnreadBellBadge",
+        "WorthPlanningExample",
         "YearMomentsList",
         "YearMomentsStrip"
       ]
@@ -6291,6 +6296,7 @@
         "EventTeamPresence",
         "EventTeamPresenceState",
         "EventVendorRowInput",
+        "ExamplePreview",
         "ExpandCard",
         "FaceBody",
         "FaceFigure",
@@ -6651,6 +6657,7 @@
     },
     "/dashboard/[eventId]/budget": {
       "files": [
+        "dashboard/[eventId]/budget/_components/budget-example.tsx",
         "dashboard/[eventId]/budget/_components/budget-figures.tsx",
         "dashboard/[eventId]/budget/_components/budget-file-actions.tsx",
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
@@ -6678,6 +6685,7 @@
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
+        "BudgetExample",
         "BudgetFigures",
         "BudgetFileActions",
         "BudgetLegendRight",
@@ -6691,6 +6699,7 @@
         "DeleteCostResult",
         "DeniedState",
         "EventMoney",
+        "ExamplePreview",
         "ExpenseGroup",
         "ExpenseRow",
         "ExpenseSheet",
@@ -6703,11 +6712,13 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "Head",
         "InfoTip",
         "ListFilter",
         "ListPageSkeleton",
         "OrderGroup",
         "OrderRow",
+        "Owed",
         "OwedLine",
         "PageMasthead",
         "PaySheet",
@@ -7113,6 +7124,7 @@
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
+        "dashboard/[eventId]/guests/_components/guests-example.tsx",
         "dashboard/[eventId]/guests/_components/guests-excel-button.tsx",
         "dashboard/[eventId]/guests/_components/guests-filter-menu.tsx",
         "dashboard/[eventId]/guests/_components/guests-filter-panel.tsx",
@@ -7236,6 +7248,7 @@
         "DeleteGuestWarning",
         "EmptyState",
         "EventViewer",
+        "ExamplePreview",
         "Explain",
         "FactRow",
         "File",
@@ -7287,6 +7300,7 @@
         "GuestSeatPreview",
         "GuestSeatViewSaved",
         "GuestSide",
+        "GuestsExample",
         "GuestsExcelContext.Provider",
         "GuestsFilter",
         "GuestsFilterPanel",
@@ -8012,6 +8026,7 @@
         "EventKindLineInput",
         "EventPoster",
         "EventSettingsInput",
+        "ExamplePreview",
         "Explain",
         "Face",
         "FactRow",
@@ -8083,6 +8098,7 @@
         "HubSectionCanvas",
         "HubSettingsGear",
         "HubStage",
+        "HubStageExample",
         "ISeg",
         "ISegmented",
         "Icon",
@@ -9020,6 +9036,7 @@
         "ChapterThumbRow",
         "ChaptersApi",
         "ChaptersContext.Provider",
+        "ChaptersExample",
         "ChaptersFrame",
         "ChaptersHost",
         "ChosenRow",
@@ -9037,6 +9054,7 @@
         "EmceeScriptButton",
         "EmptyRail",
         "EventDayView",
+        "ExamplePreview",
         "Eyebrow",
         "FactRow",
         "FeedPageSkeleton",
@@ -10537,6 +10555,7 @@
         "BookedRoomLine",
         "BookedRowItem",
         "BookedRowList",
+        "BookedRowsExample",
         "BookedSlot",
         "BookedStandIns",
         "BookedWhere",
@@ -10608,6 +10627,7 @@
         "DownpaymentModal",
         "EventDateSaveResult",
         "EventVendorRowInput",
+        "ExamplePreview",
         "ExceptionModal",
         "Explain",
         "ExploreInfoToggle",
@@ -12192,6 +12212,29 @@
         "UploadOutcome"
       ]
     },
+    "/dev/empty-looks-lab": {
+      "files": [
+        "dev/empty-looks-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/empty-looks-lab"
+      ],
+      "actions": [],
+      "blocks": [
+        "ChaptersExample",
+        "CollectionEmptyState",
+        "DashedLine",
+        "EmptyYear",
+        "EventBoard",
+        "HubStage",
+        "Link",
+        "MemoriesExample",
+        "PlanningExample",
+        "Shelf",
+        "ShelfExample",
+        "UserBoard"
+      ]
+    },
     "/dev/favorites-lab": {
       "files": [
         "dev/favorites-lab/page.tsx"
@@ -12297,6 +12340,7 @@
         "GuestRow",
         "GuestSeatPreview",
         "GuestSetupRows",
+        "GuestsExample",
         "GuestsScreen",
         "InspectorLayout",
         "InspectorSheetAlone",
@@ -12930,6 +12974,30 @@
         "CheckADateLink",
         "Link",
         "Wordmark"
+      ]
+    },
+    "/dev/shop-card-lab": {
+      "files": [
+        "dev/shop-card-lab/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]",
+        "/flowerstore-ph",
+        "/lab-cover-logo-badges",
+        "/lab-nothing",
+        "/rondo-musical",
+        "/saysay-host-and-band",
+        "/setnaprod"
+      ],
+      "actions": [],
+      "blocks": [
+        "Avatar",
+        "DiscoverEventCard",
+        "FrontDoorShell",
+        "NowShopCard",
+        "SampleMarker",
+        "ShopBadgeFacts",
+        "ShopCard"
       ]
     },
     "/dev/shop-layout-lab": {
@@ -13851,6 +13919,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DateCalendar",
         "EventNeeds",
         "Eyebrow",
@@ -13864,6 +13933,7 @@
         "NeedPreset",
         "NeedsStep",
         "OpenMultiselect",
+        "PickMenu",
         "Roster",
         "SelfCelebrantLock",
         "ServicesStep",
@@ -13872,6 +13942,8 @@
         "SetupAnswers",
         "SetupCard",
         "SpecialtyFields",
+        "StepBar",
+        "StepPick",
         "Title"
       ]
     },
@@ -13893,6 +13965,7 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "ActionButton",
         "CarriedHonoreeFields",
         "EventNeeds",
         "FirstRunBrand",
@@ -13909,6 +13982,7 @@
         "SetupCard",
         "SimpleSetupFlow",
         "SimpleSuppliersOnContext.Provider",
+        "StepBar",
         "SubmitButton"
       ]
     },
@@ -13941,6 +14015,7 @@
         "signUp"
       ],
       "blocks": [
+        "ActionButton",
         "AlreadyPlanningWedding",
         "Ans",
         "AreaCard",
@@ -13993,8 +14068,15 @@
         "Sk",
         "SongBankStep",
         "SongPreviewList",
+        "StepActions",
+        "StepBar",
+        "StepField",
+        "StepGroup",
+        "StepPick",
+        "StepRows",
         "SubmitButton",
         "TurnstileField",
+        "TypedRow",
         "VenueRoleRow",
         "WeddingCard",
         "WeddingCountdown",
@@ -14051,6 +14133,7 @@
         "EventTiles",
         "Fill",
         "FirstRunBrand",
+        "Fold",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -16033,6 +16116,7 @@
       "files": [
         "vendor-dashboard/collections/_components/collections-list.tsx",
         "vendor-dashboard/collections/_components/portfolio-groups.tsx",
+        "vendor-dashboard/collections/_components/portfolio-sections.tsx",
         "vendor-dashboard/collections/_components/portfolio-settings.tsx",
         "vendor-dashboard/collections/_components/portfolio-show.tsx",
         "vendor-dashboard/collections/_components/portfolio-view.tsx",
@@ -16045,6 +16129,7 @@
       "destinations": [
         "/[seg]",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/shop",
         "/vendor-dashboard/shop/promote",
         "/vendor-dashboard/website"
@@ -16054,18 +16139,14 @@
       ],
       "blocks": [
         "ActionButton",
-        "AlbumGrid",
-        "AlbumRow",
-        "Badge",
+        "AddTile",
         "BodyPanel",
-        "CollectionKey",
-        "CollectionRowView",
         "CollectionsData",
-        "CollectionsFilter",
         "CollectionsList",
-        "Cover",
         "DatesRow",
-        "EmptyLine",
+        "DoorButton",
+        "EmptyRail",
+        "ExamplePreview",
         "Fold",
         "FormRows",
         "GalleryMedia",
@@ -16077,25 +16158,29 @@
         "KeepAnswer",
         "Link",
         "MenuSettingsButton",
-        "PickCircle",
+        "MorePill",
+        "MorePills",
+        "Open",
+        "OpenedCollection",
         "PickMenu",
         "PinWord",
-        "PortfolioCard",
-        "PortfolioGroupsView",
+        "PortfolioSection",
         "PortfolioSettings",
         "PortfolioShow",
+        "PortfolioUploadDoor",
         "PortfolioView",
         "PutOnPageResult",
+        "Rail",
         "Sheet",
-        "ShowAlbum",
-        "StoriesGroup",
         "SupplierHero",
         "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
-        "SwitchTrack",
         "ThumbRow",
+        "Tile",
+        "TileFace",
         "TypedRow",
+        "UploadDoor",
         "VideoLinks"
       ]
     },

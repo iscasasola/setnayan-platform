@@ -85,7 +85,6 @@ export default async function YourCollectionsPage({
         vendorId={d.vendorId}
         input={d.input}
         saved={d.saved}
-        previews={d.previews}
         showAlbums={showAlbums}
         photos={d.portfolioRefs.length}
         videoLinks={d.galleryVideoLinks.length}
@@ -101,6 +100,16 @@ export default async function YourCollectionsPage({
         hero={hero}
         moodboard={d.input.moodboard && d.input.moodboard.allowed ? { looks: d.input.moodboard.looks, declined: d.input.moodboard.declined } : null}
         songs={songs}
+        instagramPhotos={showAlbums.instagram?.urls ?? []}
+        // 📂 The ONE uploader's facts, from the reads this page already made — an empty On my page's Upload opens the
+        // device's picker in place (owner 11 Nov "c. yes"), priced exactly as the uploader below would.
+        uploadFacts={{
+          vendorProfileId: d.vendorId,
+          storedRefs: d.portfolioRefs,
+          free: d.portfolioMax,
+          allowanceUnread: d.portfolioAllowanceUnread,
+          walletBalance: d.walletBalance,
+        }}
         gallery={
           <GalleryMedia
             vendorProfileId={d.vendorId}

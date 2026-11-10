@@ -229,7 +229,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',
   'customers-search': 'app/vendor-dashboard/customers/page.tsx',
   'customers-add': 'app/vendor-dashboard/customers/page.tsx',
-  'collections-filter': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
+  // Approved Portfolio (owner 9 Nov): the filter left; the ⚙ on the Portfolio band is the "Who sees what" stop.
+  'collections-gear': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
   'collections-list': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
   // THE ONE BUILD (C4): the Portfolio tab's thumb row draws it (`portfolio-view.tsx`).
   'collections-add': 'app/vendor-dashboard/collections/_components/portfolio-view.tsx',

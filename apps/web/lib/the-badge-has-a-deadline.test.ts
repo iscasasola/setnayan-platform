@@ -102,6 +102,7 @@ const FILES = scannedFiles();
  * 2026-09-11) against what the value actually feeds.
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  ['lib/vendor-tier-lapse.ts', { count: 1, why: 'endedPlanReadsFree: an ended paid plan falls back to the PLAN STATE "verified" vs "free" (the tier the gates enforce), not a rendered Verified badge' }],
   [
     'lib/admin/supplier-work.server.ts',
     { count: 1, why: 'Admin › Work only: marks a flagged card from a shop that is not yet listed as verified (public_visibility) — a moderation note for staff, never a rendered Verified badge.' },

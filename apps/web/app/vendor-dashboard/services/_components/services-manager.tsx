@@ -22,8 +22,9 @@ import { readPlanHolds } from '@/lib/service-plan-hold.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { StayOnSection } from './stay-on-section';
-import { ServiceCardMenuRow } from './service-card-menu-row';
-import { serviceCardAddress } from '@/lib/service-card-address';
+import { ServiceCardItem } from './service-card-item';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
@@ -63,6 +64,7 @@ import { Field } from '@/app/_components/forms/field';
 import {
   createVendorService,
   proposeCategory,
+  removeVendorServiceFromList,
   toggleVendorServiceActive,
 } from '../actions';
 import {
@@ -208,6 +210,12 @@ export async function VendorServicesManager({
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(supabase, serviceIdList)
     : new Map<string, CompiledCardRecord>();
+
+  // 🔒 WHO BOOKED EACH CARD, AND WHICH BOOKINGS ARE STILL OPEN (owner 10 Nov on PR #7464: no delete and no turning off
+  // until every booking is complete). ONE read for every card on the page, on the ADMIN client because
+  // `event_vendors` admits no shop — `serviceIdList` is this shop's own cards, read on its own session above. A refused
+  // read is `null`: the swipe then says "could not check" and deletes nothing (never "nobody booked").
+  const cardBookings = await readCardBookings(createAdminClient(), serviceIdList);
 
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
@@ -786,7 +794,7 @@ export async function VendorServicesManager({
           // 🧾 EMPTY LOOKS FINISHED (Lane E): one line + New service — the shared part (`services-empty-card.tsx`).
           <ServicesEmptyCard />
         ) : (
-          <ul className="space-y-2.5" data-shop-card-list="">
+          <ul className="space-y-5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const showCovHeader = i === 0 || groupLabelOf(listedServices[i - 1]!) !== groupLabelOf(svc);
               const covHeaderLabel = groupLabelOf(svc);
@@ -832,11 +840,9 @@ export async function VendorServicesManager({
               const svcInclusions =
                 inclusionsByService.get(svc.vendor_service_id) ?? [];
               const planHold = planHolds?.get(svc.vendor_service_id) ?? null;
-              // 🃏 THE CARD, THEN ONE MENU ROW UNDER IT — Edit · Share · Go online (owner 10 Nov, DECISION_LOG
-              // "SHOP › SERVICES: THE CARD, THEN ONE MENU ROW UNDER IT"). The card shows FULL WIDTH: the side copy
-              // icon and the side Online/Offline switch are gone (Duplicate lives in the Card Maker's "Live · delete
-              // · copy" fold), and the old "Edit · every field" row is this row. Tapping the card face opens the
-              // Card Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
+              // 🃏 THE CARD, THEN ONE ROW UNDER IT — Edit · Share icons, then the Online/Offline switch; swipe left to
+              // delete (owner 10 Nov on PR #7464). No frame around card + row. Tapping the card face opens the Card
+              // Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
               const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}${
                 offPeakPrefillId === svc.vendor_service_id
                   ? `?offpeak=1${suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''}${
@@ -864,39 +870,14 @@ export async function VendorServicesManager({
                       ) : null}
                     </li>
                   ) : null}
-                <li
-                  id={`svc-${svc.vendor_service_id}`}
+                <ServiceCardItem
+                  liId={`svc-${svc.vendor_service_id}`}
                   // 🔎 Shop's thumb row narrows these in place (THE ONE BUILD, `shop-services-thumb.tsx`): its words,
-                  // whether it is live, and its name for "Sort · Name".
-                  data-shop-card=""
-                  data-shop-card-live={svc.is_active ? '1' : '0'}
-                  data-shop-card-name={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
-                  className="scroll-mt-24 overflow-hidden rounded-2xl border"
-                  style={{
-                    borderColor:
-                      offPeakPrefillId === svc.vendor_service_id
-                        ? 'var(--m-orange-3)'
-                        : 'var(--m-line)',
-                    background: 'var(--m-paper)',
-                    // No greyed-out card (owner 2026-11-10, "removing that greyed out look"): the menu row's Go online /
-                    // Go offline says which it is; dimming the whole card also dimmed the card couples will see.
-                  }}
-                >
-                  {/* THE ACTUAL CARD · assigned · reach, then the menu row (Edit · Share · Go online)
-                      Owner 2026-09-08: *"we want to show the actual service
-                      cards."* This row used to be a grey wrench glyph, the
-                      title and one line of text, while the real card lived only
-                      inside the collapsed editor below. It is the same
-                      card the PUBLIC PROFILE renders, built by the same
-                      `toServiceCard` — see `lib/service-card-view-model`.
-
-                      The supplier-only facts (assigned-to, coverage, hidden,
-                      reach) STAY, under the card. They are not on the couple's
-                      card and never should be, but they are exactly what a shop
-                      scans a list for. */}
-                  <div className="space-y-2 p-4">
-                    {/* The card face is a door into the Card Maker: a stretched link BESIDE the card (never around it),
-                        so the card's own lifted parts (the showcase clip) stay usable in place. */}
+                  // whether it is live, and its name for "Sort · Name". The <li> draws NO frame (owner 10 Nov on
+                  // PR #7464: "You placed the service card inside another frame. No.").
+                  live={svc.is_active}
+                  nameLower={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
+                  face={
                     <div className="relative" data-card-face={svc.vendor_service_id}>
                       {/* THE COUPLE'S OWN CARD, not a vendor-side lookalike.
                           Same `toServiceCard` the public profile calls and the
@@ -940,6 +921,24 @@ export async function VendorServicesManager({
                         data-card-face-opens=""
                       />
                     </div>
+                  }
+                  row={{
+                    vendorServiceId: svc.vendor_service_id,
+                    cardName,
+                    isActive: svc.is_active,
+                    held: planHold?.hold === 'held',
+                    editHref,
+                  }}
+                  action={toggleVendorServiceActive}
+                  deleteRefusal={
+                    cardBookings
+                      ? openBookingsRefusal(cardBookings.get(svc.vendor_service_id)?.open ?? [])
+                      : BOOKINGS_UNREAD
+                  }
+                  warningLines={deleteWarningLines(cardBookings?.get(svc.vendor_service_id)?.picked ?? 0)}
+                  remove={removeVendorServiceFromList}
+                  below={
+                    <>
                     <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
                       {paxLabel} · assigned to {branchLabel}
                       {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
@@ -999,20 +998,6 @@ export async function VendorServicesManager({
                         {NOT_IN_WHAT_YOU_DO}
                       </p>
                     ) : null}
-                  </div>
-
-                  <div className="border-t px-4 py-3" style={{ borderColor: 'var(--m-line)' }}>
-                    <ServiceCardMenuRow
-                      vendorServiceId={svc.vendor_service_id}
-                      cardName={cardName}
-                      isActive={svc.is_active}
-                      held={planHold?.hold === 'held'}
-                      editHref={editHref}
-                      sharePath={serviceCardAddress({ businessSlug: profile.business_slug, row: svc })}
-                      action={toggleVendorServiceActive}
-                    />
-                  </div>
-
                   {/* Card record — outside <details> on purpose: the whole point
                       is that the vendor SEES what the card has compiled without
                       opening the editor. Renders only once the card has
@@ -1022,20 +1007,21 @@ export async function VendorServicesManager({
                     const rec = cardRecordByService.get(svc.vendor_service_id);
                     if (!cardRecordHasSomethingToSayToTheShop(rec)) return null;
                     return (
-                      <div
-                        className="border-t px-4 pb-4 pt-3"
-                        style={{ borderColor: 'var(--m-line)' }}
-                      >
+                      <div className="pt-1">
                         <CardRecordSection record={rec} variant="vendor" />
                       </div>
                     );
                   })()}
-                </li>
+                    </>
+                  }
+                />
                 </Fragment>
               );
             })}
           </ul>
         )}
+        {/* The one Undo toast for the cards' swipe-delete (`deleteWithUndo`); it dedupes, so once is enough. */}
+        <UndoToastHost />
       </section>
 
       {/* Request a new category — the "Add coverage" on-ramp for services not in

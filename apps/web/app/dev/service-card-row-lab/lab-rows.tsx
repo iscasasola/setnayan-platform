@@ -1,17 +1,20 @@
 'use client';
 
 /**
- * The lab's two frames of Shop › Services cards. PROPOSED mounts the SHIPPED `ServiceCardMenuRow` under the SHIPPED
- * `ServiceCardView`; its Go online saves through a stand-in that answers with the real gate (`unmetPublishRequirements`
- * → `publishRefusalFor`), so a refusal reads exactly as the server's. NOW is the row as it drew on origin/main before the
- * menu row (side copy icon · side Online/Offline switch · "Edit · every field"), frozen here for the side-by-side ONLY.
+ * The lab's two frames of Shop › Services cards. PROPOSED mounts the SHIPPED `ServiceCardItem` (no frame · the SHIPPED
+ * `ServiceCardView` in the shipped `SwipeToDelete` · the SHIPPED `ServiceCardMenuRow`). Its switch saves through a
+ * stand-in that answers with the real gates — going online: `publishRefusalFor`; going offline: the open bookings
+ * (`openBookingsRefusal`, worded on the server page) — and its delete through a stand-in that never touches a database.
+ * NOW is the row as it drew on origin/main (side copy icon · side Online/Offline switch · "Edit · every field"), frozen
+ * here for the side-by-side ONLY.
  */
 import Link from 'next/link';
 import { ChevronRight, Copy } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-import { ServiceCardMenuRow } from '@/app/vendor-dashboard/services/_components/service-card-menu-row';
+import { ServiceCardItem } from '@/app/vendor-dashboard/services/_components/service-card-item';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { toggleVendorServiceActive } from '@/app/vendor-dashboard/services/actions';
 import { publishRefusalFor, unmetPublishRequirements, type PublishFacts } from '@/lib/service-publish-gate';
 import type { StaySave } from '@/app/_components/stay-form';
@@ -22,18 +25,61 @@ export type LabCard = {
   live: boolean;
   card: ServiceCard;
   facts: PublishFacts;
-  sharePath: string | null;
   factsLine: string;
+  /** Worded on the server page with the real `openBookingsRefusal` / `deleteWarningLines`. */
+  offlineRefusal: string | null;
+  deleteRefusal: string | null;
+  warningLines: string[];
 };
 
-function standIn(facts: PublishFacts): StaySave {
-  return async () => {
-    const refusal = publishRefusalFor(unmetPublishRequirements(facts));
+function standIn(c: LabCard): StaySave {
+  return async (_door, fd) => {
+    const goingOnline = fd.get('is_active') === 'true';
+    const refusal = goingOnline ? publishRefusalFor(unmetPublishRequirements(c.facts)) : c.offlineRefusal;
     return refusal ? { ok: false, error: refusal } : { ok: true };
   };
 }
 
+async function labRemove(): Promise<{ ok: true; retired: boolean }> {
+  return { ok: true, retired: false };
+}
+
 export function LabRows({ cards, now }: { cards: LabCard[]; now: boolean }) {
+  if (!now) {
+    return (
+      <>
+        <ul className="space-y-5" data-shop-card-list="">
+          {cards.map((c) => (
+            <ServiceCardItem
+              key={c.id}
+              liId={`svc-${c.id}`}
+              live={c.live}
+              nameLower={c.name.toLowerCase()}
+              face={
+                <div className="relative" data-card-face={c.id}>
+                  <ServiceCardView card={c.card} detailsEnabled={false} />
+                  <Link href="#" aria-label={`Open ${c.name} in the Card Maker`} className="absolute inset-0 rounded-xl" data-card-face-opens="" />
+                </div>
+              }
+              row={{ vendorServiceId: c.id, cardName: c.name, isActive: c.live, held: false, editHref: '#' }}
+              action={toggleVendorServiceActive}
+              save={standIn(c)}
+              deleteRefusal={c.deleteRefusal}
+              warningLines={c.warningLines}
+              remove={labRemove}
+              below={
+                <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  {c.factsLine}
+                  {c.live ? '' : ' · hidden'}
+                </p>
+              }
+            />
+          ))}
+        </ul>
+        <UndoToastHost />
+      </>
+    );
+  }
   return (
     <ul className="space-y-2.5" data-shop-card-list="">
       {cards.map((c) => (
@@ -65,32 +111,7 @@ export function LabRows({ cards, now }: { cards: LabCard[]; now: boolean }) {
                 <ChevronRight aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
               </Link>
             </>
-          ) : (
-            <>
-              <div className="space-y-2 p-4">
-                <div className="relative" data-card-face={c.id}>
-                  <ServiceCardView card={c.card} detailsEnabled={false} />
-                  <Link href="#" aria-label={`Open ${c.name} in the Card Maker`} className="absolute inset-0 rounded-xl" data-card-face-opens="" />
-                </div>
-                <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                  {c.factsLine}
-                  {c.live ? '' : ' · hidden'}
-                </p>
-              </div>
-              <div className="border-t px-4 py-3" style={{ borderColor: 'var(--m-line)' }}>
-                <ServiceCardMenuRow
-                  vendorServiceId={c.id}
-                  cardName={c.name}
-                  isActive={c.live}
-                  held={false}
-                  editHref="#"
-                  sharePath={c.sharePath}
-                  action={toggleVendorServiceActive}
-                  save={standIn(c.facts)}
-                />
-              </div>
-            </>
-          )}
+          ) : null}
         </li>
       ))}
     </ul>

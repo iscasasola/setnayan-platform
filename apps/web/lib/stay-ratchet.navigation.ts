@@ -67,6 +67,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/vendor-dashboard/proposals/actions.ts › sendProposal": "stays on /proposals/{id} with `?notice=`",
   "app/vendor-dashboard/services/actions.ts › commitVendorService": "service wizard commit → services list",
   "app/vendor-dashboard/services/actions.ts › deleteVendorService": "delete service → services list (delete-then-leave)",
+  "app/vendor-dashboard/services/actions.ts › removeVendorServiceFromList": "its only redirects are the gates in ensureProfile (signed out → /login, no shop → /vendor-dashboard); the list's swipe-delete returns { ok, retired } in place (deleteWithUndo) and never leaves the screen",
   "app/vendor-dashboard/subscription/actions.ts › startSubscriptionPurchase": "checkout → /pay",
   "app/vendor-dashboard/subscription/ai-addon-actions.ts › activateVendorAiAddon": "checkout → /pay",
   "app/vendor-dashboard/subscription/booth-addon-actions.ts › activateVendor3dBooth": "checkout → /pay",

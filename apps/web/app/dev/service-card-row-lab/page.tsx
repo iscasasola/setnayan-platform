@@ -1,19 +1,19 @@
 /**
- * /dev/service-card-row-lab — Shop › Services: the card, then ONE menu row under it — Edit · Share · Go online (owner
- * 10 Nov, DECISION_LOG "SHOP › SERVICES: THE CARD, THEN ONE MENU ROW UNDER IT — EDIT · SHARE · GO ONLINE"; Build 5
- * Lane C). DEV-ONLY; production 404s it. No sign-in, no database.
+ * /dev/service-card-row-lab — Shop › Services: the card (no frame), then ONE row under it — Edit · Share icons and the
+ * Online/Offline switch; swipe left to delete (owner 10 Nov on PR #7464; Build 5 Lane C). DEV-ONLY; production 404s
+ * it. No sign-in, no database.
  *
- *   ?v=proposed (default)  the SHIPPED `ServiceCardMenuRow` under the SHIPPED `ServiceCardView` (cards built by the real
- *                          `toServiceCard`): a live card and an offline draft missing its cover AND what's included.
- *                          Press Go online on the draft: the stand-in answers with the real gate, so the refusal names
- *                          every missing thing, on its own line under the row.
+ *   ?v=proposed (default)  the SHIPPED `ServiceCardItem` (cards built by the real `toServiceCard`): a live card with two
+ *                          open bookings (turn it off / swipe it → refused, each booking named) and an offline draft
+ *                          missing its cover AND what's included (turn it on → refused for both; swipe it → the
+ *                          warning, then the shipped Undo).
  *   ?v=now                 the row as it drew before (side copy icon · side Online/Offline switch · "Edit · every
  *                          field"), frozen in `lab-rows.tsx` for the side-by-side ONLY.
  */
 import { notFound } from 'next/navigation';
 import { toServiceCard } from '@/lib/service-card-view-model';
 import type { VendorServiceRow } from '@/lib/vendor-services';
-import { serviceCardAddress } from '@/lib/service-card-address';
+import { deleteWarningLines, openBookingsRefusal, type OpenBooking } from '@/lib/service-open-bookings';
 import { coverIsSet, inclusionsAreSet, priceIsSet } from '@/lib/service-publish-gate';
 import { LabRows, type LabCard } from './lab-rows';
 
@@ -58,7 +58,7 @@ function row(over: Partial<VendorServiceRow> & Pick<VendorServiceRow, 'vendor_se
   } as VendorServiceRow;
 }
 
-const FIXTURES: { row: VendorServiceRow; inclusions: string[]; photos: string[] }[] = [
+const FIXTURES: { row: VendorServiceRow; inclusions: string[]; photos: string[]; picked: number; open: OpenBooking[] }[] = [
   {
     row: row({
       vendor_service_id: '00000000-0000-4000-8000-00000000ca01',
@@ -68,6 +68,12 @@ const FIXTURES: { row: VendorServiceRow; inclusions: string[]; photos: string[] 
     }),
     inclusions: ['Sound system', '4 sets of 45 minutes'],
     photos: ['/realstories/maria-juan-tagaytay.jpg', '/realstories/jack-rose-baguio.jpg'],
+    // Two couples' bookings not yet complete: turning it off, and deleting it, are refused — each named.
+    picked: 3,
+    open: [
+      { eventName: 'Maria & Juan’s Wedding', eventDate: '2026-12-12' },
+      { eventName: 'Jack & Rose’s Wedding', eventDate: '2027-02-14' },
+    ],
   },
   {
     // The owner's 10 Nov screenshot: offline, no cover photo AND no "what's included" — refused for the photo alone.
@@ -81,6 +87,9 @@ const FIXTURES: { row: VendorServiceRow; inclusions: string[]; photos: string[] 
     }),
     inclusions: [],
     photos: [],
+    // Nobody ever picked it: swipe left warns first, then deletes (with the shipped Undo).
+    picked: 0,
+    open: [],
   },
 ];
 
@@ -88,7 +97,7 @@ export default async function ServiceCardRowLabPage({ searchParams }: { searchPa
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const now = sp.v === 'now';
-  const cards: LabCard[] = FIXTURES.map(({ row: r, inclusions, photos }) => ({
+  const cards: LabCard[] = FIXTURES.map(({ row: r, inclusions, photos, picked, open }) => ({
     id: r.vendor_service_id,
     name: r.title ?? 'Live Band',
     live: r.is_active,
@@ -110,15 +119,17 @@ export default async function ServiceCardRowLabPage({ searchParams }: { searchPa
       hasPrice: priceIsSet(r.starting_price_php),
       hasInclusions: inclusionsAreSet(inclusions),
     },
-    sharePath: serviceCardAddress({ businessSlug: 'saysay-live-band', row: r }),
     factsLine: 'flat · assigned to You',
+    offlineRefusal: openBookingsRefusal(open),
+    deleteRefusal: openBookingsRefusal(open),
+    warningLines: deleteWarningLines(picked),
   }));
 
   return (
     <main className="mx-auto w-full max-w-xl space-y-4 px-4 py-6">
       <div className="space-y-1">
         <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
-        <p className="text-xs text-ink/55">Lab · My Shop › Services — {now ? 'Now (before the menu row)' : 'Proposed: the card, then Edit · Share · Go online'}</p>
+        <p className="text-xs text-ink/55">Lab · My Shop › Services — {now ? 'Now (origin/main)' : 'Proposed: the card, then Edit · Share · Online/Offline — swipe left to delete'}</p>
       </div>
       <LabRows cards={cards} now={now} />
     </main>

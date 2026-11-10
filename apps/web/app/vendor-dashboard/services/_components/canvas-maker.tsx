@@ -252,6 +252,7 @@ export function CanvasMaker({
   recordSlot = null,
   editing = null,
   bookedNow,
+  deleteGate = null,
   errorLine = null,
   returnTo,
   unread = [],
@@ -322,6 +323,12 @@ export function CanvasMaker({
    * (`BOOKED_PRICE_STAYS_SUPPLIER`, DECISION_LOG 2026-11-10 "WHAT YOU BOOK IS YOUR PRICE").
    */
   bookedNow?: number | null;
+  /**
+   * 🔒 THE DELETE SHEET'S TWO FACES (owner 10 Nov on PR #7464): `refusal` set → this card has an open booking (each named
+   * on its own line, `openBookingsRefusal`) and the sheet offers no Delete; else `lines` is the warning said BEFORE
+   * anything is deleted (`deleteWarningLines`). Absent (labs, the new-card maker) → the old one-line sheet.
+   */
+  deleteGate?: { refusal: string | null; lines: readonly string[] } | null;
   /** A refusal carried back on the address (`?error=`), said on the card. */
   errorLine?: string | null;
   /** This screen's own address — the save returns here with a refusal. */
@@ -944,7 +951,7 @@ export function CanvasMaker({
         <p
           role="alert"
           data-maker-error=""
-          className="rounded-2xl px-3.5 py-3 text-[14px] leading-snug"
+          className="whitespace-pre-line rounded-2xl px-3.5 py-3 text-[14px] leading-snug"
           style={{ background: 'color-mix(in srgb, rgb(var(--color-danger)) 10%, transparent)', color: 'rgb(var(--color-danger))' }}
         >
           {errorLine}
@@ -1791,14 +1798,36 @@ export function CanvasMaker({
       {/* Delete — its own form; a card anyone booked hides instead (said before the tap). */}
       {editing ? (
         <CanvasSheet id="canvas-delete" title="Delete this card?" open={sheet === 'delete'} onClose={() => setSheet(null)} confirmLabel={null}>
-          <p className="text-[15px] leading-snug text-ink/75">
-            If a couple ever booked or asked about it, it is hidden instead, so their record stays. Otherwise it is gone.
-          </p>
-          <form action={deleteVendorService} className="flex flex-wrap gap-2">
-            <input type="hidden" name="vendor_service_id" value={editing.serviceId} />
-            <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setSheet(null)} />
-            <SupplierSubmit tone="danger" main icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" pendingLabel="Deleting…" />
-          </form>
+          {deleteGate?.refusal ? (
+            // An open booking: no Delete at all — the same words the list's swipe and the server say.
+            <>
+              <p role="alert" className="whitespace-pre-line text-[15px] leading-snug text-terracotta-700" data-maker-delete-refusal="">
+                {deleteGate.refusal}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setSheet(null)} />
+              </div>
+            </>
+          ) : (
+            <>
+              {deleteGate ? (
+                <ul className="space-y-1.5 text-[15px] leading-snug text-ink/75" data-maker-delete-warning="">
+                  {deleteGate.lines.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[15px] leading-snug text-ink/75">
+                  If a couple ever booked or asked about it, it is hidden instead, so their record stays. Otherwise it is gone.
+                </p>
+              )}
+              <form action={deleteVendorService} className="flex flex-wrap gap-2">
+                <input type="hidden" name="vendor_service_id" value={editing.serviceId} />
+                <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setSheet(null)} />
+                <SupplierSubmit tone="danger" main icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" pendingLabel="Deleting…" />
+              </form>
+            </>
+          )}
         </CanvasSheet>
       ) : null}
 

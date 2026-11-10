@@ -18,6 +18,7 @@ import {
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import {
   deriveBranchStatus,
   fetchLatestBranchOrders,
@@ -1723,6 +1724,23 @@ export async function commitVendorService(formData: FormData) {
     if (overPlan) return back(overPlan);
   }
 
+  // 🔒 THE MAKER'S "Couples can see it" SWITCH TURNED OFF is the same go-offline as the list's switch — the same
+  // open-bookings refusal (`offlineRefusal`), so an open booking cannot be turned off from either place.
+  // Only a card that IS live is being turned off; saving an offline card as it is never asks.
+  if (!isCreate && !publish && serviceId) {
+    const { data: wasRow, error: wasError } = await supabase
+      .from('vendor_services')
+      .select('is_active')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    if (wasError) return back(BOOKINGS_UNREAD);
+    if ((wasRow as { is_active?: boolean | null } | null)?.is_active === true) {
+      const stillOpen = await offlineRefusal(supabase, profile.vendor_profile_id, serviceId);
+      if (stillOpen) return back(stillOpen);
+    }
+  }
+
   if (publish) {
     let alreadyLive = false;
     if (!isCreate) {
@@ -2279,6 +2297,29 @@ export async function commitVendorService(formData: FormData) {
   redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
 }
 
+/**
+ * 🔒 May this OWN card be turned off? `null` = yes. Else the sentence to show: its open bookings, each on its own line,
+ * or "could not check" — a card is never turned off on an unread read. Shared by the list's switch and the Card
+ * Maker's "Couples can see it" switch (`commitVendorService`), so the two can never disagree.
+ */
+async function offlineRefusal(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  vendorProfileId: string,
+  serviceId: string,
+): Promise<string | null> {
+  const { data: own, error: ownError } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_service_id', serviceId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (ownError) return BOOKINGS_UNREAD;
+  if (!own) return null; // not this shop's card — the update below matches nothing and says so
+  const bookings = (await readCardBookings(createAdminClient(), [serviceId]))?.get(serviceId) ?? null;
+  if (!bookings) return BOOKINGS_UNREAD;
+  return openBookingsRefusal(bookings.open);
+}
+
 export async function toggleVendorServiceActive(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 
@@ -2342,6 +2383,13 @@ export async function toggleVendorServiceActive(formData: FormData) {
     if (refusal) {
       return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
     }
+  }
+
+  // 🔒 TURNING A CARD OFF WAITS FOR ITS OPEN BOOKINGS (owner 10 Nov on PR #7464: *"You cannot turn off a service card
+  // until all booked completed."*). The refusal names each open booking on its own line; the switch stays Online.
+  if (!is_active) {
+    const stillOpen = await offlineRefusal(supabase, profile.vendor_profile_id, idRaw);
+    if (stillOpen) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(stillOpen)}`);
   }
 
   const { error } = await supabase
@@ -2452,6 +2500,31 @@ export async function deleteVendorService(formData: FormData) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
 
+  const r = await deleteOrRetireOwnService(supabase, profile, idRaw);
+  if (!r.ok) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(r.error)}`);
+  redirect(`${await servicesReturnBase()}${r.retired ? '?retired=1' : '?saved=1'}`);
+}
+
+/**
+ * 👈 THE SERVICES LIST'S SWIPE-LEFT DELETE (owner 10 Nov on PR #7464: *"swipe left to delete"*). The SAME delete as the
+ * Card Maker's (`deleteOrRetireOwnService`: a card anyone ever picked is RETIRED — hidden — never deleted), answered
+ * as a value instead of a redirect, because the list calls it from `deleteWithUndo` after the Undo window, with the
+ * card already hidden in place. 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
+ */
+export async function removeVendorServiceFromList(
+  vendorServiceId: string,
+): Promise<{ ok: true; retired: boolean } | { ok: false; error: string }> {
+  const { supabase, profile } = await ensureProfile();
+  if (typeof vendorServiceId !== 'string' || vendorServiceId.length === 0) return { ok: false, error: 'Missing service id' };
+  return deleteOrRetireOwnService(supabase, profile, vendorServiceId);
+}
+
+/** The one delete-or-retire, shared by the maker's Delete and the list's swipe. */
+async function deleteOrRetireOwnService(
+  supabase: Awaited<ReturnType<typeof ensureProfile>>['supabase'],
+  profile: Awaited<ReturnType<typeof ensureProfile>>['profile'],
+  idRaw: string,
+): Promise<{ ok: true; retired: boolean } | { ok: false; error: string }> {
   // A couple's booked row points here via `event_vendors.service_id`, and that
   // FK is ON DELETE **SET NULL** — so a hard delete does not fail, it silently
   // erases which service the couple booked, including on a `contracted` row.
@@ -2481,32 +2554,40 @@ export async function deleteVendorService(formData: FormData) {
     id the caller is proved to own on the very next statement. It reads one
     count and no rows.
   */
-  const { count: pickedCount, error: pickedError } = await createAdminClient()
-    .from('event_vendors')
-    .select('vendor_id', { count: 'exact', head: true })
-    .eq('service_id', idRaw);
+  //
+  // 🔒 AND A CARD WITH AN OPEN BOOKING IS NOT DELETED AT ALL (owner 10 Nov on PR #7464: *"You cannot delete a service
+  // card until all booked are complete."*). The SAME read answers both questions — who ever picked it, and which of
+  // those bookings are still open (`readCardBookings`, lib/service-open-bookings.ts). Ownership is proved FIRST, on the
+  // shop's own session, because the refusal names the couples' events.
+  const { data: own, error: ownError } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_service_id', idRaw)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (ownError) return { ok: false, error: BOOKINGS_UNREAD };
+  if (!own) return { ok: false, error: 'This card is not in your shop.' };
 
-  // ⚠ AND AN UNREADABLE COUNT MUST NOT MEAN ZERO. `count` comes back null on an
-  // error, and `?? 0` would send an unmeasured service straight down the DELETE
-  // branch — the same silence, one layer up. Fail toward RETIRING it: the shop
-  // sees the card leave their public page either way, and nobody loses a record.
-  if (pickedError || (pickedCount ?? 0) > 0) {
+  // ⚠ AN UNREADABLE READ MUST NOT MEAN "NOBODY BOOKED". It used to fail toward RETIRING (hiding) the card; with open
+  // bookings now a refusal, an unread read refuses outright — the card is neither deleted nor hidden on no evidence.
+  const bookings = (await readCardBookings(createAdminClient(), [idRaw]))?.get(idRaw) ?? null;
+  if (!bookings) return { ok: false, error: BOOKINGS_UNREAD };
+  const stillOpen = openBookingsRefusal(bookings.open);
+  if (stillOpen) return { ok: false, error: stillOpen };
+
+  if (bookings.picked > 0) {
     const { error: retireErr } = await supabase
       .from('vendor_services')
       .update({ is_active: false, updated_at: new Date().toISOString() })
       .eq('vendor_service_id', idRaw)
       .eq('vendor_profile_id', profile.vendor_profile_id);
 
-    if (retireErr) {
-      return redirect(
-        `${await servicesReturnBase()}?error=${encodeURIComponent(retireErr.message)}`,
-      );
-    }
+    if (retireErr) return { ok: false, error: retireErr.message };
 
     revalidateShopPage(profile.vendor_profile_id);
     revalidatePath('/vendor-dashboard/services');
     revalidatePath('/vendor-dashboard/shop');
-    return redirect(`${await servicesReturnBase()}?retired=1`);
+    return { ok: true, retired: true };
   }
 
   const { error } = await supabase
@@ -2515,13 +2596,9 @@ export async function deleteVendorService(formData: FormData) {
     .eq('vendor_service_id', idRaw)
     .eq('vendor_profile_id', profile.vendor_profile_id);
 
-  if (error) {
-    return redirect(
-      `${await servicesReturnBase()}?error=${encodeURIComponent(error.message)}`,
-    );
-  }
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath('/vendor-dashboard/services');
   revalidatePath('/vendor-dashboard/shop');
-  redirect(`${await servicesReturnBase()}?saved=1`);
+  return { ok: true, retired: false };
 }

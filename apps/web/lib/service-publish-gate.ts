@@ -172,16 +172,6 @@ export const PUBLISH_REFUSAL_MESSAGE: Record<PublishRequirement, string> = {
 };
 
 /**
- * Each requirement as the words that finish "Before this card can go online, add …" — the list form of the
- * refusal, used when MORE than one thing is missing.
- */
-export const PUBLISH_MISSING_WORDS: Record<PublishRequirement, string> = {
-  cover: 'a cover photo',
-  price: 'a starting price',
-  inclusions: 'what is included',
-};
-
-/**
  * 🃏 THE REFUSAL NAMES EVERY MISSING THING AT ONCE (owner 10 Nov, DECISION_LOG "SHOP › SERVICES: THE CARD, THEN ONE
  * MENU ROW UNDER IT — EDIT · SHARE · GO ONLINE": *"Why diesn't it go online?"* — the card lacked a cover photo AND
  * what's included, and the refusal named only the photo). The shop fixed one thing, pressed again, and was refused
@@ -189,7 +179,8 @@ export const PUBLISH_MISSING_WORDS: Record<PublishRequirement, string> = {
  *
  *   one missing   → that requirement's own whole sentence, byte for byte (`PUBLISH_REFUSAL_MESSAGE` — also the
  *                   database's sentence, so a raw PostgREST refusal reads the same)
- *   two or more   → ONE sentence naming every one, in the gate's order
+ *   two or more   → the approved prototype's frame F: "Not ready to go Online", then each missing thing on its own
+ *                   line in the Maker's own words (`PUBLISH_COACH_MESSAGE`), in the gate's order
  *   none          → null (nothing to refuse)
  *
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
@@ -197,9 +188,7 @@ export const PUBLISH_MISSING_WORDS: Record<PublishRequirement, string> = {
 export function publishRefusalFor(unmet: readonly PublishRequirement[]): string | null {
   if (unmet.length === 0) return null;
   if (unmet.length === 1) return PUBLISH_REFUSAL_MESSAGE[unmet[0]!];
-  const words = unmet.map((r) => PUBLISH_MISSING_WORDS[r]);
-  const list = `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
-  return `Before this card can go online, add ${list}. You can still save it as a draft.`;
+  return ['Not ready to go Online', ...unmet.map((r) => PUBLISH_COACH_MESSAGE[r])].join('\n');
 }
 
 /**

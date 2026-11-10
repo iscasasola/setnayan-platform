@@ -42,6 +42,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayLogoUrl } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
+import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
+import { heroPicture } from '@/lib/supplier-hero.server';
+import { shopCoverKey } from '@/lib/supplier-hero';
+import { cardBadges, type ShopBadge, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { readShopBadgeFactsForShops } from '@/lib/shop-badges.server';
 import {
   publishedBlogArticles,
   blogCategoryLabel,
@@ -204,9 +209,22 @@ export type FrontDoorStory = {
 export type FrontDoorShop = {
   href: string;
   name: string;
-  folderLabel: string;
+  /**
+   * The shop's group from Admin › Categories — the LIVE taxonomy (`getTaxonomy`), never the `TAXONOMY_MAP` constant
+   * (owner 10 Nov: a service the constant does not know read "Setnayan supplier"). Null = no category to name; the
+   * line then carries the city alone.
+   */
+  folderLabel: string | null;
   city: string | null;
   verified: boolean;
+  /**
+   * 🖼 THE BIG PICTURE (owner 10 Nov, "DISCOVER'S SHOP CARD — APPROVED"): the shop's COVER — `shopCoverKey` (Your
+   * page's pick, else the first portfolio photo), resolved by the hero's own `heroPicture`. No photo → the category's
+   * picture, `sample: true`, and the card says "Sample photo" so it never passes as their work.
+   */
+  cover: { url: string; sample: boolean };
+  /** 🏅 Up to two pills (`cardBadges`): Verified first, then the highest other. A fact that was not read wears none. */
+  badges: ShopBadge[];
   /**
    * The shop's resolved logo, or null → the card falls back to initials.
    *
@@ -305,41 +323,97 @@ export type FrontDoorData = {
    selects the same ones. */
 
 /**
- * One row → one card. Shared for the same reason the gate is: the logo here is
- * an `r2://` tag that must be resolved (a raw value in an <img> fails in
- * silence), and a second copy of that resolution is a second place to forget.
+ * Rows → cards. Shared for the same reason the gate is: the logo here is an `r2://` tag that must be resolved (a raw
+ * value in an <img> fails in silence), and a second copy of that resolution is a second place to forget.
  *
- * Returns null when the row has no address or no name — there would be nothing
- * to link to.
+ * ⚡ BATCHED (owner 10 Nov, the shop card): the live taxonomy is read once (`getTaxonomy`, cached per request) and the
+ * badges' stats once per TABLE for the whole shelf (`readShopBadgeFactsForShops`) — never one query per card. A row
+ * with no address or no name is dropped: there would be nothing to link to.
  */
+async function toFrontDoorShops(rows: readonly Record<string, unknown>[]): Promise<FrontDoorShop[]> {
+  const usable = rows.filter(
+    (row) => typeof row.business_slug === 'string' && row.business_slug && typeof row.business_name === 'string' && row.business_name,
+  );
+  if (usable.length === 0) return [];
+  const verifiedOf = (row: Record<string, unknown>) =>
+    // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own deadline, not verification_state alone.
+    hasVerifiedBadge({
+      verification_state: typeof row.verification_state === 'string' ? row.verification_state : null,
+      next_renewal_due_at: typeof row.next_renewal_due_at === 'string' ? row.next_renewal_due_at : null,
+    });
+  const idOf = (row: Record<string, unknown>) => (typeof row.vendor_profile_id === 'string' ? row.vendor_profile_id : '');
+  const [tax, facts] = await Promise.all([
+    getTaxonomy().catch(() => null),
+    (async (): Promise<Map<string, ShopBadgeFacts> | null> => {
+      try {
+        return await readShopBadgeFactsForShops(
+          createAdminClient(),
+          usable.filter((row) => idOf(row)).map((row) => ({
+            vendorProfileId: idOf(row),
+            verified: verifiedOf(row),
+            inBusinessSinceYear: typeof row.in_business_since_year === 'number' ? row.in_business_since_year : null,
+          })),
+        );
+      } catch (caught) {
+        logQueryError('app/_components/frontdoor/data.ts: shop badges', caught, {}, 'graceful_degrade');
+        return null;
+      }
+    })(),
+  ]);
+  return Promise.all(usable.map((row) => toFrontDoorShop(row, tax, facts, verifiedOf(row))));
+}
+
+/** The shop's group, from the LIVE taxonomy: its first service's group (a stored tile or group id also answers). */
+function folderLabelOf(services: readonly string[], tax: TaxonomySnapshot | null): string | null {
+  const first = services[0];
+  if (!first || !tax) return null;
+  const folder = tax.map[first]?.folder ?? tax.tileParent[first] ?? (tax.folderLabel[first] ? first : null);
+  return folder ? (tax.folderLabel[folder] ?? null) : null;
+}
+
+/** One row → one card, given the shelf's batched reads. */
 async function toFrontDoorShop(
   row: Record<string, unknown>,
-): Promise<FrontDoorShop | null> {
-  const { WEDDING_FOLDER_LABEL } = await import('@/lib/taxonomy');
-  const slug = typeof row.business_slug === 'string' ? row.business_slug : '';
-  const name = typeof row.business_name === 'string' ? row.business_name : '';
-  if (!slug || !name) return null;
-  const services = Array.isArray(row.services) ? (row.services as unknown[]) : [];
-  const first = services.find((s) => typeof s === 'string') as string | undefined;
-  const folder = first ? await folderOfService(first) : null;
+  tax: TaxonomySnapshot | null,
+  facts: Map<string, ShopBadgeFacts> | null,
+  verified: boolean,
+): Promise<FrontDoorShop> {
+  const slug = row.business_slug as string;
+  const services = (Array.isArray(row.services) ? (row.services as unknown[]) : []).filter(
+    (x): x is string => typeof x === 'string',
+  );
+  const portfolio = (Array.isArray(row.portfolio_r2_keys) ? (row.portfolio_r2_keys as unknown[]) : []).filter(
+    (x): x is string => typeof x === 'string',
+  );
+  const pick = typeof row.microsite_hero_photo_key === 'string' ? row.microsite_hero_photo_key : null;
+  const id = typeof row.vendor_profile_id === 'string' ? row.vendor_profile_id : '';
+  const [logoUrl, picture] = await Promise.all([
+    displayLogoUrl({ logo_url: typeof row.logo_url === 'string' ? row.logo_url : null }).catch(() => null),
+    // The shop page's own rule (`shopCoverKey`) and the hero's own resolver (`heroPicture`) — never a second rule.
+    heroPicture(shopCoverKey(portfolio, pick), services),
+  ]);
+  const shopFacts = facts?.get(id) ?? null;
   return {
     // The bare-root address is canonical; /v/[slug] is legacy.
     href: `/${slug}`,
-    logoUrl: await displayLogoUrl({
-      logo_url: typeof row.logo_url === 'string' ? row.logo_url : null,
-    }).catch(() => null),
-    name,
-    folderLabel: folder ? WEDDING_FOLDER_LABEL[folder] : 'Setnayan supplier',
+    logoUrl,
+    name: row.business_name as string,
+    folderLabel: folderLabelOf(services, tax),
     city: typeof row.location_city === 'string' ? row.location_city : null,
     isDemo: row.is_demo === true,
-    // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
-    // deadline, not verification_state alone.
-    verified: hasVerifiedBadge({
-      verification_state:
-        typeof row.verification_state === 'string' ? row.verification_state : null,
-      next_renewal_due_at:
-        typeof row.next_renewal_due_at === 'string' ? row.next_renewal_due_at : null,
-    }),
+    verified,
+    cover: { url: picture.url, sample: picture.kind === 'placeholder' },
+    // Unread facts → Verified alone when it is earned (it is the row's own fact), never a zero.
+    badges: cardBadges(
+      shopFacts ?? {
+        verified,
+        completedEvents: null,
+        trusted: null,
+        inBusinessSinceYear: null,
+        awards: [],
+        nowYear: new Date().getFullYear(),
+      },
+    ),
   };
 }
 
@@ -396,12 +470,7 @@ export async function searchLiveShops(
     return [];
   }
 
-  const out: FrontDoorShop[] = [];
-  for (const row of (data ?? []) as Record<string, unknown>[]) {
-    const shop = await toFrontDoorShop(row);
-    if (shop) out.push(shop);
-  }
-  return out;
+  return toFrontDoorShops((data ?? []) as Record<string, unknown>[]);
 }
 
 /**
@@ -416,8 +485,9 @@ async function loadLiveShops(
   /*
     ⚡ THE ROWS AND THE COUNT ARE THE SAME FOR EVERY VISITOR, so they are
     remembered (`rememberedLiveShopRows`, 60 s; cleared when a shop's listing
-    changes). What is NOT remembered: the logo's signed address and the Verified
-    badge's deadline — `toFrontDoorShop` below works both out on every view.
+    changes). What is NOT remembered: the logo's and cover's signed addresses, the
+    Verified badge's deadline and the badges' stats — `toFrontDoorShops` below works
+    them out on every view.
 
     A refused read is never remembered: it arrives here as `ReadRefused` with
     whichever half DID answer, and is logged and shown exactly as before — a
@@ -444,19 +514,10 @@ async function loadLiveShops(
     realCount = refusal.realCount ?? null;
   }
 
-  const shops: FrontDoorShop[] = [];
-  for (const row of rows) {
-    // The shop's own folder is resolved inside the shared mapper, through the
-    // taxonomy, so the card says the same word the rail and the search say.
-    const shop = await toFrontDoorShop(row);
-    if (shop) shops.push(shop);
-  }
+  // The shop's own group is resolved inside the shared mapper, through the LIVE taxonomy, so the card says the same
+  // word Admin › Categories does.
+  const shops = await toFrontDoorShops(rows);
   return { shops, count, realCount };
-}
-
-async function folderOfService(key: string) {
-  const { TAXONOMY_MAP } = await import('@/lib/taxonomy');
-  return TAXONOMY_MAP[key]?.folder ?? null;
 }
 
 /** The published articles as the front door's cards — newest first, capped for the grid. */

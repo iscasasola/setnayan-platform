@@ -36,6 +36,14 @@ import assert from 'node:assert/strict';
 import React from 'react';
 
 (globalThis as unknown as { React: unknown }).React = React;
+{
+  /* The front door's shop card draws ShopBadgePill, whose CSS module is its class names here — the same stub
+     discover-search-stays-on-page.test.ts uses. */
+  const Mod = require('node:module');
+  Mod._extensions['.css'] = (m: { exports: unknown }) => {
+    m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
+  };
+}
 
 /**
  * Does any anchor OPEN before a previous one has closed?

@@ -43,6 +43,7 @@ import {
   DISCOVER_SEARCH_CAPS,
   discoverCardMatchable,
   discoverSearchPattern,
+  hostPhotoRef,
   pickViewerRegion,
   selectDiscoverShelves,
   selectPeopleToFollow,
@@ -253,7 +254,7 @@ async function readViewerRegion(
  * The two row reads are remembered (`rememberedHostRows`); the rule that a name
  * travels only with a public profile is applied HERE, on every view.
  */
-async function readHosts(eventIds: string[]): Promise<Map<string, DiscoverHost[]> | null> {
+async function readHosts(eventIds: string[], me: string | null = null): Promise<Map<string, DiscoverHost[]> | null> {
   const out = new Map<string, DiscoverHost[]>();
   if (eventIds.length === 0) return out;
   let rows: HostRows;
@@ -270,19 +271,21 @@ async function readHosts(eventIds: string[]): Promise<Map<string, DiscoverHost[]
   const members = rows.members.filter(
     (r): r is { event_id: string; user_id: string } => !!r.user_id,
   );
-  const profile = new Map<string, { name: string | null; slug: string | null }>();
+  const profile = new Map<string, { name: string | null; slug: string | null; photoRef: string | null }>();
   for (const u of rows.users) {
     // ⛔ A name travels ONLY with a public profile — see `pickHost` in the core.
     const isPublic = u.public_profile_enabled === true && !u.deleted_at && !!u.slug;
     profile.set(u.user_id, {
       name: isPublic ? u.display_name : null,
       slug: isPublic ? u.slug : null,
+      // 📷 …and so does a photo — except the viewer's own (their own event wears their face; owner 10 Nov).
+      photoRef: (isPublic || (me !== null && u.user_id === me)) && !u.deleted_at ? (u.profile_photo_url ?? null) : null,
     });
   }
   for (const m of members) {
     const p = profile.get(m.user_id);
     const list = out.get(m.event_id) ?? [];
-    list.push({ userId: m.user_id, name: p?.name ?? null, publicSlug: p?.slug ?? null });
+    list.push({ userId: m.user_id, name: p?.name ?? null, publicSlug: p?.slug ?? null, photoRef: p?.photoRef ?? null });
     out.set(m.event_id, list);
   }
   return out;
@@ -385,6 +388,24 @@ async function dressCards(cards: DiscoverEventCard[]): Promise<void> {
     c.scene = scenes.get(c.key) ?? null;
     c.paper = papers.get(c.key) ?? null;
   }
+}
+
+/**
+ * 📷 THE HOST CIRCLE'S PHOTO (owner 10 Nov). The refs came with the ONE host read (`readHosts` — no read here); this
+ * only signs the one each card may wear (`hostPhotoRef`), the way "People to follow" does: `displayUrlForStoredAsset`
+ * then `renderableImageSrc`, so a private-bucket ref resolves to null and the initials show.
+ */
+async function dressHostPhotos(
+  cards: DiscoverEventCard[],
+  hosts: ReadonlyMap<string, readonly DiscoverHost[]>,
+  me: string | null,
+): Promise<void> {
+  await Promise.all(
+    cards.map(async (c) => {
+      const ref = hostPhotoRef(c, hosts.get(c.key) ?? [], me);
+      c.hostPhotoUrl = ref ? renderableImageSrc(await displayUrlForStoredAsset(ref).catch(() => null)) : null;
+    }),
+  );
 }
 
 export type { DressedEventCover } from '@/lib/event-cover-given';
@@ -615,7 +636,7 @@ async function readEventShelves(
   );
 
   const [hosts, typeLabels] = await Promise.all([
-    readHosts([...new Set(gated.map((e) => e.event_id))]),
+    readHosts([...new Set(gated.map((e) => e.event_id))], me),
     readTypeLabels(),
   ]);
   // Without the hosts no event can be placed in its layer honestly.
@@ -639,9 +660,12 @@ async function readEventShelves(
     shelves.people = shelves.people.filter(hit).slice(0, DISCOVER_SEARCH_CAPS.people);
     shelves.world = shelves.world.filter(hit).slice(0, DISCOVER_SEARCH_CAPS.world);
   }
-  await dressCards([...shelves.people, ...shelves.world]).catch((caught) =>
-    logQueryError('discover-events.covers', caught, {}, 'graceful_degrade'),
-  );
+  await Promise.all([
+    dressCards([...shelves.people, ...shelves.world]).catch((caught) =>
+      logQueryError('discover-events.covers', caught, {}, 'graceful_degrade'),
+    ),
+    dressHostPhotos([...shelves.people, ...shelves.world], hosts, me),
+  ]);
   return { ok: true, ...shelves };
 }
 

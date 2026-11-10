@@ -134,6 +134,11 @@ export type DiscoverHost = {
   /** Rendered ONLY when `publicSlug` is set — see `pickHost`. */
   name: string | null;
   publicSlug: string | null;
+  /**
+   * 📷 The stored photo ref — set by the loader ONLY for a public profile or the viewer's own row (owner 10 Nov; the
+   * "People to follow" consent: turning the public profile ON is the consent to show the photo). Never on a card raw.
+   */
+  photoRef?: string | null;
 };
 
 /**
@@ -174,6 +179,11 @@ export type DiscoverEventCard = {
   paper: DiscoverPaper | null;
   /** A host with a PUBLIC profile — their name is the card's second door. */
   host: { name: string; slug: string } | null;
+  /**
+   * 📷 The host circle's photo — a SIGNED address, filled by the loader (`hostPhotoRef` decides whose; absent/null =
+   * initials). Owner 10 Nov, DECISION_LOG "DISCOVER'S SHOP CARD — APPROVED" (event cards, same pass).
+   */
+  hostPhotoUrl?: string | null;
   regionLabel: string | null;
   relation: DiscoverRelation | null;
   /**
@@ -311,6 +321,26 @@ function pickHost(
   const mine = named.find((h) => people.has(h.userId));
   const h = mine ?? named[0];
   return h ? { name: h.name.trim(), slug: h.publicSlug } : null;
+}
+
+/**
+ * 📷 WHOSE PHOTO THE HOST CIRCLE WEARS (owner 10 Nov, DECISION_LOG "DISCOVER'S SHOP CARD — APPROVED"): the named host's
+ * — named only with a public profile, and turning it on is the consent to show the photo (`peopleToFollow`'s rule) —
+ * else, on the viewer's OWN event, the viewer's. Anyone else: null, and the circle keeps its initials.
+ */
+export function hostPhotoRef(
+  card: Pick<DiscoverEventCard, 'host' | 'relation'>,
+  hosts: readonly DiscoverHost[],
+  viewerId: string | null,
+): string | null {
+  if (card.host) {
+    const named = hosts.find((h) => h.publicSlug === card.host!.slug);
+    if (named?.photoRef) return named.photoRef;
+  }
+  if (card.relation === 'you' && viewerId) {
+    return hosts.find((h) => h.userId === viewerId)?.photoRef ?? null;
+  }
+  return null;
 }
 
 function toCard(

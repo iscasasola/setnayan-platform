@@ -33,9 +33,18 @@ export function DiscoverEventCard({ card }: { card: Card }) {
     <div className="fd-item" data-discover-card>
       <DiscoverEventCover card={card} />
       <div className="fd-imeta">
-        <span className="fd-ava" aria-hidden="true">
-          {shopInitials(card.host?.name ?? card.title, 2, '·')}
-        </span>
+        {/* 📷 The host's photo when the loader allowed one (`hostPhotoRef`: your own event, or a public profile — the
+            "People to follow" consent; owner 10 Nov), else initials. A plain <img>: the address is presigned. */}
+        {card.hostPhotoUrl ? (
+          <span className="fd-ava fd-ava-photo" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={card.hostPhotoUrl} alt="" loading="lazy" />
+          </span>
+        ) : (
+          <span className="fd-ava" aria-hidden="true">
+            {shopInitials(card.host?.name ?? card.title, 2, '·')}
+          </span>
+        )}
         <div className="fd-itxt">
           <p className="fd-ttl">
             <Link href={card.href} className="fd-stretch">

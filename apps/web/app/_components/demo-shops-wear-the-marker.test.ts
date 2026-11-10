@@ -113,10 +113,12 @@ const SURFACES: Surface[] = [
     draws: [/\{s\.isDemo \? <SampleMarker \/> : null\}/],
   },
   {
+    // 🃏 Since 10 Nov the search hit IS the shelf's card (`ShopCard`, which draws the marker — the entry above), not a
+    // copy of it: the results must keep drawing that card for every shop hit.
     name: 'front page shop search results',
     file: 'app/_components/frontdoor/front-door-results.tsx',
-    imports: MARKER_IMPORT,
-    draws: [/\{s\.isDemo \? <SampleMarker \/> : null\}/],
+    imports: /import \{ ShopCard \} from '\.\/front-door-feed';/,
+    draws: [/return <ShopCard s=\{s\} href=\{withShopArrival\(s\.href, \{ src: SHOP_ARRIVAL_SRC\.search \}\)\} \/>;/],
   },
   {
     name: 'front page — each shop carries its demo fact',

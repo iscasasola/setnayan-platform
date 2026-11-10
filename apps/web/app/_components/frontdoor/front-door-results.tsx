@@ -50,12 +50,12 @@ import Link from 'next/link';
 import { matchesCommandQuery } from '@/lib/command-match';
 import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
+import { ShopCard } from './front-door-feed';
 import type { HomeCommandItem } from './command-item';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
 import { ON_YOUR_EVENT, YOUR_OWN_SUPPLIER } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
-import { SampleMarker } from '@/app/_components/sample-marker';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 import type { ShellPeopleResults } from '@/lib/shell-people-results';
 import { ShellPeopleSection } from './shell-people-section';
@@ -142,40 +142,13 @@ function ReadCard({
   );
 }
 
-/** A matched shop, in the same card the "first shops" shelf already renders. */
+/**
+ * A matched shop — THE shelf's card (`ShopCard`), not a copy of it (owner 10 Nov: the shop card's cover, logo, group
+ * line and pills land here too). 🧭 `?src=search` — a search hit: the inquiry is a Search Inquiry
+ * (lib/inquiry-source.ts) and the shop page's "Back" returns to Discover, where search lives (lib/shop-back.ts).
+ */
 function ShopHitCard({ s }: { s: FrontDoorShop }) {
-  return (
-    /* 🧭 `?src=search` — a search hit: the inquiry is a Search Inquiry (lib/inquiry-source.ts) and the shop page's "Back"
-       returns to Discover, where search lives (lib/shop-back.ts; owner 2026-11-07). */
-    <Link href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.search })} className="fd-item">
-      <div className="fd-thumb fd-thumb-shop">
-        {s.logoUrl ? (
-          // A plain <img> for the reason the shelf's card states: an r2:// logo
-          // resolves to a presigned url whose signature changes every render,
-          // and next/image bills per transformation.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={s.logoUrl} alt="" className="fd-shoplogo" loading="lazy" />
-        ) : (
-          <span className="fd-shopmark">{initialsOf(s.name)}</span>
-        )}
-      </div>
-      <div className="fd-imeta">
-        <span className="fd-ava" aria-hidden="true">
-          {initialsOf(s.name)}
-        </span>
-        <div className="fd-itxt">
-          <p className="fd-ttl">{s.name}</p>
-          {/* 🧪 The same "(DEMO ONLY)" chip the shelf's card wears (owner 2026-11-06); bare — this card is one link. */}
-          {s.isDemo ? <SampleMarker /> : null}
-          <p className="fd-by">
-            {s.folderLabel}
-            {s.verified ? ' · verified' : ''}
-          </p>
-          {s.city ? <p className="fd-by">{s.city}</p> : null}
-        </div>
-      </div>
-    </Link>
-  );
+  return <ShopCard s={s} href={withShopArrival(s.href, { src: SHOP_ARRIVAL_SRC.search })} />;
 }
 
 /** One of the searcher's own events or spaces. */

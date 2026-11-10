@@ -149,7 +149,8 @@ export const SOLVES: readonly Solve[] = [
     // The quoted “wedding website” names the other products the Event Hub replaces — allowed by
     // `app/public-copy-says-the-house-words.test.ts`, the same exemption /pawebsite carries.
     pain: 'You make the invitation in Canva, send it one by one, and the “wedding website” is foreign and expensive.',
-    answer: 'One Event Hub with your invitation, your QR and your details — free, with three free themes.',
+    // Lane J: the count is read (`FREE_THEMES`), never typed.
+    answer: `One Event Hub with your invitation, your QR and your details — free, with ${formatCount(FREE_THEMES.length)} free themes.`,
     action: 'See an Event Hub',
     href: '/features/event-hub',
     tag: FREE,

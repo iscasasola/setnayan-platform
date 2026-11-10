@@ -286,7 +286,7 @@ export default async function PricingPage() {
           category: 'Wedding supplier subscription',
           offers: {
             '@type': 'Offer',
-            url: `${SITE_URL}/vendors`,
+            url: `${SITE_URL}/for-suppliers`, // Lane J: `/vendors` only 308s here
             price: String(Math.round(s.price_php)),
             priceCurrency: 'PHP',
             availability: 'https://schema.org/InStock',

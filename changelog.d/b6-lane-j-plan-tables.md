@@ -25,6 +25,7 @@ here update FREE vs PLUS vs PRO if there are any changes"*.
 
 SPECIFIC NON-CHANGES: no catalogue row was written (production read with SELECT only); no migration.
 
-SPEC IMPACT: `DECISION_LOG.md` row 2026-11-10 "PLAN TABLES REDRAWN FROM THE LIMIT CODE" — records that the table
-prints only enforced limits/locks, that Event Plus grants only Setnayan AI + its credits today, and the price rows
-listed for the owner in the PR (no price decided).
+SPEC IMPACT: one `DECISION_LOG.md` row, 2026-11-10 "PLAN TABLES REDRAWN FROM THE LIMIT CODE" — records that the
+tables print only enforced limits/locks, that Event Plus grants only Setnayan AI + its credits today, and the price
+rows listed for the owner (no price decided). The row text is in the PR body; this session could push only to its
+platform branch, so the controller appends it to the corpus.

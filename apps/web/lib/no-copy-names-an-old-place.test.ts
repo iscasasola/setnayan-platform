@@ -13,12 +13,14 @@
  *   · "Booked › Schedule / Budget" — Booked is just the team; both are Home's pages (2026-11-02);
  *   · "Four places …"             — the bar has five tabs since Memories (2026-10-23).
  *
- * ⚠ ONE KNOWN, REPORTED, NOT CHANGED HERE: the Maker's part doors ("Open in Studio › Info", and `Open in Studio › ${tool}`
- * for Schedule and E-Gifts) are the approved toolbar prototype's words (TOOLBAR-SPEC 2026-10-09), pinned by four tests;
- * where those doors should point now is the Event Hub redesign's call (plan step 8), put to the owner in this PR.
+ *   · STUDIO ITSELF (Build 6 Lane F, owner 2026-11-10: *"Studio technically is gone since the pages there will be inside
+ *     the different scenes it covers"*) — "Open in Studio", "Studio › Logo · Palette · Love Story · Schedule · E-Gifts ·
+ *     Look", "edit it in Studio", "stay in Studio": the Maker's doors name the EDITOR they open (`MAKER_EDITOR_DOOR_WORDS`).
+ *     This closed the one exception this sweep used to carry (the Maker's part doors, `lib/maker-parts.ts`).
  *
  * Sabotage (2026-11-06, each seen red, then restored): `OUTFIT_SET_IN` back to "Mood Board & Dress Code" → red · the
- * venue-pin answer back to "Studio › Info › Venues" → red · the menu tour back to "Four places" → red.
+ * venue-pin answer back to "Studio › Info › Venues" → red · the menu tour back to "Four places" → red. (2026-11-10, Lane F)
+ * a door's words back to `Open in Studio › ${tool}` in `lib/maker-parts.ts` → red.
  *
  * Run: cd apps/web && node --import tsx --test lib/no-copy-names-an-old-place.test.ts
  */
@@ -30,11 +32,9 @@ import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const OLD_PLACES =
-  /Studio › (?:Info|Papic|RSVP|Seat plan|Seating|Wedding March|March|Prints|Thank)|Mood Board & Dress Code|Booked › (?:Schedule|Budget)|Four places for your whole event/;
-/** Files allowed to keep a match, each with why. */
-const ALLOWED: Readonly<Record<string, string>> = {
-  'lib/maker-parts.ts': 'the Maker door words — the approved toolbar prototype’s, reported to the owner (see the docblock)',
-};
+  /Studio › (?:Info|Papic|RSVP|Seat plan|Seating|Wedding March|March|Prints|Thank|Logo|Palette|Love Story|Schedule|E-Gifts|Look)|Open in Studio|edit it in Studio|stay in Studio|Mood Board & Dress Code|Booked › (?:Schedule|Budget)|Four places for your whole event/;
+/** Files allowed to keep a match, each with why. None since Build 6 Lane F closed the Maker's door words. */
+const ALLOWED: Readonly<Record<string, string>> = {};
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -65,7 +65,7 @@ test('no page or module the couple meets names a place that moved', () => {
 
 test('the swept words say where things live now', async () => {
   const { OUTFIT_SET_IN } = await import('./guest-outfit');
-  assert.equal(OUTFIT_SET_IN, 'Set it in Studio › Palette + Dress Code');
+  assert.equal(OUTFIT_SET_IN, 'Set it in the Event Hub Maker › Dress code');
   const tours = stripComments(readFileSync(join(WEB, 'lib/tours.ts'), 'utf8'));
   assert.match(tours, /title: 'Five places for your whole event'/);
   // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113): Home is Today, Memories before Hub; Papic is in Memories.

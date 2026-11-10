@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { MAKER_GUESTS_DOOR_WORDS, MAKER_GUESTS_VIEW_DOOR_WORDS, MAKER_PARTS, MAKER_STUDIO_TOOL_LABEL, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
+import { MAKER_GUESTS_DOOR_WORDS, MAKER_GUESTS_VIEW_DOOR_WORDS, MAKER_PARTS, MAKER_EDITOR_DOOR_WORDS, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
 import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
@@ -159,17 +159,18 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
   setStagePanelNow({ picked: null, quiet: null, about: null });
 });
 
-test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edited in three rows, "Change it in Suppliers" for the date and the place', () => {
+test('(3) which parts jump: "Open <the editor>" for what cannot be edited in three rows, "Change it in Suppliers" for the date and the place', () => {
   /* The owner's four examples, and the parts of the same kind (the controller's reading). */
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F, owner: "Studio technically is gone"): each door names its editor. */
   const jumps: Array<[MakerPartKey, string]> = [
-    ['schedule', 'Schedule'],
-    ['story', 'Love Story'],
-    ['logo', 'Logo'],
-    ['gifts', 'E-Gifts'],
-    ['dress', 'Palette + Dress Code'],
+    ['schedule', 'Open the Schedule'],
+    ['story', 'Open the Love Story'],
+    ['logo', 'Open the Logo Maker'],
+    ['gifts', 'Open E-Gifts'],
+    ['dress', 'Open Palette + Dress Code'],
   ];
-  for (const [k, page] of jumps) {
-    assert.equal(makerPartQuietRow(k)?.words, `Open in Studio › ${page}`, `${k}: its door`);
+  for (const [k, words] of jumps) {
+    assert.equal(makerPartQuietRow(k)?.words, words, `${k}: its door`);
     assert.equal(makerPartSource(k).kind, 'studio');
   }
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
@@ -188,14 +189,14 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     const src = makerPartSource(k);
     const want =
       src.kind === 'studio'
-        ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
+        ? MAKER_EDITOR_DOOR_WORDS[src.tool]
         : src.kind === 'supplier'
           ? 'Change it in Suppliers'
           : src.kind === 'guests'
             ? MAKER_GUESTS_DOOR_WORDS
             : src.kind === 'guests-view'
               ? MAKER_GUESTS_VIEW_DOOR_WORDS[src.view]
-              : 'Open in Studio › Info';
+              : MAKER_EDITOR_DOOR_WORDS.info;
     assert.equal(q.words, want, `${k}: “${q.words}”`);
     assert.ok(q.words.length <= 40, `${k}: the door does not fit one row`);
   }

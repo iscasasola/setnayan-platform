@@ -1,11 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Settings, Sparkles } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useOneOpen } from '@/lib/one-open';
-import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ISegmented, iSegClass } from '../../website/editor/_components/inspector-kit';
@@ -16,15 +13,14 @@ import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
-import { StudioHome, TILE_ICON } from './studio-home';
 import { GuestsSeeSheet } from './guests-see-sheet';
 import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
-import { formatCount } from '@/lib/format-number';
 import { MakerDesk } from './maker-desk';
+import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 
 /**
- * 🖨 THE PRINTS PAGE'S DESKTOP (R8, 2026-10-27): the Prints page draws no Stages | Studio switch — the one thing that mounts
- * the Maker's desktop columns (`MakerDesk`, below in `StudioSideSwitch`). So it mounts them HERE, on the same terms (the one
+ * 🖨 THE PRINTS PAGE'S DESKTOP (R8, 2026-10-27): the Prints page draws no stage pill — the one thing that mounts
+ * the Maker's desktop columns (`MakerDesk`, below in `MakerStageSwitch`). So it mounts them HERE, on the same terms (the one
  * Maker, a desktop width): Studio › Prints on a desktop looked like this, and the Prints page must too. Lazy, as the switch is.
  */
 export function PrintsPageDesk() {
@@ -44,9 +40,9 @@ import { useIsDesktop } from '@/lib/use-responsive';
  */
 
 /**
- * What a half writes, in the order it tries them until its words fit: its name → the same, tighter → (a page with
- * one) its short name → the same, tighter → the side's plain word. Never a cut name, never two lines. A stage has no
- * short name; the plain word is the last resort of a screen narrower than any phone the bar is drawn for.
+ * What the pill writes, in the order it tries them until its words fit: its name → the same, tighter → (a page with
+ * one) its short name → the same, tighter → the plain word. Never a cut name, never two lines. A stage has no short
+ * name; the plain word is the last resort of a screen narrower than any phone the bar is drawn for.
  */
 export type StudioHalfStep = { words: string; tight: boolean };
 export function studioHalfSteps(name: string, short: string | undefined, word: string): readonly StudioHalfStep[] {
@@ -56,10 +52,13 @@ export function studioHalfSteps(name: string, short: string | undefined, word: s
   return said.flatMap((words) => (words === word ? [{ words, tight: false }] : [{ words, tight: false }, { words, tight: true }]));
 }
 
-/** A half's accessible name: where you are (on the half you are on), and what a tap does. */
-export function studioHalfLabel(kind: 'stage' | 'page', name: string | null): string {
+/**
+ * The pill's accessible name: where you are, and what a tap does. Inside an editor a scene opened (the Logo Maker from
+ * the ring, a Look section from the ⚙) the pill names that editor, and a tap is still the list of stages — the way back.
+ */
+export function stagePillLabel(kind: 'stage' | 'page', name: string | null): string {
   if (kind === 'stage') return name ? `Stage: ${name} — choose a stage` : 'Stages — choose a stage';
-  return name ? `Studio page: ${name} — choose a page` : 'Studio pages — choose a page';
+  return name ? `${name} — choose a stage to go back` : 'Stages — choose a stage';
 }
 
 /** The stage on screen, when the shell's pick is one of the five (it is, on the Stages side). */
@@ -68,223 +67,138 @@ function stageOf(pick: string | undefined): MakerStageKey | null {
 }
 
 /**
- * Stages | Studio — ONE segmented control in the top nav (sections = one `ISegmented`, INTERACTION_RULES §8), and
- * 🧭 BOTH HALVES ARE DROPDOWNS (owner 2026-10-08, on the prototype `public/review/studio-head-prototype.html`:
- * *"studio is not showing drop down"* · *"Stages and Studio both has dropdown"* · *"keep selector always balanced in
- * width no matter what is pressed?"*; before that: *"make the top nav show where we are at"* · *"what if we just
- * replace the Studio with a chevron? since that is a drop down"* · *"and we just change that name of the studio"*).
+ * ● INVITATION ▾ — THE MAKER'S ONE SELECTOR (Build 6 Lane F, owner 2026-11-10: *"Studio technically is gone since the
+ * pages there will be inside the different scenes it covers"*; frame 8 pick B — the Studio half of the switch goes and
+ * the bar's selector is the stage picker alone; approved prototype `event_hub_stages_scenes_2026-11-10` M1).
  *
- *   in a stage          [ Invitation ▾ | Studio ▾ ]
- *   in a Studio page    [ Stages ▾ | Love Story ▾ ]
+ *   on a stage                 [ ● Invitation ▾ ]      (● only while that stage is the one guests meet — Page ▾'s dot)
+ *   in an editor a scene opened [ Logo ▾ ]              (a tap is the list of stages: the way back to the page)
  *
- *   · THE HALF YOU ARE ON reads the name of where you are and is the picked half (`aria-pressed`, the accent, the one
- *     thumb); the other reads the plain word. Both carry a ▾.
- *   · A TAP ON EITHER HALF OPENS THAT SIDE'S LIST — the five stages (`StageItemMenu`'s own sheet: one list of stages),
- *     this event's Studio pages (each with its mark, its line and Ready / Missing). A ▾ never changes side by itself:
- *     a PICK takes you there. The item on screen is ticked only in the list of the side you are on.
- *   · THE TWO HALVES ARE ALWAYS THE SAME WIDTH and the pill fills its place — nothing in the bar moves when a stage or
- *     a page changes, and the thumb travels exactly one half. A name never truncates and never wraps: it tightens,
- *     then (a page) writes its short name (`studioHalfSteps`); measured on the phone, again on a resize.
+ *   · ONE TRACK, ONE THUMB — the segment's own look (`ISegmented` / `iSegClass`), filling its place edge to edge; the
+ *     name never truncates and never wraps: it tightens, then (an editor) writes its short name (`studioHalfSteps`).
+ *   · A TAP OPENS THE LIST OF STAGES (`StageItemMenu`'s own sheet). A pick there goes to that stage — from an editor too.
+ *   · NO STUDIO ▾: Logo is the cover's ring, Palette + Dress Code the Dress code scene, Love Story its scene; Look ·
+ *     the address · QR · who can view · E-Gifts · Prints are the ⚙'s (`hub-settings.tsx`). Nothing is orphaned.
+ *   🔒 `lib/studio-is-gone-from-the-maker-bar.test.ts`.
  */
-/** Studio ▾'s last row's line — the prototype's words for what the ⚙ holds now that it left Studio. */
-export const STUDIO_MENU_SETTINGS_LINE = 'Look · address · QR · who can view · E-Gifts';
-
-export function StudioSideSwitch({
+export function MakerStageSwitch({
   side,
   onPick,
   stage,
+  live = false,
   options = [],
   onStage,
   page = null,
-  tiles = [],
-  onOpen,
-  onSettings,
 }: {
-  /**
-   * ⚙ Open the Hub's ⚙ Event Hub settings — Studio ▾'s last row (owner 2026-10-30, the approved prototype
-   * `prototypes/build-contracts-2026-10-30/event-hub-pro/` `studioMenu`: after a divider, "Event Hub Settings · Look ·
-   * address · QR · who can view · E-Gifts"). The SAME sheet as the pinned row's ⚙ (`HubSettingsGear`); absent: no row.
-   */
-  onSettings?: () => void;
   side: MakerSide;
-  /** Change side — the shell's `pickSide`. Called only with a pick from the other side's list. */
+  /** Change side — the shell's `pickSide`. Called with `stages` when a stage is picked from inside an editor. */
   onPick: (side: MakerSide) => void;
   /** The shell's pick: on the Stages side, the stage on screen. */
   stage?: string;
+  /** The stage on screen is the one guests meet today — the pill wears Page ▾'s dot. */
+  live?: boolean;
   /** Every stage's pages, as the shell's Page ▾ lists them — what the list of stages counts and opens. */
   options?: readonly StagePageOption[];
   /** A stage's page picked — the shell's own Page ▾ door (`pickPage`). */
   onStage?: (key: string) => void;
-  /** The Studio page that is open — null on the Stages side. */
+  /** The editor a scene (or the ⚙) opened — null on a stage. */
   page?: StudioTileModel | null;
-  /** The pages this event draws (`lib/studio-tiles.ts`), in their order. */
-  tiles?: readonly StudioTileModel[];
-  /** Open a Studio page — the shell's `openStudio` (it changes side itself). */
-  onOpen?: (key: StudioTileKey) => void;
 }) {
-  const [list, setList] = useState<'stages' | 'pages' | null>(null);
-  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, never a Studio page. Its row moved from Studio ▾ to the Hub's
-     ⚙ Event Hub settings (owner 2026-10-30, the prototype's Q4 drawn as A); the ⚙ asks for it with an event, and this
-     switch — always mounted — draws it. */
+  const [list, setList] = useState(false);
+  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, never a page. Its row is in the Hub's ⚙ Event Hub settings (owner
+     2026-10-30); the ⚙ asks for it with an event, and this pill — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
   useEffect(() => {
     const open = () => setGuestsSee(true);
     window.addEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
     return () => window.removeEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
   }, []);
-  const shut = (which: 'stages' | 'pages') => setList((l) => (l === which ? null : l));
-  useOneOpen(list === 'pages', () => shut('pages'));
   const onStages = side === 'stages';
   const stageKey = stageOf(stage);
   const here = !onStages && page ? page : null;
-  /* 🖥 A desktop's three columns (`maker-desk.tsx`) — mounted by this switch, which every width of the new Maker
-     draws and which is lazy: so the desk layout costs the Maker's first load nothing and never reaches a phone. */
+  /* 🖥 A desktop's three columns (`maker-desk.tsx`) — mounted by this pill, which every width of the Maker draws and
+     which is lazy: so the desk layout costs the Maker's first load nothing and never reaches a phone. */
   const wide = useIsDesktop('lg');
   const desk = useMaker()?.stagesStudio === true && wide;
   return (
     <>
       {desk ? <MakerDesk /> : null}
-      <ISegmented label="Stages or Studio">
+      <ISegmented label="Stage">
         <StudioHalf
-          kind="stage"
-          on={onStages}
-          name={onStages && stageKey ? makerStageLabel(stageKey as never) : null}
-          expanded={list === 'stages'}
-          onPress={() => setList((l) => (l === 'stages' ? null : 'stages'))}
+          kind={here ? 'page' : 'stage'}
+          name={here ? here.label : onStages && stageKey ? makerStageLabel(stageKey as never) : null}
+          short={here?.short}
+          dot={!here && live}
+          expanded={list}
+          onPress={() => setList((l) => !l)}
         />
-        <StudioHalf kind="page" on={!onStages} name={here?.label ?? null} short={here?.short} expanded={list === 'pages'} onPress={() => setList((l) => (l === 'pages' ? null : 'pages'))} />
       </ISegmented>
-      {/* THE FIVE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}
+      {/* THE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}
       <StageItemMenu
-        bar={{ open: list === 'stages', onClose: () => shut('stages'), here: onStages }}
+        bar={{ open: list, onClose: () => setList(false), here: onStages }}
         options={options}
-        /* From Studio no stage is on screen: every row is then a pick that goes through `onPick` below. */
+        /* From an editor no stage is on screen: every row is then a pick that goes through `onPick` below. */
         stage={onStages && stageKey ? stageKey : MAKER_STAGE_KEYS[0]!}
         page={null}
         rsvpScreen="form"
         onPick={(key) => {
-          /* A pick from the Studio side takes you to the Stages side, at that stage. */
+          /* A pick from inside an editor goes back to the stages, at that stage. */
           if (!onStages) onPick('stages');
           onStage?.(key);
         }}
         onRsvpScreen={() => {}}
       />
-      {/* THIS EVENT'S STUDIO PAGES — the dropdown's own rows (its looks: `pick-menu-place.ts`), in the Maker's one sheet. */}
-      {list === 'pages' && typeof document !== 'undefined'
-        ? createPortal(
-            /* 🎛 "n of N ready" at the list's heading (LOCKED 2026-10-09 decision 6) — of the pages it lists. */
-            <MakerSheet label="Studio pages" aside={`${formatCount(tiles.filter((t) => t.done === true).length)} of ${formatCount(tiles.length)} ready`} onClose={() => shut('pages')}>
-              <ul role="listbox" aria-label="Studio pages" data-pick-side="sheet" className="p-0.5">
-                {studioChooserOptions(tiles).map((o) => {
-                  const on = o.key === here?.key;
-                  return (
-                    <li key={o.key} role="none">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={on}
-                        data-pick-option={o.key}
-                        onClick={() => {
-                          shut('pages');
-                          if (!on) onOpen?.(o.key as StudioTileKey);
-                        }}
-                        className={pickOptionClass(Boolean(o.hint), on)}
-                      >
-                        {o.icon ? (
-                          <span aria-hidden className="inline-flex shrink-0">
-                            {o.icon}
-                          </span>
-                        ) : null}
-                        <span className="min-w-0">
-                          <span className="block font-semibold">{o.label}</span>
-                          {o.hint ? <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span> : null}
-                        </span>
-                        {o.trail ? (
-                          <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, false)}>
-                            <span aria-hidden>{o.trail.text}</span>
-                            {o.trail.label ? <span className="sr-only">{o.trail.label}</span> : null}
-                          </span>
-                        ) : null}
-                        {on ? (
-                          <span aria-hidden data-pick-tick="" className={pickTickClass(false, Boolean(o.trail))}>
-                            ✓
-                          </span>
-                        ) : null}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {/* ⚙ THE LAST ROW — what moved out of Studio lives in the ⚙ (Look · the address · QR · who can view ·
-                  E-Gifts): one door to it from here, after a hairline. It closes this list and opens THE ⚙ sheet. */}
-              {onSettings ? (
-                <div data-studio-menu-settings="" className="mt-1 border-t border-ink/10 p-0.5 pt-1.5">
-                  <button
-                    type="button"
-                    data-pick-option="settings"
-                    onClick={() => {
-                      shut('pages');
-                      onSettings();
-                    }}
-                    className={pickOptionClass(true, false)}
-                  >
-                    <span aria-hidden className="inline-flex shrink-0">
-                      <Sparkles className="h-5 w-5" strokeWidth={1.75} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-semibold">Event Hub Settings</span>
-                      <span className="block text-[12px] font-medium leading-snug opacity-75">{STUDIO_MENU_SETTINGS_LINE}</span>
-                    </span>
-                    <span aria-hidden className={pickTrailClass('muted', false)}>
-                      <Settings className="h-4 w-4" strokeWidth={1.75} />
-                    </span>
-                  </button>
-                </div>
-              ) : null}
-            </MakerSheet>,
-            document.body,
-          )
-        : null}
       {guestsSee && typeof document !== 'undefined' ? createPortal(<GuestsSeeSheet onClose={() => setGuestsSee(false)} />, document.body) : null}
     </>
   );
 }
 
 /**
- * A half's room: the two are ALWAYS the same width (the segment's own `flex-1`, and `min-w-0` so words never widen
- * one), with 3 px each side of words · ▾. When the half you are on needs more room for its name, BOTH tighten together
- * (the track is asked, so the two never look different): 2 px each side, and the words half a pixel smaller.
+ * 🫥 AN EDITOR A SCENE OPENED IS FULL SCREEN — THE APP'S BARS STEP AWAY (Build 6 Lane F; owner 2026-11-09: *"full screen
+ * always loses the bottom nav"*). Mounted by the shell only while an editor covers the page on a phone (never on the Prints
+ * page, whose way out is the app's own nav): the shipped `useChromeAway` slides the top bar up and the bottom nav down
+ * (0.32 s, the exact reverse on the way back), and the shell's measured room (`useTheAppsRoom`) follows them to the screen's
+ * edges. Lazy, so the Maker's first load carries none of it. 🔒 `lib/studio-is-gone-from-the-maker-bar.test.ts`.
+ */
+export function EditorChromeAway() {
+  useChromeAway(true);
+  return null;
+}
+
+/**
+ * The pill's room: it fills its place (the segment's own `flex-1`, and `min-w-0` so words never widen it), with 3 px each
+ * side of words · ▾. When the name needs more room it tightens: 2 px each side, and the words half a pixel smaller.
  */
 const HALF_ROOM =
   'min-w-0 !gap-0.5 !px-[3px] group-has-[[data-studio-half-tight]]/seg:!px-0.5 group-has-[[data-studio-half-tight]]/seg:!text-[12px]';
 
 /**
- * ONE HALF — the segment's own look, picked or not (`iSegClass`: the accent and its ink while picked, the thumb's
+ * THE PILL — the segment's own look, always the picked one (`iSegClass(true)`: the accent and its ink, the thumb's
  * cue), its words, and ▾ in the same ink. It measures its words before paint and steps down (`studioHalfSteps`) until
  * they fit; a new name, or a resize, starts from the full name again.
  */
 function StudioHalf({
   kind,
-  on,
   name,
   short,
+  dot = false,
   expanded,
   onPress,
 }: {
   kind: 'stage' | 'page';
-  /** This is the side you are on. */
-  on: boolean;
-  /** Where you are on this side — null on the other side: it then reads its plain word. */
+  /** Where you are — null: it reads the plain word. */
   name: string | null;
   short?: string;
+  /** ● the stage guests meet today. */
+  dot?: boolean;
   expanded: boolean;
   onPress: () => void;
 }) {
-  const word = MAKER_SIDE_LABEL[kind === 'stage' ? 'stages' : 'studio'];
+  const word = MAKER_SIDE_LABEL.stages;
   const steps = studioHalfSteps(name ?? word, name ? short : undefined, word);
   const of = steps[0]!.words;
   const [at, setAt] = useState({ of, step: 0, tried: 0 });
-  /* Another name in this half starts from its full name — decided while drawing, so no frame shows the old step. */
+  /* Another name starts from its full name — decided while drawing, so no frame shows the old step. */
   const step = at.of === of ? Math.min(at.step, steps.length - 1) : 0;
   const now = steps[step]!;
   const words = useRef<HTMLSpanElement>(null);
@@ -303,16 +217,17 @@ function StudioHalf({
   return (
     <button
       type="button"
-      aria-pressed={on}
+      aria-pressed
       aria-haspopup="dialog"
       aria-expanded={expanded}
-      aria-label={studioHalfLabel(kind, name)}
-      data-seg={kind === 'stage' ? 'stages' : 'studio'}
+      aria-label={stagePillLabel(kind, name)}
+      data-seg="stages"
       data-studio-half={kind}
       data-studio-half-tight={now.tight ? '' : undefined}
       onClick={onPress}
-      className={`${iSegClass(on)} ${HALF_ROOM}`}
+      className={`${iSegClass(true)} ${HALF_ROOM}`}
     >
+      {dot ? <span aria-hidden data-stage-pill-live="" className="mr-1 inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-current" /> : null}
       <span ref={words} data-studio-half-words="" className="min-w-0 overflow-hidden whitespace-nowrap">
         {now.words}
       </span>
@@ -321,24 +236,14 @@ function StudioHalf({
   );
 }
 
-/** A page's rows in a list of pages: its line, and ✓ Ready / Missing as the home's card says it. */
-function tileOption(t: StudioTileModel, withIcon: boolean): PickOption {
-  const Icon = TILE_ICON[t.key];
+/** An editor's row in Look's tool ▾: its line, and ✓ Ready / Missing as its card says it. */
+function tileOption(t: StudioTileModel): PickOption {
   return {
     key: t.key,
     label: t.label,
     hint: t.status,
-    ...(withIcon ? { icon: <Icon aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} /> } : {}),
     ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
   };
-}
-
-/**
- * What "Studio ▾" lists: the pages this event draws — the SAME list, in the SAME order, as the Studio home's cards
- * and the row it replaces (one source: `tiles`). Nothing else: no "All pages" row (owner 2026-10-08).
- */
-export function studioChooserOptions(tiles: readonly StudioTileModel[]): PickOption[] {
-  return tiles.map((t) => tileOption(t, true));
 }
 
 /** The eleven tools as ONE dropdown (Studio › Look's lower third), each with its line and ✓ / Missing. */
@@ -361,37 +266,10 @@ export function StudioToolMenu({
       dataAttr={dataAttr}
       value={value}
       buttonText={tiles.find((t) => t.key === value)?.short ?? 'Studio'}
-      options={tiles.map((t) => tileOption(t, false))}
+      options={tiles.map((t) => tileOption(t))}
       onPick={(k) => onOpen(k as StudioTileKey)}
       className={className}
     />
-  );
-}
-
-/** Studio's home over the work area — its tiles, still on their way (`pending`, the Maker's `late`), or a read that failed, SAID. */
-export function StudioCover({
-  tiles,
-  pending = false,
-  onOpen,
-}: {
-  tiles: readonly StudioTileModel[] | null;
-  pending?: boolean;
-  onOpen: (key: StudioTileKey) => void;
-}) {
-  return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-cream" data-maker-studio-layer="">
-      {tiles ? (
-        <StudioHome tiles={tiles} onOpen={onOpen} />
-      ) : pending ? (
-        <div className="w-full px-4 pt-6" data-maker-late-pending="studio">
-          <TimelineRowsLoading label="Loading your Studio" rows={5} />
-        </div>
-      ) : (
-        <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-          Studio could not be loaded just now. Nothing was changed — please reopen this in a moment.
-        </p>
-      )}
-    </div>
   );
 }
 

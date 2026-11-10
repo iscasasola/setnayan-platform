@@ -113,20 +113,22 @@ test('2 · the note is read once and ALWAYS thrown away — honoured only for a 
 /* ══ 3 · WHERE THE MAKER LANDS ═══════════════════════════════════════════════ */
 
 test('3 · rule 3 stands for a cold door; the page’s own reload goes back where it was', () => {
-  // A cold door into Event Details: Studio's HOME, the selection dropped (DECISION_LOG 2026-10-07 rule 3).
-  assert.deepEqual(makerDoorLanding(null, TILES), { side: 'studio', at: 'home', keep: false });
-  // The owner's case: Studio › Look (on Music) — back on Look, the selection kept.
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F, owner: "Studio technically is gone"): there is no Studio home to
+     land on, so a cold door — and anything that would have landed on that home — lands on the STAGE. */
+  // A cold door into Event Details: the stage, the selection dropped (DECISION_LOG 2026-10-07 rule 3).
+  assert.deepEqual(makerDoorLanding(null, TILES), { side: 'stages', at: 'home', keep: false });
+  // The owner's case: Look (on Music, from the ⚙) — back on Look, the selection kept.
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'look' }, TILES), { side: 'studio', at: 'look', keep: true });
-  // Every Studio tool comes back as itself.
+  // Every editor comes back as itself.
   for (const t of TILES) assert.deepEqual(makerDoorLanding({ side: 'studio', at: t }, TILES), { side: 'studio', at: t, keep: true }, t);
   // It was on the STAGES side (the address still carried an old `?tool=details`): it stays on the stage.
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'home' }, TILES), { side: 'stages', at: 'home', keep: false });
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'look' }, TILES), { side: 'stages', at: 'home', keep: false });
-  // Studio's home, or a tool this event does not have: Studio's home.
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'studio', at: 'home', keep: false });
-  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on Studio's home. */
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'studio', at: 'home', keep: false });
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'studio', at: 'home', keep: false });
+  // A tab that was on the old Studio home, or on an editor this event does not have: the stage.
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'stages', at: 'home', keep: false });
+  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on the stage. */
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'stages', at: 'home', keep: false });
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'stages', at: 'home', keep: false });
 });
 
 test('3 · the whole walk: Look › Music, a new version reloads the page, the Maker opens on Look › Music', () => {
@@ -138,10 +140,10 @@ test('3 · the whole walk: Look › Music, a new version reloads the page, the M
   assert.deepEqual(back, { side: 'studio', at: 'look', item: 'music' });
   // …and the Details selection the address names lands on the tool, not on the tiles.
   assert.deepEqual(makerDoorLanding(back, TILES), { side: 'studio', at: 'look', keep: true });
-  // The SAME address opened from Home a minute later is a cold door: the tiles.
+  // The SAME address opened from Home a minute later is a cold door: the stage (no Studio home since Build 6 Lane F).
   noteMakerResume(s, KEY, { side: 'studio', at: 'look', item: 'music' });
   const cold = takeMakerResume(s, KEY, makerCameBackToItself(load({ referrer: 'https://setnayan.com/dashboard/S89E-1' })), { done: false });
-  assert.deepEqual(makerDoorLanding(cold, TILES), { side: 'studio', at: 'home', keep: false });
+  assert.deepEqual(makerDoorLanding(cold, TILES), { side: 'stages', at: 'home', keep: false });
 });
 
 test('3 · WIRING: the shell reads the note once at mount, lands through the one rule, and keeps the note as it moves', () => {

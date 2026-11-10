@@ -90,13 +90,13 @@ import { MAKER_LT_HEIGHT } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { needsLandingStage } from '@/lib/event-needs';
-import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
+import { PRINTS_PAGE_LABEL, printsPageHref } from '@/lib/prints-page-href';
 import { usePrintsForward } from './prints-forward';
 import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioTool, StudioToolMenu } from './details-lazy';
+import { EditorChromeAway, HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, MakerStageSwitch, StudioBackToPart, StudioTool, StudioToolMenu } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
@@ -114,7 +114,7 @@ import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-
  * scrollable navigation, and editing tools each"* · *"we can opt to not have
  * the sidebar and top nav. we can have a button to exit editor"*):
  *
- *   1 · the toolbar — ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↶ Undo · ✓ Apply
+ *   1 · the toolbar — [ ● Invitation ▾ ] · ↶ Undo · ✓ Apply · ⚙ (the Studio half went, Build 6 Lane F)
  *       (`maker-bar.ts` `MAKER_TOOLBAR_STAGES_STUDIO`; a desktop adds 👁 Preview).
  *       ONE Maker for every viewer on every width (owner 2026-10-25) — the old
  *       bar (Page ▾ · Look · Event Details) and its chrome are deleted.
@@ -335,15 +335,14 @@ export function MakerShell({
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
   const studioOn = side === 'studio';
-  const studioHomeOn = studioOn && studioAt === 'home' && !printsPage;
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
   /* 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27/30, `STUDIO_MENU_KEYS`): the pages it lists — and the Studio
      home's cards. Look and E-Gifts open from the ⚙, the others from their own doors; each is still a page here. */
   const studioMenu = useMemo(() => studio?.tiles.filter((t) => isStudioMenuKey(t.key)) ?? null, [studio]);
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
   const studioFull = printsPage || (studioTile !== null && studioTile.key !== 'look');
-  /** Studio covers the page and the lower third (its home, or a full-screen tool). */
-  const studioCovers = studioHomeOn || studioFull;
+  /** An editor covers the page and the lower third (a full-screen tool — there is no Studio home since Build 6 Lane F). */
+  const studioCovers = studioFull;
   /* 🖨 ONE DOOR EACH WAY (R8): a print opened here loads the Prints page; anything else on the Prints page loads the Maker —
      never a switch (`./prints-forward.ts`). */
   usePrintsForward(eventId, { hasWork, printsPage, detailsItem });
@@ -446,8 +445,7 @@ export function MakerShell({
       cameBack.current = { ...back, until: Date.now() + 3000 };
       /* 🖨 …but never across the Prints page's line: a print is put back only there, anything else only in the Maker. */
       if (isDetailsItemKey(back.item) && isPrintsItem(back.item) === printsPage) setDetailsItem(back.item);
-      // Studio's home has no tool selected, so the rule below never runs for it: put its side back here.
-      if (back.side === 'studio' && back.at === 'home') setSide('studio');
+      /* 🧭 Studio's home is gone (Build 6 Lane F, 2026-11-10): a page that came back to it comes back to the stage. */
     }
     restored.current = true;
   }, [memoryKey, printsPage]);
@@ -877,14 +875,13 @@ export function MakerShell({
     setStudioFrom(null);
     pickSide('stages');
   };
-  /** Change side. `stages`: a stage picked from Studio's side (the bar's "Stages ▾"), and the way back to a part.
-      `studio`: the Studio home of cards — the bar no longer leads there (owner 2026-10-08: both halves are
-      dropdowns, a pick opens a page); kept until the owner says whether the home goes. */
+  /** Back to the stages — a stage picked in the pill's list from inside an editor, and the way back to a part. There is
+      no Studio home to go to any more (Build 6 Lane F, owner 2026-11-10: the home goes with Studio), so `studio` is
+      never a destination: an editor is only ever opened ON its page (`openStudio`). */
   const pickSide = (next: MakerSide) => {
-    if (next === 'studio') setStudioFrom(null);
-    if (next === 'studio') setStudioAt('home');
-    if (selection && (next === 'studio' || side === 'studio')) select(null);
-    setSide(next);
+    if (next !== 'stages') return;
+    if (selection && side === 'studio') select(null);
+    setSide('stages');
   };
   /** The lower third's ONE item ▾ (owner 2026-10-06): the five stages — or, in Studio › Look, the eleven tools. */
   const ltItemMenu = studioOn ? (
@@ -1072,7 +1069,7 @@ export function MakerShell({
         role="region"
       >
         {/* ══ 1 · THE TOOLBAR — THE HUB'S PINNED ROW ══ (`MAKER_TOOLBAR_STAGES_STUDIO`, maker-bar.ts)
-              [ Stages ▾ | Studio ▾ ] · ↶ Undo · 👁 Preview (a desktop's) · ✓ Apply · ⚙ — under the app's own top bar
+              [ ● Invitation ▾ ] · ↶ Undo · 👁 Preview (a desktop's) · ✓ Apply · ⚙ — under the app's own top bar
               (owner 2026-10-30), as Guests' and Suppliers' rows sit under it.
             ONE flex row on every width (owner 2026-10-02: on a phone the bar
             wrapped and Apply dropped to a second row) — on a phone each item
@@ -1092,10 +1089,10 @@ export function MakerShell({
               the app's own nav — the top bar, the rail, the bottom nav with Hub lit — is the way out, as on Home ·
               Guests · Suppliers. Amends Maker_Two_Bars_LOCKED's "✕ left everywhere" for the Hub tab. Unapplied
               changes stay in the draft whichever way the couple leaves (they always did — the ✕ was a plain link). */}
-          {/* 🧭 ONE segmented control where the screen's name was — and it says where you are (owner 2026-10-08): the
-              half you are on reads the stage or the Studio page, the other the plain word; both are dropdowns (a tap
-              opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
-              the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          {/* 🧭 ● INVITATION ▾ — ONE pill where the screen's name was, and it says where you are (Build 6 Lane F, owner
+              2026-11-10: the Studio half goes, frame 8 pick B): the stage on screen (● while guests meet it), or the
+              editor a scene opened; a tap is the list of stages. It fills its place edge to edge — the room the name is
+              measured in (`MakerStageSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
           {printsPage ? (
             /* 🖨 The Prints page names itself where Stages | Studio stands — it has no stage and no Studio to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
@@ -1105,7 +1102,7 @@ export function MakerShell({
             </h1>
           ) : (
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
-            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studioMenu ?? undefined} onOpen={openStudio} onSettings={hasWork ? () => setMoreOpen(true) : undefined} />
+            <MakerStageSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} live={ltPick === liveStage} />
           </div>
           )}
 
@@ -1147,6 +1144,8 @@ export function MakerShell({
                   hub: hubSettings,
                   pending: latePending,
                   guestsSee: () => window.dispatchEvent(new Event(MAKER_OPEN_GUESTS_SEE_EVENT)),
+                  /* 🖨 Prints is a row here (Build 6 Lane F, pick B) — not on the Prints page itself, which is where it goes. */
+                  prints: printsPage ? null : printsPageHref(eventId),
                   gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
                 }}
               >
@@ -1224,13 +1223,13 @@ export function MakerShell({
                 ))}
             </div>
           ) : null}
-          {/* 🧭 STUDIO, over the work area: its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
-              nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
-          {studioHomeOn ? (
-            <StudioCover tiles={studioMenu} pending={latePending} onOpen={openStudio} />
-          ) : null}
+          {/* 🧭 NO STUDIO HOME (Build 6 Lane F, owner 2026-11-10: "Studio technically is gone"): an editor a scene opened
+              draws nothing here — where you are is said in the top bar's pill (`MakerStageSwitch`, above). */}
         </div>
 
+        {/* 🫥 An editor a scene opened is full screen on a phone: the app's top bar and bottom nav step away with it
+            (owner 2026-11-09, "full screen always loses the bottom nav") and come back on the way out. */}
+        {studioFull && phone && !printsPage ? <EditorChromeAway /> : null}
         {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
         {studioFrom ? <StudioBackToPart from={studioFrom} side={side} at={studioAt} full={studioFull} onBack={backToPart} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool

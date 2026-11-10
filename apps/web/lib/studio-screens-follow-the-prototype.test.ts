@@ -65,9 +65,11 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   const page = tiles.find((t) => t.key === 'story')!;
   assert.equal((parts as Record<string, unknown>).StudioPageHead, undefined, 'the head that named only the page is still exported');
   assert.equal((parts as Record<string, unknown>).StudioBack, undefined, 'a ‹ is exported again — the list is one tap away from anywhere');
-  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page, tiles, onOpen: () => {} }));
-  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Love Story — choose a page"/);
-  assert.match(head, /aria-pressed="false"[^>]*aria-label="Stages — choose a stage"/, 'inside a page the way to the stages is gone');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F, owner: "Studio technically is gone"): ONE pill — inside an editor
+     it names the editor, and a tap is the list of stages (the way back). No Studio half, no "Stages ▾" beside it. */
+  const head = await html(React.createElement(parts.MakerStageSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page }));
+  assert.match(head, /aria-pressed="true"[^>]*aria-label="Love Story — choose a stage to go back"/);
+  assert.equal((head.match(/data-studio-half=/g) ?? []).length, 1, 'the bar draws a second half again');
   assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });

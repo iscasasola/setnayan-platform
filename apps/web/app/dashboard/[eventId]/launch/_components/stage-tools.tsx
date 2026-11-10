@@ -35,7 +35,7 @@ import {
 } from '@/lib/maker-parts';
 import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType, makerTapOpensEditor, type MakerStudioTool } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
 import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
@@ -172,6 +172,12 @@ export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
 /** 🔘 Where "Exit preview" parks on a stage's pages: the right edge, a little above the middle — the cover's foot is the
  *  RSVP button's and the "Swipe up" hint's (owner 2026-10-16, prototype v2 `.exitp`). */
 export const STAGE_EXIT_EDGE_TOP = '36%';
+/**
+ * ▶ THE FIFTH THUMB BUTTON IS "PLAY THIS SCENE" (Build 6 Lane F, owner 2026-11-10 pick: *"▶ 'play this scene' is the 5th
+ * thumb button"*) — the Preview menu's own words (`maker-shell.tsx`), on the button after Edit · Style · Background ·
+ * Animate. Its job is unchanged: a tap plays what is picked, a hold previews the whole page.
+ */
+export const STAGE_PLAY_SCENE = 'Play this scene';
 /** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
 export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
 export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
@@ -693,6 +699,13 @@ export function StageTools({
   /* A part tapped ON THE PAGE: the panel follows it (the work area has already opened its tools). */
   const where = useRef({ stageKey, shownPage });
   where.current = { stageKey, shownPage };
+  /* 💍 An editor a TAP opens at once (`makerTapOpensEditor` — the cover's ring → the Logo Maker, Build 6 Lane F): the same
+     door Edit's row opens (`onOpenStudio`, with "Done · back to <part>"), and the part is picked again on the way back. */
+  const openEditorRef = useRef<(tool: MakerStudioTool, part: MakerPartKey) => void>(() => {});
+  openEditorRef.current = (tool, part) => {
+    resumeAt = { stage: stageKey, page: shownPage, part };
+    onOpenStudio(tool as StudioTileKey, { label: makerPartLabelOn(stageKey, part), focus: makerPartStudioDoor(part)?.focus ?? null });
+  };
   useEffect(() => {
     const onCanvas = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
@@ -736,6 +749,13 @@ export function StageTools({
         }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
+        /* 💍 THE RING (owner 2026-11-10 pick): a tap on the cover's mark opens the Logo Maker — no tools in between. */
+        const opens = makerTapOpensEditor(k);
+        if (opens) {
+          setSlotAsk(null);
+          openEditorRef.current(opens, k);
+          return;
+        }
         /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
            open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
         const slot = (d as { slot?: unknown }).slot;
@@ -1916,7 +1936,7 @@ export function StageTools({
         </span>
         <button
           type="button"
-          aria-label={playing ? 'Stop' : `${picked ? 'Play this part' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
+          aria-label={playing ? 'Stop' : `${picked ? STAGE_PLAY_SCENE : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
           data-stage-play=""
           onClick={play}
           /* 👁 HELD: the whole page as a guest. A tap never waits for the hold — it plays on release. */

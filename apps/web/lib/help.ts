@@ -213,7 +213,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakulay',
         title: 'What is Pakulay?',
-        body: 'Pakulay is the Mood Board: your event’s colours and what each role wears, free with every account. Set it in Studio › Palette + Dress Code. Each guest sees their own role’s dress code on your Event Hub, and the 3D seat plan dresses them in it.',
+        body: 'Pakulay is the Mood Board: your event’s colours and what each role wears, free with every account. Set it in the Event Hub Maker: tap the Dress code scene. Each guest sees their own role’s dress code on your Event Hub, and the 3D seat plan dresses them in it.',
       },
       {
         slug: 'how-does-setnayan-handle-privacy',
@@ -531,7 +531,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'event-hub-pro-parts',
         title: 'Can I get only part of Event Hub Pro?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page in Studio.',
+        body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page.',
       },
       {
         slug: 'monogram',
@@ -594,7 +594,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'dress-code-by-role',
         title: 'How does the dress code work?',
-        body: 'Set it in Studio › Palette + Dress Code. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
+        body: 'Set it in the Event Hub Maker: tap the Dress code scene. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
       },
       {
         slug: 'palette-chip-dot',

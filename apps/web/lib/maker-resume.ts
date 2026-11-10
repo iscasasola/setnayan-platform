@@ -118,24 +118,25 @@ export function noteMakerResume(storage: Pick<Storage, 'setItem'>, key: string, 
 }
 
 /**
- * 🚪 WHERE A DETAILS SELECTION LANDS WHILE THE STAGES SIDE IS ON (the new Maker, DECISION_LOG 2026-10-07 rule 3:
- * *every door into Event Details lands on Studio's home, never over the Stages page*).
+ * 🚪 WHERE A DETAILS SELECTION LANDS WHILE THE STAGES SIDE IS ON (the Maker, DECISION_LOG 2026-10-07 rule 3: *a door
+ * into Event Details never covers the Stages page*). Studio's home is gone (Build 6 Lane F, owner 2026-11-10: *"Studio
+ * technically is gone since the pages there will be inside the different scenes it covers"*), so a door with nowhere of
+ * its own to go lands on the STAGE — never on a home of cards that no longer exists.
  *
  *   a cold door (`back` null — the address, Home's next-step card, the tab's remembered tool)
- *       → Studio's HOME, the selection dropped. Rule 3, unchanged.
+ *       → the stage, the selection dropped.
  *   the page's own reload, and it was on the STAGES side
  *       → it stays on the stage; the address's old `?tool=details` is not a door. Selection dropped.
- *   the page's own reload, and a Studio tool was open (`tiles` has it)
- *       → that tool, the selection KEPT (its item is the address's / the note's).
- *   …a tool this event no longer has → Studio's home, as a cold door.
+ *   the page's own reload, and an editor a scene opened was open (`tiles` has it)
+ *       → that editor, the selection KEPT (its item is the address's / the note's).
+ *   …an editor this event no longer has → the stage, as a cold door.
  */
 export function makerDoorLanding(
   back: Pick<MakerResume, 'side' | 'at'> | null,
   tiles: readonly string[],
 ): { side: 'stages' | 'studio'; at: string; keep: boolean } {
-  if (back?.side === 'stages') return { side: 'stages', at: 'home', keep: false };
-  if (back && back.at !== 'home' && tiles.includes(back.at)) return { side: 'studio', at: back.at, keep: true };
-  return { side: 'studio', at: 'home', keep: false };
+  if (back && back.side === 'studio' && back.at !== 'home' && tiles.includes(back.at)) return { side: 'studio', at: back.at, keep: true };
+  return { side: 'stages', at: 'home', keep: false };
 }
 
 /** How this document was loaded — read from the browser. */

@@ -78,7 +78,7 @@ test('3 · the desk code is lazy — a phone never downloads it, and the toolbar
   assert.doesNotMatch(shell, /'\.\/maker-desk'|stage-panel\/desk/, 'the shell imports the desk code statically');
   assert.doesNotMatch(read(`${L}/details-lazy.tsx`), /'\.\/maker-desk'|stage-panel\/desk/, 'the desk code gained a stand-in in the Maker’s first load');
   /* Mounted by the lazy Stages | Studio switch, and only under `desk`. */
-  assert.match(read(`${L}/details-lazy.tsx`), /export const StudioSideSwitch = dynamic\(/);
+  assert.match(read(`${L}/details-lazy.tsx`), /export const MakerStageSwitch = dynamic\(/);
   const parts = read(`${L}/stages-studio-parts.tsx`);
   assert.match(parts, /\{desk \? <MakerDesk \/> : null\}/, 'the desk layout is mounted without `desk`');
   const tools = read(`${L}/stage-tools.tsx`);

@@ -71,8 +71,9 @@ test('a tap on the Love Story — its scene or its region — picks the Love Sto
   assert.equal(makerPartOfTap('rsvp', 'home', 'f:story', null) ?? makerPartOfCanvas('rsvp', 'f:story'), 'story');
 });
 
-test("the Love Story's Edit is its one door: Open in Studio › Love Story", () => {
-  assert.deepEqual(makerPartQuietRow('story'), { words: 'Open in Studio › Love Story', to: { studio: 'story' } });
+test("the Love Story's Edit is its one door: Open the Love Story", () => {
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F): Studio is gone — the door names the editor it opens. */
+  assert.deepEqual(makerPartQuietRow('story'), { words: 'Open the Love Story', to: { studio: 'story' } });
 });
 
 test('under the new Maker the work area never opens on Content; the old Maker keeps every tab', () => {

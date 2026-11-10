@@ -89,7 +89,7 @@ test('with the flag the guided flow has no plan — the stage picker cannot draw
   assert.match(src, /plan && at\?\.kind === 'stages' \? <StagePicker/, 'the picker draws only from a plan');
 });
 
-test('every door into Event Details lands on Studio’s home, never over the Stages page', () => {
+test('every door into Event Details lands on the stage (no Studio home since Build 6 Lane F), never over the Stages page', () => {
   const src = read(`${LAUNCH}/maker-shell.tsx`);
   const at = src.indexOf("if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side sends a Details selection away');
@@ -104,7 +104,8 @@ test('every door into Event Details lands on Studio’s home, never over the Sta
   assert.match(body, /setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
   assert.match(body, /if \(!land\.keep\) select\(null\);/);
   const { makerDoorLanding } = require('./maker-resume') as typeof import('./maker-resume');
-  assert.deepEqual(makerDoorLanding(null, ['look', 'info']), { side: 'studio', at: 'home', keep: false }, 'a cold door: Studio’s home, the selection dropped');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F): Studio's home is gone — a cold door lands on the stage. */
+  assert.deepEqual(makerDoorLanding(null, ['look', 'info']), { side: 'stages', at: 'home', keep: false }, 'a cold door: the stage, the selection dropped');
 });
 
 /* ── 3 · Style › Look's layouts are real miniatures ──────────────────────── */

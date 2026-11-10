@@ -128,14 +128,9 @@ test('(3) the Studio home: eight cards (RSVP left for Guests ⚙ in R1; Wedding 
   assert.equal(marks.length, N, 'anti-vacuity: the marks were not found');
   assert.equal(new Set(marks).size, N, 'two pages share one mark');
   assert.equal(new Set(Object.values(TILE_ICON)).size, N);
-  // ONE list of marks: "Studio ▾" in the top nav draws each page with the card's own mark (it had Look and the Mood
-  // Board on the same four squares).
-  const parts = read('app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx');
-  assert.match(parts, /import \{ StudioHome, TILE_ICON \} from '\.\/studio-home';/);
-  assert.match(parts, /const Icon = TILE_ICON\[t\.key\];/, 'the chooser keeps a second list of marks');
-  const { studioChooserOptions } = await import('../app/dashboard/[eventId]/launch/_components/stages-studio-parts');
-  const drawn = await Promise.all(studioChooserOptions(tiles()).map((o) => paint(o.icon as React.ReactElement)));
-  assert.equal(new Set(drawn.map((d) => d.replace(/class="[^"]*"/, ''))).size, N, 'two pages share one mark in the chooser');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F): "Studio ▾" — the chooser that drew each page with the card's mark —
+     left the Maker's bar with Studio (owner: "Studio technically is gone"); `lib/studio-is-gone-from-the-maker-bar.test.ts`
+     holds that it is not drawn again. */
   // Each has its line and its own ⓘ.
   for (const key of STUDIO_TILE_KEYS) {
     if (key !== 'gifts') assert.ok(html.includes(STUDIO_PAGE_CARDS[key].description.replace(/’/g, '’')), `${key} has no line`);

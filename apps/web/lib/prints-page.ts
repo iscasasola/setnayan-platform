@@ -17,7 +17,7 @@
 import { EVERY_PRINT_ITEM, detailsItemFor, isDetailsItemKey, isPrintsItem, type DetailsItemKey } from './maker-details-items';
 import { printsPageHref } from './prints-page-href';
 
-export { PRINTS_PAGE_LABEL, printsPageHref } from './prints-page-href';
+export { PRINTS_HOME_LINE, PRINTS_PAGE_LABEL, printsPageHref } from './prints-page-href';
 
 /**
  * 🔑 How the Prints page tells the Maker's page it is drawing Prints alone — a key on the `searchParams` object it HANDS
@@ -82,8 +82,6 @@ export function printsForwardHref(eventId: string, item: DetailsItemKey, search:
   return printsPageHref(eventId, item, extra);
 }
 
-/** 🏠 Home's Prints line — its name is `PRINTS_PAGE_LABEL`; its one short line, what the page holds. */
-export const PRINTS_HOME_LINE = 'Invitation set · for the day';
 
 /**
  * ⓘ What the Prints line's tip explains (moved whole from the Studio card's `prints` entry, `lib/studio-page-cards.ts`,

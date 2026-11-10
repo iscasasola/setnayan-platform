@@ -218,11 +218,11 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
 
 test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
   /* The Tool row and the Done band are gone (owner 2026-10-08) — the bar's pill, which names the page, says no "Saved" either. */
-  const { StudioSideSwitch } = await import(`../${L}/stages-studio-parts`);
+  const { MakerStageSwitch } = await import(`../${L}/stages-studio-parts`);
   const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
   const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
   for (const tile of tiles) {
-    const head = await html(React.createElement(StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: tile, tiles, onOpen: () => {} }));
+    const head = await html(React.createElement(MakerStageSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: tile }));
     assert.ok(head.includes(`>${tile.label.replace(/&/g, '&amp;')}</span>`), `anti-vacuity: the pill does not name ${tile.label}`);
     assert.doesNotMatch(head, /Saved|Saving/, `the ${tile.label} pill shows a Saved chip`);
   }

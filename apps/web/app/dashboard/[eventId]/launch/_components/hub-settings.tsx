@@ -1,13 +1,14 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronRight, Eye, Gift } from 'lucide-react';
+import { ChevronRight, Eye, Gift, Printer } from 'lucide-react';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormRow, FormRows } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
 import { GUESTS_SEE_WORDS } from '@/lib/guests-see-table';
+import { PRINTS_HOME_LINE, PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import { STUDIO_LIVE_LINE } from './studio-tools';
 import { guestsSeeWorkArea } from './guests-see-sheet';
 
@@ -24,7 +25,9 @@ import { guestsSeeWorkArea } from './guests-see-sheet';
  *   · YOUR EVENT HUB — the address · Go live · who can view · which version · Event Bar · the event QR: the shipped
  *     "More for guests" rows, open (`StudioHubSettings bare`, built by the server — `hubSettingsEditor`); its "these
  *     change right away" line is the group's ⓘ (2026-10-27 "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address
- *     stays in Event Hub ⚙);
+ *     stays in Event Hub ⚙); and, after them, 🖨 PRINTS (Build 6 Lane F, owner 2026-11-10, frame 8 pick B: *"Prints is a
+ *     row in ⚙ Your Event Hub and the Studio half of the switch goes"*) — one row to the shipped Prints page (R8), the same
+ *     door and the same words as Home's Prints line (`PRINTS_HOME_LINE`), never a second copy of the carousel;
  *   · WHAT GUESTS SEE — the shipped sheet (`GuestsSeeSheet`), which was the last row of Studio ▾ (the prototype's Q4,
  *     drawn as A: "everything guests see on the Hub only in Event Hub Settings", 26 Oct);
  *   · E-GIFTS — Ways to give: the shipped E-Gifts page (2026-10-27 "APPROVED — SETTINGS PER MENU", call 5);
@@ -42,6 +45,8 @@ export type HubSettingsDoors = {
   pending: boolean;
   /** Open "What guests see" (the sheet closes). Offered only where the work area can answer it (a stage's editor). */
   guestsSee: () => void;
+  /** 🖨 The Prints page's address (`printsPageHref`) — null where there are no prints to make here (the Prints page itself, a coordinator). */
+  prints: string | null;
   /** E-Gifts — its page, and the line its Studio card says ("2 ways to give"); null where the event draws no E-Gifts. */
   gifts: { line: string; open: () => void } | null;
 };
@@ -111,6 +116,14 @@ export function HubSettingsGear({
                 : 'Your Event Hub settings could not be loaded just now. Nothing was changed — please reopen this in a moment.'}
             </p>
           )}
+          {/* 🖨 PRINTS MOVES IN (frame 8 pick B) — a link to the shipped Prints page; the sheet closes as it goes. */}
+          {doors.prints ? (
+            <FormRows data="hub-prints">
+              <FormRow data="prints" name={PRINTS_PAGE_LABEL} line={PRINTS_HOME_LINE} attrs={{ 'data-hub-settings-row': 'prints' }}>
+                <ActionButton tone="neutral" iconOnly icon={Printer} label={`Open ${PRINTS_PAGE_LABEL}`} href={doors.prints} onClick={() => onOpenChange(false)} />
+              </FormRow>
+            </FormRows>
+          ) : null}
         </section>
 
         {/* ── WHAT GUESTS SEE ── */}

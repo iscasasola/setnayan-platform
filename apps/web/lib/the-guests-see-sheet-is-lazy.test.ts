@@ -40,7 +40,7 @@ test('1 · the sheet has one importer — a lazy piece — and the builder has n
   assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/).sort(), [HUB, PARTS].sort());
   // …and each is reached through the lazy stand-ins only (never a static import from a first-load file).
   const lazy = read('app/dashboard/[eventId]/launch/_components/details-lazy.tsx');
-  assert.match(lazy, /export const StudioSideSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
+  assert.match(lazy, /export const MakerStageSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
   assert.match(lazy, /export const HubSettingsGear = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/hub-settings'\)/);
   const builders = importers(/from ['"][^'"]*\/guests-see-build['"]/);
   // Home's Event Hub card builds the same table on the server (owner 2026-10-23, the service widgets) — a second

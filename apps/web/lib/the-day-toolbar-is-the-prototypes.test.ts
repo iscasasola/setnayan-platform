@@ -61,6 +61,9 @@ const L = 'app/dashboard/[eventId]/launch/_components';
 /**
  * THE PROTOTYPE'S RECORD FOR THE DAY (walked 2026-10-09): Edit's row 1 — a door's words, `field` (the part's words
  * typed there), or null (only the move row) — and whether Style is live. `grey`: Edit itself is grey.
+ * 🔁 UPDATED ON PURPOSE 2026-11-10 (Build 6 Lane F, owner: "Studio technically is gone"): the doors that said "Open in
+ * Studio › <page>" name the editor they open now (`MAKER_EDITOR_DOOR_WORDS`). The two never-built doors keep the
+ * prototype's old words below as the record of what was drawn (`NOT_AS_DRAWN.door` — the app draws no door there).
  */
 const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, string | null, boolean]>>> = {
   live: [
@@ -71,7 +74,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
     /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING)") its Edit is the cover's lines and its Style the Opening. */
     ['coverscene', 'lines', true],
-    ['logo', 'Open in Studio › Logo', true],
+    ['logo', 'Open the Logo Maker', true],
     ['ename', 'field', true],
     ['names', 'field', true],
     ['heroline', 'field', true],
@@ -80,17 +83,17 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     /* 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): it only moves — no words, no look. */
     ['coverphoto', 'grey', false],
     ['herolink', 'field', true],
-    ['schedule', 'Open in Studio › Schedule', true],
+    ['schedule', 'Open the Schedule', true],
   ],
   home: [
     ['venue', 'Change it in Suppliers', true],
-    ['dress', 'Open in Studio › Palette + Dress Code', true],
+    ['dress', 'Open Palette + Dress Code', true],
     ['march', 'Open in Guests › March', true], // 🗂 R4: the march is Guests › March (the prototype drew Studio)
-    ['bring', 'Open in Studio › Info', true],
+    ['bring', 'Open Info', true],
   ],
   camera: [['camera', 'grey', true]],
   gallery: [
-    ['gallery', 'Open in Studio › Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
+    ['gallery', 'Open Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
     ['myphotos', null, true],
   ],
   me: [

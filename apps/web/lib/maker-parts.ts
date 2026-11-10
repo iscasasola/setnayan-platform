@@ -435,10 +435,28 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
 }
 
 /**
+ * 🚪 EACH EDITOR'S DOOR, IN ITS OWN NAME (Build 6 Lane F, owner 2026-11-10: *"Studio technically is gone since the pages
+ * there will be inside the different scenes it covers"*). The toolbar prototype's "Open in Studio › <page>" named a menu
+ * that no longer exists; the door now says the editor it opens. 🔒 `lib/no-copy-names-an-old-place.test.ts`.
+ */
+/** What a tool with nothing to set on a part whose content lives in its editor says — Edit holds the door to it. */
+export const MAKER_EDITOR_NOTHING_HERE = 'Nothing to change here — open its editor in Edit.';
+
+export const MAKER_EDITOR_DOOR_WORDS: Readonly<Record<MakerStudioTool | 'info', string>> = {
+  logo: 'Open the Logo Maker',
+  mood: 'Open Palette + Dress Code',
+  schedule: 'Open the Schedule',
+  story: 'Open the Love Story',
+  gifts: 'Open E-Gifts',
+  info: 'Open Info',
+};
+
+/**
  * THE PART'S ONE DOOR — Edit's row 1 where its editing cannot be done in the toolbar (owner 2026-10-09: *"Only jump
  * if it has editing that cannot be done there. Example: Schedule, Love Story, Wedding March, Logo"*). It opens the
  * tool IN PLACE and ‹ returns to the same stage and part; the only "go there" in the Maker, never a badge on the
- * canvas. Null: none. The words are the approved prototype's: "Open in Studio › <page>" · "Change it in Suppliers".
+ * canvas. Null: none. The words name the EDITOR the door opens (`MAKER_EDITOR_DOOR_WORDS`) · "Change it in Suppliers" —
+ * never "Studio ›": Studio is gone (Build 6 Lane F, owner 2026-11-10 — its pages live inside the scenes they cover).
  * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
  * only drawn where the page draws no such words.)
  */
@@ -446,14 +464,14 @@ export function makerPartQuietRow(
   key: MakerPartKey,
 ): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } | { guestsView: MakerGuestsView } } | null {
   const src = makerPartSource(key);
-  if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
+  if (src.kind === 'studio') return { words: MAKER_EDITOR_DOOR_WORDS[src.tool], to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
   /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */
   if (src.kind === 'guests') return { words: MAKER_GUESTS_DOOR_WORDS, to: { guests: src.row } };
   /* 🗂 R4: the march and the seat plan are Guests' views — another page of the app: a plain door to the view. */
   if (src.kind === 'guests-view') return { words: MAKER_GUESTS_VIEW_DOOR_WORDS[src.view], to: { guestsView: src.view } };
   /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
-  if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
+  if (src.kind === 'info') return { words: MAKER_EDITOR_DOOR_WORDS.info, to: { studio: 'info' } };
   return null;
 }
 
@@ -560,7 +578,7 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   if (key === MAKER_COVER_PHOTO && tool === 'edit') return MAKER_COVER_PHOTO_EDIT_WHY;
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
-  if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
+  if (src?.kind === 'studio') return MAKER_EDITOR_NOTHING_HERE;
   if (src?.kind === 'guests') return 'Nothing to change here — set it in Guests ⚙.';
   if (src?.kind === 'guests-view') return 'Nothing to change here — arrange it in Guests.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
@@ -869,6 +887,20 @@ export const MAKER_PART_FOCUS: Partial<Record<MakerPartKey, string>> = {
   message: '[data-same-field="special_message"]',
   gallery: '[data-same-field="photos_heading"]',
 };
+
+/**
+ * 💍 THE RING IS THE LOGO MAKER'S DOOR (Build 6 Lane F, owner 2026-11-10, verbatim pick: *"the cover ring opens the
+ * Logo Maker while the rest of the cover opens the cover editor"*; approved prototype frames 3 · M2 · M3). The ring is the
+ * cover's mark (`logo`, `f:hero` · `el: 'mark'`): a tap on it opens the shipped Logo Maker at once. A tap anywhere else on
+ * the cover picks that part, and its Edit is the cover's own fields — the cover editor, unchanged.
+ * 🔒 `lib/the-ring-opens-the-logo-maker.test.ts`.
+ */
+export const MAKER_COVER_RING = 'logo' as const satisfies MakerPartKey;
+
+/** The editor a TAP on this part opens at once — only the ring (the Logo Maker); every other tap only picks its part. */
+export function makerTapOpensEditor(key: MakerPartKey | null): MakerStudioTool | null {
+  return key === MAKER_COVER_RING ? 'logo' : null;
+}
 
 /** Where a part's Style bar goes: its Studio tile, and the field focused there (or null). */
 export function makerPartStudioDoor(key: MakerPartKey): { tile: MakerStudioTool | 'info'; focus: string | null } | null {

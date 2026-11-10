@@ -122,7 +122,8 @@ type SocialSourceType =
   | 'milestone'
   | 'announcement'
   | 'evergreen'
-  | 'event_recap';
+  | 'event_recap'
+  | 'supplier_badge';
 
 type SocialPostRow = {
   post_id: string;
@@ -167,6 +168,7 @@ const SOURCE_LABEL: Record<SocialSourceType, string> = {
   announcement: 'Announcement',
   evergreen: 'Evergreen',
   event_recap: 'Event recap',
+  supplier_badge: 'Supplier badge',
 };
 
 const SOURCE_CHIP: Record<SocialSourceType, string> = {
@@ -176,6 +178,7 @@ const SOURCE_CHIP: Record<SocialSourceType, string> = {
   announcement: 'bg-sky-100 text-sky-800',
   evergreen: 'bg-ink/8 text-ink/65',
   event_recap: 'bg-terracotta/10 text-terracotta-700',
+  supplier_badge: 'bg-warn-100 text-warn-900',
 };
 
 /**

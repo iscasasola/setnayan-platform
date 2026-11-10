@@ -163,7 +163,16 @@ export async function readRewardNames(admin: SupabaseClient): Promise<RewardName
   };
 }
 
-export type GrantSweep = { granted: number; already: number; skipped: number; failed: number; upgrades?: UpgradeSweep };
+export type GrantSweep = {
+  granted: number;
+  already: number;
+  skipped: number;
+  failed: number;
+  upgrades?: UpgradeSweep;
+  /** The reward keys THIS sweep paid (status 'granted') — the badges just earned. Lane S posts one of them
+   *  (`composeBadgeSocialPost`, lib/social/badge-post.ts), fired by the caller from `after()`. */
+  grantedKeys?: string[];
+};
 
 /**
  * Pay every earned reward not yet paid — the gift-stock reward AND (owner, 6 Nov) the badge's 4-week personal upgrade
@@ -187,7 +196,7 @@ async function grantOwedGiftRewards(
   vendorProfileId: string,
   facts: BadgeRewardFacts,
 ): Promise<GrantSweep> {
-  const out: GrantSweep = { granted: 0, already: 0, skipped: 0, failed: 0 };
+  const out: GrantSweep = { granted: 0, already: 0, skipped: 0, failed: 0, grantedKeys: [] };
   try {
     const owed = rewardsOwed(facts);
     if (owed.length === 0) return out;
@@ -227,8 +236,10 @@ async function grantOwedGiftRewards(
       if (gErr || !status) {
         if (gErr) logQueryError('badgeRewards.grant', gErr, { vendorProfileId, key: m.key }, 'graceful_degrade');
         out.failed += 1;
-      } else if (status === 'granted') out.granted += 1;
-      else if (status === 'already') out.already += 1;
+      } else if (status === 'granted') {
+        out.granted += 1;
+        out.grantedKeys!.push(m.key);
+      } else if (status === 'already') out.already += 1;
       else out.failed += 1;
     }
   } catch (e) {

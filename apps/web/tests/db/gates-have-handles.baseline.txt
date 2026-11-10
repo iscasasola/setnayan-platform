@@ -169,3 +169,10 @@ vendor_profiles.is_findable | GENERATED ALWAYS AS … STORED (migration 20271320
 
 # ── ADDED 2026-11-09 · Supplier Build 3 · lane B · the schema lands one commit ahead of its toggle ──
 # Same SEQUENCING cost as events.papic_guest_spend_ceiling_on above, on the same branch (claude/supplier-build3-b).
+
+# ── ADDED 2026-11-10 · Build 6 · Lane S · per-type social switches, data first ──
+# Owner brief (Lane S, 10 Nov): "Per-type switches (data only) … so the LATER admin UI can flip them" — the admin screen
+# needs an approved prototype first, so the columns ship one change ahead of their toggle. Both default TRUE and are
+# read fail-open (unreadable = ON), so until the toggle lands they can only be turned OFF by an owner SQL edit.
+social_publish_settings.badge_autopost_enabled | Lane S 2026-11-10: read by lib/social/badge-post.ts (isBadgeAutopostEnabled). Its toggle is the Lane S admin screen, which waits on an approved prototype (owner brief: backend only, no admin UI in this PR).
+social_publish_settings.milestone_autopost_enabled | Lane S 2026-11-10: read by lib/social/milestones.ts (isMilestoneAutopostEnabled). Its toggle is the Lane S admin screen, which waits on an approved prototype (owner brief: backend only, no admin UI in this PR).

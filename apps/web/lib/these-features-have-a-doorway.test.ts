@@ -80,11 +80,16 @@ test('📈 the peer-comparison numbers have a reader', () => {
 
 test('📈 …and it is rendered, not merely imported', () => {
   const page = strip(readFileSync(join(WEB, 'app/vendor-dashboard/performance/page.tsx'), 'utf8'));
+  /* 📈 "Analytics, growing" (owner-approved 6 Nov 2026) draws the benchmark as §6's "Shops like yours" rows: the page
+     hands the read into the ONE view builder, and the client tree draws its rows. Both halves are pinned — a read that
+     reaches the view but is never drawn is the same dead end as the old unmounted card. */
   assert.match(
     page,
-    /<FunnelBenchmarkCard benchmark=\{funnelBenchmark\}/,
-    'the benchmark is read but never drawn — an import is not a doorway',
+    /\bbench:\s*funnelBenchmark\b/,
+    'the benchmark is read but never handed to the view — an import is not a doorway',
   );
+  const tree = strip(readFileSync(join(WEB, 'app/vendor-dashboard/performance/_components/analytics-growing.tsx'), 'utf8'));
+  assert.match(tree, /view\.bench\.rows\.map\(/, 'the benchmark reaches the view but its rows are never drawn');
   /* It must stay inside the Pro-and-up market-intel gate the module's own
      docblock names, never become an ungated read. */
   assert.match(

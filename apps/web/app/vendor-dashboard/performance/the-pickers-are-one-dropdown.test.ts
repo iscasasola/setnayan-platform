@@ -3,7 +3,8 @@
  * COUPLE · SUPPLIER · ADMIN", Q1 "the segmented rows become the same ▾"; house rule "every choice is one dropdown";
  * `SCHEDULE_CHAPTERS_BUILD_PLAN_2026-11-01.md` §12 Step 4 "pickers").
  *
- *   · Momentum window (Daily · Monthly · Annual) — was a sliding `PillTrack`.
+ *   · The window — was the Momentum window (Daily · Monthly · Annual) on a sliding `PillTrack`; since "Analytics,
+ *     growing" (owner-approved 6 Nov 2026) it is ONE window ▾ (Last 30 days · Last 12 months) in `AnalyticsGrowing`.
  *   · Service scope (All services · each active service) — was a pill tablist at ≤4 services and a native `<select>`
  *     at 5+: two looks for one choice. Now the shared `PickMenu` at every count, each option its own address.
  *
@@ -17,16 +18,16 @@ import { stripComments } from '@/lib/strip-comments';
 
 const C = join(__dirname, '_components');
 const read = (f: string) => stripComments(readFileSync(join(C, f), 'utf8'));
-const WINDOW = read('momentum-window-toggle.tsx');
+const WINDOW = read('analytics-growing.tsx');
 const SCOPE = read('service-scope-selector.tsx');
 const SCOPE_CLIENT = read('service-scope-select-client.tsx');
 
-test('the Momentum window is the shared PickMenu, never a pill track', () => {
+test('the window is the shared PickMenu, never a pill track', () => {
   assert.match(WINDOW, /from '@\/app\/dashboard\/\[eventId\]\/website\/editor\/_components\/pick-menu'/);
-  assert.match(WINDOW, /<PickMenu[\s\S]{0,80}label="Momentum window"/);
+  assert.match(WINDOW, /<PickMenu[\s\S]{0,80}label="Window — every number below follows this"/);
   assert.doesNotMatch(WINDOW, /PillTrack|PillButton|role="tablist"/);
-  // Solo hides Daily — kept.
-  assert.match(WINDOW, /isFull \|\| w\.key !== 'day'/);
+  // Its two choices come from the one list (Last 30 days · Last 12 months), never a typed copy.
+  assert.match(WINDOW, /options=\{GROWTH_WINDOWS\.map\(/);
 });
 
 test('the service scope is ONE dropdown at every count — no pill tablist, no native select', () => {

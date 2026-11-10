@@ -238,18 +238,6 @@ const LIB_READERS: Record<string, { side: 'couple' | 'shop'; why: string }> = {
     side: 'shop',
     why: 'The Booked stage of a shop funnel. My Performance and Admin › App performance.',
   },
-  'lib/vendor-funnel.ts#fetchVendorFunnelTotals': {
-    side: 'shop',
-    why: 'Same Booked stage, plain shape.',
-  },
-  'lib/vendor-funnel.ts#fetchServiceBookedCount': {
-    side: 'shop',
-    why: 'Per-service Booked count on My Performance.',
-  },
-  'lib/vendor-funnel.ts#fetchNullServiceBookedCount': {
-    side: 'shop',
-    why: 'The "not tied to a service" footnote count on My Performance.',
-  },
   'lib/vendor-funnel.ts#fetchBookedBySource': {
     side: 'shop',
     why: 'Booked rows sliced by source on My Performance.',

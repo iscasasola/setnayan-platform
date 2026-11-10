@@ -185,6 +185,18 @@ export async function fetchVendorPools(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<SchedulePool[]> {
+  return (await fetchVendorPoolsOrNull(supabase, vendorProfileId)) ?? [];
+}
+
+/**
+ * The same read, HONEST (house rule, `app/vendor-dashboard/reads-are-honest.test.ts`): NULL when the pools themselves
+ * could not be read — so a screen that draws a number from them (Today's step 7) says it could not load, instead of
+ * reading a refusal as "no schedule yet". `fetchVendorPools` keeps its old `[]` for the screens that already handle it.
+ */
+export async function fetchVendorPoolsOrNull(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<SchedulePool[] | null> {
   // 1. Every category the catalog references (own + linked).
   const categories = new Set<string>();
   const [{ data: services }, { data: links }] = await Promise.all([
@@ -240,7 +252,7 @@ export async function fetchVendorPools(
   const poolCols = namedCalendars
     ? `pool_id, pool_label, calendar_name, is_vendor_created, daily_booking_capacity, is_active, ${hallCols}`
     : `pool_id, pool_label, daily_booking_capacity, is_active, ${hallCols}`;
-  const [{ data: pools }, { data: cats }, { data: members }] = await Promise.all([
+  const [{ data: pools, error: poolsError }, { data: cats, error: catsError }, { data: members }] = await Promise.all([
     supabase
       .from('vendor_schedule_pools')
       .select(poolCols)
@@ -261,6 +273,9 @@ export async function fetchVendorPools(
           .then((r) => (r.error ? { data: [] as { vendor_service_id: string; pool_id: string }[] } : r))
       : Promise.resolve({ data: [] as { vendor_service_id: string; pool_id: string }[] }),
   ]);
+
+  // The category map decides which pools are shown (the filter below) — without it the list would look empty, too.
+  if (poolsError || catsError) return null;
 
   const byPool = new Map<string, string[]>();
   for (const row of (cats ?? []) as { category_key: string; pool_id: string }[]) {

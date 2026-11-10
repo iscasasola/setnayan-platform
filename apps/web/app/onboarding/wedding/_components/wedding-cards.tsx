@@ -22,7 +22,8 @@
 
 import { useEffect, useState } from 'react';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
-import { StepField, StepGroup, StepInput, StepPick } from '@/app/onboarding/_shared/step-field';
+import { StepField, StepGroup, StepPick, StepRows } from '@/app/onboarding/_shared/step-field';
+import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FAITH_REGISTRY, type FaithKey } from '@/lib/faith-registry';
 import { FEEL_PALETTES } from '@/lib/feel-palettes';
@@ -100,27 +101,29 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
     // the partner's, and never over anything typed. The rows open once the pick is made.
     const side = weddingSelfSide(state.role);
     const sideWord = (k: WeddingSelfSide) => WEDDING_SELF_SIDES.find((o) => o.key === k)!.label;
-    // 📐 THE SHARED STEP PARTS (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
-    // Like the text of the names"): each name is a labelled field (label above, "optional" muted), the
-    // shared 48 px input with its inner padding — never a bespoke box whose text sits on the border.
-    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => (
-      <StepField label={label} small={req ? undefined : 'optional'} htmlFor={`w-names-${rowSide}-${token}`}>
-        <StepInput
-          id={`w-names-${rowSide}-${token}`}
-          aria-label={`${sideWord(rowSide)} — ${label}`}
+    // 📐 THE ONE FIELD TEMPLATE (Lane P, owner 10 Nov: "inconsistent design template on the onboarding.
+    // Like the text of the names"): each name is `TypedRow boxed` — its name above, the 48 px box with its
+    // 14 px inner padding, one ✕ while typing — never a bespoke box whose text sits on the border.
+    const field = (rowSide: WeddingSelfSide, label: string, value: string, key: keyof OnboardingState, req: boolean, token: string) => {
+      const write = (t: string) => patch({ [key]: nameOnly(t), monogramFinalized: true } as Partial<OnboardingState>);
+      return (
+        <TypedRow
+          boxed
+          name={label}
+          value={value}
           placeholder={label}
+          empty={req ? label : 'Optional'}
+          required={req}
+          clean={nameOnly}
+          autoCapitalize="words"
           // Your own row offers the phone's saved name; the partner's is another person's — autofill off.
           autoComplete={rowSide === side ? token : 'off'}
-          autoCapitalize="words"
-          enterKeyHint="next"
-          required={req}
-          value={value}
-          data-wedding-name-row={rowSide}
-          data-wedding-own-row={rowSide === side ? '' : undefined}
-          onChange={(e) => patch({ [key]: nameOnly(e.target.value), monogramFinalized: true } as Partial<OnboardingState>)}
+          attrs={rowSide === side ? { 'data-wedding-name-row': rowSide, 'data-wedding-own-row': '' } : { 'data-wedding-name-row': rowSide }}
+          onType={write}
+          onKeep={write}
         />
-      </StepField>
-    );
+      );
+    };
     const rows = (rowSide: WeddingSelfSide) => (
       <>
         <StepGroup>
@@ -128,15 +131,15 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
           {rowSide === side ? ' · you' : ''}
         </StepGroup>
         {rowSide === 'bride' ? (
-          <>
+          <StepRows>
             {field('bride', 'First name', state.brideFirstName, 'brideFirstName', true, 'given-name')}
             {field('bride', 'Last name', state.brideLastName, 'brideLastName', false, 'family-name')}
-          </>
+          </StepRows>
         ) : (
-          <>
+          <StepRows>
             {field('groom', 'First name', state.groomFirstName, 'groomFirstName', true, 'given-name')}
             {field('groom', 'Last name', state.groomLastName, 'groomLastName', false, 'family-name')}
-          </>
+          </StepRows>
         )}
       </>
     );
@@ -184,33 +187,29 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
         line="It is the title of your Event Hub and its address."
         info="We wrote it from your names. Change it to anything — “The Casasola Wedding”, “Claire & Ice”. The address under it is taken from the name."
       >
-        <div className="flex flex-col gap-3" data-wedding-event-name>
-          <StepField
-            label="Event name"
-            htmlFor="w-event-name"
-            hint={
+        <StepRows attrs={{ 'data-wedding-event-name': '' }}>
+          <TypedRow
+            boxed
+            name="Event name"
+            value={name}
+            placeholder="e.g. Claire & Indalecio"
+            empty="e.g. Claire & Indalecio"
+            required
+            maxLength={WEDDING_EVENT_NAME_MAX}
+            autoComplete="off"
+            autoCapitalize="words"
+            pillAttrs={{ 'data-wedding-event-name-input': '' }}
+            note={
               address ? (
                 <>
                   Your Event Hub · <code className="font-mono text-ink/70">setnayan.com/{address}</code>
                 </>
               ) : null
             }
-          >
-            <StepInput
-              id="w-event-name"
-              aria-label="Event name"
-              placeholder="e.g. Claire & Indalecio"
-              autoComplete="off"
-              autoCapitalize="words"
-              enterKeyHint="next"
-              maxLength={WEDDING_EVENT_NAME_MAX}
-              required
-              value={name}
-              data-wedding-event-name-input
-              onChange={(e) => patch({ eventName: e.target.value.slice(0, WEDDING_EVENT_NAME_MAX) })}
-            />
-          </StepField>
-        </div>
+            onType={(t) => patch({ eventName: t.slice(0, WEDDING_EVENT_NAME_MAX) })}
+            onKeep={(t) => patch({ eventName: t.slice(0, WEDDING_EVENT_NAME_MAX) })}
+          />
+        </StepRows>
       </SetupFrame>
     );
   }

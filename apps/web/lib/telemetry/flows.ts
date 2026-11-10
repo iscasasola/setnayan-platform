@@ -54,7 +54,7 @@ export const WEDDING_SCREENS = [
   'team_intro', 'reception_setting', 'find', 'team_payoff', 'aigate', 'team_basics',
   'refine_basic', 'team_extras', 'refine_extras', 'songs', 'mood', 'account',
   'setup_where', 'setup_photo', 'setup_look', 'setup_guests',
-  'setup_more', 'w_names', 'w_kind', 'w_area', 'w_pax', 'w_budget', 'w_colours',
+  'setup_more', 'w_names', 'w_eventname', 'w_kind', 'w_area', 'w_pax', 'w_budget', 'w_colours',
   'services_step', 'congrats', 'plan', 'services', 'summary',
 ] as const;
 

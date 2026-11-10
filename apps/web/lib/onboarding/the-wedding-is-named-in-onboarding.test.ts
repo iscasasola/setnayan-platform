@@ -49,12 +49,12 @@ test('the commit writes it to display_name through the page name’s cleaner, th
   assert.match(action, /const slug = await generateUniqueSlug\(admin, displayName\);/, 'the address is seeded from the name');
 });
 
-test('the step draws the name in the shared input, with its Event Hub address under it', () => {
+test('the step draws the name in the one Field template (TypedRow boxed), with its Event Hub address under it', () => {
   const cards = read('app/onboarding/wedding/_components/wedding-cards.tsx');
   const at = cards.indexOf("if (card === 'w_eventname') {");
   const step = cards.slice(at, cards.indexOf("if (card === 'w_kind') {", at));
   assert.match(step, /title="Name your wedding"/);
-  assert.match(step, /<StepField\s+label="Event name"/);
-  assert.match(step, /value=\{name\}/);
+  assert.match(step, /<TypedRow\s+boxed\s+name="Event name"\s+value=\{name\}/);
+  assert.doesNotMatch(step, /<input\b|<StepInput\b/, 'no second input');
   assert.match(step, /setnayan\.com\/\{address\}/);
 });

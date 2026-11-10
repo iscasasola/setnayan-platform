@@ -109,7 +109,7 @@ test('23 · the celebrant is WHO the event is for — never the event’s name',
   const SERVER = read('lib/supplier-event-lines.server.ts');
   assert.doesNotMatch(SERVER, /celebrant:\s*ev\??\.display_name/, 'the CELEBRANT row reads the event’s name again');
   assert.match(SERVER, /celebrant: ev\s*\?\s*eventCelebrantWords\(/);
-  assert.match(SERVER, /\.from\('guests'\)\s*\.select\('event_id, display_name, first_name, last_name, role'\)\s*\.is\('deleted_at', null\)\s*\.in\('role', \['bride', 'groom', 'celebrant'\]\)/);
+  assert.match(SERVER, /\.from\('guests'\)\s*\.select\(`\$\{ENTOURAGE_COLUMNS\}, event_id`\)\s*\.is\('deleted_at', null\)\s*\.in\('role', \['bride', 'groom', 'celebrant'\]\)/);
 });
 
 test('24 · an event with no date says “no date yet”, never “for our date” — every register', () => {

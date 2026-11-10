@@ -14,6 +14,9 @@ import {
 } from '@/lib/social-sharing';
 import { nextAvailableSlot } from '@/lib/social/governor';
 import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
+import { isBadgeSocialShareAllowed } from '@/lib/social/badge-post';
+import { vendorIdFromBadgeRef } from '@/lib/social/lane-s';
+import { sweepMilestones } from '@/lib/social/milestones';
 import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
@@ -37,7 +40,8 @@ import { JOURNAL_SOCIAL_HOOKS } from '@/lib/social/journal-hooks';
  *   1. SWEEP-COMPOSE — always runs, even with autopublish off, so the admin
  *      queue shows what WOULD post: new couple-creation consents (48h pull
  *      window), unfeatured verified vendors, freshly crossed milestones
- *      (real COUNT(*) snapshots · aggregate numbers only), an evergreen
+ *      (real counts with test + sample data left out · aggregate numbers
+ *      only · lib/social/milestones.ts), an evergreen
  *      content floor when the page goes quiet, take-down awareness for
  *      revoked consents, then governor slot assignment (§ 8.3b cadence).
  *   2. DISPATCH — only when autopublish_enabled AND at least one platform is
@@ -67,9 +71,6 @@ const EVERGREEN_REUSE_MS = 60 * 24 * 60 * 60 * 1000;
 /** Max Facebook publishes per flush — bursts stay small even with a backlog. */
 const DISPATCH_BATCH_SIZE = 3;
 
-/** Milestone ladder — § 8: celebrate round numbers, aggregate counts only. */
-const MILESTONE_LADDER = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
-
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 type PostRow = {
@@ -80,7 +81,8 @@ type PostRow = {
     | 'milestone'
     | 'announcement'
     | 'evergreen'
-    | 'event_recap';
+    | 'event_recap'
+    | 'supplier_badge';
   source_ref: string;
   title: string | null;
   body: string;
@@ -368,111 +370,11 @@ async function sweepJournalArticles(admin: AdminClient, now: Date): Promise<void
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sweep c: milestones. Real COUNT(*) snapshots — aggregate numbers ONLY,
-// never names ([[project_setnayan_behavioral_data_edge]] posture). For each
-// metric, only the HIGHEST freshly crossed rung gets celebrated; the
-// social_milestones UNIQUE(metric, threshold) watermark makes this
-// insert-once even across concurrent flushes.
+// Sweep c: milestones — lives in lib/social/milestones.ts (Lane S, 2026-11-10):
+// real counts only (social_milestone_real_counts() leaves out internal / team /
+// admin accounts, is_sample events and demo shops), a fourth metric
+// users_joined, and its own switch milestone_autopost_enabled.
 // ─────────────────────────────────────────────────────────────────────────────
-async function sweepMilestones(admin: AdminClient): Promise<void> {
-  const counts = await Promise.all([
-    admin.from('events').select('event_id', { count: 'exact', head: true }),
-    admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id', { count: 'exact', head: true })
-      .eq('public_visibility', 'verified')
-      // PR-B — the "vendors_verified" milestone must count truly-verified
-      // vendors only, matching what the public marketplace surfaces — which
-      // since 2026-09-30 never includes a demo shop.
-      .eq('verification_state', 'verified')
-      .eq('is_demo', false),
-    admin.from('guests').select('guest_id', { count: 'exact', head: true }),
-  ]);
-
-  const metrics: Array<{ metric: string; count: number | null; caption: (n: number) => string }> = [
-    {
-      metric: 'events_created',
-      count: counts[0].count,
-      caption: (n) =>
-        `🎉 ${n.toLocaleString('en-PH')}+ events now planned on Setnayan — from "will you?" to "Set na 'yan." Thank you for trusting us with your big days. ✨\n\n#Setnayan #SetNaYan`,
-    },
-    {
-      metric: 'vendors_verified',
-      count: counts[1].count,
-      caption: (n) =>
-        `✅ ${n.toLocaleString('en-PH')}+ verified vendors on the Setnayan marketplace — every single one vetted by our team before they meet your big day.\n\n#Setnayan #SetNaYan`,
-    },
-    {
-      metric: 'guests_invited',
-      count: counts[2].count,
-      caption: (n) =>
-        `💌 ${n.toLocaleString('en-PH')}+ guests invited through Setnayan — QR invitations, RSVPs, and seats, all sorted. Set na 'yan.\n\n#Setnayan #SetNaYan`,
-    },
-  ];
-  for (const [i, res] of counts.entries()) {
-    if (res.error) {
-      logQueryError('runSocialFlush (milestone count)', res.error, {
-        metric: metrics[i]?.metric ?? `index_${i}`,
-      });
-    }
-  }
-
-  const { data: watermarkData, error: watermarkErr } = await admin
-    .from('social_milestones')
-    .select('metric, threshold');
-  if (watermarkErr) {
-    logQueryError('runSocialFlush (milestone watermarks)', watermarkErr);
-    return;
-  }
-  const recorded = new Set(
-    ((watermarkData ?? []) as Array<{ metric: string; threshold: number }>).map(
-      (w) => `${w.metric}:${w.threshold}`,
-    ),
-  );
-
-  for (const { metric, count, caption } of metrics) {
-    if (count === null || count === undefined) continue; // count query failed — skip, never guess
-    const crossed = MILESTONE_LADDER.filter((t) => t <= count);
-    const highest = crossed[crossed.length - 1];
-    if (highest === undefined) continue;
-    if (recorded.has(`${metric}:${highest}`)) continue;
-
-    // Watermark FIRST — UNIQUE(metric, threshold) is the idempotency gate.
-    const { error: insertErr } = await admin
-      .from('social_milestones')
-      .insert({ metric, threshold: highest });
-    if (insertErr) {
-      if (insertErr.code !== '23505') {
-        logQueryError('runSocialFlush (milestone watermark insert)', insertErr, { metric });
-      }
-      continue; // another flush got here first
-    }
-
-    const { data: postData, error: postErr } = await admin
-      .from('social_posts')
-      .insert({
-        source_type: 'milestone',
-        source_ref: `${metric}:${highest}`,
-        title: `Milestone · ${metric.replace(/_/g, ' ')} reached ${highest.toLocaleString('en-PH')}`,
-        body: caption(highest),
-        link_url: 'https://www.setnayan.com',
-      })
-      .select('post_id')
-      .single();
-    if (postErr) {
-      if (postErr.code !== '23505') {
-        logQueryError('runSocialFlush (compose milestone)', postErr, { metric });
-      }
-      continue;
-    }
-
-    await admin
-      .from('social_milestones')
-      .update({ post_id: (postData as { post_id: string }).post_id })
-      .eq('metric', metric)
-      .eq('threshold', highest);
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweep d: evergreen content floor. If the page has had nothing published or
@@ -716,9 +618,15 @@ async function dispatchDuePosts(
       // OR the event site isn't effectively public. Compose has the same gate;
       // this catches an opt-out / visibility flip that happened AFTER compose.
       // Pull it (scheduled → pulled) so it also stops re-appearing as due.
+      //
+      // Lane S (2026-11-10) — the badge post's gate, dispatch half: a shop that
+      // was unlisted, turned demo, moved to an internal owner or opted out of
+      // social features AFTER its badge post was composed is pulled, not posted.
       if (
-        post.source_type === 'event_recap' &&
-        !(await isRecapSocialShareAllowed(admin, post.source_ref))
+        (post.source_type === 'event_recap' &&
+          !(await isRecapSocialShareAllowed(admin, post.source_ref))) ||
+        (post.source_type === 'supplier_badge' &&
+          !(await isBadgeSocialShareAllowed(admin, vendorIdFromBadgeRef(post.source_ref))))
       ) {
         await admin
           .from('social_posts')

@@ -114,6 +114,8 @@ async function buildCardContext(
       return { sourceType: 'evergreen', title: post.title, body: post.body };
     case 'event_recap':
       return eventRecapContext(admin, post);
+    // Lane S (2026-11-10): a supplier badge post renders as a poster off its own
+    // title + body — both are public words (lib/social/lane-s.ts badgePostCopy).
     default:
       // Unknown type — render as a generic poster off title/body.
       return { sourceType: 'announcement', title: post.title, body: post.body };
@@ -257,6 +259,7 @@ const MILESTONE_PHRASE: Record<string, string> = {
   events_created: 'events planned on Setnayan',
   vendors_verified: 'verified vendors in the marketplace',
   guests_invited: 'guests invited through Setnayan',
+  users_joined: 'people on Setnayan',
 };
 
 /** First comma-formatted or plain number found in a string, e.g. "1,000". */

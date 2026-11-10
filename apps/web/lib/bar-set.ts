@@ -9,7 +9,7 @@
  * icons enter from the left. we already did this kind of effect before."*
  *
  * The three sets sit on one line, left to right — an EVENT's bar · the ACCOUNT
- * bar (Events · Discover · Memories · People) · the SHOP's bar — and a press
+ * bar (Events · People · Memories · Discover) · the SHOP's bar — and a press
  * that moves you between them slides the way that line reads:
  *
  *   account → shop    'fwd'   out to the LEFT, the shop's icons in from the RIGHT

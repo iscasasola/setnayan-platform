@@ -7,7 +7,7 @@
  * do i see so many menu. this is supposed to change already?"*
  *
  *   signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
- *   signed in   Discover · Events · Memories · People · (shop) · (HQ) · Features
+ *   signed in   Discover · Events · People · (shop) · Memories · (HQ) · Features  (My Home order: 2026-11-11)
  *
  * 🔑 A PROPERTY, NOT A PHRASING. The shell is RENDERED — signed in and out, on the
  * front door, a doorway and the app, with and without a shop and HQ — and the rail's
@@ -177,7 +177,7 @@ test('signed in the rail is your own rows and one Features row — no find row',
   const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
   assert.deepEqual(
     links,
-    ['/', '/dashboard', '/dashboard/library', '/dashboard/people', '/vendor-dashboard', '/admin', '/features'],
-    'signed in = Discover · Events · Memories · People · shop · HQ · Features (owner 2026-10-01)',
+    ['/', '/dashboard', '/dashboard/people', '/vendor-dashboard', '/dashboard/library', '/admin', '/features'],
+    'signed in = Discover · Events · People · shop · Memories · HQ · Features (owner 2026-10-01; My Home in the bar\'s order since 2026-11-11, "THE ACCOUNT BAR ORDER")',
   );
 });

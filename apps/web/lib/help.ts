@@ -341,13 +341,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         body: 'From your dashboard, start a new event. Pick the event type, enter a display name (this is what guests and suppliers see), and the date. You can change all of it later.',
       },
       {
-        // The account bar (owner 2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"), the event
+        // The account bar (owner 2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"; its order re-ruled
+        // 2026-11-11 "THE ACCOUNT BAR ORDER" — Events · People · Shop · Memories · Discover), the event
         // bar of four, and the iPhone app's (Discover is dropped there while it bounces `/`).
         slug: 'the-bar-at-the-bottom',
         title: 'What are the tabs at the bottom of the screen?',
         appBody:
-          'On your account screens the bar is Events, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories.',
-        body: 'On your account screens the bar is Events, Discover, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Discover shows public events from people you follow, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories. On a laptop the same places run down the side.',
+          'On your account screens the bar is Events, People and Memories — with Shop after People if you own one. Events holds every event you host or are invited to, People is everyone you are connected to, and Memories keeps the photos and stories from all of them. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories.',
+        body: 'On your account screens the bar is Events, People, Memories and Discover — with Shop after People if you own one. Events holds every event you host or are invited to, People is everyone you are connected to, Memories keeps the photos and stories from all of them, and Discover shows public events from people you follow. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories. On a laptop the same places run down the side.',
       },
       {
         // Owner 2026-10-22: "In shop they do not create events, but them as a user, they can create their events".

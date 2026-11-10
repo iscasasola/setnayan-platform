@@ -106,7 +106,7 @@ test('bar tabs carry tab-<last path segment>, and every tab step names a real ta
   assert.match(nav.src, /data-tour=\{tabTourToken\(item\.href\)\}/, 'the bar no longer stamps its tabs');
   const tabs = steps.filter(({ s }) => s.anchor.startsWith('tab-')).map(({ s }) => s.anchor.slice(4));
   assert.ok(tabs.length >= 4, 'expected the guests / vendors / shop / customers tab steps');
-  // + the account bar (Events · Discover · Memories · People — `customer_account_bar_v2`, owner 2026-10-22/25).
+  // + the account bar (Events · People · Shop · Memories · Discover since 2026-11-11 — `customer_account_bar_v2`, owner 2026-10-22/25).
   const menus = SOURCES.filter(({ f }) => /customer-menu\.ts$|vendor-bottom-nav\.tsx$|account-bottom-nav\.tsx$/.test(f)).map(({ src }) => src).join('\n');
   for (const seg of tabs) {
     // A tab's token ignores its query (`/dashboard?hub=1` → tab-dashboard), as `tabTourToken` does.

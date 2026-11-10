@@ -1126,11 +1126,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     blurb: 'Replaced by customer_account_bar_v2.',
     slides: [],
   },
-  /* 🔦 THE EVENTS BOARD + THE ACCOUNT BAR — v2 (owner 2026-10-25, "missing so many parts"). The board’s two shelves (top → bottom), then the bar’s tabs (`tab-<last path segment>`, stamped by `<BottomNav>`; Discover is not a stop — its address `/` has no segment), then the avatar LAST: the top bar draws it at every width, so on a laptop (the rail stamps no tab tokens) the tour still ends. The board’s Search events and ＋ Create event live in `shell-thumb-rows.tsx` (another builder’s file this round) and carry no token yet. Sells nothing. */
+  /* 🔦 THE EVENTS BOARD + THE ACCOUNT BAR — v2 (owner 2026-10-25, "missing so many parts"). The board’s two shelves (top → bottom), then the bar’s tabs IN THE BAR’S ORDER (Events · People · Memories since the owner’s 2026-11-11 "THE ACCOUNT BAR ORDER" — Shop is an owner’s tab only, so it is no stop; pinned in the-account-bar-is-the-ruling.test.ts) (`tab-<last path segment>`, stamped by `<BottomNav>`; Discover is not a stop — its address `/` has no segment), then the avatar LAST: the top bar draws it at every width, so on a laptop (the rail stamps no tab tokens) the tour still ends. The board’s Search events and ＋ Create event live in `shell-thumb-rows.tsx` (another builder’s file this round) and carry no token yet. Sells nothing. */
   customer_account_bar_v2: {
     key: 'customer_account_bar_v2',
     label: 'Your events and the account bar',
-    blurb: 'The Planning and Worth planning shelves, then Events, Memories, People and Switch to.',
+    blurb: 'The Planning and Worth planning shelves, then Events, People, Memories and Switch to.',
     slides: [],
     spotlight: {
       steps: [
@@ -1150,14 +1150,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'This board. Inside an event, the bar changes to that event’s own.',
         },
         {
-          anchor: 'tab-library',
-          title: 'Memories',
-          body: 'The photos and stories from all your events, kept in one place.',
-        },
-        {
           anchor: 'tab-people',
           title: 'People',
           body: 'Everyone you’re connected to, your loved ones and your groups.',
+        },
+        {
+          anchor: 'tab-library',
+          title: 'Memories',
+          body: 'The photos and stories from all your events, kept in one place.',
         },
         {
           anchor: 'account-avatar',

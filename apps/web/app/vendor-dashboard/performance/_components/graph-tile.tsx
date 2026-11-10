@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
-import { BodyPanel } from '../../_components/body-panel';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { impactChipStyle } from './growth-recs-card';
 
 /**
@@ -13,7 +13,8 @@ import { impactChipStyle } from './growth-recs-card';
  * `build6_makers_analytics_2026-11-10` frame "Proposed · one Analytics", approved 10 Nov).
  *
  *   TILE    title · its data, named, in one small line · the picture · one line in words. A frame, because it presses.
- *   RISE    the shipped in-body panel (`BodyPanel`, `lib/rise-motion.ts` — 0.7 s, the reverse on ✕): the graph larger,
+ *   RISE    THE one Rise full screen (`RiseScreen`, Build 5 Lane A — out of the tapped tile, the reverse on ✕, the bars
+ *           away; the window ▾ rides its head, the one door its thumb zone): the graph larger,
  *           then ONE recommendation — Problem (the graph's own number) → Solution → one door — only when its rule
  *           fired in `buildGrowthRecs`; otherwise "Nothing to fix right now." Then the section's details (the approved
  *           6 Nov fold bodies, carried as is — each says its own empty and "Couldn’t load" lines), then the one door.
@@ -74,13 +75,11 @@ function RecBox({ g }: { g: GraphSpec }) {
 }
 
 export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
-  const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const door = g.state === 'ok' && g.rec ? { label: g.rec.ctaLabel, href: g.rec.ctaHref } : g.door;
   return (
     <>
       <button
-        ref={ref}
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
@@ -116,9 +115,19 @@ export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
         ) : null}
       </button>
       {open ? (
-        <BodyPanel origin={ref.current} frame={ref.current?.closest<HTMLElement>('[data-growth]') ?? null} title={g.title} sub={g.state === 'empty' ? 'Example' : undefined} onClose={() => setOpen(false)} data={`graph-${g.k}`}>
+        <RiseScreen
+          title={g.title}
+          line={g.state === 'empty' ? 'Example' : undefined}
+          actions={window}
+          onClose={() => setOpen(false)}
+          data={`graph-${g.k}`}
+          thumb={
+            <div className="ag-onedoor" data-graph-door={g.k}>
+              <ActionButton tone="brand" main icon={ArrowRight} label={door.label} href={door.href} />
+            </div>
+          }
+        >
           <div data-growth="" className="ag-risen" data-graph-risen={g.k}>
-            {window ? <div className="ag-topctl">{window}</div> : null}
             <div className={g.state === 'empty' ? 'ag-gbig ag-ex' : 'ag-gbig'}>
               <span className="ag-src">{g.src}</span>
               {g.state === 'unread' ? (
@@ -135,11 +144,8 @@ export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
             <RecBox g={g} />
             {g.details ? <div className="ag-body">{g.details}</div> : null}
             <p className="ag-cap">{g.state === 'empty' ? 'The picture is a sample, faded — it goes with your first real row.' : 'One recommendation per graph · never advice on a number we do not have.'}</p>
-            <div className="ag-onedoor" data-graph-door={g.k}>
-              <ActionButton tone="brand" main icon={ArrowRight} label={door.label} href={door.href} />
-            </div>
           </div>
-        </BodyPanel>
+        </RiseScreen>
       ) : null}
     </>
   );

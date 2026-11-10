@@ -6,7 +6,7 @@
  *   1. ONE Analytics: thirteen graphs, each drawn ONCE as a tile, in the six sections — the five live Shop carousel cards
  *      folded into the tile that owns their fact (the dedupe table), the five new graphs a–e beside them.
  *   2. Every tile names its data (`src`) before it draws.
- *   3. A tap rises in the SHIPPED in-body panel (`BodyPanel` → `lib/rise-motion.ts`) — no second shell.
+ *   3. A tap rises into THE one Rise full screen (`RiseScreen`, Build 5 Lane A) — no second rise.
  *   4. ONE recommendation, from `buildGrowthRecs` only, and only on a tile whose numbers are real (`ok`): an Example tile
  *      and a refused tile never carry advice. Every rec key a graph points at is a real rule.
  *   5. Empty draws the real picture with sample data, faded, marked "Example"; refused says "Couldn’t load." — never the
@@ -70,12 +70,13 @@ test('2 · every tile names its data before it draws', () => {
   assert.match(tile, /<span className="ag-src">\{g\.src\}<\/span>/, 'the tile draws the source line');
 });
 
-test('3 · a tap rises in the shipped in-body panel — no second shell', () => {
+test('3 · a tap rises into THE one Rise full screen — no second rise', () => {
   const tile = read(TILE);
-  assert.match(tile, /import \{ BodyPanel \} from '\.\.\/\.\.\/_components\/body-panel';/);
-  assert.match(tile, /<button\s[\s\S]{0,120}type="button"\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the tile is a button');
-  assert.match(tile, /\{open \? \(\s*<BodyPanel origin=\{ref\.current\}/, 'it rises from the tapped tile');
-  assert.ok(!/position:\s*['"]?fixed|createPortal/.test(tile), 'no shell of its own — the Rise is BodyPanel');
+  assert.match(tile, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/);
+  assert.match(tile, /<button\s[\s\S]{0,40}type="button"\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the tile is a button');
+  assert.match(tile, /\{open \? \(\s*<RiseScreen\b/, 'the tap opens the shared RiseScreen');
+  assert.match(tile, /thumb=\{\s*<div className="ag-onedoor" data-graph-door=\{g\.k\}>/, 'the one door sits in the thumb zone');
+  assert.ok(!/BodyPanel|createPortal|data-rise-screen=|position:\s*['"]?fixed/.test(tile), 'no rise of its own — the Rise is RiseScreen');
 });
 
 test('4 · one recommendation, from buildGrowthRecs only, only on a real tile', () => {

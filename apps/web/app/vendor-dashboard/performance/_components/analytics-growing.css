@@ -272,8 +272,8 @@
 [data-growth] .ag-sb.ag-split .ag-track > i { display: block; height: 100%; border-radius: var(--m-r-sm); background: var(--m-orange); }
 [data-growth] .ag-sb.ag-split .ag-track.ag-own > i { background: var(--m-slate-4); }
 
-/* the risen graph (inside the shipped BodyPanel) */
-[data-growth] .ag-risen { display: grid; gap: 14px; padding-bottom: 24px; }
+/* the risen graph (inside the one RiseScreen — its own `[data-growth]` root, since the screen is drawn on <body>) */
+[data-growth].ag-risen { display: grid; gap: 14px; padding: 16px 16px 24px; }
 [data-growth] .ag-gbig { border: 1px solid var(--m-line); border-radius: 18px; background: var(--m-paper); padding: 14px; }
 [data-growth] .ag-gbig .ag-gp { margin-top: 12px; }
 [data-growth] .ag-gbig .ag-ln { margin: 10px 0 0; font-size: 14px; color: var(--m-slate); line-height: 1.4; }
@@ -284,4 +284,4 @@
 [data-growth] .ag-ps dt { color: var(--m-ink); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; padding-top: 2px; }
 [data-growth] .ag-ps dd { margin: 0; }
 [data-growth] .ag-recbox .ag-calm { margin: 0; }
-[data-growth] .ag-onedoor { display: flex; justify-content: flex-end; }
+[data-graph-door] { display: flex; justify-content: flex-end; }

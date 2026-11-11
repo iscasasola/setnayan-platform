@@ -149,10 +149,10 @@ test('5 · any pair, host → host included; the thread is read only through the
     { userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null },
     { userId: 'u-jose', firstName: 'Jose', name: 'Jose', role: 'groom', label: null },
   ] as const;
-  const others = (youId: string, side?: 'couple') =>
+  const others = (youId: string, side: 'vendor' | 'couple') =>
     stripOrder([...hosts] as never, youId, side).flatMap((p) => (!p.isYou && p.host ? [p.userId] : [])).sort();
   assert.deepEqual(others('u-maria', 'couple'), ['u-jose', 'u-shop'], 'a host cannot pick another host or the supplier in the 🔒 list');
-  assert.deepEqual(others('u-shop'), ['u-jose', 'u-maria'], 'the supplier cannot pick every host in the 🔒 list');
+  assert.deepEqual(others('u-shop', 'vendor'), ['u-jose', 'u-maria'], 'the supplier cannot pick every host in the 🔒 list');
   assert.match(
     read('app/_components/chat/chat-host-strip.tsx'),
     /stripOrder\(hosts, youId, viewerSide\)\.flatMap\(\(p\) => \(!p\.isYou && p\.host \? \[\{ userId: p\.userId, name: hostFirstName\(p\.host\) \}\] : \[\]\)\);\s*useEffect\(\(\) => \{\s*if \(threadId\) setChatPeople\(threadId, others\);/,

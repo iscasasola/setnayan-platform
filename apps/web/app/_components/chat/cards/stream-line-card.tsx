@@ -6,6 +6,8 @@
  * this chunk fetched. Anything else stays the plain Setnayan line it always was.
  */
 import { bookRequestFromLine, changeAskFromLine, guestCountFromLine } from '@/lib/chat-cards';
+import { pollFromLine } from '@/lib/chat-card-lines';
+import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
 import { ChangeAskCard } from './ask-change-card';
 import { GuestRecountCard } from './guest-recount-card';
@@ -19,6 +21,9 @@ export function StreamLineCard({
   supplierName,
   eventDate,
   returnPath,
+  messageId,
+  meId,
+  nameOf,
 }: {
   body: string;
   createdAt: string;
@@ -29,7 +34,14 @@ export function StreamLineCard({
   supplierName: string;
   eventDate: string | null;
   returnPath: string;
+  /** The line's own id — a poll line finds its poll by it. */
+  messageId?: string;
+  meId?: string;
+  nameOf?: (userId: string) => string;
 }) {
+  if (pollFromLine(body) && messageId && meId && nameOf) {
+    return <PollCard threadId={threadId} messageId={messageId} meId={meId} nameOf={nameOf} />;
+  }
   const book = bookRequestFromLine(body);
   if (book) return <BookRequestCard state={book.state} reason={book.reason} supplierName={supplierName} at={at} />;
   const ask = changeAskFromLine(body);

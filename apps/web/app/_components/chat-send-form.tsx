@@ -48,6 +48,9 @@ import { CHAT_ATTACHMENT_ACCEPT, chatAttachmentLimit } from '@/lib/chat-attachme
 import { CHAT_CAMERA_INPUT_ID, CHAT_PHOTO_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 import { useTapAway } from '@/app/_components/typing-band';
+import { SlashList } from '@/app/_components/chat/slash-list';
+import { filterSlash, plusGate, slashPick, slashQuery, PLUS_CARD_TITLE, type SlashRow } from '@/lib/chat-plus';
+import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import {
   CHAT_PENDING_EVENT,
   CHAT_SETTLED_EVENT,
@@ -141,6 +144,36 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     return () => window.clearTimeout(t);
   }, [toolsOut, privateTo, reduceMotion]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  /* ⌨ "/" SHORTCUTS (owner 11 Nov). Typing "/" first lifts the (+)'s own card rows above the box (the (+) on this chat
+     publishes them — `sheetSlashRows`); Enter or a tap drops that card exactly as the (+) row does. Words only while
+     private, so no list then. Held by lib/chat-plus.test.ts (slash == (+), Enter never picks a greyed row). */
+  const plus = usePlus(threadId);
+  const [slashText, setSlashText] = useState<string | null>(null);
+  const [slashHi, setSlashHi] = useState(0);
+  const slashQ = privateTo || slashText === null ? null : slashQuery(slashText);
+  const slashOn = slashQ !== null && plus.slash.length > 0;
+  const slashList = slashOn ? filterSlash(plus.slash, slashQ) : [];
+  const slashRunning = plus.draft
+    ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
+    : plus.sent;
+  const slashGate = plusGate(slashRunning ?? null);
+  const pickSlash = (row: SlashRow) => {
+    if (row.shut) return;
+    if (slashGate.shut) {
+      patchPlus(threadId, { toast: { text: slashGate.message, at: Date.now() } });
+      if (slashRunning) jumpTo(slashRunning.anchorId);
+      return;
+    }
+    const el = textareaRef.current;
+    if (el) {
+      el.value = '';
+      el.style.height = '';
+    }
+    setSlashText(null);
+    setHasDraft(false);
+    patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
+    window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+  };
   // The 🔒 (the one door) turning private mode on puts the cursor in the box.
   const privateUserId = privateTo?.userId ?? null;
   useEffect(() => {
@@ -324,6 +357,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           privateTo: privateTo?.name ?? null,
         };
         window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
+        setSlashText(null);
         if (textareaRef.current) {
           textareaRef.current.value = '';
           textareaRef.current.style.height = '';
@@ -376,6 +410,16 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         <p className="self-start text-xs text-terracotta" role="alert">
           {fileError}
         </p>
+      ) : null}
+      {slashOn ? (
+        <SlashList
+          rows={slashList}
+          query={slashQ ?? ''}
+          highlight={Math.min(slashHi, Math.max(0, slashList.length - 1))}
+          notice={slashGate.shut ? slashGate.message : null}
+          onPick={pickSlash}
+          onHover={setSlashHi}
+        />
       ) : null}
       {blockError ? (
         <p
@@ -490,6 +534,9 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           onInput={(e) => {
             const el = e.currentTarget;
             setHasDraft(el.value.trim().length > 0);
+            const typed = el.value.startsWith('/') ? el.value : null;
+            if (typed !== slashText) setSlashHi(0);
+            setSlashText(typed);
             // Grows with the words, up to ~6 lines, then scrolls (Messenger's field).
             el.style.height = 'auto';
             el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
@@ -499,6 +546,27 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             );
           }}
           onKeyDown={(e) => {
+            // ⌨ The slash list has the keys while it is up: ↑↓ move, Enter drops the card (never a greyed one), Esc puts it away.
+            if (slashOn && !e.nativeEvent.isComposing) {
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const last = Math.max(0, slashList.length - 1);
+                setSlashHi((i) => (e.key === 'ArrowDown' ? Math.min(i + 1, last) : Math.max(i - 1, 0)));
+                return;
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setSlashText(null);
+                return;
+              }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const at = Math.min(slashHi, Math.max(0, slashList.length - 1));
+                const row = slashList[at];
+                if (row && slashPick(slashList, at)) pickSlash(row);
+                return;
+              }
+            }
             // Enter sends, Shift+Enter starts a new line — the standard chat
             // convention. shouldSendOnEnter also holds back for IME
             // composition (Filipino/Japanese/Chinese keyboards confirm a word

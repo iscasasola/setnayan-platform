@@ -126,6 +126,9 @@ import { privateOtherId } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
+import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
+import { bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
+import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { usePrivateTo } from './chat/private-to';
 import {
@@ -304,6 +307,11 @@ type Props = {
   extraPins?: readonly PinFact[];
   /** The answer drawn under a page pin when it opens (the shipped controls). */
   pinBodies?: Readonly<Record<string, React.ReactNode>>;
+  /**
+   * 🧪 DEV LABS ONLY — the open decisions + message → decision map the `#` chips read, seeded because a lab has no
+   * database. A refused re-read never clears a seed (it only marks the picker refused). Pages leave it unset.
+   */
+  labFilings?: { topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> };
   /** 🚦 The full-screen blocker, when one is unanswered (its fact must also be in `extraPins`, as the red pin). */
   blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
@@ -449,6 +457,7 @@ export function ChatMessageStream({
   pins = null,
   extraPins = [],
   pinBodies,
+  labFilings,
   blocker = null,
   plus = null,
   moneyHidden = false,
@@ -549,6 +558,29 @@ export function ChatMessageStream({
    * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
+  // 👆👆 Double-tap files a message under a decision (owner 11 Nov 2026). The open decisions + where each message sits
+  // (`null` = the read was refused → the picker says so, the chips stay as they were); the picker's message; its Undo line.
+  const [filings, setFilings] = useState<{ topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } | null>(labFilings ?? null);
+  const [filingsRefused, setFilingsRefused] = useState(false);
+  const [filePick, setFilePick] = useState<string | null>(null);
+  const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
+  const lastTap = useRef<LastTap>(NO_TAP);
+  const refetchFilings = useCallback(async () => {
+    const got = await loadOpenFilings(supabase, threadId);
+    setFilingsRefused(got === null);
+    if (got) setFilings(got);
+  }, [supabase, threadId]);
+  useEffect(() => {
+    if (!fileLine) return;
+    const t = setTimeout(() => setFileLine(null), 5000);
+    return () => clearTimeout(t);
+  }, [fileLine]);
+  const openDecisionPin = (topicId: string) => {
+    const pin = document.querySelector<HTMLElement>(`[data-chat-pin-key="decision:${topicId}"]`);
+    if (!pin) return;
+    pin.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (pin.getAttribute('aria-expanded') !== 'true') pin.click();
+  };
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
   // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
   // other side's label.
@@ -1128,6 +1160,7 @@ export function ChatMessageStream({
 
     const refetchAll = async () => {
       void refetchHearts();
+      void refetchFilings();
       try {
         const fresh = await readThread(supabase, threadId);
         if (cancelled) return;
@@ -1210,6 +1243,12 @@ export function ChatMessageStream({
             const row = payload.new as HeartRow | undefined;
             if (row && typeof row.message_id === 'string') setHearts((prev) => applyHeart(prev, row));
           },
+        )
+        // 👆👆 A message filed / moved / taken out on either side → re-read where each message sits (same channel).
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'chat_decision_messages', filter: `thread_id=eq.${threadId}` },
+          () => void refetchFilings(),
         );
       // 🔒 A masked reader is never SENT a line with an amount (the database withholds it — migration
       // 20271333705710), so that line raises no INSERT here. Every shared line still moves the thread's own
@@ -1235,7 +1274,7 @@ export function ChatMessageStream({
       cancelled = true;
       stop();
     };
-  }, [supabase, threadId, readThread, moneyHidden]);
+  }, [supabase, threadId, readThread, moneyHidden, refetchFilings]);
 
   // ---------------------------------------------------------------------------
   // Auto-scroll on new message (but only if the user was already at the bottom).
@@ -2134,6 +2173,9 @@ export function ChatMessageStream({
                     supplierName={viewerRole === 'couple' ? counterpartyLabel : 'you'}
                     eventDate={eventDate}
                     returnPath={returnPathFor(m)}
+                    messageId={m.message_id}
+                    meId={currentUserId}
+                    nameOf={personName}
                   />
                 </li>
               );
@@ -2209,7 +2251,12 @@ export function ChatMessageStream({
                 // 🔒 Holding a bubble opens nothing: the 🔒 beside the message box is the ONE door to a private
                 // message (owner-approved prototype, 11 Nov 2026 — the hold menu's "Reply privately" removed).
                 onClick={(e) => {
-                  if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
+                  if (tapMeansHeart(e.target as Element)) {
+                    const tap = bubbleTap(lastTap.current, m.message_id, performance.now());
+                    lastTap.current = tap.next;
+                    toggleHeart(m.message_id);
+                    if (tap.openPicker && privateWith === null) setFilePick(m.message_id);
+                  }
                 }}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
@@ -2270,6 +2317,53 @@ export function ChatMessageStream({
                 onToggle={() => toggleHeart(m.message_id)}
                 alignEnd={mine}
               />
+              {filings?.byMessage.get(m.message_id) ? (
+                <FiledChip
+                  title={filings.byMessage.get(m.message_id)!.title}
+                  alignEnd={mine}
+                  onOpen={() => openDecisionPin(filings.byMessage.get(m.message_id)!.topicId)}
+                />
+              ) : null}
+              {filePick === m.message_id ? (
+                <FileToDecisionMenu
+                  threadId={threadId}
+                  messageId={m.message_id}
+                  body={m.body ?? null}
+                  filing={filings?.byMessage.get(m.message_id) ?? null}
+                  topics={filingsRefused ? null : filings ? filings.topics : undefined}
+                  alignEnd={mine}
+                  onClose={() => setFilePick(null)}
+                  onDone={(done: FilingDone) => {
+                    setFilePick(null);
+                    setFileLine({ messageId: m.message_id, ...done });
+                    void refetchFilings();
+                    // one-render: keep (client-write) — a filing was an RPC in the browser; re-read so the pins' counts move.
+                    router.refresh();
+                  }}
+                />
+              ) : null}
+              {fileLine?.messageId === m.message_id ? (
+                <p role="status" className={`mt-1 flex items-center gap-2 text-[13px] text-ink/70 ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-line="">
+                  {fileLine.text}
+                  {fileLine.undo ? (
+                    <button
+                      type="button"
+                      className="sn-press min-h-11 px-2 font-semibold text-sn-accent"
+                      onClick={() => {
+                        const undo = fileLine.undo;
+                        setFileLine(null);
+                        void undo?.().then(() => {
+                          void refetchFilings();
+                          // one-render: keep (client-write) — the Undo was an RPC in the browser.
+                          router.refresh();
+                        });
+                      }}
+                    >
+                      Undo
+                    </button>
+                  ) : null}
+                </p>
+              ) : null}
               {/* Negotiation auto-reader (Phase 1): under the sender's OWN
                   message, if the deterministic reader flags a meeting topic,
                   offer a one-tap "set up this meeting" chip. Suggestion-grade —

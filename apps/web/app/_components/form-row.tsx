@@ -28,6 +28,7 @@ import { Explain } from './explain';
 import { tellTheForm } from '@/lib/tell-the-form';
 import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
 import { ClearButton, clearTyped } from '@/components/clear-field';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * FORM ROW — one fact to type or pick: its name on the left, its answer on the right, one thin line between rows
@@ -406,6 +407,15 @@ function carryTab(row: HTMLElement): void {
   document.addEventListener('focusin', onFocus);
 }
 
+/** 🔢 "n/max" inside a boxed field (`counts`). */
+function FieldCount({ n, max }: { n: number; max: number }) {
+  return (
+    <span data-form-row-count="" aria-hidden className="flex-none text-[12px] tabular-nums text-ink/45">
+      {formatCount(n)}/{formatCount(max)}
+    </span>
+  );
+}
+
 /* ── a typed answer ────────────────────────────────────────────────────── */
 
 type Saving = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'failed'; text: string; reason: string | null } | { kind: 'wrong'; words: string };
@@ -444,7 +454,10 @@ export function TypedRow({
   openAsk = 0,
   fieldName,
   boxed = false,
+  counts = false,
 }: {
+  /** 🔢 A `boxed` one-line field shows "n/max" inside its box, at rest and open (the chat Poll's question, #7489). */
+  counts?: boolean;
   /**
    * Inside a `<form>`: the name this row's kept words are POSTED under (see `lib/tell-the-form.ts`). A hidden input carries them; keeping
    * them (tap out · Enter) tells the form once; an Undo's `sn-restore` puts them back on screen. Absent = posts nothing.
@@ -712,6 +725,7 @@ export function TypedRow({
           autoCapitalize={autoCapitalize}
           autoComplete={autoComplete}
           boxed={boxed}
+          counts={counts}
           entersAdd={Boolean(onEnter)}
           leaving={mode === 'leaving'}
           onwards={onwards}
@@ -737,6 +751,7 @@ export function TypedRow({
             <span data-form-row-words="" className={`min-w-0 flex-1 truncate ${words ? 'text-ink' : 'text-ink/45'}`}>
               {words || placeholder || empty}
             </span>
+            {counts ? <FieldCount n={words.length} max={maxLength} /> : null}
             {state.kind === 'saved' ? <Check aria-hidden data-form-row-mark="tick" className={`${MARK} text-success-700`} strokeWidth={2.6} /> : null}
           </button>
         </div>
@@ -822,6 +837,7 @@ export function FormRowField({
   autoCapitalize,
   autoComplete,
   boxed = false,
+  counts = false,
   entersAdd = false,
   leaving,
   onwards = false,
@@ -849,6 +865,8 @@ export function FormRowField({
   entersAdd?: boolean;
   /** The row's `boxed` one-line look (the onboarding step field): name above, a 48 px box, one ✕ inside. */
   boxed?: boolean;
+  /** 🔢 Show "n/max" inside the box (the row's `counts`). */
+  counts?: boolean;
   leaving: boolean;
   onEnd: (exit: FieldExit, typed: string) => void;
   onGone: () => void;
@@ -1008,6 +1026,7 @@ export function FormRowField({
           className={`flex h-12 w-full min-w-0 items-center gap-1.5 rounded-xl border border-sn-accent bg-white pl-[14px] ${clears ? 'pr-1.5' : 'pr-[14px]'} dark:bg-raised ring-[3px] ring-sn-accent/15`} // no-card-ok: the open text field's own frame (its <input> sits inside with the ✕) — a control, never a container
         >
           {lineField}
+          {counts ? <FieldCount n={text.length} max={maxLength} /> : null}
           {clears ? (
             <ClearButton
               label={`Clear ${name}`}

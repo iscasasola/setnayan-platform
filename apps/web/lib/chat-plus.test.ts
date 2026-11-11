@@ -22,15 +22,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PLUS_CARD_TOPIC, PLUS_ROW_PAGE, hostPlusRows, plusGate, supplierPlusRows, type PlusRow, type RunningTopic } from './chat-plus';
+import {
+  ONE_POLL_REASON,
+  PLUS_CARD_TOPIC,
+  PLUS_ROW_PAGE,
+  filterSlash,
+  hostPlusRows,
+  plusGate,
+  slashPick,
+  slashQuery,
+  sheetSlashRows,
+  slashRows,
+  supplierPlusRows,
+  type PlusRow,
+  type RunningTopic,
+} from './chat-plus';
 import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Decision · Ask for access · Quote · Payment · Form · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Decision · Poll · Ask for access · Quote · Payment · Form · Meeting · Camera · Photos & files · Report a problem', () => {
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Decision', 'Ask for access', 'Quote', 'Payment', 'Form', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Decision', 'Poll', 'Ask for access', 'Quote', 'Payment', 'Form', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   assert.equal(supplierPlusRows({ paid: true }).find((r) => r.key === 'quote')!.label, 'Change quote');
   const photos = supplierPlusRows({ paid: false }).find((r) => r.key === 'photos')!;
@@ -41,14 +55,14 @@ test('1 · supplier rows: Decision · Ask for access · Quote · Payment · Form
   assert.equal(camera.card, null);
 });
 
-test('1b · host rows: Decision · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
+test('1b · host rows: Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    ['Decision', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    ['Decision', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
@@ -131,4 +145,82 @@ test('4 · every card wears a known topic (its icon is TOPIC_ICON[topic])', () =
   }
   assert.equal(PLUS_CARD_TOPIC.meeting, 'schedule');
   assert.equal(PLUS_CARD_TOPIC.photos, 'files');
+});
+
+// ── 🗳 THE POLL ROW AND ⌨ THE SLASH LIST (owner 11 Nov 2026) ─────────────────────────────────────────────────────────
+// What would silently undo it:
+//   5. the Poll row stops sitting under Chat right after Decision on either side, or stops going grey (with its reason,
+//      never hidden) while a poll is open — or goes grey when none is;
+//   6. the slash list stops being the (+)'s own rows: a card row missing, an extra row, another order, other words, or a
+//      shut row losing its reason;
+//   7. Enter picks a greyed row.
+// SABOTAGE (11 Nov): dropping `pollRow(opts.pollOpen)` from hostPlusRows → 1b and 5 RED; `shutNow` ignored in slashRows
+// → 6 and 7 RED.
+
+test('5 · the Poll row: under Chat right after Decision on both sides, greyed with its reason only while a poll is open', () => {
+  for (const [side, rowsOf] of [
+    ['supplier', (pollOpen: boolean) => supplierPlusRows({ paid: false, pollOpen })],
+    ['host', (pollOpen: boolean) => hostPlusRows({ canLogPayment: true, pollOpen })],
+  ] as const) {
+    const free = rowsOf(false);
+    assert.deepEqual(free.slice(0, 2).map((r) => r.key), ['decision', 'poll'], `${side}: Poll is not right after Decision`);
+    assert.equal(PLUS_ROW_PAGE.poll, 'chat');
+    const poll = free.find((r) => r.key === 'poll')!;
+    assert.equal(poll.card, 'poll');
+    assert.equal(poll.shutNow, undefined, `${side}: the Poll row is shut with no poll open`);
+    const held = rowsOf(true).find((r) => r.key === 'poll')!;
+    assert.deepEqual(held.shutNow, { reason: ONE_POLL_REASON }, `${side}: the Poll row is not greyed while a poll is open`);
+    assert.equal(ONE_POLL_REASON, 'One poll at a time · close the open one first');
+    // Only the Poll row — an open poll shuts nothing else.
+    assert.deepEqual(rowsOf(true).filter((r) => r.shutNow).map((r) => r.key), ['poll']);
+  }
+  // A SENT poll never keeps the (+) shut — only the draft is a running card (the 8 Nov rule).
+  assert.equal(PLUS_CARD_TOPIC.poll, 'poll');
+});
+
+test('6 · the slash list IS the (+): the same card rows, order, words and reasons — both sides, every state', () => {
+  const cases = [
+    ['supplier · asked', supplierPlusRows({ paid: false }), false],
+    ['supplier · booked', supplierPlusRows({ paid: false }), true],
+    ['supplier · paid · poll open', supplierPlusRows({ paid: true, pollOpen: true }), true],
+    ['host', hostPlusRows({ canLogPayment: true }), true],
+    ['host · coordinator · poll open', hostPlusRows({ canLogPayment: false, pollOpen: true }), true],
+  ] as const;
+  for (const [side, rows, booked] of cases) {
+    const list = slashRows(rows, booked);
+    const cards = rows.filter((r) => r.card);
+    assert.deepEqual(list.map((r) => r.key), cards.map((r) => r.key), `${side}: the slash list is not the (+)'s card rows in order`);
+    assert.deepEqual(list.map((r) => r.label), cards.map((r) => r.label), `${side}: other words`);
+    assert.deepEqual(list.map((r) => r.line), cards.map((r) => r.line), `${side}: other lines`);
+    for (const [i, r] of cards.entries()) {
+      const want = r.shutNow ?? (r.shutUntilAgreement && !booked ? r.shutUntilAgreement : null);
+      assert.deepEqual(list[i]!.shut, want, `${side}: '${r.label}' shut reason differs from the (+)`);
+    }
+  }
+  // The composer's list is published from the rows the (+) SHEET draws (its shut already decided) — the same list.
+  for (const [side, rows, booked] of cases) {
+    const drawn = rows.map((r) => ({ ...r, shut: r.shutNow ?? (r.shutUntilAgreement && !booked ? r.shutUntilAgreement : null) }));
+    assert.deepEqual(sheetSlashRows(drawn), slashRows(rows, booked), `${side}: the composer's list is not the sheet's`);
+  }
+  // The client's list carries no /change (the Ask-for-a-change row is still the owner's call, 11 Nov).
+  assert.ok(!slashRows(hostPlusRows({ canLogPayment: true }), true).some((r) => r.word === 'change'));
+  // The words the ruling names (M14 + /meeting /decision /poll).
+  assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
+    '/decision', '/poll', '/access', '/quote', '/payment', '/form', '/meeting', '/file',
+  ]);
+  // "/p" → Poll · Payment · Photos & files (the prototype's own example).
+  assert.deepEqual(filterSlash(slashRows(supplierPlusRows({ paid: false }), false), 'p').map((r) => r.label), ['Poll', 'Payment', 'Photos & files']);
+  assert.equal(slashQuery('/po'), 'po');
+  assert.equal(slashQuery('/'), '');
+  assert.equal(slashQuery('hello /poll'), null, 'a slash that is not the first character is just a character');
+  assert.equal(slashQuery('/poll now'), null, 'a space ends the shortcut');
+});
+
+test('7 · Enter never picks a greyed row', () => {
+  const asked = slashRows(supplierPlusRows({ paid: false, pollOpen: true }), false);
+  const byKey = (k: string) => asked.findIndex((r) => r.key === k);
+  assert.equal(slashPick(asked, byKey('poll')), null, 'Enter opened a second poll');
+  assert.equal(slashPick(asked, byKey('payment')), null, 'Enter picked a row shut until they book you');
+  assert.equal(slashPick(asked, byKey('decision')), 'decision');
+  assert.equal(slashPick(asked, 99), null);
 });

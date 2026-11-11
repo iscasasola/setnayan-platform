@@ -370,7 +370,7 @@ export async function keepPriceFromChat(formData: FormData): Promise<AskResult> 
 
 /**
  * Open a decision topic — through lane B's ONE door (`openDecision` → `chat_decision_open()`, which writes the topic and
- * posts its "Decision opened · …" line). Closing / reopening is the pin's own `DecisionToggle`, never this card.
+ * posts its "Decision opened · …" line). Closing is the pin's own `DecisionPanel`, never this card.
  */
 export async function openDecisionFromChat(formData: FormData): Promise<AskResult> {
   const threadId = String(formData.get('thread_id') ?? '');

@@ -1771,6 +1771,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // # 2026-11-09 round 2 — a decision topic pins until settled; either side closes, anyone reopens (20271332497337).
       { kind: 'table', table: 'chat_decision_topics' },
       { kind: 'fk', table: 'chat_decision_topics', column: 'thread_id', references: 'chat_threads' },
+      // 🗳 2026-11-11 — a message is filed under a decision; a chat holds ONE OPEN poll; one vote per person (20271338412990).
+      { kind: 'table', table: 'chat_decision_messages' },
+      { kind: 'fk', table: 'chat_decision_messages', column: 'topic_id', references: 'chat_decision_topics' },
+      { kind: 'fk', table: 'chat_decision_messages', column: 'message_id', references: 'chat_messages' },
+      { kind: 'table', table: 'chat_polls' },
+      { kind: 'fk', table: 'chat_polls', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'fk', table: 'chat_polls', column: 'saved_decision_id', references: 'chat_decision_topics' },
+      { kind: 'table', table: 'chat_poll_choices' },
+      { kind: 'fk', table: 'chat_poll_choices', column: 'poll_id', references: 'chat_polls' },
+      { kind: 'table', table: 'chat_poll_votes' },
+      { kind: 'fk', table: 'chat_poll_votes', column: 'poll_id', references: 'chat_polls' },
+      { kind: 'unique', table: 'chat_poll_votes', columns: ['poll_id', 'voter_user_id'] },
       // 🔒 2026-11-09 — a private message: two people, words only (20271329968207).
       { kind: 'fk', table: 'chat_messages', column: 'recipient_user_id', references: 'users' },
       {
@@ -1786,7 +1798,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'chat_threads',
     cardinality: 'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one thread, ever',
     implementedBy:
-      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation.',
+      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation. A decision topic files shared messages (chat_decision_messages — one open topic per message, never a private line) and a chat asks ONE OPEN poll at a time (chat_polls, partial unique index chat_polls_one_open_per_thread; 2–6 chat_poll_choices; chat_poll_votes one per person per poll, it moves); a closed poll is saved as the decision through chat_decision_open.',
     writtenBy:
       'First-message-send handler (creates the thread row on first contact, either direction) · tg_chat_threads_seat_the_opener seats the asking host · chat_thread_add_host() / chat_thread_leave() post a system line each',
     guardedBy:

@@ -62,6 +62,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'vendor_crew_passes', decision: 'exported', as: 'crew_passes' },
   // ♥ The hearts this subject put on chat messages (THE ONE BUILD, 2026-11-08) — read on `user_id`.
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
+  // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
+  { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',
@@ -143,6 +145,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // Round 2 (migration 20271332497337): a decision topic is the conversation's shared record (either side closes it,
   // anyone reopens) — the call made for communities / event_wish_items: who started it only stamps the row.
   { table: 'chat_decision_topics', decision: 'excluded', why: 'The conversation\'s shared topic (a title, open or closed), not the opener\'s record: every member of the chat reads, closes and reopens it, and opened_by / closed_by only stamp who pressed. The same call as communities.created_by. The erasure clears both stamps (lib/erasure/coverage.ts).' },
+  // 🗳 2026-11-11 (migration 20271338412990): a message filed under a decision, and a chat poll — the same call.
+  { table: 'chat_decision_messages', decision: 'excluded', why: 'Which shared message sits under which decision topic: the conversation\'s filing, read, moved and removed by either side. added_by_user_id only stamps who filed it; the message itself is exported to its sender as chat_messages_authored. The erasure clears the stamp (lib/erasure/coverage.ts).' },
+  { table: 'chat_polls', decision: 'excluded', why: 'The conversation\'s shared poll (a question and its choices), voted on by both sides — not the asker\'s record. asked_by / closed_by only stamp who pressed, the same call as chat_decision_topics. The subject\'s OWN act on a poll is their vote, exported as chat_poll_votes. The erasure clears both stamps.' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

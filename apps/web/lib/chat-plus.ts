@@ -29,7 +29,7 @@
 import type { PickedClientPage } from './upcoming-schedule-door';
 import type { ChatTopic } from './topic-icons';
 
-export type PlusCardKind = 'quote' | 'payment' | 'meeting' | 'form' | 'photos' | 'decision' | 'logpay' | 'file' | 'access';
+export type PlusCardKind = 'quote' | 'payment' | 'meeting' | 'form' | 'photos' | 'decision' | 'poll' | 'logpay' | 'file' | 'access';
 
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
@@ -48,6 +48,8 @@ export type PlusRow = {
   attach?: PlusAttach;
   /** Shut until they book you — drawn greyed with the reason, never hidden. */
   shutUntilAgreement?: { reason: string };
+  /** Shut by the chat's own state right now (one open poll at a time) — drawn greyed with the reason, never hidden. */
+  shutNow?: { reason: string };
 };
 
 /**
@@ -57,6 +59,7 @@ export type PlusRow = {
  */
 export const PLUS_ROW_PAGE: Record<PlusRowKey, PickedClientPage> = {
   decision: 'chat',
+  poll: 'chat',
   access: 'details',
   quote: 'quote',
   payment: 'payments',
@@ -70,6 +73,25 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PickedClientPage> = {
   report: 'report',
 };
 
+/**
+ * 🗳 ONE OPEN POLL PER CHAT (owner 11 Nov 2026, DECISION_LOG "CHAT POLLS — ONE PER CHAT"): while a poll is open the Poll
+ * row (and `/poll`) is drawn greyed with this reason; the database holds the same rule (`chat_polls_one_open_per_thread`).
+ * A SENT poll never keeps the (+) shut — only its draft does (the 8 Nov one-(+)-card rule).
+ */
+export const ONE_POLL_REASON = 'One poll at a time · close the open one first';
+
+/** The Poll row — under Chat, right after Decision, on both sides (the host's chat mirrors the supplier's, 8 Nov 🪞). */
+function pollRow(pollOpen: boolean | undefined): PlusRow {
+  return {
+    key: 'poll',
+    label: 'Poll',
+    line: 'Ask both sides to pick',
+    card: 'poll',
+    door: null,
+    ...(pollOpen ? { shutNow: { reason: ONE_POLL_REASON } } : {}),
+  };
+}
+
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
 const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
 
@@ -78,9 +100,10 @@ const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a phot
  * Decision (Chat) · Ask for access (Details) · Quote (Quotation) · Payment · Form (Forms) · Meeting (Schedule) ·
  * Camera · Photos & files (Files) · Report a problem (Report — LAST, owner 9 Nov).
  */
-export function supplierPlusRows(opts: { paid: boolean }): PlusRow[] {
+export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): PlusRow[] {
   return [
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    pollRow(opts.pollOpen),
     // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
     // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
     {
@@ -135,8 +158,11 @@ export function supplierPlusRows(opts: { paid: boolean }): PlusRow[] {
  * video or a document"**, whose card opens the composer's own picker (`CHAT_ATTACHMENT_ACCEPT`: photos, videos, PDFs
  * and documents — nothing the two old rows took is lost). Camera (take one NOW) stays: a different act.
  */
-export function hostPlusRows(opts: { canLogPayment: boolean }): PlusRow[] {
-  const rows: PlusRow[] = [{ key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null }];
+export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean }): PlusRow[] {
+  const rows: PlusRow[] = [
+    { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    pollRow(opts.pollOpen),
+  ];
   if (opts.canLogPayment) {
     rows.push({ key: 'logpay', label: 'Log a payment', line: 'Paid outside: amount · method · reference · receipt', card: 'logpay', door: 'host-payments' });
   }
@@ -176,6 +202,7 @@ export const PLUS_CARD_TITLE: Record<PlusCardKind, string> = {
   form: 'Form',
   photos: 'Photos & files',
   decision: 'Decision',
+  poll: 'Poll',
   logpay: 'Log a payment',
   file: 'Photos & files',
   access: 'Ask for access',
@@ -189,7 +216,88 @@ export const PLUS_CARD_TOPIC: Record<PlusCardKind, ChatTopic> = {
   form: 'forms',
   photos: 'files',
   decision: 'decision',
+  poll: 'poll',
   logpay: 'payment',
   file: 'files',
   access: 'access',
 };
+
+// ── ⌨ SLASH SHORTCUTS (owner 11 Nov 2026, DECISION_LOG "… SLASH SHORTCUTS"; plan row M14) ──────────────────────────────
+// "/" as the FIRST character raises a list above the composer: the SAME rows, words and lines as the (+) — derived from
+// the rows handed in (`supplierPlusRows()` / `hostPlusRows()`), never a second list — filtered as typed. Greyed rows stay
+// in the list with their reason and are never picked by Enter. Picking drops the very card the (+) row drops.
+
+/** The word each card answers to after "/" (M14's /quote /payment /form /access /file + /meeting /decision /poll). */
+export const SLASH_WORD: Record<PlusCardKind, string> = {
+  decision: 'decision',
+  poll: 'poll',
+  access: 'access',
+  quote: 'quote',
+  payment: 'payment',
+  logpay: 'payment',
+  form: 'form',
+  meeting: 'meeting',
+  photos: 'file',
+  file: 'file',
+};
+
+export type SlashRow = {
+  key: PlusRowKey;
+  word: string;
+  label: string;
+  line: string;
+  card: PlusCardKind;
+  /** Drawn greyed with this reason; Enter never picks it. */
+  shut: { reason: string } | null;
+};
+
+/** What is typed after the "/" while the list is up, or null (no leading "/", or a space or line break already typed). */
+export function slashQuery(text: string): string | null {
+  if (!text.startsWith('/')) return null;
+  const q = text.slice(1);
+  return /\s/.test(q) ? null : q.toLowerCase();
+}
+
+/**
+ * The slash list for these (+) rows, in the (+)'s order: every row that drops a card, with the reason a row is shut
+ * (the agreement gate unless `hasAgreement`, and the row's own `shutNow`).
+ */
+export function slashRows(rows: readonly PlusRow[], hasAgreement: boolean): SlashRow[] {
+  const out: SlashRow[] = [];
+  for (const r of rows) {
+    if (!r.card) continue;
+    const shut = r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null);
+    out.push({ key: r.key, word: SLASH_WORD[r.card], label: r.label, line: r.line, card: r.card, shut });
+  }
+  return out;
+}
+
+/**
+ * The slash list from rows as the (+) sheet DRAWS them (its `shut` already decided, the couple's Meeting gate included) —
+ * the composer's list is published from here, so the two can never disagree.
+ */
+export function sheetSlashRows(
+  rows: readonly { key: string; label: string; line: string; card?: PlusCardKind | null; shut: { reason: string } | null }[],
+): SlashRow[] {
+  const out: SlashRow[] = [];
+  for (const r of rows) {
+    if (!r.card) continue;
+    out.push({ key: r.key as PlusRowKey, word: SLASH_WORD[r.card], label: r.label, line: r.line, card: r.card, shut: r.shut });
+  }
+  return out;
+}
+
+/** Rows whose word, or a word of whose label, starts with the query ("/p" → Poll · Payment · Photos & files). */
+export function filterSlash(rows: readonly SlashRow[], q: string): SlashRow[] {
+  const query = q.trim().toLowerCase();
+  if (!query) return [...rows];
+  return rows.filter(
+    (r) => r.word.startsWith(query) || r.label.toLowerCase().split(/[^a-z]+/).some((w) => w && w.startsWith(query)),
+  );
+}
+
+/** Enter on the highlighted row: the card to drop, or null when that row is shut (or nothing is highlighted). */
+export function slashPick(rows: readonly SlashRow[], index: number): PlusCardKind | null {
+  const r = rows[index];
+  return r && !r.shut ? r.card : null;
+}

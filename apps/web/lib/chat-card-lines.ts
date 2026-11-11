@@ -54,9 +54,19 @@ export function guestCountFromLine(body: string | null | undefined): { from: num
 }
 
 
+/**
+ * 🗳 "Poll · <question>" — the line a posted poll rides (migration 20271338412990 writes it with the poll). Its close /
+ * reopen lines ("Poll closed · …", "Poll reopened · …") stay plain lines.
+ */
+export function pollFromLine(body: string | null | undefined): { question: string } | null {
+  const b = (body ?? '').trim();
+  return b.startsWith('Poll · ') && b.length > 'Poll · '.length ? { question: b.slice('Poll · '.length) } : null;
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | null {
+export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'poll' | null {
   if (bookRequestFromLine(body)) return 'book';
+  if (pollFromLine(body)) return 'poll';
   if (changeAskFromLine(body)) return 'ask';
   if (guestCountFromLine(body)) return 'guests';
   return null;

@@ -5,7 +5,7 @@
  *
  * Name it, short → Open. Opening goes through lane B's ONE door (`openDecision` → `chat_decision_open()`): the database
  * writes the `chat_decision_topics` row and posts its "Decision opened · …" line, and the topic appears as a pin. Closing
- * and reopening are the pin's own `DecisionToggle` (either side closes, anyone in the chat reopens) — this card never
+ * and reopening are the pin's own `DecisionPanel` (either side closes, anyone in the chat reopens) — this card never
  * writes a second way to do it.
  *
  * ⚠ NOT BUILT HERE (reported): filing each message under the open topic, and the Details › Decisions list.

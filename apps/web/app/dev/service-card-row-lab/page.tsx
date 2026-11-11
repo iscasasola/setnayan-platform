@@ -122,7 +122,7 @@ export default async function ServiceCardRowLabPage({ searchParams }: { searchPa
     live: r.is_active,
     card: toServiceCard(
       r,
-      inclusions.map((label, i) => ({ vendor_service_id: r.vendor_service_id, label, worth_php: null, sort_order: i })),
+      inclusions.map((label, i) => ({ vendor_service_id: r.vendor_service_id, label, sort_order: i })),
       [],
       undefined,
       { photos, videoUrl: null },

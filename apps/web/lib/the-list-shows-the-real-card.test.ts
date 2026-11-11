@@ -42,7 +42,7 @@ test('a stored row and the equivalent form produce the SAME snapshot', () => {
     primary_photo_r2_key: 'r2://media/cover.jpg',
   };
   const discounts = [{ discount_type: 'early_booking', rate: 10, unit: 'pct' }];
-  const inclusions = [{ label: 'Sound system', worth_php: 5000 }];
+  const inclusions = [{ label: 'Sound system' }];
 
   const fd = new FormData();
   fd.append('title', 'Live Band');
@@ -57,7 +57,6 @@ test('a stored row and the equivalent form produce the SAME snapshot', () => {
   fd.append('discount_rate', '10');
   fd.append('discount_unit', 'pct');
   fd.append('inclusion_label', 'Sound system');
-  fd.append('inclusion_worth', '5000');
 
   assert.deepEqual(
     snapshotFromService(card, { discounts, inclusions }),

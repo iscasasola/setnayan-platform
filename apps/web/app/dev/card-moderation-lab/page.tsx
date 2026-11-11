@@ -232,7 +232,7 @@ export default async function CardModerationLabPage({
     const cards = activeServices.map((r) =>
       toServiceCard(
         r,
-        [{ vendor_service_id: r.vendor_service_id, label: 'Sound system', worth_php: null, sort_order: 0 }],
+        [{ vendor_service_id: r.vendor_service_id, label: 'Sound system', sort_order: 0 }],
         [],
         'Wedding · Debut',
         { photos: photos[r.vendor_service_id] ?? [], videoUrl: null },

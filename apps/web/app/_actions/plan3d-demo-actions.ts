@@ -347,7 +347,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   // token gate, but an r2:// ref still needs server-side resolution. Card items
   // (the kind-aware Menu / Set list / inclusions lines, booth-kit slice 4) ride
   // along: the booths already came through the getSampleEventId trust boundary,
-  // and the fetch is read-only, display-safe fields only (label + worth_php —
+  // and the fetch is read-only, display-safe fields only (the label —
   // the tour contract).
   const boothLogoRefs = [...new Set(boothsRaw.map((b) => b.vendor?.logo_url).filter((r): r is string => !!r))];
   const [boothLogoUrlEntries, boothCardItems] = await Promise.all([

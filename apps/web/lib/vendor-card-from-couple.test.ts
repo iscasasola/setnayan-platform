@@ -53,12 +53,12 @@ describe('what the couple agreed reaches the supplier’s blank card', () => {
     assert.equal(seed.crewSize, '4');
   });
 
-  it('carries the inclusion lines, dropping blank ones, with no invented worth', async () => {
+  it('carries the inclusion lines, dropping blank ones — words only, no peso', async () => {
     const seed = coupleCardToCanvasInitial(FULL as Row, EVENT_VENDOR_ID, 'venue', 80000);
     assert.ok(seed);
     assert.deepEqual(seed.inclusions, [
-      { label: 'Full-day use of the ballroom', worth: '' },
-      { label: 'Tables and chairs', worth: '' },
+      { label: 'Full-day use of the ballroom' },
+      { label: 'Tables and chairs' },
     ]);
   });
 

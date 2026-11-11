@@ -5,7 +5,6 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { computeVerifiedMedian, type MedianSample } from '@/lib/verified-median';
 import { paxBucketFor, PAX_BUCKET_ALL } from '@/lib/price-position';
 import { resolveRegion } from '@/lib/region-source';
-import { fetchInclusionsByService } from '@/lib/vendor-services';
 import {
   scorePlausibility,
   FLAG_THRESHOLD,
@@ -32,8 +31,12 @@ import {
  *   · Tier 3 self-consistency → computeVerifiedMedian (lib/verified-median.ts).
  *   · Tier 2 category median → market_price_bands (via resolveRegion +
  *     paxBucketFor from lib/price-position.ts).
- *   · Tier 1 inclusion floor → vendor_service_inclusions.worth_php (via
- *     fetchInclusionsByService from lib/vendor-services.ts).
+ *   · Tier 1 inclusion floor → vendor_service_inclusions.worth_php, read HERE
+ *     directly (admin-only). Since 11 Nov 2026 no card or maker shows or asks an
+ *     inclusion's worth (owner: "The inclusions should not have a price"), so the
+ *     shared couple-facing fetch no longer selects it; the stored values are kept
+ *     hidden and carried forward on re-save, and only this admin check reads them.
+ *     New lines carry no worth, so Tier 1 thins out over time — by design.
  *
  * PRIVACY (RA 10173): the `detail` JSONB carries only the lock's OWN price + this
  * vendor's OWN aggregate reference figures + per-tier severities. NO couple
@@ -140,7 +143,19 @@ export async function scanForUnderDeclaredLocks(): Promise<{
       if (svc) chosenListing.set(key, svc.id);
     }
     const chosenServiceIds = [...new Set([...chosenListing.values()])];
-    const inclusionsByService = await fetchInclusionsByService(admin, chosenServiceIds);
+    const inclusionsByService = new Map<string, { worth_php: number | null }[]>();
+    if (chosenServiceIds.length > 0) {
+      const { data: incRaw, error: incError } = await admin
+        .from('vendor_service_inclusions')
+        .select('vendor_service_id, worth_php')
+        .in('vendor_service_id', chosenServiceIds);
+      if (incError) console.error('[supabase-error] lib/plausibility-scanner.ts · from:vendor_service_inclusions.select', incError);
+      for (const r of (incRaw ?? []) as { vendor_service_id: string; worth_php: number | null }[]) {
+        const list = inclusionsByService.get(r.vendor_service_id) ?? [];
+        list.push({ worth_php: r.worth_php });
+        inclusionsByService.set(r.vendor_service_id, list);
+      }
+    }
     const inclusionWorthByKey = new Map<string, number>(); // `${profile}::${category}` → Σ worth
     for (const [key, serviceId] of chosenListing.entries()) {
       const rows = inclusionsByService.get(serviceId) ?? [];

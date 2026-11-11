@@ -167,13 +167,13 @@ const LAB_BUNDLES = {
   'lab-bundle': quoteSeedFromBundle(
     { name: 'Garden reception pair', extraDiscountCentavos: 500000, plan: null, savedTotalCentavos: 10_570_000 },
     [
-      { id: 'card-buffet', name: 'Garden buffet', pricePhp: 97500, discounts: [], inclusions: [{ label: 'Waiters and set-up', worth_php: null }, { label: 'Cake table styling', worth_php: null }] },
+      { id: 'card-buffet', name: 'Garden buffet', pricePhp: 97500, discounts: [], inclusions: [{ label: 'Waiters and set-up' }, { label: 'Cake table styling' }] },
       {
         id: 'card-cocktail',
         name: 'Cocktail hour',
         pricePhp: 18000,
         discounts: [{ vendor_service_id: 'card-cocktail', discount_type: 'promo', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }],
-        inclusions: [{ label: 'Bar set-up', worth_php: null }],
+        inclusions: [{ label: 'Bar set-up' }],
       },
     ],
     new Date('2026-11-11T00:00:00Z'),

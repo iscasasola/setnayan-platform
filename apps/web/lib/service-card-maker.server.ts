@@ -410,7 +410,7 @@ export async function loadCardForEdit(
       .order('sort_order', { ascending: true }),
     supabase
       .from('vendor_service_inclusions')
-      .select('vendor_service_id,label,worth_php,sort_order')
+      .select('vendor_service_id,label,sort_order')
       .eq('vendor_service_id', serviceId)
       .order('sort_order', { ascending: true }),
     supabase

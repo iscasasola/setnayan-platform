@@ -231,14 +231,14 @@ export type VendorServiceInclusion = {
   vendor_service_id: string;
   /** 1–80 chars (DB-checked). */
   label: string;
-  /** The item's stated peso worth ("₱X free"); null = no stated worth. Adds ₱0. */
-  worth_php: number | null;
   sort_order: number;
 };
 
 /**
- * FREE inclusions for a set of service ids, grouped by service (the value story:
- * "Includes … · ₱X free", distinct from PAID add-ons). Fail-soft to an empty map
+ * Inclusions for a set of service ids, grouped by service — WORDS ONLY (owner
+ * 11 Nov 2026: "The inclusions should not have a price"; the card's one price is
+ * the service's own). The `worth_php` column is kept, hidden: it is never read
+ * for display here, so no render can show it. Distinct from PAID add-ons (Extras). Fail-soft to an empty map
  * so a missing table / RLS hiccup degrades to "no inclusions" rather than
  * crashing. Mirrors fetchDiscountsByService.
  */
@@ -250,7 +250,7 @@ export async function fetchInclusionsByService(
   if (serviceIds.length === 0) return out;
   const { data, error } = await supabase
     .from('vendor_service_inclusions')
-    .select('vendor_service_id,label,worth_php,sort_order')
+    .select('vendor_service_id,label,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
   if (error) {
@@ -310,7 +310,8 @@ export async function fetchBracketsByService(
  * Legacy `vendor_services.package_inclusions` JSONB → card items. The column
  * predates the vendor_service_inclusions table and holds either plain strings
  * or `{ label, worth_php? }` objects (same tolerant parse the explore/compare
- * table uses). Exported for unit tests; pure.
+ * table uses). Only the label is kept — an included line shows no peso. Exported
+ * for unit tests; pure.
  */
 export function parsePackageInclusions(raw: unknown): BoothCardItem[] {
   if (!Array.isArray(raw)) return [];
@@ -320,10 +321,7 @@ export function parsePackageInclusions(raw: unknown): BoothCardItem[] {
       if (it.trim()) items.push({ label: it.trim() });
     } else if (typeof it === 'object' && it !== null && 'label' in it) {
       const lbl = (it as { label?: unknown }).label;
-      const worth = (it as { worth_php?: unknown }).worth_php;
-      if (typeof lbl === 'string' && lbl.trim()) {
-        items.push({ label: lbl.trim(), worthPhp: typeof worth === 'number' && worth > 0 ? worth : null });
-      }
+      if (typeof lbl === 'string' && lbl.trim()) items.push({ label: lbl.trim() });
     }
   }
   return items;
@@ -339,7 +337,7 @@ export function parsePackageInclusions(raw: unknown): BoothCardItem[] {
  *   2. Marketplace vendors: the linked profile's ACTIVE vendor_services
  *      listing whose category matches the booking (else its first active
  *      listing), that listing's vendor_service_inclusions rows
- *      (label + worth_php), falling back to the listing's legacy
+ *      (label only), falling back to the listing's legacy
  *      package_inclusions JSONB.
  *   3. Manual (off-platform) vendors: the host-authored host_inclusions[]
  *      lines (DIY parity — always [] on marketplace rows).
@@ -420,7 +418,7 @@ export async function fetchBoothCardItems(
     const inclusionRows = svc ? inclusions.get(svc.vendor_service_id) ?? [] : [];
     let items: BoothCardItem[] =
       inclusionRows.length > 0
-        ? inclusionRows.map((r) => ({ label: r.label, worthPhp: r.worth_php }))
+        ? inclusionRows.map((r) => ({ label: r.label }))
         : svc
           ? parsePackageInclusions(svc.package_inclusions)
           : [];

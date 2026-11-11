@@ -88,9 +88,7 @@ export function benchServiceCard(input: {
     service,
     {
       discounts: hidePrices ? [] : (input.discounts ?? []).filter((d) => stillRunning(d, now)),
-      inclusions: hidePrices
-        ? (input.inclusions ?? []).map((i) => ({ label: i.label, worth_php: null }))
-        : input.inclusions,
+      inclusions: input.inclusions,
       brackets: input.brackets,
     },
   );

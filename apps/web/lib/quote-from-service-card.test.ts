@@ -119,8 +119,8 @@ test('1b · the card\'s inclusions become ₱0 Complimentary lines, in the card\
   const seed = run([
     input({
       inclusions: [
-        { vendor_service_id: 'svc_live_band', label: 'Sound check · 1 hr', worth_php: null, sort_order: 2 },
-        { vendor_service_id: 'svc_live_band', label: 'Wireless mics', worth_php: 1500, sort_order: 1 },
+        { vendor_service_id: 'svc_live_band', label: 'Sound check · 1 hr', sort_order: 2 },
+        { vendor_service_id: 'svc_live_band', label: 'Wireless mics', sort_order: 1 },
       ],
     }),
   ]);

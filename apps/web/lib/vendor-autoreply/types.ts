@@ -61,7 +61,7 @@ export type StoreService = {
   lastMinuteEndMonths: number | null;
   lastMinuteSurchargePct: number | null;
   dailyCapacity: number | null;
-  inclusions: ReadonlyArray<{ label: string; worthPhp: number | null }>;
+  inclusions: ReadonlyArray<{ label: string }>;
   discounts: ReadonlyArray<StoreDiscount>; // adapter passes only currently-active ones
   addons: ReadonlyArray<{ label: string; fromPricePhp: number | null }>;
 };

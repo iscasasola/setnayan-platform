@@ -3,7 +3,7 @@
  * tables (service-card redesign · Phase 4, migration 20270502342558 activated).
  *
  * These fetchers surface a vendor's service-card enrichment to couples on the
- * public profile: FREE inclusions (with a stated worth), the single BEST
+ * public profile: inclusions (words only — no peso), the single BEST
  * applicable discount, and the Fixed-basis pax brackets. They are deliberately
  * SEPARATE from `lib/vendor-services.ts` (which the vendor-dashboard forms own)
  * so the public render path never depends on the vendor-write module.
@@ -29,12 +29,13 @@ import {
 } from '@/lib/vendor-lead-time-tier';
 
 // ── Inclusions ──────────────────────────────────────────────────────────────
-/** A FREE item bundled in a service card, with an optional stated peso worth. */
+/**
+ * A line included in a service card's price — WORDS ONLY (owner 11 Nov 2026: "The inclusions should not have a
+ * price"; a priced thing is its own service card or an Extra). `worth_php` stays in the table, hidden — never read for display.
+ */
 export type VendorServiceInclusion = {
   vendor_service_id: string;
   label: string;
-  /** Peso worth shown as free value ("₱X free"); null = included, no worth. */
-  worth_php: number | null;
   sort_order: number;
 };
 
@@ -50,7 +51,7 @@ export async function fetchInclusionsByService(
   if (serviceIds.length === 0) return out;
   const { data, error } = await supabase
     .from('vendor_service_inclusions')
-    .select('vendor_service_id,label,worth_php,sort_order')
+    .select('vendor_service_id,label,sort_order')
     .in('vendor_service_id', serviceIds)
     .order('sort_order', { ascending: true });
   if (error) {

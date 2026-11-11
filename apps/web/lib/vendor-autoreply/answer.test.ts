@@ -25,8 +25,8 @@ const baseService: StoreService = {
   lastMinuteSurchargePct: 15,
   dailyCapacity: 1,
   inclusions: [
-    { label: 'Pre-nup shoot', worthPhp: 5000 },
-    { label: '2 photographers', worthPhp: null },
+    { label: 'Pre-nup shoot' },
+    { label: '2 photographers' },
   ],
   discounts: [{ type: 'early_booking', rate: 10, unit: 'pct' }],
   addons: [{ label: 'Extra album', fromPricePhp: 3000 }],

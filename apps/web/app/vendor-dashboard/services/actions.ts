@@ -179,34 +179,53 @@ function parseSurchargePctOrNull(raw: FormDataEntryValue | null): number | null 
 // exactly the kind of rule that must be. Behaviour, validation order and the
 // vendor-facing error strings are unchanged by the move.
 
-type InclusionDraft = { label: string; worth_php: number | null };
+type InclusionDraft = { label: string };
 
 /**
- * Parse the inclusion rows (Phase 3b). Field arrays: inclusion_label[] ·
- * inclusion_worth[]. A row with a blank label is skipped. Validates: label 1–80,
- * worth ≥ 0 (or null).
+ * Parse the inclusion rows (Phase 3b). Field array: inclusion_label[]. A row with a blank label is skipped. Validates:
+ * label 1–80.
+ *
+ * 🚫 WORDS ONLY (owner 11 Nov 2026: "The inclusions should not have a price … They only get price for the service").
+ * No `inclusion_worth` is read — the makers no longer draw one, and a stray one posted by an old tab is ignored.
  */
 function parseInclusionRows(formData: FormData): InclusionDraft[] {
   const labels = formData.getAll('inclusion_label');
-  const worths = formData.getAll('inclusion_worth');
   const out: InclusionDraft[] = [];
-  const n = labels.length;
-  for (let i = 0; i < n; i++) {
-    const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
+  for (const raw of labels) {
+    const label = typeof raw === 'string' ? raw.trim() : '';
     if (label.length === 0) continue; // blank row → skip
     if (label.length > 80) {
       throw new Error('An inclusion label can be up to 80 characters.');
     }
-    const worthRaw = typeof worths[i] === 'string' ? (worths[i] as string).trim() : '';
-    let worth_php: number | null = null;
-    if (worthRaw.length > 0) {
-      const w = Number(worthRaw);
-      if (!Number.isFinite(w) || w < 0 || !Number.isInteger(w)) {
-        throw new Error('Inclusion worth must be a non-negative whole number of pesos.');
-      }
-      worth_php = w;
-    }
-    out.push({ label: label.slice(0, 80), worth_php });
+    out.push({ label: label.slice(0, 80) });
+  }
+  return out;
+}
+
+/**
+ * 🗄 HIDE, DON'T DELETE. The inclusion lists are replace-all writes (DELETE then INSERT), so a re-save that simply
+ * stopped sending `worth_php` would wipe every worth a supplier ever typed. The value is no longer shown or asked
+ * anywhere, but it is kept: a saved line whose label (case-insensitive) is unchanged carries its stored `worth_php`
+ * forward untouched. Never displayed, never summed, never used for a price. A read error carries nothing — the save
+ * still goes through, it just does not preserve a value nobody can see.
+ */
+async function storedInclusionWorth(
+  supabase: SupabaseClient,
+  vendorServiceId: string,
+  vendorProfileId: string,
+): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  const { data, error } = await supabase
+    .from('vendor_service_inclusions')
+    .select('label, worth_php')
+    .eq('vendor_service_id', vendorServiceId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    console.error('[supabase-error] services/actions.ts · from:vendor_service_inclusions.select (keep hidden worth)', error);
+    return out;
+  }
+  for (const r of (data ?? []) as { label: string; worth_php: number | null }[]) {
+    out.set(r.label.trim().toLowerCase(), r.worth_php);
   }
   return out;
 }
@@ -596,6 +615,7 @@ async function replaceServiceLists(
     );
   }
 
+  const keptWorth = await storedInclusionWorth(supabase, vendorServiceId, vendorProfileId);
   await supabase
     .from('vendor_service_inclusions')
     .delete()
@@ -606,7 +626,7 @@ async function replaceServiceLists(
       lists.inclusions.map((n, i) => ({
         ...scope,
         label: n.label,
-        worth_php: n.worth_php,
+        worth_php: keptWorth.get(n.label.toLowerCase()) ?? null,
         sort_order: i,
       })),
     );
@@ -2023,9 +2043,13 @@ export async function commitVendorService(formData: FormData) {
     price_php: b.price_php,
     sort_order: i,
   }));
+  // Words only; a stored worth rides along unseen on an unchanged line (storedInclusionWorth — hide, don't delete).
+  const keptWorth = isCreate
+    ? new Map<string, number | null>()
+    : await storedInclusionWorth(supabase, serviceId as string, profile.vendor_profile_id);
   const svcInclusions = inclusionRows.map((n, i) => ({
     label: n.label,
-    worth_php: n.worth_php,
+    worth_php: keptWorth.get(n.label.toLowerCase()) ?? null,
     sort_order: i,
   }));
 

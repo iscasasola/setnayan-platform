@@ -17,9 +17,9 @@ const cardA: BundleCardFacts = {
   name: 'Garden Set · full day',
   pricePhp: 45000,
   discounts: [{ vendor_service_id: 'a', discount_type: 'promo', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }],
-  inclusions: [{ label: 'Online gallery', worth_php: null }, { label: 'Second shooter', worth_php: 6000 }],
+  inclusions: [{ label: 'Online gallery' }, { label: 'Second shooter' }],
 };
-const cardB: BundleCardFacts = { id: 'b', name: 'Engagement shoot', pricePhp: 8000, discounts: [], inclusions: [{ label: 'online gallery', worth_php: null }] };
+const cardB: BundleCardFacts = { id: 'b', name: 'Engagement shoot', pricePhp: 8000, discounts: [], inclusions: [{ label: 'online gallery' }] };
 
 const total = (s: ReturnType<typeof quoteSeedFromBundle>) => s.lines.reduce((a, l) => a + (l.free ? 0 : l.flatPhp), 0) - s.discountPhp;
 

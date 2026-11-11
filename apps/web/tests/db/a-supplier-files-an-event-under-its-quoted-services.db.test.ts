@@ -75,7 +75,7 @@ async function fileAs(uid: string, args: { ev: string; svc: string; media: strin
   return (
     await oneAs<{ f: string }>(
       uid,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, name)
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, file_name)
        VALUES ($1, $2, 'service', 'photo', $3, $4, $5) RETURNING file_id AS f`,
       [args.ev, F.shop, args.svc, args.media, args.name],
     )
@@ -156,7 +156,7 @@ test('filing · a photo goes only under a service of THIS event’s quote; a doc
   assert.match(
     await tryAs(
       F.rosa,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, name) VALUES ($1, $2, 'service', 'photo', $3, $4, 'x.jpg')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, file_name) VALUES ($1, $2, 'service', 'photo', $3, $4, 'x.jpg')`,
       [F.ev, F.shop, F.dessert, m],
     ),
     /^refused/,
@@ -165,7 +165,7 @@ test('filing · a photo goes only under a service of THIS event’s quote; a doc
   assert.match(
     await tryAs(
       F.rosa,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, name) VALUES ($1, $2, 'service', 'document', $3, $4, 'menu.pdf')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, file_name) VALUES ($1, $2, 'service', 'document', $3, $4, 'menu.pdf')`,
       [F.ev, F.shop, F.buffet, m],
     ),
     /^refused/,
@@ -174,7 +174,7 @@ test('filing · a photo goes only under a service of THIS event’s quote; a doc
   assert.equal(
     await tryAs(
       F.rosa,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, media_id, name) VALUES ($1, $2, 'booking', 'document', $3, 'contract.pdf')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, media_id, file_name) VALUES ($1, $2, 'booking', 'document', $3, 'contract.pdf')`,
       [F.ev, F.shop, m],
     ),
     'ok',
@@ -183,7 +183,7 @@ test('filing · a photo goes only under a service of THIS event’s quote; a doc
   assert.match(
     await tryAs(
       F.rival,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, media_id, name) VALUES ($1, $2, 'booking', 'document', $3, 'x.pdf')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, media_id, file_name) VALUES ($1, $2, 'booking', 'document', $3, 'x.pdf')`,
       [F.ev, F.rivalShop, m],
     ),
     /^refused/,
@@ -197,7 +197,7 @@ test('G1 · sharing a portfolio photo creates NO copy and keeps its own service'
   const portfolioRef = `r2://setnayan-media/vendors/${F.shop}/portfolio/dessert-1.jpg`;
   const linked = await oneAs<{ f: string; counts: boolean; svc: string }>(
     F.rosa,
-    `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, portfolio_ref, name)
+    `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, portfolio_ref, file_name)
      VALUES ($1, $2, 'linked', 'photo', $3, $4, 'dessert-1.jpg') RETURNING file_id AS f, counts, vendor_service_id AS svc`,
     [F.ev, F.shop, F.dessert, portfolioRef],
   );
@@ -209,7 +209,7 @@ test('G1 · sharing a portfolio photo creates NO copy and keeps its own service'
   assert.match(
     await tryAs(
       F.rosa,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, portfolio_ref, media_id, name) VALUES ($1, $2, 'linked', 'photo', $3, $4, 'copy.jpg')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, portfolio_ref, media_id, file_name) VALUES ($1, $2, 'linked', 'photo', $3, $4, 'copy.jpg')`,
       [F.ev, F.shop, portfolioRef + '?2', await storeAs(F.rosa, 'b', null)],
     ),
     /^refused/,
@@ -218,7 +218,7 @@ test('G1 · sharing a portfolio photo creates NO copy and keeps its own service'
   assert.match(
     await tryAs(
       F.rosa,
-      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, portfolio_ref, name) VALUES ($1, $2, 'linked', 'photo', $3, $4, 'again.jpg')`,
+      `INSERT INTO public.event_supplier_files (event_id, vendor_profile_id, grp, kind, vendor_service_id, portfolio_ref, file_name) VALUES ($1, $2, 'linked', 'photo', $3, $4, 'again.jpg')`,
       [F.ev, F.shop, F.dessert, portfolioRef],
     ),
     /^refused/,

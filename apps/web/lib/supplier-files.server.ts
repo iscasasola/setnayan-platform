@@ -45,13 +45,13 @@ export type EventFilesRead =
   | { status: 'unread' };
 
 const FILE_COLS =
-  'file_id, grp, kind, name, vendor_service_id, size_bytes, taken_at, created_at, couple_decision, decided_at, counts, link_url, portfolio_ref, media_id, supplier_media(r2_ref)';
+  'file_id, grp, kind, file_name, vendor_service_id, size_bytes, taken_at, created_at, couple_decision, decided_at, counts, link_url, portfolio_ref, media_id, supplier_media(r2_ref)';
 
 type FileRow = {
   file_id: string;
   grp: FileGroup;
   kind: FileKind;
-  name: string;
+  file_name: string;
   vendor_service_id: string | null;
   size_bytes: number | null;
   taken_at: string | null;
@@ -128,7 +128,7 @@ async function toFile(r: FileRow, eventDate: string | null, shop: string): Promi
     fileId: r.file_id,
     grp: r.grp,
     kind: r.kind,
-    name: r.name,
+    name: r.file_name,
     serviceId: r.vendor_service_id,
     sizeBytes: r.size_bytes,
     takenAt: r.taken_at,

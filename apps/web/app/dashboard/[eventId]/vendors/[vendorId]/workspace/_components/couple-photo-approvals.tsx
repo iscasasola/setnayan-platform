@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { readCoupleApprovals } from '@/lib/supplier-files.server';
 import { CouplePhotoApprovalsSheet } from './couple-photo-approvals-sheet';
 
@@ -19,7 +20,16 @@ export async function CouplePhotoApprovals({
   shopName: string;
 }) {
   const supabase = await createClient();
-  const { data: evRow } = await supabase.from('events').select('event_date, display_name').eq('event_id', eventId).maybeSingle();
+  const { data: evRow, error: evErr } = await supabase.from('events').select('event_date, display_name').eq('event_id', eventId).maybeSingle();
+  // Refused is said, never read as "no date": without the day the window cannot be judged, so the sheet waits.
+  if (evErr) {
+    logQueryError('CouplePhotoApprovals.event', evErr, { event_id: eventId }, 'graceful_degrade');
+    return (
+      <p role="alert" className="text-sm text-ink/70">
+        We couldn&rsquo;t load the photos {shopName} wants to show. Reload in a moment.
+      </p>
+    );
+  }
   const ev = evRow as { event_date: string | null; display_name: string | null } | null;
   const read = await readCoupleApprovals(supabase, { eventId, vendorProfileId, eventDate: ev?.event_date ?? null });
   if (read.status !== 'ok') {

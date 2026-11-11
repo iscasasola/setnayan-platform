@@ -97,3 +97,12 @@ test('a share maps the shop’s OWN photos only, and the couple’s Hide posts a
   assert.doesNotMatch(act.slice(act.indexOf("if (op === 'map')"), act.indexOf("if (op === 'remove')")), /supplier_media/, 'a share wrote a stored copy');
   assert.match(act, /`\$\{who\} hid \$\{photos\} · taken off your shop`/);
 });
+
+test('the server measures the hash and the date from the bytes — never the phone’s word', () => {
+  const act = read('app/_actions/event-files-actions.ts');
+  const fileOp = act.slice(act.indexOf("if (op === 'file')"), act.indexOf("if (op === 'map')"));
+  assert.match(fileOp, /r2GetBytes\(\{ bucket: at\.bucket, key: at\.key \}\)/, 'the stored copy is no longer read back');
+  assert.match(fileOp, /sha = createHash\('sha256'\)\.update\(bytes\)\.digest\('hex'\)/);
+  assert.match(fileOp, /takenAt = readExifTakenAt\(/);
+  assert.doesNotMatch(fileOp, /fd\.get\('sha256'\)|fd\.get\('taken_at'\)/, 'the phone’s hash or date is trusted when storing a copy');
+});

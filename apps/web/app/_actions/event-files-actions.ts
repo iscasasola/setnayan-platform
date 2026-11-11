@@ -8,7 +8,9 @@ import { parseClientRef } from '@/lib/r2-client-ref';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { formatCount } from '@/lib/format-number';
-import { fileKindOf } from '@/lib/supplier-files';
+import { createHash } from 'node:crypto';
+import { r2Delete, r2GetBytes } from '@/lib/r2';
+import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — ONE dispatcher (Piece 3b · DECISION_LOG 2026-11-12), both sides, because every
@@ -110,13 +112,22 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
 
     let mediaId = String(fd.get('media_id') ?? '');
     if (!UUID.test(mediaId)) {
-      const sha = String(fd.get('sha256') ?? '');
       const ref = String(fd.get('r2_ref') ?? '');
-      const takenRaw = String(fd.get('taken_at') ?? '');
-      const takenAt = takenRaw && !Number.isNaN(new Date(takenRaw).getTime()) ? new Date(takenRaw).toISOString() : null;
-      if (!SHA.test(sha) || !parseClientRef(ref, { bucket: 'setnayan-thread-files', prefixes: [`supplier-files/${shop}/`] })) {
-        return { status: 'error', message: 'That file could not be kept. Upload it again.' };
+      const at = parseClientRef(ref, { bucket: 'setnayan-thread-files', prefixes: [`supplier-files/${shop}/`] });
+      if (!at) return { status: 'error', message: 'That file could not be kept. Upload it again.' };
+      // 🔑 THE SERVER READS THE BYTES ITSELF: the hash and the photo's own date are measured here, never taken from the
+      // phone — a phone that lied about either could pad a shop (count one photo twice, or fake an event-day date).
+      let sha: string;
+      let takenAt: string | null = null;
+      try {
+        const { bytes } = await r2GetBytes({ bucket: at.bucket, key: at.key });
+        sha = createHash('sha256').update(bytes).digest('hex');
+        if (kind === 'photo') takenAt = readExifTakenAt(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+      } catch (e) {
+        console.error('[eventFilesAction.file] read failed:', e instanceof Error ? e.message : e);
+        return { status: 'error', message: 'That file did not finish uploading. Please try again.' };
       }
+      if (!SHA.test(sha)) return { status: 'error', message: NOT_SAVED };
       const ins = await supabase
         .from('supplier_media')
         .insert({ vendor_profile_id: shop, content_sha256: sha, r2_ref: ref, mime: mime || 'application/octet-stream', size_bytes: size || null, taken_at: takenAt })
@@ -124,6 +135,8 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
         .single();
       if (ins.data) mediaId = (ins.data as { media_id: string }).media_id;
       else {
+        // ONE STORED COPY: the same bytes were already stored, so the object just uploaded is a second copy — remove it.
+        await r2Delete({ bucket: at.bucket, key: at.key }).catch(() => undefined);
         // The same bytes are already stored (a race, or the phone skipped `known`) — THAT copy is the one.
         const { data } = await supabase.from('supplier_media').select('media_id').eq('vendor_profile_id', shop).eq('content_sha256', sha).maybeSingle();
         if (!data) {
@@ -142,7 +155,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
         kind,
         vendor_service_id: grp === 'service' ? serviceId : null,
         media_id: mediaId,
-        name,
+        file_name: name,
         size_bytes: size || null,
         mime: mime || null,
       })
@@ -189,7 +202,7 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
         kind: /\.(mp4|mov|m4v|webm)$/i.test(r) ? 'video' : 'photo',
         vendor_service_id: own.get(r) ?? null,
         portfolio_ref: r,
-        name: r.split('/').pop()?.slice(0, 200) || 'Portfolio photo',
+        file_name: r.split('/').pop()?.slice(0, 200) || 'Portfolio photo',
       }));
     if (rows.length === 0) return { status: 'error', message: 'Those photos are not on your portfolio.' };
     // One pointer per photo per event: a photo already mapped here is not mapped again.

@@ -11,7 +11,6 @@ import {
   UPLOAD_FOR,
   fileKindOf,
   hubCountLine,
-  readExifTakenAt,
   shopStateWords,
   type ShopState,
 } from '@/lib/supplier-files';
@@ -159,7 +158,6 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
         }
         const buf = await file.arrayBuffer();
         const sha = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map((b) => b.toString(16).padStart(2, '0')).join('');
-        const takenAt = kind === 'photo' ? readExifTakenAt(buf) : null;
         const kfd = new FormData();
         kfd.set('op', 'known');
         kfd.set('sha256', sha);
@@ -197,9 +195,8 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
             setSaid({ ok: false, words: `${file.name} did not finish uploading. Please try again.` });
             continue;
           }
-          fd.set('sha256', sha);
+          // The server re-reads the bytes for the hash and the date it stores; the phone's hash only skips a re-upload.
           fd.set('r2_ref', pre.r2Ref);
-          if (takenAt) fd.set('taken_at', takenAt);
         }
         const r = await run(fd);
         if (r.status === 'error') setSaid({ ok: false, words: r.message });

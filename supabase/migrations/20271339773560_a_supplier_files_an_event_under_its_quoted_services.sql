@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS public.event_supplier_files (
   portfolio_ref     TEXT CHECK (portfolio_ref IS NULL OR (portfolio_ref LIKE 'r2://%' AND length(portfolio_ref) <= 500)),
   link_url          TEXT CHECK (link_url IS NULL OR (link_url ~ '^https?://' AND length(link_url) <= 1000)),
   chat_message_id   UUID REFERENCES public.chat_messages(message_id) ON DELETE SET NULL,
-  name              TEXT NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 200),
+  file_name         TEXT NOT NULL CHECK (length(btrim(file_name)) BETWEEN 1 AND 200),
   size_bytes        BIGINT CHECK (size_bytes IS NULL OR size_bytes >= 0),
   mime              TEXT,
   -- Copied from supplier_media by the trigger, never typed per file.
@@ -236,9 +236,9 @@ CREATE POLICY supplier_media_couple_select
 REVOKE ALL ON public.event_supplier_files FROM anon, authenticated;
 GRANT SELECT, DELETE ON public.event_supplier_files TO authenticated;
 GRANT INSERT (event_id, vendor_profile_id, grp, kind, vendor_service_id, media_id, portfolio_ref, link_url,
-              chat_message_id, name, size_bytes, mime)
+              chat_message_id, file_name, size_bytes, mime)
   ON public.event_supplier_files TO authenticated;
-GRANT UPDATE (grp, vendor_service_id, name, updated_at) ON public.event_supplier_files TO authenticated;
+GRANT UPDATE (grp, vendor_service_id, file_name, updated_at) ON public.event_supplier_files TO authenticated;
 
 -- ── 3 · the cross-row rules (a policy sees one row) ──────────────────────
 -- SECURITY DEFINER so the counting look-up sees every copy of these bytes
@@ -332,6 +332,9 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- A trigger function is never called by a person: no one may EXECUTE it directly.
+REVOKE ALL ON FUNCTION public.guard_event_supplier_file() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS event_supplier_files_guard ON public.event_supplier_files;
 CREATE TRIGGER event_supplier_files_guard
   BEFORE INSERT OR UPDATE ON public.event_supplier_files
@@ -343,7 +346,7 @@ COMMENT ON TABLE public.event_supplier_files IS
 -- ── 4 · THE ONE LISTING RULE — a live view ────────────────────────────────
 CREATE OR REPLACE VIEW public.event_supplier_photos_listed
 WITH (security_invoker = true) AS
-SELECT f.file_id, f.event_id, f.vendor_profile_id, f.vendor_service_id, f.media_id, f.kind, f.name, f.taken_at, f.decided_at
+SELECT f.file_id, f.event_id, f.vendor_profile_id, f.vendor_service_id, f.media_id, f.kind, f.file_name, f.taken_at, f.decided_at
   FROM public.event_supplier_files f
   JOIN public.events e ON e.event_id = f.event_id
  WHERE f.grp = 'service'

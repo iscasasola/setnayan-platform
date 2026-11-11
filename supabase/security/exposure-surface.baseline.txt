@@ -2113,12 +2113,12 @@ col	public.event_supplier_files.decided_at	anon=- authenticated=S
 col	public.event_supplier_files.dedupe_of	anon=- authenticated=S
 col	public.event_supplier_files.event_id	anon=- authenticated=SI
 col	public.event_supplier_files.file_id	anon=- authenticated=S
+col	public.event_supplier_files.file_name	anon=- authenticated=SIU
 col	public.event_supplier_files.grp	anon=- authenticated=SIU
 col	public.event_supplier_files.kind	anon=- authenticated=SI
 col	public.event_supplier_files.link_url	anon=- authenticated=SI
 col	public.event_supplier_files.media_id	anon=- authenticated=SI
 col	public.event_supplier_files.mime	anon=- authenticated=SI
-col	public.event_supplier_files.name	anon=- authenticated=SIU
 col	public.event_supplier_files.portfolio_ref	anon=- authenticated=SI
 col	public.event_supplier_files.size_bytes	anon=- authenticated=SI
 col	public.event_supplier_files.taken_at	anon=- authenticated=S

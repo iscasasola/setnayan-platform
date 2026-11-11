@@ -100,7 +100,7 @@ export function FilesLabClient({ mode }: { mode: string }) {
           row('a', 'contract', 'Catering contract · signed.pdf', 'PDF', false),
           row('b', 'chat', 'IMG_2201.jpg', 'Image', true),
           row('c', 'chat', 'Menu · Garden buffet 150.pdf', 'PDF', false),
-          row('d', 'handover', 'Tasting gallery', 'Gallery link', false),
+          row('d', 'handover', 'Tasting photos', 'Link', false),
         ]}
       />
     );

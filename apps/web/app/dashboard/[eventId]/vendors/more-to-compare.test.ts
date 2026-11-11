@@ -168,7 +168,8 @@ test('🔑 the cards are the suppliers’ service cards, and say nothing about p
     assert.ok(CARD.includes(line), `the marketplace card stopped printing ${line}`);
   }
   // The supplier's own name is still printed (the placeholder, when withheld).
-  assert.match(CARD, /<span className="vn">\{v\.name\}<\/span>/);
+  // 2026-11-12 ONE SERVICE CARD: printed by the face's shop line, handed in as the shop's name.
+  assert.match(CARD, /shop=\{\{ name: v\.name,/);
 });
 
 test('the verbs follow the button rule: one row, Ask for a quote is the main verb, no hand-made button', () => {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useTabReselect } from '@/app/_components/nav/use-chrome-away';
 import { HOME_LAST_SEG_KEY, HOME_SEG_LABEL, HOME_SEG_ORDER, homeSegHref, type HomeSeg } from '@/lib/home-segments';
 import hp from './home-profile.module.css';
@@ -79,25 +79,8 @@ export function HomeTabs({
     ro?.observe(el);
     return () => ro?.disconnect();
   }, [seg, segs]);
-  return (
-    <div
-      ref={ref}
-      className={hp.tabs}
-      role="group"
-      aria-label="Home — sections"
-      data-tour="home-segments"
-      data-home-segments=""
-      // The copy in the locked top carries no tour anchor (spread after, so it wins) — the spotlight finds ONE.
-      {...(copy ? { 'data-tour': undefined, 'data-home-segments': 'pinned' } : {})}
-      data-four={segs.length >= 4 ? '' : undefined}
-      // The picked section is a link to the page you are on: re-tapping it goes to the top, never reloads.
-      onClickCapture={(e) => {
-        const a = (e.target as Element | null)?.closest?.('a[aria-current="page"]');
-        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-        e.preventDefault();
-        toTop();
-      }}
-    >
+  const tabs = (
+    <>
       {segs.map((s) => (
         <Link
           key={s}
@@ -112,6 +95,30 @@ export function HomeTabs({
         </Link>
       ))}
       <span ref={line} className={hp.line} aria-hidden />
+    </>
+  );
+  const props = {
+    ref,
+    className: hp.tabs,
+    role: 'group',
+    'aria-label': 'Home — sections',
+    'data-four': segs.length >= 4 ? '' : undefined,
+    // The picked section is a link to the page you are on: re-tapping it goes to the top, never reloads.
+    onClickCapture: (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.('a[aria-current="page"]');
+      if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      toTop();
+    },
+  };
+  // The copy in the locked top carries no tour anchor — the spotlight finds ONE.
+  return copy ? (
+    <div {...props} data-home-segments="pinned">
+      {tabs}
+    </div>
+  ) : (
+    <div {...props} data-tour="home-segments" data-home-segments="">
+      {tabs}
     </div>
   );
 }

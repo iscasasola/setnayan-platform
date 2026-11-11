@@ -22,7 +22,7 @@ export function FilesStepCard({ side, onClose, seed }: { side: 'vendor' | 'coupl
   const formId = useId();
   const [step, setStep] = useState(seed?.step ?? (side === 'couple' ? 1 : 0));
   const [src, setSrc] = useState<'shop' | 'phone' | null>(side === 'couple' ? 'phone' : seed?.src ?? null);
-  const title = side === 'vendor' ? 'Photos & files' : 'File';
+  const title = 'Photos & files';
   const steps: ChatCardStep[] = [
     {
       title: 'From where?',

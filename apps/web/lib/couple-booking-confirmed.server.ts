@@ -70,7 +70,7 @@ export async function tellCoupleTheBookingIsConfirmed(
         type: 'lock_request_agreed',
         title: `${vendorName} said yes`,
         body: `${vendorName} confirmed your booking. Open the workspace to see your payment plan and how to pay them.`,
-        relatedUrl: `/dashboard/${row.event_id}/vendors/${c.event_vendor_id}/workspace#payments`,
+        relatedUrl: `/dashboard/${row.event_id}/vendors/${c.event_vendor_id}/workspace?tab=payments`,
       });
     }
   } catch (e) {

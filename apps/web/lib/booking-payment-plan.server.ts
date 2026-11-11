@@ -286,7 +286,7 @@ export async function freezePaymentPlanAtBooking(
         : instances.length > 0
           ? `Your booking is confirmed. We've prepared the payment plan for ${vendorName} — open the workspace to see each payment and how to pay.`
           : `Your booking with ${vendorName} is confirmed. Open the workspace to see how to pay them directly.`,
-      relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
+      relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=payments`,
     });
     told = true;
   } else {

@@ -526,7 +526,7 @@
   "app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx": 1,
   "app/dashboard/[eventId]/details/_components/details-form.tsx": 4,
   "app/dashboard/[eventId]/details/_components/governed-fields.tsx": 3,
-  "app/dashboard/[eventId]/disputes/page.tsx": 1,
+  "app/dashboard/[eventId]/disputes/_components/dispute-parts.tsx": 1,
   "app/dashboard/[eventId]/guests/_components/new-group-inline-form.tsx": 1,
   "app/dashboard/[eventId]/guests/claims/keep-quick-add.tsx": 1,
   "app/dashboard/[eventId]/guests/new/page.tsx": 1,

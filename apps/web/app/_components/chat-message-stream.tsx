@@ -203,6 +203,13 @@ type Props = {
    */
   hosts?: readonly ChatHost[] | null;
   /**
+   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page and
+   * only once the shop's name is REVEALED (`couple_thread_supplier_names` sends no logo before — a logo is as identifying
+   * as the name). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
+   * fails to load → the initials, as before.
+   */
+  shopLogoUrl?: string | null;
+  /**
    * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
    * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
    */
@@ -449,6 +456,7 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  shopLogoUrl = null,
   shopLabel = null,
   memberAdd = null,
   memberLeave = null,
@@ -467,6 +475,8 @@ export function ChatMessageStream({
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // 🏪 The shop logo failed to load once → the initials for the rest of this visit (never a broken-image glyph).
+  const [shopLogoBroken, setShopLogoBroken] = useState(false);
   /**
    * 👀 "Seen" is LIVE (chat gaps, 8 Nov): the server's read is the start; a "read" broadcast from the other side on this
    * stream's own presence channel moves it while you look. It only ever moves forward.
@@ -2236,12 +2246,29 @@ export function ChatMessageStream({
               <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
-                  <span
-                    aria-hidden
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
-                  >
-                    {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
-                  </span>
+                  shopLogoUrl && !shopLogoBroken && m.sender_role === 'vendor' ? (
+                    // 🏪 A message sent as the shop wears the shop's logo — same 28px round as the initials.
+                    <span aria-hidden className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-ink/[0.1]" data-chat-shop-face="">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- a presigned R2 logo; next/image needs a configured loader for arbitrary R2 hosts */}
+                      <img
+                        src={shopLogoUrl}
+                        alt=""
+                        width={28}
+                        height={28}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                        onError={() => setShopLogoBroken(true)}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
+                    >
+                      {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
+                    </span>
+                  )
                 ) : (
                   <span aria-hidden className="w-7 shrink-0" />
                 )

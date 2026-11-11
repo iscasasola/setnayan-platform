@@ -84,5 +84,7 @@ test('nothing under app/ deep-links the retired #send-proposal; the brief’s Qu
   }
   assert.deepEqual(stale, [], `a deep link names the retired panel: ${stale.join(', ')}`);
   const brief = read(CLIENT_BRIEF);
-  assert.ok(count(brief, /messages\/\$\{threadId\}#build-quote/g) >= 2, 'the brief lost a Quote door into the one panel');
+  // ≥ 1 since 12 Nov 2026: the Details page's old shortcut pills (Chat · Quote · Files · Details) were removed — the
+  // picked-client menu opens those pages; the brief's remaining Quote door still opens the one panel.
+  assert.ok(count(brief, /messages\/\$\{threadId\}#build-quote/g) >= 1, 'the brief lost a Quote door into the one panel');
 });

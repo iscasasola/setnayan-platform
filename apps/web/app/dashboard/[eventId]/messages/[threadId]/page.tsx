@@ -62,6 +62,7 @@ import type { CouplePayMethodsState } from '@/lib/deposit-pay-step';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { formatCount } from '@/lib/format-number';
 import { MarkReadWhenShown } from '@/app/vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown';
+import { displayLogoUrl } from '@/lib/uploads';
 
 export const metadata = { title: 'Thread' };
 
@@ -301,6 +302,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   ).then((extras) => extras.get(thread.vendor_profile_id));
 
   const vendorLabelRead = vendorRead.then((v) => v.name);
+  // 🏪 The shop's face in the stream: its logo, presigned, ONLY when revealed (`vendorRead.logoUrl` is null before —
+  // a logo is as identifying as the name). A failed presign is the initials, never a broken picture.
+  const shopLogoRead = vendorRead.then((v) => (v.logoUrl ? displayLogoUrl({ logo_url: v.logoUrl }).catch(() => null) : null));
 
   // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
   // not see the confirmation here and the payment action?"). Read through the
@@ -612,6 +616,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopNotYetVerifiedRead,
   ]);
   const chatPins = await chatPinsRead;
+  const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
   // or a change the supplier asked for, within a week of the day (its key `adjustment:<id>` is the server's, so its
   // shows count per blocker like every other).
@@ -955,6 +960,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
             counterpartyLabel={vendorLabel}
+            shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}
             standing={threadStanding}
             decisionPayments={decisionPayments}

@@ -1,16 +1,12 @@
 import Link from 'next/link';
 import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
-import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import { Fragment } from 'react';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
-  ChevronRight,
-  Copy,
   Gift,
   Plus,
-  Snowflake,
   Tag,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -25,7 +21,11 @@ import { readPlanHolds } from '@/lib/service-plan-hold.server';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { HOLD_WORDS } from '@/lib/service-plan-hold';
 import { StayOnSection } from './stay-on-section';
-import { PlanHoldTag } from './plan-hold-tag';
+import { ServiceCardItem } from './service-card-item';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { readShareTargets } from '@/lib/service-share-targets.server';
+import { offerServiceInterest } from '@/app/vendor-dashboard/messages/[threadId]/actions';
 import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
@@ -36,15 +36,6 @@ import {
   fetchInclusionsByService,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
-import {
-  fetchVendorPoolBookings,
-  fetchVendorBlocks,
-} from '@/lib/vendor-schedule';
-import {
-  deriveLeanMonths,
-  formatLeanMonths,
-  suggestPromoExpiry,
-} from '@/lib/vendor-lean-months';
 import { tierCaps, planHasBranches } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
@@ -65,6 +56,7 @@ import { Field } from '@/app/_components/forms/field';
 import {
   createVendorService,
   proposeCategory,
+  removeVendorServiceFromList,
   toggleVendorServiceActive,
 } from '../actions';
 import {
@@ -105,7 +97,6 @@ import {
   type BracketDraft,
 } from './service-list-editors';
 import { formatCount } from '@/lib/format-number';
-import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { StayForm } from '@/app/_components/stay-form';
 
 export type ServicesManagerSearch = {
@@ -138,10 +129,6 @@ export type ServicesManagerSearch = {
    * called them" half of that promise. Absent on every other save.
    */
   autonamed?: string;
-  /** Off-Season Promos nudge — when set to one of the vendor's own
-   *  vendor_service_id values, that service's Discount section opens
-   *  pre-filled with an `off_peak` discount keyed to the lean months. */
-  offpeak?: string;
   /**
    * "I clicked the reason a kind was greyed in the maker" — set by
    * `PROPOSE_CATEGORY_HREF` (lib/service-picker-anchor.ts). Lands on Tools,
@@ -187,9 +174,6 @@ export async function VendorServicesManager({
     getGiftLimitPct(createAdminClient()),
   ]);
 
-  // Only the canvas maker can open pre-filled, so "start a new card from this
-  // one" is gated on the same flag that decides which maker the route renders.
-  const canvasMaker = canvasMakerEnabled();
   /**
    * ONE clock for every card in this list, mirroring the public profile's own
    * note: the early-booking ladder must not be able to resolve two different
@@ -214,6 +198,19 @@ export async function VendorServicesManager({
   const cardRecordByService = cardRecordEnabled()
     ? await fetchServiceCardRecords(supabase, serviceIdList)
     : new Map<string, CompiledCardRecord>();
+
+  // 🔒 WHO BOOKED EACH CARD, AND WHICH BOOKINGS ARE STILL OPEN (owner 10 Nov on PR #7464: no delete and no turning off
+  // until every booking is complete). ONE read for every card on the page, on the ADMIN client because
+  // `event_vendors` admits no shop — `serviceIdList` is this shop's own cards, read on its own session above. A refused
+  // read is `null`: the swipe then says "could not check" and deletes nothing (never "nobody booked").
+  // 🔗 WHERE SHARE CAN POST (owner 2026-11-11: "It is share to an client event. To enter to a chat.") — this shop's
+  // client events, ONE read for the whole page, beside the bookings read. A refused read is `null` and the Share sheet
+  // says so (never "no client events"); the post (`offerServiceCore`) asks the server again before it writes.
+  const [cardBookings, shareRead] = await Promise.all([
+    readCardBookings(createAdminClient(), serviceIdList),
+    readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id),
+  ]);
+  const shareTargets = shareRead.status === 'ok' ? shareRead.targets : null;
 
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
@@ -470,54 +467,10 @@ export async function VendorServicesManager({
   const labelFor = (cat: VendorCategory): string =>
     tax ? labelForVendorCategory(cat, tax) : VENDOR_CATEGORY_LABEL[cat];
 
-  // ── Off-Season Promos nudge (Wave 5 "Soon" vendor benefit) ──────────────
-  const now = new Date();
-  const hasLiveOffPeak = services.some((s) => {
-    if (!s.is_active) return false;
-    return (discountsByService.get(s.vendor_service_id) ?? []).some(
-      (d) =>
-        d.discount_type === 'off_peak' &&
-        d.expires_at !== null &&
-        new Date(d.expires_at).getTime() > now.getTime(),
-    );
-  });
-  const offPeakCandidate =
-    services.find((s) => s.is_active) ?? services[0] ?? null;
-  const offPeakPrefillId =
-    typeof search.offpeak === 'string' &&
-    services.some((s) => s.vendor_service_id === search.offpeak)
-      ? search.offpeak
-      : null;
-
-  let leanMonthsLabel = '';
-  let suggestedExpiry: string | null = null;
-  let suggestedConditions = '';
-  let showOffSeasonNudge = false;
-  if ((!hasLiveOffPeak && offPeakCandidate) || offPeakPrefillId) {
-    try {
-      const [bookings, blocks] = await Promise.all([
-        // DEMAND, not the room: lean months are derived from dates that actually
-        // consumed capacity, which is what an off-peak offer is priced against.
-        fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
-        fetchVendorBlocks(supabase, profile.vendor_profile_id),
-      ]);
-      const lean = await deriveLeanMonths(
-        bookings.map((b) => ({ date: b.bookedDate })),
-        blocks.map((b) => ({ date: b.startDate })),
-        { client: supabase, regionHint: profile.location_city },
-      );
-      leanMonthsLabel = formatLeanMonths(lean.months);
-      suggestedExpiry = suggestPromoExpiry(lean.months, now);
-      suggestedConditions = leanMonthsLabel
-        ? `Off-season rate for ${leanMonthsLabel} bookings.`
-        : 'Off-season rate for our lighter months.';
-      showOffSeasonNudge =
-        !hasLiveOffPeak && offPeakCandidate !== null && leanMonthsLabel.length > 0;
-    } catch {
-      showOffSeasonNudge = false;
-    }
-  }
-  const offPeakTargetId = offPeakCandidate?.vendor_service_id ?? null;
+  // ⛔ The Off-Season Promos nudge LEFT (DECISION_LOG 2026-11-11 "NO OFF-SEASON OFFER BUILD — THE OFFER MAKER ALREADY
+  // SOLVES IT"): it opened ONE card's editor with a typed off_peak discount (`?offpeak=1`) — a second way to make an
+  // offer that skipped the Offer Maker's lock. The off-season offer is Shop › Makers › Offer Maker → Who gets it →
+  // Event date in a season, which opens on the shop's slow months (lib/vendor-lean-months.ts). No pointer line here.
 
   // "Add a service" / "Add coverage" → a category chooser. The guided wizard
   // needs a category (route /services/new/[category]); when the wizard is off,
@@ -612,40 +565,7 @@ export async function VendorServicesManager({
         </p>
       ) : null}
 
-      {/* ONE LIST (Lane E item 7) — no Coverage · Service cards · Tools picker. The off-season offer stays above the list. */}
-      {/* Off-Season Promos nudge (Wave 5). */}
-      {showOffSeasonNudge && offPeakTargetId ? (
-        <div
-          className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-        >
-          <div className="flex items-start gap-3">
-            <span
-              className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-            >
-              <Snowflake aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="space-y-0.5">
-              <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Your {leanMonthsLabel} look light — launch an off-season offer
-              </p>
-              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                Couples shopping these months will see your deal first. We&rsquo;ll
-                pre-fill an off-peak discount — you set the amount.
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/vendor-dashboard/services/${offPeakTargetId}?offpeak=1${
-              suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''
-            }${suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''}`}
-            className="button-primary shrink-0 whitespace-nowrap text-center"
-          >
-            Set up off-season offer
-          </Link>
-        </div>
-      ) : null}
+      {/* ONE LIST (Lane E item 7) — no Coverage · Service cards · Tools picker. */}
 
       {/* ── YOUR SERVICE CARDS ──────────────────────────────────────────── */}
       <section className="space-y-3">
@@ -792,7 +712,7 @@ export async function VendorServicesManager({
           // 🧾 EMPTY LOOKS FINISHED (Lane E): one line + New service — the shared part (`services-empty-card.tsx`).
           <ServicesEmptyCard />
         ) : (
-          <ul className="space-y-2.5" data-shop-card-list="">
+          <ul className="space-y-5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const showCovHeader = i === 0 || groupLabelOf(listedServices[i - 1]!) !== groupLabelOf(svc);
               const covHeaderLabel = groupLabelOf(svc);
@@ -838,6 +758,11 @@ export async function VendorServicesManager({
               const svcInclusions =
                 inclusionsByService.get(svc.vendor_service_id) ?? [];
               const planHold = planHolds?.get(svc.vendor_service_id) ?? null;
+              // 🃏 THE CARD, THEN ONE ROW UNDER IT — Edit · Share icons, then the Online/Offline switch; swipe left to
+              // delete (owner 10 Nov on PR #7464). No frame around card + row. Tapping the card face opens the Card
+              // Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
+              const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}`;
+              const cardName = svc.title?.trim() || displayServiceLabel(svc.category);
               return (
                 <Fragment key={svc.vendor_service_id}>
                   {showCovHeader ? (
@@ -857,42 +782,15 @@ export async function VendorServicesManager({
                       ) : null}
                     </li>
                   ) : null}
-                <li
-                  id={`svc-${svc.vendor_service_id}`}
+                <ServiceCardItem
+                  liId={`svc-${svc.vendor_service_id}`}
                   // 🔎 Shop's thumb row narrows these in place (THE ONE BUILD, `shop-services-thumb.tsx`): its words,
-                  // whether it is live, and its name for "Sort · Name".
-                  data-shop-card=""
-                  data-shop-card-live={svc.is_active ? '1' : '0'}
-                  data-shop-card-name={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
-                  className="scroll-mt-24 overflow-hidden rounded-2xl border"
-                  style={{
-                    borderColor:
-                      offPeakPrefillId === svc.vendor_service_id
-                        ? 'var(--m-orange-3)'
-                        : 'var(--m-line)',
-                    background: 'var(--m-paper)',
-                    // No greyed-out card (owner 2026-11-10, "removing that greyed out look"): the worded switch says
-                    // Online / Offline; dimming the whole card also dimmed that switch and the card couples will see.
-                  }}
-                >
-                  {/* Row header — THE ACTUAL CARD · assigned · reach · toggle
-                      Owner 2026-09-08: *"we want to show the actual service
-                      cards."* This row used to be a grey wrench glyph, the
-                      title and one line of text, while the real card lived only
-                      inside the collapsed editor below. It is the same
-                      card the PUBLIC PROFILE renders, built by the same
-                      `toServiceCard` — see `lib/service-card-view-model`.
-
-                      The supplier-only facts (assigned-to, coverage, hidden,
-                      reach) STAY, under the card. They are not on the couple's
-                      card and never should be, but they are exactly what a shop
-                      scans a list for. */}
-                  {/* 🔁 The switch's refusal ("Add a cover photo before you publish…") is printed by StayForm as a SIBLING of
-                      its form — i.e. a flex child of THIS row. Unwrapped it took half the width and crushed the card into
-                      a one-word column, the switch thumb drawn over the chips (owner screenshot, 10 Nov: "Toggle issue").
-                      The row wraps and the refusal takes its own full-width line under the card. */}
-                  <div className="flex flex-wrap items-center gap-3 p-4 [&>[data-stay-error]]:order-last [&>[data-stay-error]]:basis-full">
-                    <div className="min-w-0 flex-1 space-y-2">
+                  // whether it is live, and its name for "Sort · Name". The <li> draws NO frame (owner 10 Nov on
+                  // PR #7464: "You placed the service card inside another frame. No.").
+                  live={svc.is_active}
+                  nameLower={(svc.title?.trim() || displayServiceLabel(svc.category)).toLowerCase()}
+                  face={
+                    <div className="relative" data-card-face={svc.vendor_service_id}>
                       {/* THE COUPLE'S OWN CARD, not a vendor-side lookalike.
                           Same `toServiceCard` the public profile calls and the
                           same `ServiceCardView` it renders - owner 2026-09-08:
@@ -928,52 +826,77 @@ export async function VendorServicesManager({
                         )}
                         detailsEnabled={false}
                       />
-                      <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                        {paxLabel} · assigned to {branchLabel}
-                        {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
-                          ? ` · ${coverageLabelById.get(svc.coverage_id)}`
-                          : ''}
-                        {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
+                      <Link
+                        href={editHref}
+                        aria-label={`Open ${cardName} in the Card Maker`}
+                        className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                        data-card-face-opens=""
+                      />
+                    </div>
+                  }
+                  row={{
+                    vendorServiceId: svc.vendor_service_id,
+                    cardName,
+                    isActive: svc.is_active,
+                    held: planHold?.hold === 'held',
+                    editHref,
+                    share: { targets: shareTargets, share: offerServiceInterest },
+                  }}
+                  action={toggleVendorServiceActive}
+                  deleteRefusal={
+                    cardBookings
+                      ? openBookingsRefusal(cardBookings.get(svc.vendor_service_id)?.open ?? [])
+                      : BOOKINGS_UNREAD
+                  }
+                  warningLines={deleteWarningLines(cardBookings?.get(svc.vendor_service_id)?.picked ?? 0)}
+                  remove={removeVendorServiceFromList}
+                  below={
+                    <>
+                    <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                      {paxLabel} · assigned to {branchLabel}
+                      {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
+                        ? ` · ${coverageLabelById.get(svc.coverage_id)}`
+                        : ''}
+                      {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
+                    </p>
+                    {planHold?.hold === 'held' ? (
+                      <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
+                        {HOLD_WORDS.rowLine}
                       </p>
-                      {planHold?.hold === 'held' ? (
-                        <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
-                          {HOLD_WORDS.rowLine}
-                        </p>
-                      ) : planHold?.hold === 'scheduled' && planHold.startsOn ? (
-                        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }} data-plan-hold="scheduled">
-                          {HOLD_WORDS.scheduledLine(planHold.startsOn)}
-                        </p>
-                      ) : null}
-                      {/* The reach this card's price is earning — on the card
-                          itself, every time the shop looks at the list, not in
-                          a report they would have to go and find.
-                          ⛔ TWO STATES ONLY. A bigger price never earns more
-                          reach; that would be selling placement. */}
-                      <p
-                        className="mt-1 flex items-center gap-1.5 text-[11px]"
+                    ) : planHold?.hold === 'scheduled' && planHold.startsOn ? (
+                      <p className="text-xs" style={{ color: 'var(--m-slate-2)' }} data-plan-hold="scheduled">
+                        {HOLD_WORDS.scheduledLine(planHold.startsOn)}
+                      </p>
+                    ) : null}
+                    {/* The reach this card's price is earning — on the card
+                        itself, every time the shop looks at the list, not in
+                        a report they would have to go and find.
+                        ⛔ TWO STATES ONLY. A bigger price never earns more
+                        reach; that would be selling placement. */}
+                    <p
+                      className="mt-1 flex items-center gap-1.5 text-[11px]"
+                      style={{
+                        color:
+                          reach.level === 'full'
+                            ? 'var(--m-slate-2)'
+                            : 'var(--m-orange-deep)',
+                      }}
+                    >
+                      <span
+                        aria-hidden
+                        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
                         style={{
-                          color:
+                          background:
                             reach.level === 'full'
-                              ? 'var(--m-slate-2)'
+                              ? 'var(--m-slate-3)'
                               : 'var(--m-orange-deep)',
                         }}
-                      >
-                        <span
-                          aria-hidden
-                          className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                          style={{
-                            background:
-                              reach.level === 'full'
-                                ? 'var(--m-slate-3)'
-                                : 'var(--m-orange-deep)',
-                          }}
-                        />
-                        <span className="truncate">
-                          {reach.label}
-                          {reach.level === 'full' ? '' : ' · open the card'}
-                        </span>
-                      </p>
-                    </div>
+                      />
+                      <span className="truncate">
+                        {reach.label}
+                        {reach.level === 'full' ? '' : ' · open the card'}
+                      </span>
+                    </p>
                     {svcDiscount ? (
                       <DiscountBadge
                         type={svcDiscount.discount_type}
@@ -983,74 +906,11 @@ export async function VendorServicesManager({
                         extraCount={svcDiscountList.length - 1}
                       />
                     ) : null}
-                    {/* ── START A NEW CARD FROM THIS ONE (owner 2026-07-28) ──
-                        A doorway, not a page: it opens the maker pre-filled from
-                        this card. Gated on the SAME flag the maker is, because
-                        only the canvas can be seeded — with the flag off the
-                        route renders the 6-step wizard, which takes no defaults,
-                        and this link would silently do nothing. A link that
-                        looks like a feature and is not one is worse than no
-                        link. */}
-                    {canvasMaker ? (
-                      <Link
-                        href={`/vendor-dashboard/services/new/${svc.category}?from=${svc.vendor_service_id}`}
-                        aria-label={`Start a new card from ${svc.title?.trim() || displayServiceLabel(svc.category)}`}
-                        title="Start a new card from this one"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
-                        style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate-2)' }}
-                      >
-                        <Copy className="h-4 w-4" strokeWidth={1.75} />
-                      </Link>
+                    {cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
+                      <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-card-outside="">
+                        {NOT_IN_WHAT_YOU_DO}
+                      </p>
                     ) : null}
-                    {/* on/off (is_active) — the app's one switch (owner 2026-10-08); it was an eye icon that filled ink when live.
-                        🧭 A card the PLAN holds has no switch: the database refuses it live (a_plan_held_card_stays_held);
-                        its tag + ⓘ say why, and "Which services stay on" above is where it comes back. */}
-                    {planHold?.hold === 'held' ? (
-                      <PlanHoldTag />
-                    ) : (
-                    <StayForm door="svServices.toggleVendorServiceActive" action={toggleVendorServiceActive}>
-                      <input type="hidden" name="vendor_service_id" value={svc.vendor_service_id} />
-                      <input type="hidden" name="is_active" value={svc.is_active ? 'false' : 'true'} />
-                      <button
-                        type="submit"
-                        role="switch"
-                        aria-checked={svc.is_active}
-                        aria-label={svc.is_active ? 'Hide service from Explore' : 'Show service on Explore'}
-                        title={svc.is_active ? 'Live — tap to hide' : 'Hidden — tap to show'}
-                        className={SWITCH_BUTTON}
-                      >
-                        <SwitchTrack on={svc.is_active} words={{ on: 'Online', off: 'Offline' }} />
-                      </button>
-                    </StayForm>
-                    )}
-                  </div>
-
-                  {/* THE CARD OPENS IN THE MAKER (supplier-easy step 3, 2026-10-14). The inline "Edit details"
-                      editor and its six Saves retired: every field it held — and the ones only the new-card
-                      screen had — live on ONE screen with ONE Save (/vendor-dashboard/services/[serviceId]). */}
-                  <Link
-                    href={`/vendor-dashboard/services/${svc.vendor_service_id}${
-                      offPeakPrefillId === svc.vendor_service_id
-                        ? `?offpeak=1${suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''}${
-                            suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''
-                          }`
-                        : ''
-                    }`}
-                    className="sn-press flex min-h-11 items-center justify-between gap-2 border-t px-4 py-2.5 text-[14px] font-semibold text-sn-accent"
-                    style={{ borderColor: 'var(--m-line)' }}
-                    data-card-edit={svc.vendor_service_id}
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span>Edit · every field</span>
-                      {cardIsOutsideCoverage(svc.category, coveredLeaves, coveredLeafSet) ? (
-                        <span className="truncate text-[13px] font-normal" style={{ color: 'rgb(var(--color-warn))' }} data-card-outside="">
-                          · {NOT_IN_WHAT_YOU_DO}
-                        </span>
-                      ) : null}
-                    </span>
-                    <ChevronRight aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
-                  </Link>
-
                   {/* Card record — outside <details> on purpose: the whole point
                       is that the vendor SEES what the card has compiled without
                       opening the editor. Renders only once the card has
@@ -1060,20 +920,21 @@ export async function VendorServicesManager({
                     const rec = cardRecordByService.get(svc.vendor_service_id);
                     if (!cardRecordHasSomethingToSayToTheShop(rec)) return null;
                     return (
-                      <div
-                        className="border-t px-4 pb-4 pt-3"
-                        style={{ borderColor: 'var(--m-line)' }}
-                      >
+                      <div className="pt-1">
                         <CardRecordSection record={rec} variant="vendor" />
                       </div>
                     );
                   })()}
-                </li>
+                    </>
+                  }
+                />
                 </Fragment>
               );
             })}
           </ul>
         )}
+        {/* The one Undo toast for the cards' swipe-delete (`deleteWithUndo`); it dedupes, so once is enough. */}
+        <UndoToastHost />
       </section>
 
       {/* Request a new category — the "Add coverage" on-ramp for services not in

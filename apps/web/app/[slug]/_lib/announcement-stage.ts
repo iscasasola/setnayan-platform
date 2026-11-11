@@ -1,12 +1,14 @@
 import { announcementStage, type AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { calendarDayInZone, getDayOfPhase } from '@/lib/day-of-mode';
-import { isFinishedEvent } from '@/lib/event-board';
+import { eventClockNow } from '@/lib/event-clock.server';
 
 /**
  * Which look the announcement wears now — 'before' (over the Invitation) · 'live' (over The Day) · 'after' (gone):
- * the VENUE's clock and the board's own "is it over" (`isFinishedEvent`). One rule for the layout that mounts the card
- * and the route that answers it, so the two cannot disagree about whether an announcement still shows.
+ * THE ONE CLOCK (owner ruling, 10 Nov 2026). One rule for the layout that mounts the card and the route that answers
+ * it, so the two cannot disagree about whether an announcement still shows.
+ *
+ * ⚠ "Over" used to be the board's own definition (`isFinishedEvent`: the last day before TODAY at the venue — so it
+ * flipped at MIDNIGHT) while "live" ran to noon the next day; between the two the card was 'live' AND the event was
+ * over. Both now come from the same two instants: The Day is open → 'live'; it has closed → 'after'.
  */
 export function announcementStageOf(event: {
   event_date: string | null;
@@ -14,14 +16,7 @@ export function announcementStageOf(event: {
   venue_latitude: number | null;
   venue_longitude: number | null;
 }): AnnouncementStage {
-  const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
-  const phase = event.event_date ? getDayOfPhase(event.event_date, venueTz) : 'inactive';
-  // "Over" is the board's own definition (last day passed, venue calendar) — never a second one. The shell does not
-  // carry `archived`; an archived event's guests are the couple's call elsewhere, not this banner's.
-  const ended = isFinishedEvent(
-    { event_date: event.event_date, event_end_date: event.event_end_date ?? null, archived: null },
-    calendarDayInZone(venueTz),
-  );
-  return announcementStage(phase, ended);
+  const clock = eventClockNow(event);
+  const ended = Number.isFinite(clock.closesMs) && clock.nowMs >= clock.closesMs;
+  return announcementStage(clock.day, ended);
 }
-

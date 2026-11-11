@@ -380,7 +380,8 @@ export function quoteFromServiceCards(input: QuoteFromCardsInput): ServiceCardQu
       });
       // 'up-to' means no event date — the card ADVERTISES a ladder nobody has
       // qualified for; applying it would promise a rung the date may not earn.
-      if (best && best.savingsPhp > 0 && best.leadTier !== 'up-to') {
+      // 🏷 A season offer (Build 6 Lane D) is for events inside its window — with no event date it is not applied either.
+      if (best && best.savingsPhp > 0 && best.leadTier !== 'up-to' && !(best.eventWindow && !input.eventDate)) {
         discount = { php: best.savingsPhp, reason: best.label, type: best.type };
       }
     }

@@ -26,6 +26,7 @@
  * supplier delivers ON the day, and a lane that shut before it would be useless
  * on the one day it exists for.
  */
+import { EVENT_CLOCK_COLUMNS } from './event-clock';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -103,7 +104,8 @@ test('the host closing out the day closes the camera immediately', () => {
 
 test('the route asks the ONE resolver — it does not re-derive "over"', () => {
   const src = route();
-  assert.match(src, /getMenuLifecyclePhase\(/, 'the route must call the shared resolver');
+  // ⏱ The one clock: `eventClockOf(row).menu` is `getMenuLifecyclePhase` on the venue's zone (lib/event-clock.ts).
+  assert.match(src, /eventClockOf\(ev, \{ nowMs: shotAtMs \}\)\.menu === 'after'/, 'the route must call the shared resolver');
   assert.ok(
     !/06:?00|21600000|60 \* 60 \* 6/.test(src),
     'the route must not carry its own copy of the six-hour boundary',
@@ -118,22 +120,16 @@ test('the route reads the LAST day and the venue’s zone, not just the first da
   // regression: a festival closing on day one, the server's clock deciding, a
   // host's close-out ignored) left all three strings in place and the test
   // green. It asserts the ARGUMENT LIST now.
+  // ⏱ Since the one clock (10 Nov 2026) the route hands the clock the ROW (`eventClockOf(ev, …)`), and the clock
+  // reads the first day, the last day, the close-out and the venue's coordinates off it — so what must hold is that
+  // the row the route hands over really CARRIES them. Dropping a column from the select is the regression now.
   const src = route();
-  const call = src.match(/getMenuLifecyclePhase\(([\s\S]*?)\)\s*;/);
-  assert.ok(call, 'the resolver call must be findable');
-  const args = call[1]!;
-  assert.match(args, /ev\.event_date/, 'the first day must be passed');
-  assert.match(args, /ev\.cleared_at/, 'the host’s own "close out the day" must be passed');
-  assert.match(args, /ev\.timezone/, 'the venue’s clock must be passed, not the server’s');
-  assert.match(args, /ev\.event_end_date/, 'the LAST day must be passed — a festival has middle days');
-  // And the row really carries them, so the arguments are not undefined.
-  for (const col of ['event_date', 'event_end_date', 'timezone', 'cleared_at']) {
-    assert.match(
-      src,
-      new RegExp(`\\.select\\([^)]*${col}`),
-      `${col} must be SELECTed, or the argument above is silently undefined`,
-    );
+  assert.match(src, /eventClockOf\(ev, \{ nowMs: shotAtMs \}\)/, 'the resolver call must be findable');
+  assert.match(src, /\.select\(`\$\{EVENT_CLOCK_COLUMNS\}`\)/, 'the row must be the clock\'s own columns, or the clock reads them as absent');
+  for (const col of ['event_date', 'event_end_date', 'cleared_at', 'venue_latitude', 'venue_longitude']) {
+    assert.ok(EVENT_CLOCK_COLUMNS.split(',').map((c) => c.trim()).includes(col), `EVENT_CLOCK_COLUMNS must carry ${col}`);
   }
+  assert.doesNotMatch(src, /\.timezone\b/, 'the venue’s zone comes from its coordinates, never events.timezone');
 });
 
 test('the gate runs BEFORE anything is uploaded or spent', () => {

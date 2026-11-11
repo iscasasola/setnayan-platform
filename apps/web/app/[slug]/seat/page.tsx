@@ -25,6 +25,8 @@ import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
+import type { TheDayWhen } from '@/lib/event-clock';
+import { theDayFor } from '@/lib/event-clock.server';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
@@ -161,7 +163,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const owns = await eventOwnsCustomQrGuest(admin, event.event_id);
   if (!owns) {
     return (
-      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
         <PromptCard
           title={`No seat pass for this ${noun} yet`}
           body={`The host hasn’t added the Custom QR seat pass for this ${noun}. You’ll find your table on the printed seating signs at the venue.`}
@@ -204,7 +206,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     // moment it was replaced, and only the current QR gets you in.
     if (!guestRow && !tableRow) {
       return (
-        <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
           <PromptCard
             title="This QR code isn’t active"
             body="It may have been replaced with a new one. If it’s a guest’s personal QR, ask the guest for their current QR — hosts can also reprint it from their dashboard. At the door, the check-in desk can always find guests by name."
@@ -235,7 +237,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
     if (!published) {
       return (
-        <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+        <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
           <SeatsShowOnTheDay eventDate={event.event_date} />
         </SeatPassShell>
       );
@@ -260,7 +262,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   const session = await readGuestSession();
   if (!session || session.event_id !== event.event_id) {
     return (
-      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -286,7 +288,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   if (!guestRow) {
     return (
-      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
         <PromptCard
           title="Open this from your invitation"
           body="Your seat pass is part of your personal invitation. Open your invitation link (or scan your personal QR), then tap your seat pass."
@@ -335,7 +337,7 @@ function SeatCouldNotLoad({
       roomLinks={roomLinks}
       displayName={event.display_name}
       slug={slug}
-      eventDate={event.event_date}
+      eventDate={theDayFor(event)}
     >
       <PromptCard
         title="We couldn't load your seat pass"
@@ -423,7 +425,7 @@ async function PersonalPass({
     // 🪑 The one waiting state, for a named guest too (owner 2026-10-11) — this branch had a card of its own, with
     // no word that an event with no date has no day yet.
     return (
-      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
         <SeatsShowOnTheDay eventDate={event.event_date} />
       </SeatPassShell>
     );
@@ -463,7 +465,7 @@ async function PersonalPass({
 
   if (tables.length === 0) {
     return (
-      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date}>
+      <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
         <PromptCard
           title="The floor plan is on its way"
           body={`${words.TheHost} is still arranging the venue layout. Check back closer to the day — your seat pass will appear here.`}
@@ -473,7 +475,7 @@ async function PersonalPass({
   }
 
   return (
-    <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} pulseGuest={{ eventId: event.event_id, guestId: guest.guest_id }}>
+    <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)} pulseGuest={{ eventId: event.event_id, guestId: guest.guest_id }}>
       <div className="space-y-6">
         <ArrivalBloom
           firstName={firstName}
@@ -611,7 +613,7 @@ async function PublicTableView({
   const mono = resolveMonogram(event);
 
   return (
-    <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={event.event_date} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null}>
+    <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)} avatarHref={guestAvatarsEnabled() ? `/${slug}/avatar` : null}>
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
           <EventMonogramBadge
@@ -724,7 +726,8 @@ function SeatPassShell({
   eventId?: string | null;
   displayName: string;
   slug: string;
-  eventDate: string | null;
+  /** ⏱ The Day's two instants from the one clock (`theDayFor(event)`) — the live re-draw runs while The Day is open. */
+  eventDate: TheDayWhen;
   /** The seated guest, when this state shows their pass — their own arrival re-draws it (live-day polling). */
   pulseGuest?: { eventId: string; guestId: string } | null;
   /** THE SECOND DOOR into the avatar maker (owner 2026-09-06). The venue page's

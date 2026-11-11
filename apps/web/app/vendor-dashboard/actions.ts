@@ -53,6 +53,7 @@ import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 import { SHOP_NAME_MAX, SHOP_NAME_TOO_LONG, shopNameTooLong } from '@/lib/business-slug';
+import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
@@ -474,6 +475,12 @@ export async function updateVendorProfileField(
       // Required field — never let an inline edit blank it (the publish gate
       // depends on it). Reject rather than write ''.
       if (!v) return { ok: false, error: 'Shop name is required.' };
+      // 🚫 FAIR PRESENTATION (owner 2026-11-08) — the name's live note kept the save off; this is the same check
+      // again, so a save that skipped the page is refused with the same sentence (`lib/fair-presentation.server.ts`).
+      {
+        const fair = await fairPresentationRefusal({ vendorProfileId: shopId, texts: [{ field: 'shop_name', value: v }] });
+        if (fair) return { ok: false, error: fair };
+      }
       // ── A HELD NAME HOLDS ITS CORE (owner 2026-11-06) ────────────────────
       // A rename is a name write like opening a shop, so it asks the same one question (`lib/shop-name-hold.ts`).
       // This shop's own rows, and a core an admin approved for it, never hold against it. Fails closed.
@@ -870,6 +877,11 @@ export async function requestProfileCorrection(
   if (fieldKey === 'business_name' && shopNameTooLong(requestedValue)) {
     return { ok: false, error: SHOP_NAME_TOO_LONG };
   }
+  // 🚫 …nor could a name carrying a claim word or an emoji (owner 2026-11-08) — refused now, not after review.
+  if (fieldKey === 'business_name' && requestedValue) {
+    const fair = await fairPresentationRefusal({ vendorProfileId: shopId, texts: [{ field: 'shop_name', value: requestedValue }] });
+    if (fair) return { ok: false, error: fair };
+  }
 
   // Own profile + a display snapshot of the current value for the admin queue.
   const { data: profRow, error: profErr } = await supabase
@@ -1156,6 +1168,18 @@ function websiteFieldPatch(
   return { ok: true, patch };
 }
 
+/**
+ * 🚫 FAIR PRESENTATION ON ABOUT (owner 2026-11-08 — "the same check on shop name, tagline, package names and About"):
+ * the claim words (disguised forms too), rank forms, a claim of standing with Setnayan, and contact details. No emoji
+ * check — the emoji ruling leaves About out. Asked by BOTH About doors (the one-field save and the page's Apply), after
+ * the part's own patch and before the write. Only when the patch carries About text.
+ */
+async function aboutFairRefusal(shopId: string, patch: Record<string, unknown>): Promise<string | null> {
+  const about = patch.microsite_about;
+  if (typeof about !== 'string' || about.trim().length === 0) return null;
+  return fairPresentationRefusal({ vendorProfileId: shopId, texts: [{ field: 'about', value: about }] });
+}
+
 export async function updateVendorWebsiteField(
   _prevState: FieldSaveResult | null,
   formData: FormData,
@@ -1209,6 +1233,10 @@ export async function updateVendorWebsiteField(
   const part = websiteFieldPatch(field, formData, { rowTyped, caps, currentServices, portfolioKeys });
   if (!part.ok) return part;
   const patch = part.patch;
+  {
+    const fair = await aboutFairRefusal(shopId, patch);
+    if (fair) return { ok: false, error: fair };
+  }
 
   const { error } = await supabase
     .from('vendor_profiles')
@@ -1293,6 +1321,10 @@ export async function applyVendorPageDraft(
     const part = websiteFieldPatch(field, formData, ctx);
     if (!part.ok) return { ok: false, error: `Nothing was applied. ${part.error}` };
     patch = { ...patch, ...part.patch };
+  }
+  {
+    const fair = await aboutFairRefusal(shopId, patch);
+    if (fair) return { ok: false, error: `Nothing was applied. ${fair}` };
   }
 
   const { error } = await supabase

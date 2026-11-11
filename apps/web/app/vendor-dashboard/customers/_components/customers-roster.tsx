@@ -6,7 +6,7 @@ import { FileText, MessageSquare } from 'lucide-react';
 import { RememberPickedOrigin } from './remember-picked-origin';
 import { ActionButton } from '@/components/action-button';
 import { SupplierOpenRow } from '../../_components/supplier-open-row';
-import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import { EventLinesBody } from '../../_components/event-lines';
 import type { EventLines } from '@/lib/supplier-event-lines';
 import {
   CUSTOMER_LANES,
@@ -235,12 +235,6 @@ function Marked({ text, query }: { text: string; query: string }): ReactNode {
   );
 }
 
-/** The inquiry answers a Customers row can give in place — the shipped `acceptInquiry` / `declineInquiry`, handed in. */
-export type RosterAnswers = {
-  acceptInquiry: (formData: FormData) => void | Promise<void>;
-  declineInquiry: (formData: FormData) => void | Promise<void>;
-};
-
 /**
  * One EVENT — avatar · its chat title · who + its one line · the stage · ▾ (supplier dashboard v13, APPROVED 2026-10-29:
  * "Customers ▾ — Events · Dates · Money · QR. One row per event; opened = the fixed lines + For your service"). No box.
@@ -249,14 +243,22 @@ export type RosterAnswers = {
  * the row is the shared `SupplierOpenRow` — ⤴ RISEN FULL SCREEN on a phone (Build 5 · Lane A slice 2, owner 10 Nov), in
  * the right column from 701 — and opened it shows the
  * event's fixed lines (`EventLinesBody`) and its door into the client, worded by the page it lands on (#38: Open the
- * chat · Open the quotation · Open their details · Open their Hub), or, for an inquiry, Decline · Ask · Accept in place.
+ * chat · Open the quotation · Open their details · Open their Hub).
+ *
+ * 🚪 EVERY ROW OPENS THE PICKED CLIENT (owner 11 Nov, live as SetnaProd, on an Asking row risen to a facts card with no
+ * page menu: *"Why do i see it this way? The chatbox is not yet done?"* · *"Accepted it and still did not show the
+ * chatbox"* · *"When that is pressed it jump to the supplie-client card that was already planned with the
+ * details-chat-form-quote-files-report and more menus that would grow to full screen"*). On a phone the row is a door
+ * (`opensTo={href}`) that rises into the ONE picked client shell (`clients/[eventId]`, its nine-page menu) on the page
+ * `hrefFor` picks — an ask on its Chat, where the facts and Decline · Ask a question · Accept are the chat's own top band
+ * (`data-chat-inquiry-card` in `messages/[threadId]/page.tsx`), never a second, chatless copy here. The body below is
+ * what the right column draws from 701 (Lane R's owner pick), its door worded by the page it lands on.
  */
 export function RosterRowView({
   r,
   nowMs,
   query,
   lines = null,
-  answers = null,
   list = null,
 }: {
   /**
@@ -270,7 +272,6 @@ export function RosterRowView({
   query: string;
   /** The event's fixed lines, from the page's one batched read. Null → said, never blank. */
   lines?: EventLines | null;
-  answers?: RosterAnswers | null;
 }) {
   const today = new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10);
   const href = hrefFor(r, today);
@@ -281,7 +282,6 @@ export function RosterRowView({
   // the event wants from this shop and where it stands. The people are INSIDE: the opened row's "Hosted by".
   const title = eventRowTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
   const rowWords = eventRowLine(r, nowMs, lines);
-  const inquiry = r.waitingKind === 'inquiry' && r.threadId && answers ? { threadId: r.threadId, ...answers } : null;
   const avatar = (
     <span
       aria-hidden
@@ -301,8 +301,10 @@ export function RosterRowView({
         line={rowWords}
         lineWrap
         // ⤴ On a phone the event RISES FULL SCREEN (owner 10 Nov: "The event did not grow fullscreen as planned") —
-        // Event type · Celebrant · Hosted by · Location / Date / Pax · Service requested · For your service, then its door.
         rise
+        // 🚪 …INTO THE PICKED CLIENT (owner 11 Nov): the one shell with its page menu, on the page the row's step is taken
+        // on — never a separate facts card. From 701 the right column still draws the body below.
+        opensTo={href}
         lead={avatar}
         aside={
           <Badge tone={badge.tone} data="customer-stage">
@@ -318,14 +320,7 @@ export function RosterRowView({
               This event&rsquo;s details couldn&rsquo;t load. Refresh to try again — the chat still opens.
             </p>
           )}
-          {inquiry ? (
-            <InquiryAnswers
-              threadId={inquiry.threadId}
-              returnTo="/vendor-dashboard/customers"
-              acceptInquiry={inquiry.acceptInquiry}
-              declineInquiry={inquiry.declineInquiry}
-            />
-          ) : href ? (
+          {href ? (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
               <RememberPickedOrigin to={href}>
                 <ActionButton
@@ -370,7 +365,6 @@ export function CustomersRoster({
   anchor = 'customers',
   emptyLine,
   lines = {},
-  answers = null,
   list = null,
   groupOf = null,
 }: {
@@ -383,8 +377,6 @@ export function CustomersRoster({
   list?: string | null;
   /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
   lines?: Readonly<Record<string, EventLines>>;
-  /** The inquiry answers an Asking row gives in place. */
-  answers?: RosterAnswers | null;
   /**
    * The list's own `id` (and its chat-origin mark). Null when the page draws the list once PER DOOR (Customers'
    * pinned counts, 2026-10-28) — the page then owns the one `#customers` and the one mark around all four.
@@ -505,7 +497,7 @@ export function CustomersRoster({
                     {/^\d{4}-\d{2}-\d{2}$/.test(head) ? dayHeadWords(head, new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10)) : head}
                   </p>
                 ) : null}
-                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
+                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} list={list} />
               </li>
             );
           })}

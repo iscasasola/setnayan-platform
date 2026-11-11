@@ -10,7 +10,12 @@
  *   · WHO is looking — nobody (a stranger), or a guest holding THIS event's pass, or somebody signed in;
  *   · the device, but only for one decision (the "Add to Apple Wallet" offer — `HubUaFacts`);
  *   · which menu tab the address names (`?tab=`);
- *   · the event's own state (the database stamp `event_public_stamp` — `rev`).
+ *   · the event's own state (the database stamp `event_public_stamp` — `rev`);
+ *   · ⏱ the event's CLOCK — its stage and day-of phase now, at the venue (`clockCode(eventClock(…))`, two letters).
+ *     A stage flips at an INSTANT (06:00 on the day, 06:00 the morning after the last day — the one clock, owner
+ *     ruling 10 Nov 2026) with no write to the database, so the stamp alone cannot move: before the clock was in the
+ *     key, a copy drawn at 05:59 as the Invitation could be served as the Invitation after The Day opened, until
+ *     `revalidate` ran out. With it, the first request after the instant names a new key. No cron.
  * The middleware (`middleware.ts`) reads those from the request and rewrites `/{slug}` to
  * `/{slug}/cached/{key}` (`app/[slug]/cached/[key]/page.tsx`), a route that reads NOTHING from the request but its
  * address — so Next renders it once per key and serves it from the cache (ISR) until the stamp moves, an announcement
@@ -128,6 +133,8 @@ export type HubViewKey = {
   tab: string | null;
   /** The guest's own last write (`HUB_BUST_COOKIE`). */
   bust: string | null;
+  /** ⏱ `clockCode` — the stage letter + the day-of letter (lib/event-clock.ts). Null only for a v1 key. */
+  clock: string | null;
 };
 
 const UUID_HEX = /^[0-9a-f]{32}$/;
@@ -135,20 +142,36 @@ const MAC = /^[A-Za-z0-9_-]{22}$/;
 const TAB = /^[a-z][a-z0-9-]{0,23}$/;
 const BUST = /^[a-z0-9]{1,16}$/;
 const REV = /^[0-9]{1,19}$/;
+/** `{stage}{day}` — `STAGE_CODE` × `DAY_CODE` in lib/event-clock.ts. */
+const CLOCK = /^[srep][blai]$/;
 
 const hexOf = (uuid: string) => uuid.replace(/-/g, '').toLowerCase();
 const uuidOf = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 
-/** `v1.{rev}.{a | g<hex32><mac22>}.{ua | -}.{tab | -}.{bust | -}` — one path segment, no `/`, `?` or `%`. */
+/**
+ * `v2.{rev}.{clock}.{a | g<hex32><mac22>}.{ua | -}.{tab | -}.{bust | -}` — one path segment, no `/`, `?` or `%`.
+ * (`v1` had no clock; a v1 key is still read, so a copy named just before a deploy keeps answering.)
+ */
 export function formatHubViewKey(k: HubViewKey): string {
   const viewer = k.viewer.kind === 'anonymous' ? 'a' : `g${hexOf(k.viewer.guestId)}${k.viewer.mac}`;
-  return ['v1', k.rev, viewer, k.ua ? uaCode(k.ua) : '-', k.tab ?? '-', k.bust ?? '-'].join('.');
+  const tail = [viewer, k.ua ? uaCode(k.ua) : '-', k.tab ?? '-', k.bust ?? '-'];
+  return k.clock && CLOCK.test(k.clock) ? ['v2', k.rev, k.clock, ...tail].join('.') : ['v1', k.rev, ...tail].join('.');
 }
 
 /** The inverse — `null` for anything not made by `formatHubViewKey` (the route then answers 404). */
 export function parseHubViewKey(raw: string): HubViewKey | null {
-  const parts = decodeURIComponent(raw).split('.');
-  if (parts.length !== 6 || parts[0] !== 'v1') return null;
+  const all = decodeURIComponent(raw).split('.');
+  let clock: string | null = null;
+  let parts: string[];
+  if (all[0] === 'v2' && all.length === 7) {
+    clock = all[2]!;
+    if (!CLOCK.test(clock)) return null;
+    parts = [all[0], all[1]!, ...all.slice(3)];
+  } else if (all[0] === 'v1' && all.length === 6) {
+    parts = all;
+  } else {
+    return null;
+  }
   const [, rev, v, ua, tab, bust] = parts as [string, string, string, string, string, string];
   if (!REV.test(rev)) return null;
   let viewer: HubViewer;
@@ -164,7 +187,7 @@ export function parseHubViewKey(raw: string): HubViewKey | null {
   if (viewer.kind === 'anonymous' && uaFacts) return null;
   if (tab !== '-' && !TAB.test(tab)) return null;
   if (bust !== '-' && !BUST.test(bust)) return null;
-  return { rev, viewer, ua: uaFacts, tab: tab === '-' ? null : tab, bust: bust === '-' ? null : bust };
+  return { rev, viewer, ua: uaFacts, tab: tab === '-' ? null : tab, bust: bust === '-' ? null : bust, clock };
 }
 
 /**

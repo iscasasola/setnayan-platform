@@ -19,35 +19,57 @@
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-/**
- * T is MIDNIGHT on the wedding day, in the venue's timezone.
- *
- * ⚠ THE WINDOW WIDENED 2026-08-05 (owner: "needs to run 12 hours before and 12
- * hours after"). It used to be T-1h .. T+8h — roughly 11pm the night before to
- * 8am on the day. A Filipino wedding's reception is in the EVENING, so day-of
- * mode was never on while the wedding was happening: no live photo wall, no
- * day-of banner, no announcements, no "happening now". It switched itself off
- * before the guests arrived.
- *
- * ⚠ AND WHY IT IS NOT LITERALLY ±12h FROM T. Midnight ±12h is noon-the-day-
- * before to noon-on-the-day — which still ENDS BEFORE AN EVENING RECEPTION and
- * would not have fixed anything. The owner's "12 before and 12 after" is 12
- * hours either side of the wedding DAY, not of its first instant:
- *
- *     live : T - 12h .. T + 36h   (noon the day before → noon the day after)
- *
- * That is one clean rule with no schedule required — which matters, because
- * only one event in production has any schedule blocks at all, so a
- * ceremony-time anchor would leave every other wedding on a fallback.
- */
-const PRE_WINDOW_START_MS = 3 * DAY_MS; // T - 3d
-const LIVE_WINDOW_START_MS = 12 * HOUR_MS; // T - 12h  (noon the day before)
-const LIVE_WINDOW_END_MS = 36 * HOUR_MS; // T + 36h (noon the day after)
-const POST_WINDOW_END_MS = 60 * HOUR_MS; // T + 60h (a further 24h to look back)
+/*
+  ─── THE ONE CLOCK (owner ruling, 10 Nov 2026) ────────────────────────────────
+
+  THE DAY OPENS AT 06:00 ON THE EVENT DAY AND CLOSES AT 06:00 THE MORNING AFTER
+  THE LAST DAY — both in the VENUE's own clock, both by DEFAULT (the couple can
+  move either; `TheDayHours`). Everything that belongs to the day follows these
+  two instants: the Event Hub's "The Day" stage, the Live tab, seats, song
+  requests, the live wall, check-in, the supplier's "today" desk and /[slug]/hub.
+
+  Before the ruling this file had a second window: "live" ran from NOON THE DAY
+  BEFORE to NOON THE DAY AFTER (T-12h .. T+36h from midnight), ignored the last
+  day of a celebration, and was evaluated in the RUNTIME's zone whenever a caller
+  forgot the venue's — UTC on the server, the phone's own zone in a browser. So
+  the Live tab could open the evening before, the dashboard menu said "over" at
+  06:00 while the wall still said "live" until noon, and day two of a two-day
+  celebration fell out of "live" at noon on day two. One window now:
+
+    pre      : opens − 3d .. opens
+    live     : opens      .. closes    (= The Day)
+    post     : closes     .. closes + 24h   (a day to look back)
+    inactive : everything else
+
+  ⚠ A MISSING ZONE IS THE VENUE FALLBACK (Asia/Manila), NEVER THE RUNTIME'S.
+  "Manila when there is no venue" is the ruling; the runtime's zone is right only
+  by accident. `eventDateToEpoch` itself keeps its old meaning (callers format
+  countdowns with it); only the window functions below default the zone.
+*/
+
+/** The zone of an event with no venue — owner ruling 5 (10 Nov 2026). Same value as `DEFAULT_EVENT_TZ` (lib/schedule). */
+export const VENUE_TZ_FALLBACK = 'Asia/Manila';
+/** The Day opens at this minute of the event day, venue time, unless the couple moved it. 06:00. */
+export const THE_DAY_OPENS_DEFAULT_MIN = 6 * 60;
+/** The Day closes at this minute of the morning after the LAST day, venue time, unless the couple moved it. 06:00. */
+export const THE_DAY_CLOSES_DEFAULT_MIN = 6 * 60;
 
 /**
- * When day-of mode switches on and off, in plain words — `LIVE_WINDOW_START_MS`
- * before and `LIVE_WINDOW_END_MS` after midnight on the day. The words live in
+ * The couple's own hours for The Day — minutes after midnight, venue time. `opensAtMin` is on the FIRST day;
+ * `closesAtMin` is on the morning AFTER the last day. Null/absent = the default (06:00 both). Out-of-range values are
+ * ignored (the default stands), so a bad stored value can never close a wedding before it opens.
+ */
+export type TheDayHours = { opensAtMin?: number | null; closesAtMin?: number | null };
+
+const minutesOr = (v: number | null | undefined, dflt: number): number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 24 * 60 ? v : dflt;
+
+const PRE_WINDOW_MS = 3 * DAY_MS; // the run-up before The Day opens
+const POST_WINDOW_MS = DAY_MS; // a day to look back after it closes
+
+/**
+ * When day-of mode switches on and off, in plain words — `THE_DAY_OPENS_DEFAULT_MIN`
+ * on the day and `THE_DAY_CLOSES_DEFAULT_MIN` the morning after the last day. The words live in
  * their own two-line module so copy files (help, /features) can say them without
  * pulling this file into a client bundle; `the-app-says-event-in-plain-words`
  * checks them against `getDayOfPhase`.
@@ -89,7 +111,6 @@ export { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-word
   value `isFinishedEvent` reads, and the same one the full-res retention floor
   reads. One answer to "when did this end", not three.
 */
-const MORNING_AFTER_MS = 6 * HOUR_MS; // 06:00, i.e. the night is over
 
 export type DayOfPhase = 'pre' | 'live' | 'post' | 'inactive';
 
@@ -171,67 +192,102 @@ export function eventDateToEpoch(eventDate: string | Date, tz?: string): number 
 }
 
 /**
- * Returns true when the current clock is between T-1 hour and T+8 hours of
- * the event date.
- *
- * @example
- * // wedding scheduled today; called 30 minutes before midnight start
- * isInDayOfWindow(new Date()); // true (within T-1h .. T+8h)
- *
- * @example
- * // wedding scheduled two days from now
- * isInDayOfWindow('2099-01-01'); // false
+ * Is The Day open right now? (the `live` phase — 06:00 on the day .. 06:00 the morning after the last day, by default)
  */
-export function isInDayOfWindow(eventDate: string | Date, tz?: string): boolean {
-  return getDayOfPhase(eventDate, tz) === 'live';
+export function isInDayOfWindow(
+  eventDate: string | Date,
+  tz?: string,
+  nowMs?: number,
+  eventEndDate?: string | Date | null,
+  hours?: TheDayHours | null,
+): boolean {
+  return getDayOfPhase(eventDate, tz, nowMs, eventEndDate, hours) === 'live';
 }
 
 /**
- * True across the whole wedding-day span — the `live` AND `post` phases
- * (T-1h .. T+24h). Use this (NOT `isInDayOfWindow`) to gate "live seat-plan
- * propagation": the `live` window is midnight-anchored (T-1h..T+8h ≈ 11pm-prev
- * .. 8am), so an EVENING reception actually lands in `post`. Guests arrive and
- * the digital plan is the source of truth across both — so the day-of editing
- * banner and the silent guest-finder self-refresh stay on for the full day,
- * not just the morning hours.
+ * True while The Day is open — the same question as `isInDayOfWindow`, kept as its own name because the hooks and the
+ * seat plan ask it by this one.
  *
- * @example
- * // evening reception, 6pm on the wedding day → delta ≈ +18h → 'post'
- * isEventDayActive(today); // true (post phase still counts)
+ * ⚠ IT USED TO MEAN `live ‖ post` (noon the day before .. two and a half days later), because the old `live` window
+ * was anchored on midnight and an evening reception landed in `post`. The Day now runs to 06:00 the morning after the
+ * last day, so the reception is inside `live` and `post` is the look-back day after it — which is not The Day.
  */
 export function isEventDayActive(
   eventDate: string | Date,
   tz?: string,
   nowMs?: number,
+  eventEndDate?: string | Date | null,
+  hours?: TheDayHours | null,
 ): boolean {
-  const phase = getDayOfPhase(eventDate, tz, nowMs);
-  return phase === 'live' || phase === 'post';
+  return getDayOfPhase(eventDate, tz, nowMs, eventEndDate, hours) === 'live';
 }
 
 /**
- * THE INSTANT A CELEBRATION IS OVER: 06:00, in the venue's own clock, on the
- * day after its LAST day. `NaN` when there is no readable date.
+ * THE INSTANT THE DAY OPENS: `opensAtMin` (06:00 by default), in the venue's own clock, on the FIRST day.
+ * `NaN` when there is no readable date. A full timestamp / Date is read as the instant itself (legacy callers).
+ */
+export function theDayOpensInstantMs(
+  eventDate: string | Date | null | undefined,
+  tz?: string,
+  hours?: TheDayHours | null,
+): number {
+  if (!eventDate) return NaN;
+  const zone = tz || VENUE_TZ_FALLBACK;
+  const firstDay = normalizeCalendarDay(eventDate);
+  if (!firstDay) return eventDateToEpoch(eventDate, zone);
+  return eventDateToEpoch(firstDay, zone) + minutesOr(hours?.opensAtMin, THE_DAY_OPENS_DEFAULT_MIN) * 60_000;
+}
+
+/**
+ * THE INSTANT A CELEBRATION IS OVER: `closesAtMin` (06:00 by default), in the venue's own clock, on the day after its
+ * LAST day. `NaN` when there is no readable date.
  *
  * ── WHY IT IS EXPORTED RATHER THAN INLINE ───────────────────────────────────
- * It was computed inside `getMenuLifecyclePhase` and nowhere else, because
- * nothing else needed it. The supplier's desk now does: its look-back state
- * runs from this instant, and re-deriving "six the morning after" beside the
- * function that already owns it is precisely the second copy this module's own
- * comments keep refusing to write. One derivation, two readers.
+ * The supplier's desk reads it too: its look-back state runs from this instant, and re-deriving "six the morning
+ * after" beside the function that already owns it is precisely the second copy this module keeps refusing to write.
  *
- * The six hours, the LAST day rather than the first, and the calendar-day step
- * (never `+24h`, which lands an hour off across a DST boundary) are all
- * explained at MORNING_AFTER_MS above.
+ * The six hours, the LAST day rather than the first, and the calendar-day step (never `+24h`, which lands an hour off
+ * across a DST boundary) are explained at the top of this file and at `getMenuLifecyclePhase`.
  */
 export function morningAfterInstantMs(
   eventDate: string | Date | null | undefined,
   tz?: string,
   eventEndDate?: string | Date | null,
+  hours?: TheDayHours | null,
 ): number {
   const firstDay = normalizeCalendarDay(eventDate);
   const lastDay = normalizeCalendarDay(eventEndDate) ?? firstDay;
   if (!lastDay) return NaN;
-  return eventDateToEpoch(nextCalendarDay(lastDay), tz) + MORNING_AFTER_MS;
+  return (
+    eventDateToEpoch(nextCalendarDay(lastDay), tz || VENUE_TZ_FALLBACK) +
+    minutesOr(hours?.closesAtMin, THE_DAY_CLOSES_DEFAULT_MIN) * 60_000
+  );
+}
+
+/** The Day, as two instants: `[opensMs, closesMs)`. Both `NaN` when there is no readable date. */
+export function theDayWindow(
+  eventDate: string | Date | null | undefined,
+  tz?: string,
+  eventEndDate?: string | Date | null,
+  hours?: TheDayHours | null,
+): { opensMs: number; closesMs: number } {
+  const opensMs = theDayOpensInstantMs(eventDate, tz, hours);
+  let closesMs = morningAfterInstantMs(eventDate, tz, eventEndDate, hours);
+  // A Date / full timestamp has no calendar day to step from: The Day is the 24h after the instant.
+  if (!Number.isFinite(closesMs) && Number.isFinite(opensMs)) closesMs = opensMs + DAY_MS;
+  // An end before the start (bad data) never closes The Day before it opens.
+  if (Number.isFinite(opensMs) && Number.isFinite(closesMs) && closesMs <= opensMs) closesMs = opensMs + DAY_MS;
+  return { opensMs, closesMs };
+}
+
+/**
+ * The calendar day (`YYYY-MM-DD`) whose The Day contains `now`, at the venue, on the DEFAULT hours: from 06:00 on a
+ * date until 06:00 the next morning, "today" is that date. For a desk that asks "is this booking today?" of a day
+ * rather than of an event row (the supplier's On the day Hub — booked dates are calendar days), so its "today" opens
+ * and closes with The Day instead of at midnight.
+ */
+export function theDayCalendarDay(tz?: string, nowMs?: number): string {
+  return calendarDayInZone(tz || VENUE_TZ_FALLBACK, (nowMs ?? Date.now()) - THE_DAY_CLOSES_DEFAULT_MIN * 60_000);
 }
 
 /**
@@ -261,12 +317,10 @@ export type MenuLifecyclePhase = 'plan' | 'dayof' | 'after';
 /**
  * The Event Lifecycle Menu phase: **Plan → Day-of → After** (2026-06-16).
  *
- * - `after`  — the event was explicitly closed out (`cleared_at` set) OR it is
- *              past the day-of window (auto-clear at T+24h, evaluated read-side
- *              here so it needs no cron — per the locked cron-free architecture).
- * - `dayof`  — the event is live (`isEventDayActive`: live ‖ post — NOT
- *              `isInDayOfWindow`, so an evening reception in `post` still counts)
- *              and not yet cleared.
+ * - `after`  — the event was explicitly closed out (`cleared_at` set) OR The Day
+ *              has closed (06:00 the morning after the last day, by default) —
+ *              evaluated read-side so it needs no cron.
+ * - `dayof`  — The Day is open (`theDayWindow`) and not cleared.
  * - `plan`   — everything before.
  *
  * Pass `cleared_at` from `events`; the column is added by migration
@@ -275,16 +329,14 @@ export type MenuLifecyclePhase = 'plan' | 'dayof' | 'after';
  */
 // NOT the public-website phase resolver: that is `getLifecyclePhase` in lib/invitation-widgets.ts. Renamed from `getLifecyclePhase` (OPEN-BROWSE PR1) to end the name collision.
 /**
- * ⚠ `tz` and `nowMs` added 2026-08-14 for the day-of takeover, and both are
- * OPTIONAL so no existing caller changes meaning. Omitting `tz` keeps the
- * previous runtime-local anchor — which on Vercel is UTC, so a Manila event's
- * midnight lands 8 hours early and the phase can flip on the wrong side of the
- * boundary. Any caller that knows the venue's zone should pass it.
+ * ⚠ `tz` omitted = the venue fallback (Asia/Manila) since the one-clock ruling
+ * (10 Nov 2026) — it used to be the RUNTIME's zone, which on Vercel is UTC, so a
+ * Manila event's boundary landed eight hours late. Any caller that knows the
+ * venue's zone still passes it.
  *
- * Every branch below still DELEGATES to `eventDateToEpoch` / `isEventDayActive`
- * rather than re-deriving the window: a second copy of this arithmetic is
- * exactly how the bottom nav once swapped into day-of mode while the surface it
- * pointed at disagreed by up to 36 hours.
+ * Every branch DELEGATES to `theDayWindow` rather than re-deriving the window:
+ * a second copy of this arithmetic is exactly how the bottom nav once swapped
+ * into day-of mode while the surface it pointed at disagreed by up to 36 hours.
  */
 export function getMenuLifecyclePhase(
   eventDate: string | Date | null | undefined,
@@ -297,52 +349,25 @@ export function getMenuLifecyclePhase(
    *  rule anchors on the same value `isFinishedEvent` and the full-res
    *  retention floor already anchor on. */
   eventEndDate?: string | Date | null,
+  /** The couple's own hours for The Day (default 06:00 → 06:00). */
+  hours?: TheDayHours | null,
 ): MenuLifecyclePhase {
   if (clearedAt) return 'after';
   if (!eventDate) return 'plan';
-  const eventMs = eventDateToEpoch(eventDate, tz);
-  if (!Number.isFinite(eventMs)) return 'plan';
-
   /*
-    IT IS OVER once the venue's clock reaches 06:00 on the day after the last
-    day — see MORNING_AFTER_MS above for why six and not zero, and for why the
-    old T+60h rule was deleted rather than kept beside this one.
+    ONE WINDOW, NOT THREE. 'dayof' is exactly The Day (`theDayWindow`): it opens at 06:00 on the first day and closes
+    at 06:00 the morning after the LAST day — so the middle days of a celebration that spans several are inside it by
+    construction (before the ruling they needed their own branch, because the old window only ever saw the first day).
 
-    ⚠ THE NEXT MIDNIGHT IS COMPUTED AS A CALENDAR DAY, NOT AS "+24h".
-    Adding a fixed 24h across a DST boundary lands an hour either side of
-    midnight. Asia/Manila has no DST, so this is invisible in production today
-    — which is exactly the kind of latent arithmetic this repo has been bitten
-    by before. `eventDateToEpoch` already knows how to anchor a calendar day in
-    a zone; it is asked for the NEXT day rather than told to add a number.
+    ⚠ THE NEXT MIDNIGHT IS COMPUTED AS A CALENDAR DAY, NOT AS "+24h" (`morningAfterInstantMs`). Adding a fixed 24h
+    across a DST boundary lands an hour either side of midnight. Asia/Manila has no DST, so this is invisible in
+    production today — exactly the kind of latent arithmetic this repo has been bitten by before.
   */
-  const firstDay = normalizeCalendarDay(eventDate);
-  const lastDay = normalizeCalendarDay(eventEndDate) ?? firstDay;
-  const morningAfterMs = morningAfterInstantMs(eventDate, tz, eventEndDate);
+  const { opensMs, closesMs } = theDayWindow(eventDate, tz, eventEndDate, hours);
+  if (!Number.isFinite(opensMs)) return 'plan';
   const now = nowMs ?? Date.now();
-  if (Number.isFinite(morningAfterMs) && now >= morningAfterMs) return 'after';
-
-  if (isEventDayActive(eventDate, tz, nowMs)) return 'dayof';
-
-  /*
-    THE MIDDLE DAYS OF A CELEBRATION THAT SPANS SEVERAL.
-
-    `isEventDayActive` only ever sees the FIRST day, so on day three of a
-    five-day festival it answers "no" — and before this branch existed the
-    phase fell through to **'plan'**, telling a family in the middle of their
-    own celebration to go and plan it. (Latent: prod holds no ranged event
-    today, which is precisely why it went unnoticed.)
-
-    🔒 STILL DELEGATED — this adds no second copy of the window arithmetic.
-    The only comparison is "has the first day begun", and the far edge is the
-    SAME `morningAfterMs` the over-check above uses. The reason the rest of
-    this function refuses to re-derive the bounds is that the bottom nav once
-    swapped into day-of mode while the surface it pointed at disagreed by 36
-    hours; a lone `now >= eventMs` cannot reproduce that.
-  */
-  if (lastDay && lastDay !== firstDay && now >= eventMs && now < morningAfterMs) {
-    return 'dayof';
-  }
-
+  if (Number.isFinite(closesMs) && now >= closesMs) return 'after';
+  if (now >= opensMs) return 'dayof';
   return 'plan';
 }
 
@@ -374,47 +399,29 @@ function nextCalendarDay(iso: string): string {
 }
 
 /**
- * Returns the current day-of phase for the given event date.
+ * Returns the current day-of phase for the given event — THE ONE WINDOW (see the top of this file):
  *
- * ⚠ These bounds are DERIVED from the constants at the top of this file, not
- * re-typed. The list below said `live: T-1h .. T+8h` and `post: T+8h .. T+24h`
- * while the code has used 12h / 36h / 60h — a docblock describing a different
- * function than the one beneath it. Corrected 2026-08-06.
- *
- * - `pre`      : T − PRE_WINDOW_START_MS  .. T − 12h
- * - `live`     : T − 12h                  .. T + 36h  (noon before → noon after)
- * - `post`     : T + 36h                  .. T + 60h  (a further day to look back)
+ * - `pre`      : The Day opens − 3d .. The Day opens
+ * - `live`     : The Day (06:00 on the first day .. 06:00 the morning after the last day, by default)
+ * - `post`     : The Day closes .. + 24h (a day to look back)
  * - `inactive` : otherwise
  *
- * `now` is injectable so a client component can defer the read to an effect and
- * avoid an SSR/hydration mismatch — the reason lib/guest-journey.ts once carried
- * its own naive copy of this window.
- *
- * @example
- * // 2 hours after the wedding day midnight anchor
- * getDayOfPhase(yesterday); // 'live'  (within T+8h)
- *
- * @example
- * // 2 days before the wedding
- * getDayOfPhase(twoDaysOut); // 'pre'
- *
- * @example
- * // 5 days before the wedding
- * getDayOfPhase(fiveDaysOut); // 'inactive'
+ * `now` is injectable so a client component can defer the read to an effect and avoid an SSR/hydration mismatch.
+ * `tz` omitted = the venue fallback (Asia/Manila), never the runtime's zone.
  */
 export function getDayOfPhase(
   eventDate: string | Date,
   tz?: string,
   nowMs?: number,
+  eventEndDate?: string | Date | null,
+  hours?: TheDayHours | null,
 ): DayOfPhase {
-  const eventMs = eventDateToEpoch(eventDate, tz);
-  if (!Number.isFinite(eventMs)) return 'inactive';
+  const { opensMs, closesMs } = theDayWindow(eventDate, tz, eventEndDate, hours);
+  if (!Number.isFinite(opensMs) || !Number.isFinite(closesMs)) return 'inactive';
   const now = nowMs ?? Date.now();
-  const delta = now - eventMs; // positive = past anchor
-
-  if (delta >= -LIVE_WINDOW_START_MS && delta <= LIVE_WINDOW_END_MS) return 'live';
-  if (delta >= -PRE_WINDOW_START_MS && delta < -LIVE_WINDOW_START_MS) return 'pre';
-  if (delta > LIVE_WINDOW_END_MS && delta <= POST_WINDOW_END_MS) return 'post';
+  if (now >= opensMs && now < closesMs) return 'live';
+  if (now >= opensMs - PRE_WINDOW_MS && now < opensMs) return 'pre';
+  if (now >= closesMs && now < closesMs + POST_WINDOW_MS) return 'post';
   return 'inactive';
 }
 

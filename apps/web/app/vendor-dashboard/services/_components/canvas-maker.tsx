@@ -113,7 +113,7 @@ import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo
 import { cardCheckInputKey, EMPTY_CARD_CHECK_INPUT, readCardCheckInput, type CardCheckInput } from '@/lib/service-card-checks';
 import {
   CardChecksSummary,
-  ClaimWordNotes,
+  FairNote,
   PhotoCheckNotes,
   ServiceMismatchNote,
   useCardChecks,
@@ -252,10 +252,10 @@ export function CanvasMaker({
   recordSlot = null,
   editing = null,
   bookedNow,
+  deleteGate = null,
   errorLine = null,
   returnTo,
   unread = [],
-  discountSeed = null,
   giftPacks = null,
   giftFree = null,
   cancelHref,
@@ -322,6 +322,12 @@ export function CanvasMaker({
    * (`BOOKED_PRICE_STAYS_SUPPLIER`, DECISION_LOG 2026-11-10 "WHAT YOU BOOK IS YOUR PRICE").
    */
   bookedNow?: number | null;
+  /**
+   * 🔒 THE DELETE SHEET'S TWO FACES (owner 10 Nov on PR #7464): `refusal` set → this card has an open booking (each named
+   * on its own line, `openBookingsRefusal`) and the sheet offers no Delete; else `lines` is the warning said BEFORE
+   * anything is deleted (`deleteWarningLines`). Absent (labs, the new-card maker) → the old one-line sheet.
+   */
+  deleteGate?: { refusal: string | null; lines: readonly string[] } | null;
   /** A refusal carried back on the address (`?error=`), said on the card. */
   errorLine?: string | null;
   /** This screen's own address — the save returns here with a refusal. */
@@ -331,8 +337,6 @@ export function CanvasMaker({
    * would erase it — Save waits, and the card says what could not be read (never "none").
    */
   unread?: string[];
-  /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
-  discountSeed?: { expiry?: string; conditions?: string } | null;
   /** The giftable packs on the live catalogue, for the Gift dropdown — null = unread (only No gift · Setnayan gift). */
   giftPacks?: ShopGiftPack[] | null;
   /** What this shop can still offer of each gift kind — null = unread (packs listed as unreadable, never as empty). */
@@ -840,8 +844,8 @@ export function CanvasMaker({
    * back with "Price · more" right under the head. Once per visit; a touch stops it; none under reduce motion.
    * lib/reveal-sweep.ts
    */
-  const [moreOpen, setMoreOpen] = useState(discountSeed !== null);
-  const moreRevealed = useRef(discountSeed !== null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRevealed = useRef(false);
   const stopReveal = useRef<(() => void) | null>(null);
   const onMoreOpenChange = useCallback((next: boolean) => {
     setMoreOpen(next);
@@ -944,7 +948,7 @@ export function CanvasMaker({
         <p
           role="alert"
           data-maker-error=""
-          className="rounded-2xl px-3.5 py-3 text-[14px] leading-snug"
+          className="whitespace-pre-line rounded-2xl px-3.5 py-3 text-[14px] leading-snug"
           style={{ background: 'color-mix(in srgb, rgb(var(--color-danger)) 10%, transparent)', color: 'rgb(var(--color-danger))' }}
         >
           {errorLine}
@@ -1109,7 +1113,7 @@ export function CanvasMaker({
                   className={BOX}
                 />
                 <p className={HINT}>Written for you · change it if you like</p>
-                <ClaimWordNotes hits={checks.claims} field="name" />
+                <FairNote hits={checks.fair} field="card_name" />
                 <ServiceMismatchNote
                   mismatch={checks.mismatch}
                   categoryLabel={activeCategoryLabel}
@@ -1215,7 +1219,7 @@ export function CanvasMaker({
                   Add what’s included — at least one line.
                 </p>
               ) : null}
-              <ClaimWordNotes hits={checks.claims} field="included" />
+              <FairNote hits={checks.fair} field="included" />
               {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
                   package), so it stays reachable while the card is made; the saved card points to Your packages. */}
               {customizationEnabled && !isEdit ? (
@@ -1249,7 +1253,7 @@ export function CanvasMaker({
                 </InfoTip>
               </div>
               <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
-              <ClaimWordNotes hits={checks.claims} field="extras" />
+              <FairNote hits={checks.fair} field="extras" />
             </div>
 
             {/* ── Gift — the shipped Setnayan-gift switch (was "More settings › Setnayan gift"), now ONE dropdown that
@@ -1369,7 +1373,7 @@ export function CanvasMaker({
                   />
 
                   {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
-                  <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-disc" title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="pb-4 pt-1">
                       {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
                       <div className="mb-2" data-maker-disc-tip="">
@@ -1379,9 +1383,6 @@ export function CanvasMaker({
                       </div>
                       <DiscountsEditor
                         initial={initial?.discounts ?? []}
-                        seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
-                        seedExpiry={discountSeed?.expiry}
-                        seedConditions={discountSeed?.conditions}
                       />
                     </div>
                   </Fold>
@@ -1791,14 +1792,36 @@ export function CanvasMaker({
       {/* Delete — its own form; a card anyone booked hides instead (said before the tap). */}
       {editing ? (
         <CanvasSheet id="canvas-delete" title="Delete this card?" open={sheet === 'delete'} onClose={() => setSheet(null)} confirmLabel={null}>
-          <p className="text-[15px] leading-snug text-ink/75">
-            If a couple ever booked or asked about it, it is hidden instead, so their record stays. Otherwise it is gone.
-          </p>
-          <form action={deleteVendorService} className="flex flex-wrap gap-2">
-            <input type="hidden" name="vendor_service_id" value={editing.serviceId} />
-            <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setSheet(null)} />
-            <SupplierSubmit tone="danger" main icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" pendingLabel="Deleting…" />
-          </form>
+          {deleteGate?.refusal ? (
+            // An open booking: no Delete at all — the same words the list's swipe and the server say.
+            <>
+              <p role="alert" className="whitespace-pre-line text-[15px] leading-snug text-terracotta-700" data-maker-delete-refusal="">
+                {deleteGate.refusal}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setSheet(null)} />
+              </div>
+            </>
+          ) : (
+            <>
+              {deleteGate ? (
+                <ul className="space-y-1.5 text-[15px] leading-snug text-ink/75" data-maker-delete-warning="">
+                  {deleteGate.lines.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[15px] leading-snug text-ink/75">
+                  If a couple ever booked or asked about it, it is hidden instead, so their record stays. Otherwise it is gone.
+                </p>
+              )}
+              <form action={deleteVendorService} className="flex flex-wrap gap-2">
+                <input type="hidden" name="vendor_service_id" value={editing.serviceId} />
+                <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setSheet(null)} />
+                <SupplierSubmit tone="danger" main icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" pendingLabel="Deleting…" />
+              </form>
+            </>
+          )}
         </CanvasSheet>
       ) : null}
 

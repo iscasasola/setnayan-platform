@@ -63,6 +63,9 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { useMediaQuery } from '@/lib/use-responsive';
 import { PasswordField } from '@/app/_components/password-field';
+import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 
 /**
  * The supplier sign-up door — `/open-shop`. FIVE compact steps, one question each, on ONE always-mounted form
@@ -115,6 +118,7 @@ export function OpenShopWizard({
   existingSlug = null,
   eventTypeOptions,
   logoDisplayMap,
+  fairWords = null,
   defaults,
   error,
   feeNotice = null,
@@ -167,6 +171,8 @@ export function OpenShopWizard({
   vendorProfileId?: string | null;
   /** r2Ref → 24h display URL, so an already-uploaded logo paints in "Your shop at a glance". */
   logoDisplayMap?: Record<string, string>;
+  /** 🚫 The claim-word list (no shop yet, so no allowances) — the name's live note. Absent/`null` = unread. */
+  fairWords?: ClaimWord[] | null;
   defaults: {
     shopName: string;
     logoUrl: string;
@@ -212,6 +218,9 @@ export function OpenShopWizard({
   const [dir, setDir] = useState<'fwd' | 'back' | null>(null);
   const slide = dir === 'fwd' ? 'os-in-r' : dir === 'back' ? 'os-in-l' : '';
   const [shopName, setShopName] = useState(defaults.shopName);
+  // 🚫 FAIR PRESENTATION (owner 2026-11-08): the name's note under the box, live; Next waits while it is open
+  // (`validateStep`). Pure, over the list the page read. `openShop` asks again.
+  const nameFair = findFairHits([{ field: 'shop_name', value: shopName }], { words: fairWords });
   // 🖼 The logo is not asked here (A2) — it is asked right after the shop opens, signed in, where the upload works
   // (`/open-shop/logo`). What a re-run already holds is kept and re-posted, never cleared.
   const logoUrl = defaults.logoUrl;
@@ -390,6 +399,7 @@ export function OpenShopWizard({
     if (n === 1) {
       if (!shopName.trim()) return OPEN_SHOP_ERRORS.shopName;
       if (nameHeld && claimedName !== shopName.trim()) return SHOP_NAME_HELD_MESSAGE;
+      if (nameFair.length > 0) return fairRefusal(nameFair);
       // Same shared flag the server action gates on — the two can't drift.
       if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) return OPEN_SHOP_ERRORS.logo;
       return null;
@@ -925,6 +935,7 @@ export function OpenShopWizard({
                   aria-describedby={describedBy('shop_name')}
                 />
                 {fieldError('shop_name')}
+                <FairNote hits={nameFair} field="shop_name" />
                 {/* 📏 50 at most (owner 2026-11-06); the count shows only from 40, so short names stay quiet. */}
                 {shopNameCounter(shopName.length) ? (
                   <span className="block text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">

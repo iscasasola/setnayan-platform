@@ -1,3 +1,4 @@
+import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -42,7 +43,10 @@ export default async function YourPage({
   // /open-shop on a read that might simply have failed (`the-open-shop-redirect-is-a-proven-absence`).
   if (!profile) redirect('/vendor-dashboard');
 
+  // 🚫 The claim-word list for About's live note (2 requests), started beside the page's own reads.
+  const fairWordsRead = loadClaimWordsFor(profile.vendor_profile_id); // never throws — unread is `null`, logged where read
   const d = await loadPageData(supabase, profile);
+  const fairWords = await fairWordsRead;
   // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for every plan
   // while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts). Your own web address
   // (owner 2026-10-15; Solo+ since 2026-11-04) reads `customWebsiteName`; the Pro page parts read `premiumPage` — two
@@ -92,6 +96,7 @@ export default async function YourPage({
           storeShell: d.storeShell,
           plans: d.plans,
           badges: d.badges,
+          fairWords,
         }}
         domainBody={
           <>

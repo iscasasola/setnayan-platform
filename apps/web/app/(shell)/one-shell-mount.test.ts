@@ -191,8 +191,13 @@ test('every bleed path resolves to a real page in this group', () => {
         'a bare segment would never match and the route would silently lose ' +
         'its full width.',
     );
+    // A route group is invisible in the URL: /features is served by app/(shell)/features/(hub)/page.tsx.
+    const dir = path.join(GROUP, p!.slice(1));
+    const inAGroup = existsSync(dir)
+      ? readdirSync(dir).some((d) => /^\(.+\)$/.test(d) && existsSync(path.join(dir, d, 'page.tsx')))
+      : false;
     assert.ok(
-      existsSync(path.join(GROUP, p!.slice(1), 'page.tsx')),
+      existsSync(path.join(dir, 'page.tsx')) || inAGroup,
       `'${p}' is listed as full-bleed but app/(shell)${p}/page.tsx does not ` +
         'exist. The marketplace would silently lose its full width.',
     );

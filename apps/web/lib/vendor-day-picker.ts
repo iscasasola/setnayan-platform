@@ -1,3 +1,4 @@
+import { theDayCalendarDay, VENUE_TZ_FALLBACK } from './day-of-mode';
 /**
  * ONE ROW PER DAY YOU ARE ON — the Event Hub's day list, decided once.
  *
@@ -91,23 +92,27 @@ export function pickConfigureDay<T extends VendorDay>(
   );
 }
 
-/** Today in Manila (UTC+8, no DST) as `YYYY-MM-DD` — the calendar the days above are kept in. */
+/**
+ * "Today" for a supplier's booked days, as `YYYY-MM-DD` in Philippine time (the calendar the days above are kept in)
+ * — on THE ONE CLOCK (owner ruling 2, 10 Nov 2026): a booked day is "today" from 06:00 on it until 06:00 the next
+ * morning (`theDayCalendarDay`, lib/day-of-mode.ts), the same two instants The Day opens and closes on everywhere
+ * else. It used to be midnight to midnight, so the supplier's "today" desk shut at 00:00 while the reception, the
+ * couple's Live tab and the guests' Hub ran on to 06:00.
+ */
 export function phTodayIso(now: number = Date.now()): string {
-  return new Date(now + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return theDayCalendarDay(VENUE_TZ_FALLBACK, now);
 }
 
 /**
  * WHEN THE EVENT HUB IS OPEN, IN PLAIN WORDS — read off the gate, not invented.
  *
  * The Hub's live console is shown when a booking's date equals `phTodayIso()`
- * (see `hasDayToday` below and `/vendor-dashboard/on-the-day`): the Philippine
- * calendar day, UTC+8. There is no hour offset anywhere in that rule — it opens
- * at midnight on the booked date and closes at the next midnight. The page used
- * to say "(T-1h → T+8h)", which was jargon AND untrue (2026-10-21 sweep). If the
- * gate ever gains hours, this sentence must change with it — the guard
- * `the-hub-says-when-it-opens.test.ts` reads both.
+ * (see `hasDayToday` below and `/vendor-dashboard/on-the-day`): The Day of that
+ * booked date on the one clock — 06:00 on it to 06:00 the next morning,
+ * Philippine time. If the gate ever changes hours, this sentence must change
+ * with it — the guard `the-app-says-event-in-plain-words.test.ts` reads both.
  */
-export const HUB_OPEN_WINDOW_PLAIN = 'midnight to midnight, Philippine time';
+export const HUB_OPEN_WINDOW_PLAIN = '6am to 6am the next morning, Philippine time';
 
 /**
  * Is one of this shop's days TODAY — the Event Hub's own "an event is on" rule

@@ -45,6 +45,8 @@ import {
   type LastDeepSearch,
 } from '@/lib/vendor-deep-search-offer';
 import type { ProfileFieldData } from '../shop/_components/editable-row';
+import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
+import type { ClaimWord } from '@/lib/service-card-checks';
 import type { VerifySummary } from '../shop/_components/verify-section';
 import type { PayInfo } from '../_components/branch-manager';
 
@@ -90,6 +92,11 @@ export type DetailsData = {
   tagline: string | null;
   website: string | null;
   about: string | null;
+  /**
+   * 🚫 The claim words this shop may not use — the shop name's and the tagline's live fair-presentation notes (owner
+   * 2026-11-08). `null` = unread: the word check waits for the save, which asks again.
+   */
+  fairWords: ClaimWord[] | null;
   sameDayAvailable: boolean;
   socialFeatureOptOut: boolean;
   socialAlreadyFeatured: boolean;
@@ -308,7 +315,11 @@ export async function loadDetailsData(
     return null;
   });
 
-  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch] =
+  // 🚫 The claim-word list (2 requests, in parallel with the rest) — the name and tagline notes draw from it.
+  // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
+  const fairWordsRead = loadClaimWordsFor(vendorId);
+
+  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([
       ownRead,
       startDateRead,
@@ -324,6 +335,7 @@ export async function loadDetailsData(
       payRead,
       deepSearchRead,
       lastDeepSearchRead,
+      fairWordsRead,
     ]);
   const fromInvite = (await inviteRead) !== null;
   const canonicalLabels = await serviceLabelsRead;
@@ -375,6 +387,7 @@ export async function loadDetailsData(
     contact_phone: profile.contact_phone ?? '',
     contact_email: profile.contact_email ?? '',
     in_business_since_year: profile.in_business_since_year ? String(profile.in_business_since_year) : '',
+    fairWords,
     venue_width_m: profile.venue_width_m != null ? String(profile.venue_width_m) : '',
     venue_length_m: profile.venue_length_m != null ? String(profile.venue_length_m) : '',
     capacity_min: profile.capacity_min != null ? String(profile.capacity_min) : '',
@@ -418,6 +431,7 @@ export async function loadDetailsData(
     compatibleCeremonyTypes: profile.compatible_ceremony_types ?? null,
     venueType: profile.venue_type ?? null,
     tagline: profile.tagline,
+    fairWords,
     website: profile.website,
     about,
     sameDayAvailable: own.same_day_available === true,

@@ -7,14 +7,16 @@
  *
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
  *   1. Today draws EXACTLY ONE sticky row, and it is the Needs-you-today heading (`.hc-k2` inside `[data-today-needs]`)
- *      with its count and Today's ONE ⚙ at its right end; it joins the pin line (`data-pinned-row`).
+ *      with its count and the ⚙ SLOT at its right end; it joins the pin line (`data-pinned-row`). Since 11 Nov (owner
+ *      *"Today settings yes"*) the ONE ⚙ is on the header until it scrolls away, so the server render's slot is empty —
+ *      the ride itself is held by `today-gear-rides-the-header.test.ts`.
  *   2. The greeting, the cover and the stats scroll away — no `CollapsingTop` locks them (the greeting's pinned row is
- *      not drawn at all).
+ *      not drawn at all). The cover's ONE control is Today's ⚙, in the hero's top-right slot.
  *   3. A new shop (the six steps take the top, no ⚙ handed in): the Needs heading does NOT pin — the setup heading is
  *      that page's pinned row.
  *
  * SABOTAGE (each run once, each went red): put `CollapsingTop` back around the cover → 1 + 2; drop `sticky` from the
- * heading → 1; hand the ⚙ to the cover again → 1.
+ * heading → 1; draw the ⚙ on the pinned row while the header is up → 1 (and the ride guard).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,7 +56,7 @@ async function render(setup: boolean): Promise<string> {
 /** Every element whose class list says `sticky` — the open tag, whole. */
 const stickies = (html: string) => [...html.matchAll(/<[a-z]+\b[^>]*\bclass="(?:[^"]*\s)?sticky(?:\s[^"]*)?"[^>]*>/g)].map((m) => m[0]);
 
-test('1 · exactly one sticky row on Today, and it is the Needs-you-today heading with its ⚙', async () => {
+test('1 · exactly one sticky row on Today, and it is the Needs-you-today heading with its ⚙ slot', async () => {
   const html = await render(false);
   assert.match(html, /data-today-needs=""/, 'anti-vacuity: Needs you today did not render');
   const pins = stickies(html);
@@ -69,8 +71,9 @@ test('1 · exactly one sticky row on Today, and it is the Needs-you-today headin
   assert.ok(needsAt >= 0 && pinAt > needsAt && pinAt < html.indexOf('data-today-needs-rows'), 'the pinned row is not the Needs-you-today heading');
   const row = html.slice(pinAt, html.indexOf('data-today-needs-rows'));
   assert.match(row, /Needs you today/);
-  assert.match(row, /aria-label="Today settings"/, 'Today’s ⚙ is not at the pinned row’s end');
-  assert.equal([...html.matchAll(/aria-label="Today settings"/g)].length, 1, 'more than one ⚙ on Today');
+  assert.match(row, /data-today-needs-gear=""/, 'the pinned row lost its ⚙ slot at its right end');
+  assert.doesNotMatch(row, /aria-label="Today settings"/, 'Today’s ⚙ sits beside the hours while the header is on screen');
+  assert.equal([...html.matchAll(/aria-label="Today settings"/g)].length, 1, 'not exactly one ⚙ on Today');
 });
 
 test('2 · the greeting, the cover and the stats scroll away — nothing locks them', async () => {
@@ -80,7 +83,9 @@ test('2 · the greeting, the cover and the stats scroll away — nothing locks t
   assert.doesNotMatch(html, /data-today-top=|data-today-stats-top=|\bsn-ct\b/, 'a CollapsingTop still locks the cover or the stats');
   assert.doesNotMatch(html, /data-today-pinned-row=|data-today-stats-pinned=/, 'the greeting’s (or the stats’) pinned row is still drawn');
   const cover = html.slice(html.indexOf('data-today-cover'), html.indexOf('</header>'));
-  assert.doesNotMatch(cover, /<button\b|<a\b/, 'the cover still holds a control (the ⚙ moved to the pinned row)');
+  const controls = [...cover.matchAll(/<(?:button|a)\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(controls.length, 1, `the cover holds ${controls.length} controls, not just Today’s ⚙:\n${controls.join('\n')}`);
+  assert.match(controls[0]!, /aria-label="Today settings"/, 'the cover’s one control is not Today’s ⚙');
 });
 
 test('3 · a new shop: the six steps take the top and the Needs heading does not pin', async () => {

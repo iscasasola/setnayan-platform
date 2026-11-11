@@ -101,7 +101,8 @@ test('the refusal says why, and says the rule', () => {
 test('the shared helper asks the one resolver and fails soft', () => {
   const helper = code('lib/event-is-over.server.ts');
   assert.match(helper, /import 'server-only';/, 'it uses the admin client');
-  assert.match(helper, /getMenuLifecyclePhase\(/, 'the one resolver');
+  // ⏱ `eventClockOf(row).menu` — the one clock, i.e. `getMenuLifecyclePhase` on the venue's zone.
+  assert.match(helper, /eventClockOf\(data\)\.menu === 'after'/, 'the one resolver');
   assert.ok(!/captureWindow|papic_window/.test(helper), 'never the capture window');
   assert.match(helper, /if \(!data\) return false;/, 'an unreadable row must not refuse a sale');
 });

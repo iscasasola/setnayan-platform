@@ -203,3 +203,11 @@ test('no price check of any kind (owner: "ok then remove the price integrity iss
     assert.doesNotMatch(src, /starting_price|price_php|priceBand|price_band/i, `${f} reads a price`);
   }
 });
+
+test('owner 11 Nov: plain "best" refuses "Best mobile bar" and "best-selling", never "bestow"', () => {
+  const words = [{ phrase: 'best', why: 'w' }];
+  const hit = (v: string) => findClaimWords([{ field: 'name', value: v }], words).length;
+  assert.equal(hit('Best mobile bar'), 1);
+  assert.equal(hit('Our best-selling booth'), 1);
+  assert.equal(hit('We bestow a gift'), 0);
+});

@@ -108,7 +108,17 @@ import { fileURLToPath } from 'node:url';
 // unallow). A scan of every "use server" export found none that nothing references, so nothing could be un-exported in
 // trade. No fresh `vercel build` count for this +2 — the SUM is gated by check-vercel-route-count.mjs on this PR's
 // production build; read that job before merging.
-export const CEILING = 1241;
+// 1241 → 1242 (2026-11-11, Build 5 Lane C service card row, owner 11 Nov "swipe left to delete"): ONE new export,
+// `removeVendorServiceFromList` in `vendor-dashboard/services/actions.ts` — the swipe's delete answered as a VALUE so the
+// open-bookings refusal shows in place (the maker's `deleteVendorService` redirects; both run the one gate
+// `deleteOrRetireOwnService`). Unimported exports found: `setGuestPlusOneCount` (held by extra-seats-are-chairs, another
+// area) and three Papic purchase actions (money) — left alone. CEILING = the count measured on the tree merged with main.
+// The route SUM stays gated by check-vercel-route-count.mjs on this PR's production build.
+// 1242 → 1243 (2026-11-12, Build 6 Lane D — the Offer Maker): ONE dispatcher (`offerMaker` in
+// app/vendor-dashboard/offers/actions.ts: load · save · switch · remove) instead of the four exports it would have been.
+// Main reached 1242 on its own the same day (the line above); no unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1243;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

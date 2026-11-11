@@ -167,7 +167,10 @@ test('the three repaired sites stay repaired', () => {
   // appeared". These are the three that were live and are now fixed.
   const repaired = [
     'app/vendor-dashboard/clients/[eventId]/actions.ts',
-    'app/vendor-dashboard/services/actions.ts',
+    // The services delete's booking read moved into a pure module (2026-11-11, PR #7464: no delete or turn-off while a
+    // booking is open). Every caller passes `createAdminClient()` — services/actions.ts, the services manager and the
+    // Card Maker page.
+    'lib/service-open-bookings.ts',
     // Added 2026-08-29 when the host/MC cue composer was repaired. Its downstream
     // was the reason it waited: `event_schedule_blocks` carries a booked-vendor
     // read, and `vendor_block_scripts` / `vendor_lines` are FOR ALL on

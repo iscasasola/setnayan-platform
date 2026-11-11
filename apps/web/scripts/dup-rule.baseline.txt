@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 330
+# facts: 314
 #   shadow  18
-#   omit    312
+#   omit    296
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -156,12 +156,6 @@ omit	app/api/guest/qr/route.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/api/social/card/[postId]/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_address
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_name
-omit	app/api/song-requests/route.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/api/v1/events/[eventId]/guests/route.ts	guests	ENTOURAGE_COLUMNS	name_prefix
@@ -316,12 +310,6 @@ omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_S
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_packages	VENDOR_PACKAGE_SELECT	vendor_profile_id
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
 omit	app/vendor-dashboard/proposals/surface.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	venue_address
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	venue_name
-omit	app/vendor/fit/[ref]/page.tsx	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	lib/auto-recap.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/auto-recap.ts	guests	ENTOURAGE_COLUMNS	last_name
 omit	lib/auto-recap.ts	guests	ENTOURAGE_COLUMNS	middle_name
@@ -338,10 +326,6 @@ omit	lib/event-celebrants.server.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/event-celebrants.server.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	lib/event-celebrants.server.ts	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	lib/event-celebrants.server.ts	guests	ENTOURAGE_COLUMNS	name_suffix
-omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	love_story
-omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	our_photos
-omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
-omit	lib/guest-reminder-emails.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	lib/guest-reminder-emails.ts	guests	ENTOURAGE_COLUMNS	name_suffix

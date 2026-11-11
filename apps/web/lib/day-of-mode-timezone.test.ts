@@ -69,10 +69,8 @@ test('omitting the timezone keeps the old behaviour, so no caller changed by acc
   });
 });
 
-// ── The window itself (owner 2026-08-05: "12 hours before and 12 hours after")
-// T is MIDNIGHT on the wedding day, in the venue's zone. The window is 12 hours
-// either side of the DAY — noon-before to noon-after — not ±12h from T, which
-// would be noon-to-noon and would still end before an evening reception.
+// ── The window itself — THE ONE CLOCK (owner ruling, 10 Nov 2026), superseding 2026-08-05's noon-to-noon window:
+// The Day opens at 06:00 on the event day and closes at 06:00 the morning after the last day, in the venue's zone.
 
 test('a 7pm Filipino reception IS live — the case the old window never covered', () => {
   // 18 Dec 2026, 19:00 Manila = 11:00 UTC.
@@ -86,27 +84,33 @@ test('a 7pm Filipino reception IS live — the case the old window never covered
   });
 });
 
-test('the whole wedding day is live, morning to midnight', () => {
+test('the whole wedding day is live, from 06:00 to 06:00 the morning after (the one clock)', () => {
+  // ⏱ Owner ruling, 10 Nov 2026: The Day opens at 06:00 on the event day, venue time, and closes at 06:00 the morning
+  // after the last day. Every hour from 06:00 on the day to 05:00 the next morning is live; 00:00–05:00 on the day is not.
   const off: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    // hour h Manila on the wedding day = (h - 8) UTC.
+  const early: string[] = [];
+  for (let h = 0; h < 30; h++) {
+    // hour h Manila counted from midnight on the wedding day = (h - 8) UTC.
     at(Date.UTC(2026, 11, 18, h - 8, 0, 0), () => {
-      if (getDayOfPhase(DATE, MANILA) !== 'live') off.push(`${h}:00`);
+      const live = getDayOfPhase(DATE, MANILA) === 'live';
+      if (h >= 6 && !live) off.push(`${h}:00`);
+      if (h < 6 && live) early.push(`${h}:00`);
     });
   }
-  assert.deepEqual(off, [], `these hours of the wedding day are not live: ${off.join(', ')}`);
+  assert.deepEqual(off, [], `these hours of The Day are not live: ${off.join(', ')}`);
+  assert.deepEqual(early, [], `these hours before 06:00 on the day are live: ${early.join(', ')}`);
 });
 
-test('it starts noon the day before and ends noon the day after', () => {
+test('it starts at 06:00 on the day and ends at 06:00 the morning after', () => {
   const phaseAt = (utc: number) => { let p = ''; at(utc, () => { p = getDayOfPhase(DATE, MANILA); }); return p; };
-  // 11:00 Manila the day before = 03:00 UTC — one hour early, not yet live.
-  assert.notEqual(phaseAt(Date.UTC(2026, 11, 17, 3, 0, 0)), 'live');
-  // 13:00 Manila the day before = 05:00 UTC — inside.
-  assert.equal(phaseAt(Date.UTC(2026, 11, 17, 5, 0, 0)), 'live');
-  // 11:00 Manila the day after = 03:00 UTC on the 19th — still inside.
-  assert.equal(phaseAt(Date.UTC(2026, 11, 19, 3, 0, 0)), 'live');
-  // 13:00 Manila the day after — over.
-  assert.notEqual(phaseAt(Date.UTC(2026, 11, 19, 5, 0, 0)), 'live');
+  // 05:59 Manila on the day = 21:59 UTC the day before — not yet live.
+  assert.notEqual(phaseAt(Date.UTC(2026, 11, 17, 21, 59, 0)), 'live');
+  // 06:00 Manila on the day = 22:00 UTC the day before — live.
+  assert.equal(phaseAt(Date.UTC(2026, 11, 17, 22, 0, 0)), 'live');
+  // 05:59 Manila the morning after — still live (the after-party).
+  assert.equal(phaseAt(Date.UTC(2026, 11, 18, 21, 59, 0)), 'live');
+  // 06:00 Manila the morning after — over.
+  assert.notEqual(phaseAt(Date.UTC(2026, 11, 18, 22, 0, 0)), 'live');
 });
 
 // ── The Event Lifecycle Menu phase (Phase 6 day-of takeover) ─────────────────
@@ -128,11 +132,10 @@ test('the takeover follows the venue clock, so a Manila reception is dayof', () 
   );
 });
 
-test('the takeover starts at noon the day before — in Manila, not in UTC', () => {
-  // Manila midnight on the 18th is 2026-12-17T16:00Z. T-12h is 04:00Z on the
-  // 17th. One minute either side of that instant must disagree, and it is the
-  // ZONE that decides where the instant falls.
-  const startUtc = Date.UTC(2026, 11, 17, 4, 0, 0);
+test('the takeover starts at 06:00 on the day — in Manila, not in UTC', () => {
+  // Manila 06:00 on the 18th is 2026-12-17T22:00Z (the one clock, owner ruling 10 Nov 2026). One minute either side
+  // of that instant must disagree, and it is the ZONE that decides where the instant falls.
+  const startUtc = Date.UTC(2026, 11, 17, 22, 0, 0);
   assert.equal(getMenuLifecyclePhase(DATE, null, MANILA, startUtc + 60_000), 'dayof');
   assert.equal(getMenuLifecyclePhase(DATE, null, MANILA, startUtc - 60_000), 'plan');
 });
@@ -155,14 +158,13 @@ test('no date means Plan — the takeover can never fire on an undated event', (
   assert.equal(getMenuLifecyclePhase('not-a-date', null, MANILA, RECEPTION_UTC), 'plan');
 });
 
-test('omitting the zone keeps the old behaviour, so no existing caller moved', () => {
-  // Backwards compatibility: the bottom nav and other callers pass no zone and
-  // must resolve exactly as they did before the parameter existed.
-  at(RECEPTION_UTC, () => {
-    const withoutTz = getMenuLifecyclePhase(DATE, null);
-    const explicitRuntime = getDayOfPhase(DATE);
-    const expected =
-      explicitRuntime === 'live' || explicitRuntime === 'post' ? 'dayof' : withoutTz;
-    assert.equal(withoutTz, expected);
-  });
+test('omitting the zone reads the venue fallback (Manila), never the runtime — the one clock, ruling 5', () => {
+  // ⏱ Owner ruling, 10 Nov 2026: "Manila when there is no venue". A missing zone used to mean the RUNTIME's (UTC on a
+  // server, the phone's own in a browser), which is how a Manila wedding's day opened eight hours late on Vercel.
+  for (const ms of [RECEPTION_UTC, Date.UTC(2026, 11, 17, 21, 59, 0), Date.UTC(2026, 11, 17, 22, 0, 0)]) {
+    at(ms, () => {
+      assert.equal(getMenuLifecyclePhase(DATE, null), getMenuLifecyclePhase(DATE, null, MANILA));
+      assert.equal(getDayOfPhase(DATE), getDayOfPhase(DATE, MANILA));
+    });
+  }
 });

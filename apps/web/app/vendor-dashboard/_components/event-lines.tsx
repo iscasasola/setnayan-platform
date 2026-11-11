@@ -156,13 +156,20 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
 /**
  * An inquiry's three answers — the same on Today, on the Events row and at the top of the chat (prototype `inqActions`):
  * Decline · Ask a question · Accept. The SHIPPED answers (`declineInquiry` / `acceptInquiry`, handed in): answering is
- * saying yes to talk, and books nothing. Accept keeps the supplier where they are (`returnTo` — a save never resets the
- * screen); Ask a question says the same yes and opens the chat to type in.
+ * saying yes to talk, and books nothing. Ask a question says yes and opens the chat to type in; Decline keeps the
+ * supplier where they are (`returnTo`).
+ *
+ * 💬 ACCEPT LANDS IN THE CHAT — never back on the card it was pressed on (owner 11 Nov, live as SetnaProd: *"Accepted it
+ * and still did not show the chatbox"*; DECISION_LOG 2026-11-09 "the chat is the overall record of transactions and
+ * discussions"). It used to fall back to `returnTo` (the list or card it sat on), which put the supplier back on a facts
+ * card with no chat after saying yes. Now: `acceptTo` (the full-screen chat's own card starts a quote there,
+ * `?compose=quote`), else the chat itself (`chatHref` — inside the picked client, its own Chat page).
  */
 export function InquiryAnswers({
   threadId,
   returnTo,
   acceptTo,
+  chatHref,
   pinned = false,
   acceptInquiry,
   declineInquiry,
@@ -171,12 +178,14 @@ export function InquiryAnswers({
   pinned?: boolean;
   threadId: string;
   returnTo: string;
-  /** Where Accept lands, when not `returnTo` — the chat's own card starts a quote (`?compose=quote`). */
+  /** Where Accept lands, when not the chat itself — the full-screen chat's own card starts a quote (`?compose=quote`). */
   acceptTo?: string;
+  /** Where the chat is — the full-screen thread by default; inside the picked client, its own Chat page. */
+  chatHref?: string;
   acceptInquiry: Act;
   declineInquiry: Act;
 }) {
-  const chat = `/vendor-dashboard/messages/${threadId}`;
+  const chat = chatHref ?? `/vendor-dashboard/messages/${threadId}`;
   return (
     <div
       className={`flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3 ${pinned ? 'sticky bottom-0 z-[1] pb-2' : ''}`}
@@ -195,7 +204,7 @@ export function InquiryAnswers({
       </form>
       <form action={acceptInquiry} className="contents">
         <input type="hidden" name="thread_id" value={threadId} />
-        <input type="hidden" name="return_to" value={acceptTo ?? returnTo} />
+        <input type="hidden" name="return_to" value={acceptTo ?? chat} />
         <SupplierSubmit tone="brand" main icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Accept" pendingLabel="Accepting…" />
       </form>
     </div>

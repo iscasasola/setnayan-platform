@@ -67,7 +67,7 @@ import { measuredOr } from '@/lib/measured-read';
 import { guestListUnreadLine } from '@/lib/guest-list-unread';
 import { suggestTableFor } from '@/lib/seat-suggest';
 import { eventHasSides, SIDELESS_SIDE } from '@/lib/guest-side-question';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
@@ -111,6 +111,12 @@ import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 import { GuestsExample } from './_components/guests-example';
+
+/** The guest list's event columns: its own, and every one of the ONE clock's (`EVENT_CLOCK_COLUMNS`, lib/event-clock.ts)
+ *  for "has this happened". Typed out so the held-row guard can read it; `lib/the-event-has-one-clock.test.ts` holds
+ *  that it still carries the clock's whole list. */
+const GUESTS_EVENT_COLUMNS =
+  'role_palette, estimated_pax, timezone, slug, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude';
 
 export const metadata = { title: 'Guests' };
 
@@ -442,10 +448,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // after his Movie Night: *"i can still invite"*. It could not have known
   // otherwise — nothing here asked when the celebration was, so every
   // affordance on it addressed a party that had not happened yet.
-  const eventRowRead = eventRowOnce(supabase, eventId, 'role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug', () =>
+  const eventRowRead = eventRowOnce(supabase, eventId, GUESTS_EVENT_COLUMNS, () =>
     supabase
       .from('events')
-      .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
+      .select(GUESTS_EVENT_COLUMNS)
       .eq('event_id', eventId)
       .maybeSingle(),
   );
@@ -654,13 +660,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     how the guest list and the dashboard would come to disagree about whether
     the wedding happened.
   */
-  const phase = getMenuLifecyclePhase(
-    (eventRow.data as { event_date?: string | null } | null)?.event_date ?? null,
-    (eventRow.data as { cleared_at?: string | null } | null)?.cleared_at ?? null,
-    (eventRow.data as { timezone?: string | null } | null)?.timezone ?? undefined,
-    undefined,
-    (eventRow.data as { event_end_date?: string | null } | null)?.event_end_date ?? null,
-  );
+  const phase = eventClockOf(eventRow.data).menu;
   const finished = phase === 'after';
   // ⚠ `arrived.count` is null when the read was REFUSED, and `arrivedCount`
   // above collapses that to 0. Fine for a meter; NOT fine for a sentence that

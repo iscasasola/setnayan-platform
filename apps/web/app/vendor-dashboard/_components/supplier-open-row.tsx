@@ -27,12 +27,25 @@
  * IS THE NAME; FULL SCREEN EVERYTHING"; HOUSE_TEMPLATES T4). The same head (its arrow ›), the same body — drawn ONCE
  * (shut: in the fold's inert body; risen: inside the shipped `RiseScreen`): it grows out of the row, the bars slide away, ✕ / Esc / Back fall back into the row
  * and the list is on the same pixel. From 701 it still opens in the right column (the wide Rise is Lane R's owner pick).
+ *
+ * 🚪 `opensTo` — BELOW 701 THE ROW RISES INTO A PAGE instead of rising its own body (owner 11 Nov, live as SetnaProd, on
+ * a Clients › Asking row risen to a facts card with no page menu: *"Why do i see it this way? The chatbox is not yet
+ * done?"* · *"Accepted it and still did not show the chatbox"* — then, verbatim: *"We had the clients> that show calendar
+ * on the page and the list is at the bottom. When that is pressed it jump to the supplie-client card that was already
+ * planned with the details-chat-form-quote-files-report and more menus that would grow to full screen"*; DECISION_LOG
+ * 2026-11-08 "a row opens the picked client on its Chat tab"). The head opens that page — the ONE picked client shell,
+ * its nine-page menu, rising from this row (`rememberPickedOrigin`) — never a separate card. Its body is never SHOWN on a
+ * phone: it waits in the fold's shut (inert, hidden) body, as every shut row's does, for the right column from 701 (the
+ * wide Rise is still Lane R's owner pick). Not an open-row (`data-open-door`).
  * 🔒 app/vendor-dashboard/_components/a-supplier-row-opens-beside-itself.test.ts
  * 🔒 app/vendor-dashboard/customers/a-client-row-rises-full-screen.test.ts
+ * 🔒 app/vendor-dashboard/customers/every-client-row-opens-the-picked-client.test.ts
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { Fold } from '@/app/_components/fold';
+import { rememberPickedOrigin } from '@/app/_components/picked/picked-motion';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { SupplierColumns } from './supplier-columns';
 
@@ -154,6 +167,7 @@ export function SupplierOpenRow({
   defaultOpen = false,
   lineWrap = false,
   rise = false,
+  opensTo = null,
   children,
 }: {
   /** Unique within the page — the row's handle (`data-open-row`). */
@@ -179,6 +193,8 @@ export function SupplierOpenRow({
   lineWrap?: boolean;
   /** ⤴ Below 701 the row rises full screen (`RiseScreen`) instead of opening under itself. Absent → as it was. */
   rise?: boolean;
+  /** 🚪 Below 701 the row opens THIS page (rising from the row) instead of its own body. Absent → as it was. */
+  opensTo?: string | null;
   /** What opening shows — drawn by the page, with its answers. */
   children: ReactNode;
 }) {
@@ -202,6 +218,15 @@ export function SupplierOpenRow({
     setRisen(false);
     scope?.open(id);
   }, [rise, wideNow, risen, scope, id]);
+
+  // 🚪 THE DOOR (phone): the head rises into the page it names — the body is that page's to draw, never a copy here.
+  if (opensTo && !scope?.wide) {
+    return (
+      <RowDoor id={id} to={opensTo} title={title} titleNode={titleNode} line={line} lineWrap={lineWrap} lead={lead} aside={aside} endPress={endPress} data={data}>
+        {children}
+      </RowDoor>
+    );
+  }
 
   // ⤴ THE RISE (phone): the row's head opens the one full screen; the fold itself never opens — the body is drawn ONCE,
   // in the shut fold until it rises, then inside the screen. From 701 a scoped row keeps its right column (below).
@@ -267,6 +292,66 @@ export function SupplierOpenRow({
         {scope.wide ? null : children}
       </Fold>
       {beside && scope.pane ? createPortal(<PaneBody title={paneTitle ?? title}>{children}</PaneBody>, scope.pane) : null}
+    </div>
+  );
+}
+
+/**
+ * 🚪 The row as a door (`opensTo`): the SAME head (its arrow on ›, "opens a screen"), and pressing it records the row
+ * the page rises from, then goes there (a soft navigation — the Clients list stays mounted under the picked client).
+ */
+function RowDoor({
+  id,
+  to,
+  title,
+  titleNode,
+  line,
+  lineWrap,
+  lead,
+  aside,
+  endPress,
+  data,
+  children,
+}: {
+  id: string;
+  to: string;
+  /** The row's body — kept shut (inert, hidden) here; the page it opens is what the supplier sees. */
+  children: ReactNode;
+  title: string;
+  titleNode?: ReactNode;
+  line?: string;
+  lineWrap: boolean;
+  lead?: ReactNode;
+  aside?: ReactNode;
+  endPress?: ReactNode;
+  data?: string;
+}) {
+  // The app router when mounted (a soft navigation — the list stays under the picked client); a static render has none.
+  const router = useContext(AppRouterContext);
+  const box = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={box} data-open-door={id} data-opens-to={to}>
+      <Fold
+        title={title}
+        titleNode={titleNode}
+        line={line ?? ''}
+        wrap
+        lineWrap={lineWrap}
+        lead={lead}
+        aside={aside}
+        endPress={endPress}
+        data={data}
+        rises
+        open={false}
+        onOpenChange={(next) => {
+          if (!next) return;
+          rememberPickedOrigin(box.current?.closest('[data-customer-row]') ?? box.current, to);
+          if (router) router.push(to);
+          else window.location.assign(to);
+        }}
+      >
+        {children}
+      </Fold>
     </div>
   );
 }

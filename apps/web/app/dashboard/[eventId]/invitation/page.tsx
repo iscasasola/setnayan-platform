@@ -13,7 +13,8 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
+import { eventClockNow } from '@/lib/event-clock.server';
 import { SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -78,7 +79,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
          the guest list's Send invite. */
       // + the CANONICAL monogram list and the QR look's two columns
       // (lib/qr-look.server.ts) — every code on this page wears the event's look.
-      `event_id, public_id, event_date, slug, ${QR_LOOK_COLUMNS}`,
+      `event_id, public_id, slug, ${QR_LOOK_COLUMNS}, ${EVENT_CLOCK_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -168,10 +169,10 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     // pre-migration / degraded read — no badges, nothing else changes
   }
 
-  // Live day-of window (T-1h..T+8h): the confirm dialog escalates to a typed
-  // confirm — rotating mid-event kills the guest's printed place card and the
-  // check-in desk scan within one refresh.
-  const dayOfLive = event.event_date ? getDayOfPhase(event.event_date) === 'live' : false;
+  // The Day (the one clock — 06:00 on the day → 06:00 the morning after the last day, at the venue): the confirm
+  // dialog escalates to a typed confirm — rotating mid-event kills the guest's printed place card and the check-in
+  // desk scan within one refresh.
+  const dayOfLive = eventClockNow(event).theDayOpen;
 
   const slugSaved = search.slug_saved === '1';
   const slugErrorKey = search.slug_error ?? null;

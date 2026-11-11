@@ -11,8 +11,9 @@ import { SupplierHero, type SupplierHeroPicture, type SupplierHeroUpload } from 
  *     follows the Manila clock (`greetingLine`).
  *   · "N tasks today" is handed in — the length of the Needs-you list under it (`view.needsCount`), so the two never
  *     disagree.
- *   · ⚙ is ONE mount (`TodaySettings`), handed in as `gear`: the same node rides the pinned row once the cover has
- *     collapsed (`TodayPinnedRow`, below) — never a second sheet.
+ *   · ⚙ is ONE mount (`TodaySettings`), handed in as `gear` (`TodayGearSlot at="cover"`, owner 11 Nov *"Today
+ *     settings yes"*): top-right on the header while it is on screen; it rides the pinned Needs-you-today row once the
+ *     header has scrolled away (`TodayGearRide`, Portfolio's `pin`) — never a second sheet.
  *
  * ⏳ THE COLLAPSE: the shared `CollapsingTop` (L1 foundation F2) takes `cover` = this, `row` = `TodayPinnedRow` and
  * `second` = the stats strip. Until `-foundation` lands the cover scrolls with the page (spec §3.1 "build behind the

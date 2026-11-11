@@ -10,6 +10,7 @@ import { parseTagline, parseWebsiteUrl } from '@/lib/vendor-public-line';
 import { maybeSuggestCoverageFromWebsite } from '@/lib/vendor-signup-coverage-suggest-server';
 import { buildVendorDeepSearchInputs } from '@/lib/vendor-deep-search-run';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
+import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 /**
@@ -96,6 +97,12 @@ export async function updatePublicLine(
       { field: 'Tagline', value: patch.tagline as string | null },
     ]);
     if (viol) return { ok: false, error: viol };
+    // 🚫 FAIR PRESENTATION (owner 2026-11-08) — the tagline's live note kept Save off; the same check again here.
+    const fair = await fairPresentationRefusal({
+      vendorProfileId,
+      texts: [{ field: 'tagline', value: patch.tagline as string | null }],
+    });
+    if (fair) return { ok: false, error: fair };
   }
 
   // A submission carrying neither key is a no-op, not a write of two NULLs.

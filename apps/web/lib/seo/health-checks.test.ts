@@ -13,6 +13,8 @@ import {
   pesoFigure,
   llmsBody,
   KNOWN_PUBLIC_ROUTES,
+  MUST_BE_IN_SITEMAP,
+  bookingFeeFigures,
   type CatalogRow,
 } from './health-checks';
 
@@ -171,4 +173,68 @@ test('a SKU absent from the catalog is Check-1 territory, not a literal failure'
     res.findings.find((f) => f.check === 'hardcoded public price literals')?.status,
     'ok',
   );
+});
+
+// ── Build 6 Lane K · the checks that keep answer engines on today's product ──
+
+// SABOTAGE: drop `row.advertised !== false` from the retail loop → RED.
+test('an on-sale but UNLISTED retail SKU is never reported missing (Patiktok is unlisted on purpose)', () => {
+  const catalog: CatalogRow[] = [{ sku_code: 'PATIKTOK_COMPILER', price_php: 2490, source: 'retail', advertised: false }];
+  const res = runSeoHealthChecks({ llmsText: 'Nothing about it here.', catalog, env: {} });
+  assert.equal(res.priceDrift.filter((d) => d.kind === 'missing').length, 0);
+});
+
+// SABOTAGE: stop adding `nonSkuFigures` / ₱0 to the allowance → RED. Measured in prod 2026-11-10: "orphan ₱100,000,
+// ₱50, ₱0" every day — the booking-fee band, its minimum, and "Free — ₱0".
+test('the booking-fee figures and ₱0 are true figures, not orphans', () => {
+  const llmsText = 'Free — ₱0. A booking fee of 5% of the first ₱100,000, then 1%, minimum ₱50.';
+  const res = runSeoHealthChecks({
+    llmsText,
+    catalog: [],
+    env: {},
+    nonSkuFigures: bookingFeeFigures({ tier1LimitPhp: 100_000, minPhp: 50 }),
+  });
+  assert.deepEqual(res.priceDrift, []);
+  assert.deepEqual(bookingFeeFigures(null), []);
+});
+
+// SABOTAGE: delete Check 6 → RED.
+test('a served llms.txt that lost a saved AI answer FAILS, naming the question', () => {
+  const res = runSeoHealthChecks({
+    llmsText: '**Is there an app?** Yes.',
+    catalog: [],
+    env: {},
+    requiredQuestions: ['Is there an app?', 'Do you take a commission?'],
+  });
+  const f = res.findings.find((x) => x.check === 'llms.txt answers what AI gets wrong');
+  assert.equal(f?.status, 'fail');
+  assert.ok(f?.detail.includes('Do you take a commission?'));
+  assert.ok(!f?.detail.includes('Is there an app?'));
+});
+
+// SABOTAGE: delete Check 7 → RED.
+test('a retired plan or product name in the served file FAILS (Enterprise · Event Hub Pro · tokens)', () => {
+  for (const text of ['Upgrade to Enterprise.', 'Buy the Pro Event Hub.', 'Top up your token wallet.']) {
+    const res = runSeoHealthChecks({ llmsText: text, catalog: [], env: {} });
+    assert.equal(res.findings.find((x) => x.check === 'llms.txt retired names')?.status, 'fail', text);
+  }
+  const clean = runSeoHealthChecks({ llmsText: 'Free · Verified · Solo · Pro · Ultra.', catalog: [], env: {} });
+  assert.equal(clean.findings.find((x) => x.check === 'llms.txt retired names')?.status, 'ok');
+});
+
+// SABOTAGE: delete Check 8, or drop '/for-coordinators' from MUST_BE_IN_SITEMAP → RED.
+test('a front page missing from the served sitemap FAILS; an unread sitemap skips the check', () => {
+  const some = MUST_BE_IN_SITEMAP.filter((p) => p !== '/for-coordinators');
+  const res = runSeoHealthChecks({ llmsText: '', catalog: [], env: {}, sitemapPaths: some });
+  const f = res.findings.find((x) => x.check === 'sitemap coverage');
+  assert.equal(f?.status, 'fail');
+  assert.ok(f?.detail.includes('/for-coordinators'));
+  const all = runSeoHealthChecks({ llmsText: '', catalog: [], env: {}, sitemapPaths: [...MUST_BE_IN_SITEMAP] });
+  assert.equal(all.findings.find((x) => x.check === 'sitemap coverage')?.status, 'ok');
+  const skipped = runSeoHealthChecks({ llmsText: '', catalog: [], env: {} });
+  assert.equal(skipped.findings.find((x) => x.check === 'sitemap coverage'), undefined);
+});
+
+test('the coordinator front page is a known public route', () => {
+  assert.ok(KNOWN_PUBLIC_ROUTES.has('/for-coordinators'));
 });

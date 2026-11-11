@@ -41,10 +41,15 @@ test('the vendor still HAS somewhere to edit it — the rule must not create a d
     join(WEB, 'app/vendor-dashboard/shop/_components/editable-row.tsx'),
     'utf8',
   );
-  const field = row.slice(row.indexOf('htmlFor="business_owner_name"') - 200);
+  // The owner-name FIELD itself — from its `htmlFor` to the end of its <Field>. (Until 2026-11-11 this window started
+  // 200 characters BEFORE the field and ended 600 after, so it could be satisfied by the SHOP-name row's <PlainInput>
+  // just above it: lengthening that line, as the fair-presentation note did, moved it out and the test went red for a
+  // field that had not changed. The window is now the field's own.)
+  const at = row.indexOf('htmlFor="business_owner_name"');
+  const field = row.slice(at, row.indexOf('</Field>', at));
   assert.match(
-    field.slice(0, 600),
-    /<PlainInput/,
+    field,
+    /<PlainInput itemKey=\{item\.key\}/,
     'the vendor name is no longer editable on My Shop — and there is nowhere else, ' +
       'because /vendor-dashboard/profile redirects here and the couple profile bounces vendors',
   );

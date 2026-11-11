@@ -22,6 +22,7 @@ import 'server-only';
  * for what its widgets draw.
  */
 
+import { venueTimezone } from '@/lib/event-clock.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -52,6 +53,9 @@ export type HomeHubEventRow = {
   event_end_date: string | null;
   cleared_at: string | null;
   timezone: string | null;
+  /** The venue — its zone is the clock's (`venueTimezone`), never `timezone`. */
+  venue_latitude?: number | null;
+  venue_longitude?: number | null;
   std_invitation_launch_date: string | null;
   /** The couple's pin (`setLaunchPhase`) — absent/auto = the date decides. */
   launch_mode?: string | null;
@@ -74,7 +78,7 @@ export async function readHomeHub(
     eventDate: ev.event_date,
     eventEndDate: ev.event_end_date,
     clearedAt: ev.cleared_at,
-    timezone: ev.timezone,
+    venueTz: venueTimezone(ev),
     slug: ev.slug,
     invitationLaunchDate: ev.std_invitation_launch_date,
   });

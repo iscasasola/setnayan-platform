@@ -8,7 +8,6 @@ import { daysToGo } from '@/lib/countdown-target';
 import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
-import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { GuestMeParts, ReplyCardRow } from './guest-me-parts';
 import { guestMeFacts, guestMeNoteShown, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
@@ -49,7 +48,7 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
-import { type DayOfPhase } from '@/lib/day-of-mode';
+import { type DayOfPhase, theDayCalendarDay } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { anyoneMayAskToJoin, guestReplyBy, oneQrLetsYouIn, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
@@ -1278,9 +1277,10 @@ export async function SiteBody({
      slice 2 · lib/arrival-action.ts). Null for an anonymous reader, who keeps
      the page's existing public call to action.
 
-     🕐 Manila decides the day. `manilaToday()` formats now in Asia/Manila;
-     `new Date('YYYY-MM-DD')` would be midnight UTC — the previous day here —
-     and would flip the day-of branch eight hours early. */
+     ⏱ THE ONE CLOCK decides the day (owner ruling, 10 Nov 2026): `theDayCalendarDay` at the venue — a date is
+     "today" from 06:00 on it to 06:00 the next morning, the instants The Day opens and closes on. (It was
+     `manilaToday()`, midnight to midnight.) Never `new Date('YYYY-MM-DD')`, which is midnight UTC. */
+  const venueDayToday = theDayCalendarDay(eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude));
   /* 🚪 ONE REPLY FORM (owner 2026-10-11, on a guest's walk: Me's button opened a sheet — "Save RSVP", no Terms
      tick, sendable with no answer — while the top "RSVP" loaded the reply page — "Send my reply", Terms tick, an
      answer required). Every reply door on this page now opens the reply PAGE (`replyDoor`), and the reply SHEET is
@@ -1305,7 +1305,7 @@ export async function SiteBody({
           slug: event.slug ?? '',
           rsvpStatus: identity.guest.rsvp_status,
           eventDate: event.event_date,
-          today: manilaToday(),
+          today: venueDayToday,
           hasPass: Boolean(guestToken),
           // A door to the reply only where the reply is open — never "RSVP" on the Save the Date,
           // nor outside the couple's reply window (📬 2026-10-14).
@@ -2150,7 +2150,7 @@ export async function SiteBody({
               slug: event.slug ?? '',
               rsvpStatus: hostOwnRsvp ?? 'pending',
               eventDate: event.event_date,
-              today: manilaToday(),
+              today: venueDayToday,
               hasPass: false,
               replyOpen: replyOpenHere,
             }),
@@ -2800,21 +2800,19 @@ export async function SiteBody({
          "5 · On the day"). What is happening now, the pass, the camera; the
          planning rows step back behind them.
 
-      🕐 MANILA DECIDES THE DAY, and this is the slice most likely to be wrong
-         by eight hours. `manilaToday()` and `event_date` are both Manila-local
-         `YYYY-MM-DD` and are compared as STRINGS — `new Date(event_date)` is
-         midnight UTC, the previous day here, and would rearrange the page on
-         the evening before the wedding.
-
-      🔒 NARROWER THAN `isLive` ON PURPOSE. The live window runs T−12h..T+36h so
-         an evening reception is covered; this is the calendar day alone, which
-         for a Manila venue sits strictly inside it. That keeps the lead in step
-         with the arrival action's "Show your pass", which flips on exactly this
-         boundary. See lib/day-of-lead.ts.
+      ⏱ THE ONE CLOCK DECIDES THE DAY (owner ruling, 10 Nov 2026). "Today" is
+         `theDayCalendarDay` at the VENUE: a date is today from 06:00 on it to
+         06:00 the next morning — the same two instants The Day opens and closes
+         on — and is compared with `event_date` as `YYYY-MM-DD` STRINGS (never
+         `new Date(event_date)`, which is midnight UTC). It used to be
+         `manilaToday()`, midnight to midnight, so the lead rearranged the page
+         at 00:00 on the wedding morning, six hours before The Day opened, and
+         stepped back at midnight in the middle of the reception. See
+         lib/day-of-lead.ts.
     */
     const dayOfLead = resolveDayOfLead({
       eventDate: event.event_date,
-      today: manilaToday(),
+      today: theDayCalendarDay(eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)),
       rsvpStatus: guest.rsvp_status,
       hasPass: plan.qrCardShouldRender,
       hasSchedule: scheduleBlocks.length > 0,

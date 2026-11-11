@@ -160,14 +160,18 @@ test('the doorway and the parameter are gated on the SAME flag as the maker', ()
   // Only the canvas can open pre-filled; the 6-step wizard takes no defaults.
   // A link that renders while the flag is off would look like a feature and do
   // nothing — the "fake door" this project has already shipped twice.
+  //
+  // 🃏 Since the menu row (owner 10 Nov, "EDIT · SHARE · GO ONLINE") the ONE doorway is inside the Card Maker's
+  // "Live · delete · copy" fold — the canvas itself, so it can only render where the canvas renders. The Services
+  // list carries none (its side copy icon went with the ruling).
   const manager = code(MANAGER);
-  assert.match(manager, /const canvasMaker = canvasMakerEnabled\(\);/);
+  assert.doesNotMatch(manager, /\?from=\$\{svc\.vendor_service_id\}/, 'the Services list grew a copy doorway again');
+  const canvas = code(CANVAS);
   assert.equal(
-    [...manager.matchAll(/\{canvasMaker \? \(/g)].length,
+    [...canvas.matchAll(/services\/new\/\$\{category\}\?from=\$\{editing\.serviceId\}/g)].length,
     1,
-    'exactly one flag-gated doorway',
+    'exactly one copy doorway, inside the maker',
   );
-  assert.match(manager, /services\/new\/\$\{svc\.category\}\?from=\$\{svc\.vendor_service_id\}/);
 
   const page = code(PAGE);
   assert.match(

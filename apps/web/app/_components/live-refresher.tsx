@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
 import { useEventPulse } from '@/lib/use-event-pulse';
 import type { PulseBaseline } from '@/lib/event-pulse';
+import type { TheDayWhen } from '@/lib/event-clock';
 
 /**
  * Drop-in, render-nothing companion for any server-rendered surface that shows
@@ -31,7 +32,7 @@ export function LiveRefresher({
   slug,
   pulse,
 }: {
-  eventDate: string | Date | null | undefined;
+  eventDate: TheDayWhen;
   intervalMs?: number;
   slug?: string | null;
   pulse?: PulseBaseline | null;

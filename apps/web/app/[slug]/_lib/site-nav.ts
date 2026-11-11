@@ -427,11 +427,21 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // 🖼 P2 (owner 2026-10-30): NO PAPIC PHOTO, AND NOTHING ELSE DRAWN THERE → NO
   //     MEMORIES TAB, for anyone, on any stage — never an empty page. At least
   //     one → an invited guest's Memories opens on the day and after it.
-  const noMemories = input.memoriesHasPhotos === false && !anyChapterPublic;
+  //
+  // 📷 RULING 6 (one clock, owner 10 Nov 2026): MEMORIES APPEARS THE MOMENT PAPIC OPENS — not only after the first
+  //     photo. An invited guest whose host has the camera open (`hostAllowsCamera`) gets Memories on The Day, and
+  //     before it when early shooting is on for them, with zero photos too: the page then draws its honest empty
+  //     state there (`YourShotsGallery` — "no shots yet" and the Camera). After the day the photo rule stands: Papic's
+  //     window has closed, and an empty Memories would be a page with nothing to say.
+  const papicOpensMemories =
+    viewer.kind === 'guest' &&
+    hostAllowsCamera &&
+    (phase === 'day' || (phase === 'before' && input.earlyOwnShots === true));
+  const noMemories = input.memoriesHasPhotos === false && !anyChapterPublic && !papicOpensMemories;
   if (noMemories) {
     // Nothing to open.
   } else if (!isVendor && (phase === 'after' || (phase === 'day' && !isStranger))) {
-    if (isCouple || anyChapterPublic || (viewer.kind === 'guest' && input.memoriesHasPhotos === true)) {
+    if (isCouple || anyChapterPublic || papicOpensMemories || (viewer.kind === 'guest' && input.memoriesHasPhotos === true)) {
       slots.push({ key: 'gallery', label: 'Memories', state: 'live', href: ANCHOR.gallery });
     }
   } else if (phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true) {

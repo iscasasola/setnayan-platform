@@ -295,33 +295,10 @@ function nextLadderRung(rows: ReadonlyArray<DiscountRow>): string {
   return LADDER_SEED_RUNGS.find((m) => !taken.has(m)) ?? '';
 }
 
-export function DiscountsEditor({
-  initial,
-  /** When true and there are no rows, seed one off_peak row (Off-Season nudge). */
-  seedOffPeak = false,
-  seedExpiry,
-  seedConditions,
-}: {
-  initial: DiscountDraft[];
-  seedOffPeak?: boolean;
-  seedExpiry?: string;
-  seedConditions?: string;
-}) {
-  // Preserve the "Set up off-season offer" nudge: if the vendor arrived via the
-  // nudge and has no discounts yet, open with one pre-filled off_peak row.
-  const seeded: DiscountDraft[] =
-    initial.length === 0 && seedOffPeak
-      ? [
-          {
-            discount_type: 'off_peak',
-            rate: '',
-            unit: 'pct',
-            min_lead_months: '',
-            expires_at: seedExpiry ?? '',
-            conditions_md: seedConditions ?? '',
-          },
-        ]
-      : initial;
+export function DiscountsEditor({ initial }: { initial: DiscountDraft[] }) {
+  // ⛔ The off-season seed left (DECISION_LOG 2026-11-11 "NO OFF-SEASON OFFER BUILD — THE OFFER MAKER ALREADY SOLVES
+  // IT"): an off-season offer is made in the Offer Maker (Who gets it → Event date in a season), never typed per card.
+  const seeded: DiscountDraft[] = initial;
 
   const nextKey = useRef(seeded.length);
   const [rows, setRows] = useState<DiscountRow[]>(

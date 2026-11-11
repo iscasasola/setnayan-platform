@@ -16,13 +16,14 @@
 import { useCallback, useContext, useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, Hash, Pencil, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, Check, Hash, Link2, Pencil, RotateCw, X } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { TypedRow } from '@/app/_components/form-row';
 import { formatChatTimestamp } from '@/lib/chat';
 import {
+  bareUrlOf,
   DECISION_TITLE_MAX,
   fileMessage,
   loadFiledMessages,
@@ -36,6 +37,8 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PinBodyClose } from './chat-pins';
+import { AttachmentBlock } from './attachment-block';
+import { CHAT_FILE_EXPIRED_LABEL } from '@/lib/chat-file-rules';
 
 const UNDO_MS = 5000;
 
@@ -204,11 +207,7 @@ export function DecisionPanel({
                 onDelete={() => remove(f)}
               >
                 <div className="grid gap-1 border-b border-ink/[0.07] px-1 py-3">
-                  <p
-                    className={`whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[16px] leading-snug ${f.senderUserId === me ? 'bg-sn-accent/[0.12]' : 'bg-ink/[0.06]'}`}
-                  >
-                    {f.body ?? 'A message you can’t see here'}
-                  </p>
+                  <FiledBody f={f} mine={f.senderUserId === me} />
                   <p className="text-[13px] text-ink/55">
                     {who(f.senderUserId)} wrote it ·{' '}
                     <b className="font-semibold text-ink/75">added by {f.addedByUserId === me ? 'you' : 'them'}</b> ·{' '}
@@ -256,5 +255,46 @@ export function DecisionPanel({
       </footer>
     </section>,
     host,
+  );
+}
+
+/**
+ * 📎 What one filed message SHOWS (owner 12 Nov 2026: *"can we add media files in a decision?"*): its words, and its
+ * file through the stream's own `AttachmentBlock` (a photo thumbnail · a ▶ tile · a file row), each opening the file.
+ * A caption-less photo is a preview — never the blank / "can't see" row it used to be. Words that are only a link are a
+ * tappable link row. A masked row (nothing readable) still says so.
+ */
+export function FiledBody({ f, mine }: { f: FiledMessage; mine: boolean }) {
+  const words = f.body?.trim() ? f.body : null;
+  const link = bareUrlOf(words);
+  const a = f.attachment;
+  const bubble = `rounded-2xl px-3 py-2 text-[16px] leading-snug ${mine ? 'bg-sn-accent/[0.12]' : 'bg-ink/[0.06]'}`;
+  if (!words && !a) {
+    return <p className={`whitespace-pre-wrap break-words ${bubble}`}>A message you can’t see here</p>;
+  }
+  return (
+    <div className="grid gap-1.5" data-filed-body="">
+      {link ? (
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex min-h-11 items-center gap-2 ${bubble} text-sn-accent underline-offset-2 hover:underline`}
+          data-filed-link=""
+        >
+          <Link2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.9} />
+          <span className="min-w-0 flex-1 truncate">{link.replace(/^https?:\/\//i, '')}</span>
+        </a>
+      ) : words ? (
+        <p className={`whitespace-pre-wrap break-words ${bubble}`}>{words}</p>
+      ) : null}
+      {a?.href ? (
+        <AttachmentBlock url={a.href} name={a.name} mime={a.mime} sizeBytes={a.sizeBytes} owns={false} hasBody={false} variant="filed" />
+      ) : a?.expired ? (
+        <p className="rounded-xl bg-ink/[0.04] px-3 py-2 text-[13px] text-ink/60" data-filed-expired="">
+          {CHAT_FILE_EXPIRED_LABEL} · {a.name}
+        </p>
+      ) : null}
+    </div>
   );
 }

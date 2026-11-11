@@ -432,7 +432,7 @@ export function BuildBody({
               busy={pending}
               onPick={(key) => pick(line, key)}
               onFind={() => findIn(line.tile)}
-              priceHref={(vendorId) => `${base}/${vendorId}/workspace`}
+              priceHref={(vendorId) => `${base}/${vendorId}/workspace?tab=payments`}
             />
           ))}
         </ul>

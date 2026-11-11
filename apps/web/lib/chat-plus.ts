@@ -125,8 +125,15 @@ export function supplierPlusRows(opts: { paid: boolean }): PlusRow[] {
 
 /**
  * Host · and a coordinator with another supplier (who drops Log a payment — it is the hosts' money). The same relative
- * order as the supplier's (+): Decision (Chat) · Log a payment (Payment) · Meeting (Schedule) · Camera · Photo · File
- * (Files) · Report a problem (last). The rows are the ones the host already had — none added, none removed (11 Nov).
+ * order as the supplier's (+) AND the host's own picked-supplier menu (`picked-supplier-menu.ts`, re-ordered 11 Nov to
+ * mirror the supplier's): Decision (Chat) · Log a payment (Payment) · Meeting (Schedule) · Camera · File (Files) ·
+ * Report a problem (Report — last).
+ *
+ * 📷 ONE phone picker, as on the supplier's (+) (owner 11 Nov, *"The (+) has dupes?"*, built for the supplier in #7483,
+ * mirrored here the same day — *"Clients side is not fixed also"*): "Photo — a photo or a video from your phone" and
+ * "File — photo, video or document" both opened the phone's picker. ONE row now: **File — "From your phone · a photo, a
+ * video or a document"**, whose card opens the composer's own picker (`CHAT_ATTACHMENT_ACCEPT`: photos, videos, PDFs
+ * and documents — nothing the two old rows took is lost). Camera (take one NOW) stays: a different act.
  */
 export function hostPlusRows(opts: { canLogPayment: boolean }): PlusRow[] {
   const rows: PlusRow[] = [{ key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null }];
@@ -136,8 +143,7 @@ export function hostPlusRows(opts: { canLogPayment: boolean }): PlusRow[] {
   rows.push(
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
-    { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', card: null, door: null, attach: 'photo' },
-    { key: 'file', label: 'File', line: 'Photo, video or document', card: 'file', door: 'share-file' },
+    { key: 'file', label: 'File', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
     { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
   );
   return rows;

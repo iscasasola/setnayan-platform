@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ClipboardList } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -24,12 +25,15 @@ export async function SupplierFormsCard({
   eventVendorId,
   vendorProfileId,
   shopName,
+  whenEmpty = null,
 }: {
   supabase: SupabaseClient;
   eventId: string;
   eventVendorId: string;
   vendorProfileId: string;
   shopName: string;
+  /** 🫙 What the picked supplier's Forms page says when nothing was sent and nothing is asked (owner 11 Nov 2026). */
+  whenEmpty?: ReactNode;
 }) {
   const sendsRes = await supabase
     .from('event_form_sends')
@@ -42,7 +46,7 @@ export async function SupplierFormsCard({
     return <Unread shopName={shopName} />;
   }
   const ids = ((sendsRes.data ?? []) as { form_id: string }[]).map((s) => s.form_id);
-  if (ids.length === 0) return null;
+  if (ids.length === 0) return whenEmpty;
 
   const [formsRes, itemsRes, answersRes] = await Promise.all([
     supabase.from('vendor_forms').select('form_id, title').in('form_id', ids),

@@ -240,7 +240,7 @@ async function fetchAppointments(
       subtitle: `${fmt.format(date)} · ${kindLabel}${where}`,
       vendorBusinessName: vendor?.name,
       href: vendor
-        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace`
+        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace?tab=schedule`
         : `/dashboard/${eventId}/vendors`,
     };
   });

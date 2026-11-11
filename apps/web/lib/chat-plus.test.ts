@@ -41,16 +41,23 @@ test('1 · supplier rows: Decision · Ask for access · Quote · Payment · Form
   assert.equal(camera.card, null);
 });
 
-test('1b · host rows: Decision · Log a payment · Meeting · Camera · Photo · File · Report a problem (no Log a payment without the right)', () => {
+test('1b · host rows: Decision · Log a payment · Meeting · Camera · File · Report a problem (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    ['Decision', 'Log a payment', 'Meeting', 'Camera', 'Photo', 'File', 'Report a problem'],
+    ['Decision', 'Log a payment', 'Meeting', 'Camera', 'File', 'Report a problem'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    ['Decision', 'Meeting', 'Camera', 'Photo', 'File', 'Report a problem'],
+    ['Decision', 'Meeting', 'Camera', 'File', 'Report a problem'],
   );
-  assert.equal(hostPlusRows({ canLogPayment: true }).find((r) => r.key === 'photo')!.attach, 'photo');
+  // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — File, which says so.
+  const host = hostPlusRows({ canLogPayment: true });
+  assert.deepEqual(
+    host.filter((r) => r.attach === 'photo' || r.card === 'file' || r.card === 'photos').map((r) => r.key),
+    ['file'],
+    'two rows on the host’s (+) pick from the phone again — the 11 Nov dupe',
+  );
+  assert.match(host.find((r) => r.key === 'file')!.line, /phone/i, 'File no longer says it takes the phone’s files');
 });
 
 test('1c · a row that cannot open yet is shut with its reason — never hidden', () => {

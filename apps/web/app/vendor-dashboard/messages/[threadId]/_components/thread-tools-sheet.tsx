@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
   THREAD_TOOL_GROUPS,
@@ -27,10 +28,12 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
+import { PLUS_ROW_PAGE, hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
+import type { PickedClientPage } from '@/lib/upcoming-schedule-door';
+import { pickedPageLabel } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
 /**
  * THE ＋ BESIDE THE MESSAGE FIELD — and the ONE sheet of every tool the conversation has (simpler supplier dashboard,
@@ -70,7 +73,7 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
   questions: TOPIC_ICON.forms,
 };
 
-/** 📷 · 🖼 The composer's two shortcuts, drawn as the sheet's first rows (v8.3: camera and photo live inside the (+)). */
+/** 📷 · 🖼 The composer's two shortcuts live inside the (+) (v8.3) — since 11 Nov as rows of `lib/chat-plus.ts`, under Files. */
 type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo';
 const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon };
 const ATTACH_INPUT: Record<'file' | 'camera' | 'photo', string> = {
@@ -110,21 +113,40 @@ export type SheetRow = {
   attach?: boolean | 'file' | 'camera' | 'photo';
   /** Build 3 — the row drops this card into the chat (one at a time) instead of opening a tool. */
   card?: PlusRow['card'];
+  /**
+   * 🧭 The picked client's page this row belongs to (owner 11 Nov — the (+) mirrors the menu). Where it changes, the
+   * sheet draws that tab's word as a quiet labelled rule above the row: the divider between topics IS the label.
+   */
+  page?: PickedClientPage;
 };
 
 /**
- * THE ＋ AND ITS SHEET, drawn once for both sides (chat prototype 2026-10-28, frames C and D). The supplier's rows carry
- * a group, and a quiet heading is drawn where the group changes (Money · Plan · Talk & files · Just you); the couple's
- * two rows carry none. Rows have no frames — the icon round and the words, a hairline between (frames only on what
- * you press: the row itself is the press).
+ * THE ＋ AND ITS SHEET, drawn once for both sides (chat prototype 2026-10-28, frames C and D). Rows have no frames — the
+ * icon round and the words (frames only on what you press: the row itself is the press).
+ *
+ * 🧭 THE SHEET IS THE MENU'S MIRROR (owner 11 Nov 2026 — *"Align them both"*): the rows come down in the picked client's
+ * menu order (`lib/chat-plus.ts`), and where a row's `page` changes the sheet draws the tab's own word — CHAT · DETAILS ·
+ * QUOTATION · … — as a quiet small-caps label on a hairline (the divider between topics carries the label, so nine rows
+ * and eight topics still fit a 390 × 844 phone without scrolling). The older registry `group` headings (Money · Plan ·
+ * Talk & files · Just you) are still drawn for a row that carries one. The sentence that used to sit under the title
+ * lives in the title's ⓘ (house rule: details go inside the ⓘ).
  */
 const SHORTCUT_ROWS: readonly SheetRow[] = [
-  { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', icon: 'camera', shut: null, attach: 'camera' },
-  { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', icon: 'photo', shut: null, attach: 'photo' },
+  { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', icon: 'camera', shut: null, attach: 'camera', page: 'files' },
+  { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', icon: 'photo', shut: null, attach: 'photo', page: 'files' },
 ];
 
-function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetRow[]; sheetMark: string; threadId?: string }) {
-  const rows: readonly SheetRow[] = [...SHORTCUT_ROWS, ...ownRows];
+/** The tab's word over a topic's rows, on a hairline — `pb` tight so the row under it still reads as the label's own. */
+function PageLabel({ page, first }: { page: PickedClientPage; first: boolean }) {
+  return (
+    <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
+      <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-ink/45">{pickedPageLabel(page)}</span>
+      <span className="h-px flex-1 bg-ink/10" />
+    </li>
+  );
+}
+
+function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
   const [open, setOpen] = useState(false);
   const plus = usePlus(threadId ?? '');
   // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
@@ -138,8 +160,13 @@ function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetR
   const headingId = useId();
 
   let lastGroup: ThreadToolGroup | undefined;
+  let lastPage: PickedClientPage | undefined;
   const items: ReactNode[] = [];
   for (const row of rows) {
+    if (row.page && row.page !== lastPage) {
+      items.push(<PageLabel key={`page-${row.page}`} page={row.page} first={items.length === 0} />);
+      lastPage = row.page;
+    }
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
       items.push(
@@ -151,14 +178,16 @@ function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetR
     }
     const Icon = row.card ? TOPIC_ICON[PLUS_CARD_TOPIC[row.card]] : SHEET_ICON[row.icon];
     const shut = row.shut;
+    // 🔇 A shut row is drawn, never hidden — and CALM (owner 11 Nov): its round, word and reason all step back to the same
+    // quiet grey, so the eye reads the rows it can press and the shut ones say why without shouting.
     const lead = (
       <span
         aria-hidden
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
-          shut ? 'bg-ink/[0.04] text-ink/30' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-sn-accent'
+        className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
+          shut ? 'bg-ink/[0.03] text-ink/25' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-sn-accent'
         }`}
       >
-        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
       </span>
     );
     const words = (
@@ -166,10 +195,12 @@ function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetR
         <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-ink/40' : 'text-ink'}`}>
           {row.label}
         </span>
-        <span className="mt-0.5 block truncate text-[13px] text-ink/60">{row.line}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-tight text-ink/60">{row.line}</span>
       </span>
     );
-    const rowClass = 'flex min-h-[56px] w-full items-center gap-3.5 py-2 text-left';
+    // 48 px tall (the 44-px press floor, with 2 px of air each side) — nine rows and eight topic labels fit a 390 × 844
+    // phone without the sheet scrolling.
+    const rowClass = 'flex min-h-[48px] w-full items-center gap-3 py-1 text-left';
     if (shut) {
       const reasonId = `${headingId}-shut-${row.key}`;
       items.push(
@@ -178,7 +209,7 @@ function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetR
             {lead}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold leading-tight text-ink/40">{row.label}</span>
-              <span id={reasonId} className="mt-0.5 block text-[13px] text-ink/60">
+              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-ink/45">
                 {shut.reason}
               </span>
             </span>
@@ -230,11 +261,12 @@ function ToolsSheetButton({ rows: ownRows, sheetMark, threadId }: { rows: SheetR
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
-        <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
-          Add to the chat
-        </h2>
-        <p className="mt-1 text-[13px] text-ink/60">A card lands in the chat. They fill their part there. One at a time.</p>
-        <ul className="mt-1">{items}</ul>
+        {/* ⓘ beside the title (house rule: title + one line visible, the rest in the ⓘ); `pr-12` keeps clear of the ✕. */}
+        <InfoTip label="Add to the chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
+          A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to —
+          the same order as the menu above.
+        </InfoTip>
+        <ul className="mt-2">{items}</ul>
       </div>
     </Sheet>
   );
@@ -319,19 +351,23 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       key: r.key,
       label: r.label,
       line: r.line,
-      icon: r.key === 'report' ? 'problem' : 'file',
+      // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : 'file',
       shut: r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null,
       card: r.card,
       href: d?.href,
       reveal: d?.reveal,
-      attach: d?.attach,
+      // The row's own composer input (Camera · Photo) beats a door's paperclip.
+      attach: r.attach ?? d?.attach,
+      page: PLUS_ROW_PAGE[r.key],
     };
   });
 }
 
 /**
- * THE SUPPLIER'S (+) — Supplier Build 3 (owner 8 Nov, 📌): Quote · Payment · Meeting · Form · Photos & files ·
- * Decision · Report a problem (last). What the app detects pins itself instead (`lib/chat-pins.ts`).
+ * THE SUPPLIER'S (+) — Supplier Build 3 (owner 8 Nov, 📌), in the menu's order since 11 Nov: Decision · Ask for access ·
+ * Quote · Payment · Form · Meeting · Camera · Photos & files · Report a problem (last). What the app detects pins itself
+ * instead (`lib/chat-pins.ts`).
  */
 export function ThreadToolsSheet({
   eventId,
@@ -350,8 +386,8 @@ export function ThreadToolsSheet({
 }
 
 /**
- * THE HOST'S (+) — Meeting · Log a payment · File · Decision · Report a problem (last). A coordinator with another
- * supplier drops Log a payment (`canLogPayment` false).
+ * THE HOST'S (+) — in the same order as the supplier's (11 Nov): Decision · Log a payment · Meeting · Camera · Photo ·
+ * File · Report a problem (last). A coordinator with another supplier drops Log a payment (`canLogPayment` false).
  */
 export function CoupleThreadToolsSheet({
   dealReveal = null,
@@ -380,7 +416,8 @@ export function CoupleThreadToolsSheet({
  */
 export function ComposerPlusSheet({ more = [], sheetMark = 'plain' }: { more?: readonly SheetRow[]; sheetMark?: string }) {
   const rows: SheetRow[] = [
-    { key: 'share-file', label: 'Share a file', line: 'File · photo · video · the contract', icon: 'file', shut: null, attach: 'file' },
+    ...SHORTCUT_ROWS,
+    { key: 'share-file', label: 'Share a file', line: 'File · photo · video · the contract', icon: 'file', shut: null, attach: 'file', page: 'files' },
     ...more,
   ];
   return <ToolsSheetButton rows={rows} sheetMark={sheetMark} />;

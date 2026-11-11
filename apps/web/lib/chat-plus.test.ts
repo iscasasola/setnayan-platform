@@ -31,6 +31,7 @@ import {
   plusGate,
   slashPick,
   slashQuery,
+  sheetSlashRows,
   slashRows,
   supplierPlusRows,
   type PlusRow,
@@ -189,6 +190,13 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
       assert.deepEqual(list[i]!.shut, want, `${side}: '${r.label}' shut reason differs from the (+)`);
     }
   }
+  // The composer's list is published from the rows the (+) SHEET draws (its shut already decided) — the same list.
+  for (const [side, rows, booked] of cases) {
+    const drawn = rows.map((r) => ({ ...r, shut: r.shutNow ?? (r.shutUntilAgreement && !booked ? r.shutUntilAgreement : null) }));
+    assert.deepEqual(sheetSlashRows(drawn), slashRows(rows, booked), `${side}: the composer's list is not the sheet's`);
+  }
+  // The client's list carries no /change (the Ask-for-a-change row is still the owner's call, 11 Nov).
+  assert.ok(!slashRows(hostPlusRows({ canLogPayment: true }), true).some((r) => r.word === 'change'));
   // The words the ruling names (M14 + /meeting /decision /poll).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
     '/decision', '/poll', '/access', '/quote', '/payment', '/form', '/meeting', '/file',

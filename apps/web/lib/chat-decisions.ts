@@ -78,3 +78,93 @@ export async function renameDecision(supabase: SupabaseClient, topicId: string, 
   }
   return (['ok', 'unchanged', 'empty', 'closed', 'not_found'] as const).includes(data as never) ? (data as RenameOutcome) : 'failed';
 }
+
+// ── THE READS · what a decision holds, and which open decision each message sits under ─────────────────────────────
+// 🔒 A refused read answers `null`, never `[]` — "Nothing filed yet" to a decision that holds five messages is the
+// failure that renders exactly like emptiness (handoff 2026-08-20). The caller draws "Couldn't load" for null.
+
+export type FiledMessage = {
+  messageId: string;
+  /** null = the message is not readable to this viewer (masked / hidden) — the row says so instead of vanishing. */
+  body: string | null;
+  senderUserId: string | null;
+  sentAt: string | null;
+  addedByUserId: string | null;
+  addedAt: string;
+};
+
+type FiledRow = {
+  message_id: string;
+  added_by_user_id: string | null;
+  added_at: string;
+  chat_messages: { body: string | null; sender_user_id: string | null; created_at: string } | null;
+};
+
+/** One decision's filed messages, NEWEST FILED FIRST. */
+export async function loadFiledMessages(supabase: SupabaseClient, topicId: string): Promise<FiledMessage[] | null> {
+  const { data, error } = await supabase
+    .from('chat_decision_messages')
+    .select('message_id, added_by_user_id, added_at, chat_messages!chat_decision_messages_message_id_fkey(body, sender_user_id, created_at)')
+    .eq('topic_id', topicId)
+    .order('added_at', { ascending: false })
+    .limit(200);
+  if (error) {
+    console.warn('[loadFiledMessages] refused', error.code);
+    return null;
+  }
+  return ((data ?? []) as unknown as FiledRow[]).map((r) => ({
+    messageId: r.message_id,
+    body: r.chat_messages?.body ?? null,
+    senderUserId: r.chat_messages?.sender_user_id ?? null,
+    sentAt: r.chat_messages?.created_at ?? null,
+    addedByUserId: r.added_by_user_id,
+    addedAt: r.added_at,
+  }));
+}
+
+/** An open decision of this chat, as the double-tap picker lists it. */
+export type OpenDecisionTopic = { topicId: string; title: string; filedCount: number };
+/** Where a message is filed: its open decision. */
+export type Filing = { topicId: string; title: string };
+
+type TopicRow = { topic_id: string; title: string; chat_decision_messages: { message_id: string }[] | null };
+
+/** Every OPEN decision of a chat, and the message → decision map the `#` chip reads. null = the read was refused. */
+export async function loadOpenFilings(
+  supabase: SupabaseClient,
+  threadId: string,
+): Promise<{ topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } | null> {
+  const { data, error } = await supabase
+    .from('chat_decision_topics')
+    .select('topic_id, title, chat_decision_messages!chat_decision_messages_topic_id_fkey(message_id)')
+    .eq('thread_id', threadId)
+    .is('closed_at', null)
+    .order('opened_at', { ascending: true })
+    .limit(100);
+  if (error) {
+    console.warn('[loadOpenFilings] refused', error.code);
+    return null;
+  }
+  return filingsFrom((data ?? []) as unknown as TopicRow[]);
+}
+
+/** Pure: rows → the picker's topics + the chip's map. A message sits under at most one OPEN decision (the writer's rule). */
+export function filingsFrom(rows: readonly TopicRow[]): { topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } {
+  const topics: OpenDecisionTopic[] = [];
+  const byMessage = new Map<string, Filing>();
+  for (const r of rows) {
+    const filed = r.chat_decision_messages ?? [];
+    topics.push({ topicId: r.topic_id, title: r.title, filedCount: filed.length });
+    for (const f of filed) if (!byMessage.has(f.message_id)) byMessage.set(f.message_id, { topicId: r.topic_id, title: r.title });
+  }
+  return { topics, byMessage };
+}
+
+/** "New decision from this message" — its first words become the topic (editable before it opens). */
+export function topicFromMessage(body: string | null | undefined): string {
+  const words = (body ?? '').replace(/\s+/g, ' ').trim();
+  if (words.length <= 60) return words;
+  const cut = words.slice(0, 60);
+  const sp = cut.lastIndexOf(' ');
+  return `${(sp > 30 ? cut.slice(0, sp) : cut).trim()}…`;
+}

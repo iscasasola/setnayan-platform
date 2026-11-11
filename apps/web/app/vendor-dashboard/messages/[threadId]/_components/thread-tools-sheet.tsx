@@ -28,7 +28,7 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { PLUS_ROW_PAGE, hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
+import { PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
@@ -158,6 +158,13 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetR
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const headingId = useId();
+  // ⌨ THE SLASH LIST IS THIS SHEET'S OWN CARD ROWS (owner 11 Nov: "/" shortcuts) — published for the composer, so a
+  // typed "/poll" can never offer a row the (+) does not, nor drop one the (+) has greyed.
+  const slash = sheetSlashRows(rows);
+  const slashSig = JSON.stringify(slash);
+  useEffect(() => {
+    if (threadId) patchPlus(threadId, { slash: JSON.parse(slashSig) });
+  }, [threadId, slashSig]);
 
   let lastGroup: ThreadToolGroup | undefined;
   let lastPage: PickedClientPage | undefined;

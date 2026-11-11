@@ -7,7 +7,7 @@
  * prototype: "not sent yet", visible to its author only); a sent card is a server row and comes back on every load.
  */
 import { useSyncExternalStore } from 'react';
-import type { PlusCardKind, RunningTopic } from './chat-plus';
+import type { PlusCardKind, RunningTopic, SlashRow } from './chat-plus';
 
 export type PlusDraft = { kind: PlusCardKind; startedAt: number };
 
@@ -22,9 +22,11 @@ type State = {
   toast: { text: string; at: number } | null;
   /** 🗳 A poll is open in this chat (its card in the stream says so) — the (+)'s Poll row and `/poll` go grey. */
   pollOpen: boolean;
+  /** ⌨ The slash list = the (+)'s own card rows, as the (+) on this chat draws them (it publishes them here). */
+  slash: readonly SlashRow[];
 };
 
-const EMPTY: State = { draft: null, sent: null, talking: null, toast: null, pollOpen: false };
+const EMPTY: State = { draft: null, sent: null, talking: null, toast: null, pollOpen: false, slash: [] };
 const states = new Map<string, State>();
 const listeners = new Map<string, Set<() => void>>();
 
@@ -45,7 +47,8 @@ export function patchPlus(threadId: string, patch: Partial<State>): void {
     next.sent?.status === prev.sent?.status &&
     next.talking?.key === prev.talking?.key &&
     next.toast === prev.toast &&
-    next.pollOpen === prev.pollOpen
+    next.pollOpen === prev.pollOpen &&
+    next.slash === prev.slash
   ) {
     return;
   }

@@ -56,3 +56,17 @@ test('4 · the stream draws the poll line as its card, and only that line', () =
   assert.equal(streamLineKind('Poll reopened · Where is the ceremony?'), null);
   assert.equal(pollFromLine('Poll · '), null);
 });
+
+test('a new decision from a message takes its first words, never a cut word, and a refused filings read is null', async () => {
+  const { topicFromMessage, filingsFrom } = await import('./chat-decisions');
+  assert.equal(topicFromMessage('  Drone   shot at sunset? '), 'Drone shot at sunset?');
+  const long = 'Can we move the drone shot to the garden at sunset instead of the chapel courtyard please';
+  const t = topicFromMessage(long);
+  assert.ok(t.endsWith('…') && t.length <= 61 && long.startsWith(t.slice(0, -1)), t);
+  const f = filingsFrom([
+    { topic_id: 'a', title: 'A', chat_decision_messages: [{ message_id: 'm1' }, { message_id: 'm2' }] },
+    { topic_id: 'b', title: 'B', chat_decision_messages: null },
+  ]);
+  assert.deepEqual(f.topics, [{ topicId: 'a', title: 'A', filedCount: 2 }, { topicId: 'b', title: 'B', filedCount: 0 }]);
+  assert.deepEqual(f.byMessage.get('m2'), { topicId: 'a', title: 'A' });
+});

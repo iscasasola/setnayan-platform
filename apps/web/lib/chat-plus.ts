@@ -266,6 +266,21 @@ export function slashRows(rows: readonly PlusRow[], hasAgreement: boolean): Slas
   return out;
 }
 
+/**
+ * The slash list from rows as the (+) sheet DRAWS them (its `shut` already decided, the couple's Meeting gate included) —
+ * the composer's list is published from here, so the two can never disagree.
+ */
+export function sheetSlashRows(
+  rows: readonly { key: string; label: string; line: string; card?: PlusCardKind | null; shut: { reason: string } | null }[],
+): SlashRow[] {
+  const out: SlashRow[] = [];
+  for (const r of rows) {
+    if (!r.card) continue;
+    out.push({ key: r.key as PlusRowKey, word: SLASH_WORD[r.card], label: r.label, line: r.line, card: r.card, shut: r.shut });
+  }
+  return out;
+}
+
 /** Rows whose word, or a word of whose label, starts with the query ("/p" → Poll · Payment · Photos & files). */
 export function filterSlash(rows: readonly SlashRow[], q: string): SlashRow[] {
   const query = q.trim().toLowerCase();

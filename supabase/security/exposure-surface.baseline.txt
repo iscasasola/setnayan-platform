@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7638
+# facts: 7640
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     626
-#   col       5517
+#   col       5519
 #   policy    1119
 #   view      9
 #   func      363
@@ -5308,12 +5308,14 @@ col	public.vendor_package_items.vendor_service_id	anon=SIU authenticated=SIU
 col	public.vendor_packages.consumable_budget_centavos	anon=SIU authenticated=SIU
 col	public.vendor_packages.created_at	anon=SIU authenticated=SIU
 col	public.vendor_packages.description	anon=SIU authenticated=SIU
+col	public.vendor_packages.extra_discount_centavos	anon=SIU authenticated=SIU
 col	public.vendor_packages.gift_pack_code	anon=SIU authenticated=SIU
 col	public.vendor_packages.includes_setnayan_gift	anon=SIU authenticated=SIU
 col	public.vendor_packages.is_active	anon=SIU authenticated=SIU
 col	public.vendor_packages.is_consumable_flexible	anon=SIU authenticated=SIU
 col	public.vendor_packages.package_id	anon=SIU authenticated=SIU
 col	public.vendor_packages.package_name	anon=SIU authenticated=SIU
+col	public.vendor_packages.payment_schedule_json	anon=SIU authenticated=SIU
 col	public.vendor_packages.primary_canonical_service	anon=SIU authenticated=SIU
 col	public.vendor_packages.total_price_centavos	anon=SIU authenticated=SIU
 col	public.vendor_packages.unspent_credit_policy	anon=SIU authenticated=SIU

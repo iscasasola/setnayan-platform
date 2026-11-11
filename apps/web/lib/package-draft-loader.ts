@@ -33,6 +33,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { DraftPackage, DraftParentRef } from './package-authoring';
 import { packageGiftOf } from './package-gift';
+import { parseBundlePlan } from './bundle-sums';
 import {
   PACKAGE_ITEM_AUTHORING_SELECT,
   PACKAGE_ITEM_OPTION_SELECT,
@@ -51,7 +52,7 @@ export type LoadPackageResult =
   | { ok: false; reason: 'read_failed'; message: string };
 
 const VENDOR_PACKAGE_HEAD_SELECT =
-  'package_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, is_active, includes_setnayan_gift, gift_pack_code';
+  'package_id, package_name, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, is_active, includes_setnayan_gift, gift_pack_code, extra_discount_centavos, payment_schedule_json';
 
 /**
  * `parent_option_id` → the draft's (itemRef, optionRef) pair.
@@ -140,6 +141,10 @@ export async function loadPackageDraft(
         consumable_budget_centavos: pkg.consumable_budget_centavos,
         is_consumable_flexible: pkg.is_consumable_flexible,
         gift: packageGiftOf(pkg),
+        // 🧺 The Bundle Maker's extra discount and its own plan (migration 20271336630678) — round-tripped so the
+        // maker reopens on the same sum, and a booked bundle's frozen save can keep them as they are.
+        extra_discount_centavos: Number(pkg.extra_discount_centavos ?? 0) || 0,
+        plan: parseBundlePlan(pkg.payment_schedule_json),
         items: (items ?? []).map((i) => ({
           ref: i.item_id,
           service_description: i.service_description,

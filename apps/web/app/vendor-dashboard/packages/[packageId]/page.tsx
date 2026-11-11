@@ -1,27 +1,31 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
 import { loadPackageDraft, countActiveBookings } from '@/lib/package-draft-loader';
 import type { DraftPackage } from '@/lib/package-authoring';
-import { humanizeKind } from '@/lib/service-card-kind';
-import { freeByKind } from '@/lib/shop-gifts';
-import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
-import { PackageEditor, type BundleCard } from '../_components/package-editor';
+import { readBundleCards, readLockShop } from '@/lib/bundle-cards.server';
+import { canUse, papersProgress } from '@/lib/locks';
+import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
+import { PackageEditor } from '../_components/package-editor';
+import { BundleMakerLocked } from '../_components/bundle-maker-locked';
 import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 
 /**
- * /vendor-dashboard/packages/[packageId] — build or edit one package.
- * `new` is handled here rather than as a sibling route so the empty and the
- * loaded form are literally the same component.
+ * /vendor-dashboard/packages/[packageId] — THE BUNDLE MAKER, full screen (Build 6 · Lane D).
+ * `new` is handled here rather than as a sibling route so the empty and the loaded form are literally the same
+ * component. The maker RISES FULL SCREEN (`RiseScreen` inside the editor): the bars step away, ✕ returns to the Shop's
+ * services — "full screen always loses the bottom nav" (DECISION_LOG 2026-11-09).
+ *
+ * 🔒 THE SHARED LOCK FIRST (lib/locks.ts `bundleMaker`): a shop that may not use it sees the shared explainer, and the
+ * save refuses the same (`savePackage` → `canUse`). An unread lock is refused loudly, never drawn open.
  */
 export const dynamic = 'force-dynamic';
+
+/** ✕ goes back to where the maker is opened from: Shop › Your bundles and services. */
+const SHOP_SERVICES = '/vendor-dashboard/shop#services';
 
 const CANONICAL_SERVICES = Object.keys(PACKAGE_CANONICAL_TO_VENDOR_CATEGORY)
   .map((value) => ({
@@ -37,36 +41,9 @@ const EMPTY: DraftPackage = {
   is_consumable_flexible: false,
   items: [],
   gift: '',
+  extra_discount_centavos: 0,
+  plan: null,
 };
-
-/**
- * THE SHOP'S SERVICE CARDS — what "Add a card" lists (the bundle maker, owner 2026-11-07: "service cards first, as
- * locked lines"). Each card's own from-price comes with it; a price is never typed for a card here. `null` = the read
- * was refused, and the maker says so instead of offering an empty list (the 20 Aug disease).
- */
-async function fetchBundleCards(supabase: SupabaseClient, vendorProfileId: string): Promise<BundleCard[] | null> {
-  const { data, error } = await supabase
-    .from('vendor_services')
-    .select('vendor_service_id, title, category, starting_price_php, is_active')
-    .eq('vendor_profile_id', vendorProfileId)
-    .order('created_at', { ascending: true });
-  if (error) {
-    console.error('[supabase-error] packages/[packageId] · from:vendor_services.select (bundle cards)', error);
-    return null;
-  }
-  return ((data ?? []) as Array<{
-    vendor_service_id: string;
-    title: string | null;
-    category: string;
-    starting_price_php: number | null;
-    is_active: boolean | null;
-  }>).map((r) => ({
-    id: r.vendor_service_id,
-    name: r.title?.trim() || humanizeKind(r.category),
-    category: r.category,
-    fromPhp: r.starting_price_php,
-  }));
-}
 
 export default async function EditPackagePage({
   params,
@@ -87,18 +64,30 @@ export default async function EditPackagePage({
 
   const isNew = packageId === 'new';
 
-  // 🎁 The Gift row and the card list — read together, in one batch, not one after another.
+  // 🔒 The lock and the cards (with their prices, discounts and inclusions) — read together, in one batch.
   // 🚫 …and the claim-word list for the bundle name's live note (owner 2026-11-08), in the same batch.
-  const [cards, packs, stock, fairWords] = await Promise.all([
-    fetchBundleCards(supabase, vendorProfileId),
-    // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
-    fetchShopGiftPacks(createAdminClient()),
-    fetchShopGiftStock(supabase, vendorProfileId),
+  const [shop, cards, fairWords] = await Promise.all([
+    readLockShop(supabase, vendorProfileId),
+    readBundleCards(supabase, vendorProfileId),
     loadClaimWordsFor(vendorProfileId), // never throws — unread is `null`, logged where read
   ]);
+  if (!shop) {
+    throw new Error('Could not read this shop’s plan, so the Bundle Maker is not drawn open — reload in a moment.');
+  }
+  const may = canUse('bundleMaker', shop);
+  if (!may.ok) {
+    const papers = shop.verified
+      ? null
+      : await fetchLatestApplication(supabase, vendorProfileId)
+          .then((a) => ({ done: countCompleteRequiredSlots((a?.doc_uploads ?? {}) as DocUploadMap), of: REQUIRED_DOC_COUNT }))
+          .catch((err) => {
+            console.error('[supabase-error] packages/[packageId] · latest application', err);
+            return null;
+          });
+    return <BundleMakerLocked need={{ kind: 'verify', progress: papersProgress(papers) }} closeHref={SHOP_SERVICES} />;
+  }
 
   let initial = EMPTY;
-  let isActive = false;
   let frozen = false;
 
   if (!isNew) {
@@ -129,40 +118,21 @@ export default async function EditPackagePage({
       );
     }
 
-    isActive = read.loaded.isActive;
     frozen = bookings > 0;
     initial = read.loaded.draft;
   }
 
   return (
-    // 📐 Maximize the screen: from 820 the form and "What the couple gets" split the width (the editor's grid); the
-    // foot clears the floating thumb row.
-    <div className="mx-auto w-full max-w-6xl px-4 pb-36 pt-8 sm:px-6">
-      <Link
-        href="/vendor-dashboard/packages"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-ink/55 hover:text-ink/80"
-      >
-        <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        All packages
-      </Link>
-      {/* The prototype's head (makers_match § 4): the title + one line. */}
-      <h1 className="font-serif text-2xl text-ink/90">
-        {isNew ? 'Your bundle' : initial.package_name || 'Untitled bundle'}
-      </h1>
-      <p className="mb-6 mt-1 text-[14px] text-ink/60">Several service cards as one package.</p>
-
-      <PackageEditor
-        cards={cards}
-        giftPacks={packs}
-        giftFree={freeByKind(stock)}
-        shopName={profile.business_name ?? null}
-        fairWords={fairWords}
-        packageId={isNew ? undefined : packageId}
-        initial={initial}
-        isActive={isActive}
-        frozen={frozen}
-        canonicalServices={CANONICAL_SERVICES}
-      />
-    </div>
+    <PackageEditor
+      cards={cards}
+      shopName={profile.business_name ?? null}
+      fairWords={fairWords}
+      packageId={isNew ? undefined : packageId}
+      initial={initial}
+      frozen={frozen}
+      canonicalServices={CANONICAL_SERVICES}
+      closeHref={SHOP_SERVICES}
+      now={new Date().toISOString()}
+    />
   );
 }

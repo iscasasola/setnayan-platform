@@ -53,10 +53,25 @@ import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
 import { freeByKind } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { readBundleCards, readLockShop } from '@/lib/bundle-cards.server';
+import {
+  bundleProblems,
+  bundleSums,
+  planDraftsOrDefault,
+  resolveBundlePlan,
+  totalCentavos,
+  type BundleProblem,
+  type BundlePlanDrafts,
+} from '@/lib/bundle-sums';
+import { sanitizeScheduleDrafts } from '@/lib/proposal-payment-schedule';
+import { canUse } from '@/lib/locks';
+import { formatPhpRounded } from '@/lib/php';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
-  | { status: 'invalid'; problems: DraftProblem[] }
+  | { status: 'invalid'; problems: Array<DraftProblem | BundleProblem> }
+  /** 🔒 The Bundle Maker is locked for this shop (`canUse('bundleMaker')`) — the same rule the lock row draws. */
+  | { status: 'locked' }
   | { status: 'frozen'; changed: string[] }
   | { status: 'not_found' }
   | { status: 'disabled' }
@@ -106,6 +121,18 @@ export async function savePackage(
 
   const { supabase, profile } = await ensureProfile();
   const vendorProfileId = profile.vendor_profile_id as string;
+
+  // 🧺 A BUNDLE PRICES ITSELF (Build 6 · Lane D; owner 9 Nov). A draft whose lines include service CARDS is the
+  // Bundle Maker's; the card maker's ★ Customization step (a package minted FOR one card, `vendorServiceId`) keeps its
+  // typed price exactly as before. For a bundle the server: (1) asks the shared lock, (2) re-reads the shop's cards,
+  // their prices and discounts HONESTLY, (3) computes the new total and writes only that — the client's total is
+  // never trusted, (4) checks the extra discount and the plan, (5) drops the gift (gifts live only in offers).
+  const isBundle = !input.vendorServiceId && input.items.some((i) => i.vendorServiceId);
+  if (isBundle) {
+    const priced = await priceTheBundle(supabase, vendorProfileId, input);
+    if ('status' in priced) return priced;
+    input = priced.draft;
+  }
 
   const problems = validatePackageDraft(input);
   if (problems.length > 0) return { status: 'invalid', problems };
@@ -189,7 +216,9 @@ export async function savePackage(
   }
 
   if (input.packageId) {
-    const read = await loadPackageDraft(supabase, vendorProfileId, input.packageId);
+    // Held once: `input` is re-assigned below (a booked bundle keeps its stored price), which drops TS's narrowing.
+    const packageId: string = input.packageId;
+    const read = await loadPackageDraft(supabase, vendorProfileId, packageId);
     if (!read.ok) {
       if (read.reason === 'not_found') return { status: 'not_found' };
       // A FAILED READ IS NOT AN EMPTY PACKAGE. Everything below deletes the
@@ -203,7 +232,7 @@ export async function savePackage(
     }
     const stored = read.loaded.draft;
 
-    const bookings = await countActiveBookings(supabase, input.packageId);
+    const bookings = await countActiveBookings(supabase, packageId);
     if (bookings === null) {
       // Same rule as above, one level out: an unreadable booking count read as
       // zero would unfreeze a BOOKED package and unlock the branch that deletes
@@ -216,6 +245,12 @@ export async function savePackage(
     }
 
     const scope = editScopeForPackage(bookings);
+    if (scope === 'metadata_only' && isBundle) {
+      // 🔒 A BOOKED BUNDLE KEEPS ITS PRICE (owner 9 Nov: "If you booked it prior, your bundle must not be affected").
+      // The total was re-computed above from today's card prices; a booked bundle never takes it — it keeps what is
+      // stored, so a rename is never refused because a card was re-priced since.
+      input = { ...input, total_price_centavos: stored.total_price_centavos, extra_discount_centavos: stored.extra_discount_centavos ?? 0 };
+    }
     if (scope === 'metadata_only') {
       const changed = structuralChanges(stored, input);
       if (changed.length > 0) return { status: 'frozen', changed };
@@ -234,9 +269,10 @@ export async function savePackage(
         consumable_budget_centavos: input.consumable_budget_centavos,
         is_consumable_flexible: input.is_consumable_flexible,
         ...giftCols,
+        ...bundleCols(input, isBundle),
         updated_at: new Date().toISOString(),
       })
-      .eq('package_id', input.packageId)
+      .eq('package_id', packageId)
       .eq('vendor_profile_id', vendorProfileId);
     if (upErr) return { status: 'error', message: upErr.message };
 
@@ -245,16 +281,16 @@ export async function savePackage(
       const { error: delErr } = await supabase
         .from('vendor_package_items')
         .delete()
-        .eq('package_id', input.packageId);
+        .eq('package_id', packageId);
       if (delErr) return { status: 'error', message: delErr.message };
 
-      const wrote = await writeItems(supabase, input.packageId, input);
+      const wrote = await writeItems(supabase, packageId, input);
       if (wrote) return wrote;
     }
 
     revalidateShopPage(vendorProfileId);
     revalidatePath('/vendor-dashboard/packages');
-    return { status: 'ok', packageId: input.packageId };
+    return { status: 'ok', packageId: packageId };
   }
 
   // ---- CREATE ----
@@ -272,6 +308,7 @@ export async function savePackage(
       consumable_budget_centavos: input.consumable_budget_centavos,
       is_consumable_flexible: input.is_consumable_flexible,
       ...giftCols,
+      ...bundleCols(input, isBundle),
       primary_canonical_service:
         input.primary_canonical_service ?? input.items[0]?.canonical_service ?? null,
       // The card this package was minted for, or NULL for a standalone one.
@@ -297,6 +334,57 @@ export async function savePackage(
 
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId: created.package_id };
+}
+
+/** The two bundle-only columns (migration 20271336630678) — written only for a bundle, so every other caller's SQL is unchanged. */
+function bundleCols(input: DraftPackage, isBundle: boolean): Record<string, unknown> {
+  if (!isBundle) return {};
+  return { extra_discount_centavos: input.extra_discount_centavos ?? 0, payment_schedule_json: input.plan ?? null };
+}
+
+/**
+ * 🧺 THE BUNDLE'S PRICE, COMPUTED ON THE SERVER — the lock, the honest card read, the sums, the plan. Returns the draft
+ * with the computed total (and the gift dropped), or the result that refuses it. Every read that fails REFUSES.
+ */
+async function priceTheBundle(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  input: DraftPackage,
+): Promise<{ draft: DraftPackage } | SavePackageResult> {
+  // 🔒 THE SHARED LOCK (lib/locks.ts `bundleMaker`, opens: verified) — the row and this gate ask the same question.
+  const shop = await readLockShop(supabase, vendorProfileId);
+  if (!shop) return { status: 'error', message: 'Couldn’t check your shop’s plan right now, so nothing was saved. Try again.' };
+  if (!canUse('bundleMaker', shop).ok) return { status: 'locked' };
+
+  const cards = await readBundleCards(supabase, vendorProfileId);
+  if (!cards) return { status: 'error', message: 'Couldn’t read your service cards and their prices right now, so nothing was saved. Try again.' };
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const picked = [];
+  for (const line of input.items) {
+    if (!line.vendorServiceId) continue;
+    const card = byId.get(line.vendorServiceId);
+    if (!card) return { status: 'error', message: `“${line.service_description}” is not one of your service cards any more. Take it out and save again.` };
+    picked.push(card);
+  }
+
+  const extraPhp = Math.max(0, Math.round((input.extra_discount_centavos ?? 0) / 100));
+  const sums = bundleSums(picked, extraPhp, new Date());
+  const drafts: BundlePlanDrafts = input.plan ? (sanitizeScheduleDrafts(input.plan) ?? planDraftsOrDefault(null)) : planDraftsOrDefault(null);
+  const plan = resolveBundlePlan(drafts, sums.newTotalPhp);
+  const problems = bundleProblems(sums, plan, formatPhpRounded);
+  if (problems.length > 0) return { status: 'invalid', problems };
+
+  return {
+    draft: {
+      ...input,
+      total_price_centavos: totalCentavos(sums),
+      extra_discount_centavos: sums.extraPhp * 100,
+      // Stored only when the supplier adjusted it; untouched = NULL = "a copy of the default".
+      plan: input.plan ? drafts : null,
+      // 🎁 GIFTS LIVE ONLY IN OFFERS (owner 9 Nov: "offer has a gift, bundle maker has a gift?") — a bundle carries none.
+      gift: '',
+    },
+  };
 }
 
 /**
@@ -475,15 +563,23 @@ async function writeItems(
 }
 
 /**
- * Publish / unpublish. Allowed at any scope — it is the one control a vendor
- * keeps over a booked package, and unlisting never touches an existing booking.
+ * Publish / unpublish — the bundle card's Online/Offline switch. Going online is allowed at any scope; going OFFLINE
+ * waits for every open booking (2026-11-11, the service card row rule).
  */
-export async function setPackageActive(
+async function setPackageActive(
   packageId: string,
   isActive: boolean,
 ): Promise<SavePackageResult> {
   if (!packageAuthoringEnabled()) return { status: 'disabled' };
   const { supabase, profile } = await ensureProfile();
+
+  // 🔒 OFFLINE WAITS FOR EVERY OPEN BOOKING (owner 11 Nov: a bundle card follows the service card row — "off/delete
+  // refused while any booking of it is open"). An unread count is NOT zero: it refuses with words, never goes offline.
+  if (!isActive) {
+    const open = await countActiveBookings(supabase, packageId);
+    if (open === null) return { status: 'error', message: 'Couldn’t check this bundle’s bookings, so it stays online. Try again in a moment.' };
+    if (open > 0) return { status: 'frozen', changed: ['has_open_bookings'] };
+  }
 
   // Refuse to publish a package that would not validate — otherwise a draft
   // saved before a rule tightened could go live broken.
@@ -539,11 +635,13 @@ async function deletePackage(packageId: string): Promise<SavePackageResult> {
 
   // Any booking at all, including released ones — a released booking is still
   // the couple's record of a real transaction.
-  const { count } = await supabase
+  const { count, error: countErr } = await supabase
     .from('event_vendor_packages')
     .select('booking_id', { count: 'exact', head: true })
     .eq('package_id', packageId);
-  if ((count ?? 0) > 0) return { status: 'frozen', changed: ['has_bookings'] };
+  // An unread count is NOT zero — read as zero it would delete a booked bundle out from under its couple.
+  if (countErr || count === null) return { status: 'error', message: 'Couldn’t check whether this bundle has bookings, so nothing was deleted.' };
+  if (count > 0) return { status: 'frozen', changed: ['has_bookings'] };
 
   const { error } = await supabase
     .from('vendor_packages')
@@ -555,4 +653,15 @@ async function deletePackage(packageId: string): Promise<SavePackageResult> {
   revalidateShopPage(profile.vendor_profile_id);
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId };
+}
+
+/**
+ * 🧺 THE BUNDLE CARD ROW'S ONE SERVER DOOR — Online · Offline · Delete (Build 6 · Lane D; owner 11 Nov: a bundle card
+ * wears the service card row). ONE export for the three switches, not three: every exported server action is a Vercel
+ * route, and the budget is held by `scripts/lint-server-action-budget.mjs`. Each op is the shipped function above —
+ * Offline and Delete both wait for every open booking, and an unread count refuses.
+ */
+export async function bundleCardRow(packageId: string, op: 'online' | 'offline' | 'delete'): Promise<SavePackageResult> {
+  if (op === 'delete') return deletePackage(packageId);
+  return setPackageActive(packageId, op === 'online');
 }

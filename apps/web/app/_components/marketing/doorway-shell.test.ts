@@ -4,6 +4,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { POLICY_LINKS } from '@/lib/policy-links';
+
 /**
  * THE PRODUCT DOORWAYS WEAR THE SHARED SHELL.
  *
@@ -604,7 +606,24 @@ test('the stranded footer destinations are reachable from the rail', () => {
     them.
   */
   const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
-  for (const href of ['/refunds', '/download', '/blog', '/creators', '/for-suppliers']) {
+  /*
+    🔄 2026-11-11 (owner, DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · …"): Refunds now rides
+    `POLICY_LINKS` (the Legal column), so it is asserted through that list below, not as a hand-typed
+    link; /creators left the sidebar for a door on Real Stories (asserted below); /for-coordinators
+    is a rail row.
+  */
+  assert.match(shell, /POLICY_LINKS\.map\(/, 'the rail no longer draws the policy list');
+  assert.ok(
+    POLICY_LINKS.some((p) => p.href === '/refunds'),
+    'Refunds left lib/policy-links.ts — on a converted page the rail is the only way to it',
+  );
+  const stories = code(read(join(APP, '(shell)', 'realstories', 'page.tsx')));
+  assert.match(
+    stories,
+    /<Link\s+href="\/creators"[\s>]/,
+    '/creators left the rail on 2026-11-11 on the condition that Real Stories links it — the link is gone',
+  );
+  for (const href of ['/download', '/blog', '/help', '/for-suppliers', '/for-coordinators']) {
     assert.match(
       shell,
       // `[\s>]`, not `>`: /download and /for-suppliers carry `data-web-only`

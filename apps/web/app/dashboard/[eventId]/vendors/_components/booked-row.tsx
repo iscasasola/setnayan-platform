@@ -253,7 +253,7 @@ function VerbRow({
         return own ? (
           <ActionButton key={v.key} {...common} icon={Pencil} disabled={pending} onClick={openRecord} />
         ) : (
-          <ActionButton key={v.key} {...common} icon={Pencil} href={workspaceHref} prefetch={false} />
+          <ActionButton key={v.key} {...common} icon={Pencil} href={`${workspaceHref}?tab=payments`} prefetch={false} />
         );
       case 'record':
         return <ActionButton key={v.key} {...common} icon={Pencil} disabled={pending} onClick={openRecord} />;

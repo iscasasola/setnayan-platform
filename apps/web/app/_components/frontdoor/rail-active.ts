@@ -138,17 +138,32 @@ export function railMatchRows(who: {
           // EXACT: every account spoke lives under /dashboard, so a prefix
           // match here lights "your events" while you read your settings.
           { key: 'events', href: '/dashboard', exact: true },
-          { key: 'alaala', href: '/dashboard/library' },
-          // Longest-prefix wins, so this beats the exact-only '/dashboard' row.
+          // 🏠 HOME (owner 11 Nov 2026, "HOME IS THE PROFILE"): the rail's 'events' slot IS the Home row now, and
+          // People and Memories are sections of Home (`/dashboard?seg=…`). The pages that still have their own
+          // address under them — an alaga's page, a group's room — light Home, the place they belong to. The section
+          // doors themselves light nothing: telling them apart needs the query, which this rail never reads.
+          // Their keys are `events:<place>` — one key per row, so "exactly one row" stays checkable — and the shell
+          // lights the Home row for any of them (`railRowLit`).
+          { key: 'events:people', href: '/dashboard/people' },
+          { key: 'events:samahan', href: '/dashboard/samahan' },
+          { key: 'events:library', href: '/dashboard/library' },
           // 'year' is GONE with the rail row it lit up (owner 2026-08-21) — a
           // match row for a link nothing renders can only ever be dead weight.
-          { key: 'people', href: '/dashboard/people' },
           // 'story' is GONE with the rail row it lit up (owner 2026-08-21).
         ]
       : []),
-    ...(who.hasShop ? [{ key: 'shop', href: '/vendor-dashboard' }] : []),
+    // 🏠 No 'shop' row since 11 Nov 2026: the shop is a section of Home and its console a door inside it — the rail
+    // draws no shop row, and a match row for a row nobody draws could only light nothing.
     ...(who.isAdmin ? [{ key: 'hq', href: '/admin' }] : []),
   ];
+}
+
+/**
+ * Does the resolved key light this DRAWN row? Its own key, or a page that belongs to it (`<row>:<place>` — the pages
+ * still under Home's sections light the Home row).
+ */
+export function railRowLit(activeKey: string | null, rowKey: string): boolean {
+  return activeKey === rowKey || (activeKey !== null && activeKey.startsWith(`${rowKey}:`));
 }
 
 /**

@@ -11,7 +11,7 @@
  *
  * Opened from the host's Chats (the top-right chat icon) it rises over the still-mounted list
  * (`messages/@supplier/(..)vendors/[vendorId]/workspace`) on Chat; from the Suppliers list (a hard load) it is simply
- * there, on Details, and ✕ goes back to Suppliers.
+ * there, on its first page — Chat since 11 Nov (Details when there is no conversation) — and ✕ goes back to Suppliers.
  */
 import type { ReactNode } from 'react';
 import {
@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { PickedShell } from '@/app/_components/picked/picked-shell';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 import { pickedSupplierLists, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
 
 const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
@@ -37,6 +38,8 @@ const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
   forms: ClipboardList,
   files: FolderOpen,
   inspiration: Heart,
+  // 🚩 The supplier's Report wears the same flag (`TOPIC_ICON.report`) — one glyph per topic, both sides.
+  report: TOPIC_ICON.report,
 };
 
 export function PickedSupplierShell({

@@ -129,7 +129,7 @@ async function notifyOtherParty(opts: {
           .maybeSingle();
         const eventVendorId = (evRow as { vendor_id?: string } | null)?.vendor_id ?? null;
         if (eventVendorId) {
-          relatedUrl = `/dashboard/${opts.eventId}/vendors/${eventVendorId}/workspace`;
+          relatedUrl = `/dashboard/${opts.eventId}/vendors/${eventVendorId}/workspace?tab=schedule`;
         }
       }
       const { data: members } = await admin

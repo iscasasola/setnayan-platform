@@ -164,7 +164,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}) })}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
             // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.

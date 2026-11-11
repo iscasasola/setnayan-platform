@@ -176,7 +176,10 @@ test('🪤 the inlined CSS carries no backtick — it is a template literal', ()
   assert.ok(bodyEnd > bodyStart, 'could not find the end of the template literal');
   const css = src.slice(bodyStart, bodyEnd);
   const ticks = (css.match(/`/g) ?? []).length;
-  const interps = (css.match(/\$\{/g) ?? []).length;
+  // ONE interpolation is deliberate (11 Nov 2026, "HOME IS THE PROFILE"): the header's CSS moved, verbatim, into the
+  // shared `ProfileHeader` that Home draws too, and is spliced back in by name. Any OTHER `${` is still a typo.
+  assert.equal((css.match(/\$\{PROFILE_HEADER_CSS\}/g) ?? []).length, 1, 'the shared header CSS is no longer spliced in exactly once');
+  const interps = (css.replace('${PROFILE_HEADER_CSS}', '').match(/\$\{/g) ?? []).length;
   console.log(`  UPROF_CSS: ${css.length} chars · backticks ${ticks} · \${} ${interps}`);
   assert.equal(ticks, 0, 'a backtick inside the CSS template ends the string');
   assert.equal(interps, 0, 'an interpolation in the CSS template is almost certainly a typo');

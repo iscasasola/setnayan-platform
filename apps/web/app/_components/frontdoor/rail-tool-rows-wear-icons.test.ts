@@ -114,7 +114,15 @@ test('2 · every row the shell draws wears an icon, and no bullet is left', () =
     at = SHELL.indexOf('{...rowProps(', at + 1);
   }
   console.log(`  rail rows drawing an icon: ${drawn}`);
-  assert.ok(drawn >= 8, `only ${drawn} rail rows found — this guard is reading the wrong shape.`);
+  // 🏠 7 since 11 Nov 2026: Events · People · Shop · Memories became Home's section DOORS (`.fd-hsub`, no icon) —
+  // so they must never reach the 72-px strip, where a row without an icon is a bare caption.
+  assert.ok(drawn >= 7, `only ${drawn} rail rows found — this guard is reading the wrong shape.`);
+  assert.match(SHELL, /className="fd-row fd-hsub"/, 'premise: Home\'s section doors are gone or renamed');
+  assert.match(
+    CSS,
+    /\.fd-row\.fd-hsub[^{]*\{[^}]*display:\s*none/,
+    'Home\'s section doors (no icon) are not hidden in the strip — they would draw as bare captions.',
+  );
   assert.doesNotMatch(SHELL, /fd-dot/, 'the shell draws `.fd-dot` again — the bullet the iPad read as a missing icon.');
   assert.doesNotMatch(CSS, /\.fd-dot\b/, 'the stylesheet styles `.fd-dot` again.');
 });

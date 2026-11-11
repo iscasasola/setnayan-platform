@@ -121,14 +121,13 @@ import {
 } from '@/lib/chat-optimistic';
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
-import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
+import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { privateOtherId } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
-import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
-import { setPrivateTo, usePrivateTo } from './chat/private-to';
+import { usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -200,6 +199,11 @@ type Props = {
    * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
    */
   hosts?: readonly ChatHost[] | null;
+  /**
+   * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
+   * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
+   */
+  shopLabel?: string | null;
   /**
    * 👥 The strip's ＋ (DECISION_LOG 2026-11-09 👥) — hosts and the coordinator only; the supplier's page never passes it.
    * `add` is a server action. Absent → no ＋.
@@ -437,6 +441,7 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  shopLabel = null,
   memberAdd = null,
   memberLeave = null,
   headCalls = null,
@@ -544,8 +549,6 @@ export function ChatMessageStream({
    * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
-  // ✋ Press-and-hold on a bubble → "Reply privately" (pre-picks the sender for the composer's chip).
-  const hold = useMessageHold();
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
   // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
   // other side's label.
@@ -1533,7 +1536,7 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
@@ -2155,7 +2158,8 @@ export function ChatMessageStream({
           const run = bubbleRun(messages, i);
           // The supplier's view, inside the client (THE ONE BUILD): an incoming run carries its HOST's first name and
           // initials (`event_chat_hosts`), so a chat with four hosts says who is speaking. The couple's view is as before.
-          const host = !mine && m.sender_user_id ? hostById.get(m.sender_user_id) ?? null : null;
+          // 🏪 The face on the message's OWN side — one login can be the shop and a host at once (owner, 11 Nov).
+          const host = !mine ? hostForMessage(m, hosts) : null;
           // 👥 On the hosts' side another co-host's run carries THEIR name (chat gaps, 8 Nov) — the same way the
           // supplier's view labels each host's run. A co-host's name is never masked (they are the event's own people).
           const coHost = isCoHostMessage(m, viewerRole, currentUserId);
@@ -2173,10 +2177,6 @@ export function ChatMessageStream({
           const privateWith = privateWithId === null ? null : personName(privateWithId);
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
-          // ✋ "Reply privately" — any OTHER PERSON's message (by user, not by side: another host's message sits on your
-          // side of the chat and is still someone else's), never yours, never the auto-reply.
-          const replyTo = !m.is_bot && m.sender_user_id && m.sender_user_id !== currentUserId ? m.sender_user_id : null;
-          const canReplyPrivately = replyTo !== null;
           const corner = mine
             ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
             : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
@@ -2206,11 +2206,11 @@ export function ChatMessageStream({
               ) : null}
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
+                // 🔒 Holding a bubble opens nothing: the 🔒 beside the message box is the ONE door to a private
+                // message (owner-approved prototype, 11 Nov 2026 — the hold menu's "Reply privately" removed).
                 onClick={(e) => {
-                  if (hold.consumeTap()) return;
                   if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
                 }}
-                {...(canReplyPrivately ? hold.holdProps(m.message_id) : {})}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   privateWith !== null
@@ -2264,16 +2264,6 @@ export function ChatMessageStream({
               </div>
               </div>
               {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
-              {replyTo !== null && hold.openId === m.message_id ? (
-                <MessageHoldMenu
-                  senderName={personName(replyTo)}
-                  alignEnd={mine}
-                  onReplyPrivately={() => {
-                    setPrivateTo(threadId, { userId: replyTo, name: personName(replyTo) });
-                    hold.close();
-                  }}
-                />
-              ) : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}

@@ -5,8 +5,8 @@ import { Check, Plus, UserPlus, Users } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { showsAddAll, stripOrder } from '@/lib/chat-members';
-import { setChatPeople, setPrivateTo } from './private-to';
+import { isShopSelf, showsAddAll, stripOrder } from '@/lib/chat-members';
+import { setChatPeople } from './private-to';
 import { LeaveChatDialog } from './leave-chat-dialogs';
 
 /**
@@ -19,9 +19,9 @@ import { LeaveChatDialog } from './leave-chat-dialogs';
  * elsewhere" / "N min ago" have no source in the app and are not drawn (spec §4: presence = the ring only).
  *
  * TAPPING A FACE (Supplier Build 3 · Lane A, every face a 44 px target, every action an `ActionButton`):
- *   🔒 someone else's face → PRIVATE MODE AT ONCE (DECISION_LOG 2026-11-09 🔒; owner, 9 Nov: no menu, no extra row) —
- *      the message box reads "Private message to Jose" with the info outline (`private-to.ts`). Needs the `threadId`;
- *      without it the faces are pictures, as before.
+ *   🔒 someone else's face is a PICTURE — the 🔒 beside the message box is the ONE door to a private message (owner-
+ *      approved prototype, 11 Nov 2026; until then a face opened private mode too). The strip still publishes its faces
+ *      (`setChatPeople`) — they are exactly the 🔒's list.
  *   👥 YOUR OWN face, as a host → the house confirm box "Leave this chat?" with an optional note (owner, 9 Nov — it
  *      replaced the inline "Leave chat | Cancel" row; `leave-chat-dialogs.tsx`). The supplier and the coordinator have
  *      no Leave: the page passes no `leave`, and their own face is not a button.
@@ -54,6 +54,7 @@ export function ChatHostStrip({
   viewerSide = 'vendor',
   calls = null,
   note = null,
+  shopLabel = null,
 }: {
   /** NULL = the hosts read was refused: said as such, never as an empty chat. */
   hosts: readonly ChatHost[] | null;
@@ -78,6 +79,11 @@ export function ChatHostStrip({
    * ⓘ The chat's privacy words, one tap away on the "Shared chat" line (a picked chat draws no notice row — v8.3).
    */
   note?: ReactNode;
+  /**
+   * 🏪 The supplier's side only: the shop's name, so a viewer who is ALSO a host of this event sees the shop's face
+   * first and "You" as the host (owner, 11 Nov — `stripOrder`). Ignored when the viewer is not a host here.
+   */
+  shopLabel?: string | null;
 }) {
   const [leaving, setLeaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -86,7 +92,9 @@ export function ChatHostStrip({
   const others =
     hosts === null
       ? []
-      : stripOrder(hosts, youId, viewerSide).flatMap((p) => (!p.isYou && p.host ? [{ userId: p.userId, name: hostFirstName(p.host) }] : []));
+      : stripOrder(hosts, youId, viewerSide, shopLabel).flatMap((p) =>
+          !p.isYou && p.host && !isShopSelf(p, youId) ? [{ userId: p.userId, name: hostFirstName(p.host) }] : [],
+        );
   useEffect(() => {
     if (threadId) setChatPeople(threadId, others);
   });
@@ -101,14 +109,23 @@ export function ChatHostStrip({
     );
   }
   // 👥 Supplier · coordinator/planner(s) · You · the other hosts — "You" in your own slot, never twice (`stripOrder`).
-  const people = stripOrder(hosts, youId, viewerSide).map((p) =>
+  // 🏪 The shop's face for your OWN uid (you are host and shop at once) keeps the shop's name and is not a button.
+  const people = stripOrder(hosts, youId, viewerSide, shopLabel).map((p) =>
     p.isYou || !p.host
-      ? { id: p.userId, initials: 'You', name: 'You' }
-      : { id: p.userId, initials: hostInitials(p.host), name: hostFirstName(p.host) },
+      ? { id: p.userId, key: p.key, initials: 'You', name: 'You', self: true, shop: false }
+      : {
+          id: p.userId,
+          key: p.key,
+          initials: hostInitials(p.host),
+          name: hostFirstName(p.host),
+          self: isShopSelf(p, youId),
+          shop: p.key.startsWith('shop:'),
+        },
   );
   // The ＋ comes last, and only while at least one event host is not in this chat.
   const canAdd = Boolean(addable && addable.candidates.length > 0);
-  const inNow = people.filter((p) => presentIds.has(p.id)).length;
+  // In the chat now counts PEOPLE — the one login behind both the shop's face and "You" is one person.
+  const inNow = new Set(people.filter((p) => presentIds.has(p.id)).map((p) => p.id)).size;
   return (
     <div className="border-b border-ink/10 px-4 py-2" data-chat-host-strip="">
       {/* 🟢 THE RING IS NEVER CLIPPED (Build 2 #26b). `overflow-x-auto` clips on every side, and the ring draws OUTSIDE
@@ -131,26 +148,22 @@ export function ChatHostStrip({
               {p.initials}
             </span>
           );
-          const isYou = p.id === youId;
-          const tappable = isYou ? Boolean(leave) : Boolean(threadId);
+          // 🏪 Your own shop's face is not "You" — the host is (owner, 11 Nov).
+          const isYou = p.id === youId && !p.shop;
+          const tappable = isYou && Boolean(leave);
           return (
-            <li key={p.id} className="flex shrink-0 snap-start flex-col items-center gap-0.5">
+            <li key={p.key} className="flex shrink-0 snap-start flex-col items-center gap-0.5" {...(p.shop ? { 'data-chat-host-shop': '' } : {})}>
               {tappable ? (
                 <button
                   type="button"
                   className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-mulberry"
-                  aria-label={isYou ? 'Leave this chat' : `Message ${p.name} privately`}
-                  {...(isYou ? { 'aria-haspopup': 'dialog' as const } : {})}
+                  aria-label="Leave this chat"
+                  aria-haspopup="dialog"
                   onClick={() => {
                     setAdding(false);
-                    if (isYou) {
-                      setLeaving(true);
-                      return;
-                    }
-                    // 🔒 Straight into private mode — the message box takes them (owner, 9 Nov).
-                    if (threadId) setPrivateTo(threadId, { userId: p.id, name: p.name });
+                    setLeaving(true);
                   }}
-                  data-chat-host-face={isYou ? 'you' : p.id}
+                  data-chat-host-face="you"
                 >
                   {face}
                 </button>

@@ -653,7 +653,7 @@ export default async function GuestsLabPage({
             </div>
           </div>
         </main>
-        <AccountBottomNav tabs={['events', 'discover', 'memories', 'people', 'shop']} />
+        <AccountBottomNav tabs={['home', 'discover']} />
       </div>
     );
   }

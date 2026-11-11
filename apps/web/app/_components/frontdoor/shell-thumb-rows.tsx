@@ -51,6 +51,27 @@ export function EventsThumbRow({ createHref = '/dashboard/create-event' }: { cre
 }
 
 /**
+ * 🏠 HOME › EVENTS' FIRST ROW (owner 11 Nov 2026, v3 row 7): the Events thumb row's search, folded into the section as
+ * its first row — the same field and the same Enter (`searchRowHref(…, 'events')`), without the dock. Its ＋ Create
+ * event is Home's pinned-row action now.
+ */
+export function EventsFindInput() {
+  const onKeyDown = useEnterSearches('events');
+  return (
+    <input
+      type="search"
+      enterKeyHint="search"
+      placeholder="Search events"
+      aria-label="Search events"
+      autoComplete="off"
+      onKeyDown={onKeyDown}
+      data-events-search=""
+      className="placeholder:text-ink/55"
+    />
+  );
+}
+
+/**
  * 🔎 DISCOVER SEARCHES IN PLACE (owner 2026-10-24: *"we will show the result on the page itself. not a new screen"*;
  * on the old hop to the shell's results page: *"it went to a different page?"*). Enter puts the words in this page's own
  * `?q=` (`stayOnPageSearchHref`) and the page draws its results where its sections were, under this same row; ✕ — or

@@ -9,7 +9,8 @@
  *   2. The host's Chats draws the picked supplier OVER itself — a `supplier` slot whose intercept only re-exports the
  *      workspace page (no second body); the flag-ON workspace IS the picked supplier (no `RelationshipTabShell`).
  *   3. Doors: a Chats row opens the picked page ON CHAT and records its tap (`opensPicked`) — supplier rows fold by event
- *      (`foldByEvent`); the Clients / Suppliers lists open on Details (no `?tab` → Details on both menus).
+ *      (`foldByEvent`); the Clients / Suppliers lists open on the menu's first page (no `?tab` → Chat on both menus
+ *      since 11 Nov; Details when there is no conversation).
  *   4. The order is the inbox's own (`messengerOrder`) with the "Unread · pinned" head — one rule for both lists.
  *   5. The host's Chat page is the shipped thread page itself (`__embed: 'chat'`), marked read only while shown.
  *
@@ -98,21 +99,21 @@ test('3 · a Chats row opens the picked page ON CHAT; the host’s lists open on
   const host = read(`${HOST_CHATS}/page.tsx`);
   assert.match(host, /`\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=chat`/);
   assert.match(host, /opensPicked: Boolean\(eventVendorId\)/);
-  // The menus: `?tab=chat` → Chat. No tab: the supplier's picked client opens on Chat — its first tab since the owner's
-  // 11 Nov order (DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE ORDER"); the host's picked supplier
-  // still opens on Details.
+  // The menus: `?tab=chat` → Chat. No tab: BOTH open on Chat — the supplier's picked client since the owner's 11 Nov order
+  // (DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE ORDER"), the host's picked supplier mirrored the same
+  // day ("Clients side is not fixed also") — and on Details when there is no conversation (no Chat page to open).
   assert.equal(visiblePickedPage('chat', true), 'chat');
   assert.equal(visiblePickedPage(null, true), 'chat');
   const full = pickedSupplierMenuFor({ quote: true, chat: true });
   assert.equal(visiblePickedSupplierPage('chat', full), 'chat');
-  assert.equal(visiblePickedSupplierPage(undefined, full), 'details');
+  assert.equal(visiblePickedSupplierPage(undefined, full), 'chat');
   assert.equal(pickedSupplierPageOf('call'), 'chat');
   // A page that could only be blank is not offered.
   assert.equal(visiblePickedSupplierPage('chat', pickedSupplierMenuFor({ quote: false, chat: false })), 'details');
   assert.deepEqual(
     PICKED_SUPPLIER_PAGES.map((p) => p.label).slice(0, 6),
-    ['Details', 'Chat', 'Schedule', 'Quotation', 'Payment', 'Forms'],
-    'the owner-ruled tab order (DECISION_LOG 🪞)',
+    ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule'],
+    'the owner-ruled tab order (11 Nov, the supplier’s order mirrored)',
   );
 });
 

@@ -134,7 +134,7 @@ export default async function MemoriesLabPage({
           </div>
         </div>
       </main>
-      <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
+      <AccountBottomNav tabs={['home', 'discover']} />
       {/* &spot=1 — this tab's first-visit spotlight (customer_library_v1), first run, nothing recorded. */}
       {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_library_v1" script={TOURS.customer_library_v1.spotlight!} /> : null}
     </div>

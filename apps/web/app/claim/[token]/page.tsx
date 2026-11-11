@@ -80,7 +80,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
             : `Share it with the person taking over ${row.name}'s care — it can't be redeemed by you.`
         }
       >
-        <Link href="/dashboard/people" className="button-secondary">
+        <Link href="/dashboard?seg=people" className="button-secondary">
           Back to People
         </Link>
       </DoorShell>

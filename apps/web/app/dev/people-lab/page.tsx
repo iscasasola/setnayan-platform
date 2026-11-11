@@ -239,7 +239,7 @@ export default async function PeopleLabPage({
           }}
         />
       ) : null}
-      <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
+      <AccountBottomNav tabs={['home', 'discover']} />
       {/* 🔦 ?tour=bar | people — the account screens' spotlights on this fixture (help-sync, 2026-10-22). */}
       {sp.tour === 'bar' || sp.tour === 'people' ? (
         <LabTour

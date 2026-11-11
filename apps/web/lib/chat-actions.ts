@@ -24,6 +24,7 @@ import {
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToFromForm } from '@/lib/chat-private';
+import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -106,8 +107,11 @@ export async function sendChatMessage(formData: FormData) {
   // 🔒 Private to one person (the composer's chip) — parsed here, judged in the core.
   const privateTo = privateToFromForm(formData.get(CHAT_PRIVATE_FIELD), null);
 
+  // 🏪 The supplier's composer says it is the shop's (`lib/chat-sent-as.ts`); the host's says nothing.
+  const asSide = sentAsFromForm(formData.get(CHAT_SENT_AS_FIELD));
+
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo });
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, asSide });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {

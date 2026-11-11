@@ -73,16 +73,14 @@ export function labEventBarItems(eventId: string, event?: LabEventBar): BottomNa
 
 export function LabBar({
   kind,
-  ownsShop = true,
   event,
 }: {
   kind: 'account' | 'shop' | 'event';
-  ownsShop?: boolean;
   event?: LabEventBar;
 }) {
   const items: BottomNavItem[] =
     kind === 'account'
-      ? accountBarItems(accountBarTabs({ ownsShop, discoverOpen: true }))
+      ? accountBarItems(accountBarTabs({ discoverOpen: true }))
       : kind === 'shop'
         ? vendorBarItems({ role: 'owner', navSlots: {}, bookingsBadge: 2, threadsBadge: 1 })
         : labEventBarItems(LAB_EVENT, event);

@@ -49,9 +49,9 @@ const CSS = read('app', 'globals.css');
 /* ── 1 · behaviour ─────────────────────────────────────────────────────── */
 
 const SHOP = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/on-the-day'];
-// The account bar's addresses IN ITS ORDER — read from the real bar, not re-typed, so a re-ruled order (owner
-// 2026-11-11, "THE ACCOUNT BAR ORDER": Events · People · Shop · Memories · Discover) reaches this guard by itself.
-const ACCOUNT = accountBarItems(accountBarTabs({ ownsShop: true, discoverOpen: true })).map((t) => t.href.split('?')[0]!);
+// The account bar's addresses IN ITS ORDER — read from the real bar, not re-typed, so a re-ruled order reaches this
+// guard by itself (owner 11 Nov 2026, "HOME IS THE PROFILE": Home · Discover — Home's sections slide inside Home).
+const ACCOUNT = accountBarItems(accountBarTabs({ discoverOpen: true })).map((t) => t.href.split('?')[0]!);
 const bar = (paths: string[], lit: number): SlideTab[] => paths.map((path, i) => ({ path, current: i === lit }));
 
 test('1 · a shop page lit through activeMatch slides — the bar names its own lit tab', () => {
@@ -66,18 +66,15 @@ test('1 · a shop page lit through activeMatch slides — the bar names its own 
 });
 
 test('1 · the account bar slides by its order, one slide however far the press', () => {
-  // Premise: the order the bar draws is the ruled one (owner 2026-11-11), so the indices below mean what they say.
-  assert.deepEqual(ACCOUNT, ['/dashboard', '/dashboard/people', '/vendor-dashboard', '/dashboard/library', '/']);
-  const lit = bar(ACCOUNT, 1); // People
-  assert.equal(tabSlideDir(0, activeTabIndex(lit, '/dashboard/people')), 'back', 'People → Events');
-  assert.equal(tabSlideDir(2, activeTabIndex(lit, '/dashboard/people')), 'fwd', 'People → Shop');
-  assert.equal(tabSlideDir(4, activeTabIndex(lit, '/dashboard/people')), 'fwd', 'People → Discover, one slide however far');
-  assert.equal(tabSlideDir(1, 1), null, 'the lit tab itself is not a slide');
-  // Discover is the LAST tab now: pressing anything from it slides back.
-  assert.equal(tabSlideDir(3, activeTabIndex(bar(ACCOUNT, 4), '/')), 'back', 'Discover → Memories');
-  // The address fallback still works for a bar that lights nothing: Discover is `/`, exact.
-  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/'), 4);
-  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/dashboard/library'), 3);
+  // Premise: the order the bar draws is the ruled one (owner 11 Nov 2026, Home · Discover), so the indices mean it.
+  assert.deepEqual(ACCOUNT, ['/dashboard', '/']);
+  const lit = bar(ACCOUNT, 0); // Home
+  assert.equal(tabSlideDir(1, activeTabIndex(lit, '/dashboard')), 'fwd', 'Home → Discover');
+  assert.equal(tabSlideDir(0, activeTabIndex(bar(ACCOUNT, 1), '/')), 'back', 'Discover → Home');
+  assert.equal(tabSlideDir(0, 0), null, 'the lit tab itself is not a slide');
+  // The address fallback still works for a bar that lights nothing: Discover is `/`, exact; Home is `/dashboard`.
+  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/'), 1);
+  assert.equal(activeTabIndex(bar(ACCOUNT, -1), '/dashboard'), 0);
   // A dashboard's home is exact, never a prefix of its own pages.
   assert.equal(activeTabIndex(bar(SHOP, -1), '/vendor-dashboard/shop'), 2);
 });

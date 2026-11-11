@@ -42,7 +42,7 @@ export async function addDependent(formData: FormData): Promise<void> {
   // NOTE: only the WRITE is control-gated; delete/erasure below stays reachable
   // whenever the flag is on, so a data-subject erasure is never blocked.
   if (!dependentPeopleEnabled() || !(await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    redirect('/dashboard/people?view=alaga');
+    redirect('/dashboard?seg=people&view=alaga');
   }
 
   const supabase = await createClient();
@@ -73,14 +73,14 @@ export async function addDependent(formData: FormData): Promise<void> {
   const sex = isPerson && isDependentSex(formData.get('sex')) ? String(formData.get('sex')) : null;
   const religion = isPerson && isReligion(formData.get('religion')) ? String(formData.get('religion')) : null;
 
-  if (!name) redirect('/dashboard/people?view=alaga&error=name');
+  if (!name) redirect('/dashboard?seg=people&view=alaga&error=name');
 
   // AGE FENCE (owner rule) — the authoritative gate, PERSON records only. A
   // person's stored birthdate must be <18 (a child a guardian plans for) or >50
   // (an elder). 18–50 → they own their own dates; invite, never register. Pets /
   // other have no fence and may have any birthday, or none.
   if (isPerson && birth && !isFenceEligible(birth, manilaToday())) {
-    redirect('/dashboard/people?view=alaga&error=fence');
+    redirect('/dashboard?seg=people&view=alaga&error=fence');
   }
 
   const now = new Date().toISOString();
@@ -100,17 +100,17 @@ export async function addDependent(formData: FormData): Promise<void> {
     birth_date_consent_at: isPerson && birth ? now : null,
     religion_consent_at: religion ? now : null,
   });
-  if (error) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`/dashboard?seg=people&view=alaga&error=${encodeURIComponent(error.message)}`);
 
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }
 
 /** Remove a dependent record (RA 10173 erasure). Owner-scoped via RLS. */
 export async function deleteDependent(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people?view=alaga');
+  if (!dependentPeopleEnabled()) redirect('/dashboard?seg=people&view=alaga');
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
-  if (!dependentId) redirect('/dashboard/people?view=alaga');
+  if (!dependentId) redirect('/dashboard?seg=people&view=alaga');
 
   const supabase = await createClient();
   const {
@@ -129,9 +129,9 @@ export async function deleteDependent(formData: FormData): Promise<void> {
     .eq('owner_user_id', user.id)
     .select('dependent_id');
   const removed = removalWriteResult(data, error);
-  if (!removed.ok) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(removed.error)}`);
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&removed=1');
+  if (!removed.ok) redirect(`/dashboard?seg=people&view=alaga&error=${encodeURIComponent(removed.error)}`);
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&removed=1');
 }
 
 /**
@@ -143,11 +143,11 @@ export async function setDependentSharing(formData: FormData): Promise<void> {
   // Sharing a minor's row is dependent SPI processing — same control belt as the
   // addDependent write (env flag AND dependent_minor_profiles). Fail-closed.
   if (!dependentPeopleEnabled() || !(await isDataPrivacyControlActive('dependent_minor_profiles'))) {
-    redirect('/dashboard/people?view=alaga');
+    redirect('/dashboard?seg=people&view=alaga');
   }
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
   const share = String(formData.get('share') ?? '') === '1';
-  if (!dependentId) redirect('/dashboard/people?view=alaga');
+  if (!dependentId) redirect('/dashboard?seg=people&view=alaga');
 
   const supabase = await createClient();
   const {
@@ -160,8 +160,8 @@ export async function setDependentSharing(formData: FormData): Promise<void> {
     .update({ shared_with_spouse: share })
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id);
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }
 
 // ── Godparents (ninong / ninang) ─────────────────────────────────────────────
@@ -182,7 +182,7 @@ export async function addGodparent(formData: FormData): Promise<void> {
     !(await isDataPrivacyControlActive('dependent_minor_profiles')) ||
     !(await isDataPrivacyControlActive('faith_religion_graph'))
   ) {
-    redirect('/dashboard/people?view=alaga');
+    redirect('/dashboard?seg=people&view=alaga');
   }
 
   const supabase = await createClient();
@@ -197,7 +197,7 @@ export async function addGodparent(formData: FormData): Promise<void> {
   const roleRaw = String(formData.get('role') ?? '').trim();
   const role = roleRaw === 'ninong' || roleRaw === 'ninang' ? roleRaw : null;
 
-  if (!dependentId || !name) redirect('/dashboard/people?view=alaga&error=name');
+  if (!dependentId || !name) redirect('/dashboard?seg=people&view=alaga&error=name');
 
   const { data: dep } = await supabase
     .from('dependents')
@@ -205,7 +205,7 @@ export async function addGodparent(formData: FormData): Promise<void> {
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id)
     .maybeSingle();
-  if (!dep) redirect('/dashboard/people?view=alaga');
+  if (!dep) redirect('/dashboard?seg=people&view=alaga');
 
   const { error } = await supabase.from('godparents').insert({
     dependent_id: dependentId,
@@ -214,17 +214,17 @@ export async function addGodparent(formData: FormData): Promise<void> {
     godparent_email: email,
     role,
   });
-  if (error) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`/dashboard?seg=people&view=alaga&error=${encodeURIComponent(error.message)}`);
 
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }
 
 /** Remove a godparent edge. Owner-scoped via RLS. */
 export async function deleteGodparent(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people?view=alaga');
+  if (!dependentPeopleEnabled()) redirect('/dashboard?seg=people&view=alaga');
   const godparentId = String(formData.get('godparent_id') ?? '').trim();
-  if (!godparentId) redirect('/dashboard/people?view=alaga');
+  if (!godparentId) redirect('/dashboard?seg=people&view=alaga');
 
   const supabase = await createClient();
   const {
@@ -239,9 +239,9 @@ export async function deleteGodparent(formData: FormData): Promise<void> {
     .eq('owner_user_id', user.id)
     .select('godparent_id');
   const removed = removalWriteResult(data, error);
-  if (!removed.ok) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(removed.error)}`);
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&removed=1');
+  if (!removed.ok) redirect(`/dashboard?seg=people&view=alaga&error=${encodeURIComponent(removed.error)}`);
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&removed=1');
 }
 
 /**
@@ -258,9 +258,9 @@ export async function deleteGodparent(formData: FormData): Promise<void> {
  * AND already-handed-over rows.
  */
 export async function createHandoverLink(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people?view=alaga');
+  if (!dependentPeopleEnabled()) redirect('/dashboard?seg=people&view=alaga');
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
-  if (!dependentId) redirect('/dashboard/people?view=alaga');
+  if (!dependentId) redirect('/dashboard?seg=people&view=alaga');
 
   const supabase = await createClient();
   const {
@@ -274,12 +274,12 @@ export async function createHandoverLink(formData: FormData): Promise<void> {
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id)
     .maybeSingle();
-  if (!row || row.handed_over_at) redirect('/dashboard/people?view=alaga');
+  if (!row || row.handed_over_at) redirect('/dashboard?seg=people&view=alaga');
 
   const isPerson = isPersonDependent(row.dependent_kind);
   if (isPerson && !isClaimEligible(row.birth_date, manilaToday())) {
     // Not 18 yet (or no birthday on file) — the majority lock, server-side.
-    redirect('/dashboard/people?view=alaga&error=not_of_age');
+    redirect('/dashboard?seg=people&view=alaga&error=not_of_age');
   }
 
   const token = randomBytes(24).toString('base64url');
@@ -293,17 +293,17 @@ export async function createHandoverLink(formData: FormData): Promise<void> {
     })
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id);
-  if (error) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`/dashboard?seg=people&view=alaga&error=${encodeURIComponent(error.message)}`);
 
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }
 
 /** Revoke an alaga's active hand-over link. Owner-scoped via RLS. */
 export async function revokeHandoverLink(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people?view=alaga');
+  if (!dependentPeopleEnabled()) redirect('/dashboard?seg=people&view=alaga');
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
-  if (!dependentId) redirect('/dashboard/people?view=alaga');
+  if (!dependentId) redirect('/dashboard?seg=people&view=alaga');
 
   const supabase = await createClient();
   const {
@@ -316,8 +316,8 @@ export async function revokeHandoverLink(formData: FormData): Promise<void> {
     .update({ claim_token: null, claim_token_purpose: null, claim_token_expires_at: null })
     .eq('dependent_id', dependentId)
     .eq('owner_user_id', user.id);
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }
 
 /**
@@ -328,11 +328,11 @@ export async function revokeHandoverLink(formData: FormData): Promise<void> {
  * nowhere.
  */
 export async function emailHandoverLink(formData: FormData): Promise<void> {
-  if (!dependentPeopleEnabled()) redirect('/dashboard/people?view=alaga');
+  if (!dependentPeopleEnabled()) redirect('/dashboard?seg=people&view=alaga');
   const dependentId = String(formData.get('dependent_id') ?? '').trim();
   const recipient = String(formData.get('recipient') ?? '').trim().toLowerCase();
-  if (!dependentId) redirect('/dashboard/people?view=alaga');
-  if (!recipient || !recipient.includes('@')) redirect('/dashboard/people?view=alaga&error=email');
+  if (!dependentId) redirect('/dashboard?seg=people&view=alaga');
+  if (!recipient || !recipient.includes('@')) redirect('/dashboard?seg=people&view=alaga&error=email');
 
   const supabase = await createClient();
   const {
@@ -355,7 +355,7 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
     !!row.claim_token &&
     !!row.claim_token_expires_at &&
     new Date(row.claim_token_expires_at) > new Date();
-  if (!live) redirect('/dashboard/people?view=alaga&error=no_active_link');
+  if (!live) redirect('/dashboard?seg=people&view=alaga&error=no_active_link');
 
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
@@ -390,10 +390,10 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
   // read as "sent" (the guardian would wait on an email that never left).
   if (!sent.ok) {
     redirect(
-      `/dashboard/people?view=alaga&error=${sent.reason === 'not_configured' ? 'email_not_configured' : 'email_send_failed'}`,
+      `/dashboard?seg=people&view=alaga&error=${sent.reason === 'not_configured' ? 'email_not_configured' : 'email_send_failed'}`,
     );
   }
 
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=alaga&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=alaga&saved=1');
 }

@@ -48,12 +48,12 @@ test('1 · Memories is a tab, before Hub, opening this event’s Memories, in th
       assert.ok((mem.activeMatch as string[]).includes('/dashboard/ev/memories'), 'the Memories page lights no tab');
     }
   }
-  // The account bar's Memories glyph — read from that bar, never restated here.
+  // The Memories glyph. It was read from the account bar's Memories tab; since 11 Nov 2026 (DECISION_LOG "HOME PAGE v3
+  // APPROVED") the account bar is Home · Discover and Memories is a section of Home with no glyph of its own — so the
+  // glyph both bars wore (`Sparkles`) is pinned here by name, and the account bar must not grow a second Memories glyph.
   const account = code(ACCOUNT_BAR);
-  const at = account.indexOf("label: 'Memories'");
-  assert.ok(at > 0, 'premise: the account bar has a Memories tab');
-  const icon = account.slice(at, at + 200).match(/icon:\s*(\w+)/)?.[1];
-  assert.ok(icon, 'premise: the account bar’s Memories tab names its icon');
+  assert.ok(!account.includes("label: 'Memories'"), 'the account bar has a Memories tab again — read its glyph from it, as before');
+  const icon = 'Sparkles';
   const tab = buildCustomerMenuTree('ev', { websiteEnabled: true }).find((m) => m.key === 'memories')!;
   assert.equal((tab.icon as { displayName?: string }).displayName ?? tab.icon.name, icon, 'the event bar’s Memories wears another glyph');
   assert.equal(EVENT_MENU_ICONS.memories, tab.icon);

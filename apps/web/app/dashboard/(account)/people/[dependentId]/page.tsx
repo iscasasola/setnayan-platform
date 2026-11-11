@@ -192,11 +192,11 @@ export default async function DependentPage({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <Link
-        href="/dashboard/people"
+        href="/dashboard?seg=people&view=alaga"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink/55 transition-colors hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        People
+        Loved ones
       </Link>
       <PageMasthead title={dependent.name} />
       <p className="-mt-4 text-sm text-ink/55">{subtitle}</p>

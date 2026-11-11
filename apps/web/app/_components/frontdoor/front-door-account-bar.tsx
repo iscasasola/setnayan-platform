@@ -15,6 +15,8 @@
  * address (`activeMatchExact`). Every read is React `cache()`d and already paid
  * on this page by `SignedInCluster` (the top bar's bell + account switcher).
  *
+ * 🏠 SINCE 11 NOV 2026 THE BAR IS HOME · DISCOVER (`lib/account-bar.ts`) — the same two here as on Home.
+ *
  * 📲 THE APP DRAWS IT TOO (owner 2026-11-02, "let everything go live"). The
  * phone and desktop apps open `/` like the website now, so a signed-in person
  * in the app gets this bar on Discover with the Discover tab lit — the same
@@ -29,21 +31,15 @@
 import 'server-only';
 
 import { getCurrentUser } from '@/lib/auth';
-import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
-import { accountBarTabs, ownsAShop } from '@/lib/account-bar';
+import { accountBarTabs } from '@/lib/account-bar';
 import { discoverOpensHere } from '@/lib/request-platform';
 
 export async function FrontDoorAccountBar() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const [switcherData, discoverOpen] = await Promise.all([
-    // A failed read still draws the bar — without a Shop tab, the same
-    // fallback the layouts use (it measured nothing, so it claims no shop).
-    getSwitcherData(user.id).catch(() => ({
-      context: { hasVendor: false, canOpenShop: false },
-    })),
-    discoverOpensHere(),
-  ]);
-  return <AccountBarSlot tabs={accountBarTabs({ ownsShop: ownsAShop(switcherData.context), discoverOpen })} />;
+  // 🏠 Home · Discover (owner 11 Nov 2026, "HOME IS THE PROFILE"): the bar no longer depends on the shop, so the
+  // switcher read that decided its Shop tab is gone from here — Shop is a section of Home now.
+  const discoverOpen = await discoverOpensHere();
+  return <AccountBarSlot tabs={accountBarTabs({ discoverOpen })} />;
 }

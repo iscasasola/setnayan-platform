@@ -560,7 +560,7 @@ async function fetchAppointmentItems(
       title,
       subtitle: `${fmt.format(date)} · ${kindLabel}${where}`,
       href: vendor
-        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace`
+        ? `/dashboard/${eventId}/vendors/${vendor.vendorId}/workspace?tab=schedule`
         : `/dashboard/${eventId}/vendors`,
       twin: { kind: 'meeting' as const, appointmentType: row.type },
     };

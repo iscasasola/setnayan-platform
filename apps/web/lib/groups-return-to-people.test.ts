@@ -63,7 +63,11 @@ const SENDS_TO_OLD_INDEX =
   /(?:href=\{?|href:\s*|redirect\(|\.push\(|\.replace\(|permanentRedirect\()\s*[`'"]\/dashboard\/samahan(?:\?[^`'"]*)?[`'"]/;
 
 test('1 · nothing in the app sends anyone to the old /dashboard/samahan index', () => {
+  // The rail's MATCH rows (`rail-active.ts`) are pathname matchers, not links — the same as `under(pathname, …)` below:
+  // since 11 Nov 2026 a group's own room (`/dashboard/samahan/<id>`) lights Home through one. Nothing there is drawn.
+  const MATCHERS = new Set([join('app', '_components', 'frontdoor', 'rail-active.ts')]);
   const offenders = sources()
+    .filter(({ rel }) => !MATCHERS.has(rel))
     .filter(({ src }) => SENDS_TO_OLD_INDEX.test(src))
     .map(({ rel }) => rel);
   assert.deepEqual(offenders, [], `send People › Groups (PEOPLE_GROUPS_HREF) instead:\n${offenders.join('\n')}`);
@@ -80,14 +84,14 @@ test('2 · the old index forwards to People › Groups, with the note', () => {
   assert.ok(fwd, 'the old Groups index no longer forwards to People');
   assert.equal(fwd[1], PEOPLE_GROUPS_HREF, 'the old Groups index forwards somewhere other than People › Groups');
   assert.match(page, /sp\.left === '1' \? '&left=1'/);
-  assert.equal(PEOPLE_GROUPS_HREF, '/dashboard/people?view=samahan');
+  assert.equal(PEOPLE_GROUPS_HREF, '/dashboard?seg=people&view=samahan'); // People is Home's section since 11 Nov 2026
   // The address really opens Groups whenever Groups is a view the person has.
   const view = new URL(PEOPLE_GROUPS_HREF, 'https://x').searchParams.get('view');
   assert.equal(resolvePeopleView(view, { showConnections: true, showDependents: true }), 'samahan');
 });
 
 test('3 · People says "You left the group." when it arrives with the note', () => {
-  const people = read('app/dashboard/(account)/people/page.tsx');
+  const people = read('app/dashboard/(account)/people/_components/people-segment.tsx');
   assert.match(people, /sp\.left === '1' \|\| sp\.archived === '1'[\s\S]{0,200}data-group-notice=""/, 'People drops the left/archived note');
   assert.match(people, /You left the group\./);
 });
@@ -117,12 +121,12 @@ test('4 · every ‹ on the group page returns in place, and falls back to the m
 });
 
 test('5 · the lists a group opens from mark this tab, so ‹ can come back to them', () => {
-  for (const rel of ['app/dashboard/(account)/people/page.tsx', 'app/dashboard/(account)/notifications/page.tsx']) {
+  for (const rel of ['app/dashboard/(account)/people/_components/people-segment.tsx', 'app/dashboard/(account)/notifications/page.tsx']) {
     const src = read(rel);
     assert.match(src, /<ChatOriginMark \/>/, `${rel} no longer marks the tab — ‹ from a group opened there jumps away`);
   }
   // People's mark is on the page for every view (the full list AND People › Groups), not inside one view's branch.
-  const people = read('app/dashboard/(account)/people/page.tsx');
+  const people = read('app/dashboard/(account)/people/_components/people-segment.tsx');
   const at = people.indexOf('<ChatOriginMark />');
   assert.ok(at > -1 && at < people.indexOf("view === 'samahan' && groupRows"), 'the mark moved inside one view');
 });

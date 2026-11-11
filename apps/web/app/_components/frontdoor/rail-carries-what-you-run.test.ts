@@ -57,10 +57,12 @@ test('the rail offers a row into HQ, and into the shop', () => {
     'The rail has no row into Setnayan HQ. The owner asked for home, shop AND ' +
       'admin to live in this sidebar; the admin half never existed.',
   );
+  // 🏠 Since 11 Nov 2026 ("HOME IS THE PROFILE") the shop is a SECTION of Home: the rail's door into it is Home's
+  // Shop door (`homeSegHref('shop')`), and the console is "Open the Shop dashboard" inside that section.
   assert.match(
     src,
-    /href="\/vendor-dashboard"/,
-    'The rail lost its row into the shop.',
+    /href=\{homeSegHref\('shop'\)\}[^>]*data-home-door="shop"/,
+    'The rail lost its door into the shop (Home › Shop).',
   );
 });
 
@@ -184,20 +186,24 @@ test('Shop and HQ sit inside My Home — no second group, no "What you run"', ()
     /What you run/,
     'The "What you run" heading is back. The owner merged it into My Home.',
   );
-  const home = src.indexOf('>My Home<');
-  const people = src.indexOf('href="/dashboard/people"', home);
-  const shop = src.indexOf('href="/vendor-dashboard"', people);
-  const hq = src.indexOf('href="/admin"', shop);
+  // 🏠 11 Nov 2026 ("HOME IS THE PROFILE"): My Home moved UP — Home · Discover, in the bar's order, and Home's
+  // sections (Events · People · Shop · Memories) are small doors under the Home row. HQ stays in the fine print
+  // under the divider. Still ONE group: no heading and no divider between People and Shop.
+  const home = src.indexOf('data-home-row=""');
+  const people = src.indexOf('data-home-door="people"', home);
+  const shop = src.indexOf('data-home-door="shop"', people);
+  const memories = src.indexOf('data-home-door="memories"', shop);
+  const hq = src.indexOf('href="/admin"', memories);
   assert.ok(
-    home >= 0 && people > home && shop > people && hq > shop,
-    `Rail order is not My Home → People → Shop → HQ ` +
-      `(found at ${home}, ${people}, ${shop}, ${hq}).`,
+    home >= 0 && people > home && shop > people && memories > shop && hq > memories,
+    `Rail order is not Home → People → Shop → Memories … HQ ` +
+      `(found at ${home}, ${people}, ${shop}, ${memories}, ${hq}).`,
   );
-  const between = src.slice(people, hq);
+  const between = src.slice(people, memories);
   assert.doesNotMatch(
     between,
     /fd-rdiv|fd-rlabel/,
-    'A divider or heading sits between People and the Shop/HQ rows — that is a ' +
+    'A divider or heading sits between People and the Shop door — that is a ' +
       'second group again, which the owner merged away.',
   );
 });

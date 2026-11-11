@@ -72,7 +72,8 @@ const hit = (publicId: string, name: string): PersonHit => ({
 /** What the People page does with an href: read `?person=` back out of it. */
 function openedBy(href: string): string | null {
   const url = new URL(href, 'https://setnayan.test');
-  assert.equal(url.pathname, PEOPLE_PATH, `a person result leaves the People page: ${href}`);
+  // People is Home's section since 11 Nov 2026 — `PEOPLE_PATH` is `/dashboard?seg=people`, so compare page + section.
+  assert.equal(`${url.pathname}?seg=${url.searchParams.get('seg')}`, PEOPLE_PATH, `a person result leaves the People page: ${href}`);
   return url.searchParams.get(PERSON_PARAM);
 }
 
@@ -104,7 +105,7 @@ test('somebody ON SETNAYAN opens by their account id — which the page hands to
   assert.equal(id, 'S89U-NEW0000001');
   assert.equal(personCardKey(ROSTER, id), null, 'a stranger opened somebody on your list');
   // Not on your list → the page asks the People search's fence for this one id, never a new query.
-  const page = src('app/dashboard/(account)/people/page.tsx');
+  const page = src('app/dashboard/(account)/people/_components/people-segment.tsx');
   assert.match(page, /findPersonByPublicId\(personParam, user\.id\)/, 'the page no longer resolves a stranger through the search fence');
   assert.match(page, /openPerson=\{onList \? personParam : null\}/, 'the page no longer opens the roster card for somebody on your list');
   const search = src('lib/people-search.ts');
@@ -121,14 +122,14 @@ test('🔴 a refused read is "could not search", never an empty People section',
   );
   assert.equal(shellPeopleResults({ query: 'ana', roster: ROSTER, found: { hits: [], failed: true } }).unavailable, true);
   // And the People page prints a sentence for an unreadable `?person=`, not silence.
-  const page = src('app/dashboard/(account)/people/page.tsx');
+  const page = src('app/dashboard/(account)/people/_components/people-segment.tsx');
   assert.match(page, /PERSON_UNREAD/, 'an unreadable person link opens to silence');
 });
 
 test('the link is a public id or nothing — never a user_id, never a guess', () => {
   assert.equal(personHref(null), PEOPLE_PATH);
   assert.equal(personHref('3f0c2a1e-0000-4000-8000-000000000000'), PEOPLE_PATH, 'a uuid became a person link');
-  assert.equal(personHref('S89U-ABCDEFGHJK'), `${PEOPLE_PATH}?person=S89U-ABCDEFGHJK`);
+  assert.equal(personHref('S89U-ABCDEFGHJK'), `${PEOPLE_PATH}&person=S89U-ABCDEFGHJK`);
   assert.equal(personCardKey(ROSTER, 'not-an-id'), null);
 });
 

@@ -27,7 +27,8 @@
  * page) or on an honest "no back".
  *
  * ── THE BARS (today's, 28 Oct 2026) ────────────────────────────────────────────────────────────────────
- *   account  Events `/dashboard` · Discover `/` · Memories `/dashboard/library` · People `/dashboard/people`
+ *   account  Home `/dashboard` · Discover `/` (owner 11 Nov 2026, "HOME IS THE PROFILE" — Events · People · Shop ·
+ *            Memories are Home's sections, `/dashboard?seg=…`; the old `/dashboard/library|people` forward there)
  *            (`app/dashboard/(launcher)/_components/account-bottom-nav.tsx`)
  *   event    Home · Guests · Suppliers · Hub · Memories (`lib/customer-menu.ts` `buildEventMenuSections`)
  *   supplier Today · Clients · Shop · Portfolio (`app/vendor-dashboard/_components/vendor-nav-destinations.ts`, THE ONE BUILD 8 Nov)
@@ -56,7 +57,7 @@ type Entry = { home: string; label?: string } | { none: NoBackReason; by?: strin
 
 /** Every tab of every bar. No back on any of them. Held equal to the shipped bars by the guard. */
 export const BAR_ROOTS = {
-  account: ['/', '/dashboard', '/dashboard/library', '/dashboard/people'],
+  account: ['/', '/dashboard'],
   event: [
     '/dashboard/[eventId]',
     '/dashboard/[eventId]/guests',
@@ -78,11 +79,12 @@ const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
 /** A home's own name, for a back link that is not given one. */
 const LABELS: Record<string, string> = {
   '/': 'Discover',
-  '/dashboard': 'Events',
-  '/dashboard?hub=1': 'Events',
-  '/dashboard/library': 'Memories',
-  '/dashboard/people': 'People',
-  '/dashboard/people?view=samahan': 'Groups',
+  '/dashboard': 'Home',
+  '/dashboard?hub=1': 'Home',
+  '/dashboard?seg=memories': 'Memories',
+  '/dashboard?seg=people': 'People',
+  '/dashboard?seg=people&view=samahan': 'Groups',
+  '/dashboard?seg=people&view=alaga': 'Loved ones',
   '/dashboard/profile': 'Settings',
   '/dashboard/create-event': 'New event',
   '/dashboard/[eventId]': 'Today',
@@ -120,13 +122,15 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // Settings is where API keys are opened (audit ✅ "looked odd but fine").
   '/dashboard/api-keys': { home: '/dashboard/profile' },
   // Groups live in People since the People & Groups merge — `/dashboard/samahan` is the retired index.
-  '/dashboard/samahan': { home: '/dashboard/people?view=samahan' },
-  '/dashboard/samahan/**': { home: '/dashboard/people?view=samahan' },
+  '/dashboard/samahan': { home: '/dashboard?seg=people&view=samahan' },
+  '/dashboard/samahan/**': { home: '/dashboard?seg=people&view=samahan' },
+  // 🏠 An alaga's page belongs to Home › People › Loved ones (its URL parent only forwards there).
+  '/dashboard/people/[dependentId]': { home: '/dashboard?seg=people&view=alaga' },
   // A person's public profile is opened from People (`app/u/_components/profile-back.tsx`).
-  '/u/[userSlug]': { home: '/dashboard/people' },
+  '/u/[userSlug]': { home: '/dashboard?seg=people' },
   '/u/[userSlug]/c/[chapterId]': { home: '/u/[userSlug]', label: 'Profile' },
   // The claim link is made and shared from People; the issuer who opens it lands back there (audit ⚠, kept).
-  '/claim/[token]': { home: '/dashboard/people' },
+  '/claim/[token]': { home: '/dashboard?seg=people' },
 
   /* ── sign in ──────────────────────────────────────────────────────────────────────────────────────── */
   // A password reset belongs to signing in (audit ✅).
@@ -252,7 +256,7 @@ export const IN_PAGE_BACKS: Readonly<Record<string, string>> = {
  * the guard itself; these are the ones that still draw a page.)
  */
 export const RETIRED_PAGES: Readonly<Record<string, string>> = {
-  '/dashboard/samahan': 'Groups moved into People (People › Groups, `/dashboard/people?view=samahan`)',
+  '/dashboard/samahan': 'Groups moved into People (Home › People › Groups, `/dashboard?seg=people&view=samahan`)',
 };
 
 const segs = (p: string) => p.split('/').filter(Boolean);

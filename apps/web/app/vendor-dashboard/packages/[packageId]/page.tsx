@@ -14,6 +14,7 @@ import { humanizeKind } from '@/lib/service-card-kind';
 import { freeByKind } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { PackageEditor, type BundleCard } from '../_components/package-editor';
+import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 
 /**
  * /vendor-dashboard/packages/[packageId] — build or edit one package.
@@ -87,11 +88,13 @@ export default async function EditPackagePage({
   const isNew = packageId === 'new';
 
   // 🎁 The Gift row and the card list — read together, in one batch, not one after another.
-  const [cards, packs, stock] = await Promise.all([
+  // 🚫 …and the claim-word list for the bundle name's live note (owner 2026-11-08), in the same batch.
+  const [cards, packs, stock, fairWords] = await Promise.all([
     fetchBundleCards(supabase, vendorProfileId),
     // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
     fetchShopGiftPacks(createAdminClient()),
     fetchShopGiftStock(supabase, vendorProfileId),
+    loadClaimWordsFor(vendorProfileId).catch(() => null),
   ]);
 
   let initial = EMPTY;
@@ -153,6 +156,7 @@ export default async function EditPackagePage({
         giftPacks={packs}
         giftFree={freeByKind(stock)}
         shopName={profile.business_name ?? null}
+        fairWords={fairWords}
         packageId={isNew ? undefined : packageId}
         initial={initial}
         isActive={isActive}

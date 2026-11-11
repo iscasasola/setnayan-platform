@@ -313,6 +313,7 @@ function detailsFixture(who: Who): DetailsData {
     compatibleCeremonyTypes: null,
     venueType: who === 'parish' ? 'church' : null,
     tagline: null,
+    fairWords: null,
     website: null,
     about: f.about,
     sameDayAvailable: false,

@@ -113,7 +113,7 @@ import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo
 import { cardCheckInputKey, EMPTY_CARD_CHECK_INPUT, readCardCheckInput, type CardCheckInput } from '@/lib/service-card-checks';
 import {
   CardChecksSummary,
-  ClaimWordNotes,
+  FairNote,
   PhotoCheckNotes,
   ServiceMismatchNote,
   useCardChecks,
@@ -1113,7 +1113,7 @@ export function CanvasMaker({
                   className={BOX}
                 />
                 <p className={HINT}>Written for you · change it if you like</p>
-                <ClaimWordNotes hits={checks.claims} field="name" />
+                <FairNote hits={checks.fair} field="card_name" />
                 <ServiceMismatchNote
                   mismatch={checks.mismatch}
                   categoryLabel={activeCategoryLabel}
@@ -1219,7 +1219,7 @@ export function CanvasMaker({
                   Add what’s included — at least one line.
                 </p>
               ) : null}
-              <ClaimWordNotes hits={checks.claims} field="included" />
+              <FairNote hits={checks.fair} field="included" />
               {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
                   package), so it stays reachable while the card is made; the saved card points to Your packages. */}
               {customizationEnabled && !isEdit ? (
@@ -1253,7 +1253,7 @@ export function CanvasMaker({
                 </InfoTip>
               </div>
               <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
-              <ClaimWordNotes hits={checks.claims} field="extras" />
+              <FairNote hits={checks.fair} field="extras" />
             </div>
 
             {/* ── Gift — the shipped Setnayan-gift switch (was "More settings › Setnayan gift"), now ONE dropdown that

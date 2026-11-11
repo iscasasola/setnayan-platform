@@ -22,6 +22,8 @@
  * PURE — no I/O. The page reads the word list and the trades (`lib/service-card-checks.server.ts`) and hands them in.
  */
 
+import { claimReadings } from './claim-text-fold';
+
 // ── 1 · claim words ─────────────────────────────────────────────────────────
 
 /** One word on the admin list, as the supplier reads it: the word and its one-line why. */
@@ -71,8 +73,11 @@ export function findClaimWords(
   for (const t of texts) {
     const value = (t.value ?? '').trim();
     if (!value) continue;
+    // 🥸 DISGUISED FORMS (owner 2026-11-08: "N0. 1 · b e s t · #1️⃣"): the list is asked against every reading a couple
+    // would see — spaced letters joined, look-alike digits read as letters, keycaps and full-width forms folded.
+    const readings = claimReadings(value);
     for (const { w, re } of live) {
-      if (re.test(value)) {
+      if (readings.some((r) => re.test(r))) {
         hits.push({ phrase: w.phrase, why: w.why.trim() || CLAIM_WORD_FALLBACK_WHY, field: t.field, index: t.index ?? 0 });
       }
     }

@@ -328,7 +328,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
             <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {faces.map((f) => (
                 <li key={f.key}>
-                  <ServiceCardView card={f.card} detailsEnabled detailsHref={f.detailsHref} shop={f.shop} />
+                  <ServiceCardView card={f.card} detailsEnabled detailsHref={f.detailsHref} shop={f.shop} path={f.path} coverUrl={f.coverUrl} />
                 </li>
               ))}
             </ul>

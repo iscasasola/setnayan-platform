@@ -162,39 +162,34 @@ export function ServicesGallery({
         </div>
       ) : null}
 
-      <div className="space-y-5">
-        {visible.map((g) => (
-          <div key={g.key} className="space-y-2">
-            {/* Group label is redundant once a single coverage chip is active. */}
-            {active === ALL ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                {g.label}
-              </p>
-            ) : null}
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {g.cards.map((c) => (
-                <li key={c.id}>
-                  <ServiceCardView
-                    card={withViewerLooks(c)}
-                    detailsEnabled={detailsEnabled}
-                    onOpen={(from) => {
-                      originRef.current = from;
-                      setOpenCardId(c.id);
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      {/* ONE GRID, NOT ONE PER GROUP (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE"): every visible card in one list —
+          1 column on a phone, 2, then 3 — so a group with a single card never strands half a row. The group is said on
+          each card's path line, and the chips above still filter by it. */}
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-services-one-grid="">
+        {visible.flatMap((g) =>
+          g.cards.map((c) => (
+            <li key={c.id}>
+              <ServiceCardView
+                card={withViewerLooks(c)}
+                path={g.label}
+                detailsEnabled={detailsEnabled}
+                onOpen={(from) => {
+                  originRef.current = from;
+                  setOpenCardId(c.id);
+                }}
+              />
+            </li>
+          )),
+        )}
+      </ul>
 
       {/* ONE sheet for the whole gallery, not one per card — mounting a dialog
           per card would put N focus-trap subscriptions on the page for a screen
           only ever open on one of them. */}
       {detailsEnabled && openCard ? (
         <ServiceDetailsSheet
-          card={openCard}
+          // The viewer's extra couple photos travel with the card into the grown card — the face no longer shows them.
+          card={withViewerLooks(openCard)}
           inquireMode={inquireMode}
           shopName={shopName}
           from={originRef.current}
@@ -204,30 +199,6 @@ export function ServicesGallery({
     </div>
   );
 }
-
-/**
- * One service card on the public vendor profile. Renders the base "from ₱X"
- * anchor + (when present) the best-discount badge, FREE inclusions with their
- * stated worth, the crew/meal meta line, and the "not included" expectation
- * flags. All copy is pre-formatted server-side; this stays a dumb view.
- *
- * Layout order top→bottom: title + price (+ pricing-basis detail) · discount
- * badge · showcase media (photo strip + clip) · inclusions · crew/meal meta ·
- * not-included flags · serves line — value story first, caveats + scope last.
- *
- * ── THE DOORWAY (flag: NEXT_PUBLIC_SERVICE_DETAILS_ENABLED) ─────────────────
- * With the flag ON the card becomes clickable: a STRETCHED button covering the
- * card opens `ServiceDetailsSheet`. Stretched rather than wrapping the whole
- * card in a `<button>` because the card already contains a `<video controls>`,
- * and an interactive control nested inside a button is invalid markup that
- * eats the video's own controls. The overlay is the LAST child, so it paints
- * over the static content without any z-index; the clip is lifted above it with
- * `relative z-10` so play/scrub still work in place.
- *
- * With the flag OFF this returns the identical static `<div>` it always has —
- * same class string, same children, no overlay, no affordance, and the sheet
- * module is never mounted.
- */
 
 function FilterChip({
   label,

@@ -95,7 +95,10 @@ test('✓ Verified booking — derived at read from the booking, drawn only from
   for (const reader of ['service_card_couple_photos', 'viewer_service_card_couple_photos']) {
     assert.match(fn(reader), /public\.couple_photo_share_is_verified_booking\(s\.event_id, s\.vendor_profile_id\)/, `${reader} no longer derives the mark`);
   }
-  const card = read('app/_components/service-card-view.tsx');
+  // 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): the face carries no photos; the mark is drawn in the Service card
+  // grown (`service-details-sheet.tsx`) and defined once beside the card (`service-card-view.tsx`). Read both.
+  const card =
+    read('app/_components/service-card-view.tsx') + read('app/v/[slug]/_components/service-details-sheet.tsx');
   // Retargeted 2026-11-06 (the "From couples" grid, For Suppliers design): the mark is ONE component, `VerifiedBookingMark`,
   // drawn on the photo — still only from the read's TRUE, and still the card's only "Verified booking".
   assert.match(card, /look\.verifiedBooking === true \? <VerifiedBookingMark \/> : null/, 'the card draws the mark from something other than the read’s TRUE');

@@ -70,7 +70,7 @@ test('a stored yes survives the round trip through snapshotFromService', () => {
 test('the gift line on the card states no quantity', () => {
   const face = read(FACE);
   const branch = face.slice(
-    face.indexOf('{snap.givesSetnayanGift ?'),
+    face.indexOf('const gift = snap.givesSetnayanGift ?'),
     face.indexOf(') : snap.hasExclusive ?'),
   );
   assert.ok(branch.length > 0, 'the gift branch was not found on the card face');
@@ -108,7 +108,7 @@ test('the gift line on the card states no quantity', () => {
 
 test('the gift and the retired free text are two branches, gift first', () => {
   const face = read(FACE);
-  const gift = face.indexOf('{snap.givesSetnayanGift ?');
+  const gift = face.indexOf('const gift = snap.givesSetnayanGift ?');
   const legacy = face.indexOf('snap.hasExclusive ?');
   assert.ok(gift > -1 && legacy > gift, 'the gift branch must be tested first');
 

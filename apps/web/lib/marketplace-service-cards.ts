@@ -54,6 +54,8 @@ export type MarketplaceServiceCard = {
   businessLogoRef: string | null;
   /** 🧪 `vendor_profiles.is_demo` — the card's shop row wears "(DEMO ONLY)" (owner 2026-11-06). */
   isDemo: boolean;
+  /** `vendor_profiles.verification_state = 'verified'` — the Verified pill on the card's shop line. */
+  verified: boolean;
 };
 
 export type MarketplaceQuery = {
@@ -162,6 +164,7 @@ export async function fetchMarketplaceServiceCards(
       locationCity: (vp.location_city as string | null) ?? null,
       businessLogoRef: (vp.logo_url as string | null) ?? null,
       isDemo: vp.is_demo === true,
+      verified: vp.verification_state === 'verified',
     };
   });
 }

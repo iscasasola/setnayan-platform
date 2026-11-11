@@ -6,6 +6,11 @@
  * ⚠ Corrected from the plan's wording: the stream DOES import `thread-decisions` (its Decisions panel has for months);
  * what is pinned is that the HEART code never does, and the bubble's tap calls nothing but the heart.
  * Sabotage (2026-11-08): add a "Make this a decision" button to message-heart.tsx → red.
+ *
+ * ⚖ 11 Nov 2026 — the owner REVERSED the filing half (*"Yes add or update an existing decision"*, DECISION_LOG 🗳): a
+ * DOUBLE-tap now files the message under a decision (lib/chat-double-tap.ts, held by its own test). What still holds:
+ * one tap is a heart and nothing else, the heart code never reaches for decisions, and no bubble action TURNS a message
+ * into a decision — filing puts it under a topic somebody named.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +36,10 @@ test("the bubble's own tap does nothing but heart", () => {
   const open = stream.lastIndexOf('<div', at);
   const tag = stream.slice(open, stream.indexOf('>', at));
   // 11 Nov 2026: the press-and-hold "Reply privately" menu is gone (the 🔒 is the one private door) — a tap is a heart.
-  assert.match(tag, /onClick=\{\(e\) => \{\s*if \(tapMeansHeart\(e\.target as Element\)\) toggleHeart\(m\.message_id\);\s*\}\}/);
+  // 11 Nov: every tap still hearts at once; only the double's second tap ALSO opens the filing picker.
+  assert.match(
+    tag,
+    /onClick=\{\(e\) => \{\s*if \(tapMeansHeart\(e\.target as Element\)\) \{\s*const tap = bubbleTap\(lastTap\.current, m\.message_id, performance\.now\(\)\);\s*lastTap\.current = tap\.next;\s*toggleHeart\(m\.message_id\);\s*if \(tap\.openPicker && privateWith === null\) setFilePick\(m\.message_id\);\s*\}\s*\}\}/,
+  );
   assert.doesNotMatch(stream, /(Make|Turn) (this|it) (into )?a decision/i, 'a bubble action names a decision');
 });

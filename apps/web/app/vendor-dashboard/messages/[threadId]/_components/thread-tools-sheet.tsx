@@ -28,7 +28,7 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { PLUS_ROW_PAGE, hostPlusRows, plusGate, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
+import { PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
@@ -158,6 +158,13 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetR
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const headingId = useId();
+  // ⌨ THE SLASH LIST IS THIS SHEET'S OWN CARD ROWS (owner 11 Nov: "/" shortcuts) — published for the composer, so a
+  // typed "/poll" can never offer a row the (+) does not, nor drop one the (+) has greyed.
+  const slash = sheetSlashRows(rows);
+  const slashSig = JSON.stringify(slash);
+  useEffect(() => {
+    if (threadId) patchPlus(threadId, { slash: JSON.parse(slashSig) });
+  }, [threadId, slashSig]);
 
   let lastGroup: ThreadToolGroup | undefined;
   let lastPage: PickedClientPage | undefined;
@@ -353,7 +360,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
       icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : 'file',
-      shut: r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null,
+      shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
       reveal: d?.reveal,
@@ -381,7 +388,9 @@ export function ThreadToolsSheet({
   /** A payment is confirmed on the quote — Quote reads "Change quote" (the paid total is the floor). */
   paid?: boolean;
 }) {
-  const rows = plusSheetRows(supplierPlusRows({ paid }), 'vendor', eventId, state.hasAgreement);
+  // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
+  const { pollOpen } = usePlus(threadId ?? '');
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen }), 'vendor', eventId, state.hasAgreement);
   return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
 }
 
@@ -403,7 +412,8 @@ export function CoupleThreadToolsSheet({
   // The entry decides whether a meeting can be proposed here (an open chat, negotiation on) — the shipped couple
   // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
   const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment }), 'couple', eventId, true).map((r) =>
+  const { pollOpen } = usePlus(threadId ?? '');
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen }), 'couple', eventId, true).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;

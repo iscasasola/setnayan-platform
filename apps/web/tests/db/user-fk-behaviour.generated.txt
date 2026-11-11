@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 272 single-column FKs onto auth.users / public.users
-# CASCADE=73  RESTRICT=1  SET NULL=198
+# 276 single-column FKs onto auth.users / public.users
+# CASCADE=74  RESTRICT=1  SET NULL=201
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -37,6 +37,7 @@ card_claim_word_allowances.granted_by                     SET NULL     nullable 
 card_claim_words.created_by                               SET NULL     nullable  -> users
 category_hub_settings.updated_by                          SET NULL     nullable  -> users
 chat_blocker_shows.user_id                                CASCADE      NOT NULL  -> users
+chat_decision_messages.added_by_user_id                   SET NULL     nullable  -> auth.users
 chat_decision_topics.closed_by_user_id                    SET NULL     nullable  -> auth.users
 chat_decision_topics.opened_by_user_id                    SET NULL     nullable  -> auth.users
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
@@ -44,6 +45,9 @@ chat_message_flags.sender_user_id                         SET NULL     nullable 
 chat_message_hearts.user_id                               CASCADE      NOT NULL  -> auth.users
 chat_messages.recipient_user_id                           CASCADE      nullable  -> users
 chat_messages.sender_user_id                              SET NULL     nullable  -> users
+chat_poll_votes.voter_user_id                             CASCADE      NOT NULL  -> auth.users
+chat_polls.asked_by_user_id                               SET NULL     nullable  -> auth.users
+chat_polls.closed_by_user_id                              SET NULL     nullable  -> auth.users
 chat_thread_members.added_by_user_id                      SET NULL     nullable  -> users
 chat_thread_members.user_id                               CASCADE      NOT NULL  -> users
 chat_thread_reads.user_id                                 CASCADE      NOT NULL  -> users

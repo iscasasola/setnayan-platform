@@ -474,6 +474,13 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  // 🗳 20271338412990 (chat decisions · polls): none returns a body. The filing check reads a message's thread_id and
+  // recipient_user_id only to REFUSE a private line ('private'); file / move lock the message row; poll_open inserts
+  // its own system line and returns the poll id.
+  'chat_decision_file_message', // locks the message row; returns a status word
+  'chat_decision_filing_refusal', // thread + recipient only — refuses a private line; returns a word, no body
+  'chat_decision_move_message', // locks the message row; returns a status word
+  'chat_poll_open', // inserts the poll's own system line; returns the poll id
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
@@ -507,10 +514,15 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
     policies: [
       // Supplier Build 3 · lane C: the members of a chat read its change asks (migration 20271332041210).
       'booking_change_asks.booking_change_asks_members_read',
+      // 🗳 20271338412990: filed messages and polls are read by the chat's members — chat_decision_topics_read copied.
+      'chat_decision_messages.chat_decision_messages_read',
       // 20271332497337 (Build 3 lane B): a decision topic is read by the chat's members (and the shop's team).
       'chat_decision_topics.chat_decision_topics_read',
       'chat_messages.chat_messages_member_insert',
       'chat_messages.chat_messages_member_read',
+      'chat_poll_choices.chat_poll_choices_read',
+      'chat_poll_votes.chat_poll_votes_read',
+      'chat_polls.chat_polls_read',
       'chat_thread_members.chat_thread_members_read',
       'chat_threads.chat_threads_member_read',
     ],

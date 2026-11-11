@@ -70,6 +70,10 @@ export type PinFact = {
   sinceMs: number;
   /** When it falls due (ms), if it has a deadline. Null = due since `sinceMs`. */
   dueMs?: number | null;
+  /** 🗳 A decision only: the reader opened it (the pin reads "Decision · you opened it"; otherwise "they opened it"). */
+  openedByYou?: boolean;
+  /** 🗳 A decision only: how many messages are filed under it ("2 filed ›"). null = the count was not read — no number. */
+  filedCount?: number | null;
 };
 
 export type NeedsYouLevel = 'blocker' | 'due' | 'waiting';

@@ -187,7 +187,8 @@ type ViewReport = { calls: number; depth: number; ms: number; steps: string[]; r
 
 async function main() {
   const { getPeopleRoster } = await import('@/lib/people-roster');
-  const { default: PeoplePage } = await import('./page');
+  // 🏠 People is a section of Home since 11 Nov 2026 — `page.tsx` only forwards; the body it drew is `PeopleSegment`.
+  const { PeopleSegment } = await import('./_components/people-segment');
 
   async function view<T>(run: () => Promise<T>): Promise<ViewReport & { value: T }> {
     viewMemo = new Map();
@@ -209,7 +210,7 @@ async function main() {
   // Warm the remembered platform reads once (production finds them warm).
   await view(() => getPeopleRoster(USER_ID));
   const roster = await view(() => getPeopleRoster(USER_ID));
-  const page = await view(() => PeoplePage({ searchParams: Promise.resolve({ view: 'connected' }) } as never));
+  const page = await view(() => PeopleSegment({ searchParams: { view: 'connected' } } as never));
   const out = {
     roster: { ...roster, value: undefined },
     /** What the roster handed the screen — the proof that only WHEN moved. */

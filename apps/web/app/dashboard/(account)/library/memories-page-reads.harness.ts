@@ -146,7 +146,8 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 type ViewReport = { calls: number; depth: number; ms: number; steps: string[]; repeats: string[]; authReads: number; shelfDrawn: boolean };
 
 async function main() {
-  const { default: MemoriesPage } = await import('./page');
+  // 🏠 Memories is a section of Home since 11 Nov 2026 — `page.tsx` only forwards; the body it drew is `MemoriesSegment`.
+  const { MemoriesSegment } = await import('./_components/memories-segment');
   // #6778 (Memories wears the Papic gallery): the shelf is gone — the page itself reads the albums beside the wall
   // (one `Promise.all`), so the page alone is the whole view.
 
@@ -155,7 +156,7 @@ async function main() {
     sent = [];
     returned = 0;
     const t0 = performance.now();
-    await MemoriesPage({ searchParams: Promise.resolve(tab ? { tab } : {}) } as never);
+    await MemoriesSegment({ searchParams: tab ? { tab } : {} } as never);
     const keys = sent.map((s) => s.key);
     return {
       calls: sent.length,

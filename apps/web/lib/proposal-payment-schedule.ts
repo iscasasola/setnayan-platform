@@ -103,6 +103,18 @@ export type ResolvedSchedule = {
 /** Hard ceiling on manual installments — keeps the editor + card tidy. */
 export const MAX_INSTALLMENTS = 12;
 
+/**
+ * THE PLAN A NEW QUOTE OPENS WITH — the quote maker's shipped default (a first payment on booking, then the
+ * automatic "Final balance" before the event), moved here verbatim from `proposal-maker.tsx` so the Bundle Maker
+ * copies the SAME plan instead of typing a second one (owner 2026-11-07: one maker; 2026-11-09: a bundle's plan is "a
+ * copy of the shop's default plan that can be adjusted here"). The shop-wide default plan SETTING the 7 Nov ruling
+ * names does not exist yet; until it does, this is the default both makers start from.
+ */
+export const DEFAULT_QUOTE_PLAN: { readonly manual: readonly InstallmentDraft[]; readonly autoBalance: AutoBalanceMeta } = {
+  manual: [{ label: 'First payment', kind: 'percent', amountPhp: null, percent: 20, due: 'on_lock', offsetDays: 0 }],
+  autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 14 },
+};
+
 const DUES: readonly InstallmentDue[] = ['on_lock', 'before_event', 'on_event'];
 
 /** Coerce to a finite integer (0 fallback). For SEQ + DAY COUNTS, never money. */
@@ -252,13 +264,24 @@ export function resolveSchedule(input: {
  * Returns null when there are no manual installments (→ store {} = no schedule).
  */
 export function sanitizeAndResolveSchedule(raw: unknown): ResolvedSchedule | null {
+  const drafts = sanitizeScheduleDrafts(raw);
+  if (!drafts) return null;
+  const obj = raw as { baseCentavos?: unknown; creditCentavos?: unknown };
+  return resolveSchedule({
+    ...drafts,
+    baseCentavos: Math.max(0, int(obj.baseCentavos)),
+    creditCentavos: Math.max(0, int(obj.creditCentavos)),
+  });
+}
+
+/**
+ * The same server-side coercion, stopping BEFORE resolving: the untrusted wire drafts → clean drafts. For a store that
+ * keeps the DRAFTS (a bundle's own plan, migration 20271336630678), so they re-balance against the total they are
+ * read with. null when there are no manual installments.
+ */
+export function sanitizeScheduleDrafts(raw: unknown): { manual: InstallmentDraft[]; autoBalance: AutoBalanceMeta } | null {
   if (!raw || typeof raw !== 'object') return null;
-  const obj = raw as {
-    manual?: unknown;
-    autoBalance?: unknown;
-    baseCentavos?: unknown;
-    creditCentavos?: unknown;
-  };
+  const obj = raw as { manual?: unknown; autoBalance?: unknown };
   const manualRaw = Array.isArray(obj.manual) ? obj.manual : [];
   if (manualRaw.length === 0) return null;
 
@@ -281,12 +304,7 @@ export function sanitizeAndResolveSchedule(raw: unknown): ResolvedSchedule | nul
     offsetDays: Math.max(0, int(abRaw.offsetDays)),
   };
 
-  return resolveSchedule({
-    manual,
-    autoBalance,
-    baseCentavos: Math.max(0, int(obj.baseCentavos)),
-    creditCentavos: Math.max(0, int(obj.creditCentavos)),
-  });
+  return { manual, autoBalance };
 }
 
 /** Human-readable due timing for a couple/vendor-facing installment row. */

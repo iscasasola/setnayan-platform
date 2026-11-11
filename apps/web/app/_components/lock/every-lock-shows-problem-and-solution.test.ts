@@ -26,7 +26,6 @@ const UI_ONLY_STILL_TO_WIRE = [
   'quotation',
   'payment',
   'forms',
-  'bundleMaker',
   'promote',
   'analytics',
   'teamSeats',
@@ -83,6 +82,8 @@ test('a UI-only lock is a bug: every lock names its server gate or is on the to-
     if (!s) continue;
     assert.ok(existsSync(join(WEB, s)), `${k}: ${s} is gone`);
   }
+  // The Bundle Maker lock: the save asks the SAME canUse the row draws, before it prices or writes a bundle.
+  assert.match(readFileSync(join(WEB, LOCKS.bundleMaker.server), 'utf8'), /canUse\('bundleMaker'/);
   // The plans lock: the purchase is refused for an unverified shop on the server (NOT_VERIFIED).
   assert.match(readFileSync(join(WEB, LOCKS.plans.server), 'utf8'), /NOT_VERIFIED/);
   // The Offer Maker (Build 6 Lane D): every write asks canUse('offerMaker') before it touches a row.

@@ -32,7 +32,7 @@ const read = (rel: string) => stripComments(readFileSync(join(VD, rel), 'utf8'))
 test('1 · the v13 sections + Promote, in the approved order and words — and the bar menu lists exactly them', () => {
   assert.deepEqual(
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
-    ['Details', 'Services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
+    ['Details', 'Bundles and services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
   );
   // 🖼 THE ONE BUILD (L1, 2026-11-08): the gallery's address is the PORTFOLIO tab now — it names Portfolio until the Shop
   // lane drops the segment (C4), which then also drops 'Portfolio' from the list above and this filter.

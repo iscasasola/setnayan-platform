@@ -386,10 +386,13 @@ test('no doorway is still a NAV_ROUTE', () => {
     REASON not to convert, or it re-fires every slice: /download and /waitlist
     are pure marketing endpoints with no product surface behind them and nobody
     has ever asked for them to be shelled.
+    ⚠ REPOINTED AGAIN 2026-11-12: the owner DID ask — "these are on old shells"
+    — and /download moved into app/(shell)/ with /blog. /our-story replaces it;
+    if that one converts too, repoint here rather than loosen the check.
   */
   assert.ok(
-    listed.includes('/download') && listed.includes('/waitlist'),
-    `NAV_ROUTES parser did not find /download and /waitlist, both stable ` +
+    listed.includes('/our-story') && listed.includes('/waitlist'),
+    `NAV_ROUTES parser did not find /our-story and /waitlist, both stable ` +
       `members with no reason to convert — it is broken and every assertion ` +
       `below would pass vacuously. Found ` +
       `${listed.length}: ${listed.slice(0, 6).join(', ')}`,

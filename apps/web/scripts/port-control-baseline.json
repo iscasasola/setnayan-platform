@@ -126,6 +126,27 @@
         "RevealList"
       ]
     },
+    "/(shell)/blog": {
+      "files": [
+        "(shell)/blog/loading.tsx",
+        "(shell)/blog/page.tsx"
+      ],
+      "destinations": [
+        "/blog",
+        "/blog/[seg]",
+        "/blog?category=[seg]",
+        "/realstories",
+        "/signup"
+      ],
+      "actions": [],
+      "blocks": [
+        "Eyebrow",
+        "Image",
+        "LeadCard",
+        "Link",
+        "StoryCard"
+      ]
+    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",
@@ -155,6 +176,30 @@
         "LegalLayout",
         "LegalSection",
         "Link"
+      ]
+    },
+    "/(shell)/download": {
+      "files": [
+        "(shell)/download/loading.tsx",
+        "(shell)/download/page.tsx"
+      ],
+      "destinations": [
+        "/api/download/mac",
+        "/api/download/windows"
+      ],
+      "actions": [],
+      "blocks": [
+        "AppWindowHero",
+        "HTMLDivElement",
+        "LineRevealH1",
+        "Link",
+        "MagneticDownloadButton",
+        "Note",
+        "PlatformCompatBanner",
+        "Req",
+        "RevealGroup",
+        "Step",
+        "Value"
       ]
     },
     "/(shell)/explore": {
@@ -5192,27 +5237,6 @@
       "actions": [],
       "blocks": [
         "Link"
-      ]
-    },
-    "/blog": {
-      "files": [
-        "blog/_components/story-card.tsx",
-        "blog/page.tsx"
-      ],
-      "destinations": [
-        "/blog",
-        "/blog/[seg]",
-        "/blog?category=[seg]",
-        "/realstories",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "Eyebrow",
-        "Image",
-        "LeadCard",
-        "Link",
-        "StoryCard"
       ]
     },
     "/blog/[slug]": {
@@ -13687,38 +13711,6 @@
         "FrontDoorShell",
         "NewEventHead",
         "YouCard"
-      ]
-    },
-    "/download": {
-      "files": [
-        "download/_download-motion.tsx",
-        "download/page.tsx"
-      ],
-      "destinations": [
-        "/api/download/mac",
-        "/api/download/windows"
-      ],
-      "actions": [],
-      "blocks": [
-        "AppWindowHero",
-        "DockApp",
-        "GuestRow",
-        "HTMLAnchorElement",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "LineRevealH1",
-        "Link",
-        "Logo",
-        "MagneticDownloadButton",
-        "NavRow",
-        "Note",
-        "PlatformCompatBanner",
-        "Req",
-        "RevealGroup",
-        "StatCard",
-        "Step",
-        "Value"
       ]
     },
     "/forgot-password": {

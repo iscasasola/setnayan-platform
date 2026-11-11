@@ -86,7 +86,11 @@ const NAV_ROUTES = new Set<string>([
   // marketing shell alongside its /vendors sibling.
   '/creators',
   '/our-story',
-  '/blog',
+  /* 2026-11-12 — /blog and /download LEFT THIS SET (owner: "these are on old
+     shells"). Both page.tsx files now live in app/(shell)/ and wear the
+     front-door bar + rail; listing them here would draw this glass nav ON TOP
+     of that bar. Held by app/(shell)/blog-and-download-wear-the-shell.test.ts.
+     /blog/[slug] still matches FOOTER_ONLY_PREFIXES below — untouched. */
   /* 2026-10-19 — /features and /tl/features LEFT THIS SET (sweep row C5).
      They wore this glass nav while every /features/<slug> page beneath them
      wore the front-door bar, so a press from the hub into a feature swapped
@@ -106,7 +110,6 @@ const NAV_ROUTES = new Set<string>([
   // URL. /explore, /help and /alaala left the same way on the same day. A
   // comment describing a member that is gone is how a reader concludes the set
   // is bigger than it is.
-  '/download',
   '/waitlist',
 ]);
 

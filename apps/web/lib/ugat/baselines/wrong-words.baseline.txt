@@ -72,9 +72,9 @@ app/dashboard/[eventId]/website/editor/_components/authoring-panels.tsx "Design 
 app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx "Upload a photo or clip" → /dashboard/[eventId]/studio/website-pro	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx "Upload a photo or clip" → /dashboard/[eventId]/studio/website-pro	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/editor/page.tsx "Reminders" → /dashboard/[eventId]/website/widgets	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/download/page.tsx "setnayan.com" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/download/page.tsx "Use it on the web instead" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/download/page.tsx "use Setnayan on the web" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/(shell)/download/page.tsx "setnayan.com" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/(shell)/download/page.tsx "Use it on the web instead" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/(shell)/download/page.tsx "use Setnayan on the web" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/papic/me/[token]/page.tsx "Open my camera" → /papic/seat/[token]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/pay/[reference]/page.tsx "Finish setting up" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/reset-password/page.tsx "Send me a new link" → /forgot-password	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster

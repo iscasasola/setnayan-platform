@@ -51,8 +51,9 @@ test('/for-suppliers is not a NAV_ROUTE, so the glass nav never stacks on the sh
   assert.ok(block, 'NAV_ROUTES not found in site-chrome.tsx — this check would pass vacuously.');
   const routes = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
   assert.ok(
-    routes.includes('/download'),
-    `NAV_ROUTES parsed without /download (a stable member) — the parser is wrong. Got: ${routes.join(', ')}`,
+    // Repointed 2026-11-12: /download moved into the shared shell too.
+    routes.includes('/waitlist'),
+    `NAV_ROUTES parsed without /waitlist (a stable member) — the parser is wrong. Got: ${routes.join(', ')}`,
   );
   assert.ok(
     !routes.includes('/for-suppliers'),

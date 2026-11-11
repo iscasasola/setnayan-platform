@@ -94,7 +94,7 @@ if (!navRoutes || !unfixed) {
   nothing. A positive control is strictly stronger: a broken parser cannot
   produce a route it never saw.
 */
-for (const control of ['/download', '/waitlist']) {
+for (const control of ['/our-story', '/waitlist']) {
   if (!navRoutes.has(control)) {
     console.error(
       `✗ NAV_ROUTES parsed without ${control}, a stable member with no product\n` +
@@ -265,7 +265,9 @@ if (violations.length > 0) {
 // app/features/, which is the directory this scan reads for that route.
 // '/for-suppliers' joined 2026-11-04 the same way: page.tsx in app/(shell)/,
 // its sections in app/for-suppliers/_components/ — both directories are read.
-const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers'];
+// '/blog' and '/download' joined 2026-11-12 the same way (blog cards in
+// app/blog/_components/, the download motion in app/download/).
+const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers', '/blog', '/download'];
 /** Parked under the shared bar: reads the shell's token, directly or in calc(). */
 const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
 

@@ -235,7 +235,7 @@
 4 apps/web/app/api/v1/page.tsx
 2 apps/web/app/blog/[slug]/_components/journal-partner-credit.tsx
 5 apps/web/app/blog/[slug]/page.tsx
-3 apps/web/app/blog/page.tsx
+3 apps/web/app/(shell)/blog/page.tsx
 1 apps/web/app/dashboard/(account)/_components/autosurfaced-events.tsx
 3 apps/web/app/dashboard/(account)/_components/life-story-section.tsx
 1 apps/web/app/dashboard/(account)/api-keys/page.tsx
@@ -466,7 +466,7 @@
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
 1 apps/web/app/dev/avatar-sheet-lab/sheet-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
-1 apps/web/app/download/page.tsx
+1 apps/web/app/(shell)/download/page.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx

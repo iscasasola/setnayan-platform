@@ -95,8 +95,10 @@ test('no /features path is a NAV_ROUTE, so the glass nav never stacks on the she
   assert.ok(block, 'NAV_ROUTES not found in site-chrome.tsx — this check would pass vacuously.');
   const routes = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
   assert.ok(
-    routes.includes('/download'),
-    `NAV_ROUTES parsed without /download (a stable member) — the parser is wrong. Got: ${routes.join(', ')}`,
+    // Repointed 2026-11-12: /download moved into the shared shell, so it can no
+    // longer be the stable member this control names.
+    routes.includes('/waitlist'),
+    `NAV_ROUTES parsed without /waitlist (a stable member) — the parser is wrong. Got: ${routes.join(', ')}`,
   );
   const stacked = routes.filter((r) => FEATURES_URL.test(r));
   assert.deepEqual(

@@ -1,3 +1,5 @@
+import { SetnayanMarkLine, markOrLegacy } from '@/app/_components/setnayan-mark-line';
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import type { CSSProperties } from 'react';
 import { artKitCss, kitFile, viewPlacements, type ArtKit, type ArtKitPlacement, type ArtKitSlot, type ArtKitView } from '@/lib/art-kits';
 import { splitCoupleNames } from '@/lib/split-names';
@@ -142,10 +144,13 @@ export function KitClosing({
   photoUrl,
   mark,
   hideWatermark,
+  setnayanMark = null,
   twoPeople = true,
   line = null,
   stamp = false,
 }: {
+  /** 🏷 The event plan's Setnayan mark (`eventSetnayanMark`, Build 6 Lane L). Given → it wins over `hideWatermark`. */
+  setnayanMark?: SetnayanMark | null;
   /** 🕯 The closing's line — the couple's words and look (`closing-line.tsx`); null: "See you soon." as drawn before. */
   line?: HubElementStyle | null;
   /** The Maker's canvas: the line carries its part key. */
@@ -223,11 +228,7 @@ export function KitClosing({
             {date}
           </p>
         ) : null}
-        {hideWatermark ? null : (
-          <p className="mt-6 text-xs" style={{ color: 'rgba(247,242,236,.78)' }}>
-            Powered by Setnayan · setnayan.com
-          </p>
-        )}
+        <SetnayanMarkLine mark={markOrLegacy(setnayanMark, hideWatermark)} className="mt-6 text-xs" style={{ color: 'rgba(247,242,236,.78)' }} />
       </div>
     </div>
   );

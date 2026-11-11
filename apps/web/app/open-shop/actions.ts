@@ -1,5 +1,6 @@
 'use server';
 
+import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { parseInBusinessSince } from '@/lib/in-business-since';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -156,6 +157,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     redirect('/open-shop?step=1&error=' + encodeURIComponent(SHOP_NAME_TOO_LONG));
   }
   const shopName = clean(rawShopName, SHOP_NAME_MAX);
+  // 🚫 FAIR PRESENTATION (owner 2026-11-08) — the name's live note kept Next off; the same check again here, before
+  // anything is written. No shop exists yet, so the plain list (no allowances). `lib/fair-presentation.server.ts`
+  if (shopName) {
+    const fair = await fairPresentationRefusal({ vendorProfileId: null, texts: [{ field: 'shop_name', value: shopName }] });
+    if (fair) redirect('/open-shop?step=1&error=' + encodeURIComponent(fair));
+  }
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
   // ── THE ADDRESS IS CHOSEN, NOT MINTED (owner 2026-08-10: "slug cannot be

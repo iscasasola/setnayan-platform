@@ -66,6 +66,9 @@ import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-stor
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { savePackage, setPackageActive } from '../actions';
+import { findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 
 /** One of the shop's service cards, as "Add a card" lists it. Its price is the card's own — never typed here. */
 export type BundleCard = { id: string; name: string; category: string; fromPhp: number | null };
@@ -128,6 +131,7 @@ export function PackageEditor({
   giftPacks,
   giftFree,
   shopName,
+  fairWords = null,
 }: {
   packageId?: string;
   initial: DraftPackage;
@@ -143,6 +147,8 @@ export function PackageEditor({
   giftFree: FreeByKind | null;
   /** The shop's name, for the couple's "Gift from …" line in the preview. */
   shopName: string | null;
+  /** 🚫 The claim words this shop may not use — the bundle name's live note. Absent/`null` = unread (the save asks). */
+  fairWords?: ClaimWord[] | null;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<DraftPackage>(() => ({
@@ -167,6 +173,10 @@ export function PackageEditor({
   const previewHeadId = useId();
 
   const problems = useMemo(() => validatePackageDraft(draft), [draft]);
+  // 🚫 FAIR PRESENTATION ON THE BUNDLE NAME (owner 2026-11-08): the note under the name shows AS YOU TYPE (not only
+  // after Save — the ruling's "message under the line"), and Save / Publish wait while it is open. `savePackage` asks
+  // again. A name written from the cards is checked the same — a card's claim word would ride into it.
+  const nameFair = useMemo(() => findFairHits([{ field: 'package_name', value: draft.package_name }], { words: fairWords }), [draft.package_name, fairWords]);
   const shown = tried ? problems : [];
   const packageProblems = shown.filter((p) => !p.itemRef);
   const problemsFor = (itemRef: string, optionRef?: string) =>
@@ -274,7 +284,7 @@ export function PackageEditor({
     setServerError(null);
     setTried(true);
     // The same validator the server runs: with notes still open, Save shows them where they are and sends nothing.
-    if (problems.length > 0) return;
+    if (problems.length > 0 || nameFair.length > 0) return;
     start(async () => {
       const res = await savePackage({ ...draft, items: cardsFirst(draft.items), packageId });
       if (res.status === 'ok') {
@@ -446,6 +456,7 @@ export function PackageEditor({
           <p className={hint}>
             {cardLines.length > 0 && !nameTouched ? 'Written for you · change it if you like' : 'Named from the cards you add'}
           </p>
+          <FairNote hits={nameFair} field="package_name" />
         </div>
 
         {/* ---- Package price ---- */}
@@ -776,7 +787,7 @@ export function PackageEditor({
             icon={isActive ? EyeOff : Globe}
             label={isActive ? 'Unlist from my page' : 'Publish to my page'}
             onClick={togglePublished}
-            waiting={pending || (!isActive && problems.length > 0)}
+            waiting={pending || (!isActive && (problems.length > 0 || nameFair.length > 0))}
           />
         ) : null}
         <ActionButton
@@ -785,7 +796,7 @@ export function PackageEditor({
           icon={Check}
           label={pending ? 'Saving…' : 'Save bundle'}
           onClick={save}
-          waiting={pending}
+          waiting={pending || nameFair.length > 0}
           data-testid="bundle-save"
         />
       </SupplierThumbRow>

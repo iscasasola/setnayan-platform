@@ -18,6 +18,8 @@
 // the results IN as arguments. The service-role admin client is cookie-free and
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
+import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import { entourageProxyNames, readGuestStandIn } from '@/lib/guest-proxy.server';
 import { entourageWithProxies } from '@/lib/guest-proxy';
 import { plusOneSeats } from '@/lib/guests';
@@ -660,6 +662,8 @@ export const loadMedia = cache(
        None of these needs another's answer; in single file each waited for the
        one above it. Same reads, same count, the same lines receive them. */
     const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
+    /* 🏷 The plan's Setnayan mark (Build 6 Lane L — `eventSetnayanMark`, the shipped Pro + Plus readers). */
+    const setnayanMarkAhead = startAhead(eventSetnayanMark(admin, event.event_id));
     /* 💎 …and what the event holds PART BY PART (owner 2026-10-22) — the page's per-part gates (Decorations → Style,
        Scrub → Motion) read this; the footer above stays everything. One cached read shared with the theme gate. */
     const hubPartsAhead = startAhead(hubOwnershipFor(event.event_id).then((o): HubPartId[] => (o.full ? [...HUB_PART_IDS] : [...o.parts])));
@@ -712,6 +716,8 @@ export const loadMedia = cache(
     // does the theme gate. Three readers, one order lookup. `admin` is unused
     // for it now — the cached reader builds its own so its key is the id alone.
     const proWatermarkHidden = await proWatermarkHiddenAhead;
+    // Never throws: each plan read inside it falls back to "not held" (the free watermark).
+    const setnayanMark: SetnayanMark = await setnayanMarkAhead;
     const hubParts = await hubPartsAhead.catch((): HubPartId[] => []);
     /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
        to ride out of this loader as `siteColorVars` and be painted by the ONE
@@ -937,6 +943,7 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
+      setnayanMark,
       hubParts,
       bespokeSvg,
       studioAnim,

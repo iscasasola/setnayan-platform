@@ -16,7 +16,7 @@ import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
-import { DemoOnlyMarker, DEMO_ONLY_LABEL } from '@/app/_components/sample-marker';
+import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -3372,6 +3372,7 @@ export async function renderVendorBySlug({
           completedEvents={completedEvents}
           venueEvents={venueEvents}
           hasVenueMatch={venueMatchCount > 0}
+          sampleShop={isDemoVendor}
         />
 
         {showTrustedBy ? (
@@ -4115,6 +4116,7 @@ function ReviewsSection({
   completedEvents,
   venueEvents,
   hasVenueMatch,
+  sampleShop = false,
 }: {
   slug: string;
   businessName: string;
@@ -4143,6 +4145,8 @@ function ReviewsSection({
   venueEvents: VendorVenueEvent[];
   /** True when ≥1 venueEvents is at the viewing couple's venue. */
   hasVenueMatch: boolean;
+  /** 🏪 A demo shop (`is_demo`) — its reviews are SAMPLES and each one says so (DECISION_LOG 2026-11-10 🏪). */
+  sampleShop?: boolean;
 }) {
   return (
     <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
@@ -4210,6 +4214,7 @@ function ReviewsSection({
                 showStars={showStars}
                 showComments={showComments}
                 vendorName={businessName}
+                sample={sampleShop}
               />
             </li>
           ))}
@@ -4306,6 +4311,7 @@ function ReviewRow({
   showStars,
   showComments,
   vendorName,
+  sample = false,
 }: {
   review: ReviewWithCouple;
   /** The card this review is for — null when it names none (or the card is no longer live). */
@@ -4316,9 +4322,12 @@ function ReviewRow({
   showComments: boolean;
   /** Business name used to label the vendor reply ("Response from [name]"). */
   vendorName: string;
+  /** 🏪 The shop is a demo — this review is a SAMPLE: never "Verified couple", and it wears the sample chip. */
+  sample?: boolean;
 }) {
-  const author =
-    review.couple_display_name && review.couple_display_name.trim().length > 0
+  const author = sample
+    ? 'Sample couple'
+    : review.couple_display_name && review.couple_display_name.trim().length > 0
       ? review.couple_display_name
       : 'Verified couple';
   const dateLabel = new Date(review.created_at).toLocaleDateString('en-PH', {
@@ -4334,6 +4343,7 @@ function ReviewRow({
           {/* Phase C: star row hidden for tiers that don't count stars. */}
           {showStars ? <StarRow value={review.rating_overall} /> : null}
           <span className="text-sm font-medium text-ink">{author}</span>
+          {sample ? <SampleMarker>Sample review</SampleMarker> : null}
           {/* Receipt-backed provenance (Wave 5 + import polish). PLATFORM-DERIVED
               — couples can't set it. "Verified booking" when the relationship
               came via the vendor's invite QR (import); "Verified wedding" when

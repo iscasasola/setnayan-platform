@@ -40,6 +40,9 @@ import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
 import { shareShopLink } from '@/lib/share-shop-link';
+import { findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
    (`lib/every-studio-colour-opens-the-one-picker.test.ts`). Loaded on the first press of the Look circle, so Your
@@ -101,6 +104,8 @@ export type PageClientData = {
   plans: PagePlanLine[];
   /** 🏅 Awards and badges — the pills couples see, composed by `lib/shop-badges.ts` from today's reads. */
   badges: { summary: string; pills: ShopBadge[] };
+  /** 🚫 The claim words this shop may not use — About's live fair-presentation note. Absent/`null` = unread. */
+  fairWords?: ClaimWord[] | null;
 };
 
 export function PageParts({
@@ -132,6 +137,9 @@ export function PageParts({
   const { draft, setDraft, clear, ready } = usePageDraft(d.vendorId, d.saved);
   const shown = useMemo(() => withDraft(d.saved, draft), [d.saved, draft]);
   const line = draftLine(draft, d.saved);
+  // 🚫 FAIR PRESENTATION ON ABOUT (owner 2026-11-08): the note under the paragraph, live; Apply waits while it is open.
+  // Pure, over the list the page read — typing costs no request. `applyVendorPageDraft` asks again.
+  const aboutFair = findFairHits([{ field: 'about', value: shown.about }], { words: d.fairWords ?? null });
   const [pending, start] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
 
@@ -265,6 +273,7 @@ export function PageParts({
             <p className="text-xs tabular-nums text-ink/50">
               {formatCount(shown.about.length)}/{formatCount(MICROSITE_ABOUT_MAX)}
             </p>
+            <FairNote hits={aboutFair} field="about" />
           </div>
         </Fold>
 
@@ -500,7 +509,12 @@ export function PageParts({
               icon: Check,
               label: pending ? 'Applying…' : 'Apply',
               onClick: apply,
-              waiting: pending || changedParts(draft, d.saved).length === 0,
+              // 🚫 Apply waits while About's note is open AND About is in this Apply (a stored About is only noted —
+              // the server checks About only when it is posted, so an unrelated change is never held by it).
+              waiting:
+                pending ||
+                changedParts(draft, d.saved).length === 0 ||
+                (aboutFair.length > 0 && changedParts(draft, d.saved).includes('about')),
             }}
           />
         }

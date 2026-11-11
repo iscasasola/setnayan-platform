@@ -22,6 +22,7 @@ import { readClaimDoor } from '@/lib/claim-door.server';
 import { claimDoorHref } from '@/lib/claim-door';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { ClaimDoor } from './_components/claim-door';
+import { loadClaimWordList } from '@/lib/fair-presentation.server';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -257,7 +258,11 @@ export default async function OpenShopPage({
   // ⚠ 'off' and null are NOT the same. 'off' = no fee exists, so say nothing.
   // null = the read failed, and the disclosure then says it could not load the
   // rate rather than implying there is no fee.
-  const feeSchedule = await readBookingFeeJoinSchedule().catch(() => null);
+  // 🚫 …and the claim-word list for the name's live fair-presentation note (owner 2026-11-08), read beside it.
+  const [feeSchedule, fairWords] = await Promise.all([
+    readBookingFeeJoinSchedule().catch(() => null),
+    loadClaimWordList(), // never throws — unread is `null`, logged where read
+  ]);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
 
   if (claimToken && claimDoor?.open) {
@@ -291,6 +296,7 @@ export default async function OpenShopPage({
       eventTypeOptions={eventTypeOptions}
       vendorProfileId={row?.vendor_profile_id ?? null}
       logoDisplayMap={logoDisplayMap}
+      fairWords={fairWords}
       defaults={{
         shopName: row?.business_name ?? '',
         logoUrl: row?.logo_url ?? '',

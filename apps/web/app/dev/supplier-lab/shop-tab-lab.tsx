@@ -7,6 +7,9 @@
  * photo (the hero wears the placeholder), no badge earned, no bundle, no card, no booked event, an empty Portfolio.
  * Dev only (the lab page 404s in production).
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
+import { FairSweepList } from '@/app/vendor-dashboard/shop/_components/fair-sweep-list';
+import { fairSweepItems } from '@/lib/fair-presentation-sweep';
 import { ShopCover, type CoverData } from '@/app/vendor-dashboard/shop/_components/shop-cover';
 import { CoverPhotoMenu, LogoPhotoMenu } from '@/app/vendor-dashboard/shop/_components/photo-menus';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
@@ -130,6 +133,15 @@ function shopLab(fail: boolean, none: boolean) {
             </div>
           }
         />
+        {/* 🚫 "Edit your name" — the sweep's notice, from a fixture (the app reads the shop's own live names). */}
+        <div className="px-4">
+          <FairSweepList
+            items={fairSweepItems(
+              { shopName: 'Rondo Musical', tagline: 'Live strings for weddings', cards: [{ id: 'lab-bar', title: 'Best mobile bar', live: true }, { id: 'lab-booth', title: 'Classic Booth', live: true }], packages: [{ id: 'lab-pkg', name: 'No. 1 Wedding Bundle 🔥', live: true }] },
+              LAB_FAIR_WORDS,
+            )}
+          />
+        </div>
         {/* Build 6 Lane I: the five-card carousel is gone — ONE door into Shop › Analytics (`?s=analytics`). */}
         <ShopAnalyticsDoor verified={!none} />
         <ShopBadgeRow tiles={tiles} />

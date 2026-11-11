@@ -358,7 +358,12 @@ export function profilePhotoScope(userId: unknown): CleanupScope {
 export function supplierPageAlbumCopyScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);
   if (!v) return emptyScope('supplier_page_photo_notices');
-  return mintScope(`supplier_page_photo_notices:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] }]);
+  return mintScope(`supplier_page_photo_notices:${v}`, [
+    { bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] },
+    // 🔏 …and its PRIVATE clean copy (`cleanCopyKeyFor` in lib/supplier-photo-publish.server.ts), so a guest's Remove
+    // leaves no copy of their photo behind anywhere (Build 6 Lane L, the page copy is now marked).
+    { bucket: VENDOR_VERIFICATION, prefixes: [`vendor-originals/${v}/server/portfolio/from-album/`] },
+  ]);
 }
 
 /**

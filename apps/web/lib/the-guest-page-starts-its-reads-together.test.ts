@@ -116,7 +116,7 @@ test('only these reads are started ahead — each one every path below awaits, n
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
     [
-      'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      'eventPapicGuestActive', 'eventStdOpeningsActive', 'eventSetnayanMark', 'loadVenueBookings', 'websiteProActiveFor',
       // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
       'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
@@ -194,6 +194,8 @@ test('a read that is NOT `cache()`d keeps its promise: started once, awaited onc
     // (the bookings also take the Venue scene's stored config from the scene rows — one read fewer, 2026-10-12)
     [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig)'],
     [MEDIA, 'ownsStdRevealAhead', 'eventStdOpeningsActive(admin, event.event_id)'],
+    // 🏷 the plan's Setnayan mark (Build 6 Lane L)
+    [MEDIA, 'setnayanMarkAhead', 'eventSetnayanMark(admin, event.event_id)'],
     [LIVE, 'hostCameraOpenAhead', 'eventPapicGuestActive(admin, event.event_id)'],
   ] as const) {
     assert.equal(count(src.replace(/\s+/g, ' '), `const ${name} = startAhead( ${call}, );`) + count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);

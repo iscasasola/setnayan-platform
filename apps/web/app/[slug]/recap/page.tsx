@@ -1,4 +1,5 @@
 import { RoomFooter } from '../_components/room-footer';
+import { EventSetnayanMarkLine } from '../_components/event-setnayan-mark';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import type { RoomLink } from '../_lib/room-links';
 import { cache } from 'react';
@@ -229,7 +230,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
             Open their page
           </Link>
         </div>
-        <RecapFooter hideWatermark={hideWatermark} />
+        <RecapFooter hideWatermark={hideWatermark} eventId={event.event_id} />
         <RoomFooter links={roomLinks} />
     </main>
     );
@@ -292,7 +293,7 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           storyFilename={storyFilename}
         />
       </article>
-      <RecapFooter />
+      <RecapFooter hideWatermark={hideWatermark} eventId={event.event_id} />
       <RoomFooter links={roomLinks} />
     </main>
   );
@@ -314,14 +315,13 @@ function RecapHeader() {
   );
 }
 
-function RecapFooter({ hideWatermark = false }: { hideWatermark?: boolean }) {
+function RecapFooter({ hideWatermark = false, eventId = null }: { hideWatermark?: boolean; eventId?: string | null }) {
   return (
     <footer className="border-t border-ink/10 px-4 py-8 text-center">
       <p className="font-serif text-lg italic text-terracotta-700">A living memory.</p>
-      {/* Paid COUPLE_WEBSITE_PRO perk — drop the freemium watermark when active. */}
-      {hideWatermark ? null : (
-        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
-      )}
+      {/* 🏷 The event plan's mark (Build 6 Lane L): Free watermark · Event Plus one quiet line · Event Pro none.
+          `hideWatermark` (Full Pro, read above) still drops it outright — a lost plan read never shows it on Pro. */}
+      {hideWatermark ? null : <EventSetnayanMarkLine eventId={eventId} className="mt-3 text-xs text-ink/70" />}
     </footer>
   );
 }

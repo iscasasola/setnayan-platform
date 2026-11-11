@@ -149,7 +149,8 @@ test('4 · every old link still lands', () => {
   // 🔁 UPDATED ON PURPOSE 2026-11-08 (release gate, "every Shop cover sheet reloads the whole page"): the Shop tab's ⚙
   // rows now come WITH the page, streamed (`shopGearBodyAlways(sp)` in a <Suspense>), and its door opens them locally
   // (`ShopSettings … local`). Same intent — the ⚙ always has its rows behind it — one form of it.
-  assert.ok(rows.length >= 5, `only ${rows.length} Shop section files walked`);
+  // 🎠 4 since 11 Nov 2026: the old Analytics page is no Shop sub-screen any more — Analytics IS the Shop tab's carousel.
+  assert.ok(rows.length >= 4, `only ${rows.length} Shop section files walked`);
   assert.match(src('shop', 'page.tsx'), /gearBody=\{<Suspense fallback=\{<SheetOpening\b[^}]*\}>\{shopGearBodyAlways\(sp\)\}<\/Suspense>\}/, 'the Shop tab’s ⚙ can never open');
   assert.match(src('shop', '_components', 'shop-settings-body.tsx'), /export function shopGearBodyAlways\([^)]*\) \{\s*return <ShopSettingsBody\b/, 'the Shop tab’s ⚙ has no rows behind it');
   assert.match(src('collections', '_components', 'portfolio-view.tsx'), /<PortfolioSettings\b/, 'the Portfolio tab lost its ⚙');

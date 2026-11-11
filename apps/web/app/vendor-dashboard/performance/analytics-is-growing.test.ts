@@ -29,9 +29,9 @@ const CAROUSEL = 'app/vendor-dashboard/performance/_components/analytics-carouse
 const TILE = 'app/vendor-dashboard/performance/_components/graph-tile.tsx';
 
 test('1 · two windows, chosen inside each card, built once from the same reads', () => {
-  assert.deepEqual(GROWTH_WINDOWS.map((w) => w.key), ['30', '12']);
+  assert.deepEqual(GROWTH_WINDOWS.map((w) => [w.key, w.label.replace(/^Last /, '')]), [['30', '30 days'], ['12', '12 months']]);
   const car = read(CAROUSEL);
-  assert.match(car, /\{ key: '30', label: '30 days' \},\s*\{ key: '12', label: '12 months' \}/);
+  assert.match(car, /= GROWTH_WINDOWS\.map\(/, 'the switch types its own windows');
   assert.match(car, /const \[wins, setWins\] = useState<Partial<Record<CardKey, GrowthWindow>>>\(\{\}\);/, 'the window is not per card');
   assert.match(
     car,

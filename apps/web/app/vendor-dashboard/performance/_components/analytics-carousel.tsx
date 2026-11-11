@@ -5,7 +5,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { formatCount } from '@/lib/format-number';
-import type { GrowthWindow } from '@/lib/analytics-growing';
+import { GROWTH_WINDOWS, type GrowthWindow } from '@/lib/analytics-growing';
 import type { NewGraphs } from '@/lib/vendor-analytics-graphs';
 import type { GrowthRec, GrowthRecKey } from '@/lib/vendor-growth-recs';
 import { graphSpecsFor, type GraphKey } from './analytics-growing';
@@ -38,10 +38,8 @@ import type { GrowthView, Totals } from './growth-view';
  * 🔒 shop/analytics-is-the-carousel.test.ts · performance/every-graph-is-a-tile.test.ts
  */
 
-export const WINDOW_OPTIONS = [
-  { key: '30', label: '30 days' },
-  { key: '12', label: '12 months' },
-] as const;
+/** The switch's two buttons — the ONE window list (`GROWTH_WINDOWS`), its "Last …" dropped: "30 days" · "12 months". */
+export const WINDOW_OPTIONS: readonly { key: GrowthWindow; label: string }[] = GROWTH_WINDOWS.map((w) => ({ key: w.key, label: w.label.replace(/^Last /, '') }));
 
 const WINDOW_WORD: Record<GrowthWindow, string> = { '30': 'in the last 30 days', '12': 'in the last 12 months' };
 

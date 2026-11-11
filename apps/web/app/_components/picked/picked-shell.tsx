@@ -38,6 +38,7 @@ import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
 import { nextPanelTabId, PickedHeadContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
   PICKED_OPEN_MS,
@@ -92,6 +93,8 @@ export type PickedShellProps<P extends string> = {
    * 0 / null / absent draws nothing.
    */
   badges?: Partial<Record<P, number | null>>;
+  /** The side's own reading of a raw `?tab=` / legacy `#hash` (its alias table); absent = the page ids only. */
+  pageOf?: (raw: string) => P | null;
 };
 
 export function PickedShell<P extends string>({
@@ -109,6 +112,7 @@ export function PickedShell<P extends string>({
   gear = null,
   fillPages = [],
   badges = {},
+  pageOf,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -131,11 +135,19 @@ export function PickedShell<P extends string>({
   const closingRef = useRef(false);
   const headingId = useId();
 
-  // The URL may name a page the server could not see (a hash, a client-side replace) — read it once after mount.
+  // The URL may name a page the server could not see (a legacy `#payments`, a client-side replace) — read it once
+  // after mount. `?tab=` wins; a hash only when there is no `?tab=`, and then the URL is rewritten to `?tab=`.
   useEffect(() => {
     try {
-      const t = new URLSearchParams(window.location.search).get('tab');
-      if (t && t !== page && menu.some((m) => m.id === t)) setPage(t as P);
+      const found = pickedPageFromUrl<P>(window.location.search, window.location.hash, menu.map((m) => m.id), pageOf);
+      if (!found) return;
+      if (found.page !== page) setPage(found.page);
+      if (found.fromHash) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', found.page);
+        url.hash = '';
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
     } catch {
       /* keep the server's page */
     }

@@ -49,8 +49,9 @@ test('📐 .hc-face is the flex column that puts the unit and the small line on 
   const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
   const rule = css.match(/\n\.hc-face \{([^}]*)\}/);
   assert.ok(rule, '.hc-face rule not found in globals.css');
-  assert.match(rule[1], /display:\s*flex/, '.hc-face is no longer a flex box');
-  assert.match(rule[1], /flex-direction:\s*column/, '.hc-face no longer stacks its spans');
+  const body = rule[1] ?? '';
+  assert.match(body, /display:\s*flex/, '.hc-face is no longer a flex box');
+  assert.match(body, /flex-direction:\s*column/, '.hc-face no longer stacks its spans');
 });
 
 /** Index just past the `</div>` closing the `<div …>` that `html` starts with. */

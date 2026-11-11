@@ -53,12 +53,11 @@ test('the sections, once each, in the owner\'s eleven-step order (THE ONE BUILD,
 });
 
 test('11 · the total, Save and the ONE Send ride a pinned bar; the name is the first field', () => {
-  const bar = maker.slice(maker.indexOf('data-quote-pinned-bar'));
-  assert.ok(maker.indexOf('data-quote-pinned-bar') > 0, 'the pinned bar is gone');
-  assert.match(bar.slice(0, 900), /className="sticky z-sn-sticky\b/, 'the bar is not pinned on the page layer token (spec §10 #23)');
-  assert.match(bar.slice(0, 900), /bottom: 'max\(var\(--sn-bottomdock-h, 0px\), var\(--sn-thumb-room, 0px\)\)'/, 'the bar sits UNDER the dock / thumb row');
-  // `sticky` only pins when no ancestor inside the form is a scroll box: the form clips, it does not scroll.
-  assert.match(maker, /className="overflow-clip rounded-2xl border border-ink\/10 bg-cream shadow-sm"/, 'an overflow-hidden form makes the bar inert');
+  const bar = maker.slice(maker.indexOf('<QuotePinnedBar'));
+  assert.ok(maker.indexOf('<QuotePinnedBar') > 0, 'the pinned bar is gone');
+  // The bar is PORTALED and fixed to the screen — never `sticky` inside a scroll box it cannot escape (live 12 Nov 2026);
+  // where it lands and what it stands on are held by `the-quote-bar-is-pinned.test.ts`.
+  assert.match(maker, /<QuotePinnedBar formRef=\{formRef\}>/, 'the bar left the pinned layer');
   assert.match(bar, /data-quote-answer=""[\s\S]{0,300}formatCentavos\(netPayable\)/, 'the total left the bar');
   assert.ok(bar.indexOf('<SubmitButton') > 0, 'Send is not in the pinned bar');
   assert.match(bar.slice(0, bar.indexOf('<SubmitButton')), />\s*Save\s*</, 'Save is not beside Send');

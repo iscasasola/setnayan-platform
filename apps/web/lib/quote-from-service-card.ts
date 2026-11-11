@@ -100,6 +100,8 @@ export type QuoteSeedDiscount = {
   /** "Booked 6+ months ahead · −10%" / "₱2,000 off · bundle" — `BestDiscount.label`. */
   reason: string;
   type: BestDiscount['type'];
+  /** 🏷 When the winner is one of the shop's Offer Maker offers — so the quote's "Apply an offer" never offers it twice. */
+  offerId?: string | null;
 };
 
 export type QuoteSeedSchedule = {
@@ -382,7 +384,7 @@ export function quoteFromServiceCards(input: QuoteFromCardsInput): ServiceCardQu
       // qualified for; applying it would promise a rung the date may not earn.
       // 🏷 A season offer (Build 6 Lane D) is for events inside its window — with no event date it is not applied either.
       if (best && best.savingsPhp > 0 && best.leadTier !== 'up-to' && !(best.eventWindow && !input.eventDate)) {
-        discount = { php: best.savingsPhp, reason: best.label, type: best.type };
+        discount = { php: best.savingsPhp, reason: best.label, type: best.type, offerId: best.offerId ?? null };
       }
     }
 

@@ -255,6 +255,7 @@ export function CanvasMaker({
   deleteGate = null,
   errorLine = null,
   returnTo,
+  quoteReturn = null,
   unread = [],
   giftPacks = null,
   giftFree = null,
@@ -332,6 +333,12 @@ export function CanvasMaker({
   errorLine?: string | null;
   /** This screen's own address — the save returns here with a refusal. */
   returnTo?: string;
+  /**
+   * ＋ OPENED FROM A QUOTE (owner 11 Nov 2026, "Make a new card" on the quote): where the quote is
+   * (`lib/quote-card-return.ts`, already checked by the page), posted as `quote_return` (= `QUOTE_RETURN_FIELD`). A new
+   * card's save returns there with the card.
+   */
+  quoteReturn?: string | null;
   /**
    * Parts of an existing card that could not be read. The save REPLACES these lists, so saving over an unread one
    * would erase it — Save waits, and the card says what could not be read (never "none").
@@ -1068,6 +1075,7 @@ export function CanvasMaker({
           <input type="hidden" name="gift_pack_code" value={giftPick && giftPick !== GIFT_SETNAYAN ? giftPick : ''} />
           <input type="hidden" name="schedule_choice" value={scheduleChoice === scheduleNow ? '' : scheduleChoice} />
           {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+          {quoteReturn ? <input type="hidden" name="quote_return" value={quoteReturn} /> : null}
 
           {/* ═══ ONE PAGE OF FIELDS — Name · Specialties · Price · What's included · Extras · Gift · Photos ═══
               The prototype's one rhythm: a label · its 48 px box · a quiet hint; a topic after the first opens with a

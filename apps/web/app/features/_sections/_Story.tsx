@@ -3,10 +3,13 @@ import Link from 'next/link';
 
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 import { featureHref, featurePage } from '@/lib/feature-pages';
-import { FEATURE_ROWS, PERSONAS, PRICE_WORDS, type Chapter, type FeatureRow, type Persona, type RowId } from '@/lib/features-page';
+import { FEATURE_ROWS, PERSONAS, PRICE_WORDS, type Chapter, isComing, type FeatureRow, type Persona, type RowId } from '@/lib/features-page';
+import { Explain } from '@/app/_components/explain';
 import s from '../features-story.module.css';
-import { Moment } from '../_story-moments';
-import { InfoIcon, StoryIcon } from '../_story-icons';
+import { Moment } from '../_story-sample-moments';
+import { StoryIcon } from '../_story-icons';
+import { RowSheet } from '../_row-sheet';
+import { ComingChip } from '../_coming-chip';
 
 /**
  * THE STORY — /features v3 (owner-approved 11 Nov; DECISION_LOG "FEATURES PAGE v3 — APPROVED"). The life of an
@@ -16,72 +19,16 @@ import { InfoIcon, StoryIcon } from '../_story-icons';
  * All four personas are drawn on the server (search engines and screen readers get every row); the "I am" pick in
  * the hero shows one (`PersonaScope`, CSS on `data-persona`). A row:
  *   · links to its own feature page when it has one (the hub's links to `/features/<slug>` live on here);
- *   · otherwise opens its Problem → Solution, like its ⓘ — drawn here, hidden, and lifted into the sheet;
+ *   · carries the house ⓘ (`<Explain>` — the app's one ⓘ, `there-is-one-info-dot.test.ts`): Problem → Solution →
+ *     Why, in a centred popup on a phone and an attached note on a computer (`_row-sheet.tsx`);
  *   · wears the "Coming" chip and a dashed icon when it is planned, and its ⓘ names the lane or ruling.
  *
  * English only: the rows have no Taglish yet, so /tl/features keeps its shipped groups (see `_PageBody.tsx`).
  */
 
-function RowSheet({ id, persona }: { id: RowId; persona: Persona['key'] }) {
-  const f: FeatureRow = FEATURE_ROWS[id];
-  const coming = f.status === 'coming';
-  const page = f.page ? featurePage(f.page) : undefined;
-  const planLine = coming
-    ? `Planned · ${f.plan ?? 'next'}`
-    : f.plan
-      ? `Live · still to come: ${f.plan}`
-      : 'Live';
-  const start = persona === 'suppliers' ? { href: '/for-suppliers', label: 'Open a shop · free' } : { href: '/signup', label: 'Start planning · free' };
-  return (
-    <>
-      <div className={s.shHead}>
-        <span className={s.glyph}>
-          <StoryIcon name={f.icon} className={s.ic} />
-        </span>
-        <div>
-          <div className={s.shName}>
-            {f.name}
-            {coming ? <span className={`${s.chip} ${s.chipWait} ${s.tag}`}>Coming</span> : null}
-          </div>
-          <div className={s.shPrice}>{PRICE_WORDS[f.price]}</div>
-        </div>
-      </div>
-      <dl className={s.ps}>
-        <dt>Problem</dt>
-        <dd>{f.problem}</dd>
-        <dt>Solution</dt>
-        <dd>{f.solution}</dd>
-        <dt>Why it matters</dt>
-        <dd>{f.why}</dd>
-      </dl>
-      <p className={s.shPlan}>{planLine}</p>
-      {coming ? null : (
-        <div className={s.shActions}>
-          {page?.tryHref ? (
-            <a className={`${s.btn} ${s.btnFill}`} href={page.tryHref}>
-              <StoryIcon name="door" className={s.bi} />
-              <span>Try it</span>
-            </a>
-          ) : page ? (
-            <a className={`${s.btn} ${s.btnFill}`} href={featureHref(page.slug, 'en')}>
-              <StoryIcon name="door" className={s.bi} />
-              <span>Open {page.name.en}</span>
-            </a>
-          ) : (
-            <a className={`${s.btn} ${s.btnFill}`} href={start.href}>
-              <StoryIcon name="door" className={s.bi} />
-              <span>{start.label}</span>
-            </a>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
 function Row({ id, cid, persona }: { id: RowId; cid: string; persona: Persona['key'] }) {
   const f: FeatureRow = FEATURE_ROWS[id];
-  const coming = f.status === 'coming';
+  const coming = isComing(f);
   const rid = `${cid}-${id}`;
   const page = f.page ? featurePage(f.page) : undefined;
   const inner = (
@@ -92,7 +39,7 @@ function Row({ id, cid, persona }: { id: RowId; cid: string; persona: Persona['k
       <span className={s.body}>
         <span className={s.name}>
           {f.name}
-          {coming ? <span className={`${s.chip} ${s.chipWait} ${s.tag}`}>Coming</span> : null}
+          {coming ? <ComingChip /> : null}
         </span>
         <span className={s.line}>{f.line}</span>
         <span className={s.meta}>
@@ -109,16 +56,11 @@ function Row({ id, cid, persona }: { id: RowId; cid: string; persona: Persona['k
           {inner}
         </Link>
       ) : (
-        <button type="button" className={s.door} data-info={rid} aria-haspopup="dialog">
-          {inner}
-        </button>
+        <div className={s.door}>{inner}</div>
       )}
-      <button type="button" className={s.info} aria-label={`About ${f.name}`} aria-haspopup="dialog" data-info={rid}>
-        <InfoIcon />
-      </button>
-      <div hidden data-sheet={rid}>
+      <Explain title={f.name} label={`About ${f.name}`} className={s.info} data={rid}>
         <RowSheet id={id} persona={persona} />
-      </div>
+      </Explain>
     </li>
   );
 }

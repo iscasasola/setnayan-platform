@@ -176,9 +176,13 @@ test('the v3 story and its Plans compare show no internals either — every row,
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FeaturesStory } = await import('./_sections/_Story');
   const { PlansCompare } = await import('./_plans-view');
+  const { RowSheet } = await import('./_row-sheet');
+  const { PERSONAS, rowsOf } = await import('@/lib/features-page');
   const html = [
     renderToStaticMarkup(React.createElement(FeaturesStory, { locale: 'en' })),
     renderToStaticMarkup(React.createElement(PlansCompare, { rows: null })),
+    // Every ⓘ body — the house <Explain> only draws it on a press, so it is painted here directly.
+    ...PERSONAS.flatMap((p) => rowsOf(p).map((id) => renderToStaticMarkup(React.createElement(RowSheet, { id, persona: p.key })))),
   ].join('\n');
   const strings = visibleStrings(html);
   console.log(`[no-internals] /features v3 story + plans: ${strings.length} visible strings`);

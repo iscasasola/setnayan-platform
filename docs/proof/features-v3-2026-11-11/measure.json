@@ -1,355 +1,147 @@
 {
  "light-320": {
-  "W": 320,
-  "scopeW": 320,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 320,
+  "scopeWidth": 320,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 320,
-   "scopeW": 320,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "light-375": {
-  "W": 375,
-  "scopeW": 375,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 375,
+  "scopeWidth": 375,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 375,
-   "scopeW": 375,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "light-390": {
-  "W": 390,
-  "scopeW": 390,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 390,
+  "scopeWidth": 390,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 390,
-   "scopeW": 390,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "light-1280": {
-  "W": 1280,
-  "scopeW": 1040,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/506",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "582/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/506",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 1280,
+  "scopeWidth": 1040,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/506",
+   "chMoment": "582/16",
+   "chRows": "16/506",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 1280,
-   "scopeW": 1040,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/506",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "582/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/506",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "dark-320": {
-  "W": 320,
-  "scopeW": 320,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 320,
+  "scopeWidth": 320,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 320,
-   "scopeW": 320,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "dark-375": {
-  "W": 375,
-  "scopeW": 375,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 375,
+  "scopeWidth": 375,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 375,
-   "scopeW": 375,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "dark-390": {
-  "W": 390,
-  "scopeW": 390,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 390,
+  "scopeWidth": 390,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 390,
-   "scopeW": 390,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/16",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "16/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "dark-1280": {
-  "W": 1280,
-  "scopeW": 1040,
-  "overflow": "none",
-  "checked": 26,
-  "bad": [],
-  "samples": {
-   "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-   "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/506",
-   "features-story_chMoment__58raE.features-story_gut__PXL1O": "582/16",
-   "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/506",
-   "features-story_gut__PXL1O": "16/16",
-   "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-   "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
+  "viewport": 1280,
+  "scopeWidth": 1040,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/506",
+   "chMoment": "582/16",
+   "chRows": "16/506",
+   "gut": "16/16",
+   "closeIn": "16/16"
   },
-  "offPage": [
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h",
-   "IMG.features-story_stripImg___sx6h"
-  ],
   "hashPersona": "suppliers",
-  "suppliersMeasure": {
-   "W": 1280,
-   "scopeW": 1040,
-   "overflow": "none",
-   "checked": 22,
-   "bad": [],
-   "samples": {
-    "features-story_heroIn__3t3iA.features-story_gut__PXL1O": "16/16",
-    "features-story_chHead__RgQS2.features-story_gut__PXL1O": "16/506",
-    "features-story_chMoment__58raE.features-story_gut__PXL1O": "582/16",
-    "features-story_chRows__HK_2b.features-story_gut__PXL1O": "16/506",
-    "features-story_gut__PXL1O": "16/16",
-    "features-story_gut__PXL1O.features-story_wide__IQS2_": "16/16",
-    "features-story_closeIn__wONev.features-story_gut__PXL1O": "16/16"
-   },
-   "offPage": [
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h",
-    "IMG.features-story_stripImg___sx6h"
-   ]
-  }
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
  },
  "reducedMotion": {
   "firstGuestOpacity": "1",

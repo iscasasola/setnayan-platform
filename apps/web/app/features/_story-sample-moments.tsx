@@ -424,7 +424,7 @@ export function Moment({ kind }: { kind: MomentKind }) {
               <span>Shift everything</span>
             </button>
           </div>
-          <p className={s.moCap}>Move one moment and every supplier’s time moves with it. Nothing hard-locks.</p>
+          <p className={s.moCap}>Move one moment and every supplier’s time moves with it. Nothing is set in stone.</p>
         </div>
       );
     case 'family':

@@ -16,7 +16,7 @@
  *   5 · the house words: no "vendor", "website", "site", "celebration", no typed peso; plan prices only by code.
  *
  * MUTATION (each seen red once, 2026-11-11): flip `a42` to 'live' → 1 fails · delete `chats` → 1 and 3 fail ·
- * drop a42's `plan` → 2 fails · remove the chip from `Row` in `_Story.tsx` → 4 fails · write "₱500" in a line or a price word → 5 fails.
+ * drop a42's `plan` → 2 fails · remove the chip from `Row` (`_Story.tsx`) or `RowSheet` → 4 fails · write "₱500" in a line or a price word → 5 fails.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -130,21 +130,33 @@ test('3 · every row is on the page, and the register coverage stays whole (A 73
   }
 });
 
-test('4 · the painted page agrees: "Coming" on every planned row, never on a live one', async () => {
+test('4 · the painted page agrees: "Coming" on every planned row, never on a live one — and its ⓘ names the plan', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FeaturesStory } = await import('../app/features/_sections/_Story');
+  const { RowSheet } = await import('../app/features/_row-sheet');
   const html = renderToStaticMarkup(React.createElement(FeaturesStory, { locale: 'en' }));
   const rows = [...html.matchAll(/<li[^>]*\bdata-row="(\w+)"[^>]*\bdata-status="(\w+)"[^>]*>([\s\S]*?)<\/li>/g)];
   const expected = PERSONAS.reduce((n, p) => n + rowsOf(p).length, 0);
   assert.equal(rows.length, expected, `painted ${rows.length} rows, the chapters list ${expected}`);
   const bad: string[] = [];
   for (const [, id, status, inner] of rows) {
-    if (status !== ROWS[id as RowId].status) bad.push(`${id}: painted ${status}, the module says ${ROWS[id as RowId].status}`);
-    // Twice per coming row: on the row, and in its ⓘ sheet.
+    const row = ROWS[id as RowId];
+    if (status !== row.status) bad.push(`${id}: painted ${status}, the module says ${row.status}`);
     const chips = (inner!.match(/>Coming</g) ?? []).length;
-    if (status === 'coming' && chips !== 2) bad.push(`${id}: planned, but drew ${chips} of 2 "Coming" chips`);
+    if (status === 'coming' && chips !== 1) bad.push(`${id}: planned, but the row drew ${chips} "Coming" chips`);
     if (status === 'live' && chips !== 0) bad.push(`${id}: live, but wears "Coming"`);
-    if (status === 'coming' && !inner!.includes(`Planned · ${ROWS[id as RowId].plan}`)) bad.push(`${id}: its ⓘ does not name the plan`);
+    if (!inner!.includes(`aria-label="About ${row.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)) bad.push(`${id}: the row has no ⓘ`);
+  }
+  // The ⓘ's body (the house <Explain> draws it on a press): Coming + the plan for a planned row; never for a live one.
+  for (const p of PERSONAS) {
+    for (const id of rowsOf(p)) {
+      const sheet = renderToStaticMarkup(React.createElement(RowSheet, { id, persona: p.key }));
+      const row = ROWS[id];
+      const said = sheet.includes('>Coming<');
+      if (row.status === 'coming' && (!said || !sheet.includes(`Planned · ${row.plan}`))) bad.push(`${id}: its ⓘ does not say Coming · ${row.plan}`);
+      if (row.status === 'live' && (said || sheet.includes('Planned'))) bad.push(`${id}: live, but its ⓘ says Coming`);
+      if (!sheet.includes(row.problem.replace(/&/g, '&amp;').replace(/"/g, '&quot;'))) bad.push(`${id}: its ⓘ lost the Problem`);
+    }
   }
   assert.deepEqual(bad, [], `\n  ${bad.join('\n  ')}`);
 });

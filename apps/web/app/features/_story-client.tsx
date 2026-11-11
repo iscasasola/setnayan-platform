@@ -2,8 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import s from './features-story.module.css';
-import { ChevIcon } from './_story-icons';
 
 /**
  * The /features story's ONE client island (v3, owner-approved 11 Nov). Everything a visitor reads is server-rendered;
@@ -11,7 +11,7 @@ import { ChevIcon } from './_story-icons';
  *   · keeps the "I am" choice, in the URL hash (#guests · #suppliers · #coordinators; Hosts is the bare page);
  *   · starts each live moment when it scrolls into view (and its counter), and leaves every moment finished, still,
  *     under "reduce motion";
- *   · opens a row's ⓘ — the Problem → Solution the server already drew beside the row — in one bottom sheet.
+ *   · (a row's ⓘ is the house <Explain>, in `_sections/_Story.tsx` — one look and one popup for every ⓘ in the app.)
  * It imports no feature data: the rows stay in the HTML, never in the JavaScript (the 202.3 KB budget).
  */
 
@@ -48,8 +48,6 @@ function countUp(el: HTMLElement) {
 export function PersonaScope({ children }: { children: ReactNode }) {
   const [persona, setPersona] = useState<PersonaChoice>('hosts');
   const root = useRef<HTMLDivElement>(null);
-  const sheet = useRef<HTMLDialogElement>(null);
-  const sheetBody = useRef<HTMLDivElement>(null);
 
   // The hash is the choice: read it once, and follow it when a link changes it.
   useEffect(() => {
@@ -110,35 +108,22 @@ export function PersonaScope({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, []);
 
-  // ⓘ and the run-of-show "Shift everything" — one listener for the whole story.
+  // The run of show's "Shift everything" — it moves the times on the picture, nothing else.
   useEffect(() => {
     const el = root.current;
     if (!el) return;
     const click = (ev: MouseEvent) => {
-      const target = ev.target as HTMLElement;
-      const info = target.closest<HTMLElement>('[data-info]');
-      if (info && el.contains(info)) {
-        const src = el.querySelector<HTMLElement>(`[data-sheet="${info.dataset.info}"]`);
-        const dlg = sheet.current;
-        if (!src || !dlg || !sheetBody.current) return;
-        ev.preventDefault();
-        sheetBody.current.replaceChildren(...Array.from(src.cloneNode(true).childNodes));
-        dlg.showModal();
-        return;
-      }
-      const shift = target.closest<HTMLElement>('[data-shift]');
-      if (shift && el.contains(shift)) {
-        const mo = shift.closest('[data-mo]');
-        mo?.querySelectorAll<HTMLElement>('[data-t]').forEach((t) => {
-          const m = /(\d+):(\d+) (\w+)/.exec(t.dataset.t ?? '');
-          if (!m) return;
-          const mins = (Number(m[1]) % 12) * 60 + Number(m[2]) + 12;
-          t.textContent = `${Math.floor(mins / 60) % 12 || 12}:${String(mins % 60).padStart(2, '0')} ${m[3]}`;
-        });
-        const label = shift.querySelector('span:last-child');
-        if (label) label.textContent = 'Shifted +12 min';
-        shift.setAttribute('disabled', '');
-      }
+      const shift = (ev.target as HTMLElement).closest<HTMLElement>('[data-shift]');
+      if (!shift || !el.contains(shift)) return;
+      shift.closest('[data-mo]')?.querySelectorAll<HTMLElement>('[data-t]').forEach((t) => {
+        const m = /(\d+):(\d+) (\w+)/.exec(t.dataset.t ?? '');
+        if (!m) return;
+        const mins = (Number(m[1]) % 12) * 60 + Number(m[2]) + 12;
+        t.textContent = `${Math.floor(mins / 60) % 12 || 12}:${String(mins % 60).padStart(2, '0')} ${m[3]}`;
+      });
+      const label = shift.querySelector('span:last-child');
+      if (label) label.textContent = 'Shifted +12 min';
+      shift.setAttribute('disabled', '');
     };
     el.addEventListener('click', click);
     return () => el.removeEventListener('click', click);
@@ -148,46 +133,27 @@ export function PersonaScope({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ persona, choose }}>
       <div ref={root} className={s.scope} data-persona-active={persona}>
         {children}
-        <dialog
-          ref={sheet}
-          className={s.sheet}
-          aria-label="Feature details"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) e.currentTarget.close();
-          }}
-        >
-          <div className={s.grab} />
-          <button type="button" className={s.sheetX} aria-label="Close" onClick={() => sheet.current?.close()}>
-            ×
-          </button>
-          <div ref={sheetBody} />
-        </dialog>
       </div>
     </Ctx.Provider>
   );
 }
 
-/** The hero's "I am" pick. */
+/** The hero's "I am" pick — the app's one dropdown (`PickMenu`), never a raw select. */
 export function PersonaPicker({ label, options }: { label: string; options: readonly { key: PersonaChoice; label: string }[] }) {
   const { persona, choose } = useContext(Ctx);
   return (
-    <label className={s.pick}>
+    <div className={s.pick}>
       <span className={s.pl}>{label}</span>
-      <select
-        aria-label="Who are you"
+      <PickMenu
+        label="Who are you"
         value={persona}
-        onChange={(e) => {
-          if (isChoice(e.target.value)) choose(e.target.value);
+        options={options.map((o) => ({ key: o.key, label: o.label }))}
+        onPick={(k) => {
+          if (isChoice(k)) choose(k);
         }}
-      >
-        {options.map((o) => (
-          <option key={o.key} value={o.key}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevIcon className={s.chev} />
-    </label>
+        dataAttr="data-persona-pick"
+      />
+    </div>
   );
 }
 
@@ -208,17 +174,16 @@ export function PlanKinds({
   const [kind, setKind] = useState(options[0]?.key ?? '');
   return (
     <>
-      <label className={s.pick}>
+      <div className={s.pick}>
         <span className={s.pl}>{label}</span>
-        <select aria-label="Which plans" value={kind} onChange={(e) => setKind(e.target.value)}>
-          {options.map((o) => (
-            <option key={o.key} value={o.key}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevIcon className={s.chev} />
-      </label>
+        <PickMenu
+          label="Which plans"
+          value={kind}
+          options={options.map((o) => ({ key: o.key, label: o.label }))}
+          onPick={setKind}
+          dataAttr="data-plan-pick"
+        />
+      </div>
       {options.map((o) => (
         <div key={o.key} hidden={o.key !== kind}>
           {o.panel}

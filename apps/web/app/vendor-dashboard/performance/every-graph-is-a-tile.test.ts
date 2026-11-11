@@ -3,15 +3,16 @@
  * `build6_makers_analytics_2026-11-10` "Proposed · one Analytics", approved 10 Nov: *"No dupes. we want graphs that will
  * help them. tapping shows a recommendation from us on what they need to do."* → *"All five"*).
  *
- *   1. ONE Analytics: thirteen graphs, each drawn ONCE as a tile, in the six sections — the five live Shop carousel cards
- *      folded into the tile that owns their fact (the dedupe table), the five new graphs a–e beside them.
+ *   1. ONE Analytics — since 11 Nov 2026 the Shop tab's carousel (owner: *"Analytics should be the carousel"*): twelve
+ *      graphs, each built ONCE per window (`graphSpecsFor`) and drawn as ONE card (Opened · Asked · Booked are the three
+ *      count cards in front of them — `shop/analytics-is-the-carousel.test.ts`).
  *   2. Every tile names its data (`src`) before it draws.
  *   3. A tap rises into THE one Rise full screen (`RiseScreen`, Build 5 Lane A) — no second rise.
  *   4. ONE recommendation, from `buildGrowthRecs` only, and only on a tile whose numbers are real (`ok`): an Example tile
  *      and a refused tile never carry advice. Every rec key a graph points at is a real rule.
  *   5. Empty draws the real picture with sample data, faded, marked "Example"; refused says "Couldn’t load." — never the
  *      Example, never a zero. The five new graphs are refused exactly when their read is `null`.
- *   6. The page feeds it: `readNewGraphs` on the session + the admin client, handed down as `graphs`.
+ *   6. The section feeds it: `readNewGraphs` on the session + the admin client, per window, handed down as `graphs`.
  *
  * Source-reading, comments stripped (`stripComments`), so a docblock that MENTIONS a symbol never satisfies a pin.
  */
@@ -28,9 +29,10 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const TREE = 'app/vendor-dashboard/performance/_components/analytics-growing.tsx';
 const TILE = 'app/vendor-dashboard/performance/_components/graph-tile.tsx';
-const PAGE = 'app/vendor-dashboard/performance/page.tsx';
+const PAGE = 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx';
+const CAROUSEL = 'app/vendor-dashboard/performance/_components/analytics-carousel.tsx';
 
-const GRAPHS = ['lanes', 'sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price'] as const;
+const GRAPHS = ['sources', 'cardsell', 'reply', 'replyvs', 'quotes', 'split', 'calendar', 'lost', 'slow', 'rep', 'bench', 'price'] as const;
 const NEW = ['lost', 'cardsell', 'replyvs', 'slow', 'quotes'] as const;
 /** The live Shop carousel cards, each now inside the tile that owns its fact (prototype "the dedupe table"). */
 const ABSORBED = ['split', 'calendar', 'bench', 'price'] as const;
@@ -39,22 +41,22 @@ const ABSORBED = ['split', 'calendar', 'bench', 'price'] as const;
 function spec(tree: string, k: string): string {
   const at = tree.indexOf(`k: '${k}',`);
   assert.ok(at > 0, `no tile spec for "${k}"`);
-  const next = tree.slice(at + 4).search(/\bk: '[a-z]+',|return \(\s*<div data-growth/);
+  const next = tree.slice(at + 4).search(/\bk: '[a-z]+',|\n  return \{ /);
   return tree.slice(at, next < 0 ? undefined : at + 4 + next);
 }
 
-test('1 · thirteen graphs, each drawn once as a tile, in the six sections', () => {
+test('1 · twelve graphs, each built once and drawn as ONE carousel card', () => {
   const tree = read(TREE);
   const keys = [...tree.matchAll(/\bk: '([a-z]+)',/g)].map((m) => m[1]);
   assert.deepEqual([...keys].sort(), [...GRAPHS].sort(), 'every graph has exactly one spec');
-  for (const k of GRAPHS) {
-    const mounts = tree.match(new RegExp(`<GraphTile g=\\{(\\{ \\.\\.\\.)?${k}\\b`, 'g')) ?? [];
-    assert.equal(mounts.length, 1, `"${k}" must be mounted as a tile exactly once (found ${mounts.length})`);
-  }
-  const sections = [...tree.matchAll(/<GraphSection id="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(sections, ['finding', 'asking', 'booking', 'ahead', 'rep', 'compare'], 'the six sections, in the order a supplier asks');
-  // No graph is drawn outside a tile any more — the old folds are gone.
-  assert.ok(!/<Section\b|<Fold\b/.test(tree), 'a graph is drawn in a fold again — every graph is a tile');
+  // The spec builder hands back every graph, once (the bench only when the plan shows it).
+  assert.match(tree, /return \{ sources, cardsell, reply, replyvs, quotes, split, calendar, lost, slow, rep, bench: view\.bench\.show \? bench : null, price \};/);
+  // The carousel draws each spec through ONE card component, once per key.
+  const car = read(CAROUSEL);
+  assert.equal((car.match(/<GraphCard\b/g) ?? []).length, 2, 'a second way of drawing a graph (one for the counts, one for the graphs)');
+  assert.match(car, /const g = specs\[winOf\(k\)\]\[k as GraphKey\];/, 'a graph card is not drawn from its own window’s spec');
+  // No graph is drawn outside a card any more — the old sections and folds are gone.
+  assert.ok(!/<Section\b|<Fold\b|<GraphSection\b|<GraphTile\b/.test(tree), 'a graph is drawn outside a card again');
   for (const k of ABSORBED) assert.match(spec(tree, k), /tag: 'absorb'/, `"${k}" is a live carousel card folded in — tag it`);
   for (const k of NEW) assert.match(spec(tree, k), /tag: 'new'/, `"${k}" is one of the five new graphs`);
 });
@@ -73,7 +75,7 @@ test('2 · every tile names its data before it draws', () => {
 test('3 · a tap rises into THE one Rise full screen — no second rise', () => {
   const tile = read(TILE);
   assert.match(tile, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/);
-  assert.match(tile, /<button\s[\s\S]{0,40}type="button"\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the tile is a button');
+  assert.match(tile, /<button\s+type="button"\s+onClick=\{\(\) => setOpen\(true\)\}/, 'the card is a button');
   assert.match(tile, /\{open \? \(\s*<RiseScreen\b/, 'the tap opens the shared RiseScreen');
   assert.match(tile, /thumb=\{\s*<div className="ag-onedoor" data-graph-door=\{g\.k\}>/, 'the one door sits in the thumb zone');
   assert.ok(!/BodyPanel|createPortal|data-rise-screen=|position:\s*['"]?fixed/.test(tile), 'no rise of its own — the Rise is RiseScreen');
@@ -84,6 +86,8 @@ test('4 · one recommendation, from buildGrowthRecs only, only on a real tile', 
   const tile = read(TILE);
   assert.match(tile, /const rec = g\.state === 'ok' \? g\.rec : null;/, 'an Example or refused tile never carries advice');
   assert.match(tile, /const door = g\.state === 'ok' && g\.rec \? \{ label: g\.rec\.ctaLabel, href: g\.rec\.ctaHref \} : g\.door;/);
+  // The count cards take their rule from the same window's buildGrowthRecs — never copy of their own.
+  assert.match(read(CAROUSEL), /const rec: GrowthRec \| null = w \? \(w\.recs\.find\(\(r\) => r\.key === COUNT_REC\[k\]\) \?\? null\) : null;/);
   assert.match(tree, /const byKey = new Map<GrowthRecKey, GrowthRec>\(w\.recs\.map\(\(r\) => \[r\.key, r\]\)\);/, 'the rec is the window’s own buildGrowthRecs');
   for (const k of GRAPHS) assert.match(spec(tree, k), new RegExp(`rec: recOf\\('${k}'\\)`), `"${k}" takes its rec from GRAPH_REC`);
   // Every key GRAPH_REC names is a rule buildGrowthRecs can return.
@@ -114,10 +118,21 @@ test('5 · empty = the Example picture, faded; refused = "Couldn’t load." — 
   assert.match(tree, /const st = \(unread: boolean, empty: boolean\): GraphState => \(unread \? 'unread' : empty \? 'empty' : 'ok'\);/, 'unread wins over empty');
 });
 
-test('6 · the page reads the five graphs on the right clients and hands them down', () => {
+test('6 · the section reads the five graphs on the right clients, per window, and hands them down', () => {
   const page = read(PAGE);
   assert.match(page, /const newGraphsRead = readNewGraphs\(\{\s*session: supabase,\s*admin: bookingsAdmin,/);
   assert.match(page, /const newGraphs = await newGraphsRead;/);
-  assert.match(page, /graphs=\{newGraphs\}/);
-  assert.ok(!/quietCard:/.test(page), 'no table records card OPENS — "Run an offer on <card>" must never fire on a guess');
+  assert.match(page, /<AnalyticsCarousel view=\{growthView\} graphs=\{newGraphs\} \/>/);
+  // 🔁 "Run an offer on <card>" fires ONLY from the graph's own read — the opens `service_card_opens` counts, through the
+  // one pure rule, per window. Never a guessed open: no other source may feed it.
+  assert.match(page, /const quiet = quietCard\(g\.cardsell\);/, 'the quiet card is not read off the graph');
+  assert.match(page, /quietCard: quiet \? \{ serviceId: quiet\.serviceId, name: quiet\.name \} : null,/);
+  assert.equal([...page.matchAll(/quietCard:/g)].length, 1, 'a second source feeds "Run an offer on <card>"');
+  assert.match(page, /buildGrowthRecs\(recStats, \{ [^}]*\.\.\.recOptsFor\('30'\) \}\)/);
+  assert.match(page, /buildGrowthRecs\(recStats, \{ [^}]*\.\.\.recOptsFor\('12'\) \}\)/);
+  // The opens are read on the shop's OWN session (counts only), never the admin client — both windows in one call.
+  const server = read('lib/vendor-analytics-graphs.server.ts');
+  assert.match(server, /session\.rpc\('service_card_opens', \{ p_vendor_profile_id: [^}]*\}\)/);
+  assert.doesNotMatch(server, /admin\.rpc\('service_card_opens'/);
+  assert.doesNotMatch(server, /p_since/, 'the opens are read twice (one call per window) — the RPC returns both');
 });

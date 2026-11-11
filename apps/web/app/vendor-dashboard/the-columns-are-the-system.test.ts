@@ -32,7 +32,6 @@ function columns(src: string): string[] {
 const TAB_PAGES = [
   'page.tsx', //                    Today (every render path)
   'shop/page.tsx', //               Shop › Services
-  'performance/page.tsx', //        Shop › How it is going
   'website/page.tsx', //            Shop › Page
   'on-the-day/page.tsx', //         Hub
   'customers/page.tsx', //          Customers › People · Dates · Money
@@ -67,11 +66,11 @@ test('Today reads — every side path is the 48-rem column; the working Today fi
   );
 });
 
-test('Shop reads — Services, Page and How it is going', () => {
+test('Shop reads — Services (with its Analytics carousel) and Page', () => {
   for (const c of columns(read('shop/page.tsx'))) assert.match(c, /\btab:max-w-3xl\b|^mx-auto w-full max-w-3xl\b/, `Shop › Services: "${c}"`);
-  const perf = read('performance/page.tsx');
-  assert.match(perf, /<section className="mx-auto w-full max-w-6xl tab:max-w-3xl /, 'How it is going is not the reading column');
-  assert.match(perf, /<div className="mx-auto w-full max-w-xl tab:max-w-none">/, 'its top block keeps a narrower measure of its own');
+  // 🎠 How it is going is the Shop tab's own Analytics carousel since 11 Nov 2026 — it sits in the Shop column above,
+  // and the carousel draws no column of its own.
+  assert.doesNotMatch(read('performance/_components/analytics-carousel.tsx'), /mx-auto w-full|max-w-6xl/, 'the carousel runs a column of its own inside the Shop column');
   assert.match(read('website/page.tsx'), /className="mx-auto w-full max-w-3xl /, 'Shop › Page is not the reading column');
   // The Manpower fold left Shop (owner 2026-11-09, Lane E: "Remove manpower gigs") — Shop has no folds to measure.
   assert.doesNotMatch(read('shop/page.tsx'), /<FeatureAccordion\b/);

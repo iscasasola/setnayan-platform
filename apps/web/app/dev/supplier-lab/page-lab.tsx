@@ -9,7 +9,7 @@
  *   ?s=collections&who=…                      Your collections (Shop › Gallery since v13)
  *   ?s=services&who=…[&fail=1]                🧰 Shop › Services (v13, S5): the pinned row's figures + one row per service
  *                                             with its tools; &fail=1 = the read refused — "—", never 0
- *   ?s=analytics[&shop=sample|new][&win=12][&fail=1]  📈 Shop › Analytics — the real screen on fixture shops (`analytics-lab.tsx`)
+ *   ?s=analytics[&shop=sample|new][&locked=1][&fail=1]  📈 Shop › Analytics — the carousel on fixture shops (`analytics-lab.tsx`)
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
  *
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
@@ -562,7 +562,7 @@ function pageFixture(who: Who): PageClientData {
     addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
-    // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
+    // Page keeps the pills only (owner 2026-11-06); the one tracker is the Shop tab's badge row, under the Analytics carousel.
     badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
     fairWords: LAB_FAIR_WORDS,
   };
@@ -620,7 +620,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false, shop, win }: { state: PageLabState; /** 📈 `&shop=setnaprod|sample|new` on analytics. */ shop?: string; /** 📈 `&win=12` on analytics — the 12-month window open first. */ win?: string; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false, shop, win, locked = false }: { state: PageLabState; /** 🔒 `&locked=1` on analytics — an unverified shop: counts only + the shared lock (Build 6 Lane I). */ locked?: boolean; /** 📈 `&shop=setnaprod|sample|new` on analytics. */ shop?: string; /** 📈 `&win=12` on analytics — the 12-month window open first. */ win?: string; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -681,7 +681,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
   }
   if (state === 'analytics') {
     /* 📈 The real "Analytics, growing" screen on the approved prototype's fixture shops (`analytics-lab.tsx`). */
-    return <AnalyticsLab shop={shop} win={win} fail={fail} />;
+    return <AnalyticsLab shop={shop} fail={fail} locked={locked} />;
   }
   if (state === 'avatar') {
     return (

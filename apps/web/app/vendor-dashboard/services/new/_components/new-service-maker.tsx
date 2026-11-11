@@ -14,7 +14,10 @@ export function NewServiceMaker({
   ctx,
   details,
   error,
+  quoteReturn = null,
 }: {
+  /** ＋ Opened from a quote: where it is (checked by the page, `quoteReturnPath`) — a new card goes back there. */
+  quoteReturn?: string | null;
   vendorProfileId: string;
   shopName: string;
   ctx: MakerContext;
@@ -62,6 +65,7 @@ export function NewServiceMaker({
         }
         errorLine={error}
         returnTo="/vendor-dashboard/services/new"
+        quoteReturn={quoteReturn}
         initial={null}
       />
   );

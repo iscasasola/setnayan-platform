@@ -15,7 +15,8 @@
  *      Derived from `SHOP_SEGMENT_HREF`, so a fourth segment is covered the day
  *      it is added.
  *   2. Every page a segment opens draws the Shop switcher with ITS segment on,
- *      on every return path that renders the page (the tier upsell included).
+ *      on every return path that renders the page. (How it is going is the Shop
+ *      tab's own Analytics carousel since 11 Nov 2026, so it needs none.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -86,7 +87,9 @@ const SCREEN_FOR: Partial<Record<ShopSegment, string>> = {
   dropped; `shop/the-shop-sections-are-v13.test.ts` pins that), and `gallery` is the Portfolio TAB (its own bar tab and
   pinned row — the test above holds it lighting Portfolio). Every other segment is still a sub-screen and keeps it.
 */
-const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery'];
+/* 🎠 And since 11 Nov 2026 (owner: "Analytics should be the carousel"), `insights` is a SECTION of the Shop tab —
+   `/vendor-dashboard/shop#analytics`, the one Analytics carousel — so it is not a sub-screen either. */
+const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery', 'insights'];
 
 test('every page a Shop segment opens draws the Shop switcher with that segment on', () => {
   for (const [seg, href] of Object.entries(SHOP_SEGMENT_HREF) as [ShopSegment, string][]) {
@@ -97,13 +100,10 @@ test('every page a Shop segment opens draws the Shop switcher with that segment 
   }
 });
 
-test('How it is going keeps the switcher on the tier upsell too — every page-rendering return', () => {
-  const src = stripComments(readFileSync(join(VD, 'performance', 'page.tsx'), 'utf8'));
-  // The two returns that draw a page: the tier upsell and the full page.
-  const upsell = src.slice(src.indexOf('canSeePerformanceTrends(tier)'), src.indexOf('<VendorTierGate'));
-  assert.match(upsell, /<ShopSegments\s+on="insights"/, 'the tier upsell lost the Shop switcher');
-  const head = src.indexOf('How is my business doing</h1>');
-  assert.ok(head > 0, 'premise: the page heading moved');
-  const full = src.slice(src.lastIndexOf('return (', head), head);
-  assert.match(full, /<ShopSegments\s+on="insights"/, 'the full page lost the Shop switcher');
+test('How it is going is the Shop tab’s own Analytics carousel — the old page only redirects onto it', () => {
+  assert.equal(SHOP_SEGMENT_HREF.insights, '/vendor-dashboard/shop#analytics', 'How it is going no longer opens the carousel');
+  const shop = stripComments(readFileSync(join(VD, 'shop', 'page.tsx'), 'utf8'));
+  assert.match(shop, /<OneAnalyticsSection\b/, 'the Shop tab lost its Analytics section');
+  const old = stripComments(readFileSync(join(VD, 'performance', 'page.tsx'), 'utf8'));
+  assert.match(old, /redirect\('\/vendor-dashboard\/shop#analytics'\)/, 'the old address no longer lands on the carousel');
 });

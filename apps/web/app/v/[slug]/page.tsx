@@ -3263,6 +3263,9 @@ export async function renderVendorBySlug({
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
           <ServicesPricingSection
+            /* 📈 Each grown-card open counts for "Which card sells" — never on a demo shop or the team's own preview
+               (the same rule as the portfolio photo views above; the database also refuses the shop's own people). */
+            countOpensFor={!isDemoVendor && teamPreview === null ? vendor.vendor_profile_id : null}
             services={activeServices}
             businessName={displayLabel}
             inclusionsByService={inclusionsByService}
@@ -3804,7 +3807,10 @@ function ServicesPricingSection({
   openServicePublicId,
   inspirationByService,
   reviewsByService,
+  countOpensFor,
 }: {
+  /** 📈 The shop whose card opens count (Build 6 Lane I, "Which card sells") — null for a demo shop or a team preview. */
+  countOpensFor: string | null;
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
   inclusionsByService: Map<string, VendorServiceInclusion[]>;
@@ -3961,6 +3967,7 @@ function ServicesPricingSection({
         inquireMode={inquireMode}
         openServicePublicId={openServicePublicId}
         shopName={businessName}
+        countOpensFor={countOpensFor}
       />
     </section>
   );

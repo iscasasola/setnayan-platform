@@ -27,6 +27,11 @@ import {
   type ServiceCardQuoteSeed,
 } from '@/lib/quote-from-service-card';
 import { parseSavedQuoteDraft, type SavedQuoteDraft } from '@/lib/saved-quote';
+import { canUse } from '@/lib/locks';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
+import { parseBundlePlan } from '@/lib/bundle-sums';
+import { readBundleCards, readLockShop } from '@/lib/bundle-cards.server';
+import { quoteSeedFromBundle, type QuoteBundleSeed } from '@/lib/quote-from-bundle';
 
 // The builder imports the seed-line shape from here; it is now defined once,
 // in the pure module both seeds share.
@@ -94,6 +99,11 @@ export type QuoteSeed = {
   lines: QuoteSeedLine[];
   crew: { mode: 'included' | 'charge' | 'offset'; size: number; perHeadPhp: number } | null;
   transport: { mode: 'included' | 'flat' | 'distance'; flatPhp: number } | null;
+  /**
+   * 🧺 Present when the package is a Bundle Maker BUNDLE (its lines are service cards) — the quote opens at the Bundle
+   * Maker's own sums (`quoteSeedFromBundle`): its cards at their lowest, their inclusions, its extra discount, its plan.
+   */
+  bundle?: QuoteBundleSeed;
 };
 
 /**
@@ -117,12 +127,44 @@ export async function loadPackageLinesForQuote(packageId: string): Promise<Quote
   const { data: pkg } = await supabase
     .from('vendor_packages')
     .select(
-      'package_id, vendor_package_items ( service_description, is_default_included, display_order, pricing_basis, replacement_value_centavos, per_pax_price_centavos, min_pax, hour_base_centavos, min_hours, extra_hour_centavos, crew_meal_mode, crew_size, crew_per_head_centavos, transport_mode, transport_flat_centavos )',
+      `${VENDOR_PACKAGE_SELECT}, extra_discount_centavos, payment_schedule_json, vendor_package_items ( vendor_service_id, service_description, is_default_included, display_order, pricing_basis, replacement_value_centavos, per_pax_price_centavos, min_pax, hour_base_centavos, min_hours, extra_hour_centavos, crew_meal_mode, crew_size, crew_per_head_centavos, transport_mode, transport_flat_centavos )`,
     )
     .eq('package_id', packageId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!pkg) return null;
+
+  /*
+    🧺 A BUNDLE (owner 11 Nov 2026: *"they can load a bundle also and edit from it."*) — its lines are service CARDS, and
+    its price is the Bundle Maker's sums, never the items' stored replacement values. Priced exactly as `savePackage`
+    prices it (#7479): behind the same lock, over the shop's cards read HONESTLY (a refused read refuses — never a
+    bundle priced as if no discount were on).
+  */
+  const cardLines = ((pkg.vendor_package_items ?? []) as { vendor_service_id: string | null; display_order: number }[])
+    .filter((i) => i.vendor_service_id)
+    .sort((a, b) => a.display_order - b.display_order);
+  if (cardLines.length > 0) {
+    const [shop, shopCards] = await Promise.all([
+      readLockShop(supabase, profile.vendor_profile_id),
+      readBundleCards(supabase, profile.vendor_profile_id),
+    ]);
+    if (!shop || !canUse('bundleMaker', shop).ok || !shopCards) return null;
+    const byId = new Map(shopCards.map((c) => [c.id, c]));
+    const picked = cardLines.map((l) => byId.get(l.vendor_service_id as string));
+    if (picked.some((c) => !c)) return null;
+    const b = pkg as unknown as { package_name: string | null; total_price_centavos: number | null; extra_discount_centavos: number | null; payment_schedule_json: unknown };
+    const bundle = quoteSeedFromBundle(
+      {
+        name: b.package_name ?? '',
+        extraDiscountCentavos: b.extra_discount_centavos,
+        plan: parseBundlePlan(b.payment_schedule_json),
+        savedTotalCentavos: b.total_price_centavos,
+      },
+      picked as NonNullable<(typeof picked)[number]>[],
+      new Date(),
+    );
+    return { lines: bundle.lines, crew: null, transport: null, bundle };
+  }
 
   type Item = {
     service_description: string;

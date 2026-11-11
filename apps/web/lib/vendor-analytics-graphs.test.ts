@@ -11,6 +11,9 @@ import {
   GRAPH_SOURCE,
   cardSellLine,
   cardSells,
+  quietCard,
+  quietCardProblem,
+  QUIET_CARD_MIN_OPENS,
   lostDates,
   lostLine,
   monthsAhead,
@@ -62,8 +65,8 @@ test('b · asked counts every card a row names; booked only a booked row on its 
     ],
   );
   assert.deepEqual(c, [
-    { serviceId: 'a', name: 'Full day', asked: 2, booked: 1 },
-    { serviceId: 'b', name: 'Half day', asked: 2, booked: 0 },
+    { serviceId: 'a', name: 'Full day', opened: null, asked: 2, booked: 1 },
+    { serviceId: 'b', name: 'Half day', opened: null, asked: 2, booked: 0 },
   ]);
   assert.equal(cardSellLine(c), 'Full day is asked about most: 2 asked, 1 booked.');
   assert.equal(cardSellLine([]), 'No couple has asked about a card yet.');
@@ -168,4 +171,36 @@ test('the reads: event_vendors only on the admin client, every other table on th
     assert.ok(m, `${t} must be read on the shop's own session`);
   }
   assert.match(src, /if \(error \|\| !data\) \{[\s\S]{0,200}return null;/, 'a refused page is null, never a partial count');
+});
+
+test('b · opens: unread is null on every card (never 0); read, a card nobody opened is 0', () => {
+  const cards = [
+    { serviceId: 'a', name: 'Full day' },
+    { serviceId: 'b', name: 'Half day' },
+  ];
+  assert.deepEqual(cardSells(cards, []).map((c) => c.opened), [null, null]);
+  const read = cardSells(cards, [], new Map([['a', 12]]));
+  assert.deepEqual(Object.fromEntries(read.map((c) => [c.serviceId, c.opened])), { a: 12, b: 0 });
+  assert.equal(cardSellLine(cardSells(cards, [{ serviceId: 'a', requested: [], booked: true }], new Map([['a', 30]]))), 'Full day is asked about most: 30 opened, 1 asked, 1 booked.');
+});
+
+test('b · the quiet card: opened often, asked rarely — fires only on numbers the graph shows', () => {
+  const card = (serviceId: string, opened: number | null, asked: number, booked = 0) => ({ serviceId, name: `Card ${serviceId}`, opened, asked, booked });
+  // The prototype's own: 88 opened · 7 asked against 84 opened · 2 asked → the second is quiet.
+  const q = quietCard([card('a', 88, 7, 3), card('b', 84, 2), card('c', 22, 2)]);
+  assert.deepEqual(q, { serviceId: 'b', name: 'Card b', opened: 84, asked: 2, booked: 0 });
+  assert.equal(quietCardProblem(q!), 'Card b: 84 opened, 2 asked, 0 booked in the last 12 months.');
+  // The Problem names the window the numbers were counted over — the card's own switch (owner 11 Nov).
+  assert.equal(quietCardProblem(q!, '30'), 'Card b: 84 opened, 2 asked, 0 booked in the last 30 days.');
+  // Opens unread → never advice on opens.
+  assert.equal(quietCard([card('a', null, 7), card('b', null, 0)]), null);
+  assert.equal(quietCard(null), null);
+  // Under the floor → noise, never quiet.
+  assert.equal(quietCard([card('a', QUIET_CARD_MIN_OPENS - 1, 5), card('b', QUIET_CARD_MIN_OPENS - 1, 0)]), null);
+  // One card past the floor has nothing to compare with.
+  assert.equal(quietCard([card('a', 50, 5), card('b', 5, 0)]), null);
+  // Nobody asked about anything → no "best" to be quiet against.
+  assert.equal(quietCard([card('a', 50, 0), card('b', 40, 0)]), null);
+  // Close rates (not half) → not quiet.
+  assert.equal(quietCard([card('a', 50, 5), card('b', 50, 3)]), null);
 });

@@ -23,8 +23,12 @@ export const SHOP_SEGMENT_HREF: Readonly<Record<ShopSegment, string>> = {
   page: '/vendor-dashboard/website',
   promote: '/vendor-dashboard/shop/promote',
   gallery: '/vendor-dashboard/collections',
-  insights: '/vendor-dashboard/performance',
+  // 🎠 Analytics IS the Shop carousel (owner 11 Nov 2026) — the old page folded into it.
+  insights: '/vendor-dashboard/shop#analytics',
 };
+
+/** Where ONE Analytics lives — the carousel on the Shop tab (owner 11 Nov 2026, *"Analytics should be the carousel"*). */
+export const ONE_ANALYTICS_HREF = '/vendor-dashboard/shop#analytics';
 
 export const SHOP_SEGMENT_LABEL: Readonly<Record<ShopSegment, string>> = {
   details: 'Details',

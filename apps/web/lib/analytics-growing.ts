@@ -9,8 +9,8 @@
  * HONEST (the house rule `vendor-dashboard/reads-are-honest.test.ts`): a read that did not happen arrives as `null`
  * and is said "Couldn’t load" — never folded into a zero, an empty chart or "no inquiries yet".
  *
- * Two homes read it: `/vendor-dashboard/performance` (the whole "Analytics, growing" screen, `AnalyticsGrowing`) and
- * the ONE BUILD Shop › Analytics carousel (only the buckets, the 13-week strip, the rail marker and `aheadLine`).
+ * One home reads it: the Shop tab's one Analytics carousel (owner 11 Nov 2026: "Analytics should be the carousel" —
+ * `performance/_components/analytics-carousel.tsx`), whose every card switches between these two windows.
  *
  * 🔒 lib/analytics-growing.test.ts — including the guard the owner asked for: a TIE NEVER CLAIMS THE BEST MONTH.
  */

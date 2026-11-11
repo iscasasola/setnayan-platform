@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1834
+# ledger: 1835
 # tables: 489
-# columns: 5958
+# columns: 5959
 # notnull: 3601
 [ledger]
 20260512000000
@@ -1846,6 +1846,7 @@
 20271337067968
 20271337284161
 20271338119644
+20271338442002
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2274,6 +2275,7 @@ chat_messages.proposal_id
 chat_messages.recipient_user_id
 chat_messages.sender_role
 chat_messages.sender_user_id
+chat_messages.sent_as
 chat_messages.thread_id
 chat_messages.vendor_profile_id
 chat_thread_members.added_by_user_id

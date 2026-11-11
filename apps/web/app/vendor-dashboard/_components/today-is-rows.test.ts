@@ -389,7 +389,7 @@ test('7 · the shop line moved to one row at the bottom — its name, its state,
   assert.equal((shop.match(/href="\/vendor-dashboard\/shop"/g) ?? []).length, 2, 'the eyebrow door and the row both open Shop');
   // 📈 …and "How is business" under it, to Insights, with its two figures.
   assert.match(text(shop), /How is business 312 looked · 14 asked/);
-  assert.match(shop, /href="\/vendor-dashboard\/performance"/);
+  assert.match(shop, /href="\/vendor-dashboard\/shop#analytics"/, 'How is business does not open the Analytics carousel');
   assert.doesNotMatch(html, /bg-mulberry/, 'the mulberry shop block is back above the Next card');
   assert.match(shop, /data-badge="ok"[^>]*>Live</, '"Live" is not the shared Badge');
 });

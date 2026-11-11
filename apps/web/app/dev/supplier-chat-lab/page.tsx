@@ -369,7 +369,7 @@ export default async function SupplierChatLabPage({
     // pinned bar must land in the layer and be the bottom itself (QuotePinnedBar, 12 Nov 2026).
     if (sp.picked === '1') {
       const bodies = labPickedClientBodies(LAB_THREAD, "Ana's Wedding (Dec 12)", {});
-      bodies.quotation = (
+      bodies.quote = (
         <div data-picked-client-page="quotation" className="space-y-3">
           {toolNodes['build-quote']}
         </div>
@@ -380,7 +380,7 @@ export default async function SupplierChatLabPage({
             eventId="lab-quotation"
             eventName="Ana's Wedding (Dec 12)"
             menu={pickedMenuFor(true)}
-            initialPage="quotation"
+            initialPage="quote"
             bodies={bodies}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}

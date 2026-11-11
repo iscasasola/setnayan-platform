@@ -65,6 +65,7 @@ export function FormMaker({
   returnPath,
   onSaved,
   shopId,
+  coupleName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -79,12 +80,21 @@ export function FormMaker({
   onSaved?: (formId: string) => void;
   /** The shop's id — its media files go to its own folder (`vendors/<shop>/forms`, public media bucket). */
   shopId: string;
+  /**
+   * 📋 Piece 3a: the couple's name, when `initial.forEventId` is set (an Edit from a client's page) — the save reads
+   * "Save for Ana & Miguel" and the sheet carries "Also keep in my library".
+   */
+  coupleName?: string;
 }) {
   const titleId = useId();
   const [formId, setFormId] = useState<string | undefined>(initial?.formId);
   const [title, setTitle] = useState(initial?.title ?? '');
   const [rows, setRows] = useState<Row[]>(() => asRows(initial?.items ?? []));
   const [serviceIds, setServiceIds] = useState<string[]>(initial?.serviceIds ?? []);
+  const forEventId = initial?.forEventId;
+  const [inLibrary, setInLibrary] = useState<boolean>(initial?.inLibrary ?? false);
+  // Once the event's copy is saved with the switch ON, it is in the library for good (the database never lets it out).
+  const [libraryLocked, setLibraryLocked] = useState(false);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [state, setState] = useState<FormsActionState>({ status: 'idle' });
   const [pending, start] = useTransition();
@@ -96,11 +106,19 @@ export function FormMaker({
     setTitle(initial?.title ?? '');
     setRows(asRows(initial?.items ?? []));
     setServiceIds(initial?.serviceIds ?? []);
+    setInLibrary(initial?.inLibrary ?? false);
+    setLibraryLocked(false);
     setOpenKey(null);
     setState({ status: 'idle' });
   }, [open, initial]);
 
-  const draft = (): FormDraft => ({ formId, title, items: rows.map(({ key: _k, ...it }) => it as FormItemDraft), serviceIds });
+  const draft = (): FormDraft => ({
+    formId,
+    title,
+    items: rows.map(({ key: _k, ...it }) => it as FormItemDraft),
+    serviceIds: forEventId && !inLibrary ? [] : serviceIds,
+    ...(forEventId ? { forEventId, editedFromFormId: initial?.editedFromFormId, inLibrary } : {}),
+  });
   const problems = validateFormDraft(draft());
 
   const run = (op: 'save' | 'send') => {
@@ -121,6 +139,7 @@ export function FormMaker({
         return;
       }
       setFormId(saved.formId);
+      if (forEventId && inLibrary) setLibraryLocked(true);
       onSaved?.(saved.formId);
       if (op === 'save' || !eventId) {
         setState(saved);
@@ -250,7 +269,7 @@ export function FormMaker({
           <ActionButton
             tone="neutral"
             icon={ListChecks}
-            label="Save to library"
+            label={forEventId ? `Save for ${coupleName?.trim() || 'this event'}` : 'Save to library'}
             onClick={() => run('save')}
             waiting={pending}
             className="flex-1"
@@ -274,8 +293,14 @@ export function FormMaker({
       <UndoToastHost />
       <div className="space-y-4 px-4 pb-4 pt-3" data-form-maker>
         <h2 id={titleId} className="pr-12 text-[19px] font-semibold text-ink">
-          {formId ? 'Edit form' : 'New form'}
+          {forEventId && !formId ? 'Edit · saves as a new form' : formId ? 'Edit form' : 'New form'}
         </h2>
+        {forEventId ? (
+          <p className="text-[13px] text-ink/65" data-form-maker-for-event>
+            Saved for {coupleName?.trim() || 'this event'} only. The original in your library, and anything already sent, stay as
+            they were.
+          </p>
+        ) : null}
         <TypedRow name="Title" value={title} empty="Name this form" placeholder="Name this form" maxLength={120} onKeep={(t) => setTitle(t)} data="form-maker-title" />
 
         <div>
@@ -353,6 +378,28 @@ export function FormMaker({
           <PickMenu label="Add an item" value={null} buttonText="Add…" options={addOptions} onPick={add} dataAttr="data-form-maker-add" />
         </div>
 
+        {forEventId ? (
+          <div className="flex min-h-12 items-center justify-between gap-3 border-t border-ink/10 pt-3" data-form-maker-keep>
+            <div className="min-w-0">
+              <p className="text-[15px] font-medium text-ink">Also keep in my library</p>
+              <p className="text-[12px] text-ink/60">Reuse it with other clients</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={inLibrary}
+              aria-label="Also keep in my library"
+              disabled={libraryLocked}
+              className={SWITCH_BUTTON}
+              onClick={() => setInLibrary((v) => !v)}
+              data-testid="form-maker-keep"
+            >
+              <SwitchTrack on={inLibrary} />
+            </button>
+          </div>
+        ) : null}
+
+        {forEventId && !inLibrary ? null : (
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
           <div className="min-w-0">
             <InfoTip label="Link to service card" labelAs="p" labelClassName="text-[15px] font-medium text-ink" align="start">
@@ -376,6 +423,7 @@ export function FormMaker({
             />
           )}
         </div>
+        )}
 
         {said ? (
           <p role="status" className={`text-sm ${said.tone}`} data-testid="form-maker-said">

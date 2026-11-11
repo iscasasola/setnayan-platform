@@ -37,7 +37,7 @@ export async function FormsPage({ ctx }: PickedPageProps) {
   const supabase = await createClient();
   const [profile, library, booked, tierRes] = await Promise.all([
     fetchOwnVendorProfile(supabase, ctx.viewerUserId),
-    readShopForms(supabase, ctx.vendorProfileId),
+    readShopForms(supabase, ctx.vendorProfileId, ctx.eventId),
     readBookedCardIds(createAdminClient(), ctx.eventId, ctx.vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', ctx.vendorProfileId).maybeSingle(),
   ]);
@@ -92,6 +92,7 @@ export async function FormsPage({ ctx }: PickedPageProps) {
         canSend={Boolean(ctx.threadId)}
         returnPath={`/vendor-dashboard/clients/${ctx.eventId}`}
         library={lib ? lib.forms : null}
+        eventForms={lib ? lib.eventForms : null}
         cards={lib ? lib.cards.map((c) => ({ id: c.id, title: c.title })) : []}
         event={event.status === 'ok' ? event : null}
         bookedUnread={booked.status !== 'ok'}

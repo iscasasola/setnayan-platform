@@ -67,3 +67,15 @@ export function studioTileItem(key: StudioTileKey, current: string | null): Deta
   }
   return STUDIO_TILE_ITEM[key];
 }
+
+/**
+ * 🧭 THE EDITOR AN OLD DOOR NAMES (Build 6 Lane F, owner 2026-11-10 — Studio is gone): a link that opens an Event
+ * Details item (`?tool=details&item=logo`, a notification, Home's next-step card) lands on the editor of the page that
+ * holds it — risen over its scene — never on a Studio home. Null: the item is no page's (the stage is shown).
+ */
+export function studioTileOfItem(item: string | null | undefined): StudioTileKey | null {
+  if (!item) return null;
+  if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(item)) return 'look';
+  for (const key of STUDIO_TILE_KEYS) if (key !== 'look' && STUDIO_TILE_ITEM[key] === item) return key;
+  return null;
+}

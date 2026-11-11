@@ -218,12 +218,14 @@ test('4 · Studio › Wedding March: no "Parents & hosts" block; the tray is the
 
 test('5 · no Studio editor says "Saved" or asks for a Save on a drafted field — ✓ Apply’s count is the one signal', async () => {
   /* The Tool row and the Done band are gone (owner 2026-10-08) — the bar's pill, which names the page, says no "Saved" either. */
-  const { StudioSideSwitch } = await import(`../${L}/stages-studio-parts`);
+  /* 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): the pill's Studio half is gone — a risen editor is named by the bar's
+     ✕ · name head (`StageSwitch`), which says no "Saved" either. */
+  const { StageSwitch } = await import(`../${L}/stages-studio-parts`);
   const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
   const tiles = STUDIO_TILE_KEYS.map((key) => ({ key, label: STUDIO_TILES[key].label, short: STUDIO_TILES[key].short, item: STUDIO_TILES[key].item, immersive: STUDIO_TILES[key].immersive === true, done: true, status: '' }));
   for (const tile of tiles) {
-    const head = await html(React.createElement(StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: tile, tiles, onOpen: () => {} }));
-    assert.ok(head.includes(`>${tile.label.replace(/&/g, '&amp;')}</span>`), `anti-vacuity: the pill does not name ${tile.label}`);
+    const head = await html(React.createElement(StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: tile.key, label: tile.label, full: true }, onClose: () => {} }));
+    assert.ok(head.includes(`>${tile.label.replace(/&/g, '&amp;')}</h1>`), `anti-vacuity: the bar does not name ${tile.label}`);
     assert.doesNotMatch(head, /Saved|Saving/, `the ${tile.label} pill shows a Saved chip`);
   }
   const mood = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
@@ -246,8 +248,7 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   const { STUDIO_TILE_KEYS, STUDIO_TILES } = await import('./studio-tiles');
   const { isDetailsItemKey } = await import('./maker-details-items');
   for (const k of STUDIO_TILE_KEYS) assert.ok(isDetailsItemKey(STUDIO_TILES[k].item), `${k} opens something that is not a Details item`);
-  const home = read(`${L}/studio-home.tsx`);
-  assert.doesNotMatch(home, /<a\s|<Link\b|href=|router\.|location\./, 'a Studio tile is a link out');
+  /* (The Studio home and its tiles are gone — Build 6 Lane F, 2026-11-10; each page opens from its scene, in place.) */
   const shell = read(`${L}/maker-shell.tsx`);
   const open = shell.slice(shell.indexOf('const openStudio = ('), shell.indexOf('};', shell.indexOf('const openStudio = (')));
   assert.ok(open.length > 0);
@@ -282,7 +283,7 @@ test('7 · each tile (RSVP left in R1, Wedding March and Seat plan in R4, Prints
   /* ⚖ 507 KB: the shell's first load reads `studio-tile-defs` — the eleven keys and the editor each opens,
      never the tiles' words (those are `STUDIO_TILES`, read on the server). One map: the table's `item` is the map's. */
   assert.doesNotMatch(read('lib/studio-tile-defs.ts'), /\b(?:label|short|sub|reads)\s*:/, 'the tiles’ words are back in the module the Maker’s shell loads first');
-  assert.match(shell, /import \{ isStudioMenuKey, studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
+  assert.match(shell, /import \{ studioTileItem, studioTileOfItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
   assert.doesNotMatch(shell, /import \{[^}]*\} from '@\/lib\/studio-tiles';/, 'the shell imports a VALUE from lib/studio-tiles (types only)');
   for (const k of STUDIO_TILE_KEYS) assert.equal(STUDIO_TILES[k].item, studioTileItem(k, null), `${k}: the table and the map disagree`);
   /* …and the Studio forms' group headings are DRAWN by the server; the workspace (first load) only places them. */

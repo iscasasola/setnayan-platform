@@ -199,13 +199,13 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
 
      A part with a door (E-Gifts → Studio). (What rows 1–3 hold — the part's words typed in place, or its door — is
      `lib/edit-types-the-words-in-place.test.ts`.) */
-  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open in Studio › E-Gifts', open: () => {} }, about: null });
+  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open E-Gifts', open: () => {} }, about: null });
   const html = draw();
   const rows = [...html.matchAll(/data-stage-edit-row="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepEqual(rows, ['door'], 'Edit draws rows other than its door');
   const rowClass = (name: string) => new RegExp(`class="([^"]*)" data-stage-edit-row="${name}"`).exec(html)?.[1]?.split(' ') ?? [];
   assert.ok(rowClass('door').includes('row-start-1'), 'the door is not row 1');
-  assert.match(html, /aria-label="Open in Studio › E-Gifts"/, 'row 1 is not the part’s door');
+  assert.match(html, /aria-label="Open E-Gifts"/, 'row 1 is not the part’s door');
   assert.doesNotMatch(html, /aria-label="(?:Earlier|Later|Remove)"/, 'the buttons row is back under Edit');
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
   assert.doesNotMatch(edit, /earlier|later|removeWord|data-stage-edit-step|ActionButton/, 'Edit carries a step of its own again');

@@ -71,7 +71,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     /* 🖼 The Cover Scene (owner-approved 2026-10-15): the group of the cover's words — Background only, so Edit is grey. */
     /* 'lines': since 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN EDIT · STYLE (OPENING)") its Edit is the cover's lines and its Style the Opening. */
     ['coverscene', 'lines', true],
-    ['logo', 'Open in Studio › Logo', true],
+    ['logo', 'Open Logo', true],
     ['ename', 'field', true],
     ['names', 'field', true],
     ['heroline', 'field', true],
@@ -80,17 +80,17 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     /* 🖼 The cover's photo (owner-approved 2026-10-16, "SIX NEW EFFECTS"): it only moves — no words, no look. */
     ['coverphoto', 'grey', false],
     ['herolink', 'field', true],
-    ['schedule', 'Open in Studio › Schedule', true],
+    ['schedule', 'Open Schedule', true],
   ],
   home: [
     ['venue', 'Change it in Suppliers', true],
-    ['dress', 'Open in Studio › Palette + Dress Code', true],
+    ['dress', 'Open Palette + Dress Code', true],
     ['march', 'Open in Guests › March', true], // 🗂 R4: the march is Guests › March (the prototype drew Studio)
-    ['bring', 'Open in Studio › Info', true],
+    ['bring', 'Open Info', true],
   ],
   camera: [['camera', 'grey', true]],
   gallery: [
-    ['gallery', 'Open in Studio › Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
+    ['gallery', 'Open Info', true], // the Photos heading (owner 2026-10-15): Details/Info holds the typed heading
     ['myphotos', null, true],
   ],
   me: [

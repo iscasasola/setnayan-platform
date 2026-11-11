@@ -11,7 +11,7 @@
  * Properties held (each a property, not a phrasing):
  *   1. Every key the canvas's bridge can send for a tap — each part's own section and every REGION it binds by id
  *      (`ID_SECTIONS`) — names a part on every stage (so the toolbar always has a part, and Edit its door or words).
- *   2. The Love Story's Edit is its one door, "Open in Studio › Love Story" (TOOLBAR-SPEC 2026-10-09 § EDIT).
+ *   2. The Love Story's Edit is its one door, "Open Love Story" (TOOLBAR-SPEC 2026-10-09 § EDIT).
  *   3. Under the new Maker the work area's body never opens on Content, whatever tab is asked for.
  *   4. Under the new Maker a fixed part's Style never carries its fact's editor; the old Maker's panel still does.
  *   5. Row 1 with nothing picked says one line; a silent page says its own (two states, never one).
@@ -71,8 +71,8 @@ test('a tap on the Love Story — its scene or its region — picks the Love Sto
   assert.equal(makerPartOfTap('rsvp', 'home', 'f:story', null) ?? makerPartOfCanvas('rsvp', 'f:story'), 'story');
 });
 
-test("the Love Story's Edit is its one door: Open in Studio › Love Story", () => {
-  assert.deepEqual(makerPartQuietRow('story'), { words: 'Open in Studio › Love Story', to: { studio: 'story' } });
+test("the Love Story's Edit is its one door: Open Love Story", () => {
+  assert.deepEqual(makerPartQuietRow('story'), { words: 'Open Love Story', to: { studio: 'story' } });
 });
 
 test('under the new Maker the work area never opens on Content; the old Maker keeps every tab', () => {

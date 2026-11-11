@@ -126,7 +126,8 @@ test('2 · SOURCE: the dropdown is the toolbar’s Page ▾ (the Maker in 4), an
   assert.match(SHELL, /setGuestPagesCtx\(\{\s*stage,/, 'the work area no longer reports its pages to the toolbar');
   const TOOLBAR = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   /* The toolbar's Page ▾ became Stages ▾ (the old bar went with the old Maker, 2026-10-25): it lists the SAME pages. */
-  assert.match(TOOLBAR, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\}/);
+  /* 🔁 2026-11-11 (Build 6 Lane F): the stage pill alone — its Studio half is gone. */
+  assert.match(TOOLBAR, /<StageSwitch\s+side=\{side\}\s+stage=\{ltPick\}\s+options=\{page\.options\}\s+onStage=\{\(key\) => \{[\s\S]*?pickPage\(key\);/);
   // + the profile's love_story part (P6a): a birthday's Page ▾ has no Our Love Story.
   assert.match(SHELL, /const guestPages = makerGuestPages\(stage, list\.shown\.map\(\(t\) => t\.key\), navigator\.hasStory\);/);
   assert.match(TOOLBAR, /makerGuestPages\(s, \[\], hasStory\)/, 'another stage’s pages ignore whether the event has a story');

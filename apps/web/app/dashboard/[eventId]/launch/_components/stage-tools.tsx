@@ -35,7 +35,7 @@ import {
 } from '@/lib/maker-parts';
 import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerCanvasKeyOf, makerOwnSceneType, makerPartRisesEditor, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
 import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
@@ -89,7 +89,8 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, M
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
-import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
+import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartRectOnScreen, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
+import { noteRiseFrom } from '@/lib/maker-editor-rise';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
 import { BlockAnimateRows, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
@@ -693,6 +694,16 @@ export function StageTools({
   /* A part tapped ON THE PAGE: the panel follows it (the work area has already opened its tools). */
   const where = useRef({ stageKey, shownPage });
   where.current = { stageKey, shownPage };
+  /** 👆 Rise a scene's editor (the page tap above): the same door as the part's "Open <page>" row, and the way back. */
+  const rise = (k: MakerPartKey, tile: MakerStudioTool) => {
+    resumeAt = { stage: where.current.stageKey, page: where.current.shownPage, part: k };
+    noteRiseFrom(makerPartRectOnScreen(where.current.stageKey, k, frameSel));
+    /* At once (the Maker never waits on a tap). The work area selects the same tap's part too; the shell keeps the risen
+       editor selected over it (`maker-shell.tsx`, "A RISEN EDITOR HOLDS THE SELECTION"). */
+    onOpenStudio(tile, { label: makerPartLabelOn(where.current.stageKey, k), focus: makerPartStudioDoor(k)?.focus ?? null });
+  };
+  const riseRef = useRef(rise);
+  riseRef.current = rise;
   useEffect(() => {
     const onCanvas = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
@@ -736,6 +747,16 @@ export function StageTools({
         }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
+        /* 👆 A SCENE WHOSE PAGE USED TO BE STUDIO'S RISES ITS EDITOR ON A TAP (Build 6 Lane F, owner 2026-11-10: the ring →
+           the Logo Maker, Dress code → Palette + Dress Code, Love Story → its chapters; `makerPartRisesEditor`). The
+           part stays picked underneath, so ✕ comes back to it. Every other part is selected, as before — the rest of
+           the cover opens the cover's own tools. Never on the RSVP stage (its screens carry their own tools). */
+        const rises = rsvpOpenRef.current ? null : makerPartRisesEditor(k);
+        if (rises) {
+          setSlotAsk(null);
+          riseRef.current(k, rises);
+          return;
+        }
         /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
            open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
         const slot = (d as { slot?: unknown }).slot;
@@ -1302,6 +1323,7 @@ export function StageTools({
           words: q.words,
           open: () => {
             resumeAt = picked ? { stage: stageKey, page: shownPage, part: picked } : null;
+            noteRiseFrom(picked ? makerPartRectOnScreen(stageKey, picked, frameSel) : null);
             /* 🎯 The exact field (`makerPartStudioDoor`), and where to come back to — "Done · back to Names". */
             const door = picked ? makerPartStudioDoor(picked) : null;
             onOpenStudio((to === 'info' ? 'info' : to) as StudioTileKey, {
@@ -1916,7 +1938,7 @@ export function StageTools({
         </span>
         <button
           type="button"
-          aria-label={playing ? 'Stop' : `${picked ? 'Play this part' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
+          aria-label={playing ? 'Stop' : `${picked ? 'Play this scene' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
           data-stage-play=""
           onClick={play}
           /* 👁 HELD: the whole page as a guest. A tap never waits for the hold — it plays on release. */

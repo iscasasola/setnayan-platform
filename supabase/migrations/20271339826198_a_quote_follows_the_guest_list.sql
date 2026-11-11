@@ -64,8 +64,8 @@ AS $$
        AND jsonb_typeof(l -> 'amount_centavos') = 'number'
   );
 $$;
-REVOKE ALL ON FUNCTION public.quote_follows_guest_list(JSONB) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.quote_follows_guest_list(JSONB) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.quote_follows_guest_list(JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.quote_follows_guest_list(JSONB) TO service_role;
 
 -- ── 2 · The per-service count ──────────────────────────────────────────────────────────────────────────────────────
 -- The event's headcount basis over the counted guests (lib/pax.ts liveHeadcount: not removed, not a request, not

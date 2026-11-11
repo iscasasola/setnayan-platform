@@ -10730,6 +10730,7 @@
         "PendingChange",
         "PendingLockProposals",
         "Peso",
+        "PhotoGroupHeader",
         "PhotosRow",
         "PickMenu",
         "PillSelector",
@@ -12708,6 +12709,20 @@
         "NotificationsList"
       ]
     },
+    "/dev/offer-maker-lab": {
+      "files": [
+        "dev/offer-maker-lab/lab-client.tsx",
+        "dev/offer-maker-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Offer",
+        "OfferMakerLabClient",
+        "OffersScreen",
+        "UndoToastHost"
+      ]
+    },
     "/dev/onboarding-lab": {
       "files": [
         "dev/onboarding-lab/page.tsx"
@@ -12975,6 +12990,7 @@
     "/dev/service-card-row-lab": {
       "files": [
         "dev/service-card-row-lab/lab-rows.tsx",
+        "dev/service-card-row-lab/lab-share.tsx",
         "dev/service-card-row-lab/page.tsx"
       ],
       "destinations": [],
@@ -12982,8 +12998,13 @@
         "toggleVendorServiceActive"
       ],
       "blocks": [
+        "ChatOfferedServiceCard",
+        "HTMLButtonElement",
+        "LabChat",
+        "LabOpenShare",
         "LabRows",
         "Link",
+        "OfferServiceResult",
         "ServiceCardItem",
         "ServiceCardView",
         "SwitchTrack",
@@ -13276,6 +13297,7 @@
         "EventLinesBody",
         "EventsHeading",
         "EventsYouRunScreen",
+        "FairSweepList",
         "File",
         "FileUpload",
         "FilesPage",
@@ -13441,7 +13463,8 @@
         "dev/suppliers-lab/lab-stage.tsx",
         "dev/suppliers-lab/money-pair.ts",
         "dev/suppliers-lab/page.tsx",
-        "dev/suppliers-lab/pay-fixtures.ts"
+        "dev/suppliers-lab/pay-fixtures.ts",
+        "dev/suppliers-lab/seed-photos.ts"
       ],
       "destinations": [
         "/dev/suppliers-lab?mode=booked"
@@ -17572,6 +17595,7 @@
         "vendor-dashboard/services/_components/service-card-item.tsx",
         "vendor-dashboard/services/_components/service-card-live-preview.tsx",
         "vendor-dashboard/services/_components/service-card-menu-row.tsx",
+        "vendor-dashboard/services/_components/service-card-share-sheet.tsx",
         "vendor-dashboard/services/_components/service-list-editors.tsx",
         "vendor-dashboard/services/_components/service-wizard.tsx",
         "vendor-dashboard/services/_components/services-manager.tsx",
@@ -17670,6 +17694,7 @@
         "Link",
         "MakerRow",
         "Muted",
+        "OfferServiceResult",
         "OverlayBackdrop",
         "PField",
         "ParsedScheduleRow",
@@ -17695,6 +17720,7 @@
         "ServiceCardItem",
         "ServiceCardLivePreview",
         "ServiceCardMenuRow",
+        "ServiceCardShareSheet",
         "ServiceCardView",
         "ServiceMismatchNote",
         "ServicesEmptyCard",
@@ -17811,6 +17837,7 @@
         "vendor-dashboard/shop/_components/couple-photos.tsx",
         "vendor-dashboard/shop/_components/docs-body.tsx",
         "vendor-dashboard/shop/_components/editable-row.tsx",
+        "vendor-dashboard/shop/_components/fair-sweep-list.tsx",
         "vendor-dashboard/shop/_components/fair-sweep-notice.tsx",
         "vendor-dashboard/shop/_components/gallery-media.tsx",
         "vendor-dashboard/shop/_components/held-name-claim.tsx",
@@ -17953,6 +17980,7 @@
         "LeafletMarker",
         "LeafletModule",
         "Link",
+        "LockExplainer",
         "LockedIdentityFieldKey",
         "LockedLine",
         "LogoFrame",
@@ -17960,6 +17988,8 @@
         "LogoRowControl",
         "MakerKey",
         "MenuSettingsButton",
+        "OfferLockPreview",
+        "OfferMaker",
         "PaidMark",
         "PairCard",
         "PaperSide",

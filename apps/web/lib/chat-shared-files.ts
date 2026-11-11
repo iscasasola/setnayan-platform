@@ -133,7 +133,7 @@ export type SharedFileEntry = {
  * 🔒 THE ONE PLACE A CHAT FILE BECOMES A LINK. See the file docblock before
  * changing this, and change it here rather than at any call site.
  */
-export function chatAttachmentHref(row: ChatFileInput): string | null {
+export function chatAttachmentHref(row: Pick<ChatFileInput, 'message_id' | 'attachment_r2_key' | 'attachment_url'>): string | null {
   // Nothing here is a stored reference and nothing is public. The route proves
   // the caller is still a party to this thread on EVERY request and then
   // redirects to a short-lived signed GET.

@@ -11,6 +11,9 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { isExpired } from './chat-file-rules';
+import { chatAttachmentHref } from './chat-shared-files';
+
 export type OpenDecision = { ok: true; topicId: string } | { ok: false; reason: 'empty' | 'not_allowed' | 'failed' };
 
 /** The longest title the database keeps (`left(btrim(p_title), 120)`). */
@@ -91,20 +94,65 @@ export type FiledMessage = {
   sentAt: string | null;
   addedByUserId: string | null;
   addedAt: string;
+  /**
+   * 📎 The message's file, when it carries one (owner 12 Nov 2026: *"can we add media files in a decision?"*) — the same
+   * columns the stream reads, through the viewer's own RLS. null = no file (or the row is masked — a masked row stays
+   * masked: no name, no link). `href` comes ONLY from `chatAttachmentHref` (the route that re-proves membership), and is
+   * null when the 90-days-after rule took the file (`expired`: its name stays and it says "File expired").
+   */
+  attachment: FiledAttachment | null;
+};
+
+export type FiledAttachment = {
+  href: string | null;
+  name: string | null;
+  mime: string | null;
+  sizeBytes: number | null;
+  expired: boolean;
+};
+
+type FiledChatMessage = {
+  body: string | null;
+  sender_user_id: string | null;
+  created_at: string;
+  attachment_url?: string | null;
+  attachment_r2_key?: string | null;
+  attachment_name?: string | null;
+  attachment_mime?: string | null;
+  attachment_size_bytes?: number | null;
 };
 
 type FiledRow = {
   message_id: string;
   added_by_user_id: string | null;
   added_at: string;
-  chat_messages: { body: string | null; sender_user_id: string | null; created_at: string } | null;
+  chat_messages: FiledChatMessage | null;
 };
+
+/** Pure: a filed message's file, or null. Expired = the name survives, the ref is gone (`isExpired`). */
+export function filedAttachmentOf(messageId: string, m: FiledChatMessage | null): FiledAttachment | null {
+  if (!m) return null;
+  const href = chatAttachmentHref({ message_id: messageId, attachment_r2_key: m.attachment_r2_key, attachment_url: m.attachment_url });
+  const expired = !href && isExpired(m);
+  if (!href && !expired) return null;
+  return {
+    href,
+    name: m.attachment_name ?? null,
+    mime: m.attachment_mime ?? null,
+    sizeBytes: m.attachment_size_bytes ?? null,
+    expired,
+  };
+}
+
+/** The `chat_messages` columns a filed row reads — the stream's own file columns, nothing more. */
+const FILED_MESSAGE_COLUMNS =
+  'body, sender_user_id, created_at, attachment_url, attachment_r2_key, attachment_name, attachment_mime, attachment_size_bytes';
 
 /** One decision's filed messages, NEWEST FILED FIRST. */
 export async function loadFiledMessages(supabase: SupabaseClient, topicId: string): Promise<FiledMessage[] | null> {
   const { data, error } = await supabase
     .from('chat_decision_messages')
-    .select('message_id, added_by_user_id, added_at, chat_messages!chat_decision_messages_message_id_fkey(body, sender_user_id, created_at)')
+    .select(`message_id, added_by_user_id, added_at, chat_messages!chat_decision_messages_message_id_fkey(${FILED_MESSAGE_COLUMNS})`)
     .eq('topic_id', topicId)
     .order('added_at', { ascending: false })
     .limit(200);
@@ -119,6 +167,7 @@ export async function loadFiledMessages(supabase: SupabaseClient, topicId: strin
     sentAt: r.chat_messages?.created_at ?? null,
     addedByUserId: r.added_by_user_id,
     addedAt: r.added_at,
+    attachment: filedAttachmentOf(r.message_id, r.chat_messages),
   }));
 }
 
@@ -167,4 +216,16 @@ export function topicFromMessage(body: string | null | undefined): string {
   const cut = words.slice(0, 60);
   const sp = cut.lastIndexOf(' ');
   return `${(sp > 30 ? cut.slice(0, sp) : cut).trim()}…`;
+}
+
+/** A filed message whose words are ONLY a web link answers that link (it draws as a tappable row); anything else null. */
+export function bareUrlOf(body: string | null | undefined): string | null {
+  const t = (body ?? '').trim();
+  if (!/^https?:\/\/[^\s<>"']+$/i.test(t)) return null;
+  try {
+    const u = new URL(t);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
 }

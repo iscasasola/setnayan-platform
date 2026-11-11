@@ -22,11 +22,10 @@
 // while we were offline catch up without a page reload.
 
 import Link from 'next/link';
-import { OpenFileLink } from '@/app/_components/open-file-link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { FileText, Paperclip, Share, X } from 'lucide-react';
+import { Paperclip, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton } from '@/components/action-button';
 import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
@@ -107,7 +106,6 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
-import { formatCount } from '@/lib/format-number';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import {
   CHAT_PENDING_EVENT,
@@ -127,7 +125,8 @@ import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
-import { bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
+import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
+import { AttachmentBlock } from './chat/attachment-block';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { usePrivateTo } from './chat/private-to';
@@ -565,6 +564,11 @@ export function ChatMessageStream({
   const [filePick, setFilePick] = useState<string | null>(null);
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
   const lastTap = useRef<LastTap>(NO_TAP);
+  // 📎 A single tap on a file waits DOUBLE_TAP_MS to see if a second one files it instead (attachmentTap).
+  const fileOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (fileOpenTimer.current) clearTimeout(fileOpenTimer.current);
+  }, []);
   const refetchFilings = useCallback(async () => {
     const got = await loadOpenFilings(supabase, threadId);
     setFilingsRefused(got === null);
@@ -2287,6 +2291,20 @@ export function ChatMessageStream({
                     sizeBytes={m.attachment_size_bytes ?? null}
                     owns={ownsBubble(m, viewerRole, currentUserId)}
                     hasBody={!!m.body}
+                    // 👆👆 Double-tap the photo / file itself files the message — the bubble's own rule (attachmentTap).
+                    gate={(open) => {
+                      const tap = attachmentTap(lastTap.current, m.message_id, performance.now(), privateWith === null);
+                      lastTap.current = tap.next;
+                      if (fileOpenTimer.current) clearTimeout(fileOpenTimer.current);
+                      fileOpenTimer.current = null;
+                      if (tap.openPicker) {
+                        setFilePick(m.message_id);
+                        return true;
+                      }
+                      if (tap.openFileAfterMs === null || tap.openFileAfterMs === 0) return false;
+                      fileOpenTimer.current = setTimeout(open, tap.openFileAfterMs);
+                      return true;
+                    }}
                   />
                 ) : isExpired(m) ? (
                   // The file went with the 90-days-after rule (C2): its name stays, and it says so.
@@ -2532,83 +2550,3 @@ function initialsOf(name: string): string {
   return (a + b).toUpperCase() || '·';
 }
 
-function formatBytes(bytes: number | null): string {
-  if (!bytes || bytes <= 0) return '';
-  if (bytes < 1024) return `${formatCount(bytes)} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${formatCount(kb, kb < 10 ? 1 : 0)} KB`;
-  const mb = kb / 1024;
-  return `${formatCount(mb, mb < 10 ? 1 : 0)} MB`;
-}
-
-/**
- * Renders an in-bubble attachment. Image MIMEs get a lazy <img> thumbnail that
- * links to the full-size file; everything else (PDF / doc) renders a compact
- * file chip with the name, size, and an open/download link. The bytes live on
- * public R2 (chat file sharing, PR 2) — signed-URL hardening is a follow-up.
- */
-function AttachmentBlock({
-  url,
-  name,
-  mime,
-  sizeBytes,
-  owns,
-  hasBody,
-}: {
-  url: string;
-  name: string | null;
-  mime: string | null;
-  sizeBytes: number | null;
-  owns: boolean;
-  hasBody: boolean;
-}) {
-  const isImage = (mime ?? '').startsWith('image/');
-  const label = name?.trim() || (isImage ? 'Image' : 'Attachment');
-  const size = formatBytes(sizeBytes);
-
-  if (isImage) {
-    return (
-      <OpenFileLink
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`block overflow-hidden rounded-xl ${hasBody ? 'mt-2' : ''}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded R2 asset; next/image needs a configured loader/domain for arbitrary R2 hosts */}
-        <img
-          src={url}
-          alt={label}
-          loading="lazy"
-          className="max-h-64 max-w-full rounded-xl object-cover"
-        />
-      </OpenFileLink>
-    );
-  }
-
-  return (
-    <OpenFileLink
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      download={name ?? undefined}
-      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${
-        hasBody ? 'mt-2' : ''
-      } ${
-        owns
-          ? 'bg-cream/20 text-cream hover:bg-cream/30'
-          : 'bg-ink/[0.06] text-ink hover:bg-ink/10'
-      }`}
-    >
-      <FileText className="h-5 w-5 shrink-0 opacity-80" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{label}</span>
-        {size ? (
-          <span className={`block text-[11px] ${owns ? 'text-cream/70' : 'text-ink/55'}`}>
-            {size}
-          </span>
-        ) : null}
-      </span>
-      <Share aria-hidden className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-    </OpenFileLink>
-  );
-}

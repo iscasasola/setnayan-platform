@@ -26,3 +26,23 @@ export function bubbleTap(last: LastTap, id: string, nowMs: number): BubbleTap {
   const double = last.id === id && nowMs - last.at >= 0 && nowMs - last.at < DOUBLE_TAP_MS;
   return { heart: true, openPicker: double, next: double ? NO_TAP : { id, at: nowMs } };
 }
+
+/**
+ * 📎 A TAP ON A FILE IN A BUBBLE (owner 12 Nov 2026: *"can we add media files in a decision?"*). The file is a link, so
+ * the bubble's heart never fires on it (`tapMeansHeart`) — and before this, a double-tap on a PHOTO opened the photo
+ * twice and never the picker. It is the SAME rule as the bubble (`bubbleTap`, one `LastTap` shared with it): the second
+ * quick tap on the same message opens the filing picker. A single tap still opens the file — held for `DOUBLE_TAP_MS`
+ * only when a second tap could mean something (`canFile`); a private message can never be filed, so it opens at once.
+ */
+export type AttachmentTap = {
+  openPicker: boolean;
+  /** 0 = open the file now · DOUBLE_TAP_MS = open it unless a second tap comes · null = do not open it (the picker did). */
+  openFileAfterMs: number | null;
+  next: LastTap;
+};
+
+export function attachmentTap(last: LastTap, id: string, nowMs: number, canFile: boolean): AttachmentTap {
+  if (!canFile) return { openPicker: false, openFileAfterMs: 0, next: NO_TAP };
+  const t = bubbleTap(last, id, nowMs);
+  return { openPicker: t.openPicker, openFileAfterMs: t.openPicker ? null : DOUBLE_TAP_MS, next: t.next };
+}

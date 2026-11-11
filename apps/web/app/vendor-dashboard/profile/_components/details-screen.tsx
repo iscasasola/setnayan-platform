@@ -227,7 +227,7 @@ export function DetailsScreen({
                   {d.verify.emailConfirmedAt ? 'Email confirmed' : 'Email not confirmed yet'}
                 </Badge>
               </p>
-              <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} />
+              <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} fairWords={d.fairWords} />
               <VisibilityCard
                 initialSameDayAvailable={d.sameDayAvailable}
                 initialSocialFeatureOptOut={d.socialFeatureOptOut}

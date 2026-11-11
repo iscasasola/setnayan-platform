@@ -1,10 +1,12 @@
 import 'server-only';
 import { resolveTxt } from 'node:dns/promises';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
+import { bookingFeeFigures, runSeoHealthChecks, type CatalogRow } from '@/lib/seo/health-checks';
 import { gscConfigured, pullSearchConsole } from '@/lib/seo/search-console';
 import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
-import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
+import { UNLISTED_UNTIL_PROVEN } from '@/lib/llms-txt';
+import { aiAnswerQuestions } from '@/lib/seo/ai-answers';
+import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 // Single source of truth for both — see lib/seo/org-same-as.ts for why the
 // audit used to read sources nothing else consumed.
 import { orgSameAs, siteVerification } from '@/lib/seo/org-same-as';
@@ -50,35 +52,24 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
 
   const admin = createAdminClient();
   const [retailRes, vendorRes] = await Promise.all([
-    // NOT filtered on is_active in SQL — the Setnayan AI tier ladder prices live
-    // on B/C/D rows that are is_active=FALSE BY DESIGN (price-source only, see
-    // lib/setnayan-ai-type-pricing.ts). llms.txt legitimately quotes them, so an
-    // is_active-only catalog would report ₱899 / ₱499 / ₱99 as orphan figures —
-    // a permanent false warn. Filter in JS instead, keeping active rows PLUS the
-    // price-source tiers.
-    admin.from('platform_retail_catalog_v2').select('service_code, retail_price_php, is_active'),
+    // ACTIVE rows only (Build 6 Lane K, 2026-11-10). This used to keep the Setnayan AI tier rows too, "because
+    // llms.txt legitimately quotes them" — but Setnayan AI is not sold on its own since 2026-11-04 and llms.txt no
+    // longer quotes it, so the exemption turned into a STANDING DAILY FAIL ("₱3,300, ₱1,980, ₱1,190, ₱265 missing",
+    // measured in prod on the 2026-11-10 snapshot). An exception that outlives its reason is a false alarm.
+    admin.from('platform_retail_catalog_v2').select('service_code, retail_price_php').eq('is_active', true),
     admin
       .from('vendor_billing_catalog')
       .select('sku_code, price_php')
       .eq('is_active', true),
   ]);
-  const AI_PRICE_SOURCE_SKUS = new Set(
-    Object.values(AI_TIER_SKU).filter((s): s is string => s !== null),
-  );
   const catalog: CatalogRow[] = [
-    ...(
-      (retailRes.data ?? []) as {
-        service_code: string;
-        retail_price_php: number;
-        is_active: boolean;
-      }[]
-    )
-      .filter((r) => r.is_active || AI_PRICE_SOURCE_SKUS.has(r.service_code))
-      .map((r) => ({
-        sku_code: r.service_code,
-        price_php: Number(r.retail_price_php),
-        source: 'retail' as const,
-      })),
+    ...((retailRes.data ?? []) as { service_code: string; retail_price_php: number }[]).map((r) => ({
+      sku_code: r.service_code,
+      price_php: Number(r.retail_price_php),
+      source: 'retail' as const,
+      // On sale but not described to answer engines yet (Patiktok) — its absence is the rule, not drift.
+      advertised: !UNLISTED_UNTIL_PROVEN.has(r.service_code),
+    })),
     ...((vendorRes.data ?? []) as { sku_code: string; price_php: number }[]).map((r) => ({
       sku_code: r.sku_code,
       price_php: Number(r.price_php),
@@ -86,9 +77,28 @@ export async function runSeoHealthAudit(): Promise<{ ok: boolean; drift?: number
     })),
   ];
 
+  // The served sitemaps — the front pages must be in them (Check 8). A failed fetch leaves this undefined, which
+  // skips the check rather than reporting every page missing.
+  let sitemapPaths: string[] | undefined;
+  try {
+    const res = await fetch(`${APP_URL}/sitemap-static.xml`, { cache: 'no-store' });
+    if (res.ok) {
+      const xml = await res.text();
+      sitemapPaths = [...xml.matchAll(/<loc>https?:\/\/[^/<]+(\/[^<]*)?<\/loc>/g)].map((m) => m[1] ?? '/');
+    }
+  } catch {
+    // fall through — Check 8 is skipped for this run.
+  }
+
+  // The live fee schedule, for the two true figures the fee sentence prints (never the code default).
+  const bookingFee = await getBookingFeeSchedule(admin);
+
   const result = runSeoHealthChecks({
     llmsText,
     catalog,
+    nonSkuFigures: bookingFeeFigures(bookingFee),
+    requiredQuestions: aiAnswerQuestions(),
+    sitemapPaths,
     env: {
       googleSiteVerification: siteVerification().google,
       bingSiteVerification: siteVerification().bing,

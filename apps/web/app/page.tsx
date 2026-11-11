@@ -227,7 +227,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged Memories and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro — whose Logo & QR part animates the couple's own logo — each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), Live Watch livestream on the event page, and a custom Music Maker song. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -246,11 +246,14 @@ const softwareAppJsonLd = {
     'Day-of schedule built block by block (free)',
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
+    // Build 6 Lane K: the free credits are on an account's FIRST event only (lib/papic-free-credit-promise.ts), and the
+    // "personal highlight reels" line left with it — reels are Patiktok, which is unlisted until it has run for real.
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (free credits on your first event; credit packs for more)',
+    'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
-    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
+    'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Plus and Event Pro)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
-    'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Hub Pro’s Logo & QR part animates it)',
+    'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Pro animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',
     // ⚠ NO COUNT, DELIBERATELY. "as those event types unlock" was false when

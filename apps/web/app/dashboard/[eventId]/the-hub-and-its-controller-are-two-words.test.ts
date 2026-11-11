@@ -215,7 +215,8 @@ test('the guest-facing surfaces still say "Event Hub", unqualified', () => {
     quietly deleting the distinction this whole change exists to draw.
   */
   const GUEST_SITE_SURFACES: Array<[string, RegExp]> = [
-    ['lib/llms-txt.ts', /\*\*Event Hub\*\* — free\. The 4-in-1 couple website/],
+    // Build 6 Lane K (2026-11-10): "4-in-1" was removed as untrue in Lane J; the guest sense is unchanged.
+    ['lib/llms-txt.ts', /\*\*Event Hub\*\* — free\. The event's own website/],
     ['lib/studio-apps.ts', /Your Event Hub is one beautiful home for your whole event/],
     ['app/(shell)/panood/page.tsx', /They open your Event Hub and press play/],
   ];

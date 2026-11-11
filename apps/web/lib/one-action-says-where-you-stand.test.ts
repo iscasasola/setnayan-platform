@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PASS_ANCHOR, resolveArrivalAction } from './arrival-action';
-import { manilaToday } from './std-views';
+import { theDayCalendarDay } from './day-of-mode';
 
 const WEB = join(__dirname, '..');
 
@@ -90,14 +90,16 @@ test('someone who declined is not handed a door pass on the day', () => {
   assert.equal(a?.kind, 'declined', 'their answer stands; no pass is offered');
 });
 
-test('the page resolves it with manilaToday(), never a bare Date', () => {
+test('the page resolves it with the one clock’s day, never a bare Date', () => {
+  // ⏱ Owner ruling, 10 Nov 2026: "today" is `theDayCalendarDay` at the venue — 06:00 to 06:00, the instants The Day
+  // opens and closes on (it was `manilaToday()`, midnight to midnight).
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
   const call = src.slice(src.indexOf('resolveArrivalAction({'));
   const head = call.slice(0, call.indexOf('})') + 2);
-  assert.match(head, /today: manilaToday\(\)/, 'the Manila helper decides the day');
+  assert.match(head, /today: venueDayToday/, 'the one clock decides the day');
+  assert.match(src, /const venueDayToday = theDayCalendarDay\(eventTimezoneFromCoords\(event\.venue_latitude, event\.venue_longitude\)\);/);
   assert.doesNotMatch(head, /new Date\(/, 'a bare Date here is the eight-hour bug');
-  assert.equal(typeof manilaToday(), 'string');
-  assert.match(manilaToday(), /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(theDayCalendarDay('Asia/Manila'), /^\d{4}-\d{2}-\d{2}$/);
 });
 
 test('it renders under the mark, and is not a second fixed bar', () => {

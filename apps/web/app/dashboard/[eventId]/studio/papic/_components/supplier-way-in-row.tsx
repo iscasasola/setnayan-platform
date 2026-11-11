@@ -1,11 +1,12 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 import { Camera } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import {
   SUPPLIER_BOOKED_STATUSES,
   SUPPLIER_WAY_IN_BLURB,
@@ -44,7 +45,7 @@ export async function SupplierWayInRow({ eventId }: { eventId: string }) {
       .not('marketplace_vendor_id', 'is', null),
     supabase
       .from('events')
-      .select('event_date, event_end_date, timezone, cleared_at')
+      .select(`timezone, ${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
@@ -64,10 +65,8 @@ export async function SupplierWayInRow({ eventId }: { eventId: string }) {
         timezone: string | null;
         cleared_at: string | null;
       });
-  const over = ev
-    ? getMenuLifecyclePhase(ev.event_date, ev.cleared_at, ev.timezone ?? undefined, undefined, ev.event_end_date) ===
-      'after'
-    : null;
+  // ⏱ The one clock, on the venue's zone (never `events.timezone`, which is no clock's source).
+  const over = ev ? eventClockOf(ev).menu === 'after' : null;
 
   const state = supplierWayInState({ laneOn, booked, over });
   return (

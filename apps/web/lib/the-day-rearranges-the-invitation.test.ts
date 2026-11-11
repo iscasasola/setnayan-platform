@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { resolveDayOfLead, type DayOfLeadInput } from './day-of-lead';
-import { getDayOfPhase } from './day-of-mode';
+import { getDayOfPhase, theDayCalendarDay } from './day-of-mode';
 
 const EVENT_DAY = '2026-12-18';
 
@@ -65,22 +65,28 @@ test('23:30 in Manila on the eve is NOT the wedding day', () => {
   assert.equal(lead.active, false, 'the night before is still the night before');
 });
 
-test('the lead day sits INSIDE the day-of live window, never outside it', () => {
-  // The invariant from the module docblock: the invitation can never rearrange
-  // itself on a page that is not already in its day-of state. Checked against
-  // the SHIPPED window resolver rather than a re-derived one.
-  for (const hhmm of ['00:30', '06:00', '12:00', '19:00', '23:30']) {
-    const [h, m] = hhmm.split(':').map(Number);
-    // Manila is UTC+8 with no DST, so the instant is the local time minus 8h.
-    const instant = Date.UTC(2026, 11, 18, (h as number) - 8, m as number);
-    const lead = resolveDayOfLead({ ...base, today: dayInZone(new Date(instant), 'Asia/Manila') });
-    assert.equal(lead.active, true, `${hhmm} Manila is the wedding day`);
-    assert.equal(
-      getDayOfPhase(EVENT_DAY, 'Asia/Manila', instant),
-      'live',
-      `${hhmm} Manila must also be inside the live window`,
-    );
+test('the lead day IS The Day — it opens and closes on the one clock, never outside it', () => {
+  // ⏱ Owner ruling, 10 Nov 2026: The Day runs 06:00 on the day → 06:00 the morning after, at the venue. The page hands
+  // the lead `today = theDayCalendarDay(venueTz)`, so the lead is on exactly while the live window is — checked
+  // against the SHIPPED window resolver rather than a re-derived one. (It used to be midnight to midnight.)
+  const cases: Array<[string, number, boolean]> = [
+    ['00:30 on the day', Date.UTC(2026, 11, 17, 16, 30), false],
+    ['05:59 on the day', Date.UTC(2026, 11, 17, 21, 59), false],
+    ['06:00 on the day', Date.UTC(2026, 11, 17, 22, 0), true],
+    ['12:00', Date.UTC(2026, 11, 18, 4, 0), true],
+    ['19:00', Date.UTC(2026, 11, 18, 11, 0), true],
+    ['23:30', Date.UTC(2026, 11, 18, 15, 30), true],
+    ['02:00 the morning after', Date.UTC(2026, 11, 18, 18, 0), true],
+    ['06:00 the morning after', Date.UTC(2026, 11, 18, 22, 0), false],
+  ];
+  for (const [label, instant, on] of cases) {
+    const lead = resolveDayOfLead({ ...base, today: theDayCalendarDay('Asia/Manila', instant) });
+    assert.equal(lead.active, on, `${label} (Manila): lead ${on ? 'on' : 'off'}`);
+    assert.equal(getDayOfPhase(EVENT_DAY, 'Asia/Manila', instant) === 'live', on, `${label}: the live window agrees`);
   }
+  // …and the page really hands the lead the one clock's day.
+  const body = readFileSync(join(process.cwd(), 'app/[slug]/_components/site-body.tsx'), 'utf8');
+  assert.match(body, /today: theDayCalendarDay\(eventTimezoneFromCoords\(event\.venue_latitude, event\.venue_longitude\)\)/);
 });
 
 /* ─── 🚪 A GUEST WHO DECLINED IS NOT HANDED A DOOR PASS ───────────────────── */
@@ -164,14 +170,14 @@ const SITE_BODY = readFileSync(
   'utf8',
 );
 
-test('the guest page resolves the lead from this module, with Manila deciding', () => {
+test('the guest page resolves the lead from this module, with the one clock deciding', () => {
   assert.ok(
     SITE_BODY.includes('resolveDayOfLead('),
     'site-body.tsx calls the resolver (a perfect module nothing mounts is not a feature)',
   );
   assert.ok(
-    /resolveDayOfLead\(\{[\s\S]{0,400}?today:\s*manilaToday\(\)/.test(SITE_BODY),
-    'the call site passes manilaToday() — a bare Date here is the eight-hour bug',
+    /resolveDayOfLead\(\{[\s\S]{0,400}?today:\s*theDayCalendarDay\(/.test(SITE_BODY),
+    'the call site passes the one clock\'s day (`theDayCalendarDay`) — a bare Date here is the eight-hour bug',
   );
 });
 

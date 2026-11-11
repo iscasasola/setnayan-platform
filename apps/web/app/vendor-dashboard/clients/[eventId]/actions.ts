@@ -13,6 +13,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
+import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { shortDayWords, waitlistMessage } from '@/lib/day-check';
@@ -1920,6 +1922,14 @@ async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome>
     } catch (e) {
       console.error('[vendorAskForPayment] couple notify failed:', e);
     }
+    // 💸 THE ASK REACHES THE COUPLE'S OPEN CHAT AT ONCE (chat gaps, 8 Nov). A payment ask is not a chat message, so
+    // the couple's open thread showed nothing until a reload. One Setnayan line (no free-text note in it) arrives live
+    // on the stream's existing channel, and the stream re-draws the money around it once (`lib/chat-live-refresh.ts`).
+    await postThreadSystemLine(createAdminClient(), {
+      eventId,
+      vendorProfileId: profile.vendor_profile_id,
+      body: paymentAskedLine({ amountPhp: amount, dueDate }),
+    });
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);

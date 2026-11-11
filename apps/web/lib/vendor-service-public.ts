@@ -199,6 +199,13 @@ export type BestDiscount = {
    *   • null     → not a lead-time tier at all (unchanged behaviour).
    */
   leadTier: number | 'up-to' | null;
+  /**
+   * 🏷 The shop offer this badge came from (Build 6 Lane D, `offerCandidatesFor` in lib/offers.ts), or null when it
+   * came from the card's own `vendor_service_discounts` row. The Offer Maker reads it to say "wins here".
+   */
+  offerId?: string | null;
+  /** True when it came from an "Event date in a season" offer: with no event date it is only advertised, never applied. */
+  eventWindow?: boolean;
 };
 
 /** Options for {@link pickBestDiscount}. Both are injected — never ambient. */
@@ -269,12 +276,22 @@ export function pickBestDiscount(
     const isRung = isLeadTimeTier(d);
     if (isRung && hasEventDate && d !== qualifiedTier) continue;
 
+    // 2b — 🏷 an offer for an EVENT season ("Event date in a season", Build 6 Lane D): with the couple's event date
+    // known, an event outside the window drops it — the card never dangles an offer they cannot have.
+    if (hasEventDate && d.event_from && d.event_to) {
+      const day = String(opts.eventDate).slice(0, 10);
+      if (day < d.event_from || day > d.event_to) continue;
+    }
+
     // 3 — compute peso savings on the anchor.
     let savingsPhp: number;
     if (d.unit === 'pct') {
       // A percentage is only meaningful with a positive base price.
       if (!hasAnchor) continue;
-      savingsPhp = Math.round(((anchorPhp as number) * d.rate) / 100);
+      const afterPct = (anchorPhp as number) - Math.round(((anchorPhp as number) * d.rate) / 100);
+      // An offer that mixes % and ₱: the ₱ comes off what is left after the %, never below ₱0 (owner 9 Nov).
+      const thenPhp = d.then_php && d.then_php > 0 ? Math.min(d.then_php, Math.max(0, afterPct)) : 0;
+      savingsPhp = (anchorPhp as number) - Math.max(0, afterPct) + thenPhp;
     } else {
       // Flat peso amount; cap at the anchor so a ≥-price flat never over-counts.
       savingsPhp = hasAnchor ? Math.min(d.rate, anchorPhp as number) : d.rate;
@@ -288,7 +305,13 @@ export function pickBestDiscount(
           : `₱${Math.round(d.rate).toLocaleString('en-PH')}`;
       let label: string;
       let leadTier: number | 'up-to' | null = null;
-      if (isRung && hasEventDate) {
+      if (isRung && hasEventDate && d.offer) {
+        leadTier = d.min_lead_months as number;
+        label = `${leadTimeTierLabel(leadTier)} · −${d.offer.label.replace(/ off$/, '')}`;
+      } else if (d.offer && !isRung) {
+        // A shop offer reads as the offer pill couples see (the prototype's badgeFor): "10% + ₱5,000 off".
+        label = d.offer.label;
+      } else if (isRung && hasEventDate) {
         // The couple qualifies — name the tier in the owner's own words.
         leadTier = d.min_lead_months as number;
         label = `${leadTimeTierLabel(leadTier)} · −${amount}`;
@@ -299,7 +322,7 @@ export function pickBestDiscount(
       } else {
         label = `${amount} off · ${DISCOUNT_TYPE_LABEL[d.discount_type]}`;
       }
-      best = { label, savingsPhp, type: d.discount_type, leadTier };
+      best = { label, savingsPhp, type: d.discount_type, leadTier, offerId: d.offer?.id ?? null, eventWindow: Boolean(d.event_from && d.event_to) };
     }
   }
   return best;

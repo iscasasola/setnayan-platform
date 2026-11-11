@@ -34,7 +34,8 @@ import {
 } from '@/lib/shortlist-taxonomy';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import { fetchVendorCountsByService, getCanonicalBuckets, rollUpCountsToTile } from '@/lib/vendor-counts';
-import { buildFindList, type FindList } from '@/lib/supplier-find';
+import { buildFindList, pickFindHeaderPhotos, type FindList } from '@/lib/supplier-find';
+import { displayUrlForCatalogueArt } from '@/lib/uploads';
 
 /** tile → the words of every service under it, so the one search finds
  *  "tent" inside Chairs & tents. Built from the LIVE taxonomy the caller hands
@@ -129,5 +130,24 @@ export async function readFindList(args: {
     query: args.query ?? '',
     servicesByTile: servicesByTileFrom(taxonomy.map),
   });
-  return { list, bookedMeasured };
+
+  // 🖼 Each header's photo (owner 2026-11-09, the photo group headers) — the taxonomy's own, from the snapshot this
+  // read was handed (Admin › Categories `sample_photo_r2_key`), resolved the way Explore resolves a category photo.
+  // One resolve per HEADER (≤ 8), in parallel, on this server — never a request per row. Fail-soft: a ref that does
+  // not resolve leaves that header as its plain text row.
+  const refs = pickFindHeaderPhotos(list, taxonomy.categoryPhotos);
+  const resolve = (ref: string | null | undefined): Promise<string | null> =>
+    ref ? displayUrlForCatalogueArt(ref).catch(() => null) : Promise.resolve(null);
+  const [popularPhotoUrl, ...groupPhotoUrls] = await Promise.all([
+    resolve(refs.popular),
+    ...list.groups.map((g) => resolve(refs.groups[g.id])),
+  ]);
+  return {
+    list: {
+      ...list,
+      popularPhotoUrl,
+      groups: list.groups.map((g, i) => ({ ...g, photoUrl: groupPhotoUrls[i] ?? null })),
+    },
+    bookedMeasured,
+  };
 }

@@ -106,7 +106,7 @@ export function useStaySubmit(door: StayDoor, onSaved?: () => void, resetOnSaved
   // `app/globals.css` uses to wrap that row and give the line the full width under it — keep the attribute on this `<p>`.
   // 🔒 app/_components/stay-form-refusal-own-line.test.ts
   const refusal = error ? (
-    <p role="alert" className="text-[12.5px] leading-snug text-terracotta-700" data-stay-error={door}>
+    <p role="alert" className="whitespace-pre-line text-[12.5px] leading-snug text-terracotta-700" data-stay-error={door}>
       {error}
     </p>
   ) : null;

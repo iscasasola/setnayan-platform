@@ -18,7 +18,8 @@ import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { companionNames } from '@/lib/extra-seats';
 import { DeskSavedMark } from '@/app/_components/offline-ready/desk-saved-mark';
-import { phTodayIso } from '@/lib/vendor-day-picker';
+import { EVENT_CLOCK_COLUMNS, theDayInstantsOf } from '@/lib/event-clock';
+import { eventClockOf } from '@/lib/event-clock.server';
 
 export const metadata = { title: 'Check-in desk' };
 
@@ -104,7 +105,7 @@ export default async function CheckinDeskPage({ params }: Props) {
       .from('guest_checkins')
       .select('guest_id, checked_in_at, method')
       .eq('event_id', eventId),
-    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    supabase.from('events').select(EVENT_CLOCK_COLUMNS).eq('event_id', eventId).maybeSingle(),
   ]);
   if (guestsRawError) {
     logQueryError('GuestCheckinPage.guestsRaw', guestsRawError, { event_id: eventId }, 'graceful_degrade');
@@ -121,6 +122,10 @@ export default async function CheckinDeskPage({ params }: Props) {
   if (eventRowError) {
     logQueryError('GuestCheckinPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
   }
+  // ⏱ THE ONE CLOCK (owner ruling 2, 10 Nov 2026): check-in is open while The Day is — 06:00 on the day to 06:00 the
+  // morning after the LAST day, at the venue. This desk used to say "the event day" only when the event date equalled
+  // TODAY IN MANILA, so it flipped at midnight while the reception was still checking guests in.
+  const clock = eventClockOf(eventRow);
   const somethingRefused = Boolean(guestsRawError) || Boolean(assignmentsRawError) || Boolean(tablesRawError) || Boolean(checkinsRawError);
 
   // Linked tables (#1266) display as the unit's name when one is set.
@@ -204,7 +209,7 @@ export default async function CheckinDeskPage({ params }: Props) {
           viewer={user.id}
           eventId={eventId}
           eventDate={(eventRow?.event_date as string | null) ?? null}
-          eventDay={(eventRow?.event_date as string | null) === phTodayIso()}
+          eventDay={clock.theDayOpen}
         />
       </header>
 
@@ -223,7 +228,7 @@ export default async function CheckinDeskPage({ params }: Props) {
           guest's table on the board without a manual reload (seat-finding PR 5).
           router.refresh() re-runs this server component; the desk's local
           check-in / scanner state is preserved across the refresh. */}
-      <LiveRefresher eventDate={(eventRow?.event_date as string | null) ?? null} />
+      <LiveRefresher eventDate={theDayInstantsOf(clock)} />
     </div>
   );
 }

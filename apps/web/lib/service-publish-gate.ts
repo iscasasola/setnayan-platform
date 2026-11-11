@@ -172,6 +172,26 @@ export const PUBLISH_REFUSAL_MESSAGE: Record<PublishRequirement, string> = {
 };
 
 /**
+ * 🃏 THE REFUSAL NAMES EVERY MISSING THING AT ONCE (owner 10 Nov, DECISION_LOG "SHOP › SERVICES: THE CARD, THEN ONE
+ * MENU ROW UNDER IT — EDIT · SHARE · GO ONLINE": *"Why diesn't it go online?"* — the card lacked a cover photo AND
+ * what's included, and the refusal named only the photo). The shop fixed one thing, pressed again, and was refused
+ * again for a thing it could have been told the first time.
+ *
+ *   one missing   → that requirement's own whole sentence, byte for byte (`PUBLISH_REFUSAL_MESSAGE` — also the
+ *                   database's sentence, so a raw PostgREST refusal reads the same)
+ *   two or more   → the approved prototype's frame F: "Not ready to go Online", then each missing thing on its own
+ *                   line in the Maker's own words (`PUBLISH_COACH_MESSAGE`), in the gate's order
+ *   none          → null (nothing to refuse)
+ *
+ * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
+ */
+export function publishRefusalFor(unmet: readonly PublishRequirement[]): string | null {
+  if (unmet.length === 0) return null;
+  if (unmet.length === 1) return PUBLISH_REFUSAL_MESSAGE[unmet[0]!];
+  return ['Not ready to go Online', ...unmet.map((r) => PUBLISH_COACH_MESSAGE[r])].join('\n');
+}
+
+/**
  * The line the MAKER shows on the card itself, where the vendor is standing in
  * front of the field that fixes it. Shorter, and it names the field.
  */

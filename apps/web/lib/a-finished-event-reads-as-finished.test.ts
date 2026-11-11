@@ -154,11 +154,10 @@ test('the public page shows the story, not the live day, once it is over', () =>
     the two answers differ.
   */
   const morningAfter = at('2026-08-21T08:33:00+08:00');
-  assert.equal(
-    getDayOfPhase(DAY, MNL, morningAfter),
-    'live',
-    'the old window still calls this the wedding day — that is the point',
-  );
+  /* ⏱ THE ONE CLOCK (owner ruling, 10 Nov 2026): the day-of window used to run to noon the day after, so at 08:33 it
+     still said 'live' while this switch said 'editorial' — the disagreement this test was written around. There is
+     ONE window now, and both answers agree that 08:33 the morning after is past The Day (06:00). */
+  assert.equal(getDayOfPhase(DAY, MNL, morningAfter), 'post', 'the day-of window agrees: The Day closed at 06:00');
   assert.equal(getLifecyclePhase(DAY, MNL, null, morningAfter), 'editorial');
   // And during the celebration itself it is emphatically NOT the recap.
   assert.equal(getLifecyclePhase(DAY, MNL, null, at('2026-08-20T22:00:00+08:00')), 'event');
@@ -200,7 +199,7 @@ test('no call site asks a UTC server what time it is at the venue', () => {
     const i = body.indexOf('getLifecyclePhase(');
     assert.ok(i >= 0, `${f} no longer calls getLifecyclePhase — update this list`);
     const call = body.slice(i, i + 400);
-    assert.match(call, /tz|timezone|venueTz|eventTz/, `${f} resolves the phase without a timezone`);
+    assert.match(call, /tz|timezone|venueTz|eventTz|venueTimezone/, `${f} resolves the phase without a timezone`);
   }
 });
 
@@ -231,8 +230,9 @@ test('the prepare-for-event-day banner is told the event has happened', () => {
 */
 test('the guest list knows the event happened, and nothing is taken away', () => {
   const g = src('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(g, /getMenuLifecyclePhase\(/, 'the Guests page must resolve the phase');
-  assert.match(g, /event_date, event_end_date, cleared_at, timezone/, 'it must read the date');
+  // ⏱ The one clock (lib/event-clock.ts) — `eventClockOf(row).menu` IS `getMenuLifecyclePhase` on the venue's zone.
+  assert.match(g, /eventClockOf\(eventRow\.data\)\.menu/, 'the Guests page must resolve the phase');
+  assert.match(g, /const GUESTS_EVENT_COLUMNS =\s*'role_palette, estimated_pax, timezone, slug, event_date, event_end_date,/, 'it must read the date');
   // ⤷ Maker PR 4f: the round + and its "Still adding someone?" left with the
   // phone title; the thumb row's "Search or add" is drawn after the event too
   // (no phase gate on it), and its Add opens the same sheet, which holds the

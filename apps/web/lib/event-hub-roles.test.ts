@@ -46,7 +46,7 @@ const EVENT: HubEventRead = {
   eventDate: '2026-12-12',
   eventEndDate: null,
   clearedAt: null,
-  timezone: MNL,
+  venueTz: MNL,
   slug: 'maria-and-jomar',
 };
 const GUESTS: HubGuestRead = { shared: true, measured: true, invited: 90, replied: 61 };

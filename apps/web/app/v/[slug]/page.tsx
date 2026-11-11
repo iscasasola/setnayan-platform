@@ -17,6 +17,7 @@ import { notFound, redirect } from 'next/navigation';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
+import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
@@ -47,7 +48,6 @@ import {
 import {
   fetchCoveragesByIdPublic,
   fetchInclusionsByService,
-  fetchDiscountsByServicePublic,
   pickBestDiscount,
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
@@ -1258,7 +1258,8 @@ export async function renderVendorBySlug({
     couplePhotosByService,
   ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
-    fetchDiscountsByServicePublic(admin, activeServiceIds),
+    // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
+    fetchDiscountsWithOffers(admin, activeServiceIds),
     fetchCoveragesByIdPublic(admin, coverageIds),
     // Fail-soft by contract (falls back to the hardcoded roster on error).
     getEventTypeVocab(),

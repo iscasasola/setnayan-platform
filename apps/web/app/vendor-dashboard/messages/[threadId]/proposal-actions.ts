@@ -19,6 +19,7 @@ import {
   fetchDiscountsByService,
 } from '@/lib/vendor-services';
 import { fetchAddonsByService } from '@/lib/vendor-service-addons';
+import { fetchOfferCandidatesByService, withOfferCandidates } from '@/lib/offers.server';
 import { fetchOwnSchedulesByService } from '@/lib/vendor-service-payment-schedules';
 import {
   quoteFromServiceCards,
@@ -389,7 +390,8 @@ export async function loadServiceCardLinesForQuote(input: {
     fetchVendorServices(supabase, profile.vendor_profile_id),
     fetchInclusionsByService(supabase, ids),
     fetchBracketsByService(supabase, ids),
-    fetchDiscountsByService(supabase, ids),
+    // 🏷 the card's own rows + the shop's running offers (Build 6 Lane D): the quote starts from the single best of both.
+    Promise.all([fetchDiscountsByService(supabase, ids), fetchOfferCandidatesByService(supabase, ids)]).then(([rows, offers]) => withOfferCandidates(rows, offers)),
     fetchAddonsByService(supabase, ids),
     fetchOwnSchedulesByService(supabase, ids),
     cardKindLabeller(),

@@ -1,0 +1,150 @@
+{
+ "light-320": {
+  "viewport": 320,
+  "scopeWidth": 320,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "light-375": {
+  "viewport": 375,
+  "scopeWidth": 375,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "light-390": {
+  "viewport": 390,
+  "scopeWidth": 390,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "light-1280": {
+  "viewport": 1280,
+  "scopeWidth": 1040,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/506",
+   "chMoment": "582/16",
+   "chRows": "16/506",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "dark-320": {
+  "viewport": 320,
+  "scopeWidth": 320,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "dark-375": {
+  "viewport": 375,
+  "scopeWidth": 375,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "dark-390": {
+  "viewport": 390,
+  "scopeWidth": 390,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/16",
+   "chMoment": "16/16",
+   "chRows": "16/16",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "dark-1280": {
+  "viewport": 1280,
+  "scopeWidth": 1040,
+  "horizontalOverflow": "none",
+  "gutterElementsChecked": 26,
+  "gutterFaults": [],
+  "gutters_left_right": {
+   "heroIn": "16/16",
+   "chHead": "16/506",
+   "chMoment": "582/16",
+   "chRows": "16/506",
+   "gut": "16/16",
+   "closeIn": "16/16"
+  },
+  "hashPersona": "suppliers",
+  "suppliersOverflow": "none",
+  "suppliersGutterFaults": []
+ },
+ "reducedMotion": {
+  "firstGuestOpacity": "1",
+  "count": "186"
+ }
+}

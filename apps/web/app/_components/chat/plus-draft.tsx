@@ -15,7 +15,7 @@ import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { openPlusDoor, plusDoor } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatCardShell } from './chat-step-card';
 import { MeetingStepCard } from './meeting-step-card';
-import { DecisionStepCard, FilesStepCard, FormStepCard, LogPaymentCard, PaymentStepCard, QuoteStepCard } from './cards/lazy-cards';
+import { AccessStepCard, DecisionStepCard, FilesStepCard, FormStepCard, LogPaymentCard, PaymentStepCard, QuoteStepCard } from './cards/lazy-cards';
 
 export function PlusDraft({
   threadId,
@@ -59,6 +59,8 @@ export function PlusDraft({
             <FormStepCard threadId={threadId} eventId={eventId} returnPath={returnPath} onClose={close} onSent={sent} />
           ) : draft.kind === 'photos' || draft.kind === 'file' ? (
             <FilesStepCard side={side} onClose={close} />
+          ) : draft.kind === 'access' && side === 'vendor' ? (
+            <AccessStepCard eventId={eventId} onClose={close} onSent={sent} />
           ) : draft.kind === 'decision' ? (
             <DecisionStepCard threadId={threadId} onClose={close} onSent={sent} />
           ) : (

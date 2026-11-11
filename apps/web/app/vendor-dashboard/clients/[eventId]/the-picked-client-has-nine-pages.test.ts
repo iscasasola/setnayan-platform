@@ -2,10 +2,12 @@
  * 🗂 THE PICKED CLIENT HAS NINE PAGES — and every door ever written lands on one of them
  * (THE ONE BUILD, 8 Nov 2026 · prototype v113 · B1 step 5 · spec §4).
  *
- *   1. The menu is the owner-approved nine, in order: Details · Chat · Schedule · Quotation · Payment · Forms ·
- *      Files · Hub · Report. Payment and Hub only once the client has booked (v113 `miniKeys`).
+ *   1. The menu is the owner-approved nine, in order (owner 11 Nov 2026, DECISION_LOG "THE PICKED-CLIENT MENU AND THE
+ *      CHAT (+) FOLLOW ONE ORDER"): Chat · Details · Quotation · Payment · Forms · Schedule · Files · Hub · Report.
+ *      Payment and Hub only once the client has booked (v113 `miniKeys`). The page opens on Chat.
  *   2. `pickedPageOf` is total: every legacy `?tab=` resolves (script → Schedule's fold, call → Chat, overview →
- *      Details, activity → Report); unknown → Details; a booked-only page asked of an unbooked client → Details.
+ *      Details, activity → Report); unknown → Chat; a booked-only page asked of an unbooked client → Chat (Payment →
+ *      the Quotation).
  *   3. The switch builds a body for every page from its OWN `_pages/<page>.tsx` file, and builds nothing for a page
  *      the client's menu does not show (null — never an empty page that reads as "nothing here").
  *   4. The client page's flag-ON render IS the picked client: `PickedClientShell` with those bodies and that menu,
@@ -23,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '../../../../lib/strip-comments';
 import { PICKED_CLIENT_PAGE_IDS, customerCardHref } from '../../../../lib/upcoming-schedule-door';
 import {
+  DEFAULT_PICKED_PAGE,
   PICKED_CLIENT_PAGES,
   pickedMenuFor,
   pickedPageOf,
@@ -33,11 +36,13 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
-test('1 · the menu is the approved nine, in order; Payment and Hub only once booked', () => {
+test('1 · the menu is the approved nine, in order (11 Nov); Payment and Hub only once booked', () => {
   assert.deepEqual(
     PICKED_CLIENT_PAGES.map((p) => p.label),
-    ['Details', 'Chat', 'Schedule', 'Quotation', 'Payment', 'Forms', 'Files', 'Hub', 'Report'],
+    ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule', 'Files', 'Hub', 'Report'],
   );
+  assert.equal(DEFAULT_PICKED_PAGE, 'chat', 'the picked client opens on Chat (owner 11 Nov)');
+  assert.equal(PICKED_CLIENT_PAGES[0]!.id, DEFAULT_PICKED_PAGE, 'the default page is the first tab');
   assert.deepEqual(
     PICKED_CLIENT_PAGES.map((p) => p.id),
     [...PICKED_CLIENT_PAGE_IDS],
@@ -49,8 +54,12 @@ test('1 · the menu is the approved nine, in order; Payment and Hub only once bo
   );
   assert.deepEqual(
     pickedMenuFor(false).map((p) => p.id),
-    ['details', 'chat', 'schedule', 'quote', 'forms', 'files', 'report'],
+    ['chat', 'details', 'quote', 'forms', 'schedule', 'files', 'report'],
   );
+  // Payment sits right after Quotation (the money follows the quote); Hub right before Report.
+  const booked = pickedMenuFor(true).map((p) => p.id);
+  assert.equal(booked[booked.indexOf('quote') + 1], 'payments');
+  assert.equal(booked[booked.indexOf('report') - 1], 'hub');
   assert.equal(pickedMenuFor(true).length, 9);
   assert.equal(customerCardHref('S89E-ABC', 'files'), '/vendor-dashboard/clients/S89E-ABC?tab=files');
 });
@@ -62,12 +71,12 @@ test('2 · every ?tab= a door has ever written lands on a page', () => {
   assert.equal(pickedPageOf('overview'), 'details');
   assert.equal(pickedPageOf('activity'), 'report');
   assert.equal(pickedPageOf('quotation'), 'quote');
-  assert.equal(pickedPageOf(null), 'details');
-  assert.equal(pickedPageOf('nonsense'), 'details');
+  assert.equal(pickedPageOf(null), 'chat');
+  assert.equal(pickedPageOf('nonsense'), 'chat');
   // A booked-only page asked of an unbooked client never draws an empty page: Payment → the Quotation (#38, no Payment
-  // page before booking — the money is the quote), Hub → Details.
+  // page before booking — the money is the quote), Hub → the default page (Chat).
   assert.equal(visiblePickedPage('payments', false), 'quote');
-  assert.equal(visiblePickedPage('hub', false), 'details');
+  assert.equal(visiblePickedPage('hub', false), 'chat');
   assert.equal(visiblePickedPage('hub', true), 'hub');
   assert.equal(wantsScriptFold('script'), true);
   assert.equal(wantsScriptFold('schedule'), false);

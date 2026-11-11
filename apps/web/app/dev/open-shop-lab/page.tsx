@@ -19,6 +19,7 @@
  *                  chosen · &taken=1 / &check_inbox=<email> its two refusals · &from=setnayan Setnayan's personal invite
  *                  (a staged shop + "Your offer") · &start=account opens on the account slide
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
@@ -249,6 +250,7 @@ export default async function OpenShopLabPage({
       mode="create"
       // No rate is typed in a lab: the disclosure's own "could not load the rate" wording.
       feeNotice={bookingFeeJoinDisclosure(null)}
+      fairWords={LAB_FAIR_WORDS}
       serviceTree={fixtureTree()}
       eventTypeOptions={EVENTS}
       defaults={{

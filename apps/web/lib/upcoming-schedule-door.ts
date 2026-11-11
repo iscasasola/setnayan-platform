@@ -42,22 +42,23 @@
  */
 
 /**
- * 🗂 THE PICKED CLIENT'S NINE PAGES (THE ONE BUILD, 8 Nov 2026 · v113) — the `?tab=` id of each, in menu order:
- * Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub · Report. The labels and the legacy-id
+ * 🗂 THE PICKED CLIENT'S NINE PAGES (THE ONE BUILD, 8 Nov 2026 · v113) — the `?tab=` id of each, in menu order
+ * (owner 11 Nov 2026): Chat · Details · Quotation · Payment · Forms · Schedule · Files · Hub · Report. The labels and the legacy-id
  * map live beside the shell (`clients/[eventId]/_components/picked-client-menu.ts`); the ids live HERE because
  * every door into a client (Today's rows, the Coming-up rows, notifications) builds its link through
  * `customerCardHref`, and a door may only name a page that exists.
  *
- * Since the chat moved INTO the client (v111), a bare landing opens Details and `?tab=chat` opens the Chat page in
- * place — the old "a bare route IS the chat" redirect is gone. Doors still name the page they mean.
+ * Since the chat moved INTO the client (v111), `?tab=chat` opens the Chat page in place — the old "a bare route IS
+ * the chat" redirect is gone. A bare landing opens the menu's first page (Chat since 11 Nov; Details before). Doors
+ * still name the page they mean.
  */
 export const PICKED_CLIENT_PAGE_IDS = [
-  'details',
   'chat',
-  'schedule',
+  'details',
   'quote',
   'payments',
   'forms',
+  'schedule',
   'files',
   'hub',
   'report',

@@ -10,6 +10,8 @@ import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { cardRecordHasSomethingToSayToTheShop, fetchServiceCardRecords, readCardBookedCount } from '@/lib/service-card-record';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
 
 export const metadata = { title: 'Your service' };
@@ -28,10 +30,10 @@ export default async function EditServiceCardPage({
   searchParams,
 }: {
   params: Promise<{ serviceId: string }>;
-  searchParams: Promise<{ error?: string; offpeak?: string; exp?: string; cond?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { serviceId } = await params;
-  const { error, offpeak, exp, cond } = await searchParams;
+  const { error } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,7 +50,9 @@ export default async function EditServiceCardPage({
   const sellsVenue = card.category === 'venue' || card.category === 'religious_venue';
   // 🔒 "Couples who already booked keep their price" (Build 5 Lane C) — said on the price row of a card couples booked.
   // Its own read, so a refused read (null) is never taken for "nobody booked" (0).
-  const [ctx, details, records, hallsRes, bookedNow] = await Promise.all([
+  // 🔒 The delete sheet's open bookings (owner 10 Nov on PR #7464) — the card is proved this shop's own just above
+  // (`loadCardForEdit`), so the admin read names only its own couples' events.
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     cardRecordEnabled() ? fetchServiceCardRecords(supabase, [serviceId]).catch(() => null) : Promise.resolve(null),
@@ -69,7 +73,13 @@ export default async function EditServiceCardPage({
           )
       : Promise.resolve({ data: [] }),
     readCardBookedCount(supabase, serviceId),
+    readCardBookings(createAdminClient(), [serviceId]),
   ]);
+  const thisCardBookings = cardBookings?.get(serviceId) ?? null;
+  const deleteGate = {
+    refusal: thisCardBookings ? openBookingsRefusal(thisCardBookings.open) : BOOKINGS_UNREAD,
+    lines: deleteWarningLines(thisCardBookings?.picked ?? 0),
+  };
   const hallRows = ((hallsRes as { data: unknown }).data ?? []) as {
     pool_id: string;
     pool_label: string;
@@ -126,17 +136,10 @@ export default async function EditServiceCardPage({
         initial={card.initial}
         editing={card.editing}
         bookedNow={bookedNow}
+        deleteGate={deleteGate}
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}
-        discountSeed={
-          offpeak === '1'
-            ? {
-                expiry: typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) ? exp : undefined,
-                conditions: typeof cond === 'string' ? cond.slice(0, 200) : undefined,
-              }
-            : null
-        }
       />
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
       {venueHalls.length > 0 ? (

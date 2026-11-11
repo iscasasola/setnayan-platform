@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { isEventDayActive } from '@/lib/day-of-mode';
+import { theDayIsOpenAt, theDayWhenKey, type TheDayWhen } from '@/lib/event-clock';
 import { herdDelay, jittered } from '@/lib/live-day-timing';
 import {
   PULSE_AWAY_MS,
@@ -22,8 +22,9 @@ import {
  * all — and calls `onChange` only when the answer says the page on screen is out of date (`pulseSaysRefresh`), after a
  * random moment (`PULSE_REFRESH_SPREAD_MS`) so a venue's phones do not re-render in the same instant.
  *
- *   · Same gate as before: only while the event day is active (`isEventDayActive`, re-asked at every tick, so a page
- *     left open across the boundary starts), and only while the tab is visible — a pocketed phone asks nothing.
+ *   · Only while The Day is open (`theDayIsOpenAt` — the ONE clock's two instants, handed down by the server so the
+ *     phone never anchors a date on its own midnight; re-asked at every tick, so a page left open across the boundary
+ *     starts), and only while the tab is visible — a pocketed phone asks nothing.
  *   · Back after more than `PULSE_AWAY_MS` hidden → one re-draw (a per-guest change may have left the answer's window);
  *     back sooner → it asks at once.
  *   · `PULSE_MISSES_BEFORE_REFRESH` unanswered asks in a row → one full re-draw, the old behaviour. A broken pulse must
@@ -33,7 +34,7 @@ import {
  */
 export function useEventPulse(
   slug: string | null | undefined,
-  eventDate: string | Date | null | undefined,
+  eventDate: TheDayWhen,
   baseline: PulseBaseline | null | undefined,
   onChange: () => void,
 ): void {
@@ -45,9 +46,12 @@ export function useEventPulse(
   // a render drawn from a remembered answer a few seconds older must not trigger the same re-draw again.
   const actedOn = useRef<Set<string>>(new Set());
   const enabled = Boolean(slug && eventDate && baseline);
+  const whenRef = useRef(eventDate);
+  whenRef.current = eventDate;
+  const whenKey = theDayWhenKey(eventDate);
 
   useEffect(() => {
-    if (!enabled || !slug || !eventDate) return;
+    if (!enabled || !slug || !whenKey) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
     let misses = 0;
@@ -64,7 +68,7 @@ export function useEventPulse(
     };
 
     const ask = async () => {
-      if (!isEventDayActive(eventDate) || document.visibilityState !== 'visible') return;
+      if (!theDayIsOpenAt(whenRef.current) || document.visibilityState !== 'visible') return;
       const base = baselineRef.current;
       if (!base) return;
       try {
@@ -101,7 +105,7 @@ export function useEventPulse(
       }
       const away = hiddenAt === null ? 0 : Date.now() - hiddenAt;
       hiddenAt = null;
-      if (away > PULSE_AWAY_MS && isEventDayActive(eventDate)) redraw(null);
+      if (away > PULSE_AWAY_MS && theDayIsOpenAt(whenRef.current)) redraw(null);
       else void ask();
     };
 
@@ -113,5 +117,5 @@ export function useEventPulse(
       if (refreshTimer) clearTimeout(refreshTimer);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [enabled, slug, eventDate]);
+  }, [enabled, slug, whenKey]);
 }

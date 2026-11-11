@@ -169,6 +169,10 @@ function backToCalendar(formData: FormData, notice: string, block: string | null
 
 function revalidateScheduleSurfaces() {
   revalidatePath('/vendor-dashboard/calendar');
+  // 7️⃣ Today's step 7 draws How many a day too (a new shop's setup, `setup-daily-step.tsx`) — saved in place there, so
+  // Today re-renders with the saved number. (Today is NOT one of the door's `within` screens: the no-shop bounce lands on
+  // bare `/vendor-dashboard`, and that must never read as "saved".)
+  revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/clients');
   // Customers › Dates and People draw every schedule fact now (S-PR3).
   revalidatePath('/vendor-dashboard/customers');

@@ -45,7 +45,7 @@ const WEB = resolve(HERE, '..', '..', '..');
 
 const LAUNCHER = resolve(HERE, 'page.tsx');
 const BODY = resolve(WEB, 'app', '_components', 'alaala', 'lens-body.tsx');
-const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', 'page.tsx');
+const ALAALA_PAGE = resolve(WEB, 'app', 'dashboard', '(account)', 'library', '_components', 'memories-segment.tsx');
 /*
   RE-ANCHORED 2026-09-21, NOT relaxed: the lens vocabulary moved out of the page
   into `_data/library-views.ts` so the desktop rail can draw the same rows the
@@ -116,9 +116,10 @@ test('the People door lives in the shared body, where both surfaces get it', () 
   // watching it.
   const s = src(BODY);
   assert.equal(
-    count(s, /href="\/dashboard\/people"/g),
+    // 🏠 People is a section of Home since 11 Nov 2026 — the door's address is Home › People.
+    count(s, /href="\/dashboard\?seg=people"/g),
     1,
-    'The only route from Alaala to /dashboard/people is gone. It once hung off a ' +
+    'The only route from Alaala to People (/dashboard?seg=people) is gone. It once hung off a ' +
       'prose placeholder and vanished the moment the People lens started showing ' +
       'real faces — a control that disappears when the feature starts WORKING.',
   );

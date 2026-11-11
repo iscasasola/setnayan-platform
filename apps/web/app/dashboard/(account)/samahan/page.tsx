@@ -15,5 +15,5 @@ export default async function SamahanIndexForwards({
   const note = sp.left === '1' ? '&left=1' : sp.archived === '1' ? '&archived=1' : '';
   // Written out (not `PEOPLE_GROUPS_HREF`) so the Ugat screens map reads this page as a forwarding stub; the guard
   // holds the two equal (`lib/groups-return-to-people.test.ts`).
-  redirect(`/dashboard/people?view=samahan${note}`);
+  redirect(`/dashboard?seg=people&view=samahan${note}`);
 }

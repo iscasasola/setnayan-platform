@@ -235,9 +235,11 @@ test('the wordmark leaving did not lose the one-press way home', () => {
       · the shell's own account menu;
       · `<AccountSwitcher>`, the account panel every app layout hands the bar.
   */
-  const eventsRow = SHELL_CODE.match(/<Link href="\/dashboard" \{\.\.\.rowProps\('events'\)\}>/g) ?? [];
-  assert.equal(eventsRow.length, 1, `the rail's events row → /dashboard is missing (found ${eventsRow.length})`);
-  const railEvents = SHELL_CODE.slice(SHELL_CODE.indexOf("rowProps('events')"), SHELL_CODE.indexOf("rowProps('events')") + 600);
+  // 🏠 Since 11 Nov 2026 ("HOME IS THE PROFILE") the rail's 'events' slot is the HOME row → HOME_HREF
+  // (`/dashboard?hub=1`), and the board is its Events door right under it.
+  const eventsRow = SHELL_CODE.match(/<Link href=\{HOME_HREF\} \{\.\.\.rowProps\('events'\)\} data-home-row="">/g) ?? [];
+  assert.equal(eventsRow.length, 1, `the rail's Home row → /dashboard is missing (found ${eventsRow.length})`);
+  const railEvents = SHELL_CODE.slice(SHELL_CODE.indexOf("rowProps('events')"), SHELL_CODE.indexOf("rowProps('events')") + 900);
   /* "Events", not "Your events" (owner 2026-09-23) — and pinned as the LABEL
      EXPRESSION, not as a loose word: `Events` on its own also matches the
      row's `.fd-icon-caption`, so a row that lost its label entirely would
@@ -605,11 +607,10 @@ test('the events row says Events everywhere, and never points back', () => {
     /slotLabel\(RAIL_SLOT\.events, 'Events'\)/,
     'the events row no longer renders its label through the registry',
   );
-  assert.match(
-    src,
-    /<RailIcon as=\{LayoutGrid\} \/>/,
-    'the events row lost the events icon',
-  );
+  // 🏠 The 'events' slot is the Home row since 11 Nov 2026 — it wears the house, as the bar's Home tab does; the
+  // events glyph stays on the focus row inside an event (`FOCUS_ICONS.events`).
+  assert.match(src, /<RailIcon as=\{House\} \/>/, 'the Home row lost its icon');
+  assert.match(src, /events: LayoutGrid/, 'the focus row lost the events icon');
   /* THE FOCUS ROW IS THE OTHER HALF, and it lives in the event layout — a
      guard that read only the shell would have called this fixed while the
      rail inside every event still said "Back to events". */

@@ -45,7 +45,8 @@ export async function POST(
     return Response.json({ error: 'invalid_json', message: 'Couldn’t read your request.' }, { status: 422 });
   }
 
-  const result = await sendChatMessageCore(auth.supabase, { threadId, body });
+  // 🏪 The supplier app's endpoint: the shop speaks, even when this login also hosts the event (owner, 11 Nov).
+  const result = await sendChatMessageCore(auth.supabase, { threadId, body, asSide: 'vendor' });
   if (!result.ok) {
     return Response.json(
       { error: result.code, message: result.message },

@@ -126,8 +126,10 @@ test('at most 2 pills, Verified first, then the highest other in shopBadges orde
   assert.deepEqual(cardBadges(facts({ completedEvents: null, trusted: null })), []);
 });
 
-test('the card draws the pills with the shipped ShopBadgePill, read once per table per shelf', () => {
-  assert.match(SHOP_CARD, /s\.badges\.map\(\(b\) => \(\s*<ShopBadgePill key=\{b\.key\} badge=\{b\} size="xs" ground="auto" \/>/);
+test('the card draws the badges as the shipped circular ImageBadge, read once per table per shelf', () => {
+  // Owner 11 Nov: the card's badges are the CIRCULAR image badges (the Shop tab's `ImageBadge`), never the long pill.
+  assert.match(SHOP_CARD, /const img = badgeImageOf\(b\);[\s\S]{0,200}<ImageBadge \{\.\.\.img\}/);
+  assert.doesNotMatch(SHOP_CARD, /<ShopBadgePill/, 'the shop card drew the long pill again');
   assert.match(DATA, /badges: cardBadges\(/);
   assert.match(DATA, /readShopBadgeFactsForShops\(/, 'the shelf must batch its badge reads');
   assert.doesNotMatch(DATA, /readShopBadgeFacts\(/, 'a per-shop badge read crept back into the shelf');
@@ -176,4 +178,26 @@ test('the host circle wears a photo only on your own event or a public profile',
   assert.match(loader, /renderableImageSrc\(await displayUrlForStoredAsset\(ref\)/, 'sign it the way People to follow does');
   const card = src('app/_components/frontdoor/discover-event-card.tsx');
   assert.match(card, /card\.hostPhotoUrl \? \(\s*<span className="fd-ava fd-ava-photo"[^>]*>\s*(?:\{[^}]*\}\s*)?<img src=\{card\.hostPhotoUrl\}/);
+});
+
+test('each worn badge maps to its circle — the same pictures the Shop tab draws', async () => {
+  const { badgeImageOf } = await import('@/lib/shop-badge-row');
+  const all = shopBadges(
+    facts({
+      verified: true,
+      completedEvents: 57,
+      trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 },
+      inBusinessSinceYear: 2020,
+      awards: ['Most Booked'],
+    }),
+  );
+  const by = (k: string) => badgeImageOf(all.find((b) => b.kind === k)!);
+  assert.deepEqual(by('verified'), { shape: 'seal', face: 'navy', num: '✓', mini: 'VERIFIED' });
+  const m = by('milestone');
+  assert.equal(m.shape, 'hex');
+  assert.equal(m.mini, 'EVENTS');
+  assert.notEqual(m.num, '—');
+  assert.deepEqual(by('rating'), { shape: 'seal', face: 'gold', num: '4.9', mini: 'RATING' });
+  assert.deepEqual(by('years'), { shape: 'seal', face: 'ivory', num: '6', mini: 'YEARS' });
+  assert.equal(by('award').shape, 'rosette');
 });

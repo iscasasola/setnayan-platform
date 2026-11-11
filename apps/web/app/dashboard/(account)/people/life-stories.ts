@@ -130,7 +130,7 @@ export async function hideMyStoryItem(storyItemId: string): Promise<ActionResult
     .eq('person_id', personId)
     .is('removed_at', null);
   if (error) return { ok: false, error: 'Couldn’t hide that.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -150,7 +150,7 @@ export async function unhideMyStoryItem(storyItemId: string): Promise<ActionResu
     .eq('person_id', personId)
     .is('removed_at', null);
   if (error) return { ok: false, error: 'Couldn’t restore that.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -174,7 +174,7 @@ export async function optOutOfEventStory(eventId: string): Promise<ActionResult>
     .eq('event_id', eventId)
     .is('removed_at', null);
   if (error) return { ok: false, error: 'Couldn’t update your preference.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   /*
     🔴 THE STRONGEST WITHDRAWAL IN THE PRODUCT REACHED ONE HOST SCREEN. This
     action is the RA 10173 opt-out — "remove me from this event's story

@@ -3,7 +3,19 @@ import {
   type ReactNode,
   type ComponentType,
 } from 'react';
-import { EventsThumbRow } from '@/app/_components/frontdoor/shell-thumb-rows';
+import { EventsFindInput } from '@/app/_components/frontdoor/shell-thumb-rows';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
+import { ownsAShop } from '@/lib/account-bar';
+import { homeSegments, resolveHomeSeg } from '@/lib/home-segments';
+import { readHomeCardCounts, readHomeEventCounts, readHomeHandle } from '@/lib/home-profile.server';
+import { resolveRailAccount } from '@/app/_components/frontdoor/rail-data';
+import { waitingRequestCount } from '@/lib/people-roster';
+import { HomeProfile } from './_components/home-profile';
+import { HomeFindRow, HomePinnedRow } from './_components/home-pin';
+import { HomeShopSegment } from './_components/home-shop-segment';
+import { PeopleSegment } from '../(account)/people/_components/people-segment';
+import { MemoriesSegment } from '../(account)/library/_components/memories-segment';
+
 import Link from 'next/link';
 import { daysToGo } from '@/lib/countdown-target';
 import { redirect } from 'next/navigation';
@@ -118,8 +130,116 @@ import { StanceChip } from './_components/stance-chip';
 import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
-  title: 'Your events',
+  title: 'Home',
 };
+
+/**
+ * 🏠 HOME — THE ACCOUNT'S ONE PAGE (owner 11 Nov 2026, "One profile page approve" — v3 of `one-profile-page`,
+ * DECISION_LOG "HOME PAGE v3 APPROVED"). The bar reads Home · Discover; Events · People · Shop · Memories are the
+ * sections of this page (`?seg=`, `lib/home-segments.ts`). This is a WRAPPER AROUND THE BOARD: the profile header and
+ * the sections row (`HomeProfile`), then the picked section's body — the Events board below, unchanged, or the
+ * shipped People / Memories bodies moved from their old pages (which forward here, every parameter kept), or the
+ * Shop for an owner. Only the Events section runs the board, so its landing rules (the auto-jump, `?hub=1`) apply
+ * exactly where they always did.
+ */
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  const sp = (await searchParams) ?? {};
+  const one = (k: string): string | undefined => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  const switcher = await getSwitcherData(user.id).catch(() => null);
+  // The shop the section shows: the one you own, else the one you are on the team of (`ownsAShop` admits both — the
+  // 21 Oct gate the Shop tab used). No shop to show = no Shop section, never a section that falls back to Events.
+  const ownedShop = switcher?.context.shops.find((s) => s.owned) ?? switcher?.context.shops[0] ?? null;
+  const ownsShop = switcher ? ownsAShop(switcher.context) && ownedShop !== null : false;
+  const segs = homeSegments({ ownsShop });
+  const seg = resolveHomeSeg(one('seg'), { ownsShop });
+
+  const [rail, handle, asking, cards, eventCounts] = await Promise.all([
+    resolveRailAccount(),
+    readHomeHandle(user.id),
+    peopleConnectionsEnabled() ? waitingRequestCount(user.id).catch(() => null) : Promise.resolve(null),
+    ownsShop && ownedShop ? readHomeCardCounts(ownedShop.id) : Promise.resolve(null),
+    seg === 'events' ? readHomeEventCounts(user.id) : Promise.resolve(null),
+  ]);
+
+  const body =
+    seg === 'people' ? (
+      <PeopleSegment
+        homeSegs={segs}
+        searchParams={{
+          error: one('error'),
+          saved: one('saved'),
+          removed: one('removed'),
+          view: one('view'),
+          person: one('person'),
+          left: one('left'),
+          archived: one('archived'),
+        }}
+      />
+    ) : seg === 'memories' ? (
+      <MemoriesSegment homeSegs={segs} searchParams={{ tab: one('tab'), event: one('event') }} />
+    ) : seg === 'shop' && ownedShop ? (
+      <HomeShopSegment shop={ownedShop} segs={segs} />
+    ) : (
+      <EventsBoard
+        searchParams={Promise.resolve({
+          hub: one('hub'),
+          putaway: one('putaway'),
+          page: one('page'),
+          request_declined: one('request_declined'),
+          inviter_muted: one('inviter_muted'),
+          request_error: one('request_error'),
+        })}
+        pin={
+          <HomePinnedRow
+            seg="events"
+            segs={segs}
+            sub={[
+              { key: 'events:planning', label: 'Planning', group: 'Events', href: '#events' },
+              { key: 'events:celebrated', label: 'Celebrated', group: 'Events', href: '#finished' },
+            ]}
+            note={eventCounts ? null : 'Your events couldn’t be counted just now'}
+            doors={
+              eventCounts
+                ? [
+                    { key: 'planning', n: eventCounts.planning, word: 'planning', href: '#events' },
+                    { key: 'celebrated', n: eventCounts.celebrated, word: 'celebrated', href: '#finished' },
+                  ]
+                : []
+            }
+            action={{ label: 'Event', ariaLabel: 'Create an event', href: '/dashboard/create-event', mark: 'create-event' }}
+          />
+        }
+      />
+    );
+
+  return (
+    <HomeProfile
+      seg={seg}
+      segs={segs}
+      me={{
+        displayName: switcher?.displayName ?? null,
+        email: switcher?.email ?? user.email ?? '',
+        photoUrl: switcher?.photoUrl ?? null,
+        photoFrame: switcher?.photoFrame ?? null,
+      }}
+      handle={handle}
+      eventCount={rail.signedIn ? rail.eventCount : null}
+      asking={asking}
+      cardCount={cards ? cards.cards : null}
+    >
+      {body}
+    </HomeProfile>
+  );
+}
 
 /**
  * "Where to?" — the full-screen account LAUNCHER, remodeled to the FOUR-SURFACE
@@ -201,8 +321,9 @@ export const metadata = {
  * "Your story" block (`personLifeStoriesEnabled`).
  */
 
-export default async function LauncherPage({
+async function EventsBoard({
   searchParams,
+  pin = null,
 }: {
   // `show` is GONE (2026-08-13): the board no longer has a hidden half, so
   // there is nothing for a query param to reveal. A bookmarked or printed
@@ -226,6 +347,8 @@ export default async function LauncherPage({
     inviter_muted?: string;
     request_error?: string;
   }>;
+  /** 🏠 Home's pinned row for this section (v3 row 7) — drawn where the bottom thumb row's search used to start the board. */
+  pin?: ReactNode;
 }) {
   const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
@@ -1175,8 +1298,13 @@ export default async function LauncherPage({
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
       {quietCopies.length > 0 ? <QuietScheduleRefresh viewer={user.id} copies={quietCopies} /> : null}
-      {/* 🔍 ONE THUMB ROW (owner 2026-10-22): "Search events" · ＋ Create event — the top bar has no search now. */}
-      <EventsThumbRow />
+      {/* 📌 HOME'S ONE PINNED ROW (owner 11 Nov 2026, v3 row 7): Events ▾ · planning · celebrated · ＋ Event · ⚙ — and the
+          bottom thumb row ("Search events" · ＋ Create event, 2026-10-22) folds into it: its ＋ is the row's action, its
+          search is this section's FIRST ROW, here, scrolling with the page. */}
+      {pin}
+      <HomeFindRow words="Search events" tour="events-search">
+        <EventsFindInput />
+      </HomeFindRow>
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
           No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 
@@ -1220,7 +1348,7 @@ export default async function LauncherPage({
           The anti-regression guards on the greeting eyebrow and the
           "Pick up where you left off" tail still apply and still pass: what was
           removed is the visible duplicate, never the page's identity. */}
-      <h1 className="sr-only">Your events</h1>
+      <h2 className="sr-only">Your events</h2>
 
       {/* 🔦 The account bar's first-visit spotlight (Events · People · Memories — owner 2026-10-22; the bar's order since 2026-11-11), after the
           host's journey so the two never stack. A server component: it reads its own seen keys and ships only
@@ -1638,14 +1766,14 @@ export default async function LauncherPage({
         {written.length > 0 ? (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
             These days are told —{' '}
-            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+            <Link href="/dashboard?seg=memories" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
               read them in Memories
             </Link>
             .
           </p>
         ) : (
           <p className="mt-3 text-[12px] text-[color:var(--sn-ink-500)]">
-            <Link href="/dashboard/library" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
+            <Link href="/dashboard?seg=memories" className="underline decoration-ink/25 underline-offset-2 hover:text-ink">
               Open Memories
             </Link>
           </p>

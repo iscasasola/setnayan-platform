@@ -121,7 +121,7 @@ import {
 } from '@/lib/chat-optimistic';
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
-import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
+import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { privateOtherId } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
@@ -202,6 +202,11 @@ type Props = {
    * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
    */
   hosts?: readonly ChatHost[] | null;
+  /**
+   * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
+   * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
+   */
+  shopLabel?: string | null;
   /**
    * 👥 The strip's ＋ (DECISION_LOG 2026-11-09 👥) — hosts and the coordinator only; the supplier's page never passes it.
    * `add` is a server action. Absent → no ＋.
@@ -439,6 +444,7 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  shopLabel = null,
   memberAdd = null,
   memberLeave = null,
   headCalls = null,
@@ -1563,7 +1569,7 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
@@ -2188,7 +2194,8 @@ export function ChatMessageStream({
           const run = bubbleRun(messages, i);
           // The supplier's view, inside the client (THE ONE BUILD): an incoming run carries its HOST's first name and
           // initials (`event_chat_hosts`), so a chat with four hosts says who is speaking. The couple's view is as before.
-          const host = !mine && m.sender_user_id ? hostById.get(m.sender_user_id) ?? null : null;
+          // 🏪 The face on the message's OWN side — one login can be the shop and a host at once (owner, 11 Nov).
+          const host = !mine ? hostForMessage(m, hosts) : null;
           // 👥 On the hosts' side another co-host's run carries THEIR name (chat gaps, 8 Nov) — the same way the
           // supplier's view labels each host's run. A co-host's name is never masked (they are the event's own people).
           const coHost = isCoHostMessage(m, viewerRole, currentUserId);

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7684
+# facts: 7685
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     630
-#   col       5544
+#   col       5545
 #   policy    1125
 #   view      9
 #   func      372
@@ -1012,6 +1012,7 @@ col	public.chat_messages.proposal_id	anon=S authenticated=SI
 col	public.chat_messages.recipient_user_id	anon=S authenticated=SI
 col	public.chat_messages.sender_role	anon=S authenticated=S
 col	public.chat_messages.sender_user_id	anon=S authenticated=S
+col	public.chat_messages.sent_as	anon=S authenticated=SI
 col	public.chat_messages.thread_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
 col	public.chat_poll_choices.choice_id	anon=- authenticated=S

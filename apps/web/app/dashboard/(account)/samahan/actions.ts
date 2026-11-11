@@ -119,7 +119,7 @@ export async function createCommunity(formData: FormData) {
     console.error('[createCommunity] invite token insert failed', tokenError.message);
   }
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   redirect(`/dashboard/samahan/${communityId}?created=1`);
 }
 
@@ -179,7 +179,7 @@ export async function leaveCommunity(formData: FormData) {
       .eq('community_id', communityId);
   }
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   redirect(`${PEOPLE_GROUPS_HREF}&left=1`);
 }
 
@@ -390,7 +390,7 @@ export async function updateCommunityIdentity(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent('That change didn’t save. Try again.')}`);
   }
   revalidatePath(back);
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   redirect(`${back}?updated=1`);
 }
 

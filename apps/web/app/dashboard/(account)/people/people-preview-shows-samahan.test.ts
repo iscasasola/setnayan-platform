@@ -42,7 +42,9 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = resolve(HERE, 'page.tsx');
+// 🏠 The People body moved WHOLE into Home's People section on 11 Nov 2026 ("HOME IS THE PROFILE"); `page.tsx` only
+// forwards to `/dashboard?seg=people` now. The preview branch lives where the body went.
+const PAGE = resolve(HERE, '_components', 'people-segment.tsx');
 
 /** The preview branch's source, isolated from the functional branch. */
 function previewSource(): string {
@@ -90,7 +92,7 @@ test('samahan is imported by the page at all', () => {
   // build failure names the symbol, not the reason.
   assert.match(
     stripComments(readFileSync(PAGE, 'utf8')),
-    /from\s+['"]\.\/_components\/samahan-people-section['"]/,
-    'The samahan section import is gone from people/page.tsx.',
+    /from\s+['"]\.\/samahan-people-section['"]/,
+    'The samahan section import is gone from the People body (people-segment.tsx).',
   );
 });

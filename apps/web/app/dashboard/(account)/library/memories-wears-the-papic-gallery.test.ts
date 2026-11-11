@@ -25,7 +25,7 @@ const code = (rel: string) => {
 };
 const CH = code('_components/memories-chapters.tsx');
 const THUMB = code('_components/memories-thumb.tsx');
-const PAGE = code('page.tsx');
+const PAGE = code('_components/memories-segment.tsx');
 const WALL = code('_components/memories-wall-viewer.tsx');
 
 const between = (src: string, a: string, b: string) => {
@@ -112,12 +112,15 @@ for (const [what, src, re] of SEATS) {
 }
 
 test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Search memories" — no band, no ＋ (nothing is added here)', () => {
-  assert.match(THUMB, /from '\.\.\/\.\.\/_components\/account-thumb-row';/, 'Memories draws its own bottom row instead of the one row');
+  // 🏠 Since 11 Nov 2026 ("HOME IS THE PROFILE", v3 rows 6–7) Memories is a section of Home: its one row is Home's
+  // PINNED ROW (`Memories ▾` · no number · no action · ⚙), and the search is the first row of the body.
+  assert.match(THUMB, /from '@\/app\/_components\/pinned-row\/pinned-row';/, 'Memories draws its own row instead of the one pinned row');
   assert.ok(!/gs\.lower|sn-glass-row/.test(THUMB), 'Memories brought back a band of its own');
-  const row = between(THUMB, '<AccountThumbRow', '\n      />');
-  assert.ok(row.includes('tools={') && row.includes('field={'), 'the row lost ≡ or the field');
-  assert.ok(!row.includes('action={'), 'a ＋ appeared on Memories — nothing is added here');
-  assert.ok(/<PickMenu\b/.test(row) && (row.match(/<PickMenu\b/g) ?? []).length === 1, '≡ is not ONE dropdown');
+  const row = between(THUMB, '<PinnedRow', '\n        />');
+  assert.ok(row.includes('picker={') && row.includes('gear={'), 'the row lost Memories ▾ or ⚙');
+  assert.match(row, /action=\{null\}/, 'a ＋ appeared on Memories — nothing is added here');
+  assert.match(row, /doors=\{\[\]\}/, 'a number appeared on Memories — v3 row 7: no number');
+  assert.match(THUMB, /<HomeFindRow words="Search memories"/, 'the search left the first row');
   const words = (THUMB.match(/placeholder="([^"]+)"/) ?? [])[1] ?? '';
   assert.equal(words, 'Search memories');
   // The field narrows what is on the page, by name — every chapter carries its name.

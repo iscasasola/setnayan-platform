@@ -95,5 +95,5 @@ export async function claimAlaga(formData: FormData): Promise<void> {
     redirect(`/claim/${token}?error=invalid`);
   }
 
-  redirect('/dashboard/people?claimed=1');
+  redirect('/dashboard?seg=people&claimed=1');
 }

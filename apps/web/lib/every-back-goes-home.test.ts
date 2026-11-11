@@ -33,6 +33,8 @@ import React from 'react';
 
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
+import { accountBarTabs } from '@/lib/account-bar';
+import { accountBarItems } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { BAR_ROOTS, HOMES, fillRoute, pageBackLink, pageHome } from '@/lib/page-home';
 import { WEB } from '@/lib/design-rules-scan';
@@ -116,10 +118,10 @@ function hrefsAfter(rel: string, anchor: RegExp, indent: string): string[] {
 }
 
 test('the map’s bar roots are today’s bars', () => {
-  const account = hrefsAfter('app/dashboard/(launcher)/_components/account-bottom-nav.tsx', /const TAB: Record<AccountBarTab/, '    ');
-  // The account bar's Shop tab is the supplier's Today — it lands in the supplier set.
-  assert.deepEqual(sorted(account.map(pathOf).filter((p) => p !== '/vendor-dashboard')), sorted(BAR_ROOTS.account));
-  assert.ok(account.map(pathOf).includes('/vendor-dashboard') && (BAR_ROOTS.supplier as readonly string[]).includes('/vendor-dashboard'));
+  // Read from the bar's own rule (Home's href is a named constant, `HOME_HREF`, which a literal scan cannot see).
+  // 🏠 Home · Discover since 11 Nov 2026 ("HOME IS THE PROFILE") — no Shop tab; the shop is a section of Home.
+  const account = accountBarItems(accountBarTabs({ discoverOpen: true })).map((t) => t.href);
+  assert.deepEqual(sorted(account.map(pathOf)), sorted(BAR_ROOTS.account));
 
   const event = buildCustomerMenuTree('[eventId]', { websiteEnabled: true, seatingEnabled: true }).map((t) => pathOf(t.href));
   assert.deepEqual(sorted(event), sorted(BAR_ROOTS.event));

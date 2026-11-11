@@ -2057,6 +2057,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
+                  // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
+                  sentAs="vendor"
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2235,6 +2237,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             flush
             // THE ONE BUILD · the client's Chat page names every host (strip + run labels); full screen is unchanged.
             {...(embedded ? { hosts: customerPlan.hosts } : {})}
+            // 🏪 The shop's own name for the strip: a login that also hosts this event sees the shop, then You.
+            {...(embedded ? { shopLabel: profile.business_name ?? null } : {})}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.

@@ -37,7 +37,7 @@ import React from 'react';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
-  /* The front door's shop card draws ShopBadgePill, whose CSS module is its class names here — the same stub
+  /* A CSS module the front door's tree imports is its class names here — the same stub
      discover-search-stays-on-page.test.ts uses. */
   const Mod = require('node:module');
   Mod._extensions['.css'] = (m: { exports: unknown }) => {

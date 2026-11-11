@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { railMatchRows, activeRailKey } from './rail-active';
+import { railMatchRows, activeRailKey, railRowLit } from './rail-active';
 
 /**
  * PEOPLE IS A DOOR, NOT A NOTICE.
@@ -32,10 +32,11 @@ function shell(): string {
 }
 
 test('the rail offers a real door into People', () => {
+  // 🏠 People is a section of Home since 11 Nov 2026 ("HOME IS THE PROFILE"): its door is Home's People door.
   assert.match(
     shell(),
-    /href="\/dashboard\/people"/,
-    'The rail has no link to /dashboard/people. It was a dead notice once; a ' +
+    /<Link href=\{homeSegHref\('people'\)\} className="fd-row fd-hsub" data-home-door="people">/,
+    'The rail has no door into Home › People. It was a dead notice once; a ' +
       'row that cannot be pressed is the same defect wearing a link-shaped hole.',
   );
 });
@@ -57,20 +58,18 @@ test('no coming-soon claim survives anywhere in the rail', () => {
   );
 });
 
-test('the People row lights when you are on it, and not before', () => {
+test('the pages under People light Home, the place they belong to — and /dashboard is Home', () => {
+  // 🏠 11 Nov 2026: the rail's 'events' slot is the Home row. People's own door is a section door (`?seg=people`),
+  // which this rail cannot tell apart without the query, so it lights nothing; the pages still under People — an
+  // alaga's page, a group's room — light Home.
   const rows = railMatchRows({ signedIn: true, hasShop: false, isAdmin: false });
-  assert.ok(
-    rows.some((r) => r.key === 'people'),
-    'railMatchRows has no people row — the door would never read as active.',
-  );
-  assert.equal(activeRailKey(rows, '/dashboard/people'), 'people');
-  assert.equal(activeRailKey(rows, '/dashboard/people/settings'), 'people');
-  // The events row is EXACT for exactly this reason: a prefix match on
-  // /dashboard would light "your events" while a person reads their People.
   assert.equal(activeRailKey(rows, '/dashboard'), 'events');
+  assert.ok(railRowLit(activeRailKey(rows, '/dashboard/people/S89D-ABCDEFGHJK'), 'events'), "an alaga's page does not light Home");
+  assert.ok(railRowLit(activeRailKey(rows, '/dashboard/samahan/abc'), 'events'), "a group's room does not light Home");
+  assert.equal(activeRailKey(rows, '/dashboard/profile'), null, 'Settings lit Home');
 });
 
-test('a signed-out visitor is offered no People door', () => {
+test('a signed-out visitor is offered no Home rows', () => {
   const rows = railMatchRows({ signedIn: false, hasShop: false, isAdmin: false });
-  assert.ok(!rows.some((r) => r.key === 'people'));
+  assert.ok(!rows.some((r) => r.key === 'people' || r.key.startsWith('events')));
 });

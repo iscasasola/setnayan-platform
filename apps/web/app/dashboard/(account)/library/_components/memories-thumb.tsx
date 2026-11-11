@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Share, ListFilter } from 'lucide-react';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { LinkPickOption } from '@/app/_components/link-pick-menu';
-import { AccountThumbRow, ThumbField, ThumbTool } from '../../_components/account-thumb-row';
+import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
+import { HomeFindRow, HomeGear, homeSegOptions } from '@/app/dashboard/(launcher)/_components/home-pin';
+import hp from '@/app/dashboard/(launcher)/_components/home-profile.module.css';
+import type { HomeSeg } from '@/lib/home-segments';
 
 /**
  * memories-thumb.tsx — Memories' bottom row, drawn as THE ONE THUMB ROW (owner 2026-10-22: the Find row on every
@@ -19,18 +21,28 @@ import { AccountThumbRow, ThumbField, ThumbTool } from '../../_components/accoun
  * The field is the one NEW mechanism (flagged in the prototype's adoption table): it narrows the chapters already on
  * the page by their names — event, chapter, album — on the device; nothing is fetched.
  */
+/*
+ * 🏠 ON HOME IT IS HOME'S ONE PINNED ROW (owner 11 Nov 2026, "One profile page approve" — v3 row 7): the ≡ dropdown
+ * became `Memories ▾` at the left of the shared `PinnedRow` — the SAME list (Event · Show · Also kept · Download all)
+ * with Home's sections leading it — no number (a Memories total is never computed) and NO action (the seat stays empty
+ * rather than inventing a verb); ⚙ at the right. The search field is the section's FIRST ROW, under it, scrolling.
+ * Same words, same marks (`data-memories-thumb`, `data-memories-filter`, `data-memories-search`, the tour anchors).
+ */
 export function MemoriesThumb({
   events,
   eventValue,
   show,
   showValue,
   download,
+  homeSegs = [],
 }: {
   events: readonly LinkPickOption[] | null;
   eventValue: string;
   show: readonly LinkPickOption[];
   showValue: string;
   download: string | null;
+  /** Home's sections — the picker's "Home" group. */
+  homeSegs?: readonly HomeSeg[];
 }) {
   const router = useRouter();
   const [q, setQ] = useState('');
@@ -61,47 +73,45 @@ export function MemoriesThumb({
     ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
   ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }));
 
+  const home = homeSegOptions(homeSegs);
+  const all = [...home, ...options];
   return (
     <>
+      <div className={hp.stick} data-home-pin="memories" data-memories-thumb="" data-tour="library-show">
+        <PinnedRow
+          data={{ 'data-home-pinned': 'memories' }}
+          picker={{
+            label: 'Memories — sections, event, what to show',
+            value: events ? `event:${eventValue}` : `show:${showValue}`,
+            buttonText: 'Memories',
+            options: all,
+            onPick: (k) => {
+              const o = all.find((x) => x.key === k);
+              if (!o) return;
+              router.push(o.href, { scroll: false });
+            },
+          }}
+          doors={[]}
+          action={null}
+          gear={<HomeGear />}
+        />
+      </div>
+      <HomeFindRow words="Search memories" tour="library-search">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search memories"
+          aria-label="Search memories — by event or chapter"
+          autoComplete="off"
+          data-memories-search=""
+        />
+      </HomeFindRow>
       {none ? (
         <p role="status" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-ink/60" data-memories-no-match="">
           No event or chapter named “{q.trim()}” here.
         </p>
       ) : null}
-      <AccountThumbRow
-        data={{ 'data-memories-thumb': '' }}
-        tools={
-          <ThumbTool tour="library-show">
-            <span data-pick="" className="contents">
-              <PickMenu
-                label="Memories — event, what to show"
-                value={events ? `event:${eventValue}` : `show:${showValue}`}
-                options={options}
-                onPick={(k) => {
-                  const o = options.find((x) => x.key === k);
-                  if (!o) return;
-                  router.push(o.href, { scroll: false });
-                }}
-                dataAttr="data-memories-filter"
-              />
-            </span>
-          </ThumbTool>
-        }
-        field={
-          <ThumbField words="Search memories" tour="library-search">
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search memories"
-              aria-label="Search memories — by event or chapter"
-              autoComplete="off"
-              data-memories-search=""
-              className="h-full min-h-0 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink/55"
-            />
-          </ThumbField>
-        }
-      />
     </>
   );
 }

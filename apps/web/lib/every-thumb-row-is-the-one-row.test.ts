@@ -63,7 +63,9 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> = {
   find: { file: 'app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx', mounts: /<ThumbRow\b/g, count: 1 },
   guests: { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', mounts: /<ThumbRow\b/g, count: 2 },
-  events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<EventsThumbRow\b/g, count: 1 },
+  // 🏠 Home › Events (owner 11 Nov 2026, "HOME IS THE PROFILE", v3 row 7): the thumb row folded into Home's ONE pinned
+  // row (＋ Event is its action) and the search became the section's first row (`EventsFindInput`, the same Enter).
+  events: { file: 'app/dashboard/(launcher)/page.tsx', mounts: /<HomePinnedRow\b|<EventsFindInput\b/g, count: 2 },
   discover: { file: 'app/_components/frontdoor/front-door.tsx', mounts: /<DiscoverThumbRow\b/g, count: 1 },
   // The supplier: the ONE Clients screen (Build 2 #43: Events + Dates are one screen, "Check a date" folded into the day
   // bar) · a day — one per screen, two screens in one file.
@@ -163,7 +165,8 @@ describe('placeholders name the place, short', () => {
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
       // Build 2 #43d (v113 `thumb()`): the one Clients screen says "Search clients"; the shell's Events search is untouched.
-      ['Search clients', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // 🏠 "Search events" twice: the dock row (`EventsThumbRow`, kept for the thumb-row lab) and Home › Events' first row.
+      ['Search clients', 'Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {
@@ -172,11 +175,13 @@ describe('placeholders name the place, short', () => {
       expect(p.words.split(/\s+/).length, `${p.file}: "${p.words}"`).toBeLessThanOrEqual(3);
     }
   });
-  it('Memories (once #6778 lands) draws through the same account row — never a band of its own', () => {
+  it('Memories draws through Home\'s one pinned row — never a band of its own', () => {
+    // 🏠 Since 11 Nov 2026 ("HOME IS THE PROFILE") Memories is a section of Home: `Memories ▾` · ⚙ is the shared
+    // PinnedRow, and its search is the section's first row.
     const f = 'app/dashboard/(account)/library/_components/memories-thumb.tsx';
-    if (!existsSync(join(WEB, f))) return; // not on this branch yet — the account row it will use is pinned above
+    if (!existsSync(join(WEB, f))) return;
     const src = stripComments(read(f));
-    expect(src).toMatch(/<AccountThumbRow\b/);
+    expect(src).toMatch(/<PinnedRow\b/);
     expect(src).not.toMatch(/sn-glass-row/);
     expect(src).toMatch(/placeholder="Search memories"/);
   });

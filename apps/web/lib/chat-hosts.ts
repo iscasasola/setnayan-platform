@@ -42,3 +42,18 @@ export function hostInitials(h: Pick<ChatHost, 'firstName' | 'name'>): string {
   const last = words.length > 1 ? (words[words.length - 1]![0] ?? '') : '';
   return (first + last).toUpperCase();
 }
+
+/**
+ * 🏪 WHICH FACE A BUBBLE WEARS (owner, 11 Nov 2026). A message carries its sender's uid AND the side it was sent for
+ * (`sender_role`). One login can be both the shop's owner and a host of the event, so the uid alone names two faces —
+ * the bubble picks the one on the message's OWN side: a shop message wears the shop's entry (role `supplier`), a
+ * host's message the host's. Null when no face on that side matches (the caller falls back to the side's label).
+ */
+export function hostForMessage(
+  m: { sender_role: string; sender_user_id?: string | null },
+  hosts: readonly ChatHost[] | null | undefined,
+): ChatHost | null {
+  if (!m.sender_user_id || !hosts) return null;
+  const shopSide = m.sender_role === 'vendor';
+  return hosts.find((h) => h.userId === m.sender_user_id && (h.role === 'supplier') === shopSide) ?? null;
+}

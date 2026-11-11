@@ -200,6 +200,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'people-view': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-find': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',
   'events-planning': 'app/dashboard/(launcher)/page.tsx',
+  // 🏠 Home's sections (owner 11 Nov 2026, "HOME IS THE PROFILE") — the `customer_account_bar_v2` stop.
+  'home-segments': 'app/dashboard/(launcher)/_components/home-segment-bar.tsx',
   'events-worth': 'app/dashboard/(launcher)/page.tsx',
   'account-avatar': 'app/_components/account-switcher/account-switcher.tsx',
   'guests-views': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',

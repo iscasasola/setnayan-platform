@@ -24,7 +24,7 @@ test('the only way to hide a story item still has a home, in BOTH branches', () 
   // renders it disappears, so do a person's RA 10173 controls over other
   // people's photographs of them — and prod holds zero story items, so nobody
   // would notice until the first one arrived with no off switch.
-  const people = read('app/dashboard/(account)/people/page.tsx');
+  const people = read('app/dashboard/(account)/people/_components/people-segment.tsx');
   const mounts = people.match(/<YourStorySection \/>/g) ?? [];
   assert.equal(
     mounts.length,

@@ -30,7 +30,7 @@ export function ProfileBack() {
   if (!signedIn) return null;
   return (
     <div className="uprof-back" data-profile-back="">
-      <BackButton href="/dashboard/people" label="People" className="mb-0" />
+      <BackButton href="/dashboard?seg=people" label="People" className="mb-0" />
     </div>
   );
 }

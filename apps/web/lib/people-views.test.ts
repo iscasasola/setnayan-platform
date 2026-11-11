@@ -43,10 +43,11 @@ test('a view this account cannot open, or an unknown one, lands on the default �
   assert.ok(!availablePeopleViews(off).includes('connected'));
 });
 
-test('the default view IS the bare page — the bell’s /dashboard/people and the People row are one address', () => {
-  assert.equal(peopleViewHref('connected', ON), '/dashboard/people');
-  assert.equal(peopleViewHref('samahan', ON), '/dashboard/people?view=samahan');
-  assert.equal(peopleViewHref('requests', ON), '/dashboard/people?view=requests');
+test('the default view IS the bare page — the bell’s People and the People door are one address', () => {
+  // 🏠 People is a section of Home since 11 Nov 2026 ("HOME IS THE PROFILE").
+  assert.equal(peopleViewHref('connected', ON), '/dashboard?seg=people');
+  assert.equal(peopleViewHref('samahan', ON), '/dashboard?seg=people&view=samahan');
+  assert.equal(peopleViewHref('requests', ON), '/dashboard?seg=people&view=requests');
 });
 
 test('🔴 Requests is listed FIRST with a dot while anybody waits — and not at all when nobody does', () => {

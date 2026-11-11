@@ -125,14 +125,14 @@ export function AccountRailContext({
     const lenses: Row[] = LENSES.map(({ key, label }) => ({
       key,
       // Recent is the page's default view, so its row is the bare URL.
-      href: key === 'recent' ? '/dashboard/library' : `/dashboard/library?tab=${key}`,
+      href: key === 'recent' ? '/dashboard?seg=memories' : `/dashboard?seg=memories&tab=${key}`,
       label,
       Icon: LENS_ICON[key],
       on: active === key,
     }));
     const kept: Row[] = KEPT.map(({ key, label, Icon }) => ({
       key,
-      href: `/dashboard/library?tab=${key}`,
+      href: `/dashboard?seg=memories&tab=${key}`,
       label,
       Icon,
       on: active === key,
@@ -152,6 +152,8 @@ export function AccountRailContext({
     );
   }
 
+  // 🏠 People and Memories are sections of Home now (`/dashboard?seg=…`, owner 11 Nov 2026); this context still draws
+  // on the pages under them that keep their own address — an alaga's page, a group's room — and its rows are Home's.
   if (under(pathname, '/dashboard/people') || under(pathname, '/dashboard/samahan')) {
     const gates = { showConnections, showDependents };
     const onPeoplePage = pathname === '/dashboard/people';

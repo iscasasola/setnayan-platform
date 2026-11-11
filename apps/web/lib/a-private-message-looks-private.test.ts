@@ -155,7 +155,8 @@ test('5 · any pair, host → host included; the thread is read only through the
   assert.deepEqual(others('u-shop', 'vendor'), ['u-jose', 'u-maria'], 'the supplier cannot pick every host in the 🔒 list');
   assert.match(
     read('app/_components/chat/chat-host-strip.tsx'),
-    /stripOrder\(hosts, youId, viewerSide\)\.flatMap\(\(p\) => \(!p\.isYou && p\.host \? \[\{ userId: p\.userId, name: hostFirstName\(p\.host\) \}\] : \[\]\)\);\s*useEffect\(\(\) => \{\s*if \(threadId\) setChatPeople\(threadId, others\);/,
+    // 🏪 (owner, 11 Nov) the shop's face for your OWN uid is you — never in your own 🔒 list.
+    /stripOrder\(hosts, youId, viewerSide, shopLabel\)\.flatMap\(\(p\) =>\s*!p\.isYou && p\.host && !isShopSelf\(p, youId\) \? \[\{ userId: p\.userId, name: hostFirstName\(p\.host\) \}\] : \[\],\s*\);\s*useEffect\(\(\) => \{\s*if \(threadId\) setChatPeople\(threadId, others\);/,
     'the strip no longer publishes exactly its other people to the 🔒 list',
   );
   // The server takes a HOST as the recipient (and the shop) — host → host is a valid pair.

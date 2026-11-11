@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Redo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { riseFromRect, type RiseRect } from '@/lib/rise-motion';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
 import type { HubDraftHistoryRow } from '@/lib/hub-draft';
 
@@ -73,11 +74,8 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
     if (!anim) return onClose();
     anim.finished.then(onClose, onClose);
   };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  /* Focus moves into the list and stays there; Esc closes it (the reverse rise); the page behind does not scroll. */
+  useModalA11y({ open: true, onClose: close, containerRef: panel });
 
   const here = rows.find((r) => r.where === 'here');
   const ahead = rows.filter((r) => r.where === 'ahead');
@@ -90,6 +88,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
       role="dialog"
       aria-modal="true"
       aria-label="History"
+      tabIndex={-1}
       data-maker-history=""
       className="fixed inset-0 z-[90] flex flex-col bg-cream text-ink"
     >

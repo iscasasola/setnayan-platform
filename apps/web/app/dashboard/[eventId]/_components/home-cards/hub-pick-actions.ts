@@ -8,6 +8,8 @@
  * 🔒 Hosts only — the gate `setLaunchPhase` itself uses (`requireHostMembership`), so the sheet never offers a choice
  * the viewer could not make. A failed read is said, never guessed (an unread pin is not "Automatic").
  */
+import { venueTimezone } from '@/lib/event-clock.server';
+import { clockRowOf } from '@/lib/event-clock';
 import { createClient } from '@/lib/supabase/server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { resolveHubStage } from '@/lib/event-hub-control';
@@ -24,7 +26,7 @@ export async function readHomeHubPick(eventId: string): Promise<HomeHubPickRead>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('events')
-    .select('launch_mode, manual_phase, event_date, event_end_date, cleared_at, timezone, slug, std_invitation_launch_date')
+    .select('launch_mode, manual_phase, event_date, event_end_date, cleared_at, slug, std_invitation_launch_date, venue_latitude, venue_longitude')
     .eq('event_id', eventId)
     .maybeSingle();
   if (error || !data) return { ok: false, reason: 'unread' };
@@ -37,7 +39,7 @@ export async function readHomeHubPick(eventId: string): Promise<HomeHubPickRead>
       eventDate: e.event_date ?? null,
       eventEndDate: e.event_end_date ?? null,
       clearedAt: e.cleared_at ?? null,
-      timezone: e.timezone ?? null,
+      venueTz: venueTimezone(clockRowOf(data)),
       slug: e.slug ?? null,
       invitationLaunchDate: e.std_invitation_launch_date ?? null,
     }),

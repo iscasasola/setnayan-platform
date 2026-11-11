@@ -26,7 +26,6 @@ const UI_ONLY_STILL_TO_WIRE = [
   'quotation',
   'payment',
   'forms',
-  'offerMaker',
   'bundleMaker',
   'promote',
   'teamSeats',
@@ -91,6 +90,17 @@ test('a UI-only lock is a bug: every lock names its server gate or is on the to-
   assert.ok(gate > 0, 'the Analytics page does not ask canUse(analytics)');
   for (const graphRead of ['readNewGraphs(', 'getVendorFunnelBenchmark(', 'fetchVendorPricePosition(', 'fetchViewsSeries(']) {
     assert.ok(perf.indexOf(graphRead) > gate, `${graphRead} runs before the analytics lock`);
+  }
+  // The Offer Maker (Build 6 Lane D): every write asks canUse('offerMaker') before it touches a row.
+  const offers = readFileSync(join(WEB, LOCKS.offerMaker.server), 'utf8');
+  assert.match(offers, /canUse\('offerMaker'/);
+  for (const fn of ['saveOffer', 'setOfferOn', 'removeOffer', 'loadOfferMaker']) {
+    const at = offers.indexOf(`async function ${fn}(`);
+    assert.ok(at >= 0, `${fn} is gone`);
+    const end = offers.indexOf('\nasync function ', at + 1);
+    const body = offers.slice(at, end < 0 ? undefined : end);
+    const asked = body.indexOf('await gate()');
+    assert.ok(asked >= 0 && (body.indexOf('.from(') < 0 || asked < body.indexOf('.from(')), `${fn} writes before the lock is asked`);
   }
 });
 

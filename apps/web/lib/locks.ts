@@ -65,7 +65,8 @@ export const LOCKS = {
     problem: 'Slow months and empty dates.',
     solution: 'An offer couples see that fills those dates.',
     opens: 'verified',
-    server: null,
+    // Build 6 Lane D: every Offer Maker write asks `canUse('offerMaker')` first.
+    server: 'app/vendor-dashboard/offers/actions.ts',
   },
   bundleMaker: {
     name: 'Bundle Maker',

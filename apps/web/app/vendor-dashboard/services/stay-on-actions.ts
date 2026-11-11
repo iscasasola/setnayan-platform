@@ -15,6 +15,7 @@ import {
   planThatHoldsAll,
 } from '@/lib/service-plan-hold';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
+import { cardsLeftOffRefusal } from '@/lib/service-open-bookings';
 
 /**
  * "WHICH SERVICES STAY ON" — the one write (owner 2026-11-06: SERVICES LIFE CYCLE · A DOWNGRADE PUTS EXTRA SERVICES
@@ -65,6 +66,14 @@ export async function pickServicesThatStayOn(formData: FormData) {
   const kept = cards.filter((c) => keepIds.includes(c.id));
   const fit = keptFits(kept, capsOf(plan, shop.founder));
   if (!fit.ok) back(overPlanWords(fit, plan));
+
+  // 🔒 A CARD WITH AN OPEN BOOKING CANNOT BE TURNED OFF (owner 2026-11-11, verbatim: *"You cannot turn off a service
+  // card until all booked completed."*). A card left out of this pick goes on hold — off — so it is asked the SAME
+  // question as the list's switch and the Card Maker's (`readCardBookings` + `openBookingsRefusal`), BEFORE the write.
+  // An unread read refuses too: nothing is turned off on no evidence.
+  const leftOff = cards.filter((c) => c.live && !keepIds.includes(c.id));
+  const stillOpen = await cardsLeftOffRefusal(admin, leftOff);
+  if (stillOpen) back(stillOpen);
 
   const { data, error } = await admin.rpc('apply_service_plan_pick', {
     p_vendor_profile_id: shop.vendorProfileId,

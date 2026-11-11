@@ -107,8 +107,8 @@ test('the row is TWO icon buttons (Edit · Share to a client) and ONE worded Onl
 
 test('Share does NOT share a link to anyone (owner: "It is share to an client event")', () => {
   assert.doesNotMatch(ROW, /shareShopLink|navigator\.share|clipboard/, 'Share is a system share / link copy again');
-  // ⏸ Held, drawn waiting, until the owner rules on its notice (the shipped offer emails as `chat_message`).
-  assert.match(ROW, /name="Share to a client"[\s\S]{0,200}\bwaiting\b/, 'Share is drawn ready while it is not wired');
+  // Wired 2026-11-11 (DECISION_LOG 🔗): it opens "Share to a client event" — share-posts-the-card-into-a-client-chat.test.ts.
+  assert.match(ROW, /<ServiceCardShareSheet\b/, 'Share no longer opens the client-event sheet');
 });
 
 test('the switch is the shipped toggle behind its door, its form OUTSIDE the row', () => {

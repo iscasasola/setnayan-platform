@@ -229,20 +229,22 @@ test('no UI string uses "T-1h" / "T+8h" offset notation', () => {
       if (T_OFFSET.test(text)) hits.push(`${rel}:${line} — ${JSON.stringify(text.replace(/\s+/g, ' ').trim().slice(0, 100))}`);
     }
   }
-  assert.deepEqual(hits, [], 'Say when, in words ("noon the day before"), not "T-1h":\n' + hits.join('\n'));
+  assert.deepEqual(hits, [], 'Say when, in words ("6am on the day"), not "T-1h":\n' + hits.join('\n'));
   // the pattern itself bites on every shape the sweep found
   for (const s of ['T-1h', 'T+8h', '(T-1h → T+8h)', 'T+24hr', 'T-3 months', 'T-6mo', 'T+30d', 'T−1h']) assert.match(s, T_OFFSET, s);
   for (const s of ['T-shirt', 'at 8h', 'Type-1', 'GIFT-2']) assert.doesNotMatch(s, T_OFFSET, s);
 });
 
-test('the Hub says when it opens — and the words match the gate (midnight to midnight, Philippine time)', () => {
-  assert.equal(HUB_OPEN_WINDOW_PLAIN, 'midnight to midnight, Philippine time');
+test('the Hub says when it opens — and the words match the gate (6am to 6am, Philippine time — the one clock)', () => {
+  // ⏱ Owner ruling 2, 10 Nov 2026: the supplier's "today" desk closes at 06:00 the morning after, with The Day.
+  assert.equal(HUB_OPEN_WINDOW_PLAIN, '6am to 6am the next morning, Philippine time');
   const day = [{ bookedDate: '2026-12-12' }];
   const at = (iso: string) => hasDayToday(day, phTodayIso(Date.parse(iso)));
-  assert.equal(at('2026-12-11T15:59:59Z'), false, '23:59:59 the night before (PH) — not open yet');
-  assert.equal(at('2026-12-11T16:00:00Z'), true, '00:00 on the day (PH) — open');
-  assert.equal(at('2026-12-12T15:59:59Z'), true, '23:59:59 on the day (PH) — still open');
-  assert.equal(at('2026-12-12T16:00:00Z'), false, '00:00 the day after (PH) — closed');
+  assert.equal(at('2026-12-11T21:59:59Z'), false, '05:59:59 on the day (PH) — not open yet');
+  assert.equal(at('2026-12-11T22:00:00Z'), true, '06:00 on the day (PH) — open');
+  assert.equal(at('2026-12-12T16:30:00Z'), true, '00:30 the morning after (PH) — still open (the after-party)');
+  assert.equal(at('2026-12-12T21:59:59Z'), true, '05:59:59 the morning after (PH) — still open');
+  assert.equal(at('2026-12-12T22:00:00Z'), false, '06:00 the morning after (PH) — closed');
   // …and the page shows those words, through the constant, from the same clock.
   const PAGE = 'app/vendor-dashboard/on-the-day/page.tsx';
   const page = readFileSync(join(WEB, PAGE), 'utf8');
@@ -252,20 +254,21 @@ test('the Hub says when it opens — and the words match the gate (midnight to m
   assert.equal(usesOf(PAGE, page, 'HUB_OPEN_WINDOW_PLAIN'), 2, 'the Hub page says when it opens in two places, all through the constant');
   const CARD = 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx';
   assert.equal(usesOf(CARD, readFileSync(join(WEB, CARD), 'utf8'), 'HUB_OPEN_WINDOW_PLAIN'), 1, 'the event card does not say when the Event Hub opens');
-  const typed = [...(COPY.get(PAGE) ?? []), ...(COPY.get(CARD) ?? [])].filter((c) => /midnight/i.test(c.text));
+  const typed = [...(COPY.get(PAGE) ?? []), ...(COPY.get(CARD) ?? [])].filter((c) => /midnight|6 ?am/i.test(c.text));
   assert.deepEqual(typed, [], 'the Hub types the window out instead of reading HUB_OPEN_WINDOW_PLAIN');
   assert.match(page, /const phToday = \(\): string => phTodayIso\(\);/, 'the Hub page keeps its own clock again');
 });
 
 test('day-of mode says when it starts and ends — and the words match getDayOfPhase', () => {
-  assert.equal(DAY_OF_STARTS_PLAIN, 'noon the day before');
-  assert.equal(DAY_OF_ENDS_PLAIN, 'noon the day after');
+  // ⏱ The one clock (owner ruling, 10 Nov 2026): 06:00 on the day → 06:00 the morning after the last day, venue time.
+  assert.equal(DAY_OF_STARTS_PLAIN, '6am on the day');
+  assert.equal(DAY_OF_ENDS_PLAIN, '6am the morning after');
   const tz = 'Asia/Manila';
   const phase = (iso: string) => getDayOfPhase('2026-12-12', tz, Date.parse(iso));
-  assert.notEqual(phase('2026-12-11T03:59:59Z'), 'live', '11:59:59 the day before (Manila) — not yet');
-  assert.equal(phase('2026-12-11T04:00:00Z'), 'live', 'noon the day before (Manila) — on');
-  assert.equal(phase('2026-12-13T04:00:00Z'), 'live', 'noon the day after (Manila) — still on');
-  assert.notEqual(phase('2026-12-13T04:00:01Z'), 'live', 'just past noon the day after — off');
+  assert.notEqual(phase('2026-12-11T21:59:59Z'), 'live', '05:59:59 on the day (Manila) — not yet');
+  assert.equal(phase('2026-12-11T22:00:00Z'), 'live', '6am on the day (Manila) — on');
+  assert.equal(phase('2026-12-12T21:59:59Z'), 'live', '05:59:59 the morning after — still on');
+  assert.notEqual(phase('2026-12-12T22:00:00Z'), 'live', '6am the morning after — off');
   // the pages that say it read the constant
   const FEATURES = 'app/features/_sections/_HowItWorks.tsx';
   assert.equal(usesOf(FEATURES, readFileSync(join(WEB, FEATURES), 'utf8'), 'DAY_OF_STARTS_PLAIN'), 2, '/features says when day-of starts in two places');

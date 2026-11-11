@@ -242,11 +242,13 @@ export function buildGrowthRecs(stats: GrowthRecStats | null, opts: GrowthRecOpt
       impact: 'high',
       impactLabel: IMPACT_LABEL.high,
       ctaLabel: 'Run an offer',
-      ctaHref: `/vendor-dashboard/services/${opts.quietCard.serviceId}?offpeak=1`,
+      // 🏷 The Offer Maker (Build 6 Lane D), a new offer on this card — never a discount typed into the card itself.
+      ctaHref: `/vendor-dashboard/shop?maker=offers&new=card&card=${encodeURIComponent(opts.quietCard.serviceId)}`,
       weight: 45,
     });
   }
-  // d · Slow months ahead — an offer that runs only in the slow month (the shipped off-season door, pre-filled).
+  // d · Slow months ahead — an offer for events in the slow month: the Offer Maker's "Event date in a season", opened on
+  //     that month's days (DECISION_LOG 2026-11-11: the Offer Maker IS the off-season offer; the per-card off-peak seed left).
   if (opts.slowMonth && opts.slowMonth.serviceId) {
     const m = opts.slowMonth;
     recs.push({
@@ -256,7 +258,7 @@ export function buildGrowthRecs(stats: GrowthRecStats | null, opts: GrowthRecOpt
       impact: 'high',
       impactLabel: IMPACT_LABEL.high,
       ctaLabel: 'Run an offer',
-      ctaHref: `/vendor-dashboard/services/${m.serviceId}?offpeak=1&exp=${m.lastDay}&cond=${encodeURIComponent(`Off-season rate for ${m.name} bookings.`)}`,
+      ctaHref: `/vendor-dashboard/shop?maker=offers&new=season&from=${m.lastDay.slice(0, 8)}01&to=${m.lastDay}`,
       weight: 42,
     });
   }

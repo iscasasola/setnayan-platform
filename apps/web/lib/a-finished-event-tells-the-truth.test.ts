@@ -109,9 +109,11 @@ test('the comparator and the query still name the same two columns', () => {
 test('the to-do list asks the ONE lifecycle resolver, not a date comparison of its own', () => {
   // The Checklist merged into Planning Stage (owner 2026-11-01): the schedule page answers "did this happen" for it.
   const page = code(SCHEDULE_PAGE);
-  assert.match(page, /getMenuLifecyclePhase\(eventDate,/, 'one resolver decides "did this happen", app-wide');
-  assert.match(page, /eventRow\?\.event_end_date \?\? null\) === 'after'/, 'a celebration spanning days is over after its LAST day');
-  assert.match(page, /eventIsOver=\{\s*getMenuLifecyclePhase/, 'and the answer must reach the list');
+  // ⏱ The one clock (owner ruling, 10 Nov 2026): `eventClockNow(eventRow)` asks `getMenuLifecyclePhase` with the
+  // venue's zone and the row's LAST day (`event_end_date` is in the row it is handed).
+  assert.match(page, /const clock = eventClockNow\(eventRow \?\? \{ event_date: null \}\);/, 'one resolver decides "did this happen", app-wide');
+  assert.match(page, /\.select\('event_id, event_date, event_end_date,/, 'a celebration spanning days is over after its LAST day');
+  assert.match(page, /eventIsOver=\{\s*clock\.menu === 'after'/, 'and the answer must reach the list');
 });
 
 test('"This week" is the only caption a finished event re-words — and it does', () => {

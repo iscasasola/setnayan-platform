@@ -18,6 +18,8 @@
 //     page), but anonymous visitors are blocked until the event is past.
 // ============================================================================
 
+import { venueTimezone } from '@/lib/event-clock.server';
+import { clockRowOf } from '@/lib/event-clock';
 import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -75,7 +77,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, logo_wanted, style_preferences, qr_shown`,
+      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, venue_latitude, venue_longitude, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, logo_wanted, style_preferences, qr_shown`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -128,7 +130,7 @@ export default async function EditorialPrintPage({
   const isEditorialPhase =
     getLifecyclePhase(
       event.event_date,
-      (event as { timezone?: string | null }).timezone ?? undefined,
+      venueTimezone(clockRowOf(event)),
       (event as { event_end_date?: string | null }).event_end_date ?? null,
       undefined,
       // The Invitation's opening date cannot move 'editorial' — only the Save the Date / Invitation split.

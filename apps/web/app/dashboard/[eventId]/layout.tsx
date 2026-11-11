@@ -6,7 +6,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { maybeRunPushSchedule } from '@/lib/push-schedule.server';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { eventMenuGates } from '@/lib/event-menu-gates';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
@@ -463,17 +463,7 @@ export default async function EventLayout({ children, params }: Props) {
 
     🔑 THE BOUNDS ARE NOT RESTATED HERE. One resolver, one set of constants.
   */
-  const phase = getMenuLifecyclePhase(
-    event.event_date as string | null,
-    (event as { cleared_at?: string | null }).cleared_at ?? null,
-    (event as { timezone?: string | null }).timezone ?? undefined,
-    undefined,
-    // The LAST day, for a celebration that spans several. Threaded here as well
-    // as in the Overview so the RAIL and the PAGE cannot answer "is it over?"
-    // from different inputs — which is the whole failure this call already
-    // carries one correction for.
-    (event as { event_end_date?: string | null }).event_end_date ?? null,
-  );
+  const phase = eventClockOf(event).menu;
 
   // The event type's profile — read in the one wait above, chained off the
   // event row. It is null only when there is no row, and `notFound()` has

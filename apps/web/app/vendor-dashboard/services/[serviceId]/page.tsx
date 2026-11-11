@@ -30,10 +30,10 @@ export default async function EditServiceCardPage({
   searchParams,
 }: {
   params: Promise<{ serviceId: string }>;
-  searchParams: Promise<{ error?: string; offpeak?: string; exp?: string; cond?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { serviceId } = await params;
-  const { error, offpeak, exp, cond } = await searchParams;
+  const { error } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -140,14 +140,6 @@ export default async function EditServiceCardPage({
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}
-        discountSeed={
-          offpeak === '1'
-            ? {
-                expiry: typeof exp === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(exp) ? exp : undefined,
-                conditions: typeof cond === 'string' ? cond.slice(0, 200) : undefined,
-              }
-            : null
-        }
       />
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
       {venueHalls.length > 0 ? (

@@ -143,11 +143,13 @@ test('S43 · 5 — the marketplace card gets the same inclusions, discounts, Ser
     assert.match(args![pos]!, re, `${name} is "${args![pos]}" on /explore`);
   }
   const explore = read('app', '(shell)', 'explore', 'page.tsx');
-  // The same readers the shop page uses — a second copy would drift.
-  for (const fn of ['fetchInclusionsByService(', 'fetchDiscountsByServicePublic(', 'fetchCoveragesByIdPublic(', 'buildServesLine(']) {
+  // The same readers the shop page uses — a second copy would drift. Discounts come through `fetchDiscountsWithOffers`
+  // (the cards' own rows + the shop's running offers, Build 6 Lane D), which wraps `fetchDiscountsByServicePublic`.
+  for (const fn of ['fetchInclusionsByService(', 'fetchDiscountsWithOffers(', 'fetchCoveragesByIdPublic(', 'buildServesLine(']) {
     assert.ok(explore.includes(fn), `/explore no longer calls ${fn}`);
   }
   const shop = read('app', 'v', '[slug]', 'page.tsx');
+  assert.ok(shop.includes('fetchDiscountsWithOffers('), 'the shop page reads discounts without the shop’s offers');
   assert.ok(shop.includes("from '@/lib/service-serves-line'"), 'the shop page must use the ONE Serves-line builder');
   assert.ok(!/function buildServesLine\(/.test(shop), 'a second, private Serves-line builder is back on the shop page');
 });

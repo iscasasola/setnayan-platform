@@ -6,7 +6,7 @@ import type { ServicesManagerSearch } from './_components/services-manager';
  * /vendor-dashboard/services — RETIRED as a standalone destination (owner
  * 2026-07-02: "My Services" fully folded into My Shop). The editor now lives on
  * /vendor-dashboard/shop; this route redirects there, preserving any deep-link
- * params (?saved / ?offpeak / ?add / … — the guided-wizard return, the
+ * params (?saved / ?add / … — the guided-wizard return, the
  * off-season nudge, the inbound "add a service" links) so the "Your services"
  * section opens. The shared <VendorServicesManager> renders on My Shop.
  *

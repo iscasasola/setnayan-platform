@@ -7,6 +7,7 @@ import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
+import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -68,7 +69,6 @@ import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
 import {
   fetchCoveragesByIdPublic,
-  fetchDiscountsByServicePublic,
   fetchInclusionsByService,
   type VendorServiceCoverage,
   type VendorServiceInclusion,
@@ -1133,6 +1133,19 @@ async function fetchLiveOffPeakVendorIds(
       const id = (row as { vendor_profile_id?: string }).vendor_profile_id;
       if (id) ids.add(id);
     }
+    // 🏷 …and every shop running an "Event date in a season" offer (Build 6 Lane D — the Offer Maker IS the off-season
+    // offer, DECISION_LOG 2026-11-11): switched on, its season not over, still bookable. Fail-soft like the read above.
+    const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const { data: seasons, error: seasonErr } = await admin
+      .from('vendor_offers')
+      .select('vendor_profile_id, until_date')
+      .eq('who', 'season')
+      .eq('is_on', true)
+      .gte('season_to', today);
+    if (seasonErr) console.warn('[off-season] season offers read failed:', seasonErr.message);
+    for (const row of (seasons ?? []) as { vendor_profile_id: string; until_date: string | null }[]) {
+      if (!row.until_date || row.until_date >= today) ids.add(row.vendor_profile_id);
+    }
     return [...ids];
   } catch (e) {
     console.warn('[off-season] fetchLiveOffPeakVendorIds threw:', e);
@@ -1777,7 +1790,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
     ? await Promise.all([
         fetchInclusionsByService(admin, serviceCardIds),
-        fetchDiscountsByServicePublic(admin, serviceCardIds),
+        // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
+        fetchDiscountsWithOffers(admin, serviceCardIds),
         fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
       ])
     : [

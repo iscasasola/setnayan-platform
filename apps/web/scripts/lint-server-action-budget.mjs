@@ -114,7 +114,11 @@ import { fileURLToPath } from 'node:url';
 // `deleteOrRetireOwnService`). Unimported exports found: `setGuestPlusOneCount` (held by extra-seats-are-chairs, another
 // area) and three Papic purchase actions (money) — left alone. CEILING = the count measured on the tree merged with main.
 // The route SUM stays gated by check-vercel-route-count.mjs on this PR's production build.
-export const CEILING = 1242;
+// 1242 → 1243 (2026-11-12, Build 6 Lane D — the Offer Maker): ONE dispatcher (`offerMaker` in
+// app/vendor-dashboard/offers/actions.ts: load · save · switch · remove) instead of the four exports it would have been.
+// Main reached 1242 on its own the same day (the line above); no unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1243;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

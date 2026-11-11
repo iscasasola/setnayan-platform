@@ -359,7 +359,7 @@ test('every other field lives under More settings, and it starts shut', () => {
   // Since 2026-11-04 More settings is CONTROLLED (its first open plays the reveal sweep — owner "see all animating then
   // return back to the first one which is price"), so "starts shut" is the state's initial value, not `defaultOpen`.
   assert.match(head, /open=\{moreOpen\}/, 'More settings stopped reading its one open state');
-  assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(discountSeed !== null\);/, 'More settings opens by itself — the wall coming back one row lower');
+  assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(false\);/, 'More settings opens by itself — the wall coming back one row lower');
   // The prototype's folds, in its order (makerMore()). 2026-11-07 (makers prototype § 3): Price · more, Add-ons (→
   // Extras), the Setnayan gift (→ the Gift dropdown) and Details (→ Specialties) moved UP to the one page of fields
   // (held by lib/the-card-gift-is-one-dropdown.test.ts), and the Schedule row moved DOWN here, onto the saved card.

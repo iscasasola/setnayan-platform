@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7604
+# facts: 7638
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     624
-#   col       5491
-#   policy    1113
+#   tpriv     626
+#   col       5517
+#   policy    1119
 #   view      9
 #   func      363
 #
@@ -544,6 +544,8 @@ tpriv	public.vendor_lock_proposals|authenticated	SIUD
 tpriv	public.vendor_locked_qr_tokens|anon	SIUD
 tpriv	public.vendor_locked_qr_tokens|authenticated	SIUD
 tpriv	public.vendor_member_token_wallets|authenticated	SIUD
+tpriv	public.vendor_offer_cards|authenticated	SIUD
+tpriv	public.vendor_offers|authenticated	SIUD
 tpriv	public.vendor_package_item_options|anon	SIUD
 tpriv	public.vendor_package_item_options|authenticated	SIUD
 tpriv	public.vendor_package_items|anon	SIUD
@@ -5239,6 +5241,32 @@ col	public.vendor_member_token_wallets.purchased_tokens	anon=- authenticated=SIU
 col	public.vendor_member_token_wallets.updated_at	anon=- authenticated=SIU
 col	public.vendor_member_token_wallets.user_id	anon=- authenticated=SIU
 col	public.vendor_member_token_wallets.vendor_id	anon=- authenticated=SIU
+col	public.vendor_offer_cards.created_at	anon=- authenticated=SIU
+col	public.vendor_offer_cards.vendor_offer_id	anon=- authenticated=SIU
+col	public.vendor_offer_cards.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_offer_cards.vendor_service_id	anon=- authenticated=SIU
+col	public.vendor_offers.created_at	anon=- authenticated=SIU
+col	public.vendor_offers.first_n_cap	anon=- authenticated=SIU
+col	public.vendor_offers.first_n_taken	anon=- authenticated=SIU
+col	public.vendor_offers.first_payment	anon=- authenticated=SIU
+col	public.vendor_offers.first_payment_unit	anon=- authenticated=SIU
+col	public.vendor_offers.gift_mode	anon=- authenticated=SIU
+col	public.vendor_offers.gifts	anon=- authenticated=SIU
+col	public.vendor_offers.id	anon=- authenticated=SIU
+col	public.vendor_offers.is_on	anon=- authenticated=SIU
+col	public.vendor_offers.min_lead_months	anon=- authenticated=SIU
+col	public.vendor_offers.name	anon=- authenticated=SIU
+col	public.vendor_offers.pct_off	anon=- authenticated=SIU
+col	public.vendor_offers.php_off	anon=- authenticated=SIU
+col	public.vendor_offers.public_id	anon=- authenticated=SIU
+col	public.vendor_offers.reaches_all	anon=- authenticated=SIU
+col	public.vendor_offers.season_from	anon=- authenticated=SIU
+col	public.vendor_offers.season_to	anon=- authenticated=SIU
+col	public.vendor_offers.sort_order	anon=- authenticated=SIU
+col	public.vendor_offers.until_date	anon=- authenticated=SIU
+col	public.vendor_offers.updated_at	anon=- authenticated=SIU
+col	public.vendor_offers.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_offers.who	anon=- authenticated=SIU
 col	public.vendor_package_item_options.created_at	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.display_order	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.is_available	anon=SIU authenticated=SIU
@@ -7087,6 +7115,12 @@ policy	public.vendor_lock_proposals|vendor_lock_proposals_host_select	mode=PERMI
 policy	public.vendor_locked_qr_tokens|vendor_locked_qr_admin_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=( SELECT is_console_admin() AS is_console_admin) check=NULL
 policy	public.vendor_locked_qr_tokens|vendor_locked_qr_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_member_token_wallets|vmtw_self_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR (vendor_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))) check=NULL
+policy	public.vendor_offer_cards|vendor_offer_cards_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_console_admin() AS is_console_admin) check=( SELECT is_console_admin() AS is_console_admin)
+policy	public.vendor_offer_cards|vendor_offer_cards_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true))) AND (vendor_service_id IN ( SELECT vendor_services.vendor_service_id FROM vendor_services WHERE (vendor_services.is_active = true)))) check=NULL
+policy	public.vendor_offer_cards|vendor_offer_cards_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_offers|vendor_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_console_admin() AS is_console_admin) check=( SELECT is_console_admin() AS is_console_admin)
+policy	public.vendor_offers|vendor_offers_public_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((is_on = true) AND (vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.is_published = true)))) check=NULL
+policy	public.vendor_offers|vendor_offers_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_package_item_options|vendor_package_item_options_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type))))) check=((item_id IN ( SELECT i.item_id FROM ((vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) JOIN vendor_profiles p ON ((vp.vendor_profile_id = p.vendor_profile_id))) WHERE (p.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_package_item_options|vendor_package_item_options_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.is_active = true))) check=NULL
 policy	public.vendor_package_item_options|vendor_package_item_options_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=(item_id IN ( SELECT i.item_id FROM (vendor_package_items i JOIN vendor_packages vp ON ((vp.package_id = i.package_id))) WHERE (vp.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))))

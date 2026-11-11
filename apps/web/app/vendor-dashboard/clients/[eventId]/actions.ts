@@ -2019,7 +2019,7 @@ export async function vendorWaitlistTheAsk(
       .maybeSingle();
     const threadId = (thread as { thread_id?: string } | null)?.thread_id ?? null;
     const sent = threadId
-      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)) }).catch(() => null)
+      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)), asSide: 'vendor' }).catch(() => null)
       : null;
     if (!sent?.ok) flag = 'ok_unsent';
   }

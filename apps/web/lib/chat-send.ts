@@ -25,6 +25,7 @@ import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 import { readShopChatPeople } from './chat-shop-people.server';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
+import type { ChatSentAs } from './chat-sent-as';
 
 /**
  * The allowlist and the size ceilings now live in `lib/chat-attachment-limits.ts`
@@ -126,6 +127,12 @@ export async function sendChatMessageCore(
      * auto-reply is never woken by one. Who can READ it is the database's rule (RLS), not this function's.
      */
     privateTo?: string | null;
+    /**
+     * 🏪 THE SCREEN'S SIDE (owner, 11 Nov — `lib/chat-sent-as.ts`). `'vendor'` = typed in the supplier's chat: the
+     * message speaks for the SHOP even when the sender is also a host of this event. Absent = the old derivation
+     * (couple first). The database re-checks it (`chat_messages.sent_as`, migration 20271338442002).
+     */
+    asSide?: ChatSentAs | null;
   },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
@@ -211,7 +218,15 @@ export async function sendChatMessageCore(
     return shopPeople;
   };
   let senderRole: 'couple' | 'vendor';
-  if (coupleCheck.data) {
+  const asSide = input.asSide ?? null;
+  if (asSide === 'vendor') {
+    // 🏪 Typed in the shop's chat: the shop speaks — never the host this same login also is.
+    if (vendorCheck.data || (await shopPeopleRead()).userIds.includes(user.id)) {
+      senderRole = 'vendor';
+    } else {
+      return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
+    }
+  } else if (coupleCheck.data) {
     senderRole = 'couple';
   } else if (vendorCheck.data) {
     senderRole = 'vendor';
@@ -477,6 +492,12 @@ export async function sendChatMessageCore(
     body: trimmed,
     ...(attachment ?? {}),
     ...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {}),
+    // 🏪 The screen's side — the database honours it only if this sender holds it.
+    ...(asSide
+      ? {
+          sent_as: asSide,
+        }
+      : {}),
   });
   if (error) {
     // The database screens the text with the same rules as the check above

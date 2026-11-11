@@ -38,7 +38,9 @@ export async function readCoupleChatStripPeople(
       logQueryError('coupleThread.chatShopOwner', shop.error, { vendorProfileId: opts.vendorProfileId }, 'graceful_degrade');
     }
     const shopUser = (shop.data as { user_id?: string | null } | null)?.user_id ?? null;
-    return shopUser && shopUser !== opts.viewerId
+    // 🏪 The shop stays in front EVEN WHEN ITS OWNER IS YOU (owner, 11 Nov: "It should be the shop and then you") — one
+    // login can own the shop and host this event; `stripOrder` then draws the shop's face and "You" as the host.
+    return shopUser
       ? [{ userId: shopUser, firstName: label, name: label, role: SUPPLIER_STRIP_ROLE, label: null }, ...hosts]
       : hosts;
   } catch {

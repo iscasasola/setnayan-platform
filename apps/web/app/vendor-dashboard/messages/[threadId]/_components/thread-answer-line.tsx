@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CHAT_SENT_AS_FIELD } from '@/lib/chat-sent-as';
 import { CheckCircle2, CircleDashed, XCircle } from 'lucide-react';
 import { threadDayIsOpen, threadDayWords, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { dayTitle, daySheetHref } from '@/lib/vendor-dates';
@@ -84,6 +85,8 @@ export function QuickReplies({
       {replies.map((q) => (
         <form key={q} action={sendAction} className="shrink-0">
           <input type="hidden" name="thread_id" value={threadId} />
+          {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
+          <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />
           <input type="hidden" name="body" value={q} />
           <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
           <SubmitButton

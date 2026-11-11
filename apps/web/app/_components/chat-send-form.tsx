@@ -30,6 +30,7 @@
 //      stream before the server answers (`lib/chat-optimistic.ts`), and a send
 //      that fails says "Not sent · Try again" in words — never a silent loss.
 
+import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -84,6 +85,11 @@ type Props = {
    * (`uploadPreparedChatFile`), because a big video or document cannot ride the send action's body.
    */
   userId?: string;
+  /**
+   * 🏪 Whose screen this composer is on (owner, 11 Nov — `lib/chat-sent-as.ts`). The supplier's passes `'vendor'`, so a
+   * login that also hosts the event still speaks as the SHOP here. The host's passes nothing (the old derivation).
+   */
+  sentAs?: ChatSentAs;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -92,7 +98,7 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs }: Props) {
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
   // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
@@ -336,6 +342,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       className="flex flex-col gap-1.5"
     >
       <input type="hidden" name="thread_id" value={threadId} />
+      {sentAs ? <input type="hidden" name={CHAT_SENT_AS_FIELD} value={sentAs} /> : null}
       {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
 
       {/* 🔒 The 🔒's list — pick one person, the message box goes private for them. */}

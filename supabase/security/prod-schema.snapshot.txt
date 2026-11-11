@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1836
-# tables: 490
-# columns: 5963
-# notnull: 3605
+# ledger: 1837
+# tables: 494
+# columns: 5988
+# notnull: 3623
 [ledger]
 20260512000000
 20260513000000
@@ -1847,6 +1847,7 @@
 20271337268841
 20271337284161
 20271338119644
+20271338412990
 20271338442002
 [columns]
 account_deletion_requests.admin_note
@@ -2225,6 +2226,11 @@ chat_blocker_shows.shown_count
 chat_blocker_shows.subject_key
 chat_blocker_shows.thread_id
 chat_blocker_shows.user_id
+chat_decision_messages.added_at
+chat_decision_messages.added_by_user_id
+chat_decision_messages.message_id
+chat_decision_messages.thread_id
+chat_decision_messages.topic_id
 chat_decision_topics.closed_at
 chat_decision_topics.closed_by_user_id
 chat_decision_topics.opened_at
@@ -2279,6 +2285,26 @@ chat_messages.sender_user_id
 chat_messages.sent_as
 chat_messages.thread_id
 chat_messages.vendor_profile_id
+chat_poll_choices.choice_id
+chat_poll_choices.label
+chat_poll_choices.poll_id
+chat_poll_choices.position
+chat_poll_choices.thread_id
+chat_poll_votes.choice_id
+chat_poll_votes.poll_id
+chat_poll_votes.thread_id
+chat_poll_votes.voted_at
+chat_poll_votes.voter_user_id
+chat_polls.asked_at
+chat_polls.asked_by_user_id
+chat_polls.closed_at
+chat_polls.closed_by_user_id
+chat_polls.message_id
+chat_polls.poll_id
+chat_polls.question
+chat_polls.reopened_at
+chat_polls.saved_decision_id
+chat_polls.thread_id
 chat_thread_members.added_by_user_id
 chat_thread_members.joined_at
 chat_thread_members.left_at
@@ -8049,6 +8075,10 @@ chat_blocker_shows.shown_count
 chat_blocker_shows.subject_key
 chat_blocker_shows.thread_id
 chat_blocker_shows.user_id
+chat_decision_messages.added_at
+chat_decision_messages.message_id
+chat_decision_messages.thread_id
+chat_decision_messages.topic_id
 chat_decision_topics.opened_at
 chat_decision_topics.thread_id
 chat_decision_topics.title
@@ -8078,6 +8108,20 @@ chat_messages.message_id
 chat_messages.sender_role
 chat_messages.thread_id
 chat_messages.vendor_profile_id
+chat_poll_choices.choice_id
+chat_poll_choices.label
+chat_poll_choices.poll_id
+chat_poll_choices.position
+chat_poll_choices.thread_id
+chat_poll_votes.choice_id
+chat_poll_votes.poll_id
+chat_poll_votes.thread_id
+chat_poll_votes.voted_at
+chat_poll_votes.voter_user_id
+chat_polls.asked_at
+chat_polls.poll_id
+chat_polls.question
+chat_polls.thread_id
 chat_thread_members.joined_at
 chat_thread_members.thread_id
 chat_thread_members.user_id

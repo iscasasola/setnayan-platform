@@ -4187,6 +4187,41 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'No price anything — the owner removed it (no column, no setting). A hash blocks another card only while it NAMES one: a hash made before this rule names its card only if the backfill matched its cover; an unhashed or unreadable photo is "unchecked" and lets the card through (fail-open, said on the row). The maker\u2019s photo verdict never carries the other shop — the report action re-asks the match server-side.',
   },
+  {
+    /**
+     * 📁 A SHOP FILES AN EVENT (Piece 3b, migration 20271339773560 · DECISION_LOG 2026-11-12). One stored copy per file
+     * per shop (supplier_media, content hash); per event a shop files photos/videos under QUOTED services, documents in
+     * "This booking", maps portfolio photos (a pointer, no copy) and collects chat files and links.
+     */
+    id: 'J69',
+    claims: [
+      { kind: 'table', table: 'supplier_media' },
+      { kind: 'fk', table: 'supplier_media', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_media', column: 'content_sha256' },
+      { kind: 'column', table: 'supplier_media', column: 'taken_at' },
+      { kind: 'table', table: 'event_supplier_files' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'media_id', references: 'supplier_media' },
+      { kind: 'column', table: 'event_supplier_files', column: 'couple_decision' },
+      { kind: 'column', table: 'event_supplier_files', column: 'counts' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → its files for one event (quoted services · This booking · mapped portfolio)',
+    joint: 'event_supplier_files',
+    cardinality:
+      'A shop stores each file ONCE (supplier_media UNIQUE shop × sha256); an event holds many event_supplier_files rows per shop; the same stored copy counts for at most ONE row anywhere (partial unique index counts_once); a portfolio photo maps at most once per event',
+    implementedBy:
+      'supplier_media (the one stored copy, its EXIF taken_at) · event_supplier_files (grp service | booking | linked | unfiled | links; counts · dedupe_of · couple_decision) · the view event_supplier_photos_listed (the ONE listing rule) · couple_decide_supplier_file (the couple’s only write)',
+    writtenBy:
+      'supplierFilesAction (app/vendor-dashboard/clients/[eventId]/files-actions.ts — op prepare · file · map · refile · remove) under the shop’s own RLS; coupleFilesAction (app/dashboard/[eventId]/vendors/[vendorId]/workspace/files-decide-actions.ts) through couple_decide_supplier_file',
+    guardedBy:
+      'guard_event_supplier_file (a thread with the event · a service of THIS event’s sent/seen/accepted quote · the shop’s own card and copy · taken_at copied from the copy · counts recomputed every write) · guard_supplier_media_own_folder · column grants (the supplier never writes counts/taken_at/couple_decision) · tests/db/a-supplier-files-an-event-under-its-quoted-services.db.test.ts',
+    traps:
+      'A portfolio photo shared into a client’s chat or Files is a MAPPING (grp linked, portfolio_ref) — never a supplier_media row and never counted. The listing rule is a VIEW, not a stored flag: a moved event date or a couple’s Hide applies at once. Photos on a portfolio from before this piece have no hash, so a re-upload of one is only caught once it is put on the portfolio through a hashed path (in_portfolio).',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

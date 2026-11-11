@@ -1,110 +1,19 @@
 /**
- * the-page-card.test.ts — THE PAGE CARD (the Studio home that wore it was retired with Studio, 2026-11-10).
+ * the-page-card.test.ts — THE STUDIO PAGES' WORDS (`lib/studio-page-cards.ts`), which the server's page list still reads.
  *
- * Owner, 2026-10-08 (`INTERACTION_RULES.md` § 9, kind 4; approved gallery `prototypes/control_templates_2026-10-08.html`
- * § 4; the designer's eleven, `prototypes/studio_home_2026-10-08_fable.html`): *"we can improve the page card as
- * well. how they can be presented — Logo / Topic / Description and a small (i) that will give a more detailed
- * explanation"* · *"Improve Page Card so it looks like an app button that feels consistent with our design"*.
+ * 🔁 2026-11-11 (Build 6 Lane F, owner 2026-11-10: *"Studio technically is gone since the pages there will be inside the
+ * different scenes it covers"*): the Studio home was the Page card's only user, so both are deleted — the card's render
+ * tests (1)(2)(5) and the home's (3) went with them; `lib/no-door-leads-to-the-removed-studio.test.ts` holds that the home
+ * stays gone. What is kept is (4), the words, owner 2026-10-08: *"Logo / Topic / Description and a small (i)"*.
  *
- *   (1) THE CARD, RENDERED — the mark as an app-icon tile in the accent with the ink that reads on it · the topic ·
- *       ONE plain line · and the ⓘ as its OWN 44-px button BESIDE the card's button, never inside it.
- *   (2) ITS STATE HAS ITS WORD — Ready / Missing as a badge; "Full screen" a small tag; a fact that could not be
- *       read is SAID on the card, with no badge.
- *   (3) THE STUDIO HOME — ten cards (RSVP left in R1), each with a DISTINCT mark, its line and its ⓘ; the tile's own marks
- *       (`data-studio-tile`, `data-studio-done`) and the ready count kept; one column on a phone, two from 768 px.
- *   (4) THE WORDS — eleven lines that are sentences (never nouns joined by dots), in the house's words.
- *   (5) IT ASKS NOTHING — opening the home, a card or an ⓘ adds no request and no preload; the card knows no screen
- *       and writes no colour for the accent.
+ *   (4) THE WORDS — lines that are sentences (never nouns joined by dots), in the house's words.
  *
- * Mutations seen RED (2026-10-08), each restored: the ⓘ moved inside the card's button → (1); the unread sentence
- * no longer said → (2); Look given the Mood Board's mark → (3, the cards AND the chooser); two columns on a phone →
- * (3); a line turned into nouns joined by dots → (4); a preload added to the home → (5); the mark tile painted with a
- * colour by name → `the-accent-is-one-token` (1) and (5).
+ * Run: cd apps/web && node --import tsx --test lib/the-page-card.test.ts
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import React from 'react';
-
-import { stripComments } from './strip-comments';
-import { STUDIO_PAGE_CARDS, STUDIO_TILE_UNREAD } from './studio-page-cards';
-import { STUDIO_TILE_KEYS, STUDIO_TILES } from './studio-tiles';
-
-(globalThis as unknown as { React: unknown }).React = React;
-
-const WEB = join(__dirname, '..');
-const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const CARD = 'app/_components/page-card.tsx';
-const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
-/** Draw a component with a test's props (each test hands exactly the props the component names). */
-const h = (C: unknown, props: Record<string, unknown> | null = null, ...kids: React.ReactNode[]) => React.createElement(C as React.FC<Record<string, unknown>>, props, ...kids);
-
-async function paint(el: React.ReactElement): Promise<string> {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  return renderToStaticMarkup(el);
-}
-/** The card's own button, from its `<button` to ITS `</button>` (the first one after it). */
-function cardButton(html: string): string {
-  const at = html.indexOf('<button type="button"');
-  return html.slice(at, html.indexOf('</button>', at) + 9);
-}
-
-test('(1) the card, rendered: an accent app-icon tile, the topic, one line — and the ⓘ its own 44-px button BESIDE it', async () => {
-  const { PageCard } = await import('../app/_components/page-card');
-  const html = await paint(
-    h(PageCard, { mark: h('svg', { 'data-icon': 'look' }), topic: 'Look', description: 'The background, the colours and fonts, and the music of your Event Hub.', about: { words: 'How every guest page looks and sounds.' }, onOpen: () => {}, attrs: { 'data-studio-tile': 'look' } }),
-  );
-  const card = cardButton(html);
-  assert.match(card, /^<button type="button" data-studio-tile="look" data-page-card-open=""/);
-  // THE CLAIM: nothing pressable is inside the card's button, and the ⓘ comes after it — a sibling.
-  assert.equal(count(card, /<button/g), 1, 'a button is nested inside the card’s button');
-  assert.doesNotMatch(card, /data-explain|role="button"|<a /);
-  const rest = html.slice(html.indexOf(card) + card.length);
-  assert.match(rest, /^<button type="button" data-explain="" aria-label="About Look" aria-haspopup="dialog" aria-expanded="false"/, 'the ⓘ is not the card’s next sibling');
-  assert.match(rest, /class="sn-press [^"]*h-11 w-11 flex-none/, 'the ⓘ is not a 44-px target');
-  assert.equal(count(html, /<button/g), 2);
-  // The mark: an app-icon tile in the accent, its picture in the label ink.
-  assert.match(card, /data-page-card-mark="" class="[^"]*h-\[52px\] w-\[52px\][^"]*rounded-xl bg-sn-accent [^"]*text-sn-on-accent/);
-  assert.match(card, /<svg data-icon="look"><\/svg>/);
-  // The topic, and ONE line.
-  assert.match(card, /data-page-card-topic=""[^>]*>Look<\/b>/);
-  assert.equal(count(card, /data-page-card-line=""/g), 1);
-  assert.match(card, /The background, the colours and fonts, and the music of your Event Hub\./);
-  // It presses like every other control (the app's one press, with its ring), and is a comfortable target.
-  assert.match(card, /class="sn-press sn-press-ring [^"]*min-h-\[76px\]/);
-  // The explanation is not drawn until it is asked for.
-  assert.doesNotMatch(html, /How every guest page looks and sounds|Got it/);
-});
-
-test('(2) a state has its word: Ready / Missing as a badge, "Full screen" a tag; an unread fact is said, with no badge', async () => {
-  const { PageCard } = await import('../app/_components/page-card');
-  const draw = (extra: Record<string, unknown>) => paint(h(PageCard, { mark: null, topic: 'Seat plan', description: 'The tables, and who sits where.', about: { words: 'x' }, onOpen: () => {}, ...extra }));
-  const ready = await draw({ badge: { tone: 'ok', word: 'Ready' }, tag: 'Full screen' });
-  assert.match(ready, /data-page-card-badge="ok"[^>]*>Ready</);
-  assert.match(ready, /data-page-card-tag=""[^>]*>Full screen</);
-  assert.match(await draw({ badge: { tone: 'wait', word: 'Missing' } }), /data-page-card-badge="wait"[^>]*>Missing</);
-  const plain = await draw({});
-  assert.doesNotMatch(plain, /data-page-card-badge|data-page-card-tag|data-page-card-problem/);
-  // A fact that could not be read: said in the line's place — never the ordinary line of an untouched page.
-  const unread = await draw({ problem: STUDIO_TILE_UNREAD });
-  assert.match(unread, /data-page-card-problem=""[^>]*>Could not be read just now</);
-  assert.doesNotMatch(unread, /data-page-card-line/);
-});
-
-const tiles = (over: Partial<Record<string, { done?: boolean | undefined; status?: string }>> = {}) =>
-  STUDIO_TILE_KEYS.map((key) => ({
-    key,
-    label: STUDIO_TILES[key].label,
-    short: STUDIO_TILES[key].short,
-    item: STUDIO_TILES[key].item,
-    immersive: STUDIO_TILES[key].immersive === true,
-    done: key in over ? over[key]!.done : (true as boolean | undefined),
-    status: over[key]?.status ?? STUDIO_TILES[key].sub,
-  }));
-
-/* (3) THE STUDIO HOME's cards were retired with Studio (Build 6 Lane F, owner 2026-11-10: "Studio technically is gone since
-   the pages there will be inside the different scenes it covers"). `lib/no-door-leads-to-the-removed-studio.test.ts` holds that it stays gone. */
+import { STUDIO_PAGE_CARDS } from './studio-page-cards';
+import { STUDIO_TILE_KEYS } from './studio-tiles';
 
 test('(4) the words: eleven lines that are sentences — never nouns joined by dots — in the house’s words', () => {
   assert.deepEqual(Object.keys(STUDIO_PAGE_CARDS), [...STUDIO_TILE_KEYS]);
@@ -123,13 +32,4 @@ test('(4) the words: eleven lines that are sentences — never nouns joined by d
       assert.doesNotMatch(text, /Day page|Details page|travels into the bar|programmes|RSVP card|song request/i, `${key} promises something that does not ship (${text})`);
     }
   }
-});
-
-test('(5) it asks nothing: no request, no preload, no navigation of its own — and the card knows no screen', () => {
-  /* The Studio home that wore it is gone (Build 6 Lane F, 2026-11-10); the card itself is the app's template still. */
-  const card = read(CARD);
-  assert.ok(card.length > 400, 'anti-vacuity');
-  assert.doesNotMatch(card, /launch\/_components|maker-|studio-|useMaker|fetch\(|useEffect|router/, 'the Page card knows a screen, or asks for something');
-  assert.doesNotMatch(card, /#[0-9a-fA-F]{3,8}\b|mulberry|terracotta|\btext-white\b/, 'the Page card writes a colour for the accent');
-  assert.match(card, /import \{ Explain \} from '\.\/explain';/, 'the ⓘ is not the one explanation');
 });

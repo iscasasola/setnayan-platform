@@ -38,6 +38,7 @@ import {
 } from '@/lib/package-line-pricing';
 import { formatCentavos, PROPOSAL_STATUS_LABEL, type ProposalLineItem } from '@/lib/vendor-proposals';
 import {
+  DEFAULT_QUOTE_PLAN,
   resolveSchedule,
   type InstallmentDraft,
   type InstallmentDue,
@@ -481,17 +482,10 @@ export function ProposalMaker({
   const [installments, setInstallments] = useState<SchedRow[]>(() =>
     revision?.schedule && revision.schedule.manual.length > 0
       ? revision.schedule.manual.map((d) => ({ ...d, key: nextSchedKey() }))
-      : [
-          { key: nextSchedKey(), label: 'First payment', kind: 'percent', amountPhp: null, percent: 20, due: 'on_lock', offsetDays: 0 },
-        ],
+      : DEFAULT_QUOTE_PLAN.manual.map((d) => ({ ...d, key: nextSchedKey() })),
   );
   const [autoBalanceMeta, setAutoBalanceMeta] = useState<AutoBalanceMeta>(
-    () =>
-      revision?.schedule?.autoBalance ?? {
-        label: 'Final balance',
-        due: 'before_event',
-        offsetDays: 14,
-      },
+    () => revision?.schedule?.autoBalance ?? { ...DEFAULT_QUOTE_PLAN.autoBalance },
   );
   // Accepted payment methods (§ 9) — default to every publishable (approved+shown) method.
   const [selectedMethods, setSelectedMethods] = useState<Record<string, boolean>>(() =>

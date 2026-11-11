@@ -16,7 +16,9 @@ import { addChoices, NEW_BUNDLE_HREF } from '@/lib/shop-add-choices';
  *   · Item 6 (owner: *"No need to add coverage. Just add services"* · *"Create new bundle and create new service"*): the
  *     ONE add control offers exactly two choices — New bundle · New service. The "Add a service or coverage" dropdown
  *     and the "+ Add a service" link are gone; the thumb row's ＋ is the same control (`shop-services-thumb.tsx`).
- * 🔒 shop/the-services-are-one-list.test.ts
+ *   · 9 Nov (owner, verbatim: *"Your Bundles and Services instead of Your services"*): the head and its pinned row read
+ *     **Your bundles and services** — bundles are listed first in it.
+ * 🔒 shop/the-services-are-one-list.test.ts · shop/bundle-cards-wear-the-card-row.test.ts
  */
 
 export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { line: string; compact: string; serviceHref: string; bundlesOn: boolean }) {
@@ -48,7 +50,7 @@ export function ShopServicesHead({ line, compact, serviceHref, bundlesOn }: { li
         <div className="flex min-h-11 items-center gap-3">
           <div className="min-w-0 flex-1">
             <h2 id="shop-services-h" className="sn-eye truncate">
-              Your services
+              Your bundles and services
               <span
                 className="font-sans normal-case tracking-normal text-ink/60"
                 style={{ opacity: stuck ? 1 : 0, transition: 'opacity var(--sn-pill-dur) var(--sn-pill-spring)' }}

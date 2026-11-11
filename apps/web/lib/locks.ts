@@ -73,7 +73,8 @@ export const LOCKS = {
     problem: 'Couples book one service and skip the rest.',
     solution: 'Several services at one price.',
     opens: 'verified',
-    server: null,
+    // 🔒 Build 6 Lane D: `savePackage` asks `canUse('bundleMaker')` before it prices or writes a bundle.
+    server: 'app/vendor-dashboard/packages/actions.ts',
   },
   promote: {
     name: 'Promote',

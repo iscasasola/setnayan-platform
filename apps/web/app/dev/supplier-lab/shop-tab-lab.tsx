@@ -159,7 +159,7 @@ function shopLab(fail: boolean, none: boolean) {
             serviceHref="#services"
             bundlesOn
           />
-          <ShopBundles bundles={fail ? null : none ? [] : [{ id: 'b1', name: 'Bar & mocktail night', priceCentavos: 15_000_000, live: true, cards: 2 }]} cards={none ? 0 : 2} />
+          <ShopBundles bundles={fail ? null : none ? [] : [{ id: 'b1', name: 'Bar & mocktail night', priceCentavos: 15_000_000, live: true, cardNames: ['Mobile Bar', 'Mocktail station'], includes: ['2 bartenders', 'Glassware and ice', '4 hours', 'Fresh fruit and syrups'], cardsAlonePhp: 155_000, openBookings: 0 }]} cards={none ? 0 : 2} />
           {none ? (
             <ServicesEmptyCard />
           ) : (

@@ -8245,6 +8245,13 @@ html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2
 .hc-span .hc-sm { padding-right: 72px; }
 .hc-tile[data-home-tile="hub"] .hc-big { font-size: 23px; }
 .hc-tile[data-home-tile="hub"] .hc-sm { padding-right: 78px; }
+/* 📐 AN EXAMPLE NEVER RUNS UNDER THE ROUND BUTTONS (owner bug 2026-11-11, 390 px: "Save the Date live" ran under the
+   Event Hub's two buttons and hid "live"). The Example is the LAST block of a tile, so it sits on the row the corner
+   buttons (`.hc-acts` / `.hc-side`, 32 px `.hc-tiny`) are pinned to. Its small line already reserves their WIDTH (the
+   `.hc-sm` padding-right above); here it also takes their HEIGHT — one line exactly as tall as a `.hc-tiny` — so the
+   big line always ends above the buttons, at every width and however it wraps, at its full size. Held by
+   `an-example-never-runs-under-the-buttons.test.ts`. */
+.hc-tile:has(> :is(.hc-acts, .hc-side)) > .hc-example .hc-sm { line-height: 32px; }
 .hc-row { display: flex; align-items: center; gap: 10px; }
 .hc-thin { position: relative; flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
 .hc-thin > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: rgb(var(--color-ok)); }

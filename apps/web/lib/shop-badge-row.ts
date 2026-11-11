@@ -22,7 +22,7 @@
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { BADGE_REWARDS } from '@/lib/badge-rewards';
 import type { BadgeRewardFacts } from '@/lib/badge-rewards';
-import type { TrackerRow } from '@/lib/shop-badges';
+import type { ShopBadge, TrackerRow } from '@/lib/shop-badges';
 
 /** The badge faces, from the approved corpus art (`prototypes/for_suppliers_2026-11-06`, "ibgrid"). */
 export type BadgeShape = 'seal' | 'hex' | 'star' | 'rosette';
@@ -399,4 +399,33 @@ export function nowLine(t: BadgeTile): string {
     return `Now · ${fmt(l.count)} ${unit}${l.reached !== null ? ` · ${LADDER_MATERIAL_NAME[ladderMaterial(l)]}` : ''}`;
   }
   return `Now · ${t.row.line}`;
+}
+
+/** What `ImageBadge` needs to draw one badge: its shape, material, the number on its face and the word under it. */
+export type BadgeImage = { shape: BadgeShape; face: BadgeFace; num: string; mini: string };
+
+/**
+ * 🃏 A WORN badge (`ShopBadge`, from `shopBadges` / `cardBadges`) as its circle — the same pictures this row draws
+ * (owner 11 Nov: the shop card's badges are the circular image badges, not the long pill). Pure; it only reads the
+ * badge's own composed words, so the card cannot say anything the pill would not.
+ *   verified → the navy seal ✓ · milestone → the events hex in its step's material · rating → the gold seal, the
+ *   average · years → the ivory seal, the years · award → the monthly rosette.
+ */
+export function badgeImageOf(b: ShopBadge): BadgeImage {
+  switch (b.kind) {
+    case 'verified':
+      return { shape: 'seal', face: 'navy', num: '✓', mini: 'VERIFIED' };
+    case 'milestone': {
+      const step = Number(b.key.split(':')[1]);
+      const i = b.tier ? Number(b.tier.replace('tier', '')) - 1 : 0;
+      const face = LADDER_MATERIALS[Math.min(Math.max(0, i), LADDER_MATERIALS.length - 1)]!;
+      return { shape: 'hex', face, num: Number.isFinite(step) ? faceNumber(step) : (b.glyph ?? '—'), mini: 'EVENTS' };
+    }
+    case 'rating':
+      return { shape: 'seal', face: 'gold', num: b.line1.split(' ')[0] ?? '★', mini: 'RATING' };
+    case 'years':
+      return { shape: 'seal', face: 'ivory', num: b.glyph ?? '—', mini: b.line1 };
+    default:
+      return { shape: 'rosette', face: 'month', num: '★', mini: 'AWARD' };
+  }
 }

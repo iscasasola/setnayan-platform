@@ -1766,8 +1766,14 @@ h2.fd-sechead,
 .fd-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* The circular image badge (owner 11 Nov). Top-aligned: a rosette's ribbon hangs below; the faces stay level. */
+.fd-badge-img {
+  display: inline-flex;
+  line-height: 0;
 }
 
 /* ── DISCOVER · THE EVENT CARD (2026-09-29) ───────────────────────────────

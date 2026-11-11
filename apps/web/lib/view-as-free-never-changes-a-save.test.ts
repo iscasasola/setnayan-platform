@@ -55,6 +55,7 @@ const RENDER_READERS = [
   'lib/schedule-view-as.server.ts', // the Schedule's View as ▾ — a view only, it never writes (Step 3c)
   'lib/schedule-release.server.ts', // `readScheduleRelease` — what the 🔊 sheet DRAWS; the press asks `releasePro`, the real gate
   'app/[slug]/_lib/hub-look.ts', // the canvas = the public page (`websiteProActiveFor`)
+  'lib/setnayan-mark-by-plan.server.ts', // the Setnayan mark by plan (`eventSetnayanMark`) — what a page DRAWS, never a gate on a write
 ].sort();
 
 /** Names that carry the switch — the module, its functions, and the readers that follow it. */
@@ -67,6 +68,7 @@ const SWITCH_NAMES = [
   'resolveEventQrLook',
   'websiteProActiveFor',
   'loadHubDraftBarData',
+  'eventSetnayanMark',
 ];
 
 test('the scan sees the tree (a guard looking at nothing passes everything)', () => {

@@ -120,7 +120,7 @@ test('owner: "when mood board theme palette changes, then the theme will adjust 
   const set = read('lib/print-set.server.ts');
   assert.match(set, /'event_id, display_name, event_type, [^']*\brole_palette\b[^']*'/, 'the print row (and so its preview hash) no longer reads the board');
   /* `hub` (2026-10-21): a Pro print wears the Hub — its Main background and the entitlement join the hash, the row stays in it. */
-  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook(?:, hub)? \}\)/, 'the print preview hash no longer covers the event row');
+  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook(?:, hub)?(?:, setnayanMark)? \}\)/, 'the print preview hash no longer covers the event row');
   // …a drafted fill is named in the preview's draft address…
   assert.match(read('lib/ceremony-time.ts'), /PRINT_DRAFTED_KEYS = \[[\s\S]*?'role_palette'[\s\S]*?\] as const/);
   // …and the scene tiles re-copy when the canvas scope's inline colours change (the chain is compared).

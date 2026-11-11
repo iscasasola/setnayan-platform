@@ -1,3 +1,4 @@
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import type { InvitationChapter } from '@/lib/invitation-chapters';
 import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
@@ -306,6 +307,8 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  /** 🏷 The event plan's Setnayan mark (Build 6 Lane L): Free watermark · Event Plus quiet · Event Pro none. */
+  setnayanMark: SetnayanMark;
   /** 💎 The Event Hub Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
   hubParts: readonly HubPartId[];
   bespokeSvg: string | null;

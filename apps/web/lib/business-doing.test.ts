@@ -71,7 +71,7 @@ test('bars: relative to the busiest; none when nothing booked', () => {
  * `.then((r) => r.data)` is what told a brand-new shop its data failed to load. Comments are stripped first,
  * because the page's own comment quotes the old line.
  */
-const PAGE = join(dirname(fileURLToPath(import.meta.url)), '../app/vendor-dashboard/performance/page.tsx');
+const PAGE = join(dirname(fileURLToPath(import.meta.url)), '../app/vendor-dashboard/performance/_components/one-analytics-section.tsx');
 
 test('the Analytics page keeps the stats read’s refusal apart from a missing row', () => {
   const page = stripComments(readFileSync(PAGE, 'utf8'));

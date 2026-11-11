@@ -1468,7 +1468,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'shop-analytics',
           title: 'How it is going',
-          body: 'What’s ahead, your quotes that turn into bookings, where your price sits — swipe, and tap one to see what it tells you.',
+          body: 'Your Analytics — swipe through your numbers, switch any card between 30 days and 12 months, and tap one to see what we recommend you do next.',
         },
         {
           anchor: 'shop-badges',

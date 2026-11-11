@@ -79,7 +79,7 @@ test('📈 the peer-comparison numbers have a reader', () => {
 });
 
 test('📈 …and it is rendered, not merely imported', () => {
-  const page = strip(readFileSync(join(WEB, 'app/vendor-dashboard/performance/page.tsx'), 'utf8'));
+  const page = strip(readFileSync(join(WEB, 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx'), 'utf8'));
   /* 📈 "Analytics, growing" (owner-approved 6 Nov 2026) draws the benchmark as §6's "Shops like yours" rows: the page
      hands the read into the ONE view builder, and the client tree draws its rows. Both halves are pinned — a read that
      reaches the view but is never drawn is the same dead end as the old unmounted card. */

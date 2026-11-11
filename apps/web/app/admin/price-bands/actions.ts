@@ -57,6 +57,6 @@ export async function recomputeFunnelBands() {
   if (error) throw new Error(error.message);
   const written = typeof data === 'number' ? data : 0;
   revalidatePath('/admin/pricing');
-  revalidatePath('/vendor-dashboard/performance');
+  revalidatePath('/vendor-dashboard/shop');
   redirect(`/admin/pricing?tab=price-bands&funnelRecomputed=${written}`);
 }

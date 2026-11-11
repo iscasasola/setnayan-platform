@@ -4,6 +4,7 @@ import { withoutAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
+import { QUOTE_RETURN_FIELD, QUOTE_RETURN_PARAM, quoteReturnPath, quoteReturnWithCard } from '@/lib/quote-card-return';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1527,9 +1528,14 @@ export async function commitVendorService(formData: FormData) {
     typeof returnToRaw === 'string' && /^\/vendor-dashboard\/services\/(new(\/[a-z0-9_]+)?|[0-9a-f-]{36})$/i.test(returnToRaw)
       ? returnToRaw
       : null;
+  // ＋ OPENED FROM A QUOTE (owner 11 Nov 2026, the quote's "Make a new card" door): where the quote is — checked
+  // (`quoteReturnPath`, only the two pages that draw the quote, never an open redirect). A refusal keeps it on the
+  // maker's address; a new card's save returns there with the card (below).
+  const quoteReturn = quoteReturnPath(formData.get(QUOTE_RETURN_FIELD));
   const back = async (msg: string) => {
     if (returnTo && !(isCreate && claimToken)) {
-      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}`);
+      const keepQuote = quoteReturn ? `&${QUOTE_RETURN_PARAM}=${encodeURIComponent(quoteReturn)}` : '';
+      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}`);
     }
     if (isCreate && claimToken && formCategory) {
       return redirect(
@@ -2312,6 +2318,10 @@ export async function commitVendorService(formData: FormData) {
     revalidatePath('/vendor-dashboard');
     redirect('/vendor-dashboard?claimed=1&service=1');
   }
+  // ＋ A NEW CARD MADE FROM A QUOTE goes back into that quote (prototype frame 6: "returns here with it picked") —
+  // the quote reads `quote_card` and puts the card in as lines.
+  const backToQuote = isCreate && typeof savedId === 'string' && quoteReturn ? quoteReturnWithCard(quoteReturn, savedId) : null;
+  if (backToQuote) redirect(backToQuote);
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).
   const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';

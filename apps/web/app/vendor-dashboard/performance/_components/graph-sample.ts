@@ -24,9 +24,9 @@ const LOST: LostDates = {
 };
 
 const CARDSELL: CardSell[] = [
-  { serviceId: 'ex-1', name: 'Full-day coverage', asked: 14, booked: 4 },
-  { serviceId: 'ex-2', name: 'Half-day coverage', asked: 9, booked: 1 },
-  { serviceId: 'ex-3', name: 'Same-day edit', asked: 5, booked: 2 },
+  { serviceId: 'ex-1', name: 'Full-day coverage', opened: 88, asked: 14, booked: 4 },
+  { serviceId: 'ex-2', name: 'Half-day coverage', opened: 84, asked: 3, booked: 1 },
+  { serviceId: 'ex-3', name: 'Same-day edit', opened: 22, asked: 5, booked: 2 },
 ];
 
 const REPLYVS: ReplyVsBooked = { fast: { n: 12, booked: 5 }, slow: { n: 10, booked: 1 } };

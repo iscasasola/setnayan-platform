@@ -7,6 +7,7 @@ import { NewServiceMaker } from './_components/new-service-maker';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { quoteReturnPath } from '@/lib/quote-card-return';
 
 export const metadata = { title: 'New service' };
 
@@ -27,7 +28,7 @@ export const metadata = { title: 'New service' };
 export default async function NewServiceCardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; quote?: string }>;
 }) {
   if (!canvasMakerEnabled()) redirect(SERVICE_PICKER_HREF);
 
@@ -38,7 +39,9 @@ export default async function NewServiceCardPage({
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
-  const { error } = await searchParams;
+  const { error, quote } = await searchParams;
+  // ＋ "Make a new card" from a quote (owner 11 Nov 2026): the way back, checked — never an open redirect.
+  const quoteReturn = quoteReturnPath(quote);
 
   const ctx = await loadMakerContext(supabase, profile.vendor_profile_id);
   // A one-trade shop's kind is pre-picked — its details can be drawn now; any other kind's open once it is made.
@@ -47,13 +50,20 @@ export default async function NewServiceCardPage({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
       <div className="mb-2 flex min-h-11 items-center gap-2">
-        <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-          Shop
-        </Link>
+        {quoteReturn ? (
+          <Link href={quoteReturn} className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
+            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            Quote
+          </Link>
+        ) : (
+          <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
+            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            Shop
+          </Link>
+        )}
         <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
       </div>
-      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} />
+      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} />
     </div>
   );
 }

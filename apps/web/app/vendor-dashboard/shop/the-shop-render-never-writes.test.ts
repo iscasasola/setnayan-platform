@@ -99,17 +99,17 @@ test('2 · the Shop page calls no write; its service-role client feeds only the 
   const intoTracker = [...page.matchAll(/readBadgeRewardTracker\(\s*createAdminClient\(\)/g)].length;
   assert.ok(admins >= 1, 'the tracker no longer reads (the badge rows lost their rewards)');
   assert.equal(admins, intoTracker, 'the Shop render hands its service-role client to something other than the read-only tracker');
-  // Performance draws the same tracker — it must not pay in its render either.
-  assert.doesNotMatch(src('app/vendor-dashboard/performance/page.tsx'), WRITE, 'the Performance render writes');
+  // The Analytics carousel streams inside this same render (owner 11 Nov 2026) — it must not pay either.
+  assert.doesNotMatch(src('app/vendor-dashboard/performance/_components/one-analytics-section.tsx'), WRITE, 'the Analytics render writes');
 });
 
 test('3 · the reward is still paid at the same visit — after the draw, through the one door', () => {
   const sweep = src('app/vendor-dashboard/_components/badge-reward-sweep.tsx');
   assert.match(sweep, /url = '\/api\/vendor\/badges\?view=facts'/, 'the sweep no longer asks the paying door');
   assert.match(sweep, /useEffect\(/, 'the sweep no longer runs after the page draws');
-  for (const page of ['app/vendor-dashboard/shop/page.tsx', 'app/vendor-dashboard/performance/page.tsx']) {
-    assert.match(src(page), /<BadgeRewardSweep \/>/, `${page} no longer pays a newly earned reward at all`);
-  }
+  // The Shop tab (which now carries the Analytics carousel too) pays once; the carousel never mounts a second sweep.
+  assert.equal([...src('app/vendor-dashboard/shop/page.tsx').matchAll(/<BadgeRewardSweep \/>/g)].length, 1, 'the Shop tab no longer pays a newly earned reward at all');
+  assert.doesNotMatch(src('app/vendor-dashboard/performance/_components/one-analytics-section.tsx'), /<BadgeRewardSweep\b/, 'a second sweep on one page');
   const door = src('app/api/vendor/badges/route.ts');
   assert.match(
     door,

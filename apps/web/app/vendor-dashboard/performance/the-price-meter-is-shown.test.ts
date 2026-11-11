@@ -29,7 +29,7 @@ import { stripComments } from '@/lib/strip-comments';
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-const PAGE = 'app/vendor-dashboard/performance/page.tsx';
+const PAGE = 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx';
 const VIEW = 'app/vendor-dashboard/performance/_components/growth-view.ts';
 const LIB = 'lib/price-position.ts';
 const TREE = 'app/vendor-dashboard/performance/_components/analytics-growing.tsx';

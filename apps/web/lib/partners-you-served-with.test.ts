@@ -120,7 +120,7 @@ test('Analytics "Link up" door: does not fire when nobody is eligible; unchanged
   assert.ok(!withoutPartnershipRecWhenNobodyToLink(recs, 0).some((r) => r.key === 'build_partnerships'));
   assert.equal(withoutPartnershipRecWhenNobodyToLink(recs, 2), recs);
   assert.equal(withoutPartnershipRecWhenNobodyToLink(recs, null), recs, 'a failed read keeps the card as it was');
-  const perf = read('app/vendor-dashboard/performance/page.tsx');
+  const perf = read('app/vendor-dashboard/performance/_components/one-analytics-section.tsx');
   // "Analytics, growing" (#7338, owner-approved 6 Nov): the recs reach the page's "Do next" through the view, one list
   // per window — BOTH lists are the filtered ones, so neither window can show a "Link up" with nobody to link.
   assert.match(perf, /const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink\(\s*growthRecs,/);

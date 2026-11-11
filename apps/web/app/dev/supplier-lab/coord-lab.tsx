@@ -13,8 +13,6 @@
  *                       a coordinator whose admin-made shop is not set up yet, judged at `at` (default Shop): a held
  *                       page draws "Finish your basic setup first"; an open one (`at=/vendor-dashboard/events`,
  *                       `/vendor-dashboard/customers`) draws its stand-in body, as it would ship
- *   ?s=coord-badges     🏅 Shop › How it is going's "Your badges" (owner 2026-10-29) — the REAL `YourBadges` over
- *                       `badgeShelf`; `&unread=1` = the read refused ("Couldn’t load" · "—")
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
  *   &cohost=1           👥 a supplier the hosts gave FULL ACCESS (owner 2026-10-29 — the co-host seat, `access_level:
  *                       'full'`): every coordinator seat Off, one live Full-access seat → the tab and the row, same rule
@@ -36,16 +34,12 @@ import { summarizeEventDecisions, type EventDecisionSummary } from '@/lib/event-
 import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import { TodayEasyLab } from './today-easy-lab';
 import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
-import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
-import { badgeShelf, badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
-import { badgeRowsWithRewards, rewardsOwed, type BadgeRewardFacts, type TrackerRewardInput } from '@/lib/badge-rewards';
-import { startableChoices, upgradesOwed } from '@/lib/badge-upgrades';
 import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { SHOP_TAB_STATES, ShopTabLab } from './shop-tab-lab';
 
 // 🏪🖼 THE ONE BUILD (C4): the Shop and Portfolio tabs ride this dispatch (`shop-tab-lab.tsx`) — `&unread=1` = every read refused.
-export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold', 'coord-badges', ...SHOP_TAB_STATES] as const;
+export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold', ...SHOP_TAB_STATES] as const;
 export type CoordState = (typeof COORD_STATES)[number];
 
 const LAB_TODAY = '2026-10-14';
@@ -110,53 +104,6 @@ const LAB_HOLD_CHECKLIST: BusinessProfileItem[] = [
   { key: 'services', label: 'Services covered', surface: 'profile', ok: true },
 ];
 
-/**
- * 🎁 The lab shop's badge rewards + 4-week upgrades (owner 2026-11-05 · table approved 2026-11-06) — the lab facts run
- * through the SAME `rewardsOwed` / `upgradesOwed` the grant sweep runs, read back as granted (upgrades still READY), so
- * the tracker's "Gave you" / "Next" / "Also →" lines are the real composition. Tier Pro (the Plan lab shows Free).
- */
-function coordLabRewards(f: TrackerFacts): TrackerRewardInput {
-  const tier = 'pro';
-  const facts: BadgeRewardFacts = {
-    verified: f.verified,
-    completedEvents: f.completedEvents ?? 0,
-    trustedReviews: f.trusted?.trusted_review_count ?? 0,
-    firstSourcedBooking: (f.completedEvents ?? 0) > 0,
-    branchIds: [],
-    serviceCards: (f.completedEvents ?? 0) > 0 ? 4 : 1,
-    inspirationPhotos: (f.completedEvents ?? 0) > 0 ? 12 : 0,
-    awards: [],
-  };
-  const at = (i: number) => `2026-11-0${1 + (i % 5)}T02:00:00Z`;
-  return {
-    facts,
-    granted: rewardsOwed(facts).map((o, i) => ({
-      rewardId: `lab-r${i}`,
-      key: o.key,
-      badge: o.badge,
-      kind: o.reward.kind,
-      units: o.reward.units,
-      grantedAt: at(i),
-      revokedAt: null,
-      usedAt: null,
-      usedOn: null,
-    })),
-    names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
-    awardTypeByTitle: { "Setnayan's Top Pick": 'top_pick', 'Most Booked': 'most_booked', 'Rising Star': 'rising' },
-    periodMonth: '2026-11-01',
-    tier,
-    upgrades: upgradesOwed(facts).map((o, i) => ({
-      upgradeId: `lab-u${i}`,
-      key: o.key,
-      grantedAt: at(i),
-      startable: startableChoices(o.choices, tier),
-      startedChoice: null,
-      startedAt: null,
-      endsAt: null,
-    })),
-  };
-}
-
 export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
   if (state === 'shop-tab' || state === 'portfolio-tab') return <ShopTabLab state={state} fail={unread} none={none} />;
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
@@ -165,23 +112,6 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
       <CoordLabBar />
     </BottomDock>
   );
-  if (state === 'coord-badges') {
-    const facts: TrackerFacts | null = unread
-      ? null
-      : { verified: true, completedEvents: 46, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2019, awards: [], nowYear: 2026, unreviewed: 3 };
-    const shelf = badgeShelf(facts);
-    // 📣🗺 The one tracker lives here since 2026-11-06 — the lab draws its rows.
-    const rows = facts ? badgeRowsWithRewards(badgeTracker(facts), coordLabRewards(facts)) : null;
-    return (
-      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="badges">
-        <h1 className="sn-h1">How is my business doing</h1>
-        <div className="mt-8">
-          <YourBadges shelf={shelf} rows={rows} />
-        </div>
-        {bar}
-      </div>
-    );
-  }
   if (state === 'coord-hold') {
     const hold = basicSetupHoldOf({ measured: true, canManage: true, verified: false, checklist: { items: LAB_HOLD_CHECKLIST, complete: false } });
     const where = at && at.startsWith('/vendor-dashboard') ? at : '/vendor-dashboard/shop';

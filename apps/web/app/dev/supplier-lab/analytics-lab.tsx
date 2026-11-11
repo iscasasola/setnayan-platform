@@ -1,31 +1,27 @@
 /**
- * 📈 Shop › Analytics on fixture data — "Analytics, growing" (owner-approved 6 Nov 2026). The REAL screen: the same
- * `buildGrowthView` the page calls, the same `AnalyticsGrowing` client tree, the same `ShopSegments` pinned row inside
- * the same `GrowthWindowScope` — only the reads are fixtures. The three shops are the approved prototype's own
+ * 📈🎠 Shop › Analytics on fixture data — THE CAROUSEL, the one Analytics (owner 11 Nov 2026: *"Analytics should be the
+ * carousel."*, the window *"inside each card"*). The REAL screen: the same `buildGrowthView` the section calls and the same
+ * `AnalyticsCarousel` client tree — only the reads are fixtures. The shops are the approved prototype's own
  * (`analytics-proto/index.html` → `SETNAPROD` · `SAMPLE`) plus an empty new shop:
  *
  *   /dev/supplier-lab?s=analytics                 SetnaProd — 67 views, nothing asked, verified, no stats row
- *   /dev/supplier-lab?s=analytics&shop=sample     the sample shop — every section filled
- *   /dev/supplier-lab?s=analytics&shop=new        a brand-new shop — every empty state
- *   …&win=12                                      the 12-month window open first
+ *   /dev/supplier-lab?s=analytics&shop=sample     the sample shop — every card filled
+ *   /dev/supplier-lab?s=analytics&shop=new        a brand-new shop — every empty state (the greyed sample curves)
  *   …&fail=1                                      every read refused — "Couldn’t load", never a zero
+ *   …&locked=1                                    an UNVERIFIED shop: the three counts + the ONE shared lock card
  *
- * Recommendations are NOT copied from the prototype: they are `buildGrowthRecs` on the fixture stats row, exactly as the
- * page computes them. No plan price is typed here — `annualPlanPhp` is null, so the "~N× your annual plan" line (12 months,
- * paid plans only) does not draw in the lab.
+ * Each card's window switch lives on the card (no page-wide window), so the old `&win=12` is gone.
+ * Recommendations are NOT copied from the prototype: they are `buildGrowthRecs` on the fixture stats row, per window,
+ * exactly as the section computes them. No plan price is typed here — `annualPlanPhp` is null.
  */
-import { GrowthWindowScope } from '@/app/vendor-dashboard/_components/growth-window';
-import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
-import { AnalyticsGrowing } from '@/app/vendor-dashboard/performance/_components/analytics-growing';
+import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
 import { buildGrowthView, type GrowthInputs, type Totals } from '@/app/vendor-dashboard/performance/_components/growth-view';
-import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
-import { ServiceScopeSelectClient } from '@/app/vendor-dashboard/performance/_components/service-scope-select-client';
-import { analyticsFigures } from '@/lib/shop-section-figures';
+import { papersProgress } from '@/lib/locks';
 import { dayBuckets, monthBuckets, type GrowthWindow } from '@/lib/analytics-growing';
 import { buildGrowthRecs, type GrowthRecOpts, type GrowthRecStats } from '@/lib/vendor-growth-recs';
-import { cardSells, lostDates, monthsAhead, quoteStates, replyVsBooked, slowMonth, type NewGraphs } from '@/lib/vendor-analytics-graphs';
+import { cardSells, lostDates, monthsAhead, quietCard, quoteStates, replyVsBooked, slowMonth, type NewGraphs } from '@/lib/vendor-analytics-graphs';
 import { buildVendorHealthComposite, unmeasuredVendorHealthComposite, type VendorHealthComposite } from '@/lib/vendor-health-composite';
-import { badgeShelf, badgeTracker, milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
+import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
 import type { SourceSlice } from '@/lib/vendor-funnel';
 import type { SourceAttribution } from '@/lib/vendor-source-attribution';
 import type { GrowthSeries } from '@/lib/vendor-growth-series';
@@ -65,8 +61,9 @@ function heatCells(grid: number[][]) {
   return grid.flatMap((cols, r) => cols.map((count, c) => ({ dow: (r + 1) % 7, hr: c * 3, count })));
 }
 
-function labRecs(stats: GrowthRecStats | null, asked: Record<GrowthWindow, number>, opts: GrowthRecOpts = {}) {
-  return { '30': buildGrowthRecs(stats, { ...opts, askedInWindow: asked['30'] }), '12': buildGrowthRecs(stats, { ...opts, askedInWindow: asked['12'] }) };
+/** The recs per window, each window's options read off ITS graphs — as the section does (`recOptsFor(w)`). */
+function labRecs(stats: GrowthRecStats | null, asked: Record<GrowthWindow, number>, opts: Partial<Record<GrowthWindow, GrowthRecOpts>> = {}) {
+  return { '30': buildGrowthRecs(stats, { ...opts['30'], askedInWindow: asked['30'] }), '12': buildGrowthRecs(stats, { ...opts['12'], askedInWindow: asked['12'] }) };
 }
 
 /* ── 📈 The five new graphs (Build 6 Lane I) — fixture ROWS put through the same pure bucketing the page's reads use
@@ -96,7 +93,9 @@ const SAMPLE_GRAPHS: NewGraphs = {
     ...Array.from({ length: 9 }, (_, i) => ({ serviceId: 'a', requested: ['a'], booked: i < 4 })),
     { serviceId: 'b', requested: ['b'], booked: false },
     { serviceId: null, requested: ['a', 'b'], booked: false },
-  ]),
+    // The opens (`service_card_opens`): Same-day edit opened about as often as Photo coverage, asked about far less —
+    // the prototype's "Run an offer on [card]" case.
+  ], new Map([['a', 88], ['b', 84]])),
   // Answered within the hour: 3 of 5 booked · later: 0 of 6.
   replyvs: replyVsBooked(
     [thread('e1', 20), thread('e2', 35), thread('e3', 50), thread('e4', 15), thread('e5', 40), ...['e6', 'e7', 'e8', 'e9', 'e10', 'e11'].map((e) => thread(e, 180))],
@@ -118,11 +117,31 @@ const SAMPLE_GRAPHS: NewGraphs = {
     LAB_TODAY,
   ),
 };
-/** The same three options the page passes `buildGrowthRecs` — read off the graphs, never typed. */
+/** The sample's last 30 days — a narrower slice of the same shop, so a card's switch visibly changes its picture. */
+const SAMPLE_GRAPHS_30: NewGraphs = {
+  lost: lostDates([ask('2026-10-10'), ask('2026-10-17'), ask('2026-10-24'), ask('2026-10-31'), ask('2026-10-09'), ask('2026-10-16'), ask('2026-10-11')], new Set(['2026-10-10', '2026-10-17', '2026-10-11'])),
+  cardsell: cardSells(SAMPLE_CARDS, [
+    ...Array.from({ length: 4 }, (_, i) => ({ serviceId: 'a', requested: ['a'], booked: i < 2 })),
+    { serviceId: 'b', requested: ['b'], booked: false },
+  ], new Map([['a', 24], ['b', 22]])),
+  replyvs: replyVsBooked([thread('e1', 20), thread('e2', 35), thread('e6', 180), thread('e7', 200)], new Set(['e1'])),
+  slow: SAMPLE_GRAPHS.slow,
+  quotes: quoteStates(
+    [
+      { status: 'sent', validUntil: '2026-11-30', legacy: false },
+      { status: 'viewed', validUntil: '2026-12-10', legacy: false },
+      { status: 'sent', validUntil: '2026-10-20', legacy: false },
+    ],
+    LAB_TODAY,
+  ),
+};
+
+/** The same options the page passes `buildGrowthRecs` — read off the graphs, never typed. */
 function graphRecOpts(g: NewGraphs, firstCard: string | null): GrowthRecOpts {
   const slow = g.slow ? slowMonth(g.slow) : null;
   return {
     lostDates: g.lost ? { closed: g.lost.closed, full: g.lost.full } : null,
+    quietCard: ((q) => (q ? { serviceId: q.serviceId, name: q.name } : null))(quietCard(g.cardsell)),
     slowMonth: slow ? { name: slow.name, lastDay: slow.lastDay, serviceId: firstCard } : null,
     expiredQuotes: g.quotes ? g.quotes.expired : null,
   };
@@ -264,7 +283,7 @@ function sample(): Lab {
       },
       bookedBySource: { '30': [], '12': [slice('profile_direct', 'Profile (direct)', 5), slice('host_marketplace_search', 'Marketplace search', null)] },
       attribution: { '30': attribution([1, 50000], [1, 36000]), '12': attribution([5, 231000], [4, 171000]) },
-      recs: labRecs(SAMPLE_STATS, { '30': 6, '12': 38 }, graphRecOpts(SAMPLE_GRAPHS, 'a')),
+      recs: labRecs(SAMPLE_STATS, { '30': 6, '12': 38 }, { '30': graphRecOpts(SAMPLE_GRAPHS_30, 'a'), '12': graphRecOpts(SAMPLE_GRAPHS, 'a') }),
       verdict: { shown: true, label: 'Usually responds in 2h', medianMinutes: 100, sample: 5 },
       inquiry: {
         reply: { answeredCount: 31, p50Minutes: 100, p90Minutes: 360, avgMinutes: 140 },
@@ -384,47 +403,31 @@ function refused(): Lab {
   };
 }
 
-export function AnalyticsLab({ shop, win, fail }: { shop?: string; win?: string; fail: boolean }) {
+/** The carousel's props for a lab shop — shared with the Shop tab lab, so both labs draw the same fixtures. */
+export function labCarouselProps({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }): Parameters<typeof AnalyticsCarousel>[0] {
   const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
   const lab = fail ? refused() : which === 'sample' ? sample() : which === 'new' ? fresh() : setnaprod();
-  const view = buildGrowthView(lab.inputs);
-  const graphs = fail ? REFUSED_GRAPHS : which === 'sample' ? SAMPLE_GRAPHS : EMPTY_GRAPHS;
+  // 🔒 `&locked=1` — an UNVERIFIED shop: the section's counts-only branch — three count cards and the ONE shared lock.
+  if (locked) return { locked: { progress: papersProgress({ done: 2, of: 4 }), totals: { '30': lab.now, '12': lab.year } } };
+  const graphs: Record<GrowthWindow, NewGraphs> = fail
+    ? { '30': REFUSED_GRAPHS, '12': REFUSED_GRAPHS }
+    : which === 'sample'
+      ? { '30': SAMPLE_GRAPHS_30, '12': SAMPLE_GRAPHS }
+      : { '30': EMPTY_GRAPHS, '12': EMPTY_GRAPHS };
+  return { view: buildGrowthView(lab.inputs), graphs };
+}
+
+export function AnalyticsLab({ shop, fail, locked = false }: { shop?: string; fail: boolean; locked?: boolean }) {
+  const which: LabShop = shop === 'sample' || shop === 'new' ? shop : 'setnaprod';
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics={fail ? 'refused' : which}>
-      <GrowthWindowScope initial={win === '12' ? '12' : '30'}>
-        <ShopSegments on="insights" figures={analyticsFigures(lab.now, lab.before)} yearFigures={analyticsFigures(lab.year, null)} />
-        {/* LAB ONLY — the prototype's own ribbon on its sample shop, so a screenshot is never mistaken for a real one. */}
-        {which === 'sample' && !fail ? (
-          <p className="-mx-4 px-4 py-1 text-[12px] font-bold uppercase tracking-[0.04em]" style={{ color: 'rgb(var(--color-warn))', background: 'color-mix(in srgb, rgb(var(--color-warn)) 14%, transparent)' }} data-lab-sample-ribbon="">
-            Sample numbers · not a real shop
-          </p>
-        ) : null}
-        <div className="mx-auto w-full max-w-xl">
-          <h1 className="sn-h1">How is my business doing</h1>
-          <div className="mt-2">
-            <AnalyticsGrowing
-              view={view}
-              graphs={graphs}
-              scope={
-                // The sample shop has two services, so the page would draw the scope ▾ beside the window ▾ (2+ only).
-                which === 'sample' && !fail ? (
-                  <div key="scope" className="pt-1">
-                    <ServiceScopeSelectClient
-                      value=""
-                      options={[
-                        { key: '', label: 'All services', href: '/dev/supplier-lab?s=analytics&shop=sample' },
-                        { key: 'a', label: 'Photo coverage', href: '/dev/supplier-lab?s=analytics&shop=sample' },
-                        { key: 'b', label: 'Same-day edit', href: '/dev/supplier-lab?s=analytics&shop=sample' },
-                      ]}
-                    />
-                  </div>
-                ) : null
-              }
-              badges={<YourBadges shelf={badgeShelf(lab.badges)} rows={lab.badges ? badgeTracker(lab.badges) : null} />}
-            />
-          </div>
-        </div>
-      </GrowthWindowScope>
+    <section className="mx-auto w-full max-w-3xl pb-32 pt-4" data-lab-shop-analytics={locked ? 'locked' : fail ? 'refused' : which}>
+      {/* LAB ONLY — the prototype's own ribbon on its sample shop, so a screenshot is never mistaken for a real one. */}
+      {which === 'sample' && !fail && !locked ? (
+        <p className="px-4 py-1 text-[12px] font-bold uppercase tracking-[0.04em]" style={{ color: 'rgb(var(--color-warn))', background: 'color-mix(in srgb, rgb(var(--color-warn)) 14%, transparent)' }} data-lab-sample-ribbon="">
+          Sample numbers · not a real shop
+        </p>
+      ) : null}
+      <AnalyticsCarousel {...labCarouselProps({ shop, fail, locked })} />
     </section>
   );
 }

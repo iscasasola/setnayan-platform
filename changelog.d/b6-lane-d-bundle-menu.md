@@ -27,6 +27,14 @@ Menu v2, Makers as One) built as fixes to the shipped screens, never new ones:
   `the-bundle-maker-keeps-its-gift-and-swipe`, whose gift parts the 9 Nov ruling reversed) ·
   `shop/bundle-cards-wear-the-card-row.test.ts` · the lock guard's to-wire list shrinks by `bundleMaker`.
 
+- **2026-11-11 · the row is the shipped one:** each bundle card now renders **`ServiceCardMenuRow` itself** (#7464's
+  Edit · Share · Online/Offline), imported — the hand-made twin is gone. The row gained two optional props for a card
+  with no door of its own: `onToggle`/`toggling` (the bundle's `bundleCardRow`; a refused Go online names every missing
+  item, one per line — `bundleRowRefusal` in `lib/bundle-card-row.ts`) and an optional `share` (absent = Share drawn
+  waiting). Service cards are unchanged. Guard `shop/bundle-cards-wear-the-card-row.test.ts` now fails if the bundle
+  card draws its own switch/icons or stops importing the row. Merged origin/main (the bundle name's fair-presentation
+  note kept on the rewritten maker).
+
 Not built here (each needs another lane or an owner call — listed in the PR): Offers on this bundle (the Offer Maker
 owns the link) · the group photo header with ⋯ → % Offers (#7420's shared header + the Offer Maker) · Start the
 quote / Make a bundle of these · Send to this couple wiring · the shop-wide default plan setting · Share.

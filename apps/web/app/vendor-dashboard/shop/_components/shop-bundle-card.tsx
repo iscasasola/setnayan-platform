@@ -8,9 +8,10 @@
  *
  *   · THE CARD IS THE ONLY FRAME — the bundle reads like a card (the ONE face Find draws, `ServiceCardFace`): its name,
  *     its one price, and what its cards come to alone. Tapping it opens the Bundle Maker.
- *   · UNDER IT, ONE ROW: ✏ Edit · ↗ Share (icons) · the worded Online/Offline switch (`SwitchTrack`), the same row a
- *     service card wears (`service-card-menu-row.tsx`, PR #7464). ⏭ When #7464 merges, this row is swapped for that
- *     component — the props here are its shape on purpose (`cardName` · `isActive` · `editHref`).
+ *   · UNDER IT, ONE ROW — THE SHIPPED `ServiceCardMenuRow` itself (PR #7464), never a copy: ✏ Edit (the Bundle Maker) ·
+ *     ↗ Share · the worded Online/Offline switch. The bundle hands it `onToggle` (this card's one call, `bundleCardRow`)
+ *     in place of a service card's door: going online is refused with EVERY missing item (`validatePackageDraft`, all
+ *     problems, one per line), going offline while a booking is open.
  *   · SWIPE LEFT DELETES, through the shipped swipe, after the house delete warning (Cancel · Delete at equal widths),
  *     then the shipped Undo — the write waits for the Undo window.
  *   · OFF AND DELETE ARE REFUSED WHILE ANY BOOKING OF IT IS OPEN — the line under the row says so, and the server
@@ -22,17 +23,17 @@
  */
 import { useId, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Pencil, Share, Trash2, X } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import { ActionButton, EqualRow } from '@/components/action-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { Sheet } from '@/app/_components/sheet';
-import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { deleteWithUndo, type CommitResult } from '@/app/_components/undo/delete-with-undo';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
+import { ServiceCardMenuRow } from '@/app/vendor-dashboard/services/_components/service-card-menu-row';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { BUNDLE_DELETE_WARNING, bundleHoldLine } from '@/lib/bundle-card-row';
-import { bundleCardRow, type SavePackageResult } from '@/app/vendor-dashboard/packages/actions';
+import { BUNDLE_DELETE_WARNING, bundleHoldLine, bundleRowRefusal } from '@/lib/bundle-card-row';
+import { bundleCardRow } from '@/app/vendor-dashboard/packages/actions';
 
 const php = formatPhpRounded;
 
@@ -50,14 +51,6 @@ export type ShopBundle = {
   /** Open bookings of this bundle; null = could not be checked (off and delete are then refused, with words). */
   openBookings: number | null;
 };
-
-function refusalOf(res: SavePackageResult): string | null {
-  if (res.status === 'ok') return null;
-  if (res.status === 'invalid') return res.problems.map((p) => p.message).join('\n');
-  if (res.status === 'frozen') return 'It has open bookings — it stays online until they are complete.';
-  if (res.status === 'error') return res.message;
-  return 'That change could not be saved.';
-}
 
 export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
   const [live, setLive] = useState(bundle.live);
@@ -80,7 +73,7 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
     const next = !live;
     start(async () => {
       const res = await bundleCardRow(bundle.id, next ? 'online' : 'offline');
-      const why = refusalOf(res);
+      const why = bundleRowRefusal(res);
       if (why) setRefusal(why);
       else setLive(next);
     });
@@ -103,7 +96,7 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
       hide: () => setGone(true),
       restore: () => setGone(false),
       commit: async (): Promise<CommitResult> => {
-        const why = refusalOf(await bundleCardRow(bundle.id, 'delete'));
+        const why = bundleRowRefusal(await bundleCardRow(bundle.id, 'delete'));
         if (why) {
           setRefusal(why);
           return { ok: false, error: why };
@@ -141,24 +134,16 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
         </Link>
       </SwipeToDelete>
 
-      {/* THE ROW UNDER THE CARD — Edit · Share icons, then the Online/Offline switch (the service card's row). */}
-      <div className="flex items-center gap-2 [&>.ab]:h-10 [&>.ab]:min-h-10 [&>.ab]:w-10" data-bundle-menu-line="">
-        <ActionButton tone="neutral" icon={Pencil} iconOnly label="Edit" name="Edit" title={`Edit ${bundle.name}`} href={editHref} data-bundle-edit={bundle.id} />
-        <ActionButton tone="info" icon={Share} iconOnly label="Share to a client" name="Share to a client" title="Share to a client’s chat — coming next" waiting data-bundle-share={bundle.id} />
-        <span className="ml-auto" />
-        <button
-          type="button"
-          role="switch"
-          aria-checked={live}
-          aria-label={live ? `${bundle.name} is online — turn it offline` : `${bundle.name} is offline — turn it online`}
-          className={SWITCH_BUTTON}
-          disabled={pending}
-          onClick={toggle}
-          data-bundle-online={live ? '1' : '0'}
-        >
-          <SwitchTrack on={live} words={{ on: 'Online', off: 'Offline' }} />
-        </button>
-      </div>
+      {/* THE ROW UNDER THE CARD — the service card's own row (Edit · Share · Online/Offline), the bundle's call behind it. */}
+      <ServiceCardMenuRow
+        vendorServiceId={bundle.id}
+        cardName={bundle.name}
+        isActive={live}
+        held={false}
+        editHref={editHref}
+        onToggle={toggle}
+        toggling={pending}
+      />
       {refusal ? (
         <p role="alert" className="whitespace-pre-line text-[12.5px] leading-snug text-terracotta-700" data-bundle-refusal="">
           {refusal}

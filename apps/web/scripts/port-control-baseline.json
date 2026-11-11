@@ -17198,7 +17198,6 @@
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/packages",
         "/vendor-dashboard/packages/[seg]",
         "/vendor-dashboard/packages/new"
       ],
@@ -17225,7 +17224,6 @@
         "RiseScreen",
         "SavePackageResult",
         "ServiceCardFace",
-        "SupplierThumbRow",
         "SwipeToDelete",
         "UndoToastHost"
       ]
@@ -17235,14 +17233,10 @@
         "vendor-dashboard/packages/[packageId]/loading.tsx",
         "vendor-dashboard/packages/[packageId]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/packages"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "BundleMakerLocked",
-        "ChevronLeft",
-        "Link",
         "PackageEditor",
         "Sk",
         "SkCircle",
@@ -18059,6 +18053,7 @@
         "ScannerChoice",
         "SeeRow",
         "ServiceCardFace",
+        "ServiceCardMenuRow",
         "ServiceCoverageRow",
         "ServiceRadiusFields",
         "ServiceRadiusSaveResult",

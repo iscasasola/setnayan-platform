@@ -199,11 +199,18 @@ test('the Event Plus card names only what a paid Event Plus order unlocks', () =
 
 test('/features: a light "no select" on the sections, and nothing more', () => {
   const body = code('app/features/_PageBody.tsx');
-  assert.match(body, /<div className="select-none" data-features-no-select="">\s*<FeatureGroups/, 'the light no-select is gone');
+  // 2026-11-11 (v3): the first thing inside the no-select is the English story or, in Taglish, the shipped groups.
+  assert.match(
+    body,
+    /<div className="select-none" data-features-no-select="">\s*\{locale === 'en' \? <FeaturesStory locale=\{locale\} \/> : <FeatureGroups/,
+    'the light no-select is gone',
+  );
   assert.ok(body.indexOf('{search}') < body.indexOf('select-none'), 'the search field sits inside the no-select');
   for (const rel of [
     'app/features/_PageBody.tsx',
     'app/features/_sections/_FeatureGroups.tsx',
+    'app/features/_sections/_Story.tsx',
+    'app/features/_story-client.tsx',
     'app/features/_sections/_WhySetnayan.tsx',
     'app/features/_sections/_HowItWorks.tsx',
   ]) {

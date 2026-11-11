@@ -172,7 +172,7 @@ test('the page has one H1, H2 sections, H3 questions, alt text, and opens with t
 });
 
 test('the hub has one H1 and lists every feature page in its structured data', () => {
-  const hub = ['_Hero', '_FeatureGroups', '_Ecosystem', '_WhySetnayan', '_HowItWorks', '_FinalCTA']
+  const hub = ['_Hero', '_FeatureGroups', '_Story', '_Ecosystem', '_Plans', '_WhySetnayan', '_HowItWorks', '_FinalCTA']
     .map((s) => code(`app/features/_sections/${s}.tsx`))
     .join('\n');
   assert.equal((hub.match(/<h1\b/g) ?? []).length, 1, 'the hub has exactly one <h1>');

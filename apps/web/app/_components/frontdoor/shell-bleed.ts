@@ -59,4 +59,7 @@
 // '/for-suppliers' joined 2026-11-04 when it moved into the shell: its photo hero
 // and dark bands are edge-to-edge by design, and every section caps its own width.
 // '/for-coordinators' joined the same day, new: its photo hero and problem scenes run edge to edge.
-export const DOORWAY_BLEED_PATHS = ['/explore', '/for-suppliers', '/for-coordinators'] as const;
+// '/features' joined 2026-11-11 with the v3 story (owner-approved): its photo hero and photo strips run edge to edge,
+// and every section keeps its own 16 px gutters and 1200 px cap. Only the English hub — /tl/features keeps its
+// shipped column until the story is written in Taglish. Its page sits in the `(hub)` route group.
+export const DOORWAY_BLEED_PATHS = ['/explore', '/for-suppliers', '/for-coordinators', '/features'] as const;

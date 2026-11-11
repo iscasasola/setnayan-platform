@@ -37,7 +37,8 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
-    if (request === 'server-only' || request === 'client-only') return {};
+    // 2026-11-11: the v3 story styles itself with a CSS module; painting needs its text, not its class names.
+    if (request === 'server-only' || request === 'client-only' || request.endsWith('.css')) return {};
     return load.call(this, request, ...rest);
   };
 }
@@ -67,13 +68,16 @@ function offenders(where: string, text: string): string[] {
 }
 
 /**
- * Every section of the hub that paints synchronously, in page order. The one
- * left out, `_FeatureGroups`, is async (it reads the price catalogue) — its
- * words are the registry's `name` / `line`, held by the second test below.
+ * Every section of the hub that paints synchronously, in page order. The two
+ * left out read the price catalogue and are async: `_FeatureGroups` — its
+ * words are the registry's `name` / `line`, held by the second test below —
+ * and `_Plans` (v3, 2026-11-11), whose pure view `PlansCompare` is painted by
+ * the third test with an unreadable catalogue.
  * `features-tagging.test.ts` holds the hub's section list; a new section added
  * to `_PageBody.tsx` without joining this list fails the count check here.
  */
-const SYNC_SECTIONS = ['_Hero', '_Ecosystem', '_WhySetnayan', '_HowItWorks', '_FinalCTA'] as const;
+const SYNC_SECTIONS = ['_Hero', '_Story', '_Ecosystem', '_WhySetnayan', '_HowItWorks', '_FinalCTA'] as const;
+const ASYNC_SECTIONS = ['_FeatureGroups', '_Plans'] as const;
 
 async function paint(locale: MarketingLocale): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -93,7 +97,7 @@ test('every section the hub draws is painted here, or is the async catalogue one
   const body = readFileSync(join(HERE, '_PageBody.tsx'), 'utf8');
   const drawn = [...stripComments(body).matchAll(/from '\.\/_sections\/(_\w+)'/g)].map((m) => m[1]);
   assert.deepEqual(
-    drawn.filter((s) => s !== '_FeatureGroups' && !(SYNC_SECTIONS as readonly string[]).includes(s!)),
+    drawn.filter((s) => !(ASYNC_SECTIONS as readonly string[]).includes(s!) && !(SYNC_SECTIONS as readonly string[]).includes(s!)),
     [],
     'a new /features section is not painted by this guard',
   );
@@ -164,4 +168,24 @@ test('every feature page’s words show no route path, code span or column name 
   }
   console.log(`[no-internals] ${FEATURE_PAGES.length} feature pages, ${n} prose strings`);
   assert.deepEqual(found, [], 'A public feature page shows internals to strangers:\n  ' + found.join('\n  '));
+});
+
+test('the v3 story and its Plans compare show no internals either — every row, every sheet (2026-11-11)', async () => {
+  // The story draws all four personas and every row's ⓘ sheet into the HTML, so painting it reads every word the
+  // page can show. MUTATION: put `platform_retail_catalog_v2` or "/dashboard" into any row's copy → this fails.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { FeaturesStory } = await import('./_sections/_Story');
+  const { PlansCompare } = await import('./_plans-view');
+  const html = [
+    renderToStaticMarkup(React.createElement(FeaturesStory, { locale: 'en' })),
+    renderToStaticMarkup(React.createElement(PlansCompare, { rows: null })),
+  ].join('\n');
+  const strings = visibleStrings(html);
+  console.log(`[no-internals] /features v3 story + plans: ${strings.length} visible strings`);
+  assert.ok(strings.length > 1000, `the v3 story painted only ${strings.length} strings — did the render fail?`);
+  assert.ok(strings.includes('Problem') && strings.includes('Coming'), 'the ⓘ sheets or the Coming chips did not paint');
+  const found: string[] = [];
+  if (/<code\b/.test(html)) found.push('/features v3: a <code> element');
+  for (const s of strings) found.push(...offenders('/features v3', s));
+  assert.deepEqual(found, [], 'The /features story shows internals to strangers:\n  ' + found.join('\n  '));
 });

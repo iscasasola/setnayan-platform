@@ -40,6 +40,7 @@ import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attribute
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import type { MarketplaceServiceCard } from '@/lib/marketplace-service-cards';
 import type { VendorServiceRow } from '@/lib/vendor-services';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { cityKeyFor, type LandingCard, type PricingBasis } from '@/lib/supplier-landing';
 
 /** The columns the card face needs — the marketplace loader's own list. */
@@ -52,7 +53,7 @@ const SERVICE_COLS =
   'last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,' +
   'base_pax,coverage_id,includes_setnayan_gift,is_demo';
 
-const SHOP_COLS = `vendor_profile_id,business_name,business_slug,location_city,logo_url,event_types,is_demo,is_findable,${FINDABLE_INPUT_COLUMNS.replace(/\s+/g, '')}`;
+const SHOP_COLS = `vendor_profile_id,business_name,business_slug,location_city,logo_url,event_types,is_demo,is_findable,next_renewal_due_at,${FINDABLE_INPUT_COLUMNS.replace(/\s+/g, '')}`;
 
 const PAGE = 1000;
 
@@ -198,6 +199,11 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
       businessLogoRef: (shop.logo_url as string | null) ?? null,
       // Always false here: the filter above keeps demo shops off these indexed pages.
       isDemo: false,
+      // The Verified pill on the card's shop line: the BADGE rule (lapses at its deadline) — lib/verified-badge.ts.
+      verified: hasVerifiedBadge({
+        verification_state: (shop.verification_state as string | null) ?? null,
+        next_renewal_due_at: (shop.next_renewal_due_at as string | null) ?? null,
+      }),
     });
   }
 

@@ -74,8 +74,12 @@ test('the Share icon is live and opens the "Share to a client event" sheet', () 
   const at = ROW.indexOf('name="Share to a client"');
   assert.ok(at > 0, 'the Share button moved — re-anchor this guard');
   const button = ROW.slice(at, ROW.indexOf('/>', at));
-  assert.doesNotMatch(button, /\bwaiting\b/, 'Share is drawn waiting again');
-  assert.match(button, /onClick=\{\(\) => setSharing\(true\)\}/, 'Share no longer opens the sheet');
+  // A SERVICE card's Share is live: the row draws it waiting ONLY when no `share` is handed in — the bundle card, which
+  // wears this same row (bundle-cards-wear-the-card-row.test.ts) and cannot be posted yet. The manager always hands
+  // a service card its share (next test), so a service card is never waiting.
+  assert.match(button, /waiting=\{!share\}/, 'Share is drawn waiting for a card that has a share');
+  assert.doesNotMatch(button, /waiting(?!=\{!share\})/, 'Share is drawn waiting again');
+  assert.match(button, /onClick=\{share \? \(\) => setSharing\(true\) : undefined\}/, 'Share no longer opens the sheet');
   assert.match(ROW, /<ServiceCardShareSheet[\s\S]*open=\{sharing\}/, 'the row does not mount the share sheet');
   assert.equal(SHARE_WORDS.title, 'Share to a client event');
   assert.match(SHEET, /<Sheet open=\{open\}[^>]*title=\{SHARE_WORDS\.title\}/, 'the share sheet is not the house Sheet');

@@ -140,7 +140,7 @@ test('the spotlight never draws the old centred card', () => {
  */
 const ANCHOR_HOME: Record<string, string | string[]> = {
   // THE ONE BUILD (8 Nov, C4): the v113 Shop tab's two parts.
-  'shop-analytics': 'app/vendor-dashboard/shop/_components/shop-analytics-door.tsx',
+  'shop-analytics': 'app/vendor-dashboard/performance/_components/analytics-carousel.tsx',
   'shop-badges': 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx',
   'hub-next-days': 'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx',
   'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',

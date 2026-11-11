@@ -1,36 +1,47 @@
-## 2026-11-10 · feat(analytics): ONE Analytics, not two — the Shop carousel goes, card opens are counted, analytics beyond counts opens on Verified (Build 6 Lane I, finish)
+## 2026-11-11 · feat(analytics): Analytics IS the Shop carousel — one long carousel, a 30 days / 12 months switch inside every card, tap = our recommendation (Build 6 Lane I)
 
-Finishes Build 6 Lane I on top of #7418 (the "Analytics, growing" re-port) and #7439 (every graph a tile that rises to
-one recommendation + the five new graphs), both already on main. What those two left open:
+Owner, 11 Nov 2026: *"Analytics should be the carousel."* → *"one long carousel"* → the window *"inside each card"* →
+*"Sliding switch"* (DECISION_LOG 2026-11-11 🎠 · 📊✅ · 🎚✅ · 📈; prototype
+`prototypes/analytics_option_b_2026-11-11/analytics-option-b.html`, option 3). Builds on #7418 (the "Analytics,
+growing" re-port) and #7439 (every graph rises to one recommendation + the five new graphs), both already on main.
 
-- **No fact twice — the Shop tab's five-card carousel is gone** (#7439's flag 2; the approved prototype
-  `build6_makers_analytics_2026-11-10`'s dedupe table: *"The carousel is gone; its five pictures live on as tiles."*).
-  The Shop tab's Analytics section is now ONE door into Shop › Analytics (`shop-analytics-door.tsx`): it states no
-  number about the shop and reads nothing, so the Shop tab drops its whole analytics batch (`lib/shop-analytics.server.ts`,
-  `lib/shop-analytics-series.ts` and the carousel are deleted). Owners and admins only, as before; the tour stop keeps its
-  anchor. The five carousel faces (`capacity-card` · `conversion-deals-card` · `price-position-card` ·
-  `roi-attribution-card` · `funnel-benchmark-card`, + their `card-face` shell and its face test) were mounted nowhere
-  after that and are deleted too (ugat-both-ends caught the orphan). 🔒 new `shop/one-analytics-not-two.test.ts` (sabotage-checked: a carousel face back on the Shop tab fails it).
-- **"Which card sells" counts OPENS** (#7439's flag 1): migration `20271337268841_service_card_opens.sql` — the SAME shape
-  as the portfolio photo views: a day ledger (hashed viewer, one per viewer per card per Manila day), ONE service-role
-  writer `record_service_card_view` (refuses the shop's own people, admins and any card not the shop's), ONE reader
-  `service_card_opens` that returns COUNTS to the shop's own people and REFUSES anyone else. Each grown-card open on the
-  public shop counts (never on a demo shop or a team preview), routed through the existing view action (no new server
-  action). Graph b draws opened · asked · booked; a refused opens read leaves `opened: null` (never 0) and the graph
-  advises only on asks and bookings.
-- **`offer_on_card` fires** — from the graph's own numbers only, through one pure rule (`quietCard`,
-  `lib/vendor-analytics-graphs.ts`): a card with ≥ 20 opens whose asks per open are at most half the best card's. Its
-  Problem line is that card's own three numbers. Still `buildGrowthRecs` only — no per-card copy.
-- **Analytics beyond simple counts opens once Verified** (DECISION_LOG 2026-11-10 "FREE (UNVERIFIED): THE LAST SEVEN";
-  corpus free-unverified-limits §5): the Analytics page asks `canUse('analytics', …)` on the SERVER and, for an
-  unverified shop, reads only the opened · asked · booked counts and the badges — no graph read runs — and draws the
-  graphs as Build 5 Lane B's shared `LockedFeature` (Problem → Solution → a view-only sample → papers progress → Get
-  verified). `lib/locks.ts` `analytics.server` now names the page; the lock guard proves the gate sits before every graph
-  read. Measured in prod (SELECT): SetnaProd is Verified and keeps everything.
+- **ONE Analytics, and it is the Shop tab's carousel.** The second surface (`/vendor-dashboard/performance`, "How is my
+  business doing") is folded in: its reads moved unchanged into `performance/_components/one-analytics-section.tsx`,
+  which the Shop tab STREAMS in its own `<Suspense>` (the cover never waits), directly above the badge row. The old
+  address redirects to `/vendor-dashboard/shop#analytics`; every in-app door goes straight there.
+- **One long carousel, in the prototype's order** (`analytics-cards.ts`): Opened · Asked · Booked as three cards of
+  their own (each with its big number counting up), then every graph once — Where couples found you · Which card sells ·
+  How fast you answer · Reply speed vs bookings · Quotes waiting · Setnayan vs your own book · The next 13 weeks · Dates
+  you lost · Slow months ahead · What couples say · Compared with similar suppliers · Where your price sits.
+- **The window lives inside each card** — the house sliding two-button switch (`PillSelector`), one per card; nothing
+  sits above the carousel. A card whose window is fixed shows it as a label (Next 13 weeks · Next 12 months · All time ·
+  Your category · region · Your service · region). Both windows are built from the SAME reads, so a switch never
+  refetches. The five new graphs are bucketed per window from their one 12-month read, and the card-opens reader now
+  returns both windows in one call (`service_card_opens(p_vendor_profile_id)` → `opens_30d`, `opens_12m`).
+- **Tap a card → it rises full screen** (the one `RiseScreen`): the graph larger, the same switch in its head, then ONE
+  recommendation from `buildGrowthRecs` for that window (Problem → Solution → one door), or "Nothing to fix right now."
+- **Every card animates when it is swiped into view** — bars grow, lines draw, counts tick; reduced motion shows the
+  final picture at once. An empty card draws the greyed sample, marked "Example"; a refused read says "Couldn’t load."
+- **Unverified shops** (`canUse('analytics')`, on the server, before any graph read): the three count cards, each still
+  switchable, and ONE shared lock card for the graphs.
+- **No fact twice on one scroll:** the old Analytics page's "Your badges" block, the three-line Opened → asked → booked
+  chart, the "Do next" top-three list and the per-service scope menu are gone — the badge row under the carousel already
+  draws the one badge tracker, the three count cards replace the lanes chart, and each card carries its own
+  recommendation. (`your-badges.tsx`, `growth-lanes.tsx`, `do-next.tsx`, `service-scope-selector.tsx`,
+  `service-scope-select-client.tsx`, `perf-links.ts` and the Shop door are deleted.)
+- **Deviation, flagged:** "How fast you answer" shows a fixed "Last 12 months" label instead of a switch — its read (the
+  shop's reply median) exists only over 12 months, so a switch would offer a 30-day number we do not have.
 
-DB: `tests/db/a-card-open-counts-once-and-only-for-couples.db.test.ts` (writer service-role only · once a day · own
-people/admins never count · foreign card refused · reader counts for the shop, refuses others · ledger closed).
+Card opens (from the earlier commits of this branch): migration `20271337268841_service_card_opens.sql` — a day ledger
+(hashed viewer, one per viewer per card per Manila day), ONE service-role writer, ONE reader that returns COUNTS to the
+shop's own people and refuses anyone else. `offer_on_card` fires only from those counts (`quietCard`: ≥ 20 opens and an
+ask rate at most half the best card's).
 
-SPEC IMPACT: None to the rulings — this builds DECISION_LOG 2026-11-10 "EVERY ANALYTICS GRAPH HELPS", "ALL FIVE NEW
-ANALYTICS GRAPHS PICKED" and "FREE (UNVERIFIED): THE LAST SEVEN" as drawn. The quiet-card thresholds (20 opens · half the
-best card's ask rate) are new and listed in the PR for the owner; they govern advice, not money.
+🔒 new `shop/analytics-is-the-carousel.test.ts` (sabotage-checked, 8 mutations, all red) · rewritten
+`performance/every-graph-is-a-tile.test.ts`, `analytics-is-growing.test.ts`, `the-pickers-are-one-dropdown.test.ts`,
+`your-badges-are-on-the-page.test.ts` · re-pointed lock, rise, segment, sections, columns, spotlight, render-writes
+guards. DB: `tests/db/a-card-open-counts-once-and-only-for-couples.db.test.ts` checks both windows.
+
+SPEC IMPACT: None to the rulings — this builds DECISION_LOG 2026-11-11 🎠 · 📊✅ · 🎚✅ · 📈 as drawn. Owner-visible
+choices listed in the PR: the reply card's fixed 12-month label, the removed per-service scope, and the badge tracker now
+living only in the Shop badge row.

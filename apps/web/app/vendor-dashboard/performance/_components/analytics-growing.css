@@ -285,3 +285,37 @@
 [data-growth] .ag-ps dd { margin: 0; }
 [data-growth] .ag-recbox .ag-calm { margin: 0; }
 [data-graph-door] { display: flex; justify-content: flex-end; }
+
+/* ── 🎠 ONE ANALYTICS = THE SHOP CAROUSEL (owner 11 Nov 2026; prototype analytics_option_b_2026-11-11 option 3) ──
+ * Each card: title (the one button, stretched over the card) · the control row (its number · its window switch or
+ * fixed label) · the picture · one line. The whole card presses; the switch sits above the stretched button. */
+[data-growth] .ag-card { height: 100%; }
+[data-growth] .ag-card-in { position: relative; height: 100%; display: flex; flex-direction: column; gap: 8px; border-radius: var(--m-r-md); background: var(--m-paper); padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+[data-growth] .ag-card .ag-open { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+[data-growth] .ag-card .ag-open b { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.2; }
+[data-growth] .ag-card .ag-open::after { content: ''; position: absolute; inset: 0; border-radius: var(--m-r-md); }
+[data-growth] .ag-card .ag-open:focus-visible::after { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+[data-growth] .ag-card .ag-chev { width: 18px; height: 18px; flex: none; color: var(--m-slate-3); }
+[data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+[data-growth] .ag-when { font-size: 11.5px; color: var(--m-slate-3); white-space: nowrap; }
+[data-growth] .ag-fig { display: flex; flex-direction: column; line-height: 1.1; }
+[data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-growth] .ag-fig small { font-size: 12px; color: var(--m-slate-2); }
+[data-growth] .ag-card .ag-gp { display: block; min-height: 64px; }
+[data-growth] .ag-card .ag-gp-wait { display: block; min-height: 64px; }
+[data-growth] .ag-card .ag-ln { margin: auto 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent); padding-top: 8px; }
+[data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
+[data-growth] .ag-card .ag-exc { position: absolute; top: 10px; right: 40px; }
+[data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; font-weight: 600; color: var(--m-orange-deep, rgb(var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; }
+[data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
+[data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }
+/* Motion: the line draws, the area fades, the bars grow — once the card is seen (Reanimate adds .perf-play). */
+@keyframes ag-draw-k { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes ag-grow-k { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes ag-fade-k { from { opacity: 0; } to { opacity: 0.9; } }
+[data-growth] .perf-play .ag-draw { stroke-dasharray: 1; animation: ag-draw-k 900ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+[data-growth] .perf-play .ag-fade-in { animation: ag-fade-k 700ms ease-out 200ms both; }
+[data-growth] .perf-play .ag-grow { transform-box: fill-box; transform-origin: bottom; animation: ag-grow-k 600ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  [data-growth] .perf-play .ag-draw, [data-growth] .perf-play .ag-fade-in, [data-growth] .perf-play .ag-grow { animation: none; }
+}

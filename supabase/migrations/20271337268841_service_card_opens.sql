@@ -103,19 +103,21 @@ COMMENT ON FUNCTION public.record_service_card_view(UUID, UUID, TEXT, UUID) IS
 REVOKE ALL ON FUNCTION public.record_service_card_view(UUID, UUID, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_service_card_view(UUID, UUID, TEXT, UUID) TO service_role;
 
--- ── 3 · THE ONE READER — counts per card, for the shop's own people ─────────
+-- ── 3 · THE ONE READER — counts per card, both windows, for the shop's own people ──
 -- A shop reads its OWN opens (current_vendor_profile_ids spans the owner + team); an admin reads any. Anyone else gets
--- an error, never an empty set (an empty set would read as "nobody opened your cards").
+-- an error, never an empty set (an empty set would read as "nobody opened your cards"). Both windows the Analytics
+-- card can switch between come back in ONE call: the last 30 and the last 365 Manila days, today included.
 CREATE OR REPLACE FUNCTION public.service_card_opens(
-  p_vendor_profile_id UUID,
-  p_since             DATE
+  p_vendor_profile_id UUID
 )
-RETURNS TABLE (vendor_service_id UUID, opens BIGINT)
+RETURNS TABLE (vendor_service_id UUID, opens_30d BIGINT, opens_12m BIGINT)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_today DATE := (now() AT TIME ZONE 'Asia/Manila')::date;
 BEGIN
   IF NOT (
        p_vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
@@ -125,18 +127,20 @@ BEGIN
   END IF;
 
   RETURN QUERY
-    SELECT d.vendor_service_id, count(*)::BIGINT
+    SELECT d.vendor_service_id,
+           count(*) FILTER (WHERE d.viewed_on > v_today - 30)::BIGINT,
+           count(*)::BIGINT
     FROM public.vendor_service_card_view_days d
     WHERE d.vendor_profile_id = p_vendor_profile_id
-      AND d.viewed_on >= p_since
+      AND d.viewed_on > v_today - 365
     GROUP BY d.vendor_service_id;
 END;
 $$;
 
-COMMENT ON FUNCTION public.service_card_opens(UUID, DATE) IS
-  'Build 6 Lane I — how many distinct viewer-days opened each of a shop''s service cards since a day. The shop''s own people and admins only; anyone else is refused (an error, never an empty answer).';
+COMMENT ON FUNCTION public.service_card_opens(UUID) IS
+  'Build 6 Lane I — how many distinct viewer-days opened each of a shop''s service cards, over the last 30 and the last 365 Manila days (the Analytics card''s two windows), in one call. The shop''s own people and admins only; anyone else is refused (an error, never an empty answer).';
 
-REVOKE ALL ON FUNCTION public.service_card_opens(UUID, DATE) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.service_card_opens(UUID, DATE) TO authenticated;
+REVOKE ALL ON FUNCTION public.service_card_opens(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.service_card_opens(UUID) TO authenticated;
 
 COMMIT;

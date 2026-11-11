@@ -1,10 +1,12 @@
 /**
- * analytics-is-growing.test.ts — Shop › Analytics is the owner-approved "Analytics, growing" screen (6 Nov 2026), and
- * the owner's calls on it stay true:
+ * analytics-is-growing.test.ts — Shop › Analytics is the owner-approved "Analytics, growing" content (6 Nov 2026), drawn
+ * since 11 Nov as the Shop tab's one carousel (owner: *"Analytics should be the carousel"*), and the owner's calls stay true:
  *
- *   1. ONE window — Last 30 days · Last 12 months — and the pinned row follows it (its 12-month figures are handed in);
- *   2. the headline numbers live in the pinned row only, and they COUNT there (`<Count>` on the figure);
- *   3. Do next is `buildGrowthRecs`' output, per window — never a hard-coded list (owner: "where are the
+ *   1. TWO windows — 30 days · 12 months — chosen INSIDE each card (owner 11 Nov: *"inside each card"*), both built from
+ *      the same reads (no refetch when a switch slides);
+ *   2. the headline numbers are the three count cards' own figures, and they COUNT there (`HeldCount`) — the graphs
+ *      never re-draw them;
+ *   3. the recommendations are `buildGrowthRecs`' output, per window — never a hard-coded list (owner: "where are the
  *      recommendations?"), and reply advice waits for a couple to ask in that window;
  *   4. every read stays honest — a refused stats / benchmark / radar read reaches the view as "unread", never as zero;
  *   5. reduced motion shows the final values at once (the section reveal is told to play still).
@@ -21,53 +23,45 @@ import { GROWTH_WINDOWS } from '@/lib/analytics-growing';
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-const PAGE = 'app/vendor-dashboard/performance/page.tsx';
+const PAGE = 'app/vendor-dashboard/performance/_components/one-analytics-section.tsx';
 const TREE = 'app/vendor-dashboard/performance/_components/analytics-growing.tsx';
-const DO_NEXT = 'app/vendor-dashboard/performance/_components/do-next.tsx';
-const SEGMENTS = 'app/vendor-dashboard/shop/_components/shop-segments.tsx';
-const PIN = 'app/vendor-dashboard/_components/pin-figures.tsx';
+const CAROUSEL = 'app/vendor-dashboard/performance/_components/analytics-carousel.tsx';
+const TILE = 'app/vendor-dashboard/performance/_components/graph-tile.tsx';
 
-test('1 · one window, two values, and the pinned row follows it', () => {
-  assert.deepEqual(
-    GROWTH_WINDOWS.map((w) => [w.key, w.label]),
-    [
-      ['30', 'Last 30 days'],
-      ['12', 'Last 12 months'],
-    ],
+test('1 · two windows, chosen inside each card, built once from the same reads', () => {
+  assert.deepEqual(GROWTH_WINDOWS.map((w) => w.key), ['30', '12']);
+  const car = read(CAROUSEL);
+  assert.match(car, /\{ key: '30', label: '30 days' \},\s*\{ key: '12', label: '12 months' \}/);
+  assert.match(car, /const \[wins, setWins\] = useState<Partial<Record<CardKey, GrowthWindow>>>\(\{\}\);/, 'the window is not per card');
+  assert.match(
+    car,
+    /\{ '30': graphSpecsFor\(\{ view: props\.view, graphs: props\.graphs\['30'\], win: '30' \}\), '12': graphSpecsFor\(\{ view: props\.view, graphs: props\.graphs\['12'\], win: '12' \}\) \}/,
+    'both windows are not built up front — a switch would refetch',
   );
-  const page = read(PAGE);
-  assert.match(page, /<GrowthWindowScope initial=\{initialWindow\}>/);
-  assert.match(page, /<ShopSegments on="insights" figures=\{pinFigures\} yearFigures=\{pinFiguresYear\}/);
-  assert.match(page, /const pinFiguresYear = analyticsFigures\(pinYear\.totals, null\);/, 'no 24-month read exists — 12 months has no "before"');
-  const seg = read(SEGMENTS);
-  assert.match(seg, /useGrowthWindow\(\)/);
-  assert.match(seg, /yearFigures/);
+  assert.doesNotMatch(read(PAGE), /GrowthWindowScope|initialWindow/, 'a page-wide window is back');
 });
 
-test('2 · the headline numbers count in the pinned row — and only there', () => {
-  assert.match(read(PIN), /<Count value=\{f\.count\}/);
-  // The body never re-draws the three headline figures as a second big-number block.
-  const tree = read(TREE);
-  assert.doesNotMatch(tree, /figures\.views|figures\.inquiries|figures\.booked/, 'the body re-draws the pinned row’s numbers');
+test('2 · the headline numbers are the count cards’ own, and they count there — the graphs never re-draw them', () => {
+  assert.match(read(CAROUSEL), /<HeldCount value=\{n\} id=\{`ag:fig:\$\{word\}`\}/);
+  assert.doesNotMatch(read(TREE), /figures\.views|figures\.inquiries|figures\.booked|funnel\[0\]|funnel\[1\]|funnel\[3\]/, 'a graph re-draws the count cards’ numbers');
 });
 
-test('3 · Do next is buildGrowthRecs, per window — never a hard-coded list', () => {
+test('3 · the recommendations are buildGrowthRecs, per window — never a hard-coded list', () => {
   const page = read(PAGE);
-  // Build 6 Lane I: each window also hands the five new graphs' numbers (`graphRecOpts`, read off `readNewGraphs`).
-  assert.match(page, /const growthRecs = buildGrowthRecs\(recStats, \{ askedInWindow: pinNow\.totals \? pinNow\.totals\.inquiries : null, \.\.\.graphRecOpts \}\);/);
-  assert.match(page, /const growthRecsYear = buildGrowthRecs\(recStats, \{ askedInWindow: pinYear\.totals \? pinYear\.totals\.inquiries : null, \.\.\.graphRecOpts \}\);/);
-  // Both windows pass the shipped "Link up" filter (main, owner 2026-11-06) before they reach Do next.
+  // Build 6 Lane I: each window also hands its own five new graphs' numbers (`recOptsFor(w)`, read off `readNewGraphs`).
+  assert.match(page, /const growthRecs = buildGrowthRecs\(recStats, \{ askedInWindow: pinNow\.totals \? pinNow\.totals\.inquiries : null, \.\.\.recOptsFor\('30'\) \}\);/);
+  assert.match(page, /const growthRecsYear = buildGrowthRecs\(recStats, \{ askedInWindow: pinYear\.totals \? pinYear\.totals\.inquiries : null, \.\.\.recOptsFor\('12'\) \}\);/);
+  // Both windows pass the shipped "Link up" filter (main, owner 2026-11-06) before they reach a card.
   assert.match(page, /const shownGrowthRecs = withoutPartnershipRecWhenNobodyToLink\(growthRecs, eligiblePartners\);/);
   assert.match(page, /const shownGrowthRecsYear = withoutPartnershipRecWhenNobodyToLink\(growthRecsYear, eligiblePartners\);/);
   assert.match(page, /recs: \{ '30': shownGrowthRecs, '12': shownGrowthRecsYear \}/);
-  const tree = read(TREE);
-  assert.match(tree, /<DoNext recs=\{w\.recs\} \/>/);
   // The rec copy lives in lib/vendor-growth-recs.ts ONCE — no title or CTA is typed into the screen.
-  for (const copy of ['Reply within the hour', 'Add recent photos', 'Ask for reviews', 'Open messages', 'Open partnerships']) {
-    assert.ok(!tree.includes(copy) && !read(DO_NEXT).includes(copy), `"${copy}" is typed into the screen — read it from buildGrowthRecs`);
+  for (const file of [TREE, CAROUSEL, TILE]) {
+    for (const copy of ['Reply within the hour', 'Add recent photos', 'Ask for reviews', 'Open messages', 'Open partnerships']) {
+      assert.ok(!read(file).includes(copy), `"${copy}" is typed into ${file} — read it from buildGrowthRecs`);
+    }
   }
-  assert.match(read(DO_NEXT), /Nothing to fix right now\./);
-  assert.match(read(DO_NEXT), /recs\.slice\(0, 3\)/, 'Do next shows the top three');
+  assert.match(read(TILE), /Nothing to fix right now\./);
 });
 
 test('4 · every read stays honest — refused is "unread", never zero', () => {
@@ -86,11 +80,13 @@ test('4 · every read stays honest — refused is "unread", never zero', () => {
   const view = read('app/vendor-dashboard/performance/_components/growth-view.ts');
   assert.match(view, /unread: !cap && !up,/);
   assert.match(view, /unread: inp\.rating === COULDNT_LOAD,/);
-  // Build 6 Lane I: each graph is a tile, and the tile's state carries the refusal — an unread tile draws
-  // "Couldn’t load." and never the Example picture (graph-tile.tsx).
+  // Build 6 Lane I: each graph is a card, and the card's state carries the refusal — an unread card draws
+  // "Couldn’t load." and never the Example picture (graph-tile.tsx). A count card's refused total is "—", never 0.
   const tree = read(TREE);
   assert.match(tree, /state: st\(view\.ahead\.unread,/);
   assert.match(tree, /state: st\(view\.rep\.unread,/);
+  assert.match(read(CAROUSEL), /n === null \? <b>—<\/b> :/);
+  assert.match(read(CAROUSEL), /const line = n === null \? 'Couldn’t load\.' :/);
   assert.match(read('app/vendor-dashboard/performance/_components/graph-tile.tsx'), /g\.state === 'unread' \? \(\s*<span className="ag-ln" role="status">\s*Couldn’t load\./);
   assert.match(read('app/vendor-dashboard/performance/_components/calendar-strip.tsx'), /unread \? \([\s\S]{0,120}Couldn’t load your calendar just now\./);
   assert.match(read('app/vendor-dashboard/performance/_components/stars-fill.tsx'), /unread \? \(\s*'Couldn’t load your reviews just now'/);

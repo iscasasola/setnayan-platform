@@ -348,7 +348,7 @@ export default async function SupplierLabPage({
     if (s === 'page') return '/vendor-dashboard/website';
     if (s === 'collections') return '/vendor-dashboard/collections';
     if (s === 'services') return '/vendor-dashboard/shop';
-    if (s === 'analytics') return '/vendor-dashboard/performance';
+    if (s === 'analytics') return '/vendor-dashboard/shop';
     if (s === 'details') return '/vendor-dashboard/profile';
     if (s === 'hub') return '/vendor-dashboard/on-the-day';
     if (s === 'event-hub') return '/vendor-dashboard/on-the-day/live/ic';

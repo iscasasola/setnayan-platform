@@ -2,12 +2,11 @@
 
 import { formatCount } from '@/lib/format-number';
 import './analytics-growing.css';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { COULDNT_LOAD, GROWTH_WINDOWS, type GrowthWindow } from '@/lib/analytics-growing';
+import { COULDNT_LOAD, type GrowthWindow } from '@/lib/analytics-growing';
 import type { GrowthRec, GrowthRecKey } from '@/lib/vendor-growth-recs';
 import {
   GRAPH_SOURCE,
@@ -20,11 +19,7 @@ import {
   slowLine,
   type NewGraphs,
 } from '@/lib/vendor-analytics-graphs';
-import { useGrowthWindow } from '../../_components/growth-window';
-import { Reanimate } from './reanimate';
 import { HeldCount, HeldFill } from './growth-motion';
-import { GrowthLanes, LaneKeys } from './growth-lanes';
-import { DoNext } from './do-next';
 import { SourceBars } from './source-bars';
 import { ReplyGauge } from './reply-gauge';
 import { FunnelPreviewCard } from './funnel-preview-card';
@@ -33,28 +28,21 @@ import { StarsFill } from './stars-fill';
 import { ProgressRing } from './progress-ring';
 import { PriceRail } from './price-rail';
 import { CardSellPic, LostPic, QuotesPic, ReplyVsPic, SlowPic } from './new-graph-pics';
-import { GraphSection, GraphTile, type GraphSpec, type GraphState } from './graph-tile';
+import type { GraphSpec, GraphState } from './graph-tile';
 import { GRAPH_SAMPLE } from './graph-sample';
 import type { GrowthView, Row, SourceRow } from './growth-view';
 
 /**
- * 🌱📈 ONE ANALYTICS — Shop › Analytics (owner-approved 6 Nov 2026 "Analytics, growing", made ONE with the live carousel
- * and given the five new graphs in Build 6 Lane I, approved 10 Nov: *"No dupes. we want graphs that will help them.
- * tapping shows a recommendation from us on what they need to do."* → *"All five"*).
+ * 🌱📈 THE GRAPHS OF ONE ANALYTICS — what each card of the Shop carousel draws (`analytics-carousel.tsx`).
  *
- * One window ▾, the lanes (a tile too), the sentence and Do next — unchanged from 6 Nov — then the six sections in the
- * order a supplier asks, each a row of GRAPH TILES (`graph-tile.tsx`): every graph once, its data named, tap = it
- * rises with ONE recommendation from `buildGrowthRecs` (only when that rule fired). Each live Shop carousel card is
- * folded into the tile that owns its fact — the dedupe table:
+ * History, kept because it explains the shapes: "Analytics, growing" (owner-approved 6 Nov 2026) was a page of six
+ * sections; Build 6 Lane I made every graph a tile that rises to ONE recommendation and added the five new graphs (10 Nov,
+ * *"All five"*); on 11 Nov the owner made the Shop CAROUSEL the one Analytics (*"Analytics should be the carousel"* →
+ * *"one long carousel"* → the window *"inside each card"*). The specs below are the same tiles, word for word — only the
+ * window now belongs to each card, so they are built once PER WINDOW and the carousel picks each card's.
  *
- *   What’s ahead                      → § What’s ahead · The next 13 weeks        (open_saturdays)
- *   Quotes that turn into bookings    → § Asking · Quotes waiting                 (requote_expired)
- *   Where your price sits             → § How I compare · Where your price sits   (none → "Nothing to fix right now")
- *   What Setnayan added               → § Am I booking? · Setnayan vs your own book (build_partnerships)
- *   Compared with similar suppliers   → § How I compare · Compared with similar suppliers (reply_faster)
- *
- * Nothing new is computed about the shop here: `growth-view.ts` words the page's reads and
- * `lib/vendor-analytics-graphs.ts` the five new ones; this only draws them. Counts only on the tiles — no price.
+ * Nothing new is computed about the shop here: `growth-view.ts` words the reads and `lib/vendor-analytics-graphs.ts` the
+ * five new ones; this only draws them. Counts only on the cards — no price.
  * 🔒 lib/analytics-growing.test.ts · lib/vendor-growth-recs.test.ts · performance/analytics-is-growing.test.ts ·
  *    performance/every-graph-is-a-tile.test.ts · lib/vendor-analytics-graphs.test.ts
  */
@@ -80,7 +68,6 @@ const TIPS = {
 
 /** Which rule each graph may show (prototype GRAPHS[].rec). `null` = the graph advises nothing, by design. */
 export const GRAPH_REC: Readonly<Record<string, readonly GrowthRecKey[]>> = {
-  lanes: ['reply_faster'],
   sources: ['add_photos'],
   cardsell: ['offer_on_card'],
   reply: [],
@@ -145,24 +132,16 @@ function SourceRowsList({ list, empty }: { list: SourceRow[] | null; empty: stri
 
 const st = (unread: boolean, empty: boolean): GraphState => (unread ? 'unread' : empty ? 'empty' : 'ok');
 
-export function AnalyticsGrowing({
-  view,
-  graphs,
-  scope = null,
-  badges,
-}: {
-  view: GrowthView;
-  /** The five new graphs (Build 6 Lane I) — each `null` when refused ("Couldn’t load"). */
-  graphs: NewGraphs;
-  /** The service scope ▾ (`ServiceScopeSelector`), beside the window ▾ — only with 2+ active services. */
-  scope?: ReactNode;
-  /** `YourBadges`, drawn by the page (server) — §5's details. */
-  badges: ReactNode;
-}) {
-  const ctx = useGrowthWindow();
-  const [own, setOwn] = useState<GrowthWindow>('30');
-  const win = ctx ? ctx.window : own;
-  const setWin = ctx ? ctx.setWindow : setOwn;
+/** Every graph this Analytics draws, by key — the carousel's order lives in `analytics-carousel.tsx` (`CARD_ORDER`). */
+export type GraphKey = 'sources' | 'cardsell' | 'reply' | 'replyvs' | 'quotes' | 'split' | 'calendar' | 'lost' | 'slow' | 'rep' | 'bench' | 'price';
+
+/**
+ * 🪟 THE GRAPHS OF ONE WINDOW (owner 11 Nov: each card carries its own 30 days / 12 months switch). Built once per
+ * window from the SAME reads; the carousel shows each card from the window its own switch is on. The words, numbers and
+ * recommendations are the 6 / 10 Nov ones, unchanged — only who chooses the window moved (the card, not the page).
+ * A graph the plan does not show (the price rail without market intel) is `null`.
+ */
+export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs: NewGraphs; win: GrowthWindow }): Record<GraphKey, GraphSpec | null> {
   const w = view.windows[win];
   const byKey = new Map<GrowthRecKey, GrowthRec>(w.recs.map((r) => [r.key, r]));
   /** The graph's rule, only if it fired in this window. */
@@ -175,16 +154,6 @@ export function AnalyticsGrowing({
   };
   const b = w.booking;
   const S = GRAPH_SAMPLE;
-
-  const windowPick = (
-    <PickMenu
-      label="Window — every number below follows this"
-      value={win}
-      options={GROWTH_WINDOWS.map((o) => ({ key: o.key, label: o.label, hint: o.hint }))}
-      onPick={(k) => setWin(k as GrowthWindow)}
-      dataAttr="data-growth-window-pick"
-    />
-  );
 
   // ── the tiles, in the six-section order (approved 6 Nov) — every graph once ──
   const sources: GraphSpec = {
@@ -466,7 +435,6 @@ export function AnalyticsGrowing({
     rec: recOf('rep'),
     details: (
       <>
-        {badges}
         <Sub t="What couples say" when="all time" tip={TIPS.rep} />
         {view.rep.rows ? (
           <>
@@ -562,71 +530,8 @@ export function AnalyticsGrowing({
       }
     : null;
 
-  const lanes: GraphSpec = {
-    k: 'lanes',
-    title: 'Opened → asked → booked',
-    src: 'Counts over the window · opened (profile views by day) · asked (inquiries by arrival) · booked (bookings confirmed)',
-    state: 'ok',
-    pic: <GrowthLanes key={win} unit={w.lanes.unit} labels={w.lanes.labels} views={w.lanes.views} asked={w.lanes.asked} booked={w.lanes.booked} />,
-    line: <>{w.sentence.map((s, i) => (s.b ? <b key={i}>{s.t}</b> : <span key={i}>{s.t}</span>))}</>,
-    problem: w.sentence.map((s) => s.t).join(''),
-    rec: recOf('lanes'),
-    door: { label: 'Share your shop link', href: '/vendor-dashboard/shop/promote' },
-  };
-
-  return (
-    <div data-growth="" data-growth-window={win}>
-      <div className="ag-topctl">
-        {windowPick}
-        {scope}
-      </div>
-
-      {/* HERO — the lanes as a tile, then the sentence + Do next (approved 6 Nov, unchanged). */}
-      <Reanimate still className="ag-hero">
-        <LaneKeys
-          tip={
-            <InfoTip label="" ariaLabel="About these lanes" align="end">
-              {TIPS.growth}
-            </InfoTip>
-          }
-        />
-        <GraphTile g={{ ...lanes, line: null }} window={windowPick} />
-        <p className="ag-say" data-growth-sentence="">
-          {w.sentence.map((s, i) => (s.b ? <b key={i}>{s.t}</b> : <span key={i}>{s.t}</span>))}
-        </p>
-        <DoNext recs={w.recs} />
-      </Reanimate>
-
-      <div className="ag-folds" data-graph-sections="">
-        <GraphSection id="finding" title="Are couples finding me?">
-          <GraphTile g={sources} window={windowPick} />
-          <GraphTile g={cardsell} />
-        </GraphSection>
-        <GraphSection id="asking" title="Are they asking, and do I answer?">
-          <GraphTile g={reply} />
-          <GraphTile g={replyvs} />
-          <GraphTile g={quotes} />
-        </GraphSection>
-        <GraphSection id="booking" title="Am I booking?">
-          <GraphTile g={split} window={windowPick} />
-        </GraphSection>
-        <GraphSection id="ahead" title="What’s ahead" when="next 13 weeks · 12 months">
-          <GraphTile g={calendar} />
-          <GraphTile g={lost} />
-          <GraphTile g={slow} />
-        </GraphSection>
-        <GraphSection id="rep" title="Reputation & badges" when="all time">
-          <GraphTile g={rep} />
-        </GraphSection>
-        {view.bench.show || view.price.show ? (
-          <GraphSection id="compare" title="How I compare" when="your category · region">
-            {view.bench.show ? <GraphTile g={bench} /> : null}
-            {price ? <GraphTile g={price} /> : null}
-          </GraphSection>
-        ) : null}
-      </div>
-    </div>
-  );
+  // Opened · Asked · Booked are the carousel's three count cards (`analytics-carousel.tsx`), so no lanes graph here.
+  return { sources, cardsell, reply, replyvs, quotes, split, calendar, lost, slow, rep, bench: view.bench.show ? bench : null, price };
 }
 
 /** Setnayan vs your own book, counts only (the tile; the pesos stay in the risen details, as approved). */

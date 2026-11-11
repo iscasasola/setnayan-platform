@@ -7547,7 +7547,7 @@ func	public.running_late_shift_schedule(p_event_id uuid, p_block_ids uuid[], p_m
 func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
 func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authenticated search_path=public, pg_temp
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
-func	public.service_card_opens(p_vendor_profile_id uuid, p_since date)	secdef=yes exec=authenticated search_path=public
+func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp

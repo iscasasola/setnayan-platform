@@ -180,3 +180,73 @@ export function QuotesPic({ q }: { q: QuoteStates }) {
     </>
   );
 }
+
+/**
+ * 🎠 THE THREE COUNT CARDS' PICTURES (owner 11 Nov: Opened · Asked · Booked are cards of their own, each with its window
+ * switch). Opened = the opens as a line over the window; Asked and Booked = bars, one per day (30 days) or month (12
+ * months). The lanes' own classes (`.ag-lanes`), so the colours are the approved ones. The line draws in and the bars
+ * grow once the card is seen (`.perf-play` from `Reanimate`); still under reduced motion.
+ */
+const CW = 300;
+function CountAxis({ labels, y }: { labels: readonly string[]; y: number }) {
+  if (labels.length === 0) return null;
+  const picks = [labels[0]!, labels[Math.floor((labels.length - 1) / 2)]!, labels[labels.length - 1]!];
+  return (
+    <>
+      <text className="ag-xl" x={0} y={y}>
+        {picks[0]}
+      </text>
+      <text className="ag-xl" x={CW / 2} y={y} textAnchor="middle">
+        {picks[1]}
+      </text>
+      <text className="ag-xl" x={CW} y={y} textAnchor="end">
+        {picks[2]}
+      </text>
+    </>
+  );
+}
+
+export function CountLinePic({ values, labels }: { values: readonly number[]; labels: readonly string[] }) {
+  const h = 70;
+  const n = Math.max(values.length, 2);
+  const max = Math.max(1, ...values);
+  const pts = values.map((v, i) => [(i * CW) / (n - 1), h - 2 - (v / max) * (h - 10)] as const);
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const area = `${line} L${CW} ${h - 2} L0 ${h - 2} Z`;
+  return (
+    <svg viewBox={`0 0 ${CW} ${h + 14}`} className="ag-lanes" role="img" aria-label="Opens over the window" data-graph-pic="opened">
+      <path className="ag-varea ag-fade-in" d={area} />
+      <path className="ag-vline ag-draw" d={line} pathLength={1} />
+      <line className="ag-base" x1={0} x2={CW} y1={h - 2} y2={h - 2} />
+      <CountAxis labels={labels} y={h + 12} />
+    </svg>
+  );
+}
+
+export function CountBarsPic({ values, labels, kind }: { values: readonly number[]; labels: readonly string[]; kind: 'asked' | 'booked' }) {
+  const h = 70;
+  const n = Math.max(values.length, 1);
+  const gap = n > 12 ? 3 : 8;
+  const bw = (CW - (n - 1) * gap) / n;
+  const max = Math.max(1, ...values);
+  return (
+    <svg viewBox={`0 0 ${CW} ${h + 14}`} className="ag-lanes" role="img" aria-label={kind === 'asked' ? 'Inquiries over the window' : 'Bookings over the window'} data-graph-pic={kind}>
+      <line className="ag-base" x1={0} x2={CW} y1={h - 2} y2={h - 2} />
+      {values.map((v, i) =>
+        v > 0 ? (
+          <rect
+            key={i}
+            className={`${kind === 'asked' ? 'ag-abar' : 'ag-bbar'} ag-grow`}
+            style={{ animationDelay: `${Math.min(i * 18, 500)}ms` }}
+            x={(i * (bw + gap)).toFixed(1)}
+            y={(h - 2 - Math.max(3, (v / max) * (h - 10))).toFixed(1)}
+            width={bw.toFixed(1)}
+            height={Math.max(3, (v / max) * (h - 10)).toFixed(1)}
+            rx={2}
+          />
+        ) : null,
+      )}
+      <CountAxis labels={labels} y={h + 12} />
+    </svg>
+  );
+}

@@ -31,7 +31,7 @@ export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal
 export function pageFigures(f: { views30: number | null; reviewCount: number | null; rating: number | null }): PinFigure[] {
   const rated = f.reviewCount !== null && f.reviewCount > 0 && f.rating !== null;
   return [
-    { key: 'opened', value: f.views30 === null ? null : n(f.views30), word: 'opened · 30 d', short: 'opened', href: '/vendor-dashboard/performance' },
+    { key: 'opened', value: f.views30 === null ? null : n(f.views30), word: 'opened · 30 d', short: 'opened', href: '/vendor-dashboard/shop#analytics' },
     { key: 'reviews', value: f.reviewCount === null ? null : n(f.reviewCount), word: plural(f.reviewCount, 'review', 'reviews'), href: '/vendor-dashboard/website#reviews' },
     // A shop with no reviews has no rating — said as "new", never a 0 ★ that reads like a bad score.
     { key: 'rating', value: f.reviewCount === null ? null : rated ? (f.rating as number).toFixed(1) : 'New', word: '★ rating', short: '★', href: '/vendor-dashboard/website#reviews' },
@@ -73,7 +73,7 @@ export function changeWord(now: number | null, before: number | null): string | 
 }
 
 export function analyticsFigures(now: FunnelCounts | null, before: FunnelCounts | null): PinFigure[] {
-  const at = '/vendor-dashboard/performance#funnel';
+  const at = '/vendor-dashboard/shop#analytics';
   const fig = (key: keyof FunnelCounts, word: string, short: string): PinFigure => {
     const v = now ? now[key] : null;
     const ch = changeWord(v, before ? before[key] : null);

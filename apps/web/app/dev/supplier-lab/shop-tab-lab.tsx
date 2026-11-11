@@ -17,7 +17,8 @@ import type { ProfileFieldData } from '@/app/vendor-dashboard/shop/_components/e
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
-import { ShopAnalyticsDoor } from '@/app/vendor-dashboard/shop/_components/shop-analytics-door';
+import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
+import { labCarouselProps } from './analytics-lab';
 import { ShopServicesHead } from '@/app/vendor-dashboard/shop/_components/shop-services-head';
 import { ShopBundles } from '@/app/vendor-dashboard/shop/_components/shop-bundles';
 import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
@@ -142,8 +143,8 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        {/* Build 6 Lane I: the five-card carousel is gone — ONE door into Shop › Analytics (`?s=analytics`). */}
-        <ShopAnalyticsDoor verified={!none} />
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
         <ShopBadgeRow tiles={tiles} />
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}

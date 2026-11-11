@@ -138,7 +138,7 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   for (const f of ['ParamSheet', 'ShareSheet', 'ViewShopScreen']) assert.match(fn(files.cover, f), /<RiseScreen\b/, `${f} does not rise`);
   for (const id of ['promote', 'qr', 'logo', 'cover']) assert.match(files.cover, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\}`), `the ${id} door lost its screen`);
   assert.match(fn(files.badges, 'BadgeSheet'), /<RiseScreen\b/, 'a badge does not rise');
-  assert.match(fn(files.analytics, 'GraphTile'), /<RiseScreen\b/, 'an analytics graph does not rise');
+  assert.match(fn(files.analytics, 'GraphCard'), /<RiseScreen\b/, 'an analytics card does not rise');
   // ⚙ — the pinned row's and the cover's (`?gear=1`) — through the ONE door, risen.
   assert.match(code('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /<MenuSettingsButton menu="shop" rise\b/, 'the Shop ⚙ opens a popup sheet');
   // View shop: both doors are buttons that rise the page in the app; the only new tab is "Open in browser ↗" inside it.

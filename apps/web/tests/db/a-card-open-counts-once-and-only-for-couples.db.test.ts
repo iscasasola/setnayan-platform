@@ -95,13 +95,17 @@ test('3 · a card that is not this shop’s is refused', async () => {
   assert.equal(await record(F.otherCard, 'e'.repeat(64), F.couple), false);
 });
 
-test('4 · the shop reads counts per card; anyone else is refused, never told zero', async () => {
-  const since = '2000-01-01';
-  const mine = await as(F.owner, async () => (await db.query<{ vendor_service_id: string; opens: string }>(`SELECT * FROM public.service_card_opens($1, $2::date)`, [F.shop, since])).rows);
-  assert.deepEqual(mine.map((r) => [r.vendor_service_id, Number(r.opens)]), [[F.card, 2]]);
-  const err = await refused(() => as(F.stranger, () => db.query(`SELECT * FROM public.service_card_opens($1, $2::date)`, [F.shop, since])));
+test('4 · the shop reads counts per card, both windows in one call; anyone else is refused, never told zero', async () => {
+  const mine = await as(F.owner, async () => (await db.query<{ vendor_service_id: string; opens_30d: string; opens_12m: string }>(`SELECT * FROM public.service_card_opens($1)`, [F.shop])).rows);
+  assert.deepEqual(mine.map((r) => [r.vendor_service_id, Number(r.opens_30d), Number(r.opens_12m)]), [[F.card, 2, 2]]);
+  // An open from 40 days ago counts in 12 months and not in 30 days; one from 400 days ago counts in neither.
+  await db.query(`INSERT INTO public.vendor_service_card_view_days VALUES ($1, $2, $3, (now() AT TIME ZONE 'Asia/Manila')::date - 40)`, [F.shop, F.card, 'f'.repeat(64)]);
+  await db.query(`INSERT INTO public.vendor_service_card_view_days VALUES ($1, $2, $3, (now() AT TIME ZONE 'Asia/Manila')::date - 400)`, [F.shop, F.card, '1'.repeat(64)]);
+  const later = await as(F.owner, async () => (await db.query<{ opens_30d: string; opens_12m: string }>(`SELECT * FROM public.service_card_opens($1)`, [F.shop])).rows);
+  assert.deepEqual(later.map((r) => [Number(r.opens_30d), Number(r.opens_12m)]), [[2, 3]]);
+  const err = await refused(() => as(F.stranger, () => db.query(`SELECT * FROM public.service_card_opens($1)`, [F.shop])));
   assert.match(err ?? '', /not your shop/, 'another shop read these opens');
-  const adminRead = await as(F.admin, async () => (await db.query(`SELECT * FROM public.service_card_opens($1, $2::date)`, [F.shop, since])).rows.length);
+  const adminRead = await as(F.admin, async () => (await db.query(`SELECT * FROM public.service_card_opens($1)`, [F.shop])).rows.length);
   assert.equal(adminRead, 1);
 });
 

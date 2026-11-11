@@ -9,7 +9,7 @@
  *   ?s=collections&who=…                      Your collections (Shop › Gallery since v13)
  *   ?s=services&who=…[&fail=1]                🧰 Shop › Services (v13, S5): the pinned row's figures + one row per service
  *                                             with its tools; &fail=1 = the read refused — "—", never 0
- *   ?s=analytics[&shop=sample|new][&win=12][&fail=1]  📈 Shop › Analytics — the real screen on fixture shops (`analytics-lab.tsx`)
+ *   ?s=analytics[&shop=sample|new][&locked=1][&fail=1]  📈 Shop › Analytics — the carousel on fixture shops (`analytics-lab.tsx`)
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
  *
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
@@ -562,7 +562,7 @@ function pageFixture(who: Who): PageClientData {
     addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
-    // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
+    // Page keeps the pills only (owner 2026-11-06); the one tracker is the Shop tab's badge row, under the Analytics carousel.
     badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
     fairWords: LAB_FAIR_WORDS,
   };
@@ -681,7 +681,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
   }
   if (state === 'analytics') {
     /* 📈 The real "Analytics, growing" screen on the approved prototype's fixture shops (`analytics-lab.tsx`). */
-    return <AnalyticsLab shop={shop} win={win} fail={fail} locked={locked} />;
+    return <AnalyticsLab shop={shop} fail={fail} locked={locked} />;
   }
   if (state === 'avatar') {
     return (

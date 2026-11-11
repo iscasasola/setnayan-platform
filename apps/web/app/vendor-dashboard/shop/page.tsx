@@ -43,8 +43,7 @@ import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { readBadgeRewardTracker } from '@/lib/badge-rewards.server';
 import { badgeRowsWithRewards, type TrackerRewardInput } from '@/lib/badge-rewards';
 import { shopBadgeRow, type BadgeTile } from '@/lib/shop-badge-row';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
-import type { VendorTeamRole } from '@/lib/vendor-team';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
 import type { ProfileFieldData } from './_components/editable-row';
 import { CoverPhotoMenu, LogoPhotoMenu } from './_components/photo-menus';
@@ -59,7 +58,7 @@ import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
-import { ShopAnalyticsDoor } from './_components/shop-analytics-door';
+import { OneAnalyticsSection } from '../performance/_components/one-analytics-section';
 import { PromoteBody } from './promote/_components/promote-body';
 
 const PAGE_HREF = '/vendor-dashboard/website';
@@ -68,7 +67,7 @@ const PAGE_HREF = '/vendor-dashboard/website';
  * /vendor-dashboard/shop — THE SHOP TAB (THE ONE BUILD, lane C4; owner-approved prototype v113/v114 `V.shop`).
  *
  * ONE scroll (v110 item 11): the cover (logo · name · Verified · ★ · events · plan · View shop ↗ · Share · Promote · QR ·
- * ⚙) → Analytics (ONE door into Shop › Analytics — Build 6 Lane I) → Badges (ONE row, each in its progress ring) → Makers (one row of tiles: Forms Maker ·
+ * ⚙) → Analytics (THE carousel — the one Analytics, owner 11 Nov) → Badges (ONE row, each in its progress ring) → Makers (one row of tiles: Forms Maker ·
  * Scanner, each opening into the body) → Services → the thumb row (＋ Add a service). Build 2 (§10 #31): no loose rows
  * under the cover — Your page is the Shop ⚙'s first row, Your details the account sheet's; the cover's "★ · N reviews"
  * opens Your page › Reviews and stories. The `Shop ▾` section picker left this page: Analytics is in this scroll, Portfolio
@@ -117,10 +116,10 @@ type ShopData = {
   reviews: string | null;
   events: string | null;
   /**
-   * 📊 Who is looking — the one read the Analytics door needs (Build 6 Lane I: the five-card carousel is gone, ONE
-   * Analytics lives at Shop › Analytics). A started read, streamed by `ShopAnalyticsSection`; null = refused.
+   * 📊🎠 What ONE Analytics (the carousel) reads with — the shop's own session, user and row. The carousel STREAMS in
+   * its own <Suspense> (`OneAnalyticsSection`), so the cover never waits for its batch.
    */
-  analyticsRole: Promise<VendorTeamRole | null>;
+  analytics: { supabase: SupabaseClient; userId: string; profile: VendorProfileRow };
   /** 🖼 The hero (Lane E 11–12): the cover photo, else the category placeholder — and its caption. */
   hero: { url: string; kind: 'photo' | 'placeholder' };
   heroCaption: string | null;
@@ -349,14 +348,6 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
-  // 📊 Analytics — ONE door into Shop › Analytics (Build 6 Lane I; the five-card carousel and its whole analytics batch
-  // are gone — every one of its facts is a tile there). Its one read, the role (owners and admins only, as there), starts
-  // now and STREAMS in its own <Suspense> (`ShopAnalyticsSection`), so the cover never waits for it.
-  const analyticsRoleRead: Promise<VendorTeamRole | null> = resolveVendorRole(supabase, user.id).catch((err: unknown) => {
-    logQueryError('VendorShopPage.analyticsRole', err, { vendorId });
-    return null;
-  });
-
   // 📂 The Upload doors (hero · Cover · Logo menus): the uploader's free room and wallet, beside the batch.
   const uploadFactsRead = readPortfolioUploadFacts(supabase, vendorId, portfolio, ownRead.then((own) => own?.tier_state ?? null));
 
@@ -425,7 +416,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
     reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'}`,
-    analyticsRole: analyticsRoleRead,
+    analytics: { supabase, userId: user.id, profile },
     hero,
     heroCaption:
       hero.kind === 'photo'
@@ -481,23 +472,6 @@ function logoFieldData(profile: VendorProfileRow, logoUrl: string | null): Profi
   };
 }
 
-/**
- * 📊 The Analytics section, once its one read (the role) lands: the ONE door into Shop › Analytics for its owners and
- * admins (that page's own rule). A refused role read draws the door too — the page it opens re-checks the role on the
- * server, so the worst case is a bounce, never a fact shown to the wrong person.
- */
-async function ShopAnalyticsSection({ read, verified }: { read: Promise<VendorTeamRole | null>; verified: boolean }) {
-  const role = await read;
-  if (role && !canManageVendor(role)) {
-    return (
-      <p className="px-4 pt-5 text-[13.5px] text-ink/60" data-shop-analytics-owner-only="">
-        Analytics are for the shop&rsquo;s owner and admins.
-      </p>
-    );
-  }
-  return <ShopAnalyticsDoor verified={verified} />;
-}
-
 /** A sheet opened before its streamed body landed — the same words the sheet says for a body still on its way. */
 function SheetOpening({ line = 'Opening…' }: { line?: string }) {
   return (
@@ -507,7 +481,7 @@ function SheetOpening({ line = 'Opening…' }: { line?: string }) {
   );
 }
 
-/** The streaming stand-in: the section's own heading and one row's height, so nothing jumps when the door lands. */
+/** The streaming stand-in: the section's own heading and one card's height, so nothing jumps when the carousel lands. */
 function AnalyticsPlaceholder() {
   return (
     <section aria-busy="true" aria-label="Analytics, loading" data-shop-analytics-loading="" className="scroll-mt-24">
@@ -515,7 +489,7 @@ function AnalyticsPlaceholder() {
         <span className="sn-eye">Analytics</span>
       </div>
       <div className="px-4">
-        <div className="h-[60px] animate-pulse rounded-2xl bg-ink/[0.05]" />
+        <div className="h-[260px] animate-pulse rounded-2xl bg-ink/[0.05]" />
       </div>
     </section>
   );
@@ -691,11 +665,12 @@ async function ShopHome({
           </Suspense>
         </div>
 
-        {/* 📊 ANALYTICS — ONE door into Shop › Analytics (Build 6 Lane I: the five-card carousel is gone; every one of its
-            facts is a tile on that page, each rising to our recommendation). Owners and admins only. Streamed: the cover
-            and the badges draw first, the door arrives in place of a same-height placeholder. */}
+        {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
+            "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
+            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
+            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
         <Suspense fallback={<AnalyticsPlaceholder />}>
-          <ShopAnalyticsSection read={data.analyticsRole} verified={data.isVerified} />
+          <OneAnalyticsSection {...data.analytics} />
         </Suspense>
 
         {/* 🏅 BADGES — ONE row: completed first, then in progress, then not yet (Lane E item 2). */}

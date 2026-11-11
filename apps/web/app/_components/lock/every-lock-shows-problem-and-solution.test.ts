@@ -85,10 +85,10 @@ test('a UI-only lock is a bug: every lock names its server gate or is on the to-
   assert.match(readFileSync(join(WEB, LOCKS.bundleMaker.server), 'utf8'), /canUse\('bundleMaker'/);
   // The plans lock: the purchase is refused for an unverified shop on the server (NOT_VERIFIED).
   assert.match(readFileSync(join(WEB, LOCKS.plans.server), 'utf8'), /NOT_VERIFIED/);
-  // The analytics lock (Build 6 Lane I): the page asks `canUse('analytics', …)` and returns BEFORE any graph read.
+  // The analytics lock (Build 6 Lane I): the carousel's section asks `canUse('analytics', …)` and returns BEFORE any graph read.
   const perf = stripComments(readFileSync(join(WEB, LOCKS.analytics.server), 'utf8'));
   const gate = perf.search(/if \(!canUse\('analytics',/);
-  assert.ok(gate > 0, 'the Analytics page does not ask canUse(analytics)');
+  assert.ok(gate > 0, 'the Analytics section does not ask canUse(analytics)');
   for (const graphRead of ['readNewGraphs(', 'getVendorFunnelBenchmark(', 'fetchVendorPricePosition(', 'fetchViewsSeries(']) {
     assert.ok(perf.indexOf(graphRead) > gate, `${graphRead} runs before the analytics lock`);
   }

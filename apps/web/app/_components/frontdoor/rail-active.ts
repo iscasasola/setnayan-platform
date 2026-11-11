@@ -132,6 +132,8 @@ export function railMatchRows(who: {
     ...(who.signedIn ? [] : [{ key: 'find', href: '/explore' }]),
     // 2026-11-06 (PLAN B2): "For suppliers" is a signed-out row right under it.
     ...(who.signedIn ? [] : [{ key: 'for-suppliers', href: '/for-suppliers' }]),
+    // 2026-11-11 ("THE SIGNED-OUT SIDEBAR = DISCOVER · …"): "For coordinators" is the signed-out row under it.
+    ...(who.signedIn ? [] : [{ key: 'for-coordinators', href: '/for-coordinators' }]),
     { key: 'features', href: '/features' },
     ...(who.signedIn
       ? [

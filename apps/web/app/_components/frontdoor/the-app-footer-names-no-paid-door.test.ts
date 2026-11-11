@@ -80,7 +80,8 @@ test('every rail link to a door the app refuses or steers out of is data-web-onl
 
 test('the rail still links those doors on the web — the guard has something to hold', () => {
   const src = readFileSync(join(WEB, SHELL), 'utf8');
-  for (const href of ['/pricing', '/download', '/for-suppliers']) {
+  // '/for-coordinators' joined 2026-11-11 when it became a signed-out rail row (it shows plan prices since 6 Nov).
+  for (const href of ['/pricing', '/download', '/for-suppliers', '/for-coordinators']) {
     assert.ok(src.includes(`href="${href}"`), `${href} left the rail — re-check this guard's premise`);
   }
 });

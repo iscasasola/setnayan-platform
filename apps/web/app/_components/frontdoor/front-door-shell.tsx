@@ -13,7 +13,9 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL, IN ORDER (owner 2026-10-01, built 2026-10-23) ──────────────
- *   Signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
+ *   Signed out  Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in
+ *               (owner 2026-11-11: "How it works" left — it opened /features, the Features row's page;
+ *               "For coordinators" moved up from the small print)
  *   Signed in   Discover · My Home (Events · People · shop · Memories · HQ) ·
  *               Features
  *   then the small print. No Planner · Builder · Together · Studio lists —
@@ -103,11 +105,11 @@ import type { EventMenuIconName } from '@/lib/customer-menu';
 import {
   ArrowLeft,
   Blocks,
+  ClipboardCheck,
   Compass,
   House,
   LayoutGrid,
   Search,
-  Sparkles,
   Store,
   Telescope,
 } from 'lucide-react';
@@ -1420,8 +1422,10 @@ export function FrontDoorShell({
             heading link goes.
           */}
           {/*
-            🧭 SIGNED OUT: Discover · Find suppliers · For suppliers · Features · How it works, then the
-            sign-in prompt — five things, no feature list (owner 2026-10-01, DECISION_LOG
+            🧭 SIGNED OUT: Discover · Find suppliers · For suppliers · For coordinators · Features, then the
+            sign-in prompt — five rows, no feature list (owner 2026-11-11, DECISION_LOG "THE SIGNED-OUT
+            SIDEBAR = DISCOVER · FIND SUPPLIERS · FOR SUPPLIERS · FOR COORDINATORS · FEATURES · SIGN IN", drawn
+            in `prototypes/sidebar_menu_plan_2026-11-11_fable.html`; it amends owner 2026-10-01, DECISION_LOG
             "THE SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR", drawn in
             `prototypes/sidebar_collapse_and_features_2026-10-01_fable.html` frame A).
             🔄 This supersedes the 2026-08-12 "Marketplace is signed-in only" lock for the
@@ -1446,18 +1450,22 @@ export function FrontDoorShell({
                 <span className="fd-label-text">For suppliers</span>
                 <span className="fd-icon-caption">For suppliers</span>
               </Link>
+              {/* "For coordinators" sits RIGHT UNDER "For suppliers" (owner 2026-11-11, "Yes, all four"): the third
+                  market's front page, moved up from the small print — moved, not copied. `data-web-only` for the
+                  same reason as its sibling: since 6 Nov /for-coordinators shows the supplier plan prices, and the
+                  iPhone app refuses it (the-app-footer-names-no-paid-door). */}
+              <Link href="/for-coordinators" data-web-only="" {...rowProps('for-coordinators')}>
+                <RailIcon as={ClipboardCheck} />
+                <span className="fd-label-text">For coordinators</span>
+                <span className="fd-icon-caption">For coordinators</span>
+              </Link>
               <Link href="/features" {...rowProps('features')}>
                 <RailIcon as={Blocks} />
                 <span className="fd-label-text">Features</span>
                 <span className="fd-icon-caption">Features</span>
               </Link>
-              {/* "How it works" opens the Features hub (owner 2026-10-25) — the same
-                  door as the home hero's link; /our-story is a manifesto, not steps. */}
-              <Link href="/features" className="fd-row">
-                <RailIcon as={Sparkles} />
-                <span className="fd-label-text">How it works</span>
-                <span className="fd-icon-caption">How it works</span>
-              </Link>
+              {/* No "How it works" row (owner 2026-11-11): it opened /features, the page the Features row above
+                  opens — one page, one door. The front-door HERO keeps its own "How it works" link. */}
             </>
           )}
 
@@ -1570,48 +1578,68 @@ export function FrontDoorShell({
               Help, which exists, has search, and routes enquiries. */}
           <div className="fd-rdiv" />
           <div className="fd-smallprint">
-            <Link href="/about">About</Link>
-            {/* 🍎 `data-web-only` (lib/store-shell.ts): /pricing is a refused door in the
-                iPhone app and /download offers other apps (/for-suppliers is refused too) — owner #6729 "the app names no
-                paid service". Hidden before first paint there; held by
-                the-app-footer-names-no-paid-door.test.ts. */}
-            <Link href="/pricing" data-web-only="">Pricing</Link>
-            <Link href="/help">Help</Link>
-            <Link href="/open-shop">Open your shop</Link>
-            <br />
-            {/* The policies come from ONE list (`lib/policy-links.ts`), also read by supplier Settings — App Store
-                5.1.1(i), held by `lib/every-signed-in-menu-reaches-the-policies.test.ts`. */}
-            {POLICY_LINKS.map((p) => (
-              <Link key={p.href} href={p.href}>
-                {p.label}
-              </Link>
-            ))}
-            <br />
             {/*
-              🔴 THIS ROW EXISTS BECAUSE THE CONVERSION TOOK THE FOOTER AWAY AND
-              NOBODY MEASURED IT. Leaving `NAV_ROUTES` also leaves
-              `isMarketingRoute`, which is what `site-footer-chrome.tsx` gates
-              on — so on 2026-08-15 the seven product doorways silently lost the
-              shared footer along with the glass nav. Measured live afterwards:
-              `/about` still ships a Download link and Cookie settings, `/papic`
-              ships NEITHER.
+              🧾 TWO LABELLED COLUMNS, ONE LINK PER LINE (owner 2026-11-11, DECISION_LOG "THE SIGNED-OUT SIDEBAR =
+              DISCOVER · …", drawn in `prototypes/sidebar_menu_plan_2026-11-11_fable.html`). It was a paragraph of
+              inline links, and at the 280 px drawer "Acceptable use" broke after "Acceptable" — the owner's
+              screenshot read "Acceptable / use Cookies". Each link is now a block on its own 32 px line that cannot
+              wrap (`.fd-smallprint a` in front-door.css). ONE block under both rails, signed in and signed out.
+              Gone from here: "Open your shop" (the For suppliers page carries that button), "For coordinators"
+              (a rail row now) and "For storytellers" (/creators — linked from Real Stories instead).
 
-              `href="/download"` exists in exactly two files app-wide, both
-              gated by `isMarketingRoute` — so a converted page had NO ROUTE AT
-              ALL to the download page. Same for Refunds. The rail is the only
-              chrome those pages now have, so the rail has to carry them.
-
-              🍪 There is no "Cookie settings" control any more (owner
-              2026-10-22): essential cookies only, so there is no choice to
-              change.
+              🏷 "Company" and "Legal" are COLUMN HEADINGS the owner approved by name (Q3 = show them). They are not
+              the small grey explainer captions the 2026-10-01 ruling took off the front door. Plain labels, not
+              <h*> elements — the rail has no heading outline to slot into — and each column is a named group.
             */}
-            <Link href="/refunds">Refunds</Link>
-            <Link href="/download" data-web-only="">Download</Link>
-            <Link href="/blog">Articles</Link>
-            <Link href="/creators">For storytellers</Link>
-            {/* "For suppliers" moved up to the rail, right under "Find suppliers" (owner 2026-11-06, PLAN B2) — not here. */}
-            {/* `data-web-only`: since 6 Nov /for-coordinators shows the supplier plan prices too. */}
-            <Link href="/for-coordinators" data-web-only="">For coordinators</Link>
+            <div className="fd-sp-cols">
+              <div className="fd-sp-col" role="group" aria-label="Company">
+                <span className="fd-sp-h" aria-hidden="true">
+                  Company
+                </span>
+                <Link href="/about">About</Link>
+                {/* 🍎 `data-web-only` (lib/store-shell.ts): /pricing is a refused door in the
+                    iPhone app and /download offers other apps (/for-suppliers is refused too) — owner #6729 "the app names no
+                    paid service". Hidden before first paint there; held by
+                    the-app-footer-names-no-paid-door.test.ts. */}
+                <Link href="/pricing" data-web-only="">Pricing</Link>
+                <Link href="/help">Help</Link>
+                <Link href="/blog">Articles</Link>
+                {/*
+                  🔴 DOWNLOAD (AND REFUNDS) LIVE HERE BECAUSE THE CONVERSION TOOK THE FOOTER AWAY AND
+                  NOBODY MEASURED IT. Leaving `NAV_ROUTES` also leaves
+                  `isMarketingRoute`, which is what `site-footer-chrome.tsx` gates
+                  on — so on 2026-08-15 the seven product doorways silently lost the
+                  shared footer along with the glass nav. Measured live afterwards:
+                  `/about` still ships a Download link and Cookie settings, `/papic`
+                  ships NEITHER.
+
+                  `href="/download"` exists in exactly two files app-wide, both
+                  gated by `isMarketingRoute` — so a converted page had NO ROUTE AT
+                  ALL to the download page. Same for Refunds (which since 2026-11-11
+                  rides `POLICY_LINKS` in the Legal column). The rail is the only
+                  chrome those pages now have, so the rail has to carry them.
+
+                  🍪 There is no "Cookie settings" control any more (owner
+                  2026-10-22): essential cookies only, so there is no choice to
+                  change.
+                */}
+                <Link href="/download" data-web-only="">Download</Link>
+              </div>
+              <div className="fd-sp-col" role="group" aria-label="Legal">
+                <span className="fd-sp-h" aria-hidden="true">
+                  Legal
+                </span>
+                {/* The policies come from ONE list (`lib/policy-links.ts`), also read by supplier Settings — App Store
+                    5.1.1(i), held by `lib/every-signed-in-menu-reaches-the-policies.test.ts`. Refunds joined it
+                    2026-11-11 (owner Q4 = A), so it is no longer typed here by hand. */}
+                {POLICY_LINKS.map((p) => (
+                  <Link key={p.href} href={p.href}>
+                    {p.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            {/* "For suppliers" (2026-11-06) and "For coordinators" (2026-11-11) moved up to the rail rows — not here. */}
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

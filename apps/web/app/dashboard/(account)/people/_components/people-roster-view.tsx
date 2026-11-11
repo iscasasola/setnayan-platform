@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { HomePinPortal } from '@/app/dashboard/(launcher)/_components/home-segment-bar';
 import {
   CalendarHeart,
   Check,
@@ -379,6 +380,7 @@ export function PeopleRosterView({
      UNDER the sticky block — the block is one row. */
   const topLine = (
     <>
+      <HomePinPortal>
       <div className={gs.stick} data-people-head="">
         <PeoplePinnedRow
           face="people"
@@ -397,6 +399,7 @@ export function PeopleRosterView({
           settings={pin.settings}
         />
       </div>
+      </HomePinPortal>
       {roster.connectionsUnavailable && !nobody ? (
         <p role="status" className={`${gs.replied}`} data-people-refused>
           {PARTLY_REFUSED_LINE}

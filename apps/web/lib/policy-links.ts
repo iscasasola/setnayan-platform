@@ -9,7 +9,7 @@
  *
  * 🔑 WHY A LIST AND NOT FOUR LINKS IN EACH FILE. App Store review 5.1.1(i) asks that the privacy policy be reachable
  * inside the app. The 2026-10-19 sweep (row A2) could not find a route for the supplier; the drawer's four links were
- * typed by hand in one file, so a second menu had nothing to copy but the words. Held by
+ * typed by hand in one file, so a second menu had nothing to copy but the words. (Five since 2026-11-11: Refunds.) Held by
  * `lib/every-signed-in-menu-reaches-the-policies.test.ts`, which enumerates the roles from `UserRoleSummary`.
  *
  * ⚠ NONE OF THESE MAY BE REFUSED IN THE STORE SHELL. `lib/store-shell.ts` leaves them alone ("legal pages stay
@@ -18,12 +18,17 @@
  */
 export type PolicyLink = { href: string; label: string };
 
-/** The drawer's second line, in its order and its words. */
+/**
+ * The drawer's Legal column, in its order and its words. Refunds joined on 2026-11-11 (owner, sidebar plan Q4 = A,
+ * DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · …"): a refund policy is a policy, so it lives in the one list and
+ * therefore also shows in supplier Settings — intended. It is not one of `REQUIRED_POLICY_HREFS`.
+ */
 export const POLICY_LINKS: readonly PolicyLink[] = [
   { href: '/terms', label: 'Terms' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/acceptable-use', label: 'Acceptable use' },
   { href: '/cookies', label: 'Cookies' },
+  { href: '/refunds', label: 'Refunds' },
 ];
 
 /** The three a store reviewer looks for. Every entry is in `POLICY_LINKS`. */

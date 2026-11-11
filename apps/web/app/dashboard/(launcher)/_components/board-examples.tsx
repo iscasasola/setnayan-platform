@@ -22,7 +22,8 @@ import { SAMPLE_MOMENTS, SAMPLE_PLANNING, SAMPLE_SHELF, type SampleBoardEvent } 
 import { EventScene } from './event-scene';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
 
-function samplePoster(e: SampleBoardEvent): EventPosterFacts {
+/** The sample event as the poster the Planning card draws — shared with the Home lab (`/dev/bar-lab`). */
+export function samplePoster(e: SampleBoardEvent): EventPosterFacts {
   const [first, second] = e.name.split(' & ');
   return {
     kind: 'photo',

@@ -32,6 +32,7 @@ import {
 } from '@/lib/chat-decisions';
 import { createClient } from '@/lib/supabase/client';
 import { usePortalHost } from '@/lib/use-portal-host';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PinBodyClose } from './chat-pins';
@@ -133,9 +134,14 @@ export function DecisionPanel({
   // Portalled to <body>: the chat frame's transformed ancestors would otherwise capture `fixed` (and the picked client's
   // thumb row sits at --sn-z-pop — this rises over it at the modal layer).
   const host = usePortalHost();
+  // It is a modal: focus moves in, Tab stays in, Esc (and ←) folds the pin again.
+  const boxRef = useRef<HTMLElement>(null);
+  useModalA11y({ open: true, onClose: back ?? (() => {}), containerRef: boxRef });
   if (!host) return null;
   return createPortal(
     <section
+      ref={boxRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={title}

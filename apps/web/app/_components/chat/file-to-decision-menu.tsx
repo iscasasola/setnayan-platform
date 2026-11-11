@@ -21,6 +21,7 @@ import {
   type OpenDecisionTopic,
 } from '@/lib/chat-decisions';
 import { createClient } from '@/lib/supabase/client';
+import { formatCount } from '@/lib/format-number';
 import { TypedRow } from '@/app/_components/form-row';
 
 export type FilingDone = { text: string; undo?: () => Promise<unknown> };
@@ -137,7 +138,7 @@ export function FileToDecisionMenu({
                   </span>
                   <span className="grid min-w-0">
                     <b className="truncate text-[15px] font-semibold text-ink">Move to “{t.title}”</b>
-                    <span className="text-[12px] text-ink/60">{t.filedCount} filed</span>
+                    <span className="text-[12px] text-ink/60">{formatCount(t.filedCount)} filed</span>
                   </span>
                 </button>
               </li>
@@ -150,7 +151,7 @@ export function FileToDecisionMenu({
                   </span>
                   <span className="grid min-w-0">
                     <b className="truncate text-[15px] font-semibold text-ink">{t.title}</b>
-                    <span className="text-[12px] text-ink/60">{t.filedCount} filed</span>
+                    <span className="text-[12px] text-ink/60">{formatCount(t.filedCount)} filed</span>
                   </span>
                 </button>
               </li>

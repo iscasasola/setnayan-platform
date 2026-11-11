@@ -26,6 +26,7 @@ import {
   type FiledMessage,
 } from '@/lib/chat-decisions';
 import { createClient } from '@/lib/supabase/client';
+import { formatCount } from '@/lib/format-number';
 
 const UNDO_MS = 5000;
 
@@ -113,7 +114,7 @@ export function DecisionPanel({ topicId, title }: { topicId: string; title: stri
           ? 'Loading…'
           : filed === null
             ? 'Couldn’t load what is filed here.'
-            : `${filed.length} message${filed.length === 1 ? '' : 's'} filed · newest first`}
+            : `${formatCount(filed.length)} message${filed.length === 1 ? '' : 's'} filed · newest first`}
       </p>
       {filed && filed.length > 0 ? (
         <ul className="grid gap-1.5" data-decision-filed="">

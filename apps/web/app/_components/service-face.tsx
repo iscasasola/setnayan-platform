@@ -3,6 +3,8 @@ import { AlertCircle, BadgeCheck, Gift, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import { ServiceFaceDoorButton } from '@/app/_components/service-face-door';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * service-face.tsx — THE ONE SERVICE CARD FACE. Every service card in the app is drawn here.
@@ -137,7 +139,7 @@ export function ServiceFace({
       // eslint-disable-next-line @next/next/no-img-element -- an already-resolved display URL, like Find's cover
       <img src={coverUrl} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
     ) : (
-      <span aria-hidden className="font-serif text-[22px] italic text-white/70">
+      <span aria-hidden className="font-serif text-[22px] italic text-[var(--m-paper)]">
         {initialsOf(shop?.name ?? name)}
       </span>
     ));
@@ -153,7 +155,7 @@ export function ServiceFace({
       }
     >
       <div className="grid grid-cols-[80px_minmax(0,1fr)] items-start gap-x-3 gap-y-1">
-        <span className="relative flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-[#3a3f47] to-[#565b63]">
+        <span className="relative flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--m-slate)]">
           {coverNode}
           {coverCorner ? <span className="absolute inset-x-1.5 bottom-1.5 text-center">{coverCorner}</span> : null}
         </span>
@@ -177,7 +179,7 @@ export function ServiceFace({
                 <span className="inline-flex items-center gap-1">
                   <Star aria-hidden className="h-3 w-3 text-[var(--m-orange-2)]" strokeWidth={1.75} />
                   {rating.avg.toFixed(1)}
-                  {rating.count ? ` · ${rating.count}` : ''}
+                  {rating.count ? ` · ${formatCount(rating.count)}` : ''}
                 </span>
               ) : null}
             </span>
@@ -218,13 +220,7 @@ export function ServiceFace({
           className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         />
       ) : door ? (
-        <button
-          type="button"
-          aria-label={door.label}
-          aria-haspopup={door.hasPopup ? 'dialog' : undefined}
-          onClick={(e) => door.onOpen(e.currentTarget.parentElement)}
-          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        />
+        <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
       ) : null}
     </div>
   );

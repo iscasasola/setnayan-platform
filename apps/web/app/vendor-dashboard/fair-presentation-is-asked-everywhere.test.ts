@@ -181,7 +181,7 @@ test('the sweep notice is on the Shop tab, streamed, and in-app only', () => {
 });
 
 test('no fair-presentation file names a law or an agency (owner: "remove the DTI statement")', () => {
-  for (const f of ['lib/fair-presentation.ts', 'app/_components/fair-note.tsx', 'lib/fair-presentation-sweep.ts', 'app/vendor-dashboard/shop/_components/fair-sweep-notice.tsx']) {
+  for (const f of ['lib/fair-presentation.ts', 'app/_components/fair-note.tsx', 'lib/fair-presentation-sweep.ts', 'app/vendor-dashboard/shop/_components/fair-sweep-notice.tsx', 'app/vendor-dashboard/shop/_components/fair-sweep-list.tsx']) {
     const code = stripComments(read(f));
     assert.doesNotMatch(code, /\bDTI\b|RA\s*7394|Consumer Act/i, `${f} names a law or an agency in what a supplier reads`);
   }

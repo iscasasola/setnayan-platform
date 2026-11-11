@@ -179,6 +179,12 @@ test('the reported live card "Best mobile bar" is refused on every name field', 
   }
 });
 
+test('a claim is quoted as the supplier wrote it, and said once when one listed phrase holds another', () => {
+  const hits = findFairHits([{ field: 'about', value: 'We are the No. 1 caterer — simply the best.' }], { words: WORDS });
+  assert.deepEqual(hits.map((h) => h.fix), ['reword “the best”', 'reword “No. 1”']);
+  assert.match(fairLine(hits.map((h) => h.fix)), /Please reword “the best” and reword “No\. 1” —/);
+});
+
 test('an unread word list skips ONLY the word check — the other checks still run', () => {
   const hits = findFairHits([{ field: 'card_name', value: 'Best booth 🔥' }], { words: null }).map((h) => h.check);
   assert.deepEqual(hits, ['emoji']);
@@ -199,7 +205,7 @@ test('the copy is the ruled sentence and names no law or agency', () => {
   for (const s of [FAIR_LINE_LEAD, FAIR_WHY_WE_CHECK, fairLine(['x']), fairNoticeLine('x')]) {
     assert.doesNotMatch(s, /DTI|RA\s*7394|Consumer Act|law|government|agency/i, 'the copy names a law or an agency — the owner removed it');
   }
-  assert.match(fairRefusal(findFairHits([{ field: 'shop_name', value: 'Best Lights' }], { words: WORDS }))!, /reword “best” in your shop name/);
+  assert.match(fairRefusal(findFairHits([{ field: 'shop_name', value: 'Best Lights' }], { words: WORDS }))!, /reword “Best” in your shop name/);
 });
 
 // ── the 18 checks, as built ──────────────────────────────────────────────────

@@ -13,6 +13,7 @@
  * Names are the prototype's samples: nobody real. No price is typed for a card or a pack: card from-prices are shown
  * as "₱ —" (null), and a pack's list price is never drawn by the maker.
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { notFound } from 'next/navigation';
 import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
 import type { DraftPackage } from '@/lib/package-authoring';
@@ -81,6 +82,7 @@ export default async function BundleMakerLabPage({
         giftPacks={PACKS}
         giftFree={{ papic: 850, event_plus: 2, event_pro: 0 }}
         shopName="Kusina ni Aling Nena"
+        fairWords={LAB_FAIR_WORDS}
       />
     </main>
   );

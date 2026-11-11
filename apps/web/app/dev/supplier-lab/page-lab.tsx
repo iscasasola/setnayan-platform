@@ -15,6 +15,7 @@
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
  * surface reads the database itself, so the lab hands the fold a stand-in with the fixture's methods.
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { detailsProgress } from '@/lib/supplier-details';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { pageSavedFrom } from '@/lib/supplier-page-draft';
@@ -296,6 +297,7 @@ function detailsFixture(who: Who): DetailsData {
       contact_phone: f.phone,
       contact_email: f.email,
       in_business_since_year: String(f.since),
+      fairWords: LAB_FAIR_WORDS,
       venue_width_m: '',
       venue_length_m: '',
       capacity_min: '',
@@ -313,7 +315,7 @@ function detailsFixture(who: Who): DetailsData {
     compatibleCeremonyTypes: null,
     venueType: who === 'parish' ? 'church' : null,
     tagline: null,
-    fairWords: null,
+    fairWords: LAB_FAIR_WORDS,
     website: null,
     about: f.about,
     sameDayAvailable: false,
@@ -562,6 +564,7 @@ function pageFixture(who: Who): PageClientData {
     plans: pagePlanLines(),
     // Page keeps the pills only (owner 2026-11-06); the tracker is Analytics › Your badges (`?s=coord-badges`).
     badges: { summary: trackerSummary(bf), pills: shopBadges(bf) },
+    fairWords: LAB_FAIR_WORDS,
   };
 }
 

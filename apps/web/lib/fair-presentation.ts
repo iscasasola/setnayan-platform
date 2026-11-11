@@ -24,7 +24,7 @@
  * PURE — no I/O. The word list is read by the page / the save and handed in.
  */
 import { baseFold, claimReadings, joinSpacedLetters } from './claim-text-fold';
-import { findClaimWords, normaliseCardText, type ClaimWord } from './service-card-checks';
+import { claimWordPattern, findClaimWords, normaliseCardText, type ClaimWord } from './service-card-checks';
 import { evaluateMessage } from './chat-contact-filter';
 import { serviceHandleMessage, serviceTextIntegrityEnabled } from './service-text-integrity';
 
@@ -293,7 +293,7 @@ function contactFix(s: string): { sample: string; fix: string } | null {
     const advice = serviceHandleMessage(sample).replace(/^.*?Write /u, 'write ').replace(/\.$/u, '');
     return { sample, fix: advice };
   }
-  return { sample: e.matched[0]?.label ?? 'contact details', fix: 'take out the phone number, email, link or outside-app contact (couples message you here)' };
+  return { sample: e.matched[0]?.label ?? 'contact details', fix: 'take out the contact details' };
 }
 
 // ── the one function every surface asks ─────────────────────────────────────
@@ -321,11 +321,17 @@ export function findFairHits(texts: ReadonlyArray<FairText>, opts: FairOptions):
     const add = (check: FairCheck, sample: string, fix: string, why: string) => hits.push({ check, field: t.field, index, sample, fix, why });
 
     if (on.has('claim') && opts.words) {
+      const found = findClaimWords([{ field: 'name', value }], opts.words);
+      // ONE problem per claim: a listed phrase inside a longer one that was also found ("best" in "the best") is the
+      // same words, said once.
+      const inLonger = (p: string) => found.some((o) => o.phrase !== p && o.phrase.length > p.length && claimWordPattern(p).test(o.phrase));
       const said = new Set<string>();
-      for (const h of findClaimWords([{ field: 'name', value }], opts.words)) {
-        if (said.has(h.phrase)) continue;
+      for (const h of found) {
+        if (said.has(h.phrase) || inLonger(h.phrase)) continue;
         said.add(h.phrase);
-        add('claim', h.phrase, `reword “${h.phrase}”`, h.why);
+        // Quote what the supplier WROTE ("No. 1"), or the list word when it was found only in a disguised reading.
+        const sample = value.match(claimWordPattern(h.phrase))?.[0] ?? h.phrase;
+        add('claim', sample, `reword “${sample}”`, h.why);
       }
     }
     if (on.has('rank')) {
@@ -349,7 +355,7 @@ export function findFairHits(texts: ReadonlyArray<FairText>, opts: FairOptions):
     }
     if (on.has('discount')) {
       const m = value.match(DISCOUNT);
-      if (m) add('discount', m[0], `take out “${m[0]}” (set a real discount on the card instead)`, 'A “was” price or “% off” is fair only when the card really was that price — and we can’t check it from text.');
+      if (m) add('discount', m[0], `take out “${m[0]}”`, 'A “was” price or “% off” is fair only when the card really was that price — and text can’t show that. Set a real discount on the card instead.');
     }
     if (on.has('free')) {
       const m = value.match(FREE);
@@ -357,13 +363,13 @@ export function findFairHits(texts: ReadonlyArray<FairText>, opts: FairOptions):
     }
     if (on.has('stuffing')) {
       const s = findStuffing(value);
-      if (s) add('stuffing', s, 'name one service (list the rest under What’s included)', 'A name that lists everything hides what the card actually is.');
+      if (s) add('stuffing', s, 'name one service', 'A name that lists everything hides what the card actually is — list the rest under What’s included.');
     }
     if (on.has('numbers')) {
       for (const re of NUMBERS) {
         const m = value.match(re);
         if (m) {
-          add('numbers', m[0].trim(), `remove “${m[0].trim()}” (Setnayan shows your counts and ratings from its own records)`, 'Counts and ratings come from Setnayan’s records, so couples can trust them.');
+          add('numbers', m[0].trim(), `remove “${m[0].trim()}”`, 'Setnayan shows your counts and ratings from its own records, so couples can trust them.');
           break;
         }
       }
@@ -371,11 +377,11 @@ export function findFairHits(texts: ReadonlyArray<FairText>, opts: FairOptions):
     if (on.has('setnayan')) {
       const pattern = t.field === 'about' ? SETNAYAN_STANDING : SETNAYAN_ANY;
       const read = claimReadings(value).find((r) => pattern.test(baseFold(r)));
-      if (read) add('setnayan', 'Setnayan', 'take out “Setnayan” (our name and badges come from us)', 'Only Setnayan speaks as Setnayan — badges are earned, never written in.');
+      if (read) add('setnayan', 'Setnayan', 'take out “Setnayan”', 'Only Setnayan speaks as Setnayan — our name and badges are earned, never written in.');
     }
     if (on.has('urgency')) {
       const m = value.match(URGENCY);
-      if (m) add('urgency', m[0], `remove “${m[0]}” (couples see your open dates from your calendar)`, 'Open dates come from your real calendar, never from a countdown.');
+      if (m) add('urgency', m[0], `remove “${m[0]}”`, 'Couples see your open dates from your real calendar, never from a countdown.');
     }
     if (on.has('placeholder') && isPlaceholder(value)) {
       add('placeholder', value, 'give it a real name', 'A placeholder tells a couple nothing about what you offer.');
@@ -385,7 +391,7 @@ export function findFairHits(texts: ReadonlyArray<FairText>, opts: FairOptions):
     }
     if (on.has('price_in_name')) {
       const m = value.match(PRICE_IN_NAME);
-      if (m) add('price_in_name', m[0], 'take the price out of the name (it shows from your price)', 'The price comes from the card’s own price, so it is always the real one.');
+      if (m) add('price_in_name', m[0], 'take the price out of the name', 'The price shows from the card’s own price, so it is always the real one.');
     }
     if (on.has('duplicate') && siblings.has(normaliseCardText(value))) {
       add('duplicate', value, 'name it differently from your other card of the same name', 'Two cards with one name read as the same card twice.');

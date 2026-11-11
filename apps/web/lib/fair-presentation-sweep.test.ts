@@ -20,7 +20,7 @@ test('the reported live card "Best mobile bar" gets its "Edit your name" row, wi
   assert.equal(items[0]!.href, '/vendor-dashboard/services/c1');
   assert.equal(
     items[0]!.line,
-    'One of your cards needs a quick edit to meet our fair-presentation standard: reword “best”. It stays visible while you fix it.',
+    'One of your cards needs a quick edit to meet our fair-presentation standard: reword “Best”. It stays visible while you fix it.',
   );
 });
 
@@ -46,7 +46,7 @@ test('shop name, tagline, cards and bundles are each swept; drafts and fine name
     ['shop_name:', 'tagline:', 'card:c1', 'card:c3', 'package:p1'],
   );
   assert.match(items[0]!.line, /^Your shop name needs a quick edit/);
-  assert.match(items[0]!.what, /reword “best” and remove the emoji/);
+  assert.match(items[0]!.what, /reword “Best” and remove the emoji/);
 });
 
 test('nothing to fix → nothing drawn', () => {
@@ -55,7 +55,7 @@ test('nothing to fix → nothing drawn', () => {
 
 test('the sweep never writes, never notifies, never emails, never takes a card down', () => {
   const WEB = join(__dirname, '..');
-  for (const f of ['lib/fair-presentation-sweep.ts', 'app/vendor-dashboard/shop/_components/fair-sweep-notice.tsx']) {
+  for (const f of ['lib/fair-presentation-sweep.ts', 'app/vendor-dashboard/shop/_components/fair-sweep-notice.tsx', 'app/vendor-dashboard/shop/_components/fair-sweep-list.tsx']) {
     const src = readFileSync(join(WEB, f), 'utf8');
     const code = stripComments(src);
     assert.doesNotMatch(code, /\.(insert|update|upsert|delete)\(|\.rpc\(/, `${f} writes`);

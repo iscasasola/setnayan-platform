@@ -18,28 +18,14 @@ test('parsePackageInclusions: plain strings become labels (trimmed, blanks dropp
   assert.deepEqual(items, [{ label: 'Lechon belly' }, { label: 'Dessert bar' }]);
 });
 
-test('parsePackageInclusions: { label, worth_php } objects carry the worth chip', () => {
+test('parsePackageInclusions: { label, worth_php } objects keep the label only — an included line has no price', () => {
+  // Owner 11 Nov 2026: "The inclusions should not have a price". A legacy stored worth is dropped on read.
   const items = parsePackageInclusions([
     { label: 'Free photo album', worth_php: 2500 },
     { label: 'Standby generator' },
-  ]);
-  assert.deepEqual(items, [
-    { label: 'Free photo album', worthPhp: 2500 },
-    { label: 'Standby generator', worthPhp: null },
-  ]);
-});
-
-test('parsePackageInclusions: non-positive / non-numeric worth normalises to null', () => {
-  const items = parsePackageInclusions([
-    { label: 'A', worth_php: 0 },
-    { label: 'B', worth_php: -5 },
     { label: 'C', worth_php: '₱99' },
   ]);
-  assert.deepEqual(items, [
-    { label: 'A', worthPhp: null },
-    { label: 'B', worthPhp: null },
-    { label: 'C', worthPhp: null },
-  ]);
+  assert.deepEqual(items, [{ label: 'Free photo album' }, { label: 'Standby generator' }, { label: 'C' }]);
 });
 
 test('parsePackageInclusions: junk shapes degrade to empty, never throw', () => {

@@ -224,7 +224,6 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
     fd.set('starting_price_php', String(card.price));
     for (const line of card.inclusions) {
       fd.append('inclusion_label', line);
-      fd.append('inclusion_worth', '');
     }
     try {
       await createVendorService(fd);

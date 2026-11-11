@@ -1278,9 +1278,9 @@ export type BoothVendor = {
 
 /** One structured "what you get" line on the booth vendor card — a menu dish,
  *  a set-list song, a bar pour, or a package inclusion, per the booth
- *  template's `cardKind`. `worthPhp` renders the marketplace's "₱X free"
- *  value chip; null/absent = no stated worth. */
-export type BoothCardItem = { label: string; worthPhp?: number | null };
+ *  template's `cardKind`. Words only — an included line carries no peso (owner
+ *  11 Nov 2026: "The inclusions should not have a price"). */
+export type BoothCardItem = { label: string };
 
 /** The plans that may brand a 3D booth. OWNER 2026-08-29, verbatim: *"3D Plan
  *  and papic Challenge is only for paid vendors Solo, Pro, Enterprise, and

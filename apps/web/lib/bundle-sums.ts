@@ -46,7 +46,7 @@ export type BundleCardFacts = {
   pricePhp: number | null;
   discounts: readonly VendorServiceDiscount[];
   /** The card's free inclusions (`vendor_service_inclusions`), in the card's own order. */
-  inclusions: readonly { label: string; worth_php: number | null }[];
+  inclusions: readonly { label: string }[];
 };
 
 /** The discount types that reach EVERY couple — the only ones a fixed bundle price may count (module header). */
@@ -168,7 +168,8 @@ export function parseBundlePlan(raw: unknown): BundlePlanDrafts | null {
   return { manual: o.manual as InstallmentDraft[], autoBalance: o.autoBalance as AutoBalanceMeta };
 }
 
-export type GatheredLine = { label: string; worthPhp: number | null; card: string };
+/** An included line is words only — no peso (owner 11 Nov 2026); the bundle's one price sums CARD prices. */
+export type GatheredLine = { label: string; card: string };
 
 /** "What the couple gets": every inclusion of the picked cards, merged case-insensitively, labelled with its card. */
 export function gatherInclusions(picked: readonly BundleCardFacts[]): GatheredLine[] {
@@ -177,7 +178,7 @@ export function gatherInclusions(picked: readonly BundleCardFacts[]): GatheredLi
     for (const inc of c.inclusions) {
       const label = inc.label.trim();
       if (!label || out.some((x) => x.label.toLowerCase() === label.toLowerCase())) continue;
-      out.push({ label, worthPhp: inc.worth_php, card: c.name });
+      out.push({ label, card: c.name });
     }
   }
   return out;

@@ -200,7 +200,7 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
       included: { crew_meal_included: false, transport_included: false, transport_flat_fee_php: null },
       brackets: [],
       discounts: [],
-      inclusions: e.inclusions.map((label) => ({ label, worth: '' })),
+      inclusions: e.inclusions.map((label) => ({ label })),
       linkedCategories: [],
       coverPhotoR2Key: 'r2://media/lab/cover.jpg',
       showcaseVideoR2Key: null,

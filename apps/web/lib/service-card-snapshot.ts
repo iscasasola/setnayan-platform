@@ -132,21 +132,15 @@ export function readSnapshot(fd: FormData): Snapshot {
     if (!best || savings > best.savings) best = { label, savings };
   }
 
-  // ── Inclusions — the FREE value story ───────────────────────────────────
-  const iLabels = fd.getAll('inclusion_label').map((v) => String(v).trim());
-  const iWorths = fd.getAll('inclusion_worth').map((v) => num(v));
-  const incNames: string[] = [];
-  let worth = 0;
-  for (let i = 0; i < iLabels.length; i++) {
-    const label = iLabels[i];
-    if (!label) continue;
-    incNames.push(label);
-    worth += iWorths[i] ?? 0;
-  }
+  // ── Inclusions — WORDS ONLY ─────────────────────────────────────────────
+  // Owner 11 Nov 2026: "The inclusions should not have a price … They only get price for the service." The card's
+  // one peso is the service's own, so there is no "· ₱X free" sum after the list, and no worth is read at all.
+  const incNames = fd
+    .getAll('inclusion_label')
+    .map((v) => String(v).trim())
+    .filter((label) => label.length > 0);
   const includesLine = incNames.length
-    ? `Includes: ${incNames.slice(0, 3).join(' · ')}${incNames.length > 3 ? ` +${incNames.length - 3}` : ''}${
-        worth > 0 ? ` · ${php(worth)} free` : ''
-      }`
+    ? `Includes: ${incNames.slice(0, 3).join(' · ')}${incNames.length > 3 ? ` +${incNames.length - 3}` : ''}`
     : null;
 
   // ── Not-included flags ──────────────────────────────────────────────────
@@ -195,8 +189,8 @@ export type StoredDiscount = {
   rate?: number | null;
   unit?: string | null;
 };
-/** One free-inclusion row as the manager already loads it. */
-export type StoredInclusion = { label?: string | null; worth_php?: number | null };
+/** One included line as the manager already loads it — words only, no peso. */
+export type StoredInclusion = { label?: string | null };
 /** One Fixed-basis pax bracket as the manager already loads it. */
 export type StoredBracket = { price_php?: number | null };
 
@@ -254,7 +248,6 @@ export function snapshotFromService(
   for (const inc of extras?.inclusions ?? []) {
     if (!inc.label) continue;
     fd.append('inclusion_label', String(inc.label));
-    fd.append('inclusion_worth', String(inc.worth_php ?? 0));
   }
   for (const b of extras?.brackets ?? []) {
     if (b.price_php == null) continue;

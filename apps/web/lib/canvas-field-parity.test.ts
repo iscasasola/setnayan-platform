@@ -426,7 +426,7 @@ const MOUNTED_EDITORS = [
   'PricingBasisEditor', // pricing_basis + the per-basis money fields
   'IncludedFlags', //     crew_meal_included · transport_*
   'PriceBracketsEditor', // bracket_*
-  'InclusionsEditor', //  inclusion_label · inclusion_worth
+  'InclusionsEditor', //  inclusion_label
   'DiscountsEditor', //   discount_type · _rate · _unit · _expires_at · _conditions_md
   'ShowcaseMediaFields', // showcase_photo_r2_keys · showcase_video_r2_key
   'CustomizationStep', // customization_draft

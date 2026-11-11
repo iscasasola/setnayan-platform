@@ -69,8 +69,8 @@ export type ServiceCard = {
   /** Best applicable discount badge copy (e.g. "20% off · early booking"),
    *  chosen server-side by pickBestDiscount. null → no discount to show. */
   discountLabel: string | null;
-  /** FREE inclusions with a stated worth, pre-formatted server-side
-   *  ("Photo booth · ₱8,000 free"). Trimmed to a few; `inclusionsMore` counts
+  /** The lines included in the price — words only, no peso ("Photo booth").
+   *  Trimmed to a few; `inclusionsMore` counts
    *  the overflow. Empty → the Includes row is hidden. */
   inclusions: string[];
   /** How many inclusions were trimmed off `inclusions` (drives "+N more"). */
@@ -260,14 +260,11 @@ export function toServiceCard(
         now,
       });
 
-  // FREE inclusions — "<label> · ₱X free" (worth omitted when the vendor left
-  // it blank, OR when the vendor hid prices — keep the inclusion label, drop the
-  // peso worth). Trim to a few; the overflow surfaces as "+N more".
-  const allInclusions = (inclusions ?? []).map((inc) =>
-    !hidePrices && inc.worth_php !== null && inc.worth_php > 0
-      ? `${inc.label} · ${formatPhpRounded(inc.worth_php)} free`
-      : inc.label,
-  );
+  // Inclusions — WORDS ONLY (owner 11 Nov 2026: "The inclusions should not have a
+  // price … They only get price for the service"). The card's one peso is the
+  // service's own; no "₱X free" beside a line. Trim to a few; the overflow
+  // surfaces as "+N more".
+  const allInclusions = (inclusions ?? []).map((inc) => inc.label);
   const shownInclusions = allInclusions.slice(0, SERVICE_CARD_INCLUSION_LIMIT);
   const inclusionsMore = Math.max(0, allInclusions.length - shownInclusions.length);
 

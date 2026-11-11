@@ -325,7 +325,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
                   name: l.vendor_services?.title?.trim() || 'Service card',
                   pricePhp: null,
                   discounts: [],
-                  inclusions: [...(l.vendor_services?.vendor_service_inclusions ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((i) => ({ label: i.label, worth_php: null })),
+                  inclusions: [...(l.vendor_services?.vendor_service_inclusions ?? [])].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((i) => ({ label: i.label })),
                 })),
               ).map((g) => g.label),
               cardsAlonePhp: prices.length > 0 && prices.every((x) => x != null && Number.isFinite(x)) ? prices.reduce((a: number, x) => a + (x as number), 0) : null,

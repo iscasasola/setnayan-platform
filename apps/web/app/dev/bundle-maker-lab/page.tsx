@@ -38,8 +38,8 @@ const CARDS: BundleCard[] = [
     pricePhp: 110_000,
     discounts: [{ vendor_service_id: C1, discount_type: 'promo', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }],
     inclusions: [
-      { label: '2 bartenders', worth_php: null },
-      { label: 'Glassware and ice', worth_php: null },
+      { label: '2 bartenders' },
+      { label: 'Glassware and ice' },
     ],
   },
   {
@@ -49,8 +49,8 @@ const CARDS: BundleCard[] = [
     pricePhp: 45_000,
     discounts: [],
     inclusions: [
-      { label: '2 Bartenders', worth_php: null },
-      { label: '4 hours', worth_php: null },
+      { label: '2 Bartenders' },
+      { label: '4 hours' },
     ],
   },
   { id: '00000000-0000-4000-8000-0000000000c3', name: 'Coffee cart', category: 'coffee_cart', pricePhp: null, discounts: [], inclusions: [] },

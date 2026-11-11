@@ -44,8 +44,8 @@ const bar: BundleCardFacts = {
   pricePhp: 110000,
   discounts: [disc({ rate: 10 })],
   inclusions: [
-    { label: '2 bartenders', worth_php: null },
-    { label: 'Glassware', worth_php: 3000 },
+    { label: '2 bartenders' },
+    { label: 'Glassware' },
   ],
 };
 const mocktail: BundleCardFacts = {
@@ -53,7 +53,7 @@ const mocktail: BundleCardFacts = {
   name: 'Mocktail station',
   pricePhp: 45000,
   discounts: [],
-  inclusions: [{ label: '2 Bartenders', worth_php: null }, { label: '4 hours', worth_php: null }],
+  inclusions: [{ label: '2 Bartenders' }, { label: '4 hours' }],
 };
 
 test('a card counts at its price minus its best discount that is on', () => {

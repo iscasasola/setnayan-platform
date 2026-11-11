@@ -15,7 +15,7 @@ import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-stor
  * inline-edit). It manages its own row state client-side and renders parallel,
  * index-aligned HIDDEN inputs the server action reads via formData.getAll(…):
  *
- *   • InclusionsEditor    → inclusion_label[]  · inclusion_worth[]
+ *   • InclusionsEditor    → inclusion_label[]   (words only — no peso, owner 11 Nov 2026)
  *   • DiscountsEditor     → discount_type[] · discount_rate[] · discount_unit[]
  *                           · discount_min_lead_months[] · discount_expires_at[]
  *                           · discount_conditions_md[]
@@ -77,28 +77,16 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
   );
 }
 
-/**
- * A peso worth: numeric, WITHOUT the native spinner. `type="number"` draws ▲▼ arrows in a desktop browser (the walk
- * caught them in "worth ₱", 2026-11-01) and nudges the value on a scroll-wheel. A text box with the numeric keypad,
- * a digits-only pattern and a filter that drops anything else keeps the answer a whole number of pesos — what
- * `parseInclusionRows` (actions.ts) already insists on. 🔒 a-worth-box-has-no-spinner.test.ts
- */
-const WHOLE_PESOS = {
-  type: 'text',
-  inputMode: 'numeric',
-  pattern: '[0-9]*',
-  autoComplete: 'off',
-  onInput: (e: React.FormEvent<HTMLInputElement>) => {
-    const el = e.currentTarget;
-    const digits = el.value.replace(/[^0-9]/g, '');
-    if (digits !== el.value) el.value = digits;
-  },
-} as const;
-
 // ════════════════════════════════════════════════════════════════════════════
-// 1 · InclusionsEditor — FREE items each with an optional stated worth
+// 1 · InclusionsEditor — what the price includes, WORDS ONLY
+//
+// 🚫 NO PESO ON AN INCLUDED LINE (owner 11 Nov 2026, verbatim: "The inclusions should not have a price i think because
+// if it had a price, then it should be a service card. And this should be a bundle instead?" · "They only get price for
+// the service?" — yes). The "Worth" row and the "₱X free" it fed are gone; a priced thing is its own service card (and
+// two cards together are a bundle) or an Extra. The stored `worth_php` column is kept, hidden — never shown, never
+// asked. 🔒 lib/an-included-line-has-no-price.test.ts
 // ════════════════════════════════════════════════════════════════════════════
-export type InclusionDraft = { label: string; worth: string };
+export type InclusionDraft = { label: string };
 type InclusionRow = InclusionDraft & { key: number };
 
 export function InclusionsEditor({
@@ -116,19 +104,16 @@ export function InclusionsEditor({
   const [rows, setRows] = useState<InclusionRow[]>(
     initial.length > 0 || !bare
       ? initial.map((r, i) => ({ key: i, ...r }))
-      : [{ key: 0, label: '', worth: '' }],
+      : [{ key: 0, label: '' }],
   );
 
   const add = () =>
-    setRows((cur) => [...cur, { key: nextKey.current++, label: '', worth: '' }]);
+    setRows((cur) => [...cur, { key: nextKey.current++, label: '' }]);
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
 
   if (bare) {
     /* ✍ THE MAKER'S LINES ARE ROWS OF THE ONE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it).
-       Each line is two rows — what is included, and its worth — posting `inclusion_label` and `inclusion_worth` exactly
-       as the raw boxes did: every row draws its carrier, filled or not, so the two lists stay index-aligned for
-       `parseInclusionRows`. The worth is an AMOUNT row: it keeps its ₱, opens the numeric keypad, and keeps only whole
-       pesos (`amountDigits`) — no spinner, nothing but digits posted. */
+       Each line is ONE row — what is included — posting `inclusion_label`. No worth row (owner 11 Nov 2026). */
     const patch = (key: number, next: Partial<InclusionDraft>) =>
       setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
     /**
@@ -174,15 +159,6 @@ export function InclusionsEditor({
                   onKeep={(t) => patch(r.key, { label: t })}
                   data="inclusion-label"
                 />
-                <TypedRow
-                  name="Worth"
-                  value={r.worth}
-                  amount
-                  empty="Optional"
-                  fieldName="inclusion_worth"
-                  onKeep={(t) => patch(r.key, { worth: t })}
-                  data="inclusion-worth"
-                />
               </div>
             </SwipeToDelete>
           ))}
@@ -221,9 +197,9 @@ export function InclusionsEditor({
       </summary>
       <div className="space-y-3 border-t px-3 pb-3 pt-3" style={{ borderColor: line }}>
         <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-          FREE items bundled into your price — each with an optional peso worth
-          couples see as free value (&ldquo;₱X free&rdquo;). This is your value
-          story, separate from priced Add-ons below.
+          What your price already includes, in words. A line has no price of its
+          own &mdash; something you charge for is its own service card or a priced
+          Add-on below.
         </p>
 
         {rows.length > 0 ? (
@@ -236,13 +212,6 @@ export function InclusionsEditor({
                   maxLength={80}
                   placeholder="e.g. Same-day highlight reel"
                   className="input-field flex-[2]"
-                />
-                <input
-                  name="inclusion_worth"
-                  defaultValue={r.worth}
-                  {...WHOLE_PESOS}
-                  placeholder="worth ₱"
-                  className="input-field flex-1"
                 />
                 <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
               </div>

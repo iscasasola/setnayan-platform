@@ -36,11 +36,11 @@ const card = (over: Partial<Parameters<typeof benchServiceCard>[0]> = {}) =>
 
 test('the card says the service’s own name, its price, and what the price leaves out', () => {
   const c = card({
-    inclusions: [{ label: 'Tasting for 4', worth_php: 4000 }, { label: 'Dessert bar' }],
+    inclusions: [{ label: 'Tasting for 4' }, { label: 'Dessert bar' }],
   });
   assert.equal(c.name, 'Plated dinner · 150 guests');
   assert.equal(c.priceText, 'from ₱197,000');
-  assert.equal(c.includesLine, 'Includes: Tasting for 4 · Dessert bar · ₱4,000 free');
+  assert.equal(c.includesLine, 'Includes: Tasting for 4 · Dessert bar');
   assert.deepEqual(c.notIncluded, ['transport (+₱1,500)']);
   assert.equal(c.givesSetnayanGift, true);
   assert.equal(c.coverUrl, 'https://cdn.example/cover.jpg');
@@ -64,12 +64,12 @@ test('🔑 a shop that hides its prices shows no peso figure anywhere on the car
   const c = card({
     hidePrices: true,
     discounts: [{ discount_type: 'early_booking', rate: 10, unit: 'pct' }],
-    inclusions: [{ label: 'Tasting for 4', worth_php: 4000 }],
+    inclusions: [{ label: 'Tasting for 4' }],
     brackets: [{ price_php: 150000 }],
   });
   assert.equal(c.priceText, null, 'the price leaked');
   assert.equal(c.discountBadge, null, 'a "10% off" gives the figure away');
-  assert.equal(c.includesLine, 'Includes: Tasting for 4', 'the inclusion’s worth leaked');
+  assert.equal(c.includesLine, 'Includes: Tasting for 4', 'an included line carries a figure');
   assert.deepEqual(c.notIncluded, ['transport'], 'the transport fee leaked, or a "by distance" claim was invented');
   const everything = JSON.stringify(c);
   assert.ok(!/₱|\d{3}/.test(everything.replace('150 guests', '')), `a figure survived: ${everything}`);

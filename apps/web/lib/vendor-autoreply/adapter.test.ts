@@ -81,7 +81,7 @@ function sources(p: Partial<SnapshotSources> = {}): SnapshotSources {
   return {
     businessName: 'Blooms & Co.',
     services: [mkService()],
-    inclusionsByService: new Map([['s1', [{ vendor_service_id: 's1', label: 'Pre-nup shoot', worth_php: 5000, sort_order: 0 }]]]),
+    inclusionsByService: new Map([['s1', [{ vendor_service_id: 's1', label: 'Pre-nup shoot', sort_order: 0 }]]]),
     discountsByService: new Map([
       ['s1', [
         { vendor_service_id: 's1', discount_type: 'early_booking', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 },
@@ -117,7 +117,7 @@ test('maps service pricing + inclusions + addons', () => {
   assert.equal(s.perPaxPricePhp, 320);
   assert.equal(s.basePax, 150);
   assert.equal(s.crewMealIncluded, true);
-  assert.deepEqual(s.inclusions, [{ label: 'Pre-nup shoot', worthPhp: 5000 }]);
+  assert.deepEqual(s.inclusions, [{ label: 'Pre-nup shoot' }]);
   assert.deepEqual(s.addons, [{ label: 'Extra album', fromPricePhp: 3000 }]);
 });
 

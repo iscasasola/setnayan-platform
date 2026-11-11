@@ -41,7 +41,7 @@ export async function readBundleCards(supabase: SupabaseClient, vendorProfileId:
       .order('sort_order', { ascending: true }),
     supabase
       .from('vendor_service_inclusions')
-      .select('vendor_service_id,label,worth_php,sort_order')
+      .select('vendor_service_id,label,sort_order')
       .in('vendor_service_id', ids)
       .order('sort_order', { ascending: true }),
   ]);
@@ -67,9 +67,9 @@ export async function readBundleCards(supabase: SupabaseClient, vendorProfileId:
       discounts: (disc.data as VendorServiceDiscount[])
         .filter((d) => d.vendor_service_id === r.vendor_service_id)
         .map((d) => ({ ...d, rate: Number(d.rate) })),
-      inclusions: (inc.data as Array<{ vendor_service_id: string; label: string; worth_php: number | null }>)
+      inclusions: (inc.data as Array<{ vendor_service_id: string; label: string }>)
         .filter((i) => i.vendor_service_id === r.vendor_service_id)
-        .map((i) => ({ label: i.label, worth_php: i.worth_php == null ? null : Number(i.worth_php) })),
+        .map((i) => ({ label: i.label })),
     };
   });
 }

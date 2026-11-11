@@ -45,10 +45,7 @@ export function discountsToDrafts(rows: VendorServiceDiscount[]): DiscountDraft[
 }
 
 export function inclusionsToDrafts(rows: VendorServiceInclusion[]): InclusionDraft[] {
-  return rows.map((n) => ({
-    label: n.label,
-    worth: n.worth_php != null ? String(n.worth_php) : '',
-  }));
+  return rows.map((n) => ({ label: n.label }));
 }
 
 export function bracketsToDrafts(rows: VendorServicePriceBracket[]): BracketDraft[] {

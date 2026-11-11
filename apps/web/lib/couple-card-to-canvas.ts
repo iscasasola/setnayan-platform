@@ -133,9 +133,8 @@ export function coupleCardToCanvasInitial(
 
     brackets: [],
     discounts: [],
-    // `worth` is the supplier's own valuation of a line and the couple never
-    // stated one. Blank, not a fabricated number.
-    inclusions: inclusionLabels.map((label) => ({ label, worth: '' })),
+    // An included line is words only — no peso (owner 11 Nov 2026).
+    inclusions: inclusionLabels.map((label) => ({ label })),
     // Not derivable — see the docblock on the fetch half.
     linkedCategories: [],
 

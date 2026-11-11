@@ -79,7 +79,6 @@ function toStoreService(row: VendorServiceRow, src: SnapshotSources, now: number
     dailyCapacity: row.daily_capacity,
     inclusions: (src.inclusionsByService.get(row.vendor_service_id) ?? []).map((i) => ({
       label: i.label,
-      worthPhp: i.worth_php,
     })),
     discounts: activeDiscounts(src.discountsByService.get(row.vendor_service_id), now),
     addons: (src.addonsByService.get(row.vendor_service_id) ?? []).map((a) => ({

@@ -20,6 +20,7 @@ import { ActionButton } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { createClient } from '@/lib/supabase/client';
+import { formatCount } from '@/lib/format-number';
 import { patchPlus } from '@/lib/chat-plus-store';
 import { ONE_POLL_REASON } from '@/lib/chat-plus';
 import {
@@ -196,13 +197,13 @@ export function PollCard({
                   aria-pressed={r.mine}
                   onClick={() => void vote(r.choice.choiceId)}
                   data-poll-choice={r.choice.choiceId}
-                  className={`sn-press relative grid min-h-[48px] w-full overflow-hidden rounded-xl border px-3 py-2 text-left ${r.mine ? 'border-sn-accent' : won ? 'border-success-600' : 'border-ink/12'}` /* no-card-ok: this IS the <button> — the prototype's pressable poll row (bar · names · count) */}
+                  className={`sn-press relative grid min-h-[48px] w-full overflow-hidden rounded-xl border px-3 py-2 text-left ${r.mine ? 'border-sn-accent' : won ? 'border-success-600' : 'border-ink/12'}` /* no-card-ok: this IS the pressable choice row (a button) — the prototype's poll row: bar · names · count */}
                 >
                   <span aria-hidden className={`absolute inset-y-0 left-0 ${won ? 'bg-success-100' : 'bg-sn-accent/10'}`} style={{ width: `${Math.round(r.share * 100)}%` }} />
                   <span className="relative flex items-center gap-2">
                     {won ? <Check aria-hidden className="h-4 w-4 text-success-700" strokeWidth={2.2} /> : null}
                     <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{r.choice.label}</span>
-                    <span className="text-[14px] tabular-nums text-ink/70">{r.count}</span>
+                    <span className="text-[14px] tabular-nums text-ink/70">{formatCount(r.count)}</span>
                   </span>
                   {r.voters.length ? (
                     <span className="relative mt-0.5 block truncate text-[13px] text-ink/60">

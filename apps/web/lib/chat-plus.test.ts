@@ -41,16 +41,16 @@ test('1 · supplier rows: Decision · Ask for access · Quote · Payment · Form
   assert.equal(camera.card, null);
 });
 
-test('1b · host rows: Decision · Log a payment · Meeting · Camera · File · Report a problem (no Log a payment without the right)', () => {
+test('1b · host rows: Decision · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    ['Decision', 'Log a payment', 'Meeting', 'Camera', 'File', 'Report a problem'],
+    ['Decision', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    ['Decision', 'Meeting', 'Camera', 'File', 'Report a problem'],
+    ['Decision', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
-  // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — File, which says so.
+  // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
   assert.deepEqual(
     host.filter((r) => r.attach === 'photo' || r.card === 'file' || r.card === 'photos').map((r) => r.key),

@@ -126,9 +126,8 @@ import { privateOtherId } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
-import { MessageHoldMenu, useMessageHold } from './chat/message-hold-menu';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
-import { setPrivateTo, usePrivateTo } from './chat/private-to';
+import { usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -544,8 +543,6 @@ export function ChatMessageStream({
    * kept live by a SECOND `.on()` on the existing `chat-${threadId}` channel — no new connection.
    */
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
-  // ✋ Press-and-hold on a bubble → "Reply privately" (pre-picks the sender for the composer's chip).
-  const hold = useMessageHold();
   const hostById = useMemo(() => new Map((hosts ?? []).map((h) => [h.userId, h])), [hosts]);
   // 🔒 The name a private message's strip says — a host by first name, else the staff name the receipts read, else the
   // other side's label.
@@ -2173,10 +2170,6 @@ export function ChatMessageStream({
           const privateWith = privateWithId === null ? null : personName(privateWithId);
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
-          // ✋ "Reply privately" — any OTHER PERSON's message (by user, not by side: another host's message sits on your
-          // side of the chat and is still someone else's), never yours, never the auto-reply.
-          const replyTo = !m.is_bot && m.sender_user_id && m.sender_user_id !== currentUserId ? m.sender_user_id : null;
-          const canReplyPrivately = replyTo !== null;
           const corner = mine
             ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
             : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
@@ -2206,11 +2199,11 @@ export function ChatMessageStream({
               ) : null}
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
+                // 🔒 Holding a bubble opens nothing: the 🔒 beside the message box is the ONE door to a private
+                // message (owner-approved prototype, 11 Nov 2026 — the hold menu's "Reply privately" removed).
                 onClick={(e) => {
-                  if (hold.consumeTap()) return;
                   if (tapMeansHeart(e.target as Element)) toggleHeart(m.message_id);
                 }}
-                {...(canReplyPrivately ? hold.holdProps(m.message_id) : {})}
                 data-chat-heartable=""
                 className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   privateWith !== null
@@ -2264,16 +2257,6 @@ export function ChatMessageStream({
               </div>
               </div>
               {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
-              {replyTo !== null && hold.openId === m.message_id ? (
-                <MessageHoldMenu
-                  senderName={personName(replyTo)}
-                  alignEnd={mine}
-                  onReplyPrivately={() => {
-                    setPrivateTo(threadId, { userId: replyTo, name: personName(replyTo) });
-                    hold.close();
-                  }}
-                />
-              ) : null}
               <MessageHeart
                 count={heartCount}
                 mine={heartSet?.has(currentUserId) ?? false}

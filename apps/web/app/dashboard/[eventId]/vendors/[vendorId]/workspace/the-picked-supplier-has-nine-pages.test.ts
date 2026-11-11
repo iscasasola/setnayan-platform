@@ -17,7 +17,10 @@
  *   · `{ id: 'report', … }` moved above Inspiration in PICKED_SUPPLIER_PAGES → 1 RED;
  *   · `defaultPickedSupplierPage` returning 'details' → 2 RED;
  *   · `if (proposals.length === 0) return null;` back in VendorProposalsCard → 4 RED;
- *   · `if (questionnaire.rows.length === 0) return null;` back in SupplierQuestionsCard → 4 RED.
+ *   · `if (questionnaire.rows.length === 0) return null;` back in SupplierQuestionsCard → 4 RED;
+ *   · (11 Nov, the approved prototype) Inspiration's line deleted from PICKED_SUPPLIER_WHO → 5 RED.
+ *   5. Every page but Chat opens with the approved prototype's "Who can do what" strip; the host's (+) phone picker is
+ *      "Photos & files" like the supplier's; the empty lines are the prototype's words.
  *
  * Run: cd apps/web && npx tsx --test 'app/dashboard/*\/vendors/*\/workspace/the-picked-supplier-has-nine-pages.test.ts'
  */
@@ -185,4 +188,35 @@ test('4 · Quotation and Forms never render nothing — the line and its one act
   const noChat = renderToStaticMarkup(React.createElement(PickedSupplierEmpty, { page: 'forms', line: 'No forms from Lumière yet.', ask: null }));
   assert.match(noChat, /No forms from Lumière yet\./);
   assert.doesNotMatch(noChat, /data-picked-supplier-empty-ask/, 'an action with no chat to open — a dead control');
+});
+
+test('5 · every page but Chat opens with who can do what — the approved prototype’s strip — and the (+) is its mirror', async () => {
+  const { PICKED_SUPPLIER_WHO, PickedSupplierWho } = await import('./_components/picked-supplier-who');
+  // One line per page, Chat excepted (both sides write) — a new page cannot ship without saying who does what on it.
+  assert.deepEqual(
+    Object.keys(PICKED_SUPPLIER_WHO).sort(),
+    PICKED_SUPPLIER_PAGE_IDS.filter((p) => p !== 'chat').sort(),
+    'a picked-supplier page has no who-can-do-what line',
+  );
+  for (const [page, w] of Object.entries(PICKED_SUPPLIER_WHO)) {
+    const html = renderToStaticMarkup(React.createElement(PickedSupplierWho, { page: page as never, supplierName: 'Lumière' }));
+    assert.match(html, /Who can do what/, `${page}: the strip lost its heading`);
+    assert.ok(html.includes(`You · <b class="font-bold">${w.you}</b>`), `${page}: no "You ·" pill`);
+    assert.ok(html.includes(`Lumière · <b class="font-bold">${w.them}</b>`), `${page}: no supplier pill`);
+    assert.doesNotMatch(w.note('Lumière'), /proposed|not built|today/i, `${page}: the ⓘ describes something the page does not do`);
+  }
+  // The workspace wraps every non-blank page but Chat in the strip — a blank page stays blank (never a lone strip).
+  const ws = read('page.tsx');
+  assert.match(
+    ws,
+    /page === 'chat' \|\| body == null \? \(\s*body\s*\) : \(\s*<div className="space-y-4">\s*<PickedSupplierWho page=\{page\} supplierName=\{displayName\} \/>\s*\{body\}/,
+    'the pages are not each topped by the strip',
+  );
+  assert.match(ws, /bodies=\{pickedPages\}/, 'the shell draws the pages without the strip');
+  // The (+): ONE phone picker named like the supplier's — "Photos & files" — and the empty lines are the prototype's.
+  const host = hostPlusRows({ canLogPayment: true });
+  assert.equal(host.find((r) => r.key === 'file')?.label, 'Photos & files', 'the host’s phone picker is not named like the supplier’s');
+  assert.ok(!host.some((r) => r.label === 'File' || r.label === 'Photo'), 'a second phone picker on the host’s (+)');
+  assert.match(ws, /No quote from \$\{displayName\} yet\. A quote is sent inside your conversation\./);
+  assert.match(ws, /\$\{displayName\} hasn’t sent you a form yet\. Their questions land here when they do\./);
 });

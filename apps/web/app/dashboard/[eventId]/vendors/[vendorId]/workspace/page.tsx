@@ -83,6 +83,7 @@ import { CoupleThreadBody } from '../../../messages/[threadId]/_components/coupl
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
+import { PickedSupplierWho } from './_components/picked-supplier-who';
 import {
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
@@ -2961,11 +2962,22 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // 🫙 NO PAGE IS EVER BLANK (owner 11 Nov 2026, on his phone with a booked supplier: "Quotation" and "Forms" drew
   // nothing — `VendorProposalsCard` and the two forms cards render nothing when nothing was sent). Each now hands its
   // page ONE honest line and the one action the host has: ask in the chat (no chat → the line alone).
+  // The words are the approved prototype's (owner 11 Nov 2026, `prototypes/client_supplier_page_2026-11-11/`).
   const askInChat = chatThread ? 'Ask in the chat' : null;
   const quotationEmpty = (
-    <PickedSupplierEmpty page="quote" line={`No quotation from ${displayName} yet.`} ask={chatThread ? 'Ask for one in the chat' : null} />
+    <PickedSupplierEmpty
+      page="quote"
+      line={`No quote from ${displayName} yet. A quote is sent inside your conversation.`}
+      ask={askInChat}
+    />
   );
-  const formsEmpty = <PickedSupplierEmpty page="forms" line={`No forms from ${displayName} yet.`} ask={askInChat} />;
+  const formsEmpty = (
+    <PickedSupplierEmpty
+      page="forms"
+      line={`${displayName} hasn’t sent you a form yet. Their questions land here when they do.`}
+      ask={askInChat}
+    />
+  );
   // The questions card draws the forms card after its questions; with no questions it draws the forms card that holds
   // the empty line — so the line shows only when there are neither questions nor forms.
   const formsCardFor = (marketplaceVendorId: string, whenEmpty: ReactNode) => (
@@ -3063,6 +3075,21 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,
   };
 
+  // 👥 Every page but Chat opens with who can do what on it (the approved prototype's strip) — a blank page stays blank.
+  const pickedPages = Object.fromEntries(
+    (Object.entries(pickedBodies) as [PickedSupplierPage, ReactNode][]).map(([page, body]) => [
+      page,
+      page === 'chat' || body == null ? (
+        body
+      ) : (
+        <div className="space-y-4">
+          <PickedSupplierWho page={page} supplierName={displayName} />
+          {body}
+        </div>
+      ),
+    ]),
+  ) as Record<PickedSupplierPage, ReactNode>;
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3073,7 +3100,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none, and
       // opens on the menu's first page (Chat; Details when there is no conversation).
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
-      bodies={pickedBodies}
+      bodies={pickedPages}
     />
   );
 }

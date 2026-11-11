@@ -10239,7 +10239,7 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
 }
 @media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
 /* 🔒 PRIVATE IS SKY BLUE, AND THE PRIVATE COMPOSER IS ONE COLOUR (owner 9 Nov 2026 — "why red? use sky blue", corpus
- * 48503b43 + 701b38a3; then "Send turns sky blue too"). The private doors (the 🔒 list's names, "Reply privately") wear
+ * 48503b43 + 701b38a3; then "Send turns sky blue too"). The private door (the 🔒 list's names) wears
  * the private TEXT token as their tone (#0369A1 on its 9 % wash ≈ 5.3, AA); in the composer row the quiet 🔒 and the box's
  * × take the private mark colour; and while a recipient is set (`data-chat-words-only`) every focus ring in the row is
  * sky blue — no brand red/orange anywhere in it, on focus included. Written after the tone and quiet rules at a higher

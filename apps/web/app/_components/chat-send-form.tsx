@@ -555,7 +555,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 const at = Math.min(slashHi, Math.max(0, slashList.length - 1));
-                if (slashPick(slashList, at)) pickSlash(slashList[at]);
+                const row = slashList[at];
+                if (row && slashPick(slashList, at)) pickSlash(row);
                 return;
               }
             }

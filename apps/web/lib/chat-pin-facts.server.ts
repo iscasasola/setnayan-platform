@@ -134,9 +134,11 @@ export async function readChatPinFacts(
       return data === true ? { since: null } : null;
     });
 
+  // 🗳 Each open topic with who opened it and its filed count (`chat_decision_messages(count)` — one FK, so the bare
+  // embed is unambiguous) — the pin reads "Decision · you opened it · 2 filed ›" in ONE request.
   const decisionsRead = supabase
     .from('chat_decision_topics')
-    .select('topic_id, title, opened_at, reopened_at')
+    .select('topic_id, title, opened_at, reopened_at, opened_by_user_id, chat_decision_messages(count)')
     .eq('thread_id', args.threadId)
     .is('closed_at', null)
     .order('opened_at', { ascending: true })
@@ -145,10 +147,21 @@ export async function readChatPinFacts(
         logQueryError('chatPins.decisions', error, { thread_id: args.threadId }, 'graceful_degrade');
         return null;
       }
-      return ((data ?? []) as { topic_id: string; title: string; opened_at: string; reopened_at: string | null }[]).map((d) => ({
+      type Row = {
+        topic_id: string;
+        title: string;
+        opened_at: string;
+        reopened_at: string | null;
+        opened_by_user_id: string | null;
+        chat_decision_messages: { count: number }[] | null;
+      };
+      return ((data ?? []) as Row[]).map((d) => ({
         topicId: d.topic_id,
         title: d.title,
         openedAt: d.reopened_at ?? d.opened_at,
+        openedByYou: d.opened_by_user_id != null && d.opened_by_user_id === args.userId,
+        // A missing aggregate is "not read", never 0 — the pin then shows no number rather than a false "0 filed".
+        filedCount: typeof d.chat_decision_messages?.[0]?.count === 'number' ? d.chat_decision_messages[0].count : null,
       }));
     });
 

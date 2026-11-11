@@ -7,14 +7,27 @@ import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';
 
 import type { PinFact } from '@/lib/chat-pins';
+import type { FiledMessage } from '@/lib/chat-decisions';
 
 const DecisionPanel = dynamic(() => import('./decision-panel').then((m) => m.DecisionPanel));
 
-export function decisionPinBodies(facts: readonly PinFact[]): Record<string, ReactNode> {
+/** `lab` — dev labs only (no database): fixture filed rows per topic id, and the viewer. */
+export function decisionPinBodies(
+  facts: readonly PinFact[],
+  lab?: { filed: Record<string, FiledMessage[]>; me: string },
+): Record<string, ReactNode> {
   const out: Record<string, ReactNode> = {};
   for (const f of facts) {
     if (f.kind !== 'decision') continue;
-    out[f.key] = <DecisionPanel topicId={f.key.slice('decision:'.length)} title={f.title} />;
+    const topicId = f.key.slice('decision:'.length);
+    out[f.key] = (
+      <DecisionPanel
+        topicId={topicId}
+        title={f.title}
+        kicker={`Decision · ${f.openedByYou ? 'you' : 'they'} opened it`}
+        lab={lab ? { filed: lab.filed[topicId] ?? [], me: lab.me } : undefined}
+      />
+    );
   }
   return out;
 }

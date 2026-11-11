@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, hostPlusRows, supplierPlusRows, type PlusCardKind } from '@/lib/chat-plus';
-import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
+import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { openPlusDoor, plusDoor } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatCardShell } from './chat-step-card';
 import { MeetingStepCard } from './meeting-step-card';
@@ -33,6 +33,23 @@ export function PlusDraft({
   const { draft, toast } = usePlus(threadId);
   const close = () => patchPlus(threadId, { draft: null, toast: null });
   const sent = () => patchPlus(threadId, { draft: null, toast: null });
+  // 🗳 A new draft is SEEN: its card is a lazy chunk, so the opener's one jump (60 ms after the pick) can land before the
+  // card has a height — or before the anchor exists — and the card sat below the fold (Poll, 11 Nov review). For the
+  // first moments of a draft, every growth of the anchor brings it back into view; after that the person scrolls.
+  const startedAt = draft?.startedAt ?? null;
+  useEffect(() => {
+    if (startedAt == null || typeof ResizeObserver === 'undefined') return;
+    const el = document.getElementById(PLUS_DRAFT_ANCHOR);
+    if (!el) return;
+    jumpTo(PLUS_DRAFT_ANCHOR);
+    const ro = new ResizeObserver(() => jumpTo(PLUS_DRAFT_ANCHOR));
+    ro.observe(el);
+    const stop = window.setTimeout(() => ro.disconnect(), 1500);
+    return () => {
+      window.clearTimeout(stop);
+      ro.disconnect();
+    };
+  }, [startedAt]);
   useEffect(() => {
     if (!toast) return;
     const id = window.setTimeout(() => patchPlus(threadId, { toast: null }), 3200);

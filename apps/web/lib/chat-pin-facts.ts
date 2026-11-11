@@ -46,7 +46,7 @@ export type PinFactInputs = {
   /** The newest non-draft quote. */
   quote: { proposalId: string; status: string; title: string | null; validUntil: string | null; updatedAt: string | null } | null;
   /** Open decision topics. */
-  decisions: readonly { topicId: string; title: string; openedAt: string }[] | null;
+  decisions: readonly { topicId: string; title: string; openedAt: string; openedByYou?: boolean; filedCount?: number | null }[] | null;
   /**
    * Changes the OTHER side asked for and this reader must answer (`proposal_amendments` status 'proposed', raised by
    * them, in this thread). Derived on the SERVER so the change-approval blocker has a stable key
@@ -203,6 +203,8 @@ export function buildPinFacts(i: PinFactInputs): PinFact[] {
       answerer: 'you',
       themName: i.themName,
       sinceMs: ms(d.openedAt, i.nowMs),
+      openedByYou: d.openedByYou ?? false,
+      filedCount: d.filedCount ?? null,
     });
   }
   return out;

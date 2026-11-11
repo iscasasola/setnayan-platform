@@ -16,7 +16,7 @@
  * PLACE under the row (the same shipped controls the card in the chat posts — `ReplyControls`); a Running-topic row
  * jumps to its card.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import {
@@ -30,6 +30,13 @@ import {
 import { PLUS_CARD_TOPIC, type RunningTopic } from '@/lib/chat-plus';
 import { jumpTo } from '@/lib/chat-plus-store';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { formatCount } from '@/lib/format-number';
+
+/**
+ * 🗳 A body that takes the WHOLE screen (the opened decision, approved 11 Nov) closes itself through this: its back arrow
+ * folds the pin again. Null outside a pin.
+ */
+export const PinBodyClose = createContext<(() => void) | null>(null);
 
 const COLLAPSE_KEY = (threadId: string) => `sn-chat-pins-collapsed:${threadId}`;
 const SEEN_KEY = (threadId: string) => `sn-chat-pins-seen:${threadId}`;
@@ -150,7 +157,13 @@ export function ChatPins({
   nowMs,
 }: ChatPinsProps) {
   const [now] = useState(() => nowMs ?? Date.now());
-  const stack = useMemo(() => stackPins(facts, { nowMs: now, eventDate }), [facts, now, eventDate]);
+  // 🗳 A decision pin is a DOOR, not a due item (approved prototype 11 Nov): it never sits in the amber Due-now stack —
+  // it wears the Running-topic round under the running card, reads "Decision · you opened it" and "N filed ›".
+  const decisions = useMemo(() => facts.filter((f) => f.kind === 'decision'), [facts]);
+  const stack = useMemo(
+    () => stackPins(facts.filter((f) => f.kind !== 'decision'), { nowMs: now, eventDate }),
+    [facts, now, eventDate],
+  );
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [showWaiting, setShowWaiting] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -174,7 +187,7 @@ export function ChatPins({
   };
 
   const nothing =
-    stack.blockers.length === 0 && stack.due.length === 0 && stack.waiting.length === 0 && !running && !talking;
+    stack.blockers.length === 0 && stack.due.length === 0 && stack.waiting.length === 0 && !running && !talking && decisions.length === 0;
   if (nothing) return null;
 
   const toggle = (k: string) => setOpenKey((cur) => (cur === k ? null : k));
@@ -204,6 +217,29 @@ export function ChatPins({
             </div>
           </Fold>
         ) : null}
+      </li>
+    );
+  };
+
+  const decisionRow = (f: PinFact) => {
+    const body = bodies?.[f.key];
+    const open = openKey === f.key;
+    return (
+      <li key={f.key} className="border-t border-ink/[0.07] first:border-t-0">
+        <PinRow
+          pinKey={f.key}
+          topic="decision"
+          tone="run"
+          kicker={`Decision · ${f.openedByYou ? 'you' : 'they'} opened it`}
+          line={f.title}
+          action={f.filedCount != null ? `${formatCount(f.filedCount)} filed ›` : 'Open ›'}
+          expanded={body ? open : undefined}
+          onPress={() => {
+            if (body) toggle(f.key);
+          }}
+        />
+        {/* The opened decision rises over the whole chat (it portals itself to <body>); its ← folds this pin again. */}
+        {body && open ? <PinBodyClose.Provider value={() => setOpenKey(null)}>{body}</PinBodyClose.Provider> : null}
       </li>
     );
   };
@@ -278,6 +314,7 @@ export function ChatPins({
             />
           </li>
         ) : null}
+        {decisions.map(decisionRow)}
         {talking ? (
           <li className="flex min-h-[48px] items-center gap-2.5 border-t border-ink/[0.07] first:border-t-0" data-chat-pin="talk">
             <span aria-hidden className="grid h-7 w-7 place-items-center rounded-full bg-ink/[0.05] text-ink/60">

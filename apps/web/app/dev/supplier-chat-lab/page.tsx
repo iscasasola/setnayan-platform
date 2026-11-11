@@ -27,7 +27,7 @@
  *   — Supplier Build 3 · lane B —
  *   &pins=1      two automatic pins (a payment due tomorrow, a guest-count change) + one waiting on the couple
  *   &run=meeting a (+) Meeting card open at the foot: the Running-topic pin, the (+) shut   &shut=1 the tap's toast
- *   &decide=1    an open decision pin — tap it: the opened decision (11 Nov · chat decisions & polls)
+ *   &decide=1    an open decision pin — tap it: the opened decision rises (fixture filed rows) · &decide=refused its refused read
  *   &blocker=1   (with m=ask) the booking ask's full-screen blocker   &shown=1|2|3 (5/30/60 s)   &left=N a fixed second
  *
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
@@ -265,11 +265,24 @@ export default async function SupplierChatLabPage({
           { key: 'confirm_payment:lab', kind: 'confirm_payment', title: 'Your receipt for ₱11,250', answerer: 'them', themName: 'Ana & Miguel', sinceMs: Date.now() - 3 * DAY_MS },
         ]
       : [];
-  // 🗳 &decide=1 — an open decision pin (11 Nov): tap it and it opens (filed messages · Edit topic · Close · settled).
-  // The lab has no database, so the filed list says it could not load — the refusal state, drawn honestly.
-  if (sp.decide === '1') {
-    labPins.push({ key: 'decision:00000000-0000-4000-8000-00000000d001', kind: 'decision', title: 'Drone shot at sunset', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS });
+  // 🗳 &decide=1 — an open decision pin (11 Nov): tap it and it rises (filed messages · Edit topic · Close · settled).
+  // The lab has no database, so the risen view is handed FIXTURE filed rows (`labFiled`), labelled as the lab's own;
+  // &decide=refused draws the refused read instead (the alert with Try again).
+  if (sp.decide === '1' || sp.decide === 'refused') {
+    labPins.push({ key: 'decision:00000000-0000-4000-8000-00000000d001', kind: 'decision', title: 'Drone shot at sunset', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS, openedByYou: false, filedCount: 2 });
   }
+  const labFiled =
+    sp.decide === '1'
+      ? {
+          me: LAB_STAFF,
+          filed: {
+            '00000000-0000-4000-8000-00000000d001': [
+              { messageId: LAB_MESSAGES[1]!.message_id, body: LAB_MESSAGES[1]!.body, senderUserId: LAB_STAFF, sentAt: LAB_MESSAGES[1]!.created_at, addedByUserId: LAB_STAFF, addedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
+              { messageId: LAB_MESSAGES[2]!.message_id, body: LAB_MESSAGES[2]!.body, senderUserId: LAB_USER, sentAt: LAB_MESSAGES[2]!.created_at, addedByUserId: LAB_USER, addedAt: new Date(Date.now() - 5 * 3_600_000).toISOString() },
+            ],
+          },
+        }
+      : undefined;
   if (sp.blocker === '1' && askOpen) {
     labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
   }
@@ -454,7 +467,7 @@ export default async function SupplierChatLabPage({
             // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
             lockHandshake={null}
             extraPins={labPins}
-            pinBodies={decisionPinBodies(labPins)}
+            pinBodies={decisionPinBodies(labPins, labFiled)}
             blocker={labBlocker}
             plus={{ eventId: LAB_EVENT, returnPath: '/dev/supplier-chat-lab' }}
             {...(sp.hosts === '1'

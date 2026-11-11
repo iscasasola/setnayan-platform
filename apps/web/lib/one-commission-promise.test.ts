@@ -131,7 +131,7 @@ test('a supplier surface never hand-types the fee schedule', () => {
 test('a COUPLE-facing surface is left alone — the zero is unqualified for them', () => {
   for (const f of [
     'app/(shell)/marketplace/page.tsx',
-    'app/(shell)/explore/page.tsx',
+    'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     // Owner 2026-10-12 #14 ("couple-facing pages do not mention the supplier fee").
     'app/waitlist/page.tsx',
   ]) {

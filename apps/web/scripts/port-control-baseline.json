@@ -161,6 +161,7 @@
       "files": [
         "(shell)/explore/_components/card-headline-service.ts",
         "(shell)/explore/_components/category-tile.tsx",
+        "(shell)/explore/_components/discover-supplier-head.tsx",
         "(shell)/explore/_components/event-type-notify-form.tsx",
         "(shell)/explore/_components/explore-search-hero.tsx",
         "(shell)/explore/_components/filter-drawer.tsx",
@@ -173,6 +174,7 @@
         "(shell)/explore/_components/vendor-badge-row.tsx",
         "(shell)/explore/_components/vendor-card.tsx",
         "(shell)/explore/_components/vendors-availability-banner.tsx",
+        "(shell)/explore/_lib/marketplace-view.tsx",
         "(shell)/explore/actions.ts",
         "(shell)/explore/loading.tsx",
         "(shell)/explore/page.tsx"
@@ -197,6 +199,7 @@
         "/tour"
       ],
       "actions": [
+        "action",
         "formAction"
       ],
       "blocks": [
@@ -208,12 +211,15 @@
         "ContextualPillOption",
         "CtaLine",
         "DemoOnlyMarker",
+        "DiscoverCategoryButton",
+        "DiscoverFiltersButton",
+        "DiscoverSortMenu",
+        "DiscoverSupplierHead",
         "EmptyState",
         "EventTypeNotifyForm",
         "EventTypeSearchOption",
         "ExploreChip",
         "ExploreSearchHero",
-        "FaithKey",
         "FilterDrawer",
         "FocusedModeSearchForm",
         "FolderTab",
@@ -229,6 +235,8 @@
         "LocalState",
         "LockDayButton",
         "MarkedPhoto",
+        "MarketplaceSearchParams",
+        "MarketplaceView",
         "MiniBadge",
         "NoticeBanner",
         "NotifyResult",
@@ -689,6 +697,7 @@
         "(shell)/realstories/page.tsx"
       ],
       "destinations": [
+        "/creators",
         "/explore",
         "/realstories/[seg]",
         "/signup"
@@ -13230,6 +13239,7 @@
         "LabPickedChat",
         "LabPlusSeed",
         "LockRequestAnswer",
+        "Offer",
         "PickedClientShell",
         "ProposalMaker",
         "QuestionsSendBody",
@@ -16253,6 +16263,7 @@
       "blocks": [
         "ActionButton",
         "AddTile",
+        "AlbumGrids",
         "BodyPanel",
         "CollectionsData",
         "CollectionsList",
@@ -16268,6 +16279,7 @@
         "HTMLElement",
         "HTMLLIElement",
         "Icon",
+        "InRise.Provider",
         "KeepAnswer",
         "Link",
         "MenuSettingsButton",
@@ -16275,6 +16287,7 @@
         "MorePills",
         "Open",
         "OpenedCollection",
+        "PhotoGrid",
         "PickMenu",
         "PinWord",
         "PortfolioSection",
@@ -16284,6 +16297,7 @@
         "PortfolioView",
         "PutOnPageResult",
         "Rail",
+        "RiseScreen",
         "SVGSVGElement",
         "Sheet",
         "SupplierHero",
@@ -16876,6 +16890,7 @@
         "QuestionsSendPanel",
         "QuickReplies",
         "Quiet",
+        "QuoteDoors",
         "QuoteSeed",
         "QuoteVersionLine",
         "RailBody",

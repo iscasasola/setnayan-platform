@@ -355,7 +355,8 @@ export default async function HomePage({
       {/* 💾 `/auth/sign-out` lands here: no auth cookie → the last-seen store
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
-      <FrontDoor q={q} />
+      {/* 🔎 Every parameter, not only `q`: a supplier parameter opens Discover's supplier view (2026-11-12). */}
+      <FrontDoor q={q} params={params} />
     </>
   );
 }

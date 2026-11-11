@@ -76,6 +76,8 @@ export async function notifyWhenEventTypeLaunches(formData: FormData): Promise<N
   // Marketplace page may want to repaint with a "thanks" banner — the
   // submitter's URL stays put so we revalidate the same path.
   revalidatePath('/explore');
+  // 2026-11-12 — the marketplace is also drawn on Discover (`/`, its supplier view), so repaint it there too.
+  revalidatePath('/');
   return { status: 'ok' };
 }
 
@@ -369,6 +371,8 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   // ship a whole render of the page it is on (`lib/answer-in-place.ts`).
   if (!answersInPlace(formData)) {
     revalidatePath('/explore');
+    // 2026-11-12 — and Discover's supplier view (`/`), where the same cards are drawn.
+    revalidatePath('/');
     revalidatePath(`/v/`);
     revalidatePath(`/dashboard/${primaryEvent.event_id}`);
   }

@@ -62,6 +62,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { isRailFocused, type RailFocus, type RailFocusIcon } from './rail-focus';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
+import { supplierSearchCarry } from '@/lib/discover-suppliers';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -1749,9 +1750,33 @@ export function FrontDoorShell({
  * resolvers are checked against (`lib/public-search-nouns.ts`), so the promise
  * and the mechanism cannot drift apart again without a red test.
  */
+/*
+ * 🛒 2026-11-12 — ONE SEARCH BOX ON DISCOVER'S SUPPLIER VIEW (DECISION_LOG 2026-11-12 "DISCOVER WITH SUPPLIERS —
+ * PROTOTYPE APPROVED": typing while a category is open narrows that category). When the box is sent FROM `/` while
+ * the supplier view is open, the view's category and filters ride along as hidden fields, added at the moment of
+ * sending from the address itself (`supplierSearchCarry`) — so the box is the same control on every page, needs no
+ * hook (the doorway pages render statically), and anywhere else it still sends `q` alone.
+ */
+function carrySupplierView(form: HTMLFormElement) {
+  if (window.location.pathname !== '/') return;
+  for (const [k, v] of supplierSearchCarry(new URLSearchParams(window.location.search))) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = k;
+    input.value = v;
+    form.appendChild(input);
+  }
+}
+
 function SearchBox() {
   return (
-    <form className="fd-searchbox" action="/" method="get" role="search">
+    <form
+      className="fd-searchbox"
+      action="/"
+      method="get"
+      role="search"
+      onSubmit={(e) => carrySupplierView(e.currentTarget)}
+    >
       <input
         type="search"
         name="q"

@@ -481,7 +481,13 @@ test('the rail and explore both read the shared folder count', () => {
     !/FOLDER_SERVICE_COUNT/.test(SHELL_CODE),
     'the rail shows a category count again — it has no category rows to count',
   );
-  const explore = code(readFileSync(join(SHELLED, 'explore', 'page.tsx'), 'utf8'));
+  // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with
+  // Discover), and the category list that reads the count (TAXONOMY_OPTIONS) moved, unchanged, to
+  // lib/marketplace-category-options.ts — "explore" is both files, so the count check and the drift check follow it.
+  const explore =
+    code(readFileSync(join(SHELLED, 'explore', '_lib', 'marketplace-view.tsx'), 'utf8')) +
+    '\n' +
+    code(readFileSync(join(SHELLED, '..', '..', 'lib', 'marketplace-category-options.ts'), 'utf8'));
   assert.ok(
     /FOLDER_SERVICE_COUNT/.test(explore),
     'explore must use the shared FOLDER_SERVICE_COUNT',

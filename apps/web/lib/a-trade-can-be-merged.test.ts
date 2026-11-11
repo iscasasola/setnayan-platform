@@ -192,7 +192,7 @@ test('a forwarding chain resolves, and a cycle terminates instead of spinning', 
 // nothing reads is indistinguishable from no forwarding, and it looks finished.
 test('the marketplace actually reads the forward map', () => {
   const explore = fs.readFileSync(
-    path.join(REPO, 'apps/web/app/(shell)/explore/page.tsx'),
+    path.join(REPO, 'apps/web/app/(shell)/explore/_lib/marketplace-view.tsx'), // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     'utf8',
   );
   assert.match(explore, /import \{ resolveMergedService \} from '@\/lib\/service-merge-forward'/);

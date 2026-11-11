@@ -1,0 +1,5501 @@
+/**
+ * marketplace-view.tsx — THE supplier marketplace: who may be shown, in what order, and how it is drawn.
+ *
+ * ─── MOVED HERE 2026-11-12, UNCHANGED, FROM `app/(shell)/explore/page.tsx` ─────────────────────────────────
+ * Owner: *"find suppliers needs to be also inside discover already. they do not need to have their own page"*
+ * (DECISION_LOG 2026-11-12 "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"). The page's data loading and its results
+ * rendering moved here so BOTH `/explore` and Discover's supplier view on `/` call ONE pipeline: there is one
+ * definition of who may be shown (`FINDABLE_SHOP_GATE`, `LIVE_SHOP_GATE`, the demo / fraud / inquirable gates), never
+ * a second copy drifting toward showing a hidden shop. Code was MOVED, not rewritten: every comment below still sits
+ * with the code it explains, and the guards that read the old page by path now read this file.
+ *
+ * `surface` is the only new input. `explore` renders byte-for-byte what `/explore` rendered. `discover` changes the
+ * CHROME only — Discover's one search box instead of a second one, Sort ▾ and Filters instead of the chip rows, one
+ * summary line instead of the active-filter bands, links that stay on `/` — never which shops may appear.
+ */
+import 'server-only';
+import Link from 'next/link';
+import Image from 'next/image';
+import { cookies } from 'next/headers';
+import { after } from 'next/server';
+import { runSocialFlush } from '@/lib/social/flush';
+import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
+import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
+import { haversineKm, formatDistanceKm } from '@/lib/geo';
+import { fetchDiscountsWithOffers } from '@/lib/offers.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
+import { displayServiceLabel } from '@/lib/vendors';
+import { formatPhpRounded } from '@/lib/php';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+import {
+  DEMO_MODE_COOKIE_NAME,
+  isAdminProfile,
+} from '@/lib/demo-mode';
+import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
+import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
+import {
+  PUBLIC_SURFACE_VISIBILITIES,
+  isBookable,
+  parseVisibility,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
+import {
+  fetchTrustedReviewStatsForMany,
+  formatStarRating,
+  type TrustedReviewStatsRow,
+} from '@/lib/reviews';
+import { cardRecordEnabled } from '@/lib/card-record-flag';
+import {
+  cardRecordRatingFromTrusted,
+  fetchServiceCardRecords,
+  type CompiledCardRecord,
+} from '@/lib/service-card-record';
+import { EventTypeNotifyForm } from '../_components/event-type-notify-form';
+import { TaxonomySearch } from '../_components/taxonomy-search';
+import { CategoryTile, type CategoryTileData } from '../_components/category-tile';
+import { SaveVendorButton } from '../_components/save-vendor-button';
+import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
+// 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
+// Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
+// non-focused catalog + vendor-grid render branches in favor of IconTileFolderStrip
+// (12 Lucide icon tiles) + StickyMarketplaceHeader (pinned search + filter button)
+// + FilterDrawer (slide-up sheet). The FolderTab TYPE is kept (re-imported as
+// type-only below) because the `tabs` const at the catalog-mode return path
+// still consumes that shape verbatim — IconTileFolderStrip accepts the same
+// structural type so the const passes through unchanged.
+// mega-column-tabs.tsx (the retired FolderTabs component itself) was deleted
+// S40 (0 runtime importers, confirmed dead); IconTileFolderStrip.tsx defines
+// its own `FolderTab` type (structurally identical, per the comment above),
+// so the type import now points there instead.
+import { IconTileFolderStrip, type FolderTab } from '../_components/icon-tile-folder-strip';
+import { countLiveShops, countRealShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
+import {
+  shopsStillSettingUp,
+  unfilteredEmptyGridCopy,
+  type ShopStillSettingUp,
+} from '@/lib/explore-empty-grid';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
+import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
+import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
+import {
+  fetchCoveragesByIdPublic,
+  fetchInclusionsByService,
+  type VendorServiceCoverage,
+  type VendorServiceInclusion,
+} from '@/lib/vendor-service-public';
+import type { VendorServiceDiscount } from '@/lib/vendor-services';
+import { buildServesLine } from '@/lib/service-serves-line';
+import { ServiceCardView } from '@/app/_components/service-card-view';
+import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
+import { StickyMarketplaceHeader } from '../_components/sticky-marketplace-header';
+import { ExploreSearchHero, type ExploreChip } from '../_components/explore-search-hero';
+import type { FilterDrawerProps } from '../_components/filter-drawer';
+import { DiscoverSupplierHead } from '../_components/discover-supplier-head';
+import {
+  FAITH_KEY_TO_LABEL,
+  FAITH_KEY_TO_URL,
+  FAITH_KEYS_ORDER,
+  FAITH_URL_TO_KEY,
+  type FaithKey,
+} from '@/lib/marketplace-faith-options';
+import {
+  TAXONOMY_MAP,
+  WEDDING_FOLDER_LABEL,
+  WEDDING_FOLDER_ORDER,
+  WEDDING_FOLDER_SHORT_LABEL,
+  WEDDING_FOLDER_SLUG,
+  WEDDING_TILE_LABEL,
+  WEDDING_TILE_SLUG,
+  WEDDING_TILE_ORDER,
+  WEDDING_TILES_BY_PARENT,
+  TILE_PARENT,
+  type WeddingFolder,
+  type WeddingTile,
+  type WeddingFaithKey,
+  type TaxonomyEntry,
+  type TaxonomyPhase,
+} from '@/lib/taxonomy';
+import { TAXONOMY_OPTIONS, taxonomyLabel } from '@/lib/marketplace-category-options';
+import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
+import {
+  displayLogoUrl,
+  displayUrlForCatalogueArt,
+  publicUrlForStoredAsset,
+} from '@/lib/uploads';
+import { buildCoupleFaithSet, passesEventTypeFilter, passesFaithFilter } from '@/lib/taxonomy-filters';
+import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
+import {
+  exploreLensScore,
+  offerableExploreLenses,
+  type ExploreVendor,
+} from '@/lib/explore-lens';
+import { LENSES, type LensKey, isLensKey } from '@/lib/ranking-lenses';
+import { planGroupForCanonicalService, resolveAllocationInputs } from '@/lib/budget-allocation-data';
+import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { priceFitScore } from '@/lib/smart-sort';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
+import { resolveMergedService } from '@/lib/service-merge-forward';
+import {
+  resolveEventTypeKeysForToken,
+  type EventTypeSearchOption,
+} from '@/lib/event-type-search';
+import {
+  fetchTopVendorNamesByService,
+  fetchVendorCountsByService,
+  getCanonicalBuckets,
+  type VendorCount,
+} from '@/lib/vendor-counts';
+import { FolderVendorsSection } from '../_components/folder-vendors-section';
+import { fetchUserEvents, formatEventDateWithPrecision, resolvePrimaryHostEvent, type EventDatePrecision } from '@/lib/events';
+import { FollowGate } from '@/app/_components/follow-gate';
+import {
+  computeCandidateWindow,
+  filterVendorsByAvailabilityIntersection,
+  getBatchVendorAvailableDays,
+  getEventCommonAvailability,
+} from '@/lib/vendor-availability';
+import { VendorsAvailabilityBanner } from '../_components/vendors-availability-banner';
+// 2026-05-22 quick-view redesign — see CLAUDE.md decision log row
+// "Ship vendor marketplace card quick-view redesign + 4-badge system".
+// VendorCard replaces the inline VendorMarketCard render and consumes
+// the badge engine + review carousel + service-photo enrichment.
+import { VendorCard } from '../_components/vendor-card';
+import {
+  computeVendorBadges,
+  fetchCompletedBookingCounts,
+  type VendorBadge,
+} from '@/lib/vendor-badges';
+import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
+import { PARTNERSHIP_RANK, isPartnershipKind } from '@/lib/vendor-partnership-kinds';
+import { searchReads, type ReadHit } from '@/lib/site-search';
+import {
+  resolveExploreScope,
+  browseAllVendorsHref,
+  BROWSE_ALL_EVENT_TYPES,
+} from '@/lib/explore-event-type-scope';
+import { discoverSupplierHref } from '@/lib/discover-suppliers';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { formatCount } from '@/lib/format-number';
+
+/** Where the view is drawn — see `MarketplaceView`. */
+export type MarketplaceSurface = 'explore' | 'discover';
+/** The address every self-link is built on: `/explore`, or Discover's `/` (2026-11-12). */
+type MarketplaceBase = '/explore' | '/';
+
+/**
+ * One value per key. Next hands a repeated parameter (`?q=a&q=b`) over as an array, and every reader below calls
+ * `.trim()` on what it gets — the first value is the one the old page would have meant.
+ */
+function singleValued(raw: MarketplaceSearchParams): MarketplaceSearchParams {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const one = Array.isArray(v) ? v[0] : v;
+    if (typeof one === 'string') out[k] = one;
+  }
+  return out as MarketplaceSearchParams;
+}
+
+// Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
+// (no event linked) AND civil ceremonies (secular by nature — no faith tag
+// applies). In both cases the religion-default-on filter doesn't fire.
+type CoupleFaith =
+  | 'Catholic'
+  | 'Christian'
+  | 'INC'
+  | 'Muslim'
+  | 'Cultural'
+  | 'Chinese'
+  | 'Jewish'
+  | 'Born Again'
+  | 'Aglipayan'
+  | 'LDS'
+  | 'SDA'
+  | 'JW'
+  | 'Hindu'
+  | 'Sikh'
+  | 'Buddhist'
+  | 'Orthodox'
+  | null;
+
+function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
+  switch (ceremonyType) {
+    case 'catholic':
+      return 'Catholic';
+    case 'christian':
+      return 'Christian';
+    case 'inc':
+      return 'INC';
+    case 'muslim':
+      return 'Muslim';
+    case 'cultural':
+      return 'Cultural';
+    case 'chinese':
+      return 'Chinese';
+    case 'jewish':
+      return 'Jewish';
+    case 'born_again':
+      return 'Born Again';
+    case 'aglipayan':
+      return 'Aglipayan';
+    case 'lds':
+      return 'LDS';
+    case 'sda':
+      return 'SDA';
+    case 'jw':
+      return 'JW';
+    case 'hindu':
+      return 'Hindu';
+    case 'sikh':
+      return 'Sikh';
+    case 'buddhist':
+      return 'Buddhist';
+    case 'orthodox':
+      return 'Orthodox';
+    default:
+      return null;
+  }
+}
+
+// 🧭 `taxonomyLabel` + `TAXONOMY_OPTIONS` MOVED 2026-11-12, unchanged, to `@/lib/marketplace-category-options` —
+// Discover's "All categories ▾" offers the SAME list from a client component, which cannot import this server-only
+// view. Imported back here, so this view and that dropdown name every category the same way.
+/**
+ * How many services a customer can actually browse inside each folder.
+ * Counted, never typed — the same two exclusions the marketplace itself
+ * applies, so the number on a search row is the number of things they will
+ * find when they land. (Measured 2026-08-12: Attire & make-up 54 · Booths &
+ * carts 42 · Venues 28 · Styling 26 · Hosts & music 20 · Invites & prints 15 ·
+ * Planners 12 · Photo & video 12 · Cars 11 · Catering 7 · the rest ≤3.)
+ *
+ * ⚠ MOVED to `@/lib/taxonomy-folder-counts` on 2026-08-13, unchanged. The
+ * front door's rail shows this same number beside this same folder, and two
+ * private copies of one customer-visible count is how they drift. Imported
+ * here rather than recomputed so a taxonomy edit moves both or neither.
+ */
+
+// Multi-field marketplace text search (owner directive 2026-06-13 — "we just
+// want a search bar … they can search for a category + vendor + service +
+// place or details they can combine and we want to show all that works with
+// their search").
+//
+// Each whitespace token must match SOMETHING: the vendor's business name, its
+// tagline, its city, a service it lists (resolved against the 192-item taxonomy
+// by label/key substring), OR a KIND OF CELEBRATION it serves (resolved against
+// the live event_type_vocab — owner 2026-08-15, "they can also search by type of
+// event"). One PostgREST `.or()` group per token (OR
+// across those fields); chaining one `.or()` per token ANDs the groups, so
+// multiple tokens INTERSECT — "photographer tagaytay" returns photography
+// vendors in Tagaytay only, not the union. Tokens are stripped to [a-z0-9],
+// which removes PostgREST-reserved characters ( , ( ) { } % ) so the predicate
+// string stays well-formed and injection-safe, and drops noise punctuation.
+// Tokens under 2 chars are ignored.
+function resolveServiceKeysForToken(token: string): string[] {
+  const keys: string[] = [];
+  for (const opt of TAXONOMY_OPTIONS) {
+    if (opt.label.toLowerCase().includes(token) || opt.key.includes(token)) {
+      keys.push(opt.key);
+    }
+  }
+  return keys;
+}
+
+// Loose structural type so the deeply-chained PostgREST builder type doesn't
+// instantiate through this helper and trip the TS2589 "excessively deep"
+// ceiling — same widening trick the demo-exclusion `.not()` call uses below.
+// Call sites cast in via `as unknown as OrFilterable` and back out via
+// `as unknown as typeof <builder>`.
+type OrFilterable = { or: (filters: string) => OrFilterable };
+
+function applyMarketplaceTextSearch(
+  builder: OrFilterable,
+  rawQuery: string,
+  /**
+   * The live event-type roster, so a typed occasion resolves to the same keys
+   * the `?event_type=` filter already understands. Passed in — never imported —
+   * because the vocabulary is admin-managed and grows with zero deploys; see
+   * `lib/event-type-search.ts` for why a local copy would be a defect.
+   *
+   * Defaulted to empty so a caller that has not loaded the vocab degrades to
+   * exactly the previous four-axis behaviour rather than throwing.
+   */
+  eventTypeOptions: ReadonlyArray<EventTypeSearchOption> = [],
+): OrFilterable {
+  const tokens = rawQuery
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ''))
+    .filter((t) => t.length >= 2);
+  let q = builder;
+  for (const token of tokens) {
+    const orParts = [
+      `business_name.ilike.%${token}%`,
+      `tagline.ilike.%${token}%`,
+      `location_city.ilike.%${token}%`,
+    ];
+    const serviceKeys = resolveServiceKeysForToken(token);
+    if (serviceKeys.length > 0) {
+      // PostgREST array-overlap predicate inside an `.or()` group — mirrors the
+      // existing `compatible_ceremony_types.cs.{…}` usage further below. The
+      // {…} literal lists the candidate canonical_service keys for this token.
+      orParts.push(`services.ov.{${serviceKeys.join(',')}}`);
+    }
+    // The occasion axis. Same array-overlap shape as services, against the
+    // SAME column the `?event_type=` chip filters on, so typing "debut" and
+    // picking Debut from the filter reach identical rows by identical means.
+    const eventTypeKeys = resolveEventTypeKeysForToken(token, eventTypeOptions);
+    if (eventTypeKeys.length > 0) {
+      orParts.push(`event_types.ov.{${eventTypeKeys.join(',')}}`);
+    }
+    q = q.or(orParts.join(','));
+  }
+  return q;
+}
+
+// Search-first hero (2026-06-13) — a few high-intent quick-search chips under
+// the universal search box. Each is a real V1.1-base canonical_service so the
+// chip lands the visitor in the vendor-grid (`?category=`) results path; sparse
+// pre-launch pools fall through to the existing graceful empty state. Kept
+// short + weddings-first per the owner's "dead simple" directive. NOTE: the
+// `setnayan_*` first-party services are intentionally NOT chipped here — they
+// surface in the search autocomplete + the catalog tiles below, but a
+// `?category=setnayan_papic` grid is currently empty on prod (no publicly-
+// visible first-party listing yet — flagged for owner provisioning).
+const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
+  { label: 'Photographers', href: '/explore?category=photography' },
+  { label: 'Videographers', href: '/explore?category=videography' },
+  { label: 'Caterers', href: '/explore?category=catering' },
+  { label: 'Coordinators', href: '/explore?category=wedding_coordination' },
+  { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
+  { label: 'Cake', href: '/explore?category=wedding_cake' },
+];
+
+// SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
+// enumerating the 12 wedding folders. Each ListItem points at the
+// folder-scoped marketplace URL (`/explore?folder=<slug>` per CLAUDE.md
+// 2026-05-22 row 4 PR #310 folder scope). Lets AI engines extract the
+// taxonomy hierarchy when asked "what kinds of wedding vendors does
+// Setnayan list" + powers SERP sitelink-style category breakouts.
+//
+// Build origin-aware at render time so the `item:` field carries the
+// canonical absolute URL Google + AI engines prefer (relative URLs
+// degrade extraction quality on ItemList).
+function buildVendorsItemListJsonLd(
+  siteUrl: string,
+  tax: Pick<TaxonomySnapshot, 'folderOrder' | 'folderLabel' | 'folderSlug'>,
+): Record<string, unknown> {
+  // The live groups (Admin › Categories) — a group an admin adds, renames or
+  // re-orders is what search engines are told, with no deploy.
+  const folders = tax.folderOrder;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Filipino wedding supplier categories on Setnayan',
+    description:
+      'The 12 wedding-supplier categories Setnayan organizes its Filipino marketplace under.',
+    numberOfItems: folders.length,
+    itemListOrder: 'https://schema.org/ItemListOrderAscending',
+    itemListElement: folders.map((folder, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      name: tax.folderLabel[folder] ?? folder,
+      url: `${siteUrl}/explore?folder=${tax.folderSlug[folder] ?? folder}`,
+    })),
+  };
+}
+
+// The marketplace is public, but the underlying queries hit Supabase with a
+// service-role client so anonymous visitors don't need to install a per-page
+// cookie or burn an auth roundtrip. Each query is scoped to is_published =
+// TRUE so we never leak in-progress profiles.
+
+type SortKey = 'most_reviews' | 'highest_rated' | 'newest' | 'name_asc';
+const SORT_KEYS: ReadonlyArray<SortKey> = [
+  'most_reviews',
+  'highest_rated',
+  'newest',
+  'name_asc',
+];
+const SORT_LABEL: Record<SortKey, string> = {
+  most_reviews: 'Most reviews',
+  highest_rated: 'Highest rated',
+  newest: 'Newest',
+  name_asc: 'Name (A → Z)',
+};
+
+// E3 — the three sorts that get a VISIBLE chip. `name_asc` is deliberately
+// chip-less: it is a lookup order, not a way of judging vendors, and putting it
+// beside the other three would imply alphabetical is a kind of ranking.
+//
+// ⚠ SORT_KEYS is untouched. It feeds the drawer's <select>, and dropping a key
+// would silently stop `?sort=name_asc` round-tripping — the chip row is a second
+// door onto the same mechanism, never a replacement for it.
+const SORT_CHIP_KEYS: ReadonlyArray<SortKey> = ['most_reviews', 'highest_rated', 'newest'];
+
+const PAGE_SIZE = 24;
+
+// Task #48 — couple-facing labels for the venue_setting enum values.
+// ⚠ The list itself is lib/venue-settings.ts; venue-settings.test.ts fails if
+// this map drifts from it. `restaurant` was added 2026-08-05 (owner).
+// Source of truth lives in migration 20260521000000_iteration_0043 's
+// events_venue_setting_check constraint. Re-used by both the catalog
+// Reception facet chips AND the vendor-grid VenueFilterBanner so the
+// host sees the same wording everywhere ("Garden venues only", "Garden
+// Estate" chip, etc.). Keep in sync when V1.2 adds new venue settings.
+//
+// The literal-keyed object type (vs Record<string, string>) lets TS infer
+// each key's value as `string`-not-`string | undefined`, which the
+// RECEPTION_VENUE_FACETS literal below needs to satisfy its own
+// readonly-of-{key,label,combined} shape.
+const VENUE_SETTING_LABEL = {
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
+  restaurant: 'Restaurant',
+  garden: 'Garden',
+  beach: 'Beach',
+  destination: 'Resort / destination',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
+  civil_registrar: "Civil Registrar's Office",
+} as const;
+
+// Shorter form for inline-banner copy ("Garden venues only · your wedding's
+// setting"). Same literal-key shape so the banner doesn't have to defend
+// against undefined.
+const VENUE_SETTING_SHORT_LABEL = {
+  banquet_hall: 'Hotel ballroom',
+  events_place: 'Events place',
+  restaurant: 'Restaurant',
+  garden: 'Garden',
+  beach: 'Beach',
+  destination: 'Destination resort',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
+  civil_registrar: 'Civil registrar',
+} as const;
+
+// Defensive accessor — when a venue_setting key comes from the DB and
+// hasn't been added to the literal map yet (e.g. a V1.2 addition the
+// frontend hasn't picked up), fall back to a Title Case of the key so
+// nothing renders blank. Used by the VenueFilterBanner + FilterBar copy.
+function venueSettingLongLabel(key: string): string {
+  return (VENUE_SETTING_LABEL as Record<string, string>)[key]
+    ?? key.replace(/_/g, ' ');
+}
+function venueSettingShortLabel(key: string): string {
+  return (VENUE_SETTING_SHORT_LABEL as Record<string, string>)[key]
+    ?? key.replace(/_/g, ' ');
+}
+
+export type MarketplaceSearchParams = {
+    q?: string;
+    category?: string;
+    city?: string;
+    sort?: string;
+    page?: string;
+    verified?: string;
+    match?: string;
+    /** Off-Season Promos (Wave 5) — `?offseason=1` narrows the grid to
+     *  vendors with a live off-peak offer. */
+    offseason?: string;
+    event_type?: string;
+    /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
+     *  /vendors/compare here with `notice=compare_v1_2`. The compare tool
+     *  since SHIPPED (/explore/compare), so the banner no longer promises
+     *  a "coming" feature: it points at the live tool + how to reach it
+     *  (save ≥2 vendors). Wayfinding 2026-07-15. */
+    notice?: string;
+    /** Task #47 · CLAUDE.md 2026-05-22 — when present and resolves to one
+     *  of WEDDING_FOLDER_ORDER, scopes the catalog to a single folder
+     *  section. Driven by the dashboard planning-group [Search] buttons,
+     *  which set `?folder=reception#reception` (etc.) so couples landing
+     *  on Reception don't also see the entire Ceremony folder + its
+     *  church/mosque venue cards directly above. Absent on the universal
+     *  Browse entry (top-nav, sitemap, direct visit) so the full
+     *  12-folder catalog renders as before. Invalid values fall back to
+     *  unscoped catalog. */
+    folder?: string;
+    /** 10-parent model (2026-05-31) — tile-scoped vendor grid. `?tile=<slug>`
+     *  filters the grid to that tile's canonical set. Set by dashboard
+     *  planning-group [Search] buttons + catalog tile cards. */
+    tile?: string;
+    /** Task #48 · CLAUDE.md 2026-05-22 — venue_setting default-on filter
+     *  for the Reception folder. When the host's primary event has a
+     *  picked `events.venue_setting` AND they're viewing Reception (catalog
+     *  mode with ?folder=reception, OR vendor-grid mode anchored to a
+     *  venue-typed canonical), the marketplace defaults to filtering
+     *  vendor_profiles whose `compatible_venue_settings` array contains
+     *  the host's setting. Mirrors the religion-match shape from PR #305:
+     *  default ON when present, toggle OFF via `?venue=0`. Absent (default
+     *  null) is treated as "on when applicable, off when the host has no
+     *  venue_setting". Composes cleanly with ?match=1/0 (religion) and
+     *  ?folder=reception (catalog scope). */
+    venue?: string;
+    /** Marketplace focused-mode toggle (owner directive 2026-05-22).
+     *  When set to 'plan', the host arrived from a planning card or
+     *  locked-vendor "Switch vendor" follow-up — they're already in
+     *  "find a vendor for this category" flow. Strip the marketplace
+     *  chrome: hide MARKETPLACE eyebrow + headline + paragraph + "Browse
+     *  all 192 categories" back-link + "SHOWING:" pill + City + Sort By
+     *  + Verified-only + Match-my-wedding toggles + Apply/Clear buttons.
+     *  Search box + vendor list + pagination stay always-rendered. The
+     *  folder= / category= / match= / venue= filters still narrow the
+     *  query silently — only the FILTER UI is hidden.
+     *
+     *  Set by `buildPlanGroupSearchHref` in `lib/wedding-plan-groups.ts`
+     *  (now used by the todays-one-thing hero CTA — the planning-groups
+     *  [Search], event-home detail-pane Browse, and next-steps CTAs were
+     *  all removed with their surfaces). Direct
+     *  visits to /vendors (top-nav
+     *  Browse, sitemap, /realstories, /venue, /waitlist, /not-found, etc.)
+     *  never set this param so the full chrome renders unchanged. */
+    from?: string;
+    /** 2026-05-30 — Ceremony Faith pill (StickyMarketplaceHeader contextual
+     *  narrow). Lowercase faith key (`catholic` / `christian` / `inc` /
+     *  `muslim` / `cultural`). Maps to the TitleCase faith key the
+     *  TAXONOMY_MAP uses internally. Only meaningful when the catalog is
+     *  Ceremony-scoped (`folder=ceremony`); other folders ignore the
+     *  param so a stale link from a Catholic-pinned share doesn't
+     *  unexpectedly narrow Photography or Catering. Absent / typo /
+     *  unknown → no narrow applied. */
+    faith?: string;
+    /** 2026-06-14 search-first — `?browse=1` opts back into the curated browse
+     *  catalog (icon-tile strip + Ceremony/Reception venue pickers + per-folder
+     *  sections) below the search hero. A bare /vendors visit now shows the
+     *  search hero + popular chips ONLY; the catalog renders only with this
+     *  flag or the ?folder=/?tile=/?from=plan deep-links dashboard planning
+     *  cards set. */
+    browse?: string;
+    /** The ranking lens the visitor picked (owner 2026-08-29). Validated against
+     *  the approved registry in `parseFilters`; an unknown value is null, never
+     *  a fallback to a different lens. */
+    lens?: string;
+    /** Discover only (2026-11-12): any other key the front page carries (`q` is shared) — ignored here. */
+    [key: string]: string | string[] | undefined;
+};
+
+// Single-source notice copy for query-string-driven banners on /vendors. Add
+// new entries here as future deferred features start redirecting through the
+// same gateway pattern; keep the brand voice (no dev text) per
+// `feedback_setnayan_no_dev_text_post_launch`.
+const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
+  compare_v1_2: {
+    title: 'Compare suppliers side by side.',
+    body:
+      'Save two or more suppliers to your shortlist, then open the comparison to see location, rating, services and faith fit next to each other.',
+  },
+};
+
+/**
+ * Compare-shortlist doorway (route-wayfinding 2026-07-15). /explore/compare is a
+ * live 2-up comparison tool that reads `?ids=<uuid>,<uuid>` (capped at 2, redirects
+ * back to /explore below two). It had no in-app door — the marketplace only carried
+ * a stale "coming in V1.2" banner. This renders the real door once the couple has
+ * saved ≥2 vendors, linking the two earliest saves. Null href → nothing renders.
+ */
+function CompareShortlistBanner({ compareHref }: { compareHref: string | null }) {
+  if (!compareHref) return null;
+  return (
+    <div
+      role="status"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
+          <span className="text-ink/70">
+            Put two saved suppliers side by side — location, rating, services, faith fit.
+          </span>
+        </p>
+        <Link
+          href={compareHref}
+          className="shrink-0 inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          Compare →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
+  if (!noticeKey) return null;
+  const copy = VENDORS_NOTICE_COPY[noticeKey];
+  if (!copy) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto w-full px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">{copy.title}</span>{' '}
+          <span className="text-ink/70">{copy.body}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Iteration 0041 — multi-event support. Filter chip on `vendor_profiles.event_types[]`.
+// DB-driven since the 2026-06-13 cutover: the allowlist is every ACTIVE
+// `event_type_vocab` key (admin-managed at /admin/event-types), validated in
+// the page body after the vocab fetch — parseFilters only shape-checks the
+// raw param. EventTypeFilter is therefore an open string, not a closed union.
+type EventTypeFilter = string;
+const EVENT_TYPE_PARAM_RE = /^[a-z][a-z0-9_]{0,40}$/;
+
+type VendorCardRow = {
+  /** E10 — true only when the anonymity read genuinely answered for this row. */
+  anonymity_resolved?: boolean;
+  vendor_profile_id: string;
+  public_id: string;
+  business_name: string;
+  business_slug: string | null;
+  tagline: string | null;
+  logo_url: string | null;
+  services: string[];
+  location_city: string | null;
+  hq_latitude: number | null;
+  hq_longitude: number | null;
+  // No contact_email (2026-09-10): the marketplace never rendered it, and a
+  // public page that never fetches a shop's address can never print it.
+  public_visibility: VendorPublicVisibility;
+  created_at: string;
+  // Iteration 0006 — sourced from vendor_market_stats view (see migration
+  // 20260601020000). avg_rating + review_count let the marketplace card
+  // render without a second SELECT.
+  avg_rating_overall: number;
+  review_count: number;
+  // Sort key #1 (first-party Setnayan canonicals float above all else —
+  // owner directive 2026-05-22 PM). Selected so the Phase C in-memory
+  // rating/review re-sort can preserve this precedence explicitly.
+  is_setnayan_service?: boolean | null;
+  // PR brief 2026-05-22 evening — demo-mode marketplace simulation.
+  // Optional because (a) Agent 1's `is_demo` column may not be on main
+  // yet, and (b) the vendor_market_stats view doesn't currently surface
+  // it. Populated post-query via a targeted lookup against
+  // vendor_profiles below. Cards with `is_demo=TRUE` render a DEMO chip
+  // and the starting price (when one exists). Cards with `is_demo` null
+  // or false render exactly as before.
+  is_demo?: boolean | null;
+  // Starting price label for demo vendors — computed only when demo
+  // mode is on. `null` means the vendor has no starting price set OR
+  // demo mode is off; either way the card renders without the price
+  // row. Real-vendor cards never populate this in V1 (the 2026-05-16
+  // hide-prices lock).
+  demo_starts_at_label?: string | null;
+  // 2026-05-22 quick-view enrichment additions. All optional + null-
+  // safe — the new VendorCard handles missing values by hiding the
+  // surface, never by surfacing a placeholder.
+  /** `vendor_profiles.verification_state` — pulled in a targeted
+   *  follow-up read because the `vendor_market_stats` view didn't
+   *  carry it pre-2026-05-22. Drives the badge engine in
+   *  `lib/vendor-badges.ts`. */
+  verification_state?: string | null;
+  /** `vendor_profiles.next_renewal_due_at` — the Verified badge's deadline
+   *  (owner 2026-09-11 · Q4 + Q5). Same follow-up batch; the badge engine
+   *  withholds `verified` past it while the shop stays listed. */
+  next_renewal_due_at?: string | null;
+  /** V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
+   *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+   *  [[project_setnayan_vendor_hybrid_anonymity]]). Pulled in the
+   *  same vendor_profiles follow-up batch as verification_state.
+   *  NULL = hide the business_name in marketplace cards (Free +
+   *  Verified pre-first-reply) · non-NULL = name globally revealed.
+   *  Card consumes via VendorCardData.name_revealed_at +
+   *  `resolveVendorDisplayName` in lib/vendors.ts. */
+  name_revealed_at?: string | null;
+  /** CLAUDE.md 2026-05-30 refinement row · screen_name field. Bark-
+   *  format anonymized name like "Manila Wedding Photographer #4218"
+   *  generated at signup by `generate_screen_name_for_vendor()`
+   *  function (migration `20260714000000`). When present, surfaces use
+   *  this instead of computing the taxonomy-and-city placeholder.
+   *  Pulled in the same vendor_profiles batched read as
+   *  verification_state + name_revealed_at. Null = vendor doesn't have
+   *  a screen_name yet (pre-backfill OR venue-exempt vendor where the
+   *  generator deliberately skipped). */
+  screen_name?: string | null;
+  /** Phase C tier gate (vendor-tier-caps). `tier_state` enum on
+   *  vendor_profiles (free | verified | pro | enterprise). NOT carried by
+   *  the vendor_market_stats view, so pulled in the SAME vendor_profiles
+   *  follow-up batch as verification_state / name_revealed_at / screen_name.
+   *  Drives the day-1 name reveal (isTrueNameTier → pro/enterprise show the
+   *  real business_name). It no longer drives any review gate — reviews are
+   *  merit-only on every tier (owner ruling re-confirmed 2026-08-09). Null =
+   *  pre-migration deploy → free → name still hidden. */
+  tier_state?: string | null;
+  /** Resolved public URL for the vendor's hero service photo
+   *  (`vendor_services.primary_photo_r2_key` → publicUrlForStoredAsset). Null when
+   *  the vendor has no service with a photo set. */
+  primary_photo_url?: string | null;
+  /** Lowest active `vendor_services.starting_price_php` across all
+   *  the vendor's services. Real-vendor cards intentionally render
+   *  this only when present + the page is in demo mode OR the
+   *  vendor opts in (V1 hide-prices lock kept). */
+  starting_price_php?: number | null;
+  /**
+   * Relationship depth between this couple's active event and the vendor (0–3).
+   * Set post-query in the enrichment loop from event_vendors + vendor_event_unlocks.
+   * 0 (default) = no relationship / logged-out visitor.
+   */
+  relationship_depth?: 0 | 1 | 2 | 3;
+  /**
+   * PR #6 — quality / activity signals from vendor_activity_stats.
+   * quality_score: 0–100 composite. NULL when no row exists yet (default = 50 for sort).
+   * finalized_booking_count, last_active_at, avg_response_minutes for badge chips.
+   */
+  quality_score?: number | null;
+  finalized_booking_count?: number | null;
+  last_active_at?: string | null;
+  avg_response_minutes?: number | null;
+  replied_thread_count?: number | null;
+  /**
+   * PR #6 — partnership badge resolved from vendor_partnerships.
+   * NULL = no mutually-accepted partnership to a shortlisted couple vendor.
+   */
+  partnership_badge?: {
+    relationship_type: 'included_in_package' | 'discounted_together' | 'accredited' | 'general';
+    recommending_vendor_name: string;
+    discount_pct: number | null;
+  } | null;
+  /**
+   * Off-Season Promos (Wave 5). A LIVE off-peak offer on one of the vendor's
+   * active services — `discount_type='off_peak'` with a future expiry. Set in
+   * the enrichment loop from `servicesByVendorId`. Null = no live deal. Drives
+   * the "Off-season savings" badge on the card + the `?offseason=1` filter.
+   */
+  off_peak_offer?: { value: number; expiresAt: string } | null;
+};
+
+/** Reverse map: tile URL slug (e.g. `photo-video`) → WeddingTile key. */
+const SLUG_TO_TILE: Map<string, WeddingTile> = new Map(
+  (Object.entries(WEDDING_TILE_SLUG) as [WeddingTile, string][]).map(
+    ([tile, slug]) => [slug, tile],
+  ),
+);
+
+function parseFilters(
+  raw: MarketplaceSearchParams,
+  /** The live group ids (Admin › Categories) — a new group is filterable by URL at once. */
+  folderOrder: readonly string[],
+  /** Where self-links point (2026-11-12): `/explore`, or Discover's `/`. */
+  base: MarketplaceBase = '/explore',
+): {
+  /** Where every self-link this view builds points — see `buildHref`. */
+  base: MarketplaceBase;
+  q: string;
+  // `category` is the marketplace "filter by service" param. It can be:
+  //   - one of the 28-enum VendorCategory keys (set by the chip UI)
+  //   - one of the 192 canonical_service keys from TAXONOMY_MAP (set by
+  //     the /vendors/categories browser or the taxonomy autocomplete)
+  // The query at .contains('services', [category]) treats either form
+  // as an opaque string and matches when vendor.services[] includes it.
+  // Categories not yet stocked with vendors hit the empty state —
+  // documented V1.1 progressive-launch behavior, not a bug.
+  category: string | null;
+  city: string;
+  sort: SortKey;
+  page: number;
+  verifiedOnly: boolean;
+  matchEvent: boolean;
+  /** Off-Season Promos (Wave 5) — `?offseason=1` narrows the grid to vendors
+   *  running a LIVE off-peak offer (a `vendor_services` row with
+   *  `discount_type='off_peak'` AND `discount_expires_at > now()`). OFF by
+   *  default. */
+  offSeason: boolean;
+  eventType: EventTypeFilter | null;
+  /** Task #47 — catalog-mode folder scope. When set to one of the 12
+   *  WeddingFolder values, CatalogView renders only that single section.
+   *  Source: dashboard plan-search CTAs (e.g. the todays-one-thing hero).
+   *  Absent / invalid → render all 10 parents (universal Browse). */
+  folder: WeddingFolder | null;
+  /** 10-parent model (2026-05-31) — tile-scoped vendor grid. When set to a
+   *  valid WeddingTile (decoded from `?tile=<slug>`), the vendor grid filters
+   *  to that tile's canonical set (overlaps). Set by dashboard planning-group
+   *  [Search] buttons + catalog tile cards. Absent / invalid → no tile scope. */
+  tile: WeddingTile | null;
+  /** Task #48 — venue_setting default-on toggle. Three states:
+   *   - `'on'` (default when absent OR `?venue=1`): apply the host's
+   *     `events.venue_setting` as a filter on `compatible_venue_settings`
+   *     whenever the marketplace is anchored to Reception (folder=reception
+   *     in catalog mode, OR vendor-grid mode where the URL carries venue=1).
+   *   - `'off'` (`?venue=0`): explicit opt-out — broaden the result set to
+   *     include vendors compatible with any venue setting.
+   * Anonymous browsers + hosts without a venue_setting picked treat
+   * 'on' as a no-op (no filter applies; toggle stays hidden). */
+  venueDefault: 'on' | 'off';
+  /** 2026-05-22 evening (Pull V1.2 venue directory forward) — when `?venue=`
+   *  carries an explicit facet key (banquet_hall, garden, beach, destination,
+   *  heritage, outdoor_tent), this surfaces it. Null when the URL is using
+   *  the on/off toggle form. Drives the Reception folder's <FacetFilterBar>
+   *  active-chip highlight + the card grid filter override (explicit pick
+   *  wins over host's default-on setting so a host who picked Garden at
+   *  event creation can still browse Beach venues). */
+  venueFacet: string | null;
+  /** Owner directive 2026-05-22 — focused-mode chrome toggle. TRUE when
+   *  the URL carries `?from=plan` (set by dashboard planning cards via
+   *  buildPlanGroupSearchHref). Hides the marketplace MARKETPLACE eyebrow
+   *  + headline + paragraph + "Browse all 192 categories" back-link +
+   *  "SHOWING:" pill + FilterBar (City + Sort By + Verified-only + Match-
+   *  my-wedding + Apply / Clear). Search box + vendor list + pagination
+   *  stay always-rendered. Filter logic still applies silently — host
+   *  just doesn't see the filter UI. */
+  focusedMode: boolean;
+  /** The RANKING LENS the visitor picked (`?lens=`), or null. Validated against
+   *  the approved registry — an unknown value is null, never a guess. It is only
+   *  APPLIED if the page can honestly offer it; see the ordering pass. */
+  lens: LensKey | null;
+  /** Owner directive 2026-05-30 — contextual sub-category filter inline
+   *  with search. Per-folder axis: Ceremony surfaces a Faith pill
+   *  (catholic / christian / inc / muslim / cultural) so couples narrow
+   *  the 17-tile ceremony grid to their own tradition. Null = no narrow
+   *  applied (default).
+   *
+   *  Composition with religion-default-on (matchEvent + coupleFaith):
+   *  explicit faithFilter WINS over the auto-derived coupleFaith — a host
+   *  picked Garden but exploring Beach venues should be able to do the
+   *  same for ceremonies (Catholic couple browsing Muslim Imams for a
+   *  sibling's interfaith wedding context, etc.).
+   *
+   *  Other folders' contextual filters can layer in here as new keys
+   *  (venue style for Reception, editing style for Photo & Video, etc.).
+   *  For V1 scope today we only ship Ceremony.faith. */
+  faithFilter: FaithKey | null;
+} {
+  const q = (raw.q ?? '').trim();
+  const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
+    ? (raw.sort as SortKey)
+    : 'most_reviews';
+  // Accept any non-empty string (28-enum OR canonical_service from the
+  // 192-taxonomy). Length-cap + character-class guard against injection
+  // — the value flows into a PostgREST `.contains()` predicate.
+  const rawCategory = (raw.category ?? '').trim();
+  const category = rawCategory.length > 0 && rawCategory.length <= 64
+    && /^[a-z0-9_]+$/i.test(rawCategory)
+    ? rawCategory
+    : null;
+  const city = (raw.city ?? '').trim();
+  const pageRaw = Number(raw.page ?? '1');
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  // Verified-only toggle (locked 2026-05-15) — OFF by default; ON filters
+  // marketplace to vendors with public_visibility = 'verified' only.
+  const verifiedOnly = raw.verified === '1' || raw.verified === 'on';
+  // Match-my-wedding toggle (iteration 0043, 2026-05-20) — OFF by default;
+  // ON filters marketplace to vendors whose compatible_ceremony_types +
+  // compatible_venue_settings include the couple's primary event values.
+  // No-op (toggle hidden) for non-logged-in visitors and couples without
+  // an event yet.
+  const matchEvent = raw.match === '1' || raw.match === 'on';
+  // Off-Season Promos (Wave 5) — `?offseason=1` narrows to vendors with a
+  // live off-peak offer. OFF by default (so the bare marketplace is unchanged).
+  const offSeason = raw.offseason === '1' || raw.offseason === 'on';
+  // Iteration 0041 — event-type filter. Restricts the marketplace to
+  // vendors who serve a specific event_type (debut, gender_reveal, etc.).
+  // Default null = show vendors who serve any event_type. The CHECK
+  // constraint on vendor_profiles.event_types guarantees every vendor
+  // serves at least one type; existing wedding vendors were backfilled
+  // to ['wedding'] in migration 20260521090000.
+  const eventType = EVENT_TYPE_PARAM_RE.test(raw.event_type ?? '')
+    ? ((raw.event_type as string) as EventTypeFilter)
+    : null;
+  // Task #47 — catalog-mode folder scope. Validate against the canonical
+  // 12-folder enum. Invalid / typo / null all fall back to unscoped.
+  const rawFolder = (raw.folder ?? '').trim();
+  const folder = folderOrder.includes(rawFolder)
+    ? (rawFolder as WeddingFolder)
+    : null;
+  // 10-parent model — tile scope from `?tile=<slug>`. Decode the hyphenated
+  // slug back to the WeddingTile key; invalid / typo / absent → null.
+  const rawTile = (raw.tile ?? '').trim();
+  const tile = SLUG_TO_TILE.get(rawTile) ?? null;
+  // Task #48 — venue default-on toggle. Default 'on' (apply host's
+  // venue_setting when applicable). `?venue=0` explicit opt-out. Anything
+  // else collapses to 'on'. The "applicable" check (host has a
+  // venue_setting + we're in Reception scope) happens at the query layer
+  // where we have the event data; this just decodes the URL signal.
+  //
+  // 2026-05-22 evening — the same `?venue=` param now also accepts explicit
+  // facet keys (banquet_hall, garden, beach, destination, heritage,
+  // outdoor_tent, civil_registrar). When set, the Reception folder's
+  // <FacetFilterBar> reads the value as the active chip; the card grid
+  // narrows accordingly. Three decoded states:
+  //   • '0'                   → venueDefault='off', venueFacet=null
+  //   • '1' / 'on' / absent   → venueDefault='on',  venueFacet=null
+  //   • <facet_key>           → venueDefault='on',  venueFacet=<facet_key>
+  const VENUE_FACET_KEYS = new Set([
+    'banquet_hall', 'events_place', 'restaurant', 'garden', 'beach', 'destination',
+    'heritage', 'outdoor_tent', 'civil_registrar',
+  ]);
+  const rawVenue = (raw.venue ?? '').trim();
+  const venueDefault = rawVenue === '0' ? ('off' as const) : ('on' as const);
+  const venueFacet = VENUE_FACET_KEYS.has(rawVenue) ? rawVenue : null;
+  // Owner directive 2026-05-22 — focused-mode flag. Only one accepted
+  // value (`plan`) so a typo or future surface adding another `from=`
+  // value doesn't accidentally trip the chrome-stripped layout. Set by
+  // 3 in-dashboard surfaces (planning cards Search, todays-one-thing,
+  // event-home-detail-pane Browse vendors) via the canonical
+  // buildPlanGroupSearchHref helper — the next-steps surface was
+  // removed 2026-05-24. Direct visits never set it.
+  const focusedMode = (raw.from ?? '').trim() === 'plan';
+  // 2026-05-30 — Ceremony Faith pill. URL value is lowercase for clean
+  // hrefs (?faith=catholic) and maps to the TitleCase faith key the
+  // taxonomy uses internally ('Catholic'). Unknown values fall back to
+  // null (no narrow applied) so typos don't break the page.
+  const rawFaith = (raw.faith ?? '').trim().toLowerCase();
+  const faithFilter = (FAITH_URL_TO_KEY[rawFaith] ?? null) as FaithKey | null;
+  // An unrecognised ?lens= is null, not a fallback to some other lens: a
+  // stale or hand-typed link must land on today's ordering, never on a
+  // different one silently.
+  const rawLens = typeof raw.lens === 'string' ? raw.lens : '';
+  const lens: LensKey | null = isLensKey(rawLens) ? rawLens : null;
+  return {
+    base,
+    q,
+    category,
+    city,
+    sort,
+    page,
+    verifiedOnly,
+    matchEvent,
+    offSeason,
+    eventType,
+    folder,
+    tile,
+    venueDefault,
+    venueFacet,
+    focusedMode,
+    faithFilter,
+    lens,
+  };
+}
+
+// 2026-11-12 — the faith lookups (FaithKey · FAITH_URL_TO_KEY · FAITH_KEY_TO_URL · FAITH_KEY_TO_LABEL ·
+// FAITH_KEYS_ORDER) moved, unchanged and with their comments, to `lib/marketplace-faith-options.ts`, so
+// Discover's Shops shelf can offer the same faiths without loading this server-only view.
+
+/**
+ * Off-Season Promos (Wave 5) — the set of vendor_profile_ids that have a LIVE
+ * off-peak offer right now: at least one ACTIVE `vendor_services` row with
+ * `discount_type='off_peak'` AND `discount_expires_at > now()`. Used only when
+ * the `?offseason=1` filter is on, to constrain the marketplace query (the
+ * `vendor_market_stats` view doesn't carry the per-service discount columns,
+ * so we resolve the eligible vendor set here and `.in()` it — same shape as
+ * the demo-vendor include/exclude pattern). Fail-soft: returns [] on error so
+ * a DB hiccup degrades to "no off-season matches" rather than a 500.
+ */
+async function fetchLiveOffPeakVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+  try {
+    // Discounts moved to vendor_service_discounts (migration 20270502342558).
+    // Embed vendor_services to keep the active-service constraint (admin client
+    // bypasses RLS, so we filter is_active explicitly via the inner join).
+    const { data, error } = await admin
+      .from('vendor_service_discounts')
+      .select('vendor_profile_id, vendor_services!inner(is_active)')
+      .eq('discount_type', 'off_peak')
+      .gt('rate', 0)
+      .not('expires_at', 'is', null)
+      .gt('expires_at', new Date().toISOString())
+      .eq('vendor_services.is_active', true);
+    if (error) {
+      console.warn('[off-season] fetchLiveOffPeakVendorIds failed:', error.message);
+      return [];
+    }
+    const ids = new Set<string>();
+    for (const row of data ?? []) {
+      const id = (row as { vendor_profile_id?: string }).vendor_profile_id;
+      if (id) ids.add(id);
+    }
+    // 🏷 …and every shop running an "Event date in a season" offer (Build 6 Lane D — the Offer Maker IS the off-season
+    // offer, DECISION_LOG 2026-11-11): switched on, its season not over, still bookable. Fail-soft like the read above.
+    const today = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const { data: seasons, error: seasonErr } = await admin
+      .from('vendor_offers')
+      .select('vendor_profile_id, until_date')
+      .eq('who', 'season')
+      .eq('is_on', true)
+      .gte('season_to', today);
+    if (seasonErr) console.warn('[off-season] season offers read failed:', seasonErr.message);
+    for (const row of (seasons ?? []) as { vendor_profile_id: string; until_date: string | null }[]) {
+      if (!row.until_date || row.until_date >= today) ids.add(row.vendor_profile_id);
+    }
+    return [...ids];
+  } catch (e) {
+    console.warn('[off-season] fetchLiveOffPeakVendorIds threw:', e);
+    return [];
+  }
+}
+
+/**
+ * Couple-side serves filter (service-card redesign · couple payoff 2026-07-03)
+ * — the vendor_profile_ids to EXCLUDE for a `?faith=<X>` narrow, resolved from
+ * the vendors' own `vendor_coverages.faiths` declarations.
+ *
+ * Matching rule: a vendor MATCHES faith X when ANY of their coverage rows
+ * either has an EMPTY `faiths[]` (empty = all faiths welcomed — the column
+ * contract from migration 20270502342558) OR explicitly contains X (TITLE-CASE
+ * faithCol, strict equality). Vendors with ZERO coverage rows also MATCH:
+ * legacy vendors simply haven't declared who they serve yet, and hiding them
+ * behind every faith narrow would silently blank the marketplace (the
+ * "not enough data ≠ blocked" rule). The filter is therefore an EXCLUSION —
+ * only vendors who DID declare coverage faiths and whose rows all fail to
+ * admit X get filtered out.
+ *
+ * One read of (vendor_profile_id, faiths) with the sets computed in-memory:
+ * this sidesteps PostgREST array-literal quoting for multi-word faith keys
+ * ("Born Again") and keeps the zero-coverage rule exact. The table is tiny at
+ * V1 scale (founder-only marketplace; rows = vendors × declared leaves).
+ * Fail-soft: on error return [] (exclude nobody) so a DB hiccup degrades to
+ * the unfiltered marketplace rather than a 500.
+ */
+async function fetchFaithMismatchVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+  faithCol: string,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin
+      .from('vendor_coverages')
+      .select('vendor_profile_id, faiths');
+    if (error) {
+      console.warn('[faith-filter] fetchFaithMismatchVendorIds failed:', error.message);
+      return [];
+    }
+    const declared = new Set<string>();
+    const matched = new Set<string>();
+    for (const row of (data ?? []) as Array<{
+      vendor_profile_id?: string;
+      faiths?: string[] | null;
+    }>) {
+      const id = row.vendor_profile_id;
+      if (!id) continue;
+      declared.add(id);
+      const faiths = row.faiths ?? [];
+      if (faiths.length === 0 || faiths.includes(faithCol)) matched.add(id);
+    }
+    return [...declared].filter((id) => !matched.has(id));
+  } catch (e) {
+    console.warn('[faith-filter] fetchFaithMismatchVendorIds threw:', e);
+    return [];
+  }
+}
+
+/**
+ * Look up the minimum `starting_price_php` per vendor_profile_id for
+ * the given list — used only for demo-mode marketplace card pricing.
+ * Returns a Map for O(1) lookup at render time.
+ *
+ * Non-demo vendors never reach this function: the caller gates on
+ * `is_demo` membership. So this is exclusively a demo-mode read.
+ */
+async function fetchDemoStartingPrices(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorIds: ReadonlyArray<string>,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (vendorIds.length === 0) return out;
+  try {
+    const { data, error } = await admin
+      .from('vendor_services')
+      .select('vendor_profile_id, starting_price_php, is_active')
+      .in('vendor_profile_id', vendorIds as string[]);
+    if (error) {
+      console.warn('[demo-mode] fetchDemoStartingPrices failed:', error.message);
+      return out;
+    }
+    for (const row of data ?? []) {
+      const vpId = row.vendor_profile_id as string;
+      const isActive = (row as { is_active?: boolean }).is_active !== false;
+      const price = (row as { starting_price_php?: number | null })
+        .starting_price_php;
+      if (!isActive || price === null || price === undefined || price <= 0) {
+        continue;
+      }
+      const current = out.get(vpId);
+      if (current === undefined || price < current) {
+        out.set(vpId, price);
+      }
+    }
+    return out;
+  } catch {
+    return out;
+  }
+}
+
+export async function MarketplaceView({
+  raw: rawIn,
+  surface,
+}: {
+  /** The address's parameters, already awaited. */
+  raw: MarketplaceSearchParams;
+  /**
+   * WHERE THE VIEW IS DRAWN (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED").
+   *   `explore`  — `/explore`, exactly as it rendered before the move.
+   *   `discover` — Discover's supplier view on `/`: the same pipeline and the same cards, under Discover's chrome
+   *                (one search box — the top bar's; Sort ▾ and Filters instead of the chip rows; links stay on `/`).
+   */
+  surface: MarketplaceSurface;
+}) {
+  const raw = singleValued(rawIn);
+  // One taxonomy read per request (React `cache()`), shared with every later reader on this page.
+  const pageTax = await getTaxonomy();
+  let filters = parseFilters(raw, pageTax.folderOrder, surface === 'discover' ? '/' : '/explore');
+  const admin = createAdminClient();
+
+  // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
+  // parseFilters only shape-checked ?event_type=; here it's validated against
+  // the live roster (unknown / retired keys fall back to null = no filter).
+  // ── AN OLD TRADE KEY STILL LANDS ON ITS REPLACEMENT ──────────────────────
+  // `?category=` is the one trade key that travels OUTSIDE our tables — onto a
+  // printed QR, a save-the-date, a bookmark, a link we emitted a year ago. When
+  // an admin folds one trade into another, every row we hold is moved by
+  // `merge_canonical_service()`, but those links still name the old word, and
+  // `.contains('services', [category])` would match nothing: the visitor gets
+  // an empty marketplace that reads as "nobody does this" rather than "we call
+  // it something else now".
+  //
+  // 🔑 THIS IS THE READER, AND IT SHIPS WITH THE WRITER ON PURPOSE. Slug
+  // forwarding for renamed web addresses was written in this repo and had NO
+  // READER FOR MONTHS while two screens promised it worked.
+  //
+  // Fails open: an unknown key is returned unchanged, so this can never become
+  // a gate on a category nobody has merged.
+  const mergeForwards = await getServiceMergeForwards();
+  if (filters.category) {
+    const forwarded = resolveMergedService(filters.category, mergeForwards);
+    if (forwarded !== filters.category) {
+      filters = { ...filters, category: forwarded };
+    }
+  }
+
+  // The RAW parameter, before the vocab narrowing below nulls anything it does
+  // not recognise — `all` is deliberately not a vocab key, so the resolver has
+  // to see the parameter as it arrived.
+  const rawEventTypeParam = (raw.event_type ?? '').trim().toLowerCase();
+  const eventTypeVocab = await getEventTypeVocab();
+  const eventTypeKeys = new Set(eventTypeVocab.map((t) => t.key));
+  const eventTypeLabel = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  if (filters.eventType && !eventTypeKeys.has(filters.eventType)) {
+    filters = { ...filters, eventType: null };
+  }
+  // The occasion axis of the free-text search + the occasion picker both read
+  // this ONE list, so a kind of celebration a visitor can TYPE is always a kind
+  // they can also PICK, and vice versa. Owner 2026-08-15.
+  const eventTypeSearchOptions: EventTypeSearchOption[] = eventTypeVocab.map(
+    (t) => ({ key: t.key, label: t.label }),
+  );
+
+  // 0043 compatibility hooks — resolve the viewer's couple-side primary event
+  // BEFORE the marketplace query is built so the compatibility filter can
+  // attach onto the query when ?match=1 is set. The same `user` + supabase
+  // client are reused for the follow-set lookup below (saves one auth roundtrip).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // PR brief 2026-05-22 evening — demo-mode resolution. Cheap fast
+  // path: skip the admin check entirely unless the cookie is present.
+  // When ON for an admin session, the marketplace additionally surfaces
+  // is_demo=TRUE vendor rows; cards render a DEMO chip + starting price.
+  const cookieStore = await cookies();
+  const hasDemoCookie =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
+  let inDemoMode = false;
+  if (hasDemoCookie && user) {
+    // ⛔ NOT A DEFECT — DO NOT BIND-AND-SURFACE THIS ONE. A refused read leaves
+    // `viewerProfile` null, `isAdminProfile(null)` is false, and demo mode stays
+    // OFF. Absence DENIES here, which is the correct failure mode for a
+    // privilege check: the failure withholds a capability rather than granting
+    // one. Binding an error and reporting it would only add noise to a public
+    // page for a case that is already safe.
+    const { data: viewerProfile } = await supabase
+      .from('users')
+      .select('account_type, is_internal, is_team_member')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    inDemoMode = isAdminProfile(viewerProfile);
+  }
+
+  let coupleEventId: string | null = null;
+  // True when the couple's event could not be READ (not when they simply have
+  // no event) — the two are different and only the first is worth saying.
+  let eventContextFailed = false;
+  let matchableEvent: {
+    ceremony_type: string;
+    // Mixed/interfaith weddings (CLAUDE.md 2026-06-01) carry a second rite;
+    // the religion-match filter admits vendors fit for EITHER (additive).
+    secondary_ceremony_type: string | null;
+    venue_setting: string;
+  } | null = null;
+  let coupleEventType: string | null = null;
+  // 2026-05-21 — reception venue anchor (lat/lng) for the distance chip on
+  // every vendor card. Populated by saveVendorToPicks when the couple saves
+  // a category='venue' vendor with coords. NULL = no anchor → no chips.
+  let venueAnchor: { lat: number; lng: number } | null = null;
+  // Task #45 (2026-05-22) — host's event_date + precision drive the
+  // marketplace candidate-window. Read alongside the existing event fields
+  // in the same select so the intersection filter doesn't add a roundtrip.
+  let coupleEventDate: string | null = null;
+  let coupleEventDatePrecision: 'year' | 'month' | 'day' | null = null;
+  if (user) {
+    const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
+    coupleEventId = userEvents[0]?.event_id ?? null;
+    // Task #46 (2026-05-22) — hosts who joined via the iteration 0048
+    // invite flow at /host/accept/[token] only have an event_moderators
+    // row, NOT an event_members 'couple' row. Fall back to the cross-
+    // table resolver so the marketplace gates ("Add to plan" CTA,
+    // distance chips, compat filter) work for them too.
+    if (!coupleEventId) {
+      try {
+        const resolved = await resolvePrimaryHostEvent(admin, user.id);
+        coupleEventId = resolved?.event_id ?? null;
+      } catch {
+        // Best-effort fallback — the marketplace still renders without
+        // an event link; downstream UI will show the anonymous variant.
+      }
+    }
+    if (coupleEventId) {
+      const { data: ev, error: evError } = await admin
+        .from('events')
+        .select(
+          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
+        )
+        .eq('event_id', coupleEventId)
+        .maybeSingle();
+      // 🚨 THE "MATCH MY EVENT" TOGGLE RENDERS FROM THE URL, BUT ONLY FILTERS IF
+      // THIS READ LANDED. Refused, `matchableEvent` stays null, the filter at
+      // `filters.matchEvent && matchableEvent` never fires, and the couple sees
+      // an UNFILTERED marketplace with the toggle still showing as on — a filter
+      // that claims to be applied and is not, on a public browse page where they
+      // are deciding what to buy. Same for the event-type default filter, the
+      // date-intersection filter and distance sorting, all of which hang off it.
+      eventContextFailed = Boolean(evError) || ev === null;
+      if (
+        ev?.venue_latitude !== null &&
+        ev?.venue_latitude !== undefined &&
+        ev?.venue_longitude !== null &&
+        ev?.venue_longitude !== undefined
+      ) {
+        venueAnchor = {
+          lat: Number(ev.venue_latitude),
+          lng: Number(ev.venue_longitude),
+        };
+      }
+      // Iteration 0043 — ceremony × venue compat fields are wedding-only
+      // (NULL for non-wedding events per migration 20260521080000), so the
+      // matchable block only populates for wedding event_types.
+      if (ev?.ceremony_type && ev?.venue_setting) {
+        matchableEvent = {
+          ceremony_type: ev.ceremony_type as string,
+          secondary_ceremony_type:
+            (ev.secondary_ceremony_type as string | null) ?? null,
+          venue_setting: ev.venue_setting as string,
+        };
+      }
+      // Iteration 0041 — event_type auto-apply. Carry the couple's primary
+      // event_type forward so the marketplace can default-filter the
+      // catalog to vendors who actually serve that event_type.
+      if (ev?.event_type) {
+        coupleEventType = ev.event_type as string;
+      }
+      // Task #45 — event_date + precision for the intersection filter.
+      // event_date_precision column shipped via migration 20260603100000
+      // with default 'year'; legacy rows pre-migration land on 'day'/'year'
+      // per the backfill. Defensive null-check keeps anonymous/early-stage
+      // events from short-circuiting the marketplace.
+      if (ev?.event_date) {
+        coupleEventDate = ev.event_date as string;
+        const p = (ev as { event_date_precision?: string | null }).event_date_precision;
+        if (p === 'year' || p === 'month' || p === 'day') {
+          coupleEventDatePrecision = p;
+        }
+      }
+    }
+  }
+
+  // Iteration 0041 — couple-side event_type auto-apply. When no
+  // ?event_type= URL param is set AND the couple has a primary event with
+  // a non-wedding event_type, default the filter to that event_type. The
+  // couple lands on a marketplace scoped to their event. Wedding event_types
+  // intentionally skip the auto-apply (every existing vendor is tagged
+  // wedding, so auto-applying would be a no-op visually). Users who want
+  // to browse all vendors can clear the filter via the empty-state CTA
+  // (PR #184's "Browse all vendors" link drops the event_type from the URL).
+  //
+  // 🔴 REWRITTEN 2026-09-18. This block used to fire on `!filters.eventType`,
+  // and the empty state's escape — "Or browse all vendors instead" — worked by
+  // DROPPING event_type from the URL, which is exactly the condition that
+  // re-applied it. Following the only way out reproduced the identical empty
+  // page, forever. The comment above claimed dropping the parameter was the
+  // solution; it was the mechanism.
+  //
+  // "No filter" and "I asked for everything" are now different states:
+  // `?event_type=all` beats the auto-apply. See lib/explore-event-type-scope.ts.
+  const scope = resolveExploreScope(
+    rawEventTypeParam,
+    coupleEventType,
+    eventTypeKeys,
+  );
+  filters = { ...filters, eventType: scope.eventType };
+
+  // Religion-default-on (2026-05-20) → default-OFF (Task #42, 2026-05-22):
+  // pre-pilot vendor inventory has sparse ceremony+venue cross-compat data,
+  // so strict-AND default-on filtering produced zero results from the
+  // dashboard Ceremony venue Search button. Toggle now requires explicit
+  // ?match=1 opt-in. Anonymous visitors and couples without a ceremony_type
+  // still see the unfiltered universe; couples who set their ceremony type
+  // see all vendors by default and tick "Match my wedding" if they want to
+  // narrow. Owner directive: surface the broadest inventory by default.
+  const coupleFaith: CoupleFaith = matchableEvent
+    ? mapCeremonyTypeToFaith(matchableEvent.ceremony_type)
+    : null;
+
+  // Landing view — no narrowing filter set.
+  //
+  // ⚠ THIS USED TO MEAN "SHOW THE TAXONOMY INSTEAD OF VENDORS", AND ITS OWN
+  // REASON HAD EXPIRED. The rule was written for an empty marketplace — its
+  // comment said so: the catalog "replaces the bare empty-state that
+  // previously rendered when ZERO VENDORS satisfied the publishing gate".
+  // That was right when nothing could be shown. It is wrong the moment a shop
+  // opens: a visitor landing on /explore saw a wall of category tiles and not
+  // one of the shops that actually exist, and the owner asked why (2026-09-08:
+  // *"entering on this page should automatically show service cards already.
+  // why don't I see any"*).
+  //
+  // 🔑 THE FIX IS TO ASK THE DATABASE INSTEAD OF ASSUMING. The catalog-only
+  // landing now renders only when the marketplace is GENUINELY empty, which is
+  // the condition the original comment claimed. With shops live, the landing
+  // shows them and keeps the catalog underneath — nothing is taken away.
+  //
+  // Any filter (category, search, city, verified-only, match, event_type)
+  // still drops straight into vendor-grid mode with no catalog below it.
+  const isLandingView =
+    !filters.category &&
+    !filters.q &&
+    !filters.city &&
+    !filters.verifiedOnly &&
+    !filters.matchEvent &&
+    !filters.eventType;
+
+  // Owner directive 2026-06-14 — "we just want a search bar". CatalogView always
+  // leads with the search hero, but the curated browse catalog BELOW it (icon
+  // strip + venue pickers + folder grids) renders only when the visit is an
+  // explicit browse/context request: ?browse=1, a folder/tile deep-link, or a
+  // dashboard planning-card entry (?from=plan). A bare /vendors visit gets the
+  // search hero + popular chips only. Nothing is destroyed — the catalog is one
+  // tap away via the hero's "Browse all categories" link.
+  const browseMode =
+    raw.browse === '1' ||
+    raw.from === 'plan' ||
+    filters.folder !== null ||
+    filters.tile !== null;
+
+  // Allow-list the notice key — anything else (typo, manual URL fiddling,
+  // future deferred-feature key without copy) renders no banner instead of
+  // a broken/empty card. Keeps the surface honest.
+  const noticeKey =
+    raw.notice && VENDORS_NOTICE_COPY[raw.notice] ? raw.notice : null;
+
+  // Task #48 — derive the effective venue-default filter state for
+  // catalog mode. The filter only "fires" (UX chips lit + facet drill-
+  // ins pre-filtered) when ALL conditions hold: (a) host has an event
+  // with a picked venue_setting, (b) ?venue=0 was NOT explicitly set.
+  // Anonymous visitors AND hosts without a venue_setting yet treat the
+  // toggle as a no-op so the catalog renders cleanly with the existing
+  // facet chips. The actual SQL filter only attaches in vendor-grid
+  // mode below — catalog mode is unfiltered by design (per Task #47).
+  const hostVenueSetting: string | null = matchableEvent?.venue_setting ?? null;
+  const venueFilterActive =
+    hostVenueSetting !== null && filters.venueDefault === 'on';
+
+  // Compare-shortlist doorway (route-wayfinding 2026-07-15). Resolve the
+  // couple's saved-vendor shortlist once (both render modes reuse it) and build
+  // a link to the live /explore/compare tool, which reads `?ids=<uuid>,<uuid>`.
+  // Enabled only at ≥2 saved vendors; links the two earliest saves. Null when
+  // anonymous / <2 saved → CompareShortlistBanner renders nothing.
+  // ⚠ This filter used to read `.neq('status', 'declined')`. There is no
+  // 'declined' in the `vendor_status` enum (considering · shortlisted ·
+  // contracted · deposit_paid · delivered · complete), so Postgres rejected the
+  // whole query with 22P02 and `data` came back null on every render — the
+  // banner has never once appeared. The intent (skip vendors the couple dropped)
+  // is real, and `archived_at` is where the product actually records it, the
+  // same way the dashboard's own saved-vendor reads do.
+  let compareHref: string | null = null;
+  if (coupleEventId) {
+    const { data: savedForCompare, error: savedForCompareError } = await supabase
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', coupleEventId)
+      .not('marketplace_vendor_id', 'is', null)
+      .is('archived_at', null)
+      .order('vendor_id', { ascending: true });
+    // A failed read and an empty shortlist both yield zero ids, and both hide
+    // the banner — indistinguishable in the UI, which is exactly how the broken
+    // predicate above survived. Surface the failure so the next one is visible.
+    if (savedForCompareError) {
+      console.error(
+        '[explore] compare-shortlist read failed',
+        savedForCompareError,
+      );
+    }
+    const savedIds = Array.from(
+      new Set(
+        (savedForCompare ?? [])
+          .map((r) => r.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (savedIds.length >= 2) {
+      compareHref = `/explore/compare?ids=${savedIds[0]},${savedIds[1]}`;
+    }
+  }
+
+  // SEO/GEO Bucket 6 · ItemList JSON-LD origin computed once per render.
+  // Both return branches (catalog mode + non-catalog) inject the same JSON-LD
+  // surface so /vendors emits the taxonomy hierarchy regardless of mode.
+  const vendorsSiteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const vendorsItemListJsonLd = buildVendorsItemListJsonLd(vendorsSiteUrl, pageTax);
+
+  // Admin morning-digest flush — placed BEFORE the catalog-mode early return so
+  // it fires on bare/unfiltered /explore visits too (the marketplace's main
+  // public entry), not only filtered/searched views. Cookie-free (service-role
+  // client), so the cookies()-ordering constraint that pins runSocialFlush
+  // below doesn't apply. Throttled + single-claim + OFF by default internally.
+  //
+  // 2026-11-12 — ON DISCOVER (`surface === 'discover'`) BOTH ARE SKIPPED HERE: `app/page.tsx` already schedules
+  // `runAdminDigestFlush` and `runDailyEmailJobs` on every `/` request, the supplier view included. Scheduling them
+  // twice per request would only spend a second claim read each.
+  if (surface === 'explore') {
+    after(() => runAdminDigestFlush().catch(() => {}));
+    // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+    // fired here too (before the catalog-mode early return) so the marketplace's
+    // main public entry drives them daily. Per-job daily DB claim; never throws.
+    after(() => runDailyEmailJobs().catch(() => {}));
+  }
+
+  /*
+    💸 ONE `head: true` COUNT ON THE LANDING ONLY. It is not run on a filtered
+    view (which never shows the catalog) and it fetches no rows. `null` means
+    the read FAILED — never 0 — so a broken count can only fall back to the
+    catalog, the same thing this page rendered yesterday, instead of claiming
+    an empty marketplace. Failure degrades to the old behaviour, not to a lie.
+  */
+  const liveShopCount = isLandingView ? await countLiveShops(admin) : null;
+  // 🔢 The heading's "Trending shops" is a claim built from a count, so it counts REAL shops only (owner 2026-11-06:
+  // "demo numbers never count in real totals"). Emptiness above still counts every listed shop, demo included.
+  const realShopCount = isLandingView ? await countRealShops(admin) : null;
+
+  /*
+    ═ THE BODY LISTS SERVICES, NOT SHOPS ═
+    Owner, 2026-09-08, twice: *"i still do not see the service cards"*, and
+    earlier *"Marketplace is where they can view all services and search what
+    they want … so on the body, it will only show all service cards."*
+
+    🔑 RULE 0 — THE QUERY ALREADY EXISTED AND HAD NO CALLER.
+    `lib/marketplace-service-cards.ts` shipped EARLIER TODAY with a docblock
+    naming this exact defect, and nothing imported it outside its own test. The
+    card component (`ServiceCardView`, "THE service card, the one a couple
+    sees") shipped today too. Both halves were built; the page was never wired
+    to them. This is the wire, not a third implementation.
+
+    The bug the module records, reproduced verbatim on the owner's screen: the
+    grid drew ONE card per VENDOR and picked a service to stand for the shop —
+    "Live Band by Saysay Live Band & Hosting" — so Saysay's second card was
+    nowhere, and a couple searching for a host was shown a band at the band's
+    price. One row per card makes that unrepresentable.
+
+    ⚠ IT THROWS RATHER THAN RETURNING []. Deliberate, and stated in the module:
+    an empty array renders identically to a genuinely empty marketplace. Caught
+    here so a broken read falls back to the vendor grid this page shipped
+    yesterday — degraded, never a convincing lie.
+
+    🔴 `admin`, NOT `supabase` — AND THE VISITOR SESSION IS WHY THE GRID WAS
+    EMPTY TO EVERY STRANGER. Measured 2026-09-09 against production through a
+    real anonymous PostgREST client, not inferred from a policy file:
+
+        vendor_profiles ..... 2 rows   (Saysay, SetnaProd)
+        vendor_services ..... 0 rows
+
+    `vendor_services_public_read` is `TO authenticated`; its sibling
+    `vendor_profiles_public_read` is `TO authenticated, anon`. So a signed-out
+    couple — the FIRST person to touch this product — opened /explore, read the
+    heading "The first shops", and got a grid with no children. RLS refuses
+    without raising, so `serviceCards` came back `[]`, the `.catch` never fired,
+    and an access decision rendered as "nobody has listed anything yet".
+
+    🔑 EVERY OTHER READ ON THIS PAGE ALREADY USES `admin` FOR EXACTLY THIS
+    REASON — see the marketplace query's own note below: *"the marketplace is a
+    public surface … the admin client carries no viewer identity so the read is
+    consistent for everyone."* One read out of ~20 took the viewer's session,
+    and it was the one that draws the body.
+
+    🔒 THIS DOES NOT WIDEN ANYTHING. The module states the visibility rule in
+    its own query — active card AND a shop whose `verification_state` and
+    `public_visibility` are both `verified` — and its docblock says why: it
+    runs with whatever client the caller passes, so the answer must not change
+    with the caller. The rule is the same rule the policy encodes; the admin
+    client is what the function was written to be handed.
+
+    ⛔ THE OTHER REPAIR WAS ADDING `anon` TO THE POLICY, AND IT IS NOT
+    EQUIVALENT. `anon` already holds table-level SELECT on `vendor_services`
+    (measured in prod: no column allowlist, all 40 columns), so admitting it to
+    the policy publishes the whole row to any holder of the public key —
+    `is_demo`/`demo_batch_id`, `daily_capacity`, `credit_price_centavos`,
+    `branch_id` included, none of which any customer surface renders. That is
+    widening a TABLE when the thing that needed widening was a PAGE. It would
+    also move the exposure baseline and need a migration to undo. This is one
+    identifier, revertible in one line.
+  */
+  const serviceCards = isLandingView
+    ? await fetchMarketplaceServiceCards(admin, { limit: 24 }).catch(() => null)
+    : null;
+  /*
+    ═ THE CARD CARRIES ITS SHOP'S LOGO — resolved ONCE PER SHOP ═
+    Owner, 2026-09-09: the card body opens that service's details, the LOGO
+    opens the shop.
+
+    🪤 `logo_url` DOES NOT HOLD A URL. Anything uploaded through the shop editor
+    is stored as `r2://bucket/key`; a browser cannot fetch that, so it renders a
+    broken-image glyph and throws nothing. `displayLogoUrl` is the ONE shipped
+    resolver for this column — never a second one, and never `publicUrlFor`,
+    whose argument is an object KEY and which would fold the `r2://` scheme into
+    the object path.
+
+    Keyed by SHOP, not by card: the marketplace lists one row per card, so a
+    shop with four cards would otherwise be signed four times for one picture.
+    Signing is a round trip each.
+
+    A failure costs a picture, never the grid — the card falls back to the
+    initials tile, which is a real design state, not an error state.
+  */
+  /*
+    ═ SUP-41 · THE CARD'S RECORD COMES WITH IT, AND SO DOES THE SHOP'S PRICE CHOICE ═
+    The shop's own page (`app/v/[slug]`) grows each card its record — booked
+    count, event-type mix, anonymized ledger, medals — and this grid drew the
+    SAME `ServiceCardView` with the record hard-wired to null, so a card with a
+    real history looked brand new on the marketplace and veteran one click
+    later. Same batched RPC, same flag, same shop-rating rule
+    (`cardRecordRatingFromTrusted`) as the shop page, so the two cannot disagree.
+
+    It also passed `hidePrices: false` for every card. A shop that ticked "hide
+    my prices publicly" had them hidden on its own page and on the vendor grid
+    (`hidingPrices` below) — and printed on this grid. Same batch reader,
+    same fail-open default.
+
+    Each read fails soft to "nothing extra", never to an empty grid: a missing
+    record renders the card as it rendered yesterday.
+  */
+  const serviceCardShopIds = serviceCards
+    ? [...new Set(serviceCards.map((c) => c.vendorProfileId))]
+    : [];
+  const [serviceCardRecords, serviceCardShopStats, serviceCardHidingPrices] = serviceCards
+    ? await Promise.all([
+        cardRecordEnabled()
+          ? fetchServiceCardRecords(
+              admin,
+              serviceCards.map((c) => c.row.vendor_service_id),
+            ).catch(() => new Map<string, CompiledCardRecord>())
+          : Promise.resolve(new Map<string, CompiledCardRecord>()),
+        cardRecordEnabled()
+          ? fetchTrustedReviewStatsForMany(admin, serviceCardShopIds).catch(
+              () => new Map<string, TrustedReviewStatsRow>(),
+            )
+          : Promise.resolve(new Map<string, TrustedReviewStatsRow>()),
+        fetchVendorsHidingPricesPublicly(admin, serviceCardShopIds),
+      ])
+    : [
+        new Map<string, CompiledCardRecord>(),
+        new Map<string, TrustedReviewStatsRow>(),
+        new Set<string>(),
+      ];
+  const serviceCardLogoUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    const byShop = new Map<string, string | null>();
+    for (const c of serviceCards) {
+      if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
+    }
+    const shops = [...byShop.entries()];
+    const resolved = await Promise.all(
+      shops.map(([, ref]) =>
+        displayLogoUrl({ logo_url: ref }).catch(() => null),
+      ),
+    );
+    shops.forEach(([vendorProfileId], i) => {
+      serviceCardLogoUrls.set(vendorProfileId, resolved[i] ?? null);
+    });
+  }
+  /*
+    ═ C2 (2026-09-11): A CARD WITH A COVER SHOWS IT ON THE MAIN GRID ═
+    This grid never resolved showcase photos at all (the `toServiceCard` call
+    below always passed `showcase: undefined`), so a card drew with nothing to
+    look at unless its category's icon glyph counted. The cover
+    (`primary_photo_r2_key`, required to publish per `lib/vendor-services.ts`)
+    was already read into `c.row` by `fetchMarketplaceServiceCards` — it just
+    had no display URL and no wire to the card.
+    `publicUrlForStoredAsset` — NOT `displayUrlForStoredAsset` — per its own
+    docblock: this exact grid is a named example of the public, unsigned
+    surface it exists for, and it's synchronous (no signing round trip), so
+    resolving one per card costs nothing.
+  */
+  const serviceCardCoverUrls = new Map<string, string | null>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      serviceCardCoverUrls.set(
+        c.row.vendor_service_id,
+        publicUrlForStoredAsset(c.row.primary_photo_r2_key),
+      );
+    }
+  }
+  /*
+    ═ S43 · 5: THE REST OF THE CARD FACE — inclusions, discount, Serves, showcase ═
+    The shop page (`app/v/[slug]`) hands `toServiceCard` four things this grid
+    passed as `undefined`: the free inclusions, the discounts (so the best badge
+    can be picked), the Serves line and the showcase photos/clip. So the SAME
+    `ServiceCardView` drew a thinner card here than one click later on the shop
+    — no "Includes …", no "20% off", no photo strip.
+
+    Same readers as the shop page (`lib/vendor-service-public`, the shared
+    `buildServesLine`), batched over the 24 cards, each fail-soft to "nothing
+    extra" by its own contract — a failed read renders the card as it rendered
+    yesterday, never an empty grid.
+
+    ⚖ SHOWCASE URLS ARE PUBLIC, NOT PRESIGNED. The shop page presigns them
+    (`displayUrlForStoredAsset`); this grid resolves them the way it already
+    resolves the cover — `publicUrlForStoredAsset`, whose docblock names this
+    grid as the surface it exists for. A ref it cannot serve publicly resolves
+    to null and is dropped, so a card loses that photo, never the grid.
+    `coupleEventDate` stays null: the grid is anonymous, so the early-booking
+    ladder advertises "up to", exactly as the shop page does for a guest.
+  */
+  const serviceCardIds = serviceCards ? serviceCards.map((c) => c.row.vendor_service_id) : [];
+  const serviceCardCoverageIds = serviceCards
+    ? [
+        ...new Set(
+          serviceCards
+            .map((c) => c.row.coverage_id)
+            .filter((id): id is number => id !== null),
+        ),
+      ]
+    : [];
+  const [serviceCardInclusions, serviceCardDiscounts, serviceCardCoverages] = serviceCards
+    ? await Promise.all([
+        fetchInclusionsByService(admin, serviceCardIds),
+        // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
+        fetchDiscountsWithOffers(admin, serviceCardIds),
+        fetchCoveragesByIdPublic(admin, serviceCardCoverageIds),
+      ])
+    : [
+        new Map<string, VendorServiceInclusion[]>(),
+        new Map<string, VendorServiceDiscount[]>(),
+        new Map<number, VendorServiceCoverage>(),
+      ];
+  const serviceCardServes = new Map<string, string>();
+  const serviceCardShowcase = new Map<string, ServiceShowcaseMedia>();
+  if (serviceCards) {
+    for (const c of serviceCards) {
+      const id = c.row.vendor_service_id;
+      if (c.row.coverage_id !== null) {
+        const line = buildServesLine(serviceCardCoverages.get(c.row.coverage_id), eventTypeLabel);
+        if (line) serviceCardServes.set(id, line);
+      }
+      const photos = (c.row.showcase_photo_r2_keys ?? [])
+        .slice(0, 5)
+        .map((k) => publicUrlForStoredAsset(k))
+        .filter((u): u is string => Boolean(u));
+      const videoUrl = publicUrlForStoredAsset(c.row.showcase_video_r2_key) ?? null;
+      if (photos.length > 0 || videoUrl) serviceCardShowcase.set(id, { photos, videoUrl });
+    }
+  }
+  const marketplaceIsEmpty = liveShopCount === 0;
+
+  /*
+    🔎 DISCOVER, WITH NO SHOP OPEN YET (2026-11-12). `/explore` draws its whole catalogue landing here (`CatalogView`:
+    hero, its own search box, the folder strip). Discover has ONE search box — the top bar's — so that landing is not
+    brought along: the supplier view says the shipped empty line, in the shipped words (`front-door-feed.tsx`'s Shops
+    shelf), with its one door. The app's store build hides the line exactly as it hides the empty Shops shelf
+    (`hidesEmptyShelfInApp`, DECISION_LOG 2026-10-19 (2)).
+  */
+  if (surface === 'discover' && isLandingView && marketplaceIsEmpty) {
+    const lineHidden = hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount);
+    return (
+      <div data-discover-supplier-view="" className="w-full pb-16">
+        <h2 className="fd-sechead">
+          <span>Suppliers</span>
+        </h2>
+        {lineHidden ? null : (
+          <p className="text-sm text-ink/70">
+            No supplier has opened a shop yet.{' '}
+            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+              Open your shop
+            </Link>
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (isLandingView && marketplaceIsEmpty) {
+    return (
+      /*
+        🔑 THE SHARED SHELL IS NOT MOUNTED HERE — it lives in
+        `app/(shell)/layout.tsx`, one mount for the whole public group, so it
+        survives navigation. The full-bleed content column that this route needs
+        is derived by the shell from the active route SEGMENT
+        (`shell-bleed.ts` → `DOORWAY_BLEED_SEGMENTS = ['explore']`), read during
+        render so the right geometry is in the first byte of the server HTML.
+        A page cannot pass `bleed` up to a layout; see that file for the three
+        alternatives and why each of them flashes.
+      */
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
+        />
+        {/* Said on the page, not only in the logs, because both of these are
+            FALSE STATEMENTS to the person reading rather than missing decoration:
+            a filter that reports itself as applied, and a shop they saved showing
+            as unsaved. The marketplace still renders in full underneath — the
+            deliberate fail-soft for this page is kept, it just stops being
+            silent. */}
+        {eventContextFailed && filters.matchEvent ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t load your event just now, so{' '}
+            <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+            you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+            date. Reload to try again.
+          </p>
+        ) : null}
+        <CatalogView
+          admin={admin}
+          matchableEvent={matchableEvent}
+          matchEvent={filters.matchEvent}
+          coupleFaith={coupleFaith}
+          venueAnchor={venueAnchor}
+          coupleEventType={coupleEventType}
+          currentEventId={coupleEventId}
+          noticeKey={noticeKey}
+          compareHref={compareHref}
+          scopedFolder={filters.folder}
+          inDemoMode={inDemoMode}
+          focusedMode={filters.focusedMode}
+          faithFilter={filters.faithFilter}
+          browseMode={browseMode}
+          emptyLineHidden={hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount)}
+        />
+      </>
+    );
+  }
+
+  // Build the base query. `public_visibility` is the authoritative listing
+  // gate (the legacy `is_published` boolean is no longer queried here).
+  //
+  // 🔒 Owner 2026-07-27 — "we only show shops that are ready." `coming_soon` is
+  // retired, so PUBLIC_SURFACE_VISIBILITIES is now `['verified']` alone and the
+  // "Verified only" toggle no longer narrows anything: both branches resolve to
+  // the same single state. The toggle is kept as an inert no-op rather than
+  // ripped out here, because removing the URL param is a separate UI change and
+  // a stale `?verified=1` bookmark must keep working.
+  const allowedVisibilities = filters.verifiedOnly
+    ? (['verified'] as const)
+    : PUBLIC_SURFACE_VISIBILITIES;
+
+  // PR brief 2026-05-22 evening — demo vendor exclusion. Demo vendors
+  // are pre-fetched + excluded from the main query unless demo mode is
+  // on. We resolve the demo ID list once and use `.in()` / `.not()` to
+  // either include or exclude. The vendor_market_stats view doesn't
+  // surface is_demo, so the source of truth stays on vendor_profiles —
+  // a defensive query that tolerates Agent 1's column not being on
+  // main yet.
+  const demoVendorIds = await fetchDemoVendorIds(admin);
+
+  // Anti-fraud Phase 4 (§ 5) — the FREEZE. Vendors suspended (reversible,
+  // system) OR banned (irreversible, admin) by fraud enforcement must vanish
+  // from the marketplace + lose their badges. The enforcement writes already
+  // flip public_visibility → 'hidden' (which the allowedVisibilities gate
+  // excludes), but we ALSO exclude the frozen set explicitly here as
+  // defense-in-depth — even in demo mode a fraud-frozen vendor never renders.
+  // Fail-soft: [] on error (the visibility gate still stands).
+  const fraudFrozenIds = await fetchFraudFrozenVendorIds(admin);
+
+  // B2 (2026-09-17) — a shop with zero active, inquirable services is not a
+  // bookable card. `vendor_market_stats` says what a shop CLAIMS to sell;
+  // this is whether it has anything left to inquire about. See
+  // lib/vendor-inquirable-gate.ts for the measured defect this closes —
+  // `?event_type=simple_event` returned exactly one shop with 0 active
+  // services and no way to message it.
+  const inquirableVendorIds = await fetchVendorIdsWithActiveService(admin);
+
+  // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
+  // ONCE per request; it constrains both the main grid query and the broadened
+  // empty-state count below. `filters.faithFilter` is the page-local TitleCase
+  // FaithKey, which is exactly the `faithCol` value vendor_coverages stores.
+  const faithMismatchIds = filters.faithFilter
+    ? await fetchFaithMismatchVendorIds(admin, filters.faithFilter)
+    : [];
+
+  // Public marketplace requires a non-empty business_name. Coming-soon
+  // vendors are intentionally surfaced (Decision 6 / 2026-05-15) — but
+  // a row that hasn't even filled in its name renders as "Unnamed
+  // vendor" which makes the whole marketplace look broken. Gate the
+  // public surface on the minimum self-identification work; admins
+  // can still see the row in /admin/vendors.
+  // Iteration 0006 (2026-05-21) — read against vendor_market_stats so the
+  // sort, ad-rank, and review aggregates resolve in one SQL roundtrip
+  // instead of the old hydrate-2000-then-sort-in-JS dance.
+  let query = admin
+    .from('vendor_market_stats')
+    .select(
+      // Phase C sort-leak fix: `is_setnayan_service` is now SELECTED (it was
+      // only used in .order() before) so the in-memory rating/review re-sort
+      // below can preserve the first-party float precedence explicitly.
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,created_at,avg_rating_overall,review_count,is_setnayan_service,verification_state',
+      { count: 'exact' },
+    )
+    .not('business_name', 'is', null)
+    .neq('business_name', '')
+    // ── Setnayan's own services are NOT marketplace vendors (owner 2026-07-26)
+    // "remove setnayan from Explore" · "all setnayan in app services are either
+    // on their exact location on the dashboard or on suites".
+    //
+    // ⚠ REVERSES the 2026-05-22 PM directive that floated first-party
+    // canonicals ABOVE everything else here. Explore is the VENDOR
+    // marketplace — a place to find and book a third-party supplier. Setnayan's
+    // own offerings (Papic, Animated Monogram, Setnayan AI, Live Studio,
+    // Patiktok, Pakanta …) are ordinary catalog SKUs in
+    // platform_retail_catalog_v2, bought from the suite or from their own
+    // dashboard surface. Listing them as vendors made them look bookable
+    // through a supplier flow they never used.
+    //
+    // Same predicate the date-selection surface already uses
+    // (dashboard/[eventId]/date-selection/page.tsx) — NULL-safe, because
+    // is_setnayan_service is a computed view column that is null for rows
+    // whose `services` array is null.
+    .or('is_setnayan_service.is.null,is_setnayan_service.eq.false');
+
+  // PR-B verification gate (ALWAYS ON). An UNVERIFIED vendor is private — it
+  // never appears on Explore / the public marketplace and has no public
+  // website (mirrored in /v/[slug] + sitemap). Only VERIFIED vendors surface.
+  // The reconcile migration 20270331400000 marked the lone real founder vendor
+  // + every paid-tier vendor 'verified', so this gate never empties the live
+  // marketplace. Suppressed in demo mode so admins previewing demo (which may
+  // include unverified rows) still see them. Reads the `verification_state`
+  // column that migration 20270331400000 appended to vendor_market_stats.
+  //
+  // 🔎 SUPERSEDED 2026-11-07 (DECISION_LOG "AN UNVERIFIED SHOP IS FINDABLE UNTIL
+  // ITS FIRST INQUIRY"): the grid asks the ONE rule, `is_findable`
+  // (lib/findable-shop.ts) — verified shops, plus shops Setnayan has not decided
+  // yet until their first inquiry. No hand-typed visibility pair here any more.
+  // Demo mode keeps its own existing rule (listing only), unchanged.
+  if (inDemoMode) {
+    query = query.in('public_visibility', allowedVisibilities as readonly string[]);
+  } else {
+    query = query.match(FINDABLE_SHOP_GATE);
+    // "Verified only" is a real narrowing again now that unverified shops list.
+    if (filters.verifiedOnly) {
+      query = query.in('public_visibility', allowedVisibilities as readonly string[]).eq('verification_state', 'verified');
+    }
+  }
+
+  // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
+  // admin has demo mode on. PostgREST's NOT IN syntax expects a
+  // parenthesized comma-separated list. The narrowing cast through
+  // unknown is for the type system: chained PostgREST query types get
+  // deep enough that TS hits the recursion ceiling on
+  // `query = query.not(...)`, so we widen once and continue. Behavior
+  // is unchanged from the explicit chain — empty-list guard above
+  // means we only call when there's at least one ID to exclude.
+  //
+  // 🧪 DEMO SHOPS ARE LISTED NOW (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS +
+  // DEMO EVENTS": demo suppliers "will show on with the rest of suppliers …
+  // but has a marking of (DEMO ONLY)"; "Demo catalogue — owner clicks": real
+  // couples see demo shops on Explore). The exclusion that stood here is gone
+  // for every viewer; each demo row is annotated `is_demo` below so its card
+  // wears `DemoOnlyMarker`. The demo cookie now only forces a demo shop's
+  // starting price to show (`demo_starts_at_label`). A demo shop still passes
+  // the same verified + listed gates as every other row.
+
+  // Anti-fraud Phase 4 freeze exclusion — applies ALWAYS (even in demo mode).
+  // Same widening cast as the demo exclusion above (deep PostgREST types trip
+  // the TS recursion ceiling). Only fires when there is at least one frozen id.
+  if (fraudFrozenIds.length > 0) {
+    type QueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as QueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${fraudFrozenIds.join(',')})`,
+    );
+  }
+
+  // B2 — never list a shop with no active service. `.in(col, [])` already
+  // yields zero rows (same explicit-empty-list shape the off-season block
+  // below uses), so an empty inquirable set correctly empties the grid
+  // instead of falling through to "no filter applied."
+  query = query.in('vendor_profile_id', inquirableVendorIds);
+
+  if (filters.q.length > 0) {
+    // Unified multi-field search — see applyMarketplaceTextSearch. Replaces the
+    // old business_name-only ilike so a free-text query matches across vendor
+    // name, tagline, city, listed services, and the kinds of celebration the
+    // vendor serves, combinable across tokens.
+    query = applyMarketplaceTextSearch(
+      query as unknown as OrFilterable,
+      filters.q,
+      eventTypeSearchOptions,
+    ) as unknown as typeof query;
+  }
+  // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
+  // the tile's canonical set, which ALREADY includes any cross-listed
+  // canonicals (e.g. `accommodation` rolls into the Catering tile via
+  // `secondary_tiles`, and the Filipiniana & Barongs cross-view pulls the
+  // terno/barong canonicals). This replaces the old folder+category
+  // catch-all expansion — one overlaps clause handles both the tile's own
+  // canonicals and its cross-listings. Takes precedence over `?category=`.
+  if (filters.tile) {
+    const tileServices = (await getCanonicalBuckets()).byTile.get(filters.tile) ?? [];
+    if (tileServices.length > 0) {
+      query = query.overlaps('services', tileServices);
+    }
+  } else if (filters.category) {
+    // Single canonical_service filter (taxonomy autocomplete + the
+    // /vendors/categories canonical browser). `services` is a text[]; the
+    // contains operator matches when the array includes the canonical key.
+    // Custom service strings aren't indexed by canonical key, so a category
+    // filter won't match vendors who only listed a custom service — correct
+    // V1 behavior.
+    query = query.contains('services', [filters.category]);
+  }
+  if (filters.eventType) {
+    // Iteration 0041 — vendor_profiles.event_types[] gates which event_types
+    // each vendor serves (default ['wedding'] for legacy / V1.1 vendors).
+    // GIN-indexed by migration 20260521090000.
+    query = query.contains('event_types', [filters.eventType]);
+  }
+  // Couple-side serves filter (2026-07-03) — `?faith=<x>` now narrows the
+  // VENDOR GRID via the vendors' own vendor_coverages.faiths declarations
+  // (previously the param only narrowed catalog-mode ceremony tiles). Applied
+  // as an exclusion — see fetchFaithMismatchVendorIds for the matching rule
+  // (empty faiths = all welcome; zero coverage rows = never hidden). Same
+  // NOT-IN shape + type-narrowing as the demo exclusion above.
+  if (filters.faithFilter && faithMismatchIds.length > 0) {
+    type FaithQueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as FaithQueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${faithMismatchIds.join(',')})`,
+    );
+  }
+  if (filters.city.length > 0) {
+    query = query.ilike('location_city', `%${filters.city}%`);
+  }
+
+  // Off-Season Promos (Wave 5) — `?offseason=1` narrows to vendors running a
+  // LIVE off-peak offer. The market_stats view doesn't carry the per-service
+  // discount columns, so we resolve the eligible vendor set from
+  // vendor_services and constrain with `.in()`. An empty set means the page
+  // shows the (off-season-aware) empty state, never the full marketplace.
+  if (filters.offSeason) {
+    const offPeakVendorIds = await fetchLiveOffPeakVendorIds(admin);
+    if (offPeakVendorIds.length === 0) {
+      // No live off-season offers anywhere → force an empty result set without
+      // a roundtrip. `.in(col, [])` already yields zero rows, but we keep it
+      // explicit for readability.
+      query = query.in('vendor_profile_id', []);
+    } else {
+      query = query.in('vendor_profile_id', offPeakVendorIds);
+    }
+  }
+
+  // 0043 compatibility filter — only applies when the toggle is on AND the
+  // couple has a matchable primary event. NULL/missing compatible_* columns
+  // count as "open to all" so legacy vendors who pre-date the compatibility
+  // tags aren't excluded; only vendors with explicit non-matching arrays
+  // get filtered out.
+  //
+  // Task #42 (2026-05-22): venue_setting clause dropped from the filter
+  // entirely. Faith alone is the right scope — couples often don't have
+  // a venue picked yet, OR their venue_setting is flexible (a Catholic
+  // ceremony can happen at a banquet hall OR garden OR heritage site).
+  // Compounding both dimensions emptied the result set in pre-pilot
+  // testing (owner's 2026-05-22 Ceremony-venue Search button repro).
+  // Previously had a per-category opt-out for religious_venue + church_fees;
+  // now the venue_setting filter never fires regardless of category.
+  if (filters.matchEvent && matchableEvent) {
+    // Admit vendors fit for the primary OR (for Mixed/interfaith weddings)
+    // the secondary rite — additive, NULL-safe, only ADMITS more, never
+    // excludes. Collapses to the single-ceremony clause when there's no
+    // secondary. CLAUDE.md 2026-06-01 + 2026-06-02.
+    const matchCeremonies = Array.from(
+      new Set(
+        [matchableEvent.ceremony_type, matchableEvent.secondary_ceremony_type]
+          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .filter((v) => v.length > 0),
+      ),
+    );
+    query = query.or(
+      [
+        'compatible_ceremony_types.is.null',
+        ...matchCeremonies.map((v) => `compatible_ceremony_types.cs.{${v}}`),
+      ].join(','),
+    );
+  }
+
+  // Task #48 (2026-05-22) — venue_setting default-on filter. Composes
+  // independently with ?match=1 (religion). Fires when ALL hold: (a) the
+  // host has a venue_setting picked on their primary event, (b) ?venue=0
+  // was NOT set, (c) the request reads as Reception-anchored — either
+  // explicit ?folder=reception, or the host already drilled into a venue-
+  // typed canonical_service via the Reception facet chips. The OR clause
+  // mirrors the religion-match safety valve: vendors with a NULL
+  // compatible_venue_settings (legacy / pre-iteration-0043) stay visible
+  // alongside vendors who explicitly tagged the host's setting. The DEFAULT
+  // on the column is non-null per migration 20260521000000, so in practice
+  // every modern vendor row has SOME array — the `.is.null` half covers
+  // the test_seed_null backfill edge case + future schema additions.
+  //
+  // 2026-05-22 evening — `?venue=<facet_key>` explicit pick wins over the
+  // host's default-on setting. Lets a host who picked Garden at event
+  // creation still browse Beach-compatible florists via
+  // `?folder=reception&venue=beach&category=florals`. Falls back to the
+  // host's setting when no explicit facet is present.
+  const effectiveVenueSetting = filters.venueFacet ?? hostVenueSetting;
+  if (
+    effectiveVenueSetting &&
+    (filters.tile === 'reception' || filters.folder === 'venue') &&
+    filters.venueDefault === 'on'
+  ) {
+    query = query.or(
+      `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${effectiveVenueSetting}}`,
+    );
+  }
+
+  // Sort chain:
+  //   1. ~~is_setnayan_service DESC (owner directive 2026-05-22 PM)~~ REMOVED
+  //      2026-07-26. First-party canonicals no longer appear here at all (see
+  //      the filter on the query above), so floating them was dead ordering on
+  //      an empty set. Setnayan's own services are catalog SKUs bought from the
+  //      suite or their own dashboard surface, not marketplace vendors.
+  //   2. quality_score DESC (PR #6, 2026-06-17) — vendors with a higher
+  //      precomputed quality composite float above unscored or lower-quality
+  //      vendors. vendor_activity_stats rows are LEFT JOIN'd in-memory
+  //      post-pagination (vendor_market_stats view doesn't carry the column).
+  //      The SQL ORDER BY here uses COALESCE to treat a missing row as
+  //      quality_score=50 (mid-range default), so unscored vendors sort in
+  //      the middle — neither top nor bottom.
+  //      NOTE: vendor_market_stats does NOT have quality_score; this step
+  //      is applied in-memory after fetching activity stats below.
+  //   3. User-chosen sort below.
+  // vendor_market_stats columns drive the SQL ORDER BY; quality_score is
+  // applied in-memory after the activity-stats enrichment loop.
+  switch (filters.sort) {
+    case 'highest_rated':
+      query = query
+        .order('avg_rating_overall', { ascending: false })
+        .order('review_count', { ascending: false }); // tiebreak by volume
+      break;
+    case 'name_asc':
+      query = query.order('business_name', { ascending: true });
+      break;
+    case 'newest':
+      query = query.order('created_at', { ascending: false });
+      break;
+    case 'most_reviews':
+    default:
+      query = query
+        .order('review_count', { ascending: false })
+        .order('avg_rating_overall', { ascending: false });
+      break;
+  }
+
+  const { data: rowsRaw, count: totalCount } = await query.range(
+    (filters.page - 1) * PAGE_SIZE,
+    filters.page * PAGE_SIZE - 1,
+  );
+  const rows = (rowsRaw ?? []) as VendorCardRow[];
+
+  // PR brief 2026-05-22 evening — annotate demo rows with their
+  // starting price + is_demo flag. Only when demo mode is on AND at
+  // least one row matches a demo ID; otherwise zero extra work. Real
+  // vendor cards never get `demo_starts_at_label` set; the 2026-05-16
+  // hide-prices lock continues to apply to them. Annotation is purely
+  // additive — fields are optional on VendorCardRow.
+  // 🧪 Every demo row is marked for EVERY viewer (its card wears "(DEMO ONLY)");
+  // the starting price is still forced public only for an admin in demo mode.
+  if (demoVendorIds.length > 0) {
+    const demoIdSet = new Set(demoVendorIds);
+    const demoRowIds = rows
+      .filter((r) => demoIdSet.has(r.vendor_profile_id))
+      .map((r) => r.vendor_profile_id);
+    if (demoRowIds.length > 0) {
+      const startingPrices = inDemoMode
+        ? await fetchDemoStartingPrices(admin, demoRowIds)
+        : new Map<string, number>();
+      for (const row of rows) {
+        if (demoIdSet.has(row.vendor_profile_id)) {
+          row.is_demo = true;
+          const startsAt = startingPrices.get(row.vendor_profile_id);
+          row.demo_starts_at_label =
+            startsAt && startsAt > 0 ? `from ${formatPhpRounded(startsAt)}` : null;
+        }
+      }
+    }
+  }
+
+  // Task #42 (2026-05-22) — when the filtered result set is empty AND the
+  // strict filters (match-my-wedding, verified-only) are active, compute the
+  // broadened-scope count so the empty state can offer a "Show all" CTA with
+  // concrete inventory framing instead of a generic "no matches" dead-end.
+  // Only runs on empty pages — zero overhead when results exist. Category,
+  // city, q, and eventType context is preserved; only match + verified drop.
+  let broadenedCount: number | null = null;
+  // Task #48 — the venue default-on filter also counts as "strict" when
+  // it's actively narrowing results. Hooking it into the broadened-scope
+  // count means the empty-state can offer a "Show all settings" CTA with
+  // the actual count of vendors that DO exist in the category without the
+  // venue clause attached.
+  //
+  // 2026-05-22 evening — explicit ?venue=<facet> picks also count as strict
+  // for the same reason (they narrow on compatible_venue_settings). When
+  // the host has no own setting but the URL carries ?venue=garden, the
+  // broadening flow still fires correctly.
+  const venueFilterFiring =
+    (venueFilterActive || filters.venueFacet !== null) &&
+    (filters.tile === 'reception' || filters.folder === 'venue') &&
+    filters.venueDefault === 'on';
+  const hasStrictFilter =
+    filters.matchEvent || filters.verifiedOnly || venueFilterFiring;
+  if (rows.length === 0 && hasStrictFilter) {
+    let broadened = admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id', { count: 'exact', head: true })
+      .not('business_name', 'is', null)
+      .neq('business_name', '');
+    // Mirror the main query's gate — the ONE findable rule (lib/findable-shop.ts)
+    // outside demo mode, the demo mode's own listing rule inside it — so "Show
+    // all" never promises a shop the grid would not show.
+    broadened = inDemoMode
+      ? broadened.in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      : broadened.match(FINDABLE_SHOP_GATE);
+    // 🧪 No demo exclusion here either: "Show all" offers exactly what the
+    // main query lists, and the main query lists demo shops (marked).
+    // B2 — mirror the main query's inquirable-service gate so "Show all" never
+    // advertises inventory it cannot actually deliver a message to.
+    broadened = broadened.in('vendor_profile_id', inquirableVendorIds);
+    if (filters.q.length > 0) {
+      // Same multi-field search as the main query so the broadened-count
+      // empty-state framing stays consistent with what the search matched.
+      // The occasion axis MUST be passed here too: omitting it would let the
+      // broadened count exceed the narrow count for an occasion word, and the
+      // empty state would offer to "widen" a search that was already wider.
+      broadened = applyMarketplaceTextSearch(
+        broadened as unknown as OrFilterable,
+        filters.q,
+        eventTypeSearchOptions,
+      ) as unknown as typeof broadened;
+    }
+    if (filters.category) {
+      broadened = broadened.contains('services', [filters.category]);
+    }
+    if (filters.eventType) {
+      broadened = broadened.contains('event_types', [filters.eventType]);
+    }
+    // Mirror the faith narrow (like category/city/q/eventType, it's preserved
+    // context — only match + verified drop for the broadened count).
+    if (filters.faithFilter && faithMismatchIds.length > 0) {
+      type BroadenedFaithShape = {
+        not: (column: string, op: string, value: string) => typeof broadened;
+      };
+      broadened = (broadened as unknown as BroadenedFaithShape).not(
+        'vendor_profile_id',
+        'in',
+        `(${faithMismatchIds.join(',')})`,
+      );
+    }
+    if (filters.city.length > 0) {
+      broadened = broadened.ilike('location_city', `%${filters.city}%`);
+    }
+    const { count: bc } = await broadened;
+    broadenedCount = bc ?? 0;
+  }
+
+  // Each card already carries its stats + active-ad columns on the view row,
+  // so the render below reads them directly off `v` — no per-card Map lookup
+  // and no second roundtrip.
+
+  // Iteration 0019 § Gate + 2026-05-20 saved-to-picks — resolve the viewer's
+  // follow set and saved-vendor set for each visible card. Both reads are
+  // viewer-scoped and only need the IDs we just paginated, so they run in
+  // parallel rather than the old sequential await chain.
+  const visibleIds = rows.map((r) => r.vendor_profile_id);
+  // A refused viewer read makes the couple's OWN follows and saves read back as
+  // never taken — the heart empty on a shop they saved, which invites them to
+  // save it twice or conclude they lost it. Unlike the card enrichment below,
+  // this is a false statement about something the person themselves did.
+  let viewerStateFailed = false;
+  // 🗂 "Save to which event?" (owner 2026-11-06): with 2+ events of their own still ahead, the card's Save asks.
+  // The rows and their filter are the shop page's picker (`resolveAddShopToEvent`), untouched.
+  const saveChoices: HostEventChoice[] = user
+    ? await resolveHostEventChoices().then((c) => (c.signedIn && c.options.length >= 2 ? c.options : []))
+    : [];
+  const [followedSet, savedSet] = await Promise.all([
+    (async (): Promise<Set<string>> => {
+      if (!user || visibleIds.length === 0) return new Set<string>();
+      const { data: follows, error: followsError } = await supabase
+        .from('vendor_follows')
+        .select('vendor_profile_id')
+        .eq('follower_user_id', user.id)
+        .in('vendor_profile_id', visibleIds);
+      if (followsError || follows === null) {
+        console.error('[explore] vendor_follows read refused', followsError);
+        viewerStateFailed = true;
+      }
+      return new Set((follows ?? []).map((f) => f.vendor_profile_id));
+    })(),
+    (async (): Promise<Set<string>> => {
+      if (!user || !coupleEventId || visibleIds.length === 0) return new Set<string>();
+      const { data: saved, error: savedError } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', coupleEventId)
+        .in('marketplace_vendor_id', visibleIds);
+      if (savedError || saved === null) {
+        console.error('[explore] saved-supplier read refused', savedError);
+        viewerStateFailed = true;
+      }
+      return new Set(
+        (saved ?? [])
+          .map((s) => s.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+    })(),
+  ]);
+
+  // Task #45 (2026-05-22) — calendar intersection filter. When the host has
+  // set event_date + precision AND has ≥1 confirmed vendor, drop candidate
+  // vendors whose calendar has zero overlap with commonAvailability
+  // (intersection of all confirmed vendors' available days inside the
+  // precision window). Per owner lock: 0 confirmed vendors → no filter; ≤7
+  // shared days → render selector banner; ∅ shared days → render conflict
+  // banner with link to the dispute flow (0021 § 10).
+  //
+  // Uses the admin client because (a) the marketplace is a public surface
+  // and (b) the vendor_calendar_blocks RLS is per-event-member-scope; the
+  // admin client carries no viewer identity so the read is consistent for
+  // anonymous-browser + coordinator-delegate scenarios alike.
+  //
+  // Order: SQL filters already narrowed `rows`. We post-filter against
+  // commonAvailability so the page count math + banner copy stay
+  // consistent with the page-of-vendors the host actually browses.
+  type AvailabilityState =
+    | { kind: 'none' }
+    | {
+        kind: 'active';
+        lockedCount: number;
+        availableDays: string[];
+        windowLabel: string;
+        precision: EventDatePrecision;
+      };
+  let availability: AvailabilityState = { kind: 'none' };
+  let visible = rows;
+
+  /*
+    🏪 LIVE SHOPS THE GRID LEAVES OUT (live walk 2026-11-01). B2 above keeps a
+    shop with no active service off the grid — correctly, a card there is a dead
+    end — but the landing then said "No suppliers have published" under its own
+    "The first shops" heading, while the front door showed the very shop. Read
+    only when the unfiltered landing's grid came back EMPTY and the live count
+    says a shop exists: one read of at most 8 rows, under the one live gate, so
+    the empty grid names the same shops (and links) the front door does. A
+    failed read names none — the line above it still says only what was
+    measured. See lib/explore-empty-grid.ts.
+  */
+  let stillSettingUp: ShopStillSettingUp[] = [];
+  if (isLandingView && rows.length === 0 && (liveShopCount ?? 0) > 0) {
+    const { data: liveRows, error: liveRowsError } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, business_slug')
+      .match(LIVE_SHOP_GATE)
+      .order('business_name')
+      .limit(8);
+    if (liveRowsError) {
+      console.error('[supabase-error] app/(shell)/explore/page.tsx · live shops still setting up', liveRowsError);
+    } else {
+      stillSettingUp = shopsStillSettingUp(liveRows ?? [], inquirableVendorIds);
+    }
+  }
+  if (coupleEventId && coupleEventDate && coupleEventDatePrecision) {
+    const window = computeCandidateWindow(coupleEventDate, coupleEventDatePrecision);
+    if (window) {
+      const { commonAvailability, lockedCount } = await getEventCommonAvailability(
+        admin,
+        coupleEventId,
+        window.start,
+        window.end,
+      );
+      if (lockedCount > 0) {
+        const allowedIds = await filterVendorsByAvailabilityIntersection(
+          admin,
+          rows.map((r) => r.vendor_profile_id),
+          commonAvailability,
+          window.start,
+          window.end,
+        );
+        visible = rows.filter((r) => allowedIds.has(r.vendor_profile_id));
+        const sortedDays = [...commonAvailability].sort();
+        availability = {
+          kind: 'active',
+          lockedCount,
+          availableDays: sortedDays,
+          windowLabel: formatEventDateWithPrecision(
+            coupleEventDate,
+            coupleEventDatePrecision,
+          ).replace(/^Sometime in /, ''),
+          precision: coupleEventDatePrecision,
+        };
+      }
+
+      // Date-open priority (2026-06-30) — vendors open on the couple's date rank
+      // above vendors already booked then. Within this results page, float
+      // vendors who are FREE in the couple's date window above the booked ones.
+      // (Demote-only: a vendor with no declared calendar is treated as open, so
+      // this never *rewards* calendar upkeep — it only sinks the booked.) This is
+      // independent of
+      // the locked-vendor intersection above: it applies whenever the couple
+      // has a date, even with zero confirmed vendors (lockedCount === 0).
+      //
+      // It only ever DEMOTES, never hides: vendors with no declared calendar
+      // are treated as available (the lib/vendor-availability V1 default — an
+      // undeclared calendar = fully free), so the sole effect is sinking a
+      // vendor whose calendar is EXPLICITLY blocked across the entire window
+      // (size 0). At day precision that's "booked on the couple's exact date";
+      // at month/year precision a vendor is only demoted if blocked every day
+      // in the window (rare) — so the signal is strongest where it matters.
+      //
+      // Partition (not Array.sort) so the SQL render order is preserved
+      // verbatim WITHIN each group. Fails to a no-op: on a calendar read error
+      // getBatchVendorAvailableDays hands back the full window for everyone, so
+      // every vendor reads as free and the order is untouched.
+      if (visible.length > 1) {
+        const availByVendor = await getBatchVendorAvailableDays(
+          admin,
+          visible.map((r) => r.vendor_profile_id),
+          window.start,
+          window.end,
+        );
+        const isOpenOnDate = (vendorProfileId: string): boolean => {
+          const days = availByVendor.get(vendorProfileId);
+          // Missing entry (defensive) or a non-empty free set → available.
+          // Only an explicit empty set means fully booked across the window.
+          return !days || days.size > 0;
+        };
+        const booked = visible.filter((r) => !isOpenOnDate(r.vendor_profile_id));
+        if (booked.length > 0) {
+          const open = visible.filter((r) => isOpenOnDate(r.vendor_profile_id));
+          visible = [...open, ...booked];
+        }
+      }
+    }
+  }
+
+  // Sort + ad-floating already happened SQL-side (see .order chain above),
+  // so `rows` is already in render order. `totalCount` is the count: 'exact'
+  // result from the view-backed query — accurate for the pagination footer.
+  // The intersection filter narrows `visible` AFTER pagination: pages with
+  // many filtered-out candidates may render short — acceptable at pilot
+  // scale; V1.x folds the intersection into the SQL query so pagination
+  // and filter compose properly. The date-open priority boost above is the
+  // same shape — a WITHIN-PAGE reorder (free-on-date floats up on the current
+  // page); a true cross-page availability rank needs a denormalized
+  // next-open/booked-on flag on vendor_market_stats (same V1.x SQL follow-up).
+  const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
+
+  // ---------------------------------------------------------------------
+  // 2026-05-22 vendor-card quick-view enrichment.
+  //
+  // Three batched reads run in parallel against the IDs in `visible` so
+  // the new VendorCard surface (badges + service hero photo + review
+  // carousel) renders without going N+1 against the DB:
+  //
+  //   (a) `vendor_profiles.verification_state` — needed for the badge
+  //       engine. Wasn't on `vendor_market_stats` pre-2026-05-22 so it
+  //       lives as a targeted follow-up SELECT.
+  //
+  //   (b) `vendor_services` rows for each vendor — we pick the lowest
+  //       `starting_price_php` per vendor (matches the "Starts at"
+  //       framing in the brief) and resolve the first non-null
+  //       `primary_photo_r2_key` for the hero photo.
+  //
+  //   (c) Completed-booking counts via `fetchCompletedBookingCounts`
+  //       — drives the `most_booking` badge.
+  //
+  //   (d) Latest reviews per vendor via `fetchLatestReviewsByVendor`
+  //       — drives the per-card carousel.
+  //
+  // All four fail-soft — empty maps when reads error so a partial DB
+  // hiccup doesn't take down the marketplace. Cards just render
+  // without their badges / carousel / price / photo until the next
+  // page load.
+  // ---------------------------------------------------------------------
+  const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
+  const [
+    verificationByVendorId,
+    servicesByVendorId,
+    bookingCounts,
+    reviewsByVendorId,
+    relationshipDepthMap,
+    activityStatsByVendorId,
+    partnershipBadgeByVendorId,
+    trustedReviewStatsByVendorId,
+  ] =
+    await Promise.all([
+      (async (): Promise<
+        Map<
+          string,
+          {
+            verification_state: string | null;
+            next_renewal_due_at: string | null;
+            name_revealed_at: string | null;
+            screen_name: string | null;
+            tier_state: string | null;
+          }
+        >
+      > => {
+        if (visibleVendorIds.length === 0) return new Map();
+        /* V2.1 brief amendment #2 (2026-05-30): bundle name_revealed_at
+           into the same fetch so the marketplace card resolves both
+           the badge engine + the hybrid-anonymity placeholder in one
+           batched read. The column ships pre-pilot via PR #662 /
+           migration 20260530010000 · the optional row destructure
+           below tolerates a pre-migration deploy where the column
+           is absent (PostgREST returns 200 with the column missing
+           silently) by defaulting to null = hidden, which is the
+           conservative behavior.
+           CLAUDE.md 2026-05-30 refinement row extends this batch with
+           screen_name (Bark-format stored anonymized name from
+           migration `20260714000000`). When present, surfaces render
+           the stable Bark format ("Manila Wedding Photographer #4218")
+           instead of computing taxonomy-and-city on every render. */
+        /* Phase C tier gate (vendor-tier-caps) extends this batch with
+           tier_state — the day-1 name reveal + the review-display gate both
+           key off it. Same pre-migration-deploy resilience: optional row
+           field, `?? null` → free → hidden + gated. */
+        const { data, error } = await admin
+          .from('vendor_profiles')
+          .select(
+            'vendor_profile_id, verification_state, next_renewal_due_at, name_revealed_at, screen_name, tier_state',
+          )
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          // 🔑 AN EMPTY MAP IS INDISTINGUISHABLE FROM "no vendor hides a name".
+          // Every row below would read null, every card would compute "name not
+          // revealed", and the marketplace would sprout an anonymity explainer
+          // on vendors with nothing hidden. Rows are marked `anonymity_resolved`
+          // ONLY when this read genuinely returned, so a failure shows LESS.
+          console.error('[suppliers] verification_state fetch failed', error);
+          return new Map();
+        }
+        const out = new Map<
+          string,
+          {
+            verification_state: string | null;
+            next_renewal_due_at: string | null;
+            name_revealed_at: string | null;
+            screen_name: string | null;
+            tier_state: string | null;
+          }
+        >();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            verification_state: string | null;
+            next_renewal_due_at?: string | null;
+            name_revealed_at?: string | null;
+            screen_name?: string | null;
+            tier_state?: string | null;
+          };
+          out.set(r.vendor_profile_id, {
+            verification_state: r.verification_state ?? null,
+            next_renewal_due_at: r.next_renewal_due_at ?? null,
+            name_revealed_at: r.name_revealed_at ?? null,
+            screen_name: r.screen_name ?? null,
+            tier_state: r.tier_state ?? null,
+          });
+        }
+        return out;
+      })(),
+      (async (): Promise<
+        Map<
+          string,
+          {
+            startingPrice: number | null;
+            photoR2Key: string | null;
+            /** Off-Season Promos (Wave 5): a LIVE off-peak offer on any of the
+             *  vendor's active services — `discount_type='off_peak'` with a
+             *  future `discount_expires_at`. Null = no live off-season deal.
+             *  Drives the "Off-season savings" badge + the explore filter. */
+            offPeak: { value: number; expiresAt: string } | null;
+          }
+        >
+      > => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_services')
+          .select(
+            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active',
+          )
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.error('[vendors] vendor_services fetch failed', error);
+          return new Map();
+        }
+        // Live off-peak deals moved to vendor_service_discounts (migration
+        // 20270502342558). Resolve the latest-expiring off_peak per vendor; the
+        // inner join keeps the active-service constraint (admin bypasses RLS).
+        const offPeakByVendor = new Map<string, { value: number; expiresAt: string }>();
+        {
+          // Fail-soft is the deliberate policy for this whole enrichment block
+          // (see its header) and it is KEPT — a discount badge is not worth
+          // taking a public marketplace down for. But a silent swallow leaves
+          // nothing to diagnose: refused, every supplier's live off-peak deal
+          // vanishes from their card and the only symptom is an absence.
+          const { data: dRows, error: dRowsError } = await admin
+            .from('vendor_service_discounts')
+            .select('vendor_profile_id, rate, expires_at, vendor_services!inner(is_active)')
+            .in('vendor_profile_id', visibleVendorIds)
+            .eq('discount_type', 'off_peak')
+            .gt('rate', 0)
+            .not('expires_at', 'is', null)
+            .gt('expires_at', new Date().toISOString())
+            .eq('vendor_services.is_active', true);
+          if (dRowsError) {
+            console.error('[suppliers] off-peak discount fetch failed', dRowsError);
+          }
+          for (const row of dRows ?? []) {
+            const d = row as { vendor_profile_id: string; rate: number; expires_at: string };
+            const prev = offPeakByVendor.get(d.vendor_profile_id);
+            if (!prev || new Date(d.expires_at).getTime() > new Date(prev.expiresAt).getTime()) {
+              offPeakByVendor.set(d.vendor_profile_id, { value: d.rate, expiresAt: d.expires_at });
+            }
+          }
+        }
+        const out = new Map<
+          string,
+          {
+            startingPrice: number | null;
+            photoR2Key: string | null;
+            offPeak: { value: number; expiresAt: string } | null;
+          }
+        >();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            starting_price_php: number | null;
+            primary_photo_r2_key: string | null;
+            is_active: boolean | null;
+          };
+          // Skip inactive services — they shouldn't drive the
+          // surfaced starting price or the off-season offer.
+          if (r.is_active === false) continue;
+          const existing = out.get(r.vendor_profile_id);
+          // Lowest starting price wins. Photo lookup picks the first
+          // service with a non-null key (deterministic but not
+          // strictly cheapest — that's intentional, the hero photo
+          // doesn't need to match the cheapest service).
+          const newPrice =
+            r.starting_price_php !== null && r.starting_price_php > 0
+              ? r.starting_price_php
+              : null;
+          const newPhoto =
+            r.primary_photo_r2_key && r.primary_photo_r2_key.length > 0
+              ? r.primary_photo_r2_key
+              : null;
+          // Live off-peak offer for this vendor, resolved above from
+          // vendor_service_discounts (migration 20270502342558).
+          const newOffPeak = offPeakByVendor.get(r.vendor_profile_id) ?? null;
+          if (!existing) {
+            out.set(r.vendor_profile_id, {
+              startingPrice: newPrice,
+              photoR2Key: newPhoto,
+              offPeak: newOffPeak,
+            });
+            continue;
+          }
+          const startingPrice =
+            existing.startingPrice === null
+              ? newPrice
+              : newPrice === null
+                ? existing.startingPrice
+                : Math.min(existing.startingPrice, newPrice);
+          const photoR2Key = existing.photoR2Key ?? newPhoto;
+          // Keep the offer that expires LATEST (most generous live window).
+          const offPeak =
+            newOffPeak === null
+              ? existing.offPeak
+              : existing.offPeak === null
+                ? newOffPeak
+                : new Date(newOffPeak.expiresAt).getTime() >
+                    new Date(existing.offPeak.expiresAt).getTime()
+                  ? newOffPeak
+                  : existing.offPeak;
+          out.set(r.vendor_profile_id, { startingPrice, photoR2Key, offPeak });
+        }
+        return out;
+      })(),
+      fetchCompletedBookingCounts(admin, visibleVendorIds),
+      fetchLatestReviewsByVendor(admin, visibleVendorIds),
+      // Relationship-depth per vendor for this couple's active event (0–3).
+      // Only fetched when the user is authenticated and has a linked event;
+      // logged-out visitors always get an empty map (depth 0 for all cards).
+      (async (): Promise<Map<string, 0 | 1 | 2 | 3>> => {
+        if (!user || !coupleEventId || visibleVendorIds.length === 0) {
+          return new Map();
+        }
+        const [evResult, unlockResult] = await Promise.all([
+          admin
+            .from('event_vendors')
+            .select('marketplace_vendor_id, status')
+            .eq('event_id', coupleEventId)
+            .not('marketplace_vendor_id', 'is', null),
+          admin
+            .from('vendor_event_unlocks')
+            .select('vendor_profile_id')
+            .eq('event_id', coupleEventId)
+            .in('vendor_profile_id', visibleVendorIds),
+        ]);
+        const out = new Map<string, 0 | 1 | 2 | 3>();
+        for (const row of evResult.data ?? []) {
+          const r = row as { marketplace_vendor_id: string | null; status: string | null };
+          if (!r.marketplace_vendor_id) continue;
+          if (!visibleVendorIds.includes(r.marketplace_vendor_id)) continue;
+          const s = r.status ?? '';
+          const d: 0 | 1 | 2 | 3 =
+            s === 'deposit_paid' || s === 'complete'
+              ? 3
+              : s === 'declined' || s === 'withdrawn'
+                ? 0
+                : 1;
+          const prev = out.get(r.marketplace_vendor_id) ?? 0;
+          if (d > prev) out.set(r.marketplace_vendor_id, d);
+        }
+        for (const row of unlockResult.data ?? []) {
+          const r = row as { vendor_profile_id: string };
+          const prev = out.get(r.vendor_profile_id) ?? 0;
+          if (prev < 2) out.set(r.vendor_profile_id, 2);
+        }
+        return out;
+      })(),
+      // PR #6 — vendor_activity_stats read. Fetches quality_score,
+      // finalized_booking_count, last_active_at, and avg_response_minutes
+      // for each visible vendor in one batched read. Fail-soft: an empty
+      // map means quality_score falls back to the 50-default in the sort
+      // and all activity badges are suppressed (no crash).
+      (async (): Promise<Map<string, {
+        quality_score: number | null;
+        finalized_booking_count: number | null;
+        last_active_at: string | null;
+        avg_response_minutes: number | null;
+        replied_thread_count: number | null;
+      }>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_activity_stats')
+          .select(
+            'vendor_profile_id, quality_score, finalized_booking_count, last_active_at, avg_response_minutes, replied_thread_count',
+          )
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.warn('[explore] vendor_activity_stats fetch failed', error.message);
+          return new Map();
+        }
+        const out = new Map<string, {
+          quality_score: number | null;
+          finalized_booking_count: number | null;
+          last_active_at: string | null;
+          avg_response_minutes: number | null;
+          replied_thread_count: number | null;
+        }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            quality_score: number | null;
+            finalized_booking_count: number | null;
+            last_active_at: string | null;
+            avg_response_minutes: number | null;
+            replied_thread_count: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            quality_score: r.quality_score ?? null,
+            finalized_booking_count: r.finalized_booking_count ?? null,
+            last_active_at: r.last_active_at ?? null,
+            avg_response_minutes: r.avg_response_minutes ?? null,
+            replied_thread_count: r.replied_thread_count ?? null,
+          });
+        }
+        return out;
+      })(),
+      // PR #6 — vendor_partnerships read. Resolves partnership badges for
+      // this couple's shortlisted vendors. Gated on: (a) user is logged in,
+      // (b) coupleEventId exists, (c) visible vendors exist.
+      //
+      // Algorithm:
+      //   1. Fetch all event_vendors for this event with "shortlisted"
+      //      status (shortlisted, contracted, deposit_paid, delivered, complete).
+      //   2. If there are any, fetch vendor_partnerships WHERE
+      //      recommending_vendor_id IN (shortlisted IDs) AND
+      //      recommended_vendor_id IN (visibleVendorIds) AND
+      //      status = 'accepted' AND is_active = true.
+      //   3. Also fetch business_name for the recommending vendors.
+      //   4. For each visible vendor, find the "best" partnership
+      //      (priority: included_in_package > discounted_together > accredited > general).
+      //
+      // Returns a Map from vendor_profile_id → partnership_badge object.
+      // Fail-soft: empty map = no badges rendered.
+      (async (): Promise<Map<string, VendorCardRow['partnership_badge']>> => {
+        if (!user || !coupleEventId || visibleVendorIds.length === 0) {
+          return new Map();
+        }
+        // Statuses that qualify a vendor as "shortlisted" for the purpose
+        // of surfacing partnership badges (couple has a real relationship).
+        const SHORTLIST_STATUSES = [
+          'shortlisted', 'contracted', 'deposit_paid', 'delivered', 'complete',
+        ] as const;
+        const { data: evData, error: evError } = await admin
+          .from('event_vendors')
+          .select('marketplace_vendor_id')
+          .eq('event_id', coupleEventId)
+          .in('status', SHORTLIST_STATUSES as unknown as string[])
+          .not('marketplace_vendor_id', 'is', null);
+        if (evError) {
+          console.warn('[explore] event_vendors partnership read failed', evError.message);
+          return new Map();
+        }
+        const shortlistedIds = Array.from(
+          new Set(
+            (evData ?? [])
+              .map((r) => (r as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        if (shortlistedIds.length === 0) return new Map();
+
+        // Fetch active, mutually-ACCEPTED partnerships where the recommender is
+        // one of the shortlisted vendors and the recommended is on this page.
+        // (Phase 4 mutual-accept: visibility is gated on status='accepted', NOT
+        // on the retired admin_verified flag.)
+        const { data: pData, error: pError } = await admin
+          .from('vendor_partnerships')
+          .select(
+            'recommending_vendor_id, recommended_vendor_id, relationship_type, discount_pct',
+          )
+          .in('recommending_vendor_id', shortlistedIds)
+          .in('recommended_vendor_id', visibleVendorIds)
+          .eq('is_active', true)
+          .eq('status', 'accepted');
+        if (pError) {
+          console.warn('[explore] vendor_partnerships read failed', pError.message);
+          return new Map();
+        }
+        if (!pData || pData.length === 0) return new Map();
+
+        // Fetch business names for the recommending vendors (for badge copy).
+        const recommenderIds = Array.from(
+          new Set(
+            pData.map((r) => (r as { recommending_vendor_id: string }).recommending_vendor_id),
+          ),
+        );
+        // 🪤 THE FALLBACK IS AMBIGUOUS WITH A REAL VALUE. `'Your vendor'` is
+        // already what a shop with no business_name on file renders as, so a
+        // refused read here is indistinguishable from an unnamed supplier — every
+        // partnership badge quietly loses the recommender's real name. The
+        // fail-soft is kept (public page, deliberate policy for this block); the
+        // reason now reaches the logs instead of nothing at all.
+        const { data: nameData, error: nameDataError } = await admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, business_name')
+          .in('vendor_profile_id', recommenderIds);
+        if (nameDataError) {
+          console.error('[suppliers] partnership recommender names failed', nameDataError);
+        }
+        const nameMap = new Map<string, string>();
+        for (const row of nameData ?? []) {
+          const r = row as { vendor_profile_id: string; business_name: string | null };
+          nameMap.set(r.vendor_profile_id, r.business_name ?? 'Your supplier');
+        }
+
+        // Ranked by what the COUPLE gets — free beats cheaper beats certified
+        // beats "we work together". Shared with the vendor's public page, which
+        // used to pick its badge alphabetically and disagree with this.
+        // A tiny reader so an unknown value from the DB scores 0 rather than
+        // crashing the whole ranking pass.
+        const PRIORITY = (kind: string): number =>
+          isPartnershipKind(kind) ? PARTNERSHIP_RANK[kind] : 0;
+
+        const out = new Map<string, VendorCardRow['partnership_badge']>();
+        for (const row of pData) {
+          const r = row as {
+            recommending_vendor_id: string;
+            recommended_vendor_id: string;
+            relationship_type: string;
+            discount_pct: number | null;
+          };
+          const existing = out.get(r.recommended_vendor_id);
+          const newPriority = PRIORITY(r.relationship_type);
+          const existingPriority = existing
+            ? PRIORITY(existing.relationship_type)
+            : -1;
+          if (newPriority > existingPriority) {
+            const rt = r.relationship_type as
+              | 'included_in_package'
+              | 'discounted_together'
+              | 'accredited'
+              | 'general';
+            out.set(r.recommended_vendor_id, {
+              relationship_type: rt,
+              recommending_vendor_name: nameMap.get(r.recommending_vendor_id) ?? 'Your supplier',
+              discount_pct: r.discount_pct ?? null,
+            });
+          }
+        }
+        return out;
+      })(),
+      // Trusted (receipt-backed, arm's-length) review aggregates from
+      // vendor_trusted_review_stats — the ONLY stat the couple_trusted badge
+      // may read. Kept SEPARATE from vendor_market_stats' raw
+      // avg_rating_overall / review_count (which count every review with no
+      // provenance filter) so fake / self-dealt reviews can never earn the
+      // trust badge. Fail-soft: an empty map means couple_trusted is simply
+      // not awarded (0/0 → below the count floor). Never blocks the grid.
+      //
+      // 🛑 THAT FAIL-SOFT WAS REASONED FOR THE BADGE AND INHERITED BY THE CARD.
+      // It is correct for `couple_trusted`: no data, no badge, nothing claimed.
+      // But this same map also feeds the card's STAR RATING and REVIEW COUNT,
+      // and there an empty map is not an omission — `rating > 0 ? … :
+      // NEW_TO_SETNAYAN_LABEL` prints **"New to Setnayan"**. A failed read
+      // therefore told couples that every established supplier on the page was
+      // brand new, and neither side could tell: the supplier never sees their
+      // own card, and the couple has no reason to doubt it.
+      //
+      // So a FAILURE now returns `null`, distinct from an empty Map, and the
+      // consumers decide. An empty Map still means "read fine, no rows".
+      (async (): Promise<Map<string, { avg: number; count: number }> | null> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_trusted_review_stats')
+          .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          logQueryError('ExplorePage.trustedReviewStats', error, {
+            vendors: visibleVendorIds.length,
+          });
+          return null;
+        }
+        const out = new Map<string, { avg: number; count: number }>();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            trusted_avg_rating: number | null;
+            trusted_review_count: number | null;
+          };
+          out.set(r.vendor_profile_id, {
+            avg: Number(r.trusted_avg_rating ?? 0),
+            count: Number(r.trusted_review_count ?? 0),
+          });
+        }
+        return out;
+      })(),
+    ]);
+
+  // Which of these shops asked us NOT to show their prices publicly. ONE query
+  // for the page, read through the SAME rule the shop's own page uses
+  // (lib/vendor-service-attributes). Fails open → nobody hidden → today's
+  // behaviour, because a transient read failure must never blank the price of
+  // every shop on the marketplace.
+  const hidingPrices = await fetchVendorsHidingPricesPublicly(
+    admin,
+    visible.map((v) => v.vendor_profile_id),
+  );
+
+  // Enrich each visible row with the new optional fields.
+  //
+  // 💰 THE PRICE IS ON THE CARD NOW (owner, 2026-08-28: "their service cards
+  // has the prices"). The 2026-05-16 hide-prices lock this block used to cite
+  // was SUPERSEDED on 2026-07-16 by `hide_prices_publicly` — an opt-in-to-hide
+  // that defaults to SHOW — and the shop's own page has honoured it ever since,
+  // printing "from ₱X" on every service card. The grid was the one screen that
+  // never got the memo: it computed each shop's cheapest starting price for
+  // EVERY visible vendor, a few lines above, and then threw it away for
+  // everyone but demo rows. Showing it here discloses nothing a visitor could
+  // not read one tap later on the shop's page.
+  for (const v of visible) {
+    const meta = verificationByVendorId.get(v.vendor_profile_id) ?? null;
+    // E10 — did the anonymity read actually answer for THIS vendor? Null fields
+    // mean "nothing hidden" only when it did; otherwise they mean "not
+    // measured", and the card must say nothing rather than guess.
+    v.anonymity_resolved = meta !== null;
+    v.verification_state = meta?.verification_state ?? null;
+    v.next_renewal_due_at = meta?.next_renewal_due_at ?? null;
+    /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. NULL =
+       business_name hidden in this card (Free + Verified pre-first-
+       reply). Consumed by VendorCard via resolveVendorDisplayName. */
+    v.name_revealed_at = meta?.name_revealed_at ?? null;
+    /* CLAUDE.md 2026-05-30 refinement row · screen_name field. When
+       present, VendorCard's resolveVendorDisplayName surfaces this
+       Bark-format stable identifier instead of computing the legacy
+       taxonomy-and-city placeholder on every render. */
+    v.screen_name = meta?.screen_name ?? null;
+    /* Phase C tier gate · drives the day-1 name reveal + the review-display
+       gate (stars/count) on this card. `?? null` → free → hidden + gated. */
+    v.tier_state = meta?.tier_state ?? null;
+    const svc = servicesByVendorId.get(v.vendor_profile_id);
+    v.primary_photo_url = svc?.photoR2Key
+      ? publicUrlForStoredAsset(svc.photoR2Key)
+      : null;
+    // Off-Season Promos (Wave 5) — surface a LIVE off-peak offer (if any) so
+    // the card shows the "Off-season savings" badge + the filter can narrow.
+    v.off_peak_offer = svc?.offPeak ?? null;
+    // The cheapest active service's starting price — for every shop, unless
+    // that shop opted out of public prices. Demo rows keep their own
+    // `demo_starts_at_label` path untouched.
+    v.starting_price_php =
+      svc?.startingPrice && !hidingPrices.has(v.vendor_profile_id)
+        ? svc.startingPrice
+        : null;
+    // Relationship depth — 0 for logged-out visitors and vendors with no
+    // relationship to this couple's event.
+    v.relationship_depth = relationshipDepthMap.get(v.vendor_profile_id) ?? 0;
+    // PR #6 — quality / activity stats from vendor_activity_stats.
+    const activity = activityStatsByVendorId.get(v.vendor_profile_id) ?? null;
+    v.quality_score = activity?.quality_score ?? null;
+    // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the Experience-tier chip
+    // reads the VETTED completed-event count (vendor_public_completed_events_stats,
+    // via `bookingCounts`) instead of vendor_activity_stats.finalized_booking_count,
+    // which was a raw booking-status count with NO self-dealing exclusions. This
+    // is the same vetted number that drives the `most_booking` percentile, so a
+    // vendor can't inflate the Experience tier by self-creating "delivered"
+    // events. Vendors with no vetted completed events fall to 0 → "new" tier.
+    v.finalized_booking_count = bookingCounts.get(v.vendor_profile_id) ?? 0;
+    v.last_active_at = activity?.last_active_at ?? null;
+    v.avg_response_minutes = activity?.avg_response_minutes ?? null;
+    // The SAMPLE the median came from. Without it the card cannot tell one
+    // reply from fifty, and "usually" is a claim about a habit.
+    v.replied_thread_count = activity?.replied_thread_count ?? null;
+    // PR #6 — partnership badge (null = no relevant partnership on this page).
+    v.partnership_badge = partnershipBadgeByVendorId.get(v.vendor_profile_id) ?? null;
+  }
+
+  // ── Relationship-depth sort (runs before the phase-C rating/review re-sort) ─
+  // Vendors the couple already knows float to the top of any category/search
+  // results page regardless of sort mode (depth wins the first tiebreak).
+  // Within the same depth the existing SQL order / phase-C tiebreaks apply.
+  if (visible.some((v) => (v.relationship_depth ?? 0) > 0)) {
+    visible = [...visible].sort(
+      (a, b) => (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0),
+    );
+  }
+
+  // ── PR #6 partnership pin + quality_score sort ────────────────────────
+  // Runs AFTER relationship-depth sort, BEFORE the Phase C gated sort so
+  // it layers additive signals without breaking the existing precedence.
+  //
+  // Priority stack within this pass:
+  //   1. included_in_package / discounted_together partnerships → pin top
+  //   2. accredited partnerships → rise in sort
+  //   3. quality_score DESC (0–100, missing → 50 default)
+  //   4. general partnerships → no position change (badge only)
+  //
+  // This pass is always run (not guarded on `filters.sort`) because
+  // quality_score and partnership badges are organic signals that should
+  // apply regardless of which sort the user picked. They improve relevance
+  // within a given sort; they don't override user intent (the Phase C
+  // rating/review pass below can still re-rank within ties).
+  const hasPartnership = visible.some((v) => v.partnership_badge !== null);
+  const hasQualityData = visible.some((v) => v.quality_score !== null);
+  if (hasPartnership || hasQualityData) {
+    const partnershipPriority = (v: VendorCardRow): number => {
+      const type = v.partnership_badge?.relationship_type;
+      if (type === 'included_in_package') return 4;
+      if (type === 'discounted_together') return 3;
+      if (type === 'accredited') return 2;
+      // 'general' badge renders but doesn't change position
+      return 0;
+    };
+    // Missing quality_score → 50 (mid-range default per spec).
+    const qualityOf = (v: VendorCardRow): number => v.quality_score ?? 50;
+    visible = [...visible].sort((a, b) => {
+      // 0. Preserve existing relationship-depth precedence (depth wins all).
+      const depthDiff = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
+      if (depthDiff !== 0) return depthDiff;
+      // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
+      //    first-party rows are filtered out of the query entirely, so this
+      //    tiebreak could only ever compare false-to-false.
+      // 2. Partnership priority DESC (included_in_package → discounted_together → accredited).
+      const partDiff = partnershipPriority(b) - partnershipPriority(a);
+      if (partDiff !== 0) return partDiff;
+      // 3. quality_score DESC (50 default for unscored vendors).
+      return qualityOf(b) - qualityOf(a);
+    });
+  }
+
+  // ── Phase C sort-leak fix (rating/review sorts) ─────────────────────────
+  // The SQL query ordered `highest_rated` / `most_reviews` by the raw
+  // avg_rating_overall / review_count on the vendor_market_stats view — BEFORE
+  // tier_state was read in the enrichment loop above. That let a FREE vendor
+  // with high (but tier-HIDDEN) stars sort to the top while the card displays
+  // "new". Re-sort the page array in-memory using the GATED values (a vendor
+  // whose tier can't count stars sorts as rating 0 / count 0), so the visible
+  // order matches the visible numbers. This is a POST-PAGINATION re-sort —
+  // acceptable for the founder-only marketplace; the fuller fix is a
+  // tier-aware ORDER BY in a view that exposes tier_state (deferred).
+  // Array#sort is stable in V8 so equal-key rows keep their SQL order.
+  if (filters.sort === 'highest_rated' || filters.sort === 'most_reviews') {
+    // 🔒 NO LONGER GATED BY TIER (owner ruling re-confirmed 2026-08-09).
+    // These two used to zero out a Free vendor's rating and review count before
+    // sorting, so a shop with genuine five-star reviews sank below a paying one
+    // with none. Reviews are merit-only on every tier now; the raw values are
+    // used directly. The helpers stay so the sort below reads the same, but the
+    // word "gated" is gone from their names — a value that is not gated must
+    // never keep reading as one.
+    const ratingOf = (v: VendorCardRow): number => Number(v.avg_rating_overall ?? 0);
+    const reviewsOf = (v: VendorCardRow): number => v.review_count ?? 0;
+    visible = [...visible].sort((a, b) => {
+      // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
+      //    first-party rows never reach this array (filtered in the query).
+      // 2. Rating / review sort — merit only, never tier-adjusted.
+      if (filters.sort === 'highest_rated') {
+        const r = ratingOf(b) - ratingOf(a);
+        if (r !== 0) return r;
+        return reviewsOf(b) - reviewsOf(a); // volume tiebreak
+      }
+      const c = reviewsOf(b) - reviewsOf(a);
+      if (c !== 0) return c;
+      return ratingOf(b) - ratingOf(a);
+    });
+  }
+
+  // ── The couple's budget for THE FILTERED CATEGORY ────────────────────────
+  // Only resolved when a category filter is on and the visitor has an event.
+  // The budget is split per benchmark leaf, so an unfiltered grid has no figure
+  // to compare against and this map stays empty — which makes the budget lens
+  // hide itself rather than order by a meaningless number.
+  //
+  // Fails open in every direction: no event, no budget, a category no leaf
+  // prices, or a read error all leave the map empty and the grid unchanged.
+  const categoryBudgetFitByVendorId = new Map<string, number>();
+  if (coupleEventId && filters.category) {
+    try {
+      const planGroup = planGroupForCanonicalService(filters.category);
+      if (planGroup) {
+        const alloc = await resolveAllocationInputs(supabase, coupleEventId);
+        // The same explicit opt-in the couple's own search makes: their stated
+        // figure, else the one derived from their budget FEEL.
+        const budgetPhp = alloc.budgetPhp ?? alloc.estimatedBudgetPhp;
+        if (budgetPhp != null) {
+          const leaf = computeBudgetAllocation({
+            budgetPhp,
+            leaves: alloc.leaves,
+            config: alloc.config,
+          }).leaves.find((l) => l.canonicalService === planGroup);
+          if (leaf) {
+            for (const v of visible) {
+              const startsAt = servicesByVendorId.get(v.vendor_profile_id)?.startingPrice ?? null;
+              if (startsAt != null && startsAt > 0) {
+                categoryBudgetFitByVendorId.set(
+                  v.vendor_profile_id,
+                  priceFitScore(startsAt, leaf.amountPhp),
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Empty map → the budget lens hides itself. A marketplace must not fall
+      // over because a budget could not be read.
+    }
+  }
+
+  // ── THE RANKING LENSES (owner 2026-08-29: "use the lenses") ──────────────
+  // The couple's own shortlist has ordered by the five approved lenses since
+  // 2026-07-27; the public grid never did — it ordered by reviews and rating and
+  // knew nothing about budget or distance. It uses the SAME scorer now, through
+  // the SAME weight vectors (lib/explore-lens → lib/compat-score). No second
+  // scorer, no bespoke comparator.
+  //
+  // 🔑 IT RUNS LAST, AND RELATIONSHIP DEPTH STILL WINS. A shop the couple
+  // already knows floats above the lens order, exactly as it does under every
+  // other sort on this page — the lens decides the order WITHIN a depth, not
+  // whether somebody's own supplier can be pushed down the page.
+  //
+  // ⚠ Nothing changes for a stranger, or on today's marketplace. Each lens
+  // hides itself unless at least three shops are on the page and at least two
+  // carry its driving input, so a signed-out visitor and a one-shop production
+  // both see only "Best matches" — and that lens re-orders nothing.
+  const lensCandidates: ExploreVendor[] = visible.map((v) => ({
+    distanceKm:
+      venueAnchor && v.hq_latitude != null && v.hq_longitude != null
+        ? haversineKm(venueAnchor.lat, venueAnchor.lng, Number(v.hq_latitude), Number(v.hq_longitude))
+        : null,
+    avgRating: v.avg_rating_overall ?? null,
+    reviewCount: v.review_count ?? null,
+    verified: v.public_visibility === 'verified',
+    // ⛔ ONLY when the visitor has filtered to a category. The couple's budget is
+    // split PER CATEGORY, so a shop's starting price can only be compared with
+    // the budget for the category it is in — ordering a mixed grid against one
+    // category's figure would be a number that means nothing. Null here makes
+    // the lens hide itself by its own gate rather than lie.
+    budgetFitRatio: categoryBudgetFitByVendorId.get(v.vendor_profile_id) ?? null,
+    // ⏭ `firstVerifiedAt` is deliberately not resolved yet — it needs a
+    // `vendor_tier_history` read this page does not make, so the "New here" lens
+    // hides itself. Named rather than faked: `created_at` is row-insert time
+    // (the ADMIN's date for seeded profiles), which the 2026-07-27 ruling
+    // REJECTED as the freshness anchor.
+  }));
+  const offerableLenses = offerableExploreLenses(lensCandidates);
+  const activeLens: LensKey | null =
+    filters.lens && offerableLenses.includes(filters.lens) ? filters.lens : null;
+  if (activeLens && activeLens !== 'fit') {
+    const scoreOf = new Map<string, number>(
+      visible.map((v, i) => [v.vendor_profile_id, exploreLensScore(lensCandidates[i]!, activeLens)]),
+    );
+    visible = [...visible].sort((a, b) => {
+      const depth = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
+      if (depth !== 0) return depth;
+      return (scoreOf.get(b.vendor_profile_id) ?? 0) - (scoreOf.get(a.vendor_profile_id) ?? 0);
+    });
+  }
+
+  // Badge computation runs against the enriched `visible` set so
+  // percentile thresholds reflect what's on this page.
+  //
+  // 🔢 TWO POPULATIONS, NEVER ONE (owner 2026-11-06: "demo numbers never count in real totals"). A demo shop's
+  // bookings and reviews must not move a real shop's percentile ("Most booked", "Top N%"), so real cards are ranked
+  // among real cards only, and demo cards among demo cards (so a demo shop still shows how badges look).
+  const badgesFor = (population: typeof visible) =>
+    computeVendorBadges(
+      population.map((v) => {
+        // couple_trusted reads ONLY the trusted (receipt-backed, arm's-length)
+        // stat — never the raw avg_rating_overall / review_count. Vendors with
+        // no trusted-stats row pass 0/0 so they simply don't earn the badge.
+        //
+        // ✅ `?.` because the map is null when the read FAILED — and here 0/0 is
+        // the RIGHT answer either way: no data, no badge, nothing asserted. This
+        // is the consumer the fail-soft was designed for. The card's star rating
+        // is the one that needed a different answer.
+        const trusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
+        return {
+          vendor_profile_id: v.vendor_profile_id,
+          verification_state: v.verification_state ?? null,
+          next_renewal_due_at: v.next_renewal_due_at ?? null,
+          created_at: v.created_at,
+          avg_rating_overall: v.avg_rating_overall ?? 0,
+          review_count: v.review_count ?? 0,
+          trusted_avg_rating: trusted?.avg ?? 0,
+          trusted_review_count: trusted?.count ?? 0,
+        };
+      }),
+      bookingCounts,
+    );
+  const badgesByVendorId = new Map([
+    ...badgesFor(visible.filter((v) => v.is_demo !== true)),
+    ...badgesFor(visible.filter((v) => v.is_demo === true)),
+  ]);
+
+  // Social auto-publish flush — called AFTER all cookies()/createClient() reads
+  // so Next.js 15 doesn't flag it as "cookies() inside after()". The after()
+  // call itself must happen before the return (i.e. before the response is
+  // committed), but all dynamic-API reads must precede it. Moving it here
+  // (after the last createClient/cookies call) fixes the Sentry NEXTJS-A error.
+  after(() => runSocialFlush().catch(() => {}));
+  // (runAdminDigestFlush is hooked earlier — before the catalog-mode return —
+  // so it also covers bare /explore visits.)
+
+  /* Stories + guides for the typed words — the two nouns the public search box
+     promises that this page could not answer. Only on a real text search:
+     /explore is browsed by category far more often than it is searched, and a
+     reading list under a category browse is noise, not help.
+
+     ⚠ FAIL-SOFT. The guide half is in code and cannot fail; the story half is
+     a database read that already degrades to [] inside `searchReads`. A throw
+     here must never take the marketplace down with it — the vendors are the
+     page. */
+  let readHits: ReadHit[] = [];
+  if (filters.q.trim().length > 0) {
+    try {
+      readHits = await searchReads(filters.q);
+    } catch (err) {
+      console.error('[explore] site search failed', err);
+    }
+  }
+
+  /*
+    2026-11-12 — TWO PIECES BOTH SURFACES DRAW, lifted out of the `/explore` render below UNCHANGED (comments moved
+    with them) so Discover's supplier view draws the very same nodes instead of a copy: the lens chips, and the
+    results (the grid or the empty state, then the pages).
+  */
+  const lensRow = (
+    <>
+      {/* ── THE LENS CHIPS (owner 2026-08-29: "use the lenses") ──────────
+          Rendered ONLY when more than one lens is offerable — with a
+          single chip there is nothing to choose, and a lone control that
+          changes nothing reads as broken. On today's marketplace, and for
+          any signed-out visitor, that is exactly the case: only "Best
+          matches" is offerable and this strip does not appear at all.
+
+          ⛔ Kept VISUALLY SEPARATE from the plain Sort row below, which is
+          the bench's own rule: "Top rated" is a comparator the visitor
+          asked for, while a lens is Setnayan recommending an order. The
+          two must not read as one list of equivalent options. */}
+      {visible.length > 0 && offerableLenses.length > 1 ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-ink/55">Show me</span>
+          {offerableLenses.map((k) => {
+            const active = (activeLens ?? 'fit') === k;
+            return (
+              <Link
+                key={k}
+                href={buildHref(filters, { lens: k, page: 1 })}
+                aria-current={active ? 'true' : undefined}
+                className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
+                style={
+                  active
+                    ? {
+                        background: 'var(--m-orange-4)',
+                        borderColor: 'var(--m-orange-3)',
+                        color: 'var(--m-orange-deep)',
+                      }
+                    : {
+                        background: 'var(--m-paper)',
+                        borderColor: 'var(--m-line)',
+                        color: 'var(--m-slate-2)',
+                      }
+                }
+              >
+                {LENSES[k].label}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
+  const resultsBody = (
+    <>
+      {visible.length === 0 ? (
+        <EmptyState
+          filters={filters}
+          broadenedCount={broadenedCount}
+          stillSettingUp={stillSettingUp}
+          eventTypeLabel={
+            filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
+          }
+        />
+      ) : (
+        serviceCards !== null ? (
+        /*
+          THE LANDING'S BODY — one card per SERVICE.
+
+          `detailsEnabled={false}` renders the card to be LOOKED AT: every
+          interactive branch inside the view is already gated on that flag, so
+          a server component can render it without a client wrapper existing
+          only to satisfy a type. Same call shape the vendor's own card list
+          uses, so all three surfaces draw the identical card.
+        */
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
+          {serviceCards.map((c) => (
+            <li key={c.row.vendor_service_id}>
+              {/*
+                TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
+                service's details, the shop LOGO opens the shop. The card used
+                to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
+                why a second link could not simply be added inside it.
+
+                ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
+                argument stays FALSE, and that is deliberate, not a slip. They
+                are two different questions:
+                  · the view's flag asks "is this card a doorway?" — it is now,
+                    because it has an address to go to.
+                  · the builder's flag asks "put the details-sheet-only keys in
+                    the payload?" — no. Those exist for the in-page sheet on
+                    the shop's own page, they are gated on
+                    NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
+                    would break the byte-identical-payload contract that
+                    `service-details-dark.test.ts` pins.
+                The public id the address needs is read from the DATABASE ROW,
+                which always carries it — see `lib/service-card-address.ts`.
+              */}
+              <ServiceCardView
+                card={toServiceCard(
+                  c.row,
+                  serviceCardInclusions.get(c.row.vendor_service_id),
+                  serviceCardDiscounts.get(c.row.vendor_service_id),
+                  serviceCardServes.get(c.row.vendor_service_id),
+                  serviceCardShowcase.get(c.row.vendor_service_id),
+                  serviceCardHidingPrices.has(c.vendorProfileId),
+                  null,
+                  new Date(),
+                  serviceCardRecords.get(c.row.vendor_service_id) ?? null,
+                  cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
+                  false,
+                  serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
+                )}
+                detailsEnabled
+                detailsHref={serviceCardAddress(c)}
+                shop={{
+                  name: c.businessName,
+                  href: shopAddress(c.businessSlug),
+                  logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
+                  city: c.locationCity,
+                  isDemo: c.isDemo,
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+        ) : (
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
+          {visible.map((v) => {
+            /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
+               It hid a Free vendor's stars and count (the card rendered
+               "new") and emptied the review carousel for Free + Verified.
+               Reviews are merit-only on every tier now. */
+            // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
+            // star average + review count read the TRUSTED (receipt-backed,
+            // arm's-length) stat, so fake / self-dealt reviews can't inflate
+            // the number couples see. Same source the couple_trusted / top_pick
+            // badges use.
+            //
+            // 🔒 NOT TIER-GATED (owner ruling re-confirmed 2026-08-09). Until
+            // today a Free vendor's card zeroed its rating and count and read
+            // as "new" however many real reviews it had, and its review
+            // carousel was emptied — a paid shop's reputation looked better
+            // than an unpaid one's for money rather than merit. The trusted
+            // stat is the only filter that belongs here.
+            /* `null` = the trusted-stats read FAILED, which is not the same
+               as this vendor having no trusted reviews. Passing 0/0 here
+               would label them "New to Setnayan". */
+            const trustedUnknown = trustedReviewStatsByVendorId === null;
+            const vTrusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
+            const cardRating = Number(vTrusted?.avg ?? 0);
+            const cardReviewCount = vTrusted?.count ?? 0;
+            const cardReviews = reviewsByVendorId.get(v.vendor_profile_id) ?? [];
+            return (
+              <li key={v.vendor_profile_id}>
+                {/* 2026-05-22 quick-view redesign — VendorCard
+                    replaces the legacy VendorMarketCard. Adds the
+                    4-badge row + service hero photo + recent-reviews
+                    carousel + "Service by Business" header line per
+                    the owner directive (CLAUDE.md decision log). */}
+                <VendorCard
+                  vendor={v}
+                  rating={cardRating}
+                  reviewCount={cardReviewCount}
+                  ratingUnknown={trustedUnknown}
+                  isAuthenticated={user !== null}
+                  isFollowing={followedSet.has(v.vendor_profile_id)}
+                  isSaved={savedSet.has(v.vendor_profile_id)}
+                  saveEvents={saveChoices}
+                  eventId={coupleEventId}
+                  venueAnchor={venueAnchor}
+                  badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
+                  reviews={cardReviews}
+                  activeCategory={filters.category}
+                  revalidateTo={surface === 'discover' ? '/' : '/explore'}
+                />
+              </li>
+            );
+          })}
+        </ul>
+        )
+      )}
+
+      <Pagination
+        filters={filters}
+        page={filters.page}
+        totalPages={totalPages}
+        total={totalCount ?? rows.length}
+      />
+    </>
+  );
+
+  /*
+    🔎 DISCOVER'S SUPPLIER VIEW (2026-11-12 · DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED" ·
+    prototypes/discover_with_suppliers_2026-11-12_fable.html). The SAME pipeline, the SAME cards and pages, under
+    Discover's chrome on `/`:
+      · ONE search box — the top bar's (signed out) or Discover's search row (signed in). StickyMarketplaceHeader
+        (and its "Narrow these results…" box) and the focused-mode search form are NOT drawn here.
+      · [All categories ▾] [Sort ▾] [Filters] — Sort is ONE dropdown (the chip row is `/explore`'s); Off-season is a
+        switch inside Filters (the band is `/explore`'s); the faith strip's job is done by the ONE summary line.
+      · The compare line sits in the head, once two are saved (the shipped `CompareShortlistBanner`).
+      · No ItemList JSON-LD: `/` describes the whole site (`app/page.tsx`), and every `/?…` address canonicalises to
+        `/` — the marketplace's structured data stays with `/explore`'s metadata.
+    `<div>`, not `<main>`: Discover's shell already draws the page's one <main>.
+  */
+  if (surface === 'discover') {
+    const categoryLabel = filters.category ? taxonomyLabel(filters.category) : null;
+    const scopeLabel =
+      categoryLabel ??
+      (filters.tile ? WEDDING_TILE_LABEL[filters.tile] : filters.folder ? WEDDING_FOLDER_SHORT_LABEL[filters.folder] : null);
+    const shownEventType =
+      filters.eventType && filters.eventType !== BROWSE_ALL_EVENT_TYPES
+        ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType)
+        : null;
+    const summary: string[] = [];
+    if (scopeLabel) summary.push(scopeLabel);
+    if (filters.q) summary.push(`“${filters.q}”`);
+    if (filters.city) summary.push(filters.city);
+    if (shownEventType) summary.push(shownEventType);
+    if (filters.faithFilter) summary.push(FAITH_KEY_TO_LABEL[filters.faithFilter]);
+    if (filters.verifiedOnly) summary.push('Verified only');
+    if (filters.matchEvent) summary.push('Matches your event');
+    if (filters.offSeason) summary.push('Off-season savings');
+    const filterCount = [
+      filters.city.length > 0,
+      shownEventType !== null,
+      filters.faithFilter !== null,
+      filters.verifiedOnly,
+      filters.matchEvent,
+      filters.offSeason,
+    ].filter(Boolean).length;
+    // What Apply must keep that the drawer does not draw: the tile scope, the lens, and — with nothing else left —
+    // the view's mark, so applying no filter stays in the supplier view.
+    const drawerCarry: Array<readonly [string, string]> = [];
+    if (filters.tile) drawerCarry.push(['tile', WEDDING_TILE_SLUG[filters.tile]]);
+    if (filters.lens && filters.lens !== 'fit') drawerCarry.push(['lens', filters.lens]);
+    drawerCarry.push(['browse', '1']);
+    const drawer = {
+      filters: {
+        q: filters.q,
+        category: filters.category,
+        city: filters.city,
+        sort: filters.sort,
+        verifiedOnly: filters.verifiedOnly,
+        matchEvent: filters.matchEvent,
+        eventType: filters.eventType,
+        folder: filters.folder,
+        venueDefault: filters.venueDefault,
+        focusedMode: filters.focusedMode,
+        faith: filters.faithFilter ? FAITH_KEY_TO_URL[filters.faithFilter] : '',
+      },
+      sortOptions: SORT_KEYS.map((k) => ({ value: k, label: SORT_LABEL[k] })),
+      faithOptions: FAITH_KEYS_ORDER.map((k) => ({ value: FAITH_KEY_TO_URL[k], label: FAITH_KEY_TO_LABEL[k] })),
+      eventTypeOptions: eventTypeVocab.map((t) => ({ value: t.key, label: t.label })),
+      matchableEvent,
+      hostVenueSetting,
+      hostVenueLabel: hostVenueSetting ? venueSettingLongLabel(hostVenueSetting) : null,
+      showVenueToggle: (filters.tile === 'reception' || filters.folder === 'venue') && hostVenueSetting !== null,
+      hasActiveFilters: filterCount > 0 || filters.q.length > 0 || filters.category !== null,
+      action: '/',
+      clearHref: clearAllHref(filters),
+      sortInside: false,
+      offSeason: filters.offSeason,
+      carry: drawerCarry,
+    } satisfies Omit<FilterDrawerProps, 'open' | 'onClose'>;
+    return (
+      <div data-discover-supplier-view="" className="w-full pb-16">
+        <NoticeBanner noticeKey={noticeKey} />
+        {eventContextFailed && filters.matchEvent ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t load your event just now, so{' '}
+            <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+            you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+            date. Reload to try again.
+          </p>
+        ) : null}
+        {viewerStateFailed ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t check which suppliers you&rsquo;ve saved or followed, so those
+            marks are missing below. <strong>Nothing has been unsaved</strong> — your list is
+            safe; this page just can&rsquo;t see it right now.
+          </p>
+        ) : null}
+        <DiscoverSupplierHead
+          title={scopeLabel ?? 'Suppliers'}
+          categoryLabel={categoryLabel}
+          focused={filters.focusedMode}
+          summary={summary}
+          clearHref={clearAllHref(filters)}
+          sort={{
+            value: filters.sort,
+            options: SORT_KEYS.map((k) => ({
+              key: k,
+              label: SORT_LABEL[k],
+              href: buildHref(filters, { sort: k, page: 1 }),
+            })),
+          }}
+          filters={{ count: filterCount, drawer }}
+          compare={<CompareShortlistBanner compareHref={compareHref} />}
+        />
+        {filters.focusedMode ? null : lensRow}
+        {venueFilterFiring && (filters.venueFacet ?? hostVenueSetting) ? (
+          <VenueFilterBanner
+            settingKey={(filters.venueFacet ?? hostVenueSetting) as string}
+            showAllHref={buildHref(filters, { venueDefault: 'off' })}
+          />
+        ) : null}
+        {availability.kind === 'active' &&
+        coupleEventId &&
+        (availability.availableDays.length === 0 || availability.availableDays.length <= 7) ? (
+          <VendorsAvailabilityBanner
+            eventId={coupleEventId}
+            availableDays={availability.availableDays}
+            lockedCount={availability.lockedCount}
+            windowLabel={availability.windowLabel}
+          />
+        ) : null}
+        {resultsBody}
+        <ReadsResults hits={readHits} query={filters.q} />
+      </div>
+    );
+  }
+
+  return (
+    /*
+      🛒 SAME SHELL FOR THE FILTERED MARKETPLACE (owner, twice). `bleed` for the
+      same measured reason as the catalog branch above: this is a supplier GRID
+      the owner has told us to let run the full width.
+      🔑 THE <main> BELOW STAYS. The shell renders a <div> for the doorway
+      variant, so wrapping adds no second landmark.
+      ⚠ `after(() => runSocialFlush())` above must keep running AFTER every
+      cookies()/createClient() read — do not move it into this subtree.
+    */
+    <main className="min-h-dvh bg-cream">
+      {/* SEO/GEO Bucket 6 · ItemList JSON-LD also emitted on non-catalog
+          return so legacy single-page layouts continue to surface the
+          12-folder taxonomy hierarchy for AI engines + Google extraction. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
+      />
+      {/* Shared marketing top nav (same as every other public page, owner
+          2026-06-14 "keep this top nav the same on Explore + For vendors").
+          Rendered NON-sticky here because the marketplace search bar
+          (StickyMarketplaceHeader) is itself `sm:sticky sm:top-0` — two
+          sticky-top bars would stack/overlap on scroll. */}
+
+      <NoticeBanner noticeKey={noticeKey} />
+
+      {/* Said on the page, not only in the logs: both are FALSE STATEMENTS to
+          the reader rather than missing decoration — a filter reporting itself
+          as applied, and a shop they saved showing as unsaved. The grid still
+          renders in full underneath. */}
+      {eventContextFailed && filters.matchEvent ? (
+        <p
+          role="status"
+          className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          We couldn&rsquo;t load your event just now, so{' '}
+          <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+          you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+          date. Reload to try again.
+        </p>
+      ) : null}
+      {viewerStateFailed ? (
+        <p
+          role="status"
+          className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+        >
+          We couldn&rsquo;t check which suppliers you&rsquo;ve saved or followed, so those
+          marks are missing below. <strong>Nothing has been unsaved</strong> — your list is
+          safe; this page just can&rsquo;t see it right now.
+        </p>
+      ) : null}
+      <CompareShortlistBanner compareHref={compareHref} />
+
+      {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page
+          content 144px of bottom clearance so the last visible items don't
+          render behind the fixed bottom-pinned StickyMarketplaceHeader (which
+          can stack up to ~140px tall with eyebrow + search row + contextual
+          pill row + safe-area inset). On desktop (`sm:py-14`) the header is
+          sticky-top so no bottom clearance needed — `sm:py-14` overrides
+          mobile's pt-10 + pb-36 with a symmetric 56px both sides. Page-level
+          max-w-6xl cap retired in PR #655 earlier same day per owner
+          directive "let it maximize the full width". */}
+      <section className="mx-auto w-full px-4 pt-10 pb-36 sm:px-6 sm:py-14 lg:px-8">
+
+        {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
+            set, the host arrived from a dashboard planning card or
+            locked-vendor follow-up and is already in "find a vendor for
+            this category" flow. The MARKETPLACE eyebrow + headline +
+            paragraph + "Browse all 192 categories" back-link + "SHOWING:"
+            pill + full FilterBar (City / Sort / Verified-only / Match-my-
+            wedding / Apply / Clear) all read as noise on top of the
+            silently-applied folder / category. Hide them in focused-mode;
+            direct visits render the full chrome unchanged. The folder /
+            category / match / venue filters still narrow the underlying
+            query — only the FILTER UI is hidden. */}
+        {!filters.focusedMode ? (
+          <>
+            {/* 2026-05-30 Airbnb-vibe redesign — owner directive verbatim:
+                "marketplace is doesnt feel user friendly. we want it to be
+                easy to navigate and direct. the buttons being different
+                sizes is also not appealing... vibe of shopee/zalora/airbnb"
+                + "make sure it still follow the theme and understand how
+                the overall look of the app works and keep it that way".
+
+                Retired: italic-serif "Browse Filipino wedding vendors." H1
+                + descriptive paragraph + "Browse all 192 categories" back-
+                link + inline FilterBar (4-col labeled form). The big
+                headline pushed the actual vendor catalog below the fold
+                and the FilterBar's variable-width buttons broke uniformity.
+
+                New: sticky search header (single 44pt pill row) + filter
+                drawer (slide-up sheet on mobile / right-side panel on
+                desktop). Theme preserved — Facebook palette via legacy
+                bg-cream / text-ink / text-terracotta classes per the
+                2026-05-22 brand pivot. The "Browse all 192 categories"
+                back-link survives below as a brand-voice text link so the
+                back affordance stays reachable without competing with the
+                sticky search. */}
+            <StickyMarketplaceHeader
+              taxonomyOptions={TAXONOMY_OPTIONS}
+              filters={{
+                q: filters.q,
+                city: filters.city,
+                sort: filters.sort,
+                verifiedOnly: filters.verifiedOnly,
+                matchEvent: filters.matchEvent,
+                eventType: filters.eventType,
+                folder: filters.folder,
+                venueDefault: filters.venueDefault,
+                // 2026-05-30 PM — drives the applied-filter count badge in
+                // vendor-grid mode too. Empty when no faith narrow active.
+                faith: filters.faithFilter ? FAITH_KEY_TO_URL[filters.faithFilter] : '',
+              }}
+              drawer={{
+                filters: {
+                  q: filters.q,
+                  category: filters.category,
+                  city: filters.city,
+                  sort: filters.sort,
+                  verifiedOnly: filters.verifiedOnly,
+                  matchEvent: filters.matchEvent,
+                  eventType: filters.eventType,
+                  folder: filters.folder,
+                  venueDefault: filters.venueDefault,
+                  focusedMode: filters.focusedMode,
+                  // 2026-05-30 PM — drives the drawer's `<select name="faith">`
+                  // defaultValue in vendor-grid mode. URL lowercase value
+                  // ('catholic' etc.) OR empty for "All faiths" option.
+                  faith: filters.faithFilter ? FAITH_KEY_TO_URL[filters.faithFilter] : '',
+                },
+                sortOptions: SORT_KEYS.map((k) => ({
+                  value: k,
+                  label: SORT_LABEL[k],
+                })),
+                // 2026-05-30 PM — vendor-grid mode lacks the catalog's
+                // `schemas` + `vendorCounts` cross-folder count substrate
+                // (those are CatalogView locals). Pass all 5 faith options
+                // unconditionally — same simpler tradeoff used for Sort +
+                // Verified-only (drawer doesn't pre-count whether results
+                // exist for each value). Couples who pick a faith with zero
+                // matches see the standard EmptyState.
+                faithOptions: FAITH_KEYS_ORDER.map((k) => ({
+                  value: FAITH_KEY_TO_URL[k],
+                  label: FAITH_KEY_TO_LABEL[k],
+                })),
+                // 2026-08-15 — the occasion narrow's handle. The live vocab in
+                // its own sort_order, so the drawer offers exactly the kinds of
+                // celebration the filter accepts and a kind launched in admin
+                // appears here with no deploy. ACTIVE (not enabled-only): a
+                // supplier may serve a kind before it opens to couples, so
+                // narrowing to it is a legitimate search even pre-launch.
+                eventTypeOptions: eventTypeVocab.map((t) => ({
+                  value: t.key,
+                  label: t.label,
+                })),
+                matchableEvent,
+                hostVenueSetting,
+                hostVenueLabel: hostVenueSetting
+                  ? venueSettingLongLabel(hostVenueSetting)
+                  : null,
+                showVenueToggle:
+                  (filters.tile === 'reception' || filters.folder === 'venue') &&
+                  hostVenueSetting !== null,
+                hasActiveFilters:
+                  filters.q.length > 0 ||
+                  filters.category !== null ||
+                  filters.city.length > 0 ||
+                  filters.sort !== 'most_reviews' ||
+                  filters.verifiedOnly ||
+                  filters.matchEvent ||
+                  filters.offSeason ||
+                  filters.venueDefault === 'off' ||
+                  // 2026-05-30 PM — Clear button surfaces when faith narrow
+                  // is active so couples can clear back to baseline without
+                  // hunting for a sub-select option.
+                  filters.faithFilter !== null ||
+                  // 2026-08-15 — same reason for the occasion narrow, and it
+                  // matters more here: a couple's own event auto-applies this
+                  // filter without them ever choosing it, so Clear is the only
+                  // way back to every supplier.
+                  filters.eventType !== null,
+              } as FilterDrawerProps}
+            />
+
+            {/* E3 — the sort brought out where you can see it.
+              *
+              *  This is a SECOND DOOR onto the sort that already ships, not a
+              *  new mechanism: each chip is `buildHref(filters, { sort, page: 1 })`,
+              *  the same builder the rest of the page uses, so every other
+              *  filter in the URL is preserved and `?sort=` round-trips exactly
+              *  as it did from the drawer. The drawer keeps its <select>.
+              *
+              *  ⚠ NOTHING ABOUT RANKING CHANGES — this only chooses which of the
+              *  existing orders is applied. Resetting to page 1 is required:
+              *  keeping `?page=7` while re-sorting lands the couple in the
+              *  middle of a list they have never seen.
+              *
+              *  Hidden when the grid is empty, so it can never sit above "no
+              *  vendors found" offering to re-order nothing. */}
+            {lensRow}
+            {visible.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-ink/55">Sort</span>
+                {SORT_CHIP_KEYS.map((k) => {
+                  const active = filters.sort === k;
+                  return (
+                    <Link
+                      key={k}
+                      href={buildHref(filters, { sort: k, page: 1 })}
+                      aria-current={active ? 'true' : undefined}
+                      className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
+                      style={
+                        active
+                          ? {
+                              background: 'var(--m-orange-4)',
+                              borderColor: 'var(--m-orange-3)',
+                              color: 'var(--m-orange-deep)',
+                            }
+                          : {
+                              background: 'var(--m-paper)',
+                              borderColor: 'var(--m-line)',
+                              color: 'var(--m-slate-2)',
+                            }
+                      }
+                    >
+                      {SORT_LABEL[k]}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {/*
+              ═ THE LANDING'S OWN HEADING — and the word it is NOT allowed to
+              use yet.
+
+              🔒 "TRENDING IS EARNED, NEVER SOLD" (FRONT_DOOR_CORRECTNESS_PASS
+              2026-08-11), and a ranking over a handful of shops is noise
+              wearing the clothes of merit. The owner set the number where it
+              stops being noise — `TRENDING_MIN_LIVE_SHOPS`, imported rather
+              than re-typed, and *"yours to move"* per FRONT_DOOR_AND_SEAM_FINAL
+              §1. Below it the front door already says "The first shops"; this
+              page now says the same thing, from the same constant, so the two
+              surfaces cannot disagree about whether the marketplace is
+              trending.
+
+              ⚠ NO COUNT IS PRINTED. `liveShopCount` decides the WORD and is
+              never rendered — a number beside it would be a second claim that
+              rots, which is the defect this file just had removed from it.
+            */}
+            {isLandingView ? (
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  {(realShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Trending shops'
+                    : 'The first shops'}
+                </h2>
+                <p className="mt-1 text-sm text-ink/60">
+                  {(realShopCount ?? 0) >= TRENDING_MIN_LIVE_SHOPS
+                    ? 'Ranked by what couples actually book and review.'
+                    : 'The suppliers who opened first. New shops appear here as they join.'}
+                </p>
+              </div>
+            ) : null}
+            {/*
+              Current-filter summary.
+
+              ⛔ THE "BROWSE ALL 192 CATEGORIES" BACK-LINK USED TO LEAD THIS
+              STRIP AND IS GONE (owner 2026-09-08: *"we also do not need the
+              browse line since we are already browsing the whole taxonomy"*).
+              Two things were wrong with it and only one was the wording:
+
+                1. It rendered on EVERY grid page, including the unfiltered
+                   catalog — where `/explore?match=0` is the page you are
+                   already on. A link to where you are is not an affordance.
+                2. It said 192. That number was typed by hand when
+                   `TAXONOMY_MAP` held 192 entries; the map now holds 288, so
+                   the marketplace was advertising a third fewer categories
+                   than it has. Nothing derived it and nothing watched it —
+                   exactly the rot CLAUDE.md rule 7 is about ("an anchor is a
+                   string, never a number").
+
+              🔑 REMOVING IT DOES NOT STRAND A NARROWED VISITOR, which was the
+              only reason to keep it. `filter-drawer.tsx` has a pinned Clear
+              button whose visibility is driven by whether any filter is
+              active, reachable from the sticky header's Filters button, and
+              the zero-results EmptyState carries its own "Clear all filters".
+              Checked before deleting rather than assumed.
+
+              The summary itself stays — it says what you are narrowed BY,
+              which nothing else on the grid tells you — and now renders only
+              when there is something to say, instead of holding an empty row.
+            */}
+            {filters.category || filters.q.length > 0 ? (
+              <div className="mt-4 flex flex-wrap items-baseline justify-end gap-3">
+                {filters.category ? (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Showing: {taxonomyLabel(filters.category)}
+                  </p>
+                ) : (
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                    Search: &ldquo;{filters.q}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          /* Focused-mode replacement: a slim search form with only the
+             search input. Submitting preserves folder + category + match
+             + venue + from=plan via hidden inputs so the host stays inside
+             focused-mode + their planning context. No labels / no
+             eyebrow / no headline / no filter chrome. */
+          <FocusedModeSearchForm filters={filters} />
+        )}
+
+        {/* Task #48 — venue default-on chip. Surfaced when the venue
+            filter is firing on this query (Reception scope + host's
+            default-on OR explicit ?venue=<facet>). Gives couples one-click
+            "Show all settings" recovery if the narrowed pool is too small,
+            without losing the rest of their filter state.
+            2026-05-22 evening — also surfaces when ?venue=<facet> is
+            an explicit pick (filter venueFacet wins over host's setting). */}
+        {venueFilterFiring && (filters.venueFacet ?? hostVenueSetting) ? (
+          <VenueFilterBanner
+            settingKey={(filters.venueFacet ?? hostVenueSetting) as string}
+            showAllHref={buildHref(filters, { venueDefault: 'off' })}
+          />
+        ) : null}
+
+        {/* Task #45 — calendar intersection banner. Only renders when the
+            host has confirmed vendors AND the precision window narrows the
+            commonAvailability to ≤7 days OR empty. Above the grid so the
+            host sees the constraint before scrolling candidate cards. */}
+        {availability.kind === 'active' &&
+          coupleEventId &&
+          (availability.availableDays.length === 0 ||
+            availability.availableDays.length <= 7) ? (
+          <VendorsAvailabilityBanner
+            eventId={coupleEventId}
+            availableDays={availability.availableDays}
+            lockedCount={availability.lockedCount}
+            windowLabel={availability.windowLabel}
+          />
+        ) : null}
+
+        {/* Off-Season Promos (Wave 5) — couple-facing toggle band. OFF by
+            default (the bare marketplace is unchanged). When on, the grid is
+            narrowed to vendors running a live off-peak offer; the band turns
+            into an active chip with a one-click clear. Rendered in vendor-grid
+            mode only (catalog mode has its own landing chrome). */}
+        <div className="mt-4">
+          {filters.offSeason ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-300/60 bg-sky-50 px-4 py-3">
+              <p className="inline-flex items-center gap-2 text-sm text-ink/80">
+                <Snowflake
+                  aria-hidden
+                  className="h-4 w-4 text-sky-600"
+                  strokeWidth={1.75}
+                />
+                <span>
+                  Showing suppliers with{' '}
+                  <span className="font-medium text-ink">off-season savings</span>{' '}
+                  — a live off-peak deal.
+                </span>
+              </p>
+              <Link
+                href={buildHref(filters, { offSeason: false, page: 1 })}
+                className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+              >
+                Show all suppliers
+              </Link>
+            </div>
+          ) : (
+            <Link
+              href={buildHref(filters, { offSeason: true, page: 1 })}
+              className="inline-flex items-center gap-2 rounded-full border border-sky-300/60 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-800 transition-colors hover:border-sky-400 hover:bg-sky-100"
+            >
+              <Snowflake aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Off-season savings
+            </Link>
+          )}
+        </div>
+
+        {/* Couple-side serves filter (2026-07-03) — active-faith strip. The
+            faith PICKER stays inside the FilterDrawer (owner directive
+            2026-05-30 retired the inline pill row: "they should be embedded
+            inside the filter"), so this strip only renders when a narrow is
+            ACTIVE — it names the faith being matched and offers a one-click
+            clear that keeps every other filter. Vendors surface when any of
+            their coverages welcomes this faith (or all faiths). */}
+        {filters.faithFilter ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-terracotta/20 bg-terracotta/5 px-4 py-3">
+            <p className="inline-flex items-center gap-2 text-sm text-ink/80">
+              <HeartHandshake
+                aria-hidden
+                className="h-4 w-4 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <span>
+                Showing suppliers who serve{' '}
+                <span className="font-medium text-ink">
+                  {FAITH_KEY_TO_LABEL[filters.faithFilter]}
+                </span>{' '}
+                events.
+              </span>
+            </p>
+            <Link
+              href={buildHref(filters, { faithFilter: null, page: 1 })}
+              className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              All faiths
+            </Link>
+          </div>
+        ) : null}
+
+        {resultsBody}
+
+        {/* THE OTHER TWO NOUNS. The box that sends people here says "suppliers,
+            stories and guides"; until 2026-08-15 this page answered the first
+            and had no code path for the other two, so an article title typed
+            into it returned "No vendors match exactly" while the article sat
+            live and indexed. Restored from the binding front-door drawing,
+            whose search returned three labelled groups.
+
+            🔒 BELOW the vendor results, always. This is the marketplace; a
+            reader who came for a supplier must not have to scroll past our
+            writing to reach one. When the vendor list is empty this section is
+            simply the first thing with an answer in it. */}
+        <ReadsResults hits={readHits} query={filters.q} />
+
+
+        {/*
+          ⛔ NO CATALOG, AND NO SECOND SEARCH BAR, UNDER THE RESULTS.
+
+          Earlier today this rendered <CatalogView> here so the category
+          breadth survived below the shops. It also dragged CatalogView's
+          `ExploreSearchHero` down with it — so the page grew a SECOND search
+          field under the sticky one at the top. Owner, immediately: *"why are
+          there 2 search bar when i explicitly said use the search bar on
+          top"*. Correct, and it was my regression.
+
+          🔑 A COMPONENT IS NOT A SECTION. CatalogView is a whole landing —
+          hero, search, folder strip — not a "category grid" you can park under
+          something else. Reaching for it to get one of its parts brought all
+          of them.
+
+          The catalog is still one tap away: the hero's own "Browse all
+          categories" link and `?browse=1`, exactly as `browseMode` already
+          documents.
+        */}
+      </section>
+    </main>
+  );
+}
+
+function buildHref(
+  filters: {
+    /** `/explore` (the default) or Discover's `/` — 2026-11-12. */
+    base?: MarketplaceBase;
+    q: string;
+    category: string | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    offSeason?: boolean;
+    eventType?: EventTypeFilter | null;
+    folder?: WeddingFolder | null;
+    tile?: WeddingTile | null;
+    venueDefault?: 'on' | 'off';
+    focusedMode?: boolean;
+    faithFilter?: FaithKey | null;
+    lens?: LensKey | null;
+  },
+  patch: Partial<{
+    q: string;
+    category: string | null | '';
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    offSeason: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    tile: WeddingTile | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
+    faithFilter: FaithKey | null;
+    lens: LensKey | null;
+  }>,
+): string {
+  const merged = { ...filters, ...patch };
+  const params = new URLSearchParams();
+  if (merged.q) params.set('q', merged.q);
+  if (merged.category) params.set('category', merged.category);
+  if (merged.city) params.set('city', merged.city);
+  if (merged.sort && merged.sort !== 'most_reviews') params.set('sort', merged.sort);
+  if (merged.page && merged.page > 1) params.set('page', String(merged.page));
+  if (merged.verifiedOnly) params.set('verified', '1');
+  if (merged.matchEvent) params.set('match', '1');
+  // Off-Season Promos (Wave 5) — preserve the off-season narrow across
+  // pagination + filter toggles + the "Clear" link.
+  if (merged.offSeason) params.set('offseason', '1');
+  if (merged.eventType) params.set('event_type', merged.eventType);
+  if (merged.folder) params.set('folder', merged.folder);
+  // 10-parent model — preserve tile scope across pagination + filter toggles.
+  if (merged.tile) params.set('tile', WEDDING_TILE_SLUG[merged.tile]);
+  // Task #48 — only emit ?venue=0 (explicit opt-out). The 'on' default is
+  // implicit, so omitting the param keeps URLs short AND means new clicks
+  // inherit the default-on behavior unless the user has explicitly toggled
+  // off via the chip.
+  if (merged.venueDefault === 'off') params.set('venue', '0');
+  // Owner directive 2026-05-22 — preserve focused-mode across in-page
+  // navigation. Pagination + EmptyState "Clear all filters" + every other
+  // self-link on /vendors flows through buildHref, so emitting `from=plan`
+  // here keeps the host inside the chrome-stripped layout on every
+  // subsequent click. Direct visits never have focusedMode set, so this
+  // is a no-op for them.
+  if (merged.focusedMode) params.set('from', 'plan');
+  // 2026-05-30 — Ceremony Faith pill. Emit ?faith=catholic etc. so the
+  // contextual filter survives pagination + chip toggle + every other
+  // self-link on /vendors. Absent means "All faiths" (no narrow applied).
+  if (merged.faithFilter) {
+    params.set('faith', FAITH_KEY_TO_URL[merged.faithFilter]);
+  }
+  // The ranking lens (owner 2026-08-29). `fit` is the default and is emitted as
+  // NOTHING, so today's URLs stay byte-identical and a shared link that carries
+  // no lens lands on today's ordering — which is what every existing link is.
+  if (merged.lens && merged.lens !== 'fit') params.set('lens', merged.lens);
+  // 🔎 DISCOVER (2026-11-12): the same parameters on `/`. With no supplier parameter left (only `q`, or nothing),
+  // `discoverSupplierHref` adds the view's mark so the link stays in the supplier view instead of falling into
+  // Discover's own search or its shelves (lib/discover-suppliers.ts).
+  if (merged.base === '/') return discoverSupplierHref(params);
+  const qs = params.toString();
+  return qs.length > 0 ? `/explore?${qs}` : '/explore';
+}
+
+/**
+ * "Clear all filters" — every narrowing dropped, the planning context kept. `/explore` keeps its two addresses
+ * verbatim; Discover stays in its supplier view (the mark), and `from=plan` survives exactly as it does here.
+ */
+function clearAllHref(filters: { base?: MarketplaceBase; focusedMode: boolean }): string {
+  if (filters.base === '/') return filters.focusedMode ? '/?from=plan' : discoverSupplierHref(new URLSearchParams());
+  return filters.focusedMode ? '/explore?from=plan' : '/explore';
+}
+
+/**
+ * Focused-mode search-only form (owner directive 2026-05-22).
+ *
+ * Renders when the host arrived from a dashboard planning card (?from=plan).
+ * The full FilterBar — City + Sort by + Verified-only + Match-my-wedding +
+ * Apply / Clear — is hidden; only the TaxonomySearch input survives so the
+ * host can keep refining within their planning context.
+ *
+ * Hidden inputs carry every filter that's silently still applied
+ * (folder, category, match, venue, eventType, verified, city, sort) +
+ * the focused-mode flag itself, so submitting the form keeps the host
+ * inside focused-mode AND preserves the planning context they came from.
+ * Pagination + EmptyState's "Clear all filters" + every other self-link
+ * already pass through `buildHref`, which emits `from=plan` whenever
+ * filters.focusedMode is true (see above) — so the focused layout
+ * survives every in-page click.
+ */
+function FocusedModeSearchForm({
+  filters,
+}: {
+  filters: {
+    q: string;
+    category: string | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
+  };
+}) {
+  return (
+    <form method="get" action="/explore" className="space-y-2">
+      <label className="block">
+        <span className="sr-only">Search suppliers</span>
+        {/* Reuses the same TaxonomySearch client component as FilterBar.
+            Picking a suggestion router-pushes to /vendors?category=…, so
+            we pass focusedMode through the `preserve` prop so the
+            client-side push keeps `from=plan` on the URL. */}
+        <TaxonomySearch
+          initialQuery={filters.q}
+          options={TAXONOMY_OPTIONS}
+          preserve={{
+            city: filters.city,
+            sort: filters.sort,
+            verifiedOnly: filters.verifiedOnly,
+            matchEvent: filters.matchEvent,
+            eventType: filters.eventType,
+            folder: filters.folder,
+            from: filters.focusedMode ? 'plan' : null,
+          }}
+        />
+      </label>
+
+      {/* Hidden inputs — every filter that's still silently applied,
+          plus the focused-mode flag, get carried through form submit.
+          Submitting the form (Enter on free-text search) reloads
+          /vendors?from=plan&folder=…&… so the layout stays focused and
+          the planning context the host arrived with is preserved. */}
+      {filters.category ? (
+        <input type="hidden" name="category" value={filters.category} />
+      ) : null}
+      {filters.city ? (
+        <input type="hidden" name="city" value={filters.city} />
+      ) : null}
+      {filters.sort !== 'most_reviews' ? (
+        <input type="hidden" name="sort" value={filters.sort} />
+      ) : null}
+      {filters.verifiedOnly ? (
+        <input type="hidden" name="verified" value="1" />
+      ) : null}
+      {filters.matchEvent ? (
+        <input type="hidden" name="match" value="1" />
+      ) : null}
+      {filters.eventType ? (
+        <input type="hidden" name="event_type" value={filters.eventType} />
+      ) : null}
+      {filters.folder ? (
+        <input type="hidden" name="folder" value={filters.folder} />
+      ) : null}
+      {filters.venueDefault === 'off' ? (
+        <input type="hidden" name="venue" value="0" />
+      ) : null}
+      <input type="hidden" name="from" value="plan" />
+    </form>
+  );
+}
+/**
+ * Stories and guides matching the typed words.
+ *
+ * Renders NOTHING when there are no hits — an empty "Stories and guides"
+ * heading would turn one dead end into two, and this section exists precisely
+ * because a dead end was what the box already gave people.
+ *
+ * Each row says what it is ("Guide · Planning", "Help · Payments", "Story"),
+ * because a reader who searched for a supplier needs to see at a glance that
+ * these are things to read, not shops to hire.
+ */
+function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
+  if (hits.length === 0) return null;
+  return (
+    <section className="mt-12 border-t border-ink/10 pt-8" aria-label="Stories and guides">
+      <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
+        Stories and guides
+      </h2>
+      <p className="mt-1 text-sm text-ink/55">
+        {hits.length} {hits.length === 1 ? 'thing' : 'things'} to read for
+        &ldquo;{query}&rdquo;
+      </p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {hits.map((h) => (
+          <li key={h.href}>
+            <Link
+              href={h.href}
+              className="block h-full rounded-2xl border border-ink/10 bg-white/60 p-4 transition hover:border-terracotta/40 hover:bg-white"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+                {h.tag}
+              </span>
+              <span className="mt-1.5 block text-[15px] font-medium leading-snug text-ink">
+                {h.title}
+              </span>
+              <span className="mt-1 block text-sm leading-relaxed text-ink/60">
+                {h.blurb}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function EmptyState({
+  filters,
+  broadenedCount,
+  stillSettingUp,
+  eventTypeLabel,
+}: {
+  filters: {
+    base?: MarketplaceBase;
+    q: string;
+    category: string | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    offSeason: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
+  };
+  broadenedCount: number | null;
+  /** Live shops with no active service yet — named on the unfiltered empty grid (lib/explore-empty-grid.ts). */
+  stillSettingUp: ShopStillSettingUp[];
+  /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
+  eventTypeLabel: string | null;
+}) {
+  const hasFilter = !!(
+    filters.q ||
+    filters.category ||
+    filters.city ||
+    filters.verifiedOnly ||
+    filters.matchEvent ||
+    filters.offSeason ||
+    filters.eventType
+  );
+
+  // Off-Season Promos (Wave 5) — when the off-season narrow returned nothing,
+  // frame it honestly: no vendor is running a live off-peak offer right now.
+  // Offer a one-click drop of just the off-season filter so the couple keeps
+  // the rest of their search.
+  if (filters.offSeason) {
+    return (
+      <div className="mt-8 rounded-2xl border border-dashed border-sky-300/60 bg-sky-50/60 p-10 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-sky-700">
+          Off-season savings
+        </p>
+        <p className="mt-3 text-base font-medium text-ink">
+          No live off-season offers match your search yet.
+        </p>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
+          Suppliers run off-peak deals for their quieter months. Check back as the
+          season shifts, or browse every supplier below.
+        </p>
+        <Link
+          href={buildHref(filters, { offSeason: false, page: 1 })}
+          className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-800"
+        >
+          Show all suppliers
+        </Link>
+      </div>
+    );
+  }
+
+  // Task #42 (2026-05-22) — "Show all" CTA appears when strict filters
+  // (match-my-wedding, verified-only) shrank the result to zero but the
+  // broadened scope (same category/city/q/eventType) has inventory. Drops
+  // only match + verified; keeps every other filter so the couple stays
+  // anchored to the category they were searching.
+  const hasStrictFilter = filters.matchEvent || filters.verifiedOnly;
+  const showAllHref = buildHref(filters, {
+    matchEvent: false,
+    verifiedOnly: false,
+    page: 1,
+  });
+  const showAllAvailable =
+    hasStrictFilter && broadenedCount !== null && broadenedCount > 0;
+
+  // Vendor-outreach CTA (2026-06-28) — the cheapest REAL acquisition surface.
+  // When a visitor drilled into a SPECIFIC canonical leaf (`?category=`) and
+  // the marketplace returned zero REAL vendors, that thin/empty category is a
+  // recruitment opportunity, not a dead end. Demo vendors (`is_demo=TRUE`) are
+  // already filtered out of the grid for non-admin viewers upstream, so a
+  // category whose only inventory is synthetic ALSO lands here — meaning the
+  // outreach prompt fires for the exact "looks populated to admins, empty to
+  // couples" case the Chinese-specialist demo seed created.
+  //
+  // Gated on `filters.category` (a canonical leaf was picked), NOT on faith /
+  // event-type / any specific tradition — every thin category benefits equally.
+  // We deliberately DON'T show it for a bare text search (`filters.q` with no
+  // category) because there's no canonical leaf to scope the "list your
+  // business" entry to. The broadened "Show all" recovery (match/verified
+  // dropped but inventory exists) takes precedence — if real vendors exist one
+  // filter away, we point the couple at them rather than asking them to recruit.
+  //
+  // Routes to the canonical vendor-registration entry (`/signup?as=vendor`,
+  // mirrored from /vendors), carrying `next=/vendor-dashboard/profile` so a
+  // brand-new vendor lands directly on the services picker that already surfaces
+  // this leaf as a checkbox. The leaf key rides along as `prefill_service` for
+  // future deep-linking + signup-source attribution (harmless today — the
+  // signup route ignores unknown params).
+  const outreachCanonical =
+    filters.category && !showAllAvailable ? filters.category : null;
+  const outreachLabel = outreachCanonical
+    ? taxonomyLabel(outreachCanonical)
+    : null;
+  const outreachNext = `/vendor-dashboard/profile?prefill_service=${encodeURIComponent(
+    outreachCanonical ?? '',
+  )}`;
+  const outreachSignupHref = `/signup?as=vendor&next=${encodeURIComponent(
+    outreachNext,
+  )}`;
+
+  // Iteration 0041 — event-type-specific empty state. When the marketplace
+  // is filtered to an event_type and zero vendors match, frame the empty
+  // result as "Coming Soon — vendors being recruited" rather than a
+  // generic "no matches". Avoids couples on a debut event seeing a silently
+  // empty marketplace and assuming the platform is broken. Mirrors the
+  // iteration 0043 faith-activation pattern (Coming Soon + future email
+  // capture).
+  if (filters.eventType && filters.eventType !== 'wedding') {
+    const label = eventTypeLabel ?? filters.eventType;
+    return (
+      <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
+        <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          Coming soon
+        </p>
+        <p className="mt-3 text-base font-medium text-ink">
+          {label} suppliers are being recruited for Setnayan.
+        </p>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
+          Setnayan launches each event-type marketplace once enough verified
+          suppliers are onboarded. Wedding suppliers are live now — other event
+          types open as their supplier pools mature.
+        </p>
+        <EventTypeNotifyForm eventType={filters.eventType} label={label} />
+        <Link
+          href={
+            filters.base === '/'
+              ? discoverSupplierHref(
+                  new URLSearchParams({
+                    event_type: BROWSE_ALL_EVENT_TYPES,
+                    ...(filters.focusedMode ? { from: 'plan' } : {}),
+                  }),
+                )
+              : browseAllVendorsHref(filters.focusedMode)
+          }
+          className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+        >
+          Or browse all suppliers instead →
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+      {/* 🔴 THE UNFILTERED LINES COME FROM `unfilteredEmptyGridCopy`. They said "No suppliers have published
+          their Setnayan profile yet." — never measured: the grid lists shops WITH an active service (B2), so an
+          empty grid proves only that no service is listed, and on 2026-11-01 a live shop (SetnaProd, on the front
+          door and at /setnaprod) sat right behind that sentence. lib/explore-empty-grid.ts. */}
+      <p className="text-base font-medium text-ink/75">
+        {hasFilter ? 'No suppliers match exactly.' : unfilteredEmptyGridCopy(stillSettingUp.length).line}
+      </p>
+      <p className="mt-1 text-sm text-ink/55">
+        {hasFilter
+          ? showAllAvailable
+            ? `We have ${formatCount(broadenedCount)} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
+            : 'Try widening your search or clearing one filter at a time.'
+          : unfilteredEmptyGridCopy(stillSettingUp.length).sub}
+      </p>
+      {!hasFilter && stillSettingUp.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap justify-center gap-2" data-still-setting-up="">
+          {stillSettingUp.map((shop) => (
+            <li key={shop.href}>
+              <Link href={shop.href} className="button-secondary inline-flex h-10 px-4">
+                {shop.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {hasFilter ? (
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {showAllAvailable ? (
+            <Link href={showAllHref} className="button-primary inline-flex h-10 px-4">
+              Show all
+            </Link>
+          ) : null}
+          {/* Preserve focused-mode when clearing — host stays in the
+              chrome-stripped layout. Direct visits never set focusedMode
+              so this is a no-op for them. */}
+          <Link
+            href={clearAllHref(filters)}
+            className="button-secondary inline-flex h-10 px-4"
+          >
+            Clear all filters
+          </Link>
+        </div>
+      ) : null}
+
+      {/* Vendor-outreach CTA — turns an empty/sparse category into a real
+          recruitment surface. Renders only when a canonical leaf was drilled
+          into AND no real vendors back it (faith-agnostic; helps every thin
+          category). Two doors: the couple invites a vendor they know, or a
+          prospective vendor self-lists straight into this category. */}
+      {outreachCanonical && outreachLabel ? (
+        <div className="mx-auto mt-6 max-w-prose rounded-xl border border-terracotta/30 bg-terracotta/[0.04] p-5 text-left">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta">
+            Help this category grow
+          </p>
+          <p className="mt-2 text-sm font-medium text-ink">
+            Know a great {outreachLabel}? Invite them — or list your own business
+            here.
+          </p>
+          <p className="mt-1 text-xs text-ink/60">
+            Setnayan is onboarding {outreachLabel} suppliers now. Listing is free
+            to start, and you choose this category in 90 seconds.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={outreachSignupHref}
+              className="button-primary inline-flex h-10 items-center px-4 text-sm"
+            >
+              List your business
+            </Link>
+            <Link
+              href="/for-suppliers"
+              className="inline-flex h-10 items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              How supplier listings work →
+            </Link>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
+function Pagination({
+  filters,
+  page,
+  totalPages,
+  total,
+}: {
+  filters: {
+    q: string;
+    category: string | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
+  };
+  page: number;
+  totalPages: number;
+  total: number;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav
+      aria-label="Pagination"
+      className="mt-8 flex items-center justify-between gap-2 text-sm text-ink/70"
+    >
+      <p>
+        Page {formatCount(page)} of {formatCount(totalPages)} · {formatCount(total)} vendor{total === 1 ? '' : 's'}
+      </p>
+      <div className="flex items-center gap-2">
+        <PageLink
+          href={page > 1 ? buildHref(filters, { page: page - 1 }) : null}
+          label="Previous"
+          icon="prev"
+        />
+        <PageLink
+          href={page < totalPages ? buildHref(filters, { page: page + 1 }) : null}
+          label="Next"
+          icon="next"
+        />
+      </div>
+    </nav>
+  );
+}
+
+function PageLink({
+  href,
+  label,
+  icon,
+}: {
+  href: string | null;
+  label: string;
+  icon: 'prev' | 'next';
+}) {
+  const cls =
+    'inline-flex h-10 items-center gap-1 rounded-md border border-ink/20 px-3 text-sm font-medium';
+  if (!href) {
+    return (
+      <span className={`${cls} cursor-not-allowed opacity-40`}>
+        {icon === 'prev' ? <ChevronLeft className="h-4 w-4" /> : null}
+        {label}
+        {icon === 'next' ? <ChevronRight className="h-4 w-4" /> : null}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={`${cls} hover:border-ink/40`}>
+      {icon === 'prev' ? <ChevronLeft className="h-4 w-4" /> : null}
+      {label}
+      {icon === 'next' ? <ChevronRight className="h-4 w-4" /> : null}
+    </Link>
+  );
+}
+
+// ─── Catalog mode ──────────────────────────────────────────────────────────
+// Unfiltered landing view. Renders the full 192-category taxonomy grouped by
+// the 12 PH-grounded wedding folders so couples see the breadth of services
+// Setnayan covers even before vendor pools fill in. Per-tile vendor counts
+// come from `fetchVendorCountsByService`; categories with zero vendors render
+// in a "Recruiting" or "Coming soon" state per the live phase of the canonical
+// service (see `lib/taxonomy.ts`).
+//
+// Folder #2 (Reception) is filter-only — backed by the venue_setting enum
+// rather than canonical_services. Rendered as a special section with seven
+// venue-type chips that drill into the marketplace filtered by setting.
+
+type CatalogSchemaRow = {
+  canonical_service: string;
+  display_name_en: string;
+  display_name_tl: string | null;
+};
+
+const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
+  'V1.1 base': 0,
+  'V1.1.1': 1,
+  'V1.1.2': 2,
+  'V1.1.3': 3,
+  'V1.1.4': 4,
+  'V1.1.5': 5,
+  'V1.1.6': 6,
+  'V1.2': 7,
+  'V1.3': 8,
+  'V1.4': 9,
+  'V1.5+': 10,
+};
+
+/**
+ * 2026-05-30 — "Only show categories with vendors" hide-empty filter.
+ *
+ * Owner directive: the flat 17-tile Ceremony grid mixed live-phase tiles
+ * (Catholic Priest, Civil Judge — RECRUITING, vendors can sign up today)
+ * with future-phase placeholders (Born Again Pastor, Marriage License
+ * Expediting, Apostille — COMING SOON, the canonical_service exists in
+ * the spec but no signup surface is open yet). Couples don't need to see
+ * the future-phase drawers — they're admin/spec-side scaffolding.
+ *
+ * Pragmatic interpretation of "only show categories with vendors":
+ *   - populated (count.total > 0)   → SHOW
+ *   - recruiting (live phase, 0 vendors)  → SHOW (vendor-acquisition surface)
+ *   - setnayan (first-party service) → SHOW
+ *   - future (V1.2 / V1.3 / V1.4 / V1.5+, no vendors yet)  → HIDE
+ *
+ * Phases automatically promote out of HIDE as they activate — when
+ * V1.2 launches and the V1.2-tagged categories become live, the same
+ * tiles will surface as "Recruiting" without further code changes.
+ *
+ * LIVE_PHASES kept in sync with the same constant in
+ * apps/web/app/explore/_components/category-tile.tsx (where it governs
+ * the Recruiting vs Coming Soon state pill). If you change one, change
+ * both — the tile would render "Coming soon" while the grid showed it,
+ * which would be confusing.
+ */
+const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
+  'V1.1 base',
+  'V1.1.1',
+  'V1.1.2',
+  'V1.1.3',
+  'V1.1.4',
+  'V1.1.5',
+  'V1.1.6',
+]);
+
+async function CatalogView({
+  admin,
+  matchableEvent,
+  matchEvent,
+  coupleFaith,
+  venueAnchor,
+  coupleEventType,
+  currentEventId,
+  noticeKey,
+  compareHref,
+  scopedFolder,
+  inDemoMode,
+  focusedMode,
+  faithFilter,
+  browseMode,
+  emptyLineHidden,
+}: {
+  admin: ReturnType<typeof createAdminClient>;
+  matchableEvent: {
+    ceremony_type: string;
+    secondary_ceremony_type?: string | null;
+    venue_setting: string;
+  } | null;
+  matchEvent: boolean;
+  coupleFaith: CoupleFaith;
+  venueAnchor: { lat: number; lng: number } | null;
+  /** events.event_type — drives the tile-level multi-event applicability gate. */
+  coupleEventType: string | null;
+  currentEventId: string | null;
+  /* `isAuthenticated` was REMOVED 2026-08-15 with the page-local brand header
+     it existed to drive ("Return to Dashboard" vs "Plan with Setnayan"). Both
+     destinations now live in the shared rail's account slot, which asks the
+     session itself — so passing the answer down here would be a second source
+     of truth for the same question. */
+  /** Allow-listed notice key from ?notice=… (Task #12). Null when absent or
+   *  unknown. Surfaces a polite banner under the header explaining a
+   *  redirected-from-deferred-feature landing. */
+  noticeKey: string | null;
+  /** Route-wayfinding 2026-07-15 — `/explore/compare?ids=…` link when the couple
+   *  has ≥2 saved vendors, else null. Drives CompareShortlistBanner. */
+  compareHref: string | null;
+  /** Task #47 — when non-null, render only the named folder section. Hides
+   *  the other 11 folders + the PairedVenuePanel (which surfaces ceremony
+   *  venues regardless of viewport position; the dashboard Reception
+   *  Search button previously landed users on Reception with the entire
+   *  Ceremony folder + paired-venue church cards rendered directly above,
+   *  reading as "the churches still showed in Reception"). Null when the
+   *  user came in via the universal Browse path (top-nav, sitemap, direct
+   *  visit) — full 12-folder catalog renders as before. */
+  scopedFolder: WeddingFolder | null;
+  /** 2026-05-22 evening — admin demo mode. When true, the Reception card
+   *  grid includes `is_demo=TRUE` venue_directory rows + each card
+   *  surfaces a DEMO chip overlay on its hero photo. */
+  inDemoMode: boolean;
+  /** Owner directive 2026-05-22 — focused-mode chrome toggle. When TRUE
+   *  (host arrived from a dashboard planning card via ?from=plan), the
+   *  catalog MARKETPLACE eyebrow + headline + paragraph + CatalogFilterBar
+   *  + ReligionBanner are all hidden. The FolderTabs + per-folder grid
+   *  STILL render so the host can browse within their planning context.
+   *  Direct visits to /vendors render the full chrome unchanged. */
+  focusedMode: boolean;
+  /** 2026-05-30 — explicit Ceremony faith narrow from the StickyMarketplaceHeader
+   *  contextual pill. When set, filter tile rendering to faith === filter OR
+   *  faith === undefined (no-faith tiles always cross-surface — civil judge,
+   *  generic officiant, marriage license expediting, CFO seminar, apostille
+   *  all stay regardless of faith pick). Null = no explicit narrow; the
+   *  pre-existing religion-default-on (matchEvent + coupleFaith) takes
+   *  precedence. */
+  faithFilter: FaithKey | null;
+  /** 2026-06-14 search-first — when false (a bare Explore landing) the curated
+   *  browse catalog below the hero is suppressed; only the search hero + a
+   *  "Browse all categories" link render. True for explicit browse/context
+   *  visits (?browse=1 / folder / tile / from=plan). */
+  browseMode: boolean;
+  /** 📱 Inside the App Store / Play Store shell the "no supplier has opened a
+   *  shop yet" line is hidden (owner, DECISION_LOG 2026-10-19 (2)); the search
+   *  hero and "Browse all categories" stay, so the page is never empty. One
+   *  live shop and this view is not rendered at all. Web: always false. */
+  emptyLineHidden: boolean;
+}) {
+  // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
+  // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
+  // → lib/taxonomy.ts constant). Local shadows so every reference in
+  // CatalogView resolves to the snapshot without per-site edits.
+  // Casts restore the original constants' exact-key Record types (the snapshot
+  // is keyed by string; it carries the same keys, seeded from the constant) so
+  // every existing reference type-checks unchanged under noUncheckedIndexedAccess.
+  const tax = await getTaxonomy();
+  const TAXONOMY_MAP = tax.map;
+  const WEDDING_FOLDER_ORDER = tax.folderOrder;
+  const WEDDING_FOLDER_LABEL = tax.folderLabel as Record<WeddingFolder, string>;
+  const WEDDING_FOLDER_SHORT_LABEL = tax.folderShortLabel as Record<WeddingFolder, string>;
+  const WEDDING_FOLDER_SLUG = tax.folderSlug as Record<WeddingFolder, string>;
+  const WEDDING_TILE_LABEL = tax.tileLabel as Record<WeddingTile, string>;
+  const WEDDING_TILE_SLUG = tax.tileSlug as Record<WeddingTile, string>;
+  const WEDDING_TILE_ORDER = tax.tileOrder;
+  const WEDDING_TILES_BY_PARENT = tax.tilesByParent as Record<WeddingFolder, WeddingTile[]>;
+  const TILE_PARENT = tax.tileParent as Record<WeddingTile, WeddingFolder>;
+  // Single round-trip per page render — both reads are admin-scoped because
+  // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
+  // 🧪 2026-11-06 — the demo vendor ID list no longer EXCLUDES anything from
+  // the inline FolderVendorsSection or the tile preview line (demo shops are
+  // public, marked "(DEMO ONLY)"); it now tells FolderVendorsSection which of
+  // its cards wear the marker. The per-service COUNTS stay real-only
+  // (`fetchVendorCountsByService`, lib/vendor-counts.ts — "demo numbers never
+  // count in real totals").
+  const [{ data: schemaRows }, vendorCounts, demoVendorIdsRaw] = await Promise.all([
+    admin
+      .from('canonical_service_schemas')
+      .select('canonical_service, display_name_en, display_name_tl')
+      .order('display_name_en', { ascending: true }),
+    fetchVendorCountsByService(admin, inDemoMode),
+    fetchDemoVendorIds(admin),
+  ]);
+
+  const schemas = (schemaRows ?? []) as CatalogSchemaRow[];
+  const catalogExcludeVendorIds: ReadonlyArray<string> = [];
+  const catalogDemoVendorIds: ReadonlyArray<string> = demoVendorIdsRaw;
+
+  // Popular-search chips for the hero = top categories by live vendor count
+  // (owner directive 2026-06-14 — "Popular searches" under the bare search
+  // bar). Falls back to the curated EXPLORE_HERO_CHIPS when no vendor has
+  // stocked a category yet (pre-launch) so the chip row is never empty.
+  const popularChips: ReadonlyArray<ExploreChip> = Array.from(
+    vendorCounts.entries(),
+  )
+    .filter(([, c]) => c.total > 0)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, 6)
+    .map(([key]) => ({
+      label: taxonomyLabel(key),
+      href: `/explore?category=${encodeURIComponent(key)}`,
+    }));
+  const heroChips = popularChips.length > 0 ? popularChips : EXPLORE_HERO_CHIPS;
+
+  // Occasion chips (owner 2026-08-15 — "they can also search by type of
+  // event"). The landing is catalog mode, which renders no FilterDrawer, so
+  // without this row the `?event_type=` filter has NO handle on the one public
+  // page built for discovery.
+  //
+  // `getEventTypeVocab` is React `cache()`d at source, so this is the same read
+  // the page body already performed — no extra round trip.
+  //
+  // ENABLED, not merely active: `enabled` is the couple-side launch lever, so
+  // this row advertises exactly the celebrations Setnayan is publicly open for.
+  // (The drawer offers the wider ACTIVE roster, because a supplier may serve a
+  // kind before it opens to couples and narrowing to it is still legitimate.)
+  //
+  // ⚖ NO SLICE. Every enabled kind renders. A `.slice(0, 6)` here would decide
+  // in a source file which celebrations are worth showing, and hide the rest
+  // behind nothing — there is no "all occasions" page to send anyone to, so a
+  // capped row would be a silent boundary. Which kinds appear is a real
+  // product decision and it already has a home: the `enabled` lever at
+  // /admin/event-types, which changes this row with zero deploys.
+  const occasionChips: ReadonlyArray<ExploreChip> = (await getEventTypeVocab())
+    .filter((t) => t.enabled)
+    .map((t) => ({
+      label: t.label,
+      href: `/explore?event_type=${encodeURIComponent(t.key)}`,
+    }));
+
+  // Religion-default-on: when the couple has a faith (ceremony_type maps to
+  // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
+  // faiths. Untagged tiles always surface — they're the cross-faith base.
+  // Civil couples (coupleFaith=null) keep all faith-tagged tiles hidden when
+  // matchEvent is on. Anonymous visitors see everything.
+  //
+  // 2026-05-30 — explicit faithFilter (the Sticky header's Ceremony pill)
+  // wins over the auto-derived coupleFaith. Resolution order:
+  //   1. faithFilter set → use it (any visitor, signed-in or not)
+  //   2. matchEvent ON + coupleFaith → fall back to auto-derived
+  //   3. otherwise → no faith narrow (all tiles surface, modulo hide-empty)
+  // The "untagged-tiles-always-surface" rule still holds across all
+  // three branches (civil judge, generic officiant, marriage license,
+  // CFO, apostille all stay regardless of pick).
+  // SET-based rewrite (2026-06-11, design doc §3): the filter set is the
+  // UNION of the couple's primary + secondary rites, so a Mixed/inter-faith
+  // couple sees BOTH rites' specialist services (the scalar version read only
+  // the primary). Civil maps to the first-class 'Civil' key — universal +
+  // civil-officiant canonicals pass, religious-tagged ones don't (this makes
+  // the code match the documented intent above). Wedding-guarded inside
+  // buildCoupleFaithSet (defense-in-depth alongside the 20260521080000
+  // wedding↔ceremony_type constraint). An explicit faithFilter pill still
+  // overrides everything as a single-member set.
+  const religionFilteringActive = matchEvent && matchableEvent !== null;
+  const activeFaithSet: ReadonlySet<string> = faithFilter
+    ? new Set([faithFilter])
+    : religionFilteringActive && matchableEvent
+      ? buildCoupleFaithSet({
+          eventType: coupleEventType,
+          ceremonyType: matchableEvent.ceremony_type,
+          secondaryCeremonyType: matchableEvent.secondary_ceremony_type ?? null,
+        })
+      : new Set<string>();
+  const passesReligionFilter = (meta: { faith?: WeddingFaithKey }): boolean =>
+    passesFaithFilter(meta.faith ?? null, activeFaithSet);
+
+  // 2026-05-30 — "Only show categories with vendors" hide-empty filter.
+  // Future-phase tiles with zero vendors (V1.2 / V1.3 / V1.4 / V1.5+) drop
+  // off the couple-facing browse — they're admin/spec-side scaffolding
+  // until the phase activates. See CATALOG_LIVE_PHASES doc comment above
+  // for the full ruleset + auto-promotion behavior as phases launch.
+  const passesHideEmpty = (
+    meta: { phase: TaxonomyPhase; setnayan?: boolean },
+    count: VendorCount | null,
+  ): boolean => {
+    if (meta.setnayan) return true;
+    if ((count?.total ?? 0) > 0) return true;
+    return CATALOG_LIVE_PHASES.has(meta.phase);
+  };
+
+  // Bucket every schema row into its wedding folder. Rows whose canonical_service
+  // is missing from TAXONOMY_MAP are dropped — same behaviour as the legacy
+  // /vendors/categories page; the admin viewer surfaces drift separately.
+  // 2026-05-22 evening — also collect the populated canonical_services so
+  // we can batch-fetch top-3 vendor names per service in ONE round-trip,
+  // populating the CategoryTile "Sample: A · B · C" preview line.
+  // 2026-05-22 cross-listing — services with `secondary_folders` are pushed
+  // into BOTH the primary folder and every secondary folder. The CategoryTile
+  // for a secondary-folder placement reads `isSecondaryListing=true` so it
+  // can surface a subtle "Primary folder · Planning" line letting couples
+  // know the vendor's home category — per owner directive *"most hotels also
+  // provide catering"*, hotels surface in catering search alongside dedicated
+  // caterers.
+  const populatedServices: string[] = [];
+  const buckets = new Map<WeddingFolder, CategoryTileData[]>();
+  for (const folder of WEDDING_FOLDER_ORDER) {
+    buckets.set(folder, []);
+  }
+  // 10-parent model (2026-05-31) — build ONE card per TILE (a group of
+  // canonicals), grouped under its parent. The same canonical KEYS still
+  // back the vendor queries (vendors keep their services[] tags); a tile
+  // just aggregates several canonicals into one shopping decision. Venue-
+  // parent tiles (Reception, Ceremony) render via the venue pickers below,
+  // not as category cards, so they're skipped here. Tiles with zero
+  // canonicals (e.g. Editorial, no canonical yet) or whose canonicals are
+  // all hidden / filtered out don't render.
+  const tileCanonicalsForSamples = new Map<WeddingTile, string[]>();
+  for (const tile of WEDDING_TILE_ORDER) {
+    const parent = TILE_PARENT[tile];
+    if (parent === 'venue') continue;
+    // Tile-level marketplace_hidden (admin-only tile): never surfaces on
+    // /explore. Distinct from the per-canonical marketplaceHidden religion-style
+    // filters below — this hides the whole tile from couples, the vendor picker
+    // and Taxonomy Studio still see it. NULL/false = visible (default; no tile
+    // is hidden today, so this is a no-op until an admin flags one).
+    if (tax.hiddenCategories[tile]) continue;
+    // Multi-event applicability (Phase 1 wiring): a tile scoped to specific
+    // event types drops out for non-matching events. NULL = universal
+    // (fail-open) — today every tile is NULL, so weddings see no change;
+    // this gate activates as admins scope tiles on /admin/taxonomy.
+    if (!passesEventTypeFilter(tax.tileEventTypes[tile] ?? null, coupleEventType)) continue;
+    const canonicals = (await getCanonicalBuckets()).byTile.get(tile) ?? [];
+    if (canonicals.length === 0) continue;
+
+    // 10-parent tile model (2026-05-31): a tile shows if ANY of its
+    // canonicals passes the religion filter. The hide-empty rule that
+    // suppressed future-phase placeholder CANONICALS in the old 196-row
+    // model is intentionally NOT applied at tile granularity — all ~48
+    // curated tiles are first-class V1 browse categories the owner wants
+    // visible, even when their underlying canonicals are V1.2-phase (e.g.
+    // Jewelleries, Grooming, Wellness, Outdoor, Fireworks, Orchestra). An
+    // empty tile renders as "Recruiting" (vendor-acquisition surface), not
+    // "Coming soon" — so the tile-level phase is pinned live below.
+    const visible = canonicals
+      .map((c) => ({ c, m: TAXONOMY_MAP[c], cnt: vendorCounts.get(c) ?? null }))
+      .filter(
+        (x): x is { c: string; m: TaxonomyEntry; cnt: VendorCount | null } =>
+          x.m !== undefined && passesReligionFilter(x.m),
+      );
+    if (visible.length === 0) continue;
+
+    // Aggregate count + facet flags across the surviving canonicals.
+    let verified = 0;
+    let comingSoon = 0;
+    let unverified = 0;
+    let anyPh = false;
+    const faiths = new Set<string>();
+    let hasFaithless = false;
+    // Tile rolls up to its most-launched (lowest-rank) phase across its
+    // surviving canonicals, so a tile with any live-phase service reads as
+    // live/recruiting under the hide-empty filter (CATALOG_LIVE_PHASES).
+    // `visible.length === 0` is guarded above, so visible[0] always exists.
+    let bestPhase: TaxonomyPhase = visible[0]!.m.phase;
+    for (const { c, m, cnt } of visible) {
+      if (CATALOG_PHASE_RANK[m.phase] < CATALOG_PHASE_RANK[bestPhase]) {
+        bestPhase = m.phase;
+      }
+      if (m.ph) anyPh = true;
+      if (m.faith) faiths.add(m.faith);
+      else hasFaithless = true;
+      if (cnt) {
+        verified += cnt.verified;
+        comingSoon += cnt.coming_soon;
+        unverified += cnt.unverified ?? 0;
+      }
+      if ((cnt?.total ?? 0) > 0) populatedServices.push(c);
+    }
+    // 🔎 `unverified` = listed by the findable rule, not yet approved (2026-11-07).
+    const total = verified + comingSoon + unverified;
+    // Tile-level faith badge: only when the whole tile is one faith (no
+    // faithless canonical + exactly one distinct faith). Mixed-faith tiles
+    // (e.g. Bride's Attire = neutral + Muslim + INC variants) show no badge.
+    const tileFaith =
+      !hasFaithless && faiths.size === 1
+        ? (Array.from(faiths)[0] as TaxonomyEntry['faith'])
+        : undefined;
+    // Synthesized tile-level meta. `setnayan` is intentionally FALSE —
+    // tiles never carry a "Setnayan" label; first-party services surface as
+    // an option inside the tile's grid (flagged on the canonical).
+    const meta: TaxonomyEntry = {
+      folder: parent,
+      tile,
+      phase: bestPhase,
+      ...(tileFaith ? { faith: tileFaith } : {}),
+      ...(anyPh ? { ph: true as const } : {}),
+    };
+    buckets.get(parent)?.push({
+      // `canonicalService` holds the tile key for tile cards — used as the
+      // React key + the sample-name lookup. The drill-in uses `tileSlug`.
+      canonicalService: tile,
+      tileSlug: WEDDING_TILE_SLUG[tile],
+      displayNameEn: WEDDING_TILE_LABEL[tile],
+      displayNameTl: null,
+      meta,
+      count: total > 0 ? { verified, coming_soon: comingSoon, unverified, total } : null,
+    });
+    tileCanonicalsForSamples.set(
+      tile,
+      visible.map((x) => x.c),
+    );
+  }
+
+  // 2026-05-22 evening — fetch top-3 vendor names per populated
+  // canonical_service in a single round-trip, then aggregate per tile.
+  // Empty map (zero rows OR query error) → tiles fall back to their
+  // existing copy without the preview line, so the catalog stays clean.
+  const topVendorNamesByService = populatedServices.length > 0
+    ? await fetchTopVendorNamesByService(admin, {
+        services: populatedServices,
+        perServiceLimit: 3,
+        excludeVendorIds: catalogExcludeVendorIds,
+        includeDemoUnverified: inDemoMode,
+      })
+    : new Map<string, string[]>();
+
+  // Stamp each tile card with up to 3 sample vendor names aggregated across
+  // the tile's surviving canonicals (deduped, design order).
+  for (const tiles of buckets.values()) {
+    for (const card of tiles) {
+      const cs = tileCanonicalsForSamples.get(card.canonicalService as WeddingTile);
+      if (!cs) continue;
+      const names: string[] = [];
+      for (const c of cs) {
+        for (const n of topVendorNamesByService.get(c) ?? []) {
+          if (!names.includes(n)) names.push(n);
+          if (names.length >= 3) break;
+        }
+        if (names.length >= 3) break;
+      }
+      if (names.length > 0) card.sampleVendorNames = names;
+    }
+  }
+
+  // Stamp each tile card with its admin/seeded photo (Taxonomy Studio · PR 4).
+  // Source = service_categories.sample_photo_r2_key via the taxonomy snapshot,
+  // keyed by tile id (the card's `canonicalService`). Resolve r2:// refs to
+  // presigned URLs in parallel (one signing round-trip each); /public paths and
+  // legacy URLs pass through verbatim. A null/failed resolve leaves photoUrl
+  // undefined and the card falls back to its text-only render (no photo banner).
+  {
+    const cardsWithPhoto: Array<{ card: CategoryTileData; ref: string }> = [];
+    for (const tiles of buckets.values()) {
+      for (const card of tiles) {
+        const ref = tax.categoryPhotos[card.canonicalService];
+        if (ref) cardsWithPhoto.push({ card, ref });
+      }
+    }
+    if (cardsWithPhoto.length > 0) {
+      const urls = await Promise.all(
+        cardsWithPhoto.map(({ ref }) =>
+          // Catalogue art may sit in the PRIVATE samples bucket (the taxonomy
+          // studio's uploads) — signed only from its own two roots.
+          displayUrlForCatalogueArt(ref).catch(() => null),
+        ),
+      );
+      cardsWithPhoto.forEach(({ card }, i) => {
+        card.photoUrl = urls[i] ?? null;
+      });
+    }
+  }
+
+  // Sort each parent: populated tiles first; stable sort preserves the
+  // curated WEDDING_TILE_ORDER within each tier (so the design order holds
+  // for the sparse-data pilot rather than scrambling alphabetically).
+  for (const tiles of buckets.values()) {
+    tiles.sort((a, b) => {
+      const aPop = (a.count?.total ?? 0) > 0 ? 0 : 1;
+      const bPop = (b.count?.total ?? 0) > 0 ? 0 : 1;
+      return aPop - bPop;
+    });
+  }
+
+  // Count visible TILES across all parents (10-parent model). Reflects what
+  // the couple actually sees after the religion + hide-empty filters. Venue's
+  // 2 tiles (Reception, Ceremony) render via the venue pickers rather than
+  // buckets, so add them explicitly.
+  let totalCategories = WEDDING_TILES_BY_PARENT.venue.length;
+  let totalLive = 0;
+  for (const tiles of buckets.values()) {
+    totalCategories += tiles.length;
+    for (const c of tiles) if ((c.count?.total ?? 0) > 0) totalLive += 1;
+  }
+  void totalLive; // computed for parity; surfaced in future copy if needed
+
+  // Tab strip — 10 parent chips. Venue's badge counts its 2 venue tiles
+  // (Reception + Ceremony) since those render via the venue pickers, not
+  // category buckets.
+  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER
+    // Folder-level marketplace_hidden (admin-only folder): drop the whole
+    // parent chip from the couple-facing tab strip. No folder is hidden today.
+    .filter((folder) => !tax.hiddenCategories[folder])
+    .map((folder) => ({
+      folder,
+      label: WEDDING_FOLDER_SHORT_LABEL[folder],
+      slug: WEDDING_FOLDER_SLUG[folder],
+      count:
+        folder === 'venue'
+          ? WEDDING_TILES_BY_PARENT.venue.length
+          : buckets.get(folder)?.length ?? 0,
+      // DB-first folder icon override (fallback-safe: null when unset/unknown →
+      // the strip keeps its hardcoded FOLDER_ICON default).
+      iconName: tax.categoryIcons[folder] ?? null,
+    }));
+
+  // 2026-06-13 search-first reframe — the catalog landing's StickyMarketplaceHeader
+  // (pinned search pill + FilterDrawer) is replaced by ExploreSearchHero (one
+  // big universal search box + quick chips). The drawer's cross-folder Faith
+  // option list + drawer-shape faith value that USED to be computed here are
+  // gone with it. Faith filtering still lives in the FilterDrawer in vendor-grid
+  // mode (the StickyMarketplaceHeader render path at the top of the file is
+  // untouched); the public Explore LANDING simplifies to search-first per the
+  // owner directive "ONE clean universal search box … keep it dead simple."
+
+  return (
+    /*
+      🗑 THE PAGE-LOCAL BRAND HEADER IS GONE (2026-08-15). It rendered a
+      wordmark linking home plus a "Return to Dashboard" / "Plan with Setnayan"
+      link — a SECOND brand bar sitting directly beneath the shared top bar,
+      which is the exact "furniture jumps" complaint this conversion answers.
+      Nothing was lost: the shared bar carries the wordmark home link, and the
+      rail carries both destinations in its account slot for each state.
+      ⚠ `lint-port-no-lost-controls.mjs` will correctly report the removed
+      <Wordmark> and two <Link>s. The baseline is regenerated in the same PR and
+      the removal is named in the PR body — regenerating it silently is what
+      turns that lint into decoration.
+    */
+    <main className="min-h-dvh bg-cream">
+      <NoticeBanner noticeKey={noticeKey} />
+      <CompareShortlistBanner compareHref={compareHref} />
+
+      <section
+        id="all"
+        // 2026-06-13 — pb reduced from pb-36 to pb-16: the catalog landing's
+        // fixed bottom-pinned StickyMarketplaceHeader was retired in favour of
+        // the top ExploreSearchHero, so the mobile bottom-bar clearance is no
+        // longer needed. sm:py-14 overrides on desktop. Page-level max-w-6xl
+        // cap retired in PR #655.
+        className="mx-auto w-full px-4 pt-6 pb-16 sm:px-6 sm:py-14 lg:px-8"
+      >
+        {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
+            set, the host arrived from a dashboard planning card. Strip
+            the search hero; render the slim FocusedModeSearchForm instead.
+            The FolderTabs and per-folder grid below STILL render so the
+            host can browse within their planning context. Direct visits to
+            /explore render the full search-first hero. */}
+        {!focusedMode ? (
+          <>
+            {/* 2026-06-13 search-first reframe — owner directive verbatim:
+                "opens with ONE clean universal search box … simple, modern,
+                clean, strategic … lead with search, simplify."
+
+                Retired: the catalog landing's StickyMarketplaceHeader (pinned
+                44pt search pill + FilterDrawer trigger, bottom-pinned on
+                mobile). It now leads with ExploreSearchHero — one big centered
+                universal search box (Clean-Editorial --m-* tokens) + a few
+                quick-search chips. The same TaxonomySearch autocomplete backs
+                it (its option list already spans the setnayan_* first-party
+                services), and results land in the existing vendor-grid path.
+                The rich category browse (IconTileFolderStrip + folder grids)
+                still renders below as the breadth/"browse everything" surface.
+                The vendor-grid StickyMarketplaceHeader (top of file) — with the
+                full FilterDrawer — is untouched; landing-mode filters simplify
+                to search-first. ReligionBanner stays below the hero so the
+                per-event compatibility note still surfaces for couples with an
+                in-progress event. */}
+            <ExploreSearchHero
+              taxonomyOptions={TAXONOMY_OPTIONS}
+              scopedFolder={scopedFolder}
+              preserve={{
+                city: '',
+                sort: 'most_reviews',
+                verifiedOnly: false,
+                matchEvent,
+                eventType: null,
+                folder: scopedFolder,
+              }}
+              chips={heroChips}
+              occasionChips={occasionChips}
+            />
+
+            {religionFilteringActive ? (
+              <ReligionBanner
+                coupleFaith={coupleFaith}
+                ceremonyType={matchableEvent!.ceremony_type}
+              />
+            ) : null}
+          </>
+        ) : (
+          /* Focused-mode replacement: a slim search form with only the
+             TaxonomySearch input. Submitting / suggestion-pick preserves
+             folder + from=plan via hidden inputs + the TaxonomySearch
+             preserve prop so the host stays in focused-mode. */
+          <FocusedModeSearchForm
+            filters={{
+              q: '',
+              category: null,
+              city: '',
+              sort: 'most_reviews',
+              page: 1,
+              verifiedOnly: false,
+              matchEvent,
+              eventType: null,
+              folder: scopedFolder,
+              venueDefault: 'on',
+              focusedMode: true,
+            }}
+          />
+        )}
+
+        {/*
+          ═ THE EMPTY MARKETPLACE SAYS SO, PLAINLY ═ (2026-09-30)
+          This view renders ONLY when `countLiveShops` read a real 0 — a failed
+          read is `null` and never reaches here — so the sentence is a measured
+          fact, not a guess. It became the normal state the day the two trial
+          shops were marked `is_demo` (owner, DECISION_LOG 2026-09-29 "LANE 2
+          §2C" (1): "the marketplace show[s] nothing until a real supplier
+          joins"). One plain line for the couple, one door for the supplier —
+          the same /open-shop door the front door's invite card uses.
+        */}
+        {emptyLineHidden ? null : (
+          <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
+            <p className="text-base font-medium text-ink/80">
+              No supplier has opened a shop yet — new shops show up here the day they open.
+            </p>
+            <p className="mt-2 text-sm text-ink/60">
+              Are you a supplier?{' '}
+              <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+                Open your shop &rarr;
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {/* 2026-06-14 search-first — owner "we just want a search bar". The
+            curated browse catalog below the hero (icon strip + venue pickers +
+            folder grids) renders only on an explicit browse/context visit
+            (?browse=1 / folder / tile / from=plan); a bare Explore landing
+            shows the hero + popular chips, with the catalog one tap away via
+            the "Browse all categories" link in the else branch. */}
+        {browseMode ? (
+          <>
+        {/* 2026-05-30 Airbnb-vibe redesign — IconTileFolderStrip replaces the
+            chip-style FolderTabs. The 12 folders render as Lucide icon tiles
+            (uniform 96-104px × 78px) with horizontal scroll snap on mobile.
+            Behavior contract preserved verbatim from FolderTabs — same
+            scopedFolder routing, same IntersectionObserver scroll-tracking
+            on unscoped mode, same hash + sibling-param preservation on
+            scoped mode. See _components/icon-tile-folder-strip.tsx WHY
+            block. */}
+        <IconTileFolderStrip
+          tabs={tabs}
+          totalCount={totalCategories}
+          scopedFolder={scopedFolder}
+        />
+
+        {scopedFolder !== null ? (
+          <ScopedFolderBanner folder={scopedFolder} />
+        ) : null}
+
+        {WEDDING_FOLDER_ORDER.map((folder) => {
+          // Task #47 — when the catalog is scoped to a single parent, skip
+          // every other parent section so couples landing on one parent
+          // (e.g. Venue) don't also see the rest.
+          if (scopedFolder !== null && folder !== scopedFolder) return null;
+          // Folder-level marketplace_hidden (admin-only folder) — never render
+          // the section to couples. No folder is hidden today (no-op).
+          if (tax.hiddenCategories[folder]) return null;
+
+          // VENUE parent — venues are NOT modeled as bookable vendor_profiles
+          // in V1, so this folder shows ceremony GUIDANCE only (how to handle
+          // your ceremony venue + officiant + pre-marriage paperwork). The
+          // seeded venue_directory listings (CeremonyVenuesSection / Reception
+          // facet cards / PairedVenuePanel) were removed 2026-06-16 per owner
+          // "we only place live vendors here — remove all the fake venues".
+          // The venue_directory table + admin curation UI stay dormant for a
+          // future bookable-venue iteration.
+          if (folder === 'venue') {
+            return (
+              <section
+                key={folder}
+                id={WEDDING_FOLDER_SLUG.venue}
+                className="scroll-mt-20 pt-8 sm:pt-10"
+                aria-labelledby="venue-heading"
+              >
+                <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
+                  <h2
+                    id="venue-heading"
+                    className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
+                  >
+                    {WEDDING_FOLDER_LABEL.venue}
+                  </h2>
+                  <span className="font-mono text-xs text-ink/55">
+                    Ceremony &amp; reception
+                  </span>
+                </header>
+
+                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
+                  <h3 className="mb-3 text-base font-semibold tracking-tight text-ink">
+                    {WEDDING_TILE_LABEL.ceremony_venue}
+                  </h3>
+                  <CeremonyVenuePanel />
+                </div>
+              </section>
+            );
+          }
+
+          const tiles = buckets.get(folder) ?? [];
+          // Non-venue parents return null when they have zero visible tiles —
+          // no placeholder content to show.
+          if (tiles.length === 0) return null;
+          const slug = WEDDING_FOLDER_SLUG[folder];
+          return (
+            <section
+              key={folder}
+              id={slug}
+              className="scroll-mt-20 pt-8 sm:pt-10"
+              aria-labelledby={`${slug}-heading`}
+            >
+              <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
+                <h2
+                  id={`${slug}-heading`}
+                  className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
+                >
+                  {WEDDING_FOLDER_LABEL[folder]}
+                </h2>
+                <span className="font-mono text-xs text-ink/55">
+                  {tiles.length} {tiles.length === 1 ? 'category' : 'categories'}
+                </span>
+              </header>
+              {/* Inline real-vendor preview cards from vendor_profiles
+                  (parent-level top vendors). Renders above the tile grid so
+                  couples see actual named businesses immediately. Empty
+                  parents (zero signed-up vendors) skip the section. */}
+              <FolderVendorsSection
+                folder={folder}
+                excludeVendorIds={catalogExcludeVendorIds}
+                demoVendorIds={catalogDemoVendorIds}
+                venueAnchor={venueAnchor}
+                currentEventId={currentEventId}
+                focusedMode={focusedMode}
+                includeDemoUnverified={inDemoMode}
+              />
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {tiles.map((tile) => (
+                  <li key={tile.canonicalService}>
+                    <CategoryTile data={tile} focusedMode={focusedMode} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+          </>
+        ) : (
+          <div className="mt-12 text-center">
+            <Link
+              href="/explore?browse=1"
+              className="inline-flex items-center rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+            >
+              Browse all categories →
+            </Link>
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+// Inline ReceptionSection wrapper used to live here, rendering the 7-chip
+// stub above ReceptionVenuesSection. Retired with the 2026-05-22 evening
+// "Pull V1.2 venue directory forward" PR — the new ReceptionVenuesSection
+// renders its own FacetFilterBar + venue cards in a single self-contained
+// section, and the catalog loop in CatalogView invokes it directly inside
+// a slim wrapper <section> with the folder heading. The chip grid is gone;
+// the chip filter bar inside the section takes over its job AND filters
+// the card grid live (vs the old chips which never filtered anything).
+//
+// VenueFilterBanner (below) is still in use by vendor-grid mode — it stays.
+// VenuePickerHint was retired in the same pass (used only by the deleted
+// ReceptionSection).
+
+// Task #48 (2026-05-22) — venue_setting default-on banner. Surfaces in
+// BOTH catalog mode (Reception folder section, when the host has a
+// venue_setting picked) AND vendor-grid mode (whenever the URL is
+// Reception-scoped with the filter firing). Mirrors the religion-match
+// pattern from ReligionBanner — explains what the filter is, why it's
+// firing, and gives a one-click escape ("Show all settings") that flips
+// ?venue=0 without losing the rest of the URL state. Brand-voice copy
+// stays in lockstep with VENUE_SETTING_LABEL so the host reads the same
+// wording everywhere they encounter their picked setting.
+function VenueFilterBanner({
+  settingKey,
+  showAllHref,
+}: {
+  settingKey: string;
+  showAllHref: string;
+}) {
+  const longLabel = venueSettingLongLabel(settingKey);
+  const shortLabel = venueSettingShortLabel(settingKey);
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing suppliers who work with{' '}
+        <span className="font-medium text-terracotta-700">{shortLabel}</span>{' '}
+        venues — your wedding&rsquo;s picked setting (
+        <span className="font-mono text-xs text-ink/60">{longLabel}</span>).
+      </p>
+      <Link
+        href={showAllHref}
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
+      >
+        Show all venue settings
+      </Link>
+    </div>
+  );
+}
+
+// VenuePickerHint (Task #48 catalog-mode nudge) used to live here but was
+// retired with the 2026-05-22 evening "Pull V1.2 venue directory forward"
+// PR — the new ReceptionVenuesSection renders real venue cards regardless
+// of whether the host has a venue_setting picked, plus a dedicated empty-
+// state when the filter narrows to 0 venues. The chip-grid nudge is no
+// longer needed.
+
+// Task #47 — scoped-folder banner. Renders when the catalog is showing
+// only ONE folder (driven by ?folder=… from the dashboard
+// planning-group [Search] buttons). Tells the couple what they're looking
+// at and gives them a one-click escape to the full universal catalog if
+// they want to browse outside the locked scope. The FolderTabs strip
+// above this banner is still active — a click on any other folder chip
+// preserves scope (they want THAT folder); the "Browse all folders" link
+// drops the scope entirely.
+async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
+  const tax = await getTaxonomy();
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/15 bg-cream px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing{' '}
+        <span className="font-medium text-ink">
+          {tax.folderLabel[folder] ?? folder}
+        </span>{' '}
+        only — the other folders are hidden so you can focus.
+      </p>
+      <Link
+        href="/explore"
+        className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
+      >
+        Browse all folders
+      </Link>
+    </div>
+  );
+}
+
+// Religion-default-on banner. Tells the couple that the catalog is filtered
+// to their faith and offers a one-click escape to see everything.
+function ReligionBanner({
+  coupleFaith,
+  ceremonyType,
+}: {
+  coupleFaith: CoupleFaith;
+  ceremonyType: string;
+}) {
+  const faithLabel =
+    coupleFaith ?? (ceremonyType === 'civil' ? 'civil (secular)' : ceremonyType);
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing your{' '}
+        <span className="font-medium text-terracotta-700">{faithLabel}</span>{' '}
+        wedding — faith-specific tiles auto-filtered. Cross-faith services
+        (photo, catering, attire) stay visible.
+      </p>
+      <Link
+        href="/explore?match=0"
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700-700 hover:border-terracotta hover:bg-terracotta/10"
+      >
+        Show all faiths
+      </Link>
+    </div>
+  );
+}
+
+// Static info panel inside Ceremony folder. Tells the couple WHERE their
+// ceremony will physically happen for each path: religious venue (off-platform
+// parish booking), civil registrar (LGU government), or combined venue (cross-
+// link to #2). Closes the V1 gap where ceremony venues aren't bookable in the
+// marketplace yet.
+// 2026-05-30 PM — FaithPillRow component RETIRED. Lived here from PRs
+// #657 + #659 to render the inline faith narrow chips above every faith-
+// bearing folder section. Owner directive *"why are these still showing.
+// they should be embedded inside the filter"* moved faith into the
+// FilterDrawer's `<select name="faith">` — see crossFolderFaithOptions
+// wired into the StickyMarketplaceHeader render inside CatalogView. The
+// drawer is the canonical home for global filters (City + Sort + Verified-
+// only + Match-my-wedding + Show-all-venues + Faith) so couples have one
+// edit surface for narrowing the catalog.
+
+function CeremonyVenuePanel() {
+  return (
+    <div className="mb-4 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 sm:p-5">
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+        Where will your ceremony happen?
+      </p>
+      <ul className="space-y-2 text-sm text-ink/80">
+        <li>
+          <span className="font-medium text-ink">
+            At your church / mosque / chapel
+          </span>{' '}
+          — book directly with the parish office. Setnayan helps you find the
+          officiant + handle pre-marriage requirements below.
+        </li>
+        <li>
+          <span className="font-medium text-ink">At the courthouse</span> — go
+          to your LGU&rsquo;s Civil Registrar. Setnayan helps you find a Civil
+          Judge / Mayor / JP + expedite your marriage license.
+        </li>
+        <li>
+          <span className="font-medium text-ink">
+            At your reception venue (combined)
+          </span>{' '}
+          — many garden / beach / destination / heritage / outdoor venues also
+          host the ceremony; arrange it directly with the venue.
+        </li>
+      </ul>
+    </div>
+  );
+}

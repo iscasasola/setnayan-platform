@@ -68,8 +68,8 @@
 2 apps/web/app/(shell)/explore/_components/taxonomy-search.tsx
 2 apps/web/app/(shell)/explore/_components/vendor-card.tsx
 2 apps/web/app/(shell)/explore/_components/vendors-availability-banner.tsx
+11 apps/web/app/(shell)/explore/_lib/marketplace-view.tsx
 2 apps/web/app/(shell)/explore/compare/page.tsx
-11 apps/web/app/(shell)/explore/page.tsx
 3 apps/web/app/(shell)/help/page.tsx
 1 apps/web/app/(shell)/pa3d/_pa3d-parts.tsx
 4 apps/web/app/(shell)/pa3d/_pa3d-room.tsx

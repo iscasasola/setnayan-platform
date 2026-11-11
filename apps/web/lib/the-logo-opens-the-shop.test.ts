@@ -47,7 +47,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(join(here, rel), 'utf8');
 
 const cardView = stripComments(read('../app/_components/service-card-view.tsx'));
-const explore = stripComments(read('../app/(shell)/explore/page.tsx'));
+const explore = stripComments(read('../app/(shell)/explore/_lib/marketplace-view.tsx')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
 const query = stripComments(read('./marketplace-service-cards.ts'));
 const sitemap = stripComments(read('../app/sitemap-vendors.xml/route.ts'));
 
@@ -211,7 +211,7 @@ test('the shared comment stripper is load-bearing here, and does not cry wolf', 
   // site deliberately names `/v/{slug}` and `<Link>` while explaining why it
   // uses neither. If the stripper were blinded, two real assertions above go
   // red — measured, not assumed.
-  const rawExplore = read('../app/(shell)/explore/page.tsx');
+  const rawExplore = read('../app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   const block = (src: string) => {
     const a = src.indexOf('{serviceCards.map(');
     return src.slice(a, src.indexOf('</ul>', a));

@@ -1,5 +1,5 @@
 /**
- * 💬 /chat-groups/[threadId] — ONE EVENT GROUP CHAT, for everyone in it (specs DECISION_LOG 2026-11-12 "EVENT GROUP
+ * 💬 /samahan/chat/[threadId] — ONE EVENT GROUP CHAT, for everyone in it (specs DECISION_LOG 2026-11-12 "EVENT GROUP
  * CHATS APPROVED AS DRAWN"). A host, the coordinator, a guest and a supplier all open the same address (the group's
  * tray notices link here, migration 20271340374819), because a guest and a supplier cannot open a host's dashboard.
  *
@@ -10,6 +10,7 @@
  * ‹ goes where this person came from: a host or the coordinator → the event's Chats; a supplier → their Chats; a guest
  * → their events (`groupChatBack`, lib/chat-groups.ts — computed per visit, lib/page-home.ts).
  */
+import { formatCount } from '@/lib/format-number';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -31,7 +32,7 @@ import {
   readGroupPeople,
 } from '@/lib/chat-groups';
 import { GroupChatView } from './_components/group-chat-view';
-import { addToGroup, leaveGroup, rejoinGroup, sendGroupMessage } from '../actions';
+import { groupChat } from '../actions';
 
 export const metadata = { title: 'Group chat', robots: { index: false, follow: false } };
 
@@ -57,7 +58,7 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
           {head.left_note ? ` — ${head.left_note}` : ''}.
         </p>
         {canLeaveGroup(head.my_kind) ? (
-          <form action={rejoinGroup} className="mt-4">
+          <form action={groupChat.bind(null, 'rejoin')} className="mt-4">
             <input type="hidden" name="thread_id" value={threadId} />
             <SubmitButton className="button-primary" pendingLabel="Joining…">
               Join chat
@@ -93,17 +94,17 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
         switcher={(groups ?? []).map((g) => ({
           threadId: g.thread_id,
           name: g.group_name,
-          line: `${g.member_count} inside · ${groupListLine(g)}`,
+          line: `${formatCount(g.member_count)} inside · ${groupListLine(g)}`,
           href: groupChatHref(g.thread_id),
           left: g.left_at !== null,
         }))}
-        sendAction={sendGroupMessage}
+        sendAction={groupChat.bind(null, 'send')}
         add={
           canAddToGroup(head.my_kind, head.is_member) && people !== null
-            ? { candidates, add: addToGroup.bind(null, threadId) }
+            ? { candidates, add: groupChat.bind(null, 'add', threadId) }
             : null
         }
-        leave={canLeaveGroup(head.my_kind) ? leaveGroup.bind(null, threadId) : null}
+        leave={canLeaveGroup(head.my_kind) ? groupChat.bind(null, 'leave', threadId) : null}
       />
     </main>
   );

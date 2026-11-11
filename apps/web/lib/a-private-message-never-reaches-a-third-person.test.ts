@@ -76,6 +76,7 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
   'lib/chat-private.ts': 'the ONE place the column’s name is written (CHAT_PRIVATE_RECIPIENT_COLUMN) — a constant, no I/O',
   'lib/chat.ts': 'fetchMessages SELECTS the column on the caller’s client so a bubble can be drawn private; the session callers are bound by the restrictive policy, the one service-role caller filters (test below)',
   'app/dev/_components/lab-picked-chat.tsx': 'a dev-lab fixture row (no database; production 404s /dev)',
+  'app/dev/event-group-chat-lab/page.tsx': 'dev-lab fixture rows for the event group chat (no database; production 404s /dev)',
   // A READ FILTER, not a writer: the admin replies as a demo shop through the service role, so it keeps only the shop's
   // own view — proved by 'a service-role read of a thread keeps only what its viewer may read' below.
   'app/admin/demo-vendors/inquiries/[threadId]/page.tsx': 'filters a service-role thread read down to the shop’s own view',
@@ -87,7 +88,19 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
  */
 const WRITES_A_PRIVATE_LINE: Record<string, string> = {
   'lib/chat-send.ts': 'sendChatMessageCore — words only, no AI, notice to the recipient only (proved below)',
+  // 💬 12 Nov — event group chats: the group composer's Send. Words only, no AI, NO app-side notice at all — the only
+  // notice is the database's tray row to each recipient (tg_chat_messages_private_tells_its_reader, proved in
+  // tests/db/event-group-chats-and-a-private-line-to-several.db.test.ts). Proved below.
+  'app/samahan/chat/actions.ts': 'sendGroupMessage — words only, no AI, no app-side notice (proved below)',
 };
+
+test('the group composer writes a private line with no file, no AI and no app-side notice', () => {
+  const src = stripComments(fs.readFileSync(path.join(HERE, '..', 'app', 'samahan', 'chat', 'actions.ts'), 'utf8'));
+  const fn = src.slice(src.indexOf('async function sendGroupMessage'), src.indexOf('async function addToGroup'));
+  assert.ok(fn.length > 200, 'sendGroupMessage moved — re-point this test');
+  assert.match(fn, /if \(hasFile\) throw new Error\(privateList\.length > 0 \? PRIVATE_WORDS_ONLY_MESSAGE/, 'a private group line may carry a file');
+  assert.doesNotMatch(src, /notifyOtherParty|emitNotification|vendor-autoreply|runVendorAutoReply/, 'the group send notifies or wakes the AI in app code');
+});
 
 /**
  * Every code mention (comments stripped) of the private-message column — its

@@ -15,8 +15,11 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ROLE_LABELS, type GuestRole } from './guests';
-import { ROLE_GROUP_LABELS, roleGroupOf, type RoleGroup } from './role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
+import type { RoleNames } from './role-names';
+import { loadRoleNames } from './role-names.server';
 import { logQueryError } from './supabase/error-detect';
+import { formatCount } from './format-number';
 
 export type GroupKind = 'general' | 'role' | 'made';
 /** Who a person is on the event (`chat_group_person_kind`). */
@@ -69,12 +72,12 @@ export const GROUP_FILES_NOT_YET = 'Photos and files are not open in group chats
 
 /** Where every group chat opens, for every person in it (a host, a guest, a supplier, the coordinator). */
 export function groupChatHref(threadId: string): string {
-  return `/chat-groups/${threadId}`;
+  return `/samahan/chat/${threadId}`;
 }
 
 /** The "+ New group" page for one event (hosts only — the page itself re-checks). */
 export function newGroupHref(eventId: string): string {
-  return `/chat-groups/new?event=${eventId}`;
+  return `/samahan/chat/new?event=${eventId}`;
 }
 
 /**
@@ -96,7 +99,7 @@ export function groupListLine(row: Pick<GroupListRow, 'group_kind' | 'made_by_na
 
 /** The head's line under the name: "148 inside · made by Ana" · "12 inside · from the guest list". */
 export function groupHeadLine(head: Pick<GroupHead, 'group_kind' | 'member_count' | 'made_by_name'>): string {
-  const inside = `${head.member_count} inside`;
+  const inside = `${formatCount(head.member_count)} inside`;
   if (head.group_kind === 'general') return `${inside} · hosts + everyone attending`;
   if (head.group_kind === 'role') return `${inside} · from the guest list`;
   return head.made_by_name ? `${inside} · made by ${head.made_by_name}` : inside;
@@ -132,9 +135,10 @@ export type RoleGroupChat = { key: RoleGroup; name: string; roles: GuestRole[] }
 
 /**
  * One group chat per role group that someone on the guest list holds (role or extra role), named by the shipped
- * `ROLE_GROUP_LABELS`, carrying EVERY guest role of that group so a guest who takes the role later is in it at once.
+ * `roleGroupLabel` (the couple's words when they renamed one), carrying EVERY guest role of that group so a guest who takes the role later is in it at once.
  */
-export function roleGroupChats(held: ReadonlyArray<GuestRole | null | undefined>): RoleGroupChat[] {
+/** `names` — the couple's own role words (`events.role_names`), so a renamed role names its chat the couple's way. */
+export function roleGroupChats(held: ReadonlyArray<GuestRole | null | undefined>, names: RoleNames | null = null): RoleGroupChat[] {
   const present = new Set<RoleGroup>();
   for (const r of held) {
     if (!r) continue;
@@ -144,7 +148,7 @@ export function roleGroupChats(held: ReadonlyArray<GuestRole | null | undefined>
   const all = Object.keys(ROLE_LABELS) as GuestRole[];
   return (Object.keys(ROLE_GROUP_LABELS) as RoleGroup[])
     .filter((g) => present.has(g))
-    .map((g) => ({ key: g, name: ROLE_GROUP_LABELS[g], roles: all.filter((r) => roleGroupOf(r) === g) }));
+    .map((g) => ({ key: g, name: roleGroupLabel(g, names), roles: all.filter((r) => roleGroupOf(r) === g) }));
 }
 
 // ── reads (the caller's own session; every function answers members only) ──
@@ -213,7 +217,8 @@ export async function openEventGroups(supabase: SupabaseClient, eventId: string)
     if (g.role) held.push(g.role);
     for (const x of g.extra_roles ?? []) held.push(x);
   }
-  for (const r of roleGroupChats(held)) {
+  const names = await loadRoleNames(supabase, eventId, 'openEventGroups');
+  for (const r of roleGroupChats(held, names)) {
     const { error } = await supabase.rpc('chat_group_open_role', {
       p_event_id: eventId,
       p_key: r.key,

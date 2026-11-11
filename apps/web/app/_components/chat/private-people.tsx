@@ -15,6 +15,7 @@ import { Check, Lock } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { hostInitials } from '@/lib/chat-hosts';
 import type { PrivateTo } from '@/lib/chat-private';
+import { formatCount } from '@/lib/format-number';
 
 export const PRIVATE_PEOPLE_LIST_ID = 'chat-private-people';
 
@@ -22,7 +23,7 @@ export const PRIVATE_PEOPLE_LIST_ID = 'chat-private-people';
 export function privatePickLabel(picked: readonly PrivateTo[]): string {
   if (picked.length === 0) return 'Pick who';
   if (picked.length === 1) return `Message ${picked[0]!.name} privately`;
-  return `Message ${picked.length} people privately`;
+  return `Message ${formatCount(picked.length)} people privately`;
 }
 
 export function PrivatePeopleList({

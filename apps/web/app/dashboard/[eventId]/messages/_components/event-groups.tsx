@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { Hash, Plus, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatChatTimestamp } from '@/lib/chat';
+import { formatCount } from '@/lib/format-number';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   groupChatHref,
@@ -84,7 +85,7 @@ export function GroupsList({ rows, newGroup }: { rows: readonly GroupListRow[] |
                       {g.last_at && !left ? <span className="shrink-0 text-[12px] text-ink/55">{formatChatTimestamp(g.last_at)}</span> : null}
                     </span>
                     <span className="block truncate text-[12px] text-ink/55">
-                      {g.member_count} inside · {groupListLine(g)}
+                      {formatCount(g.member_count)} inside · {groupListLine(g)}
                     </span>
                     {preview ? (
                       <span className={`block truncate text-[13px] ${g.unread ? 'font-semibold text-ink' : 'text-ink/65'}`}>{preview}</span>

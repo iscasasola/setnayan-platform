@@ -88,7 +88,7 @@ test('4 · who adds, who leaves, who may be in General', () => {
 test('5 · 🛡 the new pieces load only when opened', () => {
   const section = read('app/dashboard/[eventId]/messages/_components/event-groups.tsx');
   assert.doesNotMatch(section, /^['"]use client['"]/m, 'the Groups section ships script to the Chats page');
-  const view = read('app/chat-groups/[threadId]/_components/group-chat-view.tsx');
+  const view = read('app/samahan/chat/[threadId]/_components/group-chat-view.tsx');
   assert.match(view, /const GroupSwitcher = dynamic\(\(\) => import\('\.\/group-switcher'\)\);/);
   assert.match(view, /const GroupThreadToolsSheet = dynamic\(\(\) => import\('\.\/group-plus-sheet'\)\);/);
   // (a type-only import is erased at build — it carries no code)

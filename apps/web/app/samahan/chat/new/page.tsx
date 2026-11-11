@@ -1,5 +1,5 @@
 /**
- * 💬 /chat-groups/new?event=… — "+ New group" (hosts only; specs DECISION_LOG 2026-11-11 "+ New group, hosts only" and
+ * 💬 /samahan/chat/new?event=… — "+ New group" (hosts only; specs DECISION_LOG 2026-11-11 "+ New group, hosts only" and
  * 2026-11-12 "EVENT GROUP CHATS APPROVED AS DRAWN" (1): a host-made group may hold suppliers and guests). A name and the
  * event's people with a tick each — a plain form, no script. The database re-checks everything
  * (`chat_group_create`: a host makes it; everyone in it is someone on this event).
@@ -10,7 +10,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { BackButton } from '@/app/_components/back-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { readGroupPeople, type GroupPersonKind } from '@/lib/chat-groups';
-import { createGroup } from '../actions';
+import { groupChat } from '../actions';
+import { GroupNameRow } from './_components/group-name-row';
 
 export const metadata = { title: 'New group', robots: { index: false, follow: false } };
 
@@ -20,7 +21,7 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
   const { event: eventId, error } = await searchParams;
   if (!eventId || !/^[0-9a-f-]{36}$/i.test(eventId)) notFound();
   const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/chat-groups/new?event=${eventId}`)}`);
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/samahan/chat/new?event=${eventId}`)}`);
   const supabase = await createClient();
   const { data: me, error: meError } = await supabase.rpc('chat_group_my_kind', { p_event_id: eventId });
   if (meError || me !== 'host') notFound();
@@ -35,18 +36,9 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
           The group was not made. Give it a name and try again.
         </p>
       ) : null}
-      <form action={createGroup} className="mt-4 space-y-4">
+      <form action={groupChat.bind(null, 'create')} className="mt-4 space-y-4">
         <input type="hidden" name="event_id" value={eventId} />
-        <label className="block">
-          <span className="text-[13px] font-semibold text-ink/70">Name</span>
-          <input
-            name="name"
-            required
-            maxLength={60}
-            placeholder="Day-of crew"
-            className="mt-1 block min-h-[44px] w-full rounded-xl border border-ink/15 bg-white px-3 text-[15px] text-ink"
-          />
-        </label>
+        <GroupNameRow />
         <fieldset>
           <legend className="text-[13px] font-semibold text-ink/70">Who is in it</legend>
           <p className="text-[12px] text-ink/55">Hosts, your coordinator, guests and your suppliers. Quotes and payments stay in each supplier’s own chat.</p>

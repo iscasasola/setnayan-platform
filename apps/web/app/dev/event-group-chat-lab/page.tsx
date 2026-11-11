@@ -12,8 +12,9 @@
  * The REAL `GroupChatView` (ChatBox · ChatThreadHead · ChatMessageStream · ChatSendForm), the REAL Groups section
  * (`GroupsList`); only the rows are fixtures and Send / Add / Leave are lab stand-ins that write nothing.
  */
+import { formatCount } from '@/lib/format-number';
 import { notFound } from 'next/navigation';
-import { GroupChatView } from '@/app/chat-groups/[threadId]/_components/group-chat-view';
+import { GroupChatView } from '@/app/samahan/chat/[threadId]/_components/group-chat-view';
 import { GroupsList } from '@/app/dashboard/[eventId]/messages/_components/event-groups';
 import type { ChatMessageRow } from '@/lib/chat';
 import { groupChatHref, groupListLine, type GroupHead, type GroupListRow, type GroupMember, type GroupPersonKind } from '@/lib/chat-groups';
@@ -132,7 +133,7 @@ export default async function EventGroupChatLab({ searchParams }: { searchParams
     return (
       <main className="mx-auto w-full max-w-2xl px-4 pt-4" data-lab="event-group-chats-list">
         <h2 className="font-display text-[30px] font-semibold leading-tight text-ink">Chats</h2>
-        <GroupsList rows={LIST} newGroup="/chat-groups/new?event=lab" />
+        <GroupsList rows={LIST} newGroup="/samahan/chat/new?event=lab" />
         <p className="py-3 text-[13px] text-ink/55">(lab) the shipped Suppliers rows continue here, unchanged.</p>
       </main>
     );
@@ -169,7 +170,7 @@ export default async function EventGroupChatLab({ searchParams }: { searchParams
         switcher={LIST.map((r) => ({
           threadId: r.thread_id,
           name: r.group_name,
-          line: `${r.member_count} inside · ${groupListLine(r)}`,
+          line: `${formatCount(r.member_count)} inside · ${groupListLine(r)}`,
           href: r.thread_id === GENERAL ? '/dev/event-group-chat-lab?g=general' : r.thread_id === CREW ? '/dev/event-group-chat-lab' : groupChatHref(r.thread_id),
           left: false,
         }))}

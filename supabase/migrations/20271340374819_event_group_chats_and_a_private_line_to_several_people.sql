@@ -668,7 +668,7 @@ BEGIN
 
   FOREACH v_who IN ARRAY NEW.recipient_user_ids LOOP
     IF v_kind = 'group' THEN
-      v_url := '/chat-groups/' || NEW.thread_id::TEXT;
+      v_url := '/samahan/chat/' || NEW.thread_id::TEXT;
     ELSE
       v_shop_side := EXISTS (SELECT 1 FROM public.vendor_profiles vp
                               WHERE vp.vendor_profile_id = NEW.vendor_profile_id

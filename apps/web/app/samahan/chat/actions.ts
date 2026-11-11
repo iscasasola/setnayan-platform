@@ -25,7 +25,7 @@ async function groupEventId(supabase: Awaited<ReturnType<typeof createClient>>, 
 }
 
 /** The composer's Send in a group: words, to everyone or privately to one or several people in it. */
-export async function sendGroupMessage(formData: FormData): Promise<void> {
+async function sendGroupMessage(formData: FormData): Promise<void> {
   const threadId = formData.get('thread_id');
   const raw = formData.get('body');
   if (typeof threadId !== 'string' || typeof raw !== 'string') throw new Error('Invalid input');
@@ -62,7 +62,7 @@ export async function sendGroupMessage(formData: FormData): Promise<void> {
 }
 
 /** (＋) on the strip — hosts and the coordinator, from inside the group. */
-export async function addToGroup(threadId: string, userIds: string[]): Promise<void> {
+async function addToGroup(threadId: string, userIds: string[]): Promise<void> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: userIds });
   if (error) logQueryError('addToGroup (chat_group_add)', error, { thread_id: threadId }, 'graceful_degrade');
@@ -71,7 +71,7 @@ export async function addToGroup(threadId: string, userIds: string[]): Promise<v
 }
 
 /** Your own face → Leave (hosts only; the database refuses anyone else). */
-export async function leaveGroup(threadId: string, note: string | null): Promise<void> {
+async function leaveGroup(threadId: string, note: string | null): Promise<void> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('chat_group_leave', { p_thread_id: threadId, p_note: note });
   if (error) logQueryError('leaveGroup (chat_group_leave)', error, { thread_id: threadId }, 'graceful_degrade');
@@ -80,9 +80,7 @@ export async function leaveGroup(threadId: string, note: string | null): Promise
 }
 
 /** "Join this chat again?" — a host who left comes back by themselves. */
-export async function rejoinGroup(formData: FormData): Promise<void> {
-  const threadId = formData.get('thread_id');
-  if (typeof threadId !== 'string') throw new Error('Invalid input');
+async function rejoinGroup(threadId: string): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -95,17 +93,40 @@ export async function rejoinGroup(formData: FormData): Promise<void> {
 }
 
 /** "+ New group" (hosts only): a name and the ticked people. */
-export async function createGroup(formData: FormData): Promise<void> {
-  const eventId = formData.get('event_id');
-  const name = formData.get('name');
-  if (typeof eventId !== 'string' || typeof name !== 'string') throw new Error('Invalid input');
-  const people = formData.getAll('person').filter((v): v is string => typeof v === 'string');
+async function createGroup(eventId: string, name: string, people: string[]): Promise<void> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('chat_group_create', { p_event_id: eventId, p_name: name, p_people: people });
   if (error || typeof data !== 'string') {
     logQueryError('createGroup (chat_group_create)', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`/chat-groups/new?event=${eventId}&error=1`);
+    redirect(`/samahan/chat/new?event=${eventId}&error=1`);
   }
   revalidatePath(`/dashboard/${eventId}/messages`);
   redirect(groupChatHref(data));
+}
+
+/**
+ * THE ONE EXPORTED ACTION (scripts/lint-server-action-budget.mjs — every export is a Vercel route): a dispatcher, bound
+ * by the page per use — `groupChat.bind(null, 'send')` is the composer's Send, `.bind(null, 'add', threadId)` the strip's
+ * ＋, `.bind(null, 'leave', threadId)` your own face, `.bind(null, 'rejoin')` / `.bind(null, 'create')` the two forms.
+ */
+export async function groupChat(op: 'send' | 'add' | 'leave' | 'rejoin' | 'create', a?: FormData | string, b?: unknown): Promise<void> {
+  if (op === 'send') {
+    if (!(a instanceof FormData)) throw new Error('Invalid input');
+    return sendGroupMessage(a);
+  }
+  if (op === 'add') return addToGroup(String(a), Array.isArray(b) ? b.filter((x): x is string => typeof x === 'string') : []);
+  if (op === 'leave') return leaveGroup(String(a), typeof b === 'string' ? b : null);
+  if (!(a instanceof FormData)) throw new Error('Invalid input');
+  if (op === 'rejoin') {
+    const threadId = a.get('thread_id');
+    if (typeof threadId !== 'string') throw new Error('Invalid input');
+    return rejoinGroup(threadId);
+  }
+  if (op === 'create') {
+    const eventId = a.get('event_id');
+    const name = a.get('name');
+    if (typeof eventId !== 'string' || typeof name !== 'string') throw new Error('Invalid input');
+    return createGroup(eventId, name, a.getAll('person').filter((v): v is string => typeof v === 'string'));
+  }
+  throw new Error('Unknown group action');
 }

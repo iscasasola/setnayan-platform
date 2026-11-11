@@ -489,7 +489,7 @@ test('a private line tells each recipient once, never in its own words, and nobo
   assert.deepEqual(n.rows.map((r) => r.user_id), [w.hostA, w.hostB].sort());
   for (const r of n.rows) {
     assert.ok(!`${r.title} ${r.body}`.includes('SECRET-WORDS'), 'the words never reach a notice');
-    assert.equal(r.related_url, `/chat-groups/${g}`);
+    assert.equal(r.related_url, `/samahan/chat/${g}`);
   }
 });
 

@@ -9,6 +9,8 @@
  * which says nothing for a guest whose tick would not move the number (not attending, or outside that service's rule).
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { MinusCircle, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { notCountedResult, type CountSelf, type CountedService } from '@/lib/supplier-count';
 import { kidsCountSuggestions, kidsSuggestionWords, parseNotCounted } from '@/lib/guest-not-counted';
 
@@ -87,20 +89,16 @@ export function NotCountedResult({
     <div ref={ref}>
       {children}
       {suggest.map((s) => (
-        <p key={s.id} className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-ink/[0.04] px-4 py-2.5 text-[13px] leading-snug" data-kids-suggestion={s.id}>
-          <span className="min-w-0 text-ink">
+        <div key={s.id} className="mb-2 grid gap-2 rounded-xl bg-ink/[0.04] px-4 py-3 text-[13px] leading-snug" data-kids-suggestion={s.id}>
+          <span className="text-ink">
             <b className="block font-medium">{kidsSuggestionWords(s.label)}</b>
             <span className="block text-ink/60">Kids meal · some caterers still charge kids’ plates.</span>
           </span>
-          <span className="flex flex-none gap-1.5">
-            <button type="button" className="rounded-full px-3 py-1.5 text-[13px] text-ink/60" onClick={() => setNotNow((d) => [...d, s.id])}>
-              Not now
-            </button>
-            <button type="button" className="rounded-full bg-ink px-3 py-1.5 text-[13px] font-medium text-white" onClick={() => leaveOut(s.id)}>
-              Leave out
-            </button>
+          <span className="flex justify-end gap-1.5">
+            <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => setNotNow((d) => [...d, s.id])} />
+            <ActionButton tone="brand" main icon={MinusCircle} label="Leave out" onClick={() => leaveOut(s.id)} />
           </span>
-        </p>
+        </div>
       ))}
       {line ? (
         // Drawn as the prototype draws it: a quiet tint (not a frame — nothing here is pressed), the count on the

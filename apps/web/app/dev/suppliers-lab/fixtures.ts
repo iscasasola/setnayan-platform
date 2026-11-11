@@ -8,7 +8,7 @@
  */
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
-import { benchServiceCard, type BenchServiceCard } from '@/lib/bench-service-card';
+import type { BenchServiceCard } from '@/lib/bench-service-card';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { formatPhp } from '@/lib/orders';
 import type { SupplierSheetData } from '@/lib/supplier-sheet';
@@ -57,15 +57,7 @@ export const LAB_CARDS: Record<string, BenchServiceCard> = {
   'v-bituin': card({ name: 'Wedding buffet · 150–250 pax', priceText: `from ${formatPhp(950)} / head`, includesLine: 'Tasting for 4 · crew meals · 2 live stations', notIncluded: ['corkage'] }),
   'v-hiraya': card({ name: 'Plated dinner · 100–200 pax', priceText: `from ${formatPhp(1200)} / head`, includesLine: 'Tasting for 2 · table styling' }),
   'v-lola': card({ name: 'Heirloom Filipino buffet · 100–250 pax', priceText: `from ${formatPhp(1100)} / head`, includesLine: 'Tasting for 2 · lechon carving station' }),
-  // Built by the REAL `benchServiceCard` (not a typed string), so the Includes line is what a couple's Find shows — the
-  // Now-beside-Proposed shots of "an included line has no price" (owner 11 Nov 2026) are taken on this card.
-  'v-lumina': benchServiceCard({
-    service: { title: 'Full day photo & video · 2 shooters', category: 'photographer', pricing_basis: 'fixed', starting_price_php: 85000, crew_meal_included: true, transport_included: true },
-    inclusions: [{ label: 'Same-day edit' }, { label: '10-day album' }, { label: 'Drone coverage' }],
-    hidePrices: false,
-    coverUrl: null,
-    now: new Date('2026-11-11T09:00:00+08:00'),
-  }),
+  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day album' }),
   'v-santuario': card({ name: 'Church ceremony · 3 pm slot', includesLine: 'Choir · coordinator for the rite' }),
 };
 

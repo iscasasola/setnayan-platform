@@ -24,9 +24,11 @@ price for the service?"* (yes).
   scans 20 render/maker modules (comments stripped by `lib/strip-comments.ts`) and walks app/ + lib/ so only the save
   and the admin scanner may read the stored worth. Retired `a-worth-box-has-no-spinner.test.ts` (its box no longer
   exists).
-- `dev/suppliers-lab` builds Lumina's Find card with the real `benchServiceCard` (for the shots).
 
-Shots: `build-notes/shots/no-inclusion-worth/`.
+Shots (390 px, Now beside Proposed, dummy-env `next dev`): `build-notes/shots/no-inclusion-worth/` — the Card Maker's
+included section, a shop card (`/dev/service-card-row-lab`), the Find/Discover face (the maker's pinned "As couples see
+it" card, the one `ServiceCardFace` the supplier sheet renders) and the bundle's "what the couple gets" (`/dev/bundle-maker-lab`,
+unchanged — it never showed a worth). The Now shots put worths on the lab fixtures so today's code shows them.
 
 SPEC IMPACT: The "Includes … · ₱X free" value story on the service card is retired (owner ruling 11 Nov 2026). Corpus
 DECISION_LOG row to add: "AN INCLUDED LINE HAS NO PRICE — the card's one price is the service's; a priced thing is a

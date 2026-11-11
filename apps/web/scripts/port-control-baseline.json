@@ -689,6 +689,7 @@
         "(shell)/realstories/page.tsx"
       ],
       "destinations": [
+        "/creators",
         "/explore",
         "/realstories/[seg]",
         "/signup"
@@ -13224,6 +13225,7 @@
         "LabPickedChat",
         "LabPlusSeed",
         "LockRequestAnswer",
+        "Offer",
         "PickedClientShell",
         "ProposalMaker",
         "QuestionsSendBody",
@@ -16869,6 +16871,7 @@
         "QuestionsSendPanel",
         "QuickReplies",
         "Quiet",
+        "QuoteDoors",
         "QuoteSeed",
         "QuoteVersionLine",
         "RailBody",

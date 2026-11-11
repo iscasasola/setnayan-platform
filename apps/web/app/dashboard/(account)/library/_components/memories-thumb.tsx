@@ -7,6 +7,7 @@ import type { LinkPickOption } from '@/app/_components/link-pick-menu';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import { HomeFindRow, HomeGear, homeSegOptions } from '@/app/dashboard/(launcher)/_components/home-pin';
 import hp from '@/app/dashboard/(launcher)/_components/home-profile.module.css';
+import { HomePinPortal } from '@/app/dashboard/(launcher)/_components/home-segment-bar';
 import type { HomeSeg } from '@/lib/home-segments';
 
 /**
@@ -77,7 +78,8 @@ export function MemoriesThumb({
   const all = [...home, ...options];
   return (
     <>
-      <div className={hp.stick} data-home-pin="memories" data-memories-thumb="" data-tour="library-show">
+      <HomePinPortal>
+      <div className={hp.pin} data-home-pin="memories" data-memories-thumb="" data-tour="library-show">
         <PinnedRow
           data={{ 'data-home-pinned': 'memories' }}
           picker={{
@@ -96,6 +98,7 @@ export function MemoriesThumb({
           gear={<HomeGear />}
         />
       </div>
+      </HomePinPortal>
       <HomeFindRow words="Search memories" tour="library-search">
         <input
           type="search"

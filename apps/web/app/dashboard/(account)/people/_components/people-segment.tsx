@@ -93,7 +93,7 @@ const FENCE_ERROR = PEOPLE_ERROR_WORDS;
 export type PeopleSearch = { error?: string; saved?: string; removed?: string; view?: string; person?: string; left?: string; archived?: string };
 
 /**
- * 🏠 PEOPLE, A SECTION OF HOME (owner 11 Nov 2026, "One profile page approve" — DECISION_LOG "HOME IS THE PROFILE").
+ * 🏠 PEOPLE, A SECTION OF HOME (owner 11 Nov 2026, "One profile page approve" — DECISION_LOG "HOME PAGE v3 APPROVED").
  * This is the shipped People page's body, MOVED here unchanged from `people/page.tsx` (which now forwards to
  * `/dashboard?seg=people`, every parameter kept): Home (`(launcher)/page.tsx`) renders it under the profile header
  * when `?seg=people`. The one addition: the pinned row's picker also holds Home's sections (`homeSegs`, v3 row 7).

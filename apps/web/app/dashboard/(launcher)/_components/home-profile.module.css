@@ -31,7 +31,7 @@
   margin: 4px 0 12px;
   padding: 0 12px;
   border: 1px solid var(--sn-hair);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgb(var(--color-cream));
   color: rgb(var(--color-ink));
 }
@@ -102,7 +102,7 @@
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--sn-hair);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: rgb(var(--color-cream));
   font-size: 13px;
   color: rgb(var(--color-ink) / 0.75);

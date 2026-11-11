@@ -16,7 +16,8 @@
  * as the address it stands for):
  *
  *   /dev/bar-lab                         Discover (`/`), signed in
- *   /dev/bar-lab/dashboard               the Events board
+ *   /dev/bar-lab/dashboard               HOME (11 Nov 2026) — the real header, sections and pinned rows on fixtures
+ *                                        (`home-lab.tsx`): ?seg=events|people|shop|memories · ?shop=0
  *   /dev/bar-lab/dashboard/library       Memories
  *   /dev/bar-lab/dashboard/people        People
  *   /dev/bar-lab/vendor-dashboard        the shop (Today)
@@ -55,6 +56,7 @@ import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { LabBar } from '../lab-bar';
+import { HomeLab } from '../home-lab';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { VendorRailContext } from '@/app/vendor-dashboard/_components/vendor-rail-context';
 import { labEventBar } from '../lab-event';
@@ -230,7 +232,11 @@ export default async function BarLab({
             className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
             data-sn-slide="while-sliding"
           >
-            <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
+            {where === 'dashboard' ? (
+              <HomeLab sp={sp} />
+            ) : (
+              <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
+            )}
           </main>
           {accountBar}
         </FrontDoorShell>

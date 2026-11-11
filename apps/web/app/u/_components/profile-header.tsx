@@ -1,7 +1,7 @@
 /**
  * profile-header.tsx — THE ONE PROFILE HEADER: the photo wearing the logo's frame, the name, and what sits under them.
  *
- * Owner, 11 Nov 2026 — "One profile page approve" (v3 of `one-profile-page`, DECISION_LOG "HOME IS THE PROFILE"):
+ * Owner, 11 Nov 2026 — "One profile page approve" (v3 of `one-profile-page`, DECISION_LOG "HOME PAGE v3 APPROVED"):
  * *"Something like facebook/instagram profile page"*, and the ruling that **the profile IS the public page**. The
  * header lived only on the public `/u/[userSlug]` as inline JSX; it is lifted out here, unchanged in markup and style,
  * so the signed-in Home (`/dashboard`) and the public page draw the SAME header — one component, two gates (who may

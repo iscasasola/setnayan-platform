@@ -1,6 +1,6 @@
 /**
  * home-is-the-profile.test.ts — 🏠 HOME IS THE PROFILE (owner 11 Nov 2026, "One profile page approve" — v3 of
- * `one-profile-page`, DECISION_LOG "HOME IS THE PROFILE").
+ * `one-profile-page`, DECISION_LOG "HOME PAGE v3 APPROVED").
  *
  *   1 · The bar and the ☰ list the SAME two entries, in the SAME order: Home, then Discover.
  *   2 · Home's sections are Events · People · Shop · Memories, Shop only for an owner.

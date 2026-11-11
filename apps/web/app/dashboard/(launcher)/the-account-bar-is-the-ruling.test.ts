@@ -2,7 +2,7 @@
  * the-account-bar-is-the-ruling.test.ts — the account-level phone bar draws
  * exactly the owner's tabs, for every kind of account, on every shell.
  *
- * 🏠 RE-RULED 11 Nov 2026 — HOME · DISCOVER (owner, "One profile page approve"; DECISION_LOG "HOME IS THE PROFILE"):
+ * 🏠 RE-RULED 11 Nov 2026 — HOME · DISCOVER (owner, "One profile page approve"; DECISION_LOG "HOME PAGE v3 APPROVED"):
  * Events · People · Shop · Memories left the bar to become the sections of Home. The history below is kept so nobody
  * re-applies it from this file.
  *
@@ -68,7 +68,7 @@ const OWNER = { hasVendor: true, canOpenShop: false, isAdmin: false };
 const TEAM_MEMBER = { hasVendor: true, canOpenShop: true, isAdmin: false };
 const INTERNAL = { hasVendor: false, canOpenShop: true, isAdmin: true };
 
-// 🏠 RE-RULED 11 Nov 2026 (owner, "One profile page approve" — DECISION_LOG "HOME IS THE PROFILE"): the bar is
+// 🏠 RE-RULED 11 Nov 2026 (owner, "One profile page approve" — DECISION_LOG "HOME PAGE v3 APPROVED"): the bar is
 // **Home · Discover** for EVERY account. Events · People · Shop · Memories are Home's sections (`lib/home-segments.ts`),
 // Shop still only for an owner — as a section, never a tab. Discover is drawn only where `/` opens, as before.
 const ALL_FACTS = [COUPLE, OWNER, TEAM_MEMBER, INTERNAL];

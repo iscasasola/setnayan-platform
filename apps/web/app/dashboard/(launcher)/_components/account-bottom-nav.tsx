@@ -47,7 +47,7 @@ import { HOME_HREF, HOME_LAST_SEG_KEY, HOME_SEG_ORDER, homeSegHref, type HomeSeg
  */
 
 /*
- * 🏠 HOME · DISCOVER (owner 11 Nov 2026, "One profile page approve", DECISION_LOG "HOME IS THE PROFILE"). The four
+ * 🏠 HOME · DISCOVER (owner 11 Nov 2026, "One profile page approve", DECISION_LOG "HOME PAGE v3 APPROVED"). The four
  * account tabs became the four SECTIONS of Home (`lib/home-segments.ts`); the bar keeps two. Home lights on Home and
  * on every page that belongs to one of its sections and still has its own address — an alaga's page, a group's
  * chat room, the create flow — and on the old section addresses while they forward (they never paint).

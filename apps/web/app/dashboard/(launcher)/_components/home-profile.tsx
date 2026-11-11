@@ -11,7 +11,7 @@ import hp from './home-profile.module.css';
 
 /**
  * home-profile.tsx — HOME, THE ACCOUNT'S ONE PAGE (owner 11 Nov 2026, "One profile page approve" — v3 of
- * `one-profile-page`, DECISION_LOG "HOME IS THE PROFILE"): *"something like facebook/instagram profile page"*.
+ * `one-profile-page`, DECISION_LOG "HOME PAGE v3 APPROVED"): *"something like facebook/instagram profile page"*.
  *
  *   the profile header (the SAME component as the public `/u/[slug]`) → the sections (Events · People · Shop ·
  *   Memories) → the picked section's body, which is the shipped page MOVED here, never redrawn.

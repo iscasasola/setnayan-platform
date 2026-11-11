@@ -33,7 +33,7 @@
  *    its ruled place when drawn.
  *
  * 🏠 RE-RULED AGAIN, THE SAME DAY (owner, 11 Nov 2026, "One profile page approve" — v3 of `one-profile-page`,
- *    DECISION_LOG 2026-11-11 "HOME IS THE PROFILE"): the bar is **Home · Discover**. Events · People · Shop ·
+ *    DECISION_LOG 2026-11-11 "HOME PAGE v3 APPROVED"): the bar is **Home · Discover**. Events · People · Shop ·
  *    Memories are no longer tabs — they are the SECTIONS of Home, in that same ruled order (`lib/home-segments.ts`),
  *    and Shop still draws only for an owner, now as a section. Home keeps the Events tab's `?hub=1` door; Discover
  *    still draws only where `/` opens. The ☰ reads the same two, in the same order (`front-door-shell.tsx`).

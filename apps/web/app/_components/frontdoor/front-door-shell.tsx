@@ -1352,8 +1352,8 @@ export function FrontDoorShell({
               one rail read as the same place. The telescope, not a house:
               Compass is already the Suppliers row's glyph. The slot key stays
               'home' — it is match data, not a word anyone reads. */}
-          {/* 🏠 HOME ABOVE DISCOVER (owner 11 Nov 2026, "One profile page approve" — v3 row 1, DECISION_LOG "HOME IS
-              THE PROFILE"): the ☰ reads Home · Discover, in the bar's order. Home's four sections are small doors under
+          {/* 🏠 HOME ABOVE DISCOVER (owner 11 Nov 2026, "One profile page approve" — v3 row 1, DECISION_LOG "HOME PAGE v3
+              APPROVED"): the ☰ reads Home · Discover, in the bar's order. Home's four sections are small doors under
               it, so a desktop or keyboard reader keeps every deep door the rail had (Events · People · Shop ·
               Memories, the ruled order; Shop only for a shop). They light nothing on their own: the rail reads the
               PATH only (a query read here once broke hydration — see the fixed-id note above), and every section

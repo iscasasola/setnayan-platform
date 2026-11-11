@@ -1,8 +1,7 @@
 /**
  * home-segments.ts — HOME, THE ACCOUNT'S ONE PAGE, AND WHERE EACH OF ITS SECTIONS LIVES.
  *
- * Owner, 11 Nov 2026 — "One profile page approve" (v3 of `one-profile-page`, DECISION_LOG 2026-11-11 "HOME IS THE
- * PROFILE"): the bottom bar and the ☰ read **Home · Discover**; Home is the account page that used to be "Events",
+ * Owner, 11 Nov 2026 — "One profile page approve" (v3 of `one-profile-page`, DECISION_LOG 2026-11-11 "HOME PAGE v3 APPROVED"): the bottom bar and the ☰ read **Home · Discover**; Home is the account page that used to be "Events",
  * and Events · People · Shop · Memories are SECTIONS of it (segments, `?seg=`), Shop only for an account that OWNS a
  * shop (`ownsAShop`, the 21 Oct gate). Discover stays the only place that leaves the account.
  *

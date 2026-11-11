@@ -87,7 +87,7 @@ import {
  */
 
 /**
- * 🏠 MEMORIES, A SECTION OF HOME (owner 11 Nov 2026, "One profile page approve" — DECISION_LOG "HOME IS THE PROFILE").
+ * 🏠 MEMORIES, A SECTION OF HOME (owner 11 Nov 2026, "One profile page approve" — DECISION_LOG "HOME PAGE v3 APPROVED").
  * The shipped Memories page's body, MOVED here unchanged from `library/page.tsx` (which now forwards to
  * `/dashboard?seg=memories`, every `?tab=` / `?event=` kept). Its lenses and kept views keep their addresses as
  * `?seg=memories&tab=…` (⌘K's Saved suppliers is `&tab=vendors`). The bottom thumb row became Home's ONE pinned row

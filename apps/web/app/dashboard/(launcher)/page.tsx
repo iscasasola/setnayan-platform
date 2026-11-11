@@ -135,7 +135,7 @@ export const metadata = {
 
 /**
  * 🏠 HOME — THE ACCOUNT'S ONE PAGE (owner 11 Nov 2026, "One profile page approve" — v3 of `one-profile-page`,
- * DECISION_LOG "HOME IS THE PROFILE"). The bar reads Home · Discover; Events · People · Shop · Memories are the
+ * DECISION_LOG "HOME PAGE v3 APPROVED"). The bar reads Home · Discover; Events · People · Shop · Memories are the
  * sections of this page (`?seg=`, `lib/home-segments.ts`). This is a WRAPPER AROUND THE BOARD: the profile header and
  * the sections row (`HomeProfile`), then the picked section's body — the Events board below, unchanged, or the
  * shipped People / Memories bodies moved from their old pages (which forward here, every parameter kept), or the
@@ -155,10 +155,12 @@ export default async function HomePage({
     return Array.isArray(v) ? v[0] : v;
   };
   const switcher = await getSwitcherData(user.id).catch(() => null);
-  const ownsShop = switcher ? ownsAShop(switcher.context) : false;
+  // The shop the section shows: the one you own, else the one you are on the team of (`ownsAShop` admits both — the
+  // 21 Oct gate the Shop tab used). No shop to show = no Shop section, never a section that falls back to Events.
+  const ownedShop = switcher?.context.shops.find((s) => s.owned) ?? switcher?.context.shops[0] ?? null;
+  const ownsShop = switcher ? ownsAShop(switcher.context) && ownedShop !== null : false;
   const segs = homeSegments({ ownsShop });
   const seg = resolveHomeSeg(one('seg'), { ownsShop });
-  const ownedShop = switcher?.context.shops.find((s) => s.owned) ?? null;
 
   const [rail, handle, asking, cards, eventCounts] = await Promise.all([
     resolveRailAccount(),
@@ -1346,7 +1348,7 @@ async function EventsBoard({
           The anti-regression guards on the greeting eyebrow and the
           "Pick up where you left off" tail still apply and still pass: what was
           removed is the visible duplicate, never the page's identity. */}
-      <h1 className="sr-only">Your events</h1>
+      <h2 className="sr-only">Your events</h2>
 
       {/* 🔦 The account bar's first-visit spotlight (Events · People · Memories — owner 2026-10-22; the bar's order since 2026-11-11), after the
           host's journey so the two never stack. A server component: it reads its own seen keys and ships only

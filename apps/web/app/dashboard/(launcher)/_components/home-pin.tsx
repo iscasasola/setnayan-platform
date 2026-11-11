@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { Plus, Search, Settings } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
+import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { HOME_SEG_LABEL, homeSegHref, type HomeSeg } from '@/lib/home-segments';
 import hp from './home-profile.module.css';
@@ -73,8 +74,12 @@ export function HomePinnedRow({
 }) {
   const go = useGo();
   const options: (PickOption & { href: string })[] = [...homeSegOptions(segs), ...sub];
+  // 📌 Once the page runs under it, the row folds its doors into one slim line and back (the shared `usePinFold` +
+  // `pin-fold.css`, the supplier pages' own motion; none under reduced motion).
+  const pinRef = useRef<HTMLDivElement>(null);
+  usePinFold(pinRef);
   return (
-    <div className={hp.stick} data-home-pin={seg}>
+    <div ref={pinRef} className={hp.stick} data-home-pin={seg} data-pin-fold="">
       <PinnedRow
         data={{ 'data-home-pinned': seg }}
         picker={{

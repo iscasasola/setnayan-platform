@@ -1,7 +1,7 @@
 /**
  * # The open decision pins' bodies — each open topic OPENS (owner-approved prototype 11 Nov 2026): what it holds,
  * newest first, its Edit topic and its Close · settled (`DecisionPanel`), keyed by its pin. Loaded only when a chat has
- * an open topic. Close · settled here is the same `chat_decision_set_closed` door `DecisionToggle` uses.
+ * an open topic. Close · settled here is the `chat_decision_set_closed` door.
  */
 import dynamic from 'next/dynamic';
 import type { ReactNode } from 'react';

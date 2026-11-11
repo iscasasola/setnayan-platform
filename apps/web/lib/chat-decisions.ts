@@ -2,7 +2,7 @@
  * 🤝 OPEN A DECISION — the one TS door to `chat_decision_open()` (migration 20271332497337).
  *
  * Either side of a conversation opens a decision topic; the RPC writes the topic and posts its
- * "Decision opened · <title>" line. Closing / reopening is `DecisionToggle` (`chat_decision_set_closed`).
+ * "Decision opened · <title>" line. Closing is `DecisionPanel` (`chat_decision_set_closed`).
  * Lane C's Decision card calls this; it is exported here so the card writes through the same door the
  * database guards (a member of the chat, or the shop's team), never an INSERT of its own.
  *

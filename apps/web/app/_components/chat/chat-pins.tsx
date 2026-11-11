@@ -285,6 +285,8 @@ export function ChatPins({
             )}
           </li>
         ) : null}
+        {/* Decisions sit right under what is due, as drawn (approved page, 11 Nov) — above the Waiting line. */}
+        {decisions.map(decisionRow)}
         {wLine && !(collapsed && stack.due.length > 0) ? (
           <li className="border-t border-ink/[0.07] first:border-t-0" data-chat-pins-waiting="">
             <button
@@ -314,7 +316,6 @@ export function ChatPins({
             />
           </li>
         ) : null}
-        {decisions.map(decisionRow)}
         {talking ? (
           <li className="flex min-h-[48px] items-center gap-2.5 border-t border-ink/[0.07] first:border-t-0" data-chat-pin="talk">
             <span aria-hidden className="grid h-7 w-7 place-items-center rounded-full bg-ink/[0.05] text-ink/60">

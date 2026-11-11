@@ -515,6 +515,16 @@ export default async function SupplierChatLabPage({
             lockHandshake={null}
             extraPins={labPins}
             pinBodies={decisionPinBodies(labPins, labFiled)}
+            labFilings={
+              labFiled
+                ? {
+                    topics: [{ topicId: '00000000-0000-4000-8000-00000000d001', title: 'Drone shot at sunset', filedCount: 2 }],
+                    byMessage: new Map(
+                      [LAB_MESSAGES[1]!, LAB_MESSAGES[2]!].map((x) => [x.message_id, { topicId: '00000000-0000-4000-8000-00000000d001', title: 'Drone shot at sunset' }]),
+                    ),
+                  }
+                : undefined
+            }
             blocker={labBlocker}
             plus={{ eventId: LAB_EVENT, returnPath: '/dev/supplier-chat-lab' }}
             {...(sp.hosts === '1'

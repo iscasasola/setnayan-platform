@@ -307,6 +307,11 @@ type Props = {
   extraPins?: readonly PinFact[];
   /** The answer drawn under a page pin when it opens (the shipped controls). */
   pinBodies?: Readonly<Record<string, React.ReactNode>>;
+  /**
+   * 🧪 DEV LABS ONLY — the open decisions + message → decision map the `#` chips read, seeded because a lab has no
+   * database. A refused re-read never clears a seed (it only marks the picker refused). Pages leave it unset.
+   */
+  labFilings?: { topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> };
   /** 🚦 The full-screen blocker, when one is unanswered (its fact must also be in `extraPins`, as the red pin). */
   blocker?: (Omit<ChatBlockerProps, 'onReturn' | 'threadId'> & { pinKey: string }) | null;
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
@@ -452,6 +457,7 @@ export function ChatMessageStream({
   pins = null,
   extraPins = [],
   pinBodies,
+  labFilings,
   blocker = null,
   plus = null,
   moneyHidden = false,
@@ -554,7 +560,7 @@ export function ChatMessageStream({
   const [hearts, setHearts] = useState<HeartsByMessage>(() => new Map());
   // 👆👆 Double-tap files a message under a decision (owner 11 Nov 2026). The open decisions + where each message sits
   // (`null` = the read was refused → the picker says so, the chips stay as they were); the picker's message; its Undo line.
-  const [filings, setFilings] = useState<{ topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } | null>(null);
+  const [filings, setFilings] = useState<{ topics: OpenDecisionTopic[]; byMessage: Map<string, Filing> } | null>(labFilings ?? null);
   const [filingsRefused, setFilingsRefused] = useState(false);
   const [filePick, setFilePick] = useState<string | null>(null);
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);

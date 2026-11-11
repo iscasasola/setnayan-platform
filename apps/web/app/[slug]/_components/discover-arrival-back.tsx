@@ -33,7 +33,7 @@ export function DiscoverArrivalBack() {
   if (arrivedAt === null) return null;
   return (
     <div
-      className="fixed left-3 z-50 rounded-md bg-cream/90 shadow-sm backdrop-blur-sm"
+      className="fixed left-[max(0.75rem,var(--sn-safe-l))] z-50 rounded-md bg-cream/90 shadow-sm backdrop-blur-sm"
       style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
       data-discover-arrival-back=""
     >

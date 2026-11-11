@@ -23,7 +23,13 @@
  * SIBLING of its form, and a sibling inside a row crushes the row). So the form holds only its hidden fields and sits
  * AFTER the row; the switch reaches it with the `form` attribute.
  *
+ * 🧺 A BUNDLE CARD WEARS THIS SAME ROW (owner 10–11 Nov, DECISION_LOG: Online/Offline applies to service AND bundle
+ * cards only). A bundle has no door of its own here: it hands `onToggle` (its card's one call, `bundleCardRow`, which
+ * refuses going online with EVERY missing item and going offline while a booking is open) instead of `action`, and no
+ * `share` — its Share is drawn WAITING until a bundle can be posted into a client's chat. Same row, same switch.
+ *
  * 🔒 app/vendor-dashboard/services/the-card-menu-row-is-edit-share-go-online.test.ts
+ * 🔒 app/vendor-dashboard/shop/bundle-cards-wear-the-card-row.test.ts
  */
 import { useId, useState } from 'react';
 import { Pencil, Share } from 'lucide-react';
@@ -40,16 +46,22 @@ export type ServiceCardMenuRowProps = {
   isActive: boolean;
   /** The PLAN holds this card (`readPlanHolds`) — no switch; "On hold" opens "Which services stay on". */
   held: boolean;
-  /** The Card Maker for this card. */
+  /** The Card Maker for this card (the Bundle Maker for a bundle). */
   editHref: string;
-  action: (fd: FormData) => unknown;
+  /** A service card's switch: the shipped `toggleVendorServiceActive`, saved in place through its door. */
+  action?: (fd: FormData) => unknown;
   /** The saver — `saveInPlace` itself, unless a lab hands in a stand-in. */
   save?: StaySave;
-  /** Share to a client event: this shop's client events and the server's post (the shipped `offerServiceInterest`). */
-  share: ServiceCardShareProps;
+  /** A bundle card's switch, in place of `action`: the bundle card's own call (it prints its refusal under the row). */
+  onToggle?: () => void;
+  /** The bundle's call is on its way — the switch waits. */
+  toggling?: boolean;
+  /** Share to a client event: this shop's client events and the server's post (the shipped `offerServiceInterest`).
+   *  Absent (a bundle) = Share is drawn waiting. */
+  share?: ServiceCardShareProps;
 };
 
-export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, share }: ServiceCardMenuRowProps) {
+export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, editHref, action, save, onToggle, toggling = false, share }: ServiceCardMenuRowProps) {
   const uid = useId().replace(/:/g, '');
   const formId = `card-online-${uid}`;
   const shareTitleId = `card-share-${uid}`;
@@ -65,8 +77,9 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
           iconOnly
           label="Share to a client"
           name="Share to a client"
-          title={`Share ${cardName} to a client event`}
-          onClick={() => setSharing(true)}
+          title={share ? `Share ${cardName} to a client event` : `Share ${cardName} to a client event — coming next`}
+          onClick={share ? () => setSharing(true) : undefined}
+          waiting={!share}
           data-card-share={vendorServiceId}
         />
         <span className="ml-auto" />
@@ -80,28 +93,40 @@ export function ServiceCardMenuRow({ vendorServiceId, cardName, isActive, held, 
             aria-checked={isActive}
             aria-label={isActive ? `${cardName} is online — turn it offline` : `${cardName} is offline — turn it online`}
             className={SWITCH_BUTTON}
+            disabled={toggling}
             data-card-online={isActive ? '1' : '0'}
           >
             <SwitchTrack on={isActive} words={{ on: 'Online', off: 'Offline' }} />
           </button>
         )}
       </div>
-      {held ? null : (
+      {held ? null : action ? (
         <StayForm id={formId} door="svServices.toggleVendorServiceActive" action={action} save={save} className="hidden">
           <input type="hidden" name="vendor_service_id" value={vendorServiceId} />
           <input type="hidden" name="is_active" value={isActive ? 'false' : 'true'} />
         </StayForm>
-      )}
-      <ServiceCardShareSheet
-        open={sharing}
-        onClose={() => setSharing(false)}
-        labelledById={shareTitleId}
-        vendorServiceId={vendorServiceId}
-        cardName={cardName}
-        isActive={isActive}
-        targets={share.targets}
-        share={share.share}
-      />
+      ) : onToggle ? (
+        <form
+          id={formId}
+          className="hidden"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onToggle();
+          }}
+        />
+      ) : null}
+      {share ? (
+        <ServiceCardShareSheet
+          open={sharing}
+          onClose={() => setSharing(false)}
+          labelledById={shareTitleId}
+          vendorServiceId={vendorServiceId}
+          cardName={cardName}
+          isActive={isActive}
+          targets={share.targets}
+          share={share.share}
+        />
+      ) : null}
     </div>
   );
 }

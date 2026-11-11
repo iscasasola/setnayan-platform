@@ -785,8 +785,11 @@ html.dark .fd {
    would throw a grid declared there away. */
 .fd-sp-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 10px;
+  /* Company hugs its words; Legal takes the rest. Equal halves left "Acceptable use" (the longest link, and it
+     cannot wrap) about 5 px of room at the 240 px rail — measured 90 of 95 px with the Mac system font — so a
+     slightly wider font on Windows or Android would have run it off the rail. */
+  grid-template-columns: max-content 1fr;
+  gap: 0 28px;
 }
 .fd-sp-col {
   min-width: 0;

@@ -136,6 +136,7 @@ test('.fd-smallprint a is one unbreakable line per link, tall enough to tap (own
   const cols = blocks('.fd-sp-cols');
   assert.equal(cols.length, 1, 'the .fd-sp-cols rule is gone');
   assert.match(cols[0]!, /display:\s*grid/, 'the small print is not a grid');
-  assert.match(cols[0]!, /grid-template-columns:\s*1fr 1fr/, 'the small print is not two columns');
+  // Two tracks: Company hugs its words, Legal takes the rest — "Acceptable use" cannot wrap, so it needs the room.
+  assert.match(cols[0]!, /grid-template-columns:\s*max-content 1fr\s*(?:;|$)/, 'the small print is not two columns');
   assert.match(src('front-door-shell.tsx'), /className="fd-sp-cols"/, 'the shell no longer renders .fd-sp-cols');
 });

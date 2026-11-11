@@ -99,7 +99,7 @@ test('every door into Event Details lands on its editor or on the stage — neve
      (`makerDoorLanding`, `lib/maker-resume.ts` — `a-reload-returns-to-the-same-place.test.ts` runs every case):
      a cold door (`back` null) lands on the editor its item names, or on the stage — 🔁 2026-11-11 (Build 6 Lane F): there
      is no Studio home any more. */
-  const body = src.slice(at, at + 1400);
+  const body = src.slice(at, at + 2600);
   assert.match(body, /const land = makerDoorLanding\(back, /);
   assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);/);
   assert.match(body, /setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);

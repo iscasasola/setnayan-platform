@@ -698,6 +698,8 @@ export function StageTools({
   const rise = (k: MakerPartKey, tile: MakerStudioTool) => {
     resumeAt = { stage: where.current.stageKey, page: where.current.shownPage, part: k };
     noteRiseFrom(makerPartRectOnScreen(where.current.stageKey, k, frameSel));
+    /* At once (the Maker never waits on a tap). The work area selects the same tap's part too; the shell keeps the risen
+       editor selected over it (`maker-shell.tsx`, "A RISEN EDITOR HOLDS THE SELECTION"). */
     onOpenStudio(tile, { label: makerPartLabelOn(where.current.stageKey, k), focus: makerPartStudioDoor(k)?.focus ?? null });
   };
   const riseRef = useRef(rise);

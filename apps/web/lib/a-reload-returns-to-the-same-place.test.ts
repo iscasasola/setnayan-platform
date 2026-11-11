@@ -152,9 +152,9 @@ test('3 · WIRING: the shell reads the note once at mount, lands through the one
   // Rule 3's own condition is unchanged — and its landing is the one function.
   const at = SHELL.indexOf("if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side still sends a Details selection away');
-  const body = SHELL.slice(at, at + 1400);
+  const body = SHELL.slice(at, at + 2600);
   assert.match(body, /cameBack\.current = null;/, 'the note is spent by its one use');
-  assert.match(body, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(detailsItem\)\);/);
+  assert.match(body, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(named \?\? detailsItem\)\);/);
   assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);\s*setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
   assert.match(body, /if \(!land\.keep\) select\(null\);/, 'a cold door drops the selection');
   // The note: side · tool · item, written as they change, only once memory has been read.

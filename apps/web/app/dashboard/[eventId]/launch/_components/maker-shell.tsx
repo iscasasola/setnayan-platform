@@ -853,13 +853,20 @@ export function MakerShell({
     const back = cameBack.current && Date.now() < cameBack.current.until ? cameBack.current : null;
     cameBack.current = null;
     /* 🧭 Studio is gone (2026-11-10): an old door that names a page's item lands on that page's editor, risen; any other
-       lands on the stage — never on a Studio home (`makerDoorLanding`). */
-    const land = makerDoorLanding(back, studio?.tiles.map((t) => t.key) ?? [], back ? null : studioTileOfItem(detailsItem));
+       lands on the stage — never on a Studio home (`makerDoorLanding`). The item is the ADDRESS's (`?item=`, written by
+       `detailsItemHref` for notifications, Home's cards and `/studio/mood-board`): the page hands it to Details, not to
+       this shell, so it is read here — and only a key some page owns can match (`studioTileOfItem`). */
+    const named = back ? null : new URLSearchParams(window.location.search).get('item');
+    const land = makerDoorLanding(back, studio?.tiles.map((t) => t.key) ?? [], back ? null : studioTileOfItem(named ?? detailsItem));
     if (land.side === 'studio') setSide('studio');
     setStudioAt(land.at as StudioTileKey | 'home');
     // A tool put back opens as its tile opens it (`openStudio`): Look on its controls, any other with its editor up.
     if (!land.keep) select(null);
-    else if (land.at !== 'look') setDetailsDoor((n) => n + 1);
+    else {
+      /* A cold door opens the item it named (a reload already has it). */
+      if (!back && named && isDetailsItemKey(named)) setDetailsItem(named);
+      if (land.at !== 'look') setDetailsDoor((n) => n + 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the item is read once, at the door; a later pick is not a door
   }, [side, selection, select, studio]);
   /* 🔁 …and the note that makes it possible: where the Maker is, kept as it changes (this tab only). */
@@ -878,6 +885,15 @@ export function MakerShell({
     pickSide('stages');
   };
 
+  /* 🔒 A RISEN EDITOR HOLDS THE SELECTION (Build 6 Lane F). A tap on a scene rises its editor AND reaches the work area,
+     which selects the same part (its own sheet) in the same moment — measured on the Maker lab 2026-11-11: the bar read
+     "✕ Logo" over the mark's own sheet, and the Logo Maker never showed. While a full-screen editor is up, any other
+     selection is put back to it; ✕ (`backToPart`) leaves the side first, so it is never held against. */
+  useEffect(() => {
+    if (!studioFull || printsPage || !studioTile) return;
+    if (selection?.kind === 'tool' && selection.key === 'details') return;
+    select({ kind: 'tool', key: 'details' });
+  }, [studioFull, printsPage, studioTile, selection, select]);
   /** Back to the stage (✕, a stage picked). Nothing leads to a Studio side of its own any more — an editor opens from
       its scene (`openStudio`). */
   const pickSide = (next: MakerSide) => {

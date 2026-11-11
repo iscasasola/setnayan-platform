@@ -115,7 +115,8 @@ test('(3) every old door lands on the new place — the editor its item names, o
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/page.tsx'), /redirect\(detailsItemHref\(eventId, 'mood-board'\)\)/);
   assert.equal(studioTileOfItem('mood-board'), 'mood');
   // The shell lands through the one rule, with the address's item on a cold door.
-  assert.match(SHELL, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(detailsItem\)\);/);
+  assert.match(SHELL, /const named = back \? null : new URLSearchParams\(window\.location\.search\)\.get\('item'\);/, 'the shell does not read the old link’s item');
+  assert.match(SHELL, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(named \?\? detailsItem\)\);/);
 });
 
 test('(4) the scenes are the doors — the ring, Dress code and Love Story rise their editors; no door says Studio', () => {

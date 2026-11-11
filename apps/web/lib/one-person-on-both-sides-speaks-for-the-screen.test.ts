@@ -61,6 +61,7 @@ test('1 · the SEND — every supplier path says it is the shop’s; the host’
   const core = read('lib/chat-send.ts');
   assert.match(core, /if \(asSide === 'vendor'\) \{[\s\S]*?senderRole = 'vendor';/, 'the core still tests couple first for a shop send');
   assert.match(core, /sent_as: asSide,/, 'the side never reaches the insert — the database falls back to couple-first');
+  assert.match(core, /\.insert\(\{[\s\S]*?\.\.\.sidePayload,[\s\S]*?\}\);/, 'the side payload is built but never inserted');
 
   // The host's page never asks for a side: a coordinator posting there must keep the old derivation.
   assert.doesNotMatch(read('app/dashboard/[eventId]/messages/[threadId]/page.tsx'), /sentAs=/, 'the host’s composer started naming a side');

@@ -485,6 +485,13 @@ export async function sendChatMessageCore(
   // above. `senderRole` is still computed here because the gates below it —
   // the accept-gate, the couple follow-up rule, the notify fan-out — all
   // branch on it; it just no longer decides what lands in the row.
+  // 🏪 The screen's side (owner, 11 Nov) — the database honours it only if this sender holds it, and never names a
+  // recipient. Written as its own literal so the send path's column scan (chat-sender-not-forgeable) still sees it.
+  const sidePayload = asSide
+    ? {
+        sent_as: asSide,
+      }
+    : {};
   const { error } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
@@ -492,12 +499,7 @@ export async function sendChatMessageCore(
     body: trimmed,
     ...(attachment ?? {}),
     ...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {}),
-    // 🏪 The screen's side — the database honours it only if this sender holds it.
-    ...(asSide
-      ? {
-          sent_as: asSide,
-        }
-      : {}),
+    ...sidePayload,
   });
   if (error) {
     // The database screens the text with the same rules as the check above

@@ -35,11 +35,11 @@ test("the bubble's own tap does nothing but heart", () => {
   assert.ok(at > 0, 'the heartable bubble is gone');
   const open = stream.lastIndexOf('<div', at);
   const tag = stream.slice(open, stream.indexOf('>', at));
-  // Build 3 (Lane A): a press-and-hold that opened the "Reply privately" menu eats its own tap first — never a decision.
+  // 11 Nov 2026: the press-and-hold "Reply privately" menu is gone (the 🔒 is the one private door) — a tap is a heart.
   // 11 Nov: every tap still hearts at once; only the double's second tap ALSO opens the filing picker.
   assert.match(
     tag,
-    /onClick=\{\(e\) => \{\s*(?:if \(hold\.consumeTap\(\)\) return;\s*)?if \(tapMeansHeart\(e\.target as Element\)\) \{\s*const tap = bubbleTap\(lastTap\.current, m\.message_id, performance\.now\(\)\);\s*lastTap\.current = tap\.next;\s*toggleHeart\(m\.message_id\);\s*if \(tap\.openPicker && privateWith === null\) setFilePick\(m\.message_id\);\s*\}\s*\}\}/,
+    /onClick=\{\(e\) => \{\s*if \(tapMeansHeart\(e\.target as Element\)\) \{\s*const tap = bubbleTap\(lastTap\.current, m\.message_id, performance\.now\(\)\);\s*lastTap\.current = tap\.next;\s*toggleHeart\(m\.message_id\);\s*if \(tap\.openPicker && privateWith === null\) setFilePick\(m\.message_id\);\s*\}\s*\}\}/,
   );
   assert.doesNotMatch(stream, /(Make|Turn) (this|it) (into )?a decision/i, 'a bubble action names a decision');
 });

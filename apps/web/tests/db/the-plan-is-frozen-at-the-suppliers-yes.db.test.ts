@@ -206,7 +206,7 @@ test('ask → yes writes exactly one plan row and tells the asker once; a second
   assert.equal(sent[0]!.type, 'payment_info_sent');
   assert.equal(sent[0]!.userId, asker, 'the notice must go to the host who pressed the ask');
   assert.notEqual(sent[0]!.userId, partner);
-  assert.equal(sent[0]!.relatedUrl, `/dashboard/${eventId}/vendors/${b}/workspace#payments`);
+  assert.equal(sent[0]!.relatedUrl, `/dashboard/${eventId}/vendors/${b}/workspace?tab=payments`);
   assert.match(sent[0]!.body ?? '', /Lente Studio/);
   assert.deepEqual(
     (await noticeRows(eventId)).map((n) => [n.user_id, n.type]),

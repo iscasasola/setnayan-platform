@@ -86,7 +86,11 @@ test('Pay and Payments on a row open the sheet in place — never a link to the 
   assert.ok(pay.length > 0, 'the pay verbs moved — re-anchor');
   assert.match(pay, /onClick=\{\(\) => setPaying\(true\)\}/);
   assert.doesNotMatch(pay, /href=/, 'Pay leaves the page again');
-  assert.doesNotMatch(ROW, /depositStepHref|tab=payments/, 'a second payment door is back on the row');
+  // Set price is not a payment door: the price editor (`paymentModeSection`) lives on the picked supplier's Payment page,
+  // so its link names `?tab=payments` (11 Nov 2026 — a bare workspace address opens Chat). Every OTHER verb stays off it.
+  const setPrice = ROW.slice(ROW.indexOf("case 'set_price':"), ROW.indexOf('case ', ROW.indexOf("case 'set_price':") + 5));
+  assert.match(setPrice, /href=\{`\$\{workspaceHref\}\?tab=payments`\}/, 'Set price no longer opens the page with the price');
+  assert.doesNotMatch(ROW.replace(setPrice, ''), /depositStepHref|tab=payments/, 'a second payment door is back on the row');
   // Loaded on the first press, never with the page.
   assert.match(ROW, /const PaySheet = dynamic\(\(\) => import\('\.\/pay-sheet'\)/);
   assert.doesNotMatch(ROW, /from '\.\/pay-sheet'/, 'the Pay sheet is in the first load');

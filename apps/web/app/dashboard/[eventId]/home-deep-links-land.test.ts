@@ -55,7 +55,7 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   // `?tab=quote` lands on Quotation.
   assert.match(ws, /initialPage=\{visiblePickedSupplierPage\(rawLanding, pickedMenu\)\}/, 'the workspace no longer opens on the tab its address names');
   assert.match(src('vendors/[vendorId]/workspace/_components/picked-supplier-menu.ts'), /PICKED_SUPPLIER_PAGE_IDS = \[[^\]]*'quote'/, 'Quote is no longer one of the picked pages');
-  assert.match(ws, /quote: hasQuotesToShow \? <div data-picked-supplier-page="quote">/, 'the workspace lost its Quote tab');
+  assert.match(ws, /quote: hasQuotesToShow \? \(\s*<div data-picked-supplier-page="quote">/, 'the workspace lost its Quote tab');
   // …and a ?tab= landing is not bounced anywhere else: `quote` opens Quotation whenever there is a quote to show.
   assert.equal(visiblePickedSupplierPage('quote', pickedSupplierMenuFor({ quote: true, chat: true })), 'quote');
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
@@ -41,12 +42,18 @@ export async function VendorProposalsCard({
   eventId,
   marketplaceVendorId,
   displayName,
+  whenEmpty = null,
 }: {
   eventId: string;
   marketplaceVendorId: string | null;
   displayName: string;
+  /**
+   * 🫙 What a page with no quotation says instead of nothing (owner 11 Nov 2026, the picked supplier's Quotation tab
+   * "renders BLANK"): the picked page hands its one honest line + its one action; the flag-off long page hands none.
+   */
+  whenEmpty?: ReactNode;
 }) {
-  if (!marketplaceVendorId) return null;
+  if (!marketplaceVendorId) return whenEmpty;
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -60,13 +67,13 @@ export async function VendorProposalsCard({
   // ⚠ is not — and this card disappearing is how the quotations on this booking — go missing from the page that lists them.
   // ⚠ The predicate it meant to use already lived one file away.
   if (error) {
-    if (isMissingRelationError(error)) return null;
+    if (isMissingRelationError(error)) return whenEmpty;
     logQueryError('VendorProposalsCard.proposals', error, { event_id: eventId }, 'graceful_degrade');
     return <ReadRefusedNotice what="the quotations on this booking" />;
   }
 
   const proposals = (data ?? []) as Row[];
-  if (proposals.length === 0) return null;
+  if (proposals.length === 0) return whenEmpty;
 
   return (
     <section

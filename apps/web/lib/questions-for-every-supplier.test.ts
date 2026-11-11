@@ -85,9 +85,12 @@ test('the couple’s answering card asks no host question', () => {
   assert.match(card, /standing !== 'booked'/, 'a booked supplier is answered without sending');
   const page = code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
   assert.match(page, /const supplierQuestionsSection = ev\.marketplace_vendor_id \?/, 'mounted for every Setnayan supplier');
-  // Flag off: the long page. Flag on: the picked supplier's Forms page (Supplier Build 3 · Lane A), which says so when
-  // the supplier is not on Setnayan (`?? (…)`) rather than drawing an empty page.
-  assert.equal((page.match(/\{supplierQuestionsSection(?:\}| \?\? \()/g) ?? []).length, 2, 'drawn on both shells (flag on and off)');
+  // Flag off: the long page draws the section. Flag on: the picked supplier's Forms page draws the SAME card, composed
+  // with the forms card so its one empty line shows only when both are empty (11 Nov 2026), and says so when the
+  // supplier is not on Setnayan (`?? (…)`) rather than drawing an empty page.
+  assert.equal((page.match(/\{supplierQuestionsSection\}/g) ?? []).length, 1, 'the long page (flag off) lost the questions');
+  assert.match(page, /const formsPage = ev\.marketplace_vendor_id \? \(\s*<SupplierQuestionsCard\b/, 'the Forms page does not draw the questions card');
+  assert.match(page, /\{formsPage \?\? \(/, 'the Forms page is blank for a supplier not on Setnayan');
 });
 
 test('the answer action writes only THIS supplier’s questions, and asks the helper gate', () => {
@@ -147,7 +150,8 @@ test('the send records the ask, posts a line as the supplier, and tells the host
 test('the notice lands where the couple answers — their room for that supplier, else the conversation', () => {
   assert.equal(
     supplierQuestionsHref('e1', 'v1', 't1'),
-    '/dashboard/e1/vendors/v1/workspace?tab=details#supplier-questions',
+    // The questions live on the picked supplier's Forms page (moved off Details, Supplier Build 3 · Lane A).
+    '/dashboard/e1/vendors/v1/workspace?tab=forms#supplier-questions',
   );
   assert.equal(supplierQuestionsHref('e1', null, 't1'), '/dashboard/e1/messages/t1');
 });

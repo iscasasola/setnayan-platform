@@ -210,7 +210,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   'app/admin/categories/_components/picture-and-icon.tsx': 1,
   'app/admin/categories/_components/what-couples-choose.tsx': 3,
   'app/pay/[reference]/_components/pay-panel.tsx': 1, // thread-files → payments.screenshot_url
-  'app/dashboard/[eventId]/disputes/page.tsx': 1, // thread-files → force_majeure_flags.evidence_urls
+  // The Disputes page's form, moved beside it (11 Nov 2026) so the picked supplier's Report page draws the SAME form —
+  // the same column and folder, posted through the same `fileForceMajeureFlag` (`disputeEvidencePolicy`); its reader is
+  // the Disputes page, already scoped above. The Report page draws no list, so it reads nothing.
+  'app/dashboard/[eventId]/disputes/_components/dispute-parts.tsx': 1, // thread-files → force_majeure_flags.evidence_urls
   'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx': 1, // thread-files → payments.screenshot_url
   'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx': 1, // thread-files → event_vendor_payments.proof_r2_key
   // Amount to pay's later-installment form (2026-09-20) — the SAME column and

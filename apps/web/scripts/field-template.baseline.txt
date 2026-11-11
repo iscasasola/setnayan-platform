@@ -138,7 +138,7 @@
 1 apps/web/app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx
 1 apps/web/app/dashboard/[eventId]/details/_components/ask-the-hosts.tsx
 5 apps/web/app/dashboard/[eventId]/details/_components/details-form.tsx
-1 apps/web/app/dashboard/[eventId]/disputes/page.tsx
+1 apps/web/app/dashboard/[eventId]/disputes/_components/dispute-parts.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/add-from-people-sheet.tsx
 1 apps/web/app/dashboard/[eventId]/guests/_components/capture-bar.tsx
 2 apps/web/app/dashboard/[eventId]/guests/_components/guest-group-picker.tsx

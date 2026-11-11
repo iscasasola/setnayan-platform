@@ -168,7 +168,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
     window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
   };
-  // Any door (a face · the 🔒 · Reply privately) turning private mode on puts the cursor in the box.
+  // The 🔒 (the one door) turning private mode on puts the cursor in the box.
   const privateUserId = privateTo?.userId ?? null;
   useEffect(() => {
     if (privateUserId) textareaRef.current?.focus();

@@ -89,7 +89,7 @@ export function SelfAddedPrice({
         onKeep={keep}
         below={
           <Link
-            href={`/dashboard/${eventId}/vendors/${vendorId}/workspace`}
+            href={`/dashboard/${eventId}/vendors/${vendorId}/workspace?tab=payments`}
             className="vact-inline-price-more block pb-2"
             onClick={(e) => e.stopPropagation()}
           >

@@ -395,8 +395,8 @@ export function ThreadToolsSheet({
 }
 
 /**
- * THE HOST'S (+) — in the same order as the supplier's (11 Nov): Decision · Log a payment · Meeting · Camera · Photo ·
- * File · Report a problem (last). A coordinator with another supplier drops Log a payment (`canLogPayment` false).
+ * THE HOST'S (+) — in the same order as the supplier's (11 Nov): Decision · Log a payment · Meeting · Camera · Photos &
+ * files · Report a problem (last). A coordinator with another supplier drops Log a payment (`canLogPayment` false).
  */
 export function CoupleThreadToolsSheet({
   dealReveal = null,

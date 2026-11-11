@@ -16,7 +16,10 @@
  */
 import type { PeopleRoster } from '@/lib/people-roster';
 
-export const PEOPLE_PATH = '/dashboard/people';
+import { PEOPLE_HOME } from '@/lib/home-segments';
+
+/** People's address — a section of Home since 11 Nov 2026 ("HOME IS THE PROFILE", `lib/home-segments.ts`). */
+export const PEOPLE_PATH = PEOPLE_HOME;
 export const PERSON_PARAM = 'person';
 
 /** A canonical public id of a person: an account (U) or a person node (P). */
@@ -26,7 +29,7 @@ export function isPersonPublicId(raw: string | null | undefined): raw is string 
 
 /** The People page with this person's card open. No id → the People page itself, never a guess. */
 export function personHref(publicId: string | null | undefined): string {
-  return isPersonPublicId(publicId) ? `${PEOPLE_PATH}?${PERSON_PARAM}=${encodeURIComponent(publicId)}` : PEOPLE_PATH;
+  return isPersonPublicId(publicId) ? `${PEOPLE_PATH}&${PERSON_PARAM}=${encodeURIComponent(publicId)}` : PEOPLE_PATH;
 }
 
 /** Which roster card `?person=<id>` opens — a connection carrying that id, else none. */

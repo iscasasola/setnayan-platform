@@ -40,7 +40,6 @@
  *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
  *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
  *
- *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
  * An event of ANY type (owner 22 Oct 2026, "this might be an issue on other events as well") — the
  * event layout's OWN gates (`eventMenuGates`) for that type's profile and needs:
@@ -197,10 +196,9 @@ export default async function BarLab({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const [{ path = [] }, sp] = await Promise.all([params, searchParams]);
-  const ownsShop = sp.shop !== '0';
   const where = path.join('/');
 
-  const accountBar = <LabBar kind="account" ownsShop={ownsShop} />;
+  const accountBar = <LabBar kind="account" />;
   const toEvent = { href: `${P}/dashboard/${EVENT}`, label: 'Ana & Miguel — Wedding · 14 Feb 2027 (an event card)' };
 
   // Discover — the front door's own variant: the feed in `[data-fd-page]`, the bar OUTSIDE the shell.

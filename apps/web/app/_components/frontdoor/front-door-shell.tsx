@@ -64,9 +64,8 @@ import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { LogoMark } from '@/app/_components/brand-marks';
-import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import type { DemoOverlayId } from '@/lib/demo-overlay-bus';
-import { activeRailKey, railMatchRows } from './rail-active';
+import { activeRailKey, railMatchRows, railRowLit } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
@@ -74,6 +73,7 @@ import { topBarSearch } from './shell-page-search';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
+import { HOME_HREF, homeSegHref } from '@/lib/home-segments';
 import type { EventMenuIconName } from '@/lib/customer-menu';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
@@ -104,12 +104,12 @@ import {
   ArrowLeft,
   Blocks,
   Compass,
+  House,
   LayoutGrid,
   Search,
   Sparkles,
   Store,
   Telescope,
-  Users,
 } from 'lucide-react';
 /*
   🔑 ONE ICON PER CATEGORY, FROM THE MAP THE APP ALREADY OWNS. The fifteen
@@ -911,8 +911,8 @@ export function FrontDoorShell({
    */
   const rowProps = (key: string) => ({
     className: 'fd-row',
-    'data-on': activeKey === key ? 'true' : 'false',
-    'aria-current': activeKey === key ? ('page' as const) : undefined,
+    'data-on': railRowLit(activeKey, key) ? 'true' : 'false',
+    'aria-current': railRowLit(activeKey, key) ? ('page' as const) : undefined,
   });
 
   /**
@@ -1352,6 +1352,40 @@ export function FrontDoorShell({
               one rail read as the same place. The telescope, not a house:
               Compass is already the Suppliers row's glyph. The slot key stays
               'home' — it is match data, not a word anyone reads. */}
+          {/* 🏠 HOME ABOVE DISCOVER (owner 11 Nov 2026, "One profile page approve" — v3 row 1, DECISION_LOG "HOME IS
+              THE PROFILE"): the ☰ reads Home · Discover, in the bar's order. Home's four sections are small doors under
+              it, so a desktop or keyboard reader keeps every deep door the rail had (Events · People · Shop ·
+              Memories, the ruled order; Shop only for a shop). They light nothing on their own: the rail reads the
+              PATH only (a query read here once broke hydration — see the fixed-id note above), and every section
+              shares `/dashboard`, so Home is the row that says where you are. 🔒 lib/home-is-the-profile.test.ts */}
+          {account.signedIn ? (
+            <>
+              <Link href={HOME_HREF} {...rowProps('events')} data-home-row="">
+                <RailIcon as={House} />
+                <span className="fd-label-text">Home</span>
+                <span className="fd-icon-caption">Home</span>
+              </Link>
+              <div data-home-doors="">
+                <Link href={HOME_HREF} className="fd-row fd-hsub" data-home-door="events">
+                  <span className="fd-label-text">{slotLabel(RAIL_SLOT.events, 'Events')}</span>
+                  <Count value={account.eventCount} />
+                </Link>
+                <Link href={homeSegHref('people')} className="fd-row fd-hsub" data-home-door="people">
+                  <span className="fd-label-text">People</span>
+                </Link>
+                {account.shopName ? (
+                  <Link href={homeSegHref('shop')} className="fd-row fd-hsub" data-home-door="shop">
+                    <span className="fd-label-text">Shop</span>
+                    <span className="fd-ct">{account.shopName}</span>
+                  </Link>
+                ) : null}
+                <Link href={homeSegHref('memories')} className="fd-row fd-hsub" data-home-door="memories">
+                  <span className="fd-label-text">{slotLabel(RAIL_SLOT.alaala, 'Memories')}</span>
+                  <Count value={account.alaalaCount} />
+                </Link>
+              </div>
+            </>
+          ) : null}
           <Link href="/" {...rowProps('home')}>
             <RailIcon as={Telescope} />
             <span className="fd-label-text">Discover</span>
@@ -1432,171 +1466,11 @@ export function FrontDoorShell({
           {/* 2 · THE ACCOUNT SLOT — second, above the categories. */}
           {account.signedIn ? (
             <>
-              <div className="fd-rlabel">My Home</div>
-              {/*
-                🔑 ONE WORD, EVERYWHERE: "Events". Owner 2026-09-23, on the
-                signed-in rail: *"it should only always say Events regardless
-                where you are"*, on the icon: *"icon does not need to show a
-                back button, keep the events icons"*, and — pointing at this
-                row's in-app rendering, `LayoutGrid` + "Events" — *"keep it
-                consistently like this"*.
-
-                ⚠ THIS REVERSES `FRONT_DOOR_AND_SEAM_FINAL` §3.6, deliberately,
-                and the old reasoning is left readable rather than deleted so
-                nobody re-applies it from the spec: this row read "Back to your
-                events" behind an ArrowLeft on `/`, on the argument that a
-                signed-in person out on the public site is a VISITOR here and
-                the row is their way back in. The sentence and the arrow were
-                two halves of one idea, so both go — a back arrow beside the
-                word "Events" promises a return trip the row does not make from
-                inside the app.
-
-                🔁 AND THE SAME WORD WENT ON THE FOCUS ROW, which is the other
-                half of this fix: inside an event the rail collapses and draws
-                `focus` instead of these rows, and it said "Back to events"
-                under its own arrow. Fixing one and not the other would have
-                left the rule half-true at exactly the width the owner was
-                looking at. See `app/dashboard/[eventId]/layout.tsx`.
-
-                🔑 THE FALLBACK MUST EQUAL THE REGISTRY LABEL for this slot
-                (`customer.account.events` = "Events"). `slotLabel` applies the
-                registry in the app variant only, so the fallback is what the
-                PUBLIC page renders — when they diverge, one row says two words
-                on two pages with nothing thrown. `front-door-invariants.test`
-                pins them equal, for every registry-named row.
-              */}
-              <Link href="/dashboard" {...rowProps('events')}>
-                  <RailIcon as={LayoutGrid} />
-                  <span className="fd-label-text">
-                    {slotLabel(RAIL_SLOT.events, 'Events')}
-                  </span>
-                  <span className="fd-icon-caption">Events</span>
-                  <Count value={account.eventCount} />
-                </Link>
-                {/* YOUR YEAR — THE RAIL ROW IS RETIRED (owner 2026-08-21:
-                    *"this is the your year concept integrated here. deleting
-                    the your year menu"*).
-                    Its premise expired. The row was added 2026-08-19 with the
-                    reasoning "the home is becoming events-only, so the doorway
-                    moves to the rail BEFORE the strip is removed" — and the
-                    board then went the other way: the year's contents are now
-                    the "Worth planning" SHELF on My Events, which is a bigger
-                    door than this row ever was.
-                    🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU. /dashboard/year
-                    still holds the holidays the shelf leaves out, and the shelf
-                    links to it in BOTH its branches — populated
-                    (year-moments-list) and empty (year-moments-strip's
-                    EmptyYear) — so the "a palette entry is not a doorway"
-                    standard is still met, by a link a person can see rather
-                    than a keyboard shortcut.
-                    `lib/the-controls-have-a-home.test.ts` asserts exactly
-                    that; do not re-add this row without changing it back. */}
-              {/*
-                PEOPLE — A DOOR, NOT A NOTICE. This was a "coming soon · waiting
-                on a legal review" notice, and it was WRONG ON BOTH HALVES.
-
-                `/dashboard/people` ships, and its Samahan section WORKS TODAY —
-                a person can create a group, invite by link and see its members
-                right now. Telling them it is coming soon hides a feature they
-                already own, on the one surface built to lead them to it.
-
-                The legal half was wrong too. What is genuinely still to come is
-                the CONNECTIONS half (family · godparents · friends), and the
-                page's own copy already scopes the claim to exactly that — it
-                was corrected there once before, for the same reason, after the
-                wider sentence ("nothing to do on this page yet") was read by
-                the owner and was false for anyone holding a samahan.
-
-                🔑 A COMING-SOON LABEL IS A CLAIM ABOUT A WHOLE SURFACE. Scope
-                it to the part that is unfinished, or delete it. Never let it
-                cover a shipped feature standing beside the unfinished one.
-
-                Owner, twice: "also people is not coming soon" and then, naming
-                its contents, "where is the dependents, friends, ninong/ninang,
-                samahan, family". He was reading this row when he said it.
-              */}
-              <Link href="/dashboard/people" {...rowProps('people')}>
-                {/* PLAIN LABEL, DELIBERATELY. Every other account row reads
-                    its label from the nav registry so an admin rename reaches
-                    desktop and phone alike — but there is no
-                    `customer.account.people` slot, and `slotLabel` FAILS OPEN
-                    on a miss. Passing a key that does not exist would render
-                    correctly forever while quietly never being renameable:
-                    a reference that looks like a mechanism and is not.
-                    Add the registry entry first, then switch this line. */}
-                {/* ⚠ THIS SLOT HELD THE WORD "People" IN A CLASS THAT DOES NOT
-                    EXIST. `.fd-icon` has no rule anywhere in front-door.css —
-                    only `.fd-icon-caption` does — so the row rendered its icon
-                    slot as unstyled body text and came out looking like a
-                    SECTION HEADING, not a link. Every sibling row is
-                    `fd-gi` glyph + `fd-label-text` label; this one silently
-                    was not, and it had no visible label at all.
-
-                    The owner read the rail and described it back as "People"
-                    being a heading with "Your Story" inside it — which is
-                    exactly what it looks like. The connections page was
-                    reachable only by clicking something that does not appear
-                    clickable. */}
-                <RailIcon as={Users} />
-                <span className="fd-label-text">People</span>
-                <span className="fd-icon-caption">People</span>
-              </Link>
-              {/*
-                YOUR STORY — THE RAIL ROW IS RETIRED (owner 2026-08-21: *"remove
-                the your year and your story… we already have your story on
-                untold"*).
-                Its premise was "a thing you HAVE, not a thing you run, so it is
-                never gated" — still true, and now served by the BOARD instead of
-                a rail row.
-                ⚠ CORRECTED 2026-08-22 — THOSE TWO LINKS NO LONGER GO HERE. My
-                Events' "Untold" shelf now opens the EVENT'S OWN story page, and
-                "Told" ends with *read them in Memories*. Both used to point at
-                /dashboard/creator, and that is exactly what made the owner ask
-                "isn't that the editorial. the story?" — a chapter is a person's
-                own write-up ABOUT a day, the event's story page is Setnayan's
-                write-up OF it. The account menu still carries "Your Story".
-                🔑 THE ROUTE IS NOT RETIRED, ONLY THE MENU — do not delete
-                /dashboard/creator, and do not re-add this row without changing
-                `lib/the-controls-have-a-home.test.ts`, which now asserts the
-                doors that replaced it.
-              */}
-              {/*
-                SHOP · HQ — PART OF MY HOME, NOT A SECOND GROUP (owner
-                2026-09-21: *"my home and what you run must be combined. So it
-                is My Home · Events · Memories · People · Shop · Admin"*).
-                These rows sat under their own divider and a "What you run"
-                heading; they now follow People directly. They stay
-                CAPABILITY-GATED — each renders only for someone the door
-                admits, never as a greyed row — so a couple with neither sees
-                exactly Events · People · Memories (the order re-ruled
-                2026-11-11, "THE ACCOUNT BAR ORDER" — Memories follows Shop).
-              */}
-              {account.shopName ? (
-                <Link href="/vendor-dashboard" {...rowProps('shop')}>
-                  <span className="fd-gi" aria-hidden="true">
-                    <VendorAvatar
-                      logoUrl={account.shopLogoUrl ?? null}
-                      initials={deriveVendorInitials(account.shopName)}
-                      className="block h-[18px] w-[18px] rounded-sm text-[8px] font-semibold leading-[18px] text-center"
-                    />
-                  </span>
-                  <span className="fd-label-text">{account.shopName}</span>
-                  <span className="fd-icon-caption">Shop</span>
-                  <span className="fd-ct">your shop</span>
-                </Link>
-              ) : null}
-              {/* MEMORIES — AFTER SHOP, NOT AFTER EVENTS (owner 2026-11-11, verbatim: *"arrangement of use dashboard
-                  should be Events - People - Shop - Memories - Discover"*, DECISION_LOG "THE ACCOUNT BAR ORDER"). The
-                  rail's My Home reads in the bar's order; HQ, which is never a bar tab, stays last (2026-09-21).
-                  Discover is this rail's first row, shared with the signed-out rail — it did not move. */}
-              <Link href="/dashboard/library" {...rowProps('alaala')}>
-                <RailIcon as={Sparkles} />
-                <span className="fd-label-text">
-                  {slotLabel(RAIL_SLOT.alaala, 'Memories')}
-                </span>
-                <span className="fd-icon-caption">Memories</span>
-                <Count value={account.alaalaCount} />
-              </Link>
+              {/* 🏠 MY HOME MOVED UP (owner 11 Nov 2026, "HOME IS THE PROFILE"): Events · People · Shop · Memories are
+                  Home's sections now, drawn as small doors under the Home row above Discover. What stays down here
+                  is the FINE PRINT, under the divider, exactly where the rail kept it (v3 row 1): Setnayan HQ for an
+                  admin and Features for everyone — neither is a section of anyone's Home. The shop's own console is
+                  still one press away: Home › Shop › "Open the Shop dashboard". */}
               {account.isAdmin ? (
                 <Link href="/admin" {...rowProps('hq')}>
                   <span className="fd-gi" aria-hidden="true">
@@ -1613,7 +1487,6 @@ export function FrontDoorShell({
                 LISTS"): your events · your shop / HQ · Features. Every tool is on
                 /features; inside an event the tools are rows of that event's menu.
               */}
-              <div className="fd-rdiv" />
               <Link href="/features" {...rowProps('features')}>
                 <RailIcon as={Blocks} />
                 <span className="fd-label-text">Features</span>
@@ -1890,7 +1763,7 @@ function AccountMenu({ account }: { account: FrontDoorAccount }) {
           Your shop
         </Link>
       ) : null}
-      <Link href="/dashboard/library?tab=photos" role="menuitem" className="fd-row">
+      <Link href="/dashboard?seg=memories&tab=photos" role="menuitem" className="fd-row">
         Your photos
       </Link>
       {/*

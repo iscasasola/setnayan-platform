@@ -37,7 +37,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 const SECTION_PATH = join(__dirname, '_components', 'dependents-section.tsx');
 const SECTION = readFileSync(SECTION_PATH, 'utf8');
-const PAGE = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
+const PAGE = readFileSync(join(__dirname, '_components', 'people-segment.tsx'), 'utf8');
 
 /**
  * ⚠ COMMENTS STRIPPED, AND THIS GUARD WOULD BE VACUOUS WITHOUT IT. The fix's

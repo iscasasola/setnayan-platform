@@ -32,30 +32,24 @@
  *    still draws only for an owner and Discover only where `/` opens — each in
  *    its ruled place when drawn.
  *
+ * 🏠 RE-RULED AGAIN, THE SAME DAY (owner, 11 Nov 2026, "One profile page approve" — v3 of `one-profile-page`,
+ *    DECISION_LOG 2026-11-11 "HOME IS THE PROFILE"): the bar is **Home · Discover**. Events · People · Shop ·
+ *    Memories are no longer tabs — they are the SECTIONS of Home, in that same ruled order (`lib/home-segments.ts`),
+ *    and Shop still draws only for an owner, now as a section. Home keeps the Events tab's `?hub=1` door; Discover
+ *    still draws only where `/` opens. The ☰ reads the same two, in the same order (`front-door-shell.tsx`).
+ *
  * Pure and dependency-free so the server layouts, the client bar and the guard
  * all ask the same function (`app/dashboard/(launcher)/the-account-bar-is-the-ruling.test.ts`).
  */
 
-export type AccountBarTab = 'events' | 'people' | 'shop' | 'memories' | 'discover';
+export type AccountBarTab = 'home' | 'discover';
 
-/** Does this account OWN a shop (not merely work in one)? The prototype's gate. */
+/** Does this account OWN a shop (not merely work in one)? The prototype's gate — now the Shop SECTION's gate. */
 export function ownsAShop(ctx: { hasVendor: boolean; canOpenShop: boolean }): boolean {
   return ctx.hasVendor && !ctx.canOpenShop;
 }
 
-/** The bar's tabs, in order, for one account on one shell. */
-export function accountBarTabs({
-  ownsShop,
-  discoverOpen,
-}: {
-  ownsShop: boolean;
-  discoverOpen: boolean;
-}): AccountBarTab[] {
-  // THE ORDER (owner 2026-11-11, DECISION_LOG "THE ACCOUNT BAR ORDER"): Events · People · Shop · Memories ·
-  // Discover. The two gated tabs keep their places when they are drawn and leave no gap when they are not.
-  const tabs: AccountBarTab[] = ['events', 'people'];
-  if (ownsShop) tabs.push('shop');
-  tabs.push('memories');
-  if (discoverOpen) tabs.push('discover');
-  return tabs;
+/** The bar's tabs, in order, for one account on one shell: Home, then Discover where `/` opens. */
+export function accountBarTabs({ discoverOpen }: { discoverOpen: boolean }): AccountBarTab[] {
+  return discoverOpen ? ['home', 'discover'] : ['home'];
 }

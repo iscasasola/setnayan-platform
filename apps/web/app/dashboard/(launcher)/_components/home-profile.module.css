@@ -1,0 +1,128 @@
+/*
+ * home-profile.module.css — Home's own pieces (owner 11 Nov 2026, "One profile page approve" — v3). Tokens only; the
+ * header's look is the public page's (`app/u/_components/profile-header.tsx`), the row is the shared `PinnedRow`, the
+ * segments are the shared pill selector. This file only places them and moves them.
+ */
+
+/* 📌 The pinned row's block — the same frosted ground the v3 `.segwrap` draws, sticky at the top of the page. */
+.stick {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  margin: 0 -16px;
+  padding: 8px 16px 10px;
+  background: color-mix(in srgb, rgb(var(--color-cream)) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+@media (min-width: 640px) {
+  .stick {
+    margin: 0;
+    padding: 8px 0 10px;
+  }
+}
+
+/* 🔎 A section's first row — its search, inline (not docked): one 44-px field. */
+.find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 4px 0 12px;
+  padding: 0 12px;
+  border: 1px solid var(--sn-hair);
+  border-radius: 999px;
+  background: rgb(var(--color-cream));
+  color: rgb(var(--color-ink));
+}
+.find:focus-within {
+  border-color: rgb(var(--color-ink) / 0.35);
+}
+.find input {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  background: transparent;
+  font-size: 14px;
+  outline: none;
+}
+
+/* The segments row, under the header. */
+.segs {
+  margin: 4px 0 8px;
+}
+
+/* ↔ THE SEGMENT SWITCH SLIDES THE BODY (owner 11 Nov 2026, "make sure fully animated for everything"): the new
+   section comes in from the side it lies on — a section to the right slides in from the right — over the house enter
+   time and curve; under "reduce motion" it only fades. */
+.body {
+  animation: home-seg-in var(--sn-dur-elem, 0.32s) var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+.body[data-dir='left'] {
+  --home-seg-from: -28px;
+}
+.body[data-dir='right'] {
+  --home-seg-from: 28px;
+}
+.body[data-dir='none'] {
+  animation: none;
+}
+@keyframes home-seg-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--home-seg-from, 0px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .body {
+    animation: home-seg-fade 0.16s linear both;
+  }
+  .body[data-dir='none'] {
+    animation: none;
+  }
+}
+@keyframes home-seg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The header's count doors — the house press look, 44 px. */
+.door {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--sn-hair);
+  border-radius: 999px;
+  background: rgb(var(--color-cream));
+  font-size: 13px;
+  color: rgb(var(--color-ink) / 0.75);
+  text-decoration: none;
+  transition: transform 0.06s, filter 0.06s;
+}
+.door b {
+  color: rgb(var(--color-ink));
+  font-weight: 700;
+}
+.door[aria-current='true'] {
+  border-color: rgb(var(--color-ink) / 0.35);
+  color: rgb(var(--color-ink));
+}
+.door:active {
+  filter: brightness(0.93);
+  transform: scale(0.985);
+}
+@media (prefers-reduced-motion: reduce) {
+  .door:active {
+    transform: none;
+  }
+}

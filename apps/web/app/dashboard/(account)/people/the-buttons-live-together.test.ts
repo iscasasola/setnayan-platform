@@ -36,7 +36,7 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 
-const PAGE = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
+const PAGE = readFileSync(join(__dirname, '_components', 'people-segment.tsx'), 'utf8');
 const SECTION = readFileSync(join(__dirname, '_components', 'dependents-section.tsx'), 'utf8');
 const SAMAHAN = readFileSync(join(__dirname, '_components', 'samahan-people-section.tsx'), 'utf8');
 

@@ -50,10 +50,17 @@ export default async function NewServiceCardPage({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
       <div className="mb-2 flex min-h-11 items-center gap-2">
-        <Link href={quoteReturn ?? '/vendor-dashboard/shop'} className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-          {quoteReturn ? 'Quote' : 'Shop'}
-        </Link>
+        {quoteReturn ? (
+          <Link href={quoteReturn} className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
+            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            Quote
+          </Link>
+        ) : (
+          <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
+            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            Shop
+          </Link>
+        )}
         <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
       </div>
       <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} />

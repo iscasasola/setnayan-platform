@@ -57,7 +57,8 @@ test('a card’s Includes line has no ₱ and no "free" sum, even when an old ta
   fd.append('category', 'photo_video');
   fd.append('pricing_basis', 'fixed');
   fd.append('starting_price_php', '85000');
-  for (const [label, worth] of [['2 shooters', '5000'], ['Online album', '10000']]) {
+  const posted: [string, string][] = [['2 shooters', '5000'], ['Online album', '10000']];
+  for (const [label, worth] of posted) {
     fd.append('inclusion_label', label);
     fd.append('inclusion_worth', worth);
   }

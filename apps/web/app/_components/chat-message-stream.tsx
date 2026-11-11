@@ -2131,6 +2131,9 @@ export function ChatMessageStream({
                     supplierName={viewerRole === 'couple' ? counterpartyLabel : 'you'}
                     eventDate={eventDate}
                     returnPath={returnPathFor(m)}
+                    messageId={m.message_id}
+                    meId={currentUserId}
+                    nameOf={personName}
                   />
                 </li>
               );

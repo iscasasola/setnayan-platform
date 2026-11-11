@@ -19,6 +19,7 @@ import {
   Heart,
   Info,
   LayoutDashboard,
+  ListChecks,
   Link2,
   MessageSquare,
   Paperclip,
@@ -38,6 +39,7 @@ export const CHAT_TOPICS = [
   'inspiration',
   'access',
   'decision',
+  'poll',
   'hub',
   'report',
 ] as const;
@@ -55,6 +57,8 @@ export const TOPIC_ICON: Record<ChatTopic, LucideIcon> = {
   // Owner 8 Nov: "access can be the chain icon".
   access: Link2,
   decision: Hash,
+  // 🗳 Owner 11 Nov (prototype chat_decisions_polls v1): a poll wears ListChecks; a decision keeps Hash.
+  poll: ListChecks,
   hub: LayoutDashboard,
   report: Flag,
 };
@@ -71,6 +75,7 @@ export const TOPIC_LABEL: Record<ChatTopic, string> = {
   inspiration: 'Inspiration',
   access: 'Access',
   decision: 'Decision',
+  poll: 'Poll',
   hub: 'Hub',
   report: 'Report',
 };

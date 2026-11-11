@@ -21,6 +21,7 @@ export const FormStepCard = dynamic(() => import(/* webpackChunkName: "thread-pa
 export const FormAnswerCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './form-step-card').then((m) => m.FormAnswerCard), { ssr: false, loading: wait });
 export const FilesStepCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './files-step-card').then((m) => m.FilesStepCard), { ssr: false, loading: wait });
 export const AccessStepCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './access-step-card').then((m) => m.AccessStepCard), { ssr: false, loading: wait });
+export const PollStepCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './poll-card').then((m) => m.PollStepCard), { ssr: false, loading: wait });
 export const DecisionStepCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './decision-step-card').then((m) => m.DecisionStepCard), { ssr: false, loading: wait });
 export const AskChangeDoor = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './ask-change-card').then((m) => m.AskChangeDoor), { ssr: false, loading: wait });
 export const StreamLineCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './stream-line-card').then((m) => m.StreamLineCard), { ssr: false, loading: wait });

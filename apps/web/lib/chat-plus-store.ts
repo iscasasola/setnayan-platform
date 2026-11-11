@@ -20,9 +20,11 @@ type State = {
   talking: { key: string; title: string } | null;
   /** One short line the (+) shows when it is shut ("Finish or close: Meeting"). */
   toast: { text: string; at: number } | null;
+  /** 🗳 A poll is open in this chat (its card in the stream says so) — the (+)'s Poll row and `/poll` go grey. */
+  pollOpen: boolean;
 };
 
-const EMPTY: State = { draft: null, sent: null, talking: null, toast: null };
+const EMPTY: State = { draft: null, sent: null, talking: null, toast: null, pollOpen: false };
 const states = new Map<string, State>();
 const listeners = new Map<string, Set<() => void>>();
 
@@ -42,7 +44,8 @@ export function patchPlus(threadId: string, patch: Partial<State>): void {
     next.sent?.key === prev.sent?.key &&
     next.sent?.status === prev.sent?.status &&
     next.talking?.key === prev.talking?.key &&
-    next.toast === prev.toast
+    next.toast === prev.toast &&
+    next.pollOpen === prev.pollOpen
   ) {
     return;
   }

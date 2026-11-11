@@ -994,6 +994,22 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     column: 'closed_by_user_id',
     why: 'Who closed a decision topic. Same call as opened_by_user_id: the shared topic stays, the actor stamp goes.',
   },
+  // 🗳 2026-11-11 (migration 20271338412990) — filing a message under a decision, and the chat's Poll card.
+  {
+    table: 'chat_decision_messages',
+    column: 'added_by_user_id',
+    why: 'Who filed a message under a decision topic. The filing is the whole chat\u2019s shared record (either side reads, moves and removes it) and the message itself is its sender\u2019s, so the stamp goes and the filing stays. ON DELETE SET NULL covers a hard delete; this is the erasure half.',
+  },
+  {
+    table: 'chat_polls',
+    column: 'asked_by_user_id',
+    why: 'Who asked a poll in a supplier conversation. The poll (question, choices, counts, the decision it was saved as) is the conversation\u2019s shared record — the other side voted on it — so the asker stamp goes and the poll stays. Same call as chat_decision_topics.opened_by_user_id.',
+  },
+  {
+    table: 'chat_polls',
+    column: 'closed_by_user_id',
+    why: 'Who closed a poll. Same call as asked_by_user_id: the shared poll stays, the actor stamp goes.',
+  },
 ] as const;
 
 /**
@@ -1007,6 +1023,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   column: string;
   why: string;
 }> = [
+  {
+    table: 'chat_poll_votes',
+    column: 'voter_user_id',
+    why: '🗳 CASCADE + NOT NULL — a vote is this person\u2019s own pick on a chat poll (migration 20271338412990). It goes with them; the poll and the other side\u2019s votes stay.',
+  },
   {
     table: 'couple_photo_shares',
     column: 'shared_by_user_id',

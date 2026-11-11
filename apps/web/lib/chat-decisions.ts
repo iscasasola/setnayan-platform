@@ -26,3 +26,55 @@ export async function openDecision(supabase: SupabaseClient, threadId: string, t
   }
   return typeof data === 'string' && data ? { ok: true, topicId: data } : { ok: false, reason: 'failed' };
 }
+
+// ── 🗳 FILING A MESSAGE UNDER A DECISION · EDIT TOPIC (owner 11 Nov 2026, migration 20271338412990) ─────────────────
+// Double-tap a message → add it to an open decision (or Move / Remove it); a pinned decision opens to its filed messages
+// and an Edit topic. Each is ONE call to its SECURITY DEFINER writer, which checks the chat membership itself.
+
+/** What a filing writer answers (the database's own words). */
+export type FilingOutcome = 'ok' | 'already' | 'filed_elsewhere' | 'closed' | 'private' | 'not_filed' | 'same' | 'not_found' | 'failed';
+export type RenameOutcome = 'ok' | 'unchanged' | 'empty' | 'closed' | 'not_found' | 'failed';
+
+const FILING_WORDS: readonly FilingOutcome[] = ['ok', 'already', 'filed_elsewhere', 'closed', 'private', 'not_filed', 'same', 'not_found'];
+
+function filingOutcome(where: string, data: unknown, error: { code?: string } | null): FilingOutcome {
+  if (error) {
+    console.warn(`[${where}] refused`, error.code);
+    return 'failed';
+  }
+  return FILING_WORDS.includes(data as FilingOutcome) ? (data as FilingOutcome) : 'failed';
+}
+
+/** File a shared message under an open decision. 'filed_elsewhere' = it sits under another open one: offer Move. */
+export async function fileMessage(supabase: SupabaseClient, topicId: string, messageId: string): Promise<FilingOutcome> {
+  const { data, error } = await supabase.rpc('chat_decision_file_message', { p_topic_id: topicId, p_message_id: messageId });
+  return filingOutcome('fileMessage', data, error);
+}
+
+/** Move a filed message to another open decision of the same chat. */
+export async function moveMessage(supabase: SupabaseClient, messageId: string, fromTopicId: string, toTopicId: string): Promise<FilingOutcome> {
+  const { data, error } = await supabase.rpc('chat_decision_move_message', {
+    p_message_id: messageId,
+    p_from_topic_id: fromTopicId,
+    p_to_topic_id: toTopicId,
+  });
+  return filingOutcome('moveMessage', data, error);
+}
+
+/** Take a message out of a decision (swipe left / Remove from …). Undo = `fileMessage` again. */
+export async function removeMessage(supabase: SupabaseClient, topicId: string, messageId: string): Promise<FilingOutcome> {
+  const { data, error } = await supabase.rpc('chat_decision_remove_message', { p_topic_id: topicId, p_message_id: messageId });
+  return filingOutcome('removeMessage', data, error);
+}
+
+/** Edit topic — saves in place on an OPEN decision (120 characters, the database trims). */
+export async function renameDecision(supabase: SupabaseClient, topicId: string, title: string): Promise<RenameOutcome> {
+  const clean = title.trim().slice(0, DECISION_TITLE_MAX);
+  if (!clean) return 'empty';
+  const { data, error } = await supabase.rpc('chat_decision_rename', { p_topic_id: topicId, p_title: clean });
+  if (error) {
+    console.warn('[renameDecision] refused', error.code);
+    return 'failed';
+  }
+  return (['ok', 'unchanged', 'empty', 'closed', 'not_found'] as const).includes(data as never) ? (data as RenameOutcome) : 'failed';
+}

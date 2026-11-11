@@ -319,6 +319,7 @@ export async function buildPersonalDataExport(
     ownHeartsRes,
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
+    ownPollVotesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -878,6 +879,14 @@ export async function buildPersonalDataExport(
       .select('dispute_id, charge_id, reason, status, decision_note, decided_at, created_at')
       .eq('opened_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-11) — THE VOTES THIS SUBJECT CAST on chat polls (migration 20271338412990). AUTHOR-scoped on
+    // voter_user_id: which poll, which choice, when. The poll's question and the other side's votes are the
+    // conversation's shared record, not the subject's, and stay out.
+    supabase
+      .from('chat_poll_votes')
+      .select('poll_id, choice_id, thread_id, voted_at')
+      .eq('voter_user_id', user.id)
+      .order('voted_at', { ascending: true }),
   ]);
 
   /*
@@ -1189,6 +1198,7 @@ export async function buildPersonalDataExport(
   const ownHearts = listOutcome('chat_message_hearts', ownHeartsRes);
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
+  const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1344,6 +1354,7 @@ export async function buildPersonalDataExport(
     ownHearts,
     ownMoodBoardChanges,
     ownFeeDisputes,
+    ownPollVotes,
     // ⚠ These ten were read and shipped but missing from this list until
     // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
     // the silent empty this file exists to prevent. Now pinned by
@@ -1513,6 +1524,8 @@ export async function buildPersonalDataExport(
     mood_board_changes_made: ownMoodBoardChanges.rows,
     // The booking fees this subject disputed, in their words, and what Setnayan decided. Author-scoped.
     booking_fee_disputes_raised: ownFeeDisputes.rows,
+    // 🗳 The votes the subject cast on chat polls (which choice, when). Author-scoped.
+    chat_poll_votes: ownPollVotes.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

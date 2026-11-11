@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1833
+# ledger: 1834
 # tables: 489
-# columns: 5956
-# notnull: 3600
+# columns: 5958
+# notnull: 3601
 [ledger]
 20260512000000
 20260513000000
@@ -1839,6 +1839,7 @@
 20271336072378
 20271336137492
 20271336539756
+20271336630678
 20271336670427
 20271336923559
 20271337043699
@@ -6919,12 +6920,14 @@ vendor_package_items.vendor_service_id
 vendor_packages.consumable_budget_centavos
 vendor_packages.created_at
 vendor_packages.description
+vendor_packages.extra_discount_centavos
 vendor_packages.gift_pack_code
 vendor_packages.includes_setnayan_gift
 vendor_packages.is_active
 vendor_packages.is_consumable_flexible
 vendor_packages.package_id
 vendor_packages.package_name
+vendor_packages.payment_schedule_json
 vendor_packages.primary_canonical_service
 vendor_packages.total_price_centavos
 vendor_packages.unspent_credit_policy
@@ -10882,6 +10885,7 @@ vendor_package_items.service_description
 vendor_package_items.transport_mode
 vendor_packages.consumable_budget_centavos
 vendor_packages.created_at
+vendor_packages.extra_discount_centavos
 vendor_packages.includes_setnayan_gift
 vendor_packages.is_active
 vendor_packages.is_consumable_flexible

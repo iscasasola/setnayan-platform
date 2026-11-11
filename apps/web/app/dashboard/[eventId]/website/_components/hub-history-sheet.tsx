@@ -91,7 +91,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
       aria-modal="true"
       aria-label="History"
       data-maker-history=""
-      className="fixed inset-0 z-[70] flex flex-col bg-cream text-ink"
+      className="fixed inset-0 z-[90] flex flex-col bg-cream text-ink"
     >
       <div className="flex min-h-[72px] items-center gap-3 px-4 pt-[max(14px,env(safe-area-inset-top))]">
         <button
@@ -130,8 +130,8 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
                   onClick={() => onTap(row)}
                   data-history-row={row.where}
                   data-history-pub={row.pub ? '' : undefined}
-                  className={`flex min-h-[52px] w-full items-center gap-3 py-2.5 text-left transition-opacity duration-sn-control ease-sn ${
-                    row.where === 'here' ? '-mx-4 w-[calc(100%+2rem)] rounded-xl bg-terracotta/15 px-4' : ''
+                  className={`flex min-h-[52px] items-center gap-3 py-2.5 text-left transition-opacity duration-sn-control ease-sn ${
+                    row.where === 'here' ? '-mx-4 w-[calc(100%+2rem)] rounded-xl bg-terracotta/15 px-4' : 'w-full'
                   } ${row.where === 'ahead' ? 'opacity-[.42]' : ''} ${!live && row.where === 'behind' ? 'cursor-default' : ''}`}
                 >
                   <span className="min-w-0 flex-1">

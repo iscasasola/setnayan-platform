@@ -347,6 +347,15 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         e.preventDefault();
         takeDropped(e.dataTransfer.files);
       }}
+      onPaste={(e) => {
+        // 📥 A pasted picture or file (not private — the box's own handler already refused that) is attached like a
+        // picked one; pasted words stay words.
+        if (privateTo || e.defaultPrevented) return;
+        const dt = e.clipboardData;
+        if (!dt.files.length) return;
+        e.preventDefault();
+        takeDropped(dt.files);
+      }}
       action={async (formData: FormData) => {
         // We strip `return_to` so the server action doesn't redirect — the
         // Realtime stream is now the source of truth for the painted UI.
@@ -562,12 +571,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           data-rides=""
           onPaste={(e) => {
             // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.
-            // 📥 Otherwise a pasted picture or file is attached like a picked one (Piece 3c); pasted words stay words.
+            if (!privateTo) return;
             const dt = e.clipboardData;
             const hasFile = dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file');
             if (!hasFile) return;
             e.preventDefault();
-            takeDropped(dt.files);
+            setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
           }}
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}

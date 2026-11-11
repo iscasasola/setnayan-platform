@@ -21,13 +21,8 @@ const WEB = join(__dirname, '..');
 
 async function draw(props: Record<string, unknown> = {}): Promise<string> {
   const { Sheet } = await import('../app/_components/sheet');
-  return renderToStaticMarkup(
-    React.createElement(
-      Sheet,
-      { open: true, onClose: () => {}, labelledById: 'h', ...props },
-      React.createElement('h2', { id: 'h' }, 'Pick a service'),
-    ),
-  );
+  const sheetProps = { open: true, onClose: () => {}, labelledById: 'h', children: React.createElement('h2', { id: 'h' }, 'Pick a service'), ...props };
+  return renderToStaticMarkup(React.createElement(Sheet, sheetProps));
 }
 const panelOf = (html: string) => {
   const tag = /<div\b[^>]*data-sheet-panel=""[^>]*>/.exec(html)?.[0];

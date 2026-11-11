@@ -196,7 +196,7 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
           type: 'payment_confirmed',
           title: `${vendorName} confirmed your payment`,
           body: 'Your date is locked in — the supplier confirmed they received your payment.',
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -327,7 +327,7 @@ export async function vendorRejectDeposit(formData: FormData) {
           body: reason
             ? `Reason: “${reason}” — re-submit your first payment proof from the supplier workspace.`
             : 'They couldn’t confirm the payment — re-submit your first payment proof from the supplier workspace.',
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -1004,7 +1004,7 @@ export async function vendorPostHandover(formData: FormData) {
           type: 'schedule_suggestion',
           title: `${vendorName} delivered your handover`,
           body: `${label ? `${label.slice(0, 100)} — ` : ''}open the supplier to confirm receipt.`,
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -1140,7 +1140,7 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
           type: 'change_order_proposed',
           title: notice.title,
           body: notice.body,
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -1221,7 +1221,7 @@ export async function vendorRespondChangeOrder(formData: FormData) {
           title: notice.title,
           body: notice.body,
           relatedUrl: eventVendorId
-            ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
+            ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`
             : `/dashboard/${eventId}/vendors`,
         });
       }
@@ -1452,7 +1452,7 @@ export async function vendorAgreeToLock(formData: FormData) {
           body: narrowedDate
             ? `${vendorName} agreed to your booking. That leaves one day everyone you have booked can make, so your date is now ${formatCandidateDate(narrowedDate)}. They will send you their payment details next.`
             : `${vendorName} agreed to your booking. They will send you their payment details next.`,
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -1916,7 +1916,7 @@ async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome>
           // out what, which is the shape this repo already fixed once on the
           // Papic studio banner that named no figure.
           body: note ? `${formatPhp(amount)} — ${note}` : formatPhp(amount),
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -2019,7 +2019,7 @@ export async function vendorWaitlistTheAsk(
       .maybeSingle();
     const threadId = (thread as { thread_id?: string } | null)?.thread_id ?? null;
     const sent = threadId
-      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)) }).catch(() => null)
+      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)), asSide: 'vendor' }).catch(() => null)
       : null;
     if (!sent?.ok) flag = 'ok_unsent';
   }

@@ -50,7 +50,8 @@ import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SampleMarker } from '@/app/_components/sample-marker';
-import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { ImageBadge } from '@/app/_components/image-badge';
+import { badgeImageOf } from '@/lib/shop-badge-row';
 import { EmptyShelf } from './empty-shelf';
 
 /**
@@ -275,7 +276,8 @@ function StoryCard({ s }: { s: FrontDoorData['stories'][number] }) {
  *     the category's picture with the hero's "Sample photo" chip, so it never passes as their work;
  *   · circle = the LOGO, shown whole (contain, on a light ground); initials only with no logo;
  *   · line = the group (Admin › Categories) · city — the pill replaced " · verified";
- *   · up to 2 `ShopBadgePill`s (`s.badges`, Verified first).
+ *   · up to 2 badges (`s.badges`, Verified first), drawn as the CIRCULAR image badges (`ImageBadge`, the Shop tab's
+ *     own pictures via `badgeImageOf`) — owner 11 Nov: "we have the circular badges already", never the long pill.
  *
  * A plain <img>, NOT next/image, for both pictures, and that is deliberate: an r2:// logo or portfolio photo resolves
  * to a PRESIGNED url whose signature changes on every render — next/image would re-transform it each time and Vercel
@@ -316,9 +318,14 @@ export function ShopCard({
           {line ? <p className="fd-by">{line}</p> : null}
           {s.badges.length > 0 ? (
             <div className="fd-pills">
-              {s.badges.map((b) => (
-                <ShopBadgePill key={b.key} badge={b} size="xs" ground="auto" />
-              ))}
+              {s.badges.map((b) => {
+                const img = badgeImageOf(b);
+                return (
+                  <span key={b.key} className="fd-badge-img" title={b.label}>
+                    <ImageBadge {...img} uid={`card-${s.href}-${b.key}`} size={40} label={b.label} />
+                  </span>
+                );
+              })}
             </div>
           ) : null}
         </div>

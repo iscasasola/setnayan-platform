@@ -443,7 +443,7 @@ export function SupplierTodayFirstScreen({
             marker="shop"
             rowIcon="shop"
           />
-          <TodayRow href="/vendor-dashboard/performance" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
+          <TodayRow href="/vendor-dashboard/shop#analytics" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
           {library ? (
             <TodayRow
               href={INSPIRATION_LIBRARY_HREF}

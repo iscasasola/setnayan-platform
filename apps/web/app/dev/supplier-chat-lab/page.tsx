@@ -16,6 +16,8 @@
  *                &gifts=plus (their event has Event Plus · this one makes it Pro) · &gifts=pro (their event has Pro)
  *   ?m=full      the couple's date is full — no "Yes po, that day is free"
  *   &booked=1    the couple already booked you — every tool open
+ *   &doors=1     (with m=quote) the quote's three doors (owner 11 Nov 2026): two fitting offers + one that does not,
+ *                one saved bundle in "Start from", ＋ Make a new card last in the cards picker   &doors=locked  both 🔒
  *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
  *                (sample hosts; the first is the fixture couple sender)
@@ -51,6 +53,10 @@ import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
+import { blankOffer, type Offer } from '@/lib/offers';
+import { papersProgress } from '@/lib/locks';
+import { quoteSeedFromBundle } from '@/lib/quote-from-bundle';
+import type { QuoteDoors } from '@/lib/quote-doors';
 import { VendorOfferService } from '@/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service';
 import { ThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
@@ -135,6 +141,45 @@ const DAY = '2026-12-12';
 const NOW = new Date('2026-10-14T04:00:00Z');
 
 
+/** `&doors=` — the quote's offer and bundle doors, as `readQuoteDoors` hands them (fixture offers; nobody real). */
+function labQuoteDoors(v: string | string[] | undefined): QuoteDoors | null {
+  if (v === 'locked') {
+    const need = { kind: 'verify' as const, progress: papersProgress({ done: 2, of: 4 }) };
+    return { offers: { kind: 'locked', need }, bundles: { kind: 'locked', need } };
+  }
+  if (!v) return null;
+  const o = (over: Partial<Offer>): Offer => ({ ...blankOffer(over.id), ...over });
+  return {
+    offers: {
+      kind: 'read',
+      today: TODAY,
+      offers: [
+        o({ id: 'lab-offer-dry', name: 'Dry-season weekday', pctOff: 5 }),
+        o({ id: 'lab-offer-buffet', name: 'Weekday garden buffet', phpOff: 5000, reachesAll: false, cards: ['card-buffet'] }),
+        o({ id: 'lab-offer-cocktail', name: 'Cocktail early bird', phpOff: 3000, reachesAll: false, cards: ['card-cocktail'] }),
+      ],
+    },
+    bundles: { kind: 'read', bundles: [{ id: 'lab-bundle', name: 'Garden reception pair' }] },
+  };
+}
+/** The lab's one bundle, priced by the Bundle Maker's own sums (fixture card prices; the page reads the shop's). */
+const LAB_BUNDLES = {
+  'lab-bundle': quoteSeedFromBundle(
+    { name: 'Garden reception pair', extraDiscountCentavos: 500000, plan: null, savedTotalCentavos: 10_570_000 },
+    [
+      { id: 'card-buffet', name: 'Garden buffet', pricePhp: 97500, discounts: [], inclusions: [{ label: 'Waiters and set-up', worth_php: null }, { label: 'Cake table styling', worth_php: null }] },
+      {
+        id: 'card-cocktail',
+        name: 'Cocktail hour',
+        pricePhp: 18000,
+        discounts: [{ vendor_service_id: 'card-cocktail', discount_type: 'promo', rate: 10, unit: 'pct', min_lead_months: null, expires_at: null, conditions_md: null, sort_order: 0 }],
+        inclusions: [{ label: 'Bar set-up', worth_php: null }],
+      },
+    ],
+    new Date('2026-11-11T00:00:00Z'),
+  ),
+};
+
 const CARDS = [
   { id: 'card-buffet', label: 'Garden buffet', fromPhp: 650, addons: [{ id: 1, label: 'Lechon station', fromPhp: 12000 }, { id: 2, label: 'Coffee bar', fromPhp: 6500 }], comesWith: [], giftOn: true },
   { id: 'card-cocktail', label: 'Cocktail hour', fromPhp: 18000, addons: [], comesWith: [], giftOn: false },
@@ -164,7 +209,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall' })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}) })}
             settingsLine={{ line: 'This client only', tip: 'Lab.' }}
             settings={null}
             // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
@@ -215,7 +260,9 @@ export default async function SupplierChatLabPage({
         savedQuotes={[{ id: 'tpl-garden', name: 'Garden wedding 150' }]}
         askedCardId="card-buffet"
         todayIso={TODAY}
+        doors={labQuoteDoors(sp.doors)}
         labSeed={{
+          bundles: LAB_BUNDLES,
           lines: [
             { label: 'Garden buffet · 5 dishes', basis: 'per_pax', free: false, flatPhp: 0, ratePhp: 650, minPax: 100, basePhp: 0, inclHours: 0, extraPhp: 0 },
             { label: 'Waiters and set-up', basis: 'flat', free: false, flatPhp: 15000, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 },

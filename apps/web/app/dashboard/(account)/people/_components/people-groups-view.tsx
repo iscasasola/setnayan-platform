@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
+import { HomePinPortal } from '@/app/dashboard/(launcher)/_components/home-segment-bar';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
 import { useShellBarOffset } from '@/app/dashboard/[eventId]/guests/_components/use-shell-bar-offset';
 import type { GroupChatRow } from '@/lib/people-group-rows-shape';
@@ -51,6 +52,7 @@ export function PeopleGroupsView({
 
   return (
     <div ref={rootRef} className={`${gs.screen} ${ps.people}`} data-people-view="samahan" data-people-screen="groups">
+      <HomePinPortal>
       <div className={gs.stick} data-people-head="">
         <PeoplePinnedRow
           face="groups"
@@ -65,6 +67,7 @@ export function PeopleGroupsView({
           settings={pin.settings}
         />
       </div>
+      </HomePinPortal>
       {rows.length === 0 ? (
         <p className="py-4 text-sm text-ink/60" data-people-groups-empty="">
           {unreadable

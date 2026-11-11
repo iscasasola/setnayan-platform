@@ -189,7 +189,7 @@ test('Promote’s rows, in the ruled order: QR codes · prints · gifts · share
   assert.match(read('app/vendor-dashboard/shop/_components/shop-sections.ts'), /promote: 'QR codes · prints · gifts · share your work',/);
 });
 
-test('the badge print is a piece INSIDE prints — and Analytics › Your badges no longer saves it', () => {
+test('the badge print is a piece INSIDE prints — and the Shop tab’s badge row does not save it', () => {
   // owner 2026-11-06: "the door print and the badge print are pieces INSIDE prints".
   const src = stripComments(read('app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx'));
   assert.match(src, /<\/ul>\s*<BadgesPiece open=\{open\} factsUrl=\{badgeFactsUrl\} \/>/, 'the badges piece left the prints list');
@@ -198,6 +198,7 @@ test('the badge print is a piece INSIDE prints — and Analytics › Your badges
   // a refused read is said, never "none"; Save shows only when there is something to print
   assert.match(src, /read\.k === 'unread'\s*\?\s*'Couldn’t load your badges just now\.'/);
   assert.match(src, /\{read\.k === 'ok' && read\.badges\.length > 0 \? \(\s*<SaveFileLink/);
-  const analytics = stripComments(read('app/vendor-dashboard/performance/_components/your-badges.tsx'));
-  assert.doesNotMatch(analytics, /SaveFileLink|Save to print|\/api\/vendor\/badges/, 'Analytics › Your badges still saves the badge print — it lives in Prints');
+  // The one badge tracker is the Shop tab's badge row (under the Analytics carousel, owner 11 Nov 2026) — not a print.
+  const row = stripComments(read('app/vendor-dashboard/shop/_components/shop-badge-row.tsx'));
+  assert.doesNotMatch(row, /SaveFileLink|Save to print|\/api\/vendor\/badges/, 'the badge row saves the badge print — it lives in Prints');
 });

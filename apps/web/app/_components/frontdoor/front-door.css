@@ -771,7 +771,40 @@ html.dark .fd {
 .fd-smallprint a {
   color: var(--fd-m1);
   text-decoration: none;
-  margin-right: 10px;
+  /* One link per line, never broken mid-phrase (owner 2026-11-11): at the 280 px drawer the old inline
+     paragraph broke "Acceptable use" into "Acceptable / use". A 32 px line is the drawing's tap target. */
+  display: block;
+  white-space: nowrap;
+  min-height: 32px;
+  line-height: 32px;
+  font-size: 12.5px;
+}
+/* The two labelled columns — Company · Legal (owner 2026-11-11, drawn in
+   `prototypes/sidebar_menu_plan_2026-11-11_fable.html`). The grid sits on this INNER wrapper, never on
+   `.fd-smallprint` itself: the narrow-width rules bring `.fd-smallprint` back with `display: revert`, which
+   would throw a grid declared there away. */
+.fd-sp-cols {
+  display: grid;
+  /* Company hugs its words; Legal takes the rest. Equal halves left "Acceptable use" (the longest link, and it
+     cannot wrap) about 5 px of room at the 240 px rail — measured 90 of 95 px with the Mac system font — so a
+     slightly wider font on Windows or Android would have run it off the rail. */
+  grid-template-columns: max-content 1fr;
+  gap: 0 28px;
+}
+.fd-sp-col {
+  min-width: 0;
+}
+/* Column headings the owner approved by name (Q3) — not the grey explainer captions the 2026-10-01 ruling
+   removed. `--fd-m1`, not the drawing's `--fd-m2`: m2 is 3.67:1, under AA (the-small-print-is-readable). */
+.fd-sp-h {
+  display: block;
+  padding: 6px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--fd-m1);
 }
 .fd-smallprint a:hover {
   color: var(--fd-ink);
@@ -1766,8 +1799,14 @@ h2.fd-sechead,
 .fd-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+}
+/* The circular image badge (owner 11 Nov). Top-aligned: a rosette's ribbon hangs below; the faces stay level. */
+.fd-badge-img {
+  display: inline-flex;
+  line-height: 0;
 }
 
 /* ── DISCOVER · THE EVENT CARD (2026-09-29) ───────────────────────────────
@@ -3131,3 +3170,28 @@ html.dark .fd {
 /* No reduced-motion stop for the TOP bar: it slides for everybody, as its scroll-hide does — the pinned block and the
    pinned category head travel with it and carry no reduced-motion exception either
    (🔒 app/dashboard/[eventId]/vendors/find-walk-fixes.test.ts #2). */
+
+/* 🏠 HOME'S SECTION DOORS (owner 11 Nov 2026, "One profile page approve" — v3 row 1): Events · People · Shop · Memories
+   as small doors under the Home row, a step quieter than a destination and indented past its icon. Still a 44-px
+   press. Words only, so the 72-px icon strip — which keeps icons and drops words — hides them outright, as it hides
+   every icon-less row; the Home row above them is the strip's one press. */
+.fd-row.fd-hsub {
+  padding-left: 46px;
+  font-size: 13px;
+  color: var(--fd-m1);
+}
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .fd-rail .fd-row.fd-hsub {
+    display: none;
+  }
+}
+@media (min-width: 1100px) and (max-width: 1279.98px) {
+  .fd[data-pinned-bar] .fd-rail .fd-row.fd-hsub {
+    display: flex;
+  }
+}
+@media (min-width: 701px) and (max-width: 1023.98px) {
+  .fd[data-boundary='tab'] .fd-rail:not([data-open='true']) .fd-row.fd-hsub {
+    display: none;
+  }
+}

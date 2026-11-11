@@ -242,7 +242,9 @@ test('🔑 every route the old More reached is reachable from Today · Clients �
   assert.deepEqual(lost, [], `reached through More before the cut and reachable from nowhere now: ${lost.join(', ')}`);
   // Premise: the stubs really are stubs, so the loop above is not passing them by accident.
   assert.equal(stubTarget('/vendor-dashboard/more'), '/vendor-dashboard/settings');
-  assert.ok(stubTarget('/vendor-dashboard/demand')?.startsWith('/vendor-dashboard/performance'));
+  // 🎠 since 11 Nov 2026 the old Analytics page (and its /demand stub) land on the Shop tab's Analytics carousel.
+  assert.ok(stubTarget('/vendor-dashboard/demand')?.startsWith('/vendor-dashboard/shop'));
+  assert.ok(stubTarget('/vendor-dashboard/performance')?.startsWith('/vendor-dashboard/shop'));
   assert.equal(stubTarget('/vendor-dashboard/settings'), null, 'premise: Settings is a real screen');
 });
 

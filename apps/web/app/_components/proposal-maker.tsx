@@ -65,6 +65,13 @@ import type { QuoteEventBrief } from '@/lib/quote-event-brief';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
 import { QuoteShopGifts, type QuoteShopGiftsBuy } from '@/app/_components/quote-shop-gifts';
+import { Package, Plus, Tag } from 'lucide-react';
+import { LockedFeature } from '@/app/_components/lock/locked-feature';
+import { appliedOfferNow, offerLineItem, offersForQuote } from '@/lib/quote-offer-door';
+import { cardMakerFromQuote, quoteDraftKey, QUOTE_CARD_PARAM } from '@/lib/quote-card-return';
+import { parseSavedQuoteDraft } from '@/lib/saved-quote';
+import type { QuoteBundleSeed } from '@/lib/quote-from-bundle';
+import type { QuoteDoors } from '@/lib/quote-doors';
 import type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
 
 /**
@@ -165,6 +172,9 @@ const toCentavos = (php: number): number => Math.round((Number(php) || 0) * 100)
  * other kept the defect.
  */
 const centavosToPesos = (centavos: number): number => Math.round(centavos) / 100;
+
+/** ＋ The cards picker's last row — opens the shipped Card Maker (never a card id: ids are uuids). */
+const NEW_CARD_KEY = '__new_card__';
 
 let keySeq = 0;
 const nextKey = () => `ln_${Date.now().toString(36)}_${keySeq++}`;
@@ -314,7 +324,14 @@ export function ProposalMaker({
   shopGifts = null,
   shopGiftsBuy = null,
   labGiftCodes,
+  doors = null,
 }: {
+  /**
+   * 🏷🧺 THE QUOTE'S OFFER AND BUNDLE DOORS (owner 11 Nov 2026, "Should the quote get the Offer Maker line and 'Make a
+   * new card'?" — *"YES. they can load a bundle also and edit from it."*): the shop's offers and its Bundle Maker
+   * bundles, each behind its shared lock — read once on the server (`readQuoteDoors`). Null → neither door is drawn.
+   */
+  doors?: QuoteDoors | null;
   /** DEV LAB ONLY: gifts already on the quote, so the lab draws the filled block. The thread page never passes it. */
   labGiftCodes?: string[];
   /**
@@ -329,7 +346,7 @@ export function ProposalMaker({
    * a card seeds and the catalogue's extras — handed in, so the lab draws a filled quote without a server call. The
    * thread page never passes it (`the-quote-is-one-screen.test.ts`).
    */
-  labSeed?: { lines: QuoteSeedLine[]; extras: QuoteCatalogueExtra[] } | null;
+  labSeed?: { lines: QuoteSeedLine[]; extras: QuoteCatalogueExtra[]; bundles?: Record<string, QuoteBundleSeed> } | null;
   threadId: string;
   /**
    * The shop's saved quotes (`vendor_proposal_templates`) — "Start from · a saved quote". Empty → the option is not
@@ -515,6 +532,12 @@ export function ProposalMaker({
   const [from, setFrom] = useState<string>(revision ? 'revision' : 'blank');
   // Whether the discount's reason is the CARD's (cleared when the figure is retyped) or the supplier's own words.
   const [reasonFromCard, setReasonFromCard] = useState(false);
+  // 🏷 APPLY AN OFFER — the offer the supplier applied (its own named line), and the offer the CARD discount already is
+  // (the seed's winner), so the same offer is never offered twice. Never applied automatically (prototype frame 6).
+  const [appliedOfferId, setAppliedOfferId] = useState<string | null>(null);
+  const [cardOfferId, setCardOfferId] = useState<string | null>(null);
+  // What the last door did, in one line ("Wedding pair · ₱46,500 · every line stays editable"), or why it could not.
+  const [doorNote, setDoorNote] = useState<string | null>(null);
   // FROM YOUR CATALOGUE — the shop's optional package items, read once when the quote first opens.
   const [extras, setExtras] = useState<QuoteCatalogueExtra[]>([]);
   const [extrasOn, setExtrasOn] = useState<Record<string, boolean>>({});
@@ -566,7 +589,7 @@ export function ProposalMaker({
 
   // Everything numeric flows through the shared resolver. Rebuilds only when a
   // pricing input changes.
-  const { subtotal, gross, credit, netPayable, lineItems } = useMemo(() => {
+  const { subtotal, gross, credit, netPayable, lineItems, offerFits, appliedOffer } = useMemo(() => {
     const crewRow: PackageLinePricingRow = {
       crew_meal_mode: crew.mode,
       crew_size: crew.size > 0 ? Math.round(crew.size) : 0,
@@ -583,11 +606,28 @@ export function ProposalMaker({
       .map((x) => ({ ...x.line, key: `x_${x.id}` }));
     const resolved = [...items.filter((l) => !l.dropped), ...extraLines].map((l) => ({ l, c: resolveLineCentavos(l, pax, hours) }));
     const linesSum = resolved.reduce((s, x) => s + x.c, 0);
+    // 🏷 THE OFFERS THAT FIT, priced by the Offer Maker's own functions against what the lines come to
+    // (lib/quote-offer-door.ts) — and the applied one, re-priced as the lines move (gone once it no longer fits).
+    const offerInput =
+      doors?.offers.kind === 'read'
+        ? {
+            offers: doors.offers.offers,
+            cardIds: cards.filter((c) => pickedCards[c.id]).map((c) => c.id),
+            anchorPhp: linesSum / 100,
+            today: doors.offers.today,
+            eventDate,
+            now: new Date(),
+            alreadyInDiscount: cardOfferId,
+          }
+        : null;
+    const fits = offerInput ? offersForQuote(offerInput) : [];
+    const applied = offerInput ? appliedOfferNow(appliedOfferId, offerInput) : null;
+    const offerC = applied ? Math.round(applied.offPhp * 100) : 0;
     const charge = crewChargeCentavos(crewRow);
     const trans = transportChargeCentavos(transportRow);
     const sub = linesSum + charge + trans;
     const discountC = toCentavos(discountPhp);
-    const grs = Math.max(0, sub - discountC);
+    const grs = Math.max(0, sub - discountC - offerC);
     const cr = crewCreditCentavos(crewRow);
     const net = Math.max(0, grs - cr);
 
@@ -634,6 +674,8 @@ export function ProposalMaker({
         amount_centavos: null,
       });
     }
+    // 🏷 An applied offer is ITS OWN NAMED LINE on their quote — never folded into a price (prototype frame 6).
+    if (applied) li.push(offerLineItem(applied));
     if (crew.mode === 'offset' && cr > 0) {
       li.push({
         label: 'Crew meal — couple provides',
@@ -641,8 +683,8 @@ export function ProposalMaker({
         amount_centavos: -cr,
       });
     }
-    return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li };
-  }, [items, extras, extrasOn, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo]);
+    return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li, offerFits: fits, appliedOffer: applied };
+  }, [items, extras, extrasOn, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo, doors, cards, pickedCards, eventDate, appliedOfferId, cardOfferId]);
 
   /**
    * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
@@ -876,6 +918,7 @@ export function ProposalMaker({
     const ids = cards.filter((c) => nextPicked[c.id]).map((c) => c.id);
     if (ids.length === 0) {
       setDiscountReason(null);
+      setCardOfferId(null);
       setCardTerms(null);
       setCardWarnings([]);
       setCardTitle('');
@@ -904,6 +947,7 @@ export function ProposalMaker({
       setDiscountPhp(after.discountPhp);
       setDiscountReason(after.discountReason);
       setReasonFromCard(after.discountReason != null);
+      setCardOfferId(seed.discount?.offerId ?? null);
       if (after.schedule) setInstallments(after.schedule.map((d) => ({ ...d, key: nextSchedKey() })));
       setCardTerms(after.terms);
       setCardWarnings(seed.warnings);
@@ -911,6 +955,10 @@ export function ProposalMaker({
     });
   }
   const toggleCard = (id: string) => {
+    if (id === NEW_CARD_KEY) {
+      openCardMaker();
+      return;
+    }
     const next = { ...pickedCards, [id]: !pickedCards[id] };
     setPickedCards(next);
     reseedFromCards(next, chosenAddons);
@@ -931,6 +979,7 @@ export function ProposalMaker({
     setDiscountPhp(d.discountPhp);
     setDiscountReason(d.discountReason);
     setReasonFromCard(false);
+    setCardOfferId(null);
     setInstallments(d.schedule.manual.map((m) => ({ ...m, key: nextSchedKey() })));
     setAutoBalanceMeta(d.schedule.autoBalance);
     setValidUntil(validUntilFor(todayIso, d.validDays));
@@ -939,6 +988,9 @@ export function ProposalMaker({
 
   function startFrom(key: string) {
     setFrom(key);
+    // A fresh start: no offer carried over from the last one, and the last door's line goes.
+    setAppliedOfferId(null);
+    setDoorNote(null);
     if (key.startsWith('card:')) {
       // One card, fresh — its own lines, terms and discount; more cards can still be added below.
       const id = key.slice(5);
@@ -953,6 +1005,22 @@ export function ProposalMaker({
     setCardTerms(null);
     setCardWarnings([]);
     setCardTitle('');
+    setCardOfferId(null);
+    if (key.startsWith('bundle:')) {
+      // 🧺 START FROM A BUNDLE — its cards at their lowest, their inclusions, its extra discount and plan, priced by the
+      // Bundle Maker's own sums on the server (`loadPackageLinesForQuote` → `quoteSeedFromBundle`). Every line stays
+      // editable afterwards.
+      const id = key.slice(7);
+      startSeed(async () => {
+        const got = labSeed?.bundles?.[id] ?? (await loadPackageLinesForQuote(id).catch(() => null))?.bundle ?? null;
+        if (!got) {
+          setDoorNote('Couldn’t load that bundle just now — try again.');
+          return;
+        }
+        applyBundle(got);
+      });
+      return;
+    }
     if (key.startsWith('tpl:')) {
       const id = key.slice(4);
       startSeed(async () => {
@@ -978,9 +1046,85 @@ export function ProposalMaker({
     setReasonFromCard(false);
   }
 
+  /** 🧺 A bundle, loaded whole into the quote — the lines are the quote's own from here on. */
+  function applyBundle(b: QuoteBundleSeed) {
+    setItems(b.lines.map((l) => ({ ...l, key: nextKey() })));
+    setDiscountPhp(b.discountPhp);
+    setDiscountReason(b.discountReason);
+    setReasonFromCard(false);
+    setInstallments(b.plan.manual.map((m) => ({ ...m, key: nextSchedKey() })));
+    setAutoBalanceMeta(b.plan.autoBalance);
+    // Its cards are this quote's cards — so the offers that reach them fit, and the quote says which cards it was built from.
+    setPickedCards(Object.fromEntries(b.cardIds.filter((id) => cards.some((c) => c.id === id)).map((id) => [id, true])));
+    setChosenAddons({});
+    setCardTitle(b.name);
+    const php = (n: number) => formatCentavos(toCentavos(n));
+    setDoorNote(
+      b.unpriced.length > 0
+        ? `${b.unpriced.join(', ')} ${b.unpriced.length === 1 ? 'has' : 'have'} no price yet — set it on the card.`
+        : b.savedTotalPhp != null && b.savedTotalPhp !== b.totalPhp
+          ? `${b.name} was saved at ${php(b.savedTotalPhp)}; your card prices now make it ${php(b.totalPhp)}, and the quote starts there.`
+          : `${b.name} · ${php(b.totalPhp)} · every line stays editable`,
+    );
+  }
+
+  /*
+    ＋ MAKE A NEW CARD — the shipped Card Maker (`/vendor-dashboard/services/new`, never a second card form). The quote so
+    far is kept on this device (`quoteDraftKey`, the saved-quote shape) and comes back with the new card in it.
+  */
+  function openCardMaker() {
+    try {
+      window.sessionStorage.setItem(
+        quoteDraftKey(threadId),
+        JSON.stringify({ draft: draftForSave(), title, pax, hours, picked: cards.filter((c) => pickedCards[c.id]).map((c) => c.id), offerId: appliedOfferId }),
+      );
+    } catch {
+      /* a private window keeps nothing — the card still comes back into the quote, on a fresh draft */
+    }
+    window.location.assign(cardMakerFromQuote(`${window.location.pathname}${window.location.search}`));
+  }
+
+  /** Back from the Card Maker with `?quote_card=` — the kept draft, then the new card's lines added to it. */
+  function returnWithNewCard(cardId: string) {
+    let kept: { draft?: unknown; title?: string; pax?: number; hours?: number; picked?: string[]; offerId?: string | null } | null = null;
+    try {
+      kept = JSON.parse(window.sessionStorage.getItem(quoteDraftKey(threadId)) ?? 'null');
+      window.sessionStorage.removeItem(quoteDraftKey(threadId));
+    } catch {
+      kept = null;
+    }
+    // Off the address, so a reload never adds the card twice.
+    const u = new URL(window.location.href);
+    u.searchParams.delete(QUOTE_CARD_PARAM);
+    window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
+    const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
+    const kPax = typeof kept?.pax === 'number' && kept.pax > 0 ? kept.pax : pax;
+    const kHours = typeof kept?.hours === 'number' && kept.hours > 0 ? kept.hours : hours;
+    if (draft) applySavedDraft(draft);
+    if (kept?.title) setTitle(kept.title);
+    setPax(kPax);
+    setHours(kHours);
+    if (kept?.offerId) setAppliedOfferId(kept.offerId);
+    const picked = [...(kept?.picked ?? []), cardId].filter((id) => cards.some((c) => c.id === id));
+    setPickedCards(Object.fromEntries(picked.map((id) => [id, true])));
+    setFrom('blank');
+    startSeed(async () => {
+      const seed = await loadServiceCardLinesForQuote({ threadId, vendorServiceIds: [cardId], chosenAddonIds: [], pax: kPax, hours: kHours }).catch(() => null);
+      if (!seed || seed.lines.length === 0) {
+        setDoorNote('Your new card is saved — it could not be added here. Pick it from your cards.');
+        return;
+      }
+      const lines = seed.lines.map((l) => ({ ...l, key: nextKey() }));
+      setItems((prev) => (draft ? [...prev, ...lines] : lines));
+      setDoorNote(`${seed.title || 'Your new card'} is on the quote · every line stays editable`);
+    });
+  }
+
+  const bundleOptions = doors?.bundles.kind === 'read' ? doors.bundles.bundles.map((b) => ({ key: `bundle:${b.id}`, label: `Bundle · ${b.name}` })) : [];
   const startOptions = [
     ...(revision ? [{ key: 'revision', label: `Updating “${revision.of.title}”` }] : []),
     ...cards.map((c) => ({ key: `card:${c.id}`, label: c.label })),
+    ...bundleOptions,
     ...saved.map((t) => ({ key: `tpl:${t.id}`, label: `Saved · ${t.name}` })),
     { key: 'blank', label: 'Blank' },
   ];
@@ -1004,6 +1148,12 @@ export function ProposalMaker({
         return;
       }
       void loadCatalogueExtrasForQuote().then(setExtras).catch(() => setExtras([]));
+      // ＋ Back from the Card Maker with the new card (`?quote_card=`): the kept draft, then the card's lines.
+      const newCard = new URLSearchParams(window.location.search).get(QUOTE_CARD_PARAM);
+      if (newCard) {
+        returnWithNewCard(newCard);
+        return;
+      }
       if (revision) return;
       const first = askedCardId && cards.some((c) => c.id === askedCardId) ? askedCardId : cards.length === 1 ? cards[0]!.id : null;
       if (first) startFrom(`card:${first}`);
@@ -1179,7 +1329,7 @@ export function ProposalMaker({
       {/* ── START FROM ── */}
       <QuoteSection id="start" title="Start from">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-quote-start-from="">
-          <span className="text-sm text-ink/70">{seeding ? 'Loading…' : 'Card · a saved quote · blank'}</span>
+          <span className="text-sm text-ink/70">{seeding ? 'Loading…' : bundleOptions.length > 0 ? 'Card · a bundle · a saved quote · blank' : 'Card · a saved quote · blank'}</span>
           <PickMenu
             label="Start this quote from"
             value={from}
@@ -1189,6 +1339,27 @@ export function ProposalMaker({
             className="min-h-11"
           />
         </div>
+        {/* 🧺 START FROM A BUNDLE — in the menu above when the shop may make bundles; behind the shared lock, SHOWN. */}
+        {doors?.bundles.kind === 'locked' ? (
+          <div className="px-4 pb-3" data-quote-bundle-door="locked">
+            <LockedFeature
+              lock="bundleMaker"
+              need={doors.bundles.need}
+              lead={<Package aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
+              line="Start a quote from one of your bundles"
+              data="quote-bundle-lock"
+            />
+          </div>
+        ) : doors?.bundles.kind === 'unread' ? (
+          <p role="status" className="px-4 pb-3 text-xs text-ink/60" data-quote-bundle-door="unread">
+            Couldn&rsquo;t load your bundles just now — start from a card instead.
+          </p>
+        ) : null}
+        {doorNote ? (
+          <p role="status" className="px-4 pb-3 text-[13px] leading-snug text-ink/75" data-quote-door-note="">
+            {doorNote}
+          </p>
+        ) : null}
       {/* Bundle picker (optional) */}
       {packages.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-4 py-3">
@@ -1236,17 +1407,21 @@ export function ProposalMaker({
           ONE multi-pick PickMenu (house rule: any set of choices is one dropdown) over the SAME `toggleCard`; each card
           contributes its priced line, its freebies and the add-ons ticked under it. Mounted ONCE, only when the shop has
           a card. ⚖ A card's gift does NOT pre-fill the quote's gift (unruled money — spec §4, owner question). */}
+      {/* ＋ MAKE A NEW CARD — the picker's last row (prototype frame 6); a shop with no card yet gets the door alone. */}
       {cards.length > 0 ? (
         <div data-testid="quote-card-picker" className="space-y-2 border-b border-ink/10 px-4 py-3">
           <PickMenu
             label="Pick service cards"
             value={cards.find((c) => pickedCards[c.id])?.id ?? ''}
             picked={cards.filter((c) => pickedCards[c.id]).map((c) => c.id)}
-            options={cards.map((c) => ({
-              key: c.id,
-              label: c.label,
-              ...(c.fromPhp != null ? { hint: `from ${formatCentavos(toCentavos(c.fromPhp))}` } : {}),
-            }))}
+            options={[
+              ...cards.map((c) => ({
+                key: c.id,
+                label: c.label,
+                ...(c.fromPhp != null ? { hint: `from ${formatCentavos(toCentavos(c.fromPhp))}` } : {}),
+              })),
+              { key: NEW_CARD_KEY, label: '＋ Make a new card', hint: 'opens the Card Maker · comes back here with it' },
+            ]}
             onPick={(id) => {
               if (!seeding) toggleCard(id);
             }}
@@ -1295,7 +1470,19 @@ export function ProposalMaker({
             </p>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <div className="border-b border-ink/10 px-4 py-3" data-quote-new-card-door="">
+          <button
+            type="button"
+            onClick={openCardMaker}
+            className="sn-press inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--m-r-md)] border border-ink/15 text-sm font-medium text-ink"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Make a new card
+          </button>
+          <p className="mt-1.5 text-xs text-ink/55">Opens the Card Maker · comes back here with it.</p>
+        </div>
+      )}
       {/* THEIR EVENT — folded under the start: what Setnayan can tell you about this couple, a tap away. */}
       {brief ? (
         <details className="border-t border-ink/10" data-quote-their-event="">
@@ -1905,6 +2092,7 @@ export function ProposalMaker({
                 if (reasonFromCard) {
                   setDiscountReason(null);
                   setReasonFromCard(false);
+                  setCardOfferId(null);
                 }
               }}
               aria-label="Discount"
@@ -1931,6 +2119,64 @@ export function ProposalMaker({
               className={`${field} h-11 min-w-0 flex-1`}
             />
           </label>
+        ) : null}
+        {/* 🏷 APPLY AN OFFER — beside Discount, never automatic (prototype frame 6). The shop's running Offer Maker offers
+            that fit this quote's cards, priced by the Offer Maker's own functions; the applied one is its own named line
+            in the card discount's price-line style. Behind the shared lock: SHOWN, never hidden. */}
+        {doors && doors.offers.kind !== 'read' ? (
+          doors.offers.kind === 'locked' ? (
+            <div data-quote-offer-door="locked">
+              <LockedFeature
+                lock="offerMaker"
+                need={doors.offers.need}
+                lead={<Tag aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
+                line="Apply one of your offers to this quote"
+                data="quote-offer-lock"
+              />
+            </div>
+          ) : (
+            <p role="status" className="text-xs text-ink/60" data-quote-offer-door="unread">
+              Couldn&rsquo;t load your offers just now — the quote works without one.
+            </p>
+          )
+        ) : doors ? (
+          appliedOffer ? (
+            <div className="flex items-center justify-between gap-2 text-sm text-ink/60" data-quote-offer-door="applied">
+              <span className="min-w-0">
+                {appliedOffer.name}
+                <span className="ml-1 text-[11px] text-terracotta-700">· {appliedOffer.words} · your offer</span>
+              </span>
+              <span className="flex flex-none items-center gap-1">
+                <span className="tabular-nums text-success-700" data-quote-offer-off="">
+                  −{formatCentavos(toCentavos(appliedOffer.offPhp))}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAppliedOfferId(null)}
+                  aria-label={`Take ${appliedOffer.name} off this quote`}
+                  className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] text-terracotta-700 underline"
+                >
+                  Remove
+                </button>
+              </span>
+            </div>
+          ) : offerFits.length > 0 ? (
+            <div data-quote-offer-door="pick">
+              <PickMenu
+                label="Apply an offer"
+                value=""
+                options={offerFits.map((f) => ({ key: f.id, label: f.name, hint: `${f.words} · −${formatCentavos(toCentavos(f.offPhp))} on this quote` }))}
+                onPick={(id) => setAppliedOfferId(id)}
+                buttonText={`Apply an offer · ${offerFits.length} ${offerFits.length === 1 ? 'fits' : 'fit'}`}
+                dataAttr="data-quote-offer-pick"
+                className="min-h-11 w-full"
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-ink/55" data-quote-offer-door="none">
+              {cardOfferId ? 'Your offer is already in the card discount.' : 'No running offer of yours fits this quote.'}
+            </p>
+          )
         ) : null}
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-2">
           <span className="text-sm font-medium text-ink">Total</span>

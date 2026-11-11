@@ -6,7 +6,7 @@
  * THE PLANNER · TOGETHER · STUDIO FEATURE LISTS". Owner, 23 Oct, on live prod: *"why
  * do i see so many menu. this is supposed to change already?"*
  *
- *   signed out  Discover · Find suppliers · For suppliers · Features · How it works · Sign in
+ *   signed out  Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in  (2026-11-11)
  *   signed in   Discover · Events · People · (shop) · Memories · (HQ) · Features  (My Home order: 2026-11-11)
  *
  * 🔑 A PROPERTY, NOT A PHRASING. The shell is RENDERED — signed in and out, on the
@@ -119,8 +119,8 @@ test('no rail row opens a tool — signed in or out, on every variant', async ()
       `${what}: the rail lists tools again (${tools.join(', ')}). The owner ruled the Planner · ` +
         'Builder · Together · Studio lists off the menu (2026-10-01) — every tool is on /features.',
     );
-    // ONE Features row. Counted by the row's NAME, not its href: signed out, "How it works"
-    // also opens /features (owner 2026-10-25), and that is one door to one page, not a second row.
+    // ONE Features row. Counted by the row's NAME, not its href. (Until 2026-11-11 a signed-out
+    // "How it works" row also opened /features; the owner removed it — asserted below.)
     const features = (await railRows(variant, who, path)).filter((r) => r.label === 'Features');
     assert.equal(
       features.length,
@@ -132,14 +132,25 @@ test('no rail row opens a tool — signed in or out, on every variant', async ()
   assert.ok(rows >= 25, `only ${rows} rail links read across ${STATES.length} renders — the read is wrong`);
 });
 
-test('signed out the rail is the six things the owner named, in his order', async () => {
-  const links = await rail('front-door', { signedIn: false, shopName: null, isAdmin: false }, '/');
-  assert.deepEqual(
-    links,
-    ['/', '/explore', '/for-suppliers', '/features', '/features', '/login'],
-    'signed out = Discover · Find suppliers · For suppliers · Features · How it works · Sign in (owner 2026-10-01; ' +
-      'How it works opens the Features hub 2026-10-25; For suppliers right under Find suppliers 2026-11-06)',
-  );
+test('signed out the rail is the five rows the owner named, in his order, then Sign in', async () => {
+  // 🔄 2026-11-11 (owner, "Yes, all four" — DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · FIND SUPPLIERS · FOR
+  // SUPPLIERS · FOR COORDINATORS · FEATURES · SIGN IN"): "How it works" left (it opened /features, the Features
+  // row's page) and "For coordinators" moved up from the small print, right under "For suppliers". Five rows.
+  for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
+    const links = await rail(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    assert.deepEqual(
+      links,
+      ['/', '/explore', '/for-suppliers', '/for-coordinators', '/features', '/login'],
+      `${variant}: signed out = Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in ` +
+        '(owner 2026-11-11; For suppliers under Find suppliers 2026-11-06)',
+    );
+    const rows = await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    assert.deepEqual(
+      rows.filter((r) => r.label).map((r) => r.label),
+      ['Discover', 'Find suppliers', 'For suppliers', 'For coordinators', 'Features'],
+      `${variant}: the five signed-out rows, by name and in order`,
+    );
+  }
 });
 
 test('signed out, "For suppliers" is a row right under "Find suppliers" — not in the small print (owner 2026-11-06)', async () => {
@@ -163,21 +174,109 @@ test('signed out, "For suppliers" is a row right under "Find suppliers" — not 
   assert.ok(!signedIn.includes('/for-suppliers'), 'signed in, "For suppliers" is not a rail row');
 });
 
-test('signed out, "How it works" opens the Features hub, the same door as the hero (owner 2026-10-25)', async () => {
+test('signed out, there is no "How it works" row — Features is the one door to /features (owner 2026-11-11)', async () => {
+  // 🔄 Was: '"How it works" opens the Features hub' (owner 2026-10-25). The owner removed the ROW on 2026-11-11 because
+  // it opened the same page as the Features row; the front-door HERO keeps its own "How it works" link
+  // (the-front-door-tells-the-truth.test.ts 4c still pins that one).
   for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
-    const how = (await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path)).filter(
-      (r) => r.label === 'How it works',
+    const menu = await railMenu(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    assert.doesNotMatch(menu, /How it works/, `${variant}: the signed-out rail draws "How it works" again`);
+    const toFeatures = (await rail(variant, { signedIn: false, shopName: null, isAdmin: false }, path)).filter(
+      (h) => h === '/features',
     );
-    assert.equal(how.length, 1, `${variant}: the signed-out rail lost its "How it works" row`);
-    assert.equal(how[0]!.href, '/features', `${variant}: "How it works" opens ${how[0]!.href}, not /features`);
+    assert.equal(toFeatures.length, 1, `${variant}: the rail opens /features from ${toFeatures.length} rows, not one`);
   }
 });
 
-test('signed in the rail is your own rows and one Features row — no find row', async () => {
-  const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
-  assert.deepEqual(
-    links,
-    ['/', '/dashboard', '/dashboard/people', '/vendor-dashboard', '/dashboard/library', '/admin', '/features'],
-    'signed in = Discover · Events · People · shop · Memories · HQ · Features (owner 2026-10-01; My Home in the bar\'s order since 2026-11-11, "THE ACCOUNT BAR ORDER")',
+test('signed out, "For coordinators" is a web-only row right under "For suppliers", with an icon (owner 2026-11-11)', async () => {
+  for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
+    const rows = await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    const sup = rows.findIndex((r) => r.label === 'For suppliers');
+    assert.ok(sup > -1, `${variant}: the signed-out rail lost its "For suppliers" row`);
+    assert.deepEqual(
+      rows[sup + 1],
+      { href: '/for-coordinators', label: 'For coordinators' },
+      `${variant}: the row right under "For suppliers" must be "For coordinators" → /for-coordinators`,
+    );
+    const menu = await railMenu(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
+    const a = /<a\b[^>]*\bhref="\/for-coordinators"[^>]*>([\s\S]*?)<\/a>/.exec(menu);
+    assert.ok(a, `${variant}: no /for-coordinators row`);
+    assert.match(a[0], /data-web-only=""/, `${variant}: the row is shown in the iPhone app — it shows plan prices`);
+    assert.match(a[1]!, /class="fd-gi"[^>]*><svg\b/, `${variant}: the row draws no icon`);
+    assert.match(a[1]!, /class="fd-icon-caption"/, `${variant}: the collapsed rail has no caption for the row`);
+  }
+  const signedIn = await rail('app', { signedIn: true, shopName: null, isAdmin: false }, '/dashboard');
+  assert.ok(!signedIn.includes('/for-coordinators'), 'signed in, "For coordinators" is not a rail row');
+});
+
+/** The rendered small print, from its opening tag to the © line. */
+async function smallPrint(variant: 'front-door' | 'app' | 'doorway', who: Who, pathname: string): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const { PathnameContext } = await import('next/dist/shared/lib/hooks-client-context.shared-runtime');
+  const { FrontDoorShell } = await import('./front-door-shell');
+  const html = renderToStaticMarkup(
+    React.createElement(
+      AppRouterContext.Provider,
+      { value: ROUTER as never },
+      React.createElement(
+        PathnameContext.Provider,
+        { value: pathname },
+        React.createElement(
+          FrontDoorShell,
+          { variant, account: { initials: 'AM', ...who }, navLabels: {} } as unknown as React.ComponentProps<
+            typeof FrontDoorShell
+          >,
+          React.createElement('div', null, 'page'),
+        ),
+      ),
+    ),
   );
+  const at = html.indexOf('class="fd-smallprint"');
+  assert.ok(at > 0, 'the shell painted no small print');
+  return html.slice(at, html.indexOf('class="fd-copy"', at));
+}
+
+test('the small print is two labelled columns — Company and Legal, one link each, signed in and out (owner 2026-11-11)', async () => {
+  const COMPANY = ['About /about', 'Pricing /pricing', 'Help /help', 'Articles /blog', 'Download /download'];
+  const LEGAL = ['Terms /terms', 'Privacy /privacy', 'Acceptable use /acceptable-use', 'Cookies /cookies', 'Refunds /refunds'];
+  for (const [what, variant, who, path] of STATES) {
+    const sp = await smallPrint(variant, who, path);
+    const cols = [...sp.matchAll(/<div class="fd-sp-col" role="group" aria-label="([^"]+)">([\s\S]*?)<\/div>/g)];
+    assert.deepEqual(cols.map((c) => c[1]), ['Company', 'Legal'], `${what}: the small print is not the two columns`);
+    const links = (body: string) =>
+      [...body.matchAll(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([^<]*)<\/a>/g)].map((m) => `${m[2]!.trim()} ${m[1]}`);
+    assert.deepEqual(links(cols[0]![2]!), COMPANY, `${what}: the Company column`);
+    assert.deepEqual(links(cols[1]![2]!), LEGAL, `${what}: the Legal column`);
+    for (const [i, name] of [[0, 'Company'], [1, 'Legal']] as const) {
+      assert.match(cols[i]![2]!, new RegExp(`class="fd-sp-h"[^>]*>${name}<`), `${what}: the ${name} heading is gone`);
+    }
+    // Moved or retired, not copied: none of these is in the small print any more.
+    for (const gone of ['/open-shop', '/creators', '/for-coordinators', '/for-suppliers']) {
+      assert.ok(!sp.includes(`href="${gone}"`), `${what}: ${gone} is back in the small print`);
+    }
+  }
+});
+
+
+test('signed in the rail is your own rows and one Features row — no find row', async () => {
+  // 🏠 HOME IS THE PROFILE (owner 11 Nov 2026): Home · Discover, in the bar's order — Home's sections (Events · People ·
+  // Shop · Memories) are small doors under the Home row — then the fine print: HQ for an admin, and Features.
+  const rows = await railRows('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
+  assert.deepEqual(
+    rows.map((r) => `${r.label} ${r.href}`),
+    [
+      'Home /dashboard',
+      'Events /dashboard',
+      'People /dashboard',
+      'Shop /dashboard',
+      'Memories /dashboard',
+      'Discover /',
+      'Setnayan HQ /admin',
+      'Features /features',
+    ],
+    'signed in = Home (Events · People · Shop · Memories) · Discover · HQ · Features (owner 11 Nov 2026, "HOME IS THE PROFILE")',
+  );
+  const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
+  assert.ok(!links.includes('/explore'), 'a signed-in rail grew a find row again');
 });

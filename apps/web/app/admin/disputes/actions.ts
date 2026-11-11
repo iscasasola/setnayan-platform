@@ -366,7 +366,7 @@ export async function settleDepositDispute(formData: FormData) {
           outcome === 'not_received'
             ? `${body} Your receipt is still on file — send it to ${supplierName} again from the supplier workspace.`
             : body,
-        relatedUrl: eventId ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace` : null,
+        relatedUrl: eventId ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments` : null,
       });
     }
   } catch (e) {
@@ -485,7 +485,7 @@ export async function settlePaymentDispute(formData: FormData) {
             outcome === 'not_received'
               ? `${body} Your record of it is still on file — send it to ${supplierName} again.`
               : body,
-          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+          relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
         });
       }
     }

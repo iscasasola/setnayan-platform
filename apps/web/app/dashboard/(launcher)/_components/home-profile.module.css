@@ -1,0 +1,261 @@
+/*
+ * home-profile.module.css — Home's own pieces (owner 11 Nov 2026, "One profile page approve" — v3). Tokens only; the
+ * header is the public page's (`app/u/_components/profile-header.tsx`), the row is the shared `PinnedRow`, the top is
+ * the shared `CollapsingTop`. This file only places them and moves them.
+ */
+
+/* 📌 v3 .segwrap — the top: header + tabs at rest; once it locks, the ONE pinned row above the tabs. */
+.top {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 48rem;
+  padding: 0 16px;
+}
+.topRow {
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 0 16px;
+  background: color-mix(in srgb, rgb(var(--color-cream)) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+/* The seat the section's pinned row is portalled into (`HomePinPortal`). Whatever block a section wraps its row in
+   (its own sticky band on the old page) is laid flat here: the top already pins, so the row is just a row. */
+.slot {
+  height: var(--sn-pin-h, 44px);
+  display: flex;
+  align-items: center;
+}
+.slot > * {
+  position: static !important;
+  flex: 1;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* The pinned row's block when there is no top to sit in (a lab, a page outside Home): plain, in flow. */
+.pin {
+  margin: 4px 0 8px;
+}
+
+/* 🔎 A section's first row — its search, inline (not docked): one 44-px field. */
+.find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 4px 0 12px;
+  padding: 0 12px;
+  border: 1px solid var(--sn-hair);
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-cream));
+  color: rgb(var(--color-ink));
+}
+.find:focus-within {
+  border-color: rgb(var(--color-ink) / 0.35);
+}
+.find input {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  background: transparent;
+  font-size: 14px;
+  outline: none;
+}
+
+/* ▁ v3 .segs — UNDERLINED TABS with counts; the underline slides to the picked tab. */
+.tabs {
+  position: relative;
+  display: flex;
+  border-bottom: 1px solid var(--sn-hair);
+}
+.tab {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  color: rgb(var(--ink-soft));
+  text-decoration: none;
+  position: relative;
+  transition: color 0.2s, transform 0.06s, filter 0.06s;
+}
+.tabs[data-four] .tab {
+  font-size: 13px;
+  gap: 4px;
+}
+.tab[aria-current='page'] {
+  color: rgb(var(--color-ink));
+}
+.tab:active {
+  filter: brightness(0.93);
+  transform: scale(0.985);
+}
+.n {
+  font-family: var(--font-mono-marketing), ui-monospace, monospace;
+  font-size: 11px;
+  color: rgb(var(--ink-soft));
+}
+.tabs[data-four] .n {
+  font-size: 10px;
+}
+/* Before the line is measured, the picked tab draws its own underline (no flash on the first paint). */
+.tab[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: var(--m-r-xs);
+  background: rgb(var(--color-terracotta));
+}
+.tabs[data-measured] .tab::after {
+  display: none;
+}
+.line {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  width: 0;
+  border-radius: var(--m-r-xs);
+  background: rgb(var(--color-terracotta));
+  opacity: 0;
+  transition: transform 0.32s var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1)), width 0.32s var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+.tabs[data-measured] .line {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    transition: none;
+  }
+  .tab:active {
+    transform: none;
+  }
+}
+@media (max-width: 339px) {
+  /* v3: under 340 px the doors above carry the numbers. */
+  .n {
+    display: none;
+  }
+}
+
+/* v3 .btn.primary — the header's one full-width action. */
+.cta {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--sn-accent));
+  color: rgb(var(--sn-on-accent));
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform 0.06s, filter 0.06s;
+}
+.cta:active {
+  filter: brightness(0.93);
+  transform: scale(0.985);
+}
+
+/* ↔ THE SEGMENT SWITCH SLIDES THE BODY (owner 11 Nov 2026, "make sure fully animated for everything"): the new
+   section comes in from the side it lies on — a section to the right slides in from the right — over the house enter
+   time and curve; under "reduce motion" it only fades. */
+.body {
+  animation: home-seg-in var(--sn-dur-elem, 0.32s) var(--sn-ease-out, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+}
+.body[data-dir='left'] {
+  --home-seg-from: -28px;
+}
+.body[data-dir='right'] {
+  --home-seg-from: 28px;
+}
+.body[data-dir='none'] {
+  animation: none;
+}
+@keyframes home-seg-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--home-seg-from, 0px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .body {
+    animation: home-seg-fade 0.16s linear both;
+  }
+  .body[data-dir='none'] {
+    animation: none;
+  }
+}
+@keyframes home-seg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* v3 .door — the header's count doors: 36-px pills, a 44-px touch target via ::before; the open one filled. */
+.door {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--sn-hair);
+  border-radius: var(--m-r-full);
+  background: var(--surface);
+  font-size: 13px;
+  white-space: nowrap;
+  color: rgb(var(--color-ink));
+  text-decoration: none;
+  transition: transform 0.06s, filter 0.06s, background 0.2s, border-color 0.2s;
+}
+.door::before {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max(100%, 44px);
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: inherit;
+}
+.door b {
+  font-weight: 700;
+}
+.door[aria-current='true'] {
+  border-color: rgb(var(--color-terracotta));
+  background: var(--accent-soft);
+}
+.door:active {
+  filter: brightness(0.93);
+  transform: scale(0.985);
+}
+@media (prefers-reduced-motion: reduce) {
+  .door:active {
+    transform: none;
+  }
+}

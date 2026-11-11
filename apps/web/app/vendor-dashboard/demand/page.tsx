@@ -19,5 +19,6 @@ export default async function RedirectDemand({
     if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
   }
   const query = qs.toString();
-  redirect(`/vendor-dashboard/performance${query ? `?${query}` : ''}`);
+  // Straight to ONE Analytics (the Shop carousel, owner 11 Nov) — never through the /performance stub.
+  redirect(`/vendor-dashboard/shop${query ? `?${query}` : ''}#analytics`);
 }

@@ -6,22 +6,23 @@ import { ArrowRight, ChevronRight } from 'lucide-react';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { impactChipStyle } from './growth-recs-card';
+import { Reanimate, useReanimate } from './reanimate';
 
 /**
- * 📈 EVERY GRAPH IS A TILE, AND A TILE RISES TO OUR RECOMMENDATION (Build 6 Lane I — owner 10 Nov: *"we want graphs
- * that will help them. tapping shows a recommendation from us on what they need to do."*; prototype
- * `build6_makers_analytics_2026-11-10` frame "Proposed · one Analytics", approved 10 Nov).
+ * 📈🎠 EVERY GRAPH IS A CARD OF THE ONE ANALYTICS CAROUSEL, AND A CARD RISES TO OUR RECOMMENDATION (Build 6 Lane I —
+ * owner 10 Nov: *"tapping shows a recommendation from us on what they need to do."*; owner 11 Nov: *"Analytics should be
+ * the carousel."*, the window *"inside each card"*; prototype `analytics_option_b_2026-11-11`, option 3).
  *
- *   TILE    title · its data, named, in one small line · the picture · one line in words. A frame, because it presses.
- *   RISE    THE one Rise full screen (`RiseScreen`, Build 5 Lane A — out of the tapped tile, the reverse on ✕, the bars
- *           away; the window ▾ rides its head, the one door its thumb zone): the graph larger,
- *           then ONE recommendation — Problem (the graph's own number) → Solution → one door — only when its rule
- *           fired in `buildGrowthRecs`; otherwise "Nothing to fix right now." Then the section's details (the approved
- *           6 Nov fold bodies, carried as is — each says its own empty and "Couldn’t load" lines), then the one door.
+ *   CARD    title (the whole card is the button) · its number and its OWN window switch (or a fixed-window label) ·
+ *           the picture, animated when the card is swiped into view (`Reanimate` + `WhenSeen`) · one line in words.
+ *   RISE    THE one Rise full screen (`RiseScreen`, Build 5 Lane A — out of the tapped card, the reverse on ✕, the bars
+ *           away; the same window switch rides its head, the one door its thumb zone): the graph larger, then ONE
+ *           recommendation — Problem (the graph's own number) → Solution → one door — only when its rule fired in
+ *           `buildGrowthRecs`; otherwise "Nothing to fix right now." Then the graph's details, then the one door.
  *   EXAMPLE an empty graph draws the REAL picture with sample data, faded, marked "Example", one line and a door to
  *           start (Build 5 Lane H). A refused read is never an example — it says "Couldn’t load".
  *
- * 🔒 performance/every-graph-is-a-tile.test.ts
+ * 🔒 performance/every-graph-is-a-tile.test.ts · shop/analytics-is-the-carousel.test.ts
  */
 export type GraphState = 'ok' | 'empty' | 'unread';
 
@@ -74,51 +75,71 @@ function RecBox({ g }: { g: GraphSpec }) {
   );
 }
 
-export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
+/**
+ * Draws its picture only once the card has been SEEN (the `Reanimate` around it says so), so the bars grow, the lines
+ * draw and the counts tick when the supplier swipes to it — never finishing off-screen while it waited in the carousel.
+ * Reduced motion: the CSS keeps everything still (the house rules in globals.css / analytics-growing.css).
+ */
+function WhenSeen({ children }: { children: ReactNode }) {
+  const seen = useReanimate();
+  return seen === false ? <span className="ag-gp-wait" aria-hidden /> : <>{children}</>;
+}
+
+/**
+ * 🎠 ONE CARD OF THE ANALYTICS CAROUSEL (owner 11 Nov: *"Analytics should be the carousel"* · *"inside each card"* ·
+ * *"Sliding switch"*; prototype `analytics_option_b_2026-11-11` option 3). The whole card opens it — its title is the one
+ * button, stretched over the card — and the window switch inside it is its own control (never a button inside a button).
+ * `figure` = the card's big number (Opened · Asked · Booked); `control` = the 30 days / 12 months switch, or the fixed
+ * window as a label. The SAME control rides the risen head, so the window can change from either place.
+ */
+export function GraphCard({ g, control, figure }: { g: GraphSpec; control: ReactNode; figure?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const door = g.state === 'ok' && g.rec ? { label: g.rec.ctaLabel, href: g.rec.ctaHref } : g.door;
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`${g.title}${g.state === 'empty' ? ' — example' : ''} — open`}
-        className={g.state === 'empty' ? 'ag-gtile sn-press ag-ex' : 'ag-gtile sn-press'} // no-card-ok: a graph tile is a <button> (it rises to our recommendation) — frames only on what you press
-        data-graph={g.k}
-        data-graph-state={g.state}
-      >
-        {g.state === 'empty' ? <span className="ag-exc">Example</span> : null}
-        <span className="ag-th">
-          <b>{g.title}</b>
-          {g.state !== 'empty' && g.tag === 'new' ? <span className="ag-tag">new</span> : null}
-          {g.state !== 'empty' ? <ChevronRight aria-hidden className="ag-chev" strokeWidth={1.9} /> : null}
-        </span>
-        <span className="ag-src">{g.src}</span>
-        {g.state === 'unread' ? (
-          <span className="ag-ln" role="status">
-            Couldn’t load.
+      <Reanimate className={g.state === 'empty' ? 'ag-card ag-ex' : 'ag-card'}>
+        <div className="ag-card-in" data-graph={g.k} data-graph-state={g.state}>
+          {g.state === 'empty' ? <span className="ag-exc">Example</span> : null}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-label={`${g.title}${g.state === 'empty' ? ' — example' : ''} — open`}
+            className="ag-th ag-open sn-press"
+            data-graph-open={g.k}
+          >
+            <b>{g.title}</b>
+            <ChevronRight aria-hidden className="ag-chev" strokeWidth={1.9} />
+          </button>
+          <span className="ag-ctlrow">
+            {figure ?? <span />}
+            {control}
           </span>
-        ) : (
-          <>
-            <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>
-              {g.pic}
+          {g.state === 'unread' ? (
+            <span className="ag-ln" role="status">
+              Couldn’t load.
             </span>
-            <span className="ag-ln">{g.line}</span>
-          </>
-        )}
-        {g.state === 'empty' ? (
-          <span className="ag-dr">
-            {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
-          </span>
-        ) : null}
-      </button>
+          ) : (
+            <>
+              <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>
+                <WhenSeen>{g.pic}</WhenSeen>
+              </span>
+              <span className="ag-ln">{g.line}</span>
+            </>
+          )}
+          {g.state === 'empty' ? (
+            <span className="ag-dr">
+              {g.door.label} <ChevronRight aria-hidden strokeWidth={1.9} />
+            </span>
+          ) : null}
+        </div>
+      </Reanimate>
       {open ? (
         <RiseScreen
           title={g.title}
           line={g.state === 'empty' ? 'Example' : undefined}
-          actions={window}
+          actions={control}
           onClose={() => setOpen(false)}
           data={`graph-${g.k}`}
           thumb={
@@ -130,6 +151,7 @@ export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
           <div data-growth="" className="ag-risen" data-graph-risen={g.k}>
             <div className={g.state === 'empty' ? 'ag-gbig ag-ex' : 'ag-gbig'}>
               <span className="ag-src">{g.src}</span>
+              {figure ? <span className="ag-ctlrow">{figure}</span> : null}
               {g.state === 'unread' ? (
                 <p className="ag-ln" role="status">
                   Couldn’t load.
@@ -148,18 +170,5 @@ export function GraphTile({ g, window }: { g: GraphSpec; window?: ReactNode }) {
         </RiseScreen>
       ) : null}
     </>
-  );
-}
-
-/** A section's eyebrow, then its tiles (the six-section order a supplier asks, approved 6 Nov). */
-export function GraphSection({ id, title, when, children }: { id: string; title: string; when?: string; children: ReactNode }) {
-  return (
-    <section className="ag-gsec" aria-label={title} data-graph-section={id}>
-      <p className="ag-gsech">
-        <span className="ag-eye">{title}</span>
-        {when ? <small>{when}</small> : null}
-      </p>
-      <div className="ag-gtiles">{children}</div>
-    </section>
   );
 }

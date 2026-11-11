@@ -13,7 +13,7 @@ export function supplierQuestionsHref(
   threadId: string,
 ): string {
   if (eventVendorId) {
-    return `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=details#${SUPPLIER_QUESTIONS_ANCHOR}`;
+    return `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=forms#${SUPPLIER_QUESTIONS_ANCHOR}`;
   }
   return `/dashboard/${eventId}/messages/${threadId}`;
 }

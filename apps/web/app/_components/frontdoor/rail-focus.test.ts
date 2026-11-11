@@ -72,12 +72,13 @@ test('the shell draws the way back INSTEAD of Discover and My Home when focused'
   const s = code('app/_components/frontdoor/front-door-shell.tsx');
   const back = s.indexOf('{focused && focus ? (');
   const discover = s.indexOf(`<Link href="/" {...rowProps('home')}>`);
-  const myHome = s.indexOf('>My Home<');
+  // 🏠 Home sits ABOVE Discover since 11 Nov 2026 ("HOME IS THE PROFILE" — the ☰ reads Home · Discover).
+  const myHome = s.indexOf('data-home-row=""');
   const ctx = s.indexOf('{railContext ? (');
   assert.ok(back >= 0, 'no focused branch in the rail');
-  assert.ok(back < discover && discover < myHome && myHome < ctx,
-    `Discover and My Home must sit in the focused branch's ELSE, before the context group ` +
-    `(back ${back}, discover ${discover}, my home ${myHome}, context ${ctx}).`);
+  assert.ok(back < myHome && myHome < discover && discover < ctx,
+    `Home and Discover must sit in the focused branch's ELSE, before the context group ` +
+    `(back ${back}, my home ${myHome}, discover ${discover}, context ${ctx}).`);
   // 🧭 There are no tool lists to empty any more (owner 2026-10-01, built 2026-10-23):
   // the shell takes no Planner · Builder · Together · Studio rows at all, so focus
   // has nothing to hide but the account rows. `the-rail-lists-no-tools.test.ts`

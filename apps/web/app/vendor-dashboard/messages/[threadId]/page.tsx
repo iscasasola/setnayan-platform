@@ -9,6 +9,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
 import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { readQuoteDoors, type QuoteDoors } from '@/lib/quote-doors.server';
 import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
@@ -380,6 +381,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // 🎁 THE SHOP'S OWN GIFTS for this quote (owner 2026-11-04): stock free to offer here (this event's old holds left
   // out), the live packs and the fee schedule; plus what buying from inside the quote needs. Best-effort: a failure
   // draws no gift block rather than fail the thread.
+  // 🏷🧺 The quote's doors (owner 11 Nov 2026): the shop's offers and bundles, each behind its shared lock — read with
+  // the thread, never on the quote's first open (lib/quote-doors.server.ts). Unread says so; it never reads as none.
+  const quoteDoorsRead: Promise<QuoteDoors> = readQuoteDoors(supabase, profile.vendor_profile_id).catch((err) => {
+    console.error('[supabase-error] messages/[threadId] · quote doors', err);
+    return { offers: { kind: 'unread' }, bundles: { kind: 'unread' } };
+  });
   const shopGiftsRead = (async () => {
     const giftAdmin = createAdminClient();
     const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
@@ -1109,6 +1116,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
   const shopGifts = await shopGiftsRead;
+  const quoteDoors = await quoteDoorsRead;
+  // A bundle has ONE door on the quote — "Start from" — so the older package picker does not list it a second time.
+  const bundleIds = new Set(quoteDoors.bundles.kind === 'read' ? quoteDoors.bundles.bundles.map((b) => b.id) : []);
   // The couple's booking ask is open — the one fact that lists "Answer their booking ask" and mounts its panel.
   const askOpen = lockHandshake?.state === 'requested' && Boolean(lockHandshake.eventVendorId);
 
@@ -1367,8 +1377,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
-          packages={proposalPackages}
+          packages={proposalPackages.filter((p) => !bundleIds.has(p.id))}
           cards={quoteCards}
+          doors={quoteDoors}
           brief={quoteBrief}
           paymentMethods={proposalPaymentMethods}
           // Seeded only where the builder opens ON the live quote; the chat tray's builder opens empty, as before.
@@ -2057,6 +2068,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
+                  // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
+                  sentAs="vendor"
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2235,6 +2248,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             flush
             // THE ONE BUILD · the client's Chat page names every host (strip + run labels); full screen is unchanged.
             {...(embedded ? { hosts: customerPlan.hosts } : {})}
+            // 🏪 The shop's own name for the strip: a login that also hosts this event sees the shop, then You.
+            {...(embedded ? { shopLabel: profile.business_name ?? null } : {})}
             dealEntry={dealEntry}
             counterHref={`?compose=deal`}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.

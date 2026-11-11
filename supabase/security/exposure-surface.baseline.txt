@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7640
+# facts: 7642
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     626
-#   col       5519
+#   col       5520
 #   policy    1119
 #   view      9
-#   func      363
+#   func      364
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -1003,6 +1003,7 @@ col	public.chat_messages.proposal_id	anon=S authenticated=SI
 col	public.chat_messages.recipient_user_id	anon=S authenticated=SI
 col	public.chat_messages.sender_role	anon=S authenticated=S
 col	public.chat_messages.sender_user_id	anon=S authenticated=S
+col	public.chat_messages.sent_as	anon=S authenticated=SI
 col	public.chat_messages.thread_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
 col	public.chat_thread_members.added_by_user_id	anon=- authenticated=S
@@ -7547,6 +7548,7 @@ func	public.running_late_shift_schedule(p_event_id uuid, p_block_ids uuid[], p_m
 func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
 func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authenticated search_path=public, pg_temp
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
+func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp

@@ -34,7 +34,7 @@ export const SHOP_ARRIVAL_SRC = {
   discover: 'discover',
   /** Discover's own search results and the signed-in search (`/dashboard/search`, which forwards to `/` with no words). */
   search: 'search',
-  /** Memories › Saved suppliers (`/dashboard/library?tab=vendors`). */
+  /** Home › Memories › Saved suppliers (`/dashboard?seg=memories&tab=vendors`). */
   favorites: 'favorites',
 } as const;
 
@@ -68,7 +68,7 @@ export function shopBackDoor({ src, eventId }: ShopArrival): ShopBackDoor {
     case SHOP_ARRIVAL_SRC.search:
       return { href: '/', label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.favorites:
-      return { href: '/dashboard/library?tab=vendors', label: 'Back to saved suppliers', back: true };
+      return { href: '/dashboard?seg=memories&tab=vendors', label: 'Back to saved suppliers', back: true };
     default:
       break;
   }

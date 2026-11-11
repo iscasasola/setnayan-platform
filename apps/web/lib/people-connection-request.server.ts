@@ -91,11 +91,11 @@ export async function requestConnection(input: {
       fromEvent ? { name: fromEvent.name, type: fromEvent.type } : null,
     ),
     body: 'Open your people to accept or decline. Nothing connects until you say so.',
-    relatedUrl: '/dashboard/people',
+    relatedUrl: '/dashboard?seg=people',
   });
   const email = normalizeEmail(input.theirEmail);
   if (email && input.invite) await input.invite(email, myFirstName);
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }

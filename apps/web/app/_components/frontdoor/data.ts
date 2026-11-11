@@ -223,7 +223,7 @@ export type FrontDoorShop = {
    * picture, `sample: true`, and the card says "Sample photo" so it never passes as their work.
    */
   cover: { url: string; sample: boolean };
-  /** 🏅 Up to two pills (`cardBadges`): Verified first, then the highest other. A fact that was not read wears none. */
+  /** 🏅 Up to two badges, drawn as circles (`cardBadges`): Verified first, then the highest other. A fact that was not read wears none. */
   badges: ShopBadge[];
   /**
    * The shop's resolved logo, or null → the card falls back to initials.

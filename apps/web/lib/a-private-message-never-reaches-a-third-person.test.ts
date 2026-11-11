@@ -180,6 +180,8 @@ test('notices: the fan-out notifies every host, and a private line leaves before
       'body: trimmed',
       '...(attachment ?? {})',
       '...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {})',
+      // 🏪 The screen's side (owner, 11 Nov) — `sent_as` only, never a recipient.
+      '...sidePayload',
     ],
     'sendChatMessageCore’s row changed — re-prove where a recipient can come from',
   );

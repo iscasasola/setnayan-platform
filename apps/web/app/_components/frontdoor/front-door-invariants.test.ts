@@ -155,6 +155,8 @@ test('the Find suppliers row is a SIGNED-OUT row, and no category group comes ba
     "Marketplace is signed-in only" lock. The owner's 2026-10-01 ruling ("THE
     SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR") names the
     signed-out rail: Discover · Find suppliers · Features · How it works · Sign in.
+    (Since 2026-11-11: Discover · Find suppliers · For suppliers · For coordinators ·
+    Features · Sign in — the-rail-lists-no-tools.test.ts pins the list.)
     Signed in the rail has no find row (the one it had drew only inside an
     event, where the rail is focused and never drew it).
 

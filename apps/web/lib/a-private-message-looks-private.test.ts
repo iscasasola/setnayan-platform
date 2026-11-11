@@ -10,9 +10,9 @@
  *      hidden recipient; NO chip row; and NO ＋ and NO attach (paperclip · camera · photo). Off: everything back.
  *   4. The server is the net: a private message with a file is refused; it never wakes the auto-reply; only the one
  *      person is notified.
- *   6. THREE DOORS to the one private mode (owner, 9 Nov: "they can also send private message anytime"): a face · the
- *      composer's 🔒 beside the ＋ (a list of exactly the strip's people, you excluded) · "Reply privately" on a held
- *      message, which pre-picks its SENDER — any other person, by user not by side (another host's message too).
+ *   6. ONE DOOR to the private mode (owner-approved prototype, 11 Nov 2026 — until then a face and "Reply privately"
+ *      on a held message were doors too): the composer's 🔒 beside the ＋, a list of exactly the strip's people, you
+ *      excluded. A face is a picture; holding a bubble opens nothing.
  *   5. ANY pair (owner, 9 Nov): host → host included — every face but your own is a button, and the server takes a host
  *      as the recipient. The supplier cannot read a host ↔ host message: the thread is read ONLY through the caller's
  *      RLS-scoped client (Lane B's SELECT rule hides it), never the admin client.
@@ -22,24 +22,23 @@
  *      pasted picture is refused; × back to everyone restores the ＋ and Send's brand colour.
  *
  * Sabotage (9 Nov 2026): `PrivateMark` drawing its strip for `null` → 1 RED; the composer drawing `lead` while private →
- * 3 + 7 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED; "Reply privately" gated on the side
- * (`!mine`) again → 6 RED.
+ * 3 + 7 RED; the words-only refusal removed from `sendChatMessageCore` → 4 RED. (11 Nov 2026) a face's
+ * `setPrivateTo` put back in the strip → 6 RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { stripComments } from './strip-comments';
 import { PrivateMark, PrivateTime, PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT } from '@/app/_components/chat/private-message';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { setChatPeople, setPrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
-import { MessageHoldMenu } from '@/app/_components/chat/message-hold-menu';
 import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_BOX_FILL,
   PRIVATE_MARK, privateOtherId, privateToFromForm } from './chat-private';
-import { ChatHostStrip } from '@/app/_components/chat/chat-host-strip';
+import { stripOrder } from '@/lib/chat-members';
 
 (globalThis as unknown as { React: unknown }).React = React;
 const WEB = join(__dirname, '..');
@@ -142,33 +141,24 @@ test('4 · the server is the net: words only, no auto-reply, only the one person
 });
 
 test('5 · any pair, host → host included; the thread is read only through the caller\'s RLS client', () => {
-  // A host's strip: the other host and the supplier are both buttons; your own face is not (no Leave given here).
-  const strip = renderToStaticMarkup(
-    h(ChatHostStrip, {
-      hosts: [
-        { userId: 'u-shop', firstName: 'Lumière', name: 'Lumière', role: 'supplier', label: null },
-        { userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null },
-        { userId: 'u-jose', firstName: 'Jose', name: 'Jose', role: 'groom', label: null },
-      ],
-      presentIds: new Set<string>(),
-      youId: 'u-maria',
-      threadId: 't1',
-      viewerSide: 'couple',
-    }),
+  // The 🔒's list is the strip's people, you excluded (`others` in chat-host-strip.tsx, published by `setChatPeople`):
+  // for a host that is the other host AND the supplier; for the supplier, every host. (Since 11 Nov 2026 the faces
+  // themselves are pictures — the 🔒 is the one door, test 6.)
+  const hosts = [
+    { userId: 'u-shop', firstName: 'Lumière', name: 'Lumière', role: 'supplier', label: null },
+    { userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null },
+    { userId: 'u-jose', firstName: 'Jose', name: 'Jose', role: 'groom', label: null },
+  ] as const;
+  const others = (youId: string, side: 'vendor' | 'couple') =>
+    stripOrder([...hosts] as never, youId, side).flatMap((p) => (!p.isYou && p.host ? [p.userId] : [])).sort();
+  assert.deepEqual(others('u-maria', 'couple'), ['u-jose', 'u-shop'], 'a host cannot pick another host or the supplier in the 🔒 list');
+  assert.deepEqual(others('u-shop', 'vendor'), ['u-jose', 'u-maria'], 'the supplier cannot pick every host in the 🔒 list');
+  assert.match(
+    read('app/_components/chat/chat-host-strip.tsx'),
+    // 🏪 (owner, 11 Nov) the shop's face for your OWN uid is you — never in your own 🔒 list.
+    /stripOrder\(hosts, youId, viewerSide, shopLabel\)\.flatMap\(\(p\) =>\s*!p\.isYou && p\.host && !isShopSelf\(p, youId\) \? \[\{ userId: p\.userId, name: hostFirstName\(p\.host\) \}\] : \[\],\s*\);\s*useEffect\(\(\) => \{\s*if \(threadId\) setChatPeople\(threadId, others\);/,
+    'the strip no longer publishes exactly its other people to the 🔒 list',
   );
-  assert.match(strip, /data-chat-host-face="u-jose"/, 'a host cannot message another host privately');
-  assert.match(strip, /data-chat-host-face="u-shop"/, 'a host cannot message the supplier privately');
-  assert.doesNotMatch(strip, /data-chat-host-face="u-maria"|data-chat-host-face="you"/);
-  // A supplier's strip: every host is a button.
-  const sup = renderToStaticMarkup(
-    h(ChatHostStrip, {
-      hosts: [{ userId: 'u-maria', firstName: 'Maria', name: 'Maria', role: 'bride', label: null }],
-      presentIds: new Set<string>(),
-      youId: 'u-shop',
-      threadId: 't1',
-    }),
-  );
-  assert.match(sup, /data-chat-host-face="u-maria"/);
   // The server takes a HOST as the recipient (and the shop) — host → host is a valid pair.
   const core = read('lib/chat-send.ts');
   assert.match(core, /\.eq\('user_id', privateTo\)\s*\.eq\('member_type', 'couple'\)/);
@@ -181,7 +171,7 @@ test('5 · any pair, host → host included; the thread is read only through the
   }
 });
 
-test('6 · three doors to the one chip: a face, the composer\'s 🔒, and Reply privately on a held message', () => {
+test('6 · ONE door to the one chip: the composer\'s 🔒 — not a face, not a held message', () => {
   const send = async () => {};
   const lead = h('button', { type: 'button', 'data-lab-plus': '' }, '+');
   const T = 'thread-doors';
@@ -209,15 +199,17 @@ test('6 · three doors to the one chip: a face, the composer\'s 🔒, and Reply 
   assert.match(list, /aria-label="Message Jose privately"/);
   // The strip publishes exactly its faces (you excluded) for that list.
   assert.match(read('app/_components/chat/chat-host-strip.tsx'), /if \(threadId\) setChatPeople\(threadId, others\);/);
-  // Reply privately: an info button; offered on any OTHER person's message (by user, not side), pre-picking the sender.
-  const menu = renderToStaticMarkup(h(MessageHoldMenu, { senderName: 'Jose', alignEnd: true, onReplyPrivately: () => {} }));
-  assert.match(menu, /class="ab ab-info/);
-  assert.match(menu, />Reply privately</);
-  assert.match(menu, /aria-label="Reply to Jose privately"/);
+  // The 🔒 is the ONLY door (owner-approved prototype, 11 Nov 2026): nothing else in the chat sets the private chip —
+  // not a face in the strip, not a held bubble ("Reply privately" removed with its menu).
+  // Every app file that CALLS setPrivateTo — the composer (its 🔒 list picks, its × clears) and nothing else.
+  const callers = (readdirSync(join(WEB, 'app'), { recursive: true }) as string[])
+    .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
+    .map((f) => `app/${f.split(sep).join('/')}`)
+    .filter((f) => /\bsetPrivateTo\(/.test(read(f).replace(/export function setPrivateTo\(/, '')));
+  assert.deepEqual(callers, ['app/_components/chat-send-form.tsx'], 'a second door to private mode — the 🔒 is the one door');
   const stream = read('app/_components/chat-message-stream.tsx');
-  assert.match(stream, /const replyTo = !m\.is_bot && m\.sender_user_id && m\.sender_user_id !== currentUserId \? m\.sender_user_id : null;/, 'Reply privately is gated on the wrong thing');
-  assert.match(stream, /setPrivateTo\(threadId, \{ userId: replyTo, name: personName\(replyTo\) \}\)/);
-  assert.match(stream, /if \(hold\.consumeTap\(\)\) return;/, 'the hold also toggles the heart');
+  assert.doesNotMatch(stream, /Reply privately|MessageHoldMenu|holdProps/, 'the held-message private door is back');
+  assert.doesNotMatch(read('app/_components/chat/chat-host-strip.tsx'), /privately/, 'a face is a private door again');
 });
 
 test('7 · the ＋ is not rendered while a private recipient is set; the row is one sky blue; a pasted picture is refused', () => {

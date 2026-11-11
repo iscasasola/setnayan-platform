@@ -206,7 +206,7 @@ test('panood program + /v/[slug] + production-sheet + instagram + performance: k
   const syncedAt = indexAfter(ig, 'synced += 1;', igLogAt);
   assert.ok(upsertAt < igLogAt && igLogAt < syncedAt, 'synced must only increment in the else-branch, after the error is logged');
 
-  const perf = src('app/vendor-dashboard/performance/page.tsx');
+  const perf = src('app/vendor-dashboard/performance/_components/one-analytics-section.tsx');
   const partAt = indexAfter(perf, "from('vendor_partnerships')");
   const partLogAt = indexAfter(perf, 'logQueryError(', partAt);
   const growthAt = indexAfter(perf, 'const growthRecs = buildGrowthRecs(', partLogAt);

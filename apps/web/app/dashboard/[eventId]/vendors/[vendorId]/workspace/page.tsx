@@ -81,6 +81,9 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
+import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
+import { ReportSupplierPage } from './_components/report-supplier-page';
+import { PickedSupplierWho } from './_components/picked-supplier-who';
 import {
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
@@ -2362,7 +2365,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           role="couple"
           eventId={eventId}
           vendorProfileId={ev.marketplace_vendor_id}
-          returnPath={`/dashboard/${eventId}/vendors/${ev.vendor_id}/workspace`}
+          // The appointments live on the Schedule page — a booked time comes back THERE (a bare address opens Chat).
+          returnPath={`/dashboard/${eventId}/vendors/${ev.vendor_id}/workspace?tab=schedule`}
           threadId={chatThread?.thread_id ?? null}
           currentUserId={user.id}
           counterpartyName={displayName}
@@ -2924,8 +2928,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // ------------------------------------------------------------------------
   // 🪞 THE HOST'S PICKED SUPPLIER (Supplier Build 3 · Lane A, 9 Nov 2026). The tabs the workspace drew in
   // `RelationshipTabShell` are now the pages of the ONE picked shell — the same section nodes, relocated, never redrawn
-  // (Rule 0) — in the supplier's picked-client order: Details · Chat · Schedule · Quotation · Payment · Forms · Files ·
-  // Inspiration. The service hero heads Details (the shell's pinned row is the name; ✕ is the way back, so no back
+  // (Rule 0) — in the supplier's picked-client order (owner 11 Nov 2026, mirroring #7483): Chat · Details · Quotation ·
+  // Payment · Forms · Schedule · Files · Inspiration · Report. The service hero heads Details (the shell's pinned row is the name; ✕ is the way back, so no back
   // link). Forms is the supplier's questions and forms (`supplierQuestionsSection`, moved off Details, not copied).
   //
   // ── A TAB THAT CAN ONLY EVER BE BLANK IS NOT OFFERED (2026-09-20) ─────────
@@ -2954,6 +2958,50 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       ) : null}
     </section>
   );
+
+  // 🫙 NO PAGE IS EVER BLANK (owner 11 Nov 2026, on his phone with a booked supplier: "Quotation" and "Forms" drew
+  // nothing — `VendorProposalsCard` and the two forms cards render nothing when nothing was sent). Each now hands its
+  // page ONE honest line and the one action the host has: ask in the chat (no chat → the line alone).
+  // The words are the approved prototype's (owner 11 Nov 2026, `prototypes/client_supplier_page_2026-11-11/`).
+  const askInChat = chatThread ? 'Ask in the chat' : null;
+  const quotationEmpty = (
+    <PickedSupplierEmpty
+      page="quote"
+      line={`No quote from ${displayName} yet. A quote is sent inside your conversation.`}
+      ask={askInChat}
+    />
+  );
+  const formsEmpty = (
+    <PickedSupplierEmpty
+      page="forms"
+      line={`${displayName} hasn’t sent you a form yet. Their questions land here when they do.`}
+      ask={askInChat}
+    />
+  );
+  // The questions card draws the forms card after its questions; with no questions it draws the forms card that holds
+  // the empty line — so the line shows only when there are neither questions nor forms.
+  const formsCardFor = (marketplaceVendorId: string, whenEmpty: ReactNode) => (
+    <SupplierFormsCard
+      supabase={supabase}
+      eventId={eventId}
+      eventVendorId={ev.vendor_id}
+      vendorProfileId={marketplaceVendorId}
+      shopName={displayName}
+      whenEmpty={whenEmpty}
+    />
+  );
+  const formsPage = ev.marketplace_vendor_id ? (
+    <SupplierQuestionsCard
+      supabase={supabase}
+      eventId={eventId}
+      eventVendorId={ev.vendor_id}
+      vendorProfileId={ev.marketplace_vendor_id}
+      shopName={displayName}
+      whenEmpty={formsCardFor(ev.marketplace_vendor_id, formsEmpty)}
+    >
+      {formsCardFor(ev.marketplace_vendor_id, null)}
+    </SupplierQuestionsCard>
+  ) : null;
 
   const pickedBodies: Record<PickedSupplierPage, ReactNode> = {
     details: (
@@ -2991,7 +3039,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         )}
       </div>
     ),
-    quote: hasQuotesToShow ? <div data-picked-supplier-page="quote">{proposalsCard}</div> : null,
+    quote: hasQuotesToShow ? (
+      <div data-picked-supplier-page="quote">
+        {moneyHidden ? (
+          hostsOnlyPanel
+        ) : (
+          <VendorProposalsCard
+            eventId={eventId}
+            marketplaceVendorId={ev.marketplace_vendor_id}
+            displayName={displayName}
+            whenEmpty={quotationEmpty}
+          />
+        )}
+      </div>
+    ) : null,
     payments: (
       <div className="space-y-6" data-picked-supplier-page="payments">
         {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
@@ -3001,7 +3062,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ),
     forms: (
       <div className="space-y-6" data-picked-supplier-page="forms">
-        {supplierQuestionsSection ?? (
+        {formsPage ?? (
           <p className="py-6 text-sm text-ink/60">
             {displayName} is not on Setnayan, so there are no forms from them to answer.
           </p>
@@ -3010,7 +3071,24 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ),
     files: <div data-picked-supplier-page="files">{documentsSection}</div>,
     inspiration: inspirationSection,
+    // 🚩 Report (owner 11 Nov 2026, "There is also no report") — the host's shipped Report a problem, about this supplier.
+    report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,
   };
+
+  // 👥 Every page but Chat opens with who can do what on it (the approved prototype's strip) — a blank page stays blank.
+  const pickedPages = Object.fromEntries(
+    (Object.entries(pickedBodies) as [PickedSupplierPage, ReactNode][]).map(([page, body]) => [
+      page,
+      page === 'chat' || body == null ? (
+        body
+      ) : (
+        <div className="space-y-4">
+          <PickedSupplierWho page={page} supplierName={displayName} />
+          {body}
+        </div>
+      ),
+    ]),
+  ) as Record<PickedSupplierPage, ReactNode>;
 
   return (
     <PickedSupplierShell
@@ -3019,9 +3097,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       chatUnread={await chatUnreadP}
       supplierName={displayName}
       menu={pickedMenu}
-      // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none.
+      // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none, and
+      // opens on the menu's first page (Chat; Details when there is no conversation).
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
-      bodies={pickedBodies}
+      bodies={pickedPages}
     />
   );
 }

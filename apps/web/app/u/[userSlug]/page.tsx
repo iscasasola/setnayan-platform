@@ -1,3 +1,4 @@
+import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -589,93 +590,83 @@ export default async function AccountProfilePage({ params }: Props) {
             Profile &amp; settings → URL &amp; handle to share it.
           </div>
         ) : null}
-        <header className="uprof-head">
-          <span className="uprof-avatar" aria-hidden>
-            {photoSrc ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={photoSrc} alt="" className="uprof-avatar-img" decoding="async" style={pictureFrameStyle(readProfilePhotoFrame(user))} />
-            ) : (
-              <span className="uprof-avatar-initials">{initialsFor(heading)}</span>
-            )}
-          </span>
-          <h1 className="m-serif uprof-name">{heading}</h1>
-          {relation ? (
-            <p className="uprof-relation" data-uprof-relation="">
-              {relation}
-            </p>
-          ) : null}
-          {hasChapters ? (
-            <div className="uprof-badge-row">
-              <CreatorBadge size="md" />
-            </div>
-          ) : null}
-          {hasPublicContent ? (
-            <div className="uprof-audience">
-              {/* E6 — "N chapters", first in the row (spec order: chapters ·
-                  followers · views · inquiries-driven). Presentation-only:
-                  `chapters` is already loaded above for the timeline, so this
-                  adds ZERO reads, and it counts EXACTLY what the timeline below
-                  renders (published AND carrying an embed) — not a DB total, and
-                  deliberately not the owner's own draft-inclusive count.
+        {/* 🪪 THE ONE PROFILE HEADER (owner 11 Nov 2026, "HOME IS THE PROFILE") — the same component Home draws, so the
+            profile IS the public page. Markup and styles moved verbatim into `app/u/_components/profile-header.tsx`. */}
+        <ProfileHeader
+          photoSrc={photoSrc}
+          photoStyle={pictureFrameStyle(readProfilePhotoFrame(user))}
+          initials={initialsFor(heading)}
+          heading={heading}
+          relation={relation || null}
+          badge={hasChapters ? <CreatorBadge size="md" /> : null}
+          audience={
+            hasPublicContent ? (
+              <>
+                  {/* E6 — "N chapters", first in the row (spec order: chapters ·
+                      followers · views · inquiries-driven). Presentation-only:
+                      `chapters` is already loaded above for the timeline, so this
+                      adds ZERO reads, and it counts EXACTLY what the timeline below
+                      renders (published AND carrying an embed) — not a DB total, and
+                      deliberately not the owner's own draft-inclusive count.
 
-                  HONESTY GATE: `hasChapters` is the only gate, and a FAILED read
-                  cannot reach it — fetchPublishedChapters swallows a Supabase
-                  error to [], so a broken read renders no badge, no timeline and
-                  no stat. There is no path where this prints "0 chapters". */}
-              {hasChapters ? (
-                <>
+                      HONESTY GATE: `hasChapters` is the only gate, and a FAILED read
+                      cannot reach it — fetchPublishedChapters swallows a Supabase
+                      error to [], so a broken read renders no badge, no timeline and
+                      no stat. There is no path where this prints "0 chapters". */}
+                  {hasChapters ? (
+                    <>
+                      <span className="uprof-stat">
+                        <strong>{formatAudienceCount(chapters.length)}</strong>{' '}
+                        {chapters.length === 1 ? 'chapter' : 'chapters'}
+                      </span>
+                      <span aria-hidden className="uprof-stat-dot">
+                        &middot;
+                      </span>
+                    </>
+                  ) : null}
                   <span className="uprof-stat">
-                    <strong>{formatAudienceCount(chapters.length)}</strong>{' '}
-                    {chapters.length === 1 ? 'chapter' : 'chapters'}
+                    <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
+                    {user.followers_count === 1 ? 'follower' : 'followers'}
                   </span>
                   <span aria-hidden className="uprof-stat-dot">
                     &middot;
                   </span>
-                </>
-              ) : null}
-              <span className="uprof-stat">
-                <strong>{formatAudienceCount(user.followers_count)}</strong>{' '}
-                {user.followers_count === 1 ? 'follower' : 'followers'}
-              </span>
-              <span aria-hidden className="uprof-stat-dot">
-                &middot;
-              </span>
-              <span className="uprof-stat">
-                <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
-                {user.profile_view_count === 1 ? 'view' : 'views'}
-              </span>
-              {/* PR-C — renders NOTHING at 0 (no fake influence). */}
-              {inquiriesDriven > 0 ? (
-                <>
-                  <span aria-hidden className="uprof-stat-dot">
-                    &middot;
-                  </span>
                   <span className="uprof-stat">
-                    <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
-                    {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
-                    {/* P3 tier band — a rendering of the SAME number, not a
-                        second metric; hides at 0 alongside the line itself. */}
-                    <CreatorTierChip
-                      inquiriesDriven={inquiriesDriven}
-                      className="uprof-tier-chip"
-                    />
+                    <strong>{formatAudienceCount(user.profile_view_count)}</strong>{' '}
+                    {user.profile_view_count === 1 ? 'view' : 'views'}
                   </span>
-                </>
-              ) : null}
-              {/* Follow — the client island renders only for a signed-in
-                  visitor viewing someone else's profile (never self/signed-out).
-                  E6: the one-way note rides INSIDE the island (past its own
-                  render gate) so it can never appear without the button. */}
-              <FollowButton
-                followedUserId={user.user_id}
-                className="uprof-follow"
-                noteClassName="uprof-follow-note"
-              />
-            </div>
-          ) : null}
-          <span aria-hidden className="uprof-rule" />
-          {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
-        </header>
+                  {/* PR-C — renders NOTHING at 0 (no fake influence). */}
+                  {inquiriesDriven > 0 ? (
+                    <>
+                      <span aria-hidden className="uprof-stat-dot">
+                        &middot;
+                      </span>
+                      <span className="uprof-stat">
+                        <strong>{formatAudienceCount(inquiriesDriven)}</strong>{' '}
+                        {inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+                        {/* P3 tier band — a rendering of the SAME number, not a
+                            second metric; hides at 0 alongside the line itself. */}
+                        <CreatorTierChip
+                          inquiriesDriven={inquiriesDriven}
+                          className="uprof-tier-chip"
+                        />
+                      </span>
+                    </>
+                  ) : null}
+                  {/* Follow — the client island renders only for a signed-in
+                      visitor viewing someone else's profile (never self/signed-out).
+                      E6: the one-way note rides INSIDE the island (past its own
+                      render gate) so it can never appear without the button. */}
+                  <FollowButton
+                    followedUserId={user.user_id}
+                    className="uprof-follow"
+                    noteClassName="uprof-follow-note"
+                  />
+              </>
+            ) : null
+          }
+          subtitle={subtitle}
+        />
 
         {/*
             ── COMING UP · PAST (owner 2026-09-23: "split coming up from past") ──
@@ -1162,113 +1153,7 @@ const UPROF_CSS = `
     text-align: center;
   }
 
-  .uprof-avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 88px;
-    height: 88px;
-    margin: 0 auto 0.9rem;
-    border-radius: var(--m-r-full, 999px);
-    overflow: hidden;
-    background: var(--m-paper-2, #F4F2EC);
-    border: 1px solid var(--m-line, #E1DCD1);
-  }
-  .uprof-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .uprof-avatar-initials {
-    font-family: var(--font-display), Georgia, serif;
-    font-size: 2rem;
-    letter-spacing: .04em;
-    color: var(--m-orange, #A9834B);
-  }
-  .uprof-head { text-align: center; margin-bottom: clamp(2.25rem, 5vw, 3.25rem); }
-  .uprof-name {
-    font-size: clamp(2.4rem, 7vw, 4rem);
-    line-height: 1.04;
-    margin: 0;
-    color: var(--m-ink, #1B1A17);
-  }
-  .uprof-badge-row {
-    display: flex;
-    justify-content: center;
-    margin-top: 1rem;
-  }
-  .uprof-audience {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem 0.7rem;
-    margin-top: 1rem;
-  }
-  .uprof-stat {
-    font-size: 0.9rem;
-    color: var(--m-slate, #4F535B);
-  }
-  .uprof-stat strong {
-    color: var(--m-ink, #1B1A17);
-    font-weight: 600;
-  }
-  .uprof-stat-dot {
-    color: var(--m-slate-2, #6A6E76);
-    opacity: 0.6;
-  }
-  .uprof-tier-chip {
-    margin-left: 0.4rem;
-  }
-  .uprof-follow {
-    margin-left: 0.3rem;
-    display: inline-flex;
-    align-items: center;
-    padding: 0.34rem 0.95rem;
-    border: 1px solid var(--m-orange, #A9834B);
-    border-radius: var(--m-r-full, 999px);
-    background: var(--m-orange, #A9834B);
-    color: #fff;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform .15s cubic-bezier(.2,.7,.2,1), opacity .15s, background .15s, color .15s;
-  }
-  .uprof-follow:hover { transform: translateY(-1px); }
-  .uprof-follow:disabled { opacity: 0.6; cursor: default; transform: none; }
-  .uprof-follow[data-following='1'] {
-    background: #fff;
-    color: var(--m-ink, #1B1A17);
-    border-color: var(--m-line, #E2DED4);
-  }
-  /* E6 — the one-way promise. flex-basis:100% breaks it onto its own centered
-     line inside the wrapping .uprof-audience row, so it never reads as a fourth
-     stat chip.
-     CONTRAST, measured not assumed: --m-slate-2 (#6E6A62) on --m-paper
-     (#FFFFFF, white since 2026-08-20) = 5.39:1, clears AA. The spec's own 11.5px
-     #A09A8E is 2.79:1 and
-     was NOT used; --m-slate-3 (#8A857B) is 3.55:1 and also fails. Note that
-     lint-label-on-fill-contrast.mjs CANNOT catch a miss here — it reads Tailwind
-     class pairs and inline style objects, never this template literal. */
-  .uprof-follow-note {
-    flex-basis: 100%;
-    width: 100%;
-    margin: 0.35rem 0 0;
-    text-align: center;
-    font-size: 0.78rem;
-    line-height: 1.35;
-    color: var(--m-slate-2, #6E6A62);
-  }
-
-  .uprof-rule {
-    display: block;
-    width: 44px;
-    height: 1px;
-    margin: 1.25rem auto 0;
-    background: var(--m-orange, #A9834B);
-  }
-  .uprof-sub {
-    margin: 1rem 0 0;
-    font-size: 0.98rem;
-    color: var(--m-slate, #4F535B);
-  }
-
+${PROFILE_HEADER_CSS}
   /* ── COMING UP vs PAST ──────────────────────────────────────────────────
      His complaint was that an invitation and a memory were drawn identically,
      so the DIFFERENCE lives here, at section level, rather than in a second
@@ -1590,17 +1475,6 @@ const UPROF_CSS = `
     border-radius: var(--m-r-lg, 22px);
     padding: 2.75rem 1.5rem;
     background: #fff;
-  }
-  .uprof-relation {
-    display: inline-flex;
-    align-items: center;
-    margin: 0.5rem auto 0;
-    padding: 0.2rem 0.7rem;
-    border: 1px solid var(--m-line, #E2DED4);
-    border-radius: var(--m-r-full, 999px);
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--m-ink, #1B1A17);
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }

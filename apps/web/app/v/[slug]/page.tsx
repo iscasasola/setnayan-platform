@@ -232,8 +232,9 @@ import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
 import { NotYetVerifiedNotice } from './_components/not-yet-verified-notice';
 import { shopTakesMessages } from '@/lib/findable-shop';
-import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
-import { shopBadges, verifiedBadge } from '@/lib/shop-badges';
+import { ImageBadge } from '@/app/_components/image-badge';
+import { badgeImageOf } from '@/lib/shop-badge-row';
+import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
@@ -2641,20 +2642,24 @@ export async function renderVendorBySlug({
                 a bare word here would be read as covering prices, reviews and
                 availability too. Say what admin review actually does — document
                 review — and nothing more. Never "Verified by Setnayan". */}
+            {/* 🏅 THE HERO BADGES SIT IN ONE ROW, DRAWN AS THE CIRCULAR IMAGE BADGES (owner, 12 Nov 2026: *"Circles +
+                spacing"*, on a screenshot where the long pills touched the (DEMO ONLY) ⓘ and each other). The same
+                drawing as Discover's shop card (`badgeImageOf` → `ImageBadge`, #7493). The row's gap is what keeps them
+                apart — before, they were inline in a block, so React's collapsed whitespace left 0 px between them. */}
+            <div data-shop-hero-badges="" className="flex flex-wrap items-center gap-2">
             {vendor.verification_state === 'verified' ? (
-              <ShopBadgePill
+              <HeroBadge
                 badge={verifiedBadge()}
-                className="w-fit"
                 title="Setnayan reviewed this shop’s business documents before it went public."
               />
             ) : null}
-            {/* 🏅 THE PERFORMANCE BADGES WEAR THE PILL (owner 2026-10-28) — the milestone medal from the SAME
+            {/* 🏅 THE PERFORMANCE BADGES (circles since 12 Nov; pills from 2026-10-28) — the milestone medal from the SAME
                 public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
                 in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
                 booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
                 scan always shows today's badges. */}
             {performancePills.map((b) => (
-              <ShopBadgePill key={b.key} badge={b} className="w-fit" />
+              <HeroBadge key={b.key} badge={b} title={b.label} />
             ))}
             {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
                 subtle violet chip stating how many finalized bookings flowed
@@ -2691,9 +2696,8 @@ export async function renderVendorBySlug({
             {viewerTierCaps.reviewStarsCounted &&
             trustedReviewStats.trusted_review_count > 0 &&
             trustedReviewStats.trusted_avg_rating > 0 ? (
-              <ShopBadgePill
+              <HeroBadge
                 badge={ratingPill!}
-                className="w-fit"
                 title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${formatCount(trustedReviewStats.trusted_review_count)} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
               />
             ) : null}
@@ -2712,6 +2716,7 @@ export async function renderVendorBySlug({
                 <span>saved</span>
               </p>
             ) : null}
+            </div>
             {/*
               🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
               120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
@@ -4758,5 +4763,14 @@ function VendorPackagesSection({
         })}
       </div>
     </section>
+  );
+}
+
+/** One hero badge: the circular image badge, with what it means said on hover (the shop page's load-bearing title). */
+function HeroBadge({ badge, title }: { badge: ShopBadge; title: string }) {
+  return (
+    <span className="inline-flex leading-[0]" title={title} data-shop-badge={badge.key}>
+      <ImageBadge {...badgeImageOf(badge)} uid={`shop-${badge.key}`} size={48} label={badge.label} />
+    </span>
   );
 }

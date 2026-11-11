@@ -192,7 +192,7 @@ export default async function SearchLabPage({
             )}
           </div>
         </FrontDoorShell>
-        <AccountBarSlot tabs={['events', 'discover', 'memories', 'people']} />
+        <AccountBarSlot tabs={['home', 'discover']} />
       </LabAddOwn>
     );
   }
@@ -217,7 +217,7 @@ export default async function SearchLabPage({
             />
           </div>
         </main>
-        <AccountBarSlot tabs={['events', 'discover', 'memories', 'people']} />
+        <AccountBarSlot tabs={['home', 'discover']} />
       </FrontDoorShell>
     </div>
   );

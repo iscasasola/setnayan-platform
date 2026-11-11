@@ -16,7 +16,8 @@
  * as the address it stands for):
  *
  *   /dev/bar-lab                         Discover (`/`), signed in
- *   /dev/bar-lab/dashboard               the Events board
+ *   /dev/bar-lab/dashboard               HOME (11 Nov 2026) — the real header, sections and pinned rows on fixtures
+ *                                        (`home-lab.tsx`): ?seg=events|people|shop|memories · ?shop=0
  *   /dev/bar-lab/dashboard/library       Memories
  *   /dev/bar-lab/dashboard/people        People
  *   /dev/bar-lab/vendor-dashboard        the shop (Today)
@@ -40,7 +41,6 @@
  *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
  *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
  *
- *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
  * An event of ANY type (owner 22 Oct 2026, "this might be an issue on other events as well") — the
  * event layout's OWN gates (`eventMenuGates`) for that type's profile and needs:
@@ -56,6 +56,7 @@ import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { LabBar } from '../lab-bar';
+import { HomeLab } from '../home-lab';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { VendorRailContext } from '@/app/vendor-dashboard/_components/vendor-rail-context';
 import { labEventBar } from '../lab-event';
@@ -197,10 +198,9 @@ export default async function BarLab({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const [{ path = [] }, sp] = await Promise.all([params, searchParams]);
-  const ownsShop = sp.shop !== '0';
   const where = path.join('/');
 
-  const accountBar = <LabBar kind="account" ownsShop={ownsShop} />;
+  const accountBar = <LabBar kind="account" />;
   const toEvent = { href: `${P}/dashboard/${EVENT}`, label: 'Ana & Miguel — Wedding · 14 Feb 2027 (an event card)' };
 
   // Discover — the front door's own variant: the feed in `[data-fd-page]`, the bar OUTSIDE the shell.
@@ -232,7 +232,11 @@ export default async function BarLab({
             className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
             data-sn-slide="while-sliding"
           >
-            <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
+            {where === 'dashboard' ? (
+              <HomeLab sp={sp} />
+            ) : (
+              <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
+            )}
           </main>
           {accountBar}
         </FrontDoorShell>

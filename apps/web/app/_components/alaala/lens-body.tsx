@@ -104,7 +104,7 @@ function Frame({ item }: { item: WallItem }) {
 function PeopleDoor() {
   return (
     <Link
-      href="/dashboard/people"
+      href="/dashboard?seg=people"
       className="inline-flex items-center gap-1 text-xs font-bold text-[color:var(--sn-gold-700)] transition-colors hover:text-[color:var(--sn-gold-600)]"
     >
       Open People

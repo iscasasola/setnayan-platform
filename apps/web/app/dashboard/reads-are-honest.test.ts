@@ -550,7 +550,9 @@ test('a degrade written for a missing table does not also swallow a refusal', ()
   const missing: string[] = [];
   for (const rel of MUST_NARROW) {
     const src = stripComments(readFileSync(join(HERE, rel), 'utf8'));
-    if (!/if \(isMissingRelationError\(error\)\) return null;/.test(src)) {
+    // `whenEmpty` (11 Nov 2026): the picked supplier's Quotation hands the card its honest empty line — still the
+    // missing-table case only; a refusal still reaches ReadRefusedNotice below.
+    if (!/if \(isMissingRelationError\(error\)\) return (?:null|whenEmpty);/.test(src)) {
       missing.push(`${rel} — no longer narrows to the missing-table case`);
     }
     if (!/<ReadRefusedNotice/.test(src)) missing.push(`${rel} — says nothing on a refusal`);

@@ -247,7 +247,7 @@ test("Memories' photo windows leave a TBA chapter out — it never claims the ph
   }).days.flatMap((d) => d.chapters);
   assert.deepEqual(ran.find((c) => c.key === 'tba')?.frames.map((f) => f.id), ['early']);
   // Both photo readers hand the flag over.
-  for (const rel of ['app/dashboard/(account)/library/page.tsx', 'lib/event-memories.server.ts']) {
+  for (const rel of ['app/dashboard/(account)/library/_components/memories-segment.tsx', 'lib/event-memories.server.ts']) {
     assert.match(fs.readFileSync(path.join(WEB_ROOT, rel), 'utf8'), /timeTba: b\.time_tba === true/, rel);
   }
 });

@@ -151,7 +151,7 @@ export async function runAnniversaryDigest(): Promise<{ scanned: number; sent: n
         coupleName: (c.couple_name ?? '').trim() || (c.display_name ?? '').trim(),
         eventName: (c.display_name ?? '').trim(),
         yearsAgo: c.years_ago,
-        ctaHref: `${APP_URL}/dashboard/library?tab=photos`,
+        ctaHref: `${APP_URL}/dashboard?seg=memories&tab=photos`,
         eventType: occasion.eventType,
         words: occasion.words,
       });

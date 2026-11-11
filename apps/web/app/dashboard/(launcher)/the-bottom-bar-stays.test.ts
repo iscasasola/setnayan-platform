@@ -86,7 +86,10 @@ test('the current page is read, not assumed — by the canonical bar', () => {
   const bar = code(BAR);
   assert.match(bar, /'use client'/);
   assert.match(bar, /from '@\/app\/_components\/nav\/bottom-nav'/, 'it must delegate to the canonical bar');
-  assert.match(bar, /<BottomDock>\s*<BottomNav items=\{accountBarItems\(tabs\)\} \/>\s*<\/BottomDock>/, 'mounted inside the dock');
+  // 🏠 The items are the bar's own (`accountBarItems(tabs)`); since 11 Nov 2026 Home's address alone may carry the
+  // section you left it on (`useHomeDoor`) — the lit tab is still the canonical matcher's.
+  assert.match(bar, /const items = accountBarItems\(tabs\)\.map\(/, 'the items are no longer the bar\'s own');
+  assert.match(bar, /<BottomDock>\s*<BottomNav items=\{items\} \/>\s*<\/BottomDock>/, 'mounted inside the dock');
   assert.ok(!/aria-current/.test(bar), 'a hardcoded current page was true on one route and a lie on every other');
   assert.ok(
     !existsSync(join(WEB, 'app/dashboard/(launcher)/_components/home-pill-nav.tsx')),

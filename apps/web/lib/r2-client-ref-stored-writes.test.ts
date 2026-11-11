@@ -166,7 +166,7 @@ import { privateBucketRootIsAllowed } from './r2-client-ref';
  * Adding a row here is not optional when a new private uploader is written.
  */
 const REAL_PRIVATE_CALL_SITES: ReadonlyArray<[string, string, string]> = [
-  ['setnayan-thread-files', 'events/EVT/disputes/incoming', 'disputes/page.tsx'],
+  ['setnayan-thread-files', 'events/EVT/disputes/incoming', 'disputes/_components/dispute-parts.tsx'],
   ['setnayan-thread-files', 'payments/ORDER', 'orders/[orderId]/page.tsx'],
   ['setnayan-thread-files', 'payments/ORDER', 'vendor booking-fees/[orderId]'],
   ['setnayan-thread-files', 'payment-screenshots/inline-checkout/EVT', 'inline-checkout-drawer'],

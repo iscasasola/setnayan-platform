@@ -72,7 +72,11 @@ export function PinnedRow({
   picker: PinnedPicker;
   doors: readonly PinnedDoor[];
   note?: string | null;
-  action: PinnedAction;
+  /**
+   * The page's ONE action. Left out only where the page has no verb — Home › Memories (v3 row 7: "the seat stays empty
+   * rather than inventing a verb"); the row then ends at the ⚙.
+   */
+  action?: PinnedAction | null;
   /** The menu's `<MenuSettingsButton>` — mounted by the caller. */
   gear: ReactNode;
   /** 🔦 A spotlight anchor on the doors (`data-tour`). */
@@ -159,23 +163,25 @@ export function PinnedRow({
         )}
       </span>
       <span className={pr.pinSpace} aria-hidden />
-      <span className={pr.pinAct} data-pinned-action={action.mark} data-pinned-tight={tight ? '' : undefined}>
-        {action.href !== undefined ? (
-          <ActionButton tone="brand" main={!tight} filled={tight} iconOnly={tight} icon={action.icon} label={action.label} name={action.ariaLabel} href={action.href} />
-        ) : (
-          <ActionButton
-            tone="brand"
-            main={!tight}
-            filled={tight}
-            iconOnly={tight}
-            icon={action.icon}
-            label={action.label}
-            name={action.ariaLabel}
-            onClick={action.onTap}
-            aria-haspopup={action.dialog ? 'dialog' : undefined}
-          />
-        )}
-      </span>
+      {action ? (
+        <span className={pr.pinAct} data-pinned-action={action.mark} data-pinned-tight={tight ? '' : undefined}>
+          {action.href !== undefined ? (
+            <ActionButton tone="brand" main={!tight} filled={tight} iconOnly={tight} icon={action.icon} label={action.label} name={action.ariaLabel} href={action.href} />
+          ) : (
+            <ActionButton
+              tone="brand"
+              main={!tight}
+              filled={tight}
+              iconOnly={tight}
+              icon={action.icon}
+              label={action.label}
+              name={action.ariaLabel}
+              onClick={action.onTap}
+              aria-haspopup={action.dialog ? 'dialog' : undefined}
+            />
+          )}
+        </span>
+      ) : null}
       {gear}
     </div>
   );

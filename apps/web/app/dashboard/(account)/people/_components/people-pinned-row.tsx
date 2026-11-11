@@ -7,7 +7,7 @@ import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_compo
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { PinnedRow, type PinnedDoor } from '@/app/_components/pinned-row/pinned-row';
 import { SwitchRow } from '@/app/_components/form-row';
-import { PINNED_FACE_LABEL, peopleViewHref, type PeopleView, type PeopleViewGates, type PinnedFace } from '@/lib/people-views';
+import { PINNED_FACE_LABEL, pickedPeopleHref, type PeopleView, type PeopleViewGates, type PinnedFace } from '@/lib/people-views';
 import { saveInPlace } from '@/app/_actions/save-in-place';
 
 /**
@@ -69,7 +69,7 @@ export function PeoplePinnedRow({
         value: view,
         buttonText: PINNED_FACE_LABEL[face],
         options,
-        onPick: (k) => router.push(peopleViewHref(k as PeopleView, gates)),
+        onPick: (k) => router.push(pickedPeopleHref(k, gates)),
       }}
       doors={doors}
       note={note}

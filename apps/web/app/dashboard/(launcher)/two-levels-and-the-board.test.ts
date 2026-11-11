@@ -1060,7 +1060,8 @@ test('home has no greeting eyebrow and no tail hanging off the title', () => {
   // the read fails.
   assert.match(
     src,
-    /<h1 className="sr-only">\s*Your events\s*<\/h1>/,
+    // An h2 since 11 Nov 2026: Home's one h1 is the profile header's name (HOME PAGE v3 APPROVED); the board is a section.
+    /<h2 className="sr-only">\s*Your events\s*<\/h2>/,
     'The home title must still exist for a screen reader and must still claim ' +
       'nothing about how many events you have.',
   );

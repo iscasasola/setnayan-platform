@@ -135,7 +135,7 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
           body: `${vendorName} confirmed receiving your ₱${Number(
             pay.amount_php ?? 0,
           ).toLocaleString('en-PH')} payment.`,
-          relatedUrl: `/dashboard/${pay.event_id}/vendors/${pay.vendor_id}/workspace`,
+          relatedUrl: `/dashboard/${pay.event_id}/vendors/${pay.vendor_id}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -227,7 +227,7 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
           // on the conversation's Decisions line.
           relatedUrl:
             isDeposit || !threadId
-              ? `/dashboard/${pay.event_id}/vendors/${pay.vendor_id}/workspace`
+              ? `/dashboard/${pay.event_id}/vendors/${pay.vendor_id}/workspace?tab=payments`
               : `/dashboard/${pay.event_id}/messages/${threadId}?view=decisions`,
         });
       }
@@ -318,7 +318,7 @@ export async function clearVendorPaymentPlan(formData: FormData): Promise<void> 
           type: 'payment_cleared',
           title: `${vendorName} marked your payments cleared`,
           body: `${vendorName} confirmed your payment plan is fully settled. Nothing more is owed.`,
-          relatedUrl: `/dashboard/${ev.event_id}/vendors/${ev.vendor_id}/workspace`,
+          relatedUrl: `/dashboard/${ev.event_id}/vendors/${ev.vendor_id}/workspace?tab=payments`,
         });
       }
     } catch (e) {
@@ -473,7 +473,7 @@ async function tellTheCoupleOfARefund(
         type: 'client_refund_recorded',
         title: `${vendorName} recorded a refund to you`,
         body: `${formatPhp(amountPhp)} given back on ${refundDayWords(refundedOn)}: ${reason}`,
-        relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
+        relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace?tab=payments`,
       });
     }
   } catch (e) {

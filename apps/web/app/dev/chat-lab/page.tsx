@@ -23,6 +23,9 @@ import {
 } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-menu';
 import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picked-chat';
 import { CoupleChatsEmpty } from '@/app/dashboard/[eventId]/messages/_components/couple-chats-empty';
+import { PickedSupplierEmpty } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-empty';
+import { ReportSupplierPage } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/report-supplier-page';
+import { PickedSupplierWho } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-who';
 
 /** The picked supplier's pages in the lab. Details stands in for the workspace's own sections (hero · included · notes),
  * which are drawn inline by the server page and need a real event_vendors row. */
@@ -37,6 +40,21 @@ function labPickedSupplierBodies(threadId: string, name: string, mode: LabChatMo
       <p className="text-sm text-ink">Quote sent · prep + reception + same-day edit</p>
     </section>
   );
+  // 🫙 The empty Quotation / Forms (no quote and no form sent in the lab) and the Report page — the REAL components the
+  // workspace draws (owner 11 Nov 2026: those two tabs rendered blank; "there is also no report").
+  bodies.quote = <div data-picked-supplier-page="quote"><PickedSupplierEmpty page="quote" line={`No quote from ${name} yet. A quote is sent inside your conversation.`} ask="Ask in the chat" /></div>;
+  bodies.forms = <div className="space-y-6" data-picked-supplier-page="forms"><PickedSupplierEmpty page="forms" line={`${name} hasn’t sent you a form yet. Their questions land here when they do.`} ask="Ask in the chat" /></div>;
+  bodies.report = <ReportSupplierPage eventId={LAB_EVENT} eventVendorId={`lab-${threadId.slice(-2)}`} supplierName={name} />;
+  // 👥 Who can do what tops every page but Chat — the REAL strip the workspace draws.
+  for (const id of PICKED_SUPPLIER_PAGE_IDS) {
+    if (id === 'chat') continue;
+    bodies[id] = (
+      <div className="space-y-4">
+        <PickedSupplierWho page={id} supplierName={name} />
+        {bodies[id]}
+      </div>
+    );
+  }
   bodies.chat = <LabPickedChat threadId={threadId} side="couple" counterpartyLabel={name} actions={{ send: labSend, add: labAdd, leave: labLeave }} {...mode} />;
   return bodies;
 }

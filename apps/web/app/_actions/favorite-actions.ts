@@ -62,7 +62,7 @@ export async function favoriteAction(input: FavoriteInput, _form?: FormData): Pr
     if (!verdict.ok) return { ok: false, why: verdict.why, error: favoriteRefusalWords(verdict.why) };
     const wrote = await writeFavorite(admin, { userId: user.id, eventId, shopId, serviceId });
     if (!wrote.ok) return { ok: false, why: 'failed', error: 'That did not save. Nothing changed.' };
-    revalidatePath('/dashboard/library');
+    revalidatePath('/dashboard');
     return { ok: true };
   }
 

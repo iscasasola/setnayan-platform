@@ -44,7 +44,7 @@ const CASES: ReadonlyArray<[string, { src: string | null; eventId: string | null
   ['Discover shelf', { src: 'discover', eventId: null }, '/', true],
   ['Discover search', { src: 'search', eventId: null }, '/', true],
   ['the marketplace', { src: 'explore', eventId: null }, '/explore', true],
-  ['a saved supplier', { src: 'favorites', eventId: null }, '/dashboard/library?tab=vendors', true],
+  ['a saved supplier', { src: 'favorites', eventId: null }, '/dashboard?seg=memories&tab=vendors', true],
   ["an event's Suppliers", { src: null, eventId: EVENT }, `/dashboard/${EVENT}/vendors`, true],
   ['the marketplace, then an event picked', { src: 'explore', eventId: EVENT }, '/explore', true],
   ['Discover, then an event picked', { src: 'discover', eventId: EVENT }, '/', true],

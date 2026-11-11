@@ -172,6 +172,6 @@ test('the routes and the page are hosts-only, re-read the plan, and refuse a par
   assert.match(server, /chapterRead\.withheld\.has\(r\.id\)/, 'a withheld photo would reach a zip');
   assert.match(readFileSync(join(HERE, 'daily-email-jobs.ts'), 'utf8'), /runClaimedJob\('download-all-zip-sweep'/);
   assert.match(readFileSync(join(HERE, 'periodic-job-registry.ts'), 'utf8'), /key: 'download-all-zip-sweep'/);
-  const library = readFileSync(join(HERE, '../app/dashboard/(account)/library/page.tsx'), 'utf8');
+  const library = readFileSync(join(HERE, '../app/dashboard/(account)/library/_components/memories-segment.tsx'), 'utf8');
   assert.match(library, /\/memories\/download-all/, 'Library’s Download all no longer opens the parts page');
 });

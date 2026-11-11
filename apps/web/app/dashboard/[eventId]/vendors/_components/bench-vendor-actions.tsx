@@ -376,7 +376,7 @@ export function BenchVendorActions({
             main={v.main}
             icon={v.key === 'set_price' ? Pencil : FolderOpen}
             label={v.label}
-            href={workspaceHref}
+            href={v.key === 'set_price' ? `${workspaceHref}?tab=payments` : workspaceHref}
             prefetch={false}
           />
         );

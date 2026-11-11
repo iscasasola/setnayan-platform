@@ -102,15 +102,17 @@ test('each URL lights the row a person would point at', () => {
     ['/features', 'features'],
     ['/features/papic', 'features'],
     ['/dashboard', 'events'],
-    ['/dashboard/library', 'alaala'],
+    ['/dashboard/library', 'events:library'],
+    ['/dashboard/people/S89D-ABCDEFGHJK', 'events:people'],
     // 🔁 `/dashboard/creator` LIGHTS NOTHING SINCE 2026-08-21. The owner retired
     // the "Your Story" rail row (*"we already have your story on untold"*), and
     // the rule the case above states is the one that applies: a page the rail
     // does not list lights NOTHING, never a fallback. The DESK is still
     // reachable — the board's Untold and Told shelves carry both doors.
     ['/dashboard/creator', null],
-    ['/vendor-dashboard', 'shop'],
-    ['/vendor-dashboard/services', 'shop'],
+    // 🏠 No shop row since 11 Nov 2026 — the shop is a section of Home; its console lights nothing in this rail.
+    ['/vendor-dashboard', null],
+    ['/vendor-dashboard/services', null],
     ['/admin', 'hq'],
     ['/admin/verify', 'hq'],
   ];
@@ -127,7 +129,8 @@ test('the deeper row wins — /dashboard never steals its own spokes', () => {
     your settings lights "your events" — telling a person they are looking at
     their events while they read their own profile.
   */
-  assert.equal(activeRailKey(ROWS, '/dashboard/library'), 'alaala');
+  // 🏠 11 Nov 2026: Memories is a section of Home; its old address (a forward) lights Home, never two rows.
+  assert.equal(activeRailKey(ROWS, '/dashboard/library'), 'events:library');
   assert.equal(
     activeRailKey(ROWS, '/dashboard/creator'),
     null,
@@ -137,8 +140,8 @@ test('the deeper row wins — /dashboard never steals its own spokes', () => {
   );
   assert.equal(
     activeRailKey(ROWS, '/dashboard/library/photos'),
-    'alaala',
-    'a sub-route of Alaala must stay on Alaala',
+    'events:library',
+    'a sub-route of Memories must light Home, where Memories lives',
   );
 });
 
@@ -238,11 +241,12 @@ test('the active row is decided by the resolver, not by a constant', () => {
     'the shell no longer calls activeRailKey — the rail cannot know where it is',
   );
   assert.ok(
-    /const rowProps = \(key: string\) => \(\{[\s\S]{0,220}activeKey === key/.test(SHELL),
+    // `railRowLit(activeKey, key)` since 11 Nov 2026: a row's own key, or a page that belongs to it (`events:people`).
+    /const rowProps = \(key: string\) => \(\{[\s\S]{0,220}railRowLit\(activeKey, key\)/.test(SHELL),
     "rowProps must derive data-on from the resolver's answer, not from a fixed value",
   );
   assert.ok(
-    /'aria-current': activeKey === key/.test(SHELL),
+    /'aria-current': railRowLit\(activeKey, key\)/.test(SHELL),
     'the accessible half is missing — a rail that only LOOKS right is half right',
   );
 });
@@ -251,8 +255,8 @@ test('every rail row that can be a page is declared to the resolver', () => {
   // A row rendered but never declared can never light: silent, and it looks
   // exactly like a rail that simply does not highlight that page.
   const declared = new Set(ROWS.map((r) => r.href));
-  for (const href of ['/', '/features', '/dashboard', '/dashboard/library',
-    '/vendor-dashboard', '/admin']) {
+  // 🏠 No shop row since 11 Nov 2026 (the shop is a section of Home); /dashboard/library is a page under Home.
+  for (const href of ['/', '/features', '/dashboard', '/dashboard/library', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
   // Signed out the rail renders Discover · Find suppliers · Features (owner 2026-10-01).

@@ -312,7 +312,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.account.library",
     scope: "customer",
     area: "customer-account",
-    route: "/dashboard/library",
+    // 🏠 A section of Home since 11 Nov 2026 ("HOME IS THE PROFILE"); `/dashboard/library` forwards here.
+    route: "/dashboard?seg=memories",
     // Alaala is the single MEMORY dimension; "Memories Hub" was its old name
     // (owner 2026-07-31). The slot KEY stays `customer.account.library` and the
     // ROUTE stays /dashboard/library — admin overrides key off the slot and
@@ -338,7 +339,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "customer.account.people",
     scope: "customer",
     area: "customer-account",
-    route: "/dashboard/people",
+    // 🏠 A section of Home since 11 Nov 2026 ("HOME IS THE PROFILE"); `/dashboard/people` forwards here.
+    route: "/dashboard?seg=people",
     label: "People",
     labelKind: "literal",
     iconKind: "lucide",

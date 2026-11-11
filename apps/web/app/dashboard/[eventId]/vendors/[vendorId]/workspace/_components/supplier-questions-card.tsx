@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MessageCircleQuestion } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -37,12 +38,22 @@ export async function SupplierQuestionsCard({
   eventVendorId,
   vendorProfileId,
   shopName,
+  whenEmpty = null,
+  children = null,
 }: {
   supabase: SupabaseClient;
   eventId: string;
   eventVendorId: string;
   vendorProfileId: string;
   shopName: string;
+  /**
+   * 🫙 The picked supplier's Forms page (owner 11 Nov 2026: the tab "renders BLANK"): what is drawn when this card has
+   * nothing to ask — the page hands the forms card here, holding the page's one empty line, so the line shows only
+   * when there are neither questions NOR forms. The flag-off long page hands none (nothing, as before).
+   */
+  whenEmpty?: ReactNode;
+  /** What follows the questions when there ARE questions (the forms card, without the empty line). */
+  children?: ReactNode;
 }) {
   const [qRes, aRes, askRes] = await Promise.all([
     supabase
@@ -65,29 +76,37 @@ export async function SupplierQuestionsCard({
   const error = qRes.error ?? aRes.error ?? askRes.error;
   if (error) {
     logQueryError('SupplierQuestionsCard.read', error, { event_id: eventId }, 'graceful_degrade');
-    return <SupplierQuestionsUnread shopName={shopName} />;
+    return (
+      <>
+        <SupplierQuestionsUnread shopName={shopName} />
+        {children}
+      </>
+    );
   }
 
   const questionnaire = buildQuestionnaire(
     (qRes.data ?? []) as VendorQuestion[],
     (aRes.data ?? []) as QuestionAnswer[],
   );
-  if (questionnaire.rows.length === 0) return null;
+  if (questionnaire.rows.length === 0) return whenEmpty;
 
   const asked = Boolean(askRes.data);
   if (!asked) {
     const standings = await readCoupleBookingStandings(createAdminClient(), [eventVendorId]);
-    if (standings.get(eventVendorId)?.standing !== 'booked') return null;
+    if (standings.get(eventVendorId)?.standing !== 'booked') return whenEmpty;
   }
 
   return (
-    <SupplierQuestionsBody
-      eventId={eventId}
-      eventVendorId={eventVendorId}
-      vendorProfileId={vendorProfileId}
-      shopName={shopName}
-      questionnaire={questionnaire}
-    />
+    <>
+      <SupplierQuestionsBody
+        eventId={eventId}
+        eventVendorId={eventVendorId}
+        vendorProfileId={vendorProfileId}
+        shopName={shopName}
+        questionnaire={questionnaire}
+      />
+      {children}
+    </>
   );
 }
 

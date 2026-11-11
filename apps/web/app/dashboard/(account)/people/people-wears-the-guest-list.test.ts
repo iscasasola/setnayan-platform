@@ -29,7 +29,7 @@ const ROW = code('../_components/account-thumb-row.tsx');
 const FIND = code('_components/find-or-invite.tsx');
 const THUMB = code('_components/people-thumb.tsx');
 const FOLLOW = code('_components/follow-list-view.tsx');
-const PAGE = code('page.tsx');
+const PAGE = code('_components/people-segment.tsx');
 const PS_CSS = readFileSync(join(HERE, '_components/people-screen.module.css'), 'utf8');
 
 /** The body of one function in a file, from its declaration to the next top-level `function `. */

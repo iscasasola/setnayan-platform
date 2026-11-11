@@ -88,7 +88,7 @@ test('4 · with a (+) the camera and photo live inside it; every picked chat lab
   assert.equal((SEND.match(/className=\{lead \? 'sr-only' : SHORTCUT\}/g) ?? []).length, 2, 'a 📷 / 🖼 shortcut is drawn beside the (+)');
   assert.match(SEND, /id=\{CHAT_CAMERA_INPUT_ID\}/);
   assert.match(SEND, /id=\{CHAT_PHOTO_INPUT_ID\}/);
-  // 11 Nov: the Camera (and the host's Photo) are rows of the (+) list itself (`lib/chat-plus.ts`, under Files — the
+  // 11 Nov: the Camera is a row of the (+) list itself (`lib/chat-plus.ts`, under Files — the
   // sheet mirrors the menu), carried to the sheet as `attach`; the labs' plain sheet keeps the two shortcut rows.
   assert.match(SHEET, /key: 'camera'[^}]*attach: 'camera'/);
   assert.match(SHEET, /key: 'photo'[^}]*attach: 'photo'/);
@@ -96,7 +96,9 @@ test('4 · with a (+) the camera and photo live inside it; every picked chat lab
   assert.match(SHEET, /attach: r\.attach \?\? d\?\.attach,/, 'a (+) row’s own composer input no longer reaches the sheet');
   assert.ok(supplierPlusRows({ paid: false }).some((r) => r.key === 'camera' && r.attach === 'camera'), 'the supplier’s (+) lost Camera');
   assert.ok(hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'camera' && r.attach === 'camera'), 'the host’s (+) lost Camera');
-  assert.ok(hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'photo' && r.attach === 'photo'), 'the host’s (+) lost Photo');
+  // The host's Photo row merged into File (11 Nov, the dupe — `lib/chat-plus.test.ts` 1b); the labs' plain sheet keeps
+  // its Photo shortcut row (asserted above).
+  assert.ok(!hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'photo'), 'the host’s (+) has a second phone picker again');
   assert.match(SHEET, /getElementById\(ATTACH_INPUT\[row\.attach === true \? 'file' : row\.attach\]\)\?\.click\(\)/);
   assert.match(SHEET, /export function ComposerPlusSheet\(\{ more = \[\]/, 'Lane B’s slot for the supplier’s (+) rows is gone');
   assert.match(LAB, /<ChatSendForm\b[\s\S]*?lead=\{side === 'couple' \? <CoupleThreadToolsSheet\b[^>]*\/> : <ComposerPlusSheet\b/, 'a picked chat lab has no (+)');

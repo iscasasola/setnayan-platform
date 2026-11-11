@@ -27,6 +27,7 @@
  *   — Supplier Build 3 · lane B —
  *   &pins=1      two automatic pins (a payment due tomorrow, a guest-count change) + one waiting on the couple
  *   &run=meeting a (+) Meeting card open at the foot: the Running-topic pin, the (+) shut   &shut=1 the tap's toast
+ *   &decide=1    an open decision pin — tap it: the opened decision (11 Nov · chat decisions & polls)
  *   &blocker=1   (with m=ask) the booking ask's full-screen blocker   &shown=1|2|3 (5/30/60 s)   &left=N a fixed second
  *
  * The forms post the REAL actions; pressing them here needs a supplier's session (the lab draws, it does not book).
@@ -75,6 +76,7 @@ import { LabPickedChat, type LabChatMode } from '@/app/dev/_components/lab-picke
 import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
+import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
 function labChatsRead(state: string): SupplierChatsRead {
@@ -263,6 +265,11 @@ export default async function SupplierChatLabPage({
           { key: 'confirm_payment:lab', kind: 'confirm_payment', title: 'Your receipt for ₱11,250', answerer: 'them', themName: 'Ana & Miguel', sinceMs: Date.now() - 3 * DAY_MS },
         ]
       : [];
+  // 🗳 &decide=1 — an open decision pin (11 Nov): tap it and it opens (filed messages · Edit topic · Close · settled).
+  // The lab has no database, so the filed list says it could not load — the refusal state, drawn honestly.
+  if (sp.decide === '1') {
+    labPins.push({ key: 'decision:00000000-0000-4000-8000-00000000d001', kind: 'decision', title: 'Drone shot at sunset', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS });
+  }
   if (sp.blocker === '1' && askOpen) {
     labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
   }
@@ -447,6 +454,7 @@ export default async function SupplierChatLabPage({
             // A lab has no booked deal. Kept FIRST: the handshake guard reads the tag only up to the first "/>".
             lockHandshake={null}
             extraPins={labPins}
+            pinBodies={decisionPinBodies(labPins)}
             blocker={labBlocker}
             plus={{ eventId: LAB_EVENT, returnPath: '/dev/supplier-chat-lab' }}
             {...(sp.hosts === '1'

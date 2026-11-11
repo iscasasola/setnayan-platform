@@ -2334,7 +2334,7 @@ export function ChatMessageStream({
                   messageId={m.message_id}
                   body={m.body ?? null}
                   filing={filings?.byMessage.get(m.message_id) ?? null}
-                  topics={filingsRefused ? null : (filings?.topics ?? [])}
+                  topics={filingsRefused ? null : filings ? filings.topics : undefined}
                   alignEnd={mine}
                   onClose={() => setFilePick(null)}
                   onDone={(done: FilingDone) => {

@@ -45,8 +45,8 @@ export function FileToDecisionMenu({
   messageId: string;
   body: string | null;
   filing: Filing | null;
-  /** null = the open decisions could not be read (never drawn as "none"). */
-  topics: readonly OpenDecisionTopic[] | null;
+  /** null = the open decisions could not be read; undefined = still reading (neither is drawn as "none"). */
+  topics: readonly OpenDecisionTopic[] | null | undefined;
   alignEnd: boolean;
   onClose: () => void;
   onDone: (done: FilingDone) => void;
@@ -124,6 +124,8 @@ export function FileToDecisionMenu({
       </div>
       {topics === null ? (
         <p className="px-2.5 py-2 text-[13px] text-ink/60">Couldn’t load the decisions. Try again.</p>
+      ) : topics === undefined ? (
+        <p className="px-2.5 py-2 text-[13px] text-ink/60">Loading the open decisions…</p>
       ) : null}
       <ul className="grid">
         {filing

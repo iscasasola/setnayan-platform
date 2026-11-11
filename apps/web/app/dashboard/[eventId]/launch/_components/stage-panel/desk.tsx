@@ -121,10 +121,11 @@ export function useDeskRowsTop(desk: boolean, rows: RefObject<HTMLElement | null
   }, [desk, rows]);
 }
 
-/** Where a part comes from, as the parts column says it under its name (the approved frame: Studio · Suppliers). */
+/** Where a part comes from, as the parts column says it under its name (the approved frame: Suppliers · Guests). A
+ *  part whose page Studio held says nothing: Studio is gone (2026-11-10) — its editor is the scene's own. */
 function partSourceWord(key: MakerPartKey): string | null {
   const src = makerPartSource(key);
-  return src.kind === 'studio' ? 'Studio' : src.kind === 'supplier' ? 'Suppliers' : src.kind === 'guests' ? 'Guests' : null;
+  return src.kind === 'supplier' ? 'Suppliers' : src.kind === 'guests' ? 'Guests' : null;
 }
 
 const STEP =

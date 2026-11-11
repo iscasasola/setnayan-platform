@@ -102,11 +102,11 @@ test('(3) a tap on a tool with nothing to set answers with ONE plain line — St
          where its content is changed: the Logo is Studio's AND a line of the cover. */
       const coverLine = Boolean(k) && t === 'bg' && MAKER_PARTS[k!].canvas === 'f:hero' && Boolean(MAKER_PARTS[k!].el);
       if (coverLine) assert.equal(line, 'This sits on the Cover Scene.', `${k}: a line of the cover does not say whose background it is`);
-      else if (k && makerPartSource(k).kind === 'studio') assert.equal(line, 'Nothing to change here — edit it in Studio.', `${k}: its content is Studio’s and the line does not say so`);
+      else if (k && makerPartSource(k).kind === 'studio') assert.equal(line, 'Nothing to change here — tap the scene to open its editor.', `${k}: its content is Studio’s and the line does not say so`);
     }
   }
-  assert.equal(makerPartToolWhy('gifts', 'animate'), 'Nothing to change here — edit it in Studio.');
-  assert.equal(makerPartToolWhy('gifts', 'bg'), 'Nothing to change here — edit it in Studio.');
+  assert.equal(makerPartToolWhy('gifts', 'animate'), 'Nothing to change here — tap the scene to open its editor.');
+  assert.equal(makerPartToolWhy('gifts', 'bg'), 'Nothing to change here — tap the scene to open its editor.');
   assert.equal(makerPartToolWhy('reveal', 'bg'), 'Background has nothing to change on this part.');
   assert.equal(makerPartToolWhy('reveal', 'animate'), 'Animate has nothing to change on this part.');
   assert.equal(makerPartToolWhy('pass', 'animate'), 'Animate has nothing to change on this part.');

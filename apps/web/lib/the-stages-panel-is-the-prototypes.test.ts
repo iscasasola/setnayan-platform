@@ -89,7 +89,7 @@ test('with the flag the guided flow has no plan — the stage picker cannot draw
   assert.match(src, /plan && at\?\.kind === 'stages' \? <StagePicker/, 'the picker draws only from a plan');
 });
 
-test('every door into Event Details lands on Studio’s home, never over the Stages page', () => {
+test('every door into Event Details lands on its editor or on the stage — never over the Stages page, never a Studio home', () => {
   const src = read(`${LAUNCH}/maker-shell.tsx`);
   const at = src.indexOf("if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side sends a Details selection away');
@@ -97,14 +97,16 @@ test('every door into Event Details lands on Studio’s home, never over the Sta
      and the page reloaded itself; this rule then treated the page's OWN reload as a door and dropped him on the
      tiles. The rule is KEPT for every real door, and its landing is now one executed function
      (`makerDoorLanding`, `lib/maker-resume.ts` — `a-reload-returns-to-the-same-place.test.ts` runs every case):
-     a cold door (`back` null) still lands on Studio's home with the selection dropped. */
-  const body = src.slice(at, at + 1400);
+     a cold door (`back` null) lands on the editor its item names, or on the stage — 🔁 2026-11-11 (Build 6 Lane F): there
+     is no Studio home any more. */
+  const body = src.slice(at, at + 2600);
   assert.match(body, /const land = makerDoorLanding\(back, /);
   assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);/);
   assert.match(body, /setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
   assert.match(body, /if \(!land\.keep\) select\(null\);/);
   const { makerDoorLanding } = require('./maker-resume') as typeof import('./maker-resume');
-  assert.deepEqual(makerDoorLanding(null, ['look', 'info']), { side: 'studio', at: 'home', keep: false }, 'a cold door: Studio’s home, the selection dropped');
+  assert.deepEqual(makerDoorLanding(null, ['look', 'info']), { side: 'stages', at: 'home', keep: false }, 'a cold door: the stage, the selection dropped');
+  assert.deepEqual(makerDoorLanding(null, ['look', 'info'], 'info'), { side: 'studio', at: 'info', keep: true }, 'a cold door naming Info: its editor');
 });
 
 /* ── 3 · Style › Look's layouts are real miniatures ──────────────────────── */
@@ -234,13 +236,13 @@ test('every part with a Studio bar has a door; every focused field exists in the
     assert.ok(hits.length > 0, `${part}: no editor draws data-same-field="${field}"`);
   }
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
-  /* ⚡ MOVED 08 Oct, not changed: the button and its two effects live in the lazy chunk (`StudioBackToPart`) — the
-     Maker's first load was 0.4 KB over its budget on #6413, and this exists only after a Style-bar jump. */
-  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /Done · back to \{from\.label\}/, 'the way back names the part');
-  assert.match(shell, /\{studioFrom \? <StudioBackToPart from=\{studioFrom\} side=\{side\} at=\{studioAt\} full=\{studioFull\} onBack=\{backToPart\} \/> : null\}/, 'the shell mounts it for a jump');
-  assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const StudioBackToPart = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
-  /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). After a jump the way back to the part
-     is THIS button alone; the bar has no ‹ — its left control is ✕ Exit everywhere, and "Stages ▾" lists the stages. */
+  /* ⚡ The focusing lives in the lazy chunk (`EditorFieldFocus`) — the Maker's first load was 0.4 KB over its budget on
+     #6413. 🔁 2026-11-11 (Build 6 Lane F): the way back is the bar's ✕, which names the part it closes. */
+  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /aria-label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
+  assert.match(shell, /\{studioFrom && studioOn \? <EditorFieldFocus focus=\{studioFrom\.focus\} at=\{studioAt\} \/> : null\}/, 'the shell mounts it for a jump');
+  assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const EditorFieldFocus = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
+  /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). The way back to the part is the bar's ✕;
+     the bar has no ‹. */
   assert.doesNotMatch(shell, /StudioBack\b(?!ToPart)|Back to Studio/, 'a ‹ is back in the bar');
   assert.doesNotMatch(shell, /onDone=/, 'a top Done is back');
 });

@@ -15,12 +15,22 @@
  *     the owner's, a team member's or the auto-reply's, stays on the right; each team member's run already carries
  *     their name on the host side (`readThreadReceipts`).
  *
+ *   · 💬 A GROUP LINE (owner 12 Nov, event group chats — a line with NO supplier, `vendor_profile_id` null): mine = BY
+ *     YOU, whatever your side. A group holds several suppliers, guests and the coordinator, so a side never says who
+ *     wrote it (Rosa's words are not Jake's). Supplier lines keep the two rules above, untouched.
+ *
  * Pure, so the stream and its guard read one rule.
  */
 
-export type OwnerRow = { sender_role: string; sender_user_id?: string | null };
+export type OwnerRow = { sender_role: string; sender_user_id?: string | null; vendor_profile_id?: string | null };
+
+/** A line in an event GROUP chat — it names no supplier (`chat_threads.kind = 'group'`, migration 20271340374819). */
+function isGroupLine(m: OwnerRow): boolean {
+  return m.vendor_profile_id === null && m.sender_role !== 'system';
+}
 
 export function ownsBubble(m: OwnerRow, viewerRole: 'couple' | 'vendor', viewerUserId: string): boolean {
+  if (isGroupLine(m)) return m.sender_user_id === viewerUserId;
   if (m.sender_role !== viewerRole) return false;
   if (viewerRole !== 'couple') return true;
   const sender = m.sender_user_id ?? null;
@@ -32,5 +42,7 @@ export function ownsBubble(m: OwnerRow, viewerRole: 'couple' | 'vendor', viewerU
  * the supplier's, and for every bubble on the supplier's side.
  */
 export function isCoHostMessage(m: OwnerRow, viewerRole: 'couple' | 'vendor', viewerUserId: string): boolean {
+  // 💬 In a group, every other person's run carries their name (the page hands every member's name in).
+  if (isGroupLine(m)) return m.sender_role !== 'system' && !ownsBubble(m, viewerRole, viewerUserId);
   return viewerRole === 'couple' && m.sender_role === 'couple' && !ownsBubble(m, viewerRole, viewerUserId);
 }

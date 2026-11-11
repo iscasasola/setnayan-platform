@@ -57,6 +57,7 @@ export function ChatHostStrip({
   calls = null,
   note = null,
   shopLabel = null,
+  word = 'Shared chat',
 }: {
   /** NULL = the hosts read was refused: said as such, never as an empty chat. */
   hosts: readonly ChatHost[] | null;
@@ -86,6 +87,8 @@ export function ChatHostStrip({
    * first and "You" as the host (owner, 11 Nov — `stripOrder`). Ignored when the viewer is not a host here.
    */
   shopLabel?: string | null;
+  /** 💬 "Shared chat" (a supplier chat) · "Group chat" (an event group, 12 Nov drawing). */
+  word?: string;
 }) {
   const [leaving, setLeaving] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -136,7 +139,7 @@ export function ChatHostStrip({
       <div className="flex items-start gap-2">
       <ul
         className="-mx-1 flex min-w-0 flex-1 snap-x snap-mandatory scroll-px-1 gap-1.5 overflow-x-auto p-1 [scrollbar-width:none]"
-        aria-label={`Shared chat · ${people.length} inside`}
+        aria-label={`${word} · ${people.length} inside`}
       >
         {people.map((p) => {
           const here = presentIds.has(p.id);
@@ -223,11 +226,11 @@ export function ChatHostStrip({
       </div>
       <p className="text-[11px] text-ink/55">
         {note ? (
-          <InfoTip label={`Shared chat · ${people.length} inside${inNow > 0 ? ` · ${inNow} in the chat now` : ''}`} align="start">
+          <InfoTip label={`${word} · ${people.length} inside${inNow > 0 ? ` · ${inNow} in the chat now` : ''}`} align="start">
             {note}
           </InfoTip>
         ) : (
-          <>Shared chat · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}</>
+          <>{word} · {people.length} inside{inNow > 0 ? ` · ${inNow} in the chat now` : ''}</>
         )}
       </p>
       {leave ? (

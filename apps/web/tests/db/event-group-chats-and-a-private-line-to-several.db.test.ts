@@ -329,6 +329,22 @@ test('a group row never reaches a table read; the list function answers members 
   assert.deepEqual(none.chat_group_members, [], 'a stranger is told nobody');
 });
 
+test('the event\'s people (for "+ New group" and the ＋) are told to hosts and the coordinator only', async () => {
+  const w = await newWorld();
+  const people = async (uid: string) =>
+    as(uid, async () => (await db.query<{ p: Array<{ user_id: string; kind: string }> }>(`SELECT public.chat_group_people($1) AS p`, [w.eventId])).rows[0]!.p);
+  const forHost = await people(w.hostA);
+  const kinds = new Map(forHost.map((x) => [x.user_id, x.kind]));
+  assert.equal(kinds.get(w.supplier), 'supplier');
+  assert.equal(kinds.get(w.coordinator), 'coordinator');
+  assert.equal(kinds.get(w.declined), 'guest', 'a guest who declined can still be put in a made group');
+  assert.equal(kinds.get(w.hostB), 'host');
+  assert.ok(!kinds.has(w.stranger));
+  assert.ok((await people(w.coordinator)).length > 0);
+  assert.deepEqual(await people(w.attending), [], 'a guest is told nobody');
+  assert.deepEqual(await people(w.supplier), [], 'a supplier is told nobody');
+});
+
 // ── money never enters a group ──────────────────────────────────────────────
 
 test('a group line names no supplier and carries no money card', async () => {

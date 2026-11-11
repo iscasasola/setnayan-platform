@@ -149,6 +149,11 @@ CREATE POLICY chat_threads_groups_read_through_functions
   AS RESTRICTIVE FOR SELECT TO authenticated
   USING (kind = 'supplier');
 
+-- SELECT on chat_threads is granted per column since 20271333705710 (a new
+-- column is closed until granted): the new columns are readable — the rows of
+-- a group are not (the policy above).
+GRANT SELECT (kind, group_kind, group_name, group_key, group_roles) ON public.chat_threads TO authenticated;
+
 -- No browser write ever names a kind: the insert grant does not exist for
 -- these columns, and a group is opened only by the functions below.
 REVOKE INSERT (kind, group_kind, group_name, group_key, group_roles) ON public.chat_threads FROM authenticated, anon;
@@ -1123,7 +1128,8 @@ AS $$
          CASE WHEN g.is_in THEN NULL ELSE g.my_left_at END,
          CASE WHEN g.is_in THEN lm.body END,
          CASE WHEN g.is_in THEN lm.created_at END,
-         CASE WHEN g.is_in AND lm.sender_user_id IS NOT NULL THEN public.chat_member_first_name(lm.sender_user_id) END,
+         CASE WHEN g.is_in AND lm.sender_user_id IS NOT NULL
+              THEN CASE WHEN lm.sender_user_id = auth.uid() THEN 'You' ELSE public.chat_member_first_name(lm.sender_user_id) END END,
          CASE WHEN g.is_in THEN lm.recipient_user_ids IS NOT NULL END,
          g.is_in AND lm.sender_user_id IS NOT NULL AND lm.sender_user_id <> auth.uid()
            AND lm.created_at > COALESCE((SELECT r.last_read_at FROM public.chat_thread_reads r
@@ -1225,6 +1231,51 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION public.chat_group_members(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.chat_group_members(UUID) TO authenticated;
+
+-- The event's people a host or the coordinator may put in a group ("+ New
+-- group" and the strip's ＋): the hosts, the coordinators, the guests with an
+-- account, the owners and team of the event's suppliers. Hosts and
+-- coordinators of the event only; anyone else is told nobody.
+CREATE OR REPLACE FUNCTION public.chat_group_people(p_event_id UUID)
+RETURNS JSONB
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH ok AS (
+    SELECT 1 WHERE COALESCE(public.chat_group_person_kind(p_event_id, auth.uid()), '') IN ('host', 'coordinator')
+  ),
+  ids AS (
+    SELECT em.user_id FROM public.event_members em, ok
+     WHERE em.event_id = p_event_id AND em.member_type IN ('couple', 'coordinator', 'guest')
+    UNION
+    SELECT vp.user_id FROM public.chat_threads t
+      JOIN public.vendor_profiles vp ON vp.vendor_profile_id = t.vendor_profile_id, ok
+     WHERE t.event_id = p_event_id AND t.kind = 'supplier' AND vp.user_id IS NOT NULL
+    UNION
+    SELECT tm.user_id FROM public.chat_threads t
+      JOIN public.vendor_team_members tm ON tm.vendor_profile_id = t.vendor_profile_id, ok
+     WHERE t.event_id = p_event_id AND t.kind = 'supplier' AND tm.deactivated_at IS NULL
+  ),
+  people AS (
+    SELECT i.user_id, public.chat_group_person_kind(p_event_id, i.user_id) AS kind FROM ids i
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'user_id',    u.user_id,
+           'first_name', COALESCE(NULLIF(btrim(u.first_name), ''),
+                                  NULLIF(split_part(btrim(COALESCE(u.display_name, '')), ' ', 1), '')),
+           'name',       COALESCE(NULLIF(btrim(u.display_name), ''),
+                                  NULLIF(btrim(concat_ws(' ', u.first_name, u.last_name)), '')),
+           'kind',       p.kind
+         ) ORDER BY CASE p.kind WHEN 'host' THEN 0 WHEN 'coordinator' THEN 1 WHEN 'supplier' THEN 2 ELSE 3 END,
+                    u.first_name NULLS LAST, u.user_id), '[]'::jsonb)
+    FROM people p
+    JOIN public.users u ON u.user_id = p.user_id
+   WHERE p.kind IS NOT NULL;
+$$;
+REVOKE ALL ON FUNCTION public.chat_group_people(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_group_people(UUID) TO authenticated;
 
 -- The supplier-chat doors refuse a group (a supplier row in a made group must
 -- not leave through chat_thread_leave). The shipped bodies, one predicate each.

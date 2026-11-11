@@ -146,7 +146,7 @@ function PageLabel({ page, first }: { page: PickedClientPage; first: boolean }) 
   );
 }
 
-function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
   const [open, setOpen] = useState(false);
   const plus = usePlus(threadId ?? '');
   // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an

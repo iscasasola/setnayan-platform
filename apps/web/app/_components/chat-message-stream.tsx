@@ -215,6 +215,8 @@ type Props = {
   /** 👥 Your own face → "Leave this chat?" — a host only (never the supplier, coordinator or planner). Absent → no
    *  Leave. A host leaving (the optional note is stored for them only — never in the "left" line). Lane B's write. */
   memberLeave?: ((note: string | null) => Promise<void>) | null;
+  /** 💬 The strip's word — "Group chat" in an event group (owner-approved drawing, 12 Nov); absent → "Shared chat". */
+  stripWord?: string;
   /**
    * 📞 The page's `BookedCallButtons`. Inside a picked shell they go to its pinned head row with the 📎 (v8.3:
    * title · 📞 · 🎥 · 📎 · ⚙ · ✕ — `PickedHeadContext`); elsewhere they sit at the end of the host strip.
@@ -452,6 +454,7 @@ export function ChatMessageStream({
   shopLabel = null,
   memberAdd = null,
   memberLeave = null,
+  stripWord,
   headCalls = null,
   headNote = null,
   pins = null,
@@ -1581,7 +1584,7 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),

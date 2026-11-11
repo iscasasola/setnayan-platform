@@ -181,6 +181,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'auth',
   'blog',
   'budget',
+  'chat-groups',
   'claim',
   'cookies',
   'creators',

@@ -4,6 +4,7 @@ import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from './guests';
 import { eventRowOnce } from '@/lib/event-row-once';
+import { quoteFollowsGuestList, type FollowLine } from './quote-pax-follow';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -229,6 +230,9 @@ export async function resolveLivePax(
  */
 export { computeAddedPaxSurcharge } from './added-pax-surcharge';
 
+/** A confirmed booking (the SQL `vendor_requote_blocker` 'deal_locked' set) — the repricer leaves these to Piece 2. */
+const BOOKED_STATUSES: ReadonlySet<string> = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+
 export type PaxSurchargeProposal = {
   /** event_vendors.vendor_id (the booking row id) — Accept/Decline target. */
   eventVendorId: string;
@@ -283,7 +287,7 @@ export async function fetchVendorPaxProposals(
   const { data: rows } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, service_id, total_cost_php, pax_quote_base, pax_surcharge_php, cost_basis_pax',
+      'vendor_id, category, vendor_name, service_id, status, total_cost_php, pax_quote_base, pax_surcharge_php, cost_basis_pax',
     )
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
@@ -306,8 +310,22 @@ export async function fetchVendorPaxProposals(
     }
   }
 
+  // 👥💸 ONE PAX MECHANISM, NEVER TWO (Piece 1 · PR-2, migration 20271339826198). A not-yet-booked booking whose
+  // standing quote carries its own per-head rate is repriced by `quote_follow_guest_count` as the list grows; an
+  // added-guest surcharge on top would charge the same guests twice (the database refuses it too —
+  // `event_vendors_pax_follow_owns_the_count`). A refused read proposes NOTHING rather than a possible double charge.
+  const { data: standing, error: standingErr } = await supabase
+    .from('vendor_proposals')
+    .select('line_items')
+    .eq('event_id', eventId)
+    .eq('vendor_profile_id', vendorProfileId)
+    .in('status', ['sent', 'viewed', 'accepted']);
+  if (standingErr) return [];
+  const followed = (standing ?? []).some((p) => quoteFollowsGuestList(p.line_items as FollowLine[] | null));
+
   const proposals: PaxSurchargeProposal[] = [];
   for (const r of rows) {
+    if (followed && !BOOKED_STATUSES.has(String(r.status))) continue;
     // Only committed costs can be surcharged — nothing to adjust otherwise.
     if (r.total_cost_php == null) continue;
     const svc = r.service_id ? rateByService.get(r.service_id) : undefined;

@@ -53,6 +53,15 @@ export function guestCountFromLine(body: string | null | undefined): { from: num
   return m ? { from: Number(m[1]), to: Number(m[2]) } : null;
 }
 
+/**
+ * 👥💸 "Quote rose to 150 pax · +₱32,500" — the line `quote_follow_guest_count` posts when the guest list lifts a
+ * not-yet-booked quote (migration 20271339826198, SQL `quote_rise_words`; Piece 1 · PR-2). Exact words, never guessed:
+ * the count and the rise as the database wrote them (`deltaWords` is the ₱ figure as printed, never re-parsed into money).
+ */
+export function quoteRiseFromLine(body: string | null | undefined): { pax: number; deltaWords: string } | null {
+  const m = /^Quote rose to (\d{1,3}(?:,\d{3})*) pax · \+(₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)$/.exec((body ?? '').trim());
+  return m ? { pax: Number(m[1]!.replace(/,/g, '')), deltaWords: m[2]! } : null;
+}
 
 /**
  * 🗳 "Poll · <question>" — the line a posted poll rides (migration 20271338412990 writes it with the poll). Its close /
@@ -64,10 +73,11 @@ export function pollFromLine(body: string | null | undefined): { question: strin
 }
 
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'poll' | null {
+export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'poll' | null {
   if (bookRequestFromLine(body)) return 'book';
   if (pollFromLine(body)) return 'poll';
   if (changeAskFromLine(body)) return 'ask';
   if (guestCountFromLine(body)) return 'guests';
+  if (quoteRiseFromLine(body)) return 'rise';
   return null;
 }

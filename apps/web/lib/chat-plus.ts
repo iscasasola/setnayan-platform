@@ -15,7 +15,7 @@
  */
 import type { ChatTopic } from './topic-icons';
 
-export type PlusCardKind = 'quote' | 'payment' | 'meeting' | 'form' | 'photos' | 'decision' | 'logpay' | 'file';
+export type PlusCardKind = 'quote' | 'payment' | 'meeting' | 'form' | 'photos' | 'decision' | 'logpay' | 'file' | 'access';
 
 export type PlusRow = {
   key: PlusCardKind | 'report';
@@ -58,6 +58,16 @@ export function supplierPlusRows(opts: { paid: boolean }): PlusRow[] {
     },
     { key: 'photos', label: 'Photos & files', line: 'From your portfolio, or a file from your phone', card: 'photos', door: 'share-file' },
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
+    // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
+    {
+      key: 'access',
+      label: 'Ask for access',
+      line: 'Seat plan, schedule, guest list… · the host decides',
+      card: 'access',
+      door: null,
+      shutUntilAgreement: { reason: 'Opens once they book you' },
+    },
     { key: 'report', label: 'Report a problem', line: 'This couple or this booking', card: null, door: 'report-problem' },
   ];
 }
@@ -107,6 +117,7 @@ export const PLUS_CARD_TITLE: Record<PlusCardKind, string> = {
   decision: 'Decision',
   logpay: 'Log a payment',
   file: 'File',
+  access: 'Ask for access',
 };
 
 /** The topic each card wears — its icon is `TOPIC_ICON[topic]`, the same as its tab's. */
@@ -119,4 +130,5 @@ export const PLUS_CARD_TOPIC: Record<PlusCardKind, ChatTopic> = {
   decision: 'decision',
   logpay: 'payment',
   file: 'files',
+  access: 'access',
 };

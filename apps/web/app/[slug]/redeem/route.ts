@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
@@ -70,7 +71,7 @@ async function personalLinkDestination(
       admin
         .from('events')
         .select(
-          'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude',
+          `event_type, ${EVENT_CLOCK_COLUMNS}`,
         )
         .eq('event_id', eventId)
         .maybeSingle(),

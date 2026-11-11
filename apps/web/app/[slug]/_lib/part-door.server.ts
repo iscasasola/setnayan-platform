@@ -1,4 +1,5 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -56,7 +57,7 @@ export async function hiddenPartDoors(
   const facts = await guestRead('part door (event)', () =>
     admin
       .from('events')
-      .select('event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date')
+      .select(`${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle(),
   );

@@ -69,8 +69,8 @@ test('isDayOfOpen delegates — it does not restate the window', () => {
   const fn = body.slice(0, body.indexOf('\n}') + 2);
 
   assert.ok(
-    fn.includes('isEventDayActive'),
-    'isDayOfOpen must call the one definition in lib/day-of-mode.ts',
+    fn.includes('theDayIsOpenAt'),
+    'isDayOfOpen must call the one clock (lib/event-clock.ts), which asks lib/day-of-mode.ts',
   );
   assert.ok(
     !/24 \* 60 \* 60 \* 1000|dayMs|\* HOUR_MS/.test(fn),

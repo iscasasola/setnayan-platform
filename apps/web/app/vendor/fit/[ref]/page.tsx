@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -131,7 +132,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
   if (activeEvent) {
     const { data: ev } = await admin
       .from('events')
-      .select('event_date, venue_latitude, venue_longitude')
+      .select(`${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', activeEvent.event_id)
       .maybeSingle();
     const eventDate = (ev?.event_date as string | null) ?? null;

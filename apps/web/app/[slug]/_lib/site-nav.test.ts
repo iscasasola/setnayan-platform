@@ -114,9 +114,12 @@ test('nav · RULING: a private gallery is NOT DRAWN — announce features, hide 
   // The asymmetry with the locked camera is the point. A locked camera reveals
   // a FEATURE that is coming. A greyed gallery would reveal that PHOTOGRAPHS
   // EXIST AND ARE WITHHELD — the very thing the couple asked to keep private.
+  // ⏱ RULING 6 (one clock, 10 Nov 2026) narrows this for ONE reader: an invited guest whose host has Papic open gets
+  // Memories on The Day — their own shots and the photos they are in, never anybody's withheld ones (that case is
+  // pinned in `papic-on-camera-every-stage.test.ts`). With Papic closed the rule below is exactly as it was.
   for (const kind of ['public', 'guest'] as const)
     for (const phase of ['day', 'after'] as const) {
-      const s = at({ viewer: { kind }, phase, anyChapterPublic: false });
+      const s = at({ viewer: { kind }, phase, anyChapterPublic: false, hostAllowsCamera: false });
       assert.ok(
         !keys(s).includes('gallery'),
         `${kind}/${phase} still shows a Gallery slot with nothing public — a dimmed gallery ` +
@@ -300,10 +303,13 @@ test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots"
       `${viewer.kind}: early shooting changed this bar — it is an invited guest's own shots only`,
     );
   }
-  // …and it never reaches the day's or the recap's rules: those keep "public chapter or nothing".
+  // …and it never reaches the day's or the recap's rules: those keep "public chapter or nothing" — with Papic closed.
+  // (With Papic open, ruling 6 of the one clock opens a guest's Memories on The Day; pinned in
+  // `papic-on-camera-every-stage.test.ts`.)
   for (const phase of ['day', 'after'] as const) {
-    assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase, anyChapterPublic: false, earlyOwnShots: true })).includes('gallery'));
+    assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase, anyChapterPublic: false, earlyOwnShots: true, hostAllowsCamera: false })).includes('gallery'));
   }
+  assert.ok(!keys(at({ viewer: { kind: 'guest' }, phase: 'after', anyChapterPublic: false, earlyOwnShots: true })).includes('gallery'));
   // Six is this rule's alone — and Me is never pushed off the end.
   const open = at({ ...inv, stageSlots: undefined, earlyOwnShots: true });
   assert.deepEqual(keys(open), ['home', 'details', 'story', 'camera', 'gallery', 'me']);

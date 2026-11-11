@@ -77,7 +77,8 @@ test('3 · on = manual = the automatic help is off', () => {
 
 test('4 · the launch page reads planning_mode and hands it to Your info', () => {
   const page = read('../page.tsx');
-  assert.match(page, /\.select\('[^']*\bplanning_mode\b[^']*'\)/, 'planning_mode is not read');
+  // The select may be a template since the one clock (`${EVENT_CLOCK_COLUMNS}`): the column must still be named in it.
+  assert.match(page, /\.select\([`'][^`']*\bplanning_mode\b[^`']*[`']\)/, 'planning_mode is not read');
   assert.match(page, /planMyself=\{\{ on: eventRes\.error \? null : planMyselfOn\(eventRow\?\.planning_mode\) \}\}/);
   const details = read('maker-details.tsx');
   assert.match(details, /editors\['plan-myself'\] = <PlanMyselfSwitch eventId=\{eventId\} on=\{props\.planMyself\.on\} \/>/);

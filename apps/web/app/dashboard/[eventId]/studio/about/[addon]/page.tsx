@@ -1,11 +1,12 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventSkuActive } from '@/lib/entitlements';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import {
   AddOnDetailView,
@@ -69,7 +70,7 @@ export default async function AddOnDetailPage({ params }: Props) {
         .from('events')
         // ⚠ the three lifecycle columns ride along in the SAME read — no extra
         // round trip. They decide whether the buy path below is still open.
-        .select('community_id, event_date, event_end_date, cleared_at, timezone')
+        .select(`community_id, ${EVENT_CLOCK_COLUMNS}`)
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
@@ -80,13 +81,7 @@ export default async function AddOnDetailPage({ params }: Props) {
       (eventRow as { community_id?: string | null } | null)?.community_id ?? null;
     if (!addOnOfferedForEvent(entry, profile, communityId)) notFound();
     eventHasHappened =
-      getMenuLifecyclePhase(
-        (eventRow as { event_date?: string | null } | null)?.event_date ?? null,
-        (eventRow as { cleared_at?: string | null } | null)?.cleared_at ?? null,
-        (eventRow as { timezone?: string | null } | null)?.timezone ?? undefined,
-        undefined,
-        (eventRow as { event_end_date?: string | null } | null)?.event_end_date ?? null,
-      ) === 'after';
+      eventClockOf(eventRow).menu === 'after';
   }
 
   /*

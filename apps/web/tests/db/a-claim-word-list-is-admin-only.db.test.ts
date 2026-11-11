@@ -66,9 +66,13 @@ after(async () => {
   await db?.close();
 });
 
-test('the owner’s six words are seeded', async () => {
-  const words = (await db.query<{ phrase: string }>(`SELECT phrase FROM public.card_claim_words ORDER BY phrase`)).rows.map((r) => r.phrase);
-  assert.deepEqual(words, ['#1', '100%', 'best in', 'guaranteed', 'lowest price', 'official']);
+test('the owner’s list is seeded — the first six, the 8 Nov full list, and plain "best" (11 Nov)', async () => {
+  const words = new Set((await db.query<{ phrase: string }>(`SELECT phrase FROM public.card_claim_words`)).rows.map((r) => r.phrase));
+  for (const w of ['#1', '100%', 'best in', 'guaranteed', 'lowest price', 'official']) assert.ok(words.has(w), `first six: ${w} missing`);
+  for (const w of ['best', 'top', 'trending', 'cheapest', 'hurry', 'pinakamagaling', 'verified', 'recommended by setnayan']) {
+    assert.ok(words.has(w), `8 Nov / 11 Nov list: ${w} missing`);
+  }
+  assert.equal(words.size, 50, 'the ruled list is 50 phrases');
 });
 
 test('a supplier reads nothing and writes nothing', async () => {
@@ -82,10 +86,10 @@ test('a supplier reads nothing and writes nothing', async () => {
 });
 
 test('an admin reads, adds and removes', async () => {
-  assert.equal(await as(F.admin, async () => (await db.query(`SELECT 1 FROM public.card_claim_words`)).rows.length), 6);
-  await as(F.admin, () => db.query(`INSERT INTO public.card_claim_words (phrase, created_by) VALUES ('premier', $1)`, [F.admin]));
-  await as(F.admin, () => db.query(`DELETE FROM public.card_claim_words WHERE phrase = 'premier'`));
-  assert.equal((await db.query(`SELECT 1 FROM public.card_claim_words WHERE phrase = 'premier'`)).rows.length, 0);
+  assert.equal(await as(F.admin, async () => (await db.query(`SELECT 1 FROM public.card_claim_words`)).rows.length), 50);
+  await as(F.admin, () => db.query(`INSERT INTO public.card_claim_words (phrase, created_by) VALUES ('unrivalled', $1)`, [F.admin]));
+  await as(F.admin, () => db.query(`DELETE FROM public.card_claim_words WHERE phrase = 'unrivalled'`));
+  assert.equal((await db.query(`SELECT 1 FROM public.card_claim_words WHERE phrase = 'unrivalled'`)).rows.length, 0);
 });
 
 test('a word is stored lower-case and trimmed, or refused', async () => {

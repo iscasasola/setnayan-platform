@@ -24,6 +24,7 @@
 import Link from 'next/link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { FileText, Paperclip, Share, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
@@ -36,7 +37,6 @@ import {
   fetchMessagesMasked,
   formatChatTimestamp,
   type ChatMessageRow,
-  type ChatSenderRole,
 } from '@/lib/chat';
 import { formatCentavos, PROPOSAL_STATUS_LABEL } from '@/lib/vendor-proposals';
 import { quoteCardState } from '@/lib/quote-card-state';
@@ -137,6 +137,10 @@ import {
   showsExpiryWarning,
 } from '@/lib/chat-file-rules';
 import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
+import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead } from '@/lib/chat-read-live';
+import { markThreadRead } from '@/lib/chat-actions';
+import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
+import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
 import { formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
 import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
@@ -449,6 +453,85 @@ export function ChatMessageStream({
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  /**
+   * 👀 "Seen" is LIVE (chat gaps, 8 Nov): the server's read is the start; a "read" broadcast from the other side on this
+   * stream's own presence channel moves it while you look. It only ever moves forward.
+   */
+  const [theirRead, setTheirRead] = useState<string | null>(theirLastReadAt);
+  useEffect(() => {
+    setTheirRead((prev) => latestRead(prev, theirLastReadAt));
+  }, [theirLastReadAt]);
+  /**
+   * ⚡ A message that arrives while this chat is open — live, or in the re-read when the channel (re)joins — MARKS THE
+   * THREAD READ: one debounced write per burst, only while the tab is in view (an arrival in a hidden tab is marked when
+   * it comes back). The stream is mounted only where the Chat view is on screen (the full-screen route; the picked
+   * client's Chat page — Details and Quotation mount no stream), so this keeps "only the Chat view marks". What the
+   * server drew is not live: the page (or `MarkReadWhenShown`) already marked it. Each mark is said to the other side on
+   * the presence channel below; the Messages envelope catches up on its own next ask (poll or ping).
+   */
+  const router = useRouter();
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sayReadRef = useRef<(at: string) => void>(() => {});
+  const readDebouncerRef = useRef<ReturnType<typeof createReadDebouncer> | null>(null);
+  useEffect(() => {
+    let gone = false;
+    const debouncer = createReadDebouncer({
+      mark: () => {
+        const at = new Date().toISOString();
+        void markThreadRead(threadId)
+          .then(() => {
+            if (gone) return;
+            sayReadRef.current(at);
+          })
+          .catch(() => undefined);
+      },
+      isVisible: () => document.visibilityState === 'visible',
+    });
+    readDebouncerRef.current = debouncer;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') debouncer.shown();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      gone = true;
+      debouncer.cancel();
+      readDebouncerRef.current = null;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [threadId]);
+  useEffect(() => {
+    if (knownIdsRef.current === null) {
+      knownIdsRef.current = new Set(initialMessages.map((m) => m.message_id));
+    }
+    const known = knownIdsRef.current;
+    let arrived = false;
+    let refresh = false;
+    for (const m of messages) {
+      if (known.has(m.message_id)) continue;
+      known.add(m.message_id);
+      if (countsAsUnreadFor(m, currentUserId)) arrived = true;
+      // 💸 A Setnayan line about money or a booking (a payment asked, logged, confirmed…) changes what the page drew
+      // around the chat — the money step, the pay button, the pins. ONE revalidate, debounced, never a new socket.
+      if (refreshesTheChat(m)) refresh = true;
+    }
+    if (arrived) readDebouncerRef.current?.arrived();
+    if (refresh && !refreshTimerRef.current) {
+      refreshTimerRef.current = setTimeout(() => {
+        refreshTimerRef.current = null;
+        // one-render: keep (realtime) — a Setnayan line arrived on the live channel; nothing was pressed here.
+        if (typeof document === 'undefined' || document.visibilityState === 'visible') router.refresh();
+      }, LIVE_LINE_REFRESH_MS);
+    }
+    // `initialMessages` seeds the known set once; later server renders do not re-seed it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, currentUserId, threadId, router]);
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    },
+    [],
+  );
   // 🔒 One read for the whole thread: through the masking reader when the server says the amounts are hidden.
   const readThread = useCallback(
     (client: typeof supabase, id: string) => (moneyHidden ? fetchMessagesMasked(client, id) : fetchMessages(client, id)),
@@ -1254,12 +1337,33 @@ export function ChatMessageStream({
       setPresentIds(new Set(Object.keys(state)));
     };
 
+    // 👀 "I have read it" — said on THIS channel (no new socket) when the chat is open (it was marked as it opened)
+    // and after every live mark, so the other side's "Seen" moves while they look. Cosmetic only: the stored marker is
+    // what every count reads.
+    const openedAt = new Date().toISOString();
+    let joined = false;
+    const sayRead = (at: string) => {
+      if (!joined) return;
+      void channel.send({ type: 'broadcast', event: CHAT_READ_BROADCAST, payload: { side: viewerRole, at } });
+    };
+    sayReadRef.current = sayRead;
+
     channel
       .on('presence', { event: 'sync' }, recompute)
       .on('presence', { event: 'join' }, recompute)
       .on('presence', { event: 'leave' }, recompute)
+      .on('broadcast', { event: CHAT_READ_BROADCAST }, (msg: { payload?: { side?: unknown; at?: unknown } }) => {
+        const side = msg?.payload?.side;
+        const at = msg?.payload?.at;
+        // Only the OTHER side's read is "Seen" — a co-host reading is not the supplier reading.
+        if (side === viewerRole || typeof at !== 'string' || Number.isNaN(Date.parse(at))) return;
+        setTheirRead((prev) => latestRead(prev, at));
+      })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
+          joined = true;
+          // The open's own mark (the page's, or `MarkReadWhenShown`'s) is said once the channel has joined.
+          sayRead(openedAt);
           // Announce our presence with typing=false so the other side knows
           // we're connected. track() returns a promise; we don't need to
           // await it but ignoring the result triggers no-floating-promise.
@@ -1270,6 +1374,7 @@ export function ChatMessageStream({
     presenceChannelRef.current = channel;
 
     return () => {
+      sayReadRef.current = () => {};
       presenceChannelRef.current = null;
       if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
       if (typingIdleRef.current) clearTimeout(typingIdleRef.current);
@@ -2046,15 +2151,18 @@ export function ChatMessageStream({
           }
           // 💬 MESSENGER BUBBLES (chat prototype 2026-10-28, frame B): yours right in terracotta, theirs left with a
           // small avatar beside the LAST bubble of their run; the corners join inside a run; no frame.
-          const mine = ownsBubble(m, viewerRole);
+          const mine = ownsBubble(m, viewerRole, currentUserId);
           const run = bubbleRun(messages, i);
           // The supplier's view, inside the client (THE ONE BUILD): an incoming run carries its HOST's first name and
           // initials (`event_chat_hosts`), so a chat with four hosts says who is speaking. The couple's view is as before.
           const host = !mine && m.sender_user_id ? hostById.get(m.sender_user_id) ?? null : null;
+          // 👥 On the hosts' side another co-host's run carries THEIR name (chat gaps, 8 Nov) — the same way the
+          // supplier's view labels each host's run. A co-host's name is never masked (they are the event's own people).
+          const coHost = isCoHostMessage(m, viewerRole, currentUserId);
           const staffName =
             !mine && run.first && m.sender_user_id
               ? viewerRole === 'couple'
-                ? senderNames[m.sender_user_id] ?? null
+                ? senderNames[m.sender_user_id] ?? (coHost ? 'A co-host' : null)
                 : host
                   ? hostFirstName(host)
                   : null
@@ -2090,7 +2198,7 @@ export function ChatMessageStream({
                     aria-hidden
                     className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
                   >
-                    {host ? hostInitials(host) : initialsOf(counterpartyLabel)}
+                    {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
                   </span>
                 ) : (
                   <span aria-hidden className="w-7 shrink-0" />
@@ -2130,7 +2238,7 @@ export function ChatMessageStream({
                     name={m.attachment_name ?? null}
                     mime={m.attachment_mime ?? null}
                     sizeBytes={m.attachment_size_bytes ?? null}
-                    owns={ownsBubble(m, viewerRole)}
+                    owns={ownsBubble(m, viewerRole, currentUserId)}
                     hasBody={!!m.body}
                   />
                 ) : isExpired(m) ? (
@@ -2177,7 +2285,7 @@ export function ChatMessageStream({
                   offer a one-tap "set up this meeting" chip. Suggestion-grade —
                   nothing is created until they tap + confirm. Flag-gated. */}
               {negotiationOn &&
-              ownsBubble(m, viewerRole) &&
+              ownsBubble(m, viewerRole, currentUserId) &&
               !m.proposal_id &&
               !m.appointment_id &&
               !m.change_order_id &&
@@ -2197,7 +2305,7 @@ export function ChatMessageStream({
                   resolve). Opens the multi-item amendment builder. */}
               {negotiationOn &&
               dealEntry.offerDeal &&
-              ownsBubble(m, viewerRole) &&
+              ownsBubble(m, viewerRole, currentUserId) &&
               !m.proposal_id &&
               !m.appointment_id &&
               !m.change_order_id &&
@@ -2247,7 +2355,9 @@ export function ChatMessageStream({
       ))}
       {(() => {
         const lastStored = [...messages].reverse().find((m) => !m.proposal_id && !m.appointment_id && !m.change_order_id && !m.amendment_id && m.sender_role !== 'system') ?? null;
-        const line = lastOwnLine({ lastStored, pendings, viewerRole, theirLastReadAt });
+        // A co-host's last message is not yours: no "Delivered"/"Seen" under it.
+        const ownLast = lastStored && ownsBubble(lastStored, viewerRole, currentUserId) ? lastStored : null;
+        const line = lastOwnLine({ lastStored: ownLast, pendings, viewerRole, theirLastReadAt: theirRead });
         if (!line) return null;
         if (line.kind === 'failed') {
           return (
@@ -2336,13 +2446,6 @@ function initialsOf(name: string): string {
   const a = parts[0]?.[0] ?? '';
   const b = parts.length > 1 ? parts[parts.length - 1]![0] ?? '' : '';
   return (a + b).toUpperCase() || '·';
-}
-
-function ownsBubble(
-  m: { sender_role: ChatSenderRole },
-  viewerRole: 'couple' | 'vendor',
-): boolean {
-  return m.sender_role === viewerRole;
 }
 
 function formatBytes(bytes: number | null): string {

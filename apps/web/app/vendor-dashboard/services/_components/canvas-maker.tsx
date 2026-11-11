@@ -256,7 +256,6 @@ export function CanvasMaker({
   errorLine = null,
   returnTo,
   unread = [],
-  discountSeed = null,
   giftPacks = null,
   giftFree = null,
   cancelHref,
@@ -338,8 +337,6 @@ export function CanvasMaker({
    * would erase it — Save waits, and the card says what could not be read (never "none").
    */
   unread?: string[];
-  /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
-  discountSeed?: { expiry?: string; conditions?: string } | null;
   /** The giftable packs on the live catalogue, for the Gift dropdown — null = unread (only No gift · Setnayan gift). */
   giftPacks?: ShopGiftPack[] | null;
   /** What this shop can still offer of each gift kind — null = unread (packs listed as unreadable, never as empty). */
@@ -847,8 +844,8 @@ export function CanvasMaker({
    * back with "Price · more" right under the head. Once per visit; a touch stops it; none under reduce motion.
    * lib/reveal-sweep.ts
    */
-  const [moreOpen, setMoreOpen] = useState(discountSeed !== null);
-  const moreRevealed = useRef(discountSeed !== null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRevealed = useRef(false);
   const stopReveal = useRef<(() => void) | null>(null);
   const onMoreOpenChange = useCallback((next: boolean) => {
     setMoreOpen(next);
@@ -1376,7 +1373,7 @@ export function CanvasMaker({
                   />
 
                   {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
-                  <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-disc" title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="pb-4 pt-1">
                       {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
                       <div className="mb-2" data-maker-disc-tip="">
@@ -1386,9 +1383,6 @@ export function CanvasMaker({
                       </div>
                       <DiscountsEditor
                         initial={initial?.discounts ?? []}
-                        seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
-                        seedExpiry={discountSeed?.expiry}
-                        seedConditions={discountSeed?.conditions}
                       />
                     </div>
                   </Fold>

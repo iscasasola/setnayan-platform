@@ -60,6 +60,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { theDayFor } from '@/lib/event-clock.server';
 import { eventPapicGuestActive } from '@/lib/papic-guest';
 import { resolveGuestCamera } from '@/lib/papic-limited';
 import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
@@ -260,7 +261,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         ? 'post'
         : 'pre'
     : event.event_date
-      ? getDayOfPhase(event.event_date, venueTz)
+      ? getDayOfPhase(event.event_date, venueTz, undefined, event.event_end_date ?? null)
       : 'inactive';
   const isLive = dayOfPhase === 'live';
   const isPost = dayOfPhase === 'post';
@@ -1065,7 +1066,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
   return (
     <HubShell
-      eventDate={event.event_date ?? null}
+      eventDate={theDayFor(event)}
       slug={event.slug ?? slug}
       pulse={await pulseAhead}
       header={header}

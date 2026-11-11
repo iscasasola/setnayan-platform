@@ -255,6 +255,55 @@ export const STAGE_SCENES: Readonly<Record<LifecyclePhase, readonly WidgetType[]
   editorial: ['our_love_story', 'our_photos', 'special_message', 'your_photos'],
 };
 
+/**
+ * ⏱ THE PARTS THE CLOCK OPENS AND CLOSES — the other half of the part-by-stage table (owner ruling, 10 Nov 2026:
+ * "every part must follow ONE clock"). `STAGE_SCENES` above says which SCENES a stage draws; this says which LIVE
+ * PARTS a stage opens. A part is open exactly while the date's stage (`eventClock(…).automatic`, lib/event-clock.ts)
+ * is one of its stages — `clockPartOpen` reads it, and every reader of these parts asks there:
+ *
+ *   · The Day (06:00 on the day → 06:00 the morning after the last day, by default): the day's Hub (`/[slug]/hub`),
+ *     the Live tab, the seat finder (the couple's early-seats switch, `event_floor_plan.published_at`, still opens
+ *     it sooner), song requests, the live wall, check-in and the supplier's "today" desk.
+ *   · Memories: The Day and Post Event — and sooner the moment Papic opens (ruling 6, the reader adds that).
+ *   · The couple's ONE Post Event card — everyone's photos (`pool_gallery_open`) and the recap, both still the
+ *     couple's tap (ruling 4); the clock only says when the card is due.
+ */
+export const CLOCK_PARTS = [
+  'hub',
+  'live_tab',
+  'seats',
+  'song_requests',
+  'live_wall',
+  'check_in',
+  'supplier_today',
+  'memories',
+  'post_event_card',
+] as const;
+export type ClockPart = (typeof CLOCK_PARTS)[number];
+
+const THE_DAY_PARTS: readonly ClockPart[] = [
+  'hub',
+  'live_tab',
+  'seats',
+  'song_requests',
+  'live_wall',
+  'check_in',
+  'supplier_today',
+  'memories',
+];
+
+export const STAGE_CLOCK_PARTS: Readonly<Record<LifecyclePhase, readonly ClockPart[]>> = {
+  save_the_date: [],
+  rsvp: [],
+  event: THE_DAY_PARTS,
+  editorial: ['memories', 'post_event_card'],
+};
+
+/** Every stage a live part is open on. */
+export function stagesOfClockPart(part: ClockPart): LifecyclePhase[] {
+  return (Object.keys(STAGE_CLOCK_PARTS) as LifecyclePhase[]).filter((s) => STAGE_CLOCK_PARTS[s].includes(part));
+}
+
 /** The fixed sections, by the stages that draw them. */
 export const STAGE_FIXED: Readonly<Record<'entourage', readonly LifecyclePhase[]>> = {
   // The Save the Date only holds the date — no entourage there.

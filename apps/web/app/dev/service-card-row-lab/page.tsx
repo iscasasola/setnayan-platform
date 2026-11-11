@@ -7,6 +7,11 @@
  *                          open bookings (turn it off / swipe it → refused, each booking named) and an offline draft
  *                          missing its cover AND what's included (turn it on → refused for both; swipe it → the
  *                          warning, then the shipped Undo).
+ *   ?v=share               PROPOSED with the Share sheet open on the first card (prototype frame G): SAMPLE client
+ *                          events, worded by the real `dayMonthYear` / `initialsFor`; a pick answers through a stand-in.
+ *   ?v=share-empty / ?v=share-unread   the same sheet with no client events / an unread list.
+ *   ?v=chat                frame H: the SHIPPED `ChatOfferedServiceCard` the stream draws for the posted card (its
+ *                          `/api/chat/offered-service/…` read is answered by the screenshot script, not a database).
  *   ?v=now                 the row as it drew before (side copy icon · side Online/Offline switch · "Edit · every
  *                          field"), frozen in `lab-rows.tsx` for the side-by-side ONLY.
  */
@@ -15,7 +20,18 @@ import { toServiceCard } from '@/lib/service-card-view-model';
 import type { VendorServiceRow } from '@/lib/vendor-services';
 import { deleteWarningLines, openBookingsRefusal, type OpenBooking } from '@/lib/service-open-bookings';
 import { coverIsSet, inclusionsAreSet, priceIsSet } from '@/lib/service-publish-gate';
+import { dayMonthYear } from '@/lib/service-open-bookings';
+import { initialsFor } from '@/lib/conversation-list';
+import type { ShareTarget } from '@/lib/service-share-targets';
 import { LabRows, type LabCard } from './lab-rows';
+import { LabChat, LabOpenShare } from './lab-share';
+
+/** SAMPLE client events — the prototype's three, through the real labellers. */
+const SAMPLE_TARGETS: ShareTarget[] = [
+  { threadId: 'lab-t1', eventId: 'lab-e1', name: 'Reyes–Santos Wedding', eventDate: '2026-12-14' },
+  { threadId: 'lab-t2', eventId: 'lab-e2', name: 'Lim Debut', eventDate: '2027-01-09' },
+  { threadId: 'lab-t3', eventId: 'lab-e3', name: 'Dela Cruz Anniversary', eventDate: '2027-02-21' },
+].map((t) => ({ ...t, dateLabel: dayMonthYear(t.eventDate), initials: initialsFor(t.name) }));
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +113,9 @@ export default async function ServiceCardRowLabPage({ searchParams }: { searchPa
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const now = sp.v === 'now';
+  if (sp.v === 'chat') return <LabChat />;
+  const targets = sp.v === 'share-unread' ? null : sp.v === 'share-empty' ? [] : SAMPLE_TARGETS;
+  const openShare = sp.v === 'share' || sp.v === 'share-empty' || sp.v === 'share-unread';
   const cards: LabCard[] = FIXTURES.map(({ row: r, inclusions, photos, picked, open }) => ({
     id: r.vendor_service_id,
     name: r.title ?? 'Live Band',
@@ -131,7 +150,8 @@ export default async function ServiceCardRowLabPage({ searchParams }: { searchPa
         <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
         <p className="text-xs text-ink/55">Lab · My Shop › Services — {now ? 'Now (origin/main)' : 'Proposed: the card, then Edit · Share · Online/Offline — swipe left to delete'}</p>
       </div>
-      <LabRows cards={cards} now={now} />
+      <LabRows cards={cards} now={now} targets={targets} />
+      {openShare ? <LabOpenShare /> : null}
     </main>
   );
 }

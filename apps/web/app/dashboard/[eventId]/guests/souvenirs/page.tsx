@@ -10,6 +10,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
+import { theDayFor } from '@/lib/event-clock.server';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { companionNames } from '@/lib/extra-seats';
@@ -96,7 +98,7 @@ export default async function SouvenirTablePage({ params }: Props) {
       .from('guest_souvenir_claims')
       .select('guest_id, claimed_at')
       .eq('event_id', eventId),
-    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    supabase.from('events').select(EVENT_CLOCK_COLUMNS).eq('event_id', eventId).maybeSingle(),
   ]);
   // 🎟 Suppliers' scans at this event, with names — under the couple's own access (null = unread, said so).
   const supplierScans = await readCoupleScanClaims(supabase, eventId).catch((err) => {
@@ -189,7 +191,8 @@ export default async function SouvenirTablePage({ params }: Props) {
       <SupplierScanList claims={supplierScans} />
 
       {/* Day-of: silently re-pull so a guest added at the door appears here. */}
-      <LiveRefresher eventDate={(eventRow?.event_date as string | null) ?? null} />
+      {/* ⏱ The Day's instants from the one clock (venue zone, last day) — never the phone's own midnight. */}
+      <LiveRefresher eventDate={theDayFor(eventRow)} />
     </div>
   );
 }

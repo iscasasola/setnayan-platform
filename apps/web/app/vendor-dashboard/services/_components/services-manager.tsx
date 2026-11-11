@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Gift,
   Plus,
-  Snowflake,
   Tag,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -25,6 +24,8 @@ import { StayOnSection } from './stay-on-section';
 import { ServiceCardItem } from './service-card-item';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { readShareTargets } from '@/lib/service-share-targets.server';
+import { offerServiceInterest } from '@/app/vendor-dashboard/messages/[threadId]/actions';
 import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
@@ -35,15 +36,6 @@ import {
   fetchInclusionsByService,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
-import {
-  fetchVendorPoolBookings,
-  fetchVendorBlocks,
-} from '@/lib/vendor-schedule';
-import {
-  deriveLeanMonths,
-  formatLeanMonths,
-  suggestPromoExpiry,
-} from '@/lib/vendor-lean-months';
 import { tierCaps, planHasBranches } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
@@ -137,10 +129,6 @@ export type ServicesManagerSearch = {
    * called them" half of that promise. Absent on every other save.
    */
   autonamed?: string;
-  /** Off-Season Promos nudge — when set to one of the vendor's own
-   *  vendor_service_id values, that service's Discount section opens
-   *  pre-filled with an `off_peak` discount keyed to the lean months. */
-  offpeak?: string;
   /**
    * "I clicked the reason a kind was greyed in the maker" — set by
    * `PROPOSE_CATEGORY_HREF` (lib/service-picker-anchor.ts). Lands on Tools,
@@ -215,7 +203,14 @@ export async function VendorServicesManager({
   // until every booking is complete). ONE read for every card on the page, on the ADMIN client because
   // `event_vendors` admits no shop — `serviceIdList` is this shop's own cards, read on its own session above. A refused
   // read is `null`: the swipe then says "could not check" and deletes nothing (never "nobody booked").
-  const cardBookings = await readCardBookings(createAdminClient(), serviceIdList);
+  // 🔗 WHERE SHARE CAN POST (owner 2026-11-11: "It is share to an client event. To enter to a chat.") — this shop's
+  // client events, ONE read for the whole page, beside the bookings read. A refused read is `null` and the Share sheet
+  // says so (never "no client events"); the post (`offerServiceCore`) asks the server again before it writes.
+  const [cardBookings, shareRead] = await Promise.all([
+    readCardBookings(createAdminClient(), serviceIdList),
+    readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id),
+  ]);
+  const shareTargets = shareRead.status === 'ok' ? shareRead.targets : null;
 
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
@@ -472,54 +467,10 @@ export async function VendorServicesManager({
   const labelFor = (cat: VendorCategory): string =>
     tax ? labelForVendorCategory(cat, tax) : VENDOR_CATEGORY_LABEL[cat];
 
-  // ── Off-Season Promos nudge (Wave 5 "Soon" vendor benefit) ──────────────
-  const now = new Date();
-  const hasLiveOffPeak = services.some((s) => {
-    if (!s.is_active) return false;
-    return (discountsByService.get(s.vendor_service_id) ?? []).some(
-      (d) =>
-        d.discount_type === 'off_peak' &&
-        d.expires_at !== null &&
-        new Date(d.expires_at).getTime() > now.getTime(),
-    );
-  });
-  const offPeakCandidate =
-    services.find((s) => s.is_active) ?? services[0] ?? null;
-  const offPeakPrefillId =
-    typeof search.offpeak === 'string' &&
-    services.some((s) => s.vendor_service_id === search.offpeak)
-      ? search.offpeak
-      : null;
-
-  let leanMonthsLabel = '';
-  let suggestedExpiry: string | null = null;
-  let suggestedConditions = '';
-  let showOffSeasonNudge = false;
-  if ((!hasLiveOffPeak && offPeakCandidate) || offPeakPrefillId) {
-    try {
-      const [bookings, blocks] = await Promise.all([
-        // DEMAND, not the room: lean months are derived from dates that actually
-        // consumed capacity, which is what an off-peak offer is priced against.
-        fetchVendorPoolBookings(supabase, profile.vendor_profile_id),
-        fetchVendorBlocks(supabase, profile.vendor_profile_id),
-      ]);
-      const lean = await deriveLeanMonths(
-        bookings.map((b) => ({ date: b.bookedDate })),
-        blocks.map((b) => ({ date: b.startDate })),
-        { client: supabase, regionHint: profile.location_city },
-      );
-      leanMonthsLabel = formatLeanMonths(lean.months);
-      suggestedExpiry = suggestPromoExpiry(lean.months, now);
-      suggestedConditions = leanMonthsLabel
-        ? `Off-season rate for ${leanMonthsLabel} bookings.`
-        : 'Off-season rate for our lighter months.';
-      showOffSeasonNudge =
-        !hasLiveOffPeak && offPeakCandidate !== null && leanMonthsLabel.length > 0;
-    } catch {
-      showOffSeasonNudge = false;
-    }
-  }
-  const offPeakTargetId = offPeakCandidate?.vendor_service_id ?? null;
+  // ⛔ The Off-Season Promos nudge LEFT (DECISION_LOG 2026-11-11 "NO OFF-SEASON OFFER BUILD — THE OFFER MAKER ALREADY
+  // SOLVES IT"): it opened ONE card's editor with a typed off_peak discount (`?offpeak=1`) — a second way to make an
+  // offer that skipped the Offer Maker's lock. The off-season offer is Shop › Makers › Offer Maker → Who gets it →
+  // Event date in a season, which opens on the shop's slow months (lib/vendor-lean-months.ts). No pointer line here.
 
   // "Add a service" / "Add coverage" → a category chooser. The guided wizard
   // needs a category (route /services/new/[category]); when the wizard is off,
@@ -614,40 +565,7 @@ export async function VendorServicesManager({
         </p>
       ) : null}
 
-      {/* ONE LIST (Lane E item 7) — no Coverage · Service cards · Tools picker. The off-season offer stays above the list. */}
-      {/* Off-Season Promos nudge (Wave 5). */}
-      {showOffSeasonNudge && offPeakTargetId ? (
-        <div
-          className="flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-        >
-          <div className="flex items-start gap-3">
-            <span
-              className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-            >
-              <Snowflake aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <div className="space-y-0.5">
-              <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                Your {leanMonthsLabel} look light — launch an off-season offer
-              </p>
-              <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                Couples shopping these months will see your deal first. We&rsquo;ll
-                pre-fill an off-peak discount — you set the amount.
-              </p>
-            </div>
-          </div>
-          <Link
-            href={`/vendor-dashboard/services/${offPeakTargetId}?offpeak=1${
-              suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''
-            }${suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''}`}
-            className="button-primary shrink-0 whitespace-nowrap text-center"
-          >
-            Set up off-season offer
-          </Link>
-        </div>
-      ) : null}
+      {/* ONE LIST (Lane E item 7) — no Coverage · Service cards · Tools picker. */}
 
       {/* ── YOUR SERVICE CARDS ──────────────────────────────────────────── */}
       <section className="space-y-3">
@@ -843,13 +761,7 @@ export async function VendorServicesManager({
               // 🃏 THE CARD, THEN ONE ROW UNDER IT — Edit · Share icons, then the Online/Offline switch; swipe left to
               // delete (owner 10 Nov on PR #7464). No frame around card + row. Tapping the card face opens the Card
               // Maker, the same door as Edit. 🔒 ../the-card-menu-row-is-edit-share-go-online.test.ts
-              const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}${
-                offPeakPrefillId === svc.vendor_service_id
-                  ? `?offpeak=1${suggestedExpiry ? `&exp=${suggestedExpiry.slice(0, 10)}` : ''}${
-                      suggestedConditions ? `&cond=${encodeURIComponent(suggestedConditions)}` : ''
-                    }`
-                  : ''
-              }`;
+              const editHref = `/vendor-dashboard/services/${svc.vendor_service_id}`;
               const cardName = svc.title?.trim() || displayServiceLabel(svc.category);
               return (
                 <Fragment key={svc.vendor_service_id}>
@@ -928,6 +840,7 @@ export async function VendorServicesManager({
                     isActive: svc.is_active,
                     held: planHold?.hold === 'held',
                     editHref,
+                    share: { targets: shareTargets, share: offerServiceInterest },
                   }}
                   action={toggleVendorServiceActive}
                   deleteRefusal={

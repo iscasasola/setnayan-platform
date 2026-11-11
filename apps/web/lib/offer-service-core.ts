@@ -5,6 +5,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchThreadById } from '@/lib/chat';
 import { recordThreadInterests } from '@/lib/thread-interests';
 import { displayServiceLabel } from '@/lib/vendors';
+import { isShareableThread } from '@/lib/service-share-targets';
 
 /**
  * Shared CORE for offerServiceInterest (vendor inverse cross-sell) — a vendor
@@ -37,8 +38,27 @@ import { displayServiceLabel } from '@/lib/vendors';
  * auth.uid(). A service-role insert would take the trigger's early return and
  * land a message attributed to nobody.
  */
+/**
+ * ── 2026-11-11 · SHARE FROM SHOP › SERVICES TELLS THE CLIENT IN THE APP ONLY ──
+ * Owner, verbatim: *"Share does not share to anyone. It is share to an client
+ * event. To enter to a chat. That is notified so the client can see."* The Share
+ * icon under a card posts it through THIS function — the same gate, the same
+ * card in the chat. Only the notice differs: `notice: 'shared'` sends
+ * `service_card_shared`, which is NOT on the email allowlist (owner rule
+ * 2026-10-11: no new emails without his word). The in-chat ＋ offer keeps the
+ * default `chat_message`, exactly as before. A share also re-asks which chat it
+ * is: an accepted conversation the couple has not removed (`isShareableThread`,
+ * the picker's own predicate) — a stale sheet cannot post into a closed one.
+ * 🔒 lib/a-shared-card-never-emails.test.ts
+ */
+export type OfferServiceNotice = 'chat' | 'shared';
+
+/** Said when a share's chat is no longer one the supplier can write in. */
+export const SHARE_CHAT_CLOSED = 'That chat is closed, so nothing was posted. Pick another client event.';
+
 export type OfferServiceResult =
-  | { status: 'ok' }
+  /** `notified` = how many of the client's hosts were sent the notice. 0 is said as 0 (never "notified"). */
+  | { status: 'ok'; notified: number }
   | { status: 'not_signed_in' }
   | { status: 'not_owner' }
   | { status: 'invalid_service' }
@@ -46,9 +66,9 @@ export type OfferServiceResult =
 
 export async function offerServiceCore(
   supabase: SupabaseClient,
-  input: { threadId: string; vendorServiceId: string },
+  input: { threadId: string; vendorServiceId: string; notice?: OfferServiceNotice },
 ): Promise<OfferServiceResult> {
-  const { threadId, vendorServiceId } = input;
+  const { threadId, vendorServiceId, notice = 'chat' } = input;
   if (!threadId || !vendorServiceId) {
     return { status: 'error', message: 'Invalid input' };
   }
@@ -65,6 +85,9 @@ export async function offerServiceCore(
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) {
     return { status: 'not_owner' };
+  }
+  if (notice === 'shared' && !isShareableThread({ inquiry_status: thread.inquiry_status, archived_at: thread.archived_at ?? null })) {
+    return { status: 'error', message: SHARE_CHAT_CLOSED };
   }
 
   // The offered service must be one of this vendor's own active services.
@@ -118,6 +141,7 @@ export async function offerServiceCore(
   // in-thread (best-effort — the interest row already landed; a failed notify
   // must not affect the offer). Fanned out over couple-type event_members via
   // the admin client, mirroring the vendor→couple chat_message path.
+  let notified = 0;
   try {
     const { data: vendor } = await admin
       .from('vendor_profiles')
@@ -132,17 +156,28 @@ export async function offerServiceCore(
       .eq('member_type', 'couple');
     for (const m of members ?? []) {
       if (!m.user_id) continue;
-      await emitNotification({
-        userId: m.user_id,
-        type: 'chat_message',
-        title: `${vendorName} offered a service`,
-        body: 'They sent one of their service cards to your conversation.',
-        relatedUrl: `/dashboard/${thread.event_id}/messages/${threadId}`,
-      });
+      if (notice === 'shared') {
+        await emitNotification({
+          userId: m.user_id,
+          type: 'service_card_shared',
+          title: `${vendorName} shared a service card`,
+          body: 'It is in your chat with them.',
+          relatedUrl: `/dashboard/${thread.event_id}/messages/${threadId}`,
+        });
+      } else {
+        await emitNotification({
+          userId: m.user_id,
+          type: 'chat_message',
+          title: `${vendorName} offered a service`,
+          body: 'They sent one of their service cards to your conversation.',
+          relatedUrl: `/dashboard/${thread.event_id}/messages/${threadId}`,
+        });
+      }
+      notified += 1;
     }
   } catch (e) {
     console.error('[offerServiceCore] couple notify failed:', e);
   }
 
-  return { status: 'ok' };
+  return { status: 'ok', notified };
 }

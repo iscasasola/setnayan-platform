@@ -28,8 +28,11 @@ export type OpenBooking = { eventName: string; eventDate: string | null };
 /** What the shop's cards carry: how many couples ever picked it (the delete-or-hide question) and which are open. */
 export type CardBookings = { picked: number; open: OpenBooking[] };
 
-/** "14 Dec 2026" — the calendar day as stored (a DATE column), never shifted by the reader's timezone. */
-function shortDate(iso: string | null): string {
+/**
+ * "14 Dec 2026" — the calendar day as stored (a DATE column), never shifted by the reader's timezone. Exported for the
+ * Share picker's event rows (`lib/service-share-targets.server.ts`), which name the same events the same way.
+ */
+export function dayMonthYear(iso: string | null): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   if (!m) return '';
   return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).toLocaleDateString('en-GB', {
@@ -49,7 +52,7 @@ export function openBookingsRefusal(open: readonly OpenBooking[]): string | null
   const head =
     open.length === 1 ? '1 booking still open — finish it first' : `${formatCount(open.length)} bookings still open — finish them first`;
   const lines = open.map((b) => {
-    const date = shortDate(b.eventDate);
+    const date = dayMonthYear(b.eventDate);
     return date ? `${b.eventName} · ${date}` : b.eventName;
   });
   return [head, ...lines].join('\n');
@@ -117,6 +120,30 @@ export async function readCardBookings(
     card.open.sort((a, b) => (a.eventDate ?? '9999').localeCompare(b.eventDate ?? '9999'));
   }
   return out;
+}
+
+/**
+ * 🔒 THE SAME RULE FOR A PICK THAT LEAVES SEVERAL CARDS OFF — "Which services stay on" (`pickServicesThatStayOn`) puts
+ * every card it does not keep on hold. `null` = none of them has an open booking. Otherwise each card with one is
+ * named, then its open bookings on their own lines — the switch's own words (`openBookingsRefusal`) under the card's
+ * name. A refused read refuses (`BOOKINGS_UNREAD`): nothing is turned off on no evidence.
+ * The caller passes cards it has proved are the shop's own (the admin read below bypasses RLS).
+ */
+export async function cardsLeftOffRefusal(
+  admin: SupabaseClient,
+  leftOff: ReadonlyArray<{ id: string; name: string }>,
+): Promise<string | null> {
+  if (leftOff.length === 0) return null;
+  const bookings = await readCardBookings(
+    admin,
+    leftOff.map((c) => c.id),
+  );
+  if (!bookings) return BOOKINGS_UNREAD;
+  const blocks = leftOff.flatMap((c) => {
+    const words = openBookingsRefusal(bookings.get(c.id)?.open ?? []);
+    return words ? [`“${c.name}” can’t go off yet: ${words}`] : [];
+  });
+  return blocks.length > 0 ? blocks.join('\n\n') : null;
 }
 
 /**

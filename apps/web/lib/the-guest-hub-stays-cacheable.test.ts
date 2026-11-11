@@ -298,12 +298,16 @@ test('§3 · the key: round trip, tamper, and a stranger’s key carries nothing
     ua: { appleTouch: true, maybeIpadSafari: false, inApp: true, os: 'ios' as const },
     tab: 'schedule',
     bust: 'm1a2b3',
+    // ⏱ the one clock's two letters — The Day (`e`), live (`l`): a stage flip names a new copy.
+    clock: 'el',
   };
   const s = formatHubViewKey(k);
   assert.doesNotMatch(s, /[/?%#]/, 'the key is one path segment');
   assert.deepEqual(parseHubViewKey(s), k);
-  assert.deepEqual(parseHubViewKey('v1.7.a.-.-.-'), { rev: '7', viewer: { kind: 'anonymous' }, ua: null, tab: null, bust: null });
-  for (const bad of ['v1.7.a.110i.-.-', 'v2.7.a.-.-.-', 'v1.x.a.-.-.-', 'v1.7.g123.-.-.-', 'v1.7.a.-.-', `${s}.x`]) {
+  assert.match(s, /^v2\.42\.el\./, 'the clock rides in the key');
+  assert.notEqual(formatHubViewKey({ ...k, clock: 'rb' }), s, 'another stage is another copy');
+  assert.deepEqual(parseHubViewKey('v1.7.a.-.-.-'), { rev: '7', viewer: { kind: 'anonymous' }, ua: null, tab: null, bust: null, clock: null });
+  for (const bad of ['v1.7.a.110i.-.-', 'v2.7.a.-.-.-', 'v2.7.zz.a.-.-.-', 'v1.x.a.-.-.-', 'v1.7.g123.-.-.-', 'v1.7.a.-.-', `${s}.x`]) {
     assert.equal(parseHubViewKey(bad), null, `${bad} must not parse`);
   }
 });
@@ -332,8 +336,12 @@ test('§3 · the middleware names the viewer from the pass, and anything uncerta
   const EV = '22222222-0001-4000-8000-000000000001';
   const G = '33330001-0001-4000-8000-000000000001';
   let asks = 0;
-  const stamp = (async (_u: string | URL | Request, init?: RequestInit) => {
+  const stamp = (async (u: string | URL | Request, init?: RequestInit) => {
     asks += 1;
+    // ⏱ The clock's columns (one read per stamp): an undated event — the Save the Date, outside any day (`si`).
+    if (String(u).includes('/rest/v1/events?')) {
+      return new Response(JSON.stringify([{ event_date: null, venue_latitude: null, venue_longitude: null }]), { status: 200 });
+    }
     const slug = JSON.parse(String(init?.body)).p_slug;
     return new Response(JSON.stringify(slug === 'lab-public' ? [{ event_id: EV, rev: 9 }] : []), { status: 200 });
   }) as typeof fetch;
@@ -346,10 +354,10 @@ test('§3 · the middleware names the viewer from the pass, and anything uncerta
   const req = (url: string, cookie = '') => new NextRequest(url, { headers: cookie ? { cookie } : {} });
   try {
     forgetHubStampsForTest();
-    assert.equal(await hubViewRewritePath(req('http://localhost/lab-public'), stamp), '/lab-public/cached/v1.9.a.-.-.-');
+    assert.equal(await hubViewRewritePath(req('http://localhost/lab-public'), stamp), '/lab-public/cached/v2.9.si.a.-.-.-');
     const mine = await hubViewRewritePath(req('http://localhost/lab-public?tab=schedule', `setnayan_guest_session=${await pass(EV)}`), stamp);
     const mac = await hubPassMac(secret, G, 'qr1');
-    assert.equal(mine, `/lab-public/cached/v1.9.g${G.replace(/-/g, '')}${mac}.000x.schedule.-`);
+    assert.equal(mine, `/lab-public/cached/v2.9.si.g${G.replace(/-/g, '')}${mac}.000x.schedule.-`);
     assert.equal(
       await hubViewRewritePath(req('http://localhost/lab-public', `setnayan_guest_session=${await pass('22222222-0001-4000-8000-0000000000ff')}`), stamp),
       null,
@@ -358,17 +366,25 @@ test('§3 · the middleware names the viewer from the pass, and anything uncerta
     assert.equal(await hubViewRewritePath(req('http://localhost/some-shop'), stamp), null, 'not an event → the live route (a shop, a 404)');
     assert.equal(
       await hubViewRewritePath(req('http://localhost/lab-public'), (async () => new Response('', { status: 503 })) as unknown as typeof fetch),
-      '/lab-public/cached/v1.9.a.-.-.-',
+      '/lab-public/cached/v2.9.si.a.-.-.-',
       'within the memo window the stamp is not asked again',
     );
     const before = asks;
     await hubViewRewritePath(req('http://localhost/lab-public'), stamp);
-    assert.equal(asks, before, 'a venue of phones within a few seconds costs ONE stamp read');
+    assert.equal(asks, before, 'a venue of phones within a few seconds costs ONE stamp read (and one clock read per stamp)');
     forgetHubStampsForTest();
     assert.equal(
       await hubViewRewritePath(req('http://localhost/lab-public'), (async () => new Response('', { status: 503 })) as unknown as typeof fetch),
       null,
       'a refused stamp read → the live render, never a guess',
+    );
+    forgetHubStampsForTest();
+    const noClock = (async (u: string | URL | Request, init?: RequestInit) =>
+      String(u).includes('/rest/v1/events?') ? new Response('', { status: 503 }) : stamp(u, init)) as typeof fetch;
+    assert.equal(
+      await hubViewRewritePath(req('http://localhost/lab-public'), noClock),
+      null,
+      "a refused clock read → the live render, never a key that cannot move when the stage does",
     );
     process.env.HUB_CACHE_DISABLED = '1';
     assert.equal(await hubViewRewritePath(req('http://localhost/lab-public'), stamp), null, 'the off switch');

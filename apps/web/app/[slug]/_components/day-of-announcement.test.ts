@@ -97,7 +97,8 @@ test('announcement · before the day, a sent announcement SHOWS (owner 2026-09-2
   // And the wiring carries it: one rule decides the stage (`announcementStageOf`) for the layout that mounts the card
   // and the route that answers it; the only stage refused is 'after'. A re-added `if (!isLive)` is exactly the
   // regression this test exists to catch.
-  assert.match(STAGE, /return announcementStage\(phase, ended\);/, 'the stage rule must resolve the stage');
+  // ⏱ The one clock (owner ruling, 10 Nov 2026): the day-of phase and "over" both come from `eventClockNow(event)`.
+  assert.match(STAGE, /return announcementStage\(clock\.day, ended\);/, 'the stage rule must resolve the stage');
   assert.match(LAYOUT, /stage = announcementStageOf\(event\);/, 'the layout must resolve the stage');
   assert.match(LAYOUT, /\{eventId && stage !== 'after' \? \(/, 'the card mounts until the event is over');
   assert.match(ROUTE, /if \(stage === 'after'\) return NextResponse\.json\(\{ body: null \}/, 'the route must refuse only after');
@@ -109,12 +110,13 @@ test('announcement · before the day, a sent announcement SHOWS (owner 2026-09-2
 
 test('announcement · once the event is over it comes down — nothing stale survives', () => {
   // The conservative half of the old rule, kept on purpose: the Post Event page
-  // keeps its own words. "Over" is `isFinishedEvent`'s verdict (the last day has
-  // passed in the venue's calendar), never a second definition.
+  // keeps its own words. "Over" is the ONE clock's verdict (The Day closed — 06:00
+  // the morning after the LAST day, venue time), never a second definition. It was
+  // `isFinishedEvent` (midnight), which disagreed with the live window by six hours.
   assert.equal(announcementStage('post', true), 'after');
   assert.equal(announcementStage('inactive', true), 'after', 'a month after: hidden');
-  assert.match(STAGE, /isFinishedEvent\(/, 'the stage rule must ask the board\u2019s own "is it over"');
-  assert.match(STAGE, /calendarDayInZone\(venueTz\)/, 'and ask it in the VENUE\u2019s calendar, not the server\u2019s');
+  assert.match(STAGE, /const clock = eventClockNow\(event\);/, 'the stage rule must ask the one clock');
+  assert.match(STAGE, /const ended = Number\.isFinite\(clock\.closesMs\) && clock\.nowMs >= clock\.closesMs;/, 'and "over" is The Day having closed, at the venue');
 });
 
 test('announcement · one message, never a feed', () => {

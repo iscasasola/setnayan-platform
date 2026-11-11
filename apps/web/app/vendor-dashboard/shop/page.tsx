@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile, businessProfileChecklist, profileGaps, type BusinessProfileItem, type VendorProfileRow } from '@/lib/vendor-profile';
-import { fetchLatestApplication, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
+import { countCompleteRequiredSlots, fetchLatestApplication, REQUIRED_DOC_SLOT_KEYS, requiredDocsComplete, type DocUploadMap } from '@/lib/vendor-verification';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
@@ -46,7 +46,9 @@ import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
-import { ShopMakers, type BookedDay, type ScannerLine } from './_components/shop-makers';
+import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
+import { papersProgress } from '@/lib/locks';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
@@ -135,6 +137,8 @@ type ShopData = {
   uploadFacts: PortfolioUploadFacts;
   /** 📋 How many live forms the shop has saved (the Forms Maker tile) — null = unread, said as "Couldn't load". */
   formsSaved: number | null;
+  /** 🏷 The Offer Maker tile: Verified (the lock), how many offers run, and the papers line for the lock. */
+  offerTile: OfferTileFacts;
 };
 
 /** The badge facts were unread — the reward lines are then simply absent (a sentinel, never logged twice). */
@@ -165,11 +169,12 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // founding mark and when the shop opened — ONE select.
   // 📋 …and the Forms Maker tile's "N saved" (Build 2 leftover, owner 9 Nov "finish it"): the shop's LIVE forms ride
   // this SAME request as an embed (ids only, retired ones filtered out) — no new request on any Shop load.
+  // 🏷 …and the Offer Maker tile (Build 6 Lane D): Verified (the lock) and the offers' status columns, same request.
   const ownRead = (async () => {
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
-        .select('tier_state, microsite_hero_photo_key, is_founder, created_at, vendor_forms!vendor_forms_vendor_profile_id_fkey(form_id)')
+        .select('tier_state, verification_state, microsite_hero_photo_key, is_founder, created_at, vendor_forms!vendor_forms_vendor_profile_id_fkey(form_id), vendor_offers!vendor_offers_vendor_profile_id_fkey(is_on, until_date, who, first_n_cap, first_n_taken)')
         .is('vendor_forms.retired_at', null)
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
@@ -182,6 +187,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
             is_founder?: boolean | null;
             created_at?: string | null;
             vendor_forms?: { form_id: string }[] | null;
+            verification_state?: string | null;
+            vendor_offers?: { is_on: boolean; until_date: string | null; who: string; first_n_cap: number | null; first_n_taken: number | null }[] | null;
           } | null) ?? null);
     } catch {
       return null;
@@ -402,6 +409,15 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     logoFields: logoFieldData(profile, logoUrl),
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
+    offerTile: {
+      verified: own?.verification_state === 'verified',
+      total: own && Array.isArray(own.vendor_offers) ? own.vendor_offers.length : null,
+      running:
+        own && Array.isArray(own.vendor_offers)
+          ? own.vendor_offers.filter((o) => offerStatus({ ...blankOffer(), isOn: o.is_on, untilDate: o.until_date, who: (o.who as OfferWho) ?? 'everyone', firstNCap: o.first_n_cap, firstNTaken: o.first_n_taken ?? 0 }, phTodayIso()).k === 'run').length
+          : null,
+      papers: papersProgress({ done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
+    },
   };
 }
 
@@ -701,6 +717,7 @@ async function ShopHome({
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}
           booked={data.booked}
+          offers={data.offerTile}
         />
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped

@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 628 files · 1684 lines
+# 626 files · 1680 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -519,7 +519,6 @@
 2 apps/web/app/tour/vendors/page.tsx
 2 apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx
 7 apps/web/app/v/[slug]/_components/inquiry-composer.tsx
-1 apps/web/app/v/[slug]/_components/service-details-sheet.tsx
 1 apps/web/app/v/[slug]/_components/share-button.tsx
 1 apps/web/app/v/[slug]/_components/verified-price-card.tsx
 10 apps/web/app/v/[slug]/page.tsx
@@ -591,7 +590,6 @@
 1 apps/web/app/vendor-dashboard/performance/_components/growth-recs-card.tsx
 4 apps/web/app/vendor-dashboard/performance/_components/price-position-card.tsx
 3 apps/web/app/vendor-dashboard/performance/_components/verified-median-card.tsx
-1 apps/web/app/vendor-dashboard/performance/page.tsx
 1 apps/web/app/vendor-dashboard/proposals/_components/reuse-inbox.tsx
 2 apps/web/app/vendor-dashboard/proposals/surface.tsx
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
@@ -605,7 +603,7 @@
 1 apps/web/app/vendor-dashboard/services/_components/service-card-face.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
-11 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
+9 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
 1 apps/web/app/vendor-dashboard/services/_components/showcase-media-fields.tsx
 1 apps/web/app/vendor-dashboard/services/new/[category]/page.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx

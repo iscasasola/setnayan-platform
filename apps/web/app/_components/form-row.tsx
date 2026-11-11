@@ -28,6 +28,7 @@ import { Explain } from './explain';
 import { tellTheForm } from '@/lib/tell-the-form';
 import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
 import { ClearButton, clearTyped } from '@/components/clear-field';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * FORM ROW — one fact to type or pick: its name on the left, its answer on the right, one thin line between rows
@@ -410,7 +411,7 @@ function carryTab(row: HTMLElement): void {
 function FieldCount({ n, max }: { n: number; max: number }) {
   return (
     <span data-form-row-count="" aria-hidden className="flex-none text-[12px] tabular-nums text-ink/45">
-      {n}/{max}
+      {formatCount(n)}/{formatCount(max)}
     </span>
   );
 }

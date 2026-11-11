@@ -164,9 +164,9 @@ export function findEmoji(s: string): string | null {
   return null;
 }
 
-/** Decorations that shout: ★ ✿ ♥ ✓ ~ … (any "other symbol" except the degree sign, №, © ® ™ and emoji, read above). */
+/** Decorations that shout: ★ ✿ ♥ ✓ ~ … (any "other symbol" except the degree sign, the numero sign, © ® ™ and emoji, read above). */
 const DECORATION = /[~\p{So}]/gu;
-const NOT_DECORATION = /[°№©®™]/u;
+const NOT_DECORATION = /[\u00B0\u2116\u00A9\u00AE\u2122]/u;
 
 export function findShouting(s: string): { sample: string; fix: string } | null {
   const bang = s.match(/[!?]{2,}/u);
@@ -225,7 +225,7 @@ const DISCOUNT = new RegExp(
 /** "free" as an offer — never "free-flowing", "free-standing", "freestyle", "hands-free", "gluten-free". */
 const FREE = /(?<![\p{L}\p{N}-])(?:free|libre)(?![\p{L}\p{N}])(?!\s*-?\s*(?:flow|flowing|standing|style|form|hand)(?!\p{L}))/iu;
 
-const COUNT_NOUN = '(?:weddings?|events?|clients?|couples?|bookings?|reviews?|customers?|brides?|debuts?|parties|celebrations?|happy\\s+\\p{L}+)';
+const COUNT_NOUN = '(?:weddings?|events?|clients?|couples?|bookings?|reviews?|customers?|brides?|debuts?|parties|happy\\s+\\p{L}+)';
 const NUMBERS: RegExp[] = [
   // "500+ weddings" · "1,000 happy couples" · "50 events" (a + or 10 and up — "good for 2 events" is a quantity)
   new RegExp(`${NOT_A_LETTER_BEFORE}(?:\\d[\\d,.]*\\s*(?:\\+|plus)|\\d{2,}[\\d,.]*|\\d+(?:\\.\\d)?\\s*k\\s*\\+?)\\s*${COUNT_NOUN}(?![\\p{L}])`, 'iu'),

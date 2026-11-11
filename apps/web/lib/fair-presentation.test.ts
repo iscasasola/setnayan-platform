@@ -61,7 +61,7 @@ test('honest text is never read as a claim — joining needs three single letter
 // ── rank forms ("0001 is still number 1") ────────────────────────────────────
 
 test('every rank form the owner named reads as number 1', () => {
-  for (const v of ['0001 booth', 'Booth #01', '# 1 caterer', 'No. 1 lights', 'N0. 1 lights', 'No.01 lights', 'Nr. 1 band', 'N° 1 band', '№1 band', 'Number 1 host', 'Numero uno sounds', 'Your first choice caterer', '1st choice caterer', 'The one and only DJ', 'Top 3 florist', 'Top10 venues', 'Weddings by Lea — the one', 'N o . 1 booth']) {
+  for (const v of ['0001 booth', 'Booth #01', '# 1 caterer', 'No. 1 lights', 'N0. 1 lights', 'No.01 lights', 'Nr. 1 band', 'N° 1 band', '\u21161 band', 'Number 1 host', 'Numero uno sounds', 'Your first choice caterer', '1st choice caterer', 'The one and only DJ', 'Top 3 florist', 'Top10 venues', 'Weddings by Lea — the one', 'N o . 1 booth']) {
     assert.ok(findRankForm(v), `“${v}” passed as if it were not a rank`);
   }
 });

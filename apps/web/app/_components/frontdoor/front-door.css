@@ -771,7 +771,37 @@ html.dark .fd {
 .fd-smallprint a {
   color: var(--fd-m1);
   text-decoration: none;
-  margin-right: 10px;
+  /* One link per line, never broken mid-phrase (owner 2026-11-11): at the 280 px drawer the old inline
+     paragraph broke "Acceptable use" into "Acceptable / use". A 32 px line is the drawing's tap target. */
+  display: block;
+  white-space: nowrap;
+  min-height: 32px;
+  line-height: 32px;
+  font-size: 12.5px;
+}
+/* The two labelled columns — Company · Legal (owner 2026-11-11, drawn in
+   `prototypes/sidebar_menu_plan_2026-11-11_fable.html`). The grid sits on this INNER wrapper, never on
+   `.fd-smallprint` itself: the narrow-width rules bring `.fd-smallprint` back with `display: revert`, which
+   would throw a grid declared there away. */
+.fd-sp-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+.fd-sp-col {
+  min-width: 0;
+}
+/* Column headings the owner approved by name (Q3) — not the grey explainer captions the 2026-10-01 ruling
+   removed. `--fd-m1`, not the drawing's `--fd-m2`: m2 is 3.67:1, under AA (the-small-print-is-readable). */
+.fd-sp-h {
+  display: block;
+  padding: 6px 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--fd-m1);
 }
 .fd-smallprint a:hover {
   color: var(--fd-ink);

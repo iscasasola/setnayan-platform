@@ -259,15 +259,26 @@ test('every rail row that can be a page is declared to the resolver', () => {
   for (const href of ['/', '/features', '/dashboard', '/dashboard/library', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
-  // Signed out the rail renders Discover · Find suppliers · Features (owner 2026-10-01).
+  // Signed out the rail renders Discover · Find suppliers · For suppliers · For coordinators · Features
+  // (owner 2026-10-01; For suppliers 2026-11-06; For coordinators 2026-11-11).
   const out = new Set(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }).map((r) => r.href));
-  for (const href of ['/', '/explore', '/features']) {
+  for (const href of ['/', '/explore', '/for-suppliers', '/for-coordinators', '/features']) {
     assert.ok(out.has(href), `${href} is a signed-out row but never declared to the resolver`);
   }
   assert.equal(
     activeRailKey(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }), '/explore'),
     'find',
     'signed out, /explore must light "Find suppliers"',
+  );
+  assert.equal(
+    activeRailKey(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }), '/for-coordinators'),
+    'for-coordinators',
+    'signed out, /for-coordinators must light "For coordinators" (owner 2026-11-11)',
+  );
+  // Signed in it is not a row, so it lights nothing — never a neighbour.
+  assert.ok(
+    !railMatchRows({ signedIn: true, hasShop: false, isAdmin: false }).some((r) => r.key === 'for-coordinators'),
+    'signed in, the resolver declares a "For coordinators" row the rail never draws',
   );
   // AND THE INVERSE, which is the half a hand-written list always forgets: a
   // declared row that nothing renders can never light either, and it reads as

@@ -42,6 +42,8 @@ const SMALL_PRINT = [
   { selector: '.fd-smallprint a', file: 'front-door-shell.tsx', rendered: /className="fd-smallprint"/ },
   { selector: '.fd-copy', file: 'front-door-shell.tsx', rendered: /className="fd-copy"/ },
   { selector: '.fd-tag2', file: 'front-door-shell.tsx', rendered: /className="fd-tag2"/ },
+  // The Company · Legal column headings (owner 2026-11-11).
+  { selector: '.fd-sp-h', file: 'front-door-shell.tsx', rendered: /className="fd-sp-h"/ },
   { selector: '.fd-unknown', file: 'front-door-feed.tsx', rendered: /className="fd-unknown"/ },
 ] as const;
 
@@ -115,3 +117,25 @@ for (const { selector, file, rendered } of SMALL_PRINT) {
     }
   });
 }
+
+/*
+  2026-11-11 — THE SMALL PRINT NEVER BREAKS A LINK IN HALF. The owner's screenshot read "Acceptable / use
+  Cookies": the links were inline in a paragraph, so the 280 px drawer wrapped "Acceptable use" mid-phrase.
+  DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · …": one link per line, in two columns (Company · Legal).
+*/
+test('.fd-smallprint a is one unbreakable line per link, tall enough to tap (owner 2026-11-11)', () => {
+  const b = blocks('.fd-smallprint a');
+  assert.equal(b.length, 1, `expected one .fd-smallprint a rule, found ${b.length}`);
+  const rule = b[0]!;
+  assert.match(rule, /(?:^|;)\s*white-space:\s*nowrap\s*(?:;|$)/, 'a small-print link can wrap mid-phrase again');
+  assert.match(rule, /(?:^|;)\s*display:\s*block\s*(?:;|$)/, 'small-print links are inline again — one link per line');
+  const h = /(?:^|;)\s*min-height:\s*(\d+)px/.exec(rule);
+  assert.ok(h && Number(h[1]) >= 32, `a small-print link is ${h?.[1] ?? 'unset'}px tall — the drawing's line is 32 px`);
+  // The two columns are a grid on the INNER wrapper: `.fd-smallprint` itself is brought back with
+  // `display: revert` at narrow widths, which would discard a grid declared on it.
+  const cols = blocks('.fd-sp-cols');
+  assert.equal(cols.length, 1, 'the .fd-sp-cols rule is gone');
+  assert.match(cols[0]!, /display:\s*grid/, 'the small print is not a grid');
+  assert.match(cols[0]!, /grid-template-columns:\s*1fr 1fr/, 'the small print is not two columns');
+  assert.match(src('front-door-shell.tsx'), /className="fd-sp-cols"/, 'the shell no longer renders .fd-sp-cols');
+});

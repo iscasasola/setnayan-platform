@@ -444,6 +444,14 @@ export default async function RealStoriesIndexPage() {
               Browse suppliers
             </Link>
           </div>
+          {/* /creators left the sidebar on 2026-11-11 (owner, sidebar plan Q2 = B: "it is linked from Real Stories
+              and Features instead"). This is that door — the storytellers' chapters share this shelf. */}
+          <p className="mt-5 text-sm text-ink/65">
+            Tell other people&rsquo;s stories?{' '}
+            <Link href="/creators" className="font-medium text-ink underline underline-offset-2 hover:text-ink/80">
+              Setnayan for storytellers
+            </Link>
+          </p>
         </div>
       </main>
     </>

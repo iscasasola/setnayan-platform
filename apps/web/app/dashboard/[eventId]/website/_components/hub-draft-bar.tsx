@@ -154,8 +154,17 @@ const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'res
    first load (`hub-history-sheet.tsx`). */
 type HistorySheetModule = typeof import('./hub-history-sheet');
 let historySheet: HistorySheetModule | null = null;
+let historySheetLoad: Promise<HistorySheetModule> | null = null;
 function loadHistorySheet(): Promise<HistorySheetModule> {
-  return import('./hub-history-sheet').then((m) => (historySheet = m));
+  historySheetLoad ??= import('./hub-history-sheet').then((m) => (historySheet = m));
+  return historySheetLoad;
+}
+/* …warmed at idle once the Maker is up, as the drawn undo is (`onFirstUndoStep`): the first ↺ never waits for it. */
+if (typeof window !== 'undefined') {
+  const warm = () => void loadHistorySheet().catch(() => (historySheetLoad = null));
+  const idle = (window as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
+  if (idle) idle(warm, { timeout: 4000 });
+  else window.setTimeout(warm, 1500);
 }
 
 /* ↺ THE PRESS THAT DRAWS ITS OWN UNDO (`lib/maker-undo-run.ts`) is LAZY — warmed once the journal holds a step it

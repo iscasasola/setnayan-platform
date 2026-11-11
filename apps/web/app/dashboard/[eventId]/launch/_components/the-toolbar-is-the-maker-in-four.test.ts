@@ -177,7 +177,7 @@ test('by SOURCE: the real draft bar draws History · Preview · Apply in that or
   const apply = bar.indexOf('label="Apply"');
   assert.ok(undo > 0 && view > undo && apply > view, 'the draft bar is not History · Preview · Apply');
   /* ↺ …and the ↺ OPENS the list — it never takes a step back by itself (owner 2026-11-09). */
-  const press = bar.slice(undo, bar.indexOf('/>', undo));
+  const press = bar.slice(undo, bar.indexOf('</span>', undo));
   assert.match(press, /onClick=\{\(\) => openHistory\(/, '↺ does not open the History list');
   assert.doesNotMatch(press, /intent: 'undo'/, '↺ takes a step back by itself again — it opens the list');
   assert.doesNotMatch(bar, /label="Restore"/, 'Restore is back on the bar — it is Page ▾’s');

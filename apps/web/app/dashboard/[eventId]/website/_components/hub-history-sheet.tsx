@@ -131,11 +131,11 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
                   data-history-row={row.where}
                   data-history-pub={row.pub ? '' : undefined}
                   className={`flex min-h-[52px] w-full items-center gap-3 py-2.5 text-left transition-opacity duration-sn-control ease-sn ${
-                    row.where === 'here' ? '-mx-4 w-[calc(100%+2rem)] rounded-[10px] bg-terracotta/15 px-4' : ''
+                    row.where === 'here' ? '-mx-4 w-[calc(100%+2rem)] rounded-xl bg-terracotta/15 px-4' : ''
                   } ${row.where === 'ahead' ? 'opacity-[.42]' : ''} ${!live && row.where === 'behind' ? 'cursor-default' : ''}`}
                 >
                   <span className="min-w-0 flex-1">
-                    <b className={`block text-[13.5px] font-semibold leading-snug ${row.pub ? 'text-ok' : ''}`}>
+                    <b className={`block text-[13.5px] font-semibold leading-snug ${row.pub ? 'text-success-700' : ''}`}>
                       {row.pub ? `Published ${historyTime(row.at)}` : row.what}
                     </b>
                     {note ? <span className="block text-xs leading-snug text-ink/60">{note}</span> : null}
@@ -155,7 +155,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
         </p>
       </div>
 
-      <div className="rounded-t-[22px] bg-ink/[.04] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+      <div className="rounded-t-3xl bg-ink/[.04] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
         <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-ink/20" />
         <p className="mb-2 text-center text-[10.5px] font-semibold uppercase tracking-[.14em] text-ink/55">This draft · newest first</p>
         <ActionButton

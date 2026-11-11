@@ -40,6 +40,10 @@ export function ProfileHeader({
   doors = null,
   subtitle = null,
   rule = true,
+  photoEdit = null,
+  nameEdit = null,
+  line = null,
+  actions = null,
 }: {
   layout?: 'page' | 'home';
   photoSrc: string | null;
@@ -56,6 +60,14 @@ export function ProfileHeader({
   doors?: ReactNode;
   subtitle?: string | null;
   rule?: boolean;
+  /** Home (v3): the owner's pencil on the photo's corner — a door to where the photo and its frame are changed. */
+  photoEdit?: ReactNode;
+  /** Home (v3): the owner's pencil beside the name. */
+  nameEdit?: ReactNode;
+  /** Home (v3): the one line under the name. */
+  line?: ReactNode;
+  /** Home (v3): the full-width action under the doors ("＋ Create an event"). */
+  actions?: ReactNode;
 }) {
   const avatar = (
     <span className="uprof-avatar" aria-hidden>
@@ -67,14 +79,22 @@ export function ProfileHeader({
       )}
     </span>
   );
-  const name = <h1 className="m-serif uprof-name">{heading}</h1>;
+  const name = <h1 className={layout === 'home' ? 'uprof-name' : 'm-serif uprof-name'}>{heading}</h1>;
   return (
     <header className="uprof-head" data-layout={layout} data-profile-header="">
       {layout === 'home' ? (
         <div className="uprof-hrow">
-          {avatar}
+          {/* v3: the photo wears the logo's frame — a rounded square with the frame's dot, the pencil on its corner. */}
+          <span className="uprof-avwrap">
+            {avatar}
+            <span className="uprof-frame-dot" aria-hidden />
+            {photoEdit}
+          </span>
           <div className="uprof-hname">
-            {name}
+            <div className="uprof-name-row">
+              {name}
+              {nameEdit}
+            </div>
             {handle ? <p className="uprof-handle" data-profile-handle="">{handle}</p> : null}
           </div>
         </div>
@@ -85,6 +105,11 @@ export function ProfileHeader({
           {handle ? <p className="uprof-handle" data-profile-handle="">{handle}</p> : null}
         </>
       )}
+      {line ? (
+        <div className="uprof-line" data-profile-line="">
+          {line}
+        </div>
+      ) : null}
       {relation ? (
         <p className="uprof-relation" data-uprof-relation="">
           {relation}
@@ -97,6 +122,7 @@ export function ProfileHeader({
           {doors}
         </div>
       ) : null}
+      {actions ? <div className="uprof-actions">{actions}</div> : null}
       {rule ? <span aria-hidden className="uprof-rule" /> : null}
       {subtitle ? <p className="uprof-sub">{subtitle}</p> : null}
     </header>
@@ -237,21 +263,73 @@ export const PROFILE_HEADER_CSS = `
     gap: 14px;
     min-width: 0;
   }
+  /* v3 .avatar: 84 px, the logo's rounded square, the frame's 2-px gold edge on the champagne wash. */
+  .uprof-head[data-layout='home'] .uprof-avwrap { position: relative; flex: 0 0 auto; display: block; }
   .uprof-head[data-layout='home'] .uprof-avatar {
-    width: 64px;
-    height: 64px;
+    width: 84px;
+    height: 84px;
     margin: 0;
-    flex: 0 0 auto;
+    border-radius: 30% 30% 30% 30% / 40%;
+    background: var(--accent-soft);
+    border: 2px solid rgb(var(--color-terracotta));
   }
-  .uprof-head[data-layout='home'] .uprof-avatar-initials { font-size: 1.5rem; }
+  .uprof-head[data-layout='home'] .uprof-avatar-initials {
+    font-family: inherit;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: rgb(var(--color-terracotta-700));
+  }
+  .uprof-frame-dot {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgb(var(--color-terracotta));
+    border: 2px solid rgb(var(--color-cream));
+  }
+  .uprof-avwrap > .uprof-pen { position: absolute; left: -6px; top: -6px; }
   .uprof-head[data-layout='home'] .uprof-hname { min-width: 0; flex: 1; }
+  .uprof-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .uprof-head[data-layout='home'] .uprof-name {
-    font-size: 1.5rem;
+    font-size: 20px;
+    font-weight: 700;
     line-height: 1.15;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* v3 .pen: a 26-px circle (the 44-px floor would make it an oval — house memory), its touch target 44 via ::before. */
+  .uprof-pen {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--sn-hair);
+    background: var(--surface);
+    color: rgb(var(--color-link));
+    transition: transform .06s, filter .06s;
+  }
+  .uprof-pen::before {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+  .uprof-pen:active { filter: brightness(.93); transform: scale(.985); }
+  .uprof-pen svg { width: 13px; height: 13px; }
+  .uprof-line { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0 0; font-size: 14px; }
+  .uprof-actions { display: flex; gap: 8px; margin: 12px 0 0; }
   .uprof-handle {
     margin: 2px 0 0;
     font-family: var(--font-mono-marketing), ui-monospace, monospace;
@@ -262,10 +340,23 @@ export const PROFILE_HEADER_CSS = `
     white-space: nowrap;
   }
   .uprof-handle a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); }
+  .uprof-head[data-layout='home'] .uprof-handle { color: rgb(var(--ink-soft)); }
+  .uprof-head[data-layout='home'] .uprof-handle a { text-decoration: none; }
   .uprof-doors {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
   }
+  /* v3 .counts: ONE row that scrolls sideways, never a second line. */
+  .uprof-head[data-layout='home'] .uprof-doors {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin: 12px -16px 0;
+    padding: 4px 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .uprof-head[data-layout='home'] .uprof-doors::-webkit-scrollbar { display: none; }
 `;

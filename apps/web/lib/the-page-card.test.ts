@@ -1,5 +1,5 @@
 /**
- * the-page-card.test.ts — THE PAGE CARD, AND THE STUDIO HOME THAT WEARS IT.
+ * the-page-card.test.ts — THE PAGE CARD (the Studio home that wore it was retired with Studio, 2026-11-10).
  *
  * Owner, 2026-10-08 (`INTERACTION_RULES.md` § 9, kind 4; approved gallery `prototypes/control_templates_2026-10-08.html`
  * § 4; the designer's eleven, `prototypes/studio_home_2026-10-08_fable.html`): *"we can improve the page card as
@@ -36,7 +36,6 @@ import { STUDIO_TILE_KEYS, STUDIO_TILES } from './studio-tiles';
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const CARD = 'app/_components/page-card.tsx';
-const HOME = 'app/dashboard/[eventId]/launch/_components/studio-home.tsx';
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 /** Draw a component with a test's props (each test hands exactly the props the component names). */
 const h = (C: unknown, props: Record<string, unknown> | null = null, ...kids: React.ReactNode[]) => React.createElement(C as React.FC<Record<string, unknown>>, props, ...kids);
@@ -104,48 +103,8 @@ const tiles = (over: Partial<Record<string, { done?: boolean | undefined; status
     status: over[key]?.status ?? STUDIO_TILES[key].sub,
   }));
 
-test('(3) the Studio home: eight cards (RSVP left for Guests ⚙ in R1; Wedding March and Seat plan for Guests’ views in R4), eight DISTINCT marks, the tile’s own marks and the count kept; one column, two from 768', async () => {
-  const { StudioHome, TILE_ICON } = await import(`../${HOME}`);
-  const html = await paint(h(StudioHome, { tiles: tiles({ logo: { done: false }, gifts: { done: undefined, status: STUDIO_TILE_UNREAD } }), onOpen: () => {} }));
-  /* 🖨 Counted from the keys, never typed (R8 took Prints out — `lib/prints-has-its-own-page.test.ts`). */
-  const N = STUDIO_TILE_KEYS.length;
-  assert.ok(!(STUDIO_TILE_KEYS as readonly string[]).includes('prints'), 'Prints is a Studio card again');
-  assert.equal(count(html, /data-page-card="/g), N);
-  assert.deepEqual([...html.matchAll(/data-studio-tile="([a-z]+)"/g)].map((m) => m[1]), [...STUDIO_TILE_KEYS], 'the cards are not the keys, in the owner’s order');
-  // The shipped marks: ✓ / Missing / no claim, and the count.
-  assert.equal(count(html, /data-studio-done="yes"/g), N - 2);
-  assert.equal(count(html, /data-studio-done="no"/g), 1);
-  assert.equal(count(html, /data-studio-done="unread"/g), 1);
-  assert.ok(html.includes(`data-studio-ready="">${N - 2} of ${N} ready<`), 'the head’s count is not the cards’');
-  assert.equal(count(html, />Ready</g), N - 2);
-  assert.equal(count(html, />Missing</g), 1);
-  assert.equal(count(html, />Could not be read just now</g), 1, 'a fact that could not be read looks like an untouched page');
-  // "Full screen" was the tag of the two that took the screen — both are Guests' views since R4, so none is tagged.
-  const tagged = [...html.matchAll(/data-studio-tile="([a-z]+)"[\s\S]*?<\/button>/g)].filter((m) => m[0].includes('data-page-card-tag')).map((m) => m[1]);
-  assert.deepEqual(tagged, []);
-  // THE CLAIM: eight DISTINCT marks (Look and the Mood Board shared one) — compared as drawn.
-  const marks = [...html.matchAll(/data-page-card-mark=""[^>]*>(<svg[\s\S]*?<\/svg>)/g)].map((m) => m[1]!.replace(/\s+/g, ' '));
-  assert.equal(marks.length, N, 'anti-vacuity: the marks were not found');
-  assert.equal(new Set(marks).size, N, 'two pages share one mark');
-  assert.equal(new Set(Object.values(TILE_ICON)).size, N);
-  // ONE list of marks: "Studio ▾" in the top nav draws each page with the card's own mark (it had Look and the Mood
-  // Board on the same four squares).
-  const parts = read('app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx');
-  assert.match(parts, /import \{ StudioHome, TILE_ICON \} from '\.\/studio-home';/);
-  assert.match(parts, /const Icon = TILE_ICON\[t\.key\];/, 'the chooser keeps a second list of marks');
-  const { studioChooserOptions } = await import('../app/dashboard/[eventId]/launch/_components/stages-studio-parts');
-  const drawn = await Promise.all(studioChooserOptions(tiles()).map((o) => paint(o.icon as React.ReactElement)));
-  assert.equal(new Set(drawn.map((d) => d.replace(/class="[^"]*"/, ''))).size, N, 'two pages share one mark in the chooser');
-  // Each has its line and its own ⓘ.
-  for (const key of STUDIO_TILE_KEYS) {
-    if (key !== 'gifts') assert.ok(html.includes(STUDIO_PAGE_CARDS[key].description.replace(/’/g, '’')), `${key} has no line`);
-    assert.ok(html.includes(`aria-label="About ${STUDIO_TILES[key].label.replace(/&/g, '&amp;')}"`), `${key} has no ⓘ`);
-  }
-  assert.equal(count(html, /data-explain=""/g), N);
-  // One column on a phone; two only from 768 px.
-  assert.match(html, /<ul data-studio-cards="" class="grid grid-cols-1 gap-2 md:grid-cols-2 /, 'the home is two columns on a phone (a sentence and a 44-px ⓘ do not fit)');
-  assert.doesNotMatch(html, /class="grid grid-cols-2/);
-});
+/* (3) THE STUDIO HOME's cards were retired with Studio (Build 6 Lane F, owner 2026-11-10: "Studio technically is gone since
+   the pages there will be inside the different scenes it covers"). `lib/no-door-leads-to-the-removed-studio.test.ts` holds that it stays gone. */
 
 test('(4) the words: eleven lines that are sentences — never nouns joined by dots — in the house’s words', () => {
   assert.deepEqual(Object.keys(STUDIO_PAGE_CARDS), [...STUDIO_TILE_KEYS]);
@@ -167,10 +126,7 @@ test('(4) the words: eleven lines that are sentences — never nouns joined by d
 });
 
 test('(5) it asks nothing: no request, no preload, no navigation of its own — and the card knows no screen', () => {
-  const home = read(HOME);
-  assert.doesNotMatch(home, /fetch\(|useEffect|useRouter|router\.|prefetch|preload|<a\s|<Link\b|href=|location\.|import\(/, 'the Studio home asks for something, or leaves the Maker');
-  assert.match(home, /onOpen=\{\(\) => onOpen\(t\.key\)\}/, 'a card does not open its page the way the tile did');
-  assert.match(home, /problem=\{t\.status === STUDIO_TILE_UNREAD \? STUDIO_TILE_UNREAD : null\}/);
+  /* The Studio home that wore it is gone (Build 6 Lane F, 2026-11-10); the card itself is the app's template still. */
   const card = read(CARD);
   assert.ok(card.length > 400, 'anti-vacuity');
   assert.doesNotMatch(card, /launch\/_components|maker-|studio-|useMaker|fetch\(|useEffect|router/, 'the Page card knows a screen, or asks for something');

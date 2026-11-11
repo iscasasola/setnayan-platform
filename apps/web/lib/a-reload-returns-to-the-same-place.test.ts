@@ -112,9 +112,12 @@ test('2 · the note is read once and ALWAYS thrown away — honoured only for a 
 
 /* ══ 3 · WHERE THE MAKER LANDS ═══════════════════════════════════════════════ */
 
-test('3 · rule 3 stands for a cold door; the page’s own reload goes back where it was', () => {
-  // A cold door into Event Details: Studio's HOME, the selection dropped (DECISION_LOG 2026-10-07 rule 3).
-  assert.deepEqual(makerDoorLanding(null, TILES), { side: 'studio', at: 'home', keep: false });
+test('3 · a cold door lands on the stage (or on the editor its item names); the page’s own reload goes back where it was', () => {
+  /* 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): Studio is gone, so there is no Studio home to land on. A cold door
+     into Event Details lands on the STAGE, the selection dropped — or, where it names a page's item, on that editor. */
+  assert.deepEqual(makerDoorLanding(null, TILES), { side: 'stages', at: 'home', keep: false });
+  for (const t of TILES) assert.deepEqual(makerDoorLanding(null, TILES, t), { side: 'studio', at: t, keep: true }, `a cold door naming ${t}`);
+  assert.deepEqual(makerDoorLanding(null, TILES, 'prints'), { side: 'stages', at: 'home', keep: false });
   // The owner's case: Studio › Look (on Music) — back on Look, the selection kept.
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'look' }, TILES), { side: 'studio', at: 'look', keep: true });
   // Every Studio tool comes back as itself.
@@ -122,11 +125,11 @@ test('3 · rule 3 stands for a cold door; the page’s own reload goes back wher
   // It was on the STAGES side (the address still carried an old `?tool=details`): it stays on the stage.
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'home' }, TILES), { side: 'stages', at: 'home', keep: false });
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'look' }, TILES), { side: 'stages', at: 'home', keep: false });
-  // Studio's home, or a tool this event does not have: Studio's home.
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'studio', at: 'home', keep: false });
-  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on Studio's home. */
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'studio', at: 'home', keep: false });
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'studio', at: 'home', keep: false });
+  // The old Studio home, or a tool this event does not have: the stage — never a Studio home (there is none).
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'stages', at: 'home', keep: false });
+  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on the stage. */
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'stages', at: 'home', keep: false });
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'stages', at: 'home', keep: false });
 });
 
 test('3 · the whole walk: Look › Music, a new version reloads the page, the Maker opens on Look › Music', () => {
@@ -138,10 +141,10 @@ test('3 · the whole walk: Look › Music, a new version reloads the page, the M
   assert.deepEqual(back, { side: 'studio', at: 'look', item: 'music' });
   // …and the Details selection the address names lands on the tool, not on the tiles.
   assert.deepEqual(makerDoorLanding(back, TILES), { side: 'studio', at: 'look', keep: true });
-  // The SAME address opened from Home a minute later is a cold door: the tiles.
+  // The SAME address opened from Home a minute later is a cold door: it names Look's Music, so Look opens on it.
   noteMakerResume(s, KEY, { side: 'studio', at: 'look', item: 'music' });
   const cold = takeMakerResume(s, KEY, makerCameBackToItself(load({ referrer: 'https://setnayan.com/dashboard/S89E-1' })), { done: false });
-  assert.deepEqual(makerDoorLanding(cold, TILES), { side: 'studio', at: 'home', keep: false });
+  assert.deepEqual(makerDoorLanding(cold, TILES, 'look'), { side: 'studio', at: 'look', keep: true });
 });
 
 test('3 · WIRING: the shell reads the note once at mount, lands through the one rule, and keeps the note as it moves', () => {
@@ -151,7 +154,7 @@ test('3 · WIRING: the shell reads the note once at mount, lands through the one
   assert.ok(at > 0, 'the Stages side still sends a Details selection away');
   const body = SHELL.slice(at, at + 1400);
   assert.match(body, /cameBack\.current = null;/, 'the note is spent by its one use');
-  assert.match(body, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\]\);/);
+  assert.match(body, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(detailsItem\)\);/);
   assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);\s*setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
   assert.match(body, /if \(!land\.keep\) select\(null\);/, 'a cold door drops the selection');
   // The note: side · tool · item, written as they change, only once memory has been read.

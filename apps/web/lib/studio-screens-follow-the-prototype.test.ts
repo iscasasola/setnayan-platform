@@ -65,22 +65,17 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   const page = tiles.find((t) => t.key === 'story')!;
   assert.equal((parts as Record<string, unknown>).StudioPageHead, undefined, 'the head that named only the page is still exported');
   assert.equal((parts as Record<string, unknown>).StudioBack, undefined, 'a ‹ is exported again — the list is one tap away from anywhere');
-  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page, tiles, onOpen: () => {} }));
-  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Love Story — choose a page"/);
-  assert.match(head, /aria-pressed="false"[^>]*aria-label="Stages — choose a stage"/, 'inside a page the way to the stages is gone');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): Studio is gone — a risen editor's bar is ✕ · its name (prototype
+     frames M2–M8), and ✕ goes back to the stage. */
+  const head = await html(React.createElement(parts.StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: page.key, label: page.label, full: true }, onClose: () => {} }));
+  assert.match(head, /aria-label="Close Love Story"[^>]*data-stage-editor-close=""/);
+  assert.match(head, /data-stage-editor-title=""[^>]*>Love Story<\/h1>/);
+  assert.doesNotMatch(head, /Studio/, 'the bar still says Studio');
   assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
-test('1b · the Studio home: seven tiles (RSVP left in R1; Wedding March and Seat plan in R4; Prints in R8) on the warm page, ✓ / Missing as read', async () => {
-  const { StudioHome } = await import(`../${L}/studio-home`);
-  const out = await html(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  /* Counted from the keys (R8 took Prints out): every tile drawn, one Missing. */
-  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, STUDIO_TILE_KEYS.length);
-  assert.ok(out.includes(STUDIO_PAGE_BG), 'the home is not on the prototype’s warm page');
-  assert.ok(out.includes(`${STUDIO_TILE_KEYS.length - 1} of ${STUDIO_TILE_KEYS.length} ready`), 'the head’s count is not the tiles’');
-  assert.equal((out.match(/>Missing</g) ?? []).length, 1);
-});
+/* 1b · THE STUDIO HOME is gone (Build 6 Lane F, 2026-11-10) — held by `lib/no-door-leads-to-the-removed-studio.test.ts`. */
 
 test('2 · the opening line: ONE dropdown in Studio, never a pill row — the shipped Maker keeps its chips', async () => {
   const { OpeningLineField } = await import(`../${L}/opening-line-field`);

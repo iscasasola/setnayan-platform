@@ -13,9 +13,11 @@
  *   · "Booked › Schedule / Budget" — Booked is just the team; both are Home's pages (2026-11-02);
  *   · "Four places …"             — the bar has five tabs since Memories (2026-10-23).
  *
- * ⚠ ONE KNOWN, REPORTED, NOT CHANGED HERE: the Maker's part doors ("Open in Studio › Info", and `Open in Studio › ${tool}`
- * for Schedule and E-Gifts) are the approved toolbar prototype's words (TOOLBAR-SPEC 2026-10-09), pinned by four tests;
- * where those doors should point now is the Event Hub redesign's call (plan step 8), put to the owner in this PR.
+ *   · ANY Event Hub "Studio › <page>" or "Studio ▾" — STUDIO IS GONE (Build 6 Lane F, owner 2026-11-10: *"Studio
+ *     technically is gone since the pages there will be inside the different scenes it covers"*): Logo, Palette + Dress
+ *     Code, Love Story, Schedule, E-Gifts, Info and Look are their scenes' editors, Prints is a row of the Hub's ⚙. The
+ *     Maker's part doors say "Open <page>" (`makerSceneDoorWords`). The More menu's products (Papic, Live Studio, the
+ *     Event Hub Pro page) are another "Studio" and are not named here.
  *
  * Sabotage (2026-11-06, each seen red, then restored): `OUTFIT_SET_IN` back to "Mood Board & Dress Code" → red · the
  * venue-pin answer back to "Studio › Info › Venues" → red · the menu tour back to "Four places" → red.
@@ -30,11 +32,9 @@ import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const OLD_PLACES =
-  /Studio › (?:Info|Papic|RSVP|Seat plan|Seating|Wedding March|March|Prints|Thank)|Mood Board & Dress Code|Booked › (?:Schedule|Budget)|Four places for your whole event/;
+  /Studio › (?:Info|Papic|RSVP|Seat plan|Seating|Wedding March|March|Prints|Thank|Logo|Palette|Love Story|Schedule|E-Gifts|Look)|Studio ▾|Open in Studio|Mood Board & Dress Code|Booked › (?:Schedule|Budget)|Four places for your whole event/;
 /** Files allowed to keep a match, each with why. */
-const ALLOWED: Readonly<Record<string, string>> = {
-  'lib/maker-parts.ts': 'the Maker door words — the approved toolbar prototype’s, reported to the owner (see the docblock)',
-};
+const ALLOWED: Readonly<Record<string, string>> = {};
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -65,7 +65,8 @@ test('no page or module the couple meets names a place that moved', () => {
 
 test('the swept words say where things live now', async () => {
   const { OUTFIT_SET_IN } = await import('./guest-outfit');
-  assert.equal(OUTFIT_SET_IN, 'Set it in Studio › Palette + Dress Code');
+  // 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): Studio is gone — the Dress code scene opens Palette + Dress Code.
+  assert.equal(OUTFIT_SET_IN, 'Set it in Event Hub › Dress code');
   const tours = stripComments(readFileSync(join(WEB, 'lib/tours.ts'), 'utf8'));
   assert.match(tours, /title: 'Five places for your whole event'/);
   // 🔁 UPDATED ON PURPOSE 2026-11-08 (THE ONE BUILD, v113): Home is Today, Memories before Hub; Papic is in Memories.

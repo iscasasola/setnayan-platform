@@ -90,17 +90,17 @@ import { MAKER_LT_HEIGHT } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { needsLandingStage } from '@/lib/event-needs';
-import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
+import { PRINTS_PAGE_LABEL, printsPageHref } from '@/lib/prints-page-href';
 import { usePrintsForward } from './prints-forward';
 import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioTool, StudioToolMenu } from './details-lazy';
+import { EditorFieldFocus, HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageSwitch, StageTools, StudioTool } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
-import { isStudioMenuKey, studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
+import { studioTileItem, studioTileOfItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, RotateCcw, Undo, Users } from 'lucide-react';
 import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
@@ -114,8 +114,8 @@ import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-
  * scrollable navigation, and editing tools each"* · *"we can opt to not have
  * the sidebar and top nav. we can have a button to exit editor"*):
  *
- *   1 · the toolbar — ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↶ Undo · ✓ Apply
- *       (`maker-bar.ts` `MAKER_TOOLBAR_STAGES_STUDIO`; a desktop adds 👁 Preview).
+ *   1 · the toolbar — ● Stage ▾ · ↶ Undo · ✓ Apply · ⚙ — or, while a scene's editor is risen, ✕ · its name · ↶ · ✓
+ *       (`maker-bar.ts` `MAKER_TOOLBAR_STAGES_STUDIO`; a desktop adds 👁 Preview). Studio's half retired 2026-11-10.
  *       ONE Maker for every viewer on every width (owner 2026-10-25) — the old
  *       bar (Page ▾ · Look · Event Details) and its chrome are deleted.
  *   2 · the navigator  ┐
@@ -196,7 +196,7 @@ export function MakerShell({
    * 🖨 THE PRINTS PAGE (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO" — `lib/prints-page.ts`): this shell draws Prints
    * ALONE, at `/dashboard/<id>/prints` — the shipped Prints workspace whole (the swipe carousel, ⚙ Print settings,
    * Download ▾, View as ▾, every save), full screen as the Studio tile drew it. The top bar keeps ↶ · ✓ (Event Hub Pro dropped
-   * ✕ — the app's own nav is the way out) and names the page "Prints" where Stages | Studio stood; there is no Studio home, no lower third and no stage. An item that is
+   * ✕ — the app's own nav is the way out) and names the page "Prints" where the stage pill stands; there is no Studio home, no lower third and no stage. An item that is
    * not a print opens the Maker (`detailsItemHref`); in the Maker, a print opens this page.
    */
   printsPage?: boolean;
@@ -325,25 +325,22 @@ export function MakerShell({
   const [eventBar, setEventBar] = useState<MakerEventBar | null>(null);
   const [settingsOn, setSettingsOn] = useState(false);
   const phone = !wide;
-  /* ══ 🧭 THE MAKER — "Stages | Studio", on every width, for every viewer ══
+  /* ══ 🧭 THE MAKER — on every width, for every viewer ══
      (owner 2026-10-25: *"delete that old event hub maker"* — no flag, no role and no failed read picks another;
-     `lib/there-is-one-maker.test.ts`). Which side the top nav's Stages | Studio shows, and what Studio has open:
-     its home of tiles, Look (in the lower third — it must show the page), or a
-     tool drawn full screen under its slim Tool ▾ row. */
+     `lib/there-is-one-maker.test.ts`). STUDIO IS GONE (Build 6 Lane F, owner 2026-11-10: *"Studio technically is gone
+     since the pages there will be inside the different scenes it covers"*): `side` is 'stages' on a stage, and
+     'studio' only while a scene's editor is risen over it — Look (in the lower third — it must show the page), or an
+     editor drawn full screen. There is no Studio home any more; ✕ in the bar goes back to the scene. */
   const [side, setSide] = useState<MakerSide>(printsPage ? 'studio' : 'stages');
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
   const studioOn = side === 'studio';
-  const studioHomeOn = studioOn && studioAt === 'home' && !printsPage;
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
-  /* 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27/30, `STUDIO_MENU_KEYS`): the pages it lists — and the Studio
-     home's cards. Look and E-Gifts open from the ⚙, the others from their own doors; each is still a page here. */
-  const studioMenu = useMemo(() => studio?.tiles.filter((t) => isStudioMenuKey(t.key)) ?? null, [studio]);
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
   const studioFull = printsPage || (studioTile !== null && studioTile.key !== 'look');
-  /** Studio covers the page and the lower third (its home, or a full-screen tool). */
-  const studioCovers = studioHomeOn || studioFull;
+  /** A full-screen editor covers the page and the lower third. */
+  const studioCovers = studioFull;
   /* 🖨 ONE DOOR EACH WAY (R8): a print opened here loads the Prints page; anything else on the Prints page loads the Maker —
      never a switch (`./prints-forward.ts`). */
   usePrintsForward(eventId, { hasWork, printsPage, detailsItem });
@@ -446,8 +443,6 @@ export function MakerShell({
       cameBack.current = { ...back, until: Date.now() + 3000 };
       /* 🖨 …but never across the Prints page's line: a print is put back only there, anything else only in the Maker. */
       if (isDetailsItemKey(back.item) && isPrintsItem(back.item) === printsPage) setDetailsItem(back.item);
-      // Studio's home has no tool selected, so the rule below never runs for it: put its side back here.
-      if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
     restored.current = true;
   }, [memoryKey, printsPage]);
@@ -811,12 +806,14 @@ export function MakerShell({
       setStage(key);
     }
   };
-  /* ══ 🧭 Stages | Studio ══ */
-  /** A Studio tile opens its tool: Look in the lower third, every other the shipped Event Details item, full screen. */
+  /* ══ 🧭 A scene's editor ══ */
+  /** A scene's editor (a page Studio used to hold) rises: Look in the lower third, every other the shipped Event Details
+      item, full screen. Opened from its scene (a tap, or the part's "Open <page>" row) and from the ⚙. */
   const openStudio = (key: StudioTileKey, from?: { label: string; focus: string | null }) => {
     const tile = studio?.tiles.find((t) => t.key === key);
     if (!tile || !hasWork) return;
-    /* 🎯 Opened from a part's Style bar: where to come back to, and the field to land on. A tile opens fresh. */
+    /* 🎯 Opened from a scene: where to come back to, and the field to land on. From the ⚙ or a link it opens fresh — and
+       rises from the foot of the screen (no scene was noted). */
     setStudioFrom(from ?? null);
     setSide('studio');
     setStudioAt(key);
@@ -855,12 +852,15 @@ export function MakerShell({
        came back to itself is put back where it was: on the stage, or in the Studio tool it had open. One-shot. */
     const back = cameBack.current && Date.now() < cameBack.current.until ? cameBack.current : null;
     cameBack.current = null;
-    const land = makerDoorLanding(back, studio?.tiles.map((t) => t.key) ?? []);
+    /* 🧭 Studio is gone (2026-11-10): an old door that names a page's item lands on that page's editor, risen; any other
+       lands on the stage — never on a Studio home (`makerDoorLanding`). */
+    const land = makerDoorLanding(back, studio?.tiles.map((t) => t.key) ?? [], back ? null : studioTileOfItem(detailsItem));
     if (land.side === 'studio') setSide('studio');
     setStudioAt(land.at as StudioTileKey | 'home');
     // A tool put back opens as its tile opens it (`openStudio`): Look on its controls, any other with its editor up.
     if (!land.keep) select(null);
     else if (land.at !== 'look') setDetailsDoor((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the item is read once, at the door; a later pick is not a door
   }, [side, selection, select, studio]);
   /* 🔁 …and the note that makes it possible: where the Maker is, kept as it changes (this tab only). */
   useEffect(() => {
@@ -877,19 +877,19 @@ export function MakerShell({
     setStudioFrom(null);
     pickSide('stages');
   };
-  /** Change side. `stages`: a stage picked from Studio's side (the bar's "Stages ▾"), and the way back to a part.
-      `studio`: the Studio home of cards — the bar no longer leads there (owner 2026-10-08: both halves are
-      dropdowns, a pick opens a page); kept until the owner says whether the home goes. */
+
+  /** Back to the stage (✕, a stage picked). Nothing leads to a Studio side of its own any more — an editor opens from
+      its scene (`openStudio`). */
   const pickSide = (next: MakerSide) => {
-    if (next === 'studio') setStudioFrom(null);
-    if (next === 'studio') setStudioAt('home');
-    if (selection && (next === 'studio' || side === 'studio')) select(null);
+    if (selection && side === 'studio') select(null);
     setSide(next);
   };
   /** The lower third's ONE item ▾ (owner 2026-10-06): the five stages — or, in Studio › Look, the eleven tools. */
   const ltItemMenu = studioOn ? (
-    /* Look's own item ▾ lists Studio ▾'s pages — and Look, the page it is on (opened from the ⚙, never listed there). */
-    <StudioToolMenu tiles={[...(studioMenu ?? []), ...(studio?.tiles.filter((t) => t.key === 'look') ?? [])]} value="look" onOpen={openStudio} dataAttr="data-lt-item-menu" />
+    /* Look (opened from the ⚙) is one page: its name, no list of other pages — those are their scenes' editors now. */
+    <span data-lt-item-menu="" className="inline-flex h-11 shrink-0 items-center rounded-full bg-ink/[0.05] px-3 text-[13.5px] font-semibold text-ink ring-1 ring-ink/10">
+      {studioTile?.label ?? 'Look'}
+    </span>
   ) : (
     <PickMenu
       label="Stage"
@@ -1081,7 +1081,7 @@ export function MakerShell({
             (owner 2026-10-25); their acts are the lower third's and Studio's. */}
         <header
           data-maker-toolbar=""
-          /* 📱 On a phone: Stages | Studio · ↶ · ✓N · ⚙ — one row of 44 px
+          /* 📱 On a phone: ● Stage ▾ · ↶ · ✓N · ⚙ — one row of 44 px
              icons (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts). A status says
              itself OVER the canvas there. */
           data-phone-chrome="bar"
@@ -1092,12 +1092,11 @@ export function MakerShell({
               the app's own nav — the top bar, the rail, the bottom nav with Hub lit — is the way out, as on Home ·
               Guests · Suppliers. Amends Maker_Two_Bars_LOCKED's "✕ left everywhere" for the Hub tab. Unapplied
               changes stay in the draft whichever way the couple leaves (they always did — the ✕ was a plain link). */}
-          {/* 🧭 ONE segmented control where the screen's name was — and it says where you are (owner 2026-10-08): the
-              half you are on reads the stage or the Studio page, the other the plain word; both are dropdowns (a tap
-              opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
-              the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          {/* 🧭 THE STAGE PILL where the screen's name was (Build 6 Lane F, 2026-11-10 — the Studio half is gone): ● the
+              stage ▾ opens the five stages' one list; while a scene's editor is risen the same place reads ✕ · its
+              name, and ✕ falls back into the scene (`StageSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
           {printsPage ? (
-            /* 🖨 The Prints page names itself where Stages | Studio stands — it has no stage and no Studio to switch to. */
+            /* 🖨 The Prints page names itself where the stage pill stands — it has no stage to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
               {PRINTS_PAGE_LABEL}
               {/* 🖥 …and a desktop still wears the Maker's columns, which the switch mounts everywhere else. */}
@@ -1105,7 +1104,20 @@ export function MakerShell({
             </h1>
           ) : (
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
-            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studioMenu ?? undefined} onOpen={openStudio} onSettings={hasWork ? () => setMoreOpen(true) : undefined} />
+            <StageSwitch
+              side={side}
+              stage={ltPick}
+              options={page.options}
+              onStage={(key) => {
+                /* A stage picked while an editor is risen: back to the stages, at that stage. */
+                if (studioOn) backToPart();
+                pickPage(key);
+              }}
+              /* ⤴ The editor rises from its scene and ✕ falls back into it — the motion is the pill's (lazy), never the
+                 first load's (`lib/maker-editor-rise.ts`). */
+              editor={studioOn && studioTile ? { key: studioTile.key, label: studioFrom?.label ?? studioTile.label, full: studioFull } : null}
+              onClose={backToPart}
+            />
           </div>
           )}
 
@@ -1148,6 +1160,8 @@ export function MakerShell({
                   pending: latePending,
                   guestsSee: () => window.dispatchEvent(new Event(MAKER_OPEN_GUESTS_SEE_EVENT)),
                   gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
+                  /* 🖨 Prints moved in (Build 6 Lane F, pick B): the shipped Prints page. */
+                  prints: { href: printsPageHref(eventId) },
                 }}
               >
                 {/* The work area's own extras for Your Event Hub (the Event Hub Pro line), and what the page hands in. */}
@@ -1224,15 +1238,10 @@ export function MakerShell({
                 ))}
             </div>
           ) : null}
-          {/* 🧭 STUDIO, over the work area: its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
-              nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
-          {studioHomeOn ? (
-            <StudioCover tiles={studioMenu} pending={latePending} onOpen={openStudio} />
-          ) : null}
         </div>
 
         {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
-        {studioFrom ? <StudioBackToPart from={studioFrom} side={side} at={studioAt} full={studioFull} onBack={backToPart} /> : null}
+        {studioFrom && studioOn ? <EditorFieldFocus focus={studioFrom.focus} at={studioAt} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool
             open folds them into the left column and takes the rest. It REPLACES
             the bottom bar (Page ▾ · Look · Event Details) and the canvas's

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronRight, Eye, Gift } from 'lucide-react';
+import { ChevronRight, Eye, Gift, Printer } from 'lucide-react';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormRow, FormRows } from '@/app/_components/form-row';
@@ -10,10 +10,11 @@ import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker
 import { GUESTS_SEE_WORDS } from '@/lib/guests-see-table';
 import { STUDIO_LIVE_LINE } from './studio-tools';
 import { guestsSeeWorkArea } from './guests-see-sheet';
+import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 
 /**
  * ⚙ THE HUB'S ONE ⚙ — EVENT HUB SETTINGS, at the right end of its pinned row (owner 2026-10-30, DECISION_LOG "EVENT HUB
- * PRO (look redesign) — THE APP'S NAV STAYS": [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙; the 26 Oct "EACH MENU HAS ITS OWN
+ * PRO (look redesign) — THE APP'S NAV STAYS": ● Stage ▾ · ↺ · ✓ · ⚙ — its Studio half retired 2026-11-10; the 26 Oct "EACH MENU HAS ITS OWN
  * SETTINGS" door, `lib/menu-settings.ts`). The house door every menu has (`MenuSettingsButton`) — never a sheet of the
  * Maker's own.
  *
@@ -24,7 +25,9 @@ import { guestsSeeWorkArea } from './guests-see-sheet';
  *   · YOUR EVENT HUB — the address · Go live · who can view · which version · Event Bar · the event QR: the shipped
  *     "More for guests" rows, open (`StudioHubSettings bare`, built by the server — `hubSettingsEditor`); its "these
  *     change right away" line is the group's ⓘ (2026-10-27 "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address
- *     stays in Event Hub ⚙);
+ *     stays in Event Hub ⚙); and PRINTS, its last row (Build 6 Lane F, owner 2026-11-10 pick B — *"Prints in ⚙"*; prototype
+ *     `prototypes/event_hub_stages_scenes_2026-11-10/` frame H4): it opens the shipped Prints page (`printsPageHref`), the
+ *     same page Home's Prints line forwards to — prints are made FROM the Hub, not a scene of it;
  *   · WHAT GUESTS SEE — the shipped sheet (`GuestsSeeSheet`), which was the last row of Studio ▾ (the prototype's Q4,
  *     drawn as A: "everything guests see on the Hub only in Event Hub Settings", 26 Oct);
  *   · E-GIFTS — Ways to give: the shipped E-Gifts page (2026-10-27 "APPROVED — SETTINGS PER MENU", call 5);
@@ -44,7 +47,12 @@ export type HubSettingsDoors = {
   guestsSee: () => void;
   /** E-Gifts — its page, and the line its Studio card says ("2 ways to give"); null where the event draws no E-Gifts. */
   gifts: { line: string; open: () => void } | null;
+  /** 🖨 Prints — the shipped Prints page's address (`printsPageHref`); null where the event has no Hub to print from. */
+  prints: { href: string } | null;
 };
+
+/** The Prints row's line — the prototype's words (frame H4). */
+export const HUB_SETTINGS_PRINTS_LINE = 'The six · one settings sheet · a download per piece';
 
 /** What each Look section holds, in the words of the Look restudy (DECISION_LOG 2026-10-08, `lib/maker-look-sections.ts`). */
 const LOOK_SECTION_LINE: Readonly<Record<LookSection, string>> = {
@@ -111,6 +119,14 @@ export function HubSettingsGear({
                 : 'Your Event Hub settings could not be loaded just now. Nothing was changed — please reopen this in a moment.'}
             </p>
           )}
+          {/* 🖨 PRINTS MOVED IN (Build 6 Lane F, pick B) — a row under Your Event Hub; it opens the shipped Prints page. */}
+          {doors.prints ? (
+            <FormRows data="hub-prints">
+              <FormRow data="prints" name={PRINTS_PAGE_LABEL} line={HUB_SETTINGS_PRINTS_LINE} attrs={{ 'data-hub-settings-row': 'prints' }}>
+                <ActionButton tone="neutral" iconOnly icon={Printer} label={`Open ${PRINTS_PAGE_LABEL}`} href={doors.prints.href} />
+              </FormRow>
+            </FormRows>
+          ) : null}
         </section>
 
         {/* ── WHAT GUESTS SEE ── */}

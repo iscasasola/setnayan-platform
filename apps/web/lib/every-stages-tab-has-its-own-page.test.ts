@@ -461,12 +461,13 @@ test('⚡ what only a tap asks for stays out of the Maker’s first load', () =>
   }
   // The Stages tools themselves arrive lazily.
   assert.match(LAZY, /export const StageTools = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stage-tools'\)/);
-  // "✓ Done · back to <part>" and its focusing exist only after a Style-bar jump; "About the Maker" only when asked.
-  for (const [name, file] of [['StudioBackToPart', 'stages-studio-parts'], ['MakerTour', 'maker-tour']] as const) {
+  // The risen editor's focusing exists only after a scene was tapped (its "✓ Done · back to" became the bar's ✕, 2026-11-10);
+  // "About the Maker" only when asked.
+  for (const [name, file] of [['EditorFieldFocus', 'stages-studio-parts'], ['MakerTour', 'maker-tour']] as const) {
     assert.match(LAZY, new RegExp(`export const ${name} = dynamic\\(\\(\\) => import\\(\\/\\* webpackChunkName: "maker-details" \\*\\/ '\\.\\/${file}'\\)`), `${name} is not lazy`);
     assert.doesNotMatch(SHELL_SRC, new RegExp(`from '\\./${file}'`), `the shell imports ${file} statically again`);
   }
-  assert.match(SHELL_SRC, /import \{[^}]*\bMakerTour\b[^}]*\bStudioBackToPart\b[^}]*\} from '\.\/details-lazy';/);
+  assert.match(SHELL_SRC, /import \{[^}]*\bEditorFieldFocus\b[^}]*\bMakerTour\b[^}]*\} from '\.\/details-lazy';/);
   assert.doesNotMatch(SHELL_SRC, /data-focus-pending|data-maker-studio-back/, 'the jump’s focusing or its button is back in the shell');
   // The hub draft (first load) carries nothing of the camera (owner 2026-10-24: one camera, no look to draft).
   assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-(look|look-key|dress)';/, 'the camera rides the Maker’s first load again');

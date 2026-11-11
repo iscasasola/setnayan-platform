@@ -171,22 +171,20 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
-/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `stagesStudio`, the one Maker since 2026-10-25) — Stages | Studio, Studio's
-   home, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `stagesStudio`, the one Maker since 2026-10-25) — the stage pill
+   (Studio's half retired 2026-11-10, Build 6 Lane F), the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
    of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
-export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
+export const StageSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StageSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
-/* 🖨 The Prints page's desktop columns (it has no switch to mount them — `PrintsPageDesk`). */
+/* 🖨 The Prints page's desktop columns (it has no stage pill to mount them — `PrintsPageDesk`). */
 export const PrintsPageDesk = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.PrintsPageDesk), { loading: () => null });
-export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
 /* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
    slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
 export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });
 /* 🔁 "Updating Setnayan…" — the words said before the Maker reloads itself (`lib/maker-resume.ts`). */
 export const MakerUpdating = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-updating').then((m) => m.MakerUpdating), { loading: SlotNone });
-export const StudioBackToPart = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioBackToPart), { loading: SlotNone });
-export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
+export const EditorFieldFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.EditorFieldFocus), { loading: SlotNone });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
 /* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,

@@ -55,7 +55,7 @@ export type MarketplaceServiceCard = {
   /** 🧪 `vendor_profiles.is_demo` — the card's shop row wears "(DEMO ONLY)" (owner 2026-11-06). */
   isDemo: boolean;
   /** `vendor_profiles.verification_state = 'verified'` — the Verified pill on the card's shop line. */
-  verified: boolean;
+  verified?: boolean;
 };
 
 export type MarketplaceQuery = {

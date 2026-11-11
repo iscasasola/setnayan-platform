@@ -198,6 +198,8 @@ export const loadLandingCards = cache(async (): Promise<LandingSource> => {
       businessLogoRef: (shop.logo_url as string | null) ?? null,
       // Always false here: the filter above keeps demo shops off these indexed pages.
       isDemo: false,
+      // The Verified pill on the card's shop line (verification_state is read for the findable gate above).
+      verified: shop.verification_state === 'verified',
     });
   }
 

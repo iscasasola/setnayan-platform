@@ -23,6 +23,8 @@ import {
   quotePlanText,
   versionSummary,
   versionsNewestFirst,
+  versionsOldestFirst,
+  versionsSideBySide,
   type QuoteVersionRow,
 } from './quote-versions';
 import { quoteCardState } from './quote-card-state';
@@ -234,4 +236,59 @@ test('a replaced quote is compact — no lines, no buttons, no "· Superseded" b
   assert.equal(count(s, /\{replaced \? null : <QuoteCardLines items=\{items\} \/>\}/g), 1, 'a replaced card draws its lines');
   assert.equal(count(s, /\{replaced \? null : \(\s*<div className="mt-2 flex flex-wrap items-center gap-2">/g), 1, 'a replaced card draws buttons');
   assert.equal(count(s, /\{replaced \? null : \(\s*<>\s*\{quoteState\.note\?\.startsWith/g), 1, 'a replaced card repeats its status');
+});
+
+/* ── 5 · SEE EVERY VERSION · SIDE BY SIDE (PR-4, owner 2026-11-12) ─────────────
+ * The comparison marks EXACTLY the lines quoteChanges lists — never more, never fewer — plus the plan when it
+ * differs and the total when it moved. SABOTAGE (seen red, restored): mark every line `changed: true`; and mark
+ * changed only when the amount differs (an added/removed line then goes unmarked). */
+const vRow = (id: string, at: string, lines: ReturnType<typeof L>[], total: number, extra: Partial<QuoteVersionRow> = {}): QuoteVersionRow => ({
+  proposal_id: id,
+  public_id: `S89P-${id}`,
+  event_id: 'ev',
+  vendor_profile_id: 'shop',
+  status: 'superseded',
+  sent_at: at,
+  created_at: at,
+  total_centavos: total * 100,
+  line_items: lines,
+  payment_schedule: null,
+  ...extra,
+});
+
+test('side by side: the marked lines are exactly quoteChanges, in the newer order, removed last; plan + total rows', () => {
+  const rows = [
+    vRow('a', '2026-11-01T00:00:00Z', [L('Garden buffet', 90000), L('Cocktail hour', 20000), L('Grazing table', 15000)], 125000),
+    vRow('b', '2026-11-05T00:00:00Z', [L('Garden buffet', 81000), L('Cocktail hour', 20000), L('Photo booth', 12000)], 113000, { status: 'sent' }),
+  ];
+  const [v1, v2] = orderQuoteVersions(rows);
+  const side = versionsSideBySide(v1!, v2!);
+  const changes = quoteChanges({ lines: v1!.lines, plan: v1!.plan, totalCentavos: v1!.totalCentavos }, { lines: v2!.lines, plan: v2!.plan, totalCentavos: v2!.totalCentavos });
+  const markedLines = side.filter((r) => r.kind === 'line' && r.changed).map((r) => r.label);
+  assert.deepEqual(markedLines, changes.lines.map((c) => c.label), 'the sheet marks a different set of lines than What changed lists');
+  assert.deepEqual(side.filter((r) => r.kind === 'line').map((r) => r.label), ['Garden buffet', 'Cocktail hour', 'Photo booth', 'Grazing table']);
+  const cocktail = side.find((r) => r.label === 'Cocktail hour')!;
+  assert.equal(cocktail.changed, false, 'an unchanged line is marked');
+  assert.equal(side.find((r) => r.label === 'Photo booth')!.a, undefined, 'an added line has a value on the older side');
+  assert.equal(side.find((r) => r.label === 'Grazing table')!.b, undefined, 'a removed line has a value on the newer side');
+  const total = side.find((r) => r.kind === 'total')!;
+  assert.deepEqual([total.a, total.b, total.changed], [12500000, 11300000, true]);
+  assert.equal(side.find((r) => r.kind === 'plan')!.changed, false, 'the same (no) plan is marked changed');
+});
+
+test('side by side: two identical versions mark nothing; the pickers list oldest → newest', () => {
+  const rows = [
+    vRow('a', '2026-11-01T00:00:00Z', [L('Garden buffet', 90000)], 90000),
+    vRow('b', '2026-11-05T00:00:00Z', [L('Garden buffet', 90000)], 90000, { status: 'accepted' }),
+  ];
+  const vs = orderQuoteVersions(rows);
+  assert.deepEqual(versionsSideBySide(vs[0]!, vs[1]!).filter((r) => r.changed), []);
+  assert.deepEqual(versionsOldestFirst(vs, 'b').map((v) => v.version), [1, 2]);
+});
+
+test('side by side is drawn from versionsSideBySide only — the sheet never compares two quotes itself', () => {
+  const sheet = read('app/_components/quote-versions-compare.tsx');
+  assert.equal(count(sheet, /versionsSideBySide\(/g), 1);
+  assert.equal(count(sheet, /quoteChanges\(|\.lines\.filter\(|new Map\(/g), 0, 'the comparison sheet computes a diff of its own');
+  assert.match(read('app/_components/quote-version-line.tsx'), /<QuoteVersionsCompareDoor versions=\{versionsOldestFirst\(versions, latest\.proposalId\)\} \/>/);
 });

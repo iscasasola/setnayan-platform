@@ -4187,6 +4187,37 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'No price anything — the owner removed it (no column, no setting). A hash blocks another card only while it NAMES one: a hash made before this rule names its card only if the backfill matched its cover; an unhashed or unreadable photo is "unchecked" and lets the card through (fail-open, said on the row). The maker\u2019s photo verdict never carries the other shop — the report action re-asks the match server-side.',
   },
+  {
+    /**
+     * 🏷 THE OFFER CARD (Quote + negotiation · Piece 1 · PR-4, owner 2026-11-12). A supplier drops one of their own
+     * Offer Maker offers into the conversation with a Good-until day; the couple taps Apply and the PROPOSAL gets a
+     * new version carrying the offer as its own named line. The chat row is the marker (the offered_service_id
+     * precedent); "applied" is never a column — it is a later version whose line_items[].offer_id names the offer.
+     */
+    id: 'J69',
+    claims: [
+      { kind: 'fk', table: 'chat_messages', column: 'vendor_offer_id', references: 'vendor_offers' },
+      { kind: 'column', table: 'chat_messages', column: 'offer_good_until' },
+      { kind: 'fk', table: 'vendor_offers', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      // Applied is derived from the version's lines, never stored on the message or the quote.
+      { kind: 'no_column', table: 'chat_messages', column: 'offer_applied_at' },
+      { kind: 'no_column', table: 'vendor_proposals', column: 'applied_offer_id' },
+    ],
+    chain: 1,
+    pair: ['TYPE-THREADS', 'TYPE-PROPOSAL'],
+    title: 'Thread → Proposal (an offer dropped in the chat, applied as the quote’s next version)',
+    joint: 'chat_messages.vendor_offer_id',
+    cardinality:
+      'A message names at most one offer (nullable BIGINT → vendor_offers.id, ON DELETE SET NULL) · one apply per offer per quote: the next version carries exactly one line with that offer_id, and an offer never stacks with another on the same quote',
+    implementedBy:
+      'chat_messages.vendor_offer_id + offer_good_until (migration 20271339379038) · apply_dropped_offer() writes vendor_proposals (a new row with the predecessor’s status) and supersedes the predecessor · lib/offer-drop.ts derives open / applied / expired / ended',
+    writtenBy:
+      'the drop: the supplier’s own insert (app/_components/chat/cards/offer-calls.ts · dropOfferIntoChat) · the apply: app/_actions/offer-card-actions.ts applyDroppedOffer → apply_dropped_offer (service role only), priced by offersForQuote',
+    guardedBy:
+      'trigger chat_messages_offer_is_this_suppliers (CARD_NOT_THIS_CONVERSATION · OFFER_NOT_YOURS · OFFER_NEEDS_GOOD_UNTIL · words-only private lines) · apply_dropped_offer refusals (OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · ANOTHER_OFFER · BAD_VERSION · PAID_ROW_CHANGED) · tests/db/a-dropped-offer-is-a-card-the-couple-applies.db.test.ts · lib/offer-drop.test.ts',
+    traps:
+      'vendor_offers keys on id BIGSERIAL (its public_id is the S89D- text the line_items carry), so the marker is BIGINT, not UUID. A couple reads only a switched-on offer of a published shop: an ended offer is unreadable to them, so the card reads "ended" from a set marker it cannot follow — never "removed". The apply writes the SAME status the predecessor had (sent stays sent, accepted stays accepted) and supersedes directly — supersede_prior_vendor_proposals is the supplier’s door and would reset an acceptance.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

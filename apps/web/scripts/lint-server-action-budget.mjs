@@ -118,7 +118,13 @@ import { fileURLToPath } from 'node:url';
 // app/vendor-dashboard/offers/actions.ts: load · save · switch · remove) instead of the four exports it would have been.
 // Main reached 1242 on its own the same day (the line above); no unimported export was found to retire. No fresh `vercel build` count for
 // this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1243;
+// 1243 → 1244 (2026-11-12, Quote + negotiation PR-4 — the offer card): ONE export, `applyDroppedOffer` in
+// app/_actions/offer-card-actions.ts. It cannot be a browser card call like the other chat cards: the couple may not
+// write a quote, and the offer's price must be computed on the server (offersForQuote) and handed to the service-role
+// writer `apply_dropped_offer` — a browser-callable writer would let a session name its own discount. The drop itself
+// is the supplier's own insert (no action). No unimported export was found to retire. No fresh `vercel build` count for
+// this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1244;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

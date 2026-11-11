@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1826
-# tables: 487
-# columns: 5930
-# notnull: 3582
+# ledger: 1831
+# tables: 489
+# columns: 5956
+# notnull: 3600
 [ledger]
 20260512000000
 20260513000000
@@ -1837,7 +1837,12 @@
 20271335272180
 20271335513615
 20271336072378
+20271336137492
 20271336539756
+20271336923559
+20271337043699
+20271337067968
+20271337284161
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -6845,6 +6850,32 @@ vendor_member_token_wallets.purchased_tokens
 vendor_member_token_wallets.updated_at
 vendor_member_token_wallets.user_id
 vendor_member_token_wallets.vendor_id
+vendor_offer_cards.created_at
+vendor_offer_cards.vendor_offer_id
+vendor_offer_cards.vendor_profile_id
+vendor_offer_cards.vendor_service_id
+vendor_offers.created_at
+vendor_offers.first_n_cap
+vendor_offers.first_n_taken
+vendor_offers.first_payment
+vendor_offers.first_payment_unit
+vendor_offers.gift_mode
+vendor_offers.gifts
+vendor_offers.id
+vendor_offers.is_on
+vendor_offers.min_lead_months
+vendor_offers.name
+vendor_offers.pct_off
+vendor_offers.php_off
+vendor_offers.public_id
+vendor_offers.reaches_all
+vendor_offers.season_from
+vendor_offers.season_to
+vendor_offers.sort_order
+vendor_offers.until_date
+vendor_offers.updated_at
+vendor_offers.vendor_profile_id
+vendor_offers.who
 vendor_package_item_options.created_at
 vendor_package_item_options.display_order
 vendor_package_item_options.is_available
@@ -10805,6 +10836,24 @@ vendor_member_token_wallets.purchased_tokens
 vendor_member_token_wallets.updated_at
 vendor_member_token_wallets.user_id
 vendor_member_token_wallets.vendor_id
+vendor_offer_cards.created_at
+vendor_offer_cards.vendor_offer_id
+vendor_offer_cards.vendor_profile_id
+vendor_offer_cards.vendor_service_id
+vendor_offers.created_at
+vendor_offers.first_n_taken
+vendor_offers.first_payment_unit
+vendor_offers.gift_mode
+vendor_offers.gifts
+vendor_offers.id
+vendor_offers.is_on
+vendor_offers.name
+vendor_offers.public_id
+vendor_offers.reaches_all
+vendor_offers.sort_order
+vendor_offers.updated_at
+vendor_offers.vendor_profile_id
+vendor_offers.who
 vendor_package_item_options.created_at
 vendor_package_item_options.display_order
 vendor_package_item_options.is_available

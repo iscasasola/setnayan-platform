@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 import { fairSweepItems, type SweepItem } from '@/lib/fair-presentation-sweep';
+import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 
 /**
  * 🚫 "EDIT YOUR NAME" — the one sweep of live cards and shops, on the Shop tab (owner 2026-11-08, Build 2 item (5)).
@@ -20,9 +21,9 @@ import { fairSweepItems, type SweepItem } from '@/lib/fair-presentation-sweep';
 export async function FairSweepNotice({ vendorProfileId, shopName, tagline }: { vendorProfileId: string; shopName: string | null; tagline: string | null }) {
   const supabase = await createClient();
   const [words, cards, packages] = await Promise.all([
-    loadClaimWordsFor(vendorProfileId).catch(() => null),
+    loadClaimWordsFor(vendorProfileId), // never throws — unread is `null`, logged where read
     supabase.from('vendor_services').select('vendor_service_id, title, is_active').eq('vendor_profile_id', vendorProfileId),
-    supabase.from('vendor_packages').select('package_id, package_name, is_active').eq('vendor_profile_id', vendorProfileId),
+    supabase.from('vendor_packages').select(VENDOR_PACKAGE_SELECT).eq('vendor_profile_id', vendorProfileId),
   ]);
   if (cards.error) logQueryError('FairSweepNotice.cards', cards.error, { vendorProfileId }, 'graceful_degrade');
   if (packages.error) logQueryError('FairSweepNotice.packages', packages.error, { vendorProfileId }, 'graceful_degrade');

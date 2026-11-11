@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 import { fairSweepItems } from './fair-presentation-sweep';
 
 const WORDS = [{ phrase: 'best', why: 'w' }];
@@ -56,7 +57,7 @@ test('the sweep never writes, never notifies, never emails, never takes a card d
   const WEB = join(__dirname, '..');
   for (const f of ['lib/fair-presentation-sweep.ts', 'app/vendor-dashboard/shop/_components/fair-sweep-notice.tsx']) {
     const src = readFileSync(join(WEB, f), 'utf8');
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const code = stripComments(src);
     assert.doesNotMatch(code, /\.(insert|update|upsert|delete)\(|\.rpc\(/, `${f} writes`);
     assert.doesNotMatch(code, /emitNotification|sendEmail|resend|push-send/i, `${f} notifies`);
     assert.doesNotMatch(code, /is_active\s*:\s*false|hidden_at|unpublish/i, `${f} takes something down`);

@@ -94,7 +94,7 @@ export default async function EditPackagePage({
     // 🔒 The catalogue's gift price is withheld from a session (G6): the packs are read with the service role.
     fetchShopGiftPacks(createAdminClient()),
     fetchShopGiftStock(supabase, vendorProfileId),
-    loadClaimWordsFor(vendorProfileId).catch(() => null),
+    loadClaimWordsFor(vendorProfileId), // never throws — unread is `null`, logged where read
   ]);
 
   let initial = EMPTY;

@@ -316,7 +316,8 @@ export async function loadDetailsData(
   });
 
   // 🚫 The claim-word list (2 requests, in parallel with the rest) — the name and tagline notes draw from it.
-  const fairWordsRead = loadClaimWordsFor(vendorId).catch(() => null);
+  // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
+  const fairWordsRead = loadClaimWordsFor(vendorId);
 
   const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([

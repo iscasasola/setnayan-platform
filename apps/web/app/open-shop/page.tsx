@@ -261,7 +261,7 @@ export default async function OpenShopPage({
   // 🚫 …and the claim-word list for the name's live fair-presentation note (owner 2026-11-08), read beside it.
   const [feeSchedule, fairWords] = await Promise.all([
     readBookingFeeJoinSchedule().catch(() => null),
-    loadClaimWordList().catch(() => null),
+    loadClaimWordList(), // never throws — unread is `null`, logged where read
   ]);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
 

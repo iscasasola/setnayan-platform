@@ -44,7 +44,7 @@ export default async function YourPage({
   if (!profile) redirect('/vendor-dashboard');
 
   // 🚫 The claim-word list for About's live note (2 requests), started beside the page's own reads.
-  const fairWordsRead = loadClaimWordsFor(profile.vendor_profile_id).catch(() => null);
+  const fairWordsRead = loadClaimWordsFor(profile.vendor_profile_id); // never throws — unread is `null`, logged where read
   const d = await loadPageData(supabase, profile);
   const fairWords = await fairWordsRead;
   // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for every plan

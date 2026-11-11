@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useTabReselect } from '@/app/_components/nav/use-chrome-away';
+import { formatCount } from '@/lib/format-number';
 import { HOME_LAST_SEG_KEY, HOME_SEG_LABEL, HOME_SEG_ORDER, homeSegHref, type HomeSeg } from '@/lib/home-segments';
 import hp from './home-profile.module.css';
 
@@ -91,7 +92,7 @@ export function HomeTabs({
           scroll={false}
         >
           {HOME_SEG_LABEL[s]}
-          {typeof counts[s] === 'number' ? <span className={hp.n}>{counts[s]}</span> : null}
+          {typeof counts[s] === 'number' ? <span className={hp.n}>{formatCount(counts[s] as number)}</span> : null}
         </Link>
       ))}
       <span ref={line} className={hp.line} aria-hidden />

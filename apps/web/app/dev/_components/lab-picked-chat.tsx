@@ -63,7 +63,35 @@ function labPrivate(threadId: string, side: 'couple' | 'vendor') {
 
 /** Empty modes (Build 3 · Lane A, "empty modes are part of done"): `noMessages` = a chat nobody has written in yet;
  *  `solo` = a single member on the event side (only you — the strip's ＋ shows for the missing hosts). */
-export type LabChatMode = { hostsFail?: boolean; noMessages?: boolean; solo?: boolean; tallPins?: boolean };
+export type LabChatMode = {
+  hostsFail?: boolean;
+  noMessages?: boolean;
+  solo?: boolean;
+  tallPins?: boolean;
+  /**
+   * 🏪 ONE PERSON ON BOTH SIDES (owner, 11 Nov — his own shop and his own test event): the viewer is the shop's owner
+   * AND the event's host, on both labs. The value is the side the shop's "Hello" was STORED as — `'vendor'` is what the
+   * database writes now that the shell decides (`chat_messages.sent_as`); `'couple'` is what it wrote before, when one
+   * login on both sides always resolved to the host. `?self=couple` draws that "Now".
+   */
+  selfShop?: 'vendor' | 'couple';
+};
+
+/** 🏪 The `selfShop` thread: the host asks, then the SAME login answers from the shop. Sample words only. */
+function selfShopMessages(threadId: string, storedAs: 'vendor' | 'couple') {
+  const base = LAB_MESSAGES[0]!;
+  const msg = (n: number, role: 'couple' | 'vendor', body: string, m: number) =>
+    ({
+      ...base,
+      message_id: `00000000-0000-4000-8000-0000000005${n.toString().padStart(2, '0')}`,
+      thread_id: threadId,
+      sender_user_id: LAB_USER,
+      sender_role: role,
+      body,
+      created_at: new Date(Date.UTC(2026, 10, 11, 9, m)).toISOString(),
+    }) as (typeof LAB_MESSAGES)[number];
+  return [msg(1, 'couple', 'Hi! Is Dec 12 still open for us?', 2), msg(2, storedAs, 'Hello', 5)];
+}
 
 /** `tallPins`: lab stand-ins for Lane B's pins (due-now rows + the Waiting line), tall enough to pass the 4/9 cap at
  *  320 × 568 — so the "pinned stays pinned" measurement has a pin region to scroll. Not Lane B's design. */
@@ -80,11 +108,33 @@ function LabPins() {
   );
 }
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
+export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
-  const hosts = hostsFail ? null : solo ? (side === 'vendor' ? [MARIA] : [SHOP, MARIA]) : side === 'vendor' ? [MARIA, JOSE, PIA] : [SHOP, MARIA, JOSE, PIA];
+  // 🏪 selfShop: Maria owns the shop too — the host side's shop entry carries HER uid, as the real page now hands it.
+  // `'couple'` (the "Now") also draws the strip the host side had then: the reader dropped a shop whose owner was you.
+  const hosts = hostsFail
+    ? null
+    : selfShop
+      ? side === 'vendor'
+        ? [MARIA]
+        : selfShop === 'couple'
+          ? [MARIA]
+          : [{ ...SHOP, userId: LAB_USER }, MARIA]
+      : solo
+        ? side === 'vendor'
+          ? [MARIA]
+          : [SHOP, MARIA]
+        : side === 'vendor'
+          ? [MARIA, JOSE, PIA]
+          : [SHOP, MARIA, JOSE, PIA];
+  const viewer = selfShop ? LAB_USER : side === 'couple' ? LAB_USER : LAB_STAFF;
+  const messages = noMessages
+    ? []
+    : selfShop
+      ? selfShopMessages(threadId, selfShop)
+      : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)];
   return (
     <div data-picked-lab-chat={side} className="flex min-h-0 flex-1 flex-col">
       <ChatBox
@@ -99,7 +149,8 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
             sendAction={actions.send}
             lead={side === 'couple' ? <CoupleThreadToolsSheet dealReveal={null} eventId={LAB_MESSAGES[0]!.event_id} threadId={threadId} /> : <ComposerPlusSheet sheetMark="lab-vendor" more={[]} />}
             attachInputId={CHAT_ATTACH_INPUT_ID}
-            userId={side === 'couple' ? LAB_USER : LAB_STAFF}
+            userId={viewer}
+            {...(side === 'vendor' ? { sentAs: 'vendor' as const } : {})}
           />
         }
       >
@@ -109,10 +160,12 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           lockHandshake={null}
           dealEntry={dealEntryFor({ side, hasQuote: true })}
           threadId={threadId}
-          initialMessages={noMessages ? [] : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)]}
-          currentUserId={side === 'couple' ? LAB_USER : LAB_STAFF}
+          initialMessages={messages}
+          currentUserId={viewer}
           viewerRole={side}
           hosts={hosts}
+          // 🏪 The supplier lab's shop name (the real page passes `profile.business_name`).
+          {...(side === 'vendor' ? { shopLabel: SHOP.name } : {})}
           // 📞 The picked page's head calls, as the two thread pages pass them. A LAB stand-in: a booked sample with a
           // dummy number (no real person) — the pages pass the ONE booking check (`shopIsBookedOnEvent`), never a literal.
           headCalls={<BookedCallButtons booked phone="0917 000 0000" who={counterpartyLabel} />}
@@ -121,7 +174,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           counterpartyLabel={counterpartyLabel}
           headNote={<ChatPrivacyTip viewer={side} />}
           {...(tallPins ? { pins: <LabPins /> } : {})}
-          senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
+          senderNames={side === 'couple' && !selfShop ? { [LAB_STAFF]: 'Paolo' } : {}}
           fileExpiry={{ eventDate: '2026-12-18', precision: 'day' }}
         />
       </ChatBox>

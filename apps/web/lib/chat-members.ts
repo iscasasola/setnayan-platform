@@ -98,22 +98,64 @@ export function leftOnLine(left: ChatLeft): string {
 /** The supplier's own entry in a strip (the host side adds the shop under the label the page shows for it). */
 export const SUPPLIER_STRIP_ROLE = 'supplier';
 
-export type StripPerson = { userId: string; host: ChatHost | null; isYou: boolean };
+export type StripPerson = {
+  userId: string;
+  host: ChatHost | null;
+  isYou: boolean;
+  /**
+   * The face's own key — the user id, except the SHOP's face when its owner is also a host here (🏪 below): the same
+   * person stands twice, once as the shop and once as "You", so a key by person alone would collide.
+   */
+  key: string;
+};
 
 /**
  * 👥 THE STRIP'S ORDER (owner, 9 Nov): the Supplier first, then the coordinator / planner(s), then You, then the other
  * hosts in the chat. A viewer who IS the supplier or a coordinator reads "You" in THAT slot — never twice. The supplier
  * viewer is not in the hosts list (the list is the event's side), so their "You" goes first. Stable within each group.
+ *
+ * 🏪 ONE PERSON ON BOTH SIDES (owner, 11 Nov: "the profile icons is just you. It should be the shop and then you."):
+ * when the viewer is a HOST of this event and also the shop's owner, the shop keeps its own face — its name, first —
+ * and "You" is the host. Two parties, never one. On the host's side the shop is already in `hosts` (role `supplier`,
+ * the viewer's uid); on the supplier's side `hosts` is the event's side only, so the shop's face is made from
+ * `shopLabel` (the shop's name the page shows). Without `shopLabel` the supplier's strip is as before.
  */
-export function stripOrder(hosts: readonly ChatHost[], youId: string, viewerSide: 'vendor' | 'couple'): StripPerson[] {
-  const rank = (h: ChatHost): number => (h.role === SUPPLIER_STRIP_ROLE ? 0 : isAlwaysInChat(h.role) ? 1 : 3);
+export function stripOrder(
+  hosts: readonly ChatHost[],
+  youId: string,
+  viewerSide: 'vendor' | 'couple',
+  shopLabel: string | null = null,
+): StripPerson[] {
+  const isShop = (h: ChatHost): boolean => h.role === SUPPLIER_STRIP_ROLE;
+  const youAreAHost = hosts.some((h) => h.userId === youId && !isShop(h));
+  const rank = (h: ChatHost): number => (isShop(h) ? 0 : isAlwaysInChat(h.role) ? 1 : 3);
   const rows: { p: StripPerson; r: number; i: number }[] = hosts.map((h, i) => {
-    const isYou = h.userId === youId;
+    // 🏪 The shop's face is never "You" while you also stand here as a host — the host is.
+    const isYou = h.userId === youId && !(isShop(h) && youAreAHost);
     const r = rank(h);
-    return { p: { userId: h.userId, host: h, isYou }, r: isYou && r === 3 ? 2 : r, i };
+    const key = isShop(h) ? `shop:${h.userId}` : h.userId;
+    return { p: { userId: h.userId, host: h, isYou, key }, r: isYou && r === 3 ? 2 : r, i };
   });
+  // 🏪 The supplier's own screen, and you are also a host: the shop's face first, made from its name.
+  if (viewerSide === 'vendor' && youAreAHost && shopLabel && !hosts.some(isShop)) {
+    rows.push({
+      p: {
+        userId: youId,
+        host: { userId: youId, firstName: shopLabel, name: shopLabel, role: SUPPLIER_STRIP_ROLE, label: null },
+        isYou: false,
+        key: `shop:${youId}`,
+      },
+      r: 0,
+      i: -1,
+    });
+  }
   if (!hosts.some((h) => h.userId === youId)) {
-    rows.push({ p: { userId: youId, host: null, isYou: true }, r: viewerSide === 'vendor' ? 0 : 2, i: -1 });
+    rows.push({ p: { userId: youId, host: null, isYou: true, key: youId }, r: viewerSide === 'vendor' ? 0 : 2, i: -1 });
   }
   return rows.sort((a, b) => a.r - b.r || (a.r === 0 && a.p.isYou ? -1 : b.r === 0 && b.p.isYou ? 1 : a.i - b.i)).map((x) => x.p);
+}
+
+/** 🏪 The shop's own face standing for the viewer's OWN uid (they are host and shop at once) — never a private target. */
+export function isShopSelf(p: StripPerson, youId: string): boolean {
+  return !p.isYou && p.userId === youId;
 }

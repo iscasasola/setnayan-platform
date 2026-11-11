@@ -5,11 +5,10 @@ import Link from 'next/link';
 import { ArrowDown, Check, Flag, MoveRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
+import { cardFairTexts, findFairHits, type FairHit } from '@/lib/fair-presentation';
 import {
   REPORT_NOTE_MAX,
   cardPhotoLine,
-  claimTextsOf,
-  findClaimWords,
   findServiceMismatch,
   photoBlocks,
   photoRefsKey,
@@ -17,8 +16,6 @@ import {
   type CardCheckInput,
   type CardPhotoVerdict,
   type CheckTrade,
-  type ClaimField,
-  type ClaimHit,
   type ClaimWord,
   type ServiceMismatch,
 } from '@/lib/service-card-checks';
@@ -41,7 +38,12 @@ import { formatCount } from '@/lib/format-number';
  */
 
 /** What the page read for the checks (`lib/service-card-checks.server.ts`). `null` = unread. */
-export type MakerCheckRules = { claimWords: ClaimWord[] | null; trades: CheckTrade[] | null };
+export type MakerCheckRules = {
+  claimWords: ClaimWord[] | null;
+  trades: CheckTrade[] | null;
+  /** 🚫 This shop's card names — check 9 (flooding). Absent/`null` = the save checks it instead. */
+  ownCards?: { id: string; title: string }[] | null;
+};
 
 /** The photo ask — the server action in the app; a fixture server action in `/dev/card-maker-lab`. */
 export type PhotoCheckAsk = (input: { serviceId: string | null; cover: string | null; showcase: string[] }) => Promise<CardPhotoVerdict[]>;
@@ -56,7 +58,11 @@ const NOTE = 'flex min-h-[46px] items-center gap-2 text-[13px] font-medium leadi
 const QUIET = 'mt-1.5 text-[12px] leading-snug text-ink/55';
 
 export type CardChecks = {
-  claims: ClaimHit[];
+  /**
+   * 🚫 THE FAIR-PRESENTATION CHECKS (owner 2026-11-08) — the claim words (disguised forms too), rank forms, no emoji and
+   * the text checks of the 18, on the name, each what's-included line and each extra (`lib/fair-presentation.ts`).
+   */
+  fair: FairHit[];
   mismatch: ServiceMismatch | null;
   photos: CardPhotoVerdict[];
   /** A photo ask is in flight (or the set changed and has not been asked yet). */
@@ -79,10 +85,16 @@ export function useCardChecks(args: {
   const { rules, input, category, categoryLabel, serviceId } = args;
   const ask: PhotoCheckAsk = args.ask ?? ((i) => cardPhotoAction({ op: 'check', ...i }) as Promise<CardPhotoVerdict[]>);
 
-  const claims = useMemo(
-    () => (rules?.claimWords ? findClaimWords(claimTextsOf(input), rules.claimWords) : []),
+  const fair = useMemo(
+    () =>
+      // Pure, over lists the page already read — typing costs no request. An unread word list skips ONLY the word
+      // check (said under the status); the other checks need no list and run anyway.
+      findFairHits(cardFairTexts(input), {
+        words: rules?.claimWords ?? null,
+        siblingNames: (rules?.ownCards ?? []).filter((c) => c.id !== serviceId).map((c) => c.title),
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the text fields are the identity; `input` is rebuilt per read
-    [rules, input.title, input.inclusionLabels.join('\u0001'), input.addonLabels.join('\u0001')],
+    [rules, serviceId, input.title, input.inclusionLabels.join('\u0001'), input.addonLabels.join('\u0001')],
   );
 
   const mismatch = useMemo(
@@ -133,42 +145,17 @@ export function useCardChecks(args: {
   if (rules && rules.trades === null) unread.push('the service check');
 
   return {
-    claims,
+    fair,
     mismatch,
     photos,
     checkingPhotos: Boolean(refsKey) && (inFlight || asked.key !== refsKey),
-    open: claims.length + (mismatch ? 1 : 0) + photos.filter(photoBlocks).length,
+    open: fair.length + (mismatch ? 1 : 0) + photos.filter(photoBlocks).length,
     unread,
   };
 }
 
-const FIELD_WORD: Record<ClaimField, string> = { name: 'Name', included: 'Line', extras: 'Extra' };
-
-/**
- * The claim words found in ONE field, on that field's row — ONE line for the row (every word in it), ONE ⓘ holding each
- * word's why. A word in a what's-included line or an extra names its line ("line 2").
- */
-export function ClaimWordNotes({ hits, field }: { hits: ReadonlyArray<ClaimHit>; field: ClaimField }) {
-  const mine = hits.filter((h) => h.field === field);
-  if (mine.length === 0) return null;
-  const said = mine.map((h) => `“${h.phrase}”${field === 'name' ? '' : ` (${FIELD_WORD[field].toLowerCase()} ${h.index + 1})`}`);
-  const whys = Array.from(new Map(mine.map((h) => [h.phrase, h.why])).entries());
-  return (
-    <div data-card-check="claim" data-card-check-field={field}>
-      <p role="alert" className={NOTE} style={DANGER}>
-        <span className="min-w-0 flex-1">Reword {said.join(', ')} to save this card.</span>
-        <InfoTip label="" ariaLabel={`Why ${whys.map(([p]) => `“${p}”`).join(', ')}`} align="end">
-          {whys.map(([phrase, why]) => (
-            <span key={phrase} className="mb-1 block">
-              <b className="font-semibold">“{phrase}”</b> — {why}
-            </span>
-          ))}
-          <span className="mt-1 block text-ink/60">Couples read the card as your promise. If you hold the right to say it, ask us — we can allow it for your shop.</span>
-        </InfoTip>
-      </p>
-    </div>
-  );
-}
+/** 🚫 The fair-presentation note on one row of the maker — the shared note every supplier-written field draws. */
+export { FairNote } from '@/app/_components/fair-note';
 
 /** "The card matches its service" — on the Name row, with the right service offered in place on a new card. */
 export function ServiceMismatchNote({

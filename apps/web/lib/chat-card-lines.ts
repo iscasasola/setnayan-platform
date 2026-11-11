@@ -63,9 +63,16 @@ export function pollFromLine(body: string | null | undefined): { question: strin
   return b.startsWith('Poll · ') && b.length > 'Poll · '.length ? { question: b.slice('Poll · '.length) } : null;
 }
 
+/** 🤝 "Counter · <the total|line> · ₱X · <who>" / "Plan proposed · <who>" (migration 20271340018194) → its card. */
+export function negotiationFromLine(body: string | null | undefined): 'counter' | 'plan' | null {
+  const b = (body ?? '').trim();
+  return b.startsWith('Counter · ') ? 'counter' : b.startsWith('Plan proposed · ') ? 'plan' : null;
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'poll' | null {
+export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'poll' | 'negotiate' | null {
   if (bookRequestFromLine(body)) return 'book';
+  if (negotiationFromLine(body)) return 'negotiate';
   if (pollFromLine(body)) return 'poll';
   if (changeAskFromLine(body)) return 'ask';
   if (guestCountFromLine(body)) return 'guests';

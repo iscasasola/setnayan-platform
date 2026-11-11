@@ -474,6 +474,9 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  // 20271340018194 (Piece 1 · PR-3): inserts the new quote version's card line (a shop message with its proposal_id);
+  // reads no message and returns the new proposal id — no body leaves it.
+  'change_ask_write_version',
   // 🗳 20271338412990 (chat decisions · polls): none returns a body. The filing check reads a message's thread_id and
   // recipient_user_id only to REFUSE a private line ('private'); file / move lock the message row; poll_open inserts
   // its own system line and returns the poll id.
@@ -527,6 +530,8 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_threads.chat_threads_member_read',
     ],
     functions: [
+      // 20271340018194 (Piece 1 · PR-3): the hosts' side answers a supplier's counter or plan only from inside the chat.
+      'answer_change_ask',
       'ask_for_a_change', // lane C: only a member of the chat may ask (migration 20271332041210)
       'chat_blocker_shown',
       // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)

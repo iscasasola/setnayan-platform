@@ -25,11 +25,13 @@ import { seedScheduleFromStored } from '@/lib/quote-revision-seed';
 import { formLockOf, quoteLocksOf, type ItemLocks } from '@/lib/quote-locks';
 import {
   askRefusalWords,
+  negotiateRefusalWords,
   logPaymentRefusal,
   needsCoordinatorAgree,
   type AskSubject,
   type CardLine,
   type PerPaxLine,
+  type StoredPlanRow,
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { openDecision } from '@/lib/chat-decisions';
@@ -241,43 +243,181 @@ export async function askForAChangeFromChat(formData: FormData): Promise<AskResu
   return { ok: true };
 }
 
-export type ChangeAskRow = { askId: string; subject: AskSubject; note: string; askedAt: string; status: 'open' | 'revised' | 'declined'; proposalId: string | null };
+export type ChangeAskRow = {
+  askId: string;
+  subject: AskSubject;
+  note: string;
+  askedAt: string;
+  status: 'open' | 'revised' | 'declined' | 'accepted' | 'countered';
+  proposalId: string | null;
+  /** 🤝 A counter's price (the whole quote, or `scopeLabel`'s line); null = not a counter. */
+  amountCentavos?: number | null;
+  scopeLabel?: string | null;
+  /** A plan proposal's rows; null = not a plan proposal. */
+  proposedPlan?: StoredPlanRow[] | null;
+  goodUntil?: string | null;
+  raisedBy?: 'host' | 'supplier';
+  /** The version an accept wrote. */
+  answerProposalId?: string | null;
+};
+
+const ASK_COLS = 'ask_id, subject, note, asked_at, status, proposal_id, amount_centavos, scope_label, proposed_plan, good_until, raised_by, answer_proposal_id';
+
+type AskDbRow = {
+  ask_id: string;
+  subject: AskSubject;
+  note: string;
+  asked_at: string;
+  status: ChangeAskRow['status'];
+  proposal_id: string | null;
+  amount_centavos: number | string | null;
+  scope_label: string | null;
+  proposed_plan: { installments?: StoredPlanRow[] } | null;
+  good_until: string | null;
+  raised_by: 'host' | 'supplier' | null;
+  answer_proposal_id: string | null;
+};
+
+function askOf(r: AskDbRow): ChangeAskRow {
+  return {
+    askId: r.ask_id,
+    subject: r.subject,
+    note: r.note,
+    askedAt: r.asked_at,
+    status: r.status,
+    proposalId: r.proposal_id,
+    amountCentavos: r.amount_centavos == null ? null : Math.round(Number(r.amount_centavos)),
+    scopeLabel: r.scope_label,
+    proposedPlan: Array.isArray(r.proposed_plan?.installments) ? r.proposed_plan!.installments! : null,
+    goodUntil: r.good_until,
+    raisedBy: r.raised_by ?? 'host',
+    answerProposalId: r.answer_proposal_id,
+  };
+}
 
 /** This chat's asks, newest first — the card finds its own by the moment it was asked. */
 export async function loadChangeAsks(threadId: string): Promise<{ ok: true; asks: ChangeAskRow[] } | Fail> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('booking_change_asks')
-    .select('ask_id, subject, note, asked_at, status, proposal_id')
+    .select(ASK_COLS)
     .eq('thread_id', threadId)
     .order('asked_at', { ascending: false })
     .limit(40);
   if (error) return refused('change asks', error);
-  return {
-    ok: true,
-    asks: ((data ?? []) as { ask_id: string; subject: AskSubject; note: string; asked_at: string; status: ChangeAskRow['status']; proposal_id: string | null }[]).map((r) => ({
-      askId: r.ask_id,
-      subject: r.subject,
-      note: r.note,
-      askedAt: r.asked_at,
-      status: r.status,
-      proposalId: r.proposal_id,
-    })),
-  };
+  return { ok: true, asks: ((data ?? []) as AskDbRow[]).map(askOf) };
 }
 
-/** The supplier answers: Revise (a new version follows from the Quote card) or Decline. */
+/**
+ * The other side answers: Revise (a new version follows from the Quote card) · Decline · Accept (a counter or a plan —
+ * the database writes exactly ONE new version, accepted, in the same call: `change_ask_write_version`).
+ */
 export async function answerChangeAskFromChat(formData: FormData): Promise<AskResult> {
   const askId = String(formData.get('ask_id') ?? '');
   const answer = String(formData.get('answer') ?? '');
-  if (!askId || (answer !== 'revised' && answer !== 'declined')) return { ok: false, message: "Couldn't send that. Try again." };
+  if (!askId || !['revised', 'declined', 'accepted'].includes(answer)) return { ok: false, message: "Couldn't send that. Try again." };
   const supabase = createClient();
   const { error } = await supabase.rpc('answer_change_ask', {
     p_ask_id: askId,
     p_answer: answer,
     p_note: String(formData.get('note') ?? '').slice(0, 500) || null,
   });
-  if (error) return { ok: false, message: "Couldn't send that. Try again." };
+  if (error) return { ok: false, message: negotiateRefusalWords(error.message) };
+  return { ok: true };
+}
+
+// ── 🤝 Negotiate · the live quote both sides read, a counter, a plan (Piece 1 · PR-3) ────────────────────────────
+
+/** The live quote as BOTH sides read it for a counter or a plan (the hosts cannot call the supplier's requote gate). */
+export type NegotiationQuote = {
+  proposalId: string;
+  title: string;
+  status: string;
+  totalCentavos: number;
+  lines: CardLine[];
+  planRows: StoredPlanRow[];
+  creditCentavos: number;
+  floorCentavos: number | null;
+  paidSeqs: number[];
+  locks: ItemLocks;
+};
+
+export async function loadNegotiation(threadId: string): Promise<{ ok: true; quote: NegotiationQuote | null } | Fail> {
+  const supabase = createClient();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  if (tErr || !thread) return refused('negotiate · thread', tErr);
+  const t = thread as { event_id: string; vendor_profile_id: string };
+  const [{ data: q, error: qErr }, floorRes] = await Promise.all([
+    liveQuote(supabase, t.event_id, t.vendor_profile_id),
+    supabase.rpc('paid_quote_floor_centavos', { p_event_id: t.event_id, p_vendor_profile_id: t.vendor_profile_id }),
+  ]);
+  // A refused floor read must not pass as "no floor" — the card would offer a counter the server refuses.
+  if (qErr || floorRes.error) return refused('negotiate · quote', qErr ?? floorRes.error);
+  if (!q) return { ok: true, quote: null };
+  const row = q as Record<string, unknown>;
+  const paid = await paidSeqsOf(supabase, t.event_id, t.vendor_profile_id);
+  if (!paid) return { ok: false };
+  const sched = (row.payment_schedule ?? {}) as { installments?: StoredPlanRow[]; credit_centavos?: unknown };
+  return {
+    ok: true,
+    quote: {
+      proposalId: String(row.proposal_id),
+      title: String(row.title ?? 'Quote'),
+      status: String(row.status),
+      totalCentavos: Math.round(Number(row.total_centavos) || 0),
+      lines: cardLinesOf(row.line_items),
+      planRows: Array.isArray(sched.installments) ? sched.installments.map((r) => ({ ...r, seq: Number(r.seq), amount_centavos: Math.round(Number(r.amount_centavos) || 0) })) : [],
+      creditCentavos: Math.max(0, Math.round(Number(sched.credit_centavos) || 0)),
+      floorCentavos: floorRes.data == null ? null : Math.round(Number(floorRes.data)),
+      paidSeqs: paid,
+      locks: quoteLocksOf(row as { changes_locked?: boolean; plan_locked?: boolean }),
+    },
+  };
+}
+
+/** Counter with a price — the whole quote, or one line; a Good until; optionally countering an open one. */
+export async function counterFromChat(input: {
+  threadId: string;
+  proposalId: string;
+  amountCentavos: number;
+  scopeLabel: string | null;
+  goodUntil: string | null;
+  note: string;
+  counters?: string | null;
+}): Promise<AskResult> {
+  if (!input.threadId || !input.proposalId || !(input.amountCentavos > 0)) return { ok: false, message: 'Type a price above ₱0.' };
+  const { error } = await createClient().rpc('ask_for_a_change', {
+    p_thread_id: input.threadId,
+    p_subject: 'quote',
+    p_note: input.note.slice(0, 1000),
+    p_proposal_id: input.proposalId,
+    p_amount_centavos: Math.round(input.amountCentavos),
+    p_scope_label: input.scopeLabel,
+    p_good_until: input.goodUntil,
+    p_counters: input.counters ?? null,
+  });
+  if (error) return { ok: false, message: negotiateRefusalWords(error.message) };
+  return { ok: true };
+}
+
+/** Propose a payment plan — either side; the rows were resolved by `planProposalOptions` and are re-checked by the server. */
+export async function proposePlanFromChat(input: {
+  threadId: string;
+  proposalId: string;
+  rows: readonly StoredPlanRow[];
+  goodUntil: string | null;
+  note: string;
+}): Promise<AskResult> {
+  if (!input.threadId || !input.proposalId || input.rows.length === 0) return { ok: false, message: 'Pick a plan first.' };
+  const { error } = await createClient().rpc('ask_for_a_change', {
+    p_thread_id: input.threadId,
+    p_subject: 'plan',
+    p_note: input.note.slice(0, 1000),
+    p_proposal_id: input.proposalId,
+    p_proposed_plan: { installments: input.rows },
+    p_good_until: input.goodUntil,
+  });
+  if (error) return { ok: false, message: negotiateRefusalWords(error.message) };
   return { ok: true };
 }
 

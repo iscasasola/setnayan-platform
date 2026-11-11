@@ -28,11 +28,10 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusRow } from '@/lib/chat-plus';
+import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC } from '@/lib/chat-plus';
-import type { PickedClientPage } from '@/lib/upcoming-schedule-door';
 import { pickedPageLabel } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
 /**
@@ -116,8 +115,11 @@ export type SheetRow = {
   /**
    * 🧭 The picked client's page this row belongs to (owner 11 Nov — the (+) mirrors the menu). Where it changes, the
    * sheet draws that tab's word as a quiet labelled rule above the row: the divider between topics IS the label.
+   * 🤝 'negotiate' (12 Nov) is the one group above the mirror — drawn first, labelled NEGOTIATE.
    */
-  page?: PickedClientPage;
+  page?: PlusGroup;
+  /** Presses a shipped control in the chat instead of a card or a door (See every version). */
+  act?: PlusRow['act'];
 };
 
 /**
@@ -137,10 +139,12 @@ const SHORTCUT_ROWS: readonly SheetRow[] = [
 ];
 
 /** The tab's word over a topic's rows, on a hairline — `pb` tight so the row under it still reads as the label's own. */
-function PageLabel({ page, first }: { page: PickedClientPage; first: boolean }) {
+function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
   return (
     <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
-      <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-ink/45">{pickedPageLabel(page)}</span>
+      <span className="text-[11px] font-semibold uppercase leading-none tracking-[0.08em] text-ink/45">
+        {page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(page)}
+      </span>
       <span className="h-px flex-1 bg-ink/10" />
     </li>
   );
@@ -167,7 +171,7 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetR
   }, [threadId, slashSig]);
 
   let lastGroup: ThreadToolGroup | undefined;
-  let lastPage: PickedClientPage | undefined;
+  let lastPage: PlusGroup | undefined;
   const items: ReactNode[] = [];
   for (const row of rows) {
     if (row.page && row.page !== lastPage) {
@@ -238,6 +242,15 @@ function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetR
             type="button"
             className={`sn-press ${rowClass}`}
             onClick={() => {
+              if (row.act === 'versions') {
+                // The shipped versions sheet on the live quote's card (`quote-versions-sheet.tsx`) — the one place
+                // every version is listed. Only drawn once a second version exists; until then, say so.
+                setOpen(false);
+                const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
+                if (door) window.setTimeout(() => door.click(), 0);
+                else if (threadId) patchPlus(threadId, { toast: { text: 'One version so far — a change or an accepted counter makes the next', at: Date.now() } });
+                return;
+              }
               if (row.card && threadId) {
                 setOpen(false);
                 patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
@@ -359,7 +372,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'versions' ? 'quote' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
@@ -367,6 +380,9 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       // The row's own composer input (Camera · Photo) beats a door's paperclip.
       attach: r.attach ?? d?.attach,
       page: PLUS_ROW_PAGE[r.key],
+      act: r.act,
+      // 🤝 Negotiate's rows wear the brand round (the design's `pri`) — the money moves of this chat.
+      primary: PLUS_ROW_PAGE[r.key] === NEGOTIATE_GROUP,
     };
   });
 }

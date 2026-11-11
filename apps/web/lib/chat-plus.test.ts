@@ -23,6 +23,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  NEGOTIATE_GROUP,
   ONE_POLL_REASON,
   PLUS_CARD_TOPIC,
   PLUS_ROW_PAGE,
@@ -41,12 +42,12 @@ import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Decision · Poll · Ask for access · Quote · Payment · Form · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Negotiate (Change quote · Propose a payment plan · See every version) · Decision · Poll · Ask for access · Payment · Form · Meeting · Camera · Photos & files · Report a problem', () => {
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Decision', 'Poll', 'Ask for access', 'Quote', 'Payment', 'Form', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Ask for access', 'Payment', 'Form', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
-  assert.equal(supplierPlusRows({ paid: true }).find((r) => r.key === 'quote')!.label, 'Change quote');
+  assert.equal(supplierPlusRows({ paid: true }).find((r) => r.key === 'quote')!.line, 'A new version · the paid one is the floor');
   const photos = supplierPlusRows({ paid: false }).find((r) => r.key === 'photos')!;
   assert.equal(photos.line, 'From your phone or your portfolio');
   assert.equal(photos.card, 'photos', 'Photos & files drops the card whose phone path is the composer’s own picker');
@@ -55,14 +56,16 @@ test('1 · supplier rows: Decision · Poll · Ask for access · Quote · Payment
   assert.equal(camera.card, null);
 });
 
-test('1b · host rows: Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
+const HOST_NEGOTIATE = ['Ask for a change', 'Counter with a price', 'Propose a payment plan', 'See every version'];
+
+test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    ['Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    ['Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
@@ -83,8 +86,12 @@ test('1c · a row that cannot open yet is shut with its reason — never hidden'
 
 /** The menu's order, read from the menu itself — the one list the sheet's groups are the mirror of. */
 const MENU_ORDER: readonly PickedClientPage[] = PICKED_CLIENT_PAGES.map((p) => p.id);
+/** The rows UNDER the menu's mirror — everything after the Negotiate group (which sits above the mirror, 12 Nov). */
+function menuRows(rows: readonly PlusRow[]): PlusRow[] {
+  return rows.filter((r) => PLUS_ROW_PAGE[r.key] !== NEGOTIATE_GROUP);
+}
 function pagesOf(rows: PlusRow[]): PickedClientPage[] {
-  return rows.map((r) => PLUS_ROW_PAGE[r.key]);
+  return menuRows(rows).map((r) => PLUS_ROW_PAGE[r.key] as PickedClientPage);
 }
 
 test('1d · the (+) follows the menu: every row’s page is in the menu, in the menu’s order, Report last — both sides', () => {
@@ -95,24 +102,27 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
     ['host · coordinator', hostPlusRows({ canLogPayment: false })],
   ] as const) {
     const pages = pagesOf([...rows]);
+    const under = menuRows(rows);
     for (const p of pages) assert.ok(MENU_ORDER.includes(p), `${side}: a (+) row sits under '${p}', which is not a page of the picked client`);
     const ranks = pages.map((p) => MENU_ORDER.indexOf(p));
     for (let i = 1; i < ranks.length; i++) {
       assert.ok(
         ranks[i]! >= ranks[i - 1]!,
-        `${side}: '${rows[i]!.label}' (${pages[i]}) is drawn above the menu's order — after '${rows[i - 1]!.label}' (${pages[i - 1]})`,
+        `${side}: '${under[i]!.label}' (${pages[i]}) is drawn above the menu's order — after '${under[i - 1]!.label}' (${pages[i - 1]})`,
       );
     }
     assert.equal(rows.at(-1)!.key, 'report', `${side}: Report a problem is not last`);
     assert.equal(PLUS_ROW_PAGE.report, 'report');
   }
-  // The expected order, DERIVED: stable-sort the rows by the menu and they must already be in that order.
-  const rows = supplierPlusRows({ paid: false });
-  const derived = [...rows].sort((a, b) => MENU_ORDER.indexOf(PLUS_ROW_PAGE[a.key]) - MENU_ORDER.indexOf(PLUS_ROW_PAGE[b.key]));
+  // The expected order, DERIVED: stable-sort the rows under the mirror by the menu and they must already be in that order.
+  const rows = menuRows(supplierPlusRows({ paid: false }));
+  const rank = (r: PlusRow) => MENU_ORDER.indexOf(PLUS_ROW_PAGE[r.key] as PickedClientPage);
+  const derived = [...rows].sort((a, b) => rank(a) - rank(b));
   assert.deepEqual(rows.map((r) => r.key), derived.map((r) => r.key));
-  // The words the sheet draws over the groups are the tabs' own (Chat · Details · Quotation · Payment · Forms · Schedule · Files · Report).
+  // The words the sheet draws over the groups are the tabs' own (Chat · Details · Payment · Forms · Schedule · Files ·
+  // Report) — Quotation's one row, Change quote, moved up into Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
-  assert.deepEqual(groups, ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule', 'Files', 'Report']);
+  assert.deepEqual(groups, ['Chat', 'Details', 'Payment', 'Forms', 'Schedule', 'Files', 'Report']);
 });
 
 test('1e · ONE phone picker on the supplier’s (+): Photos & files takes the phone’s photos and videos; Camera is the other act', () => {
@@ -162,7 +172,7 @@ test('5 · the Poll row: under Chat right after Decision on both sides, greyed w
     ['supplier', (pollOpen: boolean) => supplierPlusRows({ paid: false, pollOpen })],
     ['host', (pollOpen: boolean) => hostPlusRows({ canLogPayment: true, pollOpen })],
   ] as const) {
-    const free = rowsOf(false);
+    const free = menuRows(rowsOf(false));
     assert.deepEqual(free.slice(0, 2).map((r) => r.key), ['decision', 'poll'], `${side}: Poll is not right after Decision`);
     assert.equal(PLUS_ROW_PAGE.poll, 'chat');
     const poll = free.find((r) => r.key === 'poll')!;
@@ -202,14 +212,13 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
     const drawn = rows.map((r) => ({ ...r, shut: r.shutNow ?? (r.shutUntilAgreement && !booked ? r.shutUntilAgreement : null) }));
     assert.deepEqual(sheetSlashRows(drawn), slashRows(rows, booked), `${side}: the composer's list is not the sheet's`);
   }
-  // The client's list carries no /change (the Ask-for-a-change row is still the owner's call, 11 Nov).
-  assert.ok(!slashRows(hostPlusRows({ canLogPayment: true }), true).some((r) => r.word === 'change'));
-  // The words the ruling names (M14 + /meeting /decision /poll).
+  // The words the ruling names (M14 + /meeting /decision /poll), Negotiate's first (12 Nov: /quote · /plan; the hosts' /ask · /counter).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
-    '/decision', '/poll', '/access', '/quote', '/payment', '/form', '/meeting', '/file',
+    '/quote', '/plan', '/decision', '/poll', '/access', '/payment', '/form', '/meeting', '/file',
   ]);
-  // "/p" → Poll · Payment · Photos & files (the prototype's own example).
-  assert.deepEqual(filterSlash(slashRows(supplierPlusRows({ paid: false }), false), 'p').map((r) => r.label), ['Poll', 'Payment', 'Photos & files']);
+  assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 3).map((r) => `/${r.word}`), ['/ask', '/counter', '/plan']);
+  // "/p" → Propose a payment plan (its word /plan) · Poll · Payment · Photos & files.
+  assert.deepEqual(filterSlash(slashRows(supplierPlusRows({ paid: false }), false), 'p').map((r) => r.label), ['Propose a payment plan', 'Poll', 'Payment', 'Photos & files']);
   assert.equal(slashQuery('/po'), 'po');
   assert.equal(slashQuery('/'), '');
   assert.equal(slashQuery('hello /poll'), null, 'a slash that is not the first character is just a character');
@@ -223,4 +232,28 @@ test('7 · Enter never picks a greyed row', () => {
   assert.equal(slashPick(asked, byKey('payment')), null, 'Enter picked a row shut until they book you');
   assert.equal(slashPick(asked, byKey('decision')), 'decision');
   assert.equal(slashPick(asked, 99), null);
+});
+
+// ── 🤝 NEGOTIATE IS FIRST ON BOTH SIDES (approved design 12 Nov · Piece 1 · PR-3) ──────────────────────────────────────
+// What would silently undo it: a Negotiate row slides below a page group, a page row climbs above Negotiate, or a row
+// the design names leaves the group. SABOTAGE (12 Nov): moving the supplier's Change quote back under Decision → 8 RED;
+// mapping `counter` to 'payments' in PLUS_ROW_PAGE → 8 RED.
+test('8 · Negotiate is FIRST on both (+) menus, holding exactly the design’s rows', () => {
+  for (const [side, rows, want] of [
+    ['supplier', supplierPlusRows({ paid: false }), ['Change quote', 'Propose a payment plan', 'See every version']],
+    ['supplier · paid', supplierPlusRows({ paid: true }), ['Change quote', 'Propose a payment plan', 'See every version']],
+    ['host', hostPlusRows({ canLogPayment: true }), HOST_NEGOTIATE],
+    ['host · coordinator', hostPlusRows({ canLogPayment: false }), HOST_NEGOTIATE],
+  ] as const) {
+    const groups = rows.map((r) => PLUS_ROW_PAGE[r.key]);
+    const n = groups.filter((g) => g === NEGOTIATE_GROUP).length;
+    assert.ok(n > 0, `${side}: no Negotiate group`);
+    assert.deepEqual(groups.slice(0, n), Array(n).fill(NEGOTIATE_GROUP), `${side}: Negotiate is not the first group`);
+    assert.ok(!groups.slice(n).includes(NEGOTIATE_GROUP), `${side}: a Negotiate row sits below a page group`);
+    assert.deepEqual(rows.slice(0, n).map((r) => r.label), [...want], `${side}: the Negotiate rows differ from the design`);
+  }
+  // Every Negotiate card row drops a card; See every version presses the shipped versions sheet.
+  const v = hostPlusRows({ canLogPayment: true }).find((r) => r.key === 'versions')!;
+  assert.equal(v.card, null);
+  assert.equal(v.act, 'versions');
 });

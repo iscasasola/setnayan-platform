@@ -3,7 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
-import { manilaDay } from '@/lib/analytics-growing';
+import { manilaDay, type GrowthWindow } from '@/lib/analytics-growing';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import {
   cardSells,
@@ -58,13 +58,21 @@ async function pagedRows(label: string, vendorProfileId: string, page: (from: nu
 
 const str = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
-/** a · the asks you couldn't take in the last 12 months, each landed on closed or full. */
-export async function readLostDates(session: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<LostDates | null> {
+/**
+ * 🪟 BOTH WINDOWS FROM ONE READ (owner 11 Nov: each Analytics card carries its own 30 days / 12 months switch). Every
+ * reader below reads the last 12 months ONCE and buckets the last 30 days out of the same rows by their own time —
+ * never a second request per window. A refused read is `null` for BOTH windows.
+ */
+export type ByWindow<T> = Record<GrowthWindow, T>;
+const within30 = (iso: string | null, nowMs: number): boolean => iso !== null && Date.parse(iso) >= nowMs - 30 * DAY_MS;
+
+/** a · the asks you couldn't take — the last 12 months and the last 30 days — each landed on closed or full. */
+export async function readLostDates(session: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<ByWindow<LostDates> | null> {
   const since = new Date(nowMs - 365 * DAY_MS).toISOString();
   const asks = await pagedRows('lost.waitlist', vendorProfileId, (a, b) =>
     session
       .from('vendor_date_waitlist')
-      .select('user_id, requested_date')
+      .select('user_id, requested_date, created_at')
       .eq('vendor_profile_id', vendorProfileId)
       // `converted` = the couple got the date after all — not lost. Pending, notified and cancelled all asked for a
       // date that was not free.
@@ -76,16 +84,16 @@ export async function readLostDates(session: SupabaseClient, vendorProfileId: st
   if (asks === null) return null;
   // One ask per couple and date (a couple who cancelled and re-joined is one ask).
   const seen = new Set<string>();
-  const unique: { date: string }[] = [];
+  const unique: { date: string; recent: boolean }[] = [];
   for (const r of asks) {
     const d = str(r.requested_date)?.slice(0, 10);
     if (!d) continue;
     const k = `${str(r.user_id) ?? ''}|${d}`;
     if (seen.has(k)) continue;
     seen.add(k);
-    unique.push({ date: d });
+    unique.push({ date: d, recent: within30(str(r.created_at), nowMs) });
   }
-  if (unique.length === 0) return lostDates([], new Set());
+  if (unique.length === 0) return { '30': lostDates([], new Set()), '12': lostDates([], new Set()) };
 
   const first = unique[0]!.date;
   const last = unique[unique.length - 1]!.date;
@@ -133,40 +141,75 @@ export async function readLostDates(session: SupabaseClient, vendorProfileId: st
     const shape = notAvailableShapeOf({ ...r, blocked_at: at, blocked_until: until });
     for (const d of askDates) if (blockClosesDay(shape, d)) closed.add(d);
   }
-  return lostDates(unique, closed);
+  return { '30': lostDates(unique.filter((u) => u.recent), closed), '12': lostDates(unique, closed) };
 }
 
-/** b · asked and booked per service card, the last 12 months (event_vendors → admin). */
+/**
+ * b · opened · asked · booked per service card, the last 12 months. Asked and booked: `event_vendors` → admin. Opened:
+ * `service_card_opens` on the shop's OWN session (migration 20271337268841 — counts only, the shop's own people and
+ * admins; anyone else is refused). A refused opens read leaves `opened: null` on every card ("not read" — the graph
+ * then draws asked and booked and never advises on opens); it never zeroes them and never sinks asked/booked.
+ */
 export async function readCardSells(
   admin: SupabaseClient,
   vendorProfileId: string,
   cards: readonly { serviceId: string; name: string }[],
   nowMs: number,
-): Promise<CardSell[] | null> {
+  session?: SupabaseClient,
+): Promise<ByWindow<CardSell[]> | null> {
   const since = new Date(nowMs - 365 * DAY_MS).toISOString();
-  const rows = await pagedRows('cardsell.event_vendors', vendorProfileId, (a, b) =>
-    admin
-      .from('event_vendors')
-      .select('service_id, requested_service_ids, status')
-      .eq('marketplace_vendor_id', vendorProfileId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: true })
-      .range(a, b),
-  );
+  const opensRead: Promise<ByWindow<Map<string, number>> | null> = session
+    ? Promise.resolve(session.rpc('service_card_opens', { p_vendor_profile_id: vendorProfileId })).then(
+        ({ data, error }) => {
+          if (error || !Array.isArray(data)) {
+            logQueryError('AnalyticsGraphs.cardsell.opens', error ?? new Error('no rows returned'), { vendorProfileId }, 'graceful_degrade');
+            return null;
+          }
+          const m30 = new Map<string, number>();
+          const m12 = new Map<string, number>();
+          for (const r of data as Row[]) {
+            const id = str(r.vendor_service_id);
+            const a = Number(r.opens_30d);
+            const b = Number(r.opens_12m);
+            if (id && Number.isFinite(a)) m30.set(id, a);
+            if (id && Number.isFinite(b)) m12.set(id, b);
+          }
+          return { '30': m30, '12': m12 };
+        },
+        (err: unknown) => {
+          logQueryError('AnalyticsGraphs.cardsell.opens', err, { vendorProfileId }, 'graceful_degrade');
+          return null;
+        },
+      )
+    : Promise.resolve(null);
+  const [rows, opens] = await Promise.all([
+    pagedRows('cardsell.event_vendors', vendorProfileId, (a, b) =>
+      admin
+        .from('event_vendors')
+        .select('service_id, requested_service_ids, status, created_at')
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .range(a, b),
+    ),
+    opensRead,
+  ]);
   if (rows === null) return null;
   const booked = new Set<string>(BOOKED_EVENT_VENDOR_STATUSES);
-  return cardSells(
-    cards,
-    rows.map((r) => ({
-      serviceId: str(r.service_id),
-      requested: Array.isArray(r.requested_service_ids) ? (r.requested_service_ids as unknown[]).filter((x): x is string => typeof x === 'string') : [],
-      booked: booked.has(str(r.status) ?? ''),
-    })),
-  );
+  const all = rows.map((r) => ({
+    serviceId: str(r.service_id),
+    requested: Array.isArray(r.requested_service_ids) ? (r.requested_service_ids as unknown[]).filter((x): x is string => typeof x === 'string') : [],
+    booked: booked.has(str(r.status) ?? ''),
+    recent: within30(str(r.created_at), nowMs),
+  }));
+  return {
+    '30': cardSells(cards, all.filter((r) => r.recent), opens ? opens['30'] : null),
+    '12': cardSells(cards, all, opens ? opens['12'] : null),
+  };
 }
 
-/** c · first-reply time per inquiry, the last 12 months, against the events that booked you (event_vendors → admin). */
-export async function readReplyVsBooked(session: SupabaseClient, admin: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<ReplyVsBooked | null> {
+/** c · first-reply time per inquiry — the last 12 months and the last 30 days — against the events that booked you. */
+export async function readReplyVsBooked(session: SupabaseClient, admin: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<ByWindow<ReplyVsBooked> | null> {
   const since = new Date(nowMs - 365 * DAY_MS).toISOString();
   const [threads, bookedRows] = await Promise.all([
     pagedRows('replyvs.chat_threads', vendorProfileId, (a, b) =>
@@ -194,10 +237,11 @@ export async function readReplyVsBooked(session: SupabaseClient, admin: Supabase
     const e = str(r.event_id);
     if (e) bookedEvents.add(e);
   }
-  return replyVsBooked(
-    threads.map((t) => ({ eventId: str(t.event_id), createdAt: str(t.created_at) ?? '', firstReplyAt: str(t.vendor_first_reply_at) })),
-    bookedEvents,
-  );
+  const all = threads.map((t) => ({ eventId: str(t.event_id), createdAt: str(t.created_at) ?? '', firstReplyAt: str(t.vendor_first_reply_at) }));
+  return {
+    '30': replyVsBooked(all.filter((t) => within30(t.createdAt || null, nowMs)), bookedEvents),
+    '12': replyVsBooked(all, bookedEvents),
+  };
 }
 
 /** d · live booked dates by month, this month and the next 11 (the rows `vendor_upcoming_load` counts). */
@@ -225,12 +269,12 @@ export async function readMonthsAhead(session: SupabaseClient, vendorProfileId: 
 }
 
 /** e · quotations sent in the last 12 months, by state. */
-export async function readQuoteStates(session: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<QuoteStates | null> {
+export async function readQuoteStates(session: SupabaseClient, vendorProfileId: string, nowMs: number): Promise<ByWindow<QuoteStates> | null> {
   const since = new Date(nowMs - 365 * DAY_MS).toISOString();
   const rows = await pagedRows('quotes.vendor_proposals', vendorProfileId, (a, b) =>
     session
       .from('vendor_proposals')
-      .select('status, valid_until, valid_until_legacy')
+      .select('status, valid_until, valid_until_legacy, created_at')
       .eq('vendor_profile_id', vendorProfileId)
       .in('status', ['sent', 'viewed', 'accepted', 'declined', 'expired'])
       .gte('created_at', since)
@@ -238,20 +282,22 @@ export async function readQuoteStates(session: SupabaseClient, vendorProfileId: 
       .range(a, b),
   );
   if (rows === null) return null;
-  return quoteStates(
-    rows.map((r) => ({ status: str(r.status) ?? '', validUntil: str(r.valid_until), legacy: r.valid_until_legacy === true })),
-    manilaDay(nowMs),
-  );
+  const today = manilaDay(nowMs);
+  const all = rows.map((r) => ({ status: str(r.status) ?? '', validUntil: str(r.valid_until), legacy: r.valid_until_legacy === true, recent: within30(str(r.created_at), nowMs) }));
+  return { '30': quoteStates(all.filter((r) => r.recent), today), '12': quoteStates(all, today) };
 }
 
-/** All five at once; each degrades to its own `null`, never the page. */
+/**
+ * All five at once; each degrades to its own `null`, never the page. Returned per WINDOW (each Analytics card carries
+ * its own 30 days / 12 months switch) — the next-12-months graph (slow months) is the same in both: it looks ahead.
+ */
 export async function readNewGraphs(input: {
   session: SupabaseClient;
   admin: SupabaseClient;
   vendorProfileId: string;
   cards: readonly { serviceId: string; name: string }[];
   nowMs: number;
-}): Promise<NewGraphs> {
+}): Promise<ByWindow<NewGraphs>> {
   const { session, admin, vendorProfileId, cards, nowMs } = input;
   const soft = <T>(p: Promise<T | null>, label: string): Promise<T | null> =>
     p.catch((err: unknown) => {
@@ -260,10 +306,17 @@ export async function readNewGraphs(input: {
     });
   const [lost, cardsell, replyvs, slow, quotes] = await Promise.all([
     soft(readLostDates(session, vendorProfileId, nowMs), 'lost'),
-    soft(readCardSells(admin, vendorProfileId, cards, nowMs), 'cardsell'),
+    soft(readCardSells(admin, vendorProfileId, cards, nowMs, session), 'cardsell'),
     soft(readReplyVsBooked(session, admin, vendorProfileId, nowMs), 'replyvs'),
     soft(readMonthsAhead(session, vendorProfileId, nowMs), 'slow'),
     soft(readQuoteStates(session, vendorProfileId, nowMs), 'quotes'),
   ]);
-  return { lost, cardsell, replyvs, slow, quotes };
+  const pick = (w: GrowthWindow): NewGraphs => ({
+    lost: lost ? lost[w] : null,
+    cardsell: cardsell ? cardsell[w] : null,
+    replyvs: replyvs ? replyvs[w] : null,
+    slow,
+    quotes: quotes ? quotes[w] : null,
+  });
+  return { '30': pick('30'), '12': pick('12') };
 }

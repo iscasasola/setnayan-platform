@@ -190,7 +190,7 @@ test('funnel benchmark: a genuine empty RPC read stays EMPTY_FUNNEL_BENCHMARK-sh
    "Not enough shops like yours yet". */
 test('§6 Shops like yours: unreadable renders DIFFERENT copy than genuinely-empty', () => {
   const at = (rel: string) => stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', rel), 'utf8'));
-  const page = at('app/vendor-dashboard/performance/page.tsx');
+  const page = at('app/vendor-dashboard/performance/_components/one-analytics-section.tsx');
   assert.match(page, /funnelBenchmarkUnreadable = funnelBenchmarkRead === FUNNEL_BENCHMARK_UNREADABLE;/, "the page maps the sentinel to its own flag");
   assert.match(page, /benchUnread: funnelBenchmarkUnreadable,/, "…and hands it to the view as benchUnread");
   const view = at('app/vendor-dashboard/performance/_components/growth-view.ts');

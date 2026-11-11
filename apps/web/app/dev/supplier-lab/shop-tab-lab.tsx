@@ -17,31 +17,20 @@ import type { ProfileFieldData } from '@/app/vendor-dashboard/shop/_components/e
 import { ShopBadgeRow } from '@/app/vendor-dashboard/shop/_components/shop-badge-row';
 import { ShopMakers } from '@/app/vendor-dashboard/shop/_components/shop-makers';
 import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
-import { ShopAnalyticsCarousel, type AnalyticsCardData } from '@/app/vendor-dashboard/shop/_components/shop-analytics-carousel';
+import { AnalyticsCarousel } from '@/app/vendor-dashboard/performance/_components/analytics-carousel';
+import { labCarouselProps } from './analytics-lab';
 import { ShopServicesHead } from '@/app/vendor-dashboard/shop/_components/shop-services-head';
 import { ShopBundles } from '@/app/vendor-dashboard/shop/_components/shop-bundles';
 import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
 import { ShopServicesThumb } from '@/app/vendor-dashboard/shop/_components/shop-services-thumb';
 import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/service-card-face';
 import { php } from '@/lib/service-card-snapshot';
-import { CapacityCard } from '@/app/vendor-dashboard/performance/_components/capacity-card';
-import { ConversionDealsCard } from '@/app/vendor-dashboard/performance/_components/conversion-deals-card';
-import { PricePositionCard } from '@/app/vendor-dashboard/performance/_components/price-position-card';
-import { RoiAttributionCard } from '@/app/vendor-dashboard/performance/_components/roi-attribution-card';
-import { FunnelBenchmarkCard } from '@/app/vendor-dashboard/performance/_components/funnel-benchmark-card';
 import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/portfolio-view';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
 import { badgeTracker, type TrackerFacts } from '@/lib/shop-badges';
 import { badgeRowsWithRewards, FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
 import { shopBadgeRow } from '@/lib/shop-badge-row';
-import { stripMarks, stripMonths } from '@/lib/analytics-growing';
-import { buildGrowthRecs } from '@/lib/vendor-growth-recs';
-import type { CapacityAnalytics } from '@/lib/vendor-capacity-analytics';
-import type { ConversionAnalytics } from '@/lib/vendor-conversion-analytics';
-import type { SourceAttribution } from '@/lib/vendor-source-attribution';
-import type { FunnelBenchmark } from '@/lib/funnel-benchmark';
-import type { PricePositionResult } from '@/lib/price-position';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from '@/lib/portfolio-groups';
@@ -49,8 +38,6 @@ import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } f
 export const SHOP_TAB_STATES = ['shop-tab', 'portfolio-tab'] as const;
 export type ShopTabState = (typeof SHOP_TAB_STATES)[number];
 
-const TODAY = '2026-11-08';
-const NOW = Date.parse('2026-11-08T02:00:00Z');
 const PHOTOS = [
   '/realstories/jack-jill-g1.jpg',
   '/realstories/john-jane-g2.jpg',
@@ -90,74 +77,6 @@ function shopLab(fail: boolean, none: boolean) {
     inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
     founding: fail || none ? null : { isFounder: true, joinedYear: 2026 },
   });
-
-  // `&none=1` passes what a NEW shop's reads return (nothing booked, no quotes, no market, no peers) — the lab drew a busy
-  // shop's numbers under a new shop's cover, so its "empty" Analytics were never the empty ones (Build 3, 9 Nov).
-  const capacity: CapacityAnalytics | null = fail
-    ? null
-    : none
-      ? { waitlist: [], waitlistTotal: 0, load: { upcomingBookedDays: 0, upcomingBookings: 0, next30DaysBooked: 0, next90DaysBooked: 0 } }
-      : { waitlist: [{ date: '2026-11-28', waiting: 1 }, { date: '2026-12-12', waiting: 1 }], waitlistTotal: 2, load: { upcomingBookedDays: 8, upcomingBookings: 9, next30DaysBooked: 3, next90DaysBooked: 8 } };
-  const booked = fail
-    ? null
-    : none
-      ? []
-      : ['2026-11-14', '2026-11-21', '2026-11-28', '2026-12-05', '2026-12-12', '2026-12-19', '2027-01-09', '2027-01-23'].map((date, i) => ({ date, bookings: i === 3 ? 2 : 1 }));
-  const deals = fail
-    ? null
-    : none
-      ? ({ quote: { sentCount: 0, acceptedCount: 0, acceptancePct: null, quotedWithInquiryCount: 0, avgHoursToQuote: 0 } } as unknown as ConversionAnalytics)
-      : ({ quote: { sentCount: 21, acceptedCount: 9, acceptancePct: 42.9, quotedWithInquiryCount: 0, avgHoursToQuote: 0 } } as unknown as ConversionAnalytics);
-  const price: PricePositionResult | { status: 'unreadable' } = fail
-    ? { status: 'unreadable' }
-    : none
-      ? ({ status: 'no_data', key: { ownPricePhp: null } } as unknown as PricePositionResult)
-      : ({
-        status: 'positioned',
-        key: { ownPricePhp: 45000 },
-        band: { lowPhp: 25000, medianPhp: 40000, highPhp: 65000, sampleN: 14, computedAt: '2026-11-01T00:00:00Z' },
-        position: 'in_band',
-        percentile: 58,
-      } as unknown as PricePositionResult);
-  const worth: SourceAttribution | null = fail
-    ? null
-    : none
-      ? ({ setnayan: { attribution: 'setnayan', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, offPlatform: { attribution: 'off_platform', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, unattributed: { attribution: 'unattributed', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, totalBookings: 0 } as unknown as SourceAttribution)
-      : ({ setnayan: { attribution: 'setnayan', bookingCount: 14, pricedCount: 12, revenuePhp: 0 }, offPlatform: { attribution: 'off_platform', bookingCount: 9, pricedCount: 9, revenuePhp: 0 }, unattributed: { attribution: 'unattributed', bookingCount: 0, pricedCount: 0, revenuePhp: 0 }, totalBookings: 23 } as unknown as SourceAttribution);
-  const benchmark = (none
-    ? {
-        hasBand: false,
-        category: 'photography',
-        sampleN: 0,
-        metrics: [
-          { key: 'reply_rate', label: 'Reply rate', direction: 'higher', own: null, band: null, percentile: null, tier: null },
-          { key: 'reply_mins', label: 'Reply time', direction: 'lower', own: null, band: null, percentile: null, tier: null },
-          { key: 'conversion', label: 'Inquiry → booking', direction: 'higher', own: null, band: null, percentile: null, tier: null },
-        ],
-      }
-    : {
-    hasBand: true,
-    category: 'photography',
-    sampleN: 12,
-    metrics: [
-      { key: 'reply_rate', label: 'Reply rate', direction: 'higher', own: 94, band: { p25: 60, p50: 75, p75: 88 }, percentile: 82, tier: 'top' },
-      { key: 'reply_mins', label: 'Reply time', direction: 'lower', own: 45, band: { p25: 30, p50: 90, p75: 240 }, percentile: 64, tier: 'above_median' },
-      { key: 'conversion', label: 'Inquiry → booking', direction: 'higher', own: 18, band: { p25: 10, p50: 20, p75: 30 }, percentile: 44, tier: 'below_median' },
-    ],
-  }) as unknown as FunnelBenchmark;
-
-  const cards: AnalyticsCardData[] = [
-    {
-      key: 'ahead',
-      face: <CapacityCard compact data={capacity} strip={booked ? { months: stripMonths(TODAY), ...stripMarks(TODAY, booked, (capacity?.waitlist ?? []).map((w) => ({ date: w.date }))) } : null} />,
-      locked: false,
-      series: fail ? null : none ? [] : booked!.map((b) => b.date).concat(['2026-11-02', '2026-10-03', '2026-10-17', '2026-10-24']),
-    },
-    { key: 'deals', face: <ConversionDealsCard compact data={deals} />, locked: false, series: fail ? null : none ? [] : ['2026-11-03T03:00:00Z', '2026-11-06T03:00:00Z', '2026-10-04T03:00:00Z'] },
-    { key: 'price', face: <PricePositionCard compact result={price} />, locked: false },
-    { key: 'worth', face: <RoiAttributionCard compact attribution={worth} unread={fail} annualPlanPhp={null} windowLabel="in the last 12 months" />, locked: false, series: fail ? null : none ? [] : ['2026-11-05T03:00:00Z', '2026-10-09T03:00:00Z'] },
-    { key: 'compare', face: <FunnelBenchmarkCard compact benchmark={benchmark} unreadable={fail} />, locked: false },
-  ];
 
   const cover: CoverData = {
     name: 'SetnaProd',
@@ -224,7 +143,8 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        <ShopAnalyticsCarousel cards={cards} recs={buildGrowthRecs(null, { askedInWindow: 4 })} nowMs={NOW} />
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
         <ShopBadgeRow tiles={tiles} />
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}

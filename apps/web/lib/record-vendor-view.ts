@@ -27,6 +27,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { hashViewer } from '@/lib/vendor-funnel';
 import { recordPortfolioPhotoView } from '@/lib/record-portfolio-photo-view';
+import { recordServiceCardView } from '@/lib/record-service-card-view';
 
 /** Cookie that carries an opaque per-browser id for anonymous viewers. Set
  *  best-effort so repeat anonymous views from the same browser dedupe on the
@@ -46,6 +47,12 @@ type RecordVendorViewInput = {
    * (`lib/record-portfolio-photo-view.ts`) instead of a shop view. Rides this action so no new server action is added.
    */
   photoKey?: string | null;
+  /**
+   * 📈 A SERVICE CARD was opened into the grown card (Build 6 Lane I, "Which card sells") — count THAT card's open
+   * through the one service-role RPC (`lib/record-service-card-view.ts`) instead of a shop view. Rides this action so no
+   * new server action is added.
+   */
+  serviceId?: string | null;
 };
 
 export async function recordVendorProfileView(
@@ -54,6 +61,7 @@ export async function recordVendorProfileView(
   try {
     if (!input.vendorProfileId) return;
     if (input.photoKey) return await recordPortfolioPhotoView(input.vendorProfileId, input.photoKey);
+    if (input.serviceId) return await recordServiceCardView(input.vendorProfileId, input.serviceId);
 
     // Resolve a viewer id WITHOUT persisting it raw. Prefer the auth user;
     // fall back to an opaque anon-browser cookie. Either way we only ever

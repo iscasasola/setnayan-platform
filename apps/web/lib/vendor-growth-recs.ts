@@ -90,8 +90,9 @@ export type GrowthRecOpts = {
    * BUILD 6 LANE I — the five new graphs' numbers. Absent or `null` (unread) → the rule does not fire: no advice on a
    * number we do not have.
    *   · `lostDates`    graph a — asks you could not take: `closed` → Open that day · `full` → Add a team.
-   *   · `quietCard`    graph b — a card couples OPEN often but rarely ask about. Needs opens per card, which nothing
-   *                    records yet, so no caller passes it and `offer_on_card` does not fire (the rule is ready).
+   *   · `quietCard`    graph b — a card couples OPEN often but rarely ask about (`quietCard` in
+   *                    `lib/vendor-analytics-graphs.ts`, on the opens `service_card_opens` counts — Build 6 Lane I).
+   *                    Opens unread → the caller passes null and `offer_on_card` does not fire.
    *   · `slowMonth`    graph d — the first month ahead with nothing booked between booked months, and the card the
    *                    offer seeds (`serviceId`; no active card → no door → no rule).
    *   · `expiredQuotes` graph e — quotations past their Valid until without an answer.

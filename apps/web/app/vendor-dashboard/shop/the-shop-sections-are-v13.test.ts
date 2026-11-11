@@ -71,7 +71,8 @@ const SCREENS: Array<[seg: string, file: string, maker: RegExp]> = [
   ['promote', 'shop/promote/page.tsx', /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock\b/],
   // ✂ THE ONE BUILD (v113/v114): Portfolio is its OWN bar tab (`collections/page.tsx` → `portfolio-view.tsx`, pinned row
   // "Portfolio · N of 50 free photos · Show · ⚙"); its ▾ entry still opens it from the Shop sub-screens.
-  ['insights', 'performance/page.tsx', /figures=\{pinFigures\}/],
+  // 🎠 `insights` is no sub-screen any more: since 11 Nov 2026 Analytics IS the Shop tab's carousel (owner: "Analytics
+  // should be the carousel"), its three numbers are the carousel's own count cards — `analytics-is-the-carousel.test.ts`.
 ];
 
 test('3 · every Shop screen hands its row its own section and its own figures', () => {
@@ -83,11 +84,12 @@ test('3 · every Shop screen hands its row its own section and its own figures',
     assert.ok(rows.some((r) => maker.test(r)), `${file}: the row carries no ${seg} figures`);
     n += 1;
   }
-  assert.equal(n, SHOP_SEGMENT_ORDER.length - 2, 'a section has no screen in this check');
+  assert.equal(n, SHOP_SEGMENT_ORDER.length - 3, 'a section has no screen in this check');
   assert.match(read('collections/_components/portfolio-view.tsx'), /<PinWord barAbove>Portfolio<\/PinWord>/, 'the Portfolio tab lost its pinned row');
   assert.doesNotMatch(read('shop/page.tsx'), /<ShopSegments\b/, 'the Shop tab draws the retired ▾ row again (v113)');
   assert.match(read('shop/_components/shop-cover.tsx'), /data-shop-pin="shop"/, 'the Shop tab lost its pinned row');
-  assert.match(read('performance/page.tsx'), /const pinFigures = analyticsFigures\(/, 'Analytics figures are not the funnel’s own counts');
+  // Analytics' three numbers are the funnel's own counts — the window's funnel stages, never a second count.
+  assert.match(read('performance/_components/analytics-carousel.tsx'), /const f = props\.view\.windows\[win\]\.booking\.funnel;/, 'Analytics figures are not the funnel’s own counts');
   // The albums screen is Gallery's sub-screen: it lights Gallery.
   assert.match(read('collections/albums/page.tsx'), /<ShopSegments\s+on="gallery"/);
 });

@@ -45,6 +45,7 @@ import './_components/frontdoor/front-door.css';
 import './_components/frontdoor/front-door-landing.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
+import { ChatOriginMark } from './_components/chat/chat-back';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
@@ -355,6 +356,10 @@ export default async function HomePage({
       {/* 💾 `/auth/sign-out` lands here: no auth cookie → the last-seen store
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
+      {/* ↩ Discover is a list the pages it opens return to IN PLACE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
+          PROTOTYPE APPROVED"): this marks the tab, so a shop's, a person's or an event's ‹ is the browser's back and
+          Discover comes back with its filters and scroll (chat/chat-back.tsx `ReturnInPlace`). */}
+      <ChatOriginMark />
       <FrontDoor q={q} />
     </>
   );

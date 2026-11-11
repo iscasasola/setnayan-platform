@@ -1,3 +1,4 @@
+import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -201,7 +202,7 @@ export async function PeopleSegment({
   // in it: they are the "asking you" count and a folded section of the list.
   // 🏠 Home's sections lead the picker (v3 row 7, "[Segment ▾] holds the segments and each segment's sub-views").
   const homeGroup = homeSegs.map((k) => ({ key: `${HOME_SEG_KEY_PREFIX}${k}`, label: HOME_SEG_LABEL[k], group: 'Home' }));
-  const inPeople = <T extends { group?: string }>(o: T): T => ({ ...o, group: o.group ?? 'People' });
+  const inPeople = (o: PickOption): PickOption => ({ ...o, group: o.group ?? 'People' });
   const picker = {
     view: (['connected', 'following', 'followers', 'samahan'] as PeopleView[]).includes(view) ? view : defaultPeopleView(gates),
     options: [

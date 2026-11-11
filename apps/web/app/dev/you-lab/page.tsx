@@ -121,7 +121,7 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
           />
         </div>
         {/* The account bar the (account) layout draws — its marker is what puts "Setnayan" beside the mark above. */}
-        <AccountBarSlot tabs={['events', 'discover', 'memories', 'people']} />
+        <AccountBarSlot tabs={['home', 'discover']} />
       </FrontDoorShell>
     );
   }

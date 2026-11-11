@@ -34,6 +34,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
 import { emitNotification } from '@/lib/notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -2285,7 +2286,7 @@ export async function finalizeVendor(
           title: 'A couple marked you as booked',
           body: `${eventDisplay} marked you as booked on Setnayan. That is their side of it — open the conversation to agree the details and next steps.`,
           relatedUrl: threadId
-            ? `/vendor-dashboard/messages/${threadId}`
+            ? supplierChatHref(eventId, threadId)
             : '/vendor-dashboard/bookings',
           eventId,
         });
@@ -2595,6 +2596,10 @@ export async function finalizeVendor(
                 type: 'inquiry_displaced',
                 title: 'An inquiry was released',
                 body: released,
+                // 🚪 Kept on the thread page (the one reasoned exception in
+                // lib/supplier-notices-open-the-picked-client.test.ts): a released
+                // inquiry may no longer open the picked client, and this page is
+                // where `closingCopy` says who closed it.
                 relatedUrl: `/vendor-dashboard/messages/${t.thread_id}`,
                 eventId,
               });
@@ -4574,7 +4579,7 @@ export async function cancelBookingAsHost(
     })();
     const dateClause = formattedDate ? ` on ${formattedDate}` : '';
     const deepLinkPath = vendorChatThreadId
-      ? `/vendor-dashboard/messages/${vendorChatThreadId}`
+      ? supplierChatHref(eventIdRaw, vendorChatThreadId)
       : '/vendor-dashboard';
 
     try {

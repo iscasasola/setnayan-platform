@@ -21,6 +21,9 @@ import { Collapsible } from '../../_components/collapsible';
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
 import { formatCount } from '@/lib/format-number';
 import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
+import { findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 import { IN_BUSINESS_SINCE_HELP, IN_BUSINESS_SINCE_LABEL, inBusinessSinceLine } from '@/lib/in-business-since';
 
 type LeafletModule = typeof import('leaflet');
@@ -54,6 +57,11 @@ export type ProfileFieldData = {
   serviceLabels?: Record<string, string>;
   extraServiceLeaves: { key: string; label: string }[];
   vendorProfileId: string;
+  /**
+   * 🚫 The claim words this shop may not use (`loadClaimWordsFor`) — the shop name's live fair-presentation note.
+   * Absent / `null` = unread: the word check waits for the save; the other checks (emoji, rank forms…) still run.
+   */
+  fairWords?: ClaimWord[] | null;
 };
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -152,6 +160,12 @@ export function EditableRow({
   const markDirty = () => {
     dirty.current = true;
   };
+  // 🚫 FAIR PRESENTATION (owner 2026-11-08): the shop name's note is open → the auto-save waits (Save off until fixed).
+  // Set by the name box on every keystroke; the server asks again (`updateVendorProfileField`).
+  const fairOpen = useRef(false);
+  const onFair = (open: number) => {
+    fairOpen.current = open > 0;
+  };
 
   // BLANK plain fields render their input directly in the row (Part 1 of the
   // 2026-07-03 field-UX pass) — no expand step, so none of the isOpen machinery
@@ -193,6 +207,9 @@ export function EditableRow({
       if (cancelled.current) {
         cancelled.current = false;
         dirty.current = false;
+      } else if (dirty.current && fairOpen.current) {
+        // 🚫 A fair-presentation note is open — nothing is saved; the row comes back open on the note.
+        onReopenAfterError();
       } else if (dirty.current) {
         // Fire once per edit — a rejected save re-opens (settle effect) and
         // requires a fresh edit to retry, so this can't loop on a bad value.
@@ -251,12 +268,17 @@ export function EditableRow({
             action={formAction}
             noValidate
             className={flat ? 'w-[180px] max-w-[50%] flex-none' : 'mt-2 pl-9'}
-            onSubmit={() => {
+            onSubmit={(e) => {
+              // 🚫 Save is off while a fair-presentation note is open (Enter included).
+              if (fairOpen.current) {
+                e.preventDefault();
+                return;
+              }
               dirty.current = false;
             }}
             onBlur={(e) => {
               if (formRef.current?.contains(e.relatedTarget as Node | null)) return;
-              if (dirty.current) {
+              if (dirty.current && !fairOpen.current) {
                 dirty.current = false;
                 formRef.current?.requestSubmit();
               }
@@ -270,7 +292,7 @@ export function EditableRow({
             }}
           >
             <input type="hidden" name="field" value={item.key} />
-            <PlainInput key={revertNonce} itemKey={item.key} data={data} onDirty={markDirty} />
+            <PlainInput key={revertNonce} itemKey={item.key} data={data} onDirty={markDirty} onFair={onFair} />
           </form>
         </div>
         {heldName ? (
@@ -352,7 +374,7 @@ export function EditableRow({
               settle effect re-opens the row with a friendly error. */}
           <form ref={formRef} action={formAction} noValidate className="space-y-3">
             <input type="hidden" name="field" value={item.key} />
-            <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} pickedFiles={revertNonce === 0 ? pickedFiles : null} />
+            <FieldControl key={revertNonce} item={item} data={data} onDirty={markDirty} onFair={onFair} pickedFiles={revertNonce === 0 ? pickedFiles : null} />
             {heldName ? <HeldNameClaim key={heldName} name={heldName} /> : null}
             <div className="flex items-center justify-between gap-2 pt-0.5">
               <span
@@ -704,11 +726,14 @@ function FieldControl({
   item,
   data,
   onDirty,
+  onFair,
   pickedFiles = null,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
   onDirty: () => void;
+  /** 🚫 The shop name's fair-presentation count (see `ShopNameInput`). */
+  onFair?: (open: number) => void;
   pickedFiles?: readonly File[] | null;
 }) {
   switch (item.key) {
@@ -726,7 +751,7 @@ function FieldControl({
     case 'business_name':
       return (
         <Field label="Shop name" htmlFor="business_name" required>
-          <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
+          <PlainInput itemKey={item.key} data={data} onDirty={onDirty} onFair={onFair} />
         </Field>
       );
     case 'business_owner_name':
@@ -862,9 +887,25 @@ function FieldControl({
  * ("42 / 50"). Uncontrolled like every other `PlainInput` (the form posts it as typed); the length is tracked only
  * to draw the count.
  */
-function ShopNameInput({ defaultValue, onDirty }: { defaultValue: string | null | undefined; onDirty: () => void }) {
-  const [length, setLength] = useState((defaultValue ?? '').length);
-  const counter = shopNameCounter(length);
+function ShopNameInput({
+  defaultValue,
+  onDirty,
+  words,
+  onFair,
+}: {
+  defaultValue: string | null | undefined;
+  onDirty: () => void;
+  /** 🚫 The claim words (`ProfileFieldData.fairWords`); `null`/absent = unread. */
+  words?: ClaimWord[] | null;
+  /** How many fair-presentation problems the name has now — the row's auto-save waits while it is above 0. */
+  onFair?: (open: number) => void;
+}) {
+  const [value, setValue] = useState(defaultValue ?? '');
+  const counter = shopNameCounter(value.length);
+  // Pure, over the list the page already read — typing costs no request. A stored name already carrying a word is
+  // shown its note when the row opens (the sweep's "Edit your name"); nothing is ever taken down.
+  const hits = findFairHits([{ field: 'shop_name', value }], { words: words ?? null });
+  useEffect(() => onFair?.(hits.length), [hits.length, onFair]);
   return (
     <>
       <input
@@ -872,7 +913,7 @@ function ShopNameInput({ defaultValue, onDirty }: { defaultValue: string | null 
         name="business_name"
         required
         onInput={(e) => {
-          setLength(e.currentTarget.value.length);
+          setValue(e.currentTarget.value);
           onDirty();
         }}
         maxLength={SHOP_NAME_MAX}
@@ -885,6 +926,7 @@ function ShopNameInput({ defaultValue, onDirty }: { defaultValue: string | null 
           {counter}
         </span>
       ) : null}
+      <FairNote hits={hits} field="shop_name" />
     </>
   );
 }
@@ -893,14 +935,16 @@ function PlainInput({
   itemKey,
   data,
   onDirty,
+  onFair,
 }: {
   itemKey: string;
   data: ProfileFieldData;
   onDirty: () => void;
+  onFair?: (open: number) => void;
 }) {
   switch (itemKey) {
     case 'business_name':
-      return <ShopNameInput defaultValue={data.business_name} onDirty={onDirty} />;
+      return <ShopNameInput defaultValue={data.business_name} onDirty={onDirty} words={data.fairWords} onFair={onFair} />;
     case 'business_owner_name':
       return (
         <input

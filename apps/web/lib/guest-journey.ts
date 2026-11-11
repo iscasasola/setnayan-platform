@@ -31,7 +31,7 @@
  * Overview redesigns dropped its tile); Hosts from the Home tiles grid.)
  */
 
-import { isEventDayActive } from '@/lib/day-of-mode';
+import { theDayIsOpenAt, type TheDayWhen } from '@/lib/event-clock';
 import {
   PencilLine,
   Send,
@@ -127,14 +127,17 @@ export function isGuestJourneyPath(pathname: string, eventId: string): boolean {
  * nav swapped to the day-of menu (Now / Check-in / Seats / …) while the Guests
  * "Day-of" stage it points at stayed MUTED. Late check-ins happen exactly there.
  *
- * ✅ Now one definition. This delegates; it does not restate. `now` is still
- * injectable for the same reason as before — a client component defers the read
- * to an effect so SSR and first paint agree.
+ * ✅ Now one definition — THE ONE CLOCK (owner ruling, 10 Nov 2026). It used to
+ * delegate with NO zone and the device's own `now`, so a phone set to another
+ * zone anchored the event day on its own midnight. Give it The Day's instants
+ * from the server (`theDayInstantsOf(eventClockNow(event))`); a bare date still
+ * works and is read on the venue fallback zone, never the device's. `now` stays
+ * injectable — a client component defers the read to an effect so SSR and first
+ * paint agree.
  */
 export function isDayOfOpen(
-  eventDate: string | null | undefined,
+  when: TheDayWhen,
   now: Date,
 ): boolean {
-  if (!eventDate) return false;
-  return isEventDayActive(eventDate, undefined, now.getTime());
+  return theDayIsOpenAt(when, now.getTime());
 }

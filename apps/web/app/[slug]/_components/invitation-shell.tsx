@@ -1,3 +1,5 @@
+import { SetnayanMarkLine, markOrLegacy } from '@/app/_components/setnayan-mark-line';
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import type { ComponentProps, ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { KitClosing } from './kit-piece';
@@ -37,6 +39,7 @@ export function InvitationShell({
   editorCanvas = false,
   stageLabel = 'Invitation',
   hideWatermark = false,
+  setnayanMark = null,
   magicTraveller = null,
   ownGround = false,
   exitHref = null,
@@ -62,7 +65,7 @@ export function InvitationShell({
    * the kit's oval, "See you soon.", then a band with their names, the date and — unless `hideWatermark` — the
    * Powered-by line. The sign-off restyled, never a second one. Null → the footer byte for byte as before.
    */
-  kitClosing?: Omit<ComponentProps<typeof KitClosing>, 'hideWatermark'> | null;
+  kitClosing?: Omit<ComponentProps<typeof KitClosing>, 'hideWatermark' | 'setnayanMark'> | null;
   /**
    * ✕ THE EVENT HUB'S ONE EXIT (owner 2026-10-01, DECISION_LOG "THE EVENT HUB IS
    * FULL SCREEN WITH ONE EXIT…"): inside every stage a guest sees only the
@@ -107,6 +110,11 @@ export function InvitationShell({
   // watermark. Resolved once at the top-level page (eventCoupleWebsiteProActive)
   // + threaded through each render branch. Defaults false → free site keeps it.
   hideWatermark?: boolean;
+  /**
+   * 🏷 THE EVENT PLAN'S SETNAYAN MARK (DECISION_LOG 2026-11-04; Build 6 Lane L — `eventSetnayanMark`): Free = the
+   * watermark · Event Plus = one quiet "Made with Setnayan" · Event Pro = none. Given → it wins over `hideWatermark`.
+   */
+  setnayanMark?: SetnayanMark | null;
   /** 🖼 The Maker's canvas (`isEditorCanvas`, verified upstream) — the site
    *  header is chrome, not a section, so it is not drawn there. */
   editorCanvas?: boolean;
@@ -318,7 +326,7 @@ export function InvitationShell({
       {closingMark}
       {kitClosing ? (
         <footer className="relative z-10 text-center">
-          <KitClosing {...kitClosing} hideWatermark={hideWatermark} line={closingLine} stamp={closingMark != null} />
+          <KitClosing {...kitClosing} hideWatermark={hideWatermark} setnayanMark={setnayanMark} line={closingLine} stamp={closingMark != null} />
         </footer>
       ) : (
       <footer
@@ -331,11 +339,7 @@ export function InvitationShell({
             ground. `terracotta-700` is every theme's own deepest accent — white
             on Cyber Neon, a deep gold on a Mood-Board page. */}
         <ClosingLine line={closingLine} stamp={closingMark != null} className={`font-pahina text-lg italic ${backdrop ? 'text-cream/90' : 'text-terracotta-700'}`} />
-        {hideWatermark ? null : (
-          <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/70'}`}>
-            Powered by Setnayan · setnayan.com
-          </p>
-        )}
+        <SetnayanMarkLine mark={markOrLegacy(setnayanMark, hideWatermark)} className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/70'}`} />
       </footer>
       )}
     </main>

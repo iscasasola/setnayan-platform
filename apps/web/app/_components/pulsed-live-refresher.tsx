@@ -1,5 +1,6 @@
 import { pulseBaseline } from '@/lib/event-pulse.server';
 import { LiveRefresher } from './live-refresher';
+import type { TheDayWhen } from '@/lib/event-clock';
 
 /**
  * PulsedLiveRefresher — `LiveRefresher` for a guest page, with its pulse baseline resolved on the server
@@ -17,7 +18,7 @@ export async function PulsedLiveRefresher({
   renderedAt,
 }: {
   slug: string;
-  eventDate: string | Date | null | undefined;
+  eventDate: TheDayWhen;
   guest?: { eventId: string; guestId: string } | null;
   /** When the page's render began (ISO). Defaults to now. */
   renderedAt?: string;

@@ -30,9 +30,10 @@ test('Create / Save waits while a check is open', () => {
 
 test('each check is drawn on its own row of the maker', () => {
   const rows: [string, RegExp][] = [
-    ['name', /data-maker-row="name"[\s\S]*?<ClaimWordNotes hits=\{checks\.claims\} field="name" \/>[\s\S]*?<ServiceMismatchNote/],
-    ['included', /data-maker-row="included"[\s\S]*?<ClaimWordNotes hits=\{checks\.claims\} field="included" \/>/],
-    ['extras', /data-maker-row="extras"[\s\S]*?<ClaimWordNotes hits=\{checks\.claims\} field="extras" \/>/],
+    // 🚫 The claim words now ride the fair-presentation note (owner 2026-11-08) — one note per row for every check.
+    ['name', /data-maker-row="name"[\s\S]*?<FairNote hits=\{checks\.fair\} field="card_name" \/>[\s\S]*?<ServiceMismatchNote/],
+    ['included', /data-maker-row="included"[\s\S]*?<FairNote hits=\{checks\.fair\} field="included" \/>/],
+    ['extras', /data-maker-row="extras"[\s\S]*?<FairNote hits=\{checks\.fair\} field="extras" \/>/],
     ['photos', /data-maker-row="photos"[\s\S]*?<PhotoCheckNotes /],
   ];
   for (const [row, re] of rows) assert.match(MAKER, re, `the ${row} row no longer shows its check`);

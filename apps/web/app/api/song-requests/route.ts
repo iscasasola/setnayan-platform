@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
-import { getDayOfPhase } from '@/lib/day-of-mode';
-import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { EVENT_CLOCK_COLUMNS, clockPartOpen, type EventClockRow } from '@/lib/event-clock';
+import { eventClockNow } from '@/lib/event-clock.server';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import {
@@ -64,12 +64,12 @@ export async function POST(req: Request) {
 
   const { data: event, error: eventError } = await admin
     .from('events')
-    .select('event_date, venue_latitude, venue_longitude, rsvp_ask_config')
+    .select(`rsvp_ask_config, ${EVENT_CLOCK_COLUMNS}`)
     .eq('event_id', session.event_id)
     .maybeSingle();
   if (eventError) return NextResponse.json({ error: 'save_failed' }, { status: 500 });
   const e = event as
-    | { event_date: string | null; venue_latitude: number | null; venue_longitude: number | null; rsvp_ask_config: unknown }
+    | (EventClockRow & { event_date: string | null; venue_latitude: number | null; venue_longitude: number | null; rsvp_ask_config: unknown })
     | null;
   if (!e?.event_date) return NextResponse.json({ error: 'not_live' }, { status: 409 });
   // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? (owner 2026-09-25) — re-read here,
@@ -77,11 +77,9 @@ export async function POST(req: Request) {
   if (!resolveRsvpAsk(e.rsvp_ask_config).song_request) {
     return NextResponse.json({ error: 'song_requests_off' }, { status: 409 });
   }
-  const phase = getDayOfPhase(
-    e.event_date,
-    eventTimezoneFromCoords(e.venue_latitude, e.venue_longitude),
-  );
-  if (phase !== 'live') return NextResponse.json({ error: 'not_live' }, { status: 409 });
+  // ⏱ The one clock (owner ruling 2): song requests are open while The Day is — 06:00 on the day to 06:00 the
+  // morning after the LAST day, at the venue. (This asked only the first day, so day two of a celebration refused.)
+  if (!clockPartOpen(eventClockNow(e), 'song_requests')) return NextResponse.json({ error: 'not_live' }, { status: 409 });
 
   const door = await eventSongRequestDoor(admin, session.event_id);
   if (door === null) return NextResponse.json({ error: 'no_band' }, { status: 409 });

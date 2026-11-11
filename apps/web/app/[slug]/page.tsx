@@ -108,7 +108,7 @@ import {
 } from '@/lib/launch-save-the-date';
 import { publicTicketUrl } from '@/lib/ticket-url';
 import { formatEventDate } from '@/lib/events';
-import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { getDayOfPhase, morningAfterInstantMs, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
 import { CAMERA_ADDED_PARAM, addedShots, hubTabsOn } from './_lib/hub-tabs';
@@ -1040,6 +1040,7 @@ async function invitationBody({
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    setnayanMark,
     hubParts,
     bespokeSvg,
     studioAnim,
@@ -1288,6 +1289,7 @@ async function invitationBody({
           animatedMonogram={animatedMonogram}
           bespokeSvg={bespokeSvg}
           proWatermarkHidden={proWatermarkHidden}
+          setnayanMark={setnayanMark}
         />
       );
     }
@@ -1304,7 +1306,8 @@ async function invitationBody({
 
   // Date-driven phase by default. PREVIEW override: `?phase=rsvp|event|
   // editorial` shows any phase regardless of date (the live "event" phase is
-  // otherwise only a T-1h..T+8h window, so it can't be previewed otherwise).
+  // otherwise only The Day — 06:00 on the day to 06:00 the morning after the
+  // last day, the one clock — so it can't be previewed otherwise).
   // Honored for TWO viewers only:
   //   (a) demo events (slug `test-*` or `[TEST]` name) — anyone, for demos;
   //   (b) the event's own signed-in HOSTS (owner ask 2026-06-11 "can you
@@ -1450,7 +1453,7 @@ async function invitationBody({
         ? 'post'
         : 'pre'
     : event.event_date
-      ? getDayOfPhase(event.event_date, venueTz)
+      ? getDayOfPhase(event.event_date, venueTz, undefined, event.event_end_date ?? null)
       : 'inactive';
 
   // `lifecyclePhase` is only consumed when `phasesEnabled`; threads into
@@ -1811,6 +1814,7 @@ async function invitationBody({
        door would stand (`doorways.pabuya`) on a Welcome that carries E-Gifts. */
     giftPageReader: (e: GiftPageEvent) => loadGiftPage(admin, e),
     proWatermarkHidden,
+    setnayanMark,
     hubParts,
     isEditorCanvas,
     // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the
@@ -1990,6 +1994,7 @@ async function invitationBody({
             animatedMonogram={animatedMonogram}
             bespokeSvg={bespokeSvg}
             proWatermarkHidden={proWatermarkHidden}
+            setnayanMark={setnayanMark}
           />
           <SampleViewerInert canvas={isEditorCanvas} />
         </>
@@ -2224,8 +2229,10 @@ async function invitationBody({
   // through the day the Gallery draws them itself (owner 2026-10-03: one place
   // each). eventIsPast disambiguates a post-event 'inactive' from the
   // far-pre-event 'inactive'.
+  // ⏱ The one clock: "past" is The Day having closed (06:00 the morning after the LAST day, at the venue) — this
+  // parsed the bare date as midnight UTC (08:00 in Manila) and never read the last day.
   const eventIsPast = event.event_date
-    ? new Date(event.event_date).getTime() < Date.now()
+    ? morningAfterInstantMs(event.event_date, venueTz, event.event_end_date ?? null) <= Date.now()
     : false;
   const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
 

@@ -204,7 +204,7 @@ export function FindThumbRow({
           aria-label="Categories"
           data-find-empty=""
           onClick={goFromPanel}
-          className="pointer-events-auto mb-2 max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain rounded-2xl bg-paper px-4 pb-4 shadow-[0_-6px_28px_rgba(0,0,0,0.14)] ring-1 ring-ink/10"
+          className="pointer-events-auto mb-2 max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain rounded-2xl bg-paper px-4 pb-4 shadow-[0_-6px_28px_rgba(0,0,0,0.14)] ring-1 ring-ink/10 [--pgh-bg:rgb(var(--color-cream))] [--pgh-top:0px]"
         >
           {emptyPanel}
         </div>

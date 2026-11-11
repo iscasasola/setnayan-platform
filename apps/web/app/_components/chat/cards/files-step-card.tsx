@@ -3,9 +3,11 @@
 /**
  * 📎 PHOTOS & FILES (supplier) · FILE (host) — one step at a time (Supplier Build 3 · lane C; prototype v8.3 `STEPS.album`).
  *
- * ① From where? — Portfolio (your portfolio, service cards, gallery) · From your phone (a photo or a PDF) → ② the pick.
- * From your phone opens the SHIPPED chat attach (`openPlusDoor({ attach: true })` — the composer's own file input, its
- * upload, its message), so a file sent from the card is the same message a paperclip sends today.
+ * ① From where? — Portfolio (your portfolio, service cards, gallery) · From your phone (a photo, a video or a PDF) → ②
+ * the pick. From your phone opens the SHIPPED chat attach (`openPlusDoor({ attach: true })` — the composer's own file
+ * input, its upload, its message), so a file sent from the card is the same message a paperclip sends today. Since
+ * 11 Nov this card is the supplier's ONE phone picker on the (+) (the separate "Photo" row was its dupe), so the picker
+ * takes photos AND videos — `CHAT_ATTACHMENT_ACCEPT` — never a narrower list.
  *
  * ⚠ NOT BUILT HERE (reported, not invented): the Portfolio album — one card of picked shop photos with a per-photo
  * heart that saves to the event's Inspiration (unheart removes). It needs an album record and an Inspiration pointer
@@ -30,7 +32,7 @@ export function FilesStepCard({ side, onClose, seed }: { side: 'vendor' | 'coupl
           value={src}
           options={[
             { key: 'shop', label: 'Portfolio · your photos and service cards' },
-            { key: 'phone', label: 'From your phone · a photo or a PDF' },
+            { key: 'phone', label: 'From your phone · a photo, a video or a PDF' },
           ]}
           onPick={(k) => setSrc(k as 'shop' | 'phone')}
           buttonText={src ? undefined : 'Portfolio · From your phone'}
@@ -44,14 +46,14 @@ export function FilesStepCard({ side, onClose, seed }: { side: 'vendor' | 'coupl
           title: 'Pick from your portfolio',
           body: (
             <p className="text-[15px] text-ink/70" data-files-shut="portfolio">
-              Sending portfolio photos as one album comes with the album build. For now, send a photo or a PDF from your phone.
+              Sending portfolio photos as one album comes with the album build. For now, send a photo, a video or a PDF from your phone.
             </p>
           ),
           ok: false,
         }
       : {
           title: 'From your phone',
-          sub: 'A photo (PNG, JPEG, WebP) or a PDF.',
+          sub: 'A photo (PNG, JPEG, WebP), a video or a PDF.',
           body: <p className="text-[15px] text-ink/70">Send opens your files; the one you choose goes into the chat.</p>,
           ok: true,
         },

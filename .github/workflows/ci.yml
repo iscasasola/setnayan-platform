@@ -1129,6 +1129,15 @@ jobs:
       - name: Unit-test the deploy drift doctor classifier
         run: node --test scripts/deploy-drift-doctor.test.mjs
 
+      # The FEATURE REGISTER (spec corpus, FEATURE_REGISTER.md) is kept true by
+      # scripts/feature-register-check.mjs: every route, catalogue SKU key and
+      # NEXT_PUBLIC_* setting must have a row, and no row may point at a file
+      # that is gone. The corpus is a PRIVATE repo this job cannot read, so here
+      # only the check's RULES are tested (fixtures + sabotage cases); the real
+      # register run is the test's last case and SKIPS, by name, without it.
+      - name: Unit-test the feature register check + price printout
+        run: node --test scripts/feature-register-check.test.mjs
+
       # `pnpm preflight` (scripts/preflight.mjs) is what a builder runs BEFORE
       # A PUSH so that the cheap faults are found in minutes on their own
       # machine instead of one-per-round here. It does not keep its own list of

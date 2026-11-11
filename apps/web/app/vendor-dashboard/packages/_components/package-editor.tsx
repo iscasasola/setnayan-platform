@@ -71,6 +71,9 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { savePackage } from '../actions';
+import { findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 
 /** One of the shop's service cards, as "Add a card" lists it — its price, discounts and inclusions are the card's own. */
 export type BundleCard = BundleCardFacts & { category: string };
@@ -136,6 +139,7 @@ export function PackageEditor({
   shopName,
   closeHref,
   now,
+  fairWords = null,
 }: {
   packageId?: string;
   initial: DraftPackage;
@@ -150,6 +154,8 @@ export function PackageEditor({
   closeHref: string;
   /** The server's clock (ISO), so the first paint's sums equal the server's. */
   now: string;
+  /** 🚫 The claim words this shop may not use — the bundle name's live note. Absent/`null` = unread (the save asks). */
+  fairWords?: ClaimWord[] | null;
 }) {
   const router = useRouter();
   const clock = useMemo(() => new Date(now), [now]);
@@ -192,6 +198,10 @@ export function PackageEditor({
     // The price problems are the bundle's own words; the shipped validator keeps the rest (names, lines, budget).
     ...validatePackageDraft(priced).filter((p) => p.code !== 'package_price_not_positive' || sums.lines.length >= 2),
   ];
+  // 🚫 FAIR PRESENTATION ON THE BUNDLE NAME (owner 2026-11-08): the note under the name shows AS YOU TYPE (not only
+  // after Save — the ruling's "message under the line"), and Save waits while it is open. `savePackage` asks
+  // again. A name written from the cards is checked the same — a card's claim word would ride into it.
+  const nameFair = useMemo(() => findFairHits([{ field: 'package_name', value: draft.package_name }], { words: fairWords }), [draft.package_name, fairWords]);
   const shown = tried ? problems : [];
   const problemsFor = (itemRef: string, optionRef?: string) =>
     (shown.filter((p) => 'itemRef' in p && p.itemRef === itemRef && (optionRef ? p.optionRef === optionRef : !p.optionRef)) as DraftProblem[]);
@@ -300,7 +310,7 @@ export function PackageEditor({
     setServerError(null);
     setTried(true);
     // The same rules the server runs: with notes still open, Save shows them where they are and sends nothing.
-    if (problems.length > 0) return;
+    if (problems.length > 0 || nameFair.length > 0) return;
     start(async () => {
       const res = await savePackage({
         ...priced,
@@ -398,7 +408,7 @@ export function PackageEditor({
   const thumb = (
     // 👍 Save to my shop | Send to this couple — at equal widths (one maker for bundles and quotes, 7 Nov). ✕ is Cancel.
     <EqualRow data="bundle-thumb">
-      <ActionButton tone="ok" main icon={Check} label={pending ? 'Saving…' : 'Save to my shop'} onClick={save} waiting={pending} data-testid="bundle-save" />
+      <ActionButton tone="ok" main icon={Check} label={pending ? 'Saving…' : 'Save to my shop'} onClick={save} waiting={pending || nameFair.length > 0} data-testid="bundle-save" />
       {/* ⏸ NOT WIRED YET, drawn waiting: sending a bundle as a quote must copy each card at its lowest, the extra
           discount and this plan into the quote's own lines (9 Nov freeze ruling) — the quote maker's job, next slice. */}
       <ActionButton tone="brand" main icon={Send} label="Send to this couple" title="Send to this couple — opens from a couple’s chat, coming next" waiting data-bundle-send="" />
@@ -487,6 +497,7 @@ export function PackageEditor({
               }}
             />
             <p className={hint}>{cardLines.length > 0 && !nameTouched ? 'Written for you · change it if you like' : 'Named from the cards you add'}</p>
+            <FairNote hits={nameFair} field="package_name" />
           </div>
 
           {/* ---- Service cards — FIRST, as locked lines, each at its lowest ---- */}

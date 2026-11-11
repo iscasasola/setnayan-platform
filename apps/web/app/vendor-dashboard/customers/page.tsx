@@ -62,7 +62,6 @@ import { formatCount } from '@/lib/format-number';
 import { CustomersRoster, EventsHeading, type RosterRow } from './_components/customers-roster';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { stageOfLane } from '@/lib/supplier-event-lines';
-import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   KeptNotesFold,
   OtherChatsFold,
@@ -796,7 +795,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             anchor={null}
             emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
             lines={lines}
-            answers={{ acceptInquiry, declineInquiry }}
             list={k === 'all' ? null : k}
             groupOf={groupKey}
           />

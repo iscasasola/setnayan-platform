@@ -1,3 +1,4 @@
+import type { SetnayanMark } from '@/lib/setnayan-mark-by-plan';
 import Link from 'next/link';
 import { Lock } from 'lucide-react';
 import { resolveHubTheme } from '../_lib/hub-look';
@@ -24,6 +25,7 @@ export async function PrivateLanding({
   animatedMonogram,
   bespokeSvg,
   proWatermarkHidden,
+  setnayanMark = null,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
@@ -37,6 +39,8 @@ export async function PrivateLanding({
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. */
   proWatermarkHidden: boolean;
+  /** 🏷 The event plan's Setnayan mark (Build 6 Lane L). Absent → read from `proWatermarkHidden`. */
+  setnayanMark?: SetnayanMark | null;
 }) {
   // This screen is the FIRST thing anyone sees on a private event, and it told
   // a movie night it was a wedding: "This wedding's page is private · Only the
@@ -60,6 +64,7 @@ export async function PrivateLanding({
     <InvitationShell
       hubTheme={hubLook.theme}
       hideWatermark={proWatermarkHidden}
+      setnayanMark={setnayanMark}
     >
       <div className="space-y-8 text-center">
         <div className="flex justify-center">

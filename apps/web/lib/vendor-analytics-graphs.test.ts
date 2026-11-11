@@ -143,8 +143,9 @@ test('the five new rules fire only on a number their graph shows — absent or u
 
   const month = fired.find((r) => r.key === 'offer_for_month')!;
   assert.equal(month.title, 'Run an offer for February');
-  // The shipped off-season door, pre-filled — never a door to a page that does not exist.
-  assert.equal(month.ctaHref, '/vendor-dashboard/services/svc1?offpeak=1&exp=2027-02-28&cond=Off-season%20rate%20for%20February%20bookings.');
+  // The Offer Maker, a new "Event date in a season" offer on that month's days — the off-season door is the Offer Maker
+  // (DECISION_LOG 2026-11-11), never the retired `?offpeak=1` card seed.
+  assert.equal(month.ctaHref, '/vendor-dashboard/shop?maker=offers&new=season&from=2027-02-01&to=2027-02-28');
 
   // closed only → Open that day, no Add a team; full only → the reverse.
   const closedOnly = buildGrowthRecs(null, { askedInWindow: 0, lostDates: { closed: 1, full: 0 } }).map((r) => r.key);

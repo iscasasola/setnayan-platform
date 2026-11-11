@@ -1,23 +1,33 @@
 /**
- * a-client-row-rises-full-screen.test.ts — ⤴ A CLIENTS ROW RISES FULL SCREEN (Build 5 · Lane A slice 2).
+ * a-client-row-rises-full-screen.test.ts — ⤴ A CLIENTS ROW RISES FULL SCREEN — INTO THE PICKED CLIENT (Build 5 · Lane A
+ * slice 2, re-aimed 11 Nov).
  *
  * Owner, 10 Nov, on a Clients screenshot (a row "TEST SetnaProd walk · Asking" opening INLINE as an accordion): *"The
  * event did not grow fullscreen as planned"*. DECISION_LOG 2026-11-10 "RISE FULL SCREEN IS THE NAME; FULL SCREEN
  * EVERYTHING"; HOUSE_TEMPLATES T4; Build 5 plan Step 0 row 30.
  *
+ * 🎯 RE-AIMED 11 NOV — the rise stays, its TARGET changed. Slice 2 rose the row's OWN body (the event's lines and, for an
+ * ask, Decline · Ask · Accept) in a `RiseScreen`: a separate card with no page menu and no chat. Owner, 11 Nov, live as
+ * SetnaProd on that very row: *"Why do i see it this way? The chatbox is not yet done?"* · *"Accepted it and still did not
+ * show the chatbox"* · *"When that is pressed it jump to the supplie-client card that was already planned with the
+ * details-chat-form-quote-files-report and more menus that would grow to full screen"* (DECISION_LOG 2026-11-11, every
+ * Clients row opens the picked supplier-client card; 2026-11-08 "a row opens the picked client on its Chat tab"). The
+ * v118 #38 landing (`clientLandingPage` / `openClientHref`) had shipped; the row's own press had not used it.
+ *
  * ── THE PROPERTIES ──────────────────────────────────────────────────────────
- *   1. EVERY Clients row (Asking · Booked · Done · All — they are all `RosterRowView`) asks the shared row to RISE, and
- *      the risen body is the event's fixed lines in order: Event type · Celebrant · Hosted by · Location · Date ·
- *      Est. pax · Service requested · For your service — then its door or the inquiry's answers.
+ *   1. EVERY Clients row (Asking · Booked · Done · All — they are all `RosterRowView`) RISES INTO THE PICKED CLIENT on a
+ *      phone: `rise` + `opensTo={href}` (`hrefFor`, the one open path), and the door is decided BEFORE the row's own rise,
+ *      so a Clients row never reaches a `RiseScreen` of its own. The picked client rises from the row
+ *      (`rememberPickedOrigin`) — the same motion, the ONE shell with its page menu.
  *   2. A rising row is the SAME head (its title, line, avatar, stage) with the arrow pointing on (›) and saying it opens a
  *      screen; shut, its body waits in the fold's inert body exactly once (the page's one read, in the HTML).
- *   3. Risen, it is the ONE shipped `RiseScreen` (the motion, the bars, ✕ / Esc / Back back into the row, the page held on
- *      its pixel are that part's, held by `the-rise-screen-is-one-full-screen.test.ts`), headed by the event's title,
- *      and the body MOVES into it — exactly once, never also under the row (one form, one id).
- *   4. From 701 the row still opens in the right column (the wide Rise is Lane R's owner pick) — the shipped beside rule.
+ *   3. The shared row's own rise (a row with no `opensTo`) is still the ONE shipped `RiseScreen`, headed by its title,
+ *      the body MOVED into it — exactly once (for the other rows that rise their own body).
+ *   4. From 701 the row still opens in the right column (the wide Rise is Lane R's owner pick) — the shipped beside rule;
+ *      the event's fixed lines are what that column draws, in order.
  *
- * SABOTAGE (each run once, each went red): drop `rise` from `RosterRowView` → 1; keep `children` in the fold once risen → 3;
- * mount a second shell instead of `RiseScreen` → 3.
+ * SABOTAGE (each run once, each went red): drop `rise` from `RosterRowView` → 1; drop `opensTo={href}` → 1; move the door
+ * below the rise branch → 1; keep `children` in the fold once risen → 3; mount a second shell instead of `RiseScreen` → 3.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,25 +53,25 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '
 // not insist on a `children` prop the third argument already supplies.
 type AnyRow = React.ComponentType<Record<string, unknown>>;
 
-test('1 · every Clients row rises, and the risen body is the event’s fixed lines in order', () => {
+test('1 · every Clients row rises INTO the picked client — the door comes before the row’s own rise', () => {
   const roster = code('app/vendor-dashboard/customers/_components/customers-roster.tsx');
   const view = roster.slice(roster.indexOf('export function RosterRowView('), roster.indexOf('export function CustomersRoster('));
   const row = view.slice(view.indexOf('<SupplierOpenRow'), view.indexOf('</SupplierOpenRow>'));
   assert.ok(row.length > 0, 'anti-vacuity: RosterRowView no longer draws a SupplierOpenRow');
-  assert.match(row.slice(0, row.indexOf('>\n')), /\n\s+rise\n/, 'a Clients row opens in place again — it must rise full screen');
-  assert.match(row, /<EventLinesBody lines=\{lines\} \/>/, 'the risen row lost the event’s fixed lines');
+  const tag = row.slice(0, row.indexOf('lead={avatar}'));
+  assert.match(tag, /\n\s+rise\n/, 'a Clients row opens in place again — it must rise full screen');
+  assert.match(tag, /opensTo=\{href\}/, 'a Clients row rises its own card again — it must rise into the picked client');
+  assert.match(view, /const href = hrefFor\(r, today\);/, 'the row’s target is not the one open path');
   // Every list on Clients draws its rows through RosterRowView — so "any row" is every row.
   assert.equal([...roster.matchAll(/<SupplierOpenRow\b/g)].length, 1, 'a second, non-rising Clients row');
   assert.match(roster, /<RosterRowView r=\{r\}/);
 
-  const lines = code('app/vendor-dashboard/_components/event-lines.tsx');
-  const order = ["k: 'Event type'", "k: 'Celebrant'", 'title="Hosted by"', "k: 'Location'", "k: 'Date'", 'Service requested', 'For your service'];
-  let at = -1;
-  for (const k of order) {
-    const i = lines.indexOf(k, at + 1);
-    assert.ok(i > at, `the fixed lines are out of order or missing at ${k}`);
-    at = i;
-  }
+  // The door is decided before the row's own rise: a Clients row never reaches its own RiseScreen on a phone.
+  const shared = code('app/vendor-dashboard/_components/supplier-open-row.tsx');
+  const door = shared.indexOf('if (opensTo && !scope?.wide) {');
+  const ownRise = shared.indexOf('if (rise && !scope?.wide) {');
+  assert.ok(door > 0 && ownRise > 0 && door < ownRise, 'the row’s own rise is decided before its door into the picked client');
+  assert.match(shared, /rememberPickedOrigin\(/, 'the picked client no longer rises from the tapped row');
 });
 
 test('2 · a rising row is the same head, its arrow on (›); shut, its body waits once in the inert fold', async () => {
@@ -114,6 +124,16 @@ test('3 · risen, it is the ONE RiseScreen, headed by the event, holding the bod
 });
 
 test('4 · from 701 the row still opens beside the list — the shipped right column, never risen AND beside', () => {
+  const roster = code('app/vendor-dashboard/customers/_components/customers-roster.tsx');
+  assert.match(roster, /<SupplierOpenRow\b[\s\S]*?<EventLinesBody lines=\{lines\} \/>/, 'the right column lost the event’s fixed lines');
+  const lines = code('app/vendor-dashboard/_components/event-lines.tsx');
+  const order = ["k: 'Event type'", "k: 'Celebrant'", 'title="Hosted by"', "k: 'Location'", "k: 'Date'", 'Service requested', 'For your service'];
+  let at = -1;
+  for (const k of order) {
+    const i = lines.indexOf(k, at + 1);
+    assert.ok(i > at, `the fixed lines are out of order or missing at ${k}`);
+    at = i;
+  }
   const row = code('app/vendor-dashboard/_components/supplier-open-row.tsx');
   assert.match(row, /if \(rise && !scope\?\.wide\) \{/, 'a rising row also rises from 701 (the wide Rise is the owner’s pick, Lane R)');
   assert.match(row, /if \(!rise \|\| !wideNow \|\| !risen\) return;\s*setRisen\(false\);\s*scope\?\.open\(id\);/, 'a risen row that grows past 701 stays risen');

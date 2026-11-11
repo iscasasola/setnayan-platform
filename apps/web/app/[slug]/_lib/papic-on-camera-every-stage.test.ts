@@ -110,22 +110,37 @@ test('2 · Memories opens once the event has a Papic shot or upload — on the d
     assert.ok(m, `${stage}: the event has photos and the guest has no Memories`);
     assert.equal(m.label, 'Memories', 'NAMING LOCK — never "Photos"');
     assert.equal(m.state, 'live');
-    // Not known (not asked / refused) → the rules as before: no public chapter, no guest Memories.
-    assert.ok(!keys(barOn(stage)).includes('gallery'), `${stage}: an unknown count opened Memories`);
-    assert.ok(!keys(barOn(stage, { memoriesHasPhotos: null })).includes('gallery'), `${stage}: a refused count opened Memories`);
   }
+  // After the day, not known (not asked / refused) → the rules as before: no public chapter, no guest Memories.
+  assert.ok(!keys(barOn('editorial')).includes('gallery'), 'editorial: an unknown count opened Memories');
+  assert.ok(!keys(barOn('editorial', { memoriesHasPhotos: null })).includes('gallery'), 'editorial: a refused count opened Memories');
   // 🔒 A stranger is unchanged by the count: the day's wall is not theirs, after the day only a public chapter.
   assert.ok(!keys(barOn('event', { viewer: { kind: 'public' }, memoriesHasPhotos: true })).includes('gallery'));
   assert.ok(!keys(barOn('editorial', { viewer: { kind: 'public' }, memoriesHasPhotos: true })).includes('gallery'));
 });
 
-test('2 · NO Papic photo, nothing else drawn there → NO Memories tab, for anyone, on any stage', () => {
-  for (const stage of STAGES)
-    for (const viewer of [{ kind: 'guest' as const }, { kind: 'couple' as const }]) {
-      const bar = barOn(stage, { viewer, memoriesHasPhotos: false, earlyOwnShots: true });
-      assert.ok(!keys(bar).includes('gallery'), `${viewer.kind} on ${stage}: an empty Memories tab`);
-    }
-  // …but a page that already DRAWS photographs there (the day's wall, a recap's photo run) keeps its tab.
+test('2 · RULING 6 (one clock, 10 Nov 2026): Memories appears the moment Papic opens — not only after the first photo', () => {
+  // Owner: "Memories appears the moment Papic opens (a chapter's window starts, the event day, or 'everyone, now'),
+  // not only after the first photo, with its honest empty state until shots land." Supersedes 2026-10-30 P2's
+  // "no photo → no tab" for an invited guest whose host has the camera open.
+  for (const count of [false, null, undefined] as const) {
+    const day = barOn('event', { memoriesHasPhotos: count });
+    assert.ok(keys(day).includes('gallery'), `The Day, Papic on, count ${String(count)}: Memories is there`);
+    const early = barOn('save_the_date', { memoriesHasPhotos: count, earlyOwnShots: true });
+    assert.ok(keys(early).includes('gallery'), `before the day, early shooting, count ${String(count)}: Memories is there`);
+  }
+  // Papic closed → the photo rule stands: no photo, nothing drawn there, no tab.
+  assert.ok(!keys(barOn('event', { memoriesHasPhotos: false, hostAllowsCamera: false })).includes('gallery'));
+  // After the day Papic's window has closed: no photo → no tab, for anyone.
+  for (const viewer of [{ kind: 'guest' as const }, { kind: 'couple' as const }]) {
+    assert.ok(!keys(barOn('editorial', { viewer, memoriesHasPhotos: false })).includes('gallery'), `${viewer.kind}: an empty Memories after the day`);
+  }
+  // The couple is not changed by ruling 6 — their Memories with no photo stays withheld.
+  for (const stage of STAGES) {
+    const bar = barOn(stage, { viewer: { kind: 'couple' }, memoriesHasPhotos: false, earlyOwnShots: true });
+    assert.ok(!keys(bar).includes('gallery'), `couple on ${stage}: an empty Memories tab`);
+  }
+  // …and a page that already DRAWS photographs there (the day's wall, a recap's photo run) keeps its tab.
   assert.ok(keys(barOn('event', { memoriesHasPhotos: false, anyChapterPublic: true })).includes('gallery'));
   assert.ok(keys(barOn('editorial', { memoriesHasPhotos: false, anyChapterPublic: true })).includes('gallery'));
 });

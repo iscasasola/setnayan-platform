@@ -20,8 +20,9 @@
  * 🔁 RE-AIMED 2026-11-08 (THE ONE BUILD, v113): the Next card and its three numbers are retired — the first screen is
  * the cover (greeting the SHOP, its ⚙), Next events, the five stats and Needs you today. The same claims on what is
  * drawn now: every craft's words · "to come in" is the booked total less what is confirmed · an unread payday says
- * "couldn't load" · on an event day the photo card says Today · the first tap is the next event's card, and the ONE ⚙
- * rides the pinned Needs-you-today row (10 Nov — it left the cover).
+ * "couldn't load" · on an event day the photo card says Today · past the header's ⚙, the first tap is the next event's
+ * card (11 Nov, owner "Today settings yes" — the ONE ⚙ is back top-right on the header and rides the pinned
+ * Needs-you-today row only once the header has scrolled away).
  *
  * 🪤 `globalThis.React` before the DYNAMIC import — tsconfig sets
  * `"jsx": "preserve"`, so components compile to bare `React.createElement`.
@@ -142,18 +143,20 @@ test('on an event day the photo card says Today — in words that fit every craf
   assert.doesNotMatch(card, /on-the-day/, 'the card opens the live console instead of the client’s Hub page');
 });
 
-// ── 🔒 THE FIRST TAPS: THE NEXT EVENT — THE ⚙ RIDES THE PINNED "NEEDS YOU TODAY" ROW ─────
-// DECISION_LOG 2026-11-10 📌: the cover scrolls away and "the ⚙ moves onto the pinned Needs you today row, at its
-// right end" — so the first tap is the next event's card, and the ONE ⚙ sits in the Needs-you-today heading.
+// ── 🔒 THE FIRST TAPS: THE HEADER'S ⚙, THEN THE NEXT EVENT ─────
+// Owner 11 Nov, "Today settings yes" (ask e, supplier_queued_asks_2026-11-11): Today's ONE ⚙ sits top-right on the
+// photo header like Shop's and Portfolio's, and rides the pinned Needs-you-today row only once the header has gone —
+// so on the first paint the ⚙ is the header's corner, and the first tap past it is the next event's card.
 
-test('the first tap on Today is the next event’s card; the one ⚙ is on the pinned Needs-you-today row', async () => {
+test('past the header’s ⚙, the first tap on Today is the next event’s card', async () => {
   const html = await render();
   const taps = [...html.matchAll(/<(a|button)\b[^>]*>/g)].map((m) => m[0]);
   assert.ok(taps.length >= 3, 'anti-vacuity: nothing tappable was drawn');
-  assert.match(taps[0]!, /data-today-next-event="e1"/, `the first tap is not the next event: ${taps[0]}`);
+  assert.match(taps[0]!, /aria-label="Today settings"/, `the header’s corner is not Today’s ⚙: ${taps[0]}`);
+  assert.match(taps[1]!, /data-today-next-event="e1"/, `the first tap past the ⚙ is not the next event: ${taps[1]}`);
   assert.equal(taps.filter((t) => /aria-label="Today settings"/.test(t)).length, 1, 'more than one ⚙ on Today');
   const pin = html.slice(html.indexOf('data-today-needs-pin'), html.indexOf('data-today-needs-rows'));
-  assert.match(pin, /aria-label="Today settings"/, 'the ⚙ is not on the pinned Needs-you-today row');
+  assert.doesNotMatch(pin, /aria-label="Today settings"/, 'the ⚙ sits beside the hours while the header is on screen');
 });
 
 test('Today renders the first screen before anything tappable on the page', () => {

@@ -57,6 +57,7 @@ export function SupplierSetupFolds({
   bodies,
   gear,
   tour,
+  daily,
 }: {
   view: SetupView;
   bodies: Readonly<Record<SetupFoldKey, ReactNode>>;
@@ -65,6 +66,8 @@ export function SupplierSetupFolds({
   /** The tour after step 6: its words (read on the server — `lib/tours.ts` never reaches the browser) and whether it
       is already on record (null: the read was refused — it does not run). */
   tour?: { script: SpotlightScript; seen: boolean | null; lab?: boolean } | null;
+  /** 7️⃣ Step 7 — How many a day (`SetupDailyStep`): a row UNDER the six, never counted in "N of 6". */
+  daily?: ReactNode;
 }) {
   const [open, setOpen] = useState<SetupFoldKey | null>(view.firstOpen);
   const wide = useMediaQuery('(min-width: 768px)');
@@ -161,6 +164,7 @@ export function SupplierSetupFolds({
             </div>
           </Fold>
         ))}
+        {daily ? <Fragment key="daily">{daily}</Fragment> : null}
       </div>
 
       {(() => {
@@ -196,8 +200,8 @@ export function SupplierSetupFolds({
   );
 }
 
-/** The step's round chip — its number, or ✓ once the saved fact says it is done (prototype `.chip`). */
-function StepChip({ n, done, open }: { n: number; done: boolean; open: boolean }) {
+/** The step's round chip — its number, or ✓ once the saved fact says it is done (prototype `.chip`). Step 7 draws it too. */
+export function StepChip({ n, done, open }: { n: number; done: boolean; open: boolean }) {
   // ✓ green once done · the open step in the accent (prototype `.step.open .chip`) · otherwise the soft gold wash.
   return (
     <span

@@ -175,10 +175,20 @@ test('the re-mark job is idempotent and writes the bytes before the record', asy
   assert.deepEqual(pending.map((r) => r.id), [1]);
 });
 
-test('the dry-run script refuses every mode but --dry-run and writes nothing', () => {
+test('SABOTAGE-PROVEN: the mark job — --dry-run writes nothing, --apply needs the project named, anything else is refused', () => {
   const src = code('scripts/remark-supplier-photos.ts');
-  assert.match(src, /args\[0\] !== '--dry-run'/);
-  assert.doesNotMatch(src, /\.(update|insert|upsert|delete)\(|putBytes|r2Upload|remarkOne/);
+  // Only two shapes of argument are accepted; everything else exits 2.
+  assert.match(src, /args\.length === 1 && args\[0\] === '--dry-run'/);
+  assert.match(src, /args\.length === 2 && args\[0\] === '--apply' && args\[1\]\?\.startsWith\('--confirm='\)/);
+  assert.match(src, /if \(!mode\) \{[\s\S]{0,200}process\.exit\(2\);/);
+  assert.match(src, /mode\.kind === 'apply' && mode\.confirm !== projectRefOf\(url\)[\s\S]{0,200}process\.exit\(2\);/);
+  // Everything up to the dry run's return READS: no write, no storage put, no painter.
+  const dryReturn = src.indexOf("if (mode.kind === 'dry-run') {");
+  assert.ok(dryReturn > 0, 'the dry run must return before the apply half');
+  const readHalf = src.slice(0, src.indexOf('return;', dryReturn));
+  assert.doesNotMatch(readHalf, /\.(update|insert|upsert|delete)\(|putBytes|r2Upload|remarkOne\(|publishMarkedSupplierPhoto\(/);
+  // The write half is only reachable lazily — no write module is imported at the top.
+  assert.doesNotMatch(src, /^import [^;]*from '\.\.\/lib\/(r2|supplier-photo-publish\.server|photo-mark-server)'/m);
 });
 
 /* ── item 1: the mark is never cropped off by a display ─────────────────── */

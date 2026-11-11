@@ -8,7 +8,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
 import { sendChatMessageCore } from './chat-send';
 import { resolveCounterpartyUserIds } from './chat-block';
+import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
+import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
+import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
@@ -180,21 +183,44 @@ export async function notifyOtherParty(args: {
   const preview = args.body.slice(0, 140);
 
   if (args.privateTo) {
-    // The shop's owner reads the thread at the supplier's door; a host at the event's.
-    const toShop = vendorRes.data?.user_id === args.privateTo;
+    // The shop's people (the owner, or a team member who may chat here) read the thread at the supplier's door; a host
+    // at the event's.
+    const toShop =
+      vendorRes.data?.user_id === args.privateTo ||
+      (await readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId })).userIds.includes(
+        args.privateTo,
+      );
     await emitNotification({
       userId: args.privateTo,
       type: 'chat_message',
       title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
       body: preview,
-      relatedUrl: toShop ? `/vendor-dashboard/messages/${args.threadId}` : `/dashboard/${args.eventId}/messages/${args.threadId}`,
+      relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : `/dashboard/${args.eventId}/messages/${args.threadId}`,
     });
     return;
   }
 
+  // WHO is on each side of this conversation (chat gaps, 8 Nov): the shop's people who may chat here
+  // (`readShopChatPeople`, the policy's own three branches) and the hosts IN this thread (`readThreadHostPeople`: its
+  // live members + the event's coordinators). Read only AFTER the private branch above has returned.
+  const [shop, hostSide] = await Promise.all([
+    readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId }),
+    readThreadHostPeople(admin, { threadId: args.threadId, eventId: args.eventId }),
+  ]);
+  const told = chatNoticeRecipients({
+    senderRole: args.senderRole,
+    senderUserId: args.senderUserId,
+    shopOwnerUserId: vendorRes.data?.user_id ?? null,
+    shopPeople: shop.userIds,
+    threadMembers: hostSide.members,
+    coordinators: hostSide.coordinators,
+  });
+
   if (args.senderRole === 'couple') {
-    // The vendor user is the recipient.
-    if (!vendorRes.data?.user_id) return;
+    // ── 1 · the shop. The OWNER's notice is exactly the one that shipped; the team members who may chat here get the
+    // SAME words in the app only (📵 `chat_message_in_app`, never emailed — a first message is
+    // `vendor_inquiry_received`, which is app-only already).
+    let tellShop: (userId: string, toOwner: boolean) => Promise<void>;
     if (args.isFirstMessage) {
       // First couple-to-vendor message — fire vendor_inquiry_received with a
       // longer preview (200 chars per spec) and a more pointed title.
@@ -233,45 +259,81 @@ export async function notifyOtherParty(args: {
       // event) is an owner-locked feature (2026-06-12) that deliberately tells
       // the vendor a repeat client is reaching out; it's preserved here and
       // flagged for owner reconciliation against this anonymization pass.
-      await emitNotification({
-        userId: vendorRes.data.user_id,
-        type: 'vendor_inquiry_received',
-        title: founderSeat
-          ? FOUNDER_INQUIRY_NOTIFICATION_TITLE
-          : priorLocked
-            ? 'New booking inquiry — a returning client'
-            : 'New booking inquiry',
-        body: founderSeat
-          ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
-          : priorLocked
-            ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
-            : args.body.slice(0, 200),
-        relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
-        eventId: args.eventId,
-      });
-      return;
+      const title = founderSeat
+        ? FOUNDER_INQUIRY_NOTIFICATION_TITLE
+        : priorLocked
+          ? 'New booking inquiry — a returning client'
+          : 'New booking inquiry';
+      const body = founderSeat
+        ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
+        : priorLocked
+          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+          : args.body.slice(0, 200);
+      tellShop = (userId) =>
+        emitNotification({
+          userId,
+          type: 'vendor_inquiry_received',
+          title,
+          body,
+          // 🚪 The picked client on its Chat, where the ask is the top band (owner 11 Nov) — not the bare thread page.
+          relatedUrl: supplierChatHref(args.eventId, args.threadId),
+          eventId: args.eventId,
+        });
+    } else {
+      tellShop = (userId, toOwner) =>
+        toOwner
+          ? emitNotification({
+              userId,
+              type: 'chat_message',
+              title: `New message from ${eventName}`,
+              body: preview,
+              relatedUrl: supplierChatHref(args.eventId, args.threadId),
+            })
+          : emitNotification({
+              userId,
+              type: 'chat_message_in_app',
+              title: `New message from ${eventName}`,
+              body: preview,
+              relatedUrl: supplierChatHref(args.eventId, args.threadId),
+            });
     }
-    await emitNotification({
-      userId: vendorRes.data.user_id,
-      type: 'chat_message',
-      title: `New message from ${eventName}`,
-      body: preview,
-      relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
-    });
+    if (told.shopOwner) await tellShop(told.shopOwner, true);
+    for (const userId of told.shopTeam) await tellShop(userId, false);
+
+    // ── 2 · the OTHER co-hosts in this thread (and the event's coordinators), in the app only. Named by the writer's
+    // first name so a host knows which of them spoke.
+    if (told.hostsInApp.length > 0) {
+      const writer = await admin.from('users').select('first_name, display_name').eq('user_id', args.senderUserId).maybeSingle();
+      const w = writer.data as { first_name?: string | null; display_name?: string | null } | null;
+      const first = w?.first_name?.trim() || w?.display_name?.trim().split(/\s+/)[0] || 'A co-host';
+      for (const userId of told.hostsInApp) {
+        await emitNotification({
+          userId,
+          type: 'chat_message_in_app',
+          title: `${first} wrote to ${vendorName}`,
+          body: preview,
+          relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+        });
+      }
+    }
     return;
   }
 
-  // sender is vendor — notify every couple user on the event.
-  const { data: members } = await admin
-    .from('event_members')
-    .select('user_id')
-    .eq('event_id', args.eventId)
-    .eq('member_type', 'couple');
-  for (const m of members ?? []) {
-    if (m.user_id === args.senderUserId) continue;
+  // sender is the shop — the hosts IN this conversation (as it shipped: a host who is not in this thread cannot open
+  // it, so is no longer told), and the event's coordinators in the app only.
+  for (const userId of told.hostsAsBefore) {
     await emitNotification({
-      userId: m.user_id,
+      userId,
       type: 'chat_message',
+      title: `New message from ${vendorName}`,
+      body: preview,
+      relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+    });
+  }
+  for (const userId of told.hostsInApp) {
+    await emitNotification({
+      userId,
+      type: 'chat_message_in_app',
       title: `New message from ${vendorName}`,
       body: preview,
       relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
@@ -702,6 +764,12 @@ async function resolveThreadRole(
   ]);
   if (coupleCheck.data) return 'couple';
   if (vendorCheck.data) return 'vendor';
+  // 👥 A team member the chat admits (chat gaps, 8 Nov) may block and report from their own seat, too.
+  const shop = await readShopChatPeople(createAdminClient(), {
+    vendorProfileId: thread.vendor_profile_id,
+    eventId: thread.event_id,
+  });
+  if (shop.userIds.includes(userId)) return 'vendor';
   return null;
 }
 

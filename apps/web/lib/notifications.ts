@@ -551,6 +551,11 @@ export type NotificationType =
   | 'access_answered'
   | 'change_requested'
   | 'change_answered'
+  /* 💬 A CHAT MESSAGE, TOLD IN THE APP ONLY (chat gaps, owner 8 Nov 2026: "no new emails"). The people a message now
+     ALSO reaches — a shop's team members who may chat in that conversation, the OTHER hosts in the thread, the event's
+     coordinators — get this; the shop owner and the hosts keep `chat_message`, as it ships. Sent by `notifyOtherParty`
+     (lib/chat-actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271337067968. */
+  | 'chat_message_in_app'
   /* 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27, built 2026-11-05). → the supplier who claimed a couple's link,
      when the couple's Approve finds the couple had already opened that shop on Setnayan before typing it in by hand
      (`found_you_check_at_claim`): "<couple> found you on Setnayan on <date>". Data-minimal: the couple's event name,
@@ -609,11 +614,18 @@ export type NotificationType =
      Report from a picked client — subject, note and where it came from — into /admin/help; every admin is told. Sent by
      `app/vendor-dashboard/clients/[eventId]/report-actions.ts`. ⚠ IN-APP ONLY ("admin in-app notice only, no email"):
      NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271325510297. */
-  | 'supplier_report';
+  | 'supplier_report'
+  /* 🔗 A SUPPLIER SHARED A SERVICE CARD INTO THE CLIENT'S CHAT (owner 2026-11-11, verbatim: *"Share does not share to
+     anyone. It is share to an client event. To enter to a chat. That is notified so the client can see."*). Sent by
+     `offerServiceCore` when the Share icon under a card on Shop › Services posts it (`offerServiceInterest` with `via=share`). The
+     in-chat ＋ offer keeps `chat_message`. ⚠ IN-APP ONLY (no new emails): NOT on EMAIL_ENABLED_TYPES —
+     `a-shared-card-never-emails.test.ts`. ⚠ ENUM value in its own migration (notification_type_service_card_shared). */
+  | 'service_card_shared';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
   chat_message: 'New message',
+  chat_message_in_app: 'New message',
   order_quoted: 'Order quoted',
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
@@ -753,6 +765,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   papic_originals_reminder: 'Keep your original photos',
   supplier_questions_sent: 'A supplier sent you questions',
   supplier_report: 'A supplier sent a report',
+  service_card_shared: 'A supplier shared a service card',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -760,6 +773,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   event_auto_surfaced: 'bg-sky-100 text-sky-800',
   chat_message: 'bg-sky-100 text-sky-800',
+  chat_message_in_app: 'bg-sky-100 text-sky-800',
   order_quoted: 'bg-warn-100 text-warn-900',
   order_paid: 'bg-success-200 text-success-900',
   payment_matched: 'bg-success-100 text-success-800',
@@ -1006,6 +1020,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   supplier_questions_sent: 'bg-warn-100 text-warn-900',
   // A report waits on an admin → the action-needed amber, like every other ask.
   supplier_report: 'bg-warn-100 text-warn-900',
+  // A card in the chat to look at, nothing waits on it → the chat's own informational sky.
+  service_card_shared: 'bg-sky-100 text-sky-800',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1200,6 +1216,7 @@ export function isTodayNotice(iso: string, now = new Date()): boolean {
 export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, string>> = {
   rsvp_received: 'RSVP',
   chat_message: 'Message',
+  chat_message_in_app: 'Message',
   samahan_message: 'Message',
   order_quoted: 'Order',
   order_paid: 'Order',
@@ -1245,6 +1262,7 @@ export type NotificationIcon =
 export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, NotificationIcon>> = {
   rsvp_received: 'user-check',
   chat_message: 'message',
+  chat_message_in_app: 'message',
   samahan_message: 'message',
   vendor_inquiry_received: 'message',
   inquiry_accepted: 'message',
@@ -1309,6 +1327,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   papic_originals_reminder: 'image',
   supplier_questions_sent: 'message',
   supplier_report: 'message',
+  service_card_shared: 'message',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

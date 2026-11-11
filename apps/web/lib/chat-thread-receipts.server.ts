@@ -16,6 +16,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  *     `revealed`: a shop whose name is still masked (`isVendorNameRevealed` false) gets no names, because a person's
  *     name would undo the mask.
  *
+ *   • WHO ELSE ON YOUR SIDE WROTE (chat gaps, owner 8 Nov 2026) — for a HOST reading, the first name of every OTHER
+ *     co-host who sent a message on this thread, so the stream labels their run instead of drawing it as yours. Never
+ *     masked: co-hosts are the event's own people. Same `users` read as the shop names (one query for both).
+ *
  * 🔑 "THE OTHER SIDE" IS WHO HAS SPOKEN FOR IT. Readers are the users who sent a message from the other side on this
  * thread, plus — for a couple reading — the shop's team (`vendor_team_members`). A member of the other side who has
  * never written and is not on a shop team is not counted, so the line can only UNDER-claim (Delivered when it was in
@@ -38,8 +42,11 @@ export async function readThreadReceipts(
 ): Promise<{ theirLastReadAt: string | null; senderNames: Record<string, string> }> {
   const otherRole = args.viewerRole === 'couple' ? 'vendor' : 'couple';
   const senders = new Set<string>();
+  const coHosts = new Set<string>();
   for (const m of args.messages) {
-    if (m.sender_role === otherRole && m.sender_user_id && m.sender_user_id !== args.viewerUserId) senders.add(m.sender_user_id);
+    if (!m.sender_user_id || m.sender_user_id === args.viewerUserId) continue;
+    if (m.sender_role === otherRole) senders.add(m.sender_user_id);
+    else if (args.viewerRole === 'couple' && m.sender_role === 'couple') coHosts.add(m.sender_user_id);
   }
 
   const readers = new Set(senders);
@@ -63,11 +70,13 @@ export async function readThreadReceipts(
   }
 
   const senderNames: Record<string, string> = {};
-  if (args.viewerRole === 'couple' && args.revealed && senders.size > 0) {
-    const users = await admin.from('users').select('user_id, display_name').in('user_id', [...senders]);
+  // A shop member's name only when the shop is revealed; a co-host's always.
+  const named = new Set<string>([...(args.viewerRole === 'couple' && args.revealed ? senders : []), ...coHosts]);
+  if (args.viewerRole === 'couple' && named.size > 0) {
+    const users = await admin.from('users').select('user_id, first_name, display_name').in('user_id', [...named]);
     if (users.error) logQueryError('readThreadReceipts.names', users.error, { thread_id: args.threadId }, 'graceful_degrade');
-    for (const u of (users.data ?? []) as Array<{ user_id: string; display_name: string | null }>) {
-      const first = (u.display_name ?? '').trim().split(/\s+/)[0];
+    for (const u of (users.data ?? []) as Array<{ user_id: string; first_name: string | null; display_name: string | null }>) {
+      const first = u.first_name?.trim() || (u.display_name ?? '').trim().split(/\s+/)[0];
       if (first) senderNames[u.user_id] = first;
     }
   }

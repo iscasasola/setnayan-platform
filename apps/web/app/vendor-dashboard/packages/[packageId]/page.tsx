@@ -11,6 +11,7 @@ import { canUse, papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 import { PackageEditor } from '../_components/package-editor';
 import { BundleMakerLocked } from '../_components/bundle-maker-locked';
+import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 
 /**
  * /vendor-dashboard/packages/[packageId] — THE BUNDLE MAKER, full screen (Build 6 · Lane D).
@@ -64,7 +65,12 @@ export default async function EditPackagePage({
   const isNew = packageId === 'new';
 
   // 🔒 The lock and the cards (with their prices, discounts and inclusions) — read together, in one batch.
-  const [shop, cards] = await Promise.all([readLockShop(supabase, vendorProfileId), readBundleCards(supabase, vendorProfileId)]);
+  // 🚫 …and the claim-word list for the bundle name's live note (owner 2026-11-08), in the same batch.
+  const [shop, cards, fairWords] = await Promise.all([
+    readLockShop(supabase, vendorProfileId),
+    readBundleCards(supabase, vendorProfileId),
+    loadClaimWordsFor(vendorProfileId), // never throws — unread is `null`, logged where read
+  ]);
   if (!shop) {
     throw new Error('Could not read this shop’s plan, so the Bundle Maker is not drawn open — reload in a moment.');
   }
@@ -120,6 +126,7 @@ export default async function EditPackagePage({
     <PackageEditor
       cards={cards}
       shopName={profile.business_name ?? null}
+      fairWords={fairWords}
       packageId={isNew ? undefined : packageId}
       initial={initial}
       frozen={frozen}

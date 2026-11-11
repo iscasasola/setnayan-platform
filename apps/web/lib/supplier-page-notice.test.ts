@@ -130,7 +130,9 @@ test('6 · a takedown reaches the page copy’s FILE; the guest’s Remove is ga
 test('7 · the publish copies FIRST and asks SQL second; a refusal deletes the copy', () => {
   const s = src('lib/supplier-page-notice.server.ts');
   const body = s.slice(s.indexOf('export async function publishDueSupplierPagePhotos('));
-  const copy = body.indexOf('await r2Copy(');
+  // 🔏 Build 6 Lane L: the "copy" is the MARKED publish (`publishMarkedSupplierPhoto`) — never a raw r2Copy.
+  assert.doesNotMatch(body, /r2Copy\(/, 'the album photo reaches the page unmarked');
+  const copy = body.indexOf('await publishMarkedSupplierPhoto(');
   const rpc = body.indexOf("rpc('publish_supplier_page_photo'");
   assert.ok(copy > 0 && rpc > copy, 'the ref can reach the page before the file exists');
   assert.match(body, /if \(ok === true\) published \+= 1;\s*else await deleteSupplierPageCopy\(n\.vendor_profile_id, n\.page_ref\);/, 'a refused publish leaves a copy behind');

@@ -67,6 +67,7 @@
  * that holds the mark, then scrolls to it.
  */
 
+import type { TheDayWhen } from '@/lib/event-clock';
 import {
   useCallback,
   useEffect,
@@ -141,8 +142,8 @@ const MAX_PRIMARY = 5;
 
 type HubStageProps = {
   frame?: 'stage';
-  /** Event date (drives the realtime tick; inert outside the wedding day). */
-  eventDate: string | null;
+  /** ⏱ The Day's two instants from the one clock (`theDayFor(event)`) — drives the realtime tick; inert outside it. */
+  eventDate: TheDayWhen;
   /** 🧯 The event's address + the pulse baseline the page was drawn under (`pulseBaseline`). With both, the hub re-draws
    *  only when something changed (`useEventPulse`); without, it keeps the 45 s refresh. */
   slug?: string | null;

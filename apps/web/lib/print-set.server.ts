@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
+import { printBrandForMark } from '@/lib/setnayan-mark-by-plan';
 import { startAhead } from '@/lib/start-ahead';
 import { entourageWithProxies } from '@/lib/guest-proxy';
 import { entourageProxyNames } from '@/lib/guest-proxy.server';
@@ -56,6 +58,7 @@ import {
   type MenuMoment,
   printedDate,
   printVenueLines,
+  printBrandOf,
   type PrintLook,
   type PrintMode,
   type PrintParent,
@@ -707,7 +710,9 @@ export async function printInputsVersion(eventId: string): Promise<string | null
   /* 🖨 A Pro print wears the Hub (`printLookForEvent`): its Main background is part of the drawing, and so is the entitlement
      itself — an unlock or a lapse is a new picture, never last week's cached one. */
   const hub = ownsPro ? { heroConfig: await readHeroConfig(admin, eventId) } : null;
-  return printPreviewVersion({ event, inputs, qrLook, hub });
+  // 🏷 …and the plan's Setnayan mark (Build 6 Lane L): buying Plus or Pro is a new picture, never the cached one.
+  const setnayanMark = await eventSetnayanMark(admin, eventId);
+  return printPreviewVersion({ event, inputs, qrLook, hub, setnayanMark });
 }
 
 export async function loadPrintSet(
@@ -749,7 +754,11 @@ export async function loadPrintSet(
      event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
      Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */
   const worn = await printLookForEvent(looks, !sampleGallery && ownsPro, () => hubPrintInput(admin, event, opts.mode));
-  const look = worn.look;
+  /* 🏷 THE PLAN'S SETNAYAN MARK ON PAPER (Build 6 Lane L, DECISION_LOG 2026-11-04): Free = the line · Event Plus = the
+     tiny quiet mark · Event Pro = none, on every print and pass — never louder than the look's own (a Prints-part print
+     already carries the quiet mark). The theme gallery's samples keep their own. */
+  const planMark = sampleGallery ? null : await eventSetnayanMark(admin, eventId);
+  const look = planMark ? { ...worn.look, brand: printBrandForMark(planMark, printBrandOf(worn.look)) } : worn.look;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
   const [{ stored, blocks: liveBlocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([

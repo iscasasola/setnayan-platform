@@ -22,6 +22,7 @@
  *
  * Names are the prototype's samples: nobody real.
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { notFound } from 'next/navigation';
 import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
@@ -290,7 +291,9 @@ export default async function CardMakerLabPage({
       b.leaves.map((l) => ({ key: l.canonicalService, label: l.label, branch: b.label, aliases: l.canonicalService === 'lights_and_sound' ? ['sound system'] : l.canonicalService === 'sorbetes_cart' ? ['sorbetero'] : undefined })),
     ),
   );
-  const checkRules: MakerCheckRules | null = withChecks ? { claimWords: LAB_CLAIM_WORDS, trades: labTrades } : null;
+  const checkRules: MakerCheckRules | null = withChecks
+    ? { claimWords: [...LAB_CLAIM_WORDS, ...LAB_FAIR_WORDS.filter((w) => !LAB_CLAIM_WORDS.some((c) => c.phrase === w.phrase))], trades: labTrades, ownCards: [{ id: 'lab-other', title: 'Classic Booth' }] }
+    : null;
 
   const maker = (
       <CanvasMaker

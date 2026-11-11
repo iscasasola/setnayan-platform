@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { clockPartOpen, type EventClockRow } from '@/lib/event-clock';
+import { eventClockNow } from '@/lib/event-clock.server';
 
 import { albumDoorPublished } from './album-door.server';
 
@@ -34,7 +35,7 @@ export async function loadRoomLinks(input: {
     slug: string | null;
     event_type?: string | null;
     event_date?: string | null;
-  };
+  } & Partial<Omit<EventClockRow, 'event_date'>> & { venue_latitude?: number | null; venue_longitude?: number | null };
   current: RoomKey | null;
   guestToken?: string | null;
   /** The money-gift page's OWN visibility answer, resolved by the caller. */
@@ -57,15 +58,13 @@ export async function loadRoomLinks(input: {
     albumDoorPublished(event.event_id),
   ]);
 
-  // The live hub's entry exists only while the event is running or has just
-  // finished — owner-settled vocabulary, restated rather than re-decided.
+  // The live hub's entry exists only while The Day is open — the ONE clock (owner ruling 2, 10 Nov 2026: /[slug]/hub
+  // closes at 06:00 the morning after the last day, like everything else). It used to be "live ‖ post" of a window
+  // with no zone and no last day: noon the day before until two and a half days later, in the server's UTC.
   //
-  // ⚠ An event with NO DATE is not "happening now" — it is unscheduled. Passing
-  // a null date to the phase helper would be asking it a question it cannot
-  // answer, and its own contract returns 'inactive' for anything unparseable;
-  // saying so here is cheaper than relying on that.
+  // ⚠ An event with NO DATE is not "happening now" — it is unscheduled; the clock's date stage is never The Day then.
   const liveHubOpen = event.event_date
-    ? ['live', 'post'].includes(getDayOfPhase(event.event_date))
+    ? clockPartOpen(eventClockNow({ ...event, event_date: event.event_date }), 'hub')
     : false;
 
   return resolveRoomLinks({

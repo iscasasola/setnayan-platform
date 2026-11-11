@@ -1,5 +1,6 @@
 import { skuBackedLiterals, parsePesoLiteral, type PriceLiteral } from '@/lib/public-price-literals';
 import { FEATURE_PAGES, featurePaths } from '@/lib/feature-pages';
+import { findStaleClaims } from '@/lib/seo/stale-claims';
 
 /**
  * SEO / GEO health checks — the daily drift + coverage audit that backs
@@ -53,6 +54,12 @@ export type CatalogRow = {
   sku_code: string;
   price_php: number;
   source: 'retail' | 'vendor';
+  /**
+   * `false` = on sale but deliberately NOT described to answer engines (`UNLISTED_UNTIL_PROVEN` in lib/llms-txt.ts —
+   * Patiktok, owner 2026-09-27). Such a row may only SUPPRESS an orphan, never raise a `missing`: its absence from
+   * llms.txt is the rule, not drift. Omitted = advertised.
+   */
+  advertised?: boolean;
 };
 
 export type HealthCheckInput = {
@@ -66,6 +73,23 @@ export type HealthCheckInput = {
    * (it holds none since 2026-11-04 — the demo's two were deleted, not re-typed).
    */
   literals?: readonly (PriceLiteral & { sku: string })[];
+  /**
+   * True peso figures that are NOT a SKU price — today the booking-fee schedule's threshold and minimum, derived by
+   * the caller from the LIVE schedule (`bookingFeeFigures`). Without them the audit warned "orphan ₱100,000 · ₱50"
+   * every single day (measured in prod 2026-11-10), and an alarm that always fires stops being an alarm.
+   */
+  nonSkuFigures?: readonly string[];
+  /**
+   * The questions people ask AI about Setnayan that `/llms.txt` must answer (lib/seo/ai-answers.ts, Lane K). When
+   * given, a served file missing any of them FAILS — that is how the 15-line fallback stub, or a refactor that dropped
+   * the section, gets caught the next day instead of never.
+   */
+  requiredQuestions?: readonly string[];
+  /**
+   * Paths the served sitemaps list (the caller fetches them). When given, every front page in `MUST_BE_IN_SITEMAP`
+   * must be among them.
+   */
+  sitemapPaths?: readonly string[];
   /** Env presence flags — the owner-action nags. */
   env: {
     googleSiteVerification?: string;
@@ -114,6 +138,9 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/explore',
   '/explore/compare',
   '/for-suppliers',
+  // Build 6 Lane K — the coordinator front page (live since 2026-11-04, in the static sitemap) was missing here, so
+  // llms.txt could not link it without the audit calling it a dead route.
+  '/for-coordinators',
   '/open-shop',
   '/v/',
   '/setnayan-ai',
@@ -150,7 +177,8 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/cookies',
   '/acceptable-use',
   '/waitlist',
-  '/tl',
+  // '/tl' left 2026-11-10 (Build 6 Lane K): there is no /tl page and no redirect for it — only /tl/about and
+  // /tl/features exist — so the set claimed a public page that answers 404.
   '/tl/about',
   '/tl/features',
   // 2026-10-01 — one page per feature + its Tagalog twin, DERIVED from the one
@@ -163,6 +191,20 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * The front pages a person and an answer engine must both be able to find (Build 6 Lane K: "the sitemap covers every
+ * real public page"). The daily audit fails if a served sitemap stops listing one.
+ */
+export const MUST_BE_IN_SITEMAP: readonly string[] = [
+  '/',
+  '/pricing',
+  '/features',
+  '/for-suppliers',
+  '/for-coordinators',
+  '/explore',
+  '/download',
+];
+
+/**
  * Peso figure from a PHP amount, e.g. 1299 → "₱1,299".
  *
  * @rounds-to-the-peso AN AUDIT MIRROR, not a charge — it exists to compare the
@@ -171,6 +213,15 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
  */
 export function pesoFigure(php: number): string {
   return `₱${Math.round(php).toLocaleString('en-US')}`;
+}
+
+/**
+ * The two true peso figures the booking-fee sentence prints (its band edge and its minimum), spelled exactly as the
+ * audit spells figures. Fed to `nonSkuFigures` by the cron from the LIVE schedule, so an owner edit at /admin/pricing
+ * moves both the copy and the allowance together.
+ */
+export function bookingFeeFigures(schedule: { tier1LimitPhp: number; minPhp: number } | null): string[] {
+  return schedule ? [pesoFigure(schedule.tier1LimitPhp), pesoFigure(schedule.minPhp)] : [];
 }
 
 /** Everything above the changelog footer. */
@@ -216,8 +267,13 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
     if (row.price_php <= 0) continue; // free SKUs render as prose, not ₱-figures
     const fig = pesoFigure(row.price_php);
     allCatalogFigures.add(fig);
-    if (row.source === 'retail' && !retailFigures.has(fig)) retailFigures.set(fig, row.sku_code);
+    if (row.source === 'retail' && row.advertised !== false && !retailFigures.has(fig)) {
+      retailFigures.set(fig, row.sku_code);
+    }
   }
+  // ₱0 is "free", and the booking-fee figures are true numbers with no SKU row — neither is an orphan.
+  allCatalogFigures.add(pesoFigure(0));
+  for (const fig of input.nonSkuFigures ?? []) allCatalogFigures.add(fig);
 
   const priceDrift: PriceDriftEntry[] = [];
   for (const [fig, sku] of retailFigures) {
@@ -353,6 +409,55 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
           detail: `all ${declaredLiterals.length} declared SKU-backed literal(s) match the catalog`,
         },
   );
+
+  // --- Check 6: the answers to what AI gets wrong (Build 6 Lane K) ---------
+  if (input.requiredQuestions && input.requiredQuestions.length > 0) {
+    const unanswered = input.requiredQuestions.filter((q) => !body.includes(q));
+    findings.push(
+      unanswered.length > 0
+        ? {
+            check: 'llms.txt answers what AI gets wrong',
+            status: 'fail',
+            detail: `${unanswered.length} of ${input.requiredQuestions.length} saved question(s) missing from the served llms.txt: ${unanswered.join(' · ')}`,
+          }
+        : {
+            check: 'llms.txt answers what AI gets wrong',
+            status: 'ok',
+            detail: `all ${input.requiredQuestions.length} saved questions are answered`,
+          },
+    );
+  }
+
+  // --- Check 7: retired names and untrue claims (lib/seo/stale-claims.ts) ---
+  const stale = findStaleClaims(body);
+  findings.push(
+    stale.length > 0
+      ? {
+          check: 'llms.txt retired names',
+          status: 'fail',
+          detail: `${stale.length} retired name(s) or untrue claim(s): ${stale.map((s) => `"${s.match}" (${s.why})`).join('; ')}`,
+        }
+      : { check: 'llms.txt retired names', status: 'ok', detail: 'no retired plan, product or claim is named' },
+  );
+
+  // --- Check 8: the front pages are in the sitemap ---------------------------
+  if (input.sitemapPaths) {
+    const listed = new Set(input.sitemapPaths.map(normalizeRoutePath));
+    const absent = MUST_BE_IN_SITEMAP.filter((p) => !listed.has(p));
+    findings.push(
+      absent.length > 0
+        ? {
+            check: 'sitemap coverage',
+            status: 'fail',
+            detail: `${absent.length} front page(s) missing from the served sitemap: ${absent.join(', ')}`,
+          }
+        : {
+            check: 'sitemap coverage',
+            status: 'ok',
+            detail: `all ${MUST_BE_IN_SITEMAP.length} front pages are listed (${listed.size} paths read)`,
+          },
+    );
+  }
 
   const counts = {
     ok: findings.filter((f) => f.status === 'ok').length,

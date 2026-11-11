@@ -53,6 +53,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { isDayOfOpen } from '@/lib/guest-journey';
+import { theDayWhenKey, type TheDayWhen } from '@/lib/event-clock';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
@@ -142,7 +143,7 @@ export function CustomerSidebar({
    * render Day-of muted) and it un-mutes on the event day — same no-flash
    * pattern as <GuestsSectionSubnav>.
    */
-  eventDate?: string | null;
+  eventDate?: TheDayWhen;
   /** Top-level nav keys to drop for this event type (e.g. ['explore','budget']
    *  for a vendor-free Simple Event). Resolved from the profile in layout.tsx. */
   hideKeys?: string[];
@@ -169,7 +170,8 @@ export function CustomerSidebar({
   const [dayOfOpen, setDayOfOpen] = useState(false);
   useEffect(() => {
     setDayOfOpen(isDayOfOpen(eventDate ?? null, new Date()));
-  }, [eventDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the instants, not the object's identity
+  }, [theDayWhenKey(eventDate)]);
   const groups = applyRegistry(
     buildCustomerNavGroups(eventId, {
       dayOfOpen,

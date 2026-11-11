@@ -14,7 +14,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
+import { eventClockOf } from '@/lib/event-clock.server';
 import { eventSkuActive } from '@/lib/entitlements';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -126,7 +127,7 @@ export default async function LiveWallConsolePage({
     admin
       .from('events')
       .select(
-        'event_date, live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout, live_photo_wall_visibility',
+        `live_mode_override, kwento_flash_auto_wall, wall_photo_count, wall_tile_layout, live_photo_wall_visibility, ${EVENT_CLOCK_COLUMNS}`,
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -185,10 +186,9 @@ export default async function LiveWallConsolePage({
 
   const override = (event?.live_mode_override ?? null) as WallMode | null;
   const flashAutoWall = (event?.kwento_flash_auto_wall ?? true) as boolean;
-  const resolved = resolveWallMode(
-    override,
-    getDayOfPhase((event?.event_date as string) ?? ''),
-  );
+  // ⏱ The one clock, at the venue (owner ruling, 10 Nov 2026) — this read had no zone and no last day.
+  const clock = event ? eventClockOf(event) : null;
+  const resolved = resolveWallMode(override, clock?.day ?? 'inactive', clock?.menu === 'after');
 
   // FaceBlock posture: when active, every wall photo must carry a baked blur
   // derivative (P2). Surface coverage so "why is the wall thin?" is

@@ -48,6 +48,7 @@ import {
 } from '@/lib/package-draft-loader';
 import { type VendorPackageItemOptionRow } from '@/lib/vendor-packages';
 import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity';
+import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
 import { freeByKind } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
@@ -158,6 +159,18 @@ export async function savePackage(
     ]);
     if (viol) {
       return { status: 'invalid', problems: [{ code: 'text_not_allowed', message: viol }] };
+    }
+  }
+
+  // 🚫 FAIR PRESENTATION ON THE BUNDLE NAME (owner 2026-11-08 — "package names"): the editor's live note kept Save
+  // off; the same check again here, before the first write on both branches (`lib/fair-presentation.server.ts`).
+  {
+    const fair = await fairPresentationRefusal({
+      vendorProfileId,
+      texts: [{ field: 'package_name', value: input.package_name }],
+    });
+    if (fair) {
+      return { status: 'invalid', problems: [{ code: 'text_not_allowed', message: fair }] };
     }
   }
 

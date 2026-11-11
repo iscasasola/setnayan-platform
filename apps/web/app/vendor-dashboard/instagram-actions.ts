@@ -6,8 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { decryptToken, encryptToken } from '@/lib/encryption';
-import { encodeR2Ref } from '@/lib/uploads';
-import { r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { publishMarkedSupplierPhoto } from '@/lib/supplier-photo-publish.server';
 import {
   fetchInstagramMedia,
   isInstagramConnectConfigured,
@@ -70,14 +69,13 @@ async function rehostImage(
     // Stable key per (vendor, media) — a re-sync overwrites the same object.
     const safeId = igMediaId.replace(/[^a-zA-Z0-9_-]/g, '');
     const key = `vendors/${vendorProfileId}/ig/${safeId}.jpg`;
-    await r2Upload({
-      bucket: R2_BUCKETS.media,
-      key,
-      body: buf,
-      contentType: contentType === 'image/jpeg' ? 'image/jpeg' : contentType,
-    });
-    return encodeR2Ref(R2_BUCKETS.media, key);
-  } catch {
+    // 🔏 THE SHOP'S SEAL, on the server (Build 6 Lane L): a re-hosted post is a public supplier photo like any upload —
+    // marked, with its private clean copy and pairing. FAIL-CLOSED: a mark that cannot be made throws into the catch
+    // below and the post drops out of this sync (null) — the raw Instagram bytes are never published.
+    const published = await publishMarkedSupplierPhoto({ vendorProfileId, publicKey: key, bytes: buf });
+    return published.publicRef;
+  } catch (err) {
+    console.error('[instagram-sync] a post could not be marked — dropped from this sync', err);
     return null;
   }
 }

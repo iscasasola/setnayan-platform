@@ -1,5 +1,6 @@
 'use client';
 
+import type { TheDayWhen } from '@/lib/event-clock';
 import { useCallback, useRef, useState } from 'react';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { sanitizeSeatLookupQuery } from '@/lib/seat-lookup';
@@ -84,7 +85,8 @@ export function NameSearch({
   slug: string;
   /** The couple's names ("Indalecio & Claire") — whose list this is. */
   names: string;
-  eventDate?: string | null;
+  /** ⏱ The Day's instants from the one clock (`theDayFor(event)`). */
+  eventDate?: TheDayWhen;
   /** The PUBLISHED plan's tables (the room a found table is lit in). */
   tables: EventTableRow[];
   entrance: EntrancePos;

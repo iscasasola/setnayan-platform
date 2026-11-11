@@ -11,10 +11,11 @@
  * stays valid — then records the new `mark_kind`. Running twice does nothing
  * the second time: IDEMPOTENT by construction.
  *
- * 🛑 THIS SLICE SHIPS THE DRY RUN ONLY. `scripts/remark-supplier-photos.ts`
- * counts what is pending and changes nothing; it refuses any other mode.
- * Applying it against production is an owner decision (it rewrites public
- * bytes), not a session's. `remarkOne` is exported for that later runner and
+ * 🛑 A SESSION RUNS THE DRY RUN ONLY. `scripts/remark-supplier-photos.ts
+ * --dry-run` counts what is pending and changes nothing. Its `--apply` mode
+ * (Build 6 Lane L) is refused unless `--confirm=` names the project the URL
+ * points at — applying it against production is an owner decision (it rewrites
+ * public bytes), not a session's. `remarkOne` is exported for that runner and
  * for the guard, which drives it with fakes.
  */
 import type { MarkSpec } from './photo-mark-geometry';

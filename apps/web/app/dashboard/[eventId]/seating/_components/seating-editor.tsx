@@ -72,7 +72,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { ContextDock, ShapeGlyph, ShapePicker, type DockEdge } from './seating-context-dock';
 import { DayOfEditingBanner } from './day-of-editing-banner';
-import { isEventDayActive } from '@/lib/day-of-mode';
+import { theDayIsOpenAt, theDayWhenKey, type TheDayInstants, type TheDayWhen } from '@/lib/event-clock';
 import {
   SeatingFrame,
   CommandBar,
@@ -366,6 +366,9 @@ type Props = {
   // capacity banners moved into the editor's command bar + banner slot, so the
   // data they need arrives as props. ─────────────────────────────────────────
   eventDate: string | null;
+  /** ⏱ The Day's two instants from the server's one clock (lib/event-clock.ts). Absent → `eventDate`, read on the
+   *  venue fallback zone (never the browser's). */
+  theDay?: TheDayInstants | null;
   /** 🪑 Has the event's day begun (Manila)? From then guests always see their
    *  seats — `seatDayHasCome` in lib/guests-may-see-seats.ts, read server-side. */
   seatDayHasCome?: boolean;
@@ -479,6 +482,7 @@ export function SeatingEditor({
   constraints: constraintsProp,
   me,
   eventDate,
+  theDay = null,
   seatDayHasCome = false,
   plan3d,
   genderSeparationNote,
@@ -4630,16 +4634,19 @@ export function SeatingEditor({
 
   // Day-of live? Drives banner priority (DayOf > capacity shortfall > walima).
   const [dayOfLive, setDayOfLive] = useState(false);
+  const dayWhen: TheDayWhen = theDay ?? eventDate;
+  const dayWhenKey = theDayWhenKey(dayWhen);
   useEffect(() => {
-    if (!eventDate) {
+    if (!dayWhenKey) {
       setDayOfLive(false);
       return;
     }
-    const tick = () => setDayOfLive(isEventDayActive(eventDate));
+    const tick = () => setDayOfLive(theDayIsOpenAt(dayWhen));
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
-  }, [eventDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the instants, not the object's identity
+  }, [dayWhenKey]);
 
   // ⌘S / Ctrl+S saves the layout (menu-row shortcut suffices for v1 — no ⌘K).
   const cmdSaveRef = useRef<() => void>(() => {});
@@ -4777,7 +4784,7 @@ export function SeatingEditor({
   // badge on the command bar that expands on tap. Never two stacked banners.
   const bannerItems: { key: string; node: React.ReactNode }[] = [];
   if (dayOfLive) {
-    bannerItems.push({ key: 'dayof', node: <DayOfEditingBanner eventDate={eventDate} /> });
+    bannerItems.push({ key: 'dayof', node: <DayOfEditingBanner eventDate={dayWhen} /> });
   }
   if (seatShortfall > 0) {
     bannerItems.push({

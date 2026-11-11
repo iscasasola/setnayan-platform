@@ -16,6 +16,7 @@
  * ₱45,000 · ₱9,000 extra), so the built frame can be laid beside the drawn one — fixture data in a dev lab, never a
  * price a couple is charged. Names are the prototype's samples: nobody real.
  */
+import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { notFound } from 'next/navigation';
 import { papersProgress } from '@/lib/locks';
 import { PACKAGE_CANONICAL_TO_VENDOR_CATEGORY } from '@/lib/vendor-packages';
@@ -103,6 +104,7 @@ export default async function BundleMakerLabPage({ searchParams }: { searchParam
         shopName="SetnaProd"
         closeHref="/dev/bundle-maker-lab"
         now={NOW}
+        fairWords={LAB_FAIR_WORDS}
       />
     </main>
   );

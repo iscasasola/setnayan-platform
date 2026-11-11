@@ -57,7 +57,8 @@ import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { formatPhp } from '@/lib/php';
 import { nikahTrackedDone } from '@/lib/nikah-essentials';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
+import { clockRowOf } from '@/lib/event-clock';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
 import { formatEventDate } from '@/lib/events';
 import { homeCoverWords } from '@/lib/home-cover-words';
@@ -373,20 +374,7 @@ export default async function EventHomePage({
     the same clock and gets its own copy of the arithmetic.
   */
   const lifecyclePhase = event.event_date
-    ? getMenuLifecyclePhase(
-        event.event_date,
-        (event as { cleared_at?: string | null }).cleared_at ?? null,
-        // The VENUE's clock, not the server's. Without it the anchor is the
-        // runtime's own midnight — UTC on Vercel — which for a Manila event is
-        // 8 hours out, enough to flip this on the wrong side of the boundary on
-        // the one day the couple opens the page all morning.
-        (event as { timezone?: string | null }).timezone ?? undefined,
-        undefined,
-        // The LAST day of a celebration that spans several, so a five-day
-        // festival is not declared over on its third morning. Null for every
-        // event in production today.
-        (event as { event_end_date?: string | null }).event_end_date ?? null,
-      )
+    ? eventClockOf(event).menu
     : 'plan';
   const dayOfActive = lifecyclePhase === 'dayof';
 
@@ -821,6 +809,8 @@ export default async function EventHomePage({
             event_end_date: (event as { event_end_date?: string | null }).event_end_date ?? null,
             cleared_at: (event as { cleared_at?: string | null }).cleared_at ?? null,
             timezone: (event as { timezone?: string | null }).timezone ?? null,
+            venue_latitude: clockRowOf(event).venue_latitude,
+            venue_longitude: clockRowOf(event).venue_longitude,
             std_invitation_launch_date: (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
             launch_mode: (event as { launch_mode?: string | null }).launch_mode ?? null,
             manual_phase: (event as { manual_phase?: string | null }).manual_phase ?? null,

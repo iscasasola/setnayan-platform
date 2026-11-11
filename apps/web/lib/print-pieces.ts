@@ -392,8 +392,12 @@ export type PrintLook = {
   brand?: PrintBrand;
 };
 
-/** The two ways a print carries Setnayan — see `PrintLook.brand`. */
-export type PrintBrand = 'line' | 'mark';
+/**
+ * The ways a print carries Setnayan — see `PrintLook.brand`. 🏷 `none` (Build 6 Lane L, DECISION_LOG 2026-11-04 "PRO =
+ * NONE"): an Event Pro event's prints and passes carry no Setnayan mark at all — set from the event's plan in
+ * `loadPrintSet` (`printBrandForMark`), never by a look.
+ */
+export type PrintBrand = 'line' | 'mark' | 'none';
 
 /**
  * 🏷 How THIS look carries Setnayan. Every look a couple's print is drawn in names it (`plainPrintLook` → line, the Pro

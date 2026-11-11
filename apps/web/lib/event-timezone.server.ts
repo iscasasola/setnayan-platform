@@ -1,8 +1,6 @@
 import 'server-only';
 
-import tzLookup from 'tz-lookup';
-
-import { DEFAULT_EVENT_TZ } from './schedule';
+import { venueZoneFromCoords } from './venue-zone';
 
 /**
  * Event timezone derived from its venue coordinates (option B, owner 2026-06-25).
@@ -15,10 +13,6 @@ import { DEFAULT_EVENT_TZ } from './schedule';
  * when the event has no coordinates (most weddings are in PH).
  */
 export function eventTimezoneFromCoords(lat: number | null, lng: number | null): string {
-  if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return DEFAULT_EVENT_TZ;
-  try {
-    return tzLookup(lat, lng);
-  } catch {
-    return DEFAULT_EVENT_TZ;
-  }
+  // The body lives in `lib/venue-zone.ts` so the middleware can ask it too (the Event Hub's cache key); one zone rule.
+  return venueZoneFromCoords(lat, lng);
 }

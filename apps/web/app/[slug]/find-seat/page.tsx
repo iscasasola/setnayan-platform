@@ -18,7 +18,8 @@ import type { EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { formatEventDate } from '@/lib/events';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { clockPartOpen } from '@/lib/event-clock';
+import { eventClockNow, theDayFor } from '@/lib/event-clock.server';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
 import { INVITE_THEMES } from '@/lib/invite-themes';
@@ -183,7 +184,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
             slug={slug}
             names={names}
             postmark={postmark}
-            eventDate={event.event_date as string | null}
+            eventDate={theDayFor(event)}
             tables={tables}
             entrance={entrance}
             pulse={await pulseBaseline(slug, null, renderedAt)}
@@ -240,8 +241,10 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   const mode = findSeatMode({ viewer: viewerKind, published, tableId });
   const table = mode === 'your_seat' ? (tables.find((t) => t.table_id === tableId) ?? null) : null;
 
+  // ⏱ Seats open when The Day opens (the one clock, owner ruling 1 — 06:00 on the day, venue time, by default, through
+  // the last day); the couple's early-seats switch (`published`, above) still opens the plan sooner.
   const venueTz = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
-  const dayOf = event.event_date ? getDayOfPhase(event.event_date, venueTz) === 'live' : false;
+  const dayOf = event.event_date ? clockPartOpen(eventClockNow(event), 'seats') : false;
 
   // Own table only — first name + last initial, the viewer first.
   let mates: Tablemate[] = [];
@@ -338,7 +341,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
           while the page sits open in a tab sees it when they come back to it —
           "No need to check back — this updates by itself" (A4) is a promise. */}
       <LiveRefresher
-        eventDate={event.event_date as string | null}
+        eventDate={theDayFor(event)}
         slug={slug}
         pulse={await pulseBaseline(slug, null, renderedAt)}
       />

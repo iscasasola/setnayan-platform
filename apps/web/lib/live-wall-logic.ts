@@ -176,14 +176,24 @@ export function latestCursor(tiles: WallTile[], fallback: string): string {
 
 /**
  * Resolve the wall's lifecycle mode: the couple's manual override always wins
- * (events.live_mode_override); otherwise map the shipped 4-phase day-of
- * helper onto the wall's vocabulary. The 5-mode T-7d split (coming_soon vs
- * pre_event) arrives with the 0031 machine — until then 'pre' reads as
- * pre_event and 'inactive' as coming_soon.
+ * (events.live_mode_override); otherwise map the ONE clock's day-of phase
+ * (lib/event-clock.ts) onto the wall's vocabulary:
+ *
+ *   live (The Day)            → 'live'
+ *   post (the day after it)   → 'recap'
+ *   pre  (the 3 days before)  → 'pre_event'
+ *   inactive, before          → 'coming_soon'
+ *   inactive, AFTER the recap → 'archive'
+ *
+ * ⚠ THE LAST ROW WAS MISSING until the one-clock ruling (10 Nov 2026): 'inactive'
+ * is the catch-all for BOTH ends, so a week after the wedding the wall said
+ * "coming soon". `over` is the clock's own answer (`menu === 'after'`), never a
+ * second date comparison here.
  */
 export function resolveWallMode(
   override: WallMode | null | undefined,
   dayOfPhase: 'pre' | 'live' | 'post' | 'inactive',
+  over: boolean = false,
 ): WallMode {
   if (override) return override;
   switch (dayOfPhase) {
@@ -195,7 +205,7 @@ export function resolveWallMode(
       return 'pre_event';
     case 'inactive':
     default:
-      return 'coming_soon';
+      return over ? 'archive' : 'coming_soon';
   }
 }
 

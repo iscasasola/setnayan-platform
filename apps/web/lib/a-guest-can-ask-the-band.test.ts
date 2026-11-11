@@ -80,7 +80,8 @@ test('the page loads the door, and the route re-checks it BEFORE the RPC', () =>
   assert.match(page, /songRequestDoor:\s*\n?\s*dayOfPhase === 'live'[\s\S]{0,120}eventSongRequestDoor\(admin, event\.event_id\)/);
 
   const route = stripComments(read('app/api/song-requests/route.ts'));
-  const phase = route.indexOf("phase !== 'live'");
+  // ⏱ The one clock: the live window is `clockPartOpen(eventClockNow(e), 'song_requests')` (The Day, at the venue).
+  const phase = route.indexOf("clockPartOpen(eventClockNow(e), 'song_requests')");
   const door = route.indexOf('eventSongRequestDoor(admin');
   const rpc = route.indexOf("rpc('guest_submit_song_request'");
   assert.ok(phase > 0 && door > 0 && rpc > 0, `markers phase=${phase} door=${door} rpc=${rpc}`);

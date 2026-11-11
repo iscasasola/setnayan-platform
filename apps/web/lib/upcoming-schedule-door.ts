@@ -42,22 +42,23 @@
  */
 
 /**
- * 🗂 THE PICKED CLIENT'S NINE PAGES (THE ONE BUILD, 8 Nov 2026 · v113) — the `?tab=` id of each, in menu order:
- * Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub · Report. The labels and the legacy-id
+ * 🗂 THE PICKED CLIENT'S NINE PAGES (THE ONE BUILD, 8 Nov 2026 · v113) — the `?tab=` id of each, in menu order
+ * (owner 11 Nov 2026): Chat · Details · Quotation · Payment · Forms · Schedule · Files · Hub · Report. The labels and the legacy-id
  * map live beside the shell (`clients/[eventId]/_components/picked-client-menu.ts`); the ids live HERE because
  * every door into a client (Today's rows, the Coming-up rows, notifications) builds its link through
  * `customerCardHref`, and a door may only name a page that exists.
  *
- * Since the chat moved INTO the client (v111), a bare landing opens Details and `?tab=chat` opens the Chat page in
- * place — the old "a bare route IS the chat" redirect is gone. Doors still name the page they mean.
+ * Since the chat moved INTO the client (v111), `?tab=chat` opens the Chat page in place — the old "a bare route IS
+ * the chat" redirect is gone. A bare landing opens the menu's first page (Chat since 11 Nov; Details before). Doors
+ * still name the page they mean.
  */
 export const PICKED_CLIENT_PAGE_IDS = [
-  'details',
   'chat',
-  'schedule',
+  'details',
   'quote',
   'payments',
   'forms',
+  'schedule',
   'files',
   'hub',
   'report',
@@ -129,6 +130,18 @@ export function openClientHref(eventId: string, f: ClientDoorFacts): string {
 
 export function vendorThreadHref(threadId: string): string {
   return `/vendor-dashboard/messages/${threadId}`;
+}
+
+/**
+ * 💬 Where a supplier's NOTICE about one conversation opens (owner 11 Nov — every way into a client lands in the picked
+ * client: *"When that is pressed it jump to the supplie-client card that was already planned with the
+ * details-chat-form-quote-files-report and more menus"*; DECISION_LOG 2026-11-08 "a row opens the picked client on its
+ * Chat tab"): the picked client's Chat page, which draws this same thread. Only a thread that names no event keeps the
+ * full-screen thread page. 🔒 lib/supplier-notices-open-the-picked-client.test.ts
+ */
+export function supplierChatHref(eventId: string | null | undefined, threadId: string): string {
+  // Written out (not via `customerCardHref`) so the email-link guard can read both pages from this body.
+  return eventId ? `/vendor-dashboard/clients/${eventId}?tab=chat` : `/vendor-dashboard/messages/${threadId}`;
 }
 
 /** What the rule needs to know about one booked date. */

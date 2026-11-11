@@ -73,7 +73,9 @@ export type HubEventRead = {
   eventDate: string | null;
   eventEndDate?: string | null;
   clearedAt?: string | null;
-  timezone?: string | null;
+  /** The VENUE's IANA zone (`venueTimezone(row)`, lib/event-clock.server.ts) — never `events.timezone`, which defaults
+   *  to Manila for every row and is no clock's source (the one-clock ruling, 10 Nov 2026). */
+  venueTz?: string | null;
   slug?: string | null;
   /** `events.std_invitation_launch_date` — the ONE date the Invitation opens (owner 2026-10-14). */
   invitationLaunchDate?: string | null;
@@ -143,7 +145,7 @@ export function resolveHubStage(read: HubEventRead, nowMs?: number): LifecyclePh
   if (!read.measured) return null;
   return getLifecyclePhase(
     read.eventDate,
-    read.timezone ?? undefined,
+    read.venueTz ?? undefined,
     read.eventEndDate ?? null,
     nowMs,
     read.invitationLaunchDate ?? null,
@@ -164,7 +166,7 @@ export function resolveHubPhase(read: HubEventRead, nowMs?: number): MenuLifecyc
   return getMenuLifecyclePhase(
     read.eventDate,
     read.clearedAt ?? null,
-    read.timezone ?? undefined,
+    read.venueTz ?? undefined,
     nowMs,
     read.eventEndDate ?? null,
   );
@@ -276,7 +278,7 @@ function dayFact(read: HubEventRead, nowMs?: number): HubFact {
   const label = 'The day';
   if (!read.measured) return { label, value: null, known: false };
   if (!read.eventDate) return { label, value: 'Not set yet', known: true };
-  const days = daysUntilEventDay(read.eventDate, venueTodayISO(read.timezone, nowMs));
+  const days = daysUntilEventDay(read.eventDate, venueTodayISO(read.venueTz, nowMs));
   if (days === null) return { label, value: 'Not set yet', known: true };
   if (days === 0) return { label, value: 'Today', known: true };
   if (days === 1) return { label, value: 'Tomorrow', known: true };

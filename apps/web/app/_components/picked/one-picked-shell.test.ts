@@ -91,16 +91,18 @@ test('2 · the host Chats draws the picked supplier over itself; the workspace I
   assert.match(ws, /<CoupleThreadBody eventId=\{eventId\} threadId=\{chatThread\.thread_id\} \/>/, 'the Chat page is not the shipped thread');
 });
 
-test('3 · a Chats row opens the picked page ON CHAT; the lists open on Details', () => {
+test('3 · a Chats row opens the picked page ON CHAT; the host’s lists open on Details, the supplier’s on Chat (11 Nov)', () => {
   const sup = read(SUPPLIER_CHATS);
   assert.match(sup, /foldByEvent\(/, 'the supplier Chats no longer folds threads by event');
   assert.match(sup, /href: `\/vendor-dashboard\/clients\/\$\{r\.eventId\}\?tab=chat`,\s*opensPicked: true,/);
   const host = read(`${HOST_CHATS}/page.tsx`);
   assert.match(host, /`\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace\?tab=chat`/);
   assert.match(host, /opensPicked: Boolean\(eventVendorId\)/);
-  // The menus: `?tab=chat` → Chat; no tab (a Clients / Suppliers list door) → Details.
+  // The menus: `?tab=chat` → Chat. No tab: the supplier's picked client opens on Chat — its first tab since the owner's
+  // 11 Nov order (DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE ORDER"); the host's picked supplier
+  // still opens on Details.
   assert.equal(visiblePickedPage('chat', true), 'chat');
-  assert.equal(visiblePickedPage(null, true), 'details');
+  assert.equal(visiblePickedPage(null, true), 'chat');
   const full = pickedSupplierMenuFor({ quote: true, chat: true });
   assert.equal(visiblePickedSupplierPage('chat', full), 'chat');
   assert.equal(visiblePickedSupplierPage(undefined, full), 'details');

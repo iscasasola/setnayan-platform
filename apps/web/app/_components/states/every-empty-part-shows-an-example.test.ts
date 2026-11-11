@@ -240,6 +240,14 @@ test('👻 Event · Today — an empty event draws every widget\'s Example; a re
   }
   const todo = slice(empty, 'data-home-todo', ['data-home-your-event']);
   assertIsExample(todo, 'Today · To do');
+  // 🖥 THE DESKTOP DETAIL CARDS (md+, Lane H leftover) — each card draws the same sample face under "Example".
+  const detail = slice(empty, 'data-home-control="detail"', ['data-home-todo', 'data-home-your-event']);
+  const CARDS = ['guests', 'hub', 'sup', 'budget'] as const;
+  for (const key of CARDS) {
+    const card = slice(detail, `data-home-card-key="${key}"`, CARDS.filter((k) => k !== key).map((k) => `data-home-card-key="${k}"`).concat('data-home-card-key="plan"', 'data-home-tile="sched"'));
+    assert.ok(card.length > 0, `Today (desktop): the ${key} card is not drawn on an empty event`);
+    assertIsExample(card, `Today (desktop) · ${key}`);
+  }
   assert.doesNotMatch(drawHome({ control: fixtureControlUnread('e1') }), /data-example/, 'a REFUSED read drew an Example — it would pass a sample off as the event');
   assert.doesNotMatch(drawHome({ control: fixtureControl('e1') }), /data-example/, 'a FULL event still draws an Example');
 });

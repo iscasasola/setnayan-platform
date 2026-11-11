@@ -181,7 +181,7 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
     state: st(cs === null, csEmpty),
     pic: <CardSellPic c={csEmpty ? S.cardsell : cs!} />,
     line: csEmpty ? 'Shows once couples ask about your cards.' : cardSellLine(cs),
-    problem: csEmpty ? 'Shows once couples ask about your cards.' : csQuiet ? quietCardProblem(csQuiet) : cardSellLine(cs),
+    problem: csEmpty ? 'Shows once couples ask about your cards.' : csQuiet ? quietCardProblem(csQuiet, win) : cardSellLine(cs),
     rec: recOf('cardsell'),
     details: (
       <One>

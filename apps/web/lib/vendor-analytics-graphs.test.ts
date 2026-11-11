@@ -190,6 +190,8 @@ test('b · the quiet card: opened often, asked rarely — fires only on numbers 
   const q = quietCard([card('a', 88, 7, 3), card('b', 84, 2), card('c', 22, 2)]);
   assert.deepEqual(q, { serviceId: 'b', name: 'Card b', opened: 84, asked: 2, booked: 0 });
   assert.equal(quietCardProblem(q!), 'Card b: 84 opened, 2 asked, 0 booked in the last 12 months.');
+  // The Problem names the window the numbers were counted over — the card's own switch (owner 11 Nov).
+  assert.equal(quietCardProblem(q!, '30'), 'Card b: 84 opened, 2 asked, 0 booked in the last 30 days.');
   // Opens unread → never advice on opens.
   assert.equal(quietCard([card('a', null, 7), card('b', null, 0)]), null);
   assert.equal(quietCard(null), null);

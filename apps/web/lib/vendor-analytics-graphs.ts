@@ -145,8 +145,10 @@ export function quietCard(c: readonly CardSell[] | null): { serviceId: string; n
 }
 
 /** The quiet card's Problem line — its own three numbers, in the graph's window. */
-export function quietCardProblem(q: { name: string; opened: number; asked: number; booked: number }): string {
-  return `${q.name}: ${formatCount(q.opened)} opened, ${formatCount(q.asked)} asked, ${formatCount(q.booked)} booked in the last 12 months.`;
+/** The quiet card's Problem — its own three numbers, in the window they were counted over (the card's switch). */
+export function quietCardProblem(q: { name: string; opened: number; asked: number; booked: number }, win: '30' | '12' = '12'): string {
+  const when = win === '30' ? 'in the last 30 days' : 'in the last 12 months';
+  return `${q.name}: ${formatCount(q.opened)} opened, ${formatCount(q.asked)} asked, ${formatCount(q.booked)} booked ${when}.`;
 }
 
 export function cardSellLine(c: readonly CardSell[] | null): string {

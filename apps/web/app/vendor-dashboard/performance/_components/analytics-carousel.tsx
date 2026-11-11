@@ -127,7 +127,7 @@ export function AnalyticsCarousel(props: Props) {
         {FIXED_WINDOW[k]}
       </span>
     ) : (
-      <PillSelector label={`Window for ${title}`} value={winOf(k)} options={WINDOW_OPTIONS} onPick={(v) => setWin(k, v)} data={`analytics-window-${k}`} />
+      <PillSelector label={`Window for ${title}`} value={winOf(k)} options={WINDOW_OPTIONS} onPick={(v) => setWin(k, v)} grow={false} data={`analytics-window-${k}`} />
     );
 
   const totalsOf = (win: GrowthWindow): Totals | null => {

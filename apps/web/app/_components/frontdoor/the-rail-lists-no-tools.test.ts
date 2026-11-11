@@ -6,7 +6,7 @@
  * THE PLANNER · TOGETHER · STUDIO FEATURE LISTS". Owner, 23 Oct, on live prod: *"why
  * do i see so many menu. this is supposed to change already?"*
  *
- *   signed out  Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in  (2026-11-11)
+ *   signed out  Discover · For suppliers · For coordinators · Features · Sign in  (2026-11-12: Find suppliers moved inside Discover)
  *   signed in   Discover · Events · People · (shop) · Memories · (HQ) · Features  (My Home order: 2026-11-11)
  *
  * 🔑 A PROPERTY, NOT A PHRASING. The shell is RENDERED — signed in and out, on the
@@ -132,7 +132,13 @@ test('no rail row opens a tool — signed in or out, on every variant', async ()
   assert.ok(rows >= 25, `only ${rows} rail links read across ${STATES.length} renders — the read is wrong`);
 });
 
-test('signed out the rail is the five rows the owner named, in his order, then Sign in', async () => {
+/*
+ * (a) 🔄 2026-11-12 — FOUR ROWS (owner: *"find suppliers needs to be also inside discover already. they do not need to
+ * have their own page"*; DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED", amending the five-row ruling
+ * of 2026-11-11 / PR #7500). "Find suppliers" left; no signed-out row opens `/explore` (it forwards to Discover).
+ * SABOTAGE (2026-11-12): the `find` row put back in `front-door-shell.tsx` → this test red. Restored.
+ */
+test('signed out the rail is the four rows the owner named, in his order, then Sign in — no /explore', async () => {
   // 🔄 2026-11-11 (owner, "Yes, all four" — DECISION_LOG "THE SIGNED-OUT SIDEBAR = DISCOVER · FIND SUPPLIERS · FOR
   // SUPPLIERS · FOR COORDINATORS · FEATURES · SIGN IN"): "How it works" left (it opened /features, the Features
   // row's page) and "For coordinators" moved up from the small print, right under "For suppliers". Five rows.
@@ -140,28 +146,31 @@ test('signed out the rail is the five rows the owner named, in his order, then S
     const links = await rail(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
     assert.deepEqual(
       links,
-      ['/', '/explore', '/for-suppliers', '/for-coordinators', '/features', '/login'],
-      `${variant}: signed out = Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in ` +
-        '(owner 2026-11-11; For suppliers under Find suppliers 2026-11-06)',
+      ['/', '/for-suppliers', '/for-coordinators', '/features', '/login'],
+      `${variant}: signed out = Discover · For suppliers · For coordinators · Features · Sign in ` +
+        '(owner 2026-11-12: Find suppliers moved inside Discover)',
     );
+    assert.ok(!links.some((h) => h.startsWith('/explore')), `${variant}: a signed-out rail row opens /explore again`);
     const rows = await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
     assert.deepEqual(
       rows.filter((r) => r.label).map((r) => r.label),
-      ['Discover', 'Find suppliers', 'For suppliers', 'For coordinators', 'Features'],
-      `${variant}: the five signed-out rows, by name and in order`,
+      ['Discover', 'For suppliers', 'For coordinators', 'Features'],
+      `${variant}: the four signed-out rows, by name and in order`,
     );
   }
 });
 
-test('signed out, "For suppliers" is a row right under "Find suppliers" — not in the small print (owner 2026-11-06)', async () => {
+test('signed out, "For suppliers" is a row right under Discover — not in the small print (owner 2026-11-06)', async () => {
+  // 🔄 2026-11-12: it sat right under "Find suppliers"; that row left (Find suppliers moved inside Discover), so
+  // "For suppliers" is now the row right under Discover.
   for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
     const rows = await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path);
-    const find = rows.findIndex((r) => r.label === 'Find suppliers');
-    assert.ok(find > -1, `${variant}: the signed-out rail lost its "Find suppliers" row`);
+    const discover = rows.findIndex((r) => r.label === 'Discover');
+    assert.ok(discover > -1, `${variant}: the signed-out rail lost its "Discover" row`);
     assert.deepEqual(
-      rows[find + 1],
+      rows[discover + 1],
       { href: '/for-suppliers', label: 'For suppliers' },
-      `${variant}: the row right under "Find suppliers" must be "For suppliers" → /for-suppliers`,
+      `${variant}: the row right under "Discover" must be "For suppliers" → /for-suppliers`,
     );
   }
   // Moved, not copied: one door, so the legal links no longer carry it.

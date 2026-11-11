@@ -267,7 +267,7 @@ export async function approveVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect('/admin/verify?approved=1');
 }
 
@@ -297,7 +297,7 @@ export async function rejectVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect('/admin/verify?rejected=1');
 }
 
@@ -318,7 +318,7 @@ export async function archiveVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect('/admin/verify?archived=1');
 }
 
@@ -404,7 +404,7 @@ export async function liftFindLock(formData: FormData) {
 
   revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/verify');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/vendor-dashboard');
 }
 
@@ -440,7 +440,7 @@ export async function verifyVendorExperience(formData: FormData) {
 
   revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/verify');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect('/admin/verify?exp_verified=1');
 }
 
@@ -740,7 +740,7 @@ export async function settleVerificationFromWorkList(formData: FormData): Promis
   revalidatePath('/admin');
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/vendor-dashboard/verify');
   redirect(workBackHref(back, decision === 'approve' ? 'approved' : 'sent-back'));
 }
@@ -778,7 +778,7 @@ export async function approveApplication(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/vendor-dashboard/verify');
   redirect('/admin/verify?app_approved=1&status=approved');
 }
@@ -806,7 +806,7 @@ export async function rejectApplication(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/vendor-dashboard/verify');
   redirect('/admin/verify?app_rejected=1&status=rejected');
 }
@@ -863,7 +863,7 @@ export async function demoteVendor(formData: FormData) {
 
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect('/admin/verify?demoted=1&status=demoted');
 }
 

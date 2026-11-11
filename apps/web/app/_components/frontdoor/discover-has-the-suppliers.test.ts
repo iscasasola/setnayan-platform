@@ -19,11 +19,11 @@
  *   · a static `import { MarketplaceView } from …marketplace-view` at the top of front-door.tsx → (b) red;
  *   · `<StickyMarketplaceHeader` put back into Discover's branch → (e) red;
  *   · the sort chips (`SORT_CHIP_KEYS.map`) put into Discover's branch → (f) red;
- *   · `const isLandingView = …` added to front-door.tsx → (g) red.
+ *   · `const isLandingView = …` added to front-door.tsx → (g) red; explore/page.tsx restored → (g) red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
@@ -105,16 +105,13 @@ test('(f) Sort on `/` is ONE dropdown that lists its choices — never the chip 
   assert.ok(!branch.includes('Off-season savings\n'), "Discover's supplier view draws the off-season band");
 });
 
-test('(g) ONE pipeline — both pages render it; neither defines its own gate', () => {
-  const explore = code(EXPLORE);
-  assert.match(explore, /import \{ MarketplaceView, type MarketplaceSearchParams \} from '\.\/_lib\/marketplace-view';/);
-  assert.match(explore, /<MarketplaceView raw=\{await searchParams\} surface="explore" \/>/);
+test('(g) ONE pipeline — Discover renders the shared view and defines no gate of its own', () => {
+  // 2026-11-12 (commit B): `/explore` is no longer a page — it forwards to `/` (lib/legacy-redirects.ts) — so the
+  // shared view has ONE caller, the front door. It must stay the only definition of who may be shown.
+  assert.ok(!existsSync(join(WEB, EXPLORE)), '/explore is a page again — it forwards to Discover since 2026-11-12');
   const view = code(VIEW);
   assert.match(view, /export async function MarketplaceView\(/);
-  for (const [rel, src] of [
-    [EXPLORE, explore],
-    [FRONT_DOOR, code(FRONT_DOOR)],
-  ] as const) {
+  for (const [rel, src] of [[FRONT_DOOR, code(FRONT_DOOR)]] as const) {
     for (const own of [
       /\bconst isLandingView\b/,
       /\bfunction parseFilters\b/,

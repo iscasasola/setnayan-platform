@@ -200,12 +200,13 @@ const websiteJsonLd = {
   inLanguage: 'en-PH',
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   // Sitelinks search box — lets Google surface a search field for the brand
-  // SERP, pointed at the vendor-discovery surface.
+  // SERP. 2026-11-12: pointed at Discover's own search (`/?q=`) — /explore forwards to `/` now (Find suppliers
+  // moved inside Discover; the drawing's SEO plan: "the search action points at /?q=").
   potentialAction: {
     '@type': 'SearchAction',
     target: {
       '@type': 'EntryPoint',
-      urlTemplate: `${SITE_URL}/explore?q={search_term_string}`,
+      urlTemplate: `${SITE_URL}/?q={search_term_string}`,
     },
     'query-input': 'required name=search_term_string',
   },

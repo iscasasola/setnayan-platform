@@ -46,7 +46,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
       <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
         <p className="text-sm text-ink/60">No saved suppliers yet.</p>
         <Link
-          href="/explore"
+          href="/?browse=1"
           className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
         >
           <Compass aria-hidden className="h-4 w-4" strokeWidth={2} />

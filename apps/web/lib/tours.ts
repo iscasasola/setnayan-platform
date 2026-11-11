@@ -1130,7 +1130,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_account_bar_v2: {
     key: 'customer_account_bar_v2',
     label: 'Your events and the account bar',
-    blurb: 'The Planning and Worth planning shelves, then Events, People, Memories and Switch to.',
+    blurb: 'The Planning and Worth planning shelves, your Home’s sections, then Home, Discover and Switch to.',
     slides: [],
     spotlight: {
       steps: [
@@ -1144,20 +1144,22 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           title: 'Worth planning',
           body: 'Birthdays and other days that come around. Nothing here is an event yet.',
         },
+        // 🏠 HOME · DISCOVER (owner 11 Nov 2026, "HOME IS THE PROFILE"): the bar is two tabs, and Events · People ·
+        // Shop · Memories are the sections of Home — the segments row (`home-segments`), not tabs.
+        {
+          anchor: 'home-segments',
+          title: 'Your sections',
+          body: 'Events, People and Memories — and your shop, if you run one. All on your Home.',
+        },
         {
           anchor: 'tab-dashboard',
-          title: 'Events',
-          body: 'This board. Inside an event, the bar changes to that event’s own.',
+          title: 'Home',
+          body: 'This page — you, your events and your people. Inside an event, the bar changes to that event’s own.',
         },
         {
-          anchor: 'tab-people',
-          title: 'People',
-          body: 'Everyone you’re connected to, your loved ones and your groups.',
-        },
-        {
-          anchor: 'tab-library',
-          title: 'Memories',
-          body: 'The photos and stories from all your events, kept in one place.',
+          anchor: 'tab-',
+          title: 'Discover',
+          body: 'Everything outside your account: events, people and suppliers to find.',
         },
         {
           anchor: 'account-avatar',

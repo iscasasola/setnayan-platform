@@ -361,7 +361,7 @@ function MembersTab({
           ) : (
             <p className="text-sm text-ink/55">No active link — rotate to mint a fresh one.</p>
           )}
-          <Link href="/dashboard/people" className={QUIET_ACTION}>
+          <Link href="/dashboard?seg=people" className={QUIET_ACTION}>
             Ask someone from People
           </Link>
         </section>

@@ -207,7 +207,7 @@ export function PeopleToFollowShelf({ discover }: { discover: DiscoverData }) {
         <EmptyShelf
           line="No public profiles yet."
           tip="Anyone can turn on a public profile."
-          href="/dashboard/people"
+          href="/dashboard?seg=people"
           go="Find someone you know"
         />
       ) : (

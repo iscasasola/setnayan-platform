@@ -92,7 +92,8 @@ test('the People page is where both signals point', () => {
   // test that quotes the thing it inspects reports two routes that do not exist
   // and turns a healthy guard red. It found this file twice before this shape.
   const field = ['related', 'Url:'].join('');
-  const path = ['/dashboard', '/people'].join('');
+  // People is a section of Home since 11 Nov 2026 (DECISION_LOG "HOME PAGE v3 APPROVED").
+  const path = ['/dashboard', '?seg=people'].join('');
   const needle = `${field} '${path}'`;
   assert.equal(
     src.split(needle).length - 1,

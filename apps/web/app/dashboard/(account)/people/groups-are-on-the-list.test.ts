@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const PAGE = stripComments(readFileSync(join(HERE, '_components', 'people-segment.tsx'), 'utf8'));
 const ROSTER = stripComments(readFileSync(join(HERE, '_components', 'people-roster-view.tsx'), 'utf8'));
 const SECTION = stripComments(readFileSync(join(HERE, '_components', 'samahan-people-section.tsx'), 'utf8'));
 

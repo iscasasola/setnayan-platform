@@ -117,13 +117,14 @@ function barMounts(entry: string[]): Count {
   return count;
 }
 
-// Every tab the bar can draw, in the ruled order (owner 2026-11-11, "THE ACCOUNT BAR ORDER"), read from the real rule.
-const TABS = accountBarItems(accountBarTabs({ ownsShop: true, discoverOpen: true }));
+// Every tab the bar can draw, in the ruled order (owner 11 Nov 2026, "HOME IS THE PROFILE": Home · Discover), read
+// from the real rule.
+const TABS = accountBarItems(accountBarTabs({ discoverOpen: true }));
 
-test('the sweep reads the real bar: five tabs, five addresses', () => {
+test('the sweep reads the real bar: two tabs, two addresses', () => {
   assert.deepEqual(
     TABS.map((t) => t.key),
-    ['events', 'people', 'shop', 'memories', 'discover'],
+    ['home', 'discover'],
   );
 });
 
@@ -131,13 +132,9 @@ for (const tab of TABS) {
   test(`📱 ${tab.label} (${tab.href}) lands on a page that draws exactly one bar`, () => {
     const c = barMounts(routeFiles(tab.href));
     const total = BARS.reduce((n, b) => n + c[b], 0);
-    if (tab.key === 'shop') {
-      assert.equal(c.VendorBottomNav, 1, `the shop draws ${c.VendorBottomNav} shop bars`);
-      assert.equal(total, 1, `the shop draws ${total} bars in all: ${JSON.stringify(c)}`);
-    } else {
-      assert.equal(c.AccountBarSlot, 1, `${tab.label} draws ${c.AccountBarSlot} account bars — the bar disappears on this tab`);
-      assert.equal(total, 1, `${tab.label} draws ${total} bars in all: ${JSON.stringify(c)}`);
-    }
+    // 🏠 No Shop tab since 11 Nov 2026 — the shop is a section of Home (`/dashboard?seg=shop`), under Home's bar.
+    assert.equal(c.AccountBarSlot, 1, `${tab.label} draws ${c.AccountBarSlot} account bars — the bar disappears on this tab`);
+    assert.equal(total, 1, `${tab.label} draws ${total} bars in all: ${JSON.stringify(c)}`);
   });
 }
 
@@ -164,11 +161,8 @@ test('🔒 Discover draws the bar for a signed-in viewer only — signed out, th
   assert.equal((fd.match(/<FrontDoorAccountBar\b/g) ?? []).length, 1);
   const bar = src(join(APP, '_components/frontdoor/front-door-account-bar.tsx'));
   assert.match(bar, /const user = await getCurrentUser\(\);\s*if \(!user\) return null;/);
-  // The same tab rule the layouts use — Shop for an owner, Discover where `/` opens.
-  assert.match(
-    bar,
-    /<AccountBarSlot tabs=\{accountBarTabs\(\{ ownsShop: ownsAShop\(switcherData\.context\), discoverOpen \}\)\} \/>/,
-  );
+  // The same tab rule the layouts use — Home, and Discover where `/` opens.
+  assert.match(bar, /<AccountBarSlot tabs=\{accountBarTabs\(\{ discoverOpen \}\)\} \/>/);
   assert.match(bar, /discoverOpensHere\(\)/);
   // OUTSIDE the shell's <main>: the dock is fixed, and the page takes a
   // view-transition name during a set-change slide.

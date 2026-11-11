@@ -152,7 +152,7 @@ export default async function GroupLabPage({
           </div>
         </div>
       </main>
-      <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
+      <AccountBottomNav tabs={['home', 'discover']} />
     </div>
   );
 }

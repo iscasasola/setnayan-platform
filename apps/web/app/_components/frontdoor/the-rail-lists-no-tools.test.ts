@@ -174,10 +174,23 @@ test('signed out, "How it works" opens the Features hub, the same door as the he
 });
 
 test('signed in the rail is your own rows and one Features row — no find row', async () => {
-  const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
+  // 🏠 HOME IS THE PROFILE (owner 11 Nov 2026): Home · Discover, in the bar's order — Home's sections (Events · People ·
+  // Shop · Memories) are small doors under the Home row — then the fine print: HQ for an admin, and Features.
+  const rows = await railRows('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
   assert.deepEqual(
-    links,
-    ['/', '/dashboard', '/dashboard/people', '/vendor-dashboard', '/dashboard/library', '/admin', '/features'],
-    'signed in = Discover · Events · People · shop · Memories · HQ · Features (owner 2026-10-01; My Home in the bar\'s order since 2026-11-11, "THE ACCOUNT BAR ORDER")',
+    rows.map((r) => `${r.label} ${r.href}`),
+    [
+      'Home /dashboard',
+      'Events /dashboard',
+      'People /dashboard',
+      'Shop /dashboard',
+      'Memories /dashboard',
+      'Discover /',
+      'Setnayan HQ /admin',
+      'Features /features',
+    ],
+    'signed in = Home (Events · People · Shop · Memories) · Discover · HQ · Features (owner 11 Nov 2026, "HOME IS THE PROFILE")',
   );
+  const links = await rail('app', { signedIn: true, shopName: 'Lab Florals', isAdmin: true }, '/dashboard');
+  assert.ok(!links.includes('/explore'), 'a signed-in rail grew a find row again');
 });

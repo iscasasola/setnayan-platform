@@ -94,7 +94,7 @@ async function sendPeopleInvitation(
   fromFirstName: string | null,
 ): Promise<boolean> {
   const origin = await appOrigin();
-  const url = `${origin}/login?next=${encodeURIComponent('/dashboard/people')}`;
+  const url = `${origin}/login?next=${encodeURIComponent('/dashboard?seg=people')}`;
   const who = fromFirstName ?? 'Someone you know';
   const heading = `${who} added you to their people`;
   const lines = [
@@ -245,12 +245,12 @@ export async function addPersonConnection(input: {
       // The owner's sentence (2026-09-28) — the same one their People row says.
       title: connectionRequestSentence(myDisplayName || 'Someone', null),
       body: 'Open your people to accept or decline. Nothing connects until you say so.',
-      relatedUrl: '/dashboard/people',
+      relatedUrl: '/dashboard?seg=people',
     });
   }
 
   const delivered = await sendPeopleInvitation(email, myFirstName);
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, delivered };
 }
 
@@ -453,7 +453,7 @@ export async function setConnectionLabel(
       .eq('from_person_id', myPerson)
       .is('deleted_at', null);
     if (error) return { ok: false, error: 'Couldn’t remove that label.' };
-    revalidatePath('/dashboard/people');
+    revalidatePath('/dashboard');
     return { ok: true, asked: false };
   }
 
@@ -487,7 +487,7 @@ export async function setConnectionLabel(
       .eq('from_person_id', myPerson)
       .is('deleted_at', null);
     if (error) return { ok: false, error: labelWriteError(error) };
-    revalidatePath('/dashboard/people');
+    revalidatePath('/dashboard');
     return { ok: true, asked: false };
   }
 
@@ -531,11 +531,11 @@ export async function setConnectionLabel(
       // The bare People page: every request (a label ask included) is pinned at
       // its top, and `connection-notifications.test.ts` holds every connection
       // notice to this one destination.
-      relatedUrl: '/dashboard/people',
+      relatedUrl: '/dashboard?seg=people',
     });
   }
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, asked: true };
 }
 
@@ -620,12 +620,12 @@ async function confirmLabel(
           asked === 'partner'
             ? 'You’re a couple on Setnayan now. Plan an event together whenever you’re ready.'
             : 'It’s on your people now.',
-        relatedUrl: '/dashboard/people',
+        relatedUrl: '/dashboard?seg=people',
       });
     }
   }
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, asked: false };
 }
 
@@ -649,7 +649,7 @@ async function declineLabel(connectionId: string): Promise<ActionResult> {
     .eq('to_person_id', myPerson)
     .eq('proposed_status', 'pending');
   if (error) return { ok: false, error: 'Couldn’t decline.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -688,7 +688,7 @@ export async function withdrawConnection(connectionId: string): Promise<ActionRe
   if (error) logQueryError('withdrawConnection', error, { connectionId });
   const result = removalWriteResult(data, error);
   if (!result.ok) return result;
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -819,12 +819,12 @@ export async function confirmConnection(
         type: 'connection_confirmed',
         title: `${myName} confirmed your connection`,
         body: 'They’re on your people now — set what they are to you whenever you like.',
-        relatedUrl: '/dashboard/people',
+        relatedUrl: '/dashboard?seg=people',
       });
     }
   }
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -848,7 +848,7 @@ export async function declineConnection(
     .eq('to_person_id', myPerson)
     .eq('status', 'pending');
   if (error) return { ok: false, error: 'Couldn’t decline.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true };
 }
 
@@ -903,7 +903,7 @@ export async function generateEventConnections(
     p_creator: user.id,
   });
   if (error) return { ok: false, error: 'Couldn’t generate connections.' };
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, created: (data as number | null) ?? 0 };
 }
 
@@ -924,9 +924,9 @@ export async function generateEventConnections(
  *      relation 'friend', pending, mutual-confirm.
  */
 export async function proposeSamahanConnection(formData: FormData): Promise<void> {
-  if (!peopleConnectionsEnabled()) redirect('/dashboard/people?view=samahan');
+  if (!peopleConnectionsEnabled()) redirect('/dashboard?seg=people&view=samahan');
   const memberRowId = Number(formData.get('member_row_id'));
-  if (!Number.isInteger(memberRowId) || memberRowId <= 0) redirect('/dashboard/people?view=samahan');
+  if (!Number.isInteger(memberRowId) || memberRowId <= 0) redirect('/dashboard?seg=people&view=samahan');
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -939,10 +939,10 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     .eq('id', memberRowId)
     .maybeSingle();
   const targetUserId = (member as { user_id: string } | null)?.user_id;
-  if (!targetUserId || targetUserId === user.id) redirect('/dashboard/people?view=samahan');
+  if (!targetUserId || targetUserId === user.id) redirect('/dashboard?seg=people&view=samahan');
 
   const fromPerson = await myPersonId(supabase, user.id);
-  if (!fromPerson) redirect('/dashboard/people?view=samahan&error=profile_not_ready');
+  if (!fromPerson) redirect('/dashboard?seg=people&view=samahan&error=profile_not_ready');
 
   // Resolve the co-member's person spine row server-side (their person is not
   // visible under our RLS pre-connection — that's by design).
@@ -959,14 +959,14 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     // is read and consumed server-side only.
     const { data: u } = await admin.from('users').select('email').eq('user_id', targetUserId).maybeSingle();
     const email = ((u as { email: string | null } | null)?.email ?? '').trim().toLowerCase();
-    if (!email) redirect('/dashboard/people?view=samahan&error=connect_failed');
+    if (!email) redirect('/dashboard?seg=people&view=samahan&error=connect_failed');
     const { data: resolved } = await supabase.rpc('resolve_or_claim_person', {
       p_email: email,
       p_creator: user.id,
     });
     toPerson = (resolved as string | null) ?? null;
   }
-  if (!toPerson || toPerson === fromPerson) redirect('/dashboard/people?view=samahan&error=connect_failed');
+  if (!toPerson || toPerson === fromPerson) redirect('/dashboard?seg=people&view=samahan&error=connect_failed');
 
   const { error } = await supabase.from('person_connections').insert({
     from_person_id: fromPerson,
@@ -976,10 +976,10 @@ export async function proposeSamahanConnection(formData: FormData): Promise<void
     status: 'pending',
     created_by_user_id: user.id,
   });
-  if (error && error.code !== '23505') redirect('/dashboard/people?view=samahan&error=connect_failed');
+  if (error && error.code !== '23505') redirect('/dashboard?seg=people&view=samahan&error=connect_failed');
 
-  revalidatePath('/dashboard/people');
-  redirect('/dashboard/people?view=samahan&saved=1');
+  revalidatePath('/dashboard');
+  redirect('/dashboard?seg=people&view=samahan&saved=1');
 }
 
 /**
@@ -1099,7 +1099,7 @@ export async function invitePersonToSamahan(input: {
     }),
   });
 
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, delivered: delivered.ok, samahan: samahanName };
 }
 
@@ -1312,6 +1312,6 @@ export async function setFollowByPublicId(input: {
         : 'Couldn’t unfollow just now — try again.',
     };
   }
-  revalidatePath('/dashboard/people');
+  revalidatePath('/dashboard');
   return { ok: true, following: res.following };
 }

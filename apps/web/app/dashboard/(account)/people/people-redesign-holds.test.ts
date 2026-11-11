@@ -27,7 +27,7 @@ const read = (rel: string) => {
   return { src, code: stripComments(src) };
 };
 
-const PAGE = read('app/dashboard/(account)/people/page.tsx');
+const PAGE = read('app/dashboard/(account)/people/_components/people-segment.tsx');
 const ROSTER_LIB = read('lib/people-roster.ts');
 const ROSTER_VIEW = read('app/dashboard/(account)/people/_components/people-roster-view.tsx');
 const FOLLOW_LIB = read('lib/people-follows.ts');

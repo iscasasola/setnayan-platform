@@ -87,7 +87,9 @@ const SURFACES: Surface[] = [
 
 /** A control that shows WHICH of several options is on. */
 const CHOICE_STATE = /aria-pressed=\{[^}]*===|aria-current=\{|\sactive=\{[^}]*===/g;
-const DROPDOWN = /<PickMenu\b|<LinkPickMenu\b|<SelectFilter\b|<select\b/;
+// `<PinnedRow` counts: its `picker` IS the shared PickMenu ("<Name> ▾", pinned-row.tsx) — Memories' lenses moved into
+// Home's pinned row on 11 Nov 2026 ("HOME IS THE PROFILE").
+const DROPDOWN = /<PickMenu\b|<LinkPickMenu\b|<SelectFilter\b|<select\b|<PinnedRow\b/;
 
 export function pillRowsIn(src: string): string[] {
   const hits = [...src.matchAll(CHOICE_STATE)];

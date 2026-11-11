@@ -13,6 +13,8 @@
 
 import { formatCount } from './format-number';
 
+import { HOME_SEG_ORDER, PEOPLE_HOME, homeSegHref, peopleHomeHref, type HomeSeg } from '@/lib/home-segments';
+
 export const PEOPLE_VIEWS = [
   'requests',
   'connected',
@@ -72,12 +74,26 @@ export function resolvePeopleView(raw: string | null | undefined, g: PeopleViewG
  * it makes us go back to groups which was not part of people. it did not return to people"*). The old standalone
  * `/dashboard/samahan` index forwards here. `resolvePeopleView` opens Groups from `?view=samahan`.
  */
-export const PEOPLE_GROUPS_HREF = '/dashboard/people?view=samahan';
+export const PEOPLE_GROUPS_HREF = peopleHomeHref({ view: 'samahan' });
 
 /** The URL of a view. The default view is the bare page, so the bell's
  *  `/dashboard/people` and the Connected row are one address. */
 export function peopleViewHref(view: PeopleView, g: PeopleViewGates): string {
-  return view === defaultPeopleView(g) ? '/dashboard/people' : `/dashboard/people?view=${view}`;
+  // 🏠 People is a section of Home (owner 11 Nov 2026, "HOME IS THE PROFILE") — `/dashboard?seg=people[&view=…]`.
+  return view === defaultPeopleView(g) ? PEOPLE_HOME : peopleHomeHref({ view });
+}
+
+/**
+ * 🏠 THE PICKER ALSO HOLDS HOME'S SECTIONS (v3 row 7: one pinned row — `[Segment ▾]` holds the sections and each
+ * section's views). A section's key is `seg:<section>`; anything else is a People view.
+ */
+export const HOME_SEG_KEY_PREFIX = 'seg:';
+export function pickedPeopleHref(key: string, g: PeopleViewGates): string {
+  if (key.startsWith(HOME_SEG_KEY_PREFIX)) {
+    const seg = key.slice(HOME_SEG_KEY_PREFIX.length) as HomeSeg;
+    return HOME_SEG_ORDER.includes(seg) ? homeSegHref(seg) : PEOPLE_HOME;
+  }
+  return peopleViewHref(key as PeopleView, g);
 }
 
 /**

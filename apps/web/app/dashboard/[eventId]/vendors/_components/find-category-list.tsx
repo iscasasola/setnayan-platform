@@ -17,11 +17,19 @@
  * No hooks and no browser APIs: it renders on the server for the Find page
  * and inside the client thumb row alike. Rows are pressable, so each row is a
  * 44 px+ link; the groups are divided, never framed.
+ *
+ * 🖼 EVERY GROUP OPENS ON ITS PHOTO HEADER, AND THE HEADER PINS (owner 2026-11-09: *"event dashboard> suppliers>
+ * find still doesn't have the photo effect done for the pinned group rows"*). The header is the shared
+ * `PhotoGroupHeader` (`app/_components/photo-group-header.tsx`, the approved Shop › Services group header): the
+ * group's photo band with its count, then the title row that sticks while the group's rows scroll and is pushed up
+ * by the next group's. The photo is the taxonomy's own (`readFindList` → `pickFindHeaderPhotos`); a group without
+ * one is the plain title row. Each group is its own `<section>` so the browser's sticky containment does the push.
  */
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
-import { formatCount } from '@/lib/format-number';
+import { PhotoGroupHeader } from '@/app/_components/photo-group-header';
 import {
+  findHeaderCount,
   popularHeading,
   supplierCountLabel,
   type FindCategory,
@@ -83,23 +91,24 @@ export function FindCategoryList({
       ) : null}
 
       {list.popular.length > 0 ? (
-        <section className="mt-6" aria-label={popularHeading(eventType, solemn)}>
-          <h3 className="text-[12px] font-medium uppercase tracking-wide text-ink/50">
-            {popularHeading(eventType, solemn)}
-          </h3>
-          <ul className="mt-1">{list.popular.map(row)}</ul>
+        <section className="mt-2" aria-label={popularHeading(eventType, solemn)} data-find-popular="">
+          <PhotoGroupHeader
+            title={popularHeading(eventType, solemn)}
+            count={findHeaderCount(list.popular.length, bookedMeasured ? list.popular.filter((c) => c.booked).length : null)}
+            photoUrl={list.popularPhotoUrl ?? null}
+          />
+          <ul>{list.popular.map(row)}</ul>
         </section>
       ) : null}
 
       {list.groups.map((g) => (
-        <section key={g.id} className="mt-6" aria-label={g.label} data-find-group={g.id}>
-          <h3 className="flex items-baseline justify-between text-[12px] font-medium uppercase tracking-wide text-ink/50">
-            <span>{g.label}</span>
-            {g.bookedCount ? (
-              <span className="normal-case tracking-normal">{formatCount(g.bookedCount)} booked</span>
-            ) : null}
-          </h3>
-          <ul className="mt-1">{g.categories.map(row)}</ul>
+        <section key={g.id} className="mt-2" aria-label={g.label} data-find-group={g.id}>
+          <PhotoGroupHeader
+            title={g.label}
+            count={findHeaderCount(g.categories.length, g.bookedCount)}
+            photoUrl={g.photoUrl ?? null}
+          />
+          <ul>{g.categories.map(row)}</ul>
         </section>
       ))}
     </div>

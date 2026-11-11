@@ -234,6 +234,9 @@ export type FindGroup = {
   categories: FindCategory[];
   /** How many of this group's categories are booked; null = unknown. */
   bookedCount: number | null;
+  /** 🖼 The group header's photo (resolved URL), from the ONE taxonomy source — `pickFindHeaderPhotos`. null/absent = the
+   *  plain text row. Set by the read (`readFindList`), never by `buildFindList`. */
+  photoUrl?: string | null;
 };
 
 export type FindList = {
@@ -241,7 +244,50 @@ export type FindList = {
   groups: FindGroup[];
   /** Every category in scope, flat — what the search runs over. */
   total: number;
+  /** 🖼 The "Popular for <type>" header's photo — as `FindGroup.photoUrl`. */
+  popularPhotoUrl?: string | null;
 };
+
+/**
+ * 🖼 PURE. Which taxonomy photo each Find header wears (owner 2026-11-09, the photo group headers).
+ *
+ * Find's groups are the HOST's words ("Venue & food"), a page-level map over the taxonomy — they have no row of their
+ * own in Admin › Categories, so they hold no photo of their own. A header therefore wears the photo of ITS OWN
+ * categories: the first, in the order the rows are drawn, whose `service_categories.sample_photo_r2_key` is set
+ * (`TaxonomySnapshot.categoryPhotos`, keyed by tile id). No second photo map — change a category's photo in Admin ›
+ * Categories and its group's header follows.
+ *
+ * A photo an earlier header already wears is passed over while the group has another, so "Popular for weddings" and
+ * "Venue & food" do not open on the same picture; a group whose only photos are taken still shows one (a photo
+ * beats a text row). A group none of whose categories has a photo gets null — the plain text row, never an empty box.
+ *
+ * Returns REFS (`r2://…`, `/taxonomy/tiles/…`, a URL), not URLs — the read resolves them.
+ */
+export function pickFindHeaderPhotos(
+  list: Pick<FindList, 'popular' | 'groups'>,
+  categoryPhotos: Readonly<Record<string, string | null | undefined>>,
+): { popular: string | null; groups: Partial<Record<FindGroupId, string>> } {
+  const used = new Set<string>();
+  const pick = (cats: readonly FindCategory[]): string | null => {
+    const refs = cats.map((c) => (categoryPhotos[c.tile] ?? '').trim()).filter((r) => r !== '');
+    const ref = refs.find((r) => !used.has(r)) ?? refs[0] ?? null;
+    if (ref) used.add(ref);
+    return ref;
+  };
+  const popular = list.popular.length > 0 ? pick(list.popular) : null;
+  const groups: Partial<Record<FindGroupId, string>> = {};
+  for (const g of list.groups) {
+    const ref = pick(g.categories);
+    if (ref) groups[g.id] = ref;
+  }
+  return { popular, groups };
+}
+
+/** "6 categories · 2 booked" — the count a Find header carries (on its photo, or under its name without one). */
+export function findHeaderCount(n: number, booked: number | null): string {
+  const cats = n === 1 ? '1 category' : `${formatCount(n)} categories`;
+  return booked ? `${cats} · ${formatCount(booked)} booked` : cats;
+}
 
 /**
  * PURE. Regroup the bench's scoped folders into the host's groups.

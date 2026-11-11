@@ -29,6 +29,10 @@
  *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
  *   &insp=1|empty|unread 💡 the inspiration box (reorg R5): row A on top of Find and each opened category's strip B
  *                       (`inspiration-fixtures.ts`) — a full board · none yet · the read refused
+ *   ?find=page          🖼 the Find PAGE's list (`vendors/categories`) in the real shell — its photo group headers that
+ *                       pin (owner 2026-11-09). Photos = what the migrations write (`seed-photos.ts`, measured by replay)
+ *   &nophotos=1         …no category has a photo: every header is the plain text row
+ *   &type=wake          …a wake's list ("The service" has no photo in the seed → its text row)
  *   ?tab=build          open on Build — the REAL Build body on fixtures
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
@@ -80,7 +84,9 @@ import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/dat
 import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
 import { LAB_SHOE_SERVICE_LABELS, labShoesTaxonomy } from './info-fixtures';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
-import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
+import { buildFindList, FIND_GROUP_OF_TILE, pickFindHeaderPhotos, popularTilesFor } from '@/lib/supplier-find';
+import { Search } from 'lucide-react';
+import { LAB_SEED_CATEGORY_PHOTOS } from './seed-photos';
 import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
 import { FindCategoryList } from '@/app/dashboard/[eventId]/vendors/_components/find-category-list';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
@@ -139,6 +145,47 @@ export default async function SuppliersLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : null);
+  // 🖼 `?find=page` — the Find page's list, its photo group headers pinning, in the real One Shell.
+  if (one('find') === 'page') {
+    const wake = one('type') === 'wake';
+    const eventType = wake ? 'wake' : 'wedding';
+    const bookedTiles = one('findfail') === '1' ? null : new Set(['reception', 'photo_video']);
+    const list = buildFindList({
+      // No database: no Admin › Scope categories — a wedding drops a wake's own services the way its scope does.
+      folders: buildShortlistFolders({ vendorRows: [], eventType, faithSet: new Set(), eventId: LAB_EVENT }).map((f) => ({
+        ...f,
+        tiles: wake ? f.tiles : f.tiles.filter((t) => (FIND_GROUP_OF_TILE as Record<string, string>)[t.tile] !== 'farewell'),
+      })),
+      eventType,
+      solemn: wake,
+      booked: bookedTiles,
+      counts: LAB_FIND_COUNTS,
+    });
+    // /public paths are used verbatim by the read's resolver (`displayUrlForCatalogueArt`), so the refs ARE the URLs.
+    const refs = pickFindHeaderPhotos(list, one('nophotos') === '1' ? {} : LAB_SEED_CATEGORY_PHOTOS);
+    const withPhotos = { ...list, popularPhotoUrl: refs.popular, groups: list.groups.map((g) => ({ ...g, photoUrl: refs.groups[g.id] ?? null })) };
+    return (
+      <LabShell eventId={LAB_EVENT}>
+        {/* The Find page's own wrapper and head (`vendors/categories/page.tsx`), copied for the lab. */}
+        <div className="mx-auto w-full max-w-2xl pb-24 pt-5 sm:px-4" data-lab-find-page="">
+          <header className="mb-4 mt-3">
+            <h2 className="font-serif text-3xl text-ink">Find a supplier</h2>
+            <p className="mt-1 text-[15px] text-ink/65">Only what your event needs.</p>
+          </header>
+          <label className="flex items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-ink/45" aria-hidden />
+            <input
+              // field-ok: a lab copy of the Find page's own search box (`vendors/categories/page.tsx`), drawn for the shot only
+              name="q"
+              placeholder="Search suppliers or a service"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40"
+            />
+          </label>
+          <FindCategoryList eventId={LAB_EVENT} list={withPhotos} bookedMeasured={bookedTiles !== null} eventType={eventType} solemn={wake} />
+        </div>
+      </LabShell>
+    );
+  }
   const empty = one('empty') === '1';
   const dunkin =
     one('dunkin') === 'before' || one('dunkin') === 'after' || one('dunkin') === 'moved'

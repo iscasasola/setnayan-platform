@@ -64,7 +64,8 @@ test('2 · the "Everything" filter and "N collections · one place" are dropped'
 
 test('3 · sections: › opens, ˅ folds on the house motion; rails sit on equal 16-px gutters; every collection kept', () => {
   assert.match(SECTIONS, /const head = \([\s\S]*?\{title\}[\s\S]*?<ChevronRight/, 'the title does not carry its ›');
-  assert.equal((SECTIONS.match(/aria-label=\{`Open \$\{title\}`\} data-portfolio-open=\{id\}>\s*\{head\}/g) ?? []).length, 3, 'the titled head is not the › that opens its section');
+  // Since Build 6 the › RISES its group full screen (one button, no links) — `each-group-heading-rises-full-screen.test.ts`.
+  assert.equal((SECTIONS.match(/aria-label=\{`Open \$\{title\}`\} aria-haspopup="dialog" data-portfolio-open=\{id\}>\s*\{head\}/g) ?? []).length, 1, 'the titled head is not the › that opens its section');
   assert.match(SECTIONS, /aria-expanded=\{!folded\}/, 'the ˅ does not say whether the section is folded');
   assert.match(SECTIONS, /gridTemplateRows: folded \? '0fr' : '1fr', transitionDuration: 'var\(--sn-dur-rise\)'/, 'the fold is not the house rise motion');
   assert.match(SECTIONS, /inert=\{folded\}/, 'a folded section stays reachable');

@@ -26,8 +26,8 @@ import { videoRowName } from '@/lib/video-link-titles';
 import type { PortfolioAlbum, PortfolioGroups } from '@/lib/portfolio-groups';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
-import { AddTile, EmptyRail, MorePill, MorePills, PortfolioSection, Rail, Tile, type Door } from './portfolio-sections';
-import { OpenedCollection, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from './portfolio-groups';
+import { AddTile, EmptyRail, MorePill, MorePills, PortfolioSection, Rail, Tile, type Door, type GroupRise } from './portfolio-sections';
+import { AlbumGrids, OpenedCollection, PhotoGrid, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from './portfolio-groups';
 
 /**
  * 🖼 PORTFOLIO — THE COLLECTIONS, AS THE CONTENT ITSELF (owner 9 Nov: *"Shouldnt this be in settings?"* · *"we need to
@@ -48,6 +48,9 @@ import { OpenedCollection, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from 
  *              OWN ⚙ (`portfolio-settings.tsx`) — owner 11 Nov (d): collections stay in Portfolio, their settings in
  *              its ⚙, NOT Shop › Settings. The "Everything" filter and "7 collections · one place" are dropped (approved
  *              (6)): Search photos narrows every rail, and who-sees-it is a setting.
+ *   RISE       every titled head (› ) RISES ITS WHOLE GROUP FULL SCREEN from where it sits — the one `RiseScreen`,
+ *              title + count, the group as a full-screen grid, ✕ falls back into the head (owner 10 Nov, "FULLY
+ *              ANIMATED MOSTLY MEANS RISE FULL SCREEN"). A tile still opens its one collection in the body panel.
  *   ADD PHOTOS the shipped gallery editors stay at the foot, in the `#gallery-media` fold the thumb row's ＋ and
  *              Instagram's OAuth callback open.
  *
@@ -108,6 +111,12 @@ export function CollectionsList({
   const openPhotos = (key: string, photos: OpenedPhotos) => (origin: HTMLElement | null) => setOpen({ kind: 'photos', key, photos, origin });
   const openVideo = (origin: HTMLElement | null) => setOpen({ kind: 'video', origin });
   const albumPhotos = (a: PortfolioAlbum): OpenedPhotos => ({ title: a.title, sub: a.line, urls: a.urls, total: a.total, href: a.href });
+  /** ⤴ What a group's head rises into: its count, the grid (photos · albums), and its own page as one row. */
+  const riseOf = (line: string | null | undefined, body: ReactNode, page: GroupRise['page'] = null): GroupRise => ({ line: line ?? '', body, page });
+  const albumsRise = (id: string, albums: PortfolioAlbum[] | null) => {
+    const shown = (albums ?? []).filter((a) => a.urls.length > 0);
+    return shown.length > 0 ? <AlbumGrids data={id} albums={shown.map((a) => ({ key: a.key, ...albumPhotos(a) }))} /> : null;
+  };
   const headEl = (id: string) => document.querySelector<HTMLElement>(`[data-portfolio-open="${id}"]`);
 
   /* ── ON MY PAGE — the page gallery ─────────────────────────────────────────── */
@@ -118,7 +127,7 @@ export function CollectionsList({
       id="page"
       title={SECTION_NAME.page}
       pill={allPhotos.length > 0 ? { kind: 'link', label: 'Edit', href: '#gallery-media', icon: Pencil } : null}
-      onOpen={() => openPhotos('page', pagePhotos)(headEl('page'))}
+      rise={riseOf(rows.page?.line, allPhotos.length > 0 ? <PhotoGrid photos={pagePhotos} data="page" /> : null)}
     >
       {allPhotos.length === 0 ? (
         <EmptyRail id="page" line="Nothing yet · your photos show here and on your page" door={pageDoor} icon={ic(Images)} />
@@ -142,7 +151,12 @@ export function CollectionsList({
     icon: ReactNode,
     count: string | null,
   ) => (
-    <PortfolioSection id={id} title={SECTION_NAME[id]} countLabel={count} onOpen={{ href }}>
+    <PortfolioSection
+      id={id}
+      title={SECTION_NAME[id]}
+      countLabel={count}
+      rise={riseOf(count ?? empty, albumsRise(id, albums), { title: id === 'cards' ? 'Your service cards' : 'Every event album', line: 'Its own screen', href })}
+    >
       {albums === null || albums.length === 0 ? (
         <EmptyRail id={id} line={empty} door={door} icon={icon} unread={albums === null} />
       ) : (
@@ -159,7 +173,7 @@ export function CollectionsList({
   const countSection = (id: 'own' | 'delivered', href: string, filled: string | null, empty: string, door: Door, icon: ReactNode) => {
     const r = rows[id];
     return (
-      <PortfolioSection id={id} title={SECTION_NAME[id]} countLabel={filled} onOpen={{ href }}>
+      <PortfolioSection id={id} title={SECTION_NAME[id]} countLabel={filled} rise={riseOf(filled ?? empty, null, { title: door.kind === 'link' ? door.label : SECTION_NAME[id], line: 'Its own screen', href })}>
         {!r || r.unread || !filled ? (
           <EmptyRail id={id} line={empty} door={door} icon={icon} unread={!r || r.unread} />
         ) : (
@@ -177,7 +191,17 @@ export function CollectionsList({
   const ig = input.instagram;
   const igSection =
     ig === null || ig.configured ? (
-      <PortfolioSection id="instagram" title={SECTION_NAME.instagram} countLabel={ig?.connected ? rows.instagram?.line.replace(/^Connected · /, '') ?? null : null} onOpen={{ href: '#gallery-media' }}>
+      <PortfolioSection
+        id="instagram"
+        title={SECTION_NAME.instagram}
+        countLabel={ig?.connected ? rows.instagram?.line.replace(/^Connected · /, '') ?? null : null}
+        rise={riseOf(
+          rows.instagram?.line,
+          ig?.connected && instagramPhotos.length > 0 ? (
+            <PhotoGrid photos={{ title: SECTION_NAME.instagram, sub: rows.instagram?.line ?? '', urls: instagramPhotos, total: instagramPhotos.length, href: null }} data="instagram" />
+          ) : null,
+        )}
+      >
         {ig && ig.connected && instagramPhotos.length > 0 ? (
           <Rail data="instagram">
             {instagramPhotos.slice(0, 12).map((u, i) => (
@@ -211,7 +235,11 @@ export function CollectionsList({
         id="moodboard"
         title={SECTION_NAME.moodboard}
         countLabel={moodboard && moodboard.looks > 0 ? n(moodboard.looks, 'set', 'sets') : null}
-        onOpen={{ href: INSPIRATION_LIBRARY_HREF }}
+        rise={riseOf(moodboard && moodboard.looks > 0 ? n(moodboard.looks, 'set', 'sets') : null, albumsRise('moodboard', Array.isArray(looks) ? looks : null), {
+          title: INSPIRATION_LIBRARY_ROW.label,
+          line: 'Its own screen',
+          href: INSPIRATION_LIBRARY_HREF,
+        })}
       >
         {looks === null || looks.length === 0 ? (
           <EmptyRail
@@ -235,7 +263,7 @@ export function CollectionsList({
   /* ── Song bank — music categories only ─────────────────────────────────────── */
   const songsSection =
     songs === 'off' ? null : (
-      <PortfolioSection id="songs" title="Song bank" countLabel={songs && songs.count > 0 ? n(songs.count, 'song', 'songs') : null} onOpen={{ href: SONG_BANK_HREF }}>
+      <PortfolioSection id="songs" title="Song bank" countLabel={songs && songs.count > 0 ? n(songs.count, 'song', 'songs') : null} rise={riseOf(songs && songs.count > 0 ? n(songs.count, 'song', 'songs') : null, null, { title: 'Your repertoire', line: 'Its own screen', href: SONG_BANK_HREF })}>
         {songs === null || songs.count === 0 ? (
           <EmptyRail
             id="songs"
@@ -266,7 +294,7 @@ export function CollectionsList({
       id="stories"
       title="Stories couples published"
       pill={stories && stories.length > 0 ? { kind: 'link', label: 'Share them', href: '/vendor-dashboard/shop/promote#share', icon: Share } : null}
-      onOpen={{ href: '/vendor-dashboard/shop/promote#share' }}
+      rise={riseOf(stories && stories.length > 0 ? n(stories.length, 'story', 'stories') : null, null, { title: 'Share them', line: 'Promote', href: '/vendor-dashboard/shop/promote#share' })}
     >
       {stories === null || stories.length === 0 ? (
         <EmptyRail id="stories" line="None yet · a couple you worked with publishes their event to Stories" door={null} icon={ic(BookOpen)} unread={stories === null} />
@@ -286,7 +314,12 @@ export function CollectionsList({
       id="video"
       title="Video links"
       pill={videoLinks.length > 0 ? { kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 } : null}
-      onOpen={() => openVideo(headEl('video'))}
+      rise={riseOf(
+        videoLinks.length > 0 ? n(videoLinks.length, 'link', 'links') : 'No links yet',
+        <div className="px-4">
+          <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
+        </div>,
+      )}
     >
       {videoLinks.length === 0 ? (
         <EmptyRail id="video" line="No links yet · YouTube, Vimeo or Facebook" door={{ kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 }} icon={ic(Play)} />
@@ -304,7 +337,7 @@ export function CollectionsList({
   const allLooks = Array.isArray(looks) ? looks : [];
   const lookUrls = allLooks.flatMap((a) => a.urls);
   const more = (
-    <PortfolioSection id="more" title="More" onOpen={null}>
+    <PortfolioSection id="more" title="More" rise={null}>
       <MorePills>
         <MorePill icon={ic(Images)} label="All photos" countLabel={formatCount(allPhotos.length)} open={(el) => openPhotos('all', { ...pagePhotos, title: 'All photos' })(el)} data="all" />
         <MorePill icon={ic(Play)} label="Video links" countLabel={formatCount(videoLinks.length)} open={(el) => openVideo(el)} data="video" />

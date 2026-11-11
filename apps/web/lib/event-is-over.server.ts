@@ -1,7 +1,8 @@
 import 'server-only';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventClockOf } from '@/lib/event-clock.server';
 
 /**
  * event-is-over.server.ts — HAS THIS CELEBRATION FINISHED?
@@ -34,18 +35,12 @@ export async function eventIsOver(
   try {
     const { data } = await supabase
       .from('events')
-      .select('event_date, event_end_date, cleared_at, timezone')
+      .select(`${EVENT_CLOCK_COLUMNS}`)
       .eq('event_id', eventId)
       .maybeSingle();
     if (!data) return false;
     return (
-      getMenuLifecyclePhase(
-        (data as { event_date?: string | null }).event_date ?? null,
-        (data as { cleared_at?: string | null }).cleared_at ?? null,
-        (data as { timezone?: string | null }).timezone ?? undefined,
-        undefined,
-        (data as { event_end_date?: string | null }).event_end_date ?? null,
-      ) === 'after'
+      eventClockOf(data).menu === 'after'
     );
   } catch {
     return false;

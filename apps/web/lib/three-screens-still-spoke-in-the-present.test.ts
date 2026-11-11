@@ -32,14 +32,16 @@ test('the Hosts page uses the event’s own noun, and knows it is over', () => {
   const h = code('app/dashboard/[eventId]/hosts/page.tsx');
   assert.ok(!/this wedding/.test(h), 'the hardcoded wedding must be gone');
   assert.match(h, /eventNoun\(eventType\)/, 'the shipped noun resolver, not a second one');
-  assert.match(h, /getMenuLifecyclePhase\(/, 'and the shipped phase resolver');
+  // ⏱ The one clock — `eventClockOf(row).menu` is the shipped phase resolver on the venue's zone.
+  assert.match(h, /eventClockOf\(ev\)\.menu === 'after'/, 'and the shipped phase resolver');
   assert.match(h, /What you could do on this \$\{eventNounWord\}/, 'past tense after the day');
-  assert.match(h, /event_date, event_end_date, cleared_at, timezone/, 'it must read the dates');
+  assert.match(h, /\.select\(`display_name, event_type, timezone, \$\{EVENT_CLOCK_COLUMNS\}`\)/, 'it must read the dates');
 });
 
 test('the seat plan stops telling you guests are watching once it is over', () => {
   const b = code('app/dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx');
-  assert.match(b, /getMenuLifecyclePhase\(eventDate, null\) === 'dayof'/);
+  // ⏱ The one clock: The Day's instants from the seat plan's server page (06:00 → 06:00 the morning after the last day).
+  assert.match(b, /setLive\(theDayIsOpenAt\(eventDate\)\)/);
   assert.ok(
     !/isEventDayActive/.test(b),
     'the T+60h window is right for guest surfaces and wrong for a message about them',

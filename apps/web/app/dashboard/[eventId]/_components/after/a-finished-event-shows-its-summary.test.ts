@@ -199,8 +199,9 @@ test('the finished-event branch shows the summary AND keeps the planning tools',
   fixed on 2026-08-04.
 */
 test('the layout resolves the lifecycle phase in the venue timezone', () => {
+  // ⏱ The one clock (owner ruling, 10 Nov 2026): `eventClockOf(event)` resolves the VENUE's zone from the row's own
+  // coordinates (the layout reads `select('*')`) — the Overview body asks the very same call.
   const layout = src('layout.tsx');
-  const call = layout.slice(layout.indexOf('const phase = getMenuLifecyclePhase('));
-  const args = call.slice(0, call.indexOf(');') + 2);
-  assert.match(args, /timezone/, 'the layout phase call dropped the venue timezone');
+  assert.match(layout, /const phase = eventClockOf\(event\)\.menu;/, 'the layout phase call dropped the venue timezone');
+  assert.match(src('page.tsx'), /\? eventClockOf\(event\)\.menu/, 'and the Overview body asks the same clock');
 });

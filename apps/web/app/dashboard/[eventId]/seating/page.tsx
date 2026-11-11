@@ -4,6 +4,8 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import { spreadForDisplay } from '@/lib/table-order';
 import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
+import { theDayInstantsOf, EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
+import { eventClockNow } from '@/lib/event-clock.server';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
 import { createClient } from '@/lib/supabase/server';
@@ -118,7 +120,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone')
+        .select(`event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone, ${EVENT_CLOCK_COLUMNS}`)
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -158,6 +160,16 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   if (avatarCount.error) logQueryError('SeatingPage.avatars', avatarCount.error, { event_id: eventId }, 'graceful_degrade');
   const eventFacts = eventRow.data as { slug?: string | null; timezone?: string | null } | null;
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
+  // ⏱ THE DAY, as the one clock's two instants at the venue (owner ruling, 10 Nov 2026) — the editor's "you're editing
+  // live" banner asks these, never the browser's own midnight.
+  const theDay = theDayInstantsOf(
+    eventClockNow({
+      event_date: eventDate,
+      event_end_date: (eventRow.data?.event_end_date as string | null) ?? null,
+      venue_latitude: (eventRow.data?.venue_latitude as number | null) ?? null,
+      venue_longitude: (eventRow.data?.venue_longitude as number | null) ?? null,
+    }),
+  );
   // 🪑 From the event's day guests always see their seats (lib/guests-may-see-seats.ts);
   // the switch's words say so.
   const seatsDayHasCome = seatDayHasCome(eventDate, (eventRow.data?.event_date_precision as string | null) ?? null);
@@ -281,6 +293,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       }
       constraints={constraints}
       eventDate={eventDate}
+      theDay={theDay}
       seatDayHasCome={seatsDayHasCome}
       plan3d={{
         slug: eventFacts?.slug ?? null,

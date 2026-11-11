@@ -125,7 +125,8 @@ test('the day-of hook still delegates — its six surfaces keep one definition o
   assert.match(src, /export function useVisibleTick/);
   assert.match(
     src,
-    /useVisibleTick\(\(\) => isEventDayActive/,
+    // ⏱ The one clock: `theDayIsOpenAt` (lib/event-clock.ts) — The Day's instants from the server's `eventClock`.
+    /useVisibleTick\(\(\) => theDayIsOpenAt/,
     'useDayOfLiveTick must delegate to useVisibleTick, not keep its own listeners',
   );
   // A missing date installed no listeners before the extraction and must still.

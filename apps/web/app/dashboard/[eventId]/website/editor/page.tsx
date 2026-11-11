@@ -1,4 +1,6 @@
 import { startAhead } from '@/lib/start-ahead';
+import { venueTimezone } from '@/lib/event-clock.server';
+import { clockRowOf } from '@/lib/event-clock';
 import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
 import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -313,7 +315,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -359,7 +361,7 @@ export default async function WebsiteEditorPage({
   );
   const clockPhase = getLifecyclePhase(
     (event.event_date as string | null) ?? null,
-    ((event as { timezone?: string | null }).timezone) ?? undefined,
+    venueTimezone(clockRowOf(event)),
     (event as { event_end_date?: string | null }).event_end_date ?? null,
     undefined,
     (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
@@ -443,7 +445,7 @@ export default async function WebsiteEditorPage({
           measured: true,
           eventDate: (event.event_date as string | null) ?? null,
           eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-          timezone: (event as { timezone?: string | null }).timezone ?? null,
+          venueTz: venueTimezone(clockRowOf(event)),
         }) === 'after',
       isCouple: true,
       draftEditorial: hubDraft?.editorial ?? null,

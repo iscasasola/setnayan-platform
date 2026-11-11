@@ -55,7 +55,7 @@ const event = (over: Partial<HubEventRead> = {}): HubEventRead => ({
   eventDate: '2026-12-18',
   eventEndDate: null,
   clearedAt: null,
-  timezone: MNL,
+  venueTz: MNL,
   slug: 'maria-and-jomar',
   ...over,
 });
@@ -350,7 +350,7 @@ test('an event with no date set says so, rather than counting down to nothing', 
 test('the countdown is read in the VENUE clock, not the server clock', () => {
   // 2026-09-03 in Manila is still 2026-09-02 in UTC. A server-clock countdown
   // says "In 1 day" to a couple whose wedding is today.
-  const read = event({ eventDate: '2026-09-03', timezone: MNL });
+  const read = event({ eventDate: '2026-09-03', venueTz: MNL });
   const justAfterMidnightMNL = at('2026-09-03T00:30:00+08:00'); // = 2026-09-02T16:30Z
   const [, , , day] = resolveHubFacts(read, guests(), justAfterMidnightMNL);
   assert.equal(day.value, 'Today');

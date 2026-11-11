@@ -105,10 +105,11 @@ test('1 · the header names the stage it shows — each stage its own label, nev
 
 test('2 · the tab bar follows the stage’s one config — On the Day is Live · Welcome · Camera · Me, the Invitation is Welcome · Details · Our Love Story · Me', () => {
   // Owner 2026-09-30, "THE DAY'S MENU HAS FIVE: LIVE · WELCOME · CAMERA ·
-  // GALLERY · ME" (it supersedes 2026-09-27's Now · Schedule). Gallery joins
-  // once a chapter is public — none is here.
+  // GALLERY · ME" (it supersedes 2026-09-27's Now · Schedule). ⏱ Memories
+  // joins the moment Papic opens (the one clock's ruling 6, 10 Nov 2026) — the
+  // canvas bar is drawn with the camera switch open, so the day reads its five.
   const day = canvasBar('event', { hasDetails: true, hasStory: false }).map((b) => b.label);
-  assert.deepEqual(day, ['Live', 'Home', 'Camera', 'Me']);
+  assert.deepEqual(day, ['Live', 'Home', 'Camera', 'Memories', 'Me']);
   // …and the Invitation reads Welcome · Details · Our Love Story · Me (owner
   // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
   // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).

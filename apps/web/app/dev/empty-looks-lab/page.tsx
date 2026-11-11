@@ -102,7 +102,7 @@ function UserBoard({ example }: { example: boolean }) {
 
 /** A new event, every read answered: the Hub with no address, the empty rail, the empty gallery. */
 function EventBoard({ example }: { example: boolean }) {
-  const read = { measured: true, eventDate: null, eventEndDate: null, clearedAt: null, timezone: 'Asia/Manila', slug: null };
+  const read = { measured: true, eventDate: null, eventEndDate: null, clearedAt: null, venueTz: 'Asia/Manila', slug: null };
   const standing = resolveHubStanding(read);
   const facts = resolveHubFacts(read, { shared: true, measured: true, invited: 0, replied: 0 });
   return (

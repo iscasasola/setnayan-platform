@@ -33,7 +33,7 @@ test('1 · the shipped collections, no search', () => {
 test('2 · an album opens into the body with its "+N"; the pick for Show is its own control (the ⚙ dropdown)', () => {
   assert.match(DATA, /export const ALBUM_PREVIEW = 9;/);
   assert.match(GROUPS, /grid grid-cols-3/);
-  assert.match(GROUPS, /const more = photos \? photos\.total - photos\.urls\.length : 0;/);
+  assert.match(GROUPS, /const more = photos\.total - photos\.urls\.length;/); // the one PhotoGrid (Build 6 item 6)
   assert.match(GROUPS, /\+\{formatCount\(more\)\}/);
   assert.match(SETTINGS, /dataAttr="data-portfolio-show-pick"/, 'the pick for Show is not its own control');
 });

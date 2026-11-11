@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
+import { createContext, useContext, useId, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Info, Plus } from 'lucide-react';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
@@ -9,6 +9,8 @@ import { SAMPLE_PORTFOLIO } from '@/lib/empty-look-samples';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { DatesRow } from '../../customers/_components/dates-row';
 
 /**
  * 🖼 THE PORTFOLIO'S COLLECTIONS SHAPE (owner 9 Nov, DECISION_LOG "PORTFOLIO IS REDESIGNED AFTER APPLE PHOTOS ›
@@ -25,8 +27,20 @@ import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
  *            with the honest line and the section's one door. Where the door is Upload it is the device's picker IN
  *            PLACE (`PortfolioUploadDoor`, "UPLOAD OPENS THE DEVICE PICKER IN PLACE") — never a page.
  *   UNREAD   a refused read says so on the placeholder tile, and never wears an Example (reads-are-honest).
- * 🔒 collections/the-portfolio-is-collections.test.ts
+ *   RISE     the titled head RISES ITS GROUP FULL SCREEN from where it sits (owner 10 Nov, DECISION_LOG "FULLY ANIMATED
+ *            MOSTLY MEANS RISE FULL SCREEN" — every tappable block rises from itself, and closing falls back into it):
+ *            the ONE `RiseScreen` (`lib/rise-motion.ts` · `lib/rise-screen.ts`), headed by the group's name and count,
+ *            its body the whole group as a full-screen grid (or the group's own rail, wrapped, when it has no grid of
+ *            its own — an empty group keeps its finished empty look), and the group's own page as one row at the foot.
+ * 🔒 collections/the-portfolio-is-collections.test.ts · collections/each-group-heading-rises-full-screen.test.ts
  */
+
+/** Inside a risen group the rail WRAPS into a grid on the 16-px gutters instead of scrolling sideways. */
+const InRise = createContext(false);
+
+/** What a group's head rises into: its count line, the full-screen grid (absent → the section's own rail, wrapped) and
+ *  the group's own page, as one row at the foot (a `#` anchor is never one — it lives under the risen screen). */
+export type GroupRise = { line: string; body?: ReactNode; page?: { title: string; line: string; href: string } | null };
 
 type DoorIcon = ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | string }>;
 
@@ -62,7 +76,7 @@ export function PortfolioSection({
   title,
   countLabel = null,
   pill = null,
-  onOpen,
+  rise,
   children,
 }: {
   id: string;
@@ -72,11 +86,12 @@ export function PortfolioSection({
   /** The section's one door at the head (Edit · Add a link) — only on a FILLED section; an empty one carries its door
    *  on the placeholder tile, so there is never a second. */
   pill?: Exclude<Door, { kind: 'upload' }> | null;
-  /** › — open the section (the opened collection, or the section's own page). `null` = a plain heading (More). */
-  onOpen: (() => void) | { href: string } | null;
+  /** › — RISE the group full screen from its head. `null` = a plain heading (More). */
+  rise: GroupRise | null;
   children: ReactNode;
 }) {
   const [folded, setFolded] = useState(false);
+  const [risen, setRisen] = useState(false);
   const bodyId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   // An unfolded section whose rail runs low glides its head to the pin line — the app-wide reveal-on-open, shared hook.
@@ -92,22 +107,14 @@ export function PortfolioSection({
   return (
     <section ref={sectionRef} aria-label={title} className="pt-5" data-portfolio-section={id} data-folded={folded ? '' : undefined}>
       <div className="flex min-h-11 items-center gap-2 px-4 pb-2.5" data-portfolio-section-head="">
-        {onOpen === null ? (
+        {rise === null ? (
           <h2 className="flex min-w-0 flex-[0_1_auto] items-center">
             <span className="line-clamp-2 min-w-0 text-[20px] font-semibold leading-[1.15] tracking-[-0.01em] text-ink">{title}</span>
           </h2>
-        ) : typeof onOpen === 'function' ? (
-          <button type="button" onClick={onOpen} className={headClass} aria-label={`Open ${title}`} data-portfolio-open={id}>
+        ) : (
+          <button type="button" onClick={() => setRisen(true)} className={headClass} aria-label={`Open ${title}`} aria-haspopup="dialog" data-portfolio-open={id}>
             {head}
           </button>
-        ) : onOpen.href.startsWith('#') ? (
-          <a href={onOpen.href} className={headClass} aria-label={`Open ${title}`} data-portfolio-open={id}>
-            {head}
-          </a>
-        ) : (
-          <Link href={onOpen.href} className={headClass} aria-label={`Open ${title}`} data-portfolio-open={id}>
-            {head}
-          </Link>
         )}
         {pill ? (
           <span className="ml-auto flex min-w-0 max-w-[46%] flex-none">
@@ -147,12 +154,31 @@ export function PortfolioSection({
       >
         <div className="min-h-0 overflow-hidden">{children}</div>
       </div>
+      {/* ⤴ The group, risen full screen out of its head; ✕ falls back into the same head. */}
+      {rise && risen ? (
+        <RiseScreen title={title} line={rise.line} onClose={() => setRisen(false)} data={`portfolio-${id}`}>
+          <div className="pt-3" data-portfolio-risen={id}>
+            <InRise.Provider value>{rise.body ?? children}</InRise.Provider>
+            {rise.page && !rise.page.href.startsWith('#') ? (
+              <div className="px-4 pt-3">
+                <DatesRow data={`portfolio-page-${id}`} title={rise.page.title} line={rise.page.line} href={rise.page.href} />
+              </div>
+            ) : null}
+          </div>
+        </RiseScreen>
+      ) : null}
     </section>
   );
 }
 
 /** A sideways rail of tiles on the 16-px gutter (left = right, measured at 320–390). */
 export function Rail({ children, data }: { children: ReactNode; data: string }) {
+  if (useContext(InRise))
+    return (
+      <div className="flex flex-wrap items-start gap-2.5 px-4 pb-1.5" data-portfolio-rail={data} data-rail-wrapped="">
+        {children}
+      </div>
+    );
   return (
     <div
       className="flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-pl-4 pl-4 pr-0 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

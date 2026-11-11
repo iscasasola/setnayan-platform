@@ -57,51 +57,78 @@ export function OpenedCollection({
   /** Anything else the collection IS (Video links: the shipped editor), drawn on the gutter. */
   children?: React.ReactNode;
 }) {
-  const [showAt, setShowAt] = useState<number | null>(null);
   const title = photos?.title ?? (data === 'video' ? 'Video links' : 'Collection');
-  const more = photos ? photos.total - photos.urls.length : 0;
   return (
     <BodyPanel origin={origin} frame={frame} title={title} sub={photos?.sub} onClose={onClose} data={`collection-${data}`} titleLines={2} bleed>
-      {photos ? (
-        <div data-collection-open={data}>
-          {photos.urls.length === 0 ? (
-            <p className="px-4 py-4 text-[13.5px] text-ink/65">These photos couldn&rsquo;t be shown just now.</p>
-          ) : (
-            <ul className="grid grid-cols-3 gap-[2px]" data-collection-grid="" data-bleed="">
-              {photos.urls.map((u, i) => (
-                <li key={`${i}-${u}`} className="aspect-square overflow-hidden bg-ink/5">
-                  <button type="button" onClick={() => setShowAt(i)} aria-label={`Photo ${formatCount(i + 1)} of ${formatCount(photos.total)}`} className="block h-full w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
-                    <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  </button>
-                </li>
-              ))}
-              {more > 0 ? (
-                <li className="aspect-square">
-                  {photos.href ? (
-                    <Link href={photos.href} className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
-                      +{formatCount(more)}
-                    </Link>
-                  ) : (
-                    <span className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
-                      +{formatCount(more)}
-                    </span>
-                  )}
-                </li>
-              ) : null}
-            </ul>
-          )}
-          {photos.href ? (
-            <div className="px-4 pt-3">
-              <DatesRow data="album-page" title="The whole album" line="Every photo · put one on your page" href={photos.href} />
-            </div>
-          ) : null}
-          {showAt !== null ? <PortfolioShow title={photos.title} urls={photos.urls} start={showAt} onClose={() => setShowAt(null)} /> : null}
-        </div>
-      ) : (
-        <div className="px-4 pt-3">{children}</div>
-      )}
+      {photos ? <PhotoGrid photos={photos} data={data} /> : <div className="px-4 pt-3">{children}</div>}
     </BodyPanel>
+  );
+}
+
+/**
+ * 🖼 A COLLECTION'S PHOTOS AS THE DENSE FULL-BLEED GRID — 3 columns, 2-px gaps, a "+N" tile past what was loaded, the
+ * album's own screen as one row under it; one tap on a photo opens Show on it. Drawn by an opened collection (above) and
+ * by a group risen full screen from its head (`portfolio-sections.tsx`, `GroupRise`) — one grid, never a second copy.
+ */
+export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string }) {
+  const [showAt, setShowAt] = useState<number | null>(null);
+  const more = photos.total - photos.urls.length;
+  return (
+    <div data-collection-open={data}>
+      {photos.urls.length === 0 ? (
+        <p className="px-4 py-4 text-[13.5px] text-ink/65">These photos couldn&rsquo;t be shown just now.</p>
+      ) : (
+        <ul className="grid grid-cols-3 gap-[2px]" data-collection-grid="" data-bleed="">
+          {photos.urls.map((u, i) => (
+            <li key={`${i}-${u}`} className="aspect-square overflow-hidden bg-ink/5">
+              <button type="button" onClick={() => setShowAt(i)} aria-label={`Photo ${formatCount(i + 1)} of ${formatCount(photos.total)}`} className="block h-full w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element -- presigned display URLs */}
+                <img src={u} alt="" className="h-full w-full object-cover" loading="lazy" />
+              </button>
+            </li>
+          ))}
+          {more > 0 ? (
+            <li className="aspect-square">
+              {photos.href ? (
+                <Link href={photos.href} className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
+                  +{formatCount(more)}
+                </Link>
+              ) : (
+                <span className="grid h-full w-full place-items-center bg-ink/[0.06] text-[17px] font-semibold text-ink/70" data-album-more="">
+                  +{formatCount(more)}
+                </span>
+              )}
+            </li>
+          ) : null}
+        </ul>
+      )}
+      {photos.href ? (
+        <div className="px-4 pt-3">
+          <DatesRow data="album-page" title="The whole album" line="Every photo · put one on your page" href={photos.href} />
+        </div>
+      ) : null}
+      {showAt !== null ? <PortfolioShow title={photos.title} urls={photos.urls} start={showAt} onClose={() => setShowAt(null)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * 📚 A GROUP OF ALBUMS, RISEN — every album in the group under its own name and count, each its full-bleed grid
+ * (`PhotoGrid`). One level: the albums open IN PLACE on the risen screen, never a second screen on top.
+ */
+export function AlbumGrids({ albums, data }: { albums: (OpenedPhotos & { key: string })[]; data: string }) {
+  return (
+    <div className="space-y-5" data-portfolio-albums-risen={data}>
+      {albums.map((a) => (
+        <section key={a.key} aria-label={a.title} data-portfolio-risen-album={a.key}>
+          <h3 className="px-4 pb-2">
+            <b className="line-clamp-2 block text-[16px] font-semibold leading-tight text-ink">{a.title}</b>
+            {a.sub ? <small className="block truncate text-[12.5px] text-ink/60">{a.sub}</small> : null}
+          </h3>
+          <PhotoGrid photos={a} data={data} />
+        </section>
+      ))}
+    </div>
   );
 }
 

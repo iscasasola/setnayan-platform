@@ -19,7 +19,8 @@ import {
   type PapicQuoteStanding,
 } from '@/lib/papic-on-a-quote';
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
+import { QuotePinnedBar } from '@/app/_components/quote-pinned-bar';
 import { ValidUntilPicker } from '@/app/_components/valid-until-picker';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -466,6 +467,9 @@ export function ProposalMaker({
   // panel itself (see `closePanel`). A revision ("Update this quote") was always opened expanded.
   const [open, setOpen] = useState(true);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The pinned bar is portaled out of the form; its controls join it by id (see `QuotePinnedBar`).
+  const formRef = useRef<HTMLFormElement>(null);
+  const formId = `quote-${useId().replace(/:/g, '')}`;
   /*
     THE OPENING GUEST COUNT — the live one, falling back to the inquiry count.
 
@@ -1290,6 +1294,8 @@ export function ProposalMaker({
   return (
     <div ref={rootRef}>
     <form
+      ref={formRef}
+      id={formId}
       action={sendCustomProposalFromChat}
       // data-flow — the Problems list counts open → edit → send → sent here
       // (lib/telemetry/flows.ts, "supplier_quote").
@@ -2610,15 +2616,10 @@ export function ProposalMaker({
           Cancel
         </button>
       </div>
-      <div
-        data-quote-pinned-bar=""
-        // Pinned to the page's scroll (the form is `overflow-clip`, not a scroll box), standing ON whatever the shell
-        // puts at the bottom — the dock (`--sn-bottomdock-h`) or the floating thumb row (`--sn-thumb-room`) — never
-        // under it. Page layer through the foundation's z scale (`z-sn-sticky`, under the thumb row and the nav — spec §10
-        // #23 "page < thumb row < bottom nav < pop-ups"), never a raw z.
-        className="sticky z-sn-sticky border-t border-ink/10 bg-cream/95 px-4 py-2.5 backdrop-blur"
-        style={{ bottom: 'max(var(--sn-bottomdock-h, 0px), var(--sn-thumb-room, 0px))' }}
-      >
+      {/* Total · Save · Send quote — drawn into <body> and fixed to the screen's foot (`QuotePinnedBar`): a `sticky` bar
+          stuck to the chat tool panel's 55dvh scroll box and floated mid-page (live, 12 Nov 2026). Portaled, so each
+          control names the form (`form={formId}`) — outside the form's DOM, an unnamed Send would post nothing. */}
+      <QuotePinnedBar formRef={formRef}>
         <div className="flex items-center gap-2">
           <span className="min-w-0 flex-1" data-quote-answer="">
             <span className="block text-[11px] text-ink/55">Total</span>
@@ -2626,6 +2627,7 @@ export function ProposalMaker({
           </span>
           <button
             type="button"
+            form={formId}
             onClick={() => {
               setSaveName(title.trim() || cardTitle || '');
               setSaveState('idle');
@@ -2635,13 +2637,14 @@ export function ProposalMaker({
             Save
           </button>
           <SubmitButton
+            form={formId}
             pendingLabel="Sending…"
             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
           >
             Send quote
           </SubmitButton>
         </div>
-      </div>
+      </QuotePinnedBar>
     </form>
     </div>
   );

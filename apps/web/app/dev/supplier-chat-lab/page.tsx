@@ -19,6 +19,7 @@
  *   &doors=1     (with m=quote) the quote's three doors (owner 11 Nov 2026): two fitting offers + one that does not,
  *                one saved bundle in "Start from", ＋ Make a new card last in the cards picker   &doors=locked  both 🔒
  *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
+ *                &picked=1 — drawn inside the picked client's full-screen layer (the quote's pinned bar lands in it)
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
  *                (sample hosts; the first is the fixture couple sender)
  *   ?m=chats     the supplier's Chats (✉): one row per event, Messenger order — "Unread · pinned", then "Recent"; two rows
@@ -384,6 +385,30 @@ export default async function SupplierChatLabPage({
   // THE ONE BUILD (8 Nov 2026) · `&embed=quotation` — the picked client's Quotation page as the thread page's own
   // `__embed=quotation` view draws it: the quote tool alone, full width, no chat frame (the client's pinned row is above).
   if (sp.embed === 'quotation') {
+    // `&picked=1` — the same page INSIDE the picked client's full-screen layer (`PickedClientShell`), where the quote's
+    // pinned bar must land in the layer and be the bottom itself (QuotePinnedBar, 12 Nov 2026).
+    if (sp.picked === '1') {
+      const bodies = labPickedClientBodies(LAB_THREAD, "Ana's Wedding (Dec 12)", {});
+      bodies.quote = (
+        <div data-picked-client-page="quotation" className="space-y-3">
+          {toolNodes['build-quote']}
+        </div>
+      );
+      return (
+        <SupplierLabShell measure="own">
+          <PickedClientShell
+            eventId="lab-quotation"
+            eventName="Ana's Wedding (Dec 12)"
+            menu={pickedMenuFor(true)}
+            initialPage="quote"
+            bodies={bodies}
+            settingsLine={{ line: 'This client only', tip: 'Lab.' }}
+            settings={null}
+            chatUnread={0}
+          />
+        </SupplierLabShell>
+      );
+    }
     return (
       <SupplierLabShell measure="own">
         <div data-picked-client-page="quotation" className="mx-auto w-full max-w-xl space-y-3 px-0 pb-6">

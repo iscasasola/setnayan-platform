@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1835
-# tables: 489
-# columns: 5959
-# notnull: 3601
+# ledger: 1836
+# tables: 490
+# columns: 5963
+# notnull: 3605
 [ledger]
 20260512000000
 20260513000000
@@ -1844,6 +1844,7 @@
 20271336923559
 20271337043699
 20271337067968
+20271337268841
 20271337284161
 20271338119644
 20271338442002
@@ -7438,6 +7439,10 @@ vendor_service_attributes.meets_visibility_minimum
 vendor_service_attributes.schema_version_at_fill
 vendor_service_attributes.updated_at
 vendor_service_attributes.vendor_profile_id
+vendor_service_card_view_days.vendor_profile_id
+vendor_service_card_view_days.vendor_service_id
+vendor_service_card_view_days.viewed_on
+vendor_service_card_view_days.viewer_hash
 vendor_service_discounts.conditions_md
 vendor_service_discounts.created_at
 vendor_service_discounts.discount_type
@@ -11196,6 +11201,10 @@ vendor_service_attributes.meets_visibility_minimum
 vendor_service_attributes.schema_version_at_fill
 vendor_service_attributes.updated_at
 vendor_service_attributes.vendor_profile_id
+vendor_service_card_view_days.vendor_profile_id
+vendor_service_card_view_days.vendor_service_id
+vendor_service_card_view_days.viewed_on
+vendor_service_card_view_days.viewer_hash
 vendor_service_discounts.created_at
 vendor_service_discounts.discount_type
 vendor_service_discounts.id

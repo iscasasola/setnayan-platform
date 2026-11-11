@@ -105,7 +105,7 @@ export function applyRefusalWords(message: string | null | undefined): string {
   if (m.includes('NOT_THE_COUPLE')) return 'Only the couple applies an offer to their quote.';
   if (m.includes('NO_LIVE_QUOTE')) return 'There is no quote to apply it to yet.';
   if (m.includes('QUOTE_EXPIRED')) return 'Your quote’s Valid until has passed — ask for a new quote first.';
-  if (m.includes('DEAL_LOCKED')) return 'This booking is locked — changes go through a change request now.';
+  if (m.includes('DEAL_LOCKED')) return 'This booking is confirmed — changes go through a change request now.';
   if (m.includes('ALREADY_APPLIED')) return 'This offer is already on your quote.';
   if (m.includes('ANOTHER_OFFER')) return 'Your quote already carries an offer — offers don’t stack.';
   if (m.includes('PAID_ROW_CHANGED') || m.includes('QUOTE_BELOW_PAID_FLOOR')) return 'A paid payment never changes, so this offer can’t apply here.';

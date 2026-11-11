@@ -30,7 +30,7 @@ export default async function OfferCardLab({ searchParams }: { searchParams: Pro
   const rainy: Offer = { ...blankOffer('S89D-LAB0000001'), name: 'Rainy-season weekday', pctOff: 10, reachesAll: false, cards: ['card-buffet'], untilDate: addDays(today, 30) };
   const early: Offer = { ...blankOffer('S89D-LAB0000002'), name: 'Book early', phpOff: 5000, untilDate: addDays(today, 60) };
   const lines = [
-    { label: 'Garden buffet · 150 pax', detail: '150 × ₱600', amount_centavos: C(90_000), card_id: 'card-buffet' },
+    { label: 'Garden buffet · 150 pax', detail: null, amount_centavos: C(90_000), card_id: 'card-buffet' },
     { label: 'Cocktail hour', detail: null, amount_centavos: C(20_000), card_id: 'card-cocktail' },
   ];
   const total = C(110_000);

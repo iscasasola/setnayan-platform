@@ -71,7 +71,7 @@ export async function applyDroppedOffer(messageId: string): Promise<ApplyDropped
   const [{ data: quote, error: qErr }, { data: ev }, paid] = await Promise.all([
     admin
       .from('vendor_proposals')
-      .select('proposal_id, line_items, total_centavos, payment_schedule, service_card_ids')
+      .select('proposal_id, public_id, title, status, line_items, total_centavos, payment_schedule, service_card_ids')
       .eq('event_id', m.event_id)
       .eq('vendor_profile_id', m.vendor_profile_id)
       .in('status', ['sent', 'viewed', 'accepted'])
@@ -122,7 +122,10 @@ async function paidSeqs(admin: ReturnType<typeof createAdminClient>, eventId: st
     .select('vendor_id')
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', shop);
-  if (error) return null;
+  if (error) {
+    console.warn('[offer-card] paid rows · booking:', error.code || error.message);
+    return null;
+  }
   const ids = ((rows ?? []) as { vendor_id: string }[]).map((r) => r.vendor_id);
   if (ids.length === 0) return [];
   const { data, error: pErr } = await admin
@@ -131,7 +134,10 @@ async function paidSeqs(admin: ReturnType<typeof createAdminClient>, eventId: st
     .in('vendor_id', ids)
     .not('vendor_confirmed_at', 'is', null)
     .is('payment_refused_at', null);
-  if (pErr) return null;
+  if (pErr) {
+    console.warn('[offer-card] paid rows · payments:', pErr.code || pErr.message);
+    return null;
+  }
   return ((data ?? []) as { schedule_instance_seq: number | null }[])
     .map((r) => r.schedule_instance_seq)
     .filter((v): v is number => typeof v === 'number');

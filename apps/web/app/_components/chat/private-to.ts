@@ -6,15 +6,19 @@
  * box need a provider: the composer’s 🔒 sets it, the × inside the message box clears it. It stays on until
  * cleared (DECISION_LOG 2026-11-09 🔒: "until cleared"); a reload starts with everyone.
  *
- * 🔒 ONE DOOR, ONE CHIP (owner, 9 Nov: "they can also send private message anytime"; the approved prototype, 11 Nov
- * 2026, made the 🔒 the only way in): the composer's 🔒, a list of the people in this chat. The strip
- * publishes WHO IS IN THIS CHAT here (`setChatPeople`, you excluded) so the composer's 🔒 lists exactly the faces the
- * strip draws — one list, never a second read.
+ * 🔒 TWO DOORS, SEVERAL PEOPLE (owner, 12 Nov — DECISION_LOG "PRIVATE MESSAGES — TWO DOORS, SEVERAL PEOPLE"; it
+ * reverses the 11 Nov "one icon" door): a FACE in the "who is on" strip = a private message to that one person; the
+ * composer's 🔒 = a list with ticks, several people. Both land here as ONE list. The strip publishes WHO IS IN THIS
+ * CHAT here (`setChatPeople`, you excluded) so the composer's 🔒 lists exactly the faces the strip draws — one list,
+ * never a second read. The stream publishes who a REPLY goes to (`setPrivateReply` — the sender and the other
+ * recipients of the newest private line written to you, owner 12 Nov "a reply goes back to the same people"), and the
+ * 🔒 opens with them ticked.
  */
 import { useSyncExternalStore } from 'react';
 import type { PrivateTo } from '@/lib/chat-private';
 
-const byThread = new Map<string, PrivateTo>();
+const byThread = new Map<string, readonly PrivateTo[]>();
+const replyByThread = new Map<string, readonly string[]>();
 const peopleByThread = new Map<string, readonly PrivateTo[]>();
 const NOBODY: readonly PrivateTo[] = [];
 const listeners = new Set<() => void>();
@@ -23,14 +27,32 @@ function emit() {
   for (const l of listeners) l();
 }
 
-export function setPrivateTo(threadId: string, to: PrivateTo | null): void {
-  if (to) byThread.set(threadId, to);
+/** One person (a face) or several (the 🔒's ticks); `null` or `[]` = back to everyone. */
+export function setPrivateTo(threadId: string, to: PrivateTo | readonly PrivateTo[] | null): void {
+  const list = to === null ? [] : Array.isArray(to) ? (to as readonly PrivateTo[]) : [to as PrivateTo];
+  const unique = list.filter((p, i) => list.findIndex((q) => q.userId === p.userId) === i);
+  if (unique.length > 0) byThread.set(threadId, unique);
   else byThread.delete(threadId);
   emit();
 }
 
-export function readPrivateTo(threadId: string): PrivateTo | null {
+/** Who the next message is private to — a list of one or more, or `null` for everyone. */
+export function readPrivateTo(threadId: string): readonly PrivateTo[] | null {
   return byThread.get(threadId) ?? null;
+}
+
+/** 🔁 The stream's answer to "who would a reply go to" (user ids), or null. Emits only when it changed. */
+export function setPrivateReply(threadId: string, ids: readonly string[] | null): void {
+  const was = replyByThread.get(threadId) ?? null;
+  const next = ids && ids.length > 0 ? ids : null;
+  if (was === next || (was && next && was.length === next.length && was.every((id, i) => id === next[i]))) return;
+  if (next) replyByThread.set(threadId, next);
+  else replyByThread.delete(threadId);
+  emit();
+}
+
+export function readPrivateReply(threadId: string): readonly string[] | null {
+  return replyByThread.get(threadId) ?? null;
 }
 
 function subscribe(l: () => void) {
@@ -40,7 +62,15 @@ function subscribe(l: () => void) {
   };
 }
 
-export function usePrivateTo(threadId: string): PrivateTo | null {
+export function usePrivateReply(threadId: string): readonly string[] | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => readPrivateReply(threadId),
+    () => readPrivateReply(threadId),
+  );
+}
+
+export function usePrivateTo(threadId: string): readonly PrivateTo[] | null {
   return useSyncExternalStore(
     subscribe,
     () => readPrivateTo(threadId),

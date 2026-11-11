@@ -49,9 +49,29 @@ export const PRIVATE_FOCUS_RING = 'focus:ring-2 focus:ring-[rgb(var(--color-priv
 /** The person a private chip is addressed to. */
 export type PrivateTo = { userId: string; name: string };
 
-/** The strip on top of every private bubble — the same words on the sender's side and the recipient's. */
-export function privateStripLabel(name: string): string {
-  return `Private · only you and ${name}`;
+/**
+ * 🔒 SEVERAL PEOPLE (DECISION_LOG 2026-11-12 "PRIVATE MESSAGES — TWO DOORS, SEVERAL PEOPLE"): a private line may go to
+ * several people — the column is `recipient_user_ids` (migration 20271340374819; `recipient_user_id` stays its first
+ * entry, so every "IS NULL = shared" test keeps its meaning). The composer posts one `private_to` field per person.
+ */
+export const CHAT_PRIVATE_RECIPIENTS_COLUMN = 'recipient_user_ids' as const;
+
+/** "Ana" · "Ana and Miguel" · "Ana, Miguel and Tita Lu" — the house's list words (never an Oxford comma). */
+export function joinNames(names: readonly string[]): string {
+  const list = names.filter((n) => n.trim().length > 0);
+  if (list.length <= 1) return list[0] ?? '';
+  return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+}
+
+const asList = (names: string | readonly string[]): readonly string[] => (typeof names === 'string' ? [names] : names);
+
+/**
+ * The strip on top of every private bubble — the same words on the sender's side and every recipient's. Each reader sees
+ * the OTHER people (their own name never appears): "Private · only you and Jose" · "Private · only you, Ana and Miguel".
+ */
+export function privateStripLabel(names: string | readonly string[]): string {
+  const list = asList(names);
+  return list.length > 1 ? `Private · only you, ${joinNames(list)}` : `Private · only you and ${joinNames(list)}`;
 }
 
 /**
@@ -59,8 +79,8 @@ export function privateStripLabel(name: string): string {
  * no "Message privately | Cancel" row; a 🔒 at its left, an × inside at its right, back to "Message" for everyone).
  * Replaces the earlier "Messaging [name] privately ×" chip.
  */
-export function privateBoxPlaceholder(name: string): string {
-  return `Private message to ${name}`;
+export function privateBoxPlaceholder(names: string | readonly string[]): string {
+  return `Private message to ${joinNames(asList(names))}`;
 }
 
 /**
@@ -76,6 +96,47 @@ export function privateOtherId(
   return m.sender_user_id === viewerUserId ? to : m.sender_user_id ?? to;
 }
 
+/** The row shape a private line is judged from (both columns optional: an older read selects only the first). */
+type PrivateRow = { sender_user_id: string | null; recipient_user_id?: string | null; recipient_user_ids?: readonly string[] | null };
+
+/** Everyone a private line is to — the list, or (an older read) its one recipient. `[]` = a line to everyone. */
+export function privateRecipientIds(m: PrivateRow): string[] {
+  if (m.recipient_user_ids && m.recipient_user_ids.length > 0) return [...m.recipient_user_ids];
+  return m.recipient_user_id ? [m.recipient_user_id] : [];
+}
+
+/**
+ * The OTHER people in a private line, as this viewer sees it: the sender and every recipient, the viewer left out.
+ * `[]` = not a private message. A recipient sees the sender first, then the rest.
+ */
+export function privateOtherIds(m: PrivateRow, viewerUserId: string): string[] {
+  const to = privateRecipientIds(m);
+  if (to.length === 0) return [];
+  const all = m.sender_user_id && m.sender_user_id !== viewerUserId ? [m.sender_user_id, ...to] : to;
+  return [...new Set(all)].filter((id) => id !== viewerUserId);
+}
+
+/**
+ * 🔁 A REPLY GOES TO THE SAME PEOPLE (owner, 12 Nov, "EVENT GROUP CHATS APPROVED AS DRAWN" (3)): who a reply to this
+ * private line is private to — its sender and its other recipients, never yourself. The same list as
+ * `privateOtherIds`; named for what the composer does with it.
+ */
+export const privateReplyIds = privateOtherIds;
+
+/**
+ * The latest private line written TO this viewer by someone else — the one the 🔒 pre-ticks for a reply. `null` when the
+ * newest private line in view is the viewer's own (they already chose) or there is none.
+ */
+export function latestPrivateReply<T extends PrivateRow>(messages: readonly T[], viewerUserId: string): string[] | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (privateRecipientIds(m).length === 0) continue;
+    if (m.sender_user_id === viewerUserId) return null;
+    return privateReplyIds(m, viewerUserId);
+  }
+  return null;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The posted recipient, or null — a missing, blank or malformed value is a message to everyone, and so is yourself. */
@@ -84,4 +145,18 @@ export function privateToFromForm(raw: FormDataEntryValue | null, senderUserId: 
   const v = raw.trim();
   if (!UUID.test(v)) return null;
   return v === senderUserId ? null : v;
+}
+
+/**
+ * Every posted recipient (`formData.getAll('private_to')`), de-duplicated, malformed values and yourself dropped. `[]` =
+ * a message to everyone. At most 50 — the database's own ceiling (CHECK chat_messages_recipients_agree).
+ */
+export function privateToListFromForm(raws: readonly FormDataEntryValue[], senderUserId: string | null): string[] {
+  const out: string[] = [];
+  for (const raw of raws) {
+    const v = privateToFromForm(raw, senderUserId);
+    if (v && !out.includes(v)) out.push(v);
+    if (out.length === 50) break;
+  }
+  return out;
 }

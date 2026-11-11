@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { isShopSelf, showsAddAll, stripOrder } from '@/lib/chat-members';
-import { setChatPeople } from './private-to';
+import { setChatPeople, setPrivateTo } from './private-to';
 import { LeaveChatDialog } from './leave-chat-dialogs';
 
 /**
@@ -19,9 +19,11 @@ import { LeaveChatDialog } from './leave-chat-dialogs';
  * elsewhere" / "N min ago" have no source in the app and are not drawn (spec §4: presence = the ring only).
  *
  * TAPPING A FACE (Supplier Build 3 · Lane A, every face a 44 px target, every action an `ActionButton`):
- *   🔒 someone else's face is a PICTURE — the 🔒 beside the message box is the ONE door to a private message (owner-
- *      approved prototype, 11 Nov 2026; until then a face opened private mode too). The strip still publishes its faces
- *      (`setChatPeople`) — they are exactly the 🔒's list.
+ *   🔒 someone else's face → a PRIVATE MESSAGE TO THAT ONE PERSON — door 1 of two (owner, 12 Nov: "Both doors + pick
+ *      several", DECISION_LOG "PRIVATE MESSAGES — TWO DOORS, SEVERAL PEOPLE" — it brings back the face tap the 11 Nov
+ *      prototype had removed). Door 2 is the 🔒 beside the message box (ticks, several people). The strip publishes its
+ *      faces (`setChatPeople`) — they are exactly the 🔒's list. A face is a door only where a composer listens
+ *      (`threadId` given); the shop's face for your OWN login is not one.
  *   👥 YOUR OWN face, as a host → the house confirm box "Leave this chat?" with an optional note (owner, 9 Nov — it
  *      replaced the inline "Leave chat | Cancel" row; `leave-chat-dialogs.tsx`). The supplier and the coordinator have
  *      no Leave: the page passes no `leave`, and their own face is not a button.
@@ -151,6 +153,8 @@ export function ChatHostStrip({
           // 🏪 Your own shop's face is not "You" — the host is (owner, 11 Nov).
           const isYou = p.id === youId && !p.shop;
           const tappable = isYou && Boolean(leave);
+          // 🔒 Door 1 — someone else's face, where a composer listens (never your own login behind the shop's face).
+          const privateDoor = !isYou && !p.self && Boolean(threadId);
           return (
             <li key={p.key} className="flex shrink-0 snap-start flex-col items-center gap-0.5" {...(p.shop ? { 'data-chat-host-shop': '' } : {})}>
               {tappable ? (
@@ -164,6 +168,19 @@ export function ChatHostStrip({
                     setLeaving(true);
                   }}
                   data-chat-host-face="you"
+                >
+                  {face}
+                </button>
+              ) : privateDoor ? (
+                <button
+                  type="button"
+                  className="sn-press grid h-11 w-11 place-items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[rgb(var(--color-private))]"
+                  aria-label={`Message ${p.name} privately`}
+                  onClick={() => {
+                    setAdding(false);
+                    if (threadId) setPrivateTo(threadId, { userId: p.id, name: p.name });
+                  }}
+                  data-chat-host-face="private"
                 >
                   {face}
                 </button>

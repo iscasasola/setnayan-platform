@@ -122,7 +122,7 @@ import {
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { privateOtherId } from '@/lib/chat-private';
+import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
@@ -130,7 +130,7 @@ import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-d
 import { bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
-import { usePrivateTo } from './chat/private-to';
+import { setPrivateReply, usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -467,6 +467,12 @@ export function ChatMessageStream({
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // 🔁 A REPLY GOES TO THE SAME PEOPLE (owner, 12 Nov): the newest private line written to you names who the composer's
+  // 🔒 opens ticked — its sender and its other recipients (`latestPrivateReply`). Your own newest private line clears it.
+  const replyKey = latestPrivateReply(messages, currentUserId)?.join(',') ?? '';
+  useEffect(() => {
+    setPrivateReply(threadId, replyKey ? replyKey.split(',') : null);
+  }, [threadId, replyKey]);
   /**
    * 👀 "Seen" is LIVE (chat gaps, 8 Nov): the server's read is the start; a "read" broadcast from the other side on this
    * stream's own presence channel moves it while you look. It only ever moves forward.
@@ -2215,8 +2221,9 @@ export function ChatMessageStream({
               : null;
           // 🔒 A private message (DECISION_LOG 2026-11-09 🔒): the one other person's name, as THIS viewer sees it — the
           // recipient when you sent it, the sender when it came to you. `null` = everyone's message, the usual bubble.
-          const privateWithId = privateOtherId(m, currentUserId);
-          const privateWith = privateWithId === null ? null : personName(privateWithId);
+          // 👥 Several since 12 Nov ("Private · only you, Ana and Miguel"): every OTHER person, the viewer left out.
+          const privateWithIds = privateOtherIds(m, currentUserId);
+          const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
           const corner = mine

@@ -20,6 +20,7 @@ import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { CouplePhotosToAnswer } from './_components/couple-photos';
+import { FairSweepNotice } from './_components/fair-sweep-notice';
 import { readShopScanSettings, type ScanSetting } from '@/lib/supplier-scan.server';
 import { scannerChoiceOf } from '@/lib/supplier-scan';
 import { ShopServicesThumb } from './_components/shop-services-thumb';
@@ -133,6 +134,8 @@ type ShopData = {
   /** The logo row's editor data (Your details' own close-save row). */
   logoItem: BusinessProfileItem | null;
   logoFields: ProfileFieldData;
+  /** 🚫 What the "Edit your name" sweep reads from the shop's own row (the cards and bundles it reads itself). */
+  fairSweep: { vendorId: string; shopName: string | null; tagline: string | null };
   /** 📂 What the Upload doors' uploader needs (the stored list · free room · wallet) — Portfolio's own three reads. */
   uploadFacts: PortfolioUploadFacts;
   /** 📋 How many live forms the shop has saved (the Forms Maker tile) — null = unread, said as "Couldn't load". */
@@ -418,6 +421,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
           : null,
       papers: papersProgress({ done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
     },
+    fairSweep: { vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null },
   };
 }
 
@@ -697,6 +701,11 @@ async function ShopHome({
         <div className="px-4">
           <Suspense fallback={null}>
             <CouplePhotosToAnswer />
+          </Suspense>
+          {/* 🚫 "Edit your name" — the fair-presentation sweep of this shop's live names (owner 2026-11-08). Streamed:
+              the cover never waits; draws nothing when every name is fine; never takes anything down. */}
+          <Suspense fallback={null}>
+            <FairSweepNotice vendorProfileId={data.fairSweep.vendorId} shopName={data.fairSweep.shopName} tagline={data.fairSweep.tagline} />
           </Suspense>
         </div>
 

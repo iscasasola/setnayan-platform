@@ -66,13 +66,18 @@ after(async () => {
   await db?.close();
 });
 
-test('the owner’s list is seeded — the first six, the 8 Nov full list, and plain "best" (11 Nov)', async () => {
+test('the owner’s list is seeded — the first six, the 8 Nov full list, plain "best" (11 Nov) and check 14', async () => {
   const words = new Set((await db.query<{ phrase: string }>(`SELECT phrase FROM public.card_claim_words`)).rows.map((r) => r.phrase));
   for (const w of ['#1', '100%', 'best in', 'guaranteed', 'lowest price', 'official']) assert.ok(words.has(w), `first six: ${w} missing`);
   for (const w of ['best', 'top', 'trending', 'cheapest', 'hurry', 'pinakamagaling', 'verified', 'recommended by setnayan']) {
     assert.ok(words.has(w), `8 Nov / 11 Nov list: ${w} missing`);
   }
-  assert.equal(words.size, 50, 'the ruled list is 50 phrases');
+  // 🚫 Check 14 of the 8 Nov fair-presentation 18 ("Other names … 'as seen at' — on the words list"): six borrowed-standing
+  // phrases, migration `…_card_claim_words_other_names.sql`.
+  for (const w of ['as seen on', 'as seen at', 'as seen in', 'as featured in', 'celebrity choice', 'trusted by celebrities']) {
+    assert.ok(words.has(w), `check 14 (other names): ${w} missing`);
+  }
+  assert.equal(words.size, 56, 'the ruled list is 50 phrases + the 6 check-14 phrases');
 });
 
 test('a supplier reads nothing and writes nothing', async () => {
@@ -86,7 +91,7 @@ test('a supplier reads nothing and writes nothing', async () => {
 });
 
 test('an admin reads, adds and removes', async () => {
-  assert.equal(await as(F.admin, async () => (await db.query(`SELECT 1 FROM public.card_claim_words`)).rows.length), 50);
+  assert.equal(await as(F.admin, async () => (await db.query(`SELECT 1 FROM public.card_claim_words`)).rows.length), 56);
   await as(F.admin, () => db.query(`INSERT INTO public.card_claim_words (phrase, created_by) VALUES ('unrivalled', $1)`, [F.admin]));
   await as(F.admin, () => db.query(`DELETE FROM public.card_claim_words WHERE phrase = 'unrivalled'`));
   assert.equal((await db.query(`SELECT 1 FROM public.card_claim_words WHERE phrase = 'unrivalled'`)).rows.length, 0);

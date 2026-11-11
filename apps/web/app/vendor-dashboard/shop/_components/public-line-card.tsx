@@ -6,6 +6,9 @@ import { Check, Loader2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { TAGLINE_MAX } from '@/lib/vendor-public-line';
 import { updatePublicLine } from '../public-line-actions';
+import { findFairHits } from '@/lib/fair-presentation';
+import type { ClaimWord } from '@/lib/service-card-checks';
+import { FairNote } from '@/app/_components/fair-note';
 
 /**
  * My Shop → Business Profile → "Your line and your link".
@@ -28,9 +31,12 @@ import { updatePublicLine } from '../public-line-actions';
 export function PublicLineCard({
   initialTagline,
   initialWebsite,
+  fairWords = null,
 }: {
   initialTagline: string | null;
   initialWebsite: string | null;
+  /** 🚫 The claim words this shop may not use (`loadClaimWordsFor`); `null` = unread — the save asks again. */
+  fairWords?: ClaimWord[] | null;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
@@ -41,6 +47,9 @@ export function PublicLineCard({
   const [justSaved, setJustSaved] = useState(false);
 
   const remaining = TAGLINE_MAX - tagline.length;
+  // 🚫 FAIR PRESENTATION (owner 2026-11-08) — the tagline's note, live; Save is off while it is open. Pure, over the
+  // list the page already read: typing costs no request. The server asks again (`updatePublicLine`).
+  const fair = findFairHits([{ field: 'tagline', value: tagline }], { words: fairWords });
 
   function save() {
     const fd = new FormData();
@@ -118,6 +127,7 @@ export function PublicLineCard({
           <p className="mt-1 text-xs tabular-nums" style={{ color: 'var(--m-slate)' }}>
             {remaining} character{remaining === 1 ? '' : 's'} left
           </p>
+          <FairNote hits={fair} field="tagline" />
         </div>
 
         <div>
@@ -165,7 +175,7 @@ export function PublicLineCard({
         <button
           type="button"
           onClick={save}
-          disabled={pending}
+          disabled={pending || fair.length > 0}
           className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           style={{ background: 'var(--m-accent-deep)' }}
         >

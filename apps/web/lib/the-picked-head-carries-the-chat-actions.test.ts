@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { unreadMessagesIn } from './couple-inbox';
+import { hostPlusRows, supplierPlusRows } from './chat-plus';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -87,9 +88,15 @@ test('4 · with a (+) the camera and photo live inside it; every picked chat lab
   assert.equal((SEND.match(/className=\{lead \? 'sr-only' : SHORTCUT\}/g) ?? []).length, 2, 'a 📷 / 🖼 shortcut is drawn beside the (+)');
   assert.match(SEND, /id=\{CHAT_CAMERA_INPUT_ID\}/);
   assert.match(SEND, /id=\{CHAT_PHOTO_INPUT_ID\}/);
+  // 11 Nov: the Camera (and the host's Photo) are rows of the (+) list itself (`lib/chat-plus.ts`, under Files — the
+  // sheet mirrors the menu), carried to the sheet as `attach`; the labs' plain sheet keeps the two shortcut rows.
   assert.match(SHEET, /key: 'camera'[^}]*attach: 'camera'/);
   assert.match(SHEET, /key: 'photo'[^}]*attach: 'photo'/);
-  assert.match(SHEET, /const rows: readonly SheetRow\[\] = \[\.\.\.SHORTCUT_ROWS, \.\.\.ownRows\];/, 'the (+) sheet lost its Camera / Photo rows');
+  assert.match(SHEET, /const rows: SheetRow\[\] = \[\s*\.\.\.SHORTCUT_ROWS,/, 'the labs’ (+) sheet lost its Camera / Photo rows');
+  assert.match(SHEET, /attach: r\.attach \?\? d\?\.attach,/, 'a (+) row’s own composer input no longer reaches the sheet');
+  assert.ok(supplierPlusRows({ paid: false }).some((r) => r.key === 'camera' && r.attach === 'camera'), 'the supplier’s (+) lost Camera');
+  assert.ok(hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'camera' && r.attach === 'camera'), 'the host’s (+) lost Camera');
+  assert.ok(hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'photo' && r.attach === 'photo'), 'the host’s (+) lost Photo');
   assert.match(SHEET, /getElementById\(ATTACH_INPUT\[row\.attach === true \? 'file' : row\.attach\]\)\?\.click\(\)/);
   assert.match(SHEET, /export function ComposerPlusSheet\(\{ more = \[\]/, 'Lane B’s slot for the supplier’s (+) rows is gone');
   assert.match(LAB, /<ChatSendForm\b[\s\S]*?lead=\{side === 'couple' \? <CoupleThreadToolsSheet\b[^>]*\/> : <ComposerPlusSheet\b/, 'a picked chat lab has no (+)');

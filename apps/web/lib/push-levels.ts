@@ -59,6 +59,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   papic_originals_reminder: 'normal', // day 60 · 80 · 89 of the 3 months a host's originals are kept (photo rule)
   supplier_questions_sent: 'normal', // a supplier sent their questions into the event from the chat ＋ (every supplier)
   supplier_report: 'normal', // a supplier filed a Report from a picked client into /admin/help (admins)
+  service_card_shared: 'normal', // a supplier posted one of their service cards into the client's chat (Share)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   vendor_inquiry_received: 'normal',

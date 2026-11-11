@@ -18,6 +18,8 @@ import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo
 import { toggleVendorServiceActive } from '@/app/vendor-dashboard/services/actions';
 import { publishRefusalFor, unmetPublishRequirements, type PublishFacts } from '@/lib/service-publish-gate';
 import type { StaySave } from '@/app/_components/stay-form';
+import type { ShareTarget } from '@/lib/service-share-targets';
+import type { OfferServiceResult } from '@/lib/offer-service-core';
 
 export type LabCard = {
   id: string;
@@ -44,7 +46,15 @@ async function labRemove(): Promise<{ ok: true; retired: boolean }> {
   return { ok: true, retired: false };
 }
 
-export function LabRows({ cards, now }: { cards: LabCard[]; now: boolean }) {
+/** The share's stand-in: posts nothing, answers as the server does — the Offline card is refused in the server's words. */
+function labShare(c: LabCard) {
+  return async (): Promise<OfferServiceResult> => {
+    await new Promise((r) => setTimeout(r, 350));
+    return c.live ? { status: 'ok', notified: 2 } : { status: 'invalid_service' };
+  };
+}
+
+export function LabRows({ cards, now, targets }: { cards: LabCard[]; now: boolean; targets: ShareTarget[] | null }) {
   if (!now) {
     return (
       <>
@@ -61,7 +71,14 @@ export function LabRows({ cards, now }: { cards: LabCard[]; now: boolean }) {
                   <Link href="#" aria-label={`Open ${c.name} in the Card Maker`} className="absolute inset-0 rounded-xl" data-card-face-opens="" />
                 </div>
               }
-              row={{ vendorServiceId: c.id, cardName: c.name, isActive: c.live, held: false, editHref: '#' }}
+              row={{
+                vendorServiceId: c.id,
+                cardName: c.name,
+                isActive: c.live,
+                held: false,
+                editHref: '#',
+                share: { targets, share: labShare(c) },
+              }}
               action={toggleVendorServiceActive}
               save={standIn(c)}
               deleteRefusal={c.deleteRefusal}

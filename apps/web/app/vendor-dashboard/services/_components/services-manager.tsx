@@ -24,6 +24,8 @@ import { StayOnSection } from './stay-on-section';
 import { ServiceCardItem } from './service-card-item';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { readShareTargets } from '@/lib/service-share-targets.server';
+import { offerServiceInterest } from '@/app/vendor-dashboard/messages/[threadId]/actions';
 import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
@@ -201,7 +203,14 @@ export async function VendorServicesManager({
   // until every booking is complete). ONE read for every card on the page, on the ADMIN client because
   // `event_vendors` admits no shop — `serviceIdList` is this shop's own cards, read on its own session above. A refused
   // read is `null`: the swipe then says "could not check" and deletes nothing (never "nobody booked").
-  const cardBookings = await readCardBookings(createAdminClient(), serviceIdList);
+  // 🔗 WHERE SHARE CAN POST (owner 2026-11-11: "It is share to an client event. To enter to a chat.") — this shop's
+  // client events, ONE read for the whole page, beside the bookings read. A refused read is `null` and the Share sheet
+  // says so (never "no client events"); the post (`offerServiceCore`) asks the server again before it writes.
+  const [cardBookings, shareRead] = await Promise.all([
+    readCardBookings(createAdminClient(), serviceIdList),
+    readShareTargets(supabase, createAdminClient(), profile.vendor_profile_id),
+  ]);
+  const shareTargets = shareRead.status === 'ok' ? shareRead.targets : null;
 
   // ── Coverage-first rework: first-class coverages + the LIVE taxonomy tree ──
   // (parent → branch → leaf, read from the admin taxonomy so admin edits flow
@@ -831,6 +840,7 @@ export async function VendorServicesManager({
                     isActive: svc.is_active,
                     held: planHold?.hold === 'held',
                     editHref,
+                    share: { targets: shareTargets, share: offerServiceInterest },
                   }}
                   action={toggleVendorServiceActive}
                   deleteRefusal={

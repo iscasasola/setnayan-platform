@@ -67,6 +67,11 @@ export const COUPLE_SUPPLIER_NOTICES = {
   inquiry_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_accepted: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_declined: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  service_card_shared: {
+    to: 'couple',
+    reach: 'app_only',
+    why: 'owner 2026-11-11 "Share … is share to an client event. To enter to a chat. That is notified so the client can see." — the card lands in their chat; told in the app, no email',
+  },
   supplier_questions_sent: {
     to: 'couple',
     reach: 'app_only',

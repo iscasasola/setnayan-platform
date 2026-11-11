@@ -26,10 +26,16 @@ export async function offerServiceInterest(formData: FormData): Promise<OfferSer
     return { status: 'error', message: 'Invalid input' };
   }
 
+  // 🔗 THE SHARE ICON ON SHOP › SERVICES IS THIS SAME OFFER FROM ANOTHER DOOR (owner 2026-11-11: "Share … is share to
+  // an client event. To enter to a chat. That is notified so the client can see."). `via=share` asks the core to
+  // re-check the chat is open and to tell the client IN THE APP ONLY (`service_card_shared`, never an email). Reused,
+  // not a new export: every exported server action is a Vercel route (scripts/lint-server-action-budget.mjs).
+  const via = formData.get('via') === 'share' ? 'share' : 'chat';
   const supabase = await createClient();
   const result = await offerServiceCore(supabase, {
     threadId,
     vendorServiceId: serviceId,
+    notice: via === 'share' ? 'shared' : 'chat',
   });
 
   if (result.status === 'ok') {

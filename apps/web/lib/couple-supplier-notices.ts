@@ -58,6 +58,11 @@ const NO_NEW_EMAILS = 'owner 2026-10-11: we manage without new emails — the ap
 export const COUPLE_SUPPLIER_NOTICES = {
   // ── Asking, answering, quoting ────────────────────────────────────────────
   vendor_inquiry_received: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  chat_message_in_app: {
+    to: 'either',
+    reach: 'app_only',
+    why: 'owner 8 Nov 2026 (chat gaps): a message also reaches the shop team, the other co-hosts and the coordinators — in the app only, no new emails',
+  },
   inquiry_accepted: {
     to: 'couple',
     reach: 'email',

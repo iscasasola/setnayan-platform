@@ -62,6 +62,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   service_card_shared: 'normal', // a supplier posted one of their service cards into the client's chat (Share)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
+  chat_message_in_app: 'normal', // the same message, to a shop's team · another co-host · a coordinator (8 Nov 2026)
   vendor_inquiry_received: 'normal',
   inquiry_accepted: 'normal',
   inquiry_declined: 'normal',

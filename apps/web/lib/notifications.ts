@@ -551,6 +551,11 @@ export type NotificationType =
   | 'access_answered'
   | 'change_requested'
   | 'change_answered'
+  /* 💬 A CHAT MESSAGE, TOLD IN THE APP ONLY (chat gaps, owner 8 Nov 2026: "no new emails"). The people a message now
+     ALSO reaches — a shop's team members who may chat in that conversation, the OTHER hosts in the thread, the event's
+     coordinators — get this; the shop owner and the hosts keep `chat_message`, as it ships. Sent by `notifyOtherParty`
+     (lib/chat-actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271337067968. */
+  | 'chat_message_in_app'
   /* 🕵️ FOUND-YOU LEAD ALERT (DECISION_LOG 2026-07-27, built 2026-11-05). → the supplier who claimed a couple's link,
      when the couple's Approve finds the couple had already opened that shop on Setnayan before typing it in by hand
      (`found_you_check_at_claim`): "<couple> found you on Setnayan on <date>". Data-minimal: the couple's event name,
@@ -620,6 +625,7 @@ export type NotificationType =
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
   chat_message: 'New message',
+  chat_message_in_app: 'New message',
   order_quoted: 'Order quoted',
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
@@ -767,6 +773,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   event_auto_surfaced: 'bg-sky-100 text-sky-800',
   chat_message: 'bg-sky-100 text-sky-800',
+  chat_message_in_app: 'bg-sky-100 text-sky-800',
   order_quoted: 'bg-warn-100 text-warn-900',
   order_paid: 'bg-success-200 text-success-900',
   payment_matched: 'bg-success-100 text-success-800',
@@ -1209,6 +1216,7 @@ export function isTodayNotice(iso: string, now = new Date()): boolean {
 export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, string>> = {
   rsvp_received: 'RSVP',
   chat_message: 'Message',
+  chat_message_in_app: 'Message',
   samahan_message: 'Message',
   order_quoted: 'Order',
   order_paid: 'Order',
@@ -1254,6 +1262,7 @@ export type NotificationIcon =
 export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, NotificationIcon>> = {
   rsvp_received: 'user-check',
   chat_message: 'message',
+  chat_message_in_app: 'message',
   samahan_message: 'message',
   vendor_inquiry_received: 'message',
   inquiry_accepted: 'message',

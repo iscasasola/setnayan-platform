@@ -9,6 +9,7 @@
  *   ?m=hub        the Hub's "Event photos · by service" (service groups only, the count line)
  *   ?m=hub-fee    …while the booking fee is unsettled (tiles greyed)
  *   ?m=couple     the couple's approval line + sheet
+ *   ?m=now        the SHIPPED Files body (FilesFinder), unchanged — the screenshots' "Now"
  */
 import { notFound } from 'next/navigation';
 import { FilesLabClient } from './lab-client';

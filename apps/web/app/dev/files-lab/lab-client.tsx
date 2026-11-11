@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { EventFilesBoard } from '@/app/vendor-dashboard/clients/[eventId]/_components/event-files-board';
 import { CouplePhotoApprovalsSheet } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet';
 import { shopStateOf } from '@/lib/supplier-files';
+import { FilesFinder } from '@/app/vendor-dashboard/clients/[eventId]/_pages/files-finder';
+import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import type { EventFile } from '@/lib/supplier-files.server';
 
 const EV = '00000000-0000-4000-8000-0000000000e1';
@@ -79,6 +81,30 @@ export function FilesLabClient({ mode }: { mode: string }) {
     return () => clearTimeout(t);
   }, [mode]);
 
+  // ?m=now — the SHIPPED Files page body, unchanged (the "Now" beside the board).
+  if (mode === 'now') {
+    const row = (k: string, kind: SharedFileEntry['kind'], name: string, typeLabel: string, isImage: boolean): SharedFileEntry => ({
+      key: k,
+      kind,
+      name,
+      origin: 'You shared',
+      sizeLabel: '1.4 MB',
+      typeLabel,
+      at: '2027-03-10T02:00:00Z',
+      href: null,
+      isImage,
+    });
+    return (
+      <FilesFinder
+        files={[
+          row('a', 'contract', 'Catering contract · signed.pdf', 'PDF', false),
+          row('b', 'chat', 'IMG_2201.jpg', 'Image', true),
+          row('c', 'chat', 'Menu · Garden buffet 150.pdf', 'PDF', false),
+          row('d', 'handover', 'Tasting gallery', 'Gallery link', false),
+        ]}
+      />
+    );
+  }
   if (mode === 'couple') {
     return (
       <CouplePhotoApprovalsSheet

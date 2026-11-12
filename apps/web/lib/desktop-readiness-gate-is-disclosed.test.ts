@@ -30,7 +30,7 @@ import { DESKTOP_ENCODER_READINESS_NOTICE } from './live-studio-readiness';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = (p: string) => stripComments(readFileSync(resolve(HERE, '..', p), 'utf8'));
 
-const DOWNLOAD_PAGE = 'app/download/page.tsx';
+const DOWNLOAD_PAGE = 'app/(shell)/download/page.tsx';
 const READINESS_SURFACE = 'app/_components/live-studio/broadcast-readiness.tsx';
 
 test('⭐ the sentence itself names both floors and the fallback', () => {

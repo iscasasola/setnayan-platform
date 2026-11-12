@@ -22,5 +22,6 @@ test('the shop plan lab calls notFound() in production, before anything else', (
 test('the lab mounts the real plan pieces and the real rules', () => {
   assert.match(LAB, /from '@\/app\/v\/\[slug\]\/_components\/shop-reach';/);
   assert.match(LAB, /from '@\/app\/v\/\[slug\]\/_components\/shop-addresses';/);
+  assert.match(LAB, /from '@\/app\/v\/\[slug\]\/_components\/shop-branches-line';/);
   assert.match(LAB, /from '@\/lib\/shop-page-plan';/);
 });

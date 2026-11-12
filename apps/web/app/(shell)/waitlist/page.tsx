@@ -2,10 +2,9 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
-// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
-// edge cache so static marketing routes serve Google's crawl rate-limit
-// budget without origin pressure. Each page rebuilds at most once per hour.
-export const revalidate = 3600;
+// This page carried `revalidate = 3600` (SEO/GEO Bucket 8, 2026-05-29) until
+// 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
+// the shell layout sets force-dynamic for the group, so no route directive here.
 
 // 2026-07-24 — Setnayan is LIVE for couples now (owner decision). This route
 // used to be a "launching December 1, 2026" waitlist with an email-capture
@@ -31,7 +30,7 @@ export const metadata = {
 
 export default function WaitlistPage() {
   return (
-    <div className="min-h-screen bg-page text-ink">
+    <main className="min-h-screen bg-page text-ink">
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-3xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-wide text-terracotta">
@@ -91,6 +90,6 @@ export default function WaitlistPage() {
           </p>
         </div>
       </section>
-    </div>
+    </main>
   );
 }

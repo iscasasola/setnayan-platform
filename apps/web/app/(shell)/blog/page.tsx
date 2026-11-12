@@ -13,14 +13,20 @@ import {
 // Eyebrow / metaLine / StoryCard moved to ./_components/story-card (2026-08-08)
 // so /realstories' "From our articles" rail renders a real article card instead
 // of a copy of one. Pure move — this page's markup is unchanged.
-import { StoryCard, Eyebrow, metaLine } from './_components/story-card';
+import { StoryCard, Eyebrow, metaLine } from '@/app/blog/_components/story-card';
 
 // Setnayan Articles index — magazine redesign (iteration 0038, 2026-06-15).
 // Photo-led editorial: a full-bleed cover for the featured guide, a "Nuggets"
 // band of shareable wisdom, and a varied grid of story cards. Keeps the
-// SEO/GEO machinery from the 2026-06-13 first slice intact (static render,
-// Blog + Breadcrumb JSON-LD, category filter via ?category). Public, no auth.
-export const revalidate = 3600;
+// SEO/GEO machinery from the 2026-06-13 first slice intact (Blog + Breadcrumb
+// JSON-LD, category filter via ?category). Public, no auth.
+//
+// 2026-11-12 — this page.tsx moved into app/(shell)/ (owner: "these are on old
+// shells"), so it wears the front-door bar + rail like every other public page.
+// Its `revalidate = 3600` is gone with it: the shell layout reads the session
+// and sets force-dynamic once for the whole group, and a per-page ISR directive
+// under it is the /privacy mistake the layout's own comment records. The
+// story cards stay in app/blog/_components/, beside /blog/[slug].
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'

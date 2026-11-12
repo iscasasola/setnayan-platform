@@ -234,7 +234,7 @@
 4 apps/web/app/api/v1/page.tsx
 2 apps/web/app/blog/[slug]/_components/journal-partner-credit.tsx
 5 apps/web/app/blog/[slug]/page.tsx
-3 apps/web/app/blog/page.tsx
+3 apps/web/app/(shell)/blog/page.tsx
 1 apps/web/app/dashboard/(account)/_components/autosurfaced-events.tsx
 3 apps/web/app/dashboard/(account)/_components/life-story-section.tsx
 1 apps/web/app/dashboard/(account)/api-keys/page.tsx
@@ -465,12 +465,12 @@
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
 1 apps/web/app/dev/avatar-sheet-lab/sheet-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
-1 apps/web/app/download/page.tsx
+1 apps/web/app/(shell)/download/page.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
 1 apps/web/app/monogram/_monogram-motion.tsx
-2 apps/web/app/monogram/page.tsx
+2 apps/web/app/(shell)/monogram/page.tsx
 2 apps/web/app/monogram/public-monogram-studio.tsx
 3 apps/web/app/onboarding/_shared/services-step.tsx
 2 apps/web/app/onboarding/wedding/page.tsx
@@ -503,7 +503,7 @@
 1 apps/web/app/realstories/_components/stories-search.tsx
 1 apps/web/app/realstories/[slug]/page.tsx
 1 apps/web/app/signup/loading.tsx
-2 apps/web/app/tl/about/page.tsx
+2 apps/web/app/(shell)/tl/about/page.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
 6 apps/web/app/tour/budget/_components/tour-budget-planner.tsx
 1 apps/web/app/tour/budget/_components/tour-vendor-itemization.tsx

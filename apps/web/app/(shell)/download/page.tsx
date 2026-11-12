@@ -9,7 +9,7 @@ import {
   AppWindowHero,
   MagneticDownloadButton,
   PlatformCompatBanner,
-} from './_download-motion';
+} from '@/app/download/_download-motion';
 import { formatCount } from '@/lib/format-number';
 import { formatLongDate } from '@/lib/format-date';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
@@ -21,7 +21,8 @@ import { iosAppStoreUrl } from '@/lib/where-setnayan-runs';
 // budget without origin pressure. Each page rebuilds at most once per hour.
 // S10: also bounds how stale the R2-resolved release can be — a fresh release
 // shows up within this window, never instantly and never never.
-export const revalidate = 3600;
+// 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
+// the shell layout sets force-dynamic for the group, so no ISR directive here.
 
 export const metadata = {
   title: 'Download Setnayan for Mac or Windows',
@@ -57,10 +58,9 @@ export default async function DownloadPage() {
   // Label-only + fails open: this is a server component, so it can't call the
   // client-only navIconComponent — the icons stay hardcoded in code; only the
   // button text is admin-renamable from /admin/menus. href + size suffix stay in
-  // code too. NOTE: this page is ISR (revalidate=3600), so an admin label edit
-  // propagates within the 1hr revalidation window (the registry data cache busts
-  // instantly via NAV_REGISTRY_TAG, but the page's prerendered HTML refreshes on
-  // the next ISR pass), not on the next request.
+  // code too. The page renders per request inside the shared shell (force-dynamic
+  // on app/(shell)/layout.tsx), so an admin label edit shows on the next request
+  // once the registry data cache busts via NAV_REGISTRY_TAG.
   const navSlots = await getNavSlotMap();
   const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
   const winDownloadLabel = 'Download for Windows';

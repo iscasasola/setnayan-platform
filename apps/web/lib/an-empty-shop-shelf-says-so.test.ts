@@ -34,7 +34,7 @@ test('the front door shelf: plain heading and line when empty, and never "none" 
 });
 
 test('the empty /explore view: one plain line and an "Open your shop" door', () => {
-  const explore = code('app/(shell)/explore/page.tsx');
+  const explore = code('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   const catalog = explore.slice(explore.indexOf('async function CatalogView('));
   assert.ok(catalog.length > 1000, 'precondition: CatalogView was found');
   assert.match(catalog, /No supplier has opened a shop yet/);

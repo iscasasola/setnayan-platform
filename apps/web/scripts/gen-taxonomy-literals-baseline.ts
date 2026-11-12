@@ -70,8 +70,12 @@ const REASONS: Record<string, string> = {
   'lib/vendor-packages.ts': 'PACKAGE_CANONICAL_TO_VENDOR_CATEGORY — feeds stored package rows. Exit: read coarse_category',
   'lib/budget-allocation-data.ts': 'LEAF_CANONICAL_SERVICES budget-median inputs. Exit: read the buckets',
   'lib/taxonomy-folder-counts.ts': 'FRONT_DOOR_VISIBLE_FOLDERS + a seed count. Exit: an admin front_door_visible flag + a live count',
-  'app/(shell)/explore/page.tsx':
-    'module-level copies left: the TAXONOMY_OPTIONS autocomplete and the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). Exit: thread the snapshot',
+  // 2026-11-12 — the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with
+  // Discover's supplier view); the TAXONOMY_OPTIONS autocomplete moved, unchanged, to lib/marketplace-category-options.ts.
+  'app/(shell)/explore/_lib/marketplace-view.tsx':
+    'module-level copies left: the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). Exit: thread the snapshot',
+  'lib/marketplace-category-options.ts':
+    'MOVED 2026-11-12 from explore/page.tsx, unchanged · the TAXONOMY_OPTIONS autocomplete (/explore + Discover\'s "All categories ▾"). Exit: build it from getTaxonomy()',
   'lib/category-hints.ts': 'SEED DEFAULT · the ⓘ written in code for a category whose admin hint_en is blank',
   'lib/taxonomy-icons.ts': 'SEED DEFAULT · the icon for a category with no admin icon_name',
   'app/admin/categories/page.tsx': 'ADMIN · the editor’s own default selection',

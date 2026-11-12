@@ -86,7 +86,7 @@ test('the builder signature still has the record and hidePrices where this test 
 });
 
 test('the marketplace passes each card its record, its shop rating and the shop price choice', () => {
-  const calls = toServiceCardCalls(read('app', '(shell)', 'explore', 'page.tsx'));
+  const calls = toServiceCardCalls(read('app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   // Floor: exactly one call. Zero means the grid stopped using the builder
   // (the-marketplace-body-lists-services pins that); two means a second grid
   // appeared that this test has not looked at.
@@ -111,7 +111,7 @@ test('the marketplace passes each card its record, its shop rating and the shop 
 });
 
 test('the records are read through the same flag and batched reader as the shop page', () => {
-  const explore = read('app', '(shell)', 'explore', 'page.tsx');
+  const explore = read('app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(explore, /cardRecordEnabled\(\)\s*\?\s*fetchServiceCardRecords\(/);
   const shop = read('app', 'v', '[slug]', 'page.tsx');
   assert.match(shop, /cardRecordRating=\{cardRecordRatingFromTrusted\(/);
@@ -132,7 +132,7 @@ test('S43 · 5 — the marketplace card gets the same inclusions, discounts, Ser
   // The four positions were hard-wired to `undefined`, so the SAME ServiceCardView
   // drew no "Includes", no discount badge, no Serves line and no photo strip on
   // /explore, and all four one click later on the shop.
-  const [args] = toServiceCardCalls(read('app', '(shell)', 'explore', 'page.tsx'));
+  const [args] = toServiceCardCalls(read('app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   const expect: Array<[number, RegExp, string]> = [
     [INCLUSIONS, /^serviceCardInclusions\.get\(c\.row\.vendor_service_id\)$/, 'inclusions'],
     [DISCOUNTS, /^serviceCardDiscounts\.get\(c\.row\.vendor_service_id\)$/, 'discounts'],
@@ -142,7 +142,7 @@ test('S43 · 5 — the marketplace card gets the same inclusions, discounts, Ser
   for (const [pos, re, name] of expect) {
     assert.match(args![pos]!, re, `${name} is "${args![pos]}" on /explore`);
   }
-  const explore = read('app', '(shell)', 'explore', 'page.tsx');
+  const explore = read('app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   // The same readers the shop page uses — a second copy would drift. Discounts come through `fetchDiscountsWithOffers`
   // (the cards' own rows + the shop's running offers, Build 6 Lane D), which wraps `fetchDiscountsByServicePublic`.
   for (const fn of ['fetchInclusionsByService(', 'fetchDiscountsWithOffers(', 'fetchCoveragesByIdPublic(', 'buildServesLine(']) {

@@ -1,10 +1,14 @@
 import Link from 'next/link';
+import { SERVICE_REQUESTS_HREF, SERVICE_REQUEST_NEW_HREF, unseenDecision } from '@/lib/service-requests';
+import { loadMyRequests, loadRequestTree } from '@/lib/service-requests.server';
+import { DecisionNotice, RequestStatusPill } from '../requests/_components/request-bits';
 import { giftLimitPctOrDefault } from '@/lib/setnayan-gift';
 import { reachTally, serviceReach } from '@/lib/service-reach';
 import { Fragment } from 'react';
 import { redirect } from 'next/navigation';
 import {
   ChevronDown,
+  ChevronRight,
   Gift,
   Plus,
   Tag,
@@ -12,7 +16,6 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { ServicesEmptyCard } from '@/app/vendor-dashboard/shop/_components/services-empty-card';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
 import { cardRecordHasSomethingToSayToTheShop } from '@/lib/service-card-record';
@@ -55,7 +58,6 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import {
   createVendorService,
-  proposeCategory,
   removeVendorServiceFromList,
   toggleVendorServiceActive,
 } from '../actions';
@@ -97,7 +99,6 @@ import {
   type BracketDraft,
 } from './service-list-editors';
 import { formatCount } from '@/lib/format-number';
-import { StayForm } from '@/app/_components/stay-form';
 
 export type ServicesManagerSearch = {
   saved?: string;
@@ -136,14 +137,6 @@ export type ServicesManagerSearch = {
    * pill's reason should lead to the intake, not the pricing page).
    */
   wantCategory?: string;
-};
-
-type CategoryRequestRow = {
-  request_id: string;
-  proposed_label: string;
-  status: 'pending' | 'promoted' | 'mapped' | 'kept_private' | 'rejected';
-  mapped_to_canonical: string | null;
-  resolution_note: string | null;
 };
 
 export async function VendorServicesManager({
@@ -399,27 +392,18 @@ export async function VendorServicesManager({
   // explore preview … when we create a service card, we want to see the exact
   // card"). The WYSIWYG preview moves INTO the card form as a follow-up slice.)
 
-  // ── Category requests (own rows only) ───────────────────────────────────
-  const { data: requestRows, error: requestRowsError } = await supabase
-    .from('taxonomy_category_requests')
-    .select('request_id, proposed_label, status, mapped_to_canonical, resolution_note')
-    .eq('proposed_by_vendor_id', profile.vendor_profile_id)
-    .order('created_at', { ascending: false });
-  // ⚠ CATEGORY REQUESTS THEY HAVE SENT US AND ARE WAITING ON. Refused, `?? []`
-  // ⚠ makes the whole block vanish — `myRequests.length > 0` is the only thing
-  // ⚠ that renders it — so there is no empty state to look wrong. The supplier
-  // ⚠ sees no sign they ever asked, and asks again; the cost of the silence
-  // ⚠ falls partly on us, since we are the ones who owe them an answer.
-  if (requestRowsError) {
-    logQueryError(
-      'VendorServicesManager.categoryRequests',
-      requestRowsError,
-      { vendorProfileId: profile.vendor_profile_id },
-      'graceful_degrade',
-    );
-  }
-  const requestsMeasured = !requestRowsError && requestRows !== null;
-  const myRequests = (requestRows ?? []) as CategoryRequestRow[];
+  // ── Service requests (own rows only) ────────────────────────────────────
+  // ⚠ SERVICE REQUESTS THEY HAVE SENT US AND ARE WAITING ON. A refused read is SAID below ("We couldn't load your
+  // ⚠ requests"), never drawn as "none" — the supplier would see no sign they ever asked, and ask again.
+  // The read + the card counts are `loadMyRequests` (lib/service-requests.server.ts), shared with "Your requests".
+  const [myRequestsRead, requestTree] = await Promise.all([
+    loadMyRequests(supabase, profile.vendor_profile_id),
+    loadRequestTree(),
+  ]);
+  const requestsMeasured = myRequestsRead.ok;
+  const myRequests = myRequestsRead.ok ? myRequestsRead.value : [];
+  const requestNotice = unseenDecision(myRequests);
+  const waitingRequests = myRequests.filter((r) => r.status === 'pending').length;
 
   // If ?add=<category> is in the URL, the "Add service" form for that category
   // is the expanded one. #1: a category can hold multiple listings.
@@ -507,6 +491,8 @@ export async function VendorServicesManager({
           {decodeURIComponent(search.error)}
         </p>
       ) : null}
+      {/* A decision on one of their service requests they have not opened yet (owner ruling 4) — leaves once read. */}
+      {requestNotice ? <DecisionNotice r={requestNotice} tree={requestTree} /> : null}
       {search.created === 'live' || search.created === 'draft' ? (
         (() => {
           // The congratulations moment (owner 2026-07-28) — replaces the plain
@@ -939,16 +925,16 @@ export async function VendorServicesManager({
         <UndoToastHost />
       </section>
 
-      {/* Request a new category — the "Add coverage" on-ramp for services not in
-          the directory (spec 0023 §3.2c). Also where a plan-locked kind in the
-          maker sends a supplier (S3, owner 2026-08-28) — same form, so the
-          heading branches: their kind IS in the directory, their plan just
-          doesn't cover another one yet. */}
-      {showProposeForm ? (
+      {/* Service requests — "Can't find yours? Tell us what you do" (spec 0023 §3.2c; owner rulings 2026-11-13).
+          The form itself moved to its own page, behind the category browse (ruling 1: pick the category, then name
+          it); what stays here is the way in, the "Your requests" row and the promise that nothing waits on us. Also
+          where a plan-locked kind in the maker sends a supplier (S3, owner 2026-08-28) — so the heading branches. */}
+      {showProposeForm || myRequests.length > 0 || !requestsMeasured ? (
       <section
         id={PROPOSE_CATEGORY_ANCHOR_ID}
         className="space-y-4 rounded-2xl border p-5"
         style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        data-service-requests=""
       >
         <div className="space-y-1">
           {wantsCategoryForm ? (
@@ -965,81 +951,52 @@ export async function VendorServicesManager({
             </Link>
           ) : null}
           <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {wantsCategoryForm ? "Want to add that kind of service?" : "Don't see your service?"}
+            {wantsCategoryForm ? "Want to add that kind of service?" : "Requests"}
           </h2>
-          <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
-            {wantsCategoryForm
-              ? "Your plan doesn't cover it yet. Tell us what you do and we'll take it from there."
-              : "Tell us what you do — we'll review it and add it to the directory."}
-          </p>
           {/* Nothing here is a gate. A supplier who cannot find their trade must
               be able to finish their card today and correct it later — the card
               is universal (owner, 2026-08-28: "the card is universal fit for any
               service"). Said on the screen, not only in a docblock. */}
           <p className="max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
             You don&rsquo;t have to wait for us. Make your card under{' '}
-            <strong>Miscellaneous</strong> now and switch it to your own kind the moment we add
-            it.
+            <strong>Miscellaneous</strong> now — it shows under your category&rsquo;s Others, and moves to your own
+            kind the moment we add it.
           </p>
         </div>
-        {/* Keyed on the request count: a request that lands joins "Your requests" in place and starts this form empty. */}
-        <StayForm
-          key={`propose-${myRequests.length}`}
-          door="svServices.proposeCategory"
-          action={proposeCategory}
-          className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end"
-        >
-          {/* Survives the redirect so "Back to your card" still shows after
-              submitting — server actions can't read the page's own URL. */}
-          <input type="hidden" name="from_locked_kind" value={wantsCategoryForm ? '1' : ''} />
-          <Field label="Service name" htmlFor="propose-label">
-            <input
-              id="propose-label"
-              name="proposed_label"
-              required
-              minLength={2}
-              maxLength={80}
-              placeholder="e.g. Table Linen Rental"
-              className="input-field"
-            />
-          </Field>
-          <Field label="What is it? (optional)" htmlFor="propose-note">
-            <input
-              id="propose-note"
-              name="proposed_note"
-              maxLength={400}
-              placeholder="A sentence so we can place it right."
-              className="input-field"
-            />
-          </Field>
-          <SubmitButton className="button-primary" pendingLabel="Sending…">
-            Request
-          </SubmitButton>
-        </StayForm>
         {!requestsMeasured ? (
           <p role="alert" className="text-sm" style={{ color: 'var(--m-ink)' }}>
-            <strong>We couldn&rsquo;t load your category requests.</strong> Any
+            <strong>We couldn&rsquo;t load your requests.</strong> Any
             request you have already sent us is still with us and still being
             reviewed — it is not shown here right now.
           </p>
         ) : null}
-        {myRequests.length > 0 ? (
-          <ul className="divide-y rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
-            {myRequests.map((r) => (
-              <li key={r.request_id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-                <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
-                  {r.proposed_label}
-                </span>
-                <RequestStatusBadge status={r.status} mapped={r.mapped_to_canonical} />
-                {r.resolution_note ? (
-                  <span className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-                    {r.resolution_note}
+        <ul className="divide-y rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
+          {myRequests.length > 0 ? (
+            <li>
+              <Link href={SERVICE_REQUESTS_HREF} className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm" data-your-requests-row="">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium" style={{ color: 'var(--m-ink)' }}>Your requests</span>
+                  <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    {waitingRequests ? `${waitingRequests} waiting · ` : ''}
+                    {myRequests.length} sent
                   </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+                </span>
+                {waitingRequests ? <RequestStatusPill status="pending" movedTo={null} /> : null}
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+              </Link>
+            </li>
+          ) : null}
+          <li>
+            <Link
+              href={wantsCategoryForm ? `${SERVICE_REQUEST_NEW_HREF}?wantCategory=1` : SERVICE_REQUEST_NEW_HREF}
+              className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm font-semibold"
+              style={{ color: 'var(--m-orange-deep)' }}
+            >
+              <span className="min-w-0 flex-1">Can&rsquo;t find yours? Tell us what you do</span>
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            </Link>
+          </li>
+        </ul>
       </section>
       ) : (
         <span id={PROPOSE_CATEGORY_ANCHOR_ID} className="block scroll-mt-24" aria-hidden />
@@ -1067,35 +1024,6 @@ export async function VendorServicesManager({
         </div>
       </details>
     </div>
-  );
-}
-
-function RequestStatusBadge({
-  status,
-  mapped,
-}: {
-  status: CategoryRequestRow['status'];
-  mapped: string | null;
-}) {
-  const map: Record<CategoryRequestRow['status'], { label: string; bg: string; fg: string }> = {
-    pending: { label: 'Pending review', bg: 'var(--m-orange-4)', fg: 'var(--m-orange-deep)' },
-    promoted: { label: 'Added to directory', bg: 'var(--m-sage)', fg: 'var(--m-sage-deeper)' },
-    mapped: {
-      label: mapped ? `Use "${mapped}"` : 'Mapped to an existing category',
-      bg: 'var(--m-paper-2)',
-      fg: 'var(--m-slate)',
-    },
-    kept_private: { label: 'Kept for your listing', bg: 'var(--m-paper-2)', fg: 'var(--m-slate-2)' },
-    rejected: { label: 'Not added', bg: 'var(--m-blush)', fg: 'var(--m-blush-deepest)' },
-  };
-  const { label, bg, fg } = map[status];
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-      style={{ background: bg, color: fg }}
-    >
-      {label}
-    </span>
   );
 }
 

@@ -3327,6 +3327,47 @@
         "WriteResult"
       ]
     },
+    "/admin/categories/requests": {
+      "files": [
+        "admin/categories/requests/_components/admin-request-bits.tsx",
+        "admin/categories/requests/_components/decision-form.tsx",
+        "admin/categories/requests/loading.tsx",
+        "admin/categories/requests/page.tsx"
+      ],
+      "destinations": [
+        "/admin/categories"
+      ],
+      "actions": [
+        "decideServiceRequest"
+      ],
+      "blocks": [
+        "AdminRow",
+        "AdminStatusPill",
+        "DecisionChoice",
+        "FormRows",
+        "Link",
+        "ListPageSkeleton",
+        "PageMasthead",
+        "PickMenu",
+        "Row",
+        "SubmitButton",
+        "TypedRow"
+      ]
+    },
+    "/admin/categories/requests/[requestId]": {
+      "files": [
+        "admin/categories/requests/[requestId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AdminStatusPill",
+        "DecisionForm",
+        "Link",
+        "PageMasthead",
+        "RequestDraftNotes"
+      ]
+    },
     "/admin/chat-flags": {
       "files": [
         "admin/chat-flags/actions.ts",
@@ -11203,6 +11244,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
@@ -11251,6 +11294,7 @@
         "updateVendorCosts"
       ],
       "blocks": [
+        "ActionButton",
         "AnswerField",
         "AppointmentsSection",
         "CancelBookingButton",
@@ -11265,6 +11309,8 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CouplePhotoApprovals",
+        "CouplePhotoApprovalsSheet",
         "CoupleThreadBody",
         "DepositReservation",
         "DetailPageSkeleton",
@@ -11305,6 +11351,7 @@
         "SaveAnswersState",
         "SelfAddedContactCard",
         "ServicesCoveredPicker",
+        "Sheet",
         "ShotListCard",
         "SnapshotChargeLine",
         "StayForm",
@@ -12300,6 +12347,7 @@
         "AskChangeDoor",
         "BookRequestCard",
         "ChangeAskCard",
+        "ChangeAskRow",
         "DecisionStepCard",
         "FilesStepCard",
         "FormAnswerCard",
@@ -12307,6 +12355,8 @@
         "GuestRecountCard",
         "Lab",
         "LogPaymentCard",
+        "NegotiateDraft",
+        "NegotiationCard",
         "PaymentStepCard",
         "QuoteStepCard",
         "StreamLineCard"
@@ -12603,6 +12653,21 @@
         "FavoriteRows",
         "HubSuppliersMadeThisDay",
         "SaveVendorButton"
+      ]
+    },
+    "/dev/files-lab": {
+      "files": [
+        "dev/files-lab/lab-client.tsx",
+        "dev/files-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CouplePhotoApprovalsSheet",
+        "EventFile",
+        "EventFilesBoard",
+        "FilesFinder",
+        "FilesLabClient"
       ]
     },
     "/dev/find-lock-lab": {
@@ -16102,6 +16167,7 @@
         "vendor-dashboard/clients/[eventId]/_components/details-forms-door.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers-row.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
+        "vendor-dashboard/clients/[eventId]/_components/event-files-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-rows.ts",
         "vendor-dashboard/clients/[eventId]/_components/lock-switch.tsx",
@@ -16128,6 +16194,7 @@
         "vendor-dashboard/clients/[eventId]/_pages/chat.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/context.ts",
         "vendor-dashboard/clients/[eventId]/_pages/details.tsx",
+        "vendor-dashboard/clients/[eventId]/_pages/event-files.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/files-finder.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/files.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/forms.tsx",
@@ -16216,6 +16283,7 @@
         "ChangeRequestsQueue",
         "ChapterSection",
         "ChatPage",
+        "Choice",
         "ChosenRow",
         "ClientDayAnswers",
         "ClientNotes",
@@ -16236,10 +16304,16 @@
         "DetailsFormsDoor",
         "DetailsNumbersRow",
         "DetailsPage",
+        "Door",
+        "EventFile",
+        "EventFilesBoard",
+        "EventFilesSection",
+        "EventFilesState",
         "EventLockedByFee",
         "FileIcon",
         "FileRow",
         "FileTile",
+        "FileUnder",
         "FileUpload",
         "FilesFinder",
         "FilesPage",
@@ -16250,6 +16324,7 @@
         "FormRows",
         "FormsPage",
         "FormsPageBody",
+        "Grid",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
@@ -16287,6 +16362,7 @@
         "PickedClientSettings",
         "PickedClientShell",
         "PipelineStrip",
+        "PortfolioSheet",
         "PriceSummary",
         "ProofImage",
         "ProposeChange",
@@ -16318,6 +16394,8 @@
         "Sheet",
         "ShopCard",
         "ShopEmpty",
+        "Show",
+        "Sort",
         "StayForm",
         "StudioPopup",
         "SubmitButton",
@@ -17092,6 +17170,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "HTMLElement",
         "Icon",
         "InfoTip",
         "InquiryAnswers",
@@ -17894,7 +17973,6 @@
         "deleteCoverage",
         "deleteVendorService",
         "pickServicesThatStayOn",
-        "proposeCategory",
         "saveAudience",
         "saveServiceRefinements",
         "setServiceAddons",
@@ -17928,6 +18006,7 @@
         "CoverageServesResult",
         "Crumb",
         "CustomizationStep",
+        "DecisionNotice",
         "DiscountBadge",
         "DiscountDraft",
         "DiscountRow",
@@ -17978,7 +18057,7 @@
         "Recap",
         "RefinementsEditor",
         "ReportCardPhotoResult",
-        "RequestStatusBadge",
+        "RequestStatusPill",
         "Row",
         "RowIcon",
         "RowRemove",
@@ -18067,6 +18146,68 @@
         "Link",
         "RefinementsEditor",
         "ServiceWizard"
+      ]
+    },
+    "/vendor-dashboard/services/requests": {
+      "files": [
+        "vendor-dashboard/services/requests/_components/name-fields.tsx",
+        "vendor-dashboard/services/requests/_components/request-bits.tsx",
+        "vendor-dashboard/services/requests/actions.ts",
+        "vendor-dashboard/services/requests/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/services/requests"
+      ],
+      "actions": [
+        "proposeCategory"
+      ],
+      "blocks": [
+        "DecisionNotice",
+        "FormRows",
+        "Link",
+        "PageMasthead",
+        "RequestRowLink",
+        "RequestStatusPill",
+        "ShopEmpty",
+        "ShopNotice",
+        "ShopPill",
+        "SubmitButton",
+        "TypedRow"
+      ]
+    },
+    "/vendor-dashboard/services/requests/[requestId]": {
+      "files": [
+        "vendor-dashboard/services/requests/[requestId]/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/shop"
+      ],
+      "actions": [
+        "putCardUnderRequest"
+      ],
+      "blocks": [
+        "Link",
+        "PageMasthead",
+        "RequestStatusPill",
+        "Search",
+        "ShopCard",
+        "ShopNotice",
+        "SubmitButton"
+      ]
+    },
+    "/vendor-dashboard/services/requests/new": {
+      "files": [
+        "vendor-dashboard/services/requests/new/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PageMasthead",
+        "RequestNameForm",
+        "Search",
+        "ShopCard",
+        "ShopNotice"
       ]
     },
     "/vendor-dashboard/settings": {

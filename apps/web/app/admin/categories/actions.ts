@@ -43,6 +43,20 @@ import { secondaryTilesVerdict } from './_components/model';
 import { formatCount } from '@/lib/format-number';
 import { addCategoryCore, addServiceCore, moveServiceCore, slugify } from './_components/taxonomy-writes';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
+import {
+  ADMIN_SERVICE_REQUESTS_HREF,
+  decisionProblem,
+  isDecisionChoice,
+  sameNameKey,
+  STATUS_FOR_CHOICE,
+  type DecisionChoice,
+} from '@/lib/service-requests';
+import {
+  cardsFollowingRequests,
+  moveCardsToService,
+  saveDecidedSearchWords,
+  type DecidedRequest,
+} from '@/lib/service-requests-decide.server';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { workBackHref, workReturnTo } from '@/lib/admin/supplier-work';
 import { isHubToolTemplate, parseHubToolsSave, type HubToolTemplate } from '@/lib/hub-tools';
@@ -723,6 +737,51 @@ export async function createCanonicalLeaf(formData: FormData) {
 // of four outcomes. All audit-logged; the vendor tracks the result read-only.
 
 /**
+ * The one two-table leaf write behind "a supplier's service becomes a real service": a schema row
+ * and a taxonomy row under `tileId`, rolled back together. Shared by `promoteCategoryRequest` and
+ * `decideServiceRequest` so the mint has ONE spelling. Refuses a key that already exists.
+ */
+async function mintServiceLeaf(
+  admin: ReturnType<typeof createAdminClient>,
+  canonical: string,
+  mintLabel: string,
+  tileId: string,
+  folderId: string,
+): Promise<{ ok: true } | { ok: false; duplicate: boolean; error: string }> {
+  const [schemaDupe, taxDupe] = await Promise.all([
+    admin.from('canonical_service_schemas').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
+    admin.from('canonical_service_taxonomy').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
+  ]);
+  if (schemaDupe.data || taxDupe.data) return { ok: false, duplicate: true, error: `"${canonical}" already exists.` };
+
+  const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
+    canonical_service: canonical,
+    schema_version: 1,
+    display_name_en: mintLabel,
+    shared_attribute_groups: [],
+    category_specific_attributes: {},
+    filter_facets: [],
+    required_for_visibility: {},
+    ranking_signal_weights: {},
+  });
+  if (schemaErr) return { ok: false, duplicate: false, error: schemaErr.message };
+
+  const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
+    canonical_service: canonical,
+    folder_id: folderId,
+    tile_id: tileId,
+    phase: 'V1.1 base',
+    marketplace_hidden: false,
+    secondary_tiles: [],
+  });
+  if (taxErr) {
+    await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
+    return { ok: false, duplicate: false, error: taxErr.message };
+  }
+  return { ok: true };
+}
+
+/**
  * PROMOTE — mint a real canonical leaf for the request under a chosen tile, then
  * mark the request `promoted` (the proposing vendor keeps first-vendor credit via
  * the audit trail). Same two-table leaf write as `createCanonicalLeaf`. Success
@@ -787,37 +846,9 @@ export async function promoteCategoryRequest(formData: FormData) {
     redirectBack(formData, 'error', 'Label needs letters or numbers.');
   }
 
-  const [schemaDupe, taxDupe] = await Promise.all([
-    admin.from('canonical_service_schemas').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
-    admin.from('canonical_service_taxonomy').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
-  ]);
-  if (schemaDupe.data || taxDupe.data) {
-    redirectBack(formData, 'error', `"${canonical}" already exists — use Map instead of Promote.`);
-  }
-
-  const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
-    canonical_service: canonical,
-    schema_version: 1,
-    display_name_en: mintLabel,
-    shared_attribute_groups: [],
-    category_specific_attributes: {},
-    filter_facets: [],
-    required_for_visibility: {},
-    ranking_signal_weights: {},
-  });
-  if (schemaErr) redirectBack(formData, 'error', schemaErr.message);
-
-  const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
-    canonical_service: canonical,
-    folder_id: tile.parent_id,
-    tile_id: tileId,
-    phase: 'V1.1 base',
-    marketplace_hidden: false,
-    secondary_tiles: [],
-  });
-  if (taxErr) {
-    await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
-    redirectBack(formData, 'error', taxErr.message);
+  const minted = await mintServiceLeaf(admin, canonical, mintLabel, tileId, tile.parent_id);
+  if (!minted.ok) {
+    redirectBack(formData, 'error', minted.duplicate ? `"${canonical}" already exists — use Map instead of Promote.` : minted.error);
   }
 
   await admin
@@ -952,6 +983,153 @@ export async function resolveCategoryRequest(formData: FormData) {
 
   revalidatePath(BASE);
   redirectBack(formData, 'ok', outcome === 'kept_private' ? 'Kept private.' : 'Request rejected.');
+}
+
+// ── Admin › Service requests (owner rulings 2026-11-13) ──────────────────────
+/**
+ * DECIDE — the ONE Decision dropdown on /admin/categories/requests/[id]: Add as a new service ·
+ * Move to an existing service · Keep just for this shop · Not added. The same four shipped outcomes
+ * (promoted · mapped · kept_private · rejected), with what they never did before:
+ *
+ *   · EVERY pending request with the same name (any shop) is decided together, and each shop's
+ *     notice on Services comes from its own row (ruling 6);
+ *   · on Add / Move, those shops' cards leave "<category> › Others" for the service
+ *     (`moveCardsToService`); on Keep / Not added they stay online under Others (ruling 7);
+ *   · on Add, the words they typed become reviewed search words for the new service (ruling 6);
+ *     on Move, waiting ones, exactly as `mapCategoryRequest` does;
+ *   · a note goes with every choice and is REQUIRED on Not added (`decisionProblem`).
+ *
+ * Refused requests go back to the detail page with the reason; nothing is half-written before the
+ * check passes.
+ */
+export async function decideServiceRequest(formData: FormData) {
+  const user = await requireAdmin();
+  const requestId = String(formData.get('request_id') ?? '').trim();
+  const choiceRaw = String(formData.get('choice') ?? '');
+  const here = `${ADMIN_SERVICE_REQUESTS_HREF}/${encodeURIComponent(requestId)}`;
+  const refuse: (msg: string) => never = (msg) => redirect(`${here}?error=${encodeURIComponent(msg)}`);
+  if (!requestId) refuse('Missing request.');
+  if (!isDecisionChoice(choiceRaw)) refuse('Choose what to do.');
+  const choice = choiceRaw as DecisionChoice;
+  const input = {
+    choice,
+    name: String(formData.get('name') ?? '').trim(),
+    tileId: String(formData.get('tile_id') ?? '').trim(),
+    target: String(formData.get('target') ?? '').trim(),
+    note: String(formData.get('resolution_note') ?? '').trim(),
+  };
+  const problem = decisionProblem(input);
+  if (problem) refuse(problem);
+  const admin = createAdminClient();
+
+  const { data: req, error: reqErr } = await admin
+    .from('taxonomy_category_requests')
+    .select('request_id, proposed_label, proposed_by_vendor_id, status')
+    .eq('request_id', requestId)
+    .maybeSingle();
+  if (reqErr) refuse('Couldn’t read the request. Try again.');
+  if (!req) refuse('That request is gone.');
+  if (req.status !== 'pending') refuse('That request was already decided.');
+
+  // Every pending request with the same name moves together.
+  const { data: pending, error: pendErr } = await admin
+    .from('taxonomy_category_requests')
+    .select('request_id, proposed_label, proposed_by_vendor_id')
+    .eq('status', 'pending');
+  if (pendErr) refuse('Couldn’t read the other requests with this name. Try again.');
+  const key = sameNameKey(req.proposed_label);
+  const siblings = ((pending ?? []) as DecidedRequest[]).filter((r) => sameNameKey(r.proposed_label) === key);
+  if (!siblings.some((r) => r.request_id === requestId)) siblings.push(req as DecidedRequest);
+  const ids = siblings.map((r) => r.request_id);
+
+  // Where the cards go (Add / Move), checked BEFORE anything is written.
+  let canonical: string | null = null;
+  if (choice === 'add') {
+    const { data: tile } = await admin.from('service_categories').select('id, parent_id, tier').eq('id', input.tileId).maybeSingle();
+    if (!tile || tile.tier !== 2 || !tile.parent_id) refuse('Pick a valid category.');
+    canonical = slugify(input.name, '_');
+    if (!canonical) refuse('The name needs letters or numbers.');
+    const minted = await mintServiceLeaf(admin, canonical, input.name, input.tileId, tile!.parent_id as string);
+    if (!minted.ok) {
+      refuse(minted.duplicate ? `“${input.name}” is already a service — use Move to an existing service.` : minted.error);
+    }
+  } else if (choice === 'move') {
+    const { data: target } = await admin
+      .from('canonical_service_taxonomy')
+      .select('canonical_service')
+      .eq('canonical_service', input.target)
+      .maybeSingle();
+    if (!target) refuse('Pick an existing service to move to.');
+    canonical = input.target;
+  }
+
+  const now = new Date().toISOString();
+  const { data: decided, error: updErr } = await admin
+    .from('taxonomy_category_requests')
+    .update({
+      status: STATUS_FOR_CHOICE[choice],
+      mapped_to_canonical: canonical,
+      resolution_note: input.note || null,
+      reviewed_by_admin_id: user.id,
+      reviewed_at: now,
+      updated_at: now,
+      supplier_seen_at: null,
+    })
+    .in('request_id', ids)
+    .eq('status', 'pending')
+    .select('request_id');
+  if (updErr) refuse(updErr.message);
+  // A zero-row update is not a success: somebody decided it a moment ago.
+  if (!decided || decided.length === 0) refuse('That request was already decided.');
+
+  let moved = 0;
+  if (canonical) {
+    const following = await cardsFollowingRequests(admin, siblings);
+    if (!following.ok) refuse('Decided, but the cards could not be read — they are still under Others. Try the move again from Categories.');
+    const res = await moveCardsToService(admin, following.ok ? following.cards : [], canonical);
+    if (!res.ok) refuse(`Decided, but ${res.error}`);
+    moved = res.ok ? res.moved : 0;
+    if (choice === 'add') {
+      await saveDecidedSearchWords(admin, siblings.map((r) => r.proposed_label), canonical, user.id);
+    } else {
+      // Move: the supplier's own word waits as a search word, exactly as Map has always done.
+      await recordCollectedTradePhrase(req.proposed_label, canonical);
+    }
+  }
+
+  await admin.from('admin_audit_log').insert(
+    ids.map((id) => ({
+      action: `taxonomy.request_${STATUS_FOR_CHOICE[choice]}`,
+      target_table: 'taxonomy_category_requests',
+      target_id: id,
+      after_json: {
+        status: STATUS_FOR_CHOICE[choice],
+        canonical_service: canonical,
+        resolution_note: input.note || null,
+        same_name_requests: ids.length,
+        cards_moved: moved,
+        decided_from: requestId,
+      },
+      actor_user_id: user.id,
+    })),
+  );
+
+  revalidatePath(BASE);
+  revalidatePath(ADMIN_SERVICE_REQUESTS_HREF);
+  revalidatePath('/explore');
+  revalidatePath('/vendor-dashboard/shop');
+  const shops = new Set(siblings.map((r) => r.proposed_by_vendor_id)).size;
+  const who = shops > 1 ? ` · ${shops} shops told` : '';
+  const cardsWord = moved ? ` · ${moved} card${moved === 1 ? '' : 's'} moved` : '';
+  const done =
+    choice === 'add'
+      ? `Added “${input.name}”${cardsWord}${who}`
+      : choice === 'move'
+        ? `Moved to the service${cardsWord}${who}`
+        : choice === 'keep'
+          ? `Kept for the shop${who}`
+          : `Not added · note sent${who}`;
+  redirect(`${ADMIN_SERVICE_REQUESTS_HREF}?ok=${encodeURIComponent(done)}`);
 }
 
 // ── Taxonomy Studio drag actions (JSON-returning · Phase 2 visual editor) ─────

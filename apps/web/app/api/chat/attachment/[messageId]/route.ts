@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { chatAttachmentPolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { chatAttachmentPolicy } from '@/lib/r2-client-ref';
 import { presignClientRef } from '@/lib/r2-client-ref.server';
-import { r2Delete } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { chatOwnFileScope } from '@/lib/cleanup-delete-scope';
 
 /**
  * THE ONLY WAY TO READ A FILE SHARED IN A CONVERSATION.
@@ -102,9 +103,10 @@ export async function GET(
  * only the sender, only a message that carries a file, only while they can still read the chat. Anything else is
  * answered 404, exactly like a message that does not exist.
  *
- * The R2 object goes after the row, best-effort (`r2Delete`'s contract): the row is what GET re-proves, so a lingering
- * object is unreachable through the app. Only a ref under THIS chat's own folder is ever deleted (`parseClientRef`
- * with `chatAttachmentPolicy`) — a legacy URL or a ref anywhere else is left alone.
+ * The R2 object goes after the row, best-effort: the row is what GET re-proves, so a lingering object is unreachable
+ * through the app. It goes through THE pinned choke point (`cleanupDelete`, `every-cleanup-delete-is-pinned.test.ts`),
+ * held to the caller's OWN folder in this chat (`chatOwnFileScope` — the send guard files each upload under
+ * `chat/<thread>/<sender>/`) — a legacy URL, the other side's file or a ref anywhere else is refused, never deleted.
  */
 export async function DELETE(
   _req: Request,
@@ -125,13 +127,11 @@ export async function DELETE(
   }
   const row = (Array.isArray(data) ? data[0] : data) as { thread_id: string; stored_ref: string | null } | undefined;
   if (row?.stored_ref) {
-    const parsed = parseClientRef(row.stored_ref, chatAttachmentPolicy(row.thread_id));
-    if (parsed) {
-      try {
-        await r2Delete({ bucket: parsed.bucket, key: parsed.key });
-      } catch (err) {
-        console.error('[chat-attachment] r2 delete failed (row already gone)', { messageId, error: (err as Error).message });
-      }
+    try {
+      const done = await cleanupDelete(row.stored_ref, chatOwnFileScope(row.thread_id, user.id));
+      if (done === 'refused') console.error('[chat-attachment] r2 delete refused — not the caller’s own folder (row already gone)', { messageId });
+    } catch (err) {
+      console.error('[chat-attachment] r2 delete failed (row already gone)', { messageId, error: (err as Error).message });
     }
   }
   return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });

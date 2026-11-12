@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7756
+# facts: 7757
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5588
 #   policy    1135
 #   view      10
-#   func      388
+#   func      389
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7642,6 +7642,7 @@ func	public.release_deleted_guest_song_requests(p_event_id uuid, p_guest_ids uui
 func	public.release_full_schedule(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.remove_my_chat_file(p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.request_part_finalization(p_event_id uuid, p_part_id text, p_vendor_id uuid, p_snapshot jsonb)	secdef=yes exec=authenticated search_path=public
 func	public.request_part_reopen(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public

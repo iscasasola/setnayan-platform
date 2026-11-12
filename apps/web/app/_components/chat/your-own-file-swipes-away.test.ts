@@ -29,6 +29,8 @@ test('the route lets the DATABASE decide, then drops only an object under this c
   assert.ok(del.length > 0, 'no DELETE on the file route');
   assert.match(del, /supabase\.rpc\('remove_my_chat_file', \{ p_message_id: messageId \}\)/);
   assert.doesNotMatch(del, /createAdminClient|from\('chat_messages'\)\.delete/, 'the route deletes past the database’s own check');
-  assert.ok(del.indexOf("rpc('remove_my_chat_file'") < del.indexOf('r2Delete('), 'the object is dropped before the row');
-  assert.match(del, /parseClientRef\(row\.stored_ref, chatAttachmentPolicy\(row\.thread_id\)\)/);
+  assert.ok(del.indexOf("rpc('remove_my_chat_file'") < del.indexOf('cleanupDelete('), 'the object is dropped before the row');
+  // Through the pinned choke point, held to the caller's OWN folder in this chat.
+  assert.match(del, /cleanupDelete\(row\.stored_ref, chatOwnFileScope\(row\.thread_id, user\.id\)\)/);
+  assert.doesNotMatch(del, /\br2Delete\b/);
 });

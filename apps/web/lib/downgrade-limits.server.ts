@@ -55,7 +55,9 @@ export async function readDowngradeFacts(
       ),
     fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
     fetchExtraAgentSeats(supabase, vendorProfileId).catch(() => 0),
-    supabase
+    // The badge date sits beside the shop's tax identity on the TABLE, which a browser session may not read
+    // (migration 20271217955839) — the service role reads it, scoped by the shop id the caller resolved from the session.
+    admin
       .from('vendor_profiles')
       .select('verification_state,next_renewal_due_at,outer_radius_km')
       .eq('vendor_profile_id', vendorProfileId)

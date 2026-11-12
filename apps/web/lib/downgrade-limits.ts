@@ -161,7 +161,7 @@ export function downgradeFit(
 
   // ── Team seats — kept over a lower plan; the team just cannot grow ──
   if (facts.seats === null) {
-    rows.push({ key: 'teamSeats', title: 'Team seats', line: 'Couldn’t read your team just now', state: 'unread', fix: null });
+    rows.push({ key: 'teamSeats', title: 'Team seats', line: 'Couldn’t read your helpers just now', state: 'unread', fix: null });
   } else {
     const base = limitOf(plan, 'teamSeats', opts.paywallOn);
     const cap = base + (canBuyExtraSeats(plan) ? Math.max(0, facts.extraSeats) : 0);
@@ -171,7 +171,7 @@ export function downgradeFit(
         title: 'Team seats',
         line: `${plural(facts.seats.counted, 'person', 'people')} with you · ${name} holds ${cap <= 0 ? 'no team seats' : plural(cap, 'seat', 'seats')}. Everyone stays; you can’t add more.`,
         state: 'over',
-        fix: { label: 'Open your team', href: FIX_HREF.teamSeats },
+        fix: { label: 'Open Helpers', href: FIX_HREF.teamSeats },
       });
     }
   }

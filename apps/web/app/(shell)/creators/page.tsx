@@ -26,13 +26,13 @@
  * earnings, cash of any kind.
  *
  * Fully static — no DB reads, no prices (storytellers are free, forever), so
- * no force-dynamic. The persistent glass nav + footer are global site-chrome
- * (SiteChrome — '/creators' is registered in its NAV_ROUTES) — this page
- * renders neither.
+ * no force-dynamic. Since 2026-11-12 it lives in app/(shell)/ and wears
+ * the shared front-door bar + rail (owner: "these are on old shells"); its
+ * sections stay in app/creators/_components/. This page renders no chrome.
  */
 
 import type { Metadata } from 'next';
-import { CreatorStoryHero } from './_components/creator-story-hero';
+import { CreatorStoryHero } from '@/app/creators/_components/creator-story-hero';
 import {
   CreatorStoryThesis,
   CreatorStoryWedge,
@@ -42,8 +42,8 @@ import {
   CreatorStoryOneBreath,
   CreatorStoryCTA,
   CreatorStoryStyles,
-} from './_components/creator-story-sections';
-import { RevealOnView } from './_components/creators-motion';
+} from '@/app/creators/_components/creator-story-sections';
+import { RevealOnView } from '@/app/creators/_components/creators-motion';
 
 const TITLE = 'Setnayan for Storytellers · Publish your events as bookable Chapters — free';
 const DESCRIPTION =

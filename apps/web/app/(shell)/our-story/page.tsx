@@ -7,7 +7,7 @@
  * LIVING memories. The page body lives in OurStoryManifesto so the homepage can
  * route into it (OurStoryTeaser) without duplicating copy.
  *
- * Server component, statically generated (no per-request data). The nav "Our
+ * Server component, rendered per request inside the shared shell. The nav "Our
  * story" link now points here (was /about — the company/brand page; this is the
  * product-philosophy page).
  */
@@ -16,11 +16,11 @@ import Link from 'next/link';
 import { OurStoryManifesto } from '@/app/_components/marketing/OurStory';
 import { fetchAlaalaOrbClips } from '@/lib/alaala-orb';
 
-// ISR (was force-static): the Alaala orb is now fed by consented + couple-
-// approved Papic clips resolved at render. Hourly revalidate keeps the page
-// near-static while new showcase clips appear without a redeploy. The orb
+// The Alaala orb is fed by consented + couple-approved Papic clips resolved at
+// render, so new showcase clips appear without a redeploy. The orb
 // graceful-degrades to its CSS-gradient cold-start when the feed is empty.
-export const revalidate = 3600;
+// 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
+// the shell layout sets force-dynamic for the group, so no route directive here.
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 

@@ -12,18 +12,18 @@
  *
  * Server component (statically rendered). The editor itself is a client-only
  * component (paper.js/opentype.js load after a dynamic import), so this page's
- * server render never touches them. The persistent SiteChrome nav renders
- * because '/monogram' is in NAV_ROUTES; per the locked 6-page IA it is NOT a
+ * server render never touches them. Since 2026-11-12 it lives in app/(shell)/ and wears
+ * the shared front-door bar + rail; per the locked 6-page IA it is NOT a
  * top-nav link — it surfaces as a contextual CTA + footer link.
  */
 
 import Link from 'next/link';
-import { PublicMonogramStudio } from './public-monogram-studio';
-import { MonogramHeadline, StepsReveal, ClosingCta } from './_monogram-motion';
+import { PublicMonogramStudio } from '@/app/monogram/public-monogram-studio';
+import { MonogramHeadline, StepsReveal, ClosingCta } from '@/app/monogram/_monogram-motion';
 import { registerGatesEnabled } from '@/lib/register-gates';
 
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+// 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
+// the shell layout sets force-dynamic for the group, so no route directive here.
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 

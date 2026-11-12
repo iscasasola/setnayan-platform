@@ -532,12 +532,16 @@ test('the marketing top nav never appears inside the app', () => {
     That premise was falsified on 2026-08-15 when /help joined the shared shell.
     Repointed to `/download`, which is a pure marketing endpoint with no product
     surface behind it — the property that actually makes a route a safe control.
+    ⚠ REPOINTED AGAIN 2026-11-12: /download joined the shared shell with /blog
+    (owner: "these are on old shells"). /waitlist is the next pure marketing
+    endpoint; if it converts too, repoint here rather than loosen the check.
   */
-  assert.ok(
-    routes.includes('/download'),
-    `The marketing route parser did not find /download, a stable member — it ` +
-      `is broken and every assertion below would pass vacuously. Found ${routes.length}: ` +
-      routes.slice(0, 6).join(', '),
+  // 2026-11-12: NAV_ROUTES is EMPTY on purpose — its last seven members moved into app/(shell)/ (owner: "these are on old shells") — so no real member can be the positive control. The parser is probed instead: fed a one-member declaration of the same shape, it must return that member.
+  assert.match(chrome, /const NAV_ROUTES = new Set<string>\(\[/, 'NAV_ROUTES is gone from site-chrome.tsx');
+  assert.deepEqual(
+    [..."const S = new Set<string>([\n  '/probe',\n]);".matchAll(/^\s*'(\/[^']*)',/gm)].map((m) => m[1]),
+    ['/probe'],
+    'the marketing route parser cannot read a one-member probe — every assertion below would pass vacuously',
   );
   const crossed = routes.filter((r) =>
     APP_TREES.some((tree) => r === `/${tree.slice(0, -1)}` || r.startsWith(`/${tree}`)),

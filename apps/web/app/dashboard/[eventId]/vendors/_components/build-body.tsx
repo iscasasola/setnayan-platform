@@ -2,6 +2,8 @@
 
 /**
  * BuildBody — THE BUILD BODY of the couple's Suppliers page, drawn to the APPROVED FINAL frames (owner 2026-10-30,
+ * cleaned up 2026-11-12 — B1 money in three lines · B2 filled lines first · B3 Compare is one line; owner "Yes, build it"
+ * on `controller-2026-11-12/suppliers-one-prototype-2026-11-12.html`),
  * "that is the last rule for the suppliers. we are done and good"; `carry-2026-10-29/suppliers-final-proto/`, frames
  * 12-build · 12b-build-with-pick · 13-build-compare · 14-build-book). Owner 2026-10-31, live iPhone: *"I also previously
  * saw you design the Build with a better interpretation where they can create and load build and compare them safely
@@ -10,13 +12,14 @@
  *   [This build ▾]  [＋ New build]                         ⓘ   load any saved build · snapshot this one · the figures
  *   ₱290,000 of ₱600,000 budget · ₱310,000 buffer               the budget line
  *   ████████████▓▓▓▓░░░░░░░░░                                   the meter: booked · if you book these
- *   ● booked ₱290,000   ● if you book these ₱0
+ *   ● booked ₱290,000                     ● if booked ₱0         the legend at the meter's two ends (B1)
  *   ✓ N of M priced picks are free on ‹date›   [Help me choose]
  *   ─────────────────────────────────────────
  *   VENUE · BOOKED      Hacienda Isabel              ₱180,000    one line per category: the booked supplier,
- *   CATERING            [Pick one ▾]                        —    ONE dropdown of the couple's priced picks (Yours),
- *   FLOWERS             Nobody shortlisted…  [Find in Flowers]    or the door back to Find
- *   Compare builds ⓘ    [Compare N builds]                       → the Compare sheet (2 side by side; "hide what's
+ *   CATERING            [Pick one ▾]                        —    ONE dropdown of the couple's priced picks (Yours)
+ *   Nobody yet · 3 categories                               ›    the rest fold here (B2), each with its door back
+ *     FLOWERS           Nobody shortlisted…  [Find in Flowers]      to Find
+ *   [⫴ Compare N builds]                                         ONE line on a phone (B3) → the Compare sheet (2 side by side; "hide what's
  *                                                                  the same"; green = lowest total) — from 1024 the
  *                                                                  same table is the "All builds" pane on the right
  *   [Save this build] [Book this build]                          the bar at the thumb
@@ -40,7 +43,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Check, Columns2, Pencil, Plus, Save, Search, X } from 'lucide-react';
+import { CalendarDays, Check, ChevronRight, Columns2, Pencil, Plus, Save, Search, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { Explain } from '@/app/_components/explain';
@@ -118,6 +121,7 @@ const CARDS_CSS =
   // `.slcat .ab` rule, for the Build body and the bar / sheets it portals out.
   ':is([data-build-body],[data-build-bar],[data-build-sheet],[data-book-sheet]) .ab{height:44px;min-height:44px}' +
   '[data-build-body] [data-build-pick]{min-height:44px}' +
+  '[data-build-nobody] summary::-webkit-details-marker{display:none}[data-build-nobody] details[open] .bb-chev{transform:rotate(90deg)}' +
   '[data-build-compare]{scrollbar-width:none}[data-build-compare]::-webkit-scrollbar{display:none}';
 
 type Toast = { text: string; tone: 'ok' | 'bad'; undo?: () => void };
@@ -342,6 +346,20 @@ export function BuildBody({
 
   const { money, fit } = view;
   const total = money.bookedPhp + money.toBookPhp;
+  // B2 (owner 2026-11-12): a line with nobody to choose — only its "Find in X" door — folds under "Nobody yet · N".
+  const isNobody = (l: BuildLine) => l.booked == null && l.pick == null && l.candidates.length === 0;
+  const filledLines = view.lines.filter((l) => !isNobody(l));
+  const emptyLines = view.lines.filter(isNobody);
+  const lineRow = (line: BuildLine) => (
+    <BuildLineRow
+      key={line.tile}
+      line={line}
+      busy={pending}
+      onPick={(key) => pick(line, key)}
+      onFind={() => findIn(line.tile)}
+      priceHref={(vendorId) => `${base}/${vendorId}/workspace?tab=payments`}
+    />
+  );
   // ✓ only when every priced pick is READ free — a calendar not set or not checked is not a yes (P5, the prototype's rule).
   const allFree = fit.priced > 0 && fit.free === fit.priced;
   const startRename = (card: BuildCard) => {
@@ -408,14 +426,16 @@ export function BuildBody({
             <BudgetWords view={view} />
           </p>
           <Meter view={view} />
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-0.5 text-[12.5px] text-ink/65" data-build-legend="">
+          {/* B1 (owner 2026-11-12, "Yes, build it"): the legend sits at the meter's two ends — booked under the green
+              start, if booked under the accent end — so the money block is three lines, not five. */}
+          <p className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3.5 gap-y-0.5 text-[12.5px] text-ink/65" data-build-legend="">
             <span className="inline-flex items-center gap-1.5">
               <i aria-hidden className="h-2 w-2 rounded-full bg-success-600" />
               booked <Count value={money.bookedPhp} format="peso" id="sup-build-booked" />
             </span>
             <span className="inline-flex items-center gap-1.5">
               <i aria-hidden className="h-2 w-2 rounded-full bg-sn-accent" />
-              if you book these <Count value={money.toBookPhp} format="peso" id="sup-build-tobook" />
+              if booked <Count value={money.toBookPhp} format="peso" id="sup-build-tobook" />
             </span>
           </p>
         </div>
@@ -423,18 +443,23 @@ export function BuildBody({
         {/* ── the fit line ── */}
         <FitLine view={view} allFree={allFree} />
 
-        {/* ── one line per category ── */}
+        {/* ── one line per category: the filled ones first, the categories with nobody folded under one line (B2) ── */}
         <ul className="-mx-4 divide-y divide-ink/10 border-t border-ink/10 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0" data-build-lines="">
-          {view.lines.map((line) => (
-            <BuildLineRow
-              key={line.tile}
-              line={line}
-              busy={pending}
-              onPick={(key) => pick(line, key)}
-              onFind={() => findIn(line.tile)}
-              priceHref={(vendorId) => `${base}/${vendorId}/workspace?tab=payments`}
-            />
-          ))}
+          {filledLines.map(lineRow)}
+          {emptyLines.length > 0 ? (
+            <li data-build-nobody={formatCount(emptyLines.length)}>
+              {/* A fresh build (nobody anywhere) opens it, so the page still draws every category. */}
+              <details open={filledLines.length === 0 || undefined}>
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 text-[13px] text-ink/65">
+                  <span>
+                    Nobody yet · {formatCount(emptyLines.length)} {emptyLines.length === 1 ? 'category' : 'categories'}
+                  </span>
+                  <ChevronRight aria-hidden strokeWidth={2} className="bb-chev h-4 w-4 text-ink/45 transition-transform motion-reduce:transition-none" />
+                </summary>
+                <ul className="divide-y divide-ink/10 border-t border-ink/10">{emptyLines.map(lineRow)}</ul>
+              </details>
+            </li>
+          ) : null}
         </ul>
         {/* Sai's watch line under the lines, so the lines start right under the fit line (frame 12). */}
         {guardSlot ? <div className="mt-2.5">{guardSlot}</div> : null}
@@ -446,46 +471,51 @@ export function BuildBody({
       </section>
 
       {/* ── COMPARE BUILDS — a sheet on a phone, the "All builds" pane from 1024 ─────────────── */}
-      <section id="svc-compare" aria-labelledby="svc-compare-h" data-money="" className="mt-6 border-t border-ink/10 pt-4 lg:mt-0 lg:min-w-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-        <div className="flex min-w-0 items-center gap-1">
-          <h2 id="svc-compare-h" className="text-[17px] font-semibold leading-tight text-ink">
-            {wide ? 'All builds' : 'Compare builds'}
+      {/* B3 (owner 2026-11-12): on a phone the section is ONE line that opens the same Compare sheet (frame 13);
+          from 1024 the All builds pane is unchanged. */}
+      <section id="svc-compare" aria-labelledby="svc-compare-h" data-money="" className="mt-4 border-t border-ink/10 pt-3 lg:mt-0 lg:min-w-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+        {wide ? (
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 id="svc-compare-h" className="text-[17px] font-semibold leading-tight text-ink">
+              All builds
+            </h2>
+            <Explain title="Compare builds" data="build-compare">
+              <span>
+                Save a few full sets and see them side by side — totals, what’s left of your budget, and the dates every
+                supplier in that set is free on. “Use this build” swaps your picks; booked categories never change.
+              </span>
+            </Explain>
+            {view.buildsMeasured && saved.length > 0 ? (
+              <span className="ml-auto text-[13px] text-ink/55">
+                <Count value={view.cards.length} id="sup-build-n" /> builds · the dates each is free on
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <h2 id="svc-compare-h" className="sr-only">
+            Compare builds
           </h2>
-          <Explain title="Compare builds" data="build-compare">
-            <span>
-              Save a few full sets and see them side by side — totals, what’s left of your budget, and the dates every
-              supplier in that set is free on. “Use this build” swaps your picks; booked categories never change.
-            </span>
-          </Explain>
-          {wide && view.buildsMeasured && saved.length > 0 ? (
-            <span className="ml-auto text-[13px] text-ink/55">
-              <Count value={view.cards.length} id="sup-build-n" /> builds · the dates each is free on
-            </span>
-          ) : null}
-        </div>
+        )}
         {!view.buildsMeasured ? (
           <p className="mt-1 text-sm text-ink/70" role="status">
             <strong className="text-ink">We couldn’t load your saved builds.</strong> This does not mean you have none — reload in a
             moment. Nothing you saved has been lost.
           </p>
         ) : saved.length === 0 ? (
-          <p className="mt-0.5 text-sm text-ink/60">Save this build to compare it with another.</p>
+          <p className="text-sm text-ink/60 lg:mt-0.5">Save this build to compare it with another.</p>
         ) : wide ? (
           <div className="mt-3">{table()}</div>
         ) : (
-          <>
-            <p className="mt-0.5 text-sm text-ink/60">Side by side, with the dates each one is free on.</p>
-            <div className="mt-2.5">
-              <ActionButton
-                tone="neutral"
-                icon={Columns2}
-                label={`Compare ${formatCount(view.cards.length)} builds`}
-                onClick={() => setComparing(true)}
-                aria-haspopup="dialog"
-                data-testid="build-compare-open"
-              />
-            </div>
-          </>
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={Columns2}
+            label={`Compare ${formatCount(view.cards.length)} builds`}
+            onClick={() => setComparing(true)}
+            aria-haspopup="dialog"
+            data-testid="build-compare-open"
+            className="!w-full !justify-start"
+          />
         )}
       </section>
 
@@ -752,7 +782,7 @@ function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
   const { fit, dateLabel } = view;
   const hasDay = dateLabel != null;
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-3 text-[13px] text-ink/75" data-build-fit="">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-1.5 pt-1 text-[13px] text-ink/75" data-build-fit="">
       {hasDay && fit.priced > 0 ? (
         <span className={allFree ? 'text-success-700' : 'text-mulberry-700'} aria-hidden>
           {allFree ? '✓' : '!'}
@@ -786,6 +816,7 @@ function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
       <span className="ml-auto">
         <ActionButton
           tone="warn"
+          quiet
           icon={CalendarDays}
           label={hasDay ? 'Help me choose' : 'Set the date'}
           aria-haspopup="dialog"

@@ -91,7 +91,13 @@ test('🔑 a supplier whose name is withheld is not named by their own card', ()
   assert.equal(out.a?.name, '', 'the title — which carries the business name — crossed to the browser');
   // 🎞 …and not by their photos either (12 Nov slideshow): the showcase goes with the name. The cover stays, as before.
   assert.deepEqual(out.a?.photos, [], 'a withheld supplier\'s showcase photos crossed to the browser');
-  assert.deepEqual({ ...out.a, name: CARD_A.name, photos: undefined }, { ...CARD_A, photos: undefined }, 'everything else on the card is kept');
+  // 🃏 …and not by the grown card's address either (2026-11-13): `/{slug}?service=` names the shop.
+  assert.equal(out.a?.detailsHref, null, "a withheld supplier's shop address crossed to the browser");
+  assert.deepEqual(
+    { ...out.a, name: CARD_A.name, photos: undefined, detailsHref: undefined },
+    { ...CARD_A, photos: undefined, detailsHref: undefined },
+    'everything else on the card is kept',
+  );
   assert.equal(out.b?.name, 'Open Kitchen · Buffet', 'a supplier with a revealed name lost their title');
   assert.equal(cards.a.name, CARD_A.name, 'the input was mutated');
 });
@@ -103,7 +109,7 @@ test('🔑 the action withholds the name on the SERVER, for exactly the anonymiz
   );
   // Find v4 (2026-10-29): EVERY card crosses too — each one's title withheld for the same suppliers, on the server.
   assert.match(ACTION, /const withheld = new Set\(search\.results\.filter\(\(r\) => r\.nameAnonymized\)\.map\(\(r\) => r\.vendorProfileId\)\);/);
-  assert.match(ACTION, /allCards = allCards\.map\(\(c\) => \(c\.card && withheld\.has\(c\.profileId\) \? \{ \.\.\.c, card: \{ \.\.\.c\.card, name: '' \} \} : c\)\);/);
+  assert.match(ACTION, /allCards = allCards\.map\(\(c\) => \(c\.card && withheld\.has\(c\.profileId\) \? \{ \.\.\.c, card: \{ \.\.\.c\.card, name: '', detailsHref: null \} \} : c\)\);/);
   // …and the list fills the empty name with the category.
   assert.match(CARD, /\{svc\?\.name \|\| label\}/);
 });

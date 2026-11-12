@@ -1536,7 +1536,7 @@ function VendorCard({
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
         : sheetDoor && tile
-          ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const }
+          ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
       <span className="img">
@@ -3465,7 +3465,15 @@ export function ShortlistCategories({
   );
   const sheetDoor = useMemo<SheetDoor>(
     () => ({
-      open: setSheetTarget,
+      // 🃏 SERVICE CARD GROWN (owner 2026-11-13: "We have a full screen of a supplier card that expands all the
+      // information of that card"). A card with a service opens THAT shipped card — the shop page's `?service=`
+      // address raises `ServiceDetailsSheet` with the shop page's own props; nothing is redrawn here. The Find sheet
+      // stays for a card with no address (switched off, no slug, a withheld supplier, a self-added one).
+      open: (target) => {
+        const href = target.nameWithheld ? null : (target.card?.detailsHref ?? null);
+        if (href) router.push(href);
+        else setSheetTarget(target);
+      },
       onPage: (vendorProfileId, exceptTile) => {
         const out: Record<string, string> = {};
         if (!vendorProfileId) return out;
@@ -3488,7 +3496,7 @@ export function ShortlistCategories({
         return out;
       },
     }),
-    [folders, standings, buildPickVendorIds],
+    [folders, standings, buildPickVendorIds, router],
   );
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 

@@ -194,8 +194,9 @@ export async function runVerifiedBadgeDeadlineSweep(
         .filter((r) => r.expires_at !== null || r.expired_at !== null)
         .map((r) => r.vendor_profile_id),
     );
-    const reasonFor = (id: string): DeadlineReason =>
-      approved.has(id) ? 'permit' : onWord.has(id) ? 'papers' : 'renewal';
+    // 📄 An approved shop's day is the yearly 30 March renewal now, not its permit's printed date (owner 12 Nov 2026,
+    // `deadlineAtApproval`) — so it is told "up for renewal", which asks for this year's Mayor's Permit too.
+    const reasonFor = (id: string): DeadlineReason => (onWord.has(id) && !approved.has(id) ? 'papers' : 'renewal');
 
     const candidates: SweepCandidate[] = profiles.map((p) => ({
       vendorProfileId: p.vendor_profile_id,

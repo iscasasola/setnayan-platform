@@ -174,6 +174,7 @@ import {
 import { pickedPageBodies } from './_pages/switch';
 import type { PickedPageContext } from './_pages/context';
 import { FilesPage } from './_pages/files';
+import { EventFilesSection } from './_pages/event-files';
 import { ReservationLine } from './_pages/payment';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -2148,6 +2149,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       chatFilesMeasured={chatFilesMeasured}
       threadId={threadId}
       isBooked={isBooked}
+      board={<EventFilesSection ctx={pickedCtx} mode="files" />}
     />
   );
 

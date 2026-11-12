@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { useTabReselect } from '@/app/_components/nav/use-chrome-away';
 import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
 import type { WaitlistDateGroup } from '@/lib/vendor-waitlist';
@@ -253,13 +254,24 @@ export function CustomersCalendar({
   const goToMonth = useCallback(
     (m: CalendarMonth, day?: CalendarDay) => {
       const next = ym(m);
+      /*
+        🧊 THE ADDRESS IS WRITTEN WITH THE ROUTER'S OWN HISTORY STATE — NEVER `null` (2026-11-12, "I cannot leave the
+        page"). Next patches `history.replaceState`: a state without its `__NA` mark is read as an outside URL change and
+        dispatched as a router RESTORE, and a RESTORE DISCARDS whatever router action is still pending — here the month
+        fetch (a server action) the previous ‹ › started. A discarded action's promise is never settled, so the router
+        sat on it forever: two quick taps of ‹ › and no tab, link or Back could navigate again, even after returning to
+        the first month. Passing `window.history.state` (it carries `__NA`) only rewrites the address bar, the house
+        pattern (`picked-shell.tsx`, `toast-from-params.tsx`). Reproduced on next@15.5.28 + react@19.2.6 before the fix.
+        🔒 ../a-month-tap-never-freezes-the-page.test.ts
+      */
       const syncUrl = () => {
-        if (!oneScreen) return window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
+        if (!oneScreen)
+          return window.history.replaceState(window.history.state, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
         // The one screen keeps everything else the address says (a search, a Show & sort choice) and names the month.
         const u = new URL(window.location.href);
         u.searchParams.set('m', next);
         u.searchParams.delete('seg');
-        window.history.replaceState(null, '', `${u.pathname}${u.search}`);
+        window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}`);
       };
       setMonth(next);
       // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
@@ -278,6 +290,23 @@ export function CustomersCalendar({
       });
     },
     [monthInputs, fetchMonth, todayIso, onClients, oneScreen],
+  );
+
+  /*
+    🔁 THE CLIENTS TAB, TAPPED AGAIN, PUTS THE MONTH BACK (2026-11-12, owner: "Pressing the clients should return to the
+    original state"). The tab's own navigation still runs (it clears the address); the month is client state that
+    navigation alone never resets, so it goes back here: this month, no day picked, every schedule.
+  */
+  const backToStart = useCallback(() => {
+    setScope(ALL_SCHEDULES);
+    goToMonth({ y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) });
+    setPicked(null);
+  }, [goToMonth, todayIso]);
+  useTabReselect(
+    'customers',
+    useCallback(() => {
+      if (onClients && oneScreen) backToStart();
+    }, [onClients, oneScreen, backToStart]),
   );
 
   // The one screen hears its picked day, and lets it go when a tile asks to show a whole list.
@@ -519,8 +548,10 @@ export function CustomersCalendar({
       {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />}
       {/* 📅 THE CHIP (prototype `.chipv`): one 44px pill under the month's legend saying which schedules it marks —
           "All schedules", or "Showing · Video team schedule" — and opening the SAME choices as Show & sort's row.
-          A shop with one schedule has nothing to pick, so no chip. */}
-      {schedulesOffered(options) ? (
+          A shop with one schedule has nothing to pick, so no chip. The ONE Clients screen draws no chip (owner
+          2026-11-12: "all schedules under the calendar should be inside the show and sort and remove it from the page
+          under the calendar") — there the pick lives only in Show & sort's Schedule row. */}
+      {schedulesOffered(options) && !oneScreen ? (
         <div className="mt-2 flex min-h-11 items-center" data-dates-schedule-chip={scope === ALL_SCHEDULES ? 'all' : 'on'}>
           <PickMenu
             label="Schedule"

@@ -162,3 +162,26 @@ test('6 · only the hosts and the coordinator show a moment to guests', () => {
   const picks = read('schedule', 'activity-picks-actions.ts');
   assert.match(picks, /is_public: showToGuests,/, 'placed activity picks are shown to guests by anyone');
 });
+
+/*
+ * 7 · THE 2026-11-12 CLEANUP (owner "Yes, build it", concept A — K1 · K2 · K3). Overturns the PR4 drawing's "Booked"
+ * heading and its plain "Booked" pill; the Next: line, one row open at a time (test 4) and the tiles stay.
+ */
+test('7 · K1 no "Booked" heading · K2 a pill only when it says more · K3 "Used in" is one line', async () => {
+  const body = read('vendors', '_components', 'booked-body.tsx');
+  const row = read('vendors', '_components', 'booked-row.tsx');
+  const booked = body.slice(body.indexOf('data-booked-section="booked"'));
+  assert.doesNotMatch(booked.slice(0, 400), /<h2\b/, 'K1: the Booked section draws its heading again');
+  assert.match(body, /<section data-booked-section="booked" aria-label="Booked">/, 'K1: the section lost its name');
+  assert.match(body, /labelAs="h2" labelId="bk-waiting-h"/, 'K1: Waiting for their yes lost its heading');
+  // K2 — the rule, executed; and every pill the rows draw passes through it.
+  const { pillSaysMore } = await import('./booked-rows');
+  assert.equal(pillSaysMore({ text: 'Booked', tone: 'ok' }), false);
+  assert.equal(pillSaysMore({ text: 'Payment not received', tone: 'warn' }), true);
+  assert.equal((row.match(/pillSaysMore\(/g) ?? []).length, 2, 'K2: a row draws its pill without the rule');
+  assert.match(row, /className=\{`\$\{PILL\} bg-sn-accent\/10 text-sn-accent`\}>\{WAITING_PILL\}/, 'K2: the waiting pill is gone');
+  // K3 — one line, no chips.
+  const feeds = row.slice(row.indexOf('data-booked-feeds=""'), row.indexOf('data-booked-feeds=""') + 200);
+  assert.match(feeds, /Used in: <span className="text-ink\/70">\{row\.feeds\.join\(' · '\)\}<\/span>/, 'K3: the feeds are not one line');
+  assert.doesNotMatch(feeds, /row\.feeds\.map/, 'K3: the chips came back');
+});

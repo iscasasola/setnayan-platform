@@ -25,6 +25,7 @@ import { CHAT_DOCUMENT_MAX_MB, CHAT_FILE_EXPIRY_DAYS, CHAT_PHOTO_MAX_MB, CHAT_VI
 import { formatCount } from '@/lib/format-number';
 import type { PickedPageProps } from './context';
 // ⚡ On-demand code (`./lazy`): the shipped `FilesFinder`, loaded with this page rather than the route's first load.
+import type { ReactNode } from 'react';
 import { FilesFinder } from './lazy';
 
 export type FilesPageProps = PickedPageProps & {
@@ -44,14 +45,19 @@ export type FilesPageProps = PickedPageProps & {
   chatFilesMeasured: boolean;
   threadId: string | null;
   isBooked: boolean;
+  /** 📁 Piece 3b: the board (`EventFilesSection`), drawn by the client page — this page reads nothing itself. */
+  board?: ReactNode;
 };
 
 export function FilesPage(props: FilesPageProps) {
-  const { files, chatFilesMeasured, threadId, isBooked } = props;
+  const { files, chatFilesMeasured, threadId, isBooked, board = null } = props;
   const hasAny = files.length > 0;
 
   return (
     <div className="space-y-4 pb-24" data-client-files="">
+      {/* 📁 Piece 3b: This booking · From the chat · Links · one group per QUOTED service, with the two doors. */}
+      {board}
+      {board ? <h3 className="pt-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/60">Shared in the chat · contracts · handover</h3> : null}
       {!chatFilesMeasured ? (
         <p role="status" className="text-[13px] text-[rgb(var(--color-danger))]" data-files-chat-unread="">
           Files shared in your conversation could not be loaded just now, so this list may be

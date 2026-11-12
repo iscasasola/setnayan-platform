@@ -406,4 +406,41 @@ REVOKE ALL ON FUNCTION public.vendor_event_fee_gate_stage(UUID, BOOLEAN) FROM au
 COMMENT ON FUNCTION public.vendor_event_fee_gate_stage(UUID, BOOLEAN) IS
   'THE BOOKING FEE UNLOCKS THE EVENT, in SQL — `resolveEventAccessStage` from apps/web/lib/event-access-stage.ts. Returns ''unlocked'' | ''booked_fee_due'' | ''quoting''. Switched by platform_settings.fee_unlocks_event_enforced: NULL/FALSE returns ''unlocked'' always. Picks the deciding booking_fee_charges row (unsettled beating settled; cancelled_unbilled, a voided top-up and — since 20271340632149, owner 2026-11-12 — a HELD top-up ignored). A booked shop with no charge is ''booked_fee_due''. FAILS OPEN on every read error and on no resolvable shop. INTERNAL: no role holds EXECUTE.';
 
+-- ── 5 · A moved event moves its held top-up (owner 2026-11-12, follow-up) ──────────────────────────────────────────
+-- The top-up is due on THE event day, so when the couple moves the day, every still-owing top-up of that event follows
+-- it. Only pending/failed `amendment_delta` rows move — a settled, voided or primary charge is never touched. A cleared
+-- date leaves the stamped day as it is (nothing is invented).
+CREATE OR REPLACE FUNCTION public.booking_fee_top_up_follows_the_event()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.event_date IS NULL OR NEW.event_date IS NOT DISTINCT FROM OLD.event_date THEN
+    RETURN NEW;
+  END IF;
+  BEGIN
+    UPDATE public.booking_fee_charges
+       SET expires_at = public.booking_fee_top_up_due_at(NEW.event_id), updated_at = NOW()
+     WHERE event_id = NEW.event_id
+       AND kind = 'amendment_delta'
+       AND status IN ('pending', 'failed');
+  EXCEPTION WHEN OTHERS THEN
+    -- A fee fault must never refuse the couple moving their own day.
+    RAISE WARNING 'booking_fee_top_up_follows_the_event: %', SQLERRM;
+  END;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.booking_fee_top_up_follows_the_event() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS booking_fee_top_up_follows_the_event ON public.events;
+CREATE TRIGGER booking_fee_top_up_follows_the_event
+  AFTER UPDATE OF event_date ON public.events
+  FOR EACH ROW EXECUTE FUNCTION public.booking_fee_top_up_follows_the_event();
+
+COMMENT ON FUNCTION public.booking_fee_top_up_follows_the_event() IS
+  'Owner 2026-11-12 (BOOKING-FEE TOP-UP): when events.event_date moves, every still-owing amendment_delta of that event is re-stamped to the new event day (booking_fee_top_up_due_at). Migration 20271340632149.';
+
 COMMIT;

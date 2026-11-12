@@ -276,3 +276,23 @@ test('rule 6 · a booked quote that later DROPS changes no paid amount and opens
   );
   assert.equal(refunds.rows.length, 0, 'a drop minted a money document');
 });
+
+/* ── A moved event moves its held top-up ────────────────────────────────────────────────────────────────────────── */
+
+test('a moved event day moves its still-owing top-up with it — a settled one stays put', async () => {
+  // SABOTAGE: drop the booking_fee_top_up_follows_the_event trigger → RED.
+  const { eventId, evId, topUp } = await paidThenRise(await manilaDay(30));
+  assert.equal(topUp?.due, await manilaDay(30));
+  const moved = await manilaDay(45);
+  await db.query(`UPDATE public.events SET event_date = $1::date WHERE event_id = $2`, [moved, eventId]);
+  assert.equal((await charges(evId)).find((c) => c.kind === 'amendment_delta')!.due, moved, 'the top-up kept the old day');
+
+  const id = await db.query<{ charge_id: string }>(
+    `SELECT charge_id FROM public.booking_fee_charges WHERE event_vendor_id = $1 AND kind = 'amendment_delta'`,
+    [evId],
+  );
+  await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-MOVED')`, [id.rows[0]!.charge_id]);
+  const settledDue = (await charges(evId)).find((c) => c.kind === 'amendment_delta')!.due;
+  await db.query(`UPDATE public.events SET event_date = $1::date WHERE event_id = $2`, [await manilaDay(60), eventId]);
+  assert.equal((await charges(evId)).find((c) => c.kind === 'amendment_delta')!.due, settledDue, 'a settled top-up moved');
+});

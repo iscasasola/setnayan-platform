@@ -118,6 +118,9 @@ const CUSTOMERS_CONTRACTS = '/vendor-dashboard/customers?seg=money&open=contract
  * are named. A page missing here falls back to rule 4 / 5 above.
  */
 export const HOMES: Readonly<Record<string, Entry>> = {
+  // Compare's home is Discover's supplier view since /explore folded into Discover (2026-11-12, DECISION_LOG
+  // "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): its old parent `/explore` now only redirects.
+  '/explore/compare': { home: '/?browse=1', label: 'Suppliers' },
   /* ── account ─────────────────────────────────────────────────────────────────────────────────────── */
   // Settings is where API keys are opened (audit ✅ "looked odd but fine").
   '/dashboard/api-keys': { home: '/dashboard/profile' },

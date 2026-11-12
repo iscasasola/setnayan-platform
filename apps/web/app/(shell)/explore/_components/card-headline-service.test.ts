@@ -69,7 +69,8 @@ test('empty and dirty inputs are answerable, not a crash', () => {
 // SABOTAGE: stop passing activeCategory from the grid → RED.
 test('the grid actually passes the filter in — the whole defect was that nothing did', () => {
   const card = stripComments(readFileSync(join(HERE, 'vendor-card.tsx'), 'utf8'));
-  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  // 2026-11-12: the marketplace pipeline (and the grid) moved from explore/page.tsx to _lib/marketplace-view.tsx.
+  const page = stripComments(readFileSync(join(HERE, '..', '_lib', 'marketplace-view.tsx'), 'utf8'));
   assert.equal(
     count(card, /headlineServiceFor\(vendor\.services, activeCategory\)/),
     1,

@@ -608,7 +608,8 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
         // makes somebody open a page to find out which date is a notice that
         // waits until they have time.
         body: `You were on the waitlist and ${shop} has chosen you. Book it with them soon — they can hold it for only so long.`,
-        relatedUrl: v?.business_slug ? `/${v.business_slug}` : '/explore',
+        // No shop page → Discover's supplier view (`/explore` retired into `/` 2026-11-12).
+        relatedUrl: v?.business_slug ? `/${v.business_slug}` : '/?browse=1',
       });
     } catch (e) {
       console.error('[waitlist] pick notify failed:', String(e), {

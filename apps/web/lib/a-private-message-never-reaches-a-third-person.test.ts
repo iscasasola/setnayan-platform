@@ -41,6 +41,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
+import { stripSqlComments } from './security/events-column-privileges';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const WEB = path.resolve(HERE, '..');
@@ -365,8 +366,6 @@ const CHAT_CONTENT_POLICIES: Record<string, string> = {
 };
 /** SECURITY DEFINER readers that restate one of those policies' admission. */
 const CHAT_CONTENT_READERS = ['change_asks_read'];
-
-const stripSqlComments = (sql: string) => sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
 
 /** The latest CREATE POLICY / CREATE FUNCTION text for each name, across `files` in the order given. */
 function latestDefinitions(files: { name: string; sql: string }[]): Map<string, string> {

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1845
+# ledger: 1846
 # tables: 496
-# columns: 6027
-# notnull: 3640
+# columns: 6033
+# notnull: 3641
 [ledger]
 20260512000000
 20260513000000
@@ -1853,6 +1853,7 @@
 20271339773560
 20271339826198
 20271339978803
+20271340018194
 20271340142149
 20271340374819
 20271340566104
@@ -2022,7 +2023,9 @@ blocked_users.blocker_user_id
 blocked_users.created_at
 blocked_users.id
 blocked_users.reason
+booking_change_asks.amount_centavos
 booking_change_asks.answer_note
+booking_change_asks.answer_proposal_id
 booking_change_asks.answered_at
 booking_change_asks.answered_by
 booking_change_asks.ask_id
@@ -2030,8 +2033,12 @@ booking_change_asks.asked_at
 booking_change_asks.asked_by
 booking_change_asks.event_id
 booking_change_asks.form_id
+booking_change_asks.good_until
 booking_change_asks.note
 booking_change_asks.proposal_id
+booking_change_asks.proposed_plan
+booking_change_asks.raised_by
+booking_change_asks.scope_label
 booking_change_asks.status
 booking_change_asks.subject
 booking_change_asks.thread_id
@@ -7989,6 +7996,7 @@ blocked_users.id
 booking_change_asks.ask_id
 booking_change_asks.asked_at
 booking_change_asks.note
+booking_change_asks.raised_by
 booking_change_asks.status
 booking_change_asks.subject
 booking_change_asks.thread_id

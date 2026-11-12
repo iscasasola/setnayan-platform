@@ -57,6 +57,7 @@ import { fairPresentationRefusal } from '@/lib/fair-presentation.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { cleanPortfolioOrder } from '@/lib/portfolio-section-order';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -373,6 +374,9 @@ const INLINE_PROFILE_FIELDS = new Set([
   // already existed with NO WRITER anywhere — same screen, same audience, so
   // they are picked up here rather than left as one more setting nobody can set.
   'venue_size',
+  // 🖼 PORTFOLIO › REORDER (ruling 5940): the supplier's section order, `portfolio_section_order` (migration
+  // 20271342126686). Not identity — like the gallery fields it stays editable on a verified shop (`NOT_IDENTITY`).
+  'portfolio_order',
 ]);
 
 /**
@@ -382,6 +386,9 @@ const INLINE_PROFILE_FIELDS = new Set([
  * their gallery — the verified-lock guard skips them.
  */
 const GALLERY_MEDIA_FIELDS = new Set(['portfolio', 'gallery_videos']);
+
+/** Fields that are not identity at all — the verified-lock never applies (the Portfolio's own section order). */
+const NOT_IDENTITY_FIELDS = new Set(['portfolio_order']);
 
 export async function updateVendorProfileField(
   _prevState: FieldSaveResult | null,
@@ -414,7 +421,7 @@ export async function updateVendorProfileField(
   // 🏷 …and a shop SETNAYAN SET UP (owner 2026-10-29) may fill a blank name or
   // address but not overwrite one — that goes through the same request door.
   // ONE read, ONE rule (`identityLockOf`): the verified refusal is unchanged.
-  if (!GALLERY_MEDIA_FIELDS.has(field)) {
+  if (!GALLERY_MEDIA_FIELDS.has(field) && !NOT_IDENTITY_FIELDS.has(field)) {
     const refusal = identityLockRefusal(await fetchIdentityLock(supabase, shopId), field);
     if (refusal) return { ok: false, error: refusal };
   }
@@ -744,6 +751,12 @@ export async function updateVendorProfileField(
         });
         patch = { ...patch, gallery_video_titles: videoTitlesFor(links, pairs) };
       }
+      break;
+    }
+    case 'portfolio_order': {
+      // The section keys in the supplier's order, one form value each. Unknown words are dropped, never refused;
+      // an empty list = the shipped order back (`lib/portfolio-section-order.ts`).
+      patch = { portfolio_section_order: cleanPortfolioOrder(formData.getAll('section')) };
       break;
     }
     default:

@@ -11,9 +11,9 @@ export function QuoteVersionsCompareLab({ versions }: { versions: QuoteVersion[]
 }
 
 import { OfferDropCard } from '@/app/_components/chat/cards/offer-card';
-import type { DroppableOffer } from '@/app/_components/chat/cards/offer-calls';
+import type { DroppableOffer, DropContext } from '@/app/_components/chat/cards/offer-calls';
 
 /** The supplier's drop card on fixture offers (its close does nothing in the lab). */
-export function OfferDropLab({ seed, startStep }: { seed: DroppableOffer[]; startStep: number }) {
-  return <OfferDropCard threadId="00000000-0000-4000-8000-00000000c0de" onClose={() => {}} seed={seed} startStep={startStep} />;
+export function OfferDropLab({ seed, startStep, seedContext, seedPick }: { seed: DroppableOffer[]; startStep: number; seedContext?: DropContext; seedPick?: string }) {
+  return <OfferDropCard threadId="00000000-0000-4000-8000-00000000c0de" onClose={() => {}} seed={seed} startStep={startStep} seedContext={seedContext} seedPick={seedPick} />;
 }

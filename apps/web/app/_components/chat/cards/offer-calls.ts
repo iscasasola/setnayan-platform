@@ -23,20 +23,61 @@ function refused(where: string, reason: { code?: string; message?: string } | nu
 
 export type DroppableOffer = { rowId: number; offer: Offer };
 
-/** The shop's own offers (RLS: the shop's team reads every one of its own, on or off). */
-export async function loadMyOffers(threadId: string): Promise<{ ok: true; shop: string; offers: DroppableOffer[] } | Fail> {
+/** What the drop sheet prices against: the live quote (null = none yet), the event day, and the couple's names. */
+export type DropContext = {
+  quote: { lines: DropLine[]; totalCentavos: number; cardIds: string[] | null; schedule: unknown } | null;
+  eventDate: string | null;
+  /** "Ana & Miguel" — the event's own name; '' when it cannot be read (the line then says "Your client"). */
+  couple: string;
+};
+
+/**
+ * The shop's own offers (RLS: the shop's team reads every one of its own, on or off) and the live quote they would
+ * change. A refused QUOTE read fails the whole load — the picker must never call a worse offer pickable because the
+ * quote could not be read. The couple's names are a nicety: unreadable → ''.
+ */
+export async function loadMyOffers(threadId: string): Promise<{ ok: true; shop: string; offers: DroppableOffer[]; context: DropContext } | Fail> {
   const supabase = createClient();
-  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
   if (tErr || !thread) return refused('drop · thread', tErr);
-  const shop = (thread as { vendor_profile_id: string }).vendor_profile_id;
-  const { data, error } = await supabase
-    .from('vendor_offers')
-    .select(`id,${VENDOR_OFFER_SELECT}`)
-    .eq('vendor_profile_id', shop)
-    .order('sort_order', { ascending: true });
-  if (error) return refused('drop · offers', error);
-  const offers = ((data ?? []) as unknown as (VendorOfferRow & { id: number })[]).map((r) => ({ rowId: Number(r.id), offer: offerFromRow(r) }));
-  return { ok: true, shop, offers };
+  const { event_id: eventId, vendor_profile_id: shop } = thread as { event_id: string; vendor_profile_id: string };
+  const [offersRes, quoteRes, eventRes] = await Promise.all([
+    supabase.from('vendor_offers').select(`id,${VENDOR_OFFER_SELECT}`).eq('vendor_profile_id', shop).order('sort_order', { ascending: true }),
+    supabase
+      .from('vendor_proposals')
+      .select('line_items, total_centavos, payment_schedule, service_card_ids')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', shop)
+      .in('status', ['sent', 'viewed', 'accepted'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('events').select('display_name, event_date').eq('event_id', eventId).maybeSingle(),
+  ]);
+  if (offersRes.error) return refused('drop · offers', offersRes.error);
+  if (quoteRes.error) return refused('drop · quote', quoteRes.error);
+  if (eventRes.error) console.warn('[offer-card] drop · event:', eventRes.error.code || eventRes.error.message);
+  const offers = ((offersRes.data ?? []) as unknown as (VendorOfferRow & { id: number })[]).map((r) => ({ rowId: Number(r.id), offer: offerFromRow(r) }));
+  const q = quoteRes.data as { line_items: unknown; total_centavos: number; payment_schedule: unknown; service_card_ids: unknown } | null;
+  const ev = eventRes.data as { display_name?: string | null; event_date?: string | null } | null;
+  const day = ev?.event_date ?? null;
+  return {
+    ok: true,
+    shop,
+    offers,
+    context: {
+      quote: q
+        ? {
+            lines: (Array.isArray(q.line_items) ? q.line_items : []) as DropLine[],
+            totalCentavos: Number(q.total_centavos) || 0,
+            cardIds: Array.isArray(q.service_card_ids) ? (q.service_card_ids as unknown[]).map(String) : null,
+            schedule: q.payment_schedule,
+          }
+        : null,
+      eventDate: day && /^\d{4}-\d{2}-\d{2}/.test(day) ? day.slice(0, 10) : null,
+      couple: (ev?.display_name ?? '').trim(),
+    },
+  };
 }
 
 export type DropResult = { ok: true } | { ok: false; message: string };

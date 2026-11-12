@@ -20,9 +20,9 @@ import { DateRow } from '@/app/_components/form-row-date';
 import { applyDroppedOffer } from '@/app/_actions/offer-card-actions';
 import { isRunning } from '@/lib/offers';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
-import { applyRefusal, dayWords, dropState, goodUntilWords, offerTakesWords, offerVersion, priceWordsFor, reachedLines } from '@/lib/offer-drop';
+import { applyRefusal, coupleSeesDrop, dayWords, dropPicks, dropSavesWords, dropState, goodUntilWords, offerTakesWords, offerVersion, priceWordsFor, reachedLines } from '@/lib/offer-drop';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
-import { dropOfferIntoChat, loadDroppedOffer, loadMyOffers, type DroppableOffer, type DroppedOffer } from './offer-calls';
+import { dropOfferIntoChat, loadDroppedOffer, loadMyOffers, type DropContext, type DroppableOffer, type DroppedOffer } from './offer-calls';
 import { CouldNotLoad, EmptyLine, EqualRow, Loading, Problem, type Read } from './card-bits';
 
 function addDays(day: string, n: number): string {
@@ -38,6 +38,8 @@ export function OfferDropCard({
   onClose,
   onDropped,
   seed,
+  seedContext,
+  seedPick,
   startStep = 0,
 }: {
   threadId: string;
@@ -45,12 +47,17 @@ export function OfferDropCard({
   onDropped?: () => void;
   /** The shop's offers already in hand (the dev lab) — skips the first fetch. */
   seed?: DroppableOffer[];
+  /** The live quote + couple already in hand (the dev lab). */
+  seedContext?: DropContext;
+  /** The offer already picked (the dev lab). */
+  seedPick?: string;
   startStep?: number;
 }) {
   const id = useId();
   const today = manilaTodayIsoFor(Date.now());
   const [read, setRead] = useState<Read<DroppableOffer[]>>(seed ? { at: 'ok', data: seed.filter((o) => isRunning(o.offer, today)) } : { at: 'loading' });
-  const [pick, setPick] = useState<string | null>(seed && startStep > 0 ? (seed[0]?.offer.id ?? null) : null);
+  const [ctx, setCtx] = useState<DropContext | null>(seedContext ?? null);
+  const [pick, setPick] = useState<string | null>(seedPick ?? null);
   const [goodUntil, setGoodUntil] = useState<string | null>(null);
   const [step, setStep] = useState(startStep);
   const [sending, setSending] = useState(false);
@@ -59,6 +66,7 @@ export function OfferDropCard({
   const load = useCallback(async () => {
     setRead({ at: 'loading' });
     const r = await loadMyOffers(threadId);
+    if (r.ok) setCtx(r.context);
     setRead(r.ok ? { at: 'ok', data: r.offers.filter((o) => isRunning(o.offer, today)) } : { at: 'failed' });
   }, [threadId, today]);
   useEffect(() => {
@@ -72,7 +80,13 @@ export function OfferDropCard({
       </ChatCardShell>
     );
   }
-  const chosen = read.data.find((o) => o.offer.id === pick) ?? null;
+  // 🔒 Owner 13 Nov: "Grey out the offers that are worse instead. We do not hide them, we just cannot pick them."
+  const picks = dropPicks({ offers: read.data.map((o) => o.offer), quote: ctx?.quote ?? null, today, eventDate: ctx?.eventDate ?? null, now: new Date() });
+  const pickOf = (offerId: string) => picks.find((p) => p.offerId === offerId) ?? null;
+  const chosenRow = read.data.find((o) => o.offer.id === pick) ?? null;
+  const chosenPick = chosenRow ? pickOf(chosenRow.offer.id) : null;
+  const chosen = chosenRow && chosenPick?.pickable ? chosenRow : null;
+  const saves = chosenPick ? dropSavesWords(ctx?.couple ?? '', chosenPick) : null;
   // The drop holds a week by default, never past the offer's own last day.
   const maxDay = chosen?.offer.untilDate ?? null;
   const shown = maxDay && maxDay < addDays(today, 7) ? maxDay : addDays(today, 7);
@@ -84,11 +98,23 @@ export function OfferDropCard({
           <PickMenu
             label="Which offer?"
             value={pick}
-            options={read.data.map((o) => ({ key: o.offer.id, label: `${o.offer.name.trim() || 'Your offer'} · ${priceWordsFor(o.offer)}` }))}
-            onPick={(k) => setPick(k)}
-            buttonText={pick ? undefined : 'Pick one'}
+            options={read.data.map((o) => ({
+              key: o.offer.id,
+              label: `${o.offer.name.trim() || 'Your offer'} · ${priceWordsFor(o.offer)}`,
+              disabledNote: pickOf(o.offer.id)?.pickable ? undefined : 'Saves no more than the current quotation',
+            }))}
+            onPick={(k) => {
+              if (pickOf(k)?.pickable) setPick(k);
+            }}
+            buttonText={chosen ? undefined : 'Pick one'}
             dataAttr="data-offer-drop-offer"
           />
+          {saves ? (
+            <div className="grid gap-0.5" data-offer-drop-saves="">
+              <p className="text-[14px] font-medium text-success-700">{saves[0]}</p>
+              <p className="text-[14px] tabular-nums text-ink">{saves[1]}</p>
+            </div>
+          ) : null}
           <p className="text-[13px] text-ink/60">They apply it with one tap — it comes off its own card only.</p>
         </div>
       ),
@@ -181,6 +207,8 @@ export function DroppedOfferCard({
           now: new Date(),
         })
       : null;
+  // 🔒 Owner 13 Nov: the couple sees only an ACTIVE drop that saves MORE than the quote's current offer.
+  if (viewer === 'couple' && !coupleSeesDrop(st, preview)) return null;
   const reachedLabels = d.offer && d.quote ? reachedLines(d.quote.lines, d.offer, d.quote.cardIds).map((l) => String(l.label)) : [];
 
   const apply = async () => {

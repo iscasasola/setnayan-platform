@@ -11,7 +11,7 @@
  * database gives (`get_self_added_price_terms`) — never typed, never guessed (lib/self-added-price-basis.ts).
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FORM_PICK_CLASS, FormRow, FormRows, TypedRow, usePillWidth, type FormRowAbout } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PRICING_BASIS_OPTIONS } from '@/app/vendor-dashboard/services/_components/pricing-basis-editor';
@@ -62,18 +62,23 @@ export function usePriceTerms(
   reader: PriceTermsReader = readPriceTermsInBrowser,
 ): PriceTermsRead {
   const [read, setRead] = useState<PriceTermsRead>('loading');
-  const [asked, setAsked] = useState(false);
+  // Asked once per open. A ref, not state: flipping a state dep re-ran the effect, whose cleanup then dropped the
+  // answer it was waiting for (measured in the lab — the sheet sat on "Counting your guest list…").
+  const asked = useRef(false);
+  const mounted = useRef(true);
   useEffect(() => {
-    if (!wanted || asked) return;
-    setAsked(true);
-    let live = true;
-    void reader(eventId, eventVendorId).then((r) => {
-      if (live) setRead(r);
-    });
+    mounted.current = true;
     return () => {
-      live = false;
+      mounted.current = false;
     };
-  }, [wanted, asked, reader, eventId, eventVendorId]);
+  }, []);
+  useEffect(() => {
+    if (!wanted || asked.current) return;
+    asked.current = true;
+    void reader(eventId, eventVendorId).then((r) => {
+      if (mounted.current) setRead(r);
+    });
+  }, [wanted, reader, eventId, eventVendorId]);
   return read;
 }
 

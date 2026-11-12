@@ -71,10 +71,16 @@ const SURFACES: Surface[] = [
     draws: [/if \(demoVendorIds\.length > 0\) \{\s*const demoIdSet = new Set\(demoVendorIds\);/, /row\.is_demo = true;/],
   },
   {
-    name: 'service card (the marketplace body)',
-    file: 'app/_components/service-card-view.tsx',
+    name: 'service card (the marketplace body) — the one face draws the marker on the shop line',
+    file: 'app/_components/service-face.tsx',
     imports: MARKER_IMPORT,
-    draws: [/\{shop\.isDemo === true \? <DemoOnlyMarker \/> : null\}/],
+    draws: [/\{shop\.isDemo \? <DemoOnlyMarker \/> : null\}/],
+  },
+  {
+    name: 'service card — the marketplace adapter hands the face its shop\'s demo fact',
+    file: 'app/_components/service-card-view.tsx',
+    imports: /from '@\/app\/_components\/service-face';/,
+    draws: [/isDemo: shop\.isDemo/],
   },
   {
     name: 'service card — the explore page hands each card its shop\'s demo fact',

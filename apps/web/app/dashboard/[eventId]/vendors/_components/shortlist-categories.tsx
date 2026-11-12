@@ -22,6 +22,7 @@
  * machinery. Pill / rounded / frosted language matches the app nav + sn-seg menus.
  */
 
+import { ServiceFace } from '@/app/_components/service-face';
 import {
   Fragment,
   createContext,
@@ -1968,109 +1969,54 @@ function InlineMoreCard({
 }) {
   // The service card's own cover first; else the photo the search resolved.
   const cover = svc?.coverUrl ?? benchCardImage(v);
-  const Face = onOpen ? 'button' : 'span';
   return (
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
-      {/* A door is a real button (§ 9: one kind per control) — it was a span
-          wearing role="button" with its own key handling. */}
-      <Face
-        className="vc"
-        {...(onOpen
-          ? {
-              type: 'button' as const,
-              'aria-haspopup': 'dialog' as const,
-              'aria-label': `View ${v.name}`,
-              onClick: onOpen,
-            }
-          : {})}
-      >
-        <span className="img">
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" loading="lazy" />
-          ) : (
-            <span className="ini">{initials(v.name)}</span>
-          )}
-          {v.boosted ? <span className="pcorner">Featured</span> : null}
-        </span>
-        <span className="meta">
-          {serviceLabel ? <span className="sc-svc" data-find-service-line="">{serviceLabel}</span> : null}
-          <span className="sc-name">
-            {svc?.name || label}
-            {svc?.discountBadge ? <span className="sc-disc">{svc.discountBadge}</span> : null}
-          </span>
-          <span className="vn">{v.name}</span>
-          {/* ⚠ NO UNREAD BADGE HERE, AND THAT IS THE RIGHT ANSWER, not a
-              limitation. This card renders a `CategoryVendorResult` — a
-              MARKETPLACE SEARCH result for the inline "More in {category}" row —
-              and that type carries no thread, inquiry, unread or chat field at
-              all, because these are vendors the couple has not added yet. A
-              vendor with no conversation has no unread messages to count.
-              tsc caught the badge here (TS2339 on `v.threadId`); widening a
-              search-result type with a DB-backed thread id so a discovery card
-              could wear a badge would be a new feature, not this one. The
-              supplier's REAL bench card (`VendorCard`) carries it. */}
-          {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string,
-              and without this line a couple reads it as a fake listing. Same
-              sentence the full sheet shows, for the same reason. */}
-          {v.nameAnonymized ? (
-            <span className="freedays">Real name shown after they reply</span>
-          ) : null}
-          {v.city ? (
-            <span className="sub">
-              <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+      {/* THE ONE FACE (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE") — Find's card IS the template, and it is now drawn
+          by the same component as every other service card. `.vcw` keeps the frame and the verbs below. */}
+      <ServiceFace
+        framed={false}
+        name={svc?.name || label}
+        coverUrl={cover}
+        coverCorner={
+          v.boosted ? (
+            <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-[9px] uppercase tracking-wide text-cream">
+              Featured
             </span>
-          ) : null}
-          {v.rating != null ? (
-            <span className="stars">
-              <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
-              {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
-            </span>
-          ) : typeof v.reviewCount === 'number' ? (
-            // No stars/average for a shop with 0 reviews — "New", never
-            // "0.0" (owner ruling 2026-09-11). Only claimed when reviewCount
-            // is a real, known number (this row is always a real marketplace
-            // vendor, never an off-platform pick).
-            <span className="stars">{NEW_TO_SETNAYAN_LABEL}</span>
-          ) : null}
-          {v.verified ? (
-            <span className="badges">
-              <span className="bdg verified">
-                <BadgeCheck size={9} strokeWidth={2} aria-hidden /> Verified
+          ) : null
+        }
+        discount={svc?.discountBadge ?? null}
+        path={serviceLabel ?? label}
+        shop={{ name: v.name, href: null, logoUrl: null, verified: v.verified }}
+        lines={
+          <>
+            {/* Hybrid anonymity — the placeholder is a taxonomy-and-city string, and without this line a couple
+                reads it as a fake listing. Same sentence the full sheet shows, for the same reason. */}
+            {v.nameAnonymized ? (
+              <span className="text-[11px] text-[var(--m-slate-2)]">Real name shown after they reply</span>
+            ) : null}
+            {/* No stars for a shop with 0 reviews — "New", never "0.0" (owner ruling 2026-09-11). */}
+            {v.rating == null && typeof v.reviewCount === 'number' ? (
+              <span className="text-[11px] text-[var(--m-slate-2)]">{NEW_TO_SETNAYAN_LABEL}</span>
+            ) : null}
+            {/* Constraint 2 — the SAME badge row 1 draws, from the same function. Amber, never red. */}
+            {sunk ? (
+              <span className="fits">
+                <span className="fit warn">
+                  <CalendarX2 size={9} strokeWidth={2.25} aria-hidden /> {noSharedDateBadge(clashWith)}
+                </span>
               </span>
-            </span>
-          ) : null}
-          {/* Constraint 2 — the SAME badge row 1 draws, from the same function.
-              Amber, never red: the vendor is fine, it is the couple's own build
-              that has narrowed past them, and un-narrowing it is one tap away. */}
-          {sunk ? (
-            <span className="fits">
-              <span className="fit warn">
-                <CalendarX2 size={9} strokeWidth={2.25} aria-hidden />{' '}
-                {noSharedDateBadge(clashWith)}
-              </span>
-            </span>
-          ) : null}
-          {svc?.priceText ? (
-            <span className="sc-price">{svc.priceText}</span>
-          ) : cardsRead ? (
-            <span className="sc-price none">{PRICE_ON_REQUEST}</span>
-          ) : null}
-          {svc?.includesLine ? (
-            <span className="sc-inc">
-              <Gift size={12} strokeWidth={1.75} aria-hidden />
-              <span>{svc.includesLine}</span>
-            </span>
-          ) : null}
-          {svc && svc.notIncluded.length > 0 ? (
-            <span className="sc-not">
-              <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
-              <span>Not included: {svc.notIncluded.join(' · ')}</span>
-            </span>
-          ) : null}
-          {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
-        </span>
-      </Face>
+            ) : null}
+          </>
+        }
+        city={v.city ?? null}
+        rating={v.rating != null ? { avg: v.rating, count: v.reviewCount } : null}
+        price={svc?.priceText ?? null}
+        priceMissing={cardsRead ? PRICE_ON_REQUEST : null}
+        includes={svc?.includesLine ?? null}
+        notIncluded={svc?.notIncluded ?? []}
+        gift={svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
+        door={onOpen ? { onOpen: () => onOpen(), label: `View ${v.name}`, hasPopup: true } : undefined}
+      />
       {/* ONE row of verbs (the button rule): the main verb asks for a quote —
           which also keeps them — and the quiet one only keeps them. Once kept,
           the card says where it went and offers the way back. */}

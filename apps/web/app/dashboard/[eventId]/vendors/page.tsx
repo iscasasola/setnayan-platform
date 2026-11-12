@@ -2872,6 +2872,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         excludedTiles,
         pinnedTile: sp.open ?? null,
         starterTiles: [...popularTilesFor(ev?.event_type ?? null)],
+        // 📋 Build N/M counts the SAME rows Find lists — only the categories the couple added (owner 2026-11-12).
+        listedOnly: true,
       });
       liveTallyBase.ring = {
         tiles: shortlistFolders.flatMap((f) =>

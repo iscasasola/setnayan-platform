@@ -131,10 +131,10 @@ export function GalleryLightbox({
   const stageRef = useRef<HTMLDivElement>(null);
   /*
    * The slide is driven by the browser's own `transitionend`, never a timer (a photo surface never moves on a clock —
-   * `lib/photos-never-move-by-themselves.test.ts`). Phases: `out` (the photo leaves) → the caller moves → `pre` (the
+   * `lib/photos-never-move-by-themselves.test.ts`). Phases: `out` (the photo leaves) → `moved` (the caller moves) → `pre` (the
    * next one waits beyond the far edge, or invisible) → `in` (it lands) → done. `back` = a short drag springing home.
    */
-  const [slide, setSlide] = useState<{ x: number; ms: number; fade: boolean; phase: 'out' | 'pre' | 'in' | 'back'; dir: 1 | -1 } | null>(null);
+  const [slide, setSlide] = useState<{ x: number; ms: number; fade: boolean; phase: 'out' | 'moved' | 'pre' | 'in' | 'back'; dir: 1 | -1 } | null>(null);
   const enterFrom = useRef<0 | 1 | -1>(0);
   const srcNow = useRef(src);
   srcNow.current = src;
@@ -148,18 +148,21 @@ export function GalleryLightbox({
   const onSlideEnd = (e: React.TransitionEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget || !slide) return;
     if (slide.phase === 'out') {
-      const was = srcNow.current;
+      srcAtOut.current = srcNow.current;
       enterFrom.current = slide.dir;
       (slide.dir > 0 ? onNext : onPrev)?.();
-      // The caller handed the same picture (or none): nothing will land — let go instead of stranding it off-screen.
-      requestAnimationFrame(() => {
-        if (srcNow.current === was) {
-          enterFrom.current = 0;
-          setSlide(null);
-        }
-      });
+      // Committed WITH the caller's move, so the check below sees the photo the caller handed (or the same one).
+      setSlide({ ...slide, phase: 'moved' });
     } else if (slide.phase === 'in' || slide.phase === 'back') setSlide(null);
   };
+  /* The caller handed the same picture (or none): nothing will land — let go instead of stranding it off-screen. */
+  const srcAtOut = useRef<string | null>(null);
+  useEffect(() => {
+    if (slide?.phase === 'moved' && srcNow.current === srcAtOut.current) {
+      enterFrom.current = 0;
+      setSlide(null);
+    }
+  }, [slide]);
   /* The next photo arrived: it starts beyond the far edge (or invisible, reduced) and lands in place. */
   useEffect(() => {
     const dir = enterFrom.current;

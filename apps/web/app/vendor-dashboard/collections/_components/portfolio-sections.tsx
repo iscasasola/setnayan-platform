@@ -194,7 +194,7 @@ export function Rail({ children, data }: { children: ReactNode; data: string }) 
 
 const TILE = 'relative block h-[150px] w-[150px] flex-none snap-start overflow-hidden rounded-card bg-ink/5 text-left';
 const TILE_BASE = TILE;
-const TILE_HERO = 'relative block h-[280px] w-[280px] max-w-[calc(100vw-56px)] flex-none snap-start overflow-hidden rounded-[24px] bg-ink/5 text-left';
+const TILE_HERO = 'relative block h-[280px] w-[280px] max-w-[calc(100vw-56px)] flex-none snap-start overflow-hidden rounded-3xl bg-ink/5 text-left';
 
 /** The face of a tile: the photo (or a quiet ground with the section's icon), the scrim, the name on the photo. */
 function TileFace({ name, sub, photo, icon }: { name: string; sub?: string | null; photo: string | null; icon?: ReactNode }) {

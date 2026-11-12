@@ -17,6 +17,19 @@ import { AddressPinField } from './address-pin-field';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PayWaysEditor } from './pay-ways-editor';
+import { PriceBasisRows } from './price-basis-rows';
+import { selfAddedCardLine, type PriceTermsRead, type SelfAddedBasis } from '@/lib/self-added-price-basis';
+
+/** "How the price works ▾" — the modal owns the choice and the rate (the add sheet draws the same rows). */
+export type RecordBasisRows = {
+  basis: SelfAddedBasis;
+  onBasis: (b: SelfAddedBasis) => void;
+  rateKept: string;
+  ratePhp: number | null;
+  onRateType: (t: string) => void;
+  onRateKeep: (t: string) => void;
+  terms: PriceTermsRead;
+};
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -71,6 +84,8 @@ export function RecordCardFolds({
   nameKept,
   priceKept,
   priceNumber,
+  keptTotalPhp,
+  basisRows,
   lines,
   planLine,
   payLine,
@@ -91,7 +106,11 @@ export function RecordCardFolds({
   pending: boolean;
   nameKept: string;
   priceKept: string;
+  /** What the payment plan adds up to: the typed price, or rate × the number (null = no total). */
   priceNumber: number | null;
+  /** The KEPT total the plan's dated rows count from — the modal works it out for every basis. */
+  keptTotalPhp?: number | null;
+  basisRows?: RecordBasisRows;
   lines: RecordLines;
   planLine: { text: string; warn: boolean } | null;
   payLine: string | null;
@@ -105,6 +124,19 @@ export function RecordCardFolds({
 }) {
   const row = (last = false) => `px-0.5 ${last ? '' : 'border-b border-ink/10'}`;
   const keptTotal = Number(priceKept.replace(/,/g, ''));
+  // The Price fold's closed line follows the choice: "₱1,350 per guest · 120 counted · ₱162,000".
+  const basisLine =
+    basisRows && basisRows.basis !== 'fixed'
+      ? selfAddedCardLine({
+          basis: basisRows.basis,
+          ratePhp: basisRows.ratePhp,
+          terms: basisRows.terms === 'loading' ? 'unread' : basisRows.terms,
+        })
+      : null;
+  const priceSummary =
+    basisLine && basisRows?.terms !== 'loading'
+      ? `${basisLine.lead}${basisLine.showsTotal && priceNumber != null ? ` · ${formatPhp(priceNumber)}` : ''}`
+      : lines.price;
   return (
     <div data-record-card-folds="" className="border-t border-ink/10">
       <Fold title="Contact" summary={lines.contact ?? 'Add who to call'} summaryEnd defaultOpen className={row()} data="record-contact">
@@ -150,34 +182,34 @@ export function RecordCardFolds({
         </FormRows>
       </Fold>
 
-      <Fold title="Price" summary={lines.price ?? 'Set the price'} summaryEnd className={row()} data="record-price">
-        <FormRows width="wide" data="add-manual-terms">
-          <TypedRow
-            name="Price"
-            fieldName="total_cost_php"
-            value={priceKept}
-            amount
-            placeholder="80000"
-            about={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
-            attrs={{ 'data-manual-field': 'total_cost_php' }}
-            onType={onPriceType}
-            onKeep={(t) => {
-              onPriceKeep(t);
-              return { ok: true as const };
-            }}
-          />
-          <TypedRow
-            name="Inclusions"
-            fieldName="inclusions"
-            value={edit.inclusions}
-            long
-            maxLength={2000}
-            placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
-            about={{ words: 'One per line — what the price covers.' }}
-            attrs={{ 'data-manual-field': 'inclusions' }}
-            onKeep={KEEP}
-          />
-        </FormRows>
+      <Fold title="Price" summary={priceSummary ?? 'Set the price'} summaryEnd className={row()} data="record-price">
+        <PriceBasisRows
+          eventId={eventId}
+          basis={basisRows?.basis ?? 'fixed'}
+          onBasis={basisRows?.onBasis ?? (() => {})}
+          priceKept={priceKept}
+          priceAbout={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
+          onPriceType={onPriceType}
+          onPriceKeep={onPriceKeep}
+          rateKept={basisRows?.rateKept ?? ''}
+          ratePhp={basisRows?.ratePhp ?? null}
+          onRateType={basisRows?.onRateType ?? (() => {})}
+          onRateKeep={basisRows?.onRateKeep ?? (() => {})}
+          terms={basisRows?.terms ?? 'loading'}
+          after={
+            <TypedRow
+              name="Inclusions"
+              fieldName="inclusions"
+              value={edit.inclusions}
+              long
+              maxLength={2000}
+              placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
+              about={{ words: 'One per line — what the price covers.' }}
+              attrs={{ 'data-manual-field': 'inclusions' }}
+              onKeep={KEEP}
+            />
+          }
+        />
       </Fold>
 
       <Fold
@@ -199,7 +231,7 @@ export function RecordCardFolds({
               dates: edit.planDates ?? { lockIso: todayIso(), eventIso: null },
               seqs: edit.planSeqs,
               settledSeqs: edit.settledSeqs,
-              keptTotalPhp: Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
+              keptTotalPhp: keptTotalPhp !== undefined ? keptTotalPhp : Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
               lastReplot: edit.lastReplot ?? null,
               onLine: onPlanLine,
             }}

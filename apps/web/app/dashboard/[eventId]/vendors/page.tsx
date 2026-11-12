@@ -37,6 +37,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { resolveLivePax } from '@/lib/pax';
+import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
@@ -522,6 +523,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const inviteStatusRead = isExploreReplanEnabled()
     ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
     : null;
+  // 🧾 Each self-added card priced per guest / per hour: "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
+  // 2026-11-13). `null` = refused — the cards then draw their one total as shipped, never a made-up line.
+  const selfAddedPriceLinesRead = startRead(readSelfAddedPriceLines(supabase, eventId));
   // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
   // button is gone; the search shows the categories when nothing is typed): the
   // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
@@ -2048,6 +2052,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
   const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
+  const selfAddedPriceLines = await selfAddedPriceLinesRead;
   // The bottom search's empty state. A refused read is said, never drawn as an
   // empty list: the box then opens on one line that says it could not load.
   const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
@@ -2369,6 +2374,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         )}
         // A self-added supplier's claim link: sent · declined · ran out · joined.
         inviteStatusByVendorId={inviteStatusByVendorId}
+        selfAddedPriceLines={selfAddedPriceLines}
         // Explore Replan PR-G1 — the convergence banner between the Coverage
         // Strip and the bench. Null on an open window (nothing to report yet)
         // and whenever the tier isn't running.

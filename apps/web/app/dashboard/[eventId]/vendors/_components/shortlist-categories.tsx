@@ -42,6 +42,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
+import type { SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
   ChevronDown,
@@ -1333,6 +1334,9 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
+/** 🧾 A self-added supplier priced per guest / per hour — "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
+ *  2026-11-13). Absent / null → every card draws its price as shipped. */
+const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
  * THE SERVICE CARD A BENCH CARD WEARS (owner 2026-10-07 · PR2). On the
@@ -1447,6 +1451,9 @@ function VendorCard({
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
+  const priceLines = useContext(PriceLineCtx);
+  // Only for the couple's own record — a Setnayan shop's card never reads this.
+  const basisLine = selfAdded ? (priceLines?.[v.vendorId] ?? null) : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
@@ -1596,13 +1603,26 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {v.totalCostPhp != null && v.totalCostPhp > 0 ? (
+        {basisLine ? (
+          // The rate and its count, then the card's own total — or no total, said, when the count or the hours are not
+          // known ("₱6,000 per hour · no times on the schedule yet").
+          <span data-price-basis-line="">
+            {basisLine.showsTotal && hasRecordedPrice ? (
+              <>
+                <span className="sc-price">{basisLine.lead} · </span>
+                <span className="price">{formatPhp(v.totalCostPhp)}</span>
+              </>
+            ) : (
+              <span className="sc-price">{basisLine.lead}</span>
+            )}
+          </span>
+        ) : v.totalCostPhp != null && v.totalCostPhp > 0 ? (
           <span className="price">{formatPhp(v.totalCostPhp)}</span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
             and only when the cards were actually read. */}
-        {look.face && !hasRecordedPrice && !v.includedWith ? (
+        {look.face && !hasRecordedPrice && !basisLine && !v.includedWith ? (
           svc?.priceText ? (
             <span className="sc-price">{svc.priceText}</span>
           ) : selfAdded ? (
@@ -2810,6 +2830,7 @@ export function ShortlistCategories({
   starterTiles,
   payHrefByVendorId = NO_PAY_DUE,
   inviteStatusByVendorId,
+  selfAddedPriceLines,
   serviceCardByVendorId = null,
   convergence = null,
   buildWindow = null,
@@ -2908,6 +2929,8 @@ export function ShortlistCategories({
   /** vendorId → where a self-added supplier's claim link stands
    *  (`InviteStatusCtx`). Absent → no link line; `null` → the read failed. */
   inviteStatusByVendorId?: InviteStatusByVendorId;
+  /** 🧾 The per guest / per hour line of each self-added card (`readSelfAddedPriceLines`). Absent / null → as shipped. */
+  selfAddedPriceLines?: SelfAddedPriceLines | null;
   /** Pick id → the supplier's own service card. `null` = the read failed (or
    *  the pre-replan bench, which draws none). */
   serviceCardByVendorId?: Readonly<Record<string, BenchServiceCard>> | null;
@@ -3938,6 +3961,7 @@ export function ShortlistCategories({
     <UnreadCtx.Provider value={benchUnread}>
     <PayDueCtx.Provider value={payHrefByVendorId}>
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
+    <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
@@ -5019,6 +5043,7 @@ export function ShortlistCategories({
       ) : null}
     </div>
     </ServiceCardCtx.Provider>
+    </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>
     </PayDueCtx.Provider>
     </UnreadCtx.Provider>

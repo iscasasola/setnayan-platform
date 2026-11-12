@@ -53,6 +53,8 @@ import { OWN_RECORD_PILL } from '@/lib/add-your-own';
 import { InfoTip } from '@/app/_components/info-tip';
 import { RecordCardFolds, recordLines } from './record-card-folds';
 import { payWaysSummary } from '@/lib/self-added-pay-ways';
+import { PriceBasisRows, usePriceTerms, type PriceTermsReader } from './price-basis-rows';
+import { basisTotal, parseRatePhp, type SelfAddedBasis } from '@/lib/self-added-price-basis';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -141,6 +143,9 @@ type Props = {
    * dated from today on ("after you book"), which is what the plan counts from until the couple locks.
    */
   eventDateIso?: string | null;
+  /** Reads the guest count / schedule hours a Per guest or Per hour price multiplies — the couple's own session
+   *  unless a dev lab hands in a stand-in (no session there). */
+  readTerms?: PriceTermsReader;
 };
 
 /** What one press may carry — the server action's own limit (`serverActions.bodySizeLimit`, next.config). */
@@ -167,6 +172,7 @@ export function NewManualVendorModal({
   makeLink,
   addSupplier,
   eventDateIso,
+  readTerms,
   onClose,
   onCreated,
 }: Props) {
@@ -196,6 +202,16 @@ export function NewManualVendorModal({
     const n = Number(priceInput.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : null;
   })();
+  // ── HOW THE PRICE WORKS (owner-approved 2026-11-13) ── One price keeps the shipped Price row; Per guest / Per hour
+  // take a rate, and the total is rate × the guest count / the schedule's hours — read, never typed, never guessed.
+  const [basis, setBasis] = useState<SelfAddedBasis>(edit?.basis ?? 'fixed');
+  const [rateInput, setRateInput] = useState(priceDigitsForSheet(edit?.rate));
+  const [rateKept, setRateKept] = useState(priceDigitsForSheet(edit?.rate));
+  const ratePhp = parseRatePhp(rateInput);
+  const terms = usePriceTerms(eventId, edit?.vendorId ?? null, basis !== 'fixed', readTerms);
+  const basisSum = basis === 'fixed' ? null : basisTotal(basis, ratePhp, terms);
+  /** What the payment plan adds up to: the typed price, or rate × the number — none while there is no total. */
+  const planTotal = basis === 'fixed' ? priceNumber : basisSum?.kind === 'total' ? basisSum.totalPhp : null;
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -250,6 +266,14 @@ export function NewManualVendorModal({
   const [nameKept, setNameKept] = useState(edit?.name ?? '');
   // Whole pesos — stripping every non-digit from "80000.5" read ₱800,005.
   const [priceKept, setPriceKept] = useState(priceDigitsForSheet(edit?.price));
+  const planKeptTotal = (() => {
+    if (basis !== 'fixed') {
+      const kept = basisTotal(basis, parseRatePhp(rateKept), terms);
+      return kept.kind === 'total' ? kept.totalPhp : null;
+    }
+    const n = Number(priceKept.replace(/,/g, ''));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -595,7 +619,20 @@ export function NewManualVendorModal({
               pending={pending}
               nameKept={nameKept}
               priceKept={priceKept}
-              priceNumber={priceNumber}
+              priceNumber={planTotal}
+              keptTotalPhp={planKeptTotal}
+              basisRows={{
+                basis,
+                onBasis: setBasis,
+                rateKept,
+                ratePhp,
+                onRateType: (t) => setRateInput(t),
+                onRateKeep: (t) => {
+                  setRateKept(t);
+                  setRateInput(t);
+                },
+                terms,
+              }}
               lines={lines}
               planLine={planLine}
               payLine={payLine}
@@ -760,43 +797,45 @@ export function NewManualVendorModal({
               <InclusionLines disabled={pending} />
 
               <div className="border-t border-ink/10">
-                <FormRows width="wide" data="add-manual-terms">
-                  <TypedRow
-                    name="Price"
-                    fieldName="total_cost_php"
-                    value={priceKept}
-                    amount
-                    placeholder="80000"
-                    note="What you agreed, in pesos. The payment plan below has to add up to it."
-                    attrs={{ 'data-manual-field': 'total_cost_php' }}
-                    onType={(t) => setPriceInput(t)}
-                    onKeep={(t) => {
-                      setPriceKept(t);
-                      setPriceInput(t);
-                      return { ok: true as const };
-                    }}
-                  />
-                </FormRows>
+                {/* "How the price works ▾" above the shipped Price row (owner-approved 2026-11-13). One price is the
+                    Price row as it was; Per guest / Per hour name the row by the choice and add the sum under it. */}
+                <PriceBasisRows
+                  eventId={eventId}
+                  basis={basis}
+                  onBasis={setBasis}
+                  priceKept={priceKept}
+                  priceNote="What you agreed, in pesos. The payment plan below has to add up to it."
+                  onPriceType={(t) => setPriceInput(t)}
+                  onPriceKeep={(t) => {
+                    setPriceKept(t);
+                    setPriceInput(t);
+                  }}
+                  rateKept={rateKept}
+                  ratePhp={ratePhp}
+                  onRateType={(t) => setRateInput(t)}
+                  onRateKeep={(t) => {
+                    setRateKept(t);
+                    setRateInput(t);
+                  }}
+                  terms={terms}
+                />
               </div>
 
               <div className="space-y-1 border-t border-ink/10 py-3">
                 <p className={SECTION_LABEL_CLASS}>
-                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the price</span>
+                  Payment plan <span className={SECTION_NOTE_CLASS}>optional · adds up to the {basis === 'fixed' ? 'price' : 'total'}</span>
                 </p>
                 {/* The payment lines — name · due date · amount, the record card's own rows — each with an "Already
                     paid" tick and, ticked, the optional proof (makers-match § 1). The running total reads the price
                     field live. Two named lines start it; a line left with no amount is no payment, so an untouched plan
                     asks nothing of the save. */}
                 <PaymentPlanRows
-                  totalPhp={priceNumber}
+                  totalPhp={planTotal}
                   disabled={pending}
                   initial={ADD_STARTER}
                   dated={{
                     dates: { lockIso: manilaTodayIso(), eventIso: eventDateIso ?? null },
-                    keptTotalPhp: (() => {
-                      const n = Number(priceKept.replace(/,/g, ''));
-                      return Number.isFinite(n) && n > 0 ? n : null;
-                    })(),
+                    keptTotalPhp: planKeptTotal,
                     paidAtAdd: true,
                   }}
                 />

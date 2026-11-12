@@ -44,7 +44,7 @@
  * controls and gets its own baseline entry.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 /**
@@ -325,6 +325,35 @@ export function routeSourceFiles(routeDir, { isAppRoot = false } = {}) {
     for (const name of filesIn(routeDir)) {
       const full = join(routeDir, name);
       if (isDir(full) && PRIVATE_SUBDIRS.has(name)) walkAll(full);
+    }
+
+    /*
+      ── THE LEFT-BEHIND FOLDER OF A PAGE THAT MOVED INTO A ROUTE GROUP ──
+      (added 2026-11-12) When a page moves into `app/(shell)/` only `page.tsx`
+      + `loading.tsx` move; its sections stay where they were and the page
+      imports them by `@/app/<route>/…`. This walk read the GROUP folder only,
+      so on regenerating, those sections silently left the baseline —
+      measured on /creators: `/creators`, `/realstories` and `/signup` gone
+      from its destinations, 19 blocks gone, with no message. /for-suppliers
+      lost its sections the same way on 2026-11-04.
+
+      The twin is the same path with every `(group)` segment removed. Its own
+      files and private folders belong to this route ONLY while the twin
+      serves no page of its own — if it does, it is a separate route and is
+      read as one. Its child ROUTE folders (e.g. app/blog/[slug]) are never
+      walked: they are their own routes.
+    */
+    const twin = routeDir
+      .split(sep)
+      .filter((seg) => !/^\(.+\)$/.test(seg))
+      .join(sep);
+    if (twin !== routeDir && isDir(twin) && !existsSync(join(twin, 'page.tsx'))) {
+      for (const name of filesIn(twin)) {
+        const full = join(twin, name);
+        if (isDir(full)) {
+          if (PRIVATE_SUBDIRS.has(name)) walkAll(full);
+        } else if (isSource(name)) out.push(full);
+      }
     }
   }
 

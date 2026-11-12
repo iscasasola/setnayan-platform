@@ -45,7 +45,7 @@ export async function loadMyOffers(threadId: string): Promise<{ ok: true; shop: 
     supabase.from('vendor_offers').select(`id,${VENDOR_OFFER_SELECT}`).eq('vendor_profile_id', shop).order('sort_order', { ascending: true }),
     supabase
       .from('vendor_proposals')
-      .select('line_items, total_centavos, payment_schedule, service_card_ids')
+      .select(`${QUOTE_VERSION_SELECT}, service_card_ids`)
       .eq('event_id', eventId)
       .eq('vendor_profile_id', shop)
       .in('status', ['sent', 'viewed', 'accepted'])

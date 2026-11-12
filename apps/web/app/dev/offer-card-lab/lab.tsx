@@ -3,7 +3,7 @@
  * database. DEV-ONLY: production builds 404 this route. Names and amounts are samples — nobody real, never a price.
  *
  *   ?m=drop|drop2|pick|pick2|open|supplier|applied|expired|ended|compare
- *   pick / pick2 — the 13 Nov picker: the quote already carries Book early (₱5,000); worse offers greyed, a better one picked
+ *   pick / pick2 — the 13 Nov picker: the quote already carries Book early; worse offers greyed, a better one picked
  */
 import { notFound } from 'next/navigation';
 import { DroppedOfferCard } from '@/app/_components/chat/cards/offer-card';
@@ -78,8 +78,8 @@ export default async function OfferCardLab({ searchParams }: { searchParams: Pro
         return <OfferDropLab seed={[{ rowId: 1, offer: rainy }, { rowId: 2, offer: early }]} startStep={m === 'drop2' ? 1 : 0} />;
       case 'pick':
       case 'pick2': {
-        // The live quote already carries "Book early" (₱5,000): ₱110,000 → ₱105,000.
-        const withEarly = [...lines, { label: 'Book early', detail: '₱5,000 off · offer', amount_centavos: -C(5_000), offer_id: early.id }];
+        // The live quote already carries "Book early" (5,000 off a 110,000 quote).
+        const withEarly = [...lines, { label: 'Book early', detail: 'offer', amount_centavos: -C(5_000), offer_id: early.id }];
         const weekday: Offer = { ...blankOffer('S89D-LAB0000003'), name: 'Weekday', phpOff: 3000, untilDate: addDays(today, 30) };
         return (
           <OfferDropLab

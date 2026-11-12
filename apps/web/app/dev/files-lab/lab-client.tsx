@@ -49,8 +49,12 @@ function f(part: Partial<EventFile> & Pick<EventFile, 'grp' | 'kind' | 'name'>):
 const FILES: EventFile[] = [
   f({ grp: 'booking', kind: 'document', name: 'Catering contract · signed.pdf' }),
   f({ grp: 'booking', kind: 'document', name: 'Menu · Garden buffet 150.pdf' }),
-  f({ grp: 'unfiled', kind: 'photo', name: 'IMG_2201.jpg' }),
-  f({ grp: 'links', kind: 'link', name: 'Tasting video · youtube.com', url: 'https://youtube.com/watch?v=x' }),
+  // 📥 Piece 3c — collected from the chat, sorted by kind.
+  f({ grp: 'booking', kind: 'document', name: 'Payment receipt.pdf', fromChat: { messageId: 'm0', bySupplier: false } }),
+  f({ grp: 'unfiled', kind: 'photo', name: 'IMG_2201.jpg', fromChat: { messageId: 'm1', bySupplier: true } }),
+  f({ grp: 'unfiled', kind: 'video', name: 'Walkthrough.mp4', fromChat: { messageId: 'm2', bySupplier: true } }),
+  f({ grp: 'links', kind: 'link', name: 'YouTube · youtube.com', url: 'https://youtube.com/watch?v=x', isVideoLink: true }),
+  f({ grp: 'links', kind: 'link', name: 'rosa.ph', url: 'https://rosa.ph/menu' }),
   f({ grp: 'service', kind: 'photo', name: 'Buffet line.jpg', serviceId: BUFFET, takenAt: '2027-03-15T11:00:00+08:00', decision: 'shown' }),
   f({ grp: 'service', kind: 'photo', name: 'Carving station.jpg', serviceId: BUFFET, takenAt: '2027-03-15T12:00:00+08:00' }),
   f({ grp: 'service', kind: 'photo', name: 'Setup.jpg', serviceId: BUFFET, takenAt: '2027-03-14T16:00:00+08:00' }),
@@ -65,6 +69,10 @@ const FILES: EventFile[] = [
 
 export function FilesLabClient({ mode }: { mode: string }) {
   useEffect(() => {
+    if (mode === 'filechat') {
+      const t2 = setTimeout(() => (document.querySelector('[data-files-group="unfiled"] li button') as HTMLElement | null)?.click(), 600);
+      return () => clearTimeout(t2);
+    }
     const sel =
       mode === 'plus' ? '[data-files-plus]' : mode === 'upload' || mode === 'portfolio' ? '[data-files-plus]' : mode === 'couple' ? '[data-couple-approvals-line]' : null;
     if (!sel) return;

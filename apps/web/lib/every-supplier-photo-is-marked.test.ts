@@ -102,6 +102,7 @@ test('the door itself never catches — a caught failure is an unmarked photo', 
 
 /** Server files that write to R2 and are NOT a supplier's public photo — each with why. */
 const NOT_A_SUPPLIER_PHOTO: Record<string, string> = {
+  'app/_actions/event-files-actions.ts': 'Piece 3c — r2Copy keeps a chat photo the shop filed as its PRIVATE stored copy (setnayan-thread-files/supplier-files/<shop>/), never served publicly; the shop page that will list event photos (the view event_supplier_photos_listed) must publish through publishMarkedSupplierPhoto when it is built',
   'app/admin/app-performance/actions.ts': 'admin performance snapshots',
   'app/admin/menus/actions.ts': 'admin-authored menu artwork',
   'app/admin/moodboard-library/actions.ts': 'the Setnayan template library (admin-authored, Setnayan-marked)',

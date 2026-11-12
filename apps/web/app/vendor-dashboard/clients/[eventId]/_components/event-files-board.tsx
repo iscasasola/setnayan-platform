@@ -49,6 +49,8 @@ export type EventFilesBoardProps = {
   picks: PortfolioPick[] | null;
   feeUnlocked: boolean;
   returnPath: string;
+  /** 📥 Piece 3c: the chat's files could not be read — said, never drawn as a chat with nothing in it. */
+  chatUnread?: boolean;
 };
 
 type Sort = 'newest' | 'oldest' | 'name' | 'size';
@@ -281,6 +283,11 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
           Adding…
         </p>
       ) : null}
+      {p.chatUnread ? (
+        <p role="status" className="text-[13px] text-ink/70" data-files-chat-unread="">
+          What was shared in the chat could not be loaded just now — everything is still in the chat itself.
+        </p>
+      ) : null}
       {q.trim() && visible.length === 0 ? <p className="text-sm text-ink/60">No file matches “{q.trim()}”.</p> : null}
 
       {groups.map((g) => (
@@ -309,7 +316,13 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
                     rel="noopener noreferrer"
                     className="flex min-h-12 items-center gap-3 rounded-xl bg-ink/[0.04] px-3.5 py-2 text-[15px] text-ink"
                   >
-                    {f.kind === 'link' ? <Link2 className="h-4 w-4 flex-none text-ink/50" aria-hidden /> : <FileText className="h-4 w-4 flex-none text-ink/50" aria-hidden />}
+                    {f.isVideoLink ? (
+                      <Play className="h-4 w-4 flex-none text-ink/50" aria-hidden />
+                    ) : f.kind === 'link' ? (
+                      <Link2 className="h-4 w-4 flex-none text-ink/50" aria-hidden />
+                    ) : (
+                      <FileText className="h-4 w-4 flex-none text-ink/50" aria-hidden />
+                    )}
                     <span className="min-w-0 flex-1 truncate">{f.name}</span>
                     <span className="flex-none text-[12px] text-ink/50">{sizeWords(f.sizeBytes)}</span>
                   </a>
@@ -418,11 +431,30 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
               {sizeWords(viewer.sizeBytes)} · {viewer.takenAt ? `taken ${dayWords(viewer.takenAt)}` : 'no date on the photo'} · added {dayWords(viewer.createdAt)}
               {viewer.serviceId ? ` · under ${p.serviceTitles[viewer.serviceId] ?? 'a service'}` : ''}
             </p>
+            {viewer.grp === 'unfiled' ? (
+              <FileUnder
+                viewer={viewer}
+                quoted={p.quoted}
+                busy={busy}
+                onFile={(serviceId) =>
+                  start(async () => {
+                    const fd = new FormData();
+                    fd.set('op', 'filechat');
+                    fd.set('message_id', viewer.fromChat?.messageId ?? '');
+                    fd.set('service_id', serviceId);
+                    const r = await run(fd);
+                    setSaid(r.status === 'error' ? { ok: false, words: r.message } : { ok: true, words: `Filed under ${p.serviceTitles[serviceId] ?? 'the service'}` });
+                    setViewer(null);
+                  })
+                }
+              />
+            ) : null}
             {viewer.state ? (
               <InfoTip label={`On your shop · ${shopStateWords(viewer.state, p.coupleName)}`} labelAs="p" labelClassName="text-[14px] font-medium text-ink" align="start">
                 {SHOP_RULES_LINE}
               </InfoTip>
             ) : null}
+            {viewer.fromChat ? null : (
             <ActionButton
               tone="neutral"
               icon={Trash2}
@@ -440,6 +472,7 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
                 })
               }
             />
+            )}
           </div>
         ) : (
           <h2 id={ids.view} className="sr-only">
@@ -447,6 +480,49 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
           </h2>
         )}
       </Sheet>
+    </div>
+  );
+}
+
+/**
+ * 📥 "File under a service" (Piece 3c, legend row 143): a photo/video from the chat is filed under ONE quoted service.
+ * Only filed ones count toward that service and can ever reach the shop (still under the three guards and the fee
+ * hold). Only the shop's OWN chat photos are filed — a couple's photo is never a supplier's event photo.
+ */
+function FileUnder({
+  viewer,
+  quoted,
+  busy,
+  onFile,
+}: {
+  viewer: EventFile;
+  quoted: QuotedService[];
+  busy: boolean;
+  onFile: (serviceId: string) => void;
+}) {
+  if (!viewer.fromChat?.bySupplier) {
+    return <p className="text-[13px] text-ink/65">Sent by the couple — only your own photos are filed under a service.</p>;
+  }
+  if (quoted.length === 0) {
+    return <p className="text-[13px] text-ink/65">Nothing is in this event&rsquo;s quote yet — photos are filed under a quoted service.</p>;
+  }
+  return (
+    <div className="space-y-1.5" data-files-file-under>
+      <InfoTip label="File under a service" labelAs="p" labelClassName="text-[14px] font-medium text-ink" align="start">
+        Only filed photos count toward the service and can reach your shop.
+      </InfoTip>
+      {quoted.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          disabled={busy}
+          onClick={() => onFile(s.id)}
+          className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-ink/[0.04] px-3.5 text-left text-[15px] text-ink disabled:opacity-50"
+        >
+          <Images className="h-4 w-4 flex-none text-sn-accent" aria-hidden />
+          {s.title}
+        </button>
+      ))}
     </div>
   );
 }

@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForPrivateStoredAsset, displayUrlForStoredAsset, parseStoredAsset } from '@/lib/uploads';
-import { shopStateOf, type CoupleDecision, type FileGroup, type FileKind, type ShopState } from '@/lib/supplier-files';
+import { parseVideoLink } from '@/lib/video-embed';
+import { fileKindOf, linksIn, shopStateOf, siteOf, type CoupleDecision, type FileGroup, type FileKind, type ShopState } from '@/lib/supplier-files';
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — server reads (Piece 3b). One batched read per screen.
@@ -28,6 +29,10 @@ export type EventFile = {
   state: ShopState | null;
   /** A signed address to draw it (photos/videos/documents), or the link itself. */
   url: string | null;
+  /** 📥 Piece 3c: collected from the chat (not a filed row) — its message, and whether the shop sent it. */
+  fromChat?: { messageId: string; bySupplier: boolean };
+  /** A video link (YouTube · Vimeo · …) — the Links tile wears a play mark. */
+  isVideoLink?: boolean;
 };
 
 export type PortfolioPick = { ref: string; url: string; serviceId: string | null; serviceTitle: string | null };
@@ -41,17 +46,20 @@ export type EventFilesRead =
       /** Every card of the shop, for "Linked · <its service>". */
       serviceTitles: Record<string, string>;
       files: EventFile[];
+      /** 📥 The chat messages already filed here (they leave "From the chat · not filed yet"). */
+      filedMessageIds: Set<string>;
     }
   | { status: 'unread' };
 
 const FILE_COLS =
-  'file_id, grp, kind, file_name, vendor_service_id, size_bytes, taken_at, created_at, couple_decision, decided_at, counts, link_url, portfolio_ref, media_id, supplier_media(r2_ref)';
+  'file_id, grp, kind, file_name, chat_message_id, vendor_service_id, size_bytes, taken_at, created_at, couple_decision, decided_at, counts, link_url, portfolio_ref, media_id, supplier_media(r2_ref)';
 
 type FileRow = {
   file_id: string;
   grp: FileGroup;
   kind: FileKind;
   file_name: string;
+  chat_message_id: string | null;
   vendor_service_id: string | null;
   size_bytes: number | null;
   taken_at: string | null;
@@ -117,8 +125,10 @@ export async function readEventSupplierFiles(
     .filter((id) => serviceTitles[id])
     .map((id) => ({ id, title: serviceTitles[id]! }));
   const eventDate = args.eventDate ?? null;
-  const files = await Promise.all(((filesRes.data ?? []) as unknown as FileRow[]).map((r) => toFile(r, eventDate, vendorProfileId)));
-  return { status: 'ok', eventDate, quoted, serviceTitles, files };
+  const rows = (filesRes.data ?? []) as unknown as FileRow[];
+  const files = await Promise.all(rows.map((r) => toFile(r, eventDate, vendorProfileId)));
+  const filedMessageIds = new Set(rows.map((r) => r.chat_message_id).filter((x): x is string => Boolean(x)));
+  return { status: 'ok', eventDate, quoted, serviceTitles, files, filedMessageIds };
 }
 
 async function toFile(r: FileRow, eventDate: string | null, shop: string): Promise<EventFile> {
@@ -216,4 +226,79 @@ export async function readCoupleApprovals(
   const rank = { waiting: 0, shown: 1, hidden: 2 } as const;
   files.sort((a, b) => rank[a.decision] - rank[b.decision]);
   return { status: 'ok', files, serviceTitles };
+}
+
+// ── 📥 Piece 3c — everything shared in the chat is collected on Files, sorted by kind ──────────────────────────────
+/**
+ * The files and links of THIS shop's conversation with THIS event, sorted by kind (DECISION_LOG 2026-11-12 "EVERYTHING
+ * SHARED IN THE CHAT IS COLLECTED ON FILES, SORTED BY KIND"): a document → This booking · a photo/video → From the chat ·
+ * not filed yet (until it is filed under a service) · a link → Links. Read from the messages themselves — nothing is
+ * copied to show them; a chat file opens through the shipped `/api/chat/attachment/<message>` route, which re-proves the
+ * reader. A refused read is SAID (`unread`), never an empty chat.
+ */
+export async function readChatCollected(
+  supabase: SupabaseClient,
+  args: { threadId: string | null; filedMessageIds: ReadonlySet<string> },
+): Promise<{ status: 'ok'; files: EventFile[] } | { status: 'unread' }> {
+  if (!args.threadId) return { status: 'ok', files: [] };
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('message_id, body, attachment_name, attachment_mime, attachment_size_bytes, attachment_r2_key, attachment_url, created_at, sender_role')
+    .eq('thread_id', args.threadId)
+    .order('created_at', { ascending: false })
+    .limit(400);
+  if (error) {
+    logQueryError('readChatCollected', error, { thread_id: args.threadId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  const files: EventFile[] = [];
+  for (const m of (data ?? []) as {
+    message_id: string;
+    body: string | null;
+    attachment_name: string | null;
+    attachment_mime: string | null;
+    attachment_size_bytes: number | null;
+    attachment_r2_key: string | null;
+    attachment_url: string | null;
+    created_at: string;
+    sender_role: string | null;
+  }[]) {
+    const base = {
+      serviceId: null,
+      takenAt: null,
+      createdAt: m.created_at,
+      decision: 'waiting' as const,
+      decidedAt: null,
+      counts: false,
+      state: null,
+    };
+    if ((m.attachment_r2_key || m.attachment_url) && !args.filedMessageIds.has(m.message_id)) {
+      const kind = fileKindOf(m.attachment_mime, m.attachment_name ?? '');
+      files.push({
+        ...base,
+        fileId: `chat:${m.message_id}`,
+        grp: kind === 'document' ? 'booking' : 'unfiled',
+        kind,
+        name: m.attachment_name?.trim() || (kind === 'document' ? 'Document' : kind === 'video' ? 'Video' : 'Photo'),
+        sizeBytes: m.attachment_size_bytes,
+        url: `/api/chat/attachment/${m.message_id}`,
+        fromChat: { messageId: m.message_id, bySupplier: m.sender_role === 'vendor' },
+      });
+    }
+    for (const url of linksIn(m.body)) {
+      const video = parseVideoLink(url);
+      files.push({
+        ...base,
+        fileId: `link:${m.message_id}:${url}`,
+        grp: 'links',
+        kind: 'link',
+        name: video ? `${video.label} · ${siteOf(url)}` : siteOf(url),
+        sizeBytes: null,
+        url,
+        fromChat: { messageId: m.message_id, bySupplier: m.sender_role === 'vendor' },
+        isVideoLink: Boolean(video),
+      });
+    }
+  }
+  return { status: 'ok', files };
 }

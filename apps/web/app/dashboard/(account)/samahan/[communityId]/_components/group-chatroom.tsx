@@ -279,7 +279,7 @@ export function GroupChatroom({
     const el = chatRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [items.length]);
-  // From 1024 (no dock) the row sits under the reading column, not across the rail.
+  // From 701 (no dock — the shell's line, plan D5) the row sits under the reading column, not across the rail.
   useEffect(() => {
     const el = hostRef.current;
     return el ? followColumn(el) : undefined;
@@ -497,7 +497,7 @@ export function GroupChatroom({
       <div ref={hostRef} className="mx-auto w-full max-w-3xl" data-thumb-host="">
         <div
           data-group-composer=""
-          className="pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-sn-thumb py-2.5 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] lg:bottom-4 lg:left-[var(--gs-left,0px)] lg:right-[var(--gs-right,0px)] lg:px-0"
+          className="pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-sn-thumb py-2.5 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] tab:bottom-4 tab:left-[var(--gs-left,0px)] tab:right-[var(--gs-right,0px)] tab:px-0"
         >
           <ThumbRow
             name="group-chat"

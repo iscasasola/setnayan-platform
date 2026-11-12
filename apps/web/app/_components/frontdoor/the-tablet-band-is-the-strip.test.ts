@@ -12,9 +12,12 @@
  *   1 · ONLY THE DESIGNED TREES OPT IN. The couple's event layout (area 2,
  *       2026-10-19) and the supplier dashboard (area 3, prototype
  *       `desktop_layouts_2026-10-22.html` family 2, 2026-10-23) hand the shell
- *       and the dock `boundary="tab"`. A third production tree opting in would
- *       move a surface nobody designed (HQ would draw the strip AND its own
- *       bottom bar).
+ *       and the dock `boundary="tab"`, and so do the two account layouts (the
+ *       launcher and the account spokes — plan D5 "Account/launcher onto the 701
+ *       line", owner-approved 2026-11-13; their dock is the account bar, told
+ *       through `<AccountBarSlot boundary="tab">`). Any other production tree
+ *       opting in would move a surface nobody designed (HQ would draw the strip
+ *       AND its own bottom bar).
  *   2 · THE BAND UNDOES THE DRAWER. Every rail/scrim/menu-button/bar rule the
  *       sub-1024 blocks apply to every tree has a `[data-boundary='tab']`
  *       counterpart in the tablet band — so a new drawer rule cannot leak into
@@ -87,7 +90,16 @@ test('0 · the line exists once, in all three places that read it', () => {
   assert.match(TW, new RegExp(`\\btab:\\s*'${TAB_PX}px'`), 'tailwind.config.ts `tab` screen disagrees with BREAKPOINTS.tab');
 });
 
-test('1 · only the couple event layout and the supplier dashboard opt into the 701 line', () => {
+const OPTED_IN = [
+  'app/dashboard/(account)/layout.tsx',
+  'app/dashboard/(launcher)/layout.tsx',
+  'app/dashboard/[eventId]/layout.tsx',
+  'app/vendor-dashboard/layout.tsx',
+];
+/** The two account layouts mount their dock through the account bar's slot, which hands the line to <BottomDock>. */
+const ACCOUNT_LAYOUTS = new Set(['app/dashboard/(account)/layout.tsx', 'app/dashboard/(launcher)/layout.tsx']);
+
+test('1 · only the designed trees opt into the 701 line', () => {
   const hits: string[] = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {
@@ -102,17 +114,20 @@ test('1 · only the couple event layout and the supplier dashboard opt into the 
     }
   };
   walk(join(WEB, 'app'));
-  assert.deepEqual(
-    hits.sort(),
-    ['app/dashboard/[eventId]/layout.tsx', 'app/vendor-dashboard/layout.tsx'],
-    `boundary="tab" is passed by: ${hits.join(', ')}`,
-  );
-  for (const rel of ['app/dashboard/[eventId]/layout.tsx', 'app/vendor-dashboard/layout.tsx']) {
+  assert.deepEqual(hits.sort(), [...OPTED_IN].sort(), `boundary="tab" is passed by: ${hits.join(', ')}`);
+  for (const rel of OPTED_IN) {
     const layout = read(rel);
     assert.equal((layout.match(/\bboundary="tab"/g) ?? []).length, 2, `${rel} must hand the line to BOTH the shell and the dock`);
     assert.match(layout, /<AppRailShell[\s\S]*?boundary="tab"/, `${rel}: the shell is not told the 701 line`);
-    assert.match(layout, /<BottomDock boundary="tab">/, `${rel}: the dock is not told the 701 line — the phone bar would sit under the strip`);
+    assert.match(
+      layout,
+      ACCOUNT_LAYOUTS.has(rel) ? /<AccountBarSlot\b[^>]*\bboundary="tab"/ : /<BottomDock boundary="tab">/,
+      `${rel}: the dock is not told the 701 line — the phone bar would sit under the strip`,
+    );
   }
+  // …and the account bar passes what it is told straight to the dock.
+  assert.match(read('app/dashboard/(launcher)/_components/account-bar-slot.tsx'), /<AccountBottomNav tabs=\{tabs\} boundary=\{boundary\} \/>/);
+  assert.match(read('app/dashboard/(launcher)/_components/account-bottom-nav.tsx'), /<BottomDock boundary=\{boundary\}>/);
 });
 
 test('2 · every drawer rule the sub-1024 blocks apply to the rail, the scrim, the menu button or the bar is undone in the tablet band', () => {
@@ -178,6 +193,9 @@ test('5 · the five pages\' thumb docks take their desktop place from the same l
     'app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx',
     'app/dashboard/[eventId]/vendors/_components/build-body.tsx',
     'app/dashboard/[eventId]/vendors/_components/build-cart.tsx',
+    // The account tree took the line too (plan D5, 2026-11-13): People's / Memories' row and a group's chat row.
+    'app/dashboard/(account)/_components/account-thumb-row.tsx',
+    'app/dashboard/(account)/samahan/[communityId]/_components/group-chatroom.tsx',
   ]) {
     const src = read(rel);
     assert.match(src, /\btab:bottom-/, `${rel}: the dock has no tab: desktop place`);

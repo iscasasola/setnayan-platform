@@ -48,13 +48,9 @@
 }
 
 /* ═══ the glass thumb row ═══ */
-/* Between 701 and 1023 the ACCOUNT pages still carry their bottom bar (`AccountBottomNav`, lg:hidden), unlike an
-   event's dock — so the row keeps sitting on it there, and only takes the desktop place from 1024. */
-@media (min-width: 701px) and (max-width: 1023px) {
-  .lower:global(.sn-glass-row) {
-    bottom: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))));
-  }
-}
+/* From 701 the account pages carry no bottom bar either (plan D5, 2026-11-13: the account bar is `tab:hidden`, the
+   shell's line), so the row takes its desktop place on the same line as an event's dock — the 701–1023 hold that kept
+   it on the bar is gone with the bar. */
 /* ≡ — the view list as a round 44-px icon (the Guest list's Sort seat): only the icon is drawn. */
 .iconPick button {
   width: 44px !important;

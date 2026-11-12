@@ -5,6 +5,7 @@ import { House, Telescope } from 'lucide-react';
 import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { AccountBarTab } from '@/lib/account-bar';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { HOME_HREF, HOME_LAST_SEG_KEY, HOME_SEG_ORDER, homeSegHref, type HomeSeg } from '@/lib/home-segments';
 
 /**
@@ -99,12 +100,13 @@ function useHomeDoor(): string {
   return href;
 }
 
-export function AccountBottomNav({ tabs }: { tabs: readonly AccountBarTab[] }) {
+export function AccountBottomNav({ tabs, boundary }: { tabs: readonly AccountBarTab[]; boundary?: ShellBoundary }) {
   const homeDoor = useHomeDoor();
   const items = accountBarItems(tabs).map((it) => (it.key === 'home' ? { ...it, href: homeDoor } : it));
   return (
     <div data-account-bar="">
-      <BottomDock>
+      {/* 📱→🖥 The dock leaves at the shell's line — 701 on both account layouts (plan D5, 2026-11-13). */}
+      <BottomDock boundary={boundary}>
         <BottomNav items={items} />
       </BottomDock>
     </div>

@@ -15,11 +15,13 @@
  * `sheet-agrees-with-the-nav.test.ts` exists for). So the boundary is decided
  * ONCE, by the tree that mounts the shell, and read here by everything inside.
  *
- *   'lg'  — 1024. The default. The front door, the launcher, the account
- *           spokes, the supplier dashboard and the admin console are areas
- *           3–4 of the desktop plan and are NOT designed for 701–1023 yet, so
- *           they keep exactly what ships.
- *   'tab' — 701. The couple's event tree only (`dashboard/[eventId]/layout.tsx`).
+ *   'lg'  — 1024. The default. The front door and the admin console are NOT
+ *           designed for 701–1023 yet, so they keep exactly what ships.
+ *   'tab' — 701. The couple's event tree (`dashboard/[eventId]/layout.tsx`),
+ *           the supplier dashboard (2026-10-23), and the launcher + account
+ *           spokes (`dashboard/(launcher)` · `dashboard/(account)`, plan D5
+ *           "Account/launcher onto the 701 line", owner-approved 2026-11-13).
+ *           `the-tablet-band-is-the-strip.test.ts` holds the list.
  *
  * The stylesheet half of the same switch is `data-boundary="tab"` on `.fd`
  * (front-door.css, the 701–1023 band) — one attribute, written by the shell

@@ -119,6 +119,10 @@ export default async function LauncherLayout({
     // the content column exactly as before.
     <div className="sn-ambient min-h-dvh">
       <AppRailShell
+        /* 📱→🖥 THE ACCOUNT TREE IS A TABLET FROM 701 (owner-approved plan D5, "Account/launcher onto the 701 line",
+           2026-11-13): the rail's 72-px strip comes down to 701 and the account bar goes with it — ONE boundary, given
+           to the shell AND the dock, as the event tree and the supplier dashboard do. Below 701 nothing moves. */
+        boundary="tab"
         topBarSlot={
           <>
             <UnreadBellBadge
@@ -134,12 +138,12 @@ export default async function LauncherLayout({
         }
       >
         {/* The bar is anchored and FIXED, so the page reserves its measured
-            height (+ a breath) wherever it is drawn — below 1024, the dock's own
-            `lg:hidden` line. */}
+            height (+ a breath) wherever it is drawn — below 701, the dock's own
+            `tab:hidden` line (plan D5). */}
         {/* ↔ `.sn-vt-page` — the bar's page slide moves THIS, the same slide as the event and the shop (owner
             2026-10-24); `while-sliding` names it only while a slide runs (globals.css). */}
         <main
-          className="sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]"
+          className="sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]"
           data-sn-slide="while-sliding"
         >
           {children}
@@ -150,6 +154,7 @@ export default async function LauncherLayout({
             context this layout already loaded; Discover only where `/` opens. */}
         <AccountBarSlot
           tabs={accountBarTabs({ discoverOpen })}
+          boundary="tab"
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

@@ -8,7 +8,7 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/orders';
-import { CARDS_PER_SERVICE, SERVICE_TIERS, toGoWord } from '@/lib/supplier-setup';
+import { SERVICE_TIERS, toGoWord } from '@/lib/supplier-setup';
 
 export type OfferFoldService = {
   service: string;
@@ -16,6 +16,8 @@ export type OfferFoldService = {
   label: string;
   cards: Array<{ id: string; title: string | null; pricePhp: number | null }>;
   toGo: number;
+  /** The cards this service counts to (`cardsToCount`: three, or the plan's one). */
+  target: number;
 };
 
 /**
@@ -73,7 +75,7 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-medium text-ink">{s.label}</span>
                 <span className="block text-[12.5px] text-ink/60">
-                  {formatCount(Math.min(s.cards.length, CARDS_PER_SERVICE))} of {formatCount(CARDS_PER_SERVICE)}
+                  {formatCount(Math.min(s.cards.length, s.target))} of {formatCount(s.target)}
                 </span>
               </span>
               {s.cards.length === 0 ? (
@@ -81,12 +83,12 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
                 <ActionButton tone="neutral" icon={Plus} label="Start" name={`Start — ${s.label}`} onClick={() => setOpen(true)} aria-haspopup="dialog" data-testid={`setup-start-${s.service}`} />
               ) : null}
               <Badge tone={s.toGo > 0 ? 'wait' : 'ok'} data="setup-service">
-                {s.toGo > 0 ? toGoWord(s.toGo) : `${formatCount(CARDS_PER_SERVICE)} of ${formatCount(CARDS_PER_SERVICE)} ✓`}
+                {s.toGo > 0 ? toGoWord(s.toGo) : `${formatCount(s.target)} of ${formatCount(s.target)} ✓`}
               </Badge>
             </div>
             {s.cards.length === 0 ? null : (
             <div className="grid grid-cols-3 gap-2">
-              {SERVICE_TIERS.map((tier, i) => {
+              {SERVICE_TIERS.slice(0, s.target).map((tier, i) => {
                 const c = s.cards[i];
                 return c ? (
                   <div key={tier} data-setup-card={tier} className="min-w-0 px-1 py-2">

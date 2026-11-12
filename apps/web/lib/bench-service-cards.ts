@@ -57,6 +57,7 @@ type CardRow = {
   exclusive_perk_text: string | null;
   includes_setnayan_gift: boolean | null;
   primary_photo_r2_key: string | null;
+  showcase_photo_r2_keys?: string[] | null;
   base_pax?: number | null;
   added_pax_block?: number | null;
   added_pax_price_php?: number | null;
@@ -68,7 +69,7 @@ const BENCH_CARD_FIELDS =
   'vendor_service_id,vendor_profile_id,title,category,pricing_basis,starting_price_php,' +
   'per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,' +
   'transport_included,transport_flat_fee_php,exclusive_perk_text,includes_setnayan_gift,' +
-  'primary_photo_r2_key';
+  'primary_photo_r2_key,showcase_photo_r2_keys';
 
 /** service id → the card, for rows already read. */
 async function cardsForRows(
@@ -96,6 +97,11 @@ async function cardsForRows(
         brackets: brackets.get(row.vendor_service_id) ?? [],
         hidePrices: hiding.has(row.vendor_profile_id),
         coverUrl: publicUrlForStoredAsset(row.primary_photo_r2_key),
+        // 🎞 The showcase photos the cover plays (≤5, the grown card's cap) — same read, no extra request.
+        photos: (row.showcase_photo_r2_keys ?? [])
+          .slice(0, 5)
+          .map((k) => publicUrlForStoredAsset(k))
+          .filter((u): u is string => Boolean(u)),
         now,
       }),
     );

@@ -4,8 +4,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { followGuestCount, quoteFollowsGuestList, quoteRiseWords, type FollowQuote } from './quote-pax-follow';
-import { quoteRiseFromLine, streamLineKind } from './chat-card-lines';
+import { followGuestCount, quoteFallWords, quoteFollowsGuestList, quoteRiseWords, type FollowQuote } from './quote-pax-follow';
+import { quoteFallFromLine, quoteRiseFromLine, streamLineKind } from './chat-card-lines';
 import { kidsCountSuggestions, kidsSuggestionWords } from './guest-not-counted';
 
 const quote = (over: Partial<FollowQuote> = {}): FollowQuote => ({
@@ -118,4 +118,121 @@ test('🍽 the guest card ticks only from the couple’s tap — never on render
   assert.ok(src.includes('const leaveOut = (id: string) =>'), 'the one tap is gone');
   assert.equal(calls, taps, 'leaveOut may be called ONLY from a button’s onClick');
   assert.equal(taps, 1);
+});
+
+// ── 📉 THE FALL-BACK (migration 20271340566104; DECISION_LOG 2026-11-12 "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK —
+// UNLESS THE SUPPLIER LOCKED IT") ─────────────────────────────────────────────────────────────────────────────────
+
+/** The fixture quote after the list rose to `to` — as the repricer leaves it (sent pax remembered). */
+function risen(to: number, over: Partial<FollowQuote> = {}): FollowQuote {
+  const q = quote(over);
+  const r = followGuestCount(q, to);
+  assert.ok(r.rose);
+  return { ...q, lines: r.lines, totalCentavos: r.totalCentavos, schedule: r.schedule, billedPax: r.billedPax, sentBilledPax: q.billedPax };
+}
+
+test('📉 unlocked: fewer guests → the per-head lines fall back, the drop comes off the Final balance', () => {
+  const q = risen(130);
+  const r = followGuestCount(q, 110, [0]);
+  assert.ok(r.fell);
+  assert.equal(r.deltaCentavos, -20 * 65_000);
+  assert.equal(r.billedPax, 110);
+  assert.equal(r.lines[0]!.amount_centavos, 110 * 65_000);
+  assert.equal(r.lines[0]!.detail, '110 pax × ₱650');
+  assert.equal(r.lines[1]!.amount_centavos, 1_620_000, 'a flat line never moves');
+  const inst = r.schedule!.installments!;
+  assert.deepEqual(inst[0], q.schedule!.installments![0], 'the paid first payment is untouched');
+  assert.equal(inst[1]!.amount_centavos, q.schedule!.installments![1]!.amount_centavos - 20 * 65_000);
+  assert.equal(inst.reduce((s, i) => s + i.amount_centavos, 0), r.totalCentavos, 'the plan still pays the whole quote');
+  assert.equal(r.line, 'Quote fell to 110 pax · −₱13,000');
+});
+
+test('📉 unlocked: it falls to the pax it was SENT at and no further — back to the sent quote exactly', () => {
+  const q = risen(130);
+  const r = followGuestCount(q, 60);
+  assert.ok(r.fell);
+  assert.equal(r.billedPax, 100, 'the sent pax is the floor');
+  assert.equal(r.totalCentavos, quote().totalCentavos, 'back to the sent total, not below');
+  assert.equal(r.lines[0]!.amount_centavos, quote().lines[0]!.amount_centavos);
+  assert.equal(r.schedule!.installments![1]!.amount_centavos, quote().schedule!.installments![1]!.amount_centavos);
+  // Already at the floor: nothing moves.
+  const again = followGuestCount({ ...q, lines: r.lines, totalCentavos: r.totalCentavos, schedule: r.schedule, billedPax: r.billedPax }, 40);
+  assert.equal(again.rose || again.fell, false);
+});
+
+test('📉 the supplier’s minimum holds: a Bill-at-least above the sent pax stops the fall there', () => {
+  const q = { ...risen(130), minPax: 120 };
+  const r = followGuestCount(q, 90);
+  assert.ok(r.fell);
+  assert.equal(r.billedPax, 120);
+  assert.equal(r.deltaCentavos, -10 * 65_000);
+});
+
+test('📉 a line quoted ABOVE rate × pax never falls under what was sent', () => {
+  const q: FollowQuote = { lines: [{ label: 'Buffet', amount_centavos: 10_000_000, detail: 'Plated', basis: 'per_pax', rate_centavos: 65_000 }], totalCentavos: 10_000_000, schedule: null, minPax: 0, billedPax: 100, booked: false };
+  const up = followGuestCount(q, 170);
+  assert.ok(up.rose);
+  assert.equal(up.totalCentavos, 170 * 65_000);
+  const down = followGuestCount({ ...q, lines: up.lines, totalCentavos: up.totalCentavos, billedPax: 170, sentBilledPax: 100 }, 120);
+  assert.ok(down.fell);
+  assert.equal(down.totalCentavos, 10_000_000, 'back to its sent amount, not 120 × ₱650');
+  assert.equal(down.lines[0]!.detail, 'Plated', 'and its sent words');
+});
+
+test('🔒 locked: still rises, never falls — the locked price is the floor', () => {
+  const q = { ...risen(130), locked: true };
+  for (const n of [0, 60, 100, 129, 130]) {
+    const r = followGuestCount(q, n);
+    assert.equal(r.fell, false, `${n} guests`);
+    assert.equal(r.rose, false, `${n} guests`);
+  }
+  const up = followGuestCount(q, 140);
+  assert.ok(up.rose, 'a locked quote still rises');
+  assert.equal(up.deltaCentavos, 10 * 65_000);
+});
+
+test('💳 paid never changes: a PAID Final balance leaves nothing unsettled — the price stays', () => {
+  const q = risen(130);
+  const r = followGuestCount(q, 100, [0, 1]);
+  assert.equal(r.fell, false);
+  assert.equal(r.rose, false);
+});
+
+test('💳 a drop bigger than what is unsettled stops there — whole guests, never a credit', () => {
+  // Paid first payment, a small unpaid auto row of 2 guests' worth on top (a rise after the Final balance was paid).
+  const q = risen(130);
+  const inst = q.schedule!.installments!;
+  const small: FollowQuote = {
+    ...q,
+    schedule: { ...q.schedule!, installments: [inst[0]!, { ...inst[1]!, amount_centavos: inst[1]!.amount_centavos - 2 * 65_000, raw_centavos: inst[1]!.raw_centavos! - 2 * 65_000 }, { seq: 2, amount_centavos: 2 * 65_000, raw_centavos: 2 * 65_000, is_auto_balance: true }] },
+  };
+  const r = followGuestCount(small, 100, [0, 1]);
+  assert.ok(r.fell);
+  assert.equal(r.billedPax, 128, 'falls only as far as the unsettled ₱1,300 allows');
+  assert.equal(r.deltaCentavos, -2 * 65_000);
+  const after = r.schedule!.installments!;
+  assert.deepEqual(after, small.schedule!.installments!.slice(0, 2), 'the paid rows are untouched; the emptied auto row leaves');
+  assert.equal(after.reduce((s, i) => s + i.amount_centavos, 0), r.totalCentavos);
+
+  // No plan: never below what has been paid on the booking.
+  const bare: FollowQuote = { ...q, schedule: null };
+  const paid = q.totalCentavos - 5 * 65_000 - 1;
+  const capped = followGuestCount(bare, 100, [], paid);
+  assert.ok(capped.fell);
+  assert.equal(capped.billedPax, 125, '5 guests fit under the ₱3,250.01 still unsettled');
+  assert.ok(capped.totalCentavos >= paid, 'never under what is paid');
+  assert.equal(followGuestCount(bare, 100, [], q.totalCentavos).fell, false, 'paid in full → nothing falls');
+});
+
+test('📉 a booked deal does not fall either (Piece 2)', () => {
+  assert.equal(followGuestCount({ ...risen(130), booked: true }, 100).fell, false);
+});
+
+test('📉 the fall line reads back exactly, and draws its card', () => {
+  const words = quoteFallWords(1_250, 1_234_567);
+  assert.equal(words, 'Quote fell to 1,250 pax · −₱12,345.67');
+  assert.deepEqual(quoteFallFromLine(words), { pax: 1250, deltaWords: '₱12,345.67' });
+  assert.equal(streamLineKind(words), 'fall');
+  assert.equal(quoteFallFromLine('Quote fell to 160 pax · -₱800'), null, 'a hyphen is not the database’s minus');
+  assert.equal(quoteRiseFromLine(words), null);
 });

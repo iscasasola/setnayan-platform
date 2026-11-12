@@ -118,7 +118,18 @@ export type SpotlightStep = {
    client mount can take it without carrying every tour's words (`lib/tours-stay-on-the-server.test.ts`). */
 
 /** The "You're set" card at the end, with the sample's confetti. */
-export type SpotlightFinale = { title: string; body: string; button: string };
+export type SpotlightFinale = {
+  title: string;
+  body: string;
+  button: string;
+  /**
+   * ☑ SHOWS UNTIL TICKED (owner 12 Nov 2026, the supplier's first-login tour). When set, this card carries a tick box
+   * with these words, and ONLY a ticked Done records the tour (`completeTour`). Skip leads here too; closing it
+   * unticked hides the tour for this visit only, and it plays again at the next sign-in. A replay ("Show me around")
+   * never shows the box — there is nothing left to record.
+   */
+  tick?: string;
+};
 
 export type SpotlightScript = { steps: ReadonlyArray<SpotlightStep>; finale: SpotlightFinale };
 
@@ -1703,58 +1714,107 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   supplier_spotlight_v1: {
     key: 'supplier_spotlight_v1',
     label: 'Supplier — spotlight tour',
-    blurb: 'Set up the shop, add services, answer customers, get paid.',
+    blurb: 'The four tabs: set up the shop, the page, chat and quotations with each client, and the portfolio.',
     slides: [],
+    // 🔦 OWNER 12 NOV 2026 — the first-login tour walks the four tabs (Today · Clients · Shop · Portfolio) in the order a
+    // new supplier fills them in: the set-up list, then the logo, cover photo and service cards (the ones a couple's
+    // event brought in), the page couples see, then each client's chat and quotation. It shows on every sign-in until
+    // the box on its last card is ticked (`finale.tick`) — "they need to check the tick box, so that tour would end and
+    // will not show after they click on the tick box".
     spotlight: {
       steps: [
         {
-          anchor: 'today-next',
-          title: 'Needs you today',
-          body: 'One row for each thing waiting on you, the most urgent first. Tap a row to open where it is answered.',
+          anchor: 'today-setup',
+          hint: 'Press Next',
+          title: 'Your set-up list',
+          body: 'Your shop goes live in a few steps: your name, your details, your logo, what you offer and your documents. Each one ticks itself the moment it is saved.',
         },
         {
           anchor: 'tab-shop',
           title: 'Shop is your storefront',
-          body: 'Your details, your page and what you sell.',
+          body: 'Your logo, your cover photo, your service cards and your page.',
           go: true,
         },
         {
-          anchor: 'shop-details',
-          title: 'Set up your shop',
-          body: 'Your name, photos and where you work. Your shop goes live to couples once Setnayan approves it.',
+          anchor: 'shop-logo',
+          title: 'Add your logo',
+          body: 'Tap it to upload your shop’s logo. Couples see it on your page, on your cards and in every chat.',
         },
         {
-          anchor: 'shop-add-service',
-          title: 'Add what you sell',
-          body: 'Build service cards with photos, prices and what’s included.',
+          anchor: 'shop-cover-photo',
+          title: 'Add your cover photo',
+          body: 'The big photo at the top of your page. Pick one that shows your best work.',
+        },
+        {
+          anchor: 'shop-services',
+          hint: 'Press Next',
+          title: 'Your service cards',
+          body: 'One card for each thing you sell, with a photo, a price and what is included. If a couple added you to their event, what they booked is already here as your first cards — open each one, add a photo and make it yours.',
+        },
+        {
+          anchor: 'shop-gear',
+          title: 'Shop settings',
+          body: 'Your page, your plan, who helps you run the shop and your documents are all in here.',
+          go: true,
+        },
+        {
+          anchor: 'shop-your-page',
+          title: 'Your page',
+          body: 'Open it to choose what couples see when they visit your shop.',
+          go: true,
+        },
+        {
+          anchor: 'shop-page-list',
+          hint: 'Press Next',
+          title: 'Make your page yours',
+          body: 'Your cover, your About, your featured services and your colour, part by part. Couples see nothing new until you press Apply.',
         },
         {
           anchor: 'tab-customers',
           title: 'Clients',
-          body: 'Requests and bookings land here, and replying costs nothing on any plan.',
+          body: 'Every event you work on. Replying costs nothing on any plan.',
           go: true,
         },
         {
           anchor: 'customers-list',
-          title: 'Who is waiting comes first',
-          body: 'Every event is one row with its next step on it. The ones waiting on your answer are always at the top.',
+          hint: 'Press Next',
+          title: 'One row per event',
+          body: 'Each event shows its next step. The ones waiting on your answer are always at the top.',
+        },
+        {
+          anchor: 'customers-event',
+          title: 'Open an event',
+          body: 'Tap an event to open it. It opens on its chat.',
+          go: true,
+        },
+        {
+          anchor: 'client-chat',
+          title: 'Chat with your client',
+          body: 'Every message for this event stays here, so you can pick up the conversation any time. Phone numbers and emails are kept out of the chat.',
+        },
+        {
+          anchor: 'client-quote',
+          title: 'Your quotation',
+          body: 'Price this event and send it to your client. Every version you send is kept.',
+        },
+        {
+          anchor: 'tab-collections',
+          title: 'Portfolio',
+          body: 'Your photos and videos. Your cover, your cards and your page take their pictures from here.',
+          go: true,
         },
         {
           anchor: 'tab-vendor-dashboard',
           title: 'Back to Today',
-          body: 'Every day starts here.',
+          body: 'Every day starts here: what needs you, what is coming up and what is still to come in.',
           go: true,
-        },
-        {
-          anchor: 'today-money',
-          title: 'Get paid',
-          body: 'What is still to come in from your bookings. Tap it to see every payment and when it is due.',
         },
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Needs you today on Today always lists what is waiting on you. To see this again, open your account menu and tap Show me around.',
+        body: 'Until you tick the box, this tour plays again each time you sign in. To see it later, open your account menu and tap Show me around.',
         button: 'Done',
+        tick: 'I’ve seen it — don’t show this tour again',
       },
     },
   },

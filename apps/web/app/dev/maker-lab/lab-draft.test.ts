@@ -355,7 +355,10 @@ test('✓ Apply PUBLISHES in the lab: the planner’s changes go live, the draft
   assert.equal(count(hidden).changeCount, 1);
   const applied = labDraftStep(hidden, { intent: 'apply' }, false, null);
   assert.deepEqual(applied.result, { ok: true, intent: 'apply', applied: 1, held: [] });
-  assert.deepEqual(applied.draft, emptyHubDraft(), 'the draft kept what went live — or its Undo history');
+  /* ↺ …and records the Apply it is (owner 2026-11-09): the History list's "Published <time>" row. */
+  const { pub, ...rest } = applied.draft;
+  assert.deepEqual(rest, emptyHubDraft(), 'the draft kept what went live — or its Undo history');
+  assert.ok(pub && !Number.isNaN(Date.parse(pub)), 'Apply left no "Published" time for the History list');
   assert.deepEqual(applied.published, { events: {}, widgets: { venue_map: { stage_show: { rsvp: false } } } });
   /* Nothing is waiting, ↺ has nothing — and the page STILL draws the hide: it is published now. */
   const bar = labBarFromCookie(labDraftCookies(applied.draft, false, applied.published)[LAB_BAR_COOKIE] ?? undefined);
@@ -383,7 +386,10 @@ test('THE OWNER’S CASE: a PUBLISHED hide, then ＋ — one Undo step, drawn at
   assert.ok(labBarFromCookie(labDraftCookies(step.draft, false, published)[LAB_BAR_COOKIE] ?? undefined).changeCount >= 1);
   /* One ↺: the draft is empty again and the page is the published one — the Venue off the Invitation. */
   const undone = labDraftStep(step.draft, { intent: 'undo' }, false, published);
-  assert.deepEqual(undone.draft, emptyHubDraft());
+  /* ↺ …with the step it took back kept AHEAD, greyed, for the History list's redo (owner 2026-11-10). */
+  const { ahead, ...back } = undone.draft;
+  assert.deepEqual(back, emptyHubDraft());
+  assert.equal(ahead?.length, 1, 'the step taken back is not kept greyed for redo');
   assert.equal(venueOnInvitation(undone.draft, published), false);
   /* Applied: the hide is gone from what is published, and guests of the sample would see the Venue. */
   const live = labDraftStep(step.draft, { intent: 'apply' }, false, published);

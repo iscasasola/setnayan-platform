@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { SpotlightScript, TourKey } from '@/lib/tours';
 import { spotlightSteps } from '@/lib/spotlight-steps';
+import { spotlightLaterThisVisit } from '@/lib/spotlight-later';
 
 /* 📦 THE ENGINE LOADS ONLY WHEN A TOUR RUNS. A bare `React.lazy` (as `couple-logo.tsx` does): the
    tour never renders on the server, so it needs none of `next/dynamic`'s SSR machinery. A person
@@ -83,7 +84,10 @@ export function SpotlightMount({
     const justFinished = after != null && finishedHere?.key === after && finishedHere.path === here();
     if (justFinished) {
       // The tour this one waits for closed on this page a moment ago — this one waits for the next visit.
-    } else if (!seen) setRun({ record: true, restart: false, n: 0 });
+    } else if (!seen && !(script.finale.tick && spotlightLaterThisVisit(tourKey))) {
+      // ☑ A shows-until-ticked tour closed unticked in this visit waits for the next one (`lib/spotlight-later.ts`).
+      setRun({ record: true, restart: false, n: 0 });
+    }
     if (!replay) return;
     const html = document.documentElement;
     const page = replay === 'page';
@@ -102,7 +106,7 @@ export function SpotlightMount({
       if (setShow) html.removeAttribute('data-spotlight');
       if (page && html.getAttribute(PAGE_ATTR) === tourKey) html.removeAttribute(PAGE_ATTR);
     };
-  }, [seen, replay, tourKey, after]);
+  }, [seen, replay, tourKey, after, script.finale.tick]);
 
   if (!run || script.steps.length === 0) return null;
   return (

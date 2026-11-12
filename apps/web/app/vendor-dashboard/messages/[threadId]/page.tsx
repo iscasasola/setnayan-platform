@@ -82,6 +82,7 @@ import { FEEL_OPTIONS } from '@/lib/match-criteria';
 import { CEREMONY_TYPE_TO_FAITH } from '@/lib/taxonomy-filters';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
+import { standingQuoteFollowsGuestList } from '@/lib/quote-pax-follow.server';
 import {
   fetchThreadPayments,
   paxProposalsToGuestCounts,
@@ -705,12 +706,16 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // (2026-09-29) Each now chains on the ONE read it needs — the proposals on
   // live pax, the date demand on the event — instead of on the whole batch.
   const paxProposalsRead = (async () => {
-    const livePax = await livePaxRead;
+    const [livePax, quoteFollowsGuestList] = await Promise.all([
+      livePaxRead,
+      standingQuoteFollowsGuestList(paxAdmin, thread.event_id, profile.vendor_profile_id),
+    ]);
     return fetchVendorPaxProposals(paxAdmin, {
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
       livePax,
       paxAtInquiry: thread.pax_at_inquiry,
+      quoteFollowsGuestList,
     });
   })();
   const dateDemandRead = (async () => {

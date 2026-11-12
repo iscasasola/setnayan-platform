@@ -80,6 +80,8 @@ const ROOT_CARRIES: Record<string, 'event' | 'thread' | 'order' | 'vendor' | 'us
   // The PRIVATE clean copy of every marked supplier photo (Seal and plate, 2026-11-04) — a vendor id;
   // in the resolver's VENDOR_ROOTS and the verification bucket's roots in lib/r2-client-ref.ts.
   'vendor-originals': 'vendor',
+  // Piece 3b (2026-11-12): `supplier-files/<shop>/<event>/…` — a shop's private stored copies for its clients' events.
+  'supplier-files': 'vendor',
   'profile-photo': 'user',
   samahan: 'community',
   // No UUID in the prefix at all, so this module says nothing about them.

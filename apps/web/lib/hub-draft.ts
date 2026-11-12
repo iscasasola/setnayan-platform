@@ -284,16 +284,79 @@ export function hubDraftBytes(value: unknown): number {
  * the store then refuses to write it (`HubDraftTooLargeError`).
  */
 export function fitHubDraftHistory(draft: HubDraft): HubDraft {
-  const base = hubDraftBytes({ ...draft, history: [] });
-  const sizes = draft.history.map(hubDraftBytes);
+  /* ↺ The greyed rows (`ahead`) are the first to go, the farthest first: they are only a redo. */
+  let ahead = draft.ahead;
+  if (ahead && ahead.length > 0) {
+    const base = hubDraftBytes({ ...draft, ahead: [] });
+    const sizes = ahead.map(hubDraftBytes);
+    let total = base + sizes.reduce((a, b) => a + b, 0) + 2 * Math.max(0, sizes.length - 1);
+    let keep = sizes.length;
+    while (keep > 0 && total > HUB_DRAFT_BYTE_BUDGET) {
+      keep -= 1;
+      total -= sizes[keep]! + (keep > 0 ? 2 : 0);
+    }
+    if (keep < sizes.length) ahead = ahead.slice(0, keep);
+  }
+  const lean: HubDraft = ahead === draft.ahead ? draft : withAhead(draft, ahead);
+  const base = hubDraftBytes({ ...lean, history: [] });
+  const sizes = lean.history.map(hubDraftBytes);
   // `[a, b, c]` adds each entry plus ", " (2 bytes) between neighbours.
   let total = base + sizes.reduce((a, b) => a + b, 0) + 2 * Math.max(0, sizes.length - 1);
-  let drop = 0;
-  while (drop < sizes.length && total > HUB_DRAFT_BYTE_BUDGET) {
-    total -= sizes[drop]! + (sizes.length - drop > 1 ? 2 : 0);
-    drop += 1;
+  if (total <= HUB_DRAFT_BYTE_BUDGET) return lean;
+  /* ↺ THE PUBLISHED STATE STAYS (the history list's last row, "What guests see now"): the oldest states AFTER it go
+     first, and the step from it to what is left is said as "Earlier edits". It goes last, when nothing else is left. */
+  const pinned = lean.history.length > 1 && isHubDraftBaseState(lean.history[0]!) ? 1 : 0;
+  const kept = [...lean.history];
+  const idx = sizes.map((_, i) => i);
+  let dropped = 0;
+  while (kept.length > pinned && total > HUB_DRAFT_BYTE_BUDGET) {
+    const at = pinned;
+    total -= sizes[idx[at]!]! + (kept.length > 1 ? 2 : 0);
+    kept.splice(at, 1);
+    idx.splice(at, 1);
+    dropped += 1;
   }
-  return drop === 0 ? draft : { ...draft, history: draft.history.slice(drop) };
+  if (pinned && total > HUB_DRAFT_BYTE_BUDGET && kept.length > 0) {
+    kept.splice(0, 1);
+    return { ...lean, history: kept };
+  }
+  if (pinned && dropped > 0) {
+    if (kept.length > 1) kept[1] = { ...kept[1]!, said: HUB_DRAFT_FOLDED_SAID };
+    else return { ...lean, said: HUB_DRAFT_FOLDED_SAID, history: kept };
+  }
+  return { ...lean, history: kept };
+}
+
+/** ↺ The step words for steps folded together when the oldest states between the published one and the rest went. */
+export const HUB_DRAFT_FOLDED_SAID = 'Earlier edits';
+
+/**
+ * ↺ A BASE STATE — one the history keeps when it drops the oldest: what an Apply left (`pub`), or the empty draft the
+ * first edit started from (nothing drafted = what guests see). The history list's last row.
+ */
+export function isHubDraftBaseState(s: HubDraftState): boolean {
+  return Boolean(s.pub) || !hubDraftHasChanges(s);
+}
+
+/** The draft with its greyed rows replaced — none = no `ahead` key at all (a draft with none reads as it always did). */
+function withAhead(d: HubDraft, ahead: HubDraftState[] | undefined): HubDraft {
+  const { ahead: _a, ...rest } = d;
+  return ahead && ahead.length > 0 ? { ...rest, ahead } : (rest as HubDraft);
+}
+
+/**
+ * ↺ The newest `limit` earlier states — keeping the published one (`isHubDraftBaseState`) at the bottom when it would
+ * fall off, the step after it then said as "Earlier edits". `now` is the state the draft holds after these.
+ */
+export function keepRecentHubDraftHistory(history: HubDraftState[], limit: number, now?: HubDraftState): { history: HubDraftState[]; folded: boolean } {
+  if (history.length <= limit) return { history, folded: false };
+  if (limit >= 2 && isHubDraftBaseState(history[0]!)) {
+    const tail = history.slice(-(limit - 1));
+    if (tail.length > 0) tail[0] = { ...tail[0]!, said: HUB_DRAFT_FOLDED_SAID };
+    else if (now) now.said = HUB_DRAFT_FOLDED_SAID;
+    return { history: [history[0]!, ...tail], folded: true };
+  }
+  return { history: history.slice(-limit), folded: false };
 }
 
 /**
@@ -852,12 +915,29 @@ export type HubDraftState = {
    * (a step from before this record, or a writer with no session). Never part of what Apply writes, nor of the stamp.
    */
   by?: string;
+  /**
+   * ↺ HISTORY (owner 2026-11-09 "↺ BECOMES A HISTORY LIST", 2026-11-10 "ALL YES") — `lib/hub-draft-history.ts`.
+   * `at`: when the save that left this state was made (ISO). Absent = not known (a state from before this record): its
+   * row shows no time. `said`: the step's words when the state itself says them ("Earlier edits" for steps folded
+   * together when the oldest were dropped); absent = read off the two states. `pub`: this state is what an Apply left —
+   * what guests see — and when (ISO): the "Published <time>" row. Like `by`, never part of what Apply writes, nor of
+   * the stamp.
+   */
+  at?: string;
+  said?: string;
+  pub?: string;
 };
 
 export type HubDraft = HubDraftState & {
   v: 1;
   /** Earlier states, newest LAST. Undo pops. */
   history: HubDraftState[];
+  /**
+   * ↺ THE STEPPED-PAST STATES (the greyed rows, owner 2026-11-10 "stepped-past history rows stay greyed until the next
+   * edit"): what a step back left ahead of the state the draft holds now, NEAREST FIRST. A tap on one goes forward again
+   * (redo); the next edit drops them all (`mergeHubDraft`). Absent = none.
+   */
+  ahead?: HubDraftState[];
 };
 
 export function emptyHubDraft(): HubDraft {
@@ -1234,10 +1314,19 @@ export function sanitizeHubDraftPatch(raw: unknown): HubDraftState {
 export function sanitizeHubDraft(raw: unknown): HubDraft {
   const state = withAuthor(sanitizeState(raw), raw);
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const history = Array.isArray(src.history)
-    ? src.history.slice(-HUB_DRAFT_HISTORY_LIMIT).map((h: unknown) => withAuthor(sanitizeState(h), h))
+  const all = Array.isArray(src.history) ? src.history.map((h: unknown) => withAuthor(sanitizeState(h), h)) : [];
+  const history = keepRecentHubDraftHistory(all, HUB_DRAFT_HISTORY_LIMIT, state).history;
+  /* ↺ The greyed rows, nearest first — never more than the history may hold. */
+  const ahead = Array.isArray(src.ahead)
+    ? src.ahead.slice(0, HUB_DRAFT_HISTORY_LIMIT).map((h: unknown) => withAuthor(sanitizeState(h), h))
     : [];
-  return fitHubDraftHistory({ v: 1, ...state, history });
+  return fitHubDraftHistory(withAhead({ v: 1, ...state, history }, ahead));
+}
+
+/** ↺ A time as the draft keeps it (ISO, from `Date#toISOString`), or nothing. */
+export function hubDraftTimeOf(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v.length > 40 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) return undefined;
+  return Number.isNaN(Date.parse(v)) ? undefined : v;
 }
 
 /** 👥 An account id, as `auth.uid()` spells it — or nothing. */
@@ -1247,8 +1336,13 @@ export function hubDraftAuthorOf(v: unknown): string | undefined {
 /* 👥 Only a STORED state keeps its author: a posted patch (`sanitizeHubDraftPatch`) never can — who made a step is the
    session's, said by the server, never the client's. */
 function withAuthor(state: HubDraftState, raw: unknown): HubDraftState {
-  const by = hubDraftAuthorOf(raw && typeof raw === 'object' ? (raw as { by?: unknown }).by : undefined);
-  return by ? { ...state, by } : state;
+  const src = (raw && typeof raw === 'object' ? raw : {}) as { by?: unknown; at?: unknown; said?: unknown; pub?: unknown };
+  const by = hubDraftAuthorOf(src.by);
+  /* ↺ …and, the same way, the step's time and words and the Apply that left it (`lib/hub-draft-history.ts`). */
+  const at = hubDraftTimeOf(src.at);
+  const pub = hubDraftTimeOf(src.pub);
+  const said = typeof src.said === 'string' && src.said.trim() ? src.said.trim().slice(0, 80) : undefined;
+  return { ...state, ...(by ? { by } : {}), ...(at ? { at } : {}), ...(said ? { said } : {}), ...(pub ? { pub } : {}) };
 }
 
 /** Does the draft differ from nothing? (Whether it differs from LIVE is `planHubDraftApply`.) */
@@ -1293,6 +1387,9 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
   ...(d.march ? { march: d.march.map((move) => [...move]) } : {}),
   ...(d.address ? { address: d.address } : {}),
   ...(d.by ? { by: d.by } : {}),
+  ...(d.at ? { at: d.at } : {}),
+  ...(d.said ? { said: d.said } : {}),
+  ...(d.pub ? { pub: d.pub } : {}),
 });
 
 /**
@@ -1301,13 +1398,19 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
  * forget a canvas already drafted); its canvas is replaced whole, because the
  * writer that sends it has already merged the canvas it read.
  */
-export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: string): HubDraft {
+export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: string, at?: string, said?: string): HubDraft {
   const clean = sanitizeState(patch);
   const next = stateOf(current);
   /* 👥 The new state is THIS save's: its author (`by`, the session's account — `updateHubDraft`), or not known. */
   const author = hubDraftAuthorOf(by);
   if (author) next.by = author;
   else delete next.by;
+  /* ↺ …made NOW (or when the caller says), in its own words when the caller has them; it is not what an Apply left. */
+  delete next.pub;
+  delete next.said;
+  const when = hubDraftTimeOf(at) ?? new Date().toISOString();
+  next.at = when;
+  if (said && said.trim()) next.said = said.trim().slice(0, 80);
   for (const [col, v] of Object.entries(clean.events)) {
     // 🎫 The two drafted print settings merge KEY BY KEY — a ticket style pick
     // never forgets a drafted name style, nor the other way round.
@@ -1348,7 +1451,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch, by?: stri
     if (a) next.address = a;
     else delete next.address;
   }
-  const history = [...current.history, stateOf(current)].slice(-HUB_DRAFT_HISTORY_LIMIT);
+  /* ↺ A new edit drops the stepped-past states (the greyed rows): editing continues from here. */
+  const history = keepRecentHubDraftHistory([...current.history, stateOf(current)], HUB_DRAFT_HISTORY_LIMIT, next).history;
   return fitHubDraftHistory({ v: 1, ...next, history });
 }
 
@@ -3072,6 +3176,39 @@ export type HubDraftSummary = {
    * loader (`hubDraftChangeLines`); absent = not read, never "nothing".
    */
   changes?: HubDraftChangeLine[];
+  /**
+   * ↺ THE HISTORY LIST's rows, newest first (`lib/hub-draft-history.ts` `hubDraftHistoryRows`). Filled by the bar's
+   * loader and the after-save read; absent = not read, never "no edits".
+   */
+  history?: HubDraftHistoryRow[];
+};
+
+/** ↺ One row of the History list (owner 2026-11-09 / 2026-11-10, frame M9). Built on the server; the client only draws it. */
+export type HubDraftHistoryRow = {
+  /** Its place on the draft's timeline, oldest 0 — sent back with `stamp` when it is tapped. */
+  i: number;
+  /** The stamp of the state it returns to (`lib/hub-draft-stamp.ts`): a tap names the STATE, never only a position. */
+  stamp: string;
+  /** "Invitation · Cover · Font" — the Apply sheet's own words; "Published" / "What guests see now" on the last row. */
+  what: string;
+  /** How many more things the same step changed ("and 2 more"). */
+  more: number;
+  /** When (ISO) — null for a step from before times were kept. */
+  at: string | null;
+  /** The last row and an Apply recorded on it: "Published <time>". */
+  pub: boolean;
+  /** The last row: what guests see now. */
+  base: boolean;
+  /** Greyed (stepped past — a tap goes forward again) · where the page is · an earlier point. */
+  where: 'ahead' | 'here' | 'behind';
+  /** 👥 Another host made it (ruling B: ↺ never takes it back). */
+  theirs: boolean;
+  /** Their account — on the server only; the loader turns it into `name` and drops it. */
+  by?: string;
+  /** Their first name as the event shows it; null = "Someone". */
+  name?: string | null;
+  /** What a tap does: go there · take back only your own edits after it · nothing (only another host's edits after it). */
+  tap: 'go' | 'mine' | 'none';
 };
 
 /** One named change on the Apply sheet — "Look · Buttons". */
@@ -3173,7 +3310,11 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
  * rather than a new export (the server-action budget); it never writes the
  * live page — the date goes live only through `apply`.
  */
-export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change'] as const;
+/**
+ * `history` (owner 2026-11-09, ↺ BECOMES A HISTORY LIST): return the draft to one row of the list — `to` (its index) and
+ * `stamp` (the state it names), `lib/hub-draft-history.ts` `jumpHubDraft`. Draft only, never the live page.
+ */
+export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change', 'history'] as const;
 export type HubDraftIntent = (typeof HUB_DRAFT_INTENTS)[number];
 
 export function isHubDraftIntent(v: unknown): v is HubDraftIntent {

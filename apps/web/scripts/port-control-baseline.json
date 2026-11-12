@@ -17628,7 +17628,6 @@
         "vendor-dashboard/performance/_components/analytics-lock.tsx",
         "vendor-dashboard/performance/_components/business-doing.tsx",
         "vendor-dashboard/performance/_components/calendar-strip.tsx",
-        "vendor-dashboard/performance/_components/count-up.tsx",
         "vendor-dashboard/performance/_components/funnel-preview-card.tsx",
         "vendor-dashboard/performance/_components/ghost-track.tsx",
         "vendor-dashboard/performance/_components/graph-sample.ts",

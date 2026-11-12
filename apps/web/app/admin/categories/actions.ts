@@ -297,7 +297,7 @@ export async function renameTaxonomyNode(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
 }
 
@@ -345,7 +345,7 @@ export async function setCategoryIcon(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -401,7 +401,7 @@ export async function setCategoryPhoto(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', photoRef ? 'Photo saved.' : 'Photo cleared.');
 }
 
@@ -445,7 +445,7 @@ export async function setCategoryHidden(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', next ? 'Hidden from couples.' : 'Visible on /explore again.');
 }
 
@@ -472,7 +472,7 @@ export async function remapCanonical(formData: FormData) {
   const landing = stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' as const };
   if (res.message === 'Already in that category.') redirectBack(formData, 'ok', res.message, landing);
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', 'Moved — the marketplace re-buckets live.', landing);
 }
 
@@ -541,7 +541,7 @@ export async function setServiceFaith(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -592,7 +592,7 @@ export async function renameCanonicalService(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath(VENDOR_ATTR_PATH);
   redirectBack(formData, 'ok', `Renamed to "${en}"${nextTl ? ` · ${nextTl}` : ''}.`);
 }
@@ -650,7 +650,7 @@ export async function setServiceEventTypes(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -674,7 +674,7 @@ export async function createTaxonomyNode(formData: FormData) {
   const res = await addCategoryCore(createAdminClient(), user.id, parentId, String(formData.get('label_en') ?? ''));
   if (!res.ok) redirectBack(formData, 'error', res.error);
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', res.message, { anchor: `t-${res.id}` });
 }
 
@@ -728,7 +728,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   });
   if (!res.ok) redirectBack(formData, 'error', res.error);
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', res.message, { anchor: `t-${tileId}` });
 }
 
@@ -878,7 +878,7 @@ export async function promoteCategoryRequest(formData: FormData) {
   });
 
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', `Promoted "${req.proposed_label}" → new service "${canonical}".`, {
     anchor: `t-${tileId}`,
   });
@@ -1223,7 +1223,7 @@ export async function reorderCategories(
   });
 
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   return { ok: true, message: 'Order saved.' };
 }
 
@@ -1325,7 +1325,7 @@ export async function moveTileToFolder(
   });
 
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   return {
     ok: true,
     message: repointCount > 0 ? `Moved — ${formatCount(repointCount)} service(s) re-pointed.` : 'Moved.',
@@ -1407,7 +1407,7 @@ export async function deleteTileWithDestination(
       actor_user_id: gate.user.id,
     });
     revalidatePath(BASE);
-    revalidatePath('/explore');
+    revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
     return { ok: true, message: `Deleted "${tileRow.label_en}".` };
   }
 
@@ -1491,7 +1491,7 @@ export async function deleteTileWithDestination(
   });
 
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   return {
     ok: true,
     message: `Deleted "${tileRow.label_en}" — ${canonicals.length} service(s) and ${refinements.length} refinement set(s) moved.`,
@@ -1795,7 +1795,7 @@ async function applyLeafAttributeMutation(
 
   revalidatePath(BASE);
   revalidatePath(VENDOR_ATTR_PATH);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   // Lands back on the service's own panel (its `_open` field) — the editor
   // lives there now, not on a category tab.
   redirectBack(formData, 'ok', successMsg(result));
@@ -1934,7 +1934,7 @@ export async function relabelEventTypeVocab(formData: FormData): Promise<never> 
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
 }
 
@@ -1979,7 +1979,7 @@ export async function reorderEventTypeVocab(formData: FormData): Promise<never> 
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', 'Reordered.');
 }
 
@@ -2003,7 +2003,7 @@ export async function reorderEventTypeVocab(formData: FormData): Promise<never> 
  *  marketplace filter follow live (matches the legacy revalidateRosterSurfaces). */
 function revalidateEventTypeRosterSurfaces() {
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   revalidatePath('/dashboard/create-event');
   revalidatePath('/vendor-dashboard/profile');
 }
@@ -2347,7 +2347,7 @@ export async function relabelFaithVocab(formData: FormData): Promise<never> {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
 }
 
@@ -2385,7 +2385,7 @@ export async function setFaithVocabStatus(formData: FormData): Promise<never> {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -2432,7 +2432,7 @@ export async function reorderFaithVocab(formData: FormData): Promise<never> {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', 'Reordered.');
 }
 
@@ -2551,7 +2551,7 @@ export async function createFaithVocab(formData: FormData): Promise<never> {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(formData, 'ok', `${label} added.`, { open: key });
 }
 
@@ -2659,7 +2659,7 @@ export async function setServiceFlag(formData: FormData): Promise<never> {
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -2731,7 +2731,7 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirectBack(
     formData,
     'ok',
@@ -2818,7 +2818,7 @@ export async function mergeCanonicalService(
   });
 
   revalidatePath(BASE);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   return {
     ok: true,
     message: `"${labelOf(source)}" is now part of "${labelOf(dest)}" — ${formatCount(totalMoved)} record(s) moved. The old name still resolves.`,

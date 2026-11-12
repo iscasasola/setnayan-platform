@@ -54,7 +54,9 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/admin/marketing', '/admin/studio'],
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'],
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'],
-  ['/explore/categories', '/explore'],
+  // 🔁 UPDATED ON PURPOSE 2026-11-12: /explore itself forwards to Discover now — one hop, not two.
+  ['/explore/categories', '/'],
+  ['/explore', '/'],
   [`/dashboard/${EID}/suite`, MORE],
   [`/dashboard/${EID}/studio`, MORE],
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
@@ -86,6 +88,7 @@ const DELETED_PAGES: readonly string[] = [
   'vendor-dashboard/funnel/page.tsx',
   'vendor-dashboard/tax-documents/page.tsx',
   'explore/categories/page.tsx',
+  '(shell)/explore/page.tsx', // 2026-11-12 — Find suppliers moved inside Discover
   'dashboard/[eventId]/suite/page.tsx',
   'dashboard/[eventId]/studio/page.tsx',
   'dashboard/[eventId]/website/dress-code/page.tsx',
@@ -116,8 +119,9 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
     `/dashboard/${EID}/website/editor`,
     `/dashboard/${EID}/details`, // Event Details, the read-out — NOT its retired Event settings
     `/dashboard/${EID}/website/what-to-bring`, // still a page (a guarded /website door)
-    '/explore',
+    // '/explore' left this list 2026-11-12 — it forwards to Discover now (test below).
     '/explore/compare',
+    '/explore/compare/', // the compare page is NOT forwarded, with or without the slash
     '/vendor-dashboard/performance',
     '/admin/categories',
     '/admin/event-types/birthday', // a type's own address was never a page
@@ -236,4 +240,28 @@ test('d1 · a service with no door is not listed in the More menu (it used to op
   const kids = ourServicesMenuChildren(cards);
   for (const k of doorless) assert.ok(!kids.some((c) => c.key === k), `${k} is listed with nowhere to go`);
   for (const c of kids) assert.ok(c.href && !c.href.includes('/suite'), `${c.key} opens the gone page`);
+});
+
+/**
+ * (d) 🔎 FIND SUPPLIERS MOVED INSIDE DISCOVER (owner 2026-11-12; DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
+ * APPROVED"). `/explore?…` forwards to `/` with every filter carried; `/explore/compare` does not forward.
+ * SABOTAGE (2026-11-12): `exploreRedirectTarget` returning `'/'` always → red ("city was dropped"); adding
+ * `/explore/compare` to FIXED → red in the live-path test above. Each restored.
+ */
+test('(d) /explore forwards to Discover carrying its filters; /explore/compare stays', () => {
+  assert.equal(legacyRedirectTarget('/explore', '?category=x&city=y'), '/?category=x&city=y', 'city was dropped');
+  assert.equal(legacyRedirectTarget('/explore/', '?category=x&city=y'), '/?category=x&city=y');
+  // From inside an event: the plan context rides along unchanged, so Discover opens its focused supplier view.
+  assert.equal(
+    legacyRedirectTarget('/explore', '?folder=photo_video&from=plan&match=1'),
+    '/?folder=photo_video&from=plan&match=1',
+  );
+  // Every parameter is carried, unknown ones too; only the old compare notice is dropped.
+  assert.equal(legacyRedirectTarget('/explore', '?q=lechon&page=2&notice=compare_v1_2&demo=1'), '/?q=lechon&page=2&demo=1');
+  assert.equal(legacyRedirectTarget('/explore', ''), '/');
+  assert.equal(legacyRedirectTarget('/explore', '?notice=compare_v1_2'), '/');
+  // No loop: Discover itself is never forwarded.
+  assert.equal(legacyRedirectTarget('/', '?category=x'), null);
+  assert.equal(legacyRedirectTarget('/explore/compare', '?ids=a,b'), null);
+  assert.equal(legacyRedirectTarget('/explore/compare', ''), null);
 });

@@ -12,7 +12,7 @@
       ],
       "destinations": [
         "/",
-        "/explore"
+        "/?browse=1"
       ],
       "actions": [],
       "blocks": [
@@ -64,7 +64,7 @@
       ],
       "destinations": [
         "/",
-        "/explore",
+        "/?browse=1",
         "/features",
         "/help",
         "/pricing",
@@ -248,118 +248,12 @@
         "Value"
       ]
     },
-    "/(shell)/explore": {
-      "files": [
-        "(shell)/explore/_components/card-headline-service.ts",
-        "(shell)/explore/_components/category-tile.tsx",
-        "(shell)/explore/_components/event-type-notify-form.tsx",
-        "(shell)/explore/_components/explore-search-hero.tsx",
-        "(shell)/explore/_components/filter-drawer.tsx",
-        "(shell)/explore/_components/folder-vendors-section.tsx",
-        "(shell)/explore/_components/icon-tile-folder-strip.tsx",
-        "(shell)/explore/_components/review-carousel.tsx",
-        "(shell)/explore/_components/save-vendor-button.tsx",
-        "(shell)/explore/_components/sticky-marketplace-header.tsx",
-        "(shell)/explore/_components/taxonomy-search.tsx",
-        "(shell)/explore/_components/vendor-badge-row.tsx",
-        "(shell)/explore/_components/vendor-card.tsx",
-        "(shell)/explore/_components/vendors-availability-banner.tsx",
-        "(shell)/explore/actions.ts",
-        "(shell)/explore/loading.tsx",
-        "(shell)/explore/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard",
-        "/dashboard/[seg]",
-        "/dashboard/[seg]/vendors",
-        "/explore",
-        "/explore?browse=1",
-        "/explore?category=[seg]",
-        "/explore?category=bridal_hmua",
-        "/explore?category=catering",
-        "/explore?category=photography",
-        "/explore?category=videography",
-        "/explore?category=wedding_cake",
-        "/explore?category=wedding_coordination",
-        "/explore?event_type=[seg]",
-        "/explore?match=0",
-        "/for-suppliers",
-        "/open-shop",
-        "/tour"
-      ],
-      "actions": [
-        "formAction"
-      ],
-      "blocks": [
-        "ActivityBadges",
-        "CatalogView",
-        "CategoryTile",
-        "CeremonyVenuePanel",
-        "CompareShortlistBanner",
-        "ContextualPillOption",
-        "CtaLine",
-        "DemoOnlyMarker",
-        "EmptyState",
-        "EventTypeNotifyForm",
-        "EventTypeSearchOption",
-        "ExploreChip",
-        "ExploreSearchHero",
-        "FaithKey",
-        "FilterDrawer",
-        "FocusedModeSearchForm",
-        "FolderTab",
-        "FolderVendorCard",
-        "FolderVendorsSection",
-        "FollowGate",
-        "HTMLDivElement",
-        "HTMLInputElement",
-        "Icon",
-        "IconTileFolderStrip",
-        "Image",
-        "Link",
-        "LocalState",
-        "LockDayButton",
-        "MarkedPhoto",
-        "MiniBadge",
-        "NoticeBanner",
-        "NotifyResult",
-        "OffSeasonBadge",
-        "OverlayBackdrop",
-        "PageLink",
-        "Pagination",
-        "PartnershipBadge",
-        "PickMenu",
-        "ReadsResults",
-        "ReligionBanner",
-        "ReviewCard",
-        "ReviewCarousel",
-        "SampleMarker",
-        "SaveVendorButton",
-        "SaveVendorResult",
-        "ScopedFolderBanner",
-        "ServiceCardView",
-        "SortKey",
-        "StatePill",
-        "StickyMarketplaceHeader",
-        "TaxonomyOption",
-        "TaxonomyPhase",
-        "TaxonomySearch",
-        "TileLink",
-        "VendorBadge",
-        "VendorBadgeRow",
-        "VendorCard",
-        "VendorHero",
-        "VendorReviewPreview",
-        "VendorsAvailabilityBanner",
-        "VenueFilterBanner"
-      ]
-    },
     "/(shell)/explore/compare": {
       "files": [
         "(shell)/explore/compare/page.tsx"
       ],
       "destinations": [
-        "/explore",
+        "/?browse=1",
         "/v/[seg]?src=explore"
       ],
       "actions": [],
@@ -588,7 +482,7 @@
         "(shell)/marketplace/page.tsx"
       ],
       "destinations": [
-        "/explore",
+        "/?browse=1",
         "/onboarding/wedding?from=marketplace"
       ],
       "actions": [],
@@ -952,8 +846,8 @@
         "realstories/_components/stories-search.tsx"
       ],
       "destinations": [
+        "/?browse=1",
         "/creators",
-        "/explore",
         "/realstories/[seg]",
         "/signup"
       ],
@@ -1073,7 +967,7 @@
         "(shell)/suppliers/(index)/page.tsx"
       ],
       "destinations": [
-        "/explore",
+        "/?browse=1",
         "/for-suppliers"
       ],
       "actions": [],
@@ -1127,8 +1021,8 @@
       ],
       "destinations": [
         "/",
+        "/?browse=1",
         "/about",
-        "/explore",
         "/help",
         "/pricing",
         "/signup",
@@ -1167,7 +1061,7 @@
         "(shell)/waitlist/page.tsx"
       ],
       "destinations": [
-        "/explore",
+        "/?browse=1",
         "/for-suppliers",
         "/onboarding/wedding"
       ],
@@ -2812,6 +2706,10 @@
         "admin/accounts/page.tsx"
       ],
       "destinations": [
+        "/?browse=1&demo=1",
+        "/?browse=1&demo=1&category=catering",
+        "/?browse=1&demo=1&category=photography",
+        "/?browse=1&demo=1&category=wedding_coordination",
         "/admin/approvals",
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
@@ -2823,11 +2721,7 @@
         "/admin/venues",
         "/admin/venues/[seg]",
         "/admin/venues/new",
-        "/admin/venues?type=[seg]",
-        "/explore?demo=1",
-        "/explore?demo=1&category=catering",
-        "/explore?demo=1&category=photography",
-        "/explore?demo=1&category=wedding_coordination"
+        "/admin/venues?type=[seg]"
       ],
       "actions": [
         "blacklistUser",
@@ -4781,12 +4675,12 @@
         "admin/settings/page.tsx"
       ],
       "destinations": [
+        "/?browse=1",
         "/admin/demo-vendors",
         "/admin/settings/payment-methods",
         "/admin/settings?tab=[seg]",
         "/admin/settings?tab=notifications",
         "/admin/ugat?tab=onboarding",
-        "/explore",
         "/sample"
       ],
       "actions": [
@@ -5788,11 +5682,11 @@
         "dashboard/(account)/library/page.tsx"
       ],
       "destinations": [
+        "/?browse=1",
         "/dashboard",
         "/dashboard/[seg]/memories",
         "/dashboard/create-event",
         "/dashboard/life-flash",
-        "/explore",
         "/v/[seg]",
         "/v/[seg]?src=favorites"
       ],

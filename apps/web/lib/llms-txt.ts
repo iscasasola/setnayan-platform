@@ -371,7 +371,7 @@ export function aiLadder(book: PriceBook): { tier: AiPriceTier; php: number }[] 
  */
 export const LINKED_ROUTES = [
   '/',
-  '/explore',
+  // '/explore' left 2026-11-12 — it forwards to Discover `/` (Find suppliers moved inside Discover).
   '/explore/compare',
   '/v/',
   '/pricing',
@@ -585,7 +585,7 @@ ${featurePagesSection()}
 ## Currently shipped public surfaces
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, Filipino supplier stories.
-- [Vendor Marketplace](${url('/explore')}) — Browse verified Filipino event vendors. Filterable by category and city; compare shortlisted vendors at [/explore/compare](${url('/explore/compare')}).
+- [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
 - [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus and Event Pro for an event, the à-la-carte services, and the supplier plans.
 - [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}

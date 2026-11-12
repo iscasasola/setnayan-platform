@@ -326,26 +326,26 @@ export async function DemoVendorsSurface() {
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
-            href="/explore?demo=1"
+            href="/?browse=1&demo=1"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm text-cream hover:bg-ink/90"
           >
             <ExternalLink className="h-4 w-4" />
             /explore?demo=1
           </Link>
           <Link
-            href="/explore?demo=1&category=photography"
+            href="/?browse=1&demo=1&category=photography"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Photography
           </Link>
           <Link
-            href="/explore?demo=1&category=catering"
+            href="/?browse=1&demo=1&category=catering"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Catering
           </Link>
           <Link
-            href="/explore?demo=1&category=wedding_coordination"
+            href="/?browse=1&demo=1&category=wedding_coordination"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-4 py-2 text-sm text-ink/75 hover:bg-ink/10"
           >
             Coordinators

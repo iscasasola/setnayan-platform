@@ -65,4 +65,20 @@
 // '/explore' LEFT 2026-11-12: it is no longer a page — it forwards to Discover (`/`), where the supplier view now lives
 // (owner: *"find suppliers needs to be also inside discover already. they do not need to have their own page"*).
 // `/` is not a shelled route; the front door draws its own gutters.
-export const DOORWAY_BLEED_PATHS = ['/for-suppliers', '/for-coordinators', '/features'] as const;
+// '/blog' and '/download' joined 2026-11-12 with their move into the shell: the
+// articles cover photo is edge-to-edge, and both pages cap every section's
+// width themselves (max-w-6xl), so the shell's prose column would squeeze them.
+export const DOORWAY_BLEED_PATHS = [
+  '/for-suppliers',
+  '/for-coordinators',
+  '/features',
+  '/blog',
+  '/download',
+  // Joined 2026-11-12 with the last old-shell pages: each draws its own
+  // full-width bands and caps its own content width.
+  '/creators',
+  '/our-story',
+  '/monogram',
+  '/tl/about',
+  '/waitlist',
+] as const;

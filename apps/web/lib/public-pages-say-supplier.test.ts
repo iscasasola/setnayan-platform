@@ -41,7 +41,7 @@ const PUBLIC = [
   'app/help',
   'app/_components/marketing',
   'app/_components/frontdoor',
-  'app/tl',
+  // 'app/tl' left 2026-11-12: its only file, about/page.tsx, moved into app/(shell)/ (scanned above).
   'app/our-story',
   'app/creators',
   'app/open-shop',

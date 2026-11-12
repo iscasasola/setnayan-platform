@@ -105,6 +105,8 @@
   "app/vendor/claim/[token]/finalize/page.tsx": 1
  },
  "hex": {
+  "app/(shell)/blog/page.tsx": 4,
+  "app/(shell)/monogram/page.tsx": 2,
   "app/(shell)/realstories/page.tsx": 1,
   "app/3d_plan/demo/[token]/_components/plan3d-guest-view.tsx": 9,
   "app/[slug]/_components/day-of-face-enroll.tsx": 1,
@@ -205,7 +207,6 @@
   "app/admin/studio/_surfaces/discount-codes-surface.tsx": 12,
   "app/admin/website-media/page.tsx": 12,
   "app/blog/[slug]/page.tsx": 1,
-  "app/blog/page.tsx": 4,
   "app/creators/_components/creator-story-hero.tsx": 1,
   "app/creators/_components/creator-story-sections.tsx": 3,
   "app/dashboard/(account)/billing/_components/billing-list.tsx": 1,
@@ -286,7 +287,6 @@
   "app/live/page.tsx": 14,
   "app/live/screen/page.tsx": 6,
   "app/live/screen/screen-stage.tsx": 10,
-  "app/monogram/page.tsx": 2,
   "app/monogram/public-monogram-studio.tsx": 29,
   "app/onboarding/wedding/_components/mono-lockup.tsx": 3,
   "app/onboarding/wedding/_components/onboarding-shell.tsx": 40,
@@ -334,7 +334,6 @@
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock.tsx": 1,
   "app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx": 1,
   "app/vendor-dashboard/on-the-day/page.tsx": 2,
-  "app/vendor-dashboard/performance/_components/your-badges.tsx": 3,
   "app/vendor-dashboard/shop/_components/docs-body.tsx": 1,
   "app/vendor-dashboard/shop/_components/editable-row.tsx": 1,
   "app/vendor-dashboard/shop/_components/reach-map.tsx": 3,

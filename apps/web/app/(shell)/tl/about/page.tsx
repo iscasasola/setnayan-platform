@@ -7,6 +7,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
@@ -19,8 +20,8 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 // SEO/GEO: locale-subpath URL (/tl/...) + reciprocal hreflang (en-PH ↔ tl-PH,
 // x-default → en). First slice of the marketing-site localization; more pages
 // follow the same shape.
-export const dynamic = 'force-static';
-export const revalidate = 3600;
+// 2026-11-12 — moved into app/(shell)/ (owner: "these are on old shells");
+// the shell layout sets force-dynamic for the group, so no route directive here.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -111,7 +112,10 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
 ];
 
-export default function AboutPageTaglish() {
+export default async function AboutPageTaglish() {
+  // 🍎 Same rule as the English /about: inside the iPhone app /pricing is a
+  // refused door, so the closing line names only the help center.
+  const storeShell = await isStoreShellRequest();
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -257,11 +261,16 @@ export default function AboutPageTaglish() {
             ))}
           </dl>
           <p className="mt-6 text-sm text-ink/60">
-            Para sa complete pricing, tingnan ang{' '}
-            <Link href="/pricing" className="font-medium text-terracotta underline-offset-4 hover:underline">
-              pricing page
-            </Link>
-            . Nasa English pa ang buong{' '}
+            {storeShell ? null : (
+              <>
+                Para sa complete pricing, tingnan ang{' '}
+                <Link href="/pricing" className="font-medium text-terracotta underline-offset-4 hover:underline">
+                  pricing page
+                </Link>
+                .{' '}
+              </>
+            )}
+            Nasa English pa ang buong{' '}
             <Link href="/help" className="font-medium text-terracotta underline-offset-4 hover:underline">
               help center
             </Link>

@@ -51,7 +51,7 @@ const SUPPLIER_SURFACES = [
   // S-PR4: the Earnings page is Customers › Money — its words moved with it.
   'app/vendor-dashboard/customers/_components/money-segment.tsx',
   'app/vendor-dashboard/customers/_components/money-view.tsx',
-  // 'app/waitlist/page.tsx' LEFT this list 2026-10-12 — owner #14: it is a
+  // 'app/(shell)/waitlist/page.tsx' LEFT this list 2026-10-12 — owner #14: it is a
   // couples' page and couple-facing pages do not mention the supplier fee. It
   // is now held by the COUPLE-facing test below instead.
   'app/(shell)/pricing/page.tsx',
@@ -133,7 +133,7 @@ test('a COUPLE-facing surface is left alone — the zero is unqualified for them
     'app/(shell)/marketplace/page.tsx',
     'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     // Owner 2026-10-12 #14 ("couple-facing pages do not mention the supplier fee").
-    'app/waitlist/page.tsx',
+    'app/(shell)/waitlist/page.tsx',
   ]) {
     const src = readCode(f);
     assert.equal(

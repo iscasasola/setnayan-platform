@@ -88,7 +88,7 @@ export default function VendorDashboardError({ error, reset }: Props) {
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+    <div className="min-h-screen bg-page text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
           Setnayan · Shop console

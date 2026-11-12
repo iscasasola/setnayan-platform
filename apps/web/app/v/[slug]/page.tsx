@@ -2445,7 +2445,7 @@ export async function renderVendorBySlug({
   const countViewInBrowser = cachedCopy && !isDemoVendor && teamPreview === null;
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
       <script
         type="application/ld+json"

@@ -14,7 +14,7 @@
 #   rls       0
 #   rlsforce  0
 #   tpriv     631
-#   col       5588
+#   col       5589
 #   policy    1135
 #   view      10
 #   func      389
@@ -4016,6 +4016,7 @@ col	public.platform_secret_rotations.updated_at	anon=- authenticated=SIU
 col	public.platform_settings.admin_digest_enabled	anon=- authenticated=S
 col	public.platform_settings.admin_digest_last_sent_at	anon=- authenticated=S
 col	public.platform_settings.ai_signup_discount_pct	anon=- authenticated=S
+col	public.platform_settings.app_colours	anon=- authenticated=S
 col	public.platform_settings.bdo_account_name	anon=- authenticated=S
 col	public.platform_settings.bdo_account_number	anon=- authenticated=S
 col	public.platform_settings.bdo_available_as_of	anon=- authenticated=S

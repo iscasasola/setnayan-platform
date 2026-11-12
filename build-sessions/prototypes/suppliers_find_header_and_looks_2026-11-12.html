@@ -1,0 +1,395 @@
+<title>Suppliers Find Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,500&display=swap">
+<style>
+/* Layout: a review sheet — short notes on the left of each section, real-size phone frames beside them. */
+:root{
+  --page:#ECE9E3; --phone:#F5F3EF; --card:#FFFFFF; --ink:44 42 41;
+  --fg:rgb(var(--ink)); --muted:rgb(var(--ink)/.62); --faint:rgb(var(--ink)/.12);
+  --accent:#C2502E; --accent-soft:#F6E3DA; --gold:#A9834B; --ok:#2F6B45; --ok-soft:#E3F0E6;
+  --sans:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --display:'Fraunces',Georgia,serif; --mono:'DM Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#0F0E0A; --phone:#17160F; --card:#22201A; --ink:251 250 247;
+  --accent:#E27C57; --accent-soft:#3A2419; --gold:#CBA766; --ok:#7FC596; --ok-soft:#1B2E21; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --page:#0F0E0A; --phone:#17160F; --card:#22201A; --ink:251 250 247;
+  --accent:#E27C57; --accent-soft:#3A2419; --gold:#CBA766; --ok:#7FC596; --ok-soft:#1B2E21; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+header.top h1{font-family:var(--display);font-weight:500;font-size:clamp(28px,4vw,40px);line-height:1.1;margin:0 0 8px;text-wrap:balance}
+header.top p{margin:0;color:var(--muted);max-width:64ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+section.part{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:32px;align-items:start}
+@media (max-width:900px){section.part{grid-template-columns:minmax(0,1fr)}}
+.notes{display:flex;flex-direction:column;gap:14px;min-width:0}
+.notes h2{font-family:var(--display);font-weight:500;font-size:26px;line-height:1.15;margin:0;text-wrap:balance}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:14px}
+.notes ul b{color:var(--fg);font-weight:600}
+.phones{display:flex;flex-wrap:wrap;gap:24px;min-width:0}
+.frame{display:flex;flex-direction:column;gap:10px;min-width:0}
+.frame .cap{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.frame .cap span:last-child{font-size:12px;color:var(--muted)}
+.phone{width:340px;max-width:100%;height:560px;background:var(--phone);border-radius:28px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 1px var(--faint),0 18px 40px -24px rgb(0 0 0/.35);display:flex;flex-direction:column}
+.phone.short{height:auto}
+.scroller{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;overscroll-behavior:contain;scrollbar-width:none}
+.scroller::-webkit-scrollbar{display:none}
+
+/* app top bar (shipped, unchanged) */
+.appbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--faint);background:var(--phone)}
+.appbar .logo{width:28px;height:28px;border-radius:50%;border:2.5px solid var(--gold);flex:none}
+.appbar .sp{flex:1}
+.appbar .ib{width:36px;height:36px;border-radius:50%;background:var(--card);box-shadow:0 0 0 1px var(--faint);display:grid;place-items:center}
+.appbar .ib svg{width:17px;height:17px}
+.appbar .me{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#d9a46b,#5b7da8)}
+.hamb{width:18px;height:12px;border-top:2px solid var(--fg);border-bottom:2px solid var(--fg);position:relative}
+.hamb::after{content:"";position:absolute;left:0;right:0;top:3px;border-top:2px solid var(--fg)}
+
+/* ═══ THE HEADER — expanded at the top, one row when pinned ═══ */
+.facts{padding:18px 16px 4px;display:flex;flex-direction:column;gap:2px;transition:opacity .2s,transform .2s}
+.facts .when{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tap{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline dotted rgb(var(--ink)/.35);text-underline-offset:5px;text-decoration-thickness:1.5px}
+.tap:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.facts .date{font-family:var(--display);font-size:28px;font-weight:500;line-height:1.15}
+.facts .date .yr{color:var(--muted)}
+.facts .togo{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);white-space:nowrap}
+.facts .where{display:flex;align-items:center;gap:6px;font-size:15px;color:rgb(var(--ink)/.78);margin-top:4px;min-width:0}
+.facts .where svg{width:15px;height:15px;flex:none;color:var(--muted)}
+.facts .where .tap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
+.row{position:sticky;top:0;z-index:5;background:var(--phone);display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 16px;transition:box-shadow .2s}
+.row.stuck{box-shadow:0 1px 0 var(--faint)}
+.pick{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px 0 14px;border-radius:999px;background:var(--card);border:0;font:600 15px var(--sans);color:var(--fg);cursor:pointer;box-shadow:0 0 0 1px var(--faint);flex:none}
+.pick svg{width:16px;height:16px;color:var(--accent)}
+.mid{flex:1;min-width:0;position:relative;height:40px}
+.mid > *{position:absolute;inset:0;display:flex;align-items:center;transition:opacity .2s,transform .2s;min-width:0}
+.mid .count{font-size:13px;color:var(--muted);white-space:nowrap}
+.mid .count b{color:var(--fg);font-weight:600}
+.mid .mini{opacity:0;transform:translateY(6px);pointer-events:none;font-size:13px;color:rgb(var(--ink)/.78);gap:6px}
+.mid .mini .tap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-underline-offset:4px;min-width:0}
+.mid .mini .d{font-weight:600;color:var(--fg);flex:none}
+.mid .mini .dot{color:var(--muted);flex:none}
+.row.stuck .mid .count{opacity:0;transform:translateY(-6px);pointer-events:none}
+.row.stuck .mid .mini{opacity:1;transform:none;pointer-events:auto}
+.gear{width:40px;height:40px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;color:var(--fg);cursor:pointer;flex:none}
+.gear:hover{background:rgb(var(--ink)/.06)}
+.gear svg{width:21px;height:21px}
+.compressed-only .facts{display:none}
+
+/* menu + settings popovers */
+.pop{position:absolute;z-index:20;background:var(--card);border-radius:16px;box-shadow:0 0 0 1px var(--faint),0 16px 36px -12px rgb(0 0 0/.35);padding:6px;min-width:200px}
+.pop button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:0;background:none;border-radius:10px;font:500 15px var(--sans);color:var(--fg);cursor:pointer;text-align:left}
+.pop button:hover{background:rgb(var(--ink)/.06)}
+.pop button small{color:var(--muted);font-size:12px;font-weight:500}
+.pop button[aria-checked="true"]{color:var(--accent)}
+.sheet{position:absolute;inset:auto 0 0 0;z-index:30;background:var(--card);border-radius:22px 22px 0 0;padding:10px 16px 20px;box-shadow:0 -12px 30px -12px rgb(0 0 0/.3)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--faint);margin:0 auto 12px}
+.sheet h3{margin:0 0 6px;font-size:17px}
+.sheet .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--faint);font-size:14px}
+.sheet .srow small{display:block;color:var(--muted);font-size:12.5px}
+.sheet .srow .on{font-size:12px;font-weight:600;color:var(--ok);background:var(--ok-soft);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.scrim{position:absolute;inset:0;z-index:25;background:rgb(0 0 0/.28)}
+
+/* body content under the header (shipped "Cover your event", condensed) */
+.body{padding:8px 16px 24px;display:flex;flex-direction:column;gap:14px}
+.cover h4{font-size:22px;font-weight:600;margin:6px 0 0;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.cover h4 small{font-size:13px;font-weight:500;color:var(--muted)}
+.bar{height:4px;border-radius:2px;background:var(--faint);overflow:hidden}
+.bar i{display:block;height:100%;width:31%;background:var(--ok)}
+.filler{height:72px;border-radius:14px;background:rgb(var(--ink)/.05)}
+.cat{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--faint)}
+.cat .ic{width:40px;height:40px;border-radius:50%;background:rgb(var(--ink)/.07);flex:none}
+.cat b{color:var(--accent);font-weight:600}
+.cat span{color:var(--muted)}
+
+/* ═══ LOOKS FROM SUPPLIERS ═══ */
+.saved{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:rgb(var(--ink)/.04);border:0;width:100%;font:inherit;color:inherit;cursor:pointer;text-align:left}
+.saved .stack{position:relative;width:58px;height:40px;flex:none}
+.saved .stack i{position:absolute;top:0;width:30px;height:40px;border-radius:7px;box-shadow:0 0 0 2px var(--phone)}
+.saved .t{flex:1;min-width:0}
+.saved .t b{display:block;font-size:14.5px}
+.saved .t span{font-size:12.5px;color:var(--muted)}
+.looks-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px}
+.looks-head a{font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;min-height:36px;display:inline-flex;align-items:center}
+.chips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px;padding:2px 16px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;height:32px;padding:0 12px;border-radius:999px;border:0;box-shadow:inset 0 0 0 1px var(--faint);background:transparent;font:500 13px var(--sans);color:var(--fg);cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--phone);box-shadow:none}
+.chip small{opacity:.6;margin-left:3px}
+.strip{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:2px 16px 4px;scroll-snap-type:x mandatory;scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.look{flex:none;width:138px;scroll-snap-align:start;display:flex;flex-direction:column;gap:6px}
+.look .ph{position:relative;aspect-ratio:4/5;max-width:100%;border-radius:12px;overflow:hidden}
+.look .ph .tag{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgb(255 255 255/.92);color:#2C2A29}
+.look .ph .onlist{position:absolute;left:6px;top:6px;font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:#EAF4EC;color:#24553A}
+.heart{position:absolute;right:6px;top:6px;width:34px;height:34px;border-radius:50%;border:0;display:grid;place-items:center;background:rgb(255 255 255/.92);color:#2C2A29;cursor:pointer;transition:transform .15s}
+.heart:active{transform:scale(.9)}
+.heart svg{width:17px;height:17px}
+.heart[aria-pressed="true"]{background:#C2502E;color:#fff}
+.heart[aria-pressed="true"] svg{fill:currentColor}
+.look .lbl{font-size:13px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.look .who{font-size:11.5px;color:var(--muted);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.more{flex:none;width:110px;aspect-ratio:4/5.6;border-radius:12px;background:rgb(var(--ink)/.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px;font-weight:600;color:var(--accent);scroll-snap-align:start;border:0;cursor:pointer}
+.more span{font-size:11.5px;color:var(--muted);font-weight:500}
+.own{font-size:12.5px;color:var(--muted)}
+.own button{border:0;background:none;padding:0;font:inherit;color:var(--fg);font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.empty{border-radius:14px;padding:16px;background:rgb(var(--ink)/.04);font-size:13.5px;color:var(--muted)}
+.empty b{display:block;color:var(--fg);font-size:14px;margin-bottom:2px}
+.toast{position:absolute;left:12px;right:12px;bottom:14px;z-index:40;background:var(--fg);color:var(--phone);border-radius:14px;padding:11px 14px;font-size:13.5px;display:flex;justify-content:space-between;gap:10px;align-items:center;transition:opacity .2s,transform .2s}
+.toast[hidden]{display:none}
+.toast button{border:0;background:none;color:inherit;font:600 13.5px var(--sans);text-decoration:underline;cursor:pointer}
+.seg{display:inline-flex;gap:4px;padding:3px;border-radius:999px;box-shadow:inset 0 0 0 1px var(--faint)}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:999px;font:500 13px var(--sans);color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--fg);box-shadow:0 0 0 1px var(--faint)}
+.kept{font-size:13px;color:var(--muted);border-top:1px solid var(--faint);padding-top:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Suppliers › Find · prototype · 12 Nov 2026</div>
+    <h1>Suppliers Find: the header and looks from suppliers</h1>
+    <p>Two changes on the shipped Find page. The data is the same and the pieces that already work stay. Tap anything with a dotted underline, the dropdown, the ⚙ and the hearts.</p>
+  </header>
+
+  <!-- ═════════════ 1 · THE HEADER ═════════════ -->
+  <section class="part">
+    <div class="notes">
+      <div class="eyebrow">1 · The header</div>
+      <h2>One block at the top, one row when you scroll</h2>
+      <ul>
+        <li><b>Expanded:</b> the date is the headline, with the days left beside it. The venue sits under it. Each still opens its own sheet.</li>
+        <li><b>Compressed:</b> the same row stays pinned. The date and the venue slide into the space beside the dropdown, so you never lose them while scrolling.</li>
+        <li><b>⚙ is a plain 40 px icon</b>, no longer a circle bigger than the dropdown.</li>
+        <li><b>The Setnayan AI line is gone from the page.</b> It was a premium-tier badge from July. Since AI is free for every event in launch, it said nothing a couple can act on. It now lives as one row in ⚙.</li>
+        <li>Build and Booked keep their count in the row (try the dropdown).</li>
+      </ul>
+    </div>
+    <div class="phones">
+      <div class="frame">
+        <div class="cap"><span class="eyebrow">Expanded</span><span>top of the page</span></div>
+        <div class="phone short" data-demo="expanded"></div>
+      </div>
+      <div class="frame">
+        <div class="cap"><span class="eyebrow">Compressed</span><span>pinned while scrolling</span></div>
+        <div class="phone short compressed-only" data-demo="compressed"></div>
+      </div>
+      <div class="frame">
+        <div class="cap"><span class="eyebrow">Live</span><span>scroll inside the phone</span></div>
+        <div class="phone" data-demo="live"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ 2 · LOOKS FROM SUPPLIERS ═════════════ -->
+  <section class="part">
+    <div class="notes">
+      <div class="eyebrow">2 · Inspiration</div>
+      <h2>Each category shows its suppliers' looks</h2>
+      <ul>
+        <li><b>Reception opens on looks its suppliers shared</b>, filtered by part. These are the supplier mood-board photos the couple could only reach today by opening the board, then a part, then tapping its slot.</li>
+        <li><b>♡ saves a look</b> to the couple's board under that part. It is the same save the gallery picker already does.</li>
+        <li><b>"Your inspiration board" becomes "Saved looks"</b>, a short row that opens what they kept.</li>
+        <li>"From a real wedding" marks a photo from an event the shop was booked for. "On your list" marks a supplier the couple already picked.</li>
+        <li>Their own photo is a small link, no longer the big ＋ tile.</li>
+        <li>With no shared looks yet, the strip says so in words instead of showing an empty ＋.</li>
+      </ul>
+      <div><span class="seg" role="group" aria-label="Demo state">
+        <button type="button" id="st-full" aria-pressed="true">With looks</button>
+        <button type="button" id="st-empty" aria-pressed="false">No looks yet</button>
+      </span></div>
+    </div>
+    <div class="phones">
+      <div class="frame">
+        <div class="cap"><span class="eyebrow">Find › Reception opened</span><span>tap ♡ to save</span></div>
+        <div class="phone" id="looks-phone">
+          <div class="appbar"><span class="hamb" aria-hidden="true"></span><span class="logo" aria-hidden="true"></span><span class="sp"></span><span class="me" aria-hidden="true"></span></div>
+          <div class="scroller">
+            <div class="body">
+              <button type="button" class="saved" id="saved-row">
+                <span class="stack" id="saved-stack" aria-hidden="true"></span>
+                <span class="t"><b id="saved-title">Saved looks</b><span id="saved-line"></span></span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <div class="cover"><h4>Cover your event <small>10 of 32 covered</small></h4></div>
+              <div class="bar"><i></i></div>
+              <div class="cat"><span class="ic" aria-hidden="true"></span><div><b>Reception</b> <span>· 1 yours</span></div></div>
+
+              <div id="looks-full">
+                <div class="looks-head"><span class="eyebrow">Looks from suppliers</span><a href="#looks" id="see-all">See all 48 ›</a></div>
+                <div class="chips" id="chips" role="group" aria-label="Part" style="margin-top:6px"></div>
+                <div class="strip" id="strip" style="margin-top:10px"></div>
+              </div>
+              <div id="looks-empty" class="empty" hidden>
+                <b>No looks from Reception suppliers yet</b>
+                They appear here as suppliers share them. You can still save a photo of your own.
+              </div>
+              <p class="own">Have a photo of your own? <button type="button">Add it to Reception</button></p>
+              <div class="kept">Below this: Seda Vertis North and the rest of Reception's suppliers, unchanged.</div>
+            </div>
+          </div>
+          <div class="toast" id="toast" role="status" hidden><span id="toast-t"></span><button type="button" id="toast-undo">Undo</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<template id="hdr">
+  <div class="appbar"><span class="hamb" aria-hidden="true"></span><span class="logo" aria-hidden="true"></span><span class="sp"></span>
+    <span class="ib" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+    <span class="ib" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+    <span class="me" aria-hidden="true"></span></div>
+  <div class="scroller">
+    <div class="facts">
+      <div class="when"><button type="button" class="tap date" data-sheet="date">Fri, Dec 18 <span class="yr">2026</span></button><span class="togo">36 days to go</span></div>
+      <div class="where"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><button type="button" class="tap" data-sheet="place">Seda Vertis North, Metro Manila</button></div>
+    </div>
+    <div class="row">
+      <button type="button" class="pick" aria-haspopup="menu" aria-expanded="false"><span class="pick-w">Find</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="mid">
+        <span class="count"></span>
+        <span class="mini"><button type="button" class="tap d" data-sheet="date">Dec 18</button><span class="dot">·</span><button type="button" class="tap" data-sheet="place">Seda Vertis North</button></span>
+      </div>
+      <button type="button" class="gear" aria-label="Suppliers settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    </div>
+    <div class="body">
+      <div class="cover"><h4>Cover your event <small>10 of 32 covered</small></h4></div>
+      <div class="bar"><i></i></div>
+      <div class="filler"></div>
+      <div class="cat"><span class="ic"></span><div><b>Reception</b> <span>· 1 yours</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Catering</b> <span>· 2 yours</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Photo &amp; video</b> <span>· 1 yours</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Flowers</b> <span>· none yet</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Styling</b> <span>· none yet</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Music</b> <span>· none yet</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Hair &amp; makeup</b> <span>· none yet</span></div></div>
+      <div class="cat"><span class="ic"></span><div><b>Attire</b> <span>· none yet</span></div></div>
+      <div class="filler"></div><div class="filler"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+(function(){
+  /* ── 1 · HEADER ─────────────────────────────────────────── */
+  var MODES={find:{w:'Find',c:''},build:{w:'Build',c:'<b>3</b>/12 in this build'},booked:{w:'Booked',c:'<b>2</b> booked'}};
+  var tpl=document.getElementById('hdr');
+  document.querySelectorAll('[data-demo]').forEach(function(ph){
+    ph.appendChild(tpl.content.cloneNode(true));
+    var kind=ph.getAttribute('data-demo');
+    var sc=ph.querySelector('.scroller'), row=ph.querySelector('.row'), facts=ph.querySelector('.facts');
+    var mode='find';
+    if(kind!=='live'){ sc.style.overflow='hidden'; var b=ph.querySelector('.body'); b.style.maxHeight='190px'; b.style.overflow='hidden'; }
+    if(kind==='compressed'){ row.classList.add('stuck'); }
+    function setMode(m){ mode=m; ph.querySelector('.pick-w').textContent=MODES[m].w; ph.querySelector('.count').innerHTML=MODES[m].c; }
+    setMode('find');
+    if(kind==='live'){
+      sc.addEventListener('scroll',function(){
+        var stuck=sc.scrollTop>=facts.offsetHeight-2;
+        row.classList.toggle('stuck',stuck);
+        facts.style.opacity=String(Math.max(0,1-sc.scrollTop/(facts.offsetHeight*.8)));
+      },{passive:true});
+    }
+    function closeAll(){ ph.querySelectorAll('.pop,.sheet,.scrim').forEach(function(e){e.remove();}); ph.querySelector('.pick').setAttribute('aria-expanded','false'); }
+    function scrim(){ var s=document.createElement('div'); s.className='scrim'; s.onclick=closeAll; ph.appendChild(s); }
+    ph.querySelector('.pick').addEventListener('click',function(e){
+      var open=this.getAttribute('aria-expanded')==='true'; closeAll(); if(open) return;
+      this.setAttribute('aria-expanded','true');
+      var r=this.getBoundingClientRect(), pr=ph.getBoundingClientRect();
+      var p=document.createElement('div'); p.className='pop'; p.setAttribute('role','menu');
+      p.style.left=(r.left-pr.left)+'px'; p.style.top=(r.bottom-pr.top+6)+'px';
+      [['find','Find','categories & shops'],['build','Build','3/12'],['booked','Booked','2']].forEach(function(o){
+        var bt=document.createElement('button'); bt.type='button'; bt.setAttribute('role','menuitemradio'); bt.setAttribute('aria-checked',String(o[0]===mode));
+        bt.innerHTML=o[1]+' <small>'+o[2]+'</small>'; bt.onclick=function(){ setMode(o[0]); closeAll(); }; p.appendChild(bt);
+      });
+      ph.appendChild(p); setTimeout(function(){ document.addEventListener('click',function h(ev){ if(!p.contains(ev.target)){ closeAll(); document.removeEventListener('click',h);} }); },0);
+    });
+    function sheet(html){ closeAll(); scrim(); var s=document.createElement('div'); s.className='sheet'; s.setAttribute('role','dialog'); s.innerHTML='<div class="grab"></div>'+html; ph.appendChild(s); }
+    ph.querySelector('.gear').addEventListener('click',function(){
+      sheet('<h3>Suppliers settings</h3>'+
+        '<div class="srow"><span>Setnayan AI<small>Smart matching, fit scoring and the watch guard. Free during launch.</small></span><span class="on">On</span></div>'+
+        '<div class="srow"><span>Show prices<small>On every supplier card</small></span><span class="on">On</span></div>'+
+        '<div class="srow"><span>Categories you need<small>32 in your plan</small></span><span>›</span></div>');
+    });
+    ph.querySelectorAll('[data-sheet]').forEach(function(t){ t.addEventListener('click',function(){
+      if(t.getAttribute('data-sheet')==='date') sheet('<h3>Your date</h3><div class="srow"><span>Friday, December 18, 2026<small>36 days to go</small></span><span>Change ›</span></div>');
+      else sheet('<h3>Your venue</h3><div class="srow"><span>Seda Vertis North<small>Metro Manila · Reception</small></span><span>Change ›</span></div>');
+    }); });
+  });
+
+  /* ── 2 · LOOKS ──────────────────────────────────────────── */
+  /* Placeholder "photos": CSS gradients standing in for supplier uploads. Shop names are made-up examples. */
+  var P={
+    a:'radial-gradient(60% 45% at 50% 38%,#f3e3cf 0 40%,transparent 41%),radial-gradient(70% 60% at 50% 40%,#8aa37a 0 55%,transparent 56%),linear-gradient(#e9dfcf,#c9b79c)',
+    b:'radial-gradient(14% 10% at 30% 60%,#fff6dc,transparent),radial-gradient(14% 10% at 70% 55%,#fff6dc,transparent),linear-gradient(#2b2420,#5a4636 60%,#e7d6bd 61%)',
+    c:'radial-gradient(30% 22% at 50% 55%,#f2c9c4 0 60%,transparent 61%),radial-gradient(42% 30% at 50% 58%,#a7b79a 0 60%,transparent 61%),linear-gradient(#fbf6ef,#e8ddd0)',
+    d:'repeating-linear-gradient(90deg,#efe7da 0 18px,#e4d8c6 18px 36px),linear-gradient(#efe7da,#efe7da)',
+    e:'radial-gradient(40% 30% at 50% 20%,#fff1c9,transparent),linear-gradient(#6c5a4a,#2e2620)',
+    f:'radial-gradient(50% 40% at 50% 70%,#d9b8a3 0 50%,transparent 51%),linear-gradient(#f4ece2,#d9cbbb)',
+    g:'linear-gradient(160deg,#cfd8cf 0 30%,#f6f1e8 31% 60%,#c7a98a 61%)',
+    h:'radial-gradient(35% 25% at 50% 45%,#ffffff 0 60%,transparent 61%),linear-gradient(#b9c7d4,#e9eef2)'
+  };
+  var PARTS=[['all','All'],['overall','Venue & decor'],['stage','Stage'],['ceiling','Ceiling'],['table','Table linens'],['centrepieces','Centrepieces'],['lights','Lights · warmth']];
+  var LOOKS=[
+    {id:1,part:'overall',bg:P.a,l:'Garden arch in ivory and sage',who:'Bloom & Vine · Florist',real:true,onlist:false},
+    {id:2,part:'lights',bg:P.b,l:'Warm bistro lights over long tables',who:'Hiraya Events · Stylist',real:true,onlist:false},
+    {id:3,part:'centrepieces',bg:P.c,l:'Low blush centrepiece',who:'Bloom & Vine · Florist',real:false,onlist:false},
+    {id:4,part:'table',bg:P.d,l:'Linen runner, oat stripe',who:'Mesa Linens · Tables',real:false,onlist:false},
+    {id:5,part:'ceiling',bg:P.e,l:'Candle chandelier ceiling',who:'Casa Luz Styling · Stylist',real:true,onlist:false},
+    {id:6,part:'stage',bg:P.f,l:'Pampas stage, terracotta',who:'Casa Luz Styling · Stylist',real:false,onlist:false},
+    {id:7,part:'overall',bg:P.g,l:'Ballroom set for 200',who:'Seda Vertis North · Venue',real:true,onlist:true},
+    {id:8,part:'centrepieces',bg:P.h,l:'White hydrangea, tall glass',who:'Hiraya Events · Stylist',real:false,onlist:false}
+  ];
+  var saved=[{bg:P.c},{bg:P.a},{bg:P.e}]; var savedIds={};
+  var part='all';
+  var chips=document.getElementById('chips'), strip=document.getElementById('strip');
+  function count(p){ return p==='all'?LOOKS.length:LOOKS.filter(function(x){return x.part===p;}).length; }
+  function drawChips(){
+    chips.innerHTML='';
+    PARTS.forEach(function(p){ var n=count(p[0]); if(!n) return;
+      var b=document.createElement('button'); b.type='button'; b.className='chip'; b.setAttribute('aria-pressed',String(p[0]===part));
+      b.innerHTML=p[1]+'<small>'+n+'</small>'; b.onclick=function(){ part=p[0]; drawChips(); drawStrip(); }; chips.appendChild(b); });
+  }
+  var heartSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
+  function drawStrip(){
+    strip.innerHTML='';
+    LOOKS.filter(function(x){return part==='all'||x.part===part;}).forEach(function(x){
+      var d=document.createElement('div'); d.className='look';
+      d.innerHTML='<div class="ph" style="background:'+x.bg+'">'+(x.onlist?'<span class="onlist">On your list</span>':'')+
+        (x.real?'<span class="tag">From a real wedding</span>':'')+
+        '<button type="button" class="heart" aria-pressed="'+(!!savedIds[x.id])+'" aria-label="Save '+x.l+'">'+heartSvg+'</button></div>'+
+        '<div class="lbl">'+x.l+'</div><div class="who">'+x.who+'</div>';
+      d.querySelector('.heart').onclick=function(){ toggle(x); }; strip.appendChild(d);
+    });
+    var m=document.createElement('button'); m.type='button'; m.className='more'; m.innerHTML='See all 48<span>from 9 suppliers</span>'; strip.appendChild(m);
+  }
+  function partName(k){ for(var i=0;i<PARTS.length;i++) if(PARTS[i][0]===k) return PARTS[i][1]; return k; }
+  var toast=document.getElementById('toast'), tt=document.getElementById('toast-t'), last=null, timer=null;
+  function toggle(x){
+    if(savedIds[x.id]){ delete savedIds[x.id]; saved=saved.filter(function(s){return s.id!==x.id;}); tt.textContent='Removed from Saved looks'; }
+    else { savedIds[x.id]=1; saved.unshift({id:x.id,bg:x.bg}); tt.textContent='Saved to Reception · '+partName(x.part); }
+    last=x; toast.hidden=false; clearTimeout(timer); timer=setTimeout(function(){toast.hidden=true;},3200);
+    drawSaved(); drawStrip();
+  }
+  document.getElementById('toast-undo').onclick=function(){ if(last){ var x=last; last=null; toast.hidden=true; toggle(x); toast.hidden=true; } };
+  function drawSaved(){
+    var st=document.getElementById('saved-stack'); st.innerHTML='';
+    saved.slice(0,3).forEach(function(s,i){ var e=document.createElement('i'); e.style.left=(i*14)+'px'; e.style.zIndex=String(3-i); e.style.background=s.bg; st.appendChild(e); });
+    var n=saved.length, fromSup=n;
+    document.getElementById('saved-line').textContent=n? n+(n===1?' look':' looks')+' · '+fromSup+' from suppliers' : 'Tap ♡ on any look to keep it here';
+  }
+  drawChips(); drawStrip(); drawSaved();
+  var full=document.getElementById('st-full'), empty=document.getElementById('st-empty');
+  function setState(isEmpty){ full.setAttribute('aria-pressed',String(!isEmpty)); empty.setAttribute('aria-pressed',String(isEmpty));
+    document.getElementById('looks-full').hidden=isEmpty; document.getElementById('looks-empty').hidden=!isEmpty; }
+  full.onclick=function(){setState(false);}; empty.onclick=function(){setState(true);};
+  document.getElementById('see-all').addEventListener('click',function(e){e.preventDefault();});
+})();
+</script>

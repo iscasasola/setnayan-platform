@@ -5,7 +5,8 @@
  *       day — proven as a real `authenticated` session (SET ROLE + JWT claims), each refusal beside a positive control;
  *   2 · apply_dropped_offer: refuses an EXPIRED DROP and an ENDED OFFER; keeps the PREDECESSOR'S STATUS (a sent quote
  *       stays sent, an accepted one stays accepted — never reset, never promoted); writes exactly one new version =
- *       the old lines + one offer line; refuses a second apply; refuses a reshaped version; a PAID plan row never
+ *       the old lines + one offer line; refuses a second apply; refuses a worse or equal offer and lets a better one
+ *       REPLACE the offer line (owner 13 Nov); refuses a reshaped version; a PAID plan row never
  *       changes; only the service role may call it.
  *
  * SABOTAGE (seen red, restored — PR body): drop the OFFER_DROP_EXPIRED check; drop the OFFER_ENDED check; insert the
@@ -210,6 +211,42 @@ test('🔒 applying keeps the predecessor’s status: a SENT quote’s new versi
     assert.equal(card.n, 1, 'the new version was not posted into the chat');
     assert.match((await apply(d.id!, { lines: vs[1]!.line_items, total: Number(vs[1]!.total_centavos) }, o.publicId, 100)) ?? '', /ALREADY_APPLIED/);
   }
+});
+
+test('🔒 better only (owner 13 Nov): a worse or equal offer is refused NOT_BETTER; a better one REPLACES the offer line', async () => {
+  const s = await scenario('better-only', { status: 'sent' });
+  const first = await mkOffer(F.shop);
+  const d1 = await drop(F.vendorUser, s, F.shop, first.id, `${TODAY} + 3`);
+  assert.equal(await apply(d1.id!, s, first.publicId, 900000), null);
+  const v2 = (await versionsOf(s.eventId))[1]!;
+  // The swap the server action builds: the non-offer lines + the new offer line; total = old − old offer + new.
+  const swap = async (messageId: string, publicId: string, off: number): Promise<string | null> => {
+    const kept = v2.line_items.filter((l) => !l.offer_id);
+    const lines = [...kept, { label: 'Better offer', amount_centavos: -off, offer_id: publicId }];
+    try {
+      await db.query(`SELECT public.apply_dropped_offer($1, $2, $3::jsonb, $4, NULL)`, [messageId, F.couple, JSON.stringify(lines), Number(v2.total_centavos) + 900000 - off]);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  };
+  const next = await mkOffer(F.shop);
+  const d2 = await drop(F.vendorUser, s, F.shop, next.id, `${TODAY} + 3`);
+  assert.match((await swap(d2.id!, next.publicId, 500000)) ?? '', /NOT_BETTER/, 'a WORSE offer replaced a better one');
+  assert.match((await swap(d2.id!, next.publicId, 900000)) ?? '', /NOT_BETTER/, 'an EQUAL offer was applied');
+  assert.equal((await versionsOf(s.eventId)).length, 2, 'a refused swap wrote a version');
+  // Stacking is still refused: the old offer line kept beside the new one is not the old non-offer lines + one.
+  const stacked = [...v2.line_items, { label: 'x', amount_centavos: -1200000, offer_id: next.publicId }];
+  await assert.rejects(
+    db.query(`SELECT public.apply_dropped_offer($1, $2, $3::jsonb, $4, NULL)`, [d2.id, F.couple, JSON.stringify(stacked), Number(v2.total_centavos) - 1200000]),
+    /BAD_VERSION/,
+    'two offers stacked on one quote',
+  );
+  assert.equal(await swap(d2.id!, next.publicId, 1200000), null, 'a BETTER offer was refused');
+  const vs = await versionsOf(s.eventId);
+  assert.equal(vs.length, 3);
+  assert.deepEqual(vs[2]!.line_items.filter((l) => l.offer_id).map((l) => l.offer_id), [next.publicId], 'the old offer line stayed');
+  assert.equal(Number(vs[2]!.total_centavos), s.total - 1200000);
 });
 
 test('the version is the old lines + ONE offer line, or nothing: a changed line, a positive line, a wrong total are refused', async () => {

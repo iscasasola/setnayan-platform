@@ -24,3 +24,17 @@ PR-1 → PR-3; the (+) registration of its two rows is left to the controller (s
 - Ugat: joint J70 (Thread → Proposal). Lab: `/dev/offer-card-lab`.
 
 SPEC IMPACT: None
+
+### 2026-11-13 · owner rulings on the offer card (better only · active only · the supplier's picker)
+- **Better only** ("We only show offer cards that are better than the current offer"): offers still never stack. An
+  offer that saves the couple no more pesos on THIS quote (centavos, never percent) than the offer already on it is
+  refused (`NOT_BETTER`, replacing `ANOTHER_OFFER`) and is not shown to the couple; a better one REPLACES the current
+  offer line in the next version. `offerVersion` (lib/offer-drop.ts) and `apply_dropped_offer` (migration
+  20271339379038, unmerged, edited in place) enforce it.
+- **Active only** ("These offer cards must be active"): `coupleSeesDrop` shows the couple only an open drop of a
+  running offer (or an applied one, as history); paused, ended, expired and removed drops are not shown. Apply still
+  refuses them on the server (`applyRefusal` + the SQL `OFFER_ENDED` / `OFFER_DROP_EXPIRED`).
+- **Supplier's picker** ("Grey out the offers that are worse instead"): `dropPicks` lists every running offer; one
+  that does not lower the live quote's total cannot be picked. A better pick reads "<couple> will save ₱X more than the
+  current quotation" and "New total is ₱Y" (`dropSavesWords`).
+SPEC IMPACT: owner rulings 2026-11-13 on the offer card, relayed by the controller session for CHANGE_TRACKER.md.

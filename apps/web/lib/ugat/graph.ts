@@ -4271,7 +4271,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'the drop: the supplier’s own insert (app/_components/chat/cards/offer-calls.ts · dropOfferIntoChat) · the apply: app/_actions/offer-card-actions.ts applyDroppedOffer → apply_dropped_offer (service role only), priced by offersForQuote',
     guardedBy:
-      'trigger chat_messages_offer_is_this_suppliers (CARD_NOT_THIS_CONVERSATION · OFFER_NOT_YOURS · OFFER_NEEDS_GOOD_UNTIL · words-only private lines) · apply_dropped_offer refusals (OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · ANOTHER_OFFER · BAD_VERSION · PAID_ROW_CHANGED) · tests/db/a-dropped-offer-is-a-card-the-couple-applies.db.test.ts · lib/offer-drop.test.ts',
+      'trigger chat_messages_offer_is_this_suppliers (CARD_NOT_THIS_CONVERSATION · OFFER_NOT_YOURS · OFFER_NEEDS_GOOD_UNTIL · words-only private lines) · apply_dropped_offer refusals (OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · NOT_BETTER · BAD_VERSION · PAID_ROW_CHANGED) · tests/db/a-dropped-offer-is-a-card-the-couple-applies.db.test.ts · lib/offer-drop.test.ts',
     traps:
       'vendor_offers keys on id BIGSERIAL (its public_id is the S89D- text the line_items carry), so the marker is BIGINT, not UUID. A couple reads only a switched-on offer of a published shop: an ended offer is unreadable to them, so the card reads "ended" from a set marker it cannot follow — never "removed". The apply writes the SAME status the predecessor had (sent stays sent, accepted stays accepted) and supersedes directly — supersede_prior_vendor_proposals is the supplier’s door and would reset an acceptance.',
   },

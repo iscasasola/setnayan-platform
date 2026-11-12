@@ -46,12 +46,16 @@
 --     QUOTE_EXPIRED        the live quote's own Valid until has passed
 --     DEAL_LOCKED          the booking is confirmed or a lock is pending (Piece 2 owns booked deals)
 --     ALREADY_APPLIED      the live quote already carries THIS offer
---     ANOTHER_OFFER        the live quote already carries another offer (never stacked)
---     BAD_VERSION          the new lines are not the old lines + ONE offer line, or the
---                          total is not the old total + that line, or the offer line is ≥ 0
+--     NOT_BETTER           the live quote already carries an offer that saves as much or more
+--                          (owner 13 Nov: "We only show offer cards that are better than the
+--                          current offer" — offers never stack; a better one REPLACES the line)
+--     BAD_VERSION          the new lines are not the old non-offer lines + ONE offer line, or the
+--                          total is not the old total − the old offer line + the new one, or the
+--                          offer line is ≥ 0
 --     PAID_ROW_CHANGED     a plan row already paid would change
 --   And it writes, in one transaction:
---     · a NEW vendor_proposals row = the live quote + the offer line, its plan
+--     · a NEW vendor_proposals row = the live quote with its offer line (if any)
+--       replaced by this one, its plan
 --       re-split, and THE PREDECESSOR'S STATUS (owner 12 Nov: "an applied offer keeps
 --       the quote's prior status") — never reset to 'sent', never forced to 'accepted';
 --     · the predecessor → 'superseded' (directly: `supersede_prior_vendor_proposals`
@@ -168,6 +172,8 @@ DECLARE
   v_blocker  TEXT;
   v_offer_ln JSONB;
   v_rest     JSONB;
+  v_old_rest JSONB;
+  v_cur_off  BIGINT;
   v_n_offer  INT;
   v_new_id   UUID;
   v_paid     INT[];
@@ -235,12 +241,17 @@ BEGIN
               WHERE e ->> 'offer_id' = v_offer.public_id) THEN
     RAISE EXCEPTION 'apply_dropped_offer: ALREADY_APPLIED' USING ERRCODE = 'P0001';
   END IF;
-  IF EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(v_quote.line_items, '[]'::jsonb)) e
-              WHERE NULLIF(e ->> 'offer_id', '') IS NOT NULL) THEN
-    RAISE EXCEPTION 'apply_dropped_offer: ANOTHER_OFFER' USING ERRCODE = 'P0001';
-  END IF;
+  -- The offer already on the quote (never more than one: offers never stack) and the lines that are not offers.
+  SELECT COALESCE(SUM(LEAST(0, (e ->> 'amount_centavos')::NUMERIC)), 0)::BIGINT
+    INTO v_cur_off
+    FROM jsonb_array_elements(COALESCE(v_quote.line_items, '[]'::jsonb)) e
+   WHERE NULLIF(e ->> 'offer_id', '') IS NOT NULL
+     AND jsonb_typeof(e -> 'amount_centavos') = 'number';
+  SELECT COALESCE(jsonb_agg(e ORDER BY o), '[]'::jsonb) INTO v_old_rest
+    FROM jsonb_array_elements(COALESCE(v_quote.line_items, '[]'::jsonb)) WITH ORDINALITY AS t(e, o)
+   WHERE NULLIF(e ->> 'offer_id', '') IS NULL;
 
-  -- The new version is the old lines, unchanged, plus ONE line naming this offer.
+  -- The new version is the old non-offer lines, unchanged, plus ONE line naming this offer.
   IF jsonb_typeof(p_line_items) IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'apply_dropped_offer: BAD_VERSION' USING ERRCODE = '22023';
   END IF;
@@ -257,10 +268,14 @@ BEGIN
   IF v_n_offer <> 1 OR v_offer_ln IS NULL
      OR jsonb_typeof(v_offer_ln -> 'amount_centavos') IS DISTINCT FROM 'number'
      OR (v_offer_ln ->> 'amount_centavos')::NUMERIC >= 0
-     OR v_rest IS DISTINCT FROM COALESCE(v_quote.line_items, '[]'::jsonb)
-     OR p_total_centavos IS DISTINCT FROM v_quote.total_centavos + (v_offer_ln ->> 'amount_centavos')::BIGINT
+     OR v_rest IS DISTINCT FROM v_old_rest
+     OR p_total_centavos IS DISTINCT FROM v_quote.total_centavos - v_cur_off + (v_offer_ln ->> 'amount_centavos')::BIGINT
      OR p_total_centavos < 0 THEN
     RAISE EXCEPTION 'apply_dropped_offer: BAD_VERSION' USING ERRCODE = '22023';
+  END IF;
+  -- Better only: it must save MORE pesos on this quote than the offer already there (both are negative lines).
+  IF (v_offer_ln ->> 'amount_centavos')::BIGINT >= v_cur_off THEN
+    RAISE EXCEPTION 'apply_dropped_offer: NOT_BETTER' USING ERRCODE = 'P0001';
   END IF;
 
   -- Paid plan rows never change (owner: "paid amounts never change").
@@ -337,6 +352,6 @@ $$;
 REVOKE ALL ON FUNCTION public.apply_dropped_offer(UUID, UUID, JSONB, BIGINT, JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_dropped_offer(UUID, UUID, JSONB, BIGINT, JSONB) TO service_role;
 COMMENT ON FUNCTION public.apply_dropped_offer(UUID, UUID, JSONB, BIGINT, JSONB) IS
-  'Service role only (app/_actions/offer-card-actions.ts, after it proves the couple in their own session and prices the offer with offersForQuote). Writes the quote''s next version = the live quote + ONE offer line, keeping the predecessor''s status; paid plan rows never change. Refuses OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · ANOTHER_OFFER · BAD_VERSION · PAID_ROW_CHANGED. PR-4, owner 2026-11-12.';
+  'Service role only (app/_actions/offer-card-actions.ts, after it proves the couple in their own session and prices the offer with offersForQuote). Writes the quote''s next version = the live quote with ONE offer line (a better offer replaces the one there; offers never stack), keeping the predecessor''s status; paid plan rows never change. Refuses OFFER_DROP_EXPIRED · OFFER_ENDED · NOT_THE_COUPLE · NO_LIVE_QUOTE · QUOTE_EXPIRED · DEAL_LOCKED · ALREADY_APPLIED · NOT_BETTER · BAD_VERSION · PAID_ROW_CHANGED. PR-4, owner 2026-11-12.';
 
 COMMIT;

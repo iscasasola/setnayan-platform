@@ -5,7 +5,9 @@
  * Fails if: Apply is offered on an EXPIRED DROP or an ENDED OFFER; "applied" stops being derived from a later
  * version's `line_items[].offer_id`; an offer comes off lines on cards it does not reach (owner 12 Nov (2)); the
  * amount stops being `offersForQuote`'s (% first, then ₱ off the rest — the 9 Nov rule); the new version changes an
- * old line or adds more than one; a PAID plan row moves (owner 12 Nov (3)); or offers stack.
+ * old line or adds more than one; a PAID plan row moves (owner 12 Nov (3)); offers stack; a worse or equal offer is shown or applied, or a better one
+ * fails to REPLACE the current offer line (owner 13 Nov); an inactive card is shown to the couple; or the supplier's
+ * picker lets a worse offer be picked.
  * The figures are fixtures, not prices.
  *
  * SABOTAGE (seen red, restored — see the PR body): drop the Good-until check in `applyRefusal`; anchor on every line
@@ -16,7 +18,7 @@ import assert from 'node:assert/strict';
 import { blankOffer, offAmount, type Offer } from './offers';
 import { offersForQuote } from './quote-offer-door';
 import { resolveSchedule } from './proposal-payment-schedule';
-import { appliedVersion, applyRefusal, applyRefusalWords, dropState, offerVersion, reachedLines, resplitPlan, type DropLine } from './offer-drop';
+import { appliedVersion, applyRefusal, applyRefusalWords, coupleSeesDrop, currentOfferCentavos, dropPicks, dropSavesWords, dropState, offerVersion, reachedLines, resplitPlan, type DropLine } from './offer-drop';
 
 const TODAY = '2026-11-12';
 const NOW = new Date('2026-11-12T04:00:00Z');
@@ -54,7 +56,7 @@ test('🔒 Apply refuses an ENDED OFFER — off, past its last day, all taken, o
 });
 
 test('the database’s named refusals reach the card as words, never the raw error', () => {
-  for (const code of ['OFFER_DROP_EXPIRED', 'OFFER_ENDED', 'NOT_THE_COUPLE', 'NO_LIVE_QUOTE', 'QUOTE_EXPIRED', 'DEAL_LOCKED', 'ALREADY_APPLIED', 'ANOTHER_OFFER', 'PAID_ROW_CHANGED']) {
+  for (const code of ['OFFER_DROP_EXPIRED', 'OFFER_ENDED', 'NOT_THE_COUPLE', 'NO_LIVE_QUOTE', 'QUOTE_EXPIRED', 'DEAL_LOCKED', 'ALREADY_APPLIED', 'NOT_BETTER', 'NOTHING_OFF', 'PAID_ROW_CHANGED']) {
     const w = applyRefusalWords(`apply_dropped_offer: ${code} — x`);
     assert.ok(!w.includes(code) && w !== applyRefusalWords('???'), `${code} has no words of its own`);
   }
@@ -98,12 +100,74 @@ test('the new version = the old lines UNCHANGED + ONE named offer line; the tota
   assert.equal(r.version.totalCentavos, TOTAL - 500000);
 });
 
-test('offers never stack: the same offer twice, or a second offer on the quote, is refused', () => {
-  const withOne = [...LINES, { label: 'Early bird', amount_centavos: -100000, offer_id: 'S89D-ONE' }];
-  const same = offerVersion({ ...base, lines: withOne, offer: offer({ id: 'S89D-ONE', pctOff: 5 }) });
-  assert.ok(!same.ok && /already/i.test(same.reason));
-  const other = offerVersion({ ...base, lines: withOne, offer: offer({ id: 'S89D-TWO', pctOff: 5 }) });
-  assert.ok(!other.ok && /stack/i.test(other.reason));
+/* ── 3b · Better only, and a better offer REPLACES (owner 13 Nov) ───────── */
+
+// The quote already carries a ₱5,000 offer on the whole quote: ₱110,000 − ₱5,000 = ₱105,000.
+const CURRENT = { label: 'Early bird', amount_centavos: -500000, offer_id: 'S89D-NOW' } as DropLine;
+const WITH_CURRENT = { ...base, lines: [...LINES, CURRENT], totalCentavos: TOTAL - 500000 };
+
+test('🔒 better only: a WORSE offer (saves less than the one on the quote) is refused and hidden from the couple', () => {
+  const r = offerVersion({ ...WITH_CURRENT, offer: offer({ id: 'S89D-TWO', phpOff: 3000 }) });
+  assert.ok(!r.ok && r.notBetter, 'a worse offer was offered');
+  assert.match(r.reason, /saves as much or more/);
+  assert.equal(coupleSeesDrop({ k: 'open', daysLeft: 3 }, r), false, 'the couple still sees a worse offer');
+});
+
+test('🔒 better only: an EQUAL offer (same pesos off, by centavos not percent) is refused and hidden', () => {
+  // 5% of ₱110,000 = ₱5,500 is NOT equal; ₱5,000 flat is — compared in pesos on THIS quote, never by percent.
+  const r = offerVersion({ ...WITH_CURRENT, offer: offer({ id: 'S89D-TWO', phpOff: 5000 }) });
+  assert.ok(!r.ok && r.notBetter, 'an equal offer was offered');
+  assert.equal(coupleSeesDrop({ k: 'open', daysLeft: 3 }, r), false);
+  const pct = offerVersion({ ...WITH_CURRENT, offer: offer({ id: 'S89D-PCT', pctOff: 5 }) });
+  assert.ok(pct.ok, 'a 5% offer saving ₱5,500 is better than ₱5,000 off and was refused');
+});
+
+test('🔒 a BETTER offer is shown, and applying it REPLACES the current offer line (never two)', () => {
+  const r = offerVersion({ ...WITH_CURRENT, offer: offer({ id: 'S89D-TWO', phpOff: 8000 }) });
+  assert.ok(r.ok, !r.ok ? r.reason : '');
+  assert.equal(coupleSeesDrop({ k: 'open', daysLeft: 3 }, r), true, 'the couple does not see a better offer');
+  const offers = r.version.lineItems.filter((l) => l.offer_id);
+  assert.deepEqual(offers.map((l) => [l.offer_id, l.amount_centavos]), [['S89D-TWO', -800000]], 'the old offer line stayed, or two offers stacked');
+  assert.deepEqual(r.version.lineItems.filter((l) => !l.offer_id), LINES, 'a non-offer line changed');
+  assert.equal(r.version.totalCentavos, TOTAL - 800000, 'the total is not the lines less the NEW offer only');
+  assert.equal(r.version.savesMoreCentavos, 300000, '₱8,000 replacing ₱5,000 saves ₱3,000 more');
+  assert.equal(currentOfferCentavos(WITH_CURRENT.lines), 500000);
+});
+
+test('the same offer twice is refused as already applied', () => {
+  const same = offerVersion({ ...WITH_CURRENT, offer: offer({ id: 'S89D-NOW', phpOff: 9000 }) });
+  assert.ok(!same.ok && /already on your quote/i.test(same.reason));
+});
+
+/* ── 3c · Active only (owner 13 Nov: "These offer cards must be active") ── */
+
+test('🔒 an expired, paused, ended or removed drop is never shown to the couple — and Apply refuses it', () => {
+  const paused = offer({ pctOff: 10, isOn: false });
+  const pastDay = offer({ pctOff: 10, untilDate: '2026-11-11' });
+  for (const [o, goodUntil] of [[paused, '2026-11-20'], [pastDay, '2026-11-20'], [offer({ pctOff: 10 }), '2026-11-11']] as const) {
+    const st = dropState({ markerPresent: true, offer: o, goodUntil, today: TODAY, appliedIn: null });
+    assert.equal(coupleSeesDrop(st, null), false, `an inactive card (${st.k}) is shown to the couple`);
+    assert.ok(applyRefusal({ offer: o, goodUntil, today: TODAY }), `an inactive offer (${st.k}) was not refused at apply`);
+  }
+  assert.equal(coupleSeesDrop({ k: 'gone' }, null), false);
+  assert.equal(coupleSeesDrop({ k: 'applied', version: 3 }, null), true, 'an applied card is the quote’s history and stays');
+});
+
+/* ── 3d · The supplier's picker (owner 13 Nov: grey out the worse ones; "will save ₱X more"; "New total is") ── */
+
+test('🔒 the picker lists every RUNNING offer; a worse or equal one is listed but cannot be picked', () => {
+  const quote = { lines: WITH_CURRENT.lines, totalCentavos: WITH_CURRENT.totalCentavos, cardIds: base.quoteCardIds, schedule: PLAN };
+  const picks = dropPicks({
+    offers: [offer({ id: 'S89D-WORSE', phpOff: 3000 }), offer({ id: 'S89D-EQUAL', phpOff: 5000 }), offer({ id: 'S89D-BETTER', phpOff: 8000 }), offer({ id: 'S89D-OFF', phpOff: 9000, isOn: false })],
+    quote,
+    today: TODAY,
+    eventDate: base.eventDate,
+    now: NOW,
+  });
+  assert.deepEqual(picks.map((p) => [p.offerId, p.pickable]), [['S89D-WORSE', false], ['S89D-EQUAL', false], ['S89D-BETTER', true]], 'a worse offer is pickable, a better one is not, or a switched-off one is listed');
+  const better = picks.find((p) => p.offerId === 'S89D-BETTER')!;
+  assert.deepEqual(dropSavesWords('Ana & Miguel', better), ['Ana & Miguel will save ₱3,000 more than the current quotation', 'New total is ₱102,000']);
+  assert.equal(dropSavesWords('Ana & Miguel', picks[0]!), null, 'a worse offer got a savings line');
 });
 
 test('an offer that reaches no line on the quote does not apply', () => {

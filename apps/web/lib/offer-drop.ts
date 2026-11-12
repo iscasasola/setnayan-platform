@@ -80,6 +80,18 @@ export function goodUntilWords(goodUntil: string, today: string): string {
   return `Good until ${dayWords(goodUntil)} · ${left}`;
 }
 
+/**
+ * 🔒 WHAT THE COUPLE SEES (owner 13 Nov: "These offer cards must be active" · "We only show offer cards that are
+ * better than the current offer"). An applied card stays (it is the quote's history). Otherwise only an OPEN drop —
+ * a running offer inside its Good-until day — that saves more than the quote's current offer; paused, ended,
+ * expired, removed and not-better cards are not shown to the couple at all. The supplier sees every card.
+ */
+export function coupleSeesDrop(st: DropState, preview: { ok: boolean; notBetter?: true } | null): boolean {
+  if (st.k === 'applied') return true;
+  if (st.k !== 'open') return false;
+  return !(preview && !preview.ok && preview.notBetter);
+}
+
 /** "18 Nov" (the design's short day). */
 export function dayWords(day: string): string {
   const d = new Date(`${day}T00:00:00+08:00`);
@@ -107,8 +119,9 @@ export function applyRefusalWords(message: string | null | undefined): string {
   if (m.includes('QUOTE_EXPIRED')) return 'Your quote’s Valid until has passed — ask for a new quote first.';
   if (m.includes('DEAL_LOCKED')) return 'This booking is confirmed — changes go through a change request now.';
   if (m.includes('ALREADY_APPLIED')) return 'This offer is already on your quote.';
-  if (m.includes('ANOTHER_OFFER')) return 'Your quote already carries an offer — offers don’t stack.';
+  if (m.includes('NOT_BETTER')) return 'Your quote already carries an offer that saves as much or more.';
   if (m.includes('PAID_ROW_CHANGED') || m.includes('QUOTE_BELOW_PAID_FLOOR')) return 'A paid payment never changes, so this offer can’t apply here.';
+  if (m.includes('NOTHING_OFF')) return 'This offer takes nothing off your quote.';
   if (m.includes('NO_FIT')) return 'This offer doesn’t reach any line on your quote.';
   return 'Couldn’t apply that. Try again.';
 }
@@ -163,7 +176,19 @@ export type OfferVersion = {
   totalCentavos: number;
   paymentSchedule: ResolvedSchedule | null;
   fit: QuoteOfferFit;
+  /** The current total less the new one — what the couple saves beyond the quote as it stands (always > 0). */
+  savesMoreCentavos: number;
 };
+
+/** A quote line that IS an offer (it names one). */
+export function isOfferLine(l: { offer_id?: unknown }): boolean {
+  return typeof l.offer_id === 'string' && l.offer_id.length > 0;
+}
+
+/** What the offer already on the quote saves, in centavos (0 = none). Offers never stack, so this is one line. */
+export function currentOfferCentavos(lines: readonly DropLine[]): number {
+  return lines.filter(isOfferLine).reduce((s, l) => s - Math.min(0, Number(l.amount_centavos) || 0), 0);
+}
 
 /**
  * The quote's next version with this offer: the old lines UNCHANGED + one named line (`offer_id` = the offer's
@@ -180,9 +205,8 @@ export function offerVersion(input: {
   today: string;
   eventDate: string | null;
   now: Date;
-}): { ok: true; version: OfferVersion } | { ok: false; reason: string } {
+}): { ok: true; version: OfferVersion } | { ok: false; reason: string; notBetter?: true } {
   if (input.lines.some((l) => l.offer_id === input.offer.id)) return { ok: false, reason: applyRefusalWords('ALREADY_APPLIED') };
-  if (input.lines.some((l) => typeof l.offer_id === 'string' && l.offer_id.length > 0)) return { ok: false, reason: applyRefusalWords('ANOTHER_OFFER') };
   const reached = reachedLines(input.lines, input.offer, input.quoteCardIds);
   const cardIds = [...new Set(reached.map((l) => lineCardId(l, input.quoteCardIds)).filter((c): c is string => !!c))];
   const fit = offersForQuote({
@@ -196,12 +220,19 @@ export function offerVersion(input: {
   if (!fit) return { ok: false, reason: applyRefusalWords('NO_FIT') };
   const named = offerLineItem(fit);
   const offerLine: DropLine = { ...named, offer_id: input.offer.id, card_ids: cardIds };
-  const lineItems: DropLine[] = [...input.lines.map((l) => ({ ...l })), offerLine];
-  const totalCentavos = input.totalCentavos + (named.amount_centavos ?? 0);
+  // 🔒 BETTER ONLY (owner 13 Nov: "We only show offer cards that are better than the current offer"). Offers never
+  // stack: the quote carries at most one offer line. A new one must save MORE pesos on THIS quote (centavos, never
+  // percent) than the one already there, and then it REPLACES that line.
+  const current = currentOfferCentavos(input.lines);
+  const saves = -(named.amount_centavos ?? 0);
+  if (!(saves > current)) return { ok: false, reason: applyRefusalWords(current > 0 ? 'NOT_BETTER' : 'NOTHING_OFF'), notBetter: true };
+  const kept = input.lines.filter((l) => !isOfferLine(l));
+  const lineItems: DropLine[] = [...kept.map((l) => ({ ...l })), offerLine];
+  const totalCentavos = input.totalCentavos + current + (named.amount_centavos ?? 0);
   if (totalCentavos < 0) return { ok: false, reason: applyRefusalWords('NO_FIT') };
   const plan = resplitPlan(input.paymentSchedule, totalCentavos, input.paidSeqs);
   if (!plan.ok) return plan;
-  return { ok: true, version: { lineItems, totalCentavos, paymentSchedule: plan.schedule, fit } };
+  return { ok: true, version: { lineItems, totalCentavos, paymentSchedule: plan.schedule, fit, savesMoreCentavos: input.totalCentavos - totalCentavos } };
 }
 
 /**
@@ -243,4 +274,59 @@ export function offerTakesWords(fit: QuoteOfferFit, reachedLabels: readonly stri
   const off = `−${formatCentavos(Math.round(fit.offPhp * 100))}`;
   if (reachedLabels.length === 0) return off;
   return `${off} · on ${reachedLabels.join(' · ')} only`;
+}
+
+// ── The supplier's pick: only a better offer can be dropped ───────────────────
+
+export type DropPick = {
+  offerId: string;
+  /** Running today (on, inside its days, not all taken). Only these are listed at all. */
+  pickable: boolean;
+  /** The quote's new total with this offer (null when there is no live quote to price against). */
+  newTotalCentavos: number | null;
+  /** Current total less the new one (null = no live quote). */
+  savesMoreCentavos: number | null;
+};
+
+/**
+ * 🔒 THE SUPPLIER'S PICKER (owner 13 Nov: "Grey out the offers that are worse instead. We do not hide them, we just
+ * cannot pick them."). Every RUNNING offer is listed; one that does not lower the live quote's current total — the
+ * same `offerVersion` the couple's Apply runs — is listed but cannot be picked. With no live quote there is nothing to
+ * compare against, so every running offer can be picked (the couple's card still applies only a better one).
+ */
+export function dropPicks(input: {
+  offers: readonly Offer[];
+  quote: { lines: readonly DropLine[]; totalCentavos: number; cardIds: readonly string[] | null; schedule: unknown } | null;
+  today: string;
+  eventDate: string | null;
+  now: Date;
+}): DropPick[] {
+  return input.offers
+    .filter((o) => offerStatus(o, input.today).k === 'run')
+    .map((o) => {
+      if (!input.quote) return { offerId: o.id, pickable: true, newTotalCentavos: null, savesMoreCentavos: null };
+      const v = offerVersion({
+        offer: o,
+        lines: input.quote.lines,
+        totalCentavos: input.quote.totalCentavos,
+        quoteCardIds: input.quote.cardIds,
+        paymentSchedule: input.quote.schedule,
+        paidSeqs: new Set(),
+        today: input.today,
+        eventDate: input.eventDate,
+        now: input.now,
+      });
+      return v.ok
+        ? { offerId: o.id, pickable: true, newTotalCentavos: v.version.totalCentavos, savesMoreCentavos: v.version.savesMoreCentavos }
+        : { offerId: o.id, pickable: false, newTotalCentavos: null, savesMoreCentavos: null };
+    });
+}
+
+/** "Ana & Miguel will save ₱6,000 more than the current quotation" + "New total is ₱104,000" (owner 13 Nov). */
+export function dropSavesWords(couple: string, pick: DropPick): [string, string] | null {
+  if (pick.savesMoreCentavos == null || pick.newTotalCentavos == null || !(pick.savesMoreCentavos > 0)) return null;
+  return [
+    `${couple.trim() || 'Your client'} will save ${formatCentavos(pick.savesMoreCentavos)} more than the current quotation`,
+    `New total is ${formatCentavos(pick.newTotalCentavos)}`,
+  ];
 }

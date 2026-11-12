@@ -6,6 +6,7 @@ import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_compo
 import { PLUS_ONE_FILTERS, type PlusOneFilter } from '@/lib/guest-roster-view';
 import { applyGuestsFilterPick, guestsFilterApplied, guestsFilterOptions } from '@/lib/guests-filter';
 import { formatCount } from '@/lib/format-number';
+import { PAX_EVERYONE, PAX_SIDE_WORDS, paxKey, paxPickOfKey } from '@/lib/guest-pax-filter';
 import type { GuestsFilterSheetProps } from './guests-filter-sheet';
 
 /**
@@ -14,6 +15,12 @@ import type { GuestsFilterSheetProps } from './guests-filter-sheet';
  * load (`scripts/check-maker-js-budget.mjs`).
  */
 export const FILTER_SHEET_TOPICS = ['Who you see', 'How it is laid out'] as const;
+/** 🍽 The per-head services' topic (owner 2026-11-12) — drawn only when the event has a service priced per head. */
+export const PAX_TOPIC = 'Who each service counts';
+
+const PAX_LINE = 'Counted · not counted';
+const PAX_ABOUT =
+  'Only services priced per head are listed. “Not counted” is the guests you ticked out of this service on their card. “Counted” is everyone this supplier counts — attending, and inside the service’s rule. The supplier sees the number only, never who.';
 
 const SHOW_LINE = 'Which guests are in the list';
 const SHOW_ABOUT = '“To invite” is everyone not sent an invitation yet. “Asking to join” opens the requests waiting for your yes.';
@@ -32,11 +39,12 @@ export function GuestsFilterPanel({
   hasSides,
   plus,
   asking,
+  pax,
   shown,
   onClearAll,
   onClose,
 }: GuestsFilterSheetProps & { onClose: () => void }) {
-  const applied = guestsFilterApplied(filter, { plus: Boolean(plus?.value), asking: Boolean(asking?.on) });
+  const applied = guestsFilterApplied(filter, { plus: Boolean(plus?.value), asking: Boolean(asking?.on) }) + (pax?.value ? 1 : 0);
   const opts = guestsFilterOptions('list', filter, { hasSides });
   const of = (group: string): PickOption[] => opts.filter((o) => o.group === group).map((o) => ({ key: o.key, label: o.label }));
   const on = (group: string) => opts.find((o) => o.group === group && o.on)?.key ?? null;
@@ -76,6 +84,34 @@ export function GuestsFilterPanel({
           onPick={(k) => plus.onPick(k === PLUS_ALL ? null : (k.slice(5) as PlusOneFilter))}
           dataAttr="data-filter-plus"
         />
+      ) : null}
+      {pax ? (
+        <>
+          <ShowSortTopic name={PAX_TOPIC} />
+          {pax.services.map((s) => (
+            <ChosenRow
+              key={s.id}
+              data="filter-pax"
+              name={s.name}
+              line={PAX_LINE}
+              about={{ words: PAX_ABOUT }}
+              value={pax.value?.id === s.id ? paxKey(s.id, pax.value.side) : paxKey(s.id, 'all')}
+              options={[
+                { key: paxKey(s.id, 'all'), label: PAX_EVERYONE },
+                ...(['counted', 'out'] as const).map((side) => ({
+                  key: paxKey(s.id, side),
+                  label: `${PAX_SIDE_WORDS[side]} · ${formatCount(pax.count({ id: s.id, side }))}`,
+                })),
+              ]}
+              onPick={(k) => {
+                // "Everyone" on a row that is not the one picked leaves the other service's pick alone.
+                const next = paxPickOfKey(k);
+                if (next || pax.value?.id === s.id) pax.onPick(next);
+              }}
+              dataAttr="data-filter-pax"
+            />
+          ))}
+        </>
       ) : null}
       <ShowSortTopic name={FILTER_SHEET_TOPICS[1]} />
       <ChosenRow

@@ -15,8 +15,10 @@ import {
   bypassExpiryFrom,
   bypassNoticeForVendor,
   bypassState,
+  founderVouchExpiry,
   vouchHasLapsed,
 } from './verification-bypass';
+import { deadlineLabel } from './verified-badge';
 
 const NOW = new Date('2026-09-07T00:00:00.000Z');
 const inDays = (n: number) => new Date(NOW.getTime() + n * 86_400_000).toISOString();
@@ -30,6 +32,15 @@ test('the window is six months, and a grant today expires then', () => {
   const iso = bypassExpiryFrom(NOW);
   const days = Math.round((Date.parse(iso) - NOW.getTime()) / 86_400_000);
   assert.equal(days, 182);
+});
+
+test('founders verification: papers due 30 March of the next year — the one renewal day (owner 12 Nov 2026)', () => {
+  // Pressed tomorrow (2026) → 30 March 2027, the end of that day in Manila.
+  assert.equal(founderVouchExpiry(new Date('2026-11-13T05:00:00.000Z')), '2027-03-30T15:59:59.000Z');
+  assert.equal(deadlineLabel(founderVouchExpiry(new Date('2026-11-13T05:00:00.000Z'))), 'March 30, 2027');
+  // Pressed in 2027 → 30 March 2028: never a vouch born already lapsed, never one due in six weeks.
+  assert.equal(founderVouchExpiry(new Date('2027-02-10T00:00:00.000Z')), '2028-03-30T15:59:59.000Z');
+  assert.equal(founderVouchExpiry(new Date('2027-04-01T00:00:00.000Z')), '2028-03-30T15:59:59.000Z');
 });
 
 test('an active bypass counts down, and turns urgent inside 30 days', () => {

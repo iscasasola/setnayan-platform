@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1838
-# tables: 494
-# columns: 5988
-# notnull: 3623
+# ledger: 1846
+# tables: 496
+# columns: 6033
+# notnull: 3641
 [ledger]
 20260512000000
 20260513000000
@@ -1850,6 +1850,14 @@
 20271338412990
 20271338442002
 20271339373845
+20271339773560
+20271339826198
+20271339978803
+20271340018194
+20271340142149
+20271340374819
+20271340566104
+20271341349934
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2015,7 +2023,9 @@ blocked_users.blocker_user_id
 blocked_users.created_at
 blocked_users.id
 blocked_users.reason
+booking_change_asks.amount_centavos
 booking_change_asks.answer_note
+booking_change_asks.answer_proposal_id
 booking_change_asks.answered_at
 booking_change_asks.answered_by
 booking_change_asks.ask_id
@@ -2023,8 +2033,12 @@ booking_change_asks.asked_at
 booking_change_asks.asked_by
 booking_change_asks.event_id
 booking_change_asks.form_id
+booking_change_asks.good_until
 booking_change_asks.note
 booking_change_asks.proposal_id
+booking_change_asks.proposed_plan
+booking_change_asks.raised_by
+booking_change_asks.scope_label
 booking_change_asks.status
 booking_change_asks.subject
 booking_change_asks.thread_id
@@ -2281,6 +2295,7 @@ chat_messages.message_id
 chat_messages.offered_service_id
 chat_messages.proposal_id
 chat_messages.recipient_user_id
+chat_messages.recipient_user_ids
 chat_messages.sender_role
 chat_messages.sender_user_id
 chat_messages.sent_as
@@ -2327,9 +2342,14 @@ chat_threads.decline_reason
 chat_threads.declined_at
 chat_threads.displaced_from_status
 chat_threads.event_id
+chat_threads.group_key
+chat_threads.group_kind
+chat_threads.group_name
+chat_threads.group_roles
 chat_threads.inquiry_source
 chat_threads.inquiry_status
 chat_threads.is_returning
+chat_threads.kind
 chat_threads.last_push_notified_at
 chat_threads.locked_at
 chat_threads.locked_by_user_id
@@ -3422,6 +3442,27 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_files.chat_message_id
+event_supplier_files.counts
+event_supplier_files.couple_decision
+event_supplier_files.created_at
+event_supplier_files.created_by
+event_supplier_files.decided_at
+event_supplier_files.dedupe_of
+event_supplier_files.event_id
+event_supplier_files.file_id
+event_supplier_files.file_name
+event_supplier_files.grp
+event_supplier_files.kind
+event_supplier_files.link_url
+event_supplier_files.media_id
+event_supplier_files.mime
+event_supplier_files.portfolio_ref
+event_supplier_files.size_bytes
+event_supplier_files.taken_at
+event_supplier_files.updated_at
+event_supplier_files.vendor_profile_id
+event_supplier_files.vendor_service_id
 event_supplier_schedule_marks.confirmed_at
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.locked_at
@@ -6129,6 +6170,15 @@ stewardship_transfers.to_user_id
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
 stewardship_transfers.verification_ref
+supplier_media.content_sha256
+supplier_media.created_at
+supplier_media.in_portfolio
+supplier_media.media_id
+supplier_media.mime
+supplier_media.r2_ref
+supplier_media.size_bytes
+supplier_media.taken_at
+supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.resend_id
@@ -6725,8 +6775,11 @@ vendor_form_service_links.created_at
 vendor_form_service_links.form_id
 vendor_form_service_links.vendor_service_id
 vendor_forms.created_at
+vendor_forms.edited_from_form_id
+vendor_forms.for_event_id
 vendor_forms.form_id
 vendor_forms.from_template_key
+vendor_forms.in_library
 vendor_forms.public_id
 vendor_forms.retired_at
 vendor_forms.title
@@ -7943,6 +7996,7 @@ blocked_users.id
 booking_change_asks.ask_id
 booking_change_asks.asked_at
 booking_change_asks.note
+booking_change_asks.raised_by
 booking_change_asks.status
 booking_change_asks.subject
 booking_change_asks.thread_id
@@ -8108,7 +8162,6 @@ chat_messages.is_bot
 chat_messages.message_id
 chat_messages.sender_role
 chat_messages.thread_id
-chat_messages.vendor_profile_id
 chat_poll_choices.choice_id
 chat_poll_choices.label
 chat_poll_choices.poll_id
@@ -8133,10 +8186,10 @@ chat_threads.created_at
 chat_threads.event_id
 chat_threads.inquiry_status
 chat_threads.is_returning
+chat_threads.kind
 chat_threads.public_id
 chat_threads.thread_id
 chat_threads.updated_at
-chat_threads.vendor_profile_id
 communities.archived
 communities.community_id
 communities.created_at
@@ -8831,6 +8884,16 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_files.counts
+event_supplier_files.couple_decision
+event_supplier_files.created_at
+event_supplier_files.event_id
+event_supplier_files.file_id
+event_supplier_files.file_name
+event_supplier_files.grp
+event_supplier_files.kind
+event_supplier_files.updated_at
+event_supplier_files.vendor_profile_id
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.vendor_profile_id
 event_tables.capacity
@@ -10415,6 +10478,13 @@ stewardship_transfers.initiated_at
 stewardship_transfers.status
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
+supplier_media.content_sha256
+supplier_media.created_at
+supplier_media.in_portfolio
+supplier_media.media_id
+supplier_media.mime
+supplier_media.r2_ref
+supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.sent_at
@@ -10801,6 +10871,7 @@ vendor_form_service_links.form_id
 vendor_form_service_links.vendor_service_id
 vendor_forms.created_at
 vendor_forms.form_id
+vendor_forms.in_library
 vendor_forms.public_id
 vendor_forms.title
 vendor_forms.updated_at

@@ -71,11 +71,12 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
   // A READ FILTER, not a writer (Build 3 lane B round 3, RA 10173 access right): the export reads the private lines
   // sent TO its subject — `.eq('recipient_user_id', user.id)`, so the admin's service-role door is bounded by it;
   // run as written by tests/db/a-private-message-never-reaches-a-third-person.db.test.ts (export).
-  'lib/personal-data-export.ts': 'the subject’s own received private lines, filtered recipient_user_id = the subject',
+  'lib/personal-data-export.ts': 'the subject’s own received private lines, filtered to the subject being one of recipient_user_ids',
   // Build 3 integration (lanes A × B): the composer's private line.
   'lib/chat-private.ts': 'the ONE place the column’s name is written (CHAT_PRIVATE_RECIPIENT_COLUMN) — a constant, no I/O',
   'lib/chat.ts': 'fetchMessages SELECTS the column on the caller’s client so a bubble can be drawn private; the session callers are bound by the restrictive policy, the one service-role caller filters (test below)',
   'app/dev/_components/lab-picked-chat.tsx': 'a dev-lab fixture row (no database; production 404s /dev)',
+  'app/dev/event-group-chat-lab/page.tsx': 'dev-lab fixture rows for the event group chat (no database; production 404s /dev)',
   // A READ FILTER, not a writer: the admin replies as a demo shop through the service role, so it keeps only the shop's
   // own view — proved by 'a service-role read of a thread keeps only what its viewer may read' below.
   'app/admin/demo-vendors/inquiries/[threadId]/page.tsx': 'filters a service-role thread read down to the shop’s own view',
@@ -87,7 +88,19 @@ const NAMES_THE_COLUMN_AS_METADATA: Record<string, string> = {
  */
 const WRITES_A_PRIVATE_LINE: Record<string, string> = {
   'lib/chat-send.ts': 'sendChatMessageCore — words only, no AI, notice to the recipient only (proved below)',
+  // 💬 12 Nov — event group chats: the group composer's Send. Words only, no AI, NO app-side notice at all — the only
+  // notice is the database's tray row to each recipient (tg_chat_messages_private_tells_its_reader, proved in
+  // tests/db/event-group-chats-and-a-private-line-to-several.db.test.ts). Proved below.
+  'app/samahan/chat/actions.ts': 'sendGroupMessage — words only, no AI, no app-side notice (proved below)',
 };
+
+test('the group composer writes a private line with no file, no AI and no app-side notice', () => {
+  const src = stripComments(fs.readFileSync(path.join(HERE, '..', 'app', 'samahan', 'chat', 'actions.ts'), 'utf8'));
+  const fn = src.slice(src.indexOf('async function sendGroupMessage'), src.indexOf('async function addToGroup'));
+  assert.ok(fn.length > 200, 'sendGroupMessage moved — re-point this test');
+  assert.match(fn, /if \(hasFile\) throw new Error\(privateList\.length > 0 \? PRIVATE_WORDS_ONLY_MESSAGE/, 'a private group line may carry a file');
+  assert.doesNotMatch(src, /notifyOtherParty|emitNotification|vendor-autoreply|runVendorAutoReply/, 'the group send notifies or wakes the AI in app code');
+});
 
 /**
  * Every code mention (comments stripped) of the private-message column — its
@@ -95,7 +108,7 @@ const WRITES_A_PRIVATE_LINE: Record<string, string> = {
  * `[CHAT_PRIVATE_RECIPIENT_COLUMN]` never spells the name).
  */
 function mentionsOfRecipient(code: string): number {
-  return [...stripComments(code).matchAll(/\brecipient_user_id\b|\bCHAT_PRIVATE_RECIPIENT_COLUMN\b/g)].length;
+  return [...stripComments(code).matchAll(/\brecipient_user_ids?\b|\bCHAT_PRIVATE_RECIPIENT_COLUMNS?\b/g)].length;
 }
 
 test('the scanner sees a written recipient and ignores prose about one (sabotage)', () => {
@@ -105,6 +118,8 @@ test('the scanner sees a written recipient and ignores prose about one (sabotage
     1,
   );
   assert.equal(mentionsOfRecipient(`q.is('recipient_user_id', null)`), 1);
+  // 💬 20271340374819 — the list column is the same fact: a mention of it trips the wire too.
+  assert.equal(mentionsOfRecipient(`q.contains('recipient_user_ids', [id])`), 1);
   // The constant counts too — a writer that never spells the name is still seen.
   assert.equal(mentionsOfRecipient(`insert({ body, ...(to ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: to } : {}) })`), 1);
   // On a REAL module that writes chat lines but no recipient (the change-approval card), in memory: adding one is caught.
@@ -161,8 +176,10 @@ test('notices: the fan-out notifies every host, and a private line leaves before
   const branch = /if \(args\.privateTo\) \{([\s\S]*?)\n  \}\n/.exec(fn);
   assert.ok(branch, 'notifyOtherParty has no private branch — a private line would ride the fan-out');
   const body = branch[1]!;
-  assert.equal([...body.matchAll(/emitNotification\(/g)].length, 1, 'the private branch notifies more than one person');
-  assert.match(body, /userId: args\.privateTo,/, 'the private notice is not addressed to the recipient');
+  // 👥 Several recipients since 12 Nov: ONE emit, inside a loop over the recipients only — never anyone else.
+  assert.equal([...body.matchAll(/emitNotification\(/g)].length, 1, 'the private branch notifies through a second door');
+  assert.match(body, /const recipients = typeof args\.privateTo === 'string' \? \[args\.privateTo\] : \[\.\.\.args\.privateTo\];/);
+  assert.match(body, /for \(const to of recipients\) \{[\s\S]*userId: to,/, 'the private notice is not addressed to the recipients');
   assert.match(body, /\n    return;\s*$/, 'the private branch does not return — it falls through to the fan-out');
   const at = fn.indexOf(branch[0]);
   assert.ok(at < fn.indexOf('readThreadHostPeople('), 'the private branch runs AFTER the hosts are read');
@@ -179,7 +196,8 @@ test('notices: the fan-out notifies every host, and a private line leaves before
       'vendor_profile_id: thread.vendor_profile_id',
       'body: trimmed',
       '...(attachment ?? {})',
-      '...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {})',
+      // 👥 one person → the shipped column; several → the list (12 Nov)
+      '...(privateTo ? (privateTo.length === 1 ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo[0] } : { [CHAT_PRIVATE_RECIPIENTS_COLUMN]: privateTo }) : {})',
       // 🏪 The screen's side (owner, 11 Nov) — `sent_as` only, never a recipient.
       '...sidePayload',
     ],

@@ -49,8 +49,10 @@ export type OfferService = {
   service: string;
   /** The service's cards, lowest starting price first (unpriced last) — slot i is `SERVICE_TIERS[i]`. */
   cards: SetupCard[];
-  /** Cards still to add for this service to reach `CARDS_PER_SERVICE`. */
+  /** Cards still to add for this service to reach `target`. */
   toGo: number;
+  /** 🔢 The cards this service counts to — `CARDS_PER_SERVICE`, or fewer when the plan allows fewer (`cardsToCount`). */
+  target: number;
 };
 
 export type OfferProgress = {
@@ -80,6 +82,11 @@ export function offerProgress(
    * client folds that import it, and so no caller can forget it.
    */
   coarse: ReadonlySet<string>,
+  /**
+   * 🔢 The cards each service counts to (`cardsToCount`) — never more than the plan lets the shop make, or the step
+   * could never finish (owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": Free · Verified make ONE card per category).
+   */
+  target: number = CARDS_PER_SERVICE,
 ): OfferProgress {
   const hasLeaf = offered.some((s) => s && !coarse.has(s));
   const carded = new Set(cards.map((c) => c.service));
@@ -90,10 +97,21 @@ export function offerProgress(
     const mine = cards
       .filter((c) => c.service === service)
       .sort((a, b) => (a.pricePhp ?? Number.POSITIVE_INFINITY) - (b.pricePhp ?? Number.POSITIVE_INFINITY));
-    return { service, cards: mine, toGo: Math.max(0, CARDS_PER_SERVICE - mine.length) };
+    return { service, cards: mine, toGo: Math.max(0, target - mine.length), target };
   });
-  const toGo = services.length === 0 ? CARDS_PER_SERVICE : services.reduce((n, s) => n + s.toGo, 0);
+  const toGo = services.length === 0 ? target : services.reduce((n, s) => n + s.toGo, 0);
   return { services, toGo };
+}
+
+/**
+ * 🔢 THE CARDS A SERVICE COUNTS TO (owner 12 Nov 2026, the supplier first-login release): Good · Better · Best asks for
+ * three, but a Free or Verified shop may make only `servicesPerLeaf` (ONE) per category — so the step said "2 to go" to
+ * a supplier whose next card the maker refuses with "Upgrade to add more here", and it could never be ticked. It counts
+ * to the smaller of the two; a founder (no per-category limit, `is_founder`) counts to three.
+ */
+export function cardsToCount(servicesPerLeaf: number, isFounder: boolean): number {
+  if (isFounder || !Number.isFinite(servicesPerLeaf)) return CARDS_PER_SERVICE;
+  return Math.max(1, Math.min(CARDS_PER_SERVICE, Math.floor(servicesPerLeaf)));
 }
 
 /** "1 to go" · "3 of 3" — the words on a service's row and on the fold. */

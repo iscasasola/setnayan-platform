@@ -141,7 +141,8 @@ test('2b · the bar says where you are with Stages | Studio — the old screen l
 
 test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GREEN pill', async () => {
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /<IconPill label="Undo and preview">\s*<DraftButton\s+label="Undo"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Undo and Preview are not one shared pill');
+  /* ↺ is History since 2026-11-09 — the same place in the same pill. */
+  assert.match(bar, /<IconPill label="History and preview">[\s\S]*?<DraftButton\s+label="History"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'History and Preview are not one shared pill');
   assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply=""[^>]*>/, 'Apply is not its own pill');
   assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');

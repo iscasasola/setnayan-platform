@@ -8,12 +8,12 @@
  *   ( SV )  Seda Vertis North                                   ▾
  *           Reception · added by you
  *           Next: first payment · ₱528,000 · by Oct 5
- *           [ Booked ]
+ *           (no "Booked" pill — every row here is booked; a pill only when it says more, K2 2026-11-12)
  *           ── a tap on the row opens (ONE row open at a time — `BookedRowList`) ──
  *   ⏱ Call time 8:00 AM · Ingress & setup · from your Schedule
  *   PAYMENT PLAN   ✓ First payment · Paid Oct 20      ₱90,000
  *                  ○ Balance · Due Dec 11              ₱90,000
- *   Used across your event:  [Event Hub · venue & city] [Schedule]
+ *   Used in: Event Hub · venue & city · Schedule          ← one line (K3 2026-11-12)
  *   [ Pay ][ Chat ][ Workspace ][ Cancel ]     ← ONE row of equal tiles
  *
  * The approved final Suppliers design (owner 2026-10-30, `carry-2026-10-29/suppliers-final-proto/`, its `teamFold`):
@@ -61,6 +61,7 @@ import { shortDate } from '@/lib/budget-page-view';
 import {
   NEXT_SET_PRICE,
   WAITING_PILL,
+  pillSaysMore,
   WAITING_UNTIL,
   type BookedCallTime,
   type BookedPlan,
@@ -149,7 +150,9 @@ export function BookedRowsExample() {
               <span className="text-ink/55">Next:</span>
               <span className="text-ink/80">{r.line}</span>
             </span>
-            <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE.ok}`}>{r.pill}</span>
+            {pillSaysMore({ text: r.pill, tone: 'ok' }) ? (
+              <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE.ok}`}>{r.pill}</span>
+            ) : null}
           </div>
         </li>
       ))}
@@ -664,7 +667,10 @@ export function BookedRowItem({
             </>
           )}
         </span>
-        <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
+        {/* K2: a pill only when it says more than "Booked" — the pinned row already says it. */}
+        {pillSaysMore(row.pill) ? (
+          <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
+        ) : null}
       </button>
       {row.favorite ? (
         <FavoriteHeart
@@ -718,13 +724,9 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
       ) : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
-        <span className="text-ink/55">Used across your event:</span>
-        {row.feeds.map((u) => (
-          <span key={u} className={`${PILL} bg-ink/5 text-ink/70`}>
-            {u}
-          </span>
-        ))}
+      {/* K3 (owner 2026-11-12): where this booking feeds the event, as ONE line — no chips. */}
+      <p className="text-[12.5px] leading-snug text-ink/55" data-booked-feeds="">
+        Used in: <span className="text-ink/70">{row.feeds.join(' · ')}</span>
       </p>
       <VerbRow
         eventId={eventId}

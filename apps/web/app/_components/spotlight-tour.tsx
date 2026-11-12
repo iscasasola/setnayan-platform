@@ -7,6 +7,7 @@ import { formatCount } from '@/lib/format-number';
 import { missingGroups, nextKept, spotlightCount } from '@/lib/spotlight-drops';
 import { Wordmark } from './brand-marks';
 import { freeBandFrom, ringFor, tipFor, type Bar, type Box, type Rect } from '@/lib/spotlight-geometry';
+import { markSpotlightLaterThisVisit } from '@/lib/spotlight-later';
 
 /**
  * 🔦 THE SPOTLIGHT TOUR — the approved look, copied from the corpus sample
@@ -48,12 +49,14 @@ const NAV_WAIT_MS = 15000;
     that streams in (a lazy piece, a Suspense boundary) arrives first. */
 const DROP_GRACE_MS = 3000;
 
-/** The address a tap on this element walks to, when it is (inside) a link to another page. */
+/** The address a tap on this element walks to, when it is (inside) a link to another page — or a row door that pushes
+    its page itself (`data-opens-to`, the Clients row on a phone), which is a link in all but its tag. */
 function linkTarget(el: Element): string | null {
   const a = el.closest('a[href]') as HTMLAnchorElement | null;
-  if (!a) return null;
+  const raw = a?.href ?? el.closest('[data-opens-to]')?.getAttribute('data-opens-to') ?? null;
+  if (!raw) return null;
   try {
-    const to = new URL(a.href, location.href);
+    const to = new URL(raw, location.href);
     return to.pathname + to.search !== location.pathname + location.search ? to.href : null;
   } catch {
     return null;
@@ -223,6 +226,8 @@ const CSS_TEXT = `
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
 .sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:var(--sn-scrim);-webkit-backdrop-filter:blur(var(--sn-scrim-blur));backdrop-filter:blur(var(--sn-scrim-blur));padding:16px}
 .sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%;max-width:420px}
+.sn-spot-tick{display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;margin:4px 0 12px;font-size:14px;line-height:1.35;text-align:left;cursor:pointer}
+.sn-spot-tick input{width:20px;height:20px;flex:none;accent-color:currentColor}
 .sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
 .sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}
 @keyframes sn-spot-fall{to{transform:translateY(110vh) rotate(540deg);opacity:.2}}
@@ -261,6 +266,10 @@ export function SpotlightTour({
   const [tipAt, setTipAt] = useState<{ left: number; top: number; width: number }>({ left: 16, top: 0, width: 0 });
   const [finger, setFinger] = useState<{ x: number; y: number; on: boolean; tap: boolean }>({ x: 0, y: 0, on: false, tap: false });
   const [done, setDone] = useState(false);
+  /* ☑ SHOWS UNTIL TICKED (owner 12 Nov 2026): a first run whose last card has a tick box is recorded only by a ticked
+     Done — Skip leads to that card too, and closing it unticked waits for the next visit (`lib/spotlight-later.ts`). */
+  const untilTicked = record && Boolean(finale.tick);
+  const [ticked, setTicked] = useState(false);
   const [busy, setBusy] = useState(false);
   /** The step whose element is lit right now (−1: none) — the tip and the hand belong to it. */
   const [litFor, setLitFor] = useState(-1);
@@ -291,12 +300,21 @@ export function SpotlightTour({
     setBox(null);
     setDone(true);
     writeProgress(tourKey, null);
-    if (record) {
+    if (record && !untilTicked) {
       /* 📵 The tour is already ending: a record that could not be written (no signal, a 5xx) must not take
          the page with it. It is simply offered once more on the next visit. */
       completeAction(tourKey).catch(() => {});
     }
-  }, [completeAction, record, tourKey]);
+  }, [completeAction, record, untilTicked, tourKey]);
+
+  /** The last card's button (and Escape on it): a ticked box records the tour; an unticked one waits for next visit. */
+  const closeDone = useCallback(() => {
+    if (untilTicked) {
+      if (ticked) completeAction(tourKey).catch(() => {});
+      else markSpotlightLaterThisVisit(tourKey);
+    }
+    onClose();
+  }, [completeAction, onClose, tourKey, ticked, untilTicked]);
 
   const advance = useCallback(
     (wait: number) => {
@@ -494,7 +512,7 @@ export function SpotlightTour({
   // Escape skips, as the old card did.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') (done ? onClose : finish)();
+      if (e.key === 'Escape') (done ? closeDone : finish)();
     };
     const onDown = (e: KeyboardEvent) => {
       if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') keyboardRef.current = true;
@@ -510,7 +528,7 @@ export function SpotlightTour({
       window.removeEventListener('keydown', onDown, true);
       window.removeEventListener('pointerdown', onPointer, true);
     };
-  }, [done, finish, onClose]);
+  }, [done, finish, closeDone]);
 
   const onNext = () => {
     if (busy) return;
@@ -544,7 +562,13 @@ export function SpotlightTour({
             <div className="sn-spot-step">Done</div>
             <h4 id="sn-spot-done-title">{finale.title}</h4>
             <p>{finale.body}</p>
-            <button type="button" className="sn-spot-go" onClick={onClose} autoFocus>
+            {untilTicked ? (
+              <label className="sn-spot-tick" data-spot-tick="">
+                <input type="checkbox" checked={ticked} onChange={(e) => setTicked(e.target.checked)} />
+                <span>{finale.tick}</span>
+              </label>
+            ) : null}
+            <button type="button" className="sn-spot-go" onClick={closeDone} autoFocus>
               {finale.button}
             </button>
           </div>

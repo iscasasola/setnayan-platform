@@ -29,12 +29,41 @@
 import type { PickedClientPage } from './upcoming-schedule-door';
 import type { ChatTopic } from './topic-icons';
 
-export type PlusCardKind = 'quote' | 'payment' | 'meeting' | 'form' | 'photos' | 'decision' | 'poll' | 'logpay' | 'file' | 'access';
+export type PlusCardKind =
+  | 'quote'
+  | 'payment'
+  | 'meeting'
+  | 'form'
+  | 'photos'
+  | 'decision'
+  | 'poll'
+  | 'logpay'
+  | 'file'
+  | 'access'
+  // 🤝 Negotiate (Piece 1 · PR-3, approved design 12 Nov): the hosts' Ask for a change and Counter with a price, and a
+  // payment plan either side proposes — each answered by the other side with Accept · Counter · Decline.
+  | 'ask'
+  | 'counter'
+  | 'plan';
 
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
-export type PlusRowKey = PlusCardKind | 'report' | 'camera' | 'photo';
+export type PlusRowKey = PlusCardKind | 'report' | 'camera' | 'photo' | 'versions';
+
+/**
+ * 🤝 THE NEGOTIATE GROUP — FIRST IN BOTH (+) MENUS (approved design `quote-maker-polish.html`, 12 Nov: the (+) shows
+ * Negotiate + the first page group). Not a page of the picked client's menu: it is the one group ABOVE the menu's
+ * mirror, so the rows under it are the money moves of this chat, whichever page they belong to.
+ */
+export const NEGOTIATE_GROUP = 'negotiate' as const;
+export type PlusGroup = PickedClientPage | typeof NEGOTIATE_GROUP;
+
+/**
+ * "See every version" — not a card: it opens the shipped versions sheet on the live quote's card in the chat
+ * (`quote-versions-sheet.tsx`, `data-quote-every-version`). Shut until a second version exists.
+ */
+export const VERSIONS_ROW_ACT = 'versions' as const;
 
 export type PlusRow = {
   key: PlusRowKey;
@@ -50,6 +79,8 @@ export type PlusRow = {
   shutUntilAgreement?: { reason: string };
   /** Shut by the chat's own state right now (one open poll at a time) — drawn greyed with the reason, never hidden. */
   shutNow?: { reason: string };
+  /** A row that is neither a card nor a door: it presses a shipped control in the chat (See every version). */
+  act?: typeof VERSIONS_ROW_ACT;
 };
 
 /**
@@ -57,11 +88,16 @@ export type PlusRow = {
  * guard sorts by. A Decision is a chat matter (its pin lives in the chat); Ask for access is about the event's Details
  * (seat plan · schedule · guest list); every file act is Files.
  */
-export const PLUS_ROW_PAGE: Record<PlusRowKey, PickedClientPage> = {
+export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
+  // 🤝 Negotiate — first on both sides (12 Nov). Change quote moved here from Quotation.
+  quote: NEGOTIATE_GROUP,
+  ask: NEGOTIATE_GROUP,
+  counter: NEGOTIATE_GROUP,
+  plan: NEGOTIATE_GROUP,
+  versions: NEGOTIATE_GROUP,
   decision: 'chat',
   poll: 'chat',
   access: 'details',
-  quote: 'quote',
   payment: 'payments',
   logpay: 'payments',
   form: 'forms',
@@ -92,16 +128,30 @@ function pollRow(pollOpen: boolean | undefined): PlusRow {
   };
 }
 
+/** See every version — both sides, last in Negotiate. */
+const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
+
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
 const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
 
 /**
- * Supplier · and a coordinator with the hosts (they are the hosts' supplier). In the menu's order (owner 11 Nov):
- * Decision (Chat) · Ask for access (Details) · Quote (Quotation) · Payment · Form (Forms) · Meeting (Schedule) ·
- * Camera · Photos & files (Files) · Report a problem (Report — LAST, owner 9 Nov).
+ * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
+ * Propose a payment plan · See every version; then the menu's order (owner 11 Nov): Decision (Chat) · Ask for access
+ * (Details) · Payment · Form (Forms) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a problem (LAST).
  */
 export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): PlusRow[] {
   return [
+    // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
+    // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
+    {
+      key: 'quote',
+      label: 'Change quote',
+      line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
+      card: 'quote',
+      door: 'build-quote',
+    },
+    { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
+    VERSIONS_ROW,
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
     // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
@@ -113,13 +163,6 @@ export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): P
       card: 'access',
       door: null,
       shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    {
-      key: 'quote',
-      label: opts.paid ? 'Change quote' : 'Quote',
-      line: opts.paid ? 'A new version · the paid one is the floor' : 'From your card, send the total',
-      card: 'quote',
-      door: 'build-quote',
     },
     {
       key: 'payment',
@@ -160,6 +203,12 @@ export function supplierPlusRows(opts: { paid: boolean; pollOpen?: boolean }): P
  */
 export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean }): PlusRow[] {
   const rows: PlusRow[] = [
+    // 🤝 NEGOTIATE FIRST (12 Nov): the hosts never edit a price — they ask, counter, or propose a plan; the supplier
+    // accepts, counters or declines.
+    { key: 'ask', label: 'Ask for a change', line: 'Name the line · they revise or decline', card: 'ask', door: null },
+    { key: 'counter', label: 'Counter with a price', line: 'The total or one line · good until a date', card: 'counter', door: null },
+    { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
+    VERSIONS_ROW,
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
   ];
@@ -173,6 +222,31 @@ export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean 
     { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
   );
   return rows;
+}
+
+/**
+ * 💬 A GROUP'S (+) AND "/" (owner, 12 Nov — "EVENT GROUP CHATS APPROVED AS DRAWN" (2)): Decision · Poll · Meeting ·
+ * Photos & files ONLY. Quote · Payment · Form never appear in a group — the sheet's last row says where they live (each
+ * supplier's own chat), drawn quiet and not pressable, so it is never a door. The database refuses a money card on a
+ * group line too (`chat_messages_group_rules`, migration 20271340374819).
+ *
+ * ⚠ Meeting and Photos & files are drawn SHUT in a group for now, with their reason: a meeting card is booked with ONE
+ * supplier (`event_appointments` names a shop) and the chat-file upload checks a supplier conversation — neither has a
+ * group door yet. Never a dead Send; the row says why.
+ */
+export const GROUP_NOT_YET_REASON = 'Not open in group chats yet';
+export const GROUP_MONEY_ROW_LABEL = 'Quote · Payment · Form';
+export const GROUP_MONEY_ROW_REASON = 'In each supplier’s own chat — never in a group';
+
+export function groupPlusRows(opts: { pollOpen?: boolean }): PlusRow[] {
+  return [
+    { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    { ...pollRow(opts.pollOpen), line: 'Everyone in the group picks' },
+    { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: null, shutNow: { reason: GROUP_NOT_YET_REASON } },
+    { key: 'file', label: 'Photos & files', line: 'A photo, a video or a document', card: 'file', door: null, shutNow: { reason: GROUP_NOT_YET_REASON } },
+    // The pointer, never a door: no card, no door, always shut — its reason is where the money lives.
+    { key: 'quote', label: GROUP_MONEY_ROW_LABEL, line: GROUP_MONEY_ROW_REASON, card: null, door: null, shutNow: { reason: GROUP_MONEY_ROW_REASON } },
+  ];
 }
 
 /** The card the (+) has open in this chat — a draft being filled, or a sent one awaiting its answer. */
@@ -206,6 +280,9 @@ export const PLUS_CARD_TITLE: Record<PlusCardKind, string> = {
   logpay: 'Log a payment',
   file: 'Photos & files',
   access: 'Ask for access',
+  ask: 'Ask for a change',
+  counter: 'Counter with a price',
+  plan: 'Propose a payment plan',
 };
 
 /** The topic each card wears — its icon is `TOPIC_ICON[topic]`, the same as its tab's. */
@@ -220,6 +297,9 @@ export const PLUS_CARD_TOPIC: Record<PlusCardKind, ChatTopic> = {
   logpay: 'payment',
   file: 'files',
   access: 'access',
+  ask: 'quote',
+  counter: 'payment',
+  plan: 'payment',
 };
 
 // ── ⌨ SLASH SHORTCUTS (owner 11 Nov 2026, DECISION_LOG "… SLASH SHORTCUTS"; plan row M14) ──────────────────────────────
@@ -239,6 +319,9 @@ export const SLASH_WORD: Record<PlusCardKind, string> = {
   meeting: 'meeting',
   photos: 'file',
   file: 'file',
+  ask: 'ask',
+  counter: 'counter',
+  plan: 'plan',
 };
 
 export type SlashRow = {

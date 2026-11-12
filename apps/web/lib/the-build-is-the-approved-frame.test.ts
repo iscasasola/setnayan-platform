@@ -12,6 +12,8 @@
  *   3. BOOK ASKS FIRST — the button opens the ask (frame 14); only its "Yes, book them" sends anything.
  *   4. ONE POP-UP TEMPLATE — every Build pop-up is the house sheet (`ScheduleSheet` + `SheetFoot`), never a bare Sheet.
  *   5. THE BAR — Save is the quiet answer, Book this build the main one (frame 12).
+ *   6. THE 2026-11-12 CLEANUP — B1 the money block in three lines (legend at the meter's ends) · B2 filled lines
+ *      first, the lines with nobody under one "Nobody yet · N" fold · B3 Compare as one line on a phone.
  *
  * Sabotage (2026-10-31, each red once, then restored): the row's PickMenu swapped for a plain label (1 red); a second
  * table drawn for the pane (2 red); the button's `onClick={press}` → `onClick={start}` (3 red); the compare sheet as a
@@ -98,4 +100,30 @@ test('5 · the bar: Save is the quiet answer, Book this build the main one', () 
   }
   assert.match(bar, /\{bookSlot\}/);
   assert.match(BOOK, /<ActionButton tone="brand" main icon=\{CalendarCheck\} label="Book this build"/);
+});
+
+/*
+ * 6 · THE 2026-11-12 CLEANUP (owner "Yes, build it" on `controller-2026-11-12/suppliers-one-prototype-2026-11-12.html`,
+ * concept A). It overturns frame 12's STACK (B1, B2) and frame 13's SECTION drawing on a phone (B3) — never the sheet,
+ * the table, the writes or the money rules above.
+ */
+test('6 · B1 money in three lines · B2 filled lines first, nobody folded · B3 Compare is one line on a phone', () => {
+  // B1: the legend sits at the meter's two ends.
+  const legend = slice(BODY, 'data-build-legend=""', 700);
+  assert.match(BODY, /justify-between[^"]*" data-build-legend=""/, 'B1: the legend is not at the meter’s two ends');
+  assert.match(legend, /booked <Count[\s\S]*if booked <Count/, 'B1: the legend lost booked / if booked');
+  // B2: the filled lines are drawn first; the lines with nobody fold under ONE "Nobody yet · N" line.
+  const lines = slice(BODY, 'data-build-lines=""', 1400);
+  const filled = lines.indexOf('filledLines.map(lineRow)');
+  const nobody = lines.indexOf('Nobody yet · ');
+  assert.ok(filled > 0 && nobody > filled, 'B2: the filled lines are not drawn before the "Nobody yet" fold');
+  assert.match(lines, /<details[\s\S]*<summary[\s\S]*emptyLines\.map\(lineRow\)/, 'B2: the empty lines are not inside the fold');
+  assert.match(BODY, /const isNobody = \(l: BuildLine\) => l\.booked == null && l\.pick == null && l\.candidates\.length === 0;/);
+  assert.match(BODY, /<details open=\{filledLines\.length === 0 \|\| undefined\}>/, 'B2: a fresh build hides every category');
+  // B3: on a phone the section is one button that opens the SAME sheet.
+  const sec = slice(BODY, '<section id="svc-compare"', 3200);
+  assert.match(sec, /\{wide \? \(/, 'B3: the heading row is not the computer’s only');
+  assert.match(sec, /<h2 id="svc-compare-h" className="sr-only">/, 'B3: the phone draws a visible Compare heading again');
+  assert.doesNotMatch(sec, /Side by side, with the dates each one is free on\./, 'B3: the phone’s sentence came back');
+  assert.match(sec, /label=\{`Compare \$\{formatCount\(view\.cards\.length\)\} builds`\}\s*onClick=\{\(\) => setComparing\(true\)\}/);
 });

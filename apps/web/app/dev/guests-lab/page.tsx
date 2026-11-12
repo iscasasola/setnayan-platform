@@ -834,7 +834,9 @@ export default async function GuestsLabPage({
     /* 🔁 `&rsvp=pending` — a guest who has not replied: the Access row's Give this spot… is offered (owner 2026-11-02). */
     const answeredGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
     /* 🕯 `&away=1` — a guest who passed away: the card shows only what still applies (owner 2026-11-04). */
-    const cardGuest = sp.away === '1' ? { ...answeredGuest, passed_away: true } : answeredGuest;
+    const awayGuest = sp.away === '1' ? { ...answeredGuest, passed_away: true } : answeredGuest;
+    /* 🍽 `&meal=kids` — a kids meal: "Leave out of <service>'s count?" per booked per-head service (owner 2026-11-12). */
+    const cardGuest = sp.meal === 'kids' ? { ...awayGuest, meal_preference: 'kids' as const } : awayGuest;
     const labDress = sp.dress === '1'
       ? {
           groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },
@@ -1053,8 +1055,17 @@ export default async function GuestsLabPage({
                     }
                     tables={tables}
                     tableByGuest={tableByGuest}
-                    /* 🍽 `&counted=one` — two guests' rows carry the quiet "Not counted for …" note (owner 2026-11-02). */
+                    /* 🍽 `&counted=one` — two guests' rows carry the quiet "Not counted for …" note (owner 2026-11-02), and Show & sort lists the two per-head services (2026-11-12). */
                     notCountedByGuest={sp.counted === 'one' ? { 'g-mj-3': 'Not counted for Catering', 'g-mj-5': 'Not counted for Catering, Photo Booth' } : undefined}
+                    /* 🍽 Show & sort › one row per per-head service (owner 2026-11-12) — the same two ticks as the notes. */
+                    paxServices={
+                      sp.counted === 'one'
+                        ? [
+                            { id: 'ev-lab-catering', name: 'Catering', ticked: ['g-mj-3', 'g-mj-5'], outside: [] },
+                            { id: 'ev-lab-booth', name: 'Photo Booth', ticked: ['g-mj-5'], outside: [] },
+                          ]
+                        : undefined
+                    }
                     songsByGuest={{}}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}

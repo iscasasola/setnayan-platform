@@ -268,13 +268,15 @@ test('a commented-out violation is not flagged — comments are stripped first',
   assert.equal(min.raw, '0', 'the live tag, not the commented one, must be what remains');
 });
 
-test('the proposal-maker pax field is fixed — min=1 step=1, every whole guest count valid', () => {
+test('the proposal-maker pax field is fixed — min on its step, every whole guest count valid', () => {
+  // 12 Nov 2026 (owner): the guests field became the quote's ONE "Bill at least" (their count is read live) —
+  // 0 = no minimum, so its floor is 0; the step stays 1 so every whole count is valid.
   const src = stripComments(readFileSync(resolve(WEB, 'app/_components/proposal-maker.tsx'), 'utf8'));
-  const paxTag = findInputTags(src).find((t) => /value=\{pax\}/.test(t));
+  const paxTag = findInputTags(src).find((t) => /value=\{minPax\}/.test(t));
   assert.ok(paxTag, 'the pax input was not found — did it move or get renamed?');
   const min = attrValue(paxTag!, 'min');
   const step = attrValue(paxTag!, 'step');
-  assert.equal(min.raw, '1');
+  assert.equal(min.raw, '0');
   assert.equal(step.raw, '1', 'the pax field must accept every whole number — step=10 refuses round guest counts');
   assert.equal(minIsOnStepLattice(min.raw, step.raw), true);
 });

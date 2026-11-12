@@ -32,6 +32,7 @@ import { ServiceCardFace } from '@/app/vendor-dashboard/services/_components/ser
 import { ServiceCardMenuRow } from '@/app/vendor-dashboard/services/_components/service-card-menu-row';
 import { formatPhpRounded } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
+import type { CoverPhoto } from '@/lib/service-cover-show';
 import { BUNDLE_DELETE_WARNING, bundleHoldLine, bundleRowRefusal } from '@/lib/bundle-card-row';
 import { bundleCardRow } from '@/app/vendor-dashboard/packages/actions';
 
@@ -50,6 +51,8 @@ export type ShopBundle = {
   cardsAlonePhp: number | null;
   /** Open bookings of this bundle; null = could not be checked (off and delete are then refused, with words). */
   openBookings: number | null;
+  /** 🎞 Its services' photos, one from each in turn, each named by its service (`interleaveServicePhotos`). */
+  photos?: CoverPhoto[];
 };
 
 export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
@@ -128,6 +131,7 @@ export function ShopBundleCard({ bundle }: { bundle: ShopBundle }) {
               givesSetnayanGift: false,
               hasCover: false,
             }}
+            photos={bundle.photos ?? null}
             leafPathLabel={n > 0 ? `Bundle · ${bundle.cardNames.join(' · ')}` : 'Bundle'}
             footer={null}
           />

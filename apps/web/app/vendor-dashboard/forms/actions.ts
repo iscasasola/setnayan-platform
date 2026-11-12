@@ -28,6 +28,14 @@ import {
  *   • `send`   — "Send to chat": records the send (`event_form_sends`), posts ONE line in the conversation as the
  *                supplier, tells the hosts in the app. 🔑 THE SEND IS THE SUCCESS (the shipped
  *                `sendQuestionsToEvent` rule): a failed line or notice is logged, never reported as a failed send.
+ *   • `keep`   — "Save to my library": a form made for one event joins the library (`in_library` → TRUE, never back).
+ *
+ * 📋 PIECE 3a (DECISION_LOG 2026-11-12 "AN EDIT SAVES A NEW FORM"): a `save` whose draft carries `forEventId` is an
+ * edit made from a client's page — its FIRST save INSERTS a new form for that event (`for_event_id`,
+ * `edited_from_form_id`, `in_library` = the "Also keep in my library" switch); the original and anything already sent
+ * stay as they were. Later saves of that sheet update the new row (its id is kept). A form kept out of the library links
+ * to no card (it would send itself into other couples' events on booking) — the database refuses it too
+ * (migration 20271340142149).
  *
  * Authorisation is RLS's (`vendor_forms_owner_all`, `event_form_sends_vendor_insert`, the same-shop triggers); every
  * write `.select()`s so a write refused to zero rows is never reported as saved. FORM MEDIA BY PLAN is checked here
@@ -93,6 +101,9 @@ function parseDraft(raw: FormDataEntryValue | null): FormDraft | null {
       title: d.title,
       items: d.items as FormItemDraft[],
       serviceIds: Array.isArray(d.serviceIds) ? d.serviceIds.filter((s): s is string => typeof s === 'string') : [],
+      forEventId: typeof d.forEventId === 'string' && d.forEventId ? d.forEventId : undefined,
+      editedFromFormId: typeof d.editedFromFormId === 'string' && d.editedFromFormId ? d.editedFromFormId : undefined,
+      inLibrary: d.inLibrary === false ? false : d.inLibrary === true ? true : undefined,
     };
   } catch {
     return null;
@@ -124,7 +135,26 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
     const saved = await saveDraft(supabase, shop, draft);
     if ('error' in saved) return { status: 'error', message: saved.error, formId: saved.formId };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
-    return { status: 'saved', formId: saved.formId, message: 'Saved to your library' };
+    const forEvent = Boolean(draft.forEventId);
+    return {
+      status: 'saved',
+      formId: saved.formId,
+      message: forEvent ? (draft.inLibrary ? 'Saved for this event · also in your library' : 'Saved for this event') : 'Saved to your library',
+    };
+  }
+
+  if (op === 'keep') {
+    const formId = String(formData.get('form_id') ?? '');
+    const { data, error } = await supabase
+      .from('vendor_forms')
+      .update({ in_library: true, updated_at: new Date().toISOString() })
+      .eq('form_id', formId)
+      .eq('vendor_profile_id', shop)
+      .is('retired_at', null)
+      .select('form_id');
+    if (error || !data || data.length !== 1) return { status: 'error', message: 'We couldn’t add that form to your library. Please try again.' };
+    if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
+    return { status: 'saved', formId, message: 'Saved to your library · reuse it with other clients' };
   }
 
   if (op === 'retire') {
@@ -181,10 +211,14 @@ async function saveDraft(
   const now = new Date().toISOString();
   const title = draft.title.trim();
   let formId = draft.formId;
+  // 📋 Piece 3a: a form kept with one event links to no card (DB-refused too); "Also keep in my library" lifts that.
+  const eventOnly = Boolean(draft.forEventId) && draft.inLibrary !== true;
+  if (eventOnly) draft = { ...draft, serviceIds: [] };
   if (formId) {
     const { data, error } = await supabase
       .from('vendor_forms')
-      .update({ title, updated_at: now })
+      // in_library only ever goes ON here — a library form leaves the library by being retired.
+      .update(draft.forEventId && draft.inLibrary ? { title, in_library: true, updated_at: now } : { title, updated_at: now })
       .eq('form_id', formId)
       .eq('vendor_profile_id', shop)
       .is('retired_at', null)
@@ -193,11 +227,21 @@ async function saveDraft(
   } else {
     const { data, error } = await supabase
       .from('vendor_forms')
-      .insert({ vendor_profile_id: shop, title, from_template_key: fromTemplateKey ?? null })
+      .insert({
+        vendor_profile_id: shop,
+        title,
+        from_template_key: fromTemplateKey ?? null,
+        ...(draft.forEventId
+          ? { for_event_id: draft.forEventId, edited_from_form_id: draft.editedFromFormId ?? null, in_library: draft.inLibrary === true }
+          : {}),
+      })
       .select('form_id')
       .single();
     if (error || !data) return { error: NOT_SAVED };
     formId = (data as { form_id: string }).form_id;
+    // A NEW form owns no items yet — an item id carried over from the form it was edited from is never re-pointed
+    // (that would move the ORIGINAL's question into the copy). Every line is inserted fresh.
+    draft = { ...draft, items: draft.items.map(({ id: _id, ...rest }) => rest as FormItemDraft) };
   }
 
   // Items: the existing rows of this form, then update / insert in list order; retire what left the list.

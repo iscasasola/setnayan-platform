@@ -340,7 +340,7 @@ export default async function CardMakerLabPage({
     return (
       <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker" data-lab-host="today">
         <h1 className="mb-2 text-[17px] font-semibold tracking-tight text-ink">What you offer</h1>
-        <SetupOfferFold services={[{ service: shop.covered[0]?.value ?? 'service', label: shop.covered[0]?.label ?? 'Service', cards: [], toGo: 3 }]} maker={maker} />
+        <SetupOfferFold services={[{ service: shop.covered[0]?.value ?? 'service', label: shop.covered[0]?.label ?? 'Service', cards: [], toGo: 3, target: 3 }]} maker={maker} />
       </div>
     );
   }

@@ -70,7 +70,7 @@ export default async function DownloadPage() {
   const iosUrl = iosAppStoreUrl();
 
   return (
-    <main className="min-h-dvh overflow-x-clip bg-cream text-ink">
+    <main className="min-h-dvh overflow-x-clip bg-page text-ink">
 
       {/* ───────────────────────── Hero ─────────────────────────
           Airy two-column editorial split. Copy leads with a hairline eyebrow + a

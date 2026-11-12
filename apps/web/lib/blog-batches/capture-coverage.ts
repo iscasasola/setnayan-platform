@@ -69,7 +69,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare real portfolios, inclusions, and availability in one place, with no commission added to what you pay your supplier.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -218,7 +218,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Message and compare photographers directly, with everything you agree on kept in one place.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -291,7 +291,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find photographers whose prenup work feels like the story you want to tell.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -364,7 +364,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare videographers and their actual style of work side by side.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -437,7 +437,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See which video teams include a same-day edit and what it actually adds.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -583,7 +583,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find video teams that offer aerial coverage and know the local rules.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -729,7 +729,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Book suppliers you can verify and message in one place, with 0% commission on what you pay them.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

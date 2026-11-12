@@ -30,7 +30,7 @@ export const metadata = {
 
 export default function WaitlistPage() {
   return (
-    <main className="min-h-screen bg-cream text-ink">
+    <main className="min-h-screen bg-page text-ink">
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-3xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-wide text-terracotta">
@@ -56,7 +56,7 @@ export default function WaitlistPage() {
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
             <Link
-              href="/explore"
+              href="/?browse=1"
               className="inline-flex items-center gap-1.5 px-2 text-sm font-semibold text-ink underline-offset-4 hover:underline"
             >
               Browse suppliers first

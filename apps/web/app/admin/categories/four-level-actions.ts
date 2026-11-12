@@ -97,7 +97,7 @@ async function asAdmin(run: (actorId: string) => Promise<WriteResult>): Promise<
   const res = await run(me.id);
   if (res.ok) {
     revalidatePath(CATEGORIES_PATH);
-    revalidatePath('/explore');
+    revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   }
   return res;
 }

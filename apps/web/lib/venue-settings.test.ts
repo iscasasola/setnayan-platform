@@ -124,7 +124,7 @@ test('the couple can actually choose every one of them', () => {
 });
 
 test('both Explore label maps cover every one of them', () => {
-  const src = read('app/(shell)/explore/page.tsx');
+  const src = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   for (const setting of VENUE_SETTINGS) {
     // Either quote style — `civil_registrar`'s label is double-quoted because
     // it contains an apostrophe ("Civil Registrar's Office"). A single-quote

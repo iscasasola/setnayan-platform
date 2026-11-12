@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { shopsStillSettingUp, unfilteredEmptyGridCopy } from './explore-empty-grid';
 
-const PAGE = stripComments(readFileSync(join(__dirname, '..', 'app', '(shell)', 'explore', 'page.tsx'), 'utf8'));
+const PAGE = stripComments(readFileSync(join(__dirname, '..', 'app', '(shell)', 'explore', '_lib', 'marketplace-view.tsx'), 'utf8')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
 
 test('1 · the empty grid never says nobody has published', () => {
   for (const n of [0, 1, 3]) {

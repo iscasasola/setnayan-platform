@@ -25,3 +25,4 @@ export const PollStepCard = dynamic(() => import(/* webpackChunkName: "thread-pa
 export const DecisionStepCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './decision-step-card').then((m) => m.DecisionStepCard), { ssr: false, loading: wait });
 export const AskChangeDoor = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './ask-change-card').then((m) => m.AskChangeDoor), { ssr: false, loading: wait });
 export const StreamLineCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './stream-line-card').then((m) => m.StreamLineCard), { ssr: false, loading: wait });
+export const NegotiateDraft = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './negotiate-cards').then((m) => m.NegotiateDraft), { ssr: false, loading: wait });

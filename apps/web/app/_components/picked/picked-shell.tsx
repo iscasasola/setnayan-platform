@@ -93,6 +93,8 @@ export type PickedShellProps<P extends string> = {
    * 0 / null / absent draws nothing.
    */
   badges?: Partial<Record<P, number | null>>;
+  /** 🔦 A spotlight stop on a menu tab (`data-tour`), per page — the supplier tour's Chat and Quotation stops. */
+  tours?: ReadonlyArray<{ id: P; tour: string }>;
   /** The side's own reading of a raw `?tab=` / legacy `#hash` (its alias table); absent = the page ids only. */
   pageOf?: (raw: string) => P | null;
 };
@@ -112,6 +114,7 @@ export function PickedShell<P extends string>({
   gear = null,
   fillPages = [],
   badges = {},
+  tours = [],
   pageOf,
 }: PickedShellProps<P>) {
   const router = useRouter();
@@ -364,6 +367,7 @@ export function PickedShell<P extends string>({
                 aria-selected={on}
                 aria-controls="picked-page"
                 data-picked-page={m.id}
+                data-tour={tours.find((t) => t.id === m.id)?.tour}
                 tabIndex={on ? 0 : -1}
                 onClick={() => select(m.id)}
                 onKeyDown={(e) => onKeyDown(e, m.id)}

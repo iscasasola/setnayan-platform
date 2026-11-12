@@ -88,6 +88,8 @@ export function ServiceCardView({
       id={c.anchorId}
       name={c.label}
       coverUrl={coverUrl ?? c.photos[0] ?? null}
+      // 🎞 The card's showcase photos play on the cover (owner 12 Nov) — the face drops the cover's repeat.
+      photos={c.photos}
       discount={c.discountLabel}
       path={path}
       shop={

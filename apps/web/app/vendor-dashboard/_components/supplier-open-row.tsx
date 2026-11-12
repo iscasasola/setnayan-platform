@@ -168,6 +168,7 @@ export function SupplierOpenRow({
   lineWrap = false,
   rise = false,
   opensTo = null,
+  tour,
   children,
 }: {
   /** Unique within the page — the row's handle (`data-open-row`). */
@@ -195,6 +196,8 @@ export function SupplierOpenRow({
   rise?: boolean;
   /** 🚪 Below 701 the row opens THIS page (rising from the row) instead of its own body. Absent → as it was. */
   opensTo?: string | null;
+  /** 🔦 A spotlight stop on the row's DOOR (`opensTo`, phone) — the first one drawn is lit. Wide rows draw none. */
+  tour?: string;
   /** What opening shows — drawn by the page, with its answers. */
   children: ReactNode;
 }) {
@@ -222,7 +225,7 @@ export function SupplierOpenRow({
   // 🚪 THE DOOR (phone): the head rises into the page it names — the body is that page's to draw, never a copy here.
   if (opensTo && !scope?.wide) {
     return (
-      <RowDoor id={id} to={opensTo} title={title} titleNode={titleNode} line={line} lineWrap={lineWrap} lead={lead} aside={aside} endPress={endPress} data={data}>
+      <RowDoor id={id} to={opensTo} title={title} titleNode={titleNode} line={line} lineWrap={lineWrap} lead={lead} aside={aside} endPress={endPress} data={data} tour={tour}>
         {children}
       </RowDoor>
     );
@@ -311,6 +314,7 @@ function RowDoor({
   aside,
   endPress,
   data,
+  tour,
   children,
 }: {
   id: string;
@@ -325,12 +329,13 @@ function RowDoor({
   aside?: ReactNode;
   endPress?: ReactNode;
   data?: string;
+  tour?: string;
 }) {
   // The app router when mounted (a soft navigation — the list stays under the picked client); a static render has none.
   const router = useContext(AppRouterContext);
   const box = useRef<HTMLDivElement>(null);
   return (
-    <div ref={box} data-open-door={id} data-opens-to={to}>
+    <div ref={box} data-open-door={id} data-opens-to={to} data-tour={tour}>
       <Fold
         title={title}
         titleNode={titleNode}

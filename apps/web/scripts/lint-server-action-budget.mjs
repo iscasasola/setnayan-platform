@@ -118,7 +118,12 @@ import { fileURLToPath } from 'node:url';
 // app/vendor-dashboard/offers/actions.ts: load · save · switch · remove) instead of the four exports it would have been.
 // Main reached 1242 on its own the same day (the line above); no unimported export was found to retire. No fresh `vercel build` count for
 // this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1243;
+// 1243 → 1244 (2026-11-12, Admin › Colours wave 1, owner 12 Nov "Yes, start wave 1"): ONE export, `saveAppColours` in
+// app/admin/colours/actions.ts — Save AND "Reset to current" share it (an `op` field picks the mode), so the page costs
+// +1, not +2. Unimported exports re-scanned: the same four as 11 Nov (`setGuestPlusOneCount`, held by
+// extra-seats-are-chairs, and three Papic purchase actions — money) — left alone. No fresh `vercel build` count; the SUM
+// is gated by check-vercel-route-count.mjs on this PR's production build — read that job before merging.
+export const CEILING = 1244;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

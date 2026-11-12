@@ -149,7 +149,7 @@ export default function AboutPageTaglish() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
 
 
-      <main className="min-h-dvh bg-cream">
+      <main className="min-h-dvh bg-page">
         <section className="mx-auto w-full max-w-4xl px-4 pb-12 pt-16 sm:px-6 sm:pt-20 lg:px-8">
           <nav aria-label="Breadcrumb" className="mb-8 flex items-center justify-between gap-4 text-sm text-ink/50">
             <span>

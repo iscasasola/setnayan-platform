@@ -177,7 +177,7 @@ export default async function AboutPage() {
       />
 
 
-      <main className="min-h-dvh bg-cream">
+      <main className="min-h-dvh bg-page">
         {/* Locale switch — the RETURN path. Both Taglish pages already link back
             to English; neither English page linked forward, so the Taglish
             edition was unreachable from where every visitor actually lands.

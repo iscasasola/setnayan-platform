@@ -264,7 +264,8 @@ test('notices: every AFTER INSERT trigger on chat_messages is one this lane judg
   console.log('AFTER triggers on chat_messages:', JSON.stringify(got));
   assert.deepEqual(got, AUDITED_AFTER_TRIGGERS);
   const webhook = r.rows.find((x) => x.tgname === 'chat_messages_notify_webhook');
-  assert.match(webhook?.def ?? '', /WHEN \(\(new\.recipient_user_id IS NULL\)\)/, 'the push webhook must fire for shared rows only');
+  // 💬 20271340374819 adds "…and names a supplier" (a group line has no shop to push to); shared-only still holds.
+  assert.match(webhook?.def ?? '', /WHEN \(\(\(?new\.recipient_user_id IS NULL\)( AND \(new\.vendor_profile_id IS NOT NULL\)\))?\)/, 'the push webhook must fire for shared rows only');
   const tells = r.rows.find((x) => x.tgname === 'chat_messages_private_tells_its_reader');
   assert.match(tells?.def ?? '', /WHEN \(\(new\.recipient_user_id IS NOT NULL\)\)/, 'the private notice must fire for private rows only');
   // None of the others writes a notice or calls out.
@@ -405,7 +406,11 @@ function exportChatReads(): Array<{ select: string; filterColumn: string }> {
   for (let at = src.indexOf(".from('chat_messages')"); at >= 0; at = src.indexOf(".from('chat_messages')", at + 1)) {
     const chain = src.slice(at, src.indexOf('.order(', at));
     const select = /\.select\(\s*'([^']+)'\s*\)/.exec(chain)?.[1];
-    const eqs = [...chain.matchAll(/\.eq\(\s*'([a-z_]+)'\s*,\s*user\.id\s*\)/g)].map((m) => m[1]!);
+    const eqs = [
+      ...[...chain.matchAll(/\.eq\(\s*'([a-z_]+)'\s*,\s*user\.id\s*\)/g)].map((m) => m[1]!),
+      // 💬 20271340374819: a private line to several people — `.contains('recipient_user_ids', [user.id])`.
+      ...[...chain.matchAll(/\.contains\(\s*'([a-z_]+)'\s*,\s*\[\s*user\.id\s*\]\s*\)/g)].map((m) => m[1]!),
+    ];
     assert.ok(select, `no select list in an export chat read: ${chain}`);
     assert.equal(eqs.length, 1, `each export chat read must name exactly one subject column: ${chain}`);
     assert.match(select, /^[a-z_, ]+$/, 'select list must be plain columns to run here');
@@ -419,7 +424,7 @@ test('export: a private line is in its sender’s and its recipient’s files on
   const reads = exportChatReads();
   // The AUTHORED read (chat_messages_authored) and — RA 10173 access right, round 3 —
   // the private lines sent TO the person (chat_private_messages_received). No third read.
-  assert.deepEqual(reads.map((r) => r.filterColumn).sort(), ['recipient_user_id', 'sender_user_id']);
+  assert.deepEqual(reads.map((r) => r.filterColumn).sort(), ['recipient_user_ids', 'sender_user_id']);
   const w = await newWorld();
   const p = everyone(w);
   const ids = new Map<string, { from: Who; to: Who }>();
@@ -430,7 +435,9 @@ test('export: a private line is in its sender’s and its recipient’s files on
     for (const door of ['own session', 'admin (service role)'] as const) {
       const rows: { message_id: string }[] = [];
       for (const { select, filterColumn } of reads) {
-        const sql = `SELECT ${select} FROM public.chat_messages WHERE ${filterColumn} = $1 ORDER BY created_at`;
+        // An array column is read as "this person is in the list" (the builder's `.contains(col, [id])`).
+        const where = filterColumn.endsWith('_ids') ? `$1 = ANY (${filterColumn})` : `${filterColumn} = $1`;
+        const sql = `SELECT ${select} FROM public.chat_messages WHERE ${where} ORDER BY created_at`;
         const run = async () => (await db.query<{ message_id: string }>(sql, [p[who]])).rows;
         rows.push(...(door === 'own session' ? await as(p[who], run) : await asService(run)));
       }

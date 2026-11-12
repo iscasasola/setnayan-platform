@@ -470,7 +470,7 @@
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
 1 apps/web/app/monogram/_monogram-motion.tsx
-2 apps/web/app/monogram/page.tsx
+2 apps/web/app/(shell)/monogram/page.tsx
 2 apps/web/app/monogram/public-monogram-studio.tsx
 3 apps/web/app/onboarding/_shared/services-step.tsx
 2 apps/web/app/onboarding/wedding/page.tsx
@@ -503,7 +503,7 @@
 1 apps/web/app/realstories/_components/stories-search.tsx
 1 apps/web/app/realstories/[slug]/page.tsx
 1 apps/web/app/signup/loading.tsx
-2 apps/web/app/tl/about/page.tsx
+2 apps/web/app/(shell)/tl/about/page.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
 6 apps/web/app/tour/budget/_components/tour-budget-planner.tsx
 1 apps/web/app/tour/budget/_components/tour-vendor-itemization.tsx

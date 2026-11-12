@@ -94,12 +94,22 @@ if (!navRoutes || !unfixed) {
   nothing. A positive control is strictly stronger: a broken parser cannot
   produce a route it never saw.
 */
-for (const control of ['/our-story', '/waitlist']) {
-  if (!navRoutes.has(control)) {
+/*
+  2026-11-12 — NAV_ROUTES IS NOW EMPTY ON PURPOSE (its last seven members moved
+  into app/(shell)/), so no real member can serve as the positive control. The
+  control moves to the PARSER itself: fed a declaration of the same shape, it
+  must return that member. A parser that silently returns nothing fails here,
+  not by passing the real (empty) set for the wrong reason.
+*/
+{
+  const probe = setMembers(
+    "const NAV_ROUTES = new Set<string>([\n  // a comment\n  '/probe',\n]);",
+    'NAV_ROUTES',
+  );
+  if (!probe || !probe.has('/probe')) {
     console.error(
-      `✗ NAV_ROUTES parsed without ${control}, a stable member with no product\n` +
-        '  surface behind it — the parser is wrong and this guard would inspect\n' +
-        `  nothing. Parsed ${navRoutes.size}: ${[...navRoutes].slice(0, 6).join(', ')}`,
+      '✗ The NAV_ROUTES parser could not read a one-member probe declaration —\n' +
+        '  it is broken and this guard would inspect nothing.',
     );
     process.exit(1);
   }
@@ -267,7 +277,8 @@ if (violations.length > 0) {
 // its sections in app/for-suppliers/_components/ — both directories are read.
 // '/blog' and '/download' joined 2026-11-12 the same way (blog cards in
 // app/blog/_components/, the download motion in app/download/).
-const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers', '/blog', '/download'];
+const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers', '/blog', '/download',
+  '/creators', '/our-story', '/monogram', '/tl/about', '/waitlist'];
 /** Parked under the shared bar: reads the shell's token, directly or in calc(). */
 const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
 

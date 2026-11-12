@@ -178,6 +178,26 @@
         "Link"
       ]
     },
+    "/(shell)/creators": {
+      "files": [
+        "(shell)/creators/loading.tsx",
+        "(shell)/creators/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CreatorStoryCTA",
+        "CreatorStoryChapter",
+        "CreatorStoryHero",
+        "CreatorStoryOneBreath",
+        "CreatorStoryStyles",
+        "CreatorStoryThesis",
+        "CreatorStoryWedge",
+        "CreatorStoryWho",
+        "CreatorStoryWhy",
+        "RevealOnView"
+      ]
+    },
     "/(shell)/download": {
       "files": [
         "(shell)/download/loading.tsx",
@@ -455,6 +475,25 @@
         "SpotlightSection"
       ]
     },
+    "/(shell)/monogram": {
+      "files": [
+        "(shell)/monogram/loading.tsx",
+        "(shell)/monogram/page.tsx"
+      ],
+      "destinations": [
+        "/login?next=/monogram",
+        "/onboarding/wedding?from=monogram",
+        "/signup?next=/monogram"
+      ],
+      "actions": [],
+      "blocks": [
+        "ClosingCta",
+        "Link",
+        "MonogramHeadline",
+        "PublicMonogramStudio",
+        "StepsReveal"
+      ]
+    },
     "/(shell)/mood-board": {
       "files": [
         "(shell)/mood-board/loading.tsx",
@@ -468,6 +507,20 @@
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
+      ]
+    },
+    "/(shell)/our-story": {
+      "files": [
+        "(shell)/our-story/loading.tsx",
+        "(shell)/our-story/page.tsx"
+      ],
+      "destinations": [
+        "/privacy"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "OurStoryManifesto"
       ]
     },
     "/(shell)/pa3d": {
@@ -888,6 +941,26 @@
         "Link"
       ]
     },
+    "/(shell)/tl/about": {
+      "files": [
+        "(shell)/tl/about/loading.tsx",
+        "(shell)/tl/about/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/about",
+        "/explore",
+        "/help",
+        "/pricing",
+        "/signup",
+        "/tl/features"
+      ],
+      "actions": [],
+      "blocks": [
+        "Icon",
+        "Link"
+      ]
+    },
     "/(shell)/tl/features/(hub)": {
       "files": [
         "(shell)/tl/features/(hub)/loading.tsx",
@@ -907,6 +980,21 @@
       "actions": [],
       "blocks": [
         "FeaturePageView"
+      ]
+    },
+    "/(shell)/waitlist": {
+      "files": [
+        "(shell)/waitlist/loading.tsx",
+        "(shell)/waitlist/page.tsx"
+      ],
+      "destinations": [
+        "/explore",
+        "/for-suppliers",
+        "/onboarding/wedding"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link"
       ]
     },
     "/(shell)/web-only": {
@@ -5285,41 +5373,6 @@
         "DoorShell",
         "Link",
         "SubmitButton"
-      ]
-    },
-    "/creators": {
-      "files": [
-        "creators/_components/creator-story-hero.tsx",
-        "creators/_components/creator-story-sections.tsx",
-        "creators/_components/creators-motion.tsx",
-        "creators/page.tsx"
-      ],
-      "destinations": [
-        "/creators",
-        "/realstories",
-        "/signup"
-      ],
-      "actions": [],
-      "blocks": [
-        "CardGrid",
-        "CreatorStoryCTA",
-        "CreatorStoryChapter",
-        "CreatorStoryHero",
-        "CreatorStoryOneBreath",
-        "CreatorStoryStyles",
-        "CreatorStoryThesis",
-        "CreatorStoryWedge",
-        "CreatorStoryWho",
-        "CreatorStoryWhy",
-        "Eyebrow",
-        "FeatureLI",
-        "GridCard",
-        "H2",
-        "HTMLDivElement",
-        "Image",
-        "Lede",
-        "Link",
-        "RevealOnView"
       ]
     },
     "/dashboard/(account)/api-keys": {
@@ -13963,36 +14016,6 @@
         "TurnstileField"
       ]
     },
-    "/monogram": {
-      "files": [
-        "monogram/_monogram-motion.tsx",
-        "monogram/page.tsx",
-        "monogram/public-monogram-studio.tsx"
-      ],
-      "destinations": [
-        "/login?next=/monogram",
-        "/onboarding/wedding?from=monogram",
-        "/signup?next=/monogram"
-      ],
-      "actions": [],
-      "blocks": [
-        "Blob",
-        "ClosingCta",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "HTMLOListElement",
-        "Link",
-        "MonogramHeadline",
-        "PanelThread",
-        "PublicMonogramStudio",
-        "StepsReveal",
-        "StudioAnim",
-        "StudioAnimKind",
-        "StudioApi",
-        "StudioRevealPlayer"
-      ]
-    },
     "/onboarding/[type]": {
       "files": [
         "onboarding/[type]/_components/generic-onboarding.tsx",
@@ -14279,21 +14302,6 @@
         "FirstRunBrand",
         "LogoFrame",
         "PictureFrameControl"
-      ]
-    },
-    "/our-story": {
-      "files": [
-        "our-story/_pivot-line.tsx",
-        "our-story/page.tsx"
-      ],
-      "destinations": [
-        "/privacy"
-      ],
-      "actions": [],
-      "blocks": [
-        "HTMLParagraphElement",
-        "Link",
-        "OurStoryManifesto"
       ]
     },
     "/panood/cam/[token]": {
@@ -14966,25 +14974,6 @@
       "destinations": [],
       "actions": [],
       "blocks": []
-    },
-    "/tl/about": {
-      "files": [
-        "tl/about/page.tsx"
-      ],
-      "destinations": [
-        "/",
-        "/about",
-        "/explore",
-        "/help",
-        "/pricing",
-        "/signup",
-        "/tl/features"
-      ],
-      "actions": [],
-      "blocks": [
-        "Icon",
-        "Link"
-      ]
     },
     "/tour": {
       "files": [
@@ -18518,20 +18507,6 @@
         "Link",
         "LoadingActivity",
         "SubmitButton"
-      ]
-    },
-    "/waitlist": {
-      "files": [
-        "waitlist/page.tsx"
-      ],
-      "destinations": [
-        "/explore",
-        "/for-suppliers",
-        "/onboarding/wedding"
-      ],
-      "actions": [],
-      "blocks": [
-        "Link"
       ]
     },
     "/wall/[eventId]": {

@@ -106,6 +106,7 @@
  },
  "hex": {
   "app/(shell)/blog/page.tsx": 4,
+  "app/(shell)/monogram/page.tsx": 2,
   "app/(shell)/realstories/page.tsx": 1,
   "app/3d_plan/demo/[token]/_components/plan3d-guest-view.tsx": 9,
   "app/[slug]/_components/day-of-face-enroll.tsx": 1,
@@ -286,7 +287,6 @@
   "app/live/page.tsx": 14,
   "app/live/screen/page.tsx": 6,
   "app/live/screen/screen-stage.tsx": 10,
-  "app/monogram/page.tsx": 2,
   "app/monogram/public-monogram-studio.tsx": 29,
   "app/onboarding/wedding/_components/mono-lockup.tsx": 3,
   "app/onboarding/wedding/_components/onboarding-shell.tsx": 40,

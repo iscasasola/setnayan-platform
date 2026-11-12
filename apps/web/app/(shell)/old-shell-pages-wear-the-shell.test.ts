@@ -1,6 +1,7 @@
 /**
- * blog-and-download-wear-the-shell.test.ts — /blog and /download wear the ONE
- * shared shell, and draw no second chrome on top of it.
+ * old-shell-pages-wear-the-shell.test.ts — the last seven public pages that
+ * wore the old glass nav (/blog, /download, /creators, /our-story, /monogram,
+ * /tl/about, /waitlist) wear the ONE shared shell, and draw no second chrome.
  *
  * Owner, 2026-11-12, of www.setnayan.com/blog and /download: *"these are on old
  * shells"*. Both page files sat outside `app/(shell)/` and were listed in
@@ -25,9 +26,9 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = import.meta.dirname; // app/(shell)
 const APP = join(HERE, '..');
 const read = (p: string) => readFileSync(p, 'utf8');
-const ROUTES = ['blog', 'download'] as const;
+const ROUTES = ['blog', 'download', 'creators', 'our-story', 'monogram', 'tl/about', 'waitlist'] as const;
 
-test('both pages live in app/(shell)/ and nothing serves them from outside it', () => {
+test('every page lives in app/(shell)/ and nothing serves them from outside it', () => {
   for (const r of ROUTES) {
     assert.ok(existsSync(join(HERE, r, 'page.tsx')), `app/(shell)/${r}/page.tsx is missing`);
     assert.ok(existsSync(join(HERE, r, 'loading.tsx')), `app/(shell)/${r}/loading.tsx is missing`);
@@ -44,12 +45,18 @@ test('both pages live in app/(shell)/ and nothing serves them from outside it', 
   );
 });
 
-test('neither is a NAV_ROUTE, so the glass nav never stacks on the shell', () => {
+test('none is a NAV_ROUTE, so the glass nav never stacks on the shell', () => {
   const src = stripComments(read(join(APP, '_components', 'marketing', 'site-chrome.tsx')));
   const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
   assert.ok(block, 'NAV_ROUTES not found in site-chrome.tsx — this check would pass vacuously.');
   const routes = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
-  assert.ok(routes.includes('/waitlist'), `NAV_ROUTES parse is broken. Got: ${routes.join(', ')}`);
+  // 2026-11-12: NAV_ROUTES is EMPTY on purpose — its last seven members moved into app/(shell)/ (owner: "these are on old shells") — so no real member can be the positive control. The parser is probed instead: fed a one-member declaration of the same shape, it must return that member.
+  const probe = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec("const NAV_ROUTES = new Set<string>([\n  '/probe',\n]);");
+  assert.deepEqual(
+    [...(probe?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]),
+    ['/probe'],
+    'the NAV_ROUTES parser cannot read a one-member probe — this check would pass vacuously',
+  );
   for (const r of ROUTES) {
     assert.ok(
       !routes.includes(`/${r}`),
@@ -72,7 +79,7 @@ test('no page mounts a chrome of its own or re-declares a route directive', () =
   }
 });
 
-test('both run full-bleed, since each caps its own sections', () => {
+test('each runs full-bleed, since each caps its own sections', () => {
   const src = read(join(APP, '_components', 'frontdoor', 'shell-bleed.ts'));
   const m = /DOORWAY_BLEED_PATHS = \[([^\]]*)\]/.exec(src);
   assert.ok(m, 'DOORWAY_BLEED_PATHS not found — this check would pass vacuously.');

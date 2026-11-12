@@ -72,4 +72,11 @@ export const DOORWAY_BLEED_PATHS = [
   '/features',
   '/blog',
   '/download',
+  // Joined 2026-11-12 with the last old-shell pages: each draws its own
+  // full-width bands and caps its own content width.
+  '/creators',
+  '/our-story',
+  '/monogram',
+  '/tl/about',
+  '/waitlist',
 ] as const;

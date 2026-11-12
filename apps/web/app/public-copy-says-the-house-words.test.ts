@@ -182,10 +182,10 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
   for (const must of [
     'app/for-suppliers/_components/supplier-front-page.tsx',
     'app/(shell)/explore/_components/explore-search-hero.tsx',
-    'app/waitlist/page.tsx',
+    'app/(shell)/waitlist/page.tsx',
     'app/creators/_components/creator-story-sections.tsx',
     'app/(shell)/pricing/page.tsx',
-    'app/monogram/page.tsx',
+    'app/(shell)/monogram/page.tsx',
     'app/(shell)/realstories/page.tsx',
     'lib/blog.ts',
     'app/page.tsx',

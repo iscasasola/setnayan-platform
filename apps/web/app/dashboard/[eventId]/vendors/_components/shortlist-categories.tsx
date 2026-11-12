@@ -238,7 +238,7 @@ import { FindInspirationRow, FindInspirationStrip, FindLikedIdeas } from './find
 import { FIND_INSPIRATION_WORDS, findBoardHref, type FindInspiration, type FindLikedPhoto } from '@/lib/find-inspiration';
 import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
-import type { SupplierSheetLoad, SupplierSheetTarget, SupplierSheetWalk } from './supplier-sheet';
+import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
 import type { CategoryVendorResult } from '../_actions/category-search';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import { deleteVendor } from '../actions';
@@ -1492,10 +1492,6 @@ function VendorCard({
     if (!sheetDoor || !tile) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    openSheetNow();
-  }
-  function openSheetNow() {
-    if (!sheetDoor || !tile) return;
     const booked = v.status === 'locked';
     sheetDoor.open({
       vendorId: v.vendorId,
@@ -1526,9 +1522,6 @@ function VendorCard({
       onPage: sheetDoor.onPage(v.marketplaceVendorId, tile),
     });
   }
-  const walkable = Boolean(sheetDoor && tile && !selfAdded);
-  const walkKey = walkable ? (v.marketplaceVendorId ?? v.vendorId) : null;
-  useSheetRing(sheetDoor, walkable ? (tile ?? null) : null, walkKey, openSheetNow);
 
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
@@ -1543,7 +1536,7 @@ function VendorCard({
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
         : sheetDoor && tile
-          ? { onClick: openSheet, 'aria-haspopup': 'dialog' as const, ...sheetRingMarks(tile, walkKey, v.name) }
+          ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
       <span className="img">
@@ -1952,12 +1945,9 @@ function InlineMoreCard({
   onUndo,
   onInquire,
   onOpen,
-  ringTile = null,
   serviceLabel = null,
 }: {
   v: CategoryVendorResult;
-  /** The category this card walks in, when its sheet is offered (the sideways swipe on the sheet). */
-  ringTile?: string | null;
   /** The card's home service, named while the list shows more than one (owner 2026-10-29, Find v4). */
   serviceLabel?: string | null;
   /** Opens this supplier's sheet — absent where the sheet is not offered. */
@@ -1988,11 +1978,8 @@ function InlineMoreCard({
   // The service card's own cover first; else the photo the search resolved.
   // No cover of its own but showcase photos → the first photo, not the shop's logo (the marketplace's C2 rule).
   const cover = svc?.coverUrl ?? svc?.photos?.[0] ?? benchCardImage(v);
-  const ringDoor = useContext(SheetDoorCtx);
-  const ringAt = onOpen ? ringTile : null;
-  useSheetRing(ringDoor, ringAt, v.vendorProfileId, onOpen);
   return (
-    <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`} {...sheetRingMarks(ringAt, v.vendorProfileId, v.name)}>
+    <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
       {/* THE ONE FACE (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE") — Find's card IS the template, and it is now drawn
           by the same component as every other service card. `.vcw` keeps the frame and the verbs below. */}
       <ServiceFace
@@ -2500,7 +2487,6 @@ function MoreToCompare({
       onSave={() => void saveFromMore(row, true, c.serviceId)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
-      ringTile={tile}
       onOpen={
         sheetDoor
           ? () =>
@@ -2810,34 +2796,10 @@ const NO_HIDDEN: readonly string[] = [];
 const SupplierSheet = dynamic(() => import('./supplier-sheet'), { ssr: false });
 type SheetDoor = {
   open: (target: SupplierSheetTarget) => void;
-  /** 👉 THE CATEGORY WALK (owner 2026-11-12, "ok let's do that"): each card that opens the sheet registers how to open
-   *  itself here, keyed `tile|supplier`. The ORDER is never kept here — it is read from the page, so it is always the
-   *  order the couple sees: Booked, then Asked, then Suggested. */
-  ring: Map<string, () => void>;
   /** Other categories on the couple's page that hold this same supplier. */
   onPage: (vendorProfileId: string | null, exceptTile: string) => Readonly<Record<string, string>>;
 };
 const SheetDoorCtx = createContext<SheetDoor | null>(null);
-
-const sheetRingKey = (tile: string, key: string) => `${tile}|${key}`;
-/** A card's place in its category's walk — registered while it is on the page, gone when it leaves. */
-function useSheetRing(door: SheetDoor | null, tile: string | null, key: string | null, open: (() => void) | undefined) {
-  const latest = useRef(open);
-  latest.current = open;
-  useEffect(() => {
-    if (!door || !tile || !key) return;
-    const k = sheetRingKey(tile, key);
-    const fn = () => latest.current?.();
-    door.ring.set(k, fn);
-    return () => {
-      if (door.ring.get(k) === fn) door.ring.delete(k);
-    };
-  }, [door, tile, key]);
-}
-/** The marks a walkable card carries — the walk reads the page in document order. */
-function sheetRingMarks(tile: string | null, key: string | null, name: string) {
-  return tile && key ? { 'data-sheet-ring': tile, 'data-sheet-key': key, 'data-sheet-name': name } : {};
-}
 
 /** What each category's marketplace read answered, for this visit. */
 const MORE_SEEN = new Map<string, Awaited<ReturnType<typeof fetchInlineMoreRow>>>();
@@ -3501,11 +3463,17 @@ export function ShortlistCategories({
       ),
     [eventId],
   );
-  const sheetRing = useRef(new Map<string, () => void>()).current;
   const sheetDoor = useMemo<SheetDoor>(
     () => ({
-      ring: sheetRing,
-      open: setSheetTarget,
+      // 🃏 SERVICE CARD GROWN (owner 2026-11-13: "We have a full screen of a supplier card that expands all the
+      // information of that card"). A card with a service opens THAT shipped card — the shop page's `?service=`
+      // address raises `ServiceDetailsSheet` with the shop page's own props; nothing is redrawn here. The Find sheet
+      // stays for a card with no address (switched off, no slug, a withheld supplier, a self-added one).
+      open: (target) => {
+        const href = target.nameWithheld ? null : (target.card?.detailsHref ?? null);
+        if (href) router.push(href);
+        else setSheetTarget(target);
+      },
       onPage: (vendorProfileId, exceptTile) => {
         const out: Record<string, string> = {};
         if (!vendorProfileId) return out;
@@ -3528,39 +3496,8 @@ export function ShortlistCategories({
         return out;
       },
     }),
-    [folders, standings, buildPickVendorIds, sheetRing],
+    [folders, standings, buildPickVendorIds, router],
   );
-  /** 👉 The walk the sheet's sideways swipe and its peek row follow — the open category's walkable cards, in the order
-   *  the page draws them (Booked → Asked → Suggested), each supplier once. */
-  const sheetWalk = useMemo<SupplierSheetWalk>(() => {
-    const seq = (tile: string) => {
-      const seen = new Set<string>();
-      const out: { key: string; name: string }[] = [];
-      document.querySelectorAll<HTMLElement>('[data-sheet-ring]').forEach((el) => {
-        const key = el.dataset.sheetKey;
-        if (el.dataset.sheetRing !== tile || !key || seen.has(key) || !sheetRing.has(sheetRingKey(tile, key))) return;
-        seen.add(key);
-        out.push({ key, name: el.dataset.sheetName ?? '' });
-      });
-      return out;
-    };
-    const keyOf = (t: SupplierSheetTarget) => t.vendorProfileId ?? t.vendorId ?? '';
-    return {
-      at: (t) => {
-        const s = seq(t.tile);
-        const i = s.findIndex((x) => x.key === keyOf(t));
-        if (i < 0 || s.length < 2) return null;
-        return { index: i, total: s.length, prev: s[i - 1]?.name ?? null, next: s[i + 1]?.name ?? null };
-      },
-      step: (t, dir) => {
-        const s = seq(t.tile);
-        const to = s[s.findIndex((x) => x.key === keyOf(t)) + dir];
-        if (!to) return false;
-        sheetRing.get(sheetRingKey(t.tile, to.key))?.();
-        return true;
-      },
-    };
-  }, [sheetRing]);
   const plannedTileSet = new Set<string>(plannedList.map((p) => p.tile));
 
   // ── Ranking lenses (Explore Replan §15) ───────────────────────────────────
@@ -5256,7 +5193,7 @@ export function ShortlistCategories({
         )
       ) : null}
       {sheetTarget ? (
-        <SupplierSheet eventId={eventId} target={sheetTarget} load={loadSheet} walk={sheetWalk} onClose={() => setSheetTarget(null)} />
+        <SupplierSheet eventId={eventId} target={sheetTarget} load={loadSheet} onClose={() => setSheetTarget(null)} />
       ) : null}
     </div>
     </ServiceCardCtx.Provider>

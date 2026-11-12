@@ -189,13 +189,6 @@ export type SupplierSheetData = {
 export const SHEET_LOADING = 'Loading their reviews and photos…';
 export const SHEET_FAILED = 'Couldn’t load their reviews and photos.';
 
-/** 👉 The card view's peek row (owner 2026-11-12): "2 of 5 in Catering". */
-export function sheetWalkLine(index: number, total: number, categoryLabel: string): string {
-  return `${formatCount(index + 1)} of ${formatCount(total)} in ${categoryLabel}`;
-}
-/** The one hint under a walkable card view — the two gestures, in words. */
-export const SHEET_WALK_HINT = '‹ swipe sideways for the next supplier · ⌄ swipe down to close';
-
 /** The message "Ask about X" would be about — the row's own words. */
 export function askAboutLabel(label: string): string {
   return `Ask about ${label}`;

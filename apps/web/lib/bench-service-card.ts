@@ -59,6 +59,12 @@ export type BenchServiceCard = {
    * still cover. Emptied with the name while a supplier is withheld: a photo can name a shop as surely as its name.
    */
   photos?: string[];
+  /**
+   * 🃏 Where the card opens — the shop page's `?service=` address, which raises THE shipped grown card
+   * (`service-details-sheet.tsx`) with the shop page's own props. Absent / null → Find's supplier sheet (the grown card
+   * is switched off, the shop has no slug, or the supplier is withheld). Dropped with the name: an address names a shop.
+   */
+  detailsHref?: string | null;
 };
 
 export type BenchServiceDiscount = StoredDiscount & { expires_at?: string | null };
@@ -137,7 +143,7 @@ export function withholdCardNames(
   const out: Record<string, BenchServiceCard> = { ...cards };
   for (const id of anonymizedIds) {
     const card = out[id];
-    if (card) out[id] = { ...card, name: '', photos: [] };
+    if (card) out[id] = { ...card, name: '', photos: [], detailsHref: null };
   }
   return out;
 }

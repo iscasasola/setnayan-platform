@@ -1,8 +1,10 @@
-## 2026-11-12 · feat(suppliers): the card view rises full-screen and a sideways swipe walks the category
+## 2026-11-13 · feat(suppliers): a Find card opens the shipped Service card grown; the ideas board rises full-screen
 
-- **Full-screen rises** (shared `Sheet` `rise` + `full`): the supplier/service card view and the ideas board ("More ideas"). The scoped search and "Search all <Category>" already open the full-screen `CategorySearchOverlay`.
-- **Swipe sideways on the card BODY → next / previous supplier** in the open category, in the order the page draws them (Booked → Asked → Suggested). A "2 of 5 in Catering" peek row names both ends; each end is a 44 px button. The order is read from the page (`data-sheet-ring`), so it never disagrees with what the couple sees.
-- **Gestures never collide** (prototype rules): where the finger starts decides the owner — a swipe that starts on the photo (`data-swipe-photo`, or anything that scrolls sideways) stays the photo's; the first 8 px lock the axis; 60 px steps; 80 px down from the photo or from the top of the body closes; the body keeps `touch-action: pan-y`; the tap that ends a swipe is swallowed.
-- The slideshow on top is NOT built here (it belongs to the service-card session); its photo area only needs `data-swipe-photo`.
+- **A Find card with a service opens THE grown card** — owner, rejecting a Find-only full-screen supplier sheet: *"We have a full screen of a supplier card that expands all the information of that card. That is not the one."* The card now follows the shop page's own `?service=` address (`serviceCardAddress`), which raises `ServiceDetailsSheet` (`app/v/[slug]/_components/service-details-sheet.tsx`) with the shop page's own `toServiceCard` props — the same door the marketplace card already uses. Nothing is redrawn and the sheet's internals are untouched (#7554 is extending them).
+  - The address rides on the bench card (`BenchServiceCard.detailsHref`), built server-side only while the grown card is on (`serviceDetailsEnabled()`); OFF costs no extra query.
+  - A withheld supplier loses the address with its name — on both withholding paths (`withholdCardNames` and the action's every-card path). An address names a shop.
+  - No address (switched off, no slug, no public id, withheld, self-added) → Find's supplier sheet, unchanged from `main`.
+- **The Find-only card view is deleted**: the full-screen supplier sheet, its sideways ‹ › / swipe walk and its peek row. The walk cannot wrap the grown card without redrawing it (the grown card opens on the shop page), so it is dropped, not rebuilt.
+- **The ideas board ("More ideas")** rises full-screen (shared `Sheet` `rise` + `full`). The scoped search was already the full-screen `CategorySearchOverlay`.
 
-SPEC IMPACT: None beyond DECISION_LOG row 2026-11-12 "Find is organized by the plan" (Setnayan-specs 98e10d4d), which already records the rises and the swipe.
+SPEC IMPACT: None beyond DECISION_LOG row 2026-11-12 "Find is organized by the plan" (Setnayan-specs 98e10d4d). The rejection of the Find-only card view is the controller's relay of the owner's ruling (2026-11-13); the grown card it points to is already DECISION_LOG 2026-11-09/10 ("THE SERVICE CARD OPENS INTO THE FULL CARD", "'SERVICE CARD GROWN' IS THE NAME").

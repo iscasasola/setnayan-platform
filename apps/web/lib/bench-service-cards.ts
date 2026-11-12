@@ -38,9 +38,12 @@ import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attribute
 import { benchServiceCard, type BenchServiceCard } from '@/lib/bench-service-card';
 import { cheapestStartsAt } from '@/lib/smart-sort';
 import type { FindCardRow } from '@/lib/find-service-cards';
+import { serviceCardAddress } from '@/lib/service-card-address';
+import { serviceDetailsEnabled } from '@/lib/service-details-flag';
 
 type CardRow = {
   vendor_service_id: string;
+  public_id?: string | null;
   vendor_profile_id: string;
   title: string | null;
   category: string | null;
@@ -66,7 +69,7 @@ type CardRow = {
 
 /** What the bench card prints from a service card — nothing else is read. */
 const BENCH_CARD_FIELDS =
-  'vendor_service_id,vendor_profile_id,title,category,pricing_basis,starting_price_php,' +
+  'vendor_service_id,public_id,vendor_profile_id,title,category,pricing_basis,starting_price_php,' +
   'per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,' +
   'transport_included,transport_flat_fee_php,exclusive_perk_text,includes_setnayan_gift,' +
   'primary_photo_r2_key,showcase_photo_r2_keys';
@@ -81,16 +84,17 @@ async function cardsForRows(
   if (rows.length === 0) return out;
   const ids = rows.map((r) => r.vendor_service_id);
   const shopIds = [...new Set(rows.map((r) => r.vendor_profile_id))];
-  const [discounts, inclusions, brackets, hiding] = await Promise.all([
+  const [discounts, inclusions, brackets, hiding, slugs] = await Promise.all([
     fetchDiscountsByService(admin, ids),
     fetchInclusionsByService(admin, ids),
     fetchBracketsByService(admin, ids),
     fetchVendorsHidingPricesPublicly(admin, shopIds),
+    // 🃏 Only when the grown card is switched on — OFF costs not one extra query, and the card keeps the Find sheet.
+    serviceDetailsEnabled() ? fetchShopSlugs(admin, shopIds) : Promise.resolve(new Map<string, string>()),
   ]);
   for (const row of rows) {
-    out.set(
-      row.vendor_service_id,
-      benchServiceCard({
+    out.set(row.vendor_service_id, {
+      ...benchServiceCard({
         service: row,
         discounts: discounts.get(row.vendor_service_id) ?? [],
         inclusions: inclusions.get(row.vendor_service_id) ?? [],
@@ -104,7 +108,28 @@ async function cardsForRows(
           .filter((u): u is string => Boolean(u)),
         now,
       }),
-    );
+      // 🃏 SERVICE CARD GROWN (owner 2026-11-13, rejecting a Find-only drawing): the card opens THE shipped grown card
+      // — the shop page's own `?service=` address, the same door the marketplace card uses. Null → the Find sheet.
+      detailsHref: row.public_id?.trim()
+        ? serviceCardAddress({ businessSlug: slugs.get(row.vendor_profile_id) ?? null, row })
+        : null,
+    });
+  }
+  return out;
+}
+
+/** shop id → its public slug, for the grown card's address. A failed read is an empty map: every card keeps the Find
+ *  sheet, never a link to nowhere. */
+async function fetchShopSlugs(admin: SupabaseClient, shopIds: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (shopIds.length === 0) return out;
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id,business_slug')
+    .in('vendor_profile_id', [...shopIds]);
+  if (error || !data) return out;
+  for (const r of data as { vendor_profile_id: string; business_slug: string | null }[]) {
+    if (r.business_slug?.trim()) out.set(r.vendor_profile_id, r.business_slug.trim());
   }
   return out;
 }

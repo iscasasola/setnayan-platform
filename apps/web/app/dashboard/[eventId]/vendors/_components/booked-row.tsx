@@ -707,7 +707,10 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
   // 🧮 "Who they count" — only a service priced per head is in `counts.services` (owner 2026-11-04).
   const counted = counts?.services.find((s) => s.id === row.vendorId) ?? null;
   return (
-    <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
+    // 🔒 ONE COLUMN THAT NEVER OUTGROWS THE ROW (2026-11-13, measured live at 390): an auto grid track grows to its
+    // widest child's min-content — the Where pickers, Share, the tiles — so the fold ran 6 px past the gutter and
+    // `.bk-exp>div{overflow:clip}` cut every right-hand button. `minmax(0,1fr)` lets each child shrink to the column.
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
       {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
       {row.timesMark ? <TimesMarkLine mark={row.timesMark} /> : null}

@@ -9,6 +9,8 @@
  *   2 · SHOW & SORT HOLDS THE SCHEDULE ROW — under "Who you see", the month's own choices, on-screen (no address).
  *   3 · THE CHIP OPENS THE SAME CHOICES — one 44px pill under the legend, "Showing · <schedule>" when narrowed; the sheet
  *       and the chip read ONE list (`scheduleScopeOptions`) and speak on window events, like Show.
+ *       ⚠ The ONE Clients screen draws NO chip (owner 2026-11-12: "all schedules under the calendar should be inside the
+ *       show and sort and remove it from the page under the calendar") — there Show & sort's row is the only pick.
  *   4 · THE SCHEDULE PAGE'S MONTH (`place="schedule"`) keeps working: same chip, its own pick, never the Clients events.
  */
 import { test } from 'node:test';
@@ -77,7 +79,7 @@ test('3 · the chip under the legend opens the same choices', () => {
   assert.match(chip, /`Showing · \$\{scopeWords\}`/, 'the chip does not say "Showing · <schedule>"');
   assert.match(chip, /!min-h-11/, 'the chip is not 44px tall');
   assert.match(MONTH, /const options = scheduleScopeOptions\(\{ pools, agents, halls \}\)/, 'the month builds its own list');
-  assert.match(MONTH, /\{schedulesOffered\(options\) \? \(\s*<div[^>]*data-dates-schedule-chip/, 'one schedule draws a chip');
+  assert.match(MONTH, /\{schedulesOffered\(options\) && !oneScreen \? \(\s*<div[^>]*data-dates-schedule-chip/, 'one schedule draws a chip');
   // The month hears the sheet and tells it back — only on Clients.
   assert.match(MONTH, /window\.addEventListener\(CLIENTS_SCHEDULE_EVENT, pick\)/, 'the month does not hear Show & sort');
   assert.match(MONTH, /if \(onClients\) window\.dispatchEvent\(new CustomEvent\(CLIENTS_SCHEDULING_EVENT/, 'the sheet is not told the chip’s pick');
@@ -105,5 +107,12 @@ test('4 · the Schedule page reuses the month — same chip, its own pick', () =
   assert.match(MONTH, /useEffect\(\(\) => \{\s*if \(!onClients\) return;\s*const pick = \(e: Event\) => setScope/, 'the Schedule month hears Clients’ sheet');
   // The chip itself is not gated on the place: the Schedule page has no Show & sort, so the chip is its only way in.
   const before = MONTH.slice(0, MONTH.indexOf('data-dates-schedule-chip'));
-  assert.match(before.slice(-200), /\{schedulesOffered\(options\) \? \(\s*<div[^>]*$/, 'the chip is hidden on the Schedule page');
+  assert.match(before.slice(-200), /\{schedulesOffered\(options\) && !oneScreen \? \(\s*<div[^>]*$/, 'the chip is hidden on the Schedule page');
+});
+
+test('5 · the ONE Clients screen draws no chip under the month — the pick is Show & sort’s only', () => {
+  // The page mounts the month as the one screen (customers-pin passes `oneScreen`), and the chip is drawn only off it.
+  assert.match(code('_components', 'customers-pin.tsx'), /<CustomersCalendar \{\.\.\.month\} oneScreen\b/, 'Clients no longer mounts the one screen');
+  assert.match(MONTH, /\{schedulesOffered\(options\) && !oneScreen \? \(/, 'the chip under the month is back on Clients');
+  assert.equal((MONTH.match(/data-dates-schedule-chip/g) ?? []).length, 1, 'a second schedule chip was added');
 });

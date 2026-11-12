@@ -163,7 +163,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse verified Filipino wedding suppliers by city, category, and the styles they specialise in — then bring these questions to your shortlist.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Explore the vendor marketplace',
       },
       {

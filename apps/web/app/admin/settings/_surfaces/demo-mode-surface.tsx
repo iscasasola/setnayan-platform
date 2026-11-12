@@ -221,7 +221,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
         <ul className="space-y-2 text-sm">
           <li>
             <Link
-              href="/explore"
+              href="/?browse=1"
               className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
             >
               View /vendors {isOn ? '(demo suppliers visible)' : '(without demo)'}

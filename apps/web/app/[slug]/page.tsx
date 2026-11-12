@@ -185,6 +185,7 @@ import { PrivateLanding } from './_components/private-landing';
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
 // dissolved into it. See _components/site-body.tsx.
 import { SiteBody } from './_components/site-body';
+import { DiscoverArrivalBack } from './_components/discover-arrival-back';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
 import { guestHubDesktopEnabled } from '@/lib/guest-hub-desktop-flag';
@@ -699,6 +700,11 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     solemn: eventTypeProfile.terminology.register === 'solemn',
   });
   return (
+    <>
+      {/* ‹ Discover — drawn ONLY in the browser, ONLY for a visitor Discover's event card sent here (`?via=discover`);
+          an invited guest never sees it (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED",
+          answer 3). The server draws nothing here, so the cached Event Hub is unchanged. */}
+      <DiscoverArrivalBack />
     <Suspense
       fallback={
         <InvitationSkeleton
@@ -732,6 +738,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
         eventTypeProfile={eventTypeProfile}
       />
     </Suspense>
+    </>
   );
 }
 

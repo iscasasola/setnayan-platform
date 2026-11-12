@@ -405,7 +405,9 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
           className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Back to marketplace
+          {/* 2026-11-12 (DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED", the drawing's "Going back" row):
+              the visible copy says "suppliers". Still /explore until Discover's supplier view ships (build step 2). */}
+          Back to suppliers
         </Link>
         <div className="mb-6 space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

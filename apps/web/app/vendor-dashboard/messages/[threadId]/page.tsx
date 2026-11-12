@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { readOverdueTopUpForEvent } from '@/lib/booking-fee-top-up.server';
+import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
+import { manilaToday as manilaTodayYmd } from '@/lib/std-views';
 import { notFound, redirect } from 'next/navigation';
 import { CalendarDays, Send, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -360,6 +363,13 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   // composers so the supplier prices the job knowing what Setnayan takes.
   // Unlike the gift basis this is resolved even on a FREE booking: "free, 3 of
   // your first 5 left" is the disclosure, and silence would be the old defect.
+  // 💸 WORDS ONLY WHILE A TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up rules; prototype "New inquiry ·
+  // text only"): this event's top-up is past its event day and unsettled. Talking is never narrowed (the chat is one
+  // of the always-open three, and this page never reads the event gate) — only files. A held top-up, or a failed
+  // read, narrows nothing.
+  const feeWordsOnlyRead = readOverdueTopUpForEvent(profile.vendor_profile_id, thread.event_id, manilaTodayYmd()).then((o) =>
+    o ? TOP_UP_WORDS.toolGated(o.amountPhp) : null,
+  );
   const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
@@ -2075,6 +2085,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
+                  wordsOnly={await feeWordsOnlyRead}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (

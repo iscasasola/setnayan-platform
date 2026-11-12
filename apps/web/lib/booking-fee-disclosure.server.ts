@@ -30,6 +30,7 @@ import { isBookingFeeFreeWindowActive } from '@/lib/booking-fee-free-window';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferIsOpen } from '@/lib/launch-offer';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { TOP_UP_CHARGE_KIND } from '@/lib/booking-fee-top-up';
 
 /**
  * The DB half of the booking-fee disclosure — resolves WHERE A SUPPLIER STANDS
@@ -618,10 +619,11 @@ export async function fetchDueFeeBills(
     .filter((id): id is string => !!id);
   const dueByCharge = new Map<string, string | null>();
   const introducedByCharge = new Map<string, string | null>();
+  const topUpCharges = new Set<string>();
   if (chargeIds.length > 0) {
     const { data, error } = await admin
       .from('booking_fee_charges')
-      .select('charge_id,expires_at,vendor_profile_id,event_id')
+      .select('charge_id,expires_at,vendor_profile_id,event_id,kind')
       .in('charge_id', chargeIds);
     if (error) logQueryError('booking-fee-disclosure: charge expiry', error);
     const charges = (data ?? []) as Array<{
@@ -629,9 +631,12 @@ export async function fetchDueFeeBills(
       expires_at: string | null;
       vendor_profile_id: string | null;
       event_id: string | null;
+      kind?: string | null;
     }>;
     for (const c of charges) {
       dueByCharge.set(c.charge_id, c.expires_at ? c.expires_at.slice(0, 10) : null);
+      // 💸 A TOP-UP (owner 2026-11-12): the fee grew with a booked quote — due on the event day, held before it.
+      if (c.kind === TOP_UP_CHARGE_KIND) topUpCharges.add(c.charge_id);
     }
     // WHY A BOOKING THE COUPLE TYPED IN IS BILLABLE (owner 2026-10-12, answer
     // 11): the day Setnayan first showed them this shop. One small read per due
@@ -677,6 +682,7 @@ export async function fetchDueFeeBills(
       coupleName: o.event_id ? (nameByEvent.get(o.event_id) ?? null) : null,
       dueOn: chargeId ? (dueByCharge.get(chargeId) ?? null) : null,
       introducedOn: chargeId ? (introducedByCharge.get(chargeId) ?? null) : null,
+      topUp: chargeId ? topUpCharges.has(chargeId) : false,
     };
   });
 }

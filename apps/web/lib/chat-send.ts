@@ -88,6 +88,7 @@ export type SendMessageError =
   | 'attachment_failed'
   | 'contact_blocked'
   | 'private_words_only'
+  | 'fee_words_only'
   | 'private_recipient'
   | 'insert_failed';
 
@@ -234,6 +235,22 @@ export async function sendChatMessageCore(
     senderRole = 'vendor';
   } else {
     return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
+  }
+
+  // 💸 WORDS ONLY WHILE A BOOKING-FEE TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up rules): the shop's event
+  // is locked by an unsettled top-up past its event day, so its message keeps words — a file is refused, said in the
+  // lock's own words. Only the SHOP side, only with a file; a held top-up (or a failed read) refuses nothing.
+  if (senderRole === 'vendor' && (hasAttachment || storedRef)) {
+    const { readOverdueTopUpForEvent } = await import('./booking-fee-top-up.server');
+    const owed = await readOverdueTopUpForEvent(
+      thread.vendor_profile_id,
+      thread.event_id,
+      new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()),
+    );
+    if (owed) {
+      const { TOP_UP_WORDS } = await import('./booking-fee-top-up');
+      return { ok: false, code: 'fee_words_only', message: TOP_UP_WORDS.toolGated(owed.amountPhp) };
+    }
   }
 
   // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.

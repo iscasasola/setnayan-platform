@@ -93,6 +93,12 @@ type Props = {
    * login that also hosts the event still speaks as the SHOP here. The host's passes nothing (the old derivation).
    */
   sentAs?: ChatSentAs;
+  /**
+   * 💸 WORDS ONLY WHILE A TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up; prototype "New inquiry · text only"):
+   * the supplier's event is locked by an unsettled booking-fee top-up, so the message box keeps WORDS — no ＋, no 🔒,
+   * no "/", no file. The string is why, said under the box ("Settle ₱X booking fee to use this"). Absent → as shipped.
+   */
+  wordsOnly?: string | null;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -101,7 +107,8 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null }: Props) {
+  const feeWordsOnly = Boolean(wordsOnly);
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
   // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
@@ -118,7 +125,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
      already private never draws them at all. Reduced motion: the same end states, no movement. */
   const toolsOut = Boolean(privateTo) || hasDraft;
   const reduceMotion = usePrefersReducedMotion();
-  const [toolsMounted, setToolsMounted] = useState(!privateTo);
+  const [toolsMounted, setToolsMounted] = useState(!privateTo && !feeWordsOnly);
   const [toolsShown, setToolsShown] = useState(!toolsOut);
   useEffect(() => {
     if (!toolsOut) {
@@ -150,7 +157,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const plus = usePlus(threadId);
   const [slashText, setSlashText] = useState<string | null>(null);
   const [slashHi, setSlashHi] = useState(0);
-  const slashQ = privateTo || slashText === null ? null : slashQuery(slashText);
+  const slashQ = privateTo || feeWordsOnly || slashText === null ? null : slashQuery(slashText);
   const slashOn = slashQ !== null && plus.slash.length > 0;
   const slashList = slashOn ? filterSlash(plus.slash, slashQ) : [];
   const slashRunning = plus.draft
@@ -329,6 +336,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
           return;
         }
+        // 💸 Words only while a top-up is overdue — said in the lock's own words.
+        if (wordsOnly && hasFile) {
+          setFileError(wordsOnly);
+          return;
+        }
 
         // From here until the send settles, a second Enter is a double send —
         // the photo compression below is awaited too, not only sendAction.
@@ -430,8 +442,15 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
 
-      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo ? { 'data-chat-words-only': '' } : {})}>
-        {toolsMounted ? (
+      {wordsOnly ? (
+        // 💸 Why the box keeps words only — one quiet line, the prototype's words.
+        <p className="self-stretch px-1 pb-1 text-[12.5px] font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-chat-fee-words-only="">
+          {wordsOnly}
+        </p>
+      ) : null}
+      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo || feeWordsOnly ? { 'data-chat-words-only': '' } : {})}>
+        {/* 💸 Words only while a top-up is overdue: the tools group is never drawn (no ＋, no 🔒, no file). */}
+        {toolsMounted && !feeWordsOnly ? (
         <div
           className="sn-composer-tools"
           data-chat-composer-tools={toolsShown ? 'in' : 'out'}
@@ -507,6 +526,14 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsOut ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
+          // 💸 Words only while a top-up is overdue: a pasted file is refused, in the lock's own words.
+          onPasteCapture={(e) => {
+            if (!wordsOnly) return;
+            const dt = e.clipboardData;
+            if (!(dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file'))) return;
+            e.preventDefault();
+            setFileError(wordsOnly);
+          }}
         >
           {privateTo ? (
             <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />

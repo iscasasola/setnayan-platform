@@ -124,6 +124,9 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import type { CarryOverTopUp } from './_components/top-up-carry-over';
+import { overdueTopUps, topUpOwedPhp } from '@/lib/booking-fee-top-up';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -941,6 +944,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     clientFeeBillsRead === FEE_BILLS_UNREADABLE
       ? []
       : billsForSurface(clientFeeBillsRead, 'client', { eventId });
+  // 💸 THE CARRY-OVER (owner 2026-11-12, top-up rule 4): an OVERDUE top-up on ANOTHER booking turns this ask's Agree
+  // into "Settle ₱X to accept". Read off the same shop-wide bills; a held top-up carries nothing over.
+  const overdueElsewhere =
+    lockRequest && clientFeeBillsRead !== FEE_BILLS_UNREADABLE
+      ? overdueTopUps(clientFeeBillsRead, manilaToday()).filter((b) => b.eventId !== eventId)
+      : [];
+  const carryOver: CarryOverTopUp | null =
+    overdueElsewhere.length > 0
+      ? {
+          orderId: overdueElsewhere[0]!.orderId,
+          amountPhp: topUpOwedPhp(overdueElsewhere),
+          coupleName: overdueElsewhere[0]!.coupleName,
+          dueOn: overdueElsewhere[0]!.dueOn,
+          payHref: vendorBookingFeePayPath(overdueElsewhere[0]!.orderId),
+        }
+      : null;
   // …and the WAIVED charge for this booking, if it was one of the free five.
   // Owner 2026-09-20: a free booking must still name the fee it would have
   // carried, so the first payable one is not a surprise.
@@ -1810,6 +1829,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
+          carryOver={carryOver}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />

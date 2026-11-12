@@ -185,8 +185,8 @@ export function BookingFeeBillRow({
         <ActionButton
           tone="neutral"
           icon={<Wallet aria-hidden strokeWidth={1.9} />}
-          label="Pay"
-          name={`Pay — ${copy.headline}`}
+          label={copy.payLabel ?? 'Pay'}
+          name={`${copy.payLabel ?? 'Pay'} — ${copy.headline}`}
           href={vendorBookingFeePayPath(bill.orderId)}
           className="min-h-11 shrink-0"
         />
@@ -201,8 +201,8 @@ export function BookingFeeBillRow({
         <ActionButton
           tone="neutral"
           icon={<Wallet aria-hidden strokeWidth={1.9} />}
-          label="Pay"
-          name={`Pay — ${copy.headline}`}
+          label={copy.payLabel ?? 'Pay'}
+          name={`${copy.payLabel ?? 'Pay'} — ${copy.headline}`}
           href={vendorBookingFeePayPath(bill.orderId)}
           className="min-h-11 shrink-0"
         />
@@ -228,7 +228,7 @@ export function BookingFeeBillRow({
               tone="brand"
               main
               icon={<Wallet aria-hidden strokeWidth={1.9} />}
-              label="Pay now"
+              label={copy.payLabel ?? 'Pay now'}
               href={vendorBookingFeePayPath(bill.orderId)}
               className="min-h-11"
             />
@@ -270,7 +270,7 @@ export function BookingFeeBillRow({
             className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
             style={{ background: accent }}
           >
-            Pay now
+            {copy.payLabel ?? 'Pay now'}
           </Link>
           <Link
             href={VENDOR_BOOKING_FEES_PATH}

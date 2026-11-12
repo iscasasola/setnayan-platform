@@ -10745,6 +10745,10 @@ html.dark .sn-acc-head[data-open] {
   [data-chat-panes][data-chat-open] [data-supplier-cols-pane] { display: block; }
 }
 @media (min-width: 701px) {
+  /* The pane ends at the window's foot even where the page's column starts below the pin line (`ChatPanes` measures it). */
+  [data-chat-panes] [data-supplier-cols-pane] {
+    height: calc(100dvh - var(--sn-pin-top, var(--fd-bar, 0px)) - var(--sn-chat-pane-gap, 0px));
+  }
   [data-chat-panes] [data-supplier-cols-pane] [data-chat-thread-frame] { flex: 1 1 0; height: auto; min-height: 0; }
   /* The supplier's thread page keeps its own gutter (its tree has no event column); in the pane it passes the height on. */
   [data-chat-panes] [data-supplier-cols-pane] > div:has(> [data-chat-thread-frame]) {

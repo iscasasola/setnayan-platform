@@ -18,7 +18,7 @@
  * phone's list is never replaced by a thread it did not tap (and never marked read unseen).
  * 🔒 lib/the-chat-is-messenger-shaped.test.ts
  */
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { SupplierColumns } from '@/app/vendor-dashboard/_components/supplier-columns';
 
@@ -56,9 +56,31 @@ export function ChatPanes({
     return () => mq.removeEventListener('change', go);
   }, [open, latestHref, router]);
 
-  if (!open && !latestHref) return <>{list}</>;
+  /*
+    📏 THE PANE ENDS AT THE WINDOW'S FOOT. `.sn-cols-pane` is `100vh − the pin line` tall, which is right when the page's
+    column starts AT the pin line (the supplier tree). The couple's column starts its own gutter below it (24 px), so the
+    pane ran that far past the window and the composer sat under the fold (measured 2026-11-12: y 1040 in a 1024 window
+    at 768). The gap is measured, never guessed, and only the chat's pane reads it (globals.css).
+  */
+  const ref = useRef<HTMLDivElement>(null);
+  const splits = open || Boolean(latestHref);
+  useLayoutEffect(() => {
+    const root = ref.current;
+    const pane = root?.querySelector<HTMLElement>('[data-supplier-cols-pane]');
+    if (!root || !pane) return;
+    const measure = () => {
+      const pin = parseFloat(getComputedStyle(pane).top) || 0;
+      const at = root.getBoundingClientRect().top + window.scrollY;
+      root.style.setProperty('--sn-chat-pane-gap', `${Math.max(0, Math.round(at - pin))}px`);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [splits]);
+
+  if (!splits) return <>{list}</>;
   return (
-    <div data-chat-panes="" {...(open ? { 'data-chat-open': '' } : {})}>
+    <div ref={ref} data-chat-panes="" {...(open ? { 'data-chat-open': '' } : {})}>
       <SupplierColumns name="chats" list={list} pane={open || wide ? children : null} paneLabel="The open chat" />
     </div>
   );

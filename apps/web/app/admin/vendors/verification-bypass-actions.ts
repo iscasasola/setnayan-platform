@@ -38,7 +38,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { bypassExpiryFrom } from '@/lib/verification-bypass';
+import { founderVouchExpiry } from '@/lib/verification-bypass';
+import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
 import { verificationEvidenceSnapshot } from '@/lib/verification-checks-server';
 import { notifyVendorStatusChange } from '@/lib/vendor-status-notify';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
@@ -110,7 +111,8 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   if (!before) throw new Error('Supplier not found.');
 
   const grantedAt = new Date();
-  const expiresAt = bypassExpiryFrom(grantedAt);
+  // 🏅 Founders verification (owner 12 Nov 2026): papers due 30 Mar 2027 for every vouch pressed before it.
+  const expiresAt = founderVouchExpiry(grantedAt);
 
   // The listing state lives on the profile; the vouch lives in its own table.
   // Both, or neither — a shop that is verified but hidden is precisely the dead
@@ -169,6 +171,10 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
       evidence_at_grant: evidence,
     },
   });
+
+  // 🏅 Founders verification's own reward (owner 12 Nov 2026): 3 × 4 weeks of Ultra, once per shop, ever — after the
+  // badge is written, never in its way (`lib/verification-plan-reward.server.ts`).
+  await grantVerificationPlanReward(admin, { vendorProfileId: vendorId, door: 'founders', actorUserId: adminUserId });
 
   revalidateShopPage(vendorId);
   revalidatePath('/admin/accounts');

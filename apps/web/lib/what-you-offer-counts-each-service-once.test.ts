@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { offerProgress, type SetupCard } from './supplier-setup';
+import { cardsToCount, offerProgress, type SetupCard } from './supplier-setup';
 import { VENDOR_CATEGORIES } from './vendors';
 
 const COARSE: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
@@ -54,11 +54,24 @@ test('the server read hands in the coarse set; a refused card read stays "Couldn
   assert.match(server, /const COARSE_SERVICE_KEYS: ReadonlySet<string> = new Set<string>\(VENDOR_CATEGORIES\);/);
   assert.match(
     server,
-    /offer: serviceRead\.cards\s*\?\s*offerProgress\(\(profile as \{ services\?: string\[\] \| null \}\)\.services \?\? \[\], serviceRead\.cards, COARSE_SERVICE_KEYS\)\s*:\s*null,/,
+    // (+ 12 Nov 2026: a fourth argument, the plan's own cards per service — `cardsToCount`.)
+    /offer: serviceRead\.cards\s*\?\s*offerProgress\(\s*\(profile as \{ services\?: string\[\] \| null \}\)\.services \?\? \[\],\s*serviceRead\.cards,\s*COARSE_SERVICE_KEYS,\s*(?:\/\/[^\n]*\n\s*)*cardsToCount\([\s\S]*?\),\s*\)\s*:\s*null,/,
     'the rail counts services without the coarse set, or reads a refused card list as a measured one',
   );
   assert.match(server, /return \{ count: 0, cards: null \};/, 'a refused card read must stay unmeasured');
   // The coverage sync preserves exactly this set beside the leaves — the two must name the same thing.
   assert.match(src('lib/vendor-coverage-write.ts'), /const coarse = new Set<string>\(VENDOR_CATEGORIES\);/);
   assert.match(src('lib/supplier-setup.ts'), /badge: offer === null \? \{ word: 'Couldn’t load', tone: 'no' \}/);
+});
+
+test('the step counts to what the plan lets a shop make — a Free shop is never asked for a card it cannot add (12 Nov 2026)', () => {
+  // Free · Verified make ONE card per category (owner 2026-11-04); a founder has no per-category limit.
+  assert.equal(cardsToCount(1, false), 1);
+  assert.equal(cardsToCount(3, false), 3);
+  assert.equal(cardsToCount(25, false), 3, 'more room than Good · Better · Best still counts to three');
+  assert.equal(cardsToCount(1, true), 3, 'a founder counts to three');
+  const one = offerProgress(['makeup_artist', 'bridal_hmua'], [card('a', 'bridal_hmua', 1)], COARSE, cardsToCount(1, false));
+  assert.equal(one.toGo, 0, 'one card is the whole step on a plan that allows one');
+  assert.equal(one.services[0]!.target, 1);
+  assert.equal(offerProgress([], [], COARSE, 1).toGo, 1, 'a shop with no service owes the one card its plan allows');
 });

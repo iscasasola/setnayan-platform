@@ -119,6 +119,7 @@ export function SupplierSetupScreen({
                 label: displayServiceLabel(s.service),
                 cards: s.cards.map((c) => ({ id: c.id, title: c.title, pricePhp: c.pricePhp })),
                 toGo: s.toGo,
+                target: s.target,
               }))
             : null
         }

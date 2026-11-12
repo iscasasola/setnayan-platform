@@ -38,6 +38,7 @@ import {
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -681,6 +682,16 @@ async function applyApplicationDecision(
       : {}),
   });
   if (auditErr) return { ok: false, error: plainRefusal('AdminVerifyActions (auditErr)', auditErr) };
+
+  // 🏅 Regular verification's reward (owner 12 Nov 2026): the four papers approved → 1 × 4 weeks of Ultra, once per
+  // shop, ever — a shop founders-verified earlier already had its weeks (`lib/verification-plan-reward.server.ts`).
+  if (input.decision === 'approved' && toState === 'verified' && fromState !== 'verified') {
+    await grantVerificationPlanReward(admin, {
+      vendorProfileId: vendor.vendor_profile_id,
+      door: 'regular',
+      actorUserId: input.actor.user_id,
+    });
+  }
 
   // Cross-account signal (Phase B · 2026-06-19): tell the vendor their
   // verification status changed, carrying the decision_reason. Only the three

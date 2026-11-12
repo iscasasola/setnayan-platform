@@ -96,7 +96,8 @@ import {
   summaryLine,
   type CheckResult,
 } from '@/lib/verification-checks';
-import { BYPASS_WINDOW_DAYS, bypassState } from '@/lib/verification-bypass';
+import { bypassState, founderVouchExpiry } from '@/lib/verification-bypass';
+import { ULTRA_SETS } from '@/lib/verification-plan-reward';
 import {
   BADGE_REMINDER_DAYS,
   badgeDeadline,
@@ -2129,7 +2130,7 @@ function VouchControls({
   return (
     <details className="relative">
       <summary className="inline-flex h-9 cursor-pointer items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70">
-        Vouch for them…
+        Founders verification…
       </summary>
       <form
         action={grantVerificationBypass}
@@ -2137,10 +2138,12 @@ function VouchControls({
       >
         <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
         <p className="text-[11px] leading-relaxed text-ink/70">
-          Lists {businessName || 'this shop'} now on Setnayan&rsquo;s word, with their documents
-          due in {BYPASS_WINDOW_DAYS} days. Couples see the same badge as a fully checked shop
-          — miss the deadline and the badge comes off by itself; the shop stays listed and
-          bookable.
+          Verifies {businessName || 'this shop'} now on Setnayan&rsquo;s word, with no documents
+          today. Their documents are due by {deadlineLabel(founderVouchExpiry(new Date()))}, with
+          next year&rsquo;s verification. Couples see the same Verified badge as a fully checked
+          shop — miss the deadline and the badge comes off by itself; the shop stays listed and
+          bookable. Their reward: {ULTRA_SETS.founders} &times; 4 weeks of Ultra (once per shop), plus
+          the Verified badge&rsquo;s own Papic 150 and 4 weeks of Papic Challenges.
         </p>
         <label className="block text-xs text-ink/65">
           Why are you vouching for them?
@@ -2154,10 +2157,10 @@ function VouchControls({
           />
         </label>
         <SubmitButton
-          pendingLabel="Vouching…"
+          pendingLabel="Verifying…"
           className="button-primary h-9 w-full px-3 text-xs"
         >
-          Vouch → Verified
+          Founders verification → Verified
         </SubmitButton>
       </form>
     </details>

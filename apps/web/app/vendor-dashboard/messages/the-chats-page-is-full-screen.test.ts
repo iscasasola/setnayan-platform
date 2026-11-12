@@ -4,8 +4,9 @@
  *
  *   a · the ✉ envelope (and every Messages door) opens `/vendor-dashboard/messages` — never Customers › Events;
  *   b · that page is the couple's `ChatInbox` (the same component), not a redirect stub and not a second inbox;
- *   c · it is FULL SCREEN: its root is the chat takeover (`data-chat-takeover` — fixed over the shell below 1024, so no
- *       bottom tabs and no pinned row), and its search row stands at its own foot, not on the bottom dock it covers;
+ *   c · it is FULL SCREEN on a phone: its root is the chat takeover (`data-chat-takeover` — fixed over the shell below
+ *       701, the system's line since owner 2026-11-13 D3, so no bottom tabs and no pinned row), and its search row stands
+ *       at its own foot, not on the bottom dock it covers. From 701 it is the LEFT column, the open thread the right;
  *   d · a refused thread read says "Couldn't load your chats" with Try again — never "No chats yet";
  *   + the dots read the ✉ badge's own unread rule, and an empty inbox is one line and nothing else.
  *
@@ -87,6 +88,7 @@ test('a · the envelope opens Chats — /vendor-dashboard/messages — never Cus
 test('b · the page is the couple’s ChatInbox, fed the supplier’s rows — not a stub', () => {
   assert.doesNotMatch(PAGE, /redirect\(\s*`\/vendor-dashboard\/customers/, 'Chats is a redirect into Customers again');
   assert.match(PAGE, /<SupplierChats read=\{read\} viewerId=\{user\.id\} \/>/, 'the page does not draw the Chats view');
+  assert.equal((PAGE.match(/<SupplierChats\b/g) ?? []).length, 1, 'a second Chats view was drawn for the column beside a thread');
   assert.match(VIEW, /import \{ ChatInbox, type InboxRow \} from '@\/app\/dashboard\/\[eventId\]\/messages\/_components\/chat-inbox';/, 'Chats is not the couple’s inbox component');
   assert.equal((VIEW.match(/<ChatInbox\b/g) ?? []).length, 1);
   // ONE row shape: the thread column's builder over the thread column's inputs.
@@ -128,6 +130,16 @@ test('c · full screen: the page root is the chat takeover — no bottom tabs, n
   // The takeover is what covers the shell: fixed, edge to edge, above the bottom dock and the top bar.
   const css = readFileSync(join(WEB, 'app', 'globals.css'), 'utf8');
   assert.match(css, /\[data-chat-takeover\] \{\s*position: fixed;\s*inset: 0;\s*z-index: 45;/, 'the takeover no longer covers the shell');
+  // …on a phone, which is below 701 — a 768 tablet gets the two columns, not the phone's full screen.
+  const take = css.slice(css.indexOf('AN OPEN CHAT THREAD IS FULL SCREEN ON A PHONE'));
+  assert.match(take.slice(0, 2600), /@media \(max-width: 700\.98px\) \{\s*html:not\(\[data-sn-nav-dir\]\) \.sn-vt-page:has\(\[data-chat-takeover\]\)/, 'the full-screen line is not 701');
+  // From 701: Chats is the left column, the newest chat opens on the right (the ✉ lands on a conversation, not a blank).
+  assert.match(PAGE, /<ChatPanes list=\{list\} open=\{false\} latestHref=\{latestHref\}>/, 'Chats is not the left column from 701');
+  assert.match(PAGE, /paneHref: `\/vendor-dashboard\/messages\/\$\{r\.threadId\}`,/, 'a row does not open its thread beside the list from 701');
+  const beside = read('app/vendor-dashboard/messages/[threadId]/layout.tsx');
+  assert.match(beside, /import SupplierChatsPage from '\.\.\/page';/, 'the list beside an open thread is not this page');
+  // In the left column it loses the takeover's frame (it is a column, not a card).
+  assert.match(css, /\[data-chat-panes\] \[data-supplier-cols-list\] \[data-chat-takeover\] \{ border: 0;/);
   // ‹ is the house back, back in place to where the supplier came from, else Today.
   assert.match(html, /data-chat-back=""/, 'Chats has no ‹');
   assert.match(html, /href="\/vendor-dashboard"/, 'the ‹ fallback is not Today');

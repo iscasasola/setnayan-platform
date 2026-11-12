@@ -47,6 +47,8 @@ import { formatLongDate } from '@/lib/format-date';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
 import { EventGroups } from './_components/event-groups';
+import { ChatPanes } from './_components/chat-panes';
+import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 
 export const metadata = { title: 'Chats' };
 
@@ -55,12 +57,16 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     prefill_vendor_email?: string;
+    /** 🖥 `'thread'` — drawn by `[threadId]/layout.tsx` as the LEFT column beside an open thread (from 701). Never a URL a person types. */
+    __in?: string;
   }>;
 };
 
 export default async function CoupleMessagesPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
+  // 🖥 Beside an open thread (`[threadId]/layout.tsx`): the list alone — its search row at its own foot, no ✎ sheet twice.
+  const besideThread = search.__in === 'thread';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -265,6 +271,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       eventLine,
       archived: archivedRow,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archivedRow} />,
+      // 🖥 From 701 the row opens its thread beside this list (`ChatPanes`), never the picked page over it.
+      paneHref: `/dashboard/${eventId}/messages/${r.threadId}`,
       // 🚦 TODO(Build 3 · Lane B): `needsYou: needsYouLevel(...)` — the one rule; no row guesses a level meanwhile.
     };
   };
@@ -273,8 +281,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     .filter((r): r is ConversationRow => r != null)
     .map(toInboxRow);
 
-  return (
-    <section className="mx-auto w-full max-w-2xl">
+  // 🖥 The newest active chat — what the right column opens from 701 when no thread is open (`ChatPanes`). An arrival
+  // that carries a message for the list (an error, the prefill box) keeps the list's one column instead.
+  const latestHref =
+    besideThread || search.error || search.prefill_vendor_email
+      ? null
+      : (inboxRows.find((r) => !r.archived)?.paneHref ?? null);
+
+  const list = (
+    <section className="mx-auto w-full max-w-2xl" data-chats-list="">
       <PageMasthead title="Chats" />
       {/* ⚡ Re-renders when a message arrives — only with NEXT_PUBLIC_CHAT_LIVE_ENABLED on (renders nothing). */}
       <LiveInboxRefresh userId={user.id} />
@@ -300,6 +315,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
       <ChatInbox
         rows={inboxRows}
+        dock={besideThread ? 'foot' : 'float'}
         /* 🔌 A refused unread read is never "Nothing unread." (reads-are-honest, 2026-11-02 audit #11). */
         unreadMeasured={unread.measured}
         viewerId={user.id}
@@ -354,5 +370,12 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         ) : null}
       </section>
     </section>
+  );
+
+  if (besideThread) return list;
+  return (
+    <ChatPanes list={list} open={false} latestHref={latestHref}>
+      <ThreadArrival />
+    </ChatPanes>
   );
 }

@@ -3681,7 +3681,7 @@ export async function MarketplaceView({
       ⚠ `after(() => runSocialFlush())` above must keep running AFTER every
       cookies()/createClient() read — do not move it into this subtree.
     */
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       {/* SEO/GEO Bucket 6 · ItemList JSON-LD also emitted on non-catalog
           return so legacy single-page layouts continue to surface the
           12-folder taxonomy hierarchy for AI engines + Google extraction. */}
@@ -5218,7 +5218,7 @@ async function CatalogView({
       the removal is named in the PR body — regenerating it silently is what
       turns that lint into decoration.
     */
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <NoticeBanner noticeKey={noticeKey} />
       <CompareShortlistBanner compareHref={compareHref} />
 

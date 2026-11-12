@@ -21,9 +21,21 @@
  * compact (its name and count), and the next section's head pushes it out — one pinned row at a time. Tapping it glides
  * back to that section's top (reduced motion: a jump, no slide).
  *
- * Not drawn yet (Lane C slice 2 — each needs a read this card does not carry): Forms (`vendor_form_service_links`) ·
- * Events (`event_vendors.service_id`, no names) · Albums · the supplier's view with hide-per-card. Nothing here is
- * invented in their place.
+ * ⤴ THE COVER MORPH (ruling 5976): while the layer rises, the hero's clip opens out of the tapped card's own cover
+ * (`heroClipFrom`) over the same 0.7 s (`RISE_MS`, DECISION_LOG "SIX ANSWERS" (2) — not the prototype's 520 ms); ✕ plays
+ * it back into the cover. Reduced motion: the layer crossfades and the clip does not move. The hero PLAYS the card's
+ * photos (the face's cover show, #7532) and a swipe turns it.
+ *
+ * 🃏 THE SHOP'S OWN CARD (ruling 5970 · prototype `hidable()`): when the viewer runs the shop (`owner`), a tap on a
+ * photo, the clip, an event line or an inspiration photo hides it ON THIS CARD — greyed, "Hidden on this card", a
+ * second tap shows it again; nothing is deleted and it stays everywhere else (`lib/service-card-hides.ts`). 👁 in the bar
+ * flips to the Couple view: exactly what couples get, hidden items left out. The card's opens (the same count Shop ›
+ * Analytics draws) sit under the face in both views and have no hide. Reviews and forms are never hidden here.
+ *
+ * EVENTS, WITHOUT NAMES (ruling 5970 "events shown without names"): the record's own anonymised lines (type · month ·
+ * guest band — `service_card_records`, its SQL floor intact), drawn as their own section after Reviews.
+ *
+ * Not drawn yet: Forms (`vendor_form_service_links`) · Albums. Nothing here is invented in their place.
  *
  * ⚠ THE SETNAYAN EXCLUSIVE IS NOT HERE, AND MUST NOT BE. `vendor_services.exclusive_perk_text` is "Never shown
  * publicly. Revealed in-thread when the vendor token-pursues" (lib/vendor-services.ts) — a reward for the conversation,
@@ -35,7 +47,7 @@
 
 import Image from 'next/image';
 import { Explain } from '@/app/_components/explain';
-import { Check, ImageIcon, Info, MessageCircle, Play, Tag, Users, X } from 'lucide-react';
+import { CalendarDays, Check, Eye, EyeOff, ImageIcon, Info, MessageCircle, Play, Tag, Users, X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -45,7 +57,10 @@ import { VerifiedBookingMark } from '@/app/_components/service-card-view';
 import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { riseFromRect } from '@/lib/rise-motion';
+import { HERO_CLIP_OPEN, RISE_EASE, RISE_MS, heroClipFrom, riseFromRect } from '@/lib/rise-motion';
+import { ServiceFaceCoverShow } from '@/app/_components/service-face-cover-show';
+import { coverPhotoList } from '@/lib/service-cover-show';
+import { cardItemKeys } from '@/lib/service-card-hides';
 import { focusServiceInquiry } from '@/lib/service-inquiry-focus';
 import { formatCount } from '@/lib/format-number';
 import type { ServiceCard } from './services-gallery';
@@ -68,7 +83,7 @@ export const GROWN_BAR_PX = 56;
 const PHOTOS_SHOWN = 6;
 
 /** The sections, in the approved order: facts first, media last (DECISION_LOG 2026-11-10 "FACTS FIRST, MEDIA LAST"). */
-export const GROWN_SECTION_ORDER = ['included', 'not', 'serves', 'record', 'reviews', 'photos', 'clip', 'inspiration'] as const;
+export const GROWN_SECTION_ORDER = ['included', 'not', 'serves', 'record', 'reviews', 'events', 'photos', 'clip', 'inspiration'] as const;
 type SectionKey = (typeof GROWN_SECTION_ORDER)[number];
 
 const reduceMotion = () =>
@@ -76,12 +91,35 @@ const reduceMotion = () =>
 
 const lines = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
+/**
+ * 🃏 The shop's own view of its card (ruling 5970): what it hid on this card and the card's opens. Null for everyone
+ * else — a couple's card is drawn from `card.hiddenOnCard` alone, with the hidden items left out.
+ */
+export type GrownCardOwner = {
+  /** Keys hidden on THIS card right now (`lib/service-card-hides.ts`). */
+  hidden: ReadonlySet<string>;
+  /** Hide (true) or show again (false) one item. */
+  onToggle: (key: string, hide: boolean) => void;
+  /** Distinct viewer-days opened in the last 12 months; null = the read failed ("Couldn't load", never 0). */
+  opens: number | null;
+};
+
+/** The supplier's words for each media section (prototype `fcSubs`). */
+const SUP_NOTE = {
+  events: 'booked on this card · tap one to hide it here',
+  photos: 'tap one to hide it here',
+  clip: 'tap to hide it here',
+  inspiration: 'from this card’s work · tap one to hide it here',
+} as const;
+const hiddenNote = (n: number, fallback: string) => (n > 0 ? `${formatCount(n)} hidden · tap to show again` : fallback);
+
 export function ServiceDetailsSheet({
   card: c,
   inquireMode,
   onClose,
   shopName = null,
   from = null,
+  owner = null,
 }: {
   card: ServiceCard;
   inquireMode: ServiceInquireMode;
@@ -90,6 +128,8 @@ export function ServiceDetailsSheet({
   shopName?: string | null;
   /** The tapped card's box — the rise starts there and ✕ falls back into it. Null: it simply appears. */
   from?: HTMLElement | null;
+  /** 🃏 Set only when the viewer runs this shop — hide per card, 👁 Couple view, the card's opens. */
+  owner?: GrownCardOwner | null;
 }) {
   const layerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,8 +140,24 @@ export function ServiceDetailsSheet({
   const [stuck, setStuck] = useState<SectionKey | null>(null);
   const [allPhotos, setAllPhotos] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [coupleView, setCoupleView] = useState(false);
+  const [hintOff, setHintOff] = useState(false);
+  const [told, setTold] = useState<string | null>(null);
+  const toldOnce = useRef(false);
+  /** The supplier curating: hidden items stay, greyed, and a tap toggles them. */
+  const curating = owner !== null && !coupleView;
+  const isHidden = (key: string | null) =>
+    key !== null && (owner ? owner.hidden.has(key) : (c.hiddenOnCard ?? []).includes(key));
+  /** Left out of the card — for couples, and in the 👁 Couple view. */
+  const leftOut = (key: string | null) => !curating && isHidden(key);
 
   useEffect(() => setHost(document.body), []);
+  // The one-time "hidden on this card only" line steps away by itself.
+  useEffect(() => {
+    if (!told) return;
+    const t = setTimeout(() => setTold(null), 3200);
+    return () => clearTimeout(t);
+  }, [told]);
   useChromeAway(true);
 
   /** ✕ — the exact reverse of the rise, back into the card it came from; then the page lets go of it. */
@@ -109,19 +165,44 @@ export function ServiceDetailsSheet({
     if (closing.current) return;
     closing.current = true;
     const el = layerRef.current;
+    if (el && from && from.isConnected) {
+      scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      morphHero(from, true);
+    }
     const back = el && from && from.isConnected ? riseFromRect(el, from.getBoundingClientRect(), { reverse: true }) : null;
     if (back) void back.finished.then(onClose, onClose);
     else onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- morphHero reads refs only
   }, [from, onClose]);
 
   // Mounted only while open, so mount = open. The shared hook handles the focus trap + restore, Esc-to-close and the
   // reference-counted body-scroll lock.
   useModalA11y({ open: true, onClose: close, containerRef: layerRef });
 
-  // ⤴ THE RISE — once, from the tapped card, as soon as the layer is on <body>.
+  /**
+   * ⤴ THE COVER MORPH — the hero's clip opens out of the tapped card's cover (or, `back`, closes into it) over the same
+   * 0.7 s as the rise. Measured BEFORE the rise starts, so the hero's box is its own, untransformed one. Reduced motion:
+   * nothing here moves (the layer's own crossfade carries it).
+   */
+  function morphHero(card: HTMLElement, back: boolean) {
+    const el = layerRef.current;
+    const hero = heroRef.current;
+    const cover = card.querySelector<HTMLElement>('[data-service-face-cover]');
+    if (!el || !hero || !cover || reduceMotion() || typeof hero.animate !== 'function') return;
+    const clip = heroClipFrom(hero.getBoundingClientRect(), cover.getBoundingClientRect(), card.getBoundingClientRect(), el.getBoundingClientRect());
+    hero.animate([{ clipPath: clip }, { clipPath: HERO_CLIP_OPEN }], {
+      duration: RISE_MS,
+      easing: RISE_EASE,
+      direction: back ? 'reverse' : 'normal',
+      fill: 'both',
+    });
+  }
+
+  // ⤴ THE RISE — once, from the tapped card, as soon as the layer is on <body>; the hero morphs out of its cover.
   useLayoutEffect(() => {
     const el = layerRef.current;
     if (!el || !from || !from.isConnected) return;
+    morphHero(from, false);
     riseFromRect(el, from.getBoundingClientRect());
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the rise plays once, when the portal first lands
   }, [host]);
@@ -157,11 +238,50 @@ export function ServiceDetailsSheet({
 
   // ── what this card holds — the FULL inclusion list when the server sent it, else the card's trimmed lines ──
   const inclusions = c.inclusionsFull && c.inclusionsFull.length > 0 ? c.inclusionsFull : c.inclusions;
-  const cover = c.photos[0] ?? null;
-  const photos = c.photos;
-  const cut = !allPhotos && photos.length > PHOTOS_SHOWN;
-  const shownPhotos = cut ? photos.slice(0, PHOTOS_SHOWN - 1) : photos;
-  const looks = c.inspirationLooks ?? [];
+  const keys = cardItemKeys(c);
+  // Every photo with its hide key; couples (and the 👁 view) get the ones not hidden.
+  const photoItems = c.photos.map((url, i) => ({ url, key: keys.photos[i] ?? null })).filter((p) => !leftOut(p.key));
+  const photos = photoItems.map((p) => p.url);
+  const cover = photos[0] ?? null;
+  // 🎞 The hero plays what the card shows (the face's own cover show, #7532) — still when there is one photo.
+  const heroShow = coverPhotoList(null, photos);
+  const cut = !allPhotos && photoItems.length > PHOTOS_SHOWN;
+  const shownPhotos = cut ? photoItems.slice(0, PHOTOS_SHOWN - 1) : photoItems;
+  const clipShown = c.videoUrl && !leftOut(keys.clip) ? c.videoUrl : null;
+  const looks = (c.inspirationLooks ?? []).map((l, i) => ({ ...l, key: keys.insp[i] ?? null })).filter((l) => !leftOut(l.key));
+  const eventLines = (c.record?.ledger ?? []).map((l, i) => ({ ...l, key: keys.events[i] ?? null })).filter((l) => !leftOut(l.key));
+  const nHidden = (ks: ReadonlyArray<string | null>) => (curating ? ks.filter((k) => isHidden(k)).length : 0);
+
+  /** 🃏 One hideable item: for the curating supplier a button (tap = hide · tap again = show); for everyone else the item. */
+  const hidable = (key: string | null, label: string, className: string, inner: ReactNode) => {
+    if (!curating || key === null) return <div className={className}>{inner}</div>;
+    const h = isHidden(key);
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          owner?.onToggle(key, !h);
+          if (!h && !toldOnce.current) {
+            toldOnce.current = true;
+            setTold('Hidden on this card only — still on your shop, Portfolio and other cards.');
+          }
+        }}
+        aria-pressed={h}
+        aria-label={`${label} · ${h ? 'hidden on this card · tap to show it' : 'tap to hide it on this card'}`}
+        className={`${className} sn-press relative text-left`}
+        data-card-hidable=""
+        data-hidden={h ? '' : undefined}
+      >
+        <span className={h ? 'block opacity-35 grayscale' : 'block'}>{inner}</span>
+        {h ? (
+          <span className="pointer-events-none absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-md bg-[var(--sn-canvas)]/90 px-1.5 py-0.5 text-[11px] font-medium text-ink/70">
+            <EyeOff aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+            Hidden on this card
+          </span>
+        ) : null}
+      </button>
+    );
+  };
   const couples = c.coupleLooks ?? [];
   const hosts = c.reviews?.hosts ?? null;
   const guests = c.reviews?.guests ?? null;
@@ -226,7 +346,8 @@ export function ServiceDetailsSheet({
       key: 'record',
       title: 'The record',
       note: `Booked ${formatCount(c.record.bookedCount)}×`,
-      body: <CardRecordSection record={c.record} variant="couple" rating={c.recordRating} />,
+      // The ledger is drawn once, as Events (its own section, hideable per line) — not twice.
+      body: <CardRecordSection record={{ ...c.record, ledger: [] }} variant="couple" rating={c.recordRating} />,
     });
   }
   if (c.reviews && (hosts || guests)) {
@@ -239,19 +360,56 @@ export function ServiceDetailsSheet({
       body: <CardReviewsBlock reviews={c.reviews} />,
     });
   }
+  // ── EVENTS, without names — the record's anonymised lines (type · month · guest band) ──
+  if (eventLines.length > 0) {
+    sections.push({
+      key: 'events',
+      title: 'Events',
+      note: curating ? hiddenNote(nHidden(keys.events), SUP_NOTE.events) : 'booked on this card',
+      body: (
+        <ul className="space-y-1.5" data-grown-events="">
+          {eventLines.map((l, i) => (
+            <li key={l.key ?? i}>
+              {hidable(
+                l.key,
+                [l.label, l.month].filter(Boolean).join(' · '),
+                'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-1 py-1',
+                <span className="flex items-center gap-2.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-ink/5 text-ink/55">
+                    <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0">
+                    <b className="block truncate text-[14px] font-semibold text-ink">{[l.label, l.month].filter(Boolean).join(' · ')}</b>
+                    <small className="block truncate text-[12px] text-ink/55">{[l.pax, 'booked on this card'].filter(Boolean).join(' · ')}</small>
+                  </span>
+                </span>,
+              )}
+            </li>
+          ))}
+        </ul>
+      ),
+    });
+  }
   // ── MEDIA, LAST: it runs on ──
   if (photos.length > 0 || couples.length > 0) {
     sections.push({
       key: 'photos',
       title: 'Photos',
-      note: formatCount(photos.length + couples.length),
+      note: curating ? hiddenNote(nHidden(keys.photos), SUP_NOTE.photos) : formatCount(photos.length + couples.length),
       body: (
         <>
           {photos.length > 0 ? (
             <ul className="grid grid-cols-3 gap-1" data-grown-photos="">
-              {shownPhotos.map((url, idx) => (
-                <li key={url} className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
-                  <Image src={url} alt={`${c.label} photo ${idx + 1}`} fill sizes="(min-width: 640px) 200px, 33vw" className="object-cover" />
+              {shownPhotos.map((p, idx) => (
+                <li key={p.url} className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
+                  {hidable(
+                    p.key,
+                    `${c.label} photo ${idx + 1}`,
+                    'absolute inset-0',
+                    <span className="absolute inset-0 block">
+                      <Image src={p.url} alt={`${c.label} photo ${idx + 1}`} fill sizes="(min-width: 640px) 200px, 33vw" className="object-cover" />
+                    </span>,
+                  )}
                 </li>
               ))}
               {cut ? (
@@ -263,9 +421,9 @@ export function ServiceDetailsSheet({
                     className="absolute inset-0"
                     data-grown-photos-more=""
                   >
-                    <Image src={photos[PHOTOS_SHOWN - 1]!} alt="" fill sizes="33vw" className="object-cover opacity-35 grayscale-[.4]" />
+                    <Image src={photoItems[PHOTOS_SHOWN - 1]!.url} alt="" fill sizes="33vw" className="object-cover opacity-35 grayscale-[.4]" />
                     <b className="absolute inset-0 grid place-items-center text-[20px] font-semibold text-ink">
-                      +{formatCount(photos.length - (PHOTOS_SHOWN - 1))}
+                      +{formatCount(photoItems.length - (PHOTOS_SHOWN - 1))}
                     </b>
                   </button>
                 </li>
@@ -296,15 +454,28 @@ export function ServiceDetailsSheet({
       ),
     });
   }
-  if (c.videoUrl) {
+  if (clipShown) {
     sections.push({
       key: 'clip',
       title: 'Clip',
-      note: 'up to 30 s',
-      body: playing ? (
+      note: curating ? hiddenNote(nHidden([keys.clip]), SUP_NOTE.clip) : 'up to 30 s',
+      body: curating ? (
+        // The curating supplier's tap hides it on this card; the couple's tap plays it.
+        hidable(
+          keys.clip,
+          'The clip',
+          'flex min-h-[60px] w-full items-center gap-2.5 rounded-xl border px-2.5 py-2', // no-card-ok: the curating supplier presses this row (a <button>, via hidable) — the same frame as the couple's play row
+          <span className="flex items-center gap-2.5">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-ink/70 text-white">
+              <Play aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </span>
+            <b className="block truncate text-[14px] font-semibold text-ink">The clip</b>
+          </span>,
+        )
+      ) : playing ? (
         // Plays where it was tapped — the row becomes the player, nothing opens over it.
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video src={c.videoUrl} controls autoPlay playsInline className="max-h-80 w-full rounded-lg bg-ink/5 object-cover" data-grown-clip="playing" />
+        <video src={clipShown} controls autoPlay playsInline className="max-h-80 w-full rounded-lg bg-ink/5 object-cover" data-grown-clip="playing" />
       ) : (
         <button
           type="button"
@@ -328,13 +499,18 @@ export function ServiceDetailsSheet({
     sections.push({
       key: 'inspiration',
       title: 'Inspiration',
-      note: formatCount(looks.length),
+      note: curating ? hiddenNote(nHidden(keys.insp), SUP_NOTE.inspiration) : formatCount(looks.length),
       body: (
         <ul className="grid grid-cols-3 gap-1" data-grown-inspiration="">
           {looks.map((l) => (
             <li key={l.id} className="relative aspect-square overflow-hidden rounded-lg bg-ink/5">
-              {/* eslint-disable-next-line @next/next/no-img-element -- an approved library photo, already a display URL */}
-              <img src={l.url} alt={l.part} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+              {hidable(
+                l.key,
+                l.part,
+                'absolute inset-0',
+                // eslint-disable-next-line @next/next/no-img-element -- an approved library photo, already a display URL
+                <img src={l.url} alt={l.part} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />,
+              )}
             </li>
           ))}
         </ul>
@@ -376,6 +552,19 @@ export function ServiceDetailsSheet({
           >
             {c.label}
           </b>
+          {/* 👁 COUPLE VIEW — the shop's own card only: exactly what couples get, hidden items left out (prototype `fc-couple`). */}
+          {owner ? (
+            <button
+              type="button"
+              onClick={() => setCoupleView((v) => !v)}
+              aria-pressed={coupleView}
+              aria-label="Couple view · show the card without the hidden items"
+              className={roundBtn}
+              data-grown-couple-view={coupleView ? 'on' : ''}
+            >
+              <Eye aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+          ) : null}
           {/* ⓘ — the house explanation (`<Explain>`): what a couple does NOT need before acting; the card's caption lives here. */}
           <Explain
             title="About this card"
@@ -383,14 +572,26 @@ export function ServiceDetailsSheet({
             className={pinned ? 'bg-[var(--m-paper)]' : 'bg-[var(--m-paper)]/90 backdrop-blur-md'}
           >
             The whole card: the price and the best offer, what is included and not, who it serves, its record and reviews,
-            then every photo, the clip and inspiration. Starting price set by the supplier. Final quotes happen in chat.
+            the events it was booked for (never names), then every photo, the clip and inspiration. Starting price set by
+            the supplier. Final quotes happen in chat.
+            {owner ? (
+              <>
+                {' '}
+                Tap a photo, the clip, an event or an inspiration photo to hide it on this card. It greys out and says so;
+                tap again to show it. Nothing is deleted, and it stays on your shop, in Portfolio, in Inspiration and on
+                every other card. The eye shows the card as couples get it. Reviews and forms are never hidden here, and
+                the card’s opens always show.
+              </>
+            ) : null}
           </Explain>
         </div>
 
         <div ref={scrollRef} onScroll={onScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden pb-24" data-grown-scroll="">
           {/* ── The hero: the card's cover, edge to edge ── */}
           <div ref={heroRef} className="relative h-[38svh] min-h-48 overflow-hidden" style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }} data-grown-hero="">
-            {cover ? (
+            {heroShow.length >= 2 ? (
+              <ServiceFaceCoverShow photos={heroShow} />
+            ) : cover ? (
               <Image src={cover} alt={`${c.label} cover`} fill priority sizes="(min-width: 640px) 576px, 100vw" className="object-cover" />
             ) : (
               <span className="absolute inset-0 grid place-items-center">
@@ -416,7 +617,41 @@ export function ServiceDetailsSheet({
             ) : null}
             {c.priceDetail ? <p className="mt-1 text-[12px] leading-snug text-ink/55">{c.priceDetail}</p> : null}
             {c.givesSetnayanGift ? <SetnayanGiftLine className="mt-1.5 flex items-start gap-1.5 text-[12px] font-medium text-terracotta-700" /> : null}
+            {/* 📈 The card's opens — the shop's own number (Shop › Analytics' "opened"); no hide, in both views. */}
+            {owner ? (
+              <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink/60" data-grown-opens="">
+                <Eye aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
+                <span>
+                  {owner.opens === null
+                    ? 'Opens couldn’t load'
+                    : `Opened ${lines(owner.opens, 'time', 'times')} in the last 12 months · only your team sees this`}
+                </span>
+              </p>
+            ) : null}
           </div>
+          {owner && !coupleView && !hintOff ? (
+            <div className="px-4 pb-2">
+              <button
+                type="button"
+                onClick={() => setHintOff(true)}
+                aria-label="Dismiss"
+                className="sn-press flex min-h-11 w-full items-center gap-2 rounded-xl bg-ink/[0.04] px-3 text-left text-[12.5px] text-ink/70"
+                data-grown-hide-hint=""
+              >
+                <Info aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={2} />
+                <span className="flex-1">Tap a photo, the clip, an event or an inspiration photo to hide it on this card</span>
+                <X aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={2} />
+              </button>
+            </div>
+          ) : null}
+          {owner && coupleView ? (
+            <div className="px-4 pb-2">
+              <p className="flex min-h-11 items-center gap-2 rounded-xl bg-ink/[0.04] px-3 text-[12.5px] text-ink/70" data-grown-couple-note="">
+                <Eye aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={2} />
+                Couple view · exactly what couples get, hidden items left out
+              </p>
+            </div>
+          ) : null}
 
 
           {sections.map((s) => (
@@ -446,8 +681,33 @@ export function ServiceDetailsSheet({
           ))}
         </div>
 
+        {told ? (
+          <p
+            role="status"
+            className="absolute inset-x-4 bottom-20 z-[6] rounded-xl bg-raised px-3 py-2 text-[13px] text-ink shadow-lg"
+            data-grown-told=""
+          >
+            {told}
+          </p>
+        ) : null}
         {/* ── The doorway out, in the thumb row ── */}
-        {inquireMode !== 'none' ? (
+        {owner ? (
+          // The shop's own card: the couple's real button, marked Preview — it reaches no composer from here.
+          <div
+            className="absolute inset-x-0 bottom-0 z-[5] flex px-4 pt-6"
+            style={{
+              paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))',
+              background: 'linear-gradient(to top, var(--sn-canvas) 70%, transparent)',
+            }}
+            data-grown-thumb="preview"
+          >
+            <span aria-disabled="true" className={actionButtonClass('brand', { main: true, extra: 'w-full opacity-90' })}>
+              <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <span>Inquire about this</span>
+              <span className="ml-1 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-medium">Preview</span>
+            </span>
+          </div>
+        ) : inquireMode !== 'none' ? (
           <div
             className="absolute inset-x-0 bottom-0 z-[5] flex px-4 pt-6"
             style={{

@@ -39,7 +39,14 @@ import { formatCount } from '@/lib/format-number';
 const SERVICE_CARD_INCLUSION_LIMIT = 3;
 
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
-export type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
+export type ServiceShowcaseMedia = {
+  photos: string[];
+  videoUrl: string | null;
+  /** 🃏 The stored refs behind `photos` (same order) and the clip — what a hide per card is keyed on, since the display
+   *  URLs are presigned and change. Optional: only the shop page resolves them (`withCardHides`). */
+  photoRefs?: string[];
+  videoRef?: string | null;
+};
 
 /**
  * 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30).
@@ -133,6 +140,15 @@ export type ServiceCard = {
    * when the card has neither, so every other card serializes byte-for-byte as before. Never a price.
    */
   reviews?: CardReviews;
+  /**
+   * 🃏 HIDE PER CARD (Build 5 Lane C, `lib/service-card-hides.ts`). `photoRefs` pairs with `photos` (same order) and
+   * `clipRef` with `videoUrl`, so the supplier's tap can name what it hides; `hiddenOnCard` lists the hidden items'
+   * keys — couples and the 👁 Couple view leave them out, the supplier sees them greyed. ALL OPTIONAL and ABSENT when
+   * the grown card is off or the card has none, so every other card serializes byte-for-byte as before.
+   */
+  photoRefs?: string[];
+  clipRef?: string;
+  hiddenOnCard?: string[];
 };
 
 export type CardReviews = {

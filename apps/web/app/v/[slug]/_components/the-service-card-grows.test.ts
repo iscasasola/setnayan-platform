@@ -22,14 +22,14 @@ const VIEW = readFileSync(join(HERE, '../../../_components/service-face-door.tsx
 const ORDER = [...(SHEET.match(/GROWN_SECTION_ORDER = \[([^\]]+)\] as const/)?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
 
 test('facts first, media last — the approved order', () => {
-  assert.deepEqual(ORDER, ['included', 'not', 'serves', 'record', 'reviews', 'photos', 'clip', 'inspiration']);
+  assert.deepEqual(ORDER, ['included', 'not', 'serves', 'record', 'reviews', 'events', 'photos', 'clip', 'inspiration']);
   // …and the sections are PUSHED in that order (the array the body maps over).
   const pushed = [...SHEET.matchAll(/sections\.push\(\{\s*key: '([a-z]+)'/g)].map((m) => m[1]);
   assert.deepEqual(pushed, ORDER, 'a section moved — media must stay at the bottom');
 });
 
 test('it rises full screen from the tapped card, on <body>, and the bars step away', () => {
-  assert.match(SHEET, /import \{ riseFromRect \} from '@\/lib\/rise-motion';/, 'the one rise, not a hand-rolled motion');
+  assert.match(SHEET, /import \{[^}]*\briseFromRect\b[^}]*\} from '@\/lib\/rise-motion';/, 'the one rise, not a hand-rolled motion');
   assert.match(SHEET, /riseFromRect\(el, from\.getBoundingClientRect\(\)\);/, 'the open rise from the card');
   assert.match(SHEET, /riseFromRect\(el, from\.getBoundingClientRect\(\), \{ reverse: true \}\)/, '✕ must fall back into the card');
   assert.match(SHEET, /useChromeAway\(true\);/);
@@ -53,4 +53,42 @@ test('📌 one section head pins at a time under the bar, and a tap glides to it
 test('the Setnayan exclusive never reaches the grown card', () => {
   const code = stripComments(SHEET);
   assert.doesNotMatch(code, /exclusive_perk|exclusivePerk|hasExclusive/);
+});
+
+test('⤴ ruling 5976 — the hero morphs out of the tapped cover over the house 0.7 s; reduced motion never moves it', () => {
+  const code = stripComments(SHEET);
+  assert.match(code, /heroClipFrom\(hero\.getBoundingClientRect\(\), cover\.getBoundingClientRect\(\), card\.getBoundingClientRect\(\), el\.getBoundingClientRect\(\)\)/);
+  assert.match(code, /duration: RISE_MS,\s*easing: RISE_EASE,/, 'the morph runs on the rise\'s own clock, never a typed duration');
+  assert.doesNotMatch(code, /duration: 520|520\s*ms/, 'the prototype\'s 520 ms was overruled by "0.7s"');
+  assert.match(code, /if \(!el \|\| !hero \|\| !cover \|\| reduceMotion\(\)/, 'reduced motion: the clip stays still (the layer crossfades)');
+  assert.match(code, /morphHero\(from, false\);\s*riseFromRect\(el, from\.getBoundingClientRect\(\)\);/, 'measured BEFORE the rise transforms the layer');
+  assert.match(code, /morphHero\(from, true\);/, '✕ closes the hero back into the cover');
+  // The face marks its cover so the morph can find it.
+  const FACE = readFileSync(join(HERE, '../../../_components/service-face.tsx'), 'utf8');
+  assert.match(FACE, /data-service-face-cover=""/);
+  // The hero plays the card's photos — the face's own cover show (#7532), not a second slideshow.
+  assert.match(code, /<ServiceFaceCoverShow photos=\{heroShow\} \/>/);
+});
+
+test('🃏 ruling 5970 — hide per card, 👁 Couple view and the opens are the SHOP\'s only; couples get the card without the hidden', () => {
+  const code = stripComments(SHEET);
+  // The eye is drawn only for the shop.
+  assert.match(code, /\{owner \? \(\s*<button[\s\S]{0,200}?onClick=\{\(\) => setCoupleView\(\(v\) => !v\)\}/);
+  // Curating = the shop, not in the couple view; everyone else leaves a hidden item OUT.
+  assert.match(code, /const curating = owner !== null && !coupleView;/);
+  assert.match(code, /const leftOut = \(key: string \| null\) => !curating && isHidden\(key\);/);
+  assert.match(code, /owner \? owner\.hidden\.has\(key\) : \(c\.hiddenOnCard \?\? \[\]\)\.includes\(key\)/);
+  // The greyed words, exactly.
+  assert.match(code, /Hidden on this card\n/);
+  // The opens have no hide: drawn for the shop in BOTH views, and a failed read never reads as zero.
+  assert.match(code, /owner\.opens === null\s*\? 'Opens couldn’t load'/);
+  // Reviews are never a hidable.
+  assert.doesNotMatch(code, /hidable\([^)]*review/i);
+});
+
+test('📅 events show WITHOUT names — the record\'s anonymised lines, drawn once', () => {
+  const code = stripComments(SHEET);
+  assert.match(code, /c\.record\?\.ledger \?\? \[\]/, 'Events read the floored, anonymised ledger — never a new event read');
+  assert.match(code, /record=\{\{ \.\.\.c\.record, ledger: \[\] \}\}/, 'the ledger is not drawn twice');
+  assert.doesNotMatch(code, /display_name|couple_display_name|event_id/, 'no name or event id reaches the grown card');
 });

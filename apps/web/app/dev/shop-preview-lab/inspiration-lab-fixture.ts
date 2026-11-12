@@ -86,6 +86,9 @@ export const LAB_GROWN_CARD: ServiceCard = withInspirationLooks(
       '/realstories/john-jane-g3.jpg',
     ],
     videoUrl: '/realstories/jack-jill-vclip.mp4',
+    // 🃏 Hide per card (ruling 5970): the lab's stand-in refs behind the photos and the clip.
+    photoRefs: ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9'].map((k) => `r2://lab/${k}.jpg`),
+    clipRef: 'r2://lab/clip.mp4',
     record: {
       bookedCount: 12,
       mix: [

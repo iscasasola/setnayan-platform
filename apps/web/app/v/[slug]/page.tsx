@@ -160,6 +160,8 @@ import {
 } from './_components/review-groups';
 import { readCardGuestReviewStats, readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { buildCardReviews } from '@/lib/card-reviews';
+import { pairPhotoRefs, withCardHides } from '@/lib/service-card-hides';
+import { readCardHides } from '@/lib/service-card-hides.server';
 import { resolveGuestReviewPhotoUrls } from '@/lib/guest-review-photos.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
@@ -815,9 +817,15 @@ async function resolveServiceShowcaseMedia(
           Promise.all(photoKeys.map((k) => displayUrlForStoredAsset(k))),
           displayUrlForStoredAsset(s.showcase_video_r2_key),
         ]);
-        const photos = photoUrls.filter((u): u is string => Boolean(u));
+        // 🃏 The refs ride along, paired with the URLs that resolved — a hide per card is keyed on the ref.
+        const { photos, photoRefs } = pairPhotoRefs(photoKeys, photoUrls);
         if (photos.length > 0 || videoUrl) {
-          out.set(s.vendor_service_id, { photos, videoUrl: videoUrl ?? null });
+          out.set(s.vendor_service_id, {
+            photos,
+            videoUrl: videoUrl ?? null,
+            photoRefs,
+            videoRef: videoUrl ? (s.showcase_video_r2_key ?? null) : null,
+          });
         }
       } catch {
         // Fail-soft — the card simply renders without its media strip.
@@ -1257,6 +1265,7 @@ export async function renderVendorBySlug({
     coverUrlByService,
     tileByCardKind,
     couplePhotosByService,
+    cardHidesByService,
   ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
@@ -1269,6 +1278,8 @@ export async function renderVendorBySlug({
     resolveTileByCardKind(activeServices),
     // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
     fetchServiceCardCouplePhotos(admin, activeServiceIds),
+    // 🃏 What the shop hid on each card (hide per card never deletes) — only read where the grown card is drawn.
+    detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve(new Map<string, string[]>()),
   ]);
   // ③0-c — the coarse category each category files its cards under is the LIVE column
   // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
@@ -3284,6 +3295,8 @@ export async function renderVendorBySlug({
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
             couplePhotosByService={couplePhotosByService}
+            cardHidesByService={cardHidesByService}
+            ownerCheckFor={user !== null && !isDemoVendor ? vendor.vendor_profile_id : null}
             /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
             viewerSignedIn={user !== null}
             /* Reuses the SAME trusted aggregate the hero stars read — the only
@@ -3813,7 +3826,13 @@ function ServicesPricingSection({
   inspirationByService,
   reviewsByService,
   countOpensFor,
+  cardHidesByService,
+  ownerCheckFor,
 }: {
+  /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
+  ownerCheckFor: string | null;
+  /** 🃏 What the shop hid on each card (`vendor_service_card_hides`) — couples get the card without them. */
+  cardHidesByService: Map<string, string[]>;
   /** 📈 The shop whose card opens count (Build 6 Lane I, "Which card sells") — null for a demo shop or a team preview. */
   countOpensFor: string | null;
   services: ReadonlyArray<VendorServiceRow>;
@@ -3940,7 +3959,14 @@ function ServicesPricingSection({
           coverUrlByService.get(row.vendor_service_id) ?? null,
         ),
         couplePhotosByService.get(row.vendor_service_id),
-      )).map((card) => withCardReviews(card, reviewsByService.get(card.id))),
+      ))
+        .map((card) => withCardReviews(card, reviewsByService.get(card.id)))
+        // 🃏 Hide per card: the refs the supplier's tap names + what is hidden. Only where the grown card exists.
+        .map((card) =>
+          detailsEnabled
+            ? withCardHides(card, showcaseByService.get(card.id), cardHidesByService.get(card.id))
+            : card,
+        ),
     });
   }
 
@@ -3973,6 +3999,7 @@ function ServicesPricingSection({
         openServicePublicId={openServicePublicId}
         shopName={businessName}
         countOpensFor={countOpensFor}
+        ownerCheckFor={ownerCheckFor}
       />
     </section>
   );

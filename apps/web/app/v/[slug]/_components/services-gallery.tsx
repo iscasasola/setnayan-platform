@@ -27,6 +27,7 @@ export type { ServiceCard };
 import type { CompiledCardRecord } from '@/lib/service-card-record';
 import {
   ServiceDetailsSheet,
+  type GrownCardOwner,
   type ServiceInquireMode,
 } from './service-details-sheet';
 import { formatCount } from '@/lib/format-number';
@@ -62,7 +63,14 @@ export function ServicesGallery({
   viewerSignedIn = false,
   shopName = null,
   countOpensFor = null,
+  ownerCheckFor = null,
 }: {
+  /**
+   * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
+   * it? Then the grown card carries hide per card, 👁 Couple view and the card's opens. The database decides
+   * (`current_vendor_profile_ids()`); null = never ask (signed out, demo, lab).
+   */
+  ownerCheckFor?: string | null;
   groups: ServiceGroup[];
   /** The shop's name — the grown card's face says "by {shop}" under the card's name. */
   shopName?: string | null;
@@ -113,6 +121,50 @@ export function ServicesGallery({
   // The card whose details sheet is open, by `ServiceCard.id`. Seeded ONCE from
   // the deep link (lazy initial state, so a later re-render can't re-open a
   // sheet the couple already dismissed).
+  // 🃏 Asked once: is this viewer the shop? Hides start from what the server drew and change in place on a tap.
+  const [ownerOpens, setOwnerOpens] = useState<{ opens: Record<string, number> | null } | null>(null);
+  const [hides, setHides] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(groups.flatMap((g) => g.cards.map((c) => [c.id, c.hiddenOnCard ?? []]))),
+  );
+  useEffect(() => {
+    if (!ownerCheckFor || !detailsEnabled) return;
+    let live = true;
+    couplePhotoShare({ op: 'card_owner', vendorProfileId: ownerCheckFor })
+      .then((reply) => {
+        if (live && reply.op === 'card_owner' && reply.result.status === 'owner') setOwnerOpens({ opens: reply.result.opens });
+      })
+      .catch(() => {
+        /* Not known to be the shop → the card a couple sees. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [ownerCheckFor, detailsEnabled]);
+  /** Hide (or show again) one item on one card — shown at once, put back if the save is refused. */
+  const toggleHide = (cardId: string, key: string, hide: boolean) => {
+    const apply = (on: boolean) =>
+      setHides((h) => {
+        const cur = new Set(h[cardId] ?? []);
+        if (on) cur.add(key);
+        else cur.delete(key);
+        return { ...h, [cardId]: [...cur] };
+      });
+    apply(hide);
+    couplePhotoShare({ op: 'card_hide', vendorServiceId: cardId, key, hidden: hide })
+      .then((reply) => {
+        if (reply.op !== 'card_hide' || reply.result.status !== 'ok') apply(!hide);
+      })
+      .catch(() => apply(!hide));
+  };
+  const ownerFor = (cardId: string): GrownCardOwner | null =>
+    ownerOpens
+      ? {
+          hidden: new Set(hides[cardId] ?? []),
+          onToggle: (key, hide) => toggleHide(cardId, key, hide),
+          opens: ownerOpens.opens === null ? null : (ownerOpens.opens[cardId] ?? 0),
+        }
+      : null;
+
   const [openCardId, setOpenCardId] = useState<string | null>(() => {
     if (!detailsEnabled || !openServicePublicId) return null;
     for (const g of groups) {
@@ -193,6 +245,7 @@ export function ServicesGallery({
           inquireMode={inquireMode}
           shopName={shopName}
           from={originRef.current}
+          owner={ownerFor(openCard.id)}
           onClose={() => setOpenCardId(null)}
         />
       ) : null}

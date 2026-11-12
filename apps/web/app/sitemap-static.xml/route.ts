@@ -38,9 +38,9 @@ const STATIC_ROUTES: ReadonlyArray<{
   // pre-pilot iteration cadence.
   { path: '/', lastmod: '2026-05-29', changefreq: 'daily', priority: '1.0' },
 
-  // /vendors browse — DB-backed catalog. Page itself updates on every
-  // verification + new tile lands. Daily.
-  { path: '/explore', lastmod: '2026-05-29', changefreq: 'daily', priority: '0.9' },
+  // /explore is NOT listed (removed 2026-11-12): Find suppliers moved inside Discover (DECISION_LOG "DISCOVER WITH
+  // SUPPLIERS — PROTOTYPE APPROVED"), and /explore answers 308 → `/` with its filters. The drawing's SEO plan: the
+  // filtered Discover addresses canonicalise to `/`; category search traffic stays with the /suppliers/… pages.
 
   // /explore/compare is NOT listed (removed 2026-11-01, live walk). Added
   // 2026-07-10 as "orphaned — indexable", but bare it is not a page: with no

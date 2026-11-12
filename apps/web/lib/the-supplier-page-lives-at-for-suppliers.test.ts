@@ -59,10 +59,14 @@ test('the sitemap lists /for-suppliers and never the redirect', () => {
   assert.doesNotMatch(sitemap, /path: '\/vendors'/, 'a sitemap must never list a redirect');
 });
 
-test('the old MARKETPLACE subpaths still go to /explore, not to the supplier page', () => {
+test('the old MARKETPLACE subpaths still go to the marketplace, not to the supplier page', () => {
+  // 🔄 2026-11-12: "the marketplace" is Discover now — `/explore` forwards to `/` (owner: *"find suppliers needs to be
+  // also inside discover already. they do not need to have their own page"*), so `/vendors/*` resolves through the
+  // same forward map in ONE hop instead of landing on `/explore` first. Still never /for-suppliers.
   const mw = read('middleware.ts');
   assert.match(mw, /pathname\.startsWith\('\/vendors\/'\)/);
-  assert.match(mw, /new URL\(`\/explore\$\{rest\}\$\{search\}`/);
+  assert.match(mw, /legacyRedirectTarget\(`\/explore\$\{rest\}`, search\)/);
+  assert.match(mw, /new URL\(viaExplore \?\? `\/explore\$\{rest\}\$\{search\}`/);
 });
 
 /** Every app/lib/components source file, tests excluded. */

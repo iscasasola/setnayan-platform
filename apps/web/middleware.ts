@@ -361,19 +361,22 @@ async function middlewareCore(request: NextRequest) {
   // `/for-suppliers` with a 308 before this middleware runs (moved 2026-09-30,
   // owner DECISION_LOG 2026-09-29 "LANE 2 §2C"). Only the legacy marketplace
   // subpaths redirect to /explore here.
+  //
+  // 🔎 2026-11-12 — STRAIGHT TO DISCOVER, NOT VIA /explore. Find suppliers moved inside Discover (DECISION_LOG
+  // "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED") and `/explore` forwards to `/` itself, so these old addresses
+  // go where `/explore` would send them in ONE hop (the drawing: "Point straight at / so nobody hops twice").
   if (pathname.startsWith('/vendors/')) {
     // /vendors/compare is still an un-wired orphan (its `ids` param was never
-    // honored — Task #12), so it lands on /explore with the explanatory notice
-    // banner instead of a bare /explore/compare. Query intentionally dropped.
+    // honored — Task #12). It used to land on /explore with the compare notice;
+    // the notice is retired with /explore (the compare line says it), so it lands
+    // on Discover. Query intentionally dropped.
     if (pathname === '/vendors/compare') {
-      return NextResponse.redirect(
-        new URL('/explore?notice=compare_v1_2', request.url),
-        308,
-      );
+      return NextResponse.redirect(new URL('/', request.url), 308);
     }
     const rest = pathname.slice('/vendors'.length); // '' | '/categories' | …
+    const viaExplore = legacyRedirectTarget(`/explore${rest}`, search);
     return NextResponse.redirect(
-      new URL(`/explore${rest}${search}`, request.url),
+      new URL(viaExplore ?? `/explore${rest}${search}`, request.url),
       308,
     );
   }
@@ -385,8 +388,9 @@ async function middlewareCore(request: NextRequest) {
   // Safari logged every aborted prefetch ("Failed to fetch RSC payload … Load
   // failed" × 8 on the 2026-10-13 quality sweep, item 10). Answered here as a
   // real 307 before anything streams. With `ids`, the page decides as before.
+  // 2026-11-12: to Discover's supplier view — `/explore` is no longer a page (it forwards to `/`).
   if (pathname === '/explore/compare' && !request.nextUrl.searchParams.get('ids')) {
-    return NextResponse.redirect(new URL('/explore', request.url), 307);
+    return NextResponse.redirect(new URL('/?browse=1', request.url), 307);
   }
 
   // Legacy /services → /add-ons. 308 (permanent + method-preserving) since

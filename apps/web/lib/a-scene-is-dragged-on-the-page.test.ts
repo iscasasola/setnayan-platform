@@ -530,7 +530,9 @@ test('(7) a scene of the couple’s own is never taken silently; ↺ is the Make
   assert.match(side, /setSceneUndrawer\(\(data\) => \{/);
   assert.doesNotMatch(side, /addEventListener\('click', onUndo, true\)/, 'a capture listener on ↺ is back — one press must be heard by one door');
   assert.equal((side.match(/aria-label/g) ?? []).length, 0, 'the drag names a button by its aria-label');
-  assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), /label="Undo"[\s\S]{0,400}?onClick=\{\(\) => act\(\{ intent: 'undo' \}\)\}/, 'anti-vacuity: the Maker’s Undo is no longer that button');
+  /* ↺ (2026-11-09, "↺ BECOMES A HISTORY LIST") ↺ opens the list; the ONE step back it used to take is the bar's own
+     not-drawn button, the line's door — the same act. */
+  assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), /data-bar-item="Undo"\s*data-maker-step-back=""[\s\S]{0,200}?onClick=\{\(\) => act\(\{ intent: 'undo' \}\)\}/, 'anti-vacuity: the Maker’s Undo is no longer that button');
   assert.match(raw('app/dashboard/[eventId]/website/_components/hub-draft-button.tsx'), /aria-label=\{said\}[\s\S]{0,200}?data-bar-item=\{phone \? label : undefined\}/, 'anti-vacuity: the button no longer names itself');
   /* What it says of an undo is only said of the step this drawer DREW (the journal's own — a step with any other save
      after it is not on top, so it is never drawn here), once the page shows it. */
@@ -597,14 +599,10 @@ test('(7) the line’s Undo is never mistaken for the Maker’s own ↺ — one 
   assert.match(tagOf(lineButton), /aria-label="Undo"/, 'anti-vacuity: the line’s Undo no longer shares the word — by its label it WOULD be taken for ↺');
   for (const n of onButton) assert.ok(!tagOf(lineButton).includes(`${n.attr}=`), `the line’s own Undo carries ${n.attr} — it is the Maker’s ↺ to this selector`);
   /* …and the Maker's own is the one that does: named so by `DraftButton`, inside the draft bar's own actions. */
-  const { DraftButton } = await import('../app/dashboard/[eventId]/website/_components/hub-draft-button');
-  const top = renderToStaticMarkup(
-    React.createElement(DraftButton, { label: 'Undo', icon: null, bar: 'icon', phone: { width: 'w-11' }, disabled: false, disabledReason: '', onClick: () => {} }),
-  );
-  assert.match(/<button\b[^>]*>/.exec(top)?.[0] ?? '', /data-bar-item="Undo"/, 'the Maker’s own Undo no longer names itself');
+  /* ↺ (2026-11-09) the Maker's own one step back is the draft bar's not-drawn button — ↺ opens the History list. */
   const bar = raw('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   const actions = bar.slice(bar.indexOf('data-maker-draft-actions=""'));
-  assert.ok(bar.includes('data-maker-draft-actions=""') && /<DraftButton\s+label="Undo"/.test(actions), 'the Maker’s Undo is not drawn inside the draft bar’s own actions');
+  assert.ok(bar.includes('data-maker-draft-actions=""') && /<button\s+type="button"\s+hidden[\s\S]{0,120}?data-bar-item="Undo"/.test(actions), 'the Maker’s Undo is not drawn inside the draft bar’s own actions');
   /* …and the scene ↺ put back is the picked part again (the prototype's `undo`: `pick(step.k)`) — and STAYS picked:
      a part only just picked is let go of only when the work area's list, asked now, still says it was taken off
      (the list a render holds is from before the pick — walked 2026-10-12: the toolbar was left on nothing). */

@@ -5,7 +5,8 @@ import { FormsPageBody } from '@/app/vendor-dashboard/forms/_components/forms-pa
 import { FormMaker } from '@/app/vendor-dashboard/forms/_components/form-maker';
 import { ReportForm } from '@/app/vendor-dashboard/clients/[eventId]/_pages/report-form';
 import { SupplierFormAnswers } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/supplier-form-answers';
-import { draftItemOf, formSizeLine, type FormItemRow } from '@/lib/vendor-forms';
+import { FormsFromShopList } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list';
+import { draftItemOf, formSizeLine, sentFormState, titleForCouple, type FormItemDraft, type FormItemRow } from '@/lib/vendor-forms';
 import type { ShopForm } from '@/lib/vendor-forms.server';
 
 const EV = '00000000-0000-4000-8000-0000000000e1';
@@ -38,9 +39,23 @@ const SHOT: FormItemRow[] = [
 const BOOTH: FormItemRow[] = [q('b1', 'f-booth', 'Booth backdrop colour', 'dropdown', { options: ['Ivory', 'Sage', 'Black'] }), q('b2', 'f-booth', 'How many guests?', 'number')];
 
 const LIB: ShopForm[] = [
-  { formId: 'f-shot', title: 'Shot list', items: SHOT, serviceIds: ['c-photo'], usedWith: 3, sizeLine: formSizeLine(SHOT), updatedAt: '2026-11-07T02:00:00Z' },
-  { formId: 'f-booth', title: 'Booth details', items: BOOTH, serviceIds: ['c-booth'], usedWith: 1, sizeLine: formSizeLine(BOOTH), updatedAt: '2026-11-06T02:00:00Z' },
-  { formId: 'f-sign', title: 'Delivery sign-off', items: [q('d1', 'f-sign', 'Who signs off the album?')], serviceIds: [], usedWith: 0, sizeLine: '1 question', updatedAt: '2026-11-05T02:00:00Z' },
+  { formId: 'f-shot', title: 'Shot list', items: SHOT, serviceIds: ['c-photo'], usedWith: 3, sizeLine: formSizeLine(SHOT), updatedAt: '2026-11-07T02:00:00Z', inLibrary: true, forEventId: null },
+  { formId: 'f-booth', title: 'Booth details', items: BOOTH, serviceIds: ['c-booth'], usedWith: 1, sizeLine: formSizeLine(BOOTH), updatedAt: '2026-11-06T02:00:00Z', inLibrary: true, forEventId: null },
+  { formId: 'f-sign', title: 'Delivery sign-off', items: [q('d1', 'f-sign', 'Who signs off the album?')], serviceIds: [], usedWith: 0, sizeLine: '1 question', updatedAt: '2026-11-05T02:00:00Z', inLibrary: true, forEventId: null },
+];
+/** 📋 Piece 3a: this event's own forms — one edited for the couple and kept with them, one also kept in the library. */
+const EVENT_FORMS: ShopForm[] = [
+  {
+    formId: 'f-booth-rs',
+    title: 'Booth details · for Reyes & Santos',
+    items: BOOTH,
+    serviceIds: [],
+    usedWith: 0,
+    sizeLine: formSizeLine(BOOTH),
+    updatedAt: '2026-11-12T02:00:00Z',
+    inLibrary: false,
+    forEventId: EV,
+  },
 ];
 const CARDS = [
   { id: 'c-photo', title: 'Wedding photo & video' },
@@ -52,11 +67,54 @@ export function FormsLabClient({ mode }: { mode: string }) {
   const [open, setOpen] = useState(true);
   // ?m=load opens the Forms Maker sheet the way a tap on "Load a form" does.
   useEffect(() => {
-    if (mode !== 'load') return;
-    const t = setTimeout(() => (document.querySelector('[data-testid="forms-load"]') as HTMLElement | null)?.click(), 600);
+    // ?m=view opens a library form READ-ONLY first, the way a tap on its row does (Piece 3a).
+    const sel = mode === 'load' ? '[data-testid="forms-load"]' : mode === 'view' ? '[data-forms-library] button' : null;
+    if (!sel) return;
+    const t = setTimeout(() => (document.querySelector(sel) as HTMLElement | null)?.click(), 600);
     return () => clearTimeout(t);
   }, [mode]);
 
+  // 📋 Piece 3a: ?m=edit — the Maker as an Edit from a client's page ("Save for Reyes & Santos" · "Also keep in my library").
+  if (mode === 'edit') {
+    const f = LIB[1]!;
+    return (
+      <FormMaker
+        open={open}
+        onClose={() => setOpen(false)}
+        initial={{
+          title: titleForCouple(f.title, 'Reyes & Santos'),
+          items: f.items.map((r) => {
+            const { id: _id, ...rest } = draftItemOf(r);
+            return rest as FormItemDraft;
+          }),
+          serviceIds: [],
+          forEventId: EV,
+          editedFromFormId: f.formId,
+          inLibrary: false,
+        }}
+        cards={CARDS}
+        locks={{ media: 'Pro', video: null }}
+        eventId={EV}
+        returnPath="/dev/forms-lab"
+        shopId={SHOP}
+        coupleName="Reyes & Santos"
+      />
+    );
+  }
+  // 📋 Piece 3a: ?m=couple-list — the couple's "Forms from <shop>" list (open ones first, each with its state).
+  if (mode === 'couple-list') {
+    return (
+      <FormsFromShopList
+        shopName="SetnaProd"
+        rows={[
+          { formId: 'a', title: 'Where do we set up? · for Reyes & Santos', state: sentFormState({ answered: 0, total: 2 }) },
+          { formId: 'b', title: 'Shot list', state: sentFormState({ answered: 2, total: 3 }) },
+          { formId: 'c', title: 'Booth details', state: sentFormState({ answered: 2, total: 2 }) },
+          { formId: 'd', title: 'Delivery sign-off', state: sentFormState({ locked: true, answered: 1, total: 1 }) },
+        ]}
+      />
+    );
+  }
   if (mode === 'maker' || mode === 'new') {
     const f = LIB[0]!;
     return (
@@ -101,6 +159,7 @@ export function FormsLabClient({ mode }: { mode: string }) {
       canSend
       returnPath="/dev/forms-lab"
       library={LIB}
+      eventForms={mode === 'body-empty' ? [] : EVENT_FORMS}
       cards={CARDS}
       event={{
         status: 'ok',
@@ -114,6 +173,7 @@ export function FormsLabClient({ mode }: { mode: string }) {
             answers: { s1: 'First kiss · Entrance', s3: 'Yes' },
             answered: 2,
             total: 3,
+            locked: false,
           },
         ],
         linkedToBooked: [

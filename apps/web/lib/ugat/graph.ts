@@ -3990,6 +3990,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'vendor_forms' },
       { kind: 'fk', table: 'vendor_forms', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'vendor_forms', column: 'retired_at' },
+      // 📋 Piece 3a (20271340142149): an edit from a client's page saves a NEW form kept with that event.
+      { kind: 'column', table: 'vendor_forms', column: 'in_library' },
+      { kind: 'fk', table: 'vendor_forms', column: 'for_event_id', references: 'events' },
+      { kind: 'fk', table: 'vendor_forms', column: 'edited_from_form_id', references: 'vendor_forms' },
       { kind: 'fk', table: 'vendor_questions', column: 'form_id', references: 'vendor_forms' },
       { kind: 'column', table: 'vendor_questions', column: 'item_kind' },
       { kind: 'column', table: 'vendor_questions', column: 'answer_type' },
@@ -4015,7 +4019,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking — lib/vendor-forms-on-booking.server.ts, reached only through runDepositAcknowledgedEffects once the deposit is acknowledged — service role, for the forms linked to the booked cards',
     guardedBy:
-      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts',
+      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts · Piece 3a: vendor_forms_event_scope_guard + event_form_sends_own_event_guard + vendor_form_service_links_in_library_guard (an event-only form is sent only into its event, links to no card, and a library form leaves only by retiring) · tests/db/an-edited-form-stays-with-its-event.db.test.ts',
     traps:
       'vendor_questions.form_id NULL is the SHIPPED question set (the pre-forms questions) — every shipped reader filters it, and a reader that forgets returns a form’s items as if they were the shop’s standing questions. A retired form (retired_at set) leaves the library and is never sent on booking — both readers filter retired_at IS NULL (lib/vendor-forms.server.ts, lib/vendor-forms-on-booking.server.ts).',
   },

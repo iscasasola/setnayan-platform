@@ -131,10 +131,13 @@ test('forty Logo edits never grow the draft past the budget, and Undo keeps the 
   assert.ok(d.history.length < HUB_DRAFT_HISTORY_LIMIT, 'the byte budget, not the count, is what trimmed it');
   assert.equal(d.history[d.history.length - 1]!.events.monogram_custom_svg, before.events.monogram_custom_svg);
   assert.equal(undoHubDraft(d).events.monogram_custom_svg, tracedSvg(39));
-  // What was dropped is the OLDEST: the history is a contiguous run ending at edit 39.
-  const kept = d.history.map((h) => h.events.monogram_custom_svg);
+  // What was dropped is the OLDEST: the history is a contiguous run ending at edit 39 — under the state the edits
+  // started from (nothing drafted = what guests see), which the History list keeps as its last row (owner 2026-11-09).
+  assert.deepEqual(d.history[0]!.events, {}, 'the "What guests see now" state was dropped');
+  const kept = d.history.slice(1).map((h) => h.events.monogram_custom_svg);
   const first = 40 - kept.length;
-  kept.forEach((svg, i) => assert.equal(svg, tracedSvg(first + i), `history[${i}]`));
+  kept.forEach((svg, i) => assert.equal(svg, tracedSvg(first + i), `history[${i + 1}]`));
+  assert.equal(d.history[1]!.said, 'Earlier edits', 'the folded step is not said as "Earlier edits"');
 });
 
 test('the prod shape — a stored 195 KB draft — is brought under the budget on read', () => {

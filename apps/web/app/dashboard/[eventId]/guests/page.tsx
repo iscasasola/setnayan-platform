@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { readNotCountedNotes } from '@/lib/guest-not-counted.server';
+import { readNotCountedOnList } from '@/lib/guest-not-counted.server';
+import { paxServicesForList } from '@/lib/guest-pax-rows';
 import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
@@ -456,8 +457,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       .maybeSingle(),
   );
   // 🍽 "Not counted for <service>" — the row's quiet note (owner 2026-11-02). Leaves now, read where the rows are built;
-  // a refused read draws no note (`readNotCountedNotes` logs it), never a "counted for all" it did not measure.
-  const notCountedRead = readNotCountedNotes(supabase, eventId).catch(() => null);
+  // a refused read draws no note (`readNotCountedOnList` logs it), never a "counted for all" it did not measure. The same
+  // read carries the per-head services Show & sort lists (owner 2026-11-12, `lib/guest-pax-filter.ts`).
+  const notCountedRead = readNotCountedOnList(supabase, eventId).catch(() => null);
   const rosterRead = Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
       fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true, includeRepresented: true }),
@@ -1058,7 +1060,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     [...placedByGuest.entries()].map(([id, label]) => [id, tableWords(label)]),
   );
   const songsByGuest: Record<string, string[]> = Object.fromEntries(songsByGuestId.entries());
-  const notCountedByGuest: Record<string, string> = (await notCountedRead) ?? {};
+  const notCountedList = await notCountedRead;
+  const notCountedByGuest: Record<string, string> = notCountedList?.notes ?? {};
+  // 🍽 Show & sort › one row per per-head service — who it counts, who is ticked out of it.
+  const paxServices = paxServicesForList(notCountedList, guests, (gid) => membershipsMap.get(gid) ?? []);
   const faceByGuest: Record<string, string> = Object.fromEntries(
     guests
       .map((g) => [g.guest_id, photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id]] as const)
@@ -1147,6 +1152,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tableByGuest={tableByGuest}
       inviteTagByGuest={inviteTagsByGuest ?? {}}
       notCountedByGuest={notCountedByGuest}
+      paxServices={paxServices}
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}

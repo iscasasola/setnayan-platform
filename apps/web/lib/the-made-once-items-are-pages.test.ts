@@ -57,7 +57,7 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   /* 🧭 One Maker since 2026-10-25: its bar holds no made-once door at all — Studio opens them. */
   const { MAKER_TOOLBAR_STAGES_STUDIO, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
-    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['side', 'undo', 'preview', 'apply', 'settings'].includes(k)),
+    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['side', 'history', 'preview', 'apply', 'settings'].includes(k)),
     [],
     'the bar holds a made-once door again',
   );

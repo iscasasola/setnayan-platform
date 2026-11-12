@@ -108,10 +108,11 @@ test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — uncondit
   const calls = [...fn.matchAll(/<DraftButton\b/g)];
   assert.equal(calls.length, 2, `expected 2 <DraftButton>, found ${calls.length}`);
   assert.doesNotMatch(fn, /label="Restore"/, 'Restore is back on the bar — it is ⋯’s row (the Maker in 4)');
-  const at = fn.indexOf('label="Undo"');
-  assert.ok(at > 0, "Undo's DraftButton is missing");
+  /* ↺ Undo became HISTORY (owner 2026-11-09): the same never-hidden control, opening the list of this draft's edits. */
+  const at = fn.indexOf('label="History"');
+  assert.ok(at > 0, "History's DraftButton is missing");
   const before = fn.slice(Math.max(0, at - 120), at);
-  assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.canUndo\s*\?|summary\.canUndo\s*&&/, 'Undo must not be conditionally rendered');
+  assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.history\s*\?|summary\.history\s*&&/, 'History must not be conditionally rendered');
   const applyAt = fn.indexOf('label="Apply"');
   assert.ok(applyAt > 0, "Apply's DraftButton is missing");
   const beforeApply = fn.slice(Math.max(0, applyAt - 160), applyAt);
@@ -128,15 +129,17 @@ test('each control disables off the field that actually means "nothing to do", n
     return fn.slice(at, at + 420);
   };
   assert.match(fn, /const canRestore = !pending && summary\.hasChanges;/, 'Restore: nothing to restore once the draft matches live');
-  assert.match(block('label="Undo"'), /disabled=\{pending \|\| !summary\.canUndo\}/, 'Undo: only the history says whether a step back exists');
+  /* ↺ History opens even with nothing drafted (the list still says what guests see now) — off only while a press is on
+     its way or when the history could not be read. */
+  assert.match(block('label="History"'), /disabled=\{pending \|\| !summary\.history\}/, 'History: off only when its rows are missing');
   assert.match(block('label="Apply"'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Apply: nothing to apply once the draft matches live');
 });
 
 test('Apply is the one primary (filled) button, and it wears the count of changes waiting', () => {
   const fn = body('HubDraftToolbar');
-  const undo = fn.slice(fn.indexOf('label="Undo"'), fn.indexOf('label="Apply"'));
+  const undo = fn.slice(fn.indexOf('label="History"'), fn.indexOf('label="Apply"'));
   const apply = fn.slice(fn.indexOf('label="Apply"'), fn.indexOf('label="Apply"') + 900);
-  assert.doesNotMatch(undo, /\bprimary\b/, 'Undo must not be the primary button');
+  assert.doesNotMatch(undo, /\bprimary\b/, 'History must not be the primary button');
   assert.match(apply, /\bprimary\b/, 'Apply must be the primary button');
   assert.match(apply, /data-maker-apply-count=""/, 'Apply lost its count (design: "Apply 3")');
   // The bar's Preview menu sits between Undo and Apply (owner 2026-10-04: ‹ · stage · ↶ · 👁 · ✓N).

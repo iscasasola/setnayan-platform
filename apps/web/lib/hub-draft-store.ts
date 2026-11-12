@@ -1,6 +1,8 @@
 import 'server-only';
 import { mainColourSlotsOf } from '@/lib/main-colours';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
+import { hubDraftHistoryRows, namedHistoryRows } from '@/lib/hub-draft-history';
+import { hostFirstName } from '@/lib/host-first-name.server';
 import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { cache } from 'react';
@@ -612,7 +614,9 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       if (!proShell) proEffects = hubDraftProEffects(draft, live, owned).map(hubProEffectView);
       // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
       summary.changes = hubDraftChangeLines(draft, live, forPlan);
-    }
+      // ↺ …and the History list's rows, in the same words (`lib/hub-draft-history.ts`).
+      summary.history = await historyRowsFor(eventId, draft, live, me);
+    } else summary.history = hubDraftHistoryRows(null, null, me);
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
     readError = true;
@@ -654,6 +658,17 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
 });
 
 /**
+ * ↺ THE HISTORY LIST's ROWS for one draft (`hubDraftHistoryRows`), another host's rows named by their first name as the
+ * event shows it (ruling A's reader, `hostFirstName`) — never their account id, which stays on the server.
+ */
+async function historyRowsFor(eventId: string, draft: HubDraft, live: HubLiveState, me: string | undefined) {
+  const rows = hubDraftHistoryRows(draft, live, me);
+  const who = [...new Set(rows.flatMap((r) => (r.theirs && r.by ? [r.by] : [])))];
+  const names = new Map<string, string | null>(await Promise.all(who.map(async (id) => [id, await hostFirstName(eventId, id).catch(() => null)] as const)));
+  return namedHistoryRows(rows, names);
+}
+
+/**
  * ⚡ THE BAR AFTER ONE MAKER SAVE — answered by the save itself (owner
  * 2026-09-30, SPEED FIRST: a pick the bridge drew brings no render of the
  * Maker, `lib/maker-refresh.ts`).
@@ -678,8 +693,10 @@ export async function hubDraftBarAfterSave(
     // ↺ `me` — whose steps ↺ may take back (ruling B); absent: every step, as before.
     // 💎 Part by part (2026-10-22): still nobody is asked who owns what — every held line and effect carries the PARTS
     // it needs, so the toolbar derives its own half from the ownership the render drew with (`hubSummaryFor`).
-    const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) };
-    const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
+    // ↺ The History list's rows ride the same answer — one list, whoever owns what.
+    const history = await historyRowsFor(eventId, draft, live, me);
+    const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false), history };
+    const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true), history };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
     let priceLabel: string | null = null;
     // 🍎 Never a web price in ANY store shell — including the one where Apple sells

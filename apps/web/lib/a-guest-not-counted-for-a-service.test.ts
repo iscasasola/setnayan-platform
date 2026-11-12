@@ -130,7 +130,9 @@ test('3 · the save changes the ticks only when the marker came, never for the c
 
 test('4 · the Guest List row carries the quiet note', () => {
   const page = read('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(page, /readNotCountedNotes\(supabase, eventId\)/);
+  // One read carries the notes and the Show & sort pax rows (2026-11-12, `readNotCountedOnList`).
+  assert.match(page, /readNotCountedOnList\(supabase, eventId\)/);
+  assert.match(page, /notCountedList\?\.notes \?\? \{\}/);
   assert.match(page, /notCountedByGuest=\{notCountedByGuest\}/);
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /notCounted=\{notCountedByGuest\[g\.guest_id\] \?\? null\}/);

@@ -1449,7 +1449,6 @@ function VendorCard({
   const selfAdded = Boolean(actions?.connect);
   const sheetDoor = useContext(SheetDoorCtx);
   const payHrefs = useContext(PayDueCtx);
-  const takenOn = useContext(TakenOnCtx);
   const inviteStatuses = useContext(InviteStatusCtx);
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
@@ -1809,6 +1808,8 @@ function VendorCard({
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
 function FitBadges({ v }: { v: ShortlistVendor }) {
+  // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
+  const takenOn = useContext(TakenOnCtx);
   // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · spec §17). When the vendor
   // has DECLARED both rings, their own word replaces the tier-derived reach
   // read with a three-state, money-shaped answer:

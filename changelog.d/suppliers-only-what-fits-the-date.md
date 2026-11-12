@@ -25,6 +25,10 @@ show what fits."* Builds on #7511 (Discover with suppliers).
   category is picked. Every existing caller is unchanged.
 - Guard: `lib/find-shows-only-what-can-be-booked.test.ts` (from the rd branch, re-pointed). Each new assertion was
   seen red by sabotage.
+- Fix: the bench's "Taken on Dec 12" badge read `TakenOnCtx` in `VendorCard` but used it in `FitBadges`, a
+  separate component — a type error and a runtime ReferenceError. `FitBadges` now reads the context itself.
+- Review shots: `build-sessions/shots-fits-the-date/` — 390 px Now beside Proposed, from `harness.html` (dummy
+  data; the copy is the code's, printed by `findNobodyFreeWords` / `takenOnWords`).
 
 Not changed: a supplier the couple saved but never asked still shows on their bench, behind "Not available on your
 date", with Remove only. Decision #3 says such suppliers are never removed from the couple's list. Hiding them is

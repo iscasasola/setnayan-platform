@@ -445,6 +445,9 @@ test('every public page that sends a reader to /pricing is a refused doorway (or
     // The company page. Its one "See transparent pricing" button lands on
     // /pricing, which middleware already bounces for every app shell.
     '/about': 'links to /pricing, which the app bounces; quotes no price itself',
+    // Its Taglish twin, shelled 2026-11-12 — same button, same closing line
+    // withheld in the app, no price quoted.
+    '/tl/about': 'Taglish twin of /about: links to /pricing, which the app bounces; quotes no price itself',
   };
   const { execSync } = require('node:child_process') as typeof import('node:child_process');
   const root = join(__dirname, '..');

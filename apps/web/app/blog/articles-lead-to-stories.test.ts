@@ -19,7 +19,7 @@ import { join } from 'node:path';
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
 test('the /blog index links to /realstories', () => {
-  assert.match(read('app/blog/page.tsx'), /href="\/realstories"/, '/blog has no way to Stories');
+  assert.match(read('app/(shell)/blog/page.tsx'), /href="\/realstories"/, '/blog has no way to Stories');
 });
 
 test('every article page links to /realstories', () => {

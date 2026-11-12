@@ -49,16 +49,16 @@
 # facts: 314
 #   shadow  18
 #   omit    296
-shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_ORDER	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_SHORT_LABEL	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_SLUG	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_TILES_BY_PARENT	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_LABEL	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
-shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	TAXONOMY_MAP	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	TILE_PARENT	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_FOLDER_ORDER	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_FOLDER_SHORT_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_FOLDER_SLUG	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_TILES_BY_PARENT	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_TILE_LABEL	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
+shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
 shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
 shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
 shadow	app/admin/users/[userId]/page.tsx	ORDER_STATUS_LABEL	lib/orders.ts

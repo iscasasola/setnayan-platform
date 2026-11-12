@@ -126,7 +126,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Looking for styling and catering teams who get the season? Browse the marketplace.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -191,7 +191,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare available suppliers side by side and book before the rush.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -451,7 +451,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse suppliers and talk price directly, with no platform cut in the middle.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

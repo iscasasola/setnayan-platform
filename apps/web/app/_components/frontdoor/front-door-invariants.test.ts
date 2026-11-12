@@ -149,33 +149,19 @@ test('sign out is submitted as a form, not linked', () => {
    Owner 2026-08-12: the Marketplace is signed-in only. The category group is
    the SAME destination by another door, so hiding the group while leaving the
    row would defeat the instruction with a label. */
-test('the Find suppliers row is a SIGNED-OUT row, and no category group comes back', () => {
+test('no rail row opens /explore any more, and no category group comes back', () => {
   /*
-    🔄 POLARITY REVERSED 2026-10-23 BY A LATER RULING. This pinned the 2026-08-12
-    "Marketplace is signed-in only" lock. The owner's 2026-10-01 ruling ("THE
-    SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR") names the
-    signed-out rail: Discover · Find suppliers · Features · How it works · Sign in.
-    (Since 2026-11-11: Discover · Find suppliers · For suppliers · For coordinators ·
-    Features · Sign in — the-rail-lists-no-tools.test.ts pins the list.)
-    Signed in the rail has no find row (the one it had drew only inside an
-    event, where the rail is focused and never drew it).
-
-    🔑 THE NEAREST GATE, NOT ANY EARLIER ONE — the window is the code
-    immediately before the row, so a gate inherited from a block above cannot
-    satisfy it.
+    🔄 2026-11-12 — THE FIND SUPPLIERS ROW LEFT. Owner: *"find suppliers needs to be also inside discover
+    already. they do not need to have their own page"* (DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
+    APPROVED"). This test pinned the row's signed-out gate (2026-10-23, after the 2026-10-01 ruling); it now
+    pins the row's ABSENCE: supplier browsing lives on Discover (`/`), and `/explore` forwards there (308,
+    lib/legacy-redirects.ts). The signed-out list itself is pinned in the-rail-lists-no-tools.test.ts.
+    SABOTAGE (2026-11-12): the `<Link href="/explore"` row put back in front-door-shell.tsx → red. Restored.
   */
-  const linkIdx = SHELL_CODE.indexOf('<Link href="/explore"');
-  assert.ok(linkIdx > -1, 'the Find suppliers row is missing');
   assert.equal(
-    SHELL_CODE.indexOf('<Link href="/explore"', linkIdx + 1),
+    SHELL_CODE.indexOf('href="/explore"'),
     -1,
-    'the rail draws two rows into /explore',
-  );
-  const window = SHELL_CODE.slice(Math.max(0, linkIdx - 160), linkIdx);
-  assert.ok(
-    /\{\s*account\.signedIn\s*\?\s*null\s*:\s*\(\s*<>\s*$/.test(window),
-    'the Find suppliers row must be gated directly as `account.signedIn ? null : (` — ' +
-      `signed OUT only. Saw: ...${window.slice(-90)}`,
+    'the rail draws a row into /explore again — supplier browsing lives inside Discover now',
   );
 
   /*
@@ -481,7 +467,13 @@ test('the rail and explore both read the shared folder count', () => {
     !/FOLDER_SERVICE_COUNT/.test(SHELL_CODE),
     'the rail shows a category count again — it has no category rows to count',
   );
-  const explore = code(readFileSync(join(SHELLED, 'explore', 'page.tsx'), 'utf8'));
+  // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with
+  // Discover), and the category list that reads the count (TAXONOMY_OPTIONS) moved, unchanged, to
+  // lib/marketplace-category-options.ts — "explore" is both files, so the count check and the drift check follow it.
+  const explore =
+    code(readFileSync(join(SHELLED, 'explore', '_lib', 'marketplace-view.tsx'), 'utf8')) +
+    '\n' +
+    code(readFileSync(join(SHELLED, '..', '..', 'lib', 'marketplace-category-options.ts'), 'utf8'));
   assert.ok(
     /FOLDER_SERVICE_COUNT/.test(explore),
     'explore must use the shared FOLDER_SERVICE_COUNT',

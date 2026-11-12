@@ -131,6 +131,29 @@ export type FilterDrawerProps = {
 
   /** Whether there are any active filters to clear — drives the Clear button visibility. */
   hasActiveFilters: boolean;
+
+  /*
+   * ─── DISCOVER (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED") ───────────────────
+   * The SAME drawer opens from Discover's supplier shelf and supplier view on `/`. Every prop below is optional
+   * and defaults to exactly what `/explore` has always drawn, so the marketplace page is unchanged.
+   */
+  /** Where the GET form goes. Default `/explore`; Discover passes `/`. */
+  action?: string;
+  /** Where Clear goes. Default: `/explore` (keeping `?folder=`), as before. */
+  clearHref?: string;
+  /**
+   * The sort select inside the drawer. Default true. Discover passes false: its Sort is ONE dropdown of its own
+   * (Sort ▾ — the drawing's Map card), and the drawer then carries the current sort as a hidden input so applying
+   * filters never resets it.
+   */
+  sortInside?: boolean;
+  /**
+   * Off-season savings as a switch IN the drawer (the drawing's Map card: the chip moves "Into Filters"). `undefined`
+   * (the default) draws no such row — `/explore` keeps its own chip. A boolean draws the switch, set to it.
+   */
+  offSeason?: boolean;
+  /** More parameters to keep through Apply (tile, lens, Discover's view mark) — hidden inputs, in order. */
+  carry?: ReadonlyArray<readonly [string, string]>;
 };
 
 export function FilterDrawer({
@@ -145,6 +168,11 @@ export function FilterDrawer({
   hostVenueLabel,
   showVenueToggle,
   hasActiveFilters,
+  action = '/explore',
+  clearHref,
+  sortInside = true,
+  offSeason,
+  carry,
 }: FilterDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const cityId = useId();
@@ -154,6 +182,7 @@ export function FilterDrawer({
   const verifiedId = useId();
   const matchId = useId();
   const venueId = useId();
+  const offSeasonId = useId();
 
   // Focus trap + move-into-panel + restore + Esc-to-close + body-scroll-lock via
   // the shared hook. The panel is the trap container (holds all form controls).
@@ -203,7 +232,7 @@ export function FilterDrawer({
 
         <form
           method="get"
-          action="/explore"
+          action={action}
           className="flex min-h-0 flex-1 flex-col"
         >
           {/* Scrollable inner area — Apply / Clear footer stays pinned even
@@ -233,6 +262,12 @@ export function FilterDrawer({
             {filters.focusedMode ? (
               <input type="hidden" name="from" value="plan" />
             ) : null}
+            {!sortInside && filters.sort && filters.sort !== 'most_reviews' ? (
+              <input type="hidden" name="sort" value={filters.sort} />
+            ) : null}
+            {(carry ?? []).map(([name, value]) => (
+              <input key={`${name}=${value}`} type="hidden" name={name} value={value} />
+            ))}
 
             {/* City */}
             <div className="flex flex-col gap-1.5">
@@ -253,7 +288,8 @@ export function FilterDrawer({
               />
             </div>
 
-            {/* Sort by */}
+            {/* Sort by — `/explore` only; Discover's Sort is its own dropdown (`sortInside`). */}
+            {sortInside ? (
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor={sortId}
@@ -274,6 +310,7 @@ export function FilterDrawer({
                 ))}
               </select>
             </div>
+            ) : null}
 
             {/* Occasion — 2026-08-15. Owner, looking at the browse page:
                 *"they can also search by type of event."* Sits ABOVE Faith
@@ -389,7 +426,28 @@ export function FilterDrawer({
               </label>
             </div>
 
-            {/* Match my wedding — only when host has an in-progress event */}
+            {/* Off-season savings — a SWITCH in the drawer on Discover (`offSeason` given); `/explore` keeps its chip. */}
+            {offSeason !== undefined ? (
+              <div className="px-3 py-1">
+                <label
+                  htmlFor={offSeasonId}
+                  className="flex cursor-pointer items-start gap-3 text-sm text-ink/80"
+                >
+                  <input
+                    id={offSeasonId}
+                    type="checkbox"
+                    role="switch"
+                    name="offseason"
+                    value="1"
+                    defaultChecked={offSeason}
+                    className="mt-0.5 h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                  />
+                  <span className="block font-medium text-ink">Off-season savings</span>
+                </label>
+              </div>
+            ) : null}
+
+            {/* Match my event — only when host has an in-progress event */}
             {matchableEvent ? (
               <div className="rounded-xl border border-ink/10 bg-cream p-3">
                 <label
@@ -406,7 +464,7 @@ export function FilterDrawer({
                   />
                   <span>
                     <span className="block font-medium text-ink">
-                      Match my wedding
+                      Match my event
                     </span>
                     <span className="mt-0.5 block text-[12px] text-ink/55">
                       Only show suppliers compatible with{' '}
@@ -466,9 +524,10 @@ export function FilterDrawer({
               {hasActiveFilters ? (
                 <Link
                   href={
-                    filters.folder
+                    clearHref ??
+                    (filters.folder
                       ? `/explore?folder=${filters.folder}`
-                      : '/explore'
+                      : '/explore')
                   }
                   className="button-secondary"
                 >

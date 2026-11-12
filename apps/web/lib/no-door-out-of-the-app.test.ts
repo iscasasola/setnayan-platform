@@ -547,7 +547,7 @@ test('the surfaces that carried the exits are IN the scanned set (derived, not a
     'app/v/[slug]/_components/anon-inquiry-composer.tsx', // the signed-out door
     'app/v/[slug]/_components/service-details-sheet.tsx',
     'app/v/[slug]/booth/page.tsx', // the shop's walk-in booth
-    'app/(shell)/explore/page.tsx', // the marketplace
+    'app/(shell)/explore/_lib/marketplace-view.tsx', // the marketplace
     'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx', // a supplier's workspace
     'app/dashboard/[eventId]/_components/vendor-itemization-card.tsx', // the budget card
     'app/dashboard/[eventId]/messages/page.tsx', // where a prefill lands, in plain sight

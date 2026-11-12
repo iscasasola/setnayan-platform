@@ -34,7 +34,9 @@ import type { MakerDevice } from './maker-context';
  * through the Maker's context (`MakerState.previewMenu`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`
  * and against any switch that would bring the old bar back by `lib/there-is-one-maker.test.ts`.
  */
-export const MAKER_TOOLBAR_STAGES_STUDIO = ['side', 'undo', 'apply', 'settings'] as const;
+/* ↺ 'history' (owner 2026-11-09, "↺ BECOMES A HISTORY LIST"; Build 6 Lane F ruling 5): the same ↺ place, which now
+   opens the list of this draft's edits instead of taking one step back (`hub-history-sheet.tsx`). */
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['side', 'history', 'apply', 'settings'] as const;
 export type MakerSide = 'stages' | 'studio';
 export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
 

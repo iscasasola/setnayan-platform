@@ -186,7 +186,7 @@ export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
   const r = await resolve(formData);
   if (!r) return;
   const newTotal = r.currentTotal - r.applied + r.target;
-  await r.admin
+  const { error } = await r.admin
     .from('event_vendors')
     .update({
       total_cost_php: newTotal,
@@ -195,6 +195,13 @@ export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
       pax_quote_base: r.base, // lock the base on first decision
     })
     .eq('vendor_id', r.eventVendorId);
+  // 👥💸 Refused when the quote already follows the guest list (`event_vendors_pax_follow_owns_the_count`, migration
+  // 20271339826198) — nothing moved, so nothing is audited and nobody is told a total changed.
+  if (error) {
+    console.error('[pax] surcharge accept refused:', error.message);
+    revalidate(r.threadId);
+    return;
+  }
   await writeAudit(r, 'accept', r.target, newTotal);
   await notifyCoupleOfSurchargeChange(r, newTotal);
   revalidate(r.threadId);

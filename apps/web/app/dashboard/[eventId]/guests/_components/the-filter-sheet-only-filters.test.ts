@@ -41,7 +41,8 @@ test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dro
   for (const name of ['Show', '+1s', 'Group by', 'Sort']) {
     assert.match(SHEET, new RegExp(`<ChosenRow[\\s\\S]{0,80}name="${name.replace('+', '\\+')}"[\\s\\S]{0,60}line=\\{`), `${name} is not ONE dropdown with its one line`);
   }
-  assert.equal((SHEET.match(/about=\{\{ words: /g) ?? []).length, 4, 'a dropdown lost its ⓘ');
+  // Four fixed dropdowns + the per-head services' one row shape (2026-11-12, drawn once per service) — each with its ⓘ.
+  assert.equal((SHEET.match(/about=\{\{ words: /g) ?? []).length, 5, 'a dropdown lost its ⓘ');
   assert.match(SHEET, /Show &amp; sort/);
   assert.match(SHEET, /· \{applied\} applied/, 'the title does not say how many choices are applied');
   assert.match(SHEET, /label="Clear all" disabled=\{applied === 0\} onClick=\{onClearAll\}/, 'Clear all is missing (or live with nothing applied)');

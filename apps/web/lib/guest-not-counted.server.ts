@@ -48,6 +48,23 @@ export async function readGuestNotCounted(
 
 /** The Guest List's quiet note per guest — "Not counted for Catering". Null = refused (no notes drawn). */
 export async function readNotCountedNotes(supabase: SupabaseClient, eventId: string): Promise<Record<string, string> | null> {
+  return (await readNotCountedOnList(supabase, eventId))?.notes ?? null;
+}
+
+/** What the Guest List reads in one go: the row notes, the per-head services, and each guest's ticks. */
+export type NotCountedOnList = {
+  notes: Record<string, string>;
+  services: BookedService[];
+  /** guest_id → the per-head services they are ticked out of, in the services' order. */
+  ticks: Record<string, string[]>;
+};
+
+/**
+ * The Guest List's read: the row notes ("Not counted for Catering") AND what its Show & sort needs to list who each
+ * per-head service counts (owner 2026-11-12, `lib/guest-pax-filter.ts`). Null = refused — then no note is drawn and no
+ * pax row is offered, never a "counted for all" it did not measure.
+ */
+export async function readNotCountedOnList(supabase: SupabaseClient, eventId: string): Promise<NotCountedOnList | null> {
   const [services, { data, error }] = await Promise.all([
     readBookedServices(supabase, eventId),
     supabase.from('guest_not_counted_for').select('guest_id, event_vendor_id').eq('event_id', eventId),
@@ -60,17 +77,18 @@ export async function readNotCountedNotes(supabase: SupabaseClient, eventId: str
   const order = new Map(services.map((s, i) => [s.id, i] as const));
   const byGuest = new Map<string, string[]>();
   for (const r of (data ?? []) as { guest_id: string; event_vendor_id: string }[]) {
-    if (!order.has(r.event_vendor_id)) continue; // a booking no longer booked counts nobody out
+    if (!order.has(r.event_vendor_id)) continue; // a booking no longer listed (or not per head) counts nobody out
     byGuest.set(r.guest_id, [...(byGuest.get(r.guest_id) ?? []), r.event_vendor_id]);
   }
-  const out: Record<string, string> = {};
+  const notes: Record<string, string> = {};
+  const ticks: Record<string, string[]> = {};
   for (const [guestId, ids] of byGuest) {
-    const words = notCountedWords(
-      ids.sort((a, b) => order.get(a)! - order.get(b)!).map((id) => services[order.get(id)!]!.label),
-    );
-    if (words) out[guestId] = words;
+    const sorted = ids.sort((a, b) => order.get(a)! - order.get(b)!);
+    ticks[guestId] = sorted;
+    const words = notCountedWords(sorted.map((id) => services[order.get(id)!]!.label));
+    if (words) notes[guestId] = words;
   }
-  return out;
+  return { notes, services, ticks };
 }
 
 /**

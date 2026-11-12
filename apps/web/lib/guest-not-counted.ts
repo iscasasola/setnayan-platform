@@ -78,3 +78,28 @@ export function notCountedAfterSave(
     drop: [...ours].filter((id) => !want.has(id)),
   };
 }
+
+/**
+ * 🍽 A KIDS MEAL SUGGESTS "NOT COUNTED" (owner 2026-11-12, DECISION_LOG "THE QUOTE FOLLOWS EACH SERVICE'S OWN COUNT · KIDS
+ * MEAL SUGGESTS 'NOT COUNTED'"). Owner chose *"Suggest it, couple taps"*: a guest whose meal is `kids` gets a one-tap
+ * suggestion on their card per BOOKED per-head service they are still counted for — never automatic (some caterers charge
+ * kids' plates). Since the quote now follows each service's own count (`quote_follow_guest_count`), the tick is money.
+ *
+ * Pure: which services to suggest. Nothing here ticks anything — the card ticks only when the couple taps.
+ */
+export const KIDS_MEAL = 'kids';
+
+export function kidsCountSuggestions<S extends { id: string; booked: boolean }>(
+  meal: string | null | undefined,
+  services: readonly S[],
+  picked: readonly string[],
+  dismissed: readonly string[] = [],
+): S[] {
+  if (meal !== KIDS_MEAL) return [];
+  return services.filter((s) => s.booked && !picked.includes(s.id) && !dismissed.includes(s.id));
+}
+
+/** "Leave out of Catering’s count?" */
+export function kidsSuggestionWords(label: string): string {
+  return `Leave out of ${label.trim()}’s count?`;
+}

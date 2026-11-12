@@ -74,7 +74,35 @@ export type FormDraft = {
   items: FormItemDraft[];
   /** The shop's service cards this form is linked to ("pick as many"). */
   serviceIds: string[];
+  /**
+   * 📋 Piece 3a (DECISION_LOG 2026-11-12): an edit made from a client's page saves a NEW form FOR that event — the
+   * original in the library and anything already sent stay as they were. Set only by the client page's "Edit".
+   */
+  forEventId?: string;
+  /** The library form this one was edited from (same shop). */
+  editedFromFormId?: string;
+  /** "Also keep in my library" — off = the form stays with its event only (and links to no card). */
+  inLibrary?: boolean;
 };
+
+/** The default name of a form edited for one couple: "<title> · for Ana & Miguel", kept inside the title limit. */
+export function titleForCouple(title: string, coupleName: string): string {
+  const base = title.trim().replace(/\s·\sfor\s.+$/, '');
+  const tail = ` · for ${coupleName.trim() || 'this couple'}`;
+  const room = FORM_TITLE_MAX - tail.length;
+  return (room > 0 ? base.slice(0, room).trimEnd() : base.slice(0, FORM_TITLE_MAX)) + (room > 0 ? tail : '');
+}
+
+/** A sent form's one state word on both sides (prototype legend 146/147): Final · All answered · Answered N of M · Open. */
+export function sentFormState(s: { locked?: boolean | null; answered: number; total: number }): {
+  key: 'final' | 'all' | 'some' | 'open';
+  words: string;
+} {
+  if (s.locked) return { key: 'final', words: 'Final' };
+  if (s.total > 0 && s.answered >= s.total) return { key: 'all', words: 'All answered' };
+  if (s.answered > 0) return { key: 'some', words: `Answered ${formatCount(s.answered)} of ${formatCount(s.total)}` };
+  return { key: 'open', words: 'Open · not answered yet' };
+}
 
 export type FormDraftProblem = { at: 'title' | 'items' | number; message: string };
 

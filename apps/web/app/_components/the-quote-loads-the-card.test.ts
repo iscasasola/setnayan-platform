@@ -51,7 +51,8 @@ test('picking a card re-seeds through the SERVER loader (the event date is never
 });
 
 test('the applied discount carries its reason to the couple (the Discount line\'s detail) and is cleared when typed over', () => {
-  assert.match(maker, /\{ label: 'Discount', detail: discountReason, amount_centavos: -discountC \}/);
+  // 12 Nov: the amount is the discount AFTER the offer (lib/quote-money.ts — offer first, then the typed discount).
+  assert.match(maker, /\{ label: 'Discount', detail: discountReason, amount_centavos: -money\.discount \}/);
   assert.equal(count(maker, /data-testid="quote-discount-reason"/g), 1);
   const input = maker.slice(maker.indexOf('aria-label="Discount"') - 400, maker.indexOf('aria-label="Discount"'));
   assert.match(input, /setDiscountReason\(null\)/, 'a hand-edited figure is never captioned as the card\'s');

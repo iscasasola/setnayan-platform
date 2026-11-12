@@ -165,10 +165,12 @@ export function rebaseHubDraftPatch(current: HubDraft, patch: HubDraftPatch, raw
  * everything the other screen changed keeps `now`'s value even where Apply took the old one off. The Wedding March's
  * moves are a list in order: what Apply left of the old list, then the moves added since.
  */
-export function draftLeftAfterApply(applied: HubDraft, left: HubDraft, now: HubDraft | null): HubDraft {
-  if (!now) return left;
+export function draftLeftAfterApply(applied: HubDraft, left: HubDraft, now: HubDraft | null, pub?: string): HubDraft {
+  /* ↺ What an Apply leaves IS what guests see: the history list's "Published <time>" row (`lib/hub-draft-history.ts`). */
+  const published = (d: HubDraft): HubDraft => (pub ? { ...d, pub } : d);
+  if (!now) return published(left);
   const state = (d: HubDraft): HubDraftState => {
-    const { v: _v, history: _h, ...rest } = d;
+    const { v: _v, history: _h, ahead: _a, by: _by, at: _at, said: _s, pub: _p, ...rest } = d;
     return rest;
   };
   const base = state(applied);
@@ -183,5 +185,5 @@ export function draftLeftAfterApply(applied: HubDraft, left: HubDraft, now: HubD
     if (march.length > 0) out.march = march;
     else delete out.march;
   }
-  return { v: 1, ...out, events: out.events ?? {}, widgets: out.widgets ?? {}, history: [] };
+  return published({ v: 1, ...out, events: out.events ?? {}, widgets: out.widgets ?? {}, history: [] });
 }

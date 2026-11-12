@@ -16,6 +16,7 @@ import { DatesRow } from './dates-row';
 import { DayBar } from './day-bar';
 import { DATES_FIGURES_EVENT, DATES_JUMP_EVENT } from './customers-figures';
 import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figures';
+import { ALL_SCHEDULES, CLIENTS_SCHEDULE_EVENT, CLIENTS_SCHEDULING_EVENT, scheduleScopeOptions, schedulesOffered } from '../clients-show-sort';
 
 /**
  * CUSTOMERS › DATES — the month (S-PR3; plan § 2 "one month grid (booked · holding · blocked), the day's rows under
@@ -32,8 +33,9 @@ import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figure
  * counts a booking.
  *
  * 2026-10-14 (owner ✅ "APPROVE" the simpler dashboard; prototype `supplier_easy_dashboard_2026-10-14_fable.html`
- * `datesBody` + `monthGrid`): the ONE dropdown is "All schedules ▾" and sits ABOVE the month (a shop with one schedule
- * reads "One schedule · N events a day" instead); the month's title is itself a dropdown between ‹ and ›; the legend
+ * `datesBody` + `monthGrid`): the ONE dropdown is "All schedules ▾" (a shop with one schedule reads "One schedule · N
+ * events a day" instead) — since 2026-11-12 no longer ABOVE the month: it is Show & sort's Schedule row plus a 44px chip
+ * under the legend (`Build_Schedules_2026-11-12` part a); the month's title is itself a dropdown between ‹ and ›; the legend
  * says Booked here · Outside (its own grey dot) · Asking · Not available · Full; a part-day block hatches the top half;
  * under the month, the picked day's long date with "Open the day ›", then its rows.
  *
@@ -104,10 +106,11 @@ export function CustomersCalendar({
   /**
    * 📅 WHERE THIS MONTH IS DRAWN — one part, two places (controller 2026-11-08: the picked client's Schedule draws "the
    * Clients calendar component, not a second calendar"; v113 `calC`):
-   *   · 'clients'  — Clients › Dates: the Schedules dropdown, the pinned row's figures, the URL, the day bar, every day
-   *                  still to come when none is picked.
-   *   · 'schedule' — the picked client's Schedule page: the same month, week strip and toggle, its event's day picked
-   *                  on arrival; no dropdown, no figures, no URL writes (the picked client owns the URL), no day bar;
+   *   · 'clients'  — Clients › Dates: the pinned row's figures, the URL, the day bar, every day still to come when
+   *                  none is picked; the Schedule chip speaks with Show & sort's Schedule row (2026-11-12).
+   *   · 'schedule' — the picked client's Schedule page: the same month, week strip, toggle and Schedule chip (its own
+   *                  pick — no Show & sort here), its event's day picked on arrival; no figures, no URL writes (the
+   *                  picked client owns the URL), no day bar;
    *                  the picked day's rows only, and nothing listed when none is picked (the schedule follows).
    */
   place?: 'clients' | 'schedule';
@@ -155,7 +158,22 @@ export function CustomersCalendar({
   const onClients = place === 'clients';
   const [picked, setPicked] = useState<CalendarDay | null>(initialDay);
   const toggleDay = (d: CalendarDay) => setPicked((was) => (was === d ? null : d));
-  const [scope, setScope] = useState('all');
+  /*
+    📅 SCHEDULE ▾ (2026-11-12) — which schedules the month marks. Picked in Show & sort's Schedule row or this month's chip
+    (the SAME choices, `scheduleScopeOptions`); on-screen only, never the address. On Clients the sheet and the month
+    are siblings, so the pick crosses on window events (like `CLIENTS_SHOW_EVENT`); the Schedule page's month keeps its
+    own (the Clients list is still mounted under it and must not hear it).
+  */
+  const [scope, setScope] = useState(ALL_SCHEDULES);
+  useEffect(() => {
+    if (!onClients) return;
+    const pick = (e: Event) => setScope((e as CustomEvent<string>).detail || ALL_SCHEDULES);
+    window.addEventListener(CLIENTS_SCHEDULE_EVENT, pick);
+    return () => window.removeEventListener(CLIENTS_SCHEDULE_EVENT, pick);
+  }, [onClients]);
+  useEffect(() => {
+    if (onClients) window.dispatchEvent(new CustomEvent(CLIENTS_SCHEDULING_EVENT, { detail: scope }));
+  }, [scope, onClients]);
   const [pending, startTransition] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
     () => new Map([[initialMonth, { dayStates: initialDayStates, dayStatesRead: initialDayStatesRead, waitlist: initialWaitlist }]]),
@@ -445,11 +463,8 @@ export function CustomersCalendar({
   // 📌 A day heading pins under the pinned row, and under the week strip once it shows.
   const headTop = pinH + (folded ? 54 : 0);
 
-  const options = [
-    { key: 'all', label: halls ? 'All halls' : 'All schedules' },
-    ...pools.map((p) => ({ key: `pool:${p.poolId}`, label: halls ? p.label : `${p.label} schedule` })),
-    ...agents.map((a) => ({ key: `agent:${a.value}`, label: `${a.label}’s work` })),
-  ];
+  const options = scheduleScopeOptions({ pools, agents, halls });
+  const scopeWords = options.find((o) => o.key === scope)?.label ?? options[0]!.label;
   // The month dropdown: last month to a year ahead (prototype: the month as a dropdown with ‹ ›).
   const base = { y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) };
   const monthsOffered = Array.from({ length: 14 }, (_, i) => stepMonth(base, i - 1));
@@ -459,12 +474,9 @@ export function CustomersCalendar({
 
   return (
     <div ref={rootRef} data-dates-month={place} aria-busy={pending}>
-      {/* "All schedules ▾" — the ONE dropdown, above the month (prototype datesBody). One schedule: its one line. */}
-      {!onClients ? null : options.length > 2 ? (
-        <div className="mb-2 mt-1 flex min-h-11 items-center" data-dates-eyebrow="">
-          <PickMenu label="Schedules" value={scope} options={options} onPick={setScope} dataAttr="data-dates-scope" className="!min-h-11" />
-        </div>
-      ) : pools.length === 1 && !oneScreen ? (
+      {/* Nothing picks a schedule ABOVE the month any more (2026-11-12): the pick is Show & sort's Schedule row and the
+          chip under the month. One schedule (Clients › Dates): its one line. */}
+      {onClients && !schedulesOffered(options) && pools.length === 1 && !oneScreen ? (
         <p className="mb-2 mt-1 text-[14px] font-medium text-ink" data-dates-one-schedule="">
           {halls ? 'One hall' : 'One schedule'} · {pools[0]!.capacity} {pools[0]!.capacity === 1 ? 'event' : 'events'} a day
         </p>
@@ -505,6 +517,25 @@ export function CustomersCalendar({
       </div>
       {/* The Schedule month has no "asking" marks (its one read skips the shop's threads) — its legend says only what it draws. */}
       {oneScreen ? null : <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />}
+      {/* 📅 THE CHIP (prototype `.chipv`): one 44px pill under the month's legend saying which schedules it marks —
+          "All schedules", or "Showing · Video team schedule" — and opening the SAME choices as Show & sort's row.
+          A shop with one schedule has nothing to pick, so no chip. */}
+      {schedulesOffered(options) ? (
+        <div className="mt-2 flex min-h-11 items-center" data-dates-schedule-chip={scope === ALL_SCHEDULES ? 'all' : 'on'}>
+          <PickMenu
+            label="Schedule"
+            value={scope}
+            options={options}
+            onPick={setScope}
+            buttonText={scope === ALL_SCHEDULES ? scopeWords : `Showing · ${scopeWords}`}
+            dataAttr="data-dates-schedule"
+            // The prototype's `.chipv`: a bordered 44px pill; narrowed (`.on`) it wears the accent border and a faint tint.
+            className={`!h-11 !min-h-11 max-w-full border !pl-3.5 !pr-2.5 !text-[14px] ${
+              scope === ALL_SCHEDULES ? 'border-ink/15 !bg-white dark:!bg-raised' : '!border-sn-accent !bg-sn-accent/[0.08]'
+            }`}
+          />
+        </div>
+      ) : null}
 
       {/* 📌 THE WEEK STRIP (v13 `.weekstrip`): the picked day's week, ‹ › a day. Drawn always, shown only once folded —
           height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}

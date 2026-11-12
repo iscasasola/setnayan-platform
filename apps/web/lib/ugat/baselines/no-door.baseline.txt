@@ -34,6 +34,7 @@
 /dev/date-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/empty-looks-lab	# first run 2026-11-10 · internal (dev, prototypes) · Build 5 Lane H empty-look lab; 404 in production, reached only by typing its address
+/dev/event-group-chat-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — event group chats on fixture data, 404 in production
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

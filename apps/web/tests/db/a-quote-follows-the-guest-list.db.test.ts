@@ -262,13 +262,26 @@ test('🔒 a supplier’s final (changes_locked) quotation STILL rises; a BOOKED
 });
 
 test('🏁 a job already DELIVERED or COMPLETE never moves its booking total (Piece 2 stops at the finished job)', async () => {
+  // SABOTAGE: drop the delivered/complete CONTINUE at the top of quote_follow_guest_count's loop → RED (the proposal
+  // reprices even though the booking total stays put).
   for (const done of ['delivered', 'complete']) {
     const w = await newWorld();
-    await quote(w, build(), 'accepted');
-    await db.query(`UPDATE public.event_vendors SET status = $2::public.vendor_status, total_cost_php = $3 WHERE vendor_id = $1`, [w.vendorId, done, build().total / 100]);
+    const b = build();
+    const p = await quote(w, b, 'accepted');
+    await db.query(`UPDATE public.event_vendors SET status = $2::public.vendor_status, total_cost_php = $3 WHERE vendor_id = $1`, [w.vendorId, done, b.total / 100]);
+    const before = await read(p);
     await addGuests(w, 140);
     const ev = await db.query<{ t: string }>(`SELECT total_cost_php::text AS t FROM public.event_vendors WHERE vendor_id = $1`, [w.vendorId]);
-    assert.equal(Number(ev.rows[0]!.t), build().total / 100, `a ${done} job's total moved`);
+    assert.equal(Number(ev.rows[0]!.t), b.total / 100, `a ${done} job's total moved`);
+    const after = await read(p);
+    assert.deepEqual(after.line_items, before.line_items, `a ${done} job's quote lines moved`);
+    assert.equal(Number(after.total_centavos), b.total, `a ${done} job's quote total moved`);
+    const fin = (s: FollowSchedule) => s.installments!.find((i) => i.is_auto_balance);
+    assert.deepEqual(fin(after.payment_schedule), fin(before.payment_schedule), `a ${done} job's Final installment moved`);
+    assert.deepEqual(after.payment_schedule, before.payment_schedule, `a ${done} job's payment plan moved`);
+    assert.equal(after.merge_snapshot.billed_pax, before.merge_snapshot.billed_pax, `a ${done} job's billed pax moved`);
+    assert.deepEqual(await rises(w), [], `a ${done} job got a "Quote rose" chat line`);
+    assert.deepEqual(await falls(w), [], `a ${done} job got a "Quote fell" chat line`);
   }
 });
 

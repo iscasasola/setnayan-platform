@@ -11,7 +11,8 @@
 --   · a booked deal (contracted · deposit_paid) is repriced like a supplier-LOCKED quote — it rises with the list and
 --     never falls (the booking is the supplier's yes on that price; owner: "it really depends if the supplier already
 --     locked the price");
---   · its booking total (`event_vendors.total_cost_php`) follows; a delivered or complete job never moves;
+--   · its booking total (`event_vendors.total_cost_php`) follows; a delivered or complete job is never repriced at all
+--     (its proposal is skipped: lines, total, Final installment and chat line all stay put);
 --   · everything else is the shipped rule: paid rows untouched, the rise on the latest unpaid auto Final balance, one
 --     chat line.
 --
@@ -66,6 +67,21 @@ BEGIN
      ORDER BY vp.created_at
        FOR UPDATE
   LOOP
+    -- ⟵ PIECE 2: a FINISHED job (its anchor booking is delivered or complete) is never repriced — not its lines, not
+    -- its total, not its Final installment, no chat line. `vendor_requote_blocker` calls these 'deal_locked' too, so
+    -- the skip must be its own test, judged on the same anchor rows the blocker reads.
+    IF EXISTS (
+      SELECT 1
+        FROM public.event_vendors ev
+       WHERE ev.event_id = p_event_id
+         AND ev.marketplace_vendor_id = r.vendor_profile_id
+         AND ev.archived_at IS NULL
+         AND (ev.package_role IS NULL OR ev.package_role = 'anchor')
+         AND ev.status IN ('delivered', 'complete')
+    ) THEN
+      CONTINUE;
+    END IF;
+
     -- ⟵ PIECE 2 (owner 2026-11-12): a BOOKED deal follows the guest list too — but like a supplier-locked quote: it
     -- RISES and never falls (the booking is the supplier's yes on that price). Its rise re-derives the booking fee,
     -- and since 20271340632149 that top-up is HELD until the event day — the reason this used to skip booked deals.
@@ -242,6 +258,6 @@ REVOKE ALL ON FUNCTION public.quote_follow_guest_count(UUID) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.quote_follow_guest_count(UUID) TO service_role;
 
 COMMENT ON FUNCTION public.quote_follow_guest_count(UUID) IS
-  'Piece 1 · PR-2 + the fall-back + Piece 2 (owner 2026-11-12): every standing quote of the event whose lines carry their own per-head rate follows the per-service count. Unlocked: up and down, floored at merge_snapshot.min_pax and the pax it was first sent at (sent_billed_pax), each line never under its sent amount. changes_locked OR BOOKED (since 20271340663561+): rises only — a booked rise re-derives the supplier fee as a HELD top-up (20271340632149). Rise → latest unpaid auto Final balance; drop → off the unpaid auto rows only, capped at what is unsettled (never below paid, never a credit). Same row updated, accepted → event_vendors.total_cost_php follows unless the job is delivered/complete, one chat line. TS mirror lib/quote-pax-follow.ts.';
+  'Piece 1 · PR-2 + the fall-back + Piece 2 (owner 2026-11-12): every standing quote of the event whose lines carry their own per-head rate follows the per-service count. Unlocked: up and down, floored at merge_snapshot.min_pax and the pax it was first sent at (sent_billed_pax), each line never under its sent amount. changes_locked OR BOOKED (since 20271340663561+): rises only — a booked rise re-derives the supplier fee as a HELD top-up (20271340632149). Rise → latest unpaid auto Final balance; drop → off the unpaid auto rows only, capped at what is unsettled (never below paid, never a credit). Same row updated, accepted → event_vendors.total_cost_php follows; a delivered/complete job is skipped entirely (never repriced), one chat line. TS mirror lib/quote-pax-follow.ts.';
 
 COMMIT;

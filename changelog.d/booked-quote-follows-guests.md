@@ -8,6 +8,11 @@ migration `20271341557835_a_booked_quote_follows_the_guest_list.sql` retires the
 deposit_paid) is repriced like a supplier-LOCKED quote — it rises with the list and never falls — and its booking
 total follows; a delivered or complete job never moves. TS mirror `lib/quote-pax-follow.ts` (`booked` = locked).
 
+Pre-ship audit fix: `vendor_requote_blocker` calls a delivered/complete job 'deal_locked' too, so the loop still
+repriced its proposal (lines, total, Final installment, chat line) while only `event_vendors` was fenced. The loop now
+skips a proposal whose anchor booking is `delivered` or `complete` outright; the 🏁 db test asserts the whole proposal
+and the chat stay unchanged.
+
 Stacked on the booking-fee top-up PR — it must merge after it.
 
 SPEC IMPACT: None — implements the 2026-11-12 ruling as written ("it really depends if the supplier already locked

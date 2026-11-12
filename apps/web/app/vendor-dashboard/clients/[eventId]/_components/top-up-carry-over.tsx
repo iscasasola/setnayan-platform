@@ -54,7 +54,7 @@ export function TopUpCarryOver({
         className="!h-11 !min-h-11"
       />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="top-up-carry-over-title" title="Settle to accept" rise>
-        <div data-top-up-carry-over="" className="space-y-1">
+        <div data-top-up-carry-over="" className="space-y-1 px-5 pb-5">
           <p id="top-up-carry-over-title" className="text-[14px] text-ink/70">
             A booking fee top-up from a past event is still unsettled. Settle it and this booking can be accepted.
           </p>

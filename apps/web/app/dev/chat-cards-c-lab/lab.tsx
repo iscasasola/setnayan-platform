@@ -159,7 +159,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
       case 'counter':
         return <NegotiateDraft threadId={THREAD} kind="counter" viewer="couple" supplierName="Lumina Studio" returnPath={BACK} seed={{ quote: empty ? { ...NEGO, locks: { quote: true, plan: false } } : NEGO, today: TODAY, amount: '55000' }} />;
       case 'plan':
-        return <NegotiateDraft threadId={THREAD} kind="plan" viewer={empty ? 'vendor' : 'couple'} supplierName="Lumina Studio" returnPath={BACK} seed={{ quote: empty ? { ...NEGO, locks: { quote: false, plan: true } } : NEGO, today: TODAY }} />;
+        return <NegotiateDraft threadId={THREAD} kind="plan" viewer={empty ? 'vendor' : 'couple'} supplierName="Lumina Studio" returnPath={BACK} seed={{ quote: empty ? { ...NEGO, locks: { quote: false, plan: true } } : sp.paid === '1' ? NEGO : { ...NEGO, paidSeqs: [], floorCentavos: null }, today: TODAY }} />;
       case 'countercard':
         return (
           <div className="grid gap-3">

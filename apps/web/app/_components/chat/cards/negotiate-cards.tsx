@@ -267,7 +267,8 @@ function CounterBody({
           dataAttr="data-counter-scope"
         />
       </Row>
-      <TypedRow name="Your price" about={`instead of ${pesos(out.wasCentavos)}`} amount value={amount} empty="₱" openAsk={0} onType={setAmount} onKeep={setAmount} />
+      <TypedRow name="Your price" amount value={amount} empty="₱" openAsk={0} onType={setAmount} onKeep={setAmount} />
+      <p className="-mt-1 text-[13px] text-ink/55" data-counter-was="">instead of {pesos(out.wasCentavos)}</p>
       <Row label="Good until" sub="then it expires">
         <PickMenu label="Good until" value={until} options={choices.map((c) => ({ key: c.key, label: c.label }))} onPick={setUntil} dataAttr="data-counter-until" />
       </Row>

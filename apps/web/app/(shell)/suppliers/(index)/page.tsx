@@ -45,7 +45,7 @@ export default async function SuppliersIndexPage() {
   const tileSlug = source.taxonomy.tileSlug;
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{TITLE}</h1>
         <p className="mt-4 max-w-2xl text-base text-ink/70">

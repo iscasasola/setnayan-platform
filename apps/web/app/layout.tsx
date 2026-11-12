@@ -50,6 +50,8 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { getAppColours } from '@/lib/app-colours.server';
+import { appColoursToCss } from '@/lib/app-colours';
 import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
@@ -615,11 +617,15 @@ export default async function RootLayout({
   //     SiteChrome overlays public.site-nav.* labels; fails open to code defaults).
   //   • loader appearance (owner 2026-07-05; variant/veil/cadence/pop, threaded
   //     to every <SDLoader> via LoaderConfigProvider; DEFAULT on any DB error).
-  const [brandSettings, navSlots, loaderConfig] = await Promise.all([
+  //   • the app's colours by job (Admin › Colours, owner 2026-11-12) — remembered under the platform-settings tag,
+  //     DEFAULT (today's colours) on any refusal. '' when nothing is saved → no <style> at all.
+  const [brandSettings, navSlots, loaderConfig, appColours] = await Promise.all([
     getBrandSettings(),
     getNavSlotMap(),
     getLoaderSettings(),
+    getAppColours(),
   ]);
+  const appColoursCss = appColoursToCss(appColours);
   const brandMarkUrl = resolveBrandMarkUrl(brandSettings);
 
   return (
@@ -690,8 +696,15 @@ export default async function RootLayout({
             <link rel="dns-prefetch" href={r2Origin} />
           </>
         ) : null}
+        {/*
+          🎨 THE APP'S COLOURS BY JOB — Admin › Colours (owner 2026-11-12). Only when a saved set differs from the code
+          defaults; nothing at all otherwise. `html:not(.dark)` out-ranks the stylesheet's `:root` whatever the order
+          of the two in <head>, leaves dark mode untouched, and the guest Event Hub (`.sn-editorial`) is handed back
+          today's values inside the same tag. Built from parsed hexes only (`appColoursToCss`), never raw input.
+        */}
+        {appColoursCss ? <style id="sn-app-colours" dangerouslySetInnerHTML={{ __html: appColoursCss }} /> : null}
       </head>
-      <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
+      <body className="min-h-dvh bg-page font-sans text-ink antialiased">
         {/*
           App cold-start ("initialization") splash — the animated brand mark on
           Warm Alabaster, shown only when the head gate set data-sn-boot (first

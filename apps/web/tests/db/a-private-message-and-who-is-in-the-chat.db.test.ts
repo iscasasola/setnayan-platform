@@ -488,6 +488,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
+  // 📁 20271339773560 (Piece 3b · a supplier's files): a trigger, EXECUTE revoked from every browser role. It only
+  // checks that NEW.chat_message_id is a message of THIS shop's thread with THIS event (EXISTS) — never reads a body,
+  // returns nothing but NEW, and its refusal is a fixed sentence.
+  'guard_event_supplier_file', // EXISTS on message_id + thread only; no body read or returned
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1843
-# tables: 494
-# columns: 5997
-# notnull: 3623
+# ledger: 1844
+# tables: 496
+# columns: 6027
+# notnull: 3640
 [ledger]
 20260512000000
 20260513000000
@@ -1850,6 +1850,7 @@
 20271338412990
 20271338442002
 20271339373845
+20271339773560
 20271339826198
 20271339978803
 20271340142149
@@ -3433,6 +3434,27 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_files.chat_message_id
+event_supplier_files.counts
+event_supplier_files.couple_decision
+event_supplier_files.created_at
+event_supplier_files.created_by
+event_supplier_files.decided_at
+event_supplier_files.dedupe_of
+event_supplier_files.event_id
+event_supplier_files.file_id
+event_supplier_files.file_name
+event_supplier_files.grp
+event_supplier_files.kind
+event_supplier_files.link_url
+event_supplier_files.media_id
+event_supplier_files.mime
+event_supplier_files.portfolio_ref
+event_supplier_files.size_bytes
+event_supplier_files.taken_at
+event_supplier_files.updated_at
+event_supplier_files.vendor_profile_id
+event_supplier_files.vendor_service_id
 event_supplier_schedule_marks.confirmed_at
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.locked_at
@@ -6140,6 +6162,15 @@ stewardship_transfers.to_user_id
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
 stewardship_transfers.verification_ref
+supplier_media.content_sha256
+supplier_media.created_at
+supplier_media.in_portfolio
+supplier_media.media_id
+supplier_media.mime
+supplier_media.r2_ref
+supplier_media.size_bytes
+supplier_media.taken_at
+supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.resend_id
@@ -8844,6 +8875,16 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_files.counts
+event_supplier_files.couple_decision
+event_supplier_files.created_at
+event_supplier_files.event_id
+event_supplier_files.file_id
+event_supplier_files.file_name
+event_supplier_files.grp
+event_supplier_files.kind
+event_supplier_files.updated_at
+event_supplier_files.vendor_profile_id
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.vendor_profile_id
 event_tables.capacity
@@ -10428,6 +10469,13 @@ stewardship_transfers.initiated_at
 stewardship_transfers.status
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
+supplier_media.content_sha256
+supplier_media.created_at
+supplier_media.in_portfolio
+supplier_media.media_id
+supplier_media.mime
+supplier_media.r2_ref
+supplier_media.vendor_profile_id
 supplier_night_before_email_log.event_date
 supplier_night_before_email_log.event_vendor_id
 supplier_night_before_email_log.sent_at

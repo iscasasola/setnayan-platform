@@ -66,7 +66,7 @@ const SURFACES: Surface[] = [
   },
   {
     name: 'explore page marks every demo row (not only in demo mode)',
-    file: 'app/(shell)/explore/page.tsx',
+    file: 'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     imports: /import \{ fetchDemoVendorIds \} from '@\/lib\/demo-vendors';/,
     draws: [/if \(demoVendorIds\.length > 0\) \{\s*const demoIdSet = new Set\(demoVendorIds\);/, /row\.is_demo = true;/],
   },
@@ -84,7 +84,7 @@ const SURFACES: Surface[] = [
   },
   {
     name: 'service card — the explore page hands each card its shop\'s demo fact',
-    file: 'app/(shell)/explore/page.tsx',
+    file: 'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     imports: /import \{ fetchMarketplaceServiceCards \} from '@\/lib\/marketplace-service-cards';/,
     draws: [/isDemo: c\.isDemo,/],
   },
@@ -102,7 +102,7 @@ const SURFACES: Surface[] = [
   },
   {
     name: 'explore folder preview — the page hands the demo ids in',
-    file: 'app/(shell)/explore/page.tsx',
+    file: 'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     imports: /FolderVendorsSection/,
     draws: [/demoVendorIds=\{catalogDemoVendorIds\}/],
   },
@@ -225,7 +225,7 @@ test('demo shops and demo events stay out of the sitemaps — public is not inde
 // 🔢 A listing may show demo shops; a CLAIM built from a count may not (owner 2026-11-06: "demo numbers never count in
 // real totals"). SABOTAGE: rank explore badges over `visible` again, or feed the heading `liveShopCount` → RED.
 test('demo shops never move a real number on the public pages that list them', () => {
-  const explore = read('app/(shell)/explore/page.tsx');
+  const explore = read('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(explore, /const realShopCount = isLandingView \? await countRealShops\(admin\) : null;/);
   assert.equal((explore.match(/\(realShopCount \?\? 0\) >= TRENDING_MIN_LIVE_SHOPS/g) ?? []).length, 2, '"Trending shops" counts real shops');
   assert.doesNotMatch(explore, /\(liveShopCount \?\? 0\) >= TRENDING_MIN_LIVE_SHOPS/);

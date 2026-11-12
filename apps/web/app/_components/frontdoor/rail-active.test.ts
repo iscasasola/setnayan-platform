@@ -96,8 +96,7 @@ test('each URL lights the row a person would point at', () => {
     // re-adding a row without a resolver entry (or the reverse) fails here.
     ['/realstories', null],
     ['/realstories/a-wedding-in-cavite', null],
-    // 🧭 2026-10-23: "Find suppliers" is a signed-OUT row (owner 2026-10-01), so the
-    // signed-in rail lights nothing on /explore — pinned in the signed-out case below.
+    // 🧭 2026-11-12: no row opens /explore any more (it forwards to Discover); nothing lights there.
     ['/explore', null],
     ['/features', 'features'],
     ['/features/papic', 'features'],
@@ -259,16 +258,18 @@ test('every rail row that can be a page is declared to the resolver', () => {
   for (const href of ['/', '/features', '/dashboard', '/dashboard/library', '/admin']) {
     assert.ok(declared.has(href), `${href} is rendered as a row but never declared to the resolver`);
   }
-  // Signed out the rail renders Discover · Find suppliers · For suppliers · For coordinators · Features
-  // (owner 2026-10-01; For suppliers 2026-11-06; For coordinators 2026-11-11).
+  // Signed out the rail renders Discover · For suppliers · For coordinators · Features
+  // (owner 2026-10-01; For suppliers 2026-11-06; For coordinators 2026-11-11; Find suppliers left 2026-11-12 —
+  // supplier browsing moved inside Discover, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED").
   const out = new Set(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }).map((r) => r.href));
-  for (const href of ['/', '/explore', '/for-suppliers', '/for-coordinators', '/features']) {
+  for (const href of ['/', '/for-suppliers', '/for-coordinators', '/features']) {
     assert.ok(out.has(href), `${href} is a signed-out row but never declared to the resolver`);
   }
+  assert.ok(!out.has('/explore'), 'signed out, the resolver declares a "Find suppliers" row again');
   assert.equal(
     activeRailKey(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }), '/explore'),
-    'find',
-    'signed out, /explore must light "Find suppliers"',
+    null,
+    'signed out, /explore lights nothing — it is no longer a row (it forwards to Discover)',
   );
   assert.equal(
     activeRailKey(railMatchRows({ signedIn: false, hasShop: false, isAdmin: false }), '/for-coordinators'),

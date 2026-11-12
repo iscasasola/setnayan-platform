@@ -453,7 +453,7 @@
    laid out at phone width (390 px) and scaled to the 112-px thumb; a tap lifts the SAME drawing full screen. */
 .mini { position: relative; display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; margin-top: 10px; padding: 10px; border-radius: var(--m-r-md); background: var(--sf-soft); color: var(--sf-text); min-height: 44px; transition: transform var(--sn-pill-dur) var(--sn-pill-spring); }
 .mini:active { transform: scale(.97); }
-.miniThumb { position: relative; width: 112px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; background: rgb(var(--color-cream)); border: 1px solid var(--sf-line); box-shadow: var(--sf-shadow); pointer-events: none; }
+.miniThumb { position: relative; width: 112px; aspect-ratio: 3 / 4; border-radius: var(--m-r-sm); overflow: hidden; background: rgb(var(--color-cream)); border: 1px solid var(--sf-line); box-shadow: var(--sf-shadow); pointer-events: none; }
 .miniPage { position: absolute; left: 0; top: 0; width: 390px; transform: scale(calc(112 / 390)); transform-origin: top left; }
 .miniText { display: grid; gap: 3px; min-width: 0; }
 .miniText small { font-family: var(--sf-mono); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--sf-muted); }
@@ -472,8 +472,8 @@
 .pageScrim { position: absolute; inset: 0; background: rgba(28, 20, 12, .42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .pageSheet { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; background: rgb(var(--color-cream)); will-change: transform; }
 .pageBarWrap { flex: none; padding: max(10px, env(safe-area-inset-top)) 12px 8px; background: rgb(var(--color-cream)); }
-.pageBar { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 3px 8px 3px 3px; border-radius: 999px; background: color-mix(in srgb, var(--sf-paper) 90%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--sf-shadow); border: 1px solid var(--sf-line); }
-.pageBack { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; min-height: 44px; padding: 0 14px 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--sf-accent); font: 700 .95rem var(--font-hanken), sans-serif; cursor: pointer; }
+.pageBar { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 3px 8px 3px 3px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--sf-paper) 90%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--sf-shadow); border: 1px solid var(--sf-line); }
+.pageBack { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 44px; min-height: 44px; padding: 0 14px 0 10px; border: 0; border-radius: var(--m-r-full); background: transparent; color: var(--sf-accent); font: 700 .95rem var(--font-hanken), sans-serif; cursor: pointer; }
 .pageBack:active { transform: scale(.96); }
 .pageTitle { flex: 1; min-width: 0; text-align: center; font-weight: 700; color: var(--sf-ink); font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 52px; }
 .pageScroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }

@@ -172,7 +172,7 @@ export function SampleShopPage({ plan, declaredOuterKm = null }: { plan: SampleS
               </span>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
-              <span className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-terracotta px-4 text-sm font-medium text-white">
+              <span className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-ink px-4 text-sm font-medium text-cream">
                 <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 Inquire
               </span>
@@ -200,7 +200,7 @@ export function SampleShopPage({ plan, declaredOuterKm = null }: { plan: SampleS
           <p className="text-sm text-ink/65">Starting prices set by the shop. Final quotes happen in chat.</p>
           <div className="grid gap-3">
             {cards.map((c) => (
-              <div key={c.title} className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+              <div key={c.title} className="overflow-hidden rounded-2xl bg-ink/[0.03] shadow-sm">
                 <div className="relative h-28 w-full bg-ink/5">
                   <Image src={c.photo} alt="" fill sizes="430px" className="object-cover" />
                 </div>

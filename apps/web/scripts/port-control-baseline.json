@@ -500,6 +500,7 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
+        "for-suppliers/_components/plan-page-preview.tsx",
         "for-suppliers/_components/plan-table-data.ts",
         "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
@@ -530,11 +531,15 @@
         "Link",
         "Photo",
         "Pill",
+        "PlanPagePreview",
+        "PlanPageSheet",
+        "PlanPreview",
         "PriceShapeCalc",
         "QrChip",
         "QrCtx.Provider",
         "QrKey",
         "QrSheetProvider",
+        "SampleShopPage",
         "SupplierBadgeShelf",
         "SupplierFrontCodes",
         "SupplierFrontPage",
@@ -11203,6 +11208,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
@@ -11251,6 +11258,7 @@
         "updateVendorCosts"
       ],
       "blocks": [
+        "ActionButton",
         "AnswerField",
         "AppointmentsSection",
         "CancelBookingButton",
@@ -11265,6 +11273,8 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CouplePhotoApprovals",
+        "CouplePhotoApprovalsSheet",
         "CoupleThreadBody",
         "DepositReservation",
         "DetailPageSkeleton",
@@ -11305,6 +11315,7 @@
         "SaveAnswersState",
         "SelfAddedContactCard",
         "ServicesCoveredPicker",
+        "Sheet",
         "ShotListCard",
         "SnapshotChargeLine",
         "StayForm",
@@ -12300,6 +12311,7 @@
         "AskChangeDoor",
         "BookRequestCard",
         "ChangeAskCard",
+        "ChangeAskRow",
         "DecisionStepCard",
         "FilesStepCard",
         "FormAnswerCard",
@@ -12307,6 +12319,8 @@
         "GuestRecountCard",
         "Lab",
         "LogPaymentCard",
+        "NegotiateDraft",
+        "NegotiationCard",
         "PaymentStepCard",
         "QuoteStepCard",
         "StreamLineCard"
@@ -12603,6 +12617,21 @@
         "FavoriteRows",
         "HubSuppliersMadeThisDay",
         "SaveVendorButton"
+      ]
+    },
+    "/dev/files-lab": {
+      "files": [
+        "dev/files-lab/lab-client.tsx",
+        "dev/files-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CouplePhotoApprovalsSheet",
+        "EventFile",
+        "EventFilesBoard",
+        "FilesFinder",
+        "FilesLabClient"
       ]
     },
     "/dev/find-lock-lab": {
@@ -13437,18 +13466,10 @@
       "files": [
         "dev/shop-plan-lab/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PinnedReviewCard",
-        "ShopAddresses",
-        "ShopBadgePill",
-        "ShopReachLine",
-        "ShopReachMap",
-        "Wordmark"
+        "SampleShopPage"
       ]
     },
     "/dev/shop-preview-lab": {
@@ -15402,6 +15423,7 @@
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
         "v/[slug]/_components/review-groups.tsx",
+        "v/[slug]/_components/sample-shop-page.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -15492,6 +15514,7 @@
         "ShareButton",
         "Sheet",
         "ShopAddresses",
+        "ShopBadgePill",
         "ShopInspirationSection",
         "ShopPagePackage",
         "ShopReachLine",
@@ -16102,6 +16125,7 @@
         "vendor-dashboard/clients/[eventId]/_components/details-forms-door.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers-row.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
+        "vendor-dashboard/clients/[eventId]/_components/event-files-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-rows.ts",
         "vendor-dashboard/clients/[eventId]/_components/lock-switch.tsx",
@@ -16128,6 +16152,7 @@
         "vendor-dashboard/clients/[eventId]/_pages/chat.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/context.ts",
         "vendor-dashboard/clients/[eventId]/_pages/details.tsx",
+        "vendor-dashboard/clients/[eventId]/_pages/event-files.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/files-finder.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/files.tsx",
         "vendor-dashboard/clients/[eventId]/_pages/forms.tsx",
@@ -16216,6 +16241,7 @@
         "ChangeRequestsQueue",
         "ChapterSection",
         "ChatPage",
+        "Choice",
         "ChosenRow",
         "ClientDayAnswers",
         "ClientNotes",
@@ -16236,10 +16262,16 @@
         "DetailsFormsDoor",
         "DetailsNumbersRow",
         "DetailsPage",
+        "Door",
+        "EventFile",
+        "EventFilesBoard",
+        "EventFilesSection",
+        "EventFilesState",
         "EventLockedByFee",
         "FileIcon",
         "FileRow",
         "FileTile",
+        "FileUnder",
         "FileUpload",
         "FilesFinder",
         "FilesPage",
@@ -16250,6 +16282,7 @@
         "FormRows",
         "FormsPage",
         "FormsPageBody",
+        "Grid",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLInputElement",
@@ -16287,6 +16320,7 @@
         "PickedClientSettings",
         "PickedClientShell",
         "PipelineStrip",
+        "PortfolioSheet",
         "PriceSummary",
         "ProofImage",
         "ProposeChange",
@@ -16318,6 +16352,8 @@
         "Sheet",
         "ShopCard",
         "ShopEmpty",
+        "Show",
+        "Sort",
         "StayForm",
         "StudioPopup",
         "SubmitButton",
@@ -17092,6 +17128,7 @@
         "ConversationColumn",
         "DetailsDecisionsList",
         "EventLinesBody",
+        "HTMLElement",
         "Icon",
         "InfoTip",
         "InquiryAnswers",

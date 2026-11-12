@@ -64,6 +64,10 @@ const EXECUTOR = 'lib/cleanup-delete.ts';
  * reading a key out of a row a non-admin can write.
  */
 const EXEMPT: Readonly<Record<string, string>> = {
+  'app/_actions/event-files-actions.ts':
+    'Piece 3b one stored copy: removes ONLY the object this same request just uploaded (key parsed by parseClientRef ' +
+    'under the caller\'s own supplier-files/<shop>/ prefix), and only after the server-measured hash proved those bytes ' +
+    'are already stored — so no row anywhere can point at it.',
   'app/admin/website-media/actions.ts':
     'Admin-pressed, one object per press. Keys come from an R2 LISTING of the media bucket, ' +
     'not from a row anybody else writes, and the page refuses an object that is still referenced.',

@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import VendorOnTheDayPage from '@/app/vendor-dashboard/on-the-day/page';
 import type { PickedPageProps } from './context';
+import { EventFilesSection } from './event-files';
 
 /**
  * HUB — the picked client's page (THE ONE BUILD, v111 "Hub leaves the bar, stays reachable per client"; v113 "leading
@@ -17,6 +18,13 @@ import type { PickedPageProps } from './context';
 export function HubPage({ ctx }: PickedPageProps) {
   const { eventId } = ctx;
   return (
+    <>
+    {/* 📁 Piece 3b: Event photos · by service — the filed service groups only (unfiled chat photos never reach it). */}
+    <section className="mb-6" data-hub-event-photos="">
+      <Suspense fallback={null}>
+        <EventFilesSection ctx={ctx} mode="hub" />
+      </Suspense>
+    </section>
     <Suspense
       fallback={
         <p className="px-4 py-6 text-sm text-ink/55" role="status" data-picked-client-page="hub">
@@ -26,6 +34,7 @@ export function HubPage({ ctx }: PickedPageProps) {
     >
       <VendorOnTheDayPage searchParams={Promise.resolve({ event: eventId, __embed: 'hub' })} />
     </Suspense>
+    </>
   );
 }
 

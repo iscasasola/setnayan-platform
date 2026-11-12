@@ -61,6 +61,12 @@ export const FormsPageBody = onDemand(
 // ── Files ────────────────────────────────────────────────────────────────────────────────────────────────────────
 export const FilesFinder = onDemand(() => import(/* webpackChunkName: "picked-pages" */ './files-finder').then((m) => m.FilesFinder), <Quiet what="the files" />);
 
+// 📁 Piece 3b — a supplier's files for this event (Files + the Hub's Event photos).
+export const EventFilesBoard = onDemand(
+  () => import(/* webpackChunkName: "picked-pages" */ '../_components/event-files-board').then((m) => m.EventFilesBoard),
+  <Quiet what="this event’s files" />,
+);
+
 // ── Report ───────────────────────────────────────────────────────────────────────────────────────────────────────
 export const ReportForm = onDemand(() => import(/* webpackChunkName: "picked-pages" */ './report-form').then((m) => m.ReportForm), <Quiet what="the report" />);
 
@@ -81,6 +87,7 @@ export function warmPickedPages(): void {
   const warm = [
     () => import(/* webpackChunkName: "picked-pages" */ '@/app/vendor-dashboard/forms/_components/forms-page-body'),
     () => import(/* webpackChunkName: "picked-pages" */ './files-finder'),
+    () => import(/* webpackChunkName: "picked-pages" */ '../_components/event-files-board'),
     () => import(/* webpackChunkName: "picked-pages" */ './report-form'),
     () => import(/* webpackChunkName: "picked-pages" */ '../_components/client-refunds'),
     () => import(/* webpackChunkName: "picked-pages" */ '@/components/thumb-row'),

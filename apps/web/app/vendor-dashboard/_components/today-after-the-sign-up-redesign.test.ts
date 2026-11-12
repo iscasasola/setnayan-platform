@@ -38,7 +38,7 @@ const rail = buildFirstStepsRail({
   docsTotal: 4,
   submitMissing: ['Finish your business profile'],
   customerCount: 0,
-  offer: { services: [{ service: 'photography', cards: [], toGo: 3 }], toGo: 3 },
+  offer: { services: [{ service: 'photography', cards: [], toGo: 3, target: 3 }], toGo: 3 },
 });
 const view = (missing: readonly string[]) =>
   assembleSetup({

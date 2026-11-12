@@ -61,6 +61,7 @@ export function ShopSettingsRows({
       <div data-shop-gear-page="">
         <DatesRow
           data="shop-gear-page"
+          tour="shop-your-page"
           lead={lead(ExternalLink)}
           title="Your page"
           line={pageLive ? 'What couples see, part by part · all your reviews inside' : 'What couples will see · not shown yet · all your reviews inside'}

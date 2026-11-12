@@ -89,7 +89,9 @@ test('🔑 a supplier whose name is withheld is not named by their own card', ()
   const cards = { a: CARD_A, b: { ...CARD_A, name: 'Open Kitchen · Buffet' } };
   const out = withholdCardNames(cards, ['a', 'not-in-the-record']);
   assert.equal(out.a?.name, '', 'the title — which carries the business name — crossed to the browser');
-  assert.deepEqual({ ...out.a, name: CARD_A.name }, CARD_A, 'everything else on the card is kept');
+  // 🎞 …and not by their photos either (12 Nov slideshow): the showcase goes with the name. The cover stays, as before.
+  assert.deepEqual(out.a?.photos, [], 'a withheld supplier\'s showcase photos crossed to the browser');
+  assert.deepEqual({ ...out.a, name: CARD_A.name, photos: undefined }, { ...CARD_A, photos: undefined }, 'everything else on the card is kept');
   assert.equal(out.b?.name, 'Open Kitchen · Buffet', 'a supplier with a revealed name lost their title');
   assert.equal(cards.a.name, CARD_A.name, 'the input was mutated');
 });

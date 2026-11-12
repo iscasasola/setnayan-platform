@@ -151,6 +151,7 @@ import {
 } from '@/lib/integration-config';
 import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ShopReachLine, ShopReachMap } from './_components/shop-reach';
+import { ShopBranchesLine } from './_components/shop-branches-line';
 import { ShopAddresses } from './_components/shop-addresses';
 import { PinnedReviewCard } from './_components/pinned-review-card';
 import {
@@ -1667,10 +1668,15 @@ export async function renderVendorBySlug({
   // unpaid and cancelled branch with its street address and coordinates. Only
   // the name and the city come back, and only for branches whose fee is paid
   // and whose 28-day window is live.
+  // A read that fails shows NO branch line and no "Also here" list — never a guessed city — and says so in the logs
+  // (owner 2026-11-13, "Show the branches as needed": the line exists only when the shop really has branches).
   const publicBranches = await fetchPublicVendorBranches(
     admin,
     vendor.vendor_profile_id,
-  ).catch(() => []);
+  ).catch((err: unknown) => {
+    console.error('[supabase-error] v/[slug] · public branches read failed — no branch line shown', err);
+    return [];
+  });
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
@@ -2821,6 +2827,12 @@ export async function renderVendorBySlug({
                   door out. `lib/no-door-out-of-the-app.test.ts` fails if a
                   website href reaches any couple-facing or public surface. */}
             </div>
+            {/* 🏬 "Also in Lipa · Batangas City" — the shop's other paid, live branches, under the reach line (owner
+                2026-11-13, "Show the branches as needed"). Nothing at all when it has none. */}
+            <ShopBranchesLine
+              cities={publicBranches.map((b) => b.branchCity)}
+              hqCity={vendor.location_city ?? null}
+            />
             {/* The shop previewing itself learns WHY its email and phone are not
                 here, instead of reading their absence as a broken page. Only the
                 owning account ever renders this line; the values stay in My Shop

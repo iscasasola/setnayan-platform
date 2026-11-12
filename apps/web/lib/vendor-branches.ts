@@ -423,7 +423,9 @@ export async function fetchPublicVendorBranches(
       reader,
       rows.map((r) => r.branch_id),
     );
-  } catch {
+  } catch (err) {
+    // Claim nothing (no branch is public on an unread payment) — and say so, never silently.
+    console.error('[supabase-error] lib/vendor-branches.ts · public branches: activation orders unread', err);
     return [];
   }
 

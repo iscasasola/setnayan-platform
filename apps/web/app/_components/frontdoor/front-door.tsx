@@ -27,7 +27,7 @@ import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
-import { getCreatableEventTypes, type EventTypeRow } from '@/lib/event-types-db';
+import { getCreatableEventTypes, getEventTypeVocab, type EventTypeRow } from '@/lib/event-types-db';
 import { FrontDoorLanding, frontPageSample, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
 import type { PlanFacts } from './front-door-landing-data';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
@@ -36,16 +36,36 @@ import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
 import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
+import { opensSupplierView } from '@/lib/discover-suppliers';
+import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
+import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
+import type { MarketplaceSearchParams } from '@/app/(shell)/explore/_lib/marketplace-view';
 
-export async function FrontDoor({ q }: { q?: string }) {
+export async function FrontDoor({ q, params = {} }: { q?: string; params?: MarketplaceSearchParams }) {
   /*
     A SEARCH REPLACES THE FEED (below), so Discover's shelves are read only
     when the feed is what renders — a typed query pays nothing for them.
   */
   const searchQuery = (q ?? '').trim();
+  /*
+    🔎 THE SUPPLIER VIEW REPLACES THE FEED TOO (2026-11-12 · DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
+    APPROVED"; owner: *"find suppliers needs to be also inside discover already. they do not need to have their own
+    page"*). A category, a filter or "See all suppliers" puts a supplier parameter on `/` (`lib/discover-suppliers.ts`)
+    and the marketplace's ONE pipeline (`MarketplaceView`, shared with `/explore`) draws the suppliers where the
+    sections were — the way a search already does. With one open, `q` narrows the suppliers; without one, `q` is
+    Discover's own search, as before.
+
+    💸 THE PLAIN `/` RUNS NONE OF IT: `MarketplaceView` is only rendered when a supplier parameter is present. And the
+    supplier view reads nothing the sections need — the shelves, the command items and the landing reads are skipped.
+  */
+  const supplierView = opensSupplierView(params);
+  // Loaded only when it is drawn — the plain `/` does not even load the pipeline's module.
+  const MarketplaceView = supplierView
+    ? (await import('@/app/(shell)/explore/_lib/marketplace-view')).MarketplaceView
+    : null;
   const [account, data, commandItems, discover] = await Promise.all([
     resolveRailAccount(),
-    loadFrontDoorData(),
+    supplierView ? null : loadFrontDoorData(),
     /*
       💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. This returns `[]` on the
       first line without a session, so a stranger — which is every visitor to
@@ -54,14 +74,14 @@ export async function FrontDoor({ q }: { q?: string }) {
       organiser events are cache()d and shared with `resolveRailStudioEvent`
       above), the same price the other five trees have paid since 2026-08-14.
     */
-    resolveCommandItems(),
+    supplierView ? ([] as Awaited<ReturnType<typeof resolveCommandItems>>) : resolveCommandItems(),
     /*
       DISCOVER'S NEW SHELVES (DECISION_LOG 2026-09-29). Each degrades on its
       own and says "couldn't load" rather than "none" — see the module. Signed
       out it is the world layer and People to follow; signed in, the viewer's
       own people come first.
     */
-    searchQuery ? null : loadDiscover(),
+    searchQuery || supplierView ? null : loadDiscover(),
   ]);
 
   /*
@@ -82,7 +102,7 @@ export async function FrontDoor({ q }: { q?: string }) {
     search row, and Clear brings the sections back — the shell's results form (people, your own suppliers, no door
     out to the marketplace), read only when there are words.
   */
-  const user = account.signedIn && searchQuery ? await getCurrentUser().catch(() => null) : null;
+  const user = account.signedIn && searchQuery && !supplierView ? await getCurrentUser().catch(() => null) : null;
   /* 🔎 …and its EVENTS (owner 2026-10-25): your people's, then anybody's public event — read beside the rest. */
   const [shellSearch, discoverEvents]: [ShellSearchContext | null, Awaited<ReturnType<typeof searchDiscoverEvents>> | null] = user
     ? await Promise.all([resolveShellSearchContext(searchQuery, user.id, commandItems), searchDiscoverEvents(searchQuery)])
@@ -102,7 +122,7 @@ export async function FrontDoor({ q }: { q?: string }) {
     read per signed-out view (prices are read live everywhere, never remembered).
   */
   const signedOut = !account.signedIn;
-  const landing = signedOut && !searchQuery;
+  const landing = signedOut && !searchQuery && !supplierView;
   // ONE catalogue read feeds both the plan prices and (Lane J) the credits each plan grants — never typed.
   const [eventTypes, catalog, freeGrant] = landing
     ? await Promise.all([
@@ -111,6 +131,50 @@ export async function FrontDoor({ q }: { q?: string }) {
         readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
       ])
     : [[], [], null];
+  /*
+    🛒 THE SHOPS SHELF'S TWO DOORS INTO THE SUPPLIER VIEW (2026-11-12 · the drawing's "All categories ▾" and
+    "Filters" under the shelf heading). Drawn only when the shelf shows shops. 💸 No new request: the categories are
+    code (loaded on the first press), the faiths are code, and the occasions are the event-type roster that is
+    remembered across requests (`getEventTypeVocab` — the same rows the signed-out strip above already reads).
+    "Match my event" is not offered here: it needs the viewer's event, which the shelf does not read — the supplier
+    view's own Filters offers it.
+  */
+  const shelfOpen = data !== null && !searchQuery && !supplierView && data.shops.length > 0;
+  const shelfOccasions = shelfOpen ? await getEventTypeVocab() : [];
+  const shopTools = shelfOpen ? (
+    <div className="mb-3 flex flex-wrap items-center gap-2" data-discover-shelf-tools="">
+      <DiscoverCategoryButton label={null} />
+      <DiscoverFiltersButton
+        count={0}
+        drawer={{
+          filters: {
+            q: '',
+            category: null,
+            city: '',
+            sort: 'most_reviews',
+            verifiedOnly: false,
+            matchEvent: false,
+            eventType: null,
+            folder: null,
+            venueDefault: 'on',
+          },
+          sortOptions: [],
+          faithOptions: marketplaceFaithOptions(),
+          eventTypeOptions: shelfOccasions.map((t) => ({ value: t.key, label: t.label })),
+          matchableEvent: null,
+          hostVenueSetting: null,
+          hostVenueLabel: null,
+          showVenueToggle: false,
+          hasActiveFilters: false,
+          action: '/',
+          clearHref: '/?browse=1',
+          sortInside: false,
+          offSeason: false,
+          carry: [['browse', '1']],
+        }}
+      />
+    </div>
+  ) : null;
   const planPrices: PlanPrices = planPricesFrom(catalog);
   // 🧾 Lane J: the credits each plan grants (`included_papic_credits`) and the live free-credit sentence
   // (`papicFreeCreditPromise`, null when the free grant is switched off).
@@ -195,12 +259,14 @@ export async function FrontDoor({ q }: { q?: string }) {
         className={
           account.signedIn
             ? 'sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]'
-            : searchQuery
+            : searchQuery || supplierView
               ? 'fl-gutter'
               : undefined
         }
       >
-      {searchQuery ? (
+      {MarketplaceView ? (
+        <MarketplaceView raw={params} surface="discover" />
+      ) : !data ? null : searchQuery ? (
         shellSearch ? (
           // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
           <div data-discover-results="" data-search-results="">
@@ -235,6 +301,7 @@ export async function FrontDoor({ q }: { q?: string }) {
             <FrontDoorFeed
               data={data}
               storeShell={await isStoreShellRequest()}
+              shopTools={shopTools}
               beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
               afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
             />
@@ -245,6 +312,7 @@ export async function FrontDoor({ q }: { q?: string }) {
           <FrontDoorFeed
             data={data}
             storeShell={await isStoreShellRequest()}
+            shopTools={shopTools}
             beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
             afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
           />

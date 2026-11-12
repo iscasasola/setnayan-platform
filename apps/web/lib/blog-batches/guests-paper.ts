@@ -265,7 +265,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse stationers and invitation designers who know Filipino wedding etiquette inside out.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

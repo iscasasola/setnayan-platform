@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { QUOTE_RETURN_FIELD, QUOTE_RETURN_PARAM, quoteReturnPath, quoteReturnWithCard } from '@/lib/quote-card-return';
+import { CARD_QUEUE_FIELD, CARD_QUEUE_PARAM, cardMakerQueueHref, parseCardQueue } from '@/lib/card-queue';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1532,10 +1533,14 @@ export async function commitVendorService(formData: FormData) {
   // (`quoteReturnPath`, only the two pages that draw the quote, never an open redirect). A refusal keeps it on the
   // maker's address; a new card's save returns there with the card (below).
   const quoteReturn = quoteReturnPath(formData.get(QUOTE_RETURN_FIELD));
+  // ➕ MAKE N CARDS (ruling 5820): the services still to make after this one — checked (`parseCardQueue`), only on a
+  // CREATE. A refusal keeps them on the card's address; a made card opens the next one's maker (below).
+  const cardQueue = isCreate ? parseCardQueue(formData.get(CARD_QUEUE_FIELD)) : [];
   const back = async (msg: string) => {
     if (returnTo && !(isCreate && claimToken)) {
       const keepQuote = quoteReturn ? `&${QUOTE_RETURN_PARAM}=${encodeURIComponent(quoteReturn)}` : '';
-      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}`);
+      const keepQueue = cardQueue.length > 0 ? `&${CARD_QUEUE_PARAM}=${cardQueue.join(',')}` : '';
+      return redirect(`${returnTo}?error=${encodeURIComponent(msg)}${keepQuote}${keepQueue}`);
     }
     if (isCreate && claimToken && formCategory) {
       return redirect(
@@ -2322,6 +2327,9 @@ export async function commitVendorService(formData: FormData) {
   // the quote reads `quote_card` and puts the card in as lines.
   const backToQuote = isCreate && typeof savedId === 'string' && quoteReturn ? quoteReturnWithCard(quoteReturn, savedId) : null;
   if (backToQuote) redirect(backToQuote);
+  // ➕ MAKE N CARDS (ruling 5820): this card is made — the next queued service's maker opens, the rest behind it.
+  const nextCard = isCreate && typeof savedId === 'string' ? cardMakerQueueHref(cardQueue) : null;
+  if (nextCard) redirect(nextCard);
   // Blank names are auto-named, never refused — so the save REPORTS how many
   // it filled in (the placeholder showed the same names before the save).
   const named = customizationAutoNamed > 0 ? `&autonamed=${customizationAutoNamed}` : '';

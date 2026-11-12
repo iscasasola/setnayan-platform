@@ -8,6 +8,7 @@ import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { quoteReturnPath } from '@/lib/quote-card-return';
+import { getServicePickerTree } from '@/lib/service-picker-tree.server';
 
 export const metadata = { title: 'New service' };
 
@@ -43,7 +44,8 @@ export default async function NewServiceCardPage({
   // ＋ "Make a new card" from a quote (owner 11 Nov 2026): the way back, checked — never an open redirect.
   const quoteReturn = quoteReturnPath(quote);
 
-  const ctx = await loadMakerContext(supabase, profile.vendor_profile_id);
+  // ➕ THE ONE ADD-A-SERVICE PICKER (ruling 5820): the same tree `/open-shop` draws, read beside the maker's context.
+  const [ctx, tree] = await Promise.all([loadMakerContext(supabase, profile.vendor_profile_id), getServicePickerTree()]);
   // A one-trade shop's kind is pre-picked — its details can be drawn now; any other kind's open once it is made.
   const details = await loadKindDetails(supabase, profile.vendor_profile_id, ctx.onlyKind);
 
@@ -63,7 +65,7 @@ export default async function NewServiceCardPage({
         )}
         <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
       </div>
-      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} />
+      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} picker={{ tree }} />
     </div>
   );
 }

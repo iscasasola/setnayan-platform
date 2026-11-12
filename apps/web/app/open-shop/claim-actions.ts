@@ -292,6 +292,8 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
           recordPrice: recordRead.record.price,
           recorded: recordRead.record.services,
           confirmed: theirs,
+          // The details slide's "Price" — the couple's bundle price as the supplier states it.
+          statedPrice: answers.price,
         }),
       });
     } catch (e) {

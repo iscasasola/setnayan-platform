@@ -269,6 +269,8 @@ export function ClaimDoor({
         return leaf && Object.keys(c.specialties).length ? [[leaf, c.specialties]] : [];
       }),
     ),
+    // The details slide's bundle price — a change here is a change to what the couple bought (sent to them to approve).
+    price: Number(digits(d.price)) || null,
   };
 
   // ── the shared frame pieces ────────────────────────────────────────────────────────────────────────────────────
@@ -513,7 +515,7 @@ export function ClaimDoor({
           </span>
           <Box value={formatCount(Number(digits(d.price)) || 0)} inputMode="numeric" onChange={(e) => set({ price: digits(e.target.value) })} />
         </span>,
-        fromHint(' · one bundle price'),
+        fromHint(team ? ' · one bundle price' : ' · one bundle price · a new price goes to them to approve'),
       );
     if (k === 'incl')
       part = (

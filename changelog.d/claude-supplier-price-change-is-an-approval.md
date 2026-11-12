@@ -15,7 +15,15 @@ changed, needs approval."* The contact half shipped in `lib/supplier-corrections
   the couple's price and services stay theirs until they accept.
 - Claim door: the Services slide's hint now says a removed service goes to the couple to approve (it used to say it
   "leaves their record too", which no code did).
-- Guard `lib/a-price-change-is-the-couples-to-approve.test.ts` (6 tests; five sabotages each seen red).
+- Claim door: the details slide's "Price" (the ONE bundle price) is now posted (`ClaimDoorAnswers.price`). It used to
+  be dropped — only card prices reached the server — so a supplier who changed only that field changed nothing. A moved
+  Price is the supplier's word on the bundle and raises the same proposal; left at the couple's figure, the cards decide.
+  Its hint says a new price goes to the couple to approve.
+- A couple who recorded NO price gets no proposal: the supplier's price is simply their price.
+- NOT in this change: an accepted claim amendment has no base quote, so the shipped `lockDeal` still answers "no price,
+  no lock" for it (as for any Deal struck before a quote). Making it lockable needs a quote written from the couple's
+  record — an owner call (migration 20271328327292 refuses a quote made from a total alone).
+- Guard `lib/a-price-change-is-the-couples-to-approve.test.ts` (7 tests; eight sabotages each seen red).
 
 No migration. No new UI shape (the shipped `chat-amendment-card.tsx`). The card renders only while
 `NEXT_PUBLIC_CHAT_NEGOTIATION_V1` is on, like every amendment.

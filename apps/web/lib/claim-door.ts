@@ -169,6 +169,12 @@ export type ClaimDoorAnswers = {
   cards: { name: string; category: string; leaf: string | null; price: number | null; inclusions: string[]; bundled: boolean; fromRecord: boolean }[];
   bundle: { name: string; extras: string[] } | null;
   specialties: Record<string, Record<string, string[]>>;
+  /**
+   * The details slide's "Price" — the ONE bundle price the couple confirmed, as the supplier states it (null = blank).
+   * The server compares it with the couple's recorded price read on the server; a difference is the couple's to approve
+   * (`lib/supplier-purchase-change.ts`).
+   */
+  price: number | null;
 };
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -226,6 +232,7 @@ export function parseClaimDoorAnswers(raw: unknown): ClaimDoorAnswers | null {
     cards,
     bundle: b && typeof b === 'object' ? { name: str(b.name, 120), extras: lines(b.extras) } : null,
     specialties,
+    price: num(d.price),
   };
 }
 

@@ -39,9 +39,12 @@ const whole = (n: number | null | undefined): number | null =>
 /**
  * What the supplier changed on the couple's purchase.
  *
- * · PRICE — the couple's recorded total against the sum of the couple's cards the supplier priced (a bundled card
- *   carries no price of its own; it is part of the first card's). Compared only when BOTH sides state a price: a couple
- *   who recorded none has no price to change, and a supplier who left every card unpriced said nothing about it.
+ * · PRICE — the couple's recorded total against what the supplier states for it. The details slide's "Price"
+ *   (`statedPrice`, the ONE bundle price) is the supplier's word when they moved it off the couple's figure; otherwise
+ *   it is the sum of the couple's cards the supplier priced (a bundled card carries no price of its own; it is part of
+ *   the first card's). Compared only when BOTH sides state a price: a couple who recorded none has no price to change
+ *   — the supplier's price is then simply their price, never a proposal — and a supplier who left every card unpriced
+ *   and the Price blank said nothing about it.
  * · SERVICES — a service the couple recorded that is no longer among the supplier's cards for them was removed. Renaming
  *   a card is not a service change (the category is the service).
  */
@@ -49,6 +52,8 @@ export function purchaseChange(args: {
   recordPrice: number | null;
   recorded: readonly RecordedService[];
   confirmed: readonly ConfirmedCard[];
+  /** The details slide's bundle price as posted (`ClaimDoorAnswers.price`); absent/null = the supplier left it blank. */
+  statedPrice?: number | null;
 }): PurchaseChange {
   const kept = new Set(args.confirmed.map((c) => c.category));
   const seen = new Set<string>();
@@ -61,7 +66,10 @@ export function purchaseChange(args: {
 
   const from = whole(args.recordPrice);
   const priced = args.confirmed.filter((c) => !c.bundled).map((c) => whole(c.price));
-  const to = priced.some((p) => p != null) ? priced.reduce<number>((sum, p) => sum + (p ?? 0), 0) : null;
+  const fromCards = priced.some((p) => p != null) ? priced.reduce<number>((sum, p) => sum + (p ?? 0), 0) : null;
+  const stated = whole(args.statedPrice);
+  // The bundle price wins when the supplier moved it; left as the couple's figure, the cards say what changed.
+  const to = stated != null && stated !== from ? stated : fromCards;
   const price = from != null && to != null && to !== from ? { from, to } : null;
 
   return { price, removed };

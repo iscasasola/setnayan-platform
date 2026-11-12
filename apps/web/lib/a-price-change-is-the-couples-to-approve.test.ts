@@ -4,7 +4,8 @@
  * *"couple only gets a price change, or service change on their purchase gets changed, needs approval."*
  *
  * Fails if:
- *   1 · the rule stops seeing a price the supplier moved, or a service they took off the couple's booking;
+ *   1 · the rule stops seeing a price the supplier moved (on a card OR on the details slide's Price), or a service they
+ *       took off the couple's booking — or starts proposing a price to a couple who recorded none;
  *   2 · a service the SUPPLIER ADDED to their own shop ever asks the couple (owner: *"if the supplier creates multiple
  *       services that is not included to the package is not something the customer needs to approve"*);
  *   3 · the lines stop carrying the signed difference the shipped card and Deal math read;
@@ -16,7 +17,8 @@
  *       a row that is already in a chat.
  *
  * SABOTAGE (each seen red, restored): stage `added` instead of `theirs` · drop the `!c.bundled` filter · deliver on
- * Decline · write `event_vendors` from the server half · stage with a thread id.
+ * Decline · write `event_vendors` from the server half · stage with a thread id · drop `statedPrice` from the finish ·
+ * drop `price` from the door’s post · ignore `statedPrice` in the rule.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { splitClaimCards } from './claim-door';
+import { parseClaimDoorAnswers, splitClaimCards } from './claim-door';
 import {
   hasPurchaseChange,
   purchaseChange,
@@ -93,6 +95,34 @@ test('1 · the rule sees a moved price and a removed service — and nothing whe
   );
 });
 
+test('1b · the details slide’s Price is the supplier’s word on the bundle — a couple who recorded none gets no proposal', () => {
+  const asSeeded = [
+    { category: 'photographer', price: 80_000, bundled: false },
+    { category: 'photo_booth', price: null, bundled: true },
+  ];
+  // Only the Price field moved (the cards are as seeded): that is the new bundle price.
+  assert.deepEqual(purchaseChange({ recordPrice: 80_000, recorded, confirmed: asSeeded, statedPrice: 95_000 }).price, {
+    from: 80_000,
+    to: 95_000,
+  });
+  // Price left as the couple's figure (or blank): the cards say what changed.
+  assert.equal(purchaseChange({ recordPrice: 80_000, recorded, confirmed: asSeeded, statedPrice: 80_000 }).price, null);
+  assert.deepEqual(
+    purchaseChange({ recordPrice: 80_000, recorded, confirmed: [{ ...asSeeded[0]!, price: 85_000 }, asSeeded[1]!], statedPrice: 80_000 }).price,
+    { from: 80_000, to: 85_000 },
+  );
+  assert.equal(purchaseChange({ recordPrice: 80_000, recorded, confirmed: asSeeded, statedPrice: null }).price, null);
+  // The couple recorded no price: the supplier's price is simply their price — nothing to approve.
+  assert.equal(purchaseChange({ recordPrice: null, recorded, confirmed: asSeeded, statedPrice: 95_000 }).price, null);
+
+  // The door posts it, and the parse keeps it (a hand-rolled junk value is dropped, never a guessed number).
+  assert.equal(parseClaimDoorAnswers(JSON.stringify({ price: 95000 }))?.price, 95_000);
+  assert.equal(parseClaimDoorAnswers(JSON.stringify({ price: 'abc' }))?.price, null);
+  assert.equal(parseClaimDoorAnswers(JSON.stringify({}))?.price, null);
+  const door = read('app/open-shop/_components/claim-door.tsx');
+  assert.match(door, /const answers: ClaimDoorAnswers = \{[\s\S]*?\n    price: Number\(digits\(d\.price\)\) \|\| null,\n  \};/, 'the door must post the Price field');
+});
+
 test('2 · a service the supplier ADDED to their own shop never asks the couple', () => {
   const posted = [
     { category: 'photographer', price: 80_000, bundled: false, fromRecord: true },
@@ -137,6 +167,7 @@ test('4 · the claim finish stages the change from the couple’s cards against 
   assert.match(call, /confirmed: theirs\b/, 'only the couple’s cards are compared — never the supplier’s added ones');
   assert.match(call, /recordPrice: recordRead\.record\.price/, 'the couple’s price is read on the server, never taken from the post');
   assert.match(call, /recorded: recordRead\.record\.services/, 'the couple’s services are read on the server');
+  assert.match(call, /statedPrice: answers\.price\b/, 'the details slide’s Price must reach the comparison');
   const guard = fn.slice(fn.lastIndexOf('if (', stage), stage);
   assert.match(guard, /!fromSetnayan/, 'Setnayan’s own invite has no couple and nothing bought — it must not stage a change');
 });

@@ -8,7 +8,8 @@
  *     below what was sent
  *   · a rise lands on the AUTO Final-balance row; every other row, and every paid row, is untouched (a paid auto row
  *     → a new auto row takes the rise)
- *   · a booked deal is not repriced here (Piece 2); a supplier's `changes_locked` quote STILL rises.
+ *   · a BOOKED deal follows like a `changes_locked` quote (Piece 2, owner 2026-11-12): it rises, never falls — its fee
+ *     top-up is held until the event day (20271340632149); a supplier's `changes_locked` quote STILL rises.
  *
  * 📉 THE FALL-BACK (migration 20271340566104; DECISION_LOG 2026-11-12 "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK —
  * UNLESS THE SUPPLIER LOCKED IT"). Owner: *"if the price is paid, then it stays … it really depends if the supplier
@@ -150,12 +151,13 @@ export function followGuestCount(
   paidCentavos = 0,
 ): FollowResult {
   const floorInt = (n: number | null | undefined) => (isNum(n) ? Math.max(0, Math.floor(n)) : 0);
-  const locked = q.locked === true;
+  // ⟵ PIECE 2: a booked deal is repriced like a locked quote — rises, never falls.
+  const locked = q.locked === true || q.booked;
   const prior = floorInt(q.billedPax);
   const sentPax = isNum(q.sentBilledPax) ? floorInt(q.sentBilledPax) : prior;
   let billed = Math.max(Math.max(0, Math.floor(count)), floorInt(q.minPax), locked ? prior : sentPax);
   const still = { rose: false as const, fell: false as const, billedPax: billed };
-  if (q.booked || !quoteFollowsGuestList(q.lines)) return still;
+  if (!quoteFollowsGuestList(q.lines)) return still;
 
   let { lines, delta } = followLines(q.lines, billed, !locked);
   if (delta === 0) return still;

@@ -148,11 +148,17 @@ test('🔑 "Price on request" is said only when the cards were READ, and never o
   assert.match(meta, /look\.face && !hasRecordedPrice && !v\.includedWith \?/);
   assert.match(meta, /\) : look\.cards \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
   // The marketplace card in "More to compare" obeys the same rule.
-  assert.match(BENCH, /\) : cardsRead \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
+  // 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): that card is drawn by the one face, which says `priceMissing` only when
+  // it has no price — so the words still never sit over a recorded price.
+  assert.match(BENCH, /price=\{svc\?\.priceText \?\? null\}\s*priceMissing=\{cardsRead \? PRICE_ON_REQUEST : null\}/);
   assert.match(BENCH, /cardsRead=\{!cardsUnread && \(moreAll \? true : moreCards !== null\)\}/);
   // Find v4 (2026-10-29): a shop's other card in the category ("also …") — the third shape, said only over a card READ.
   assert.match(BENCH, /: c\.card \? <span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span> : null/);
-  assert.equal((BENCH.match(/PRICE_ON_REQUEST\}/g) ?? []).length, 3, 'one per card shape — no fourth, unguarded one');
+  assert.equal(
+    (BENCH.match(/PRICE_ON_REQUEST\}|cardsRead \? PRICE_ON_REQUEST : null/g) ?? []).length,
+    3,
+    'one per card shape — no fourth, unguarded one',
+  );
   assert.ok(!/Price on request/.test(BENCH), 'the words are typed in the bench — read them from the lib');
 });
 

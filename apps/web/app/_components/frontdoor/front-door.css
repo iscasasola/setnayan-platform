@@ -1862,6 +1862,14 @@ h2.fd-sechead,
   height: 80%;
   object-fit: contain;
 }
+/* The invitation on a picture (2026-11-12): the poster's own photo is its
+   direct child and fills the cover; only the mark inside the circle keeps
+   the 80 % / contain above. */
+.fd-thumb .fd-scene-poster > div > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .fd-date {
   position: absolute;
   left: 6px;

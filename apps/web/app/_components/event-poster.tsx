@@ -5,6 +5,25 @@ import { CoupleLogo } from './couple-logo';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 
 /**
+ * The couple's own paper ground as a style: the hub's `--color-cream` / `--color-ink` channels and
+ * their ombré. ONE copy — Discover's paper card and the home board's poster both wear it, so the
+ * same event reads in the same colours on both (owner 2026-11-12).
+ */
+export function paperGroundStyle(g: NonNullable<EventPosterFacts['paperGround']>): CSSProperties {
+  const style: Record<string, string> = { '--m-paper': 'transparent' };
+  if (g.cream) {
+    style['--color-cream'] = g.cream;
+    style.backgroundColor = 'rgb(var(--color-cream))';
+  }
+  if (g.ink) {
+    style['--color-ink'] = g.ink;
+    style['--m-ink'] = 'rgb(var(--color-ink))';
+  }
+  if (g.ombre) style.backgroundImage = g.ombre;
+  return style as CSSProperties;
+}
+
+/**
  * THE EVENT POSTER — a collection card's `cover`, 3:4, filling the card.
  *
  * Owner-approved 2026-09-24 ("the template is good"). Which treatment an event
@@ -137,7 +156,12 @@ export function EventPoster({
 
   // invitation — the hub's own card
   return (
-    <div aria-hidden className={`${s.poster} ${s.invGround}`}>
+    <div
+      aria-hidden
+      className={`${s.poster} ${s.invGround}`}
+      style={poster.paperGround ? paperGroundStyle(poster.paperGround) : undefined}
+      data-paper-ground={poster.paperGround ? 'own' : undefined}
+    >
       <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} />
     </div>
   );

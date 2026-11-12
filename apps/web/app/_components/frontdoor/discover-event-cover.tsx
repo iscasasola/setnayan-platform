@@ -32,33 +32,20 @@
  */
 import type { CSSProperties } from 'react';
 
-import type { DiscoverEventCard, DiscoverPaperGround } from '@/lib/discover-events-core';
+import type { DiscoverEventCard } from '@/lib/discover-events-core';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
-import { EventPoster } from '../event-poster';
+import { EventPoster, paperGroundStyle } from '../event-poster';
 
 /**
  * The couple's paper as the paper card's ground: the hub's own channels, the
  * poster's paper made transparent over them, and its ink following the hub's
  * legibility answer. Every value was built from parsed hexes (`guestLookFrom`).
  */
-function paperGroundStyle(g: DiscoverPaperGround): CSSProperties {
-  const style: Record<string, string> = { '--m-paper': 'transparent' };
-  if (g.cream) {
-    style['--color-cream'] = g.cream;
-    style.backgroundColor = 'rgb(var(--color-cream))';
-  }
-  if (g.ink) {
-    style['--color-ink'] = g.ink;
-    style['--m-ink'] = 'rgb(var(--color-ink))';
-  }
-  if (g.ombre) style.backgroundImage = g.ombre;
-  return style as CSSProperties;
-}
 
 export function DiscoverEventCover({
   card,
 }: {
-  card: Pick<DiscoverEventCard, 'cover' | 'datePlate' | 'scene' | 'paper'>;
+  card: Pick<DiscoverEventCard, 'cover' | 'datePlate' | 'scene' | 'paper' | 'scenePoster'>;
 }) {
   const scene = card.scene && card.scene.kind !== 'quiet' ? card.scene : null;
   const paper = scene ? null : card.paper;
@@ -71,7 +58,21 @@ export function DiscoverEventCover({
       <span className="fd-mono-cover" aria-hidden="true">
         {card.cover}
       </span>
-      {scene ? (
+      {scene && card.scenePoster ? (
+        /* 🖼 THE INVITATION ON THE PICTURE (owner 2026-11-12: *"the event icons are not similar?"*). The
+           home board printed the couple's names and date on their photo while this card showed the bare
+           photo. It now draws the SAME `<EventPoster>` from the same poster facts, so one event wears one
+           cover on Home and on Discover. The poster brings its own measured legibility tones and scrim. */
+        <div className="fd-paper fd-scene-poster">
+          <EventPoster
+            poster={card.scenePoster.poster}
+            markText={card.scenePoster.markText}
+            markSvgUri={card.scenePoster.markSvg ? bespokeSvgToDataUri(card.scenePoster.markSvg) : null}
+            markSvg={card.scenePoster.markSvg}
+            markPlays={card.scenePoster.markPlays}
+          />
+        </div>
+      ) : scene ? (
         <>
           {/* A presigned R2 URL or the theme's public still — a plain <img>:
               the signing host is not in the next/image allowlist. */}

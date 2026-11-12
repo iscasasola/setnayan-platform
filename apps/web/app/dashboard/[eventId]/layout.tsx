@@ -687,11 +687,14 @@ export default async function EventLayout({ children, params }: Props) {
            ⚠ THE OTHER THREE FOCUS ROWS ARE UNCHANGED and still wear the arrow
            ("My Home", from HQ · the shop · an account spoke). Those say what
            pressing them DOES; this one says where it goes. */
+        /* ↩ SUPERSEDED 2026-11-12 (owner, on the event menu beside the shop's: *"It need to be able to
+           go back home. The need to have similar way of presenting this to go back to home"*). The row
+           now reads exactly as HQ's, the shop's and every account spoke's: "← My Home", to the same
+           `/dashboard`. The 2026-09-23 "Events" + grid icon ruling below is kept for history only. */
         focus={{
           href: '/dashboard',
-          label: 'Events',
-          caption: 'Events',
-          icon: 'events',
+          label: 'My Home',
+          caption: 'Home',
         }}
         railContext={
           <EventRailContext

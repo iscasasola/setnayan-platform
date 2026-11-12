@@ -92,6 +92,8 @@ import { paginateCollection, parseCollectionPage } from '@/lib/collection-pagina
 import { EventPoster } from '@/app/_components/event-poster';
 import { sceneCoverFor, type EventPosterFacts } from '@/lib/event-poster';
 import { resolveEventPoster } from '@/lib/event-poster.server';
+import { readEventCover } from '@/lib/discover-events';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
@@ -2504,7 +2506,24 @@ async function planningPosters(
         },
         ownHeroById.get(e.event_id) ?? null,
       );
-      if (poster) out.set(e.event_id, poster);
+      if (!poster) return;
+      /*
+        🎨 A THEME COVER ASKS DISCOVER'S ONE QUESTION (owner 2026-11-12: *"the event icons are not
+        similar?"*). Where the couple chose their own background colour or ombré, their Event Hub draws
+        NO theme loop, and Discover already drew the paper card in their colours. Home kept the theme's
+        dark ground with the paper's default ink — dark words on dark. So a `theme` poster (only those:
+        no extra read for any other) is dressed by `readEventCover`, the same resolver Discover and the
+        event's own Home header ask; when that answers paper, the card is that paper, in their colours.
+        A refused read keeps today's poster.
+      */
+      if (poster.kind === 'theme') {
+        const dressed = await readEventCover(createAdminClient(), e.event_id).catch(() => null);
+        if (dressed && !dressed.scene && dressed.paper) {
+          out.set(e.event_id, { ...dressed.paper.poster, paperGround: dressed.paper.ground });
+          return;
+        }
+      }
+      out.set(e.event_id, poster);
     }),
   );
   return out;

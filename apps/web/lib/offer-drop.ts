@@ -218,14 +218,14 @@ export function offerVersion(input: {
     now: input.now,
   })[0];
   if (!fit) return { ok: false, reason: applyRefusalWords('NO_FIT') };
-  const named = offerLineItem(fit);
-  const offerLine: DropLine = { ...named, offer_id: input.offer.id, card_ids: cardIds };
   // 🔒 BETTER ONLY (owner 13 Nov: "We only show offer cards that are better than the current offer"). Offers never
   // stack: the quote carries at most one offer line. A new one must save MORE pesos on THIS quote (centavos, never
-  // percent) than the one already there, and then it REPLACES that line.
+  // percent) than the one already there, and then it REPLACES that line. No line (no price part) saves nothing.
   const current = currentOfferCentavos(input.lines);
-  const saves = -(named.amount_centavos ?? 0);
-  if (!(saves > current)) return { ok: false, reason: applyRefusalWords(current > 0 ? 'NOT_BETTER' : 'NOTHING_OFF'), notBetter: true };
+  const named = offerLineItem(fit);
+  const saves = named ? -(named.amount_centavos ?? 0) : 0;
+  if (!named || !(saves > current)) return { ok: false, reason: applyRefusalWords(current > 0 ? 'NOT_BETTER' : 'NOTHING_OFF'), notBetter: true };
+  const offerLine: DropLine = { ...named, label: named.label ?? fit.name, amount_centavos: named.amount_centavos ?? null, offer_id: input.offer.id, card_ids: cardIds };
   const kept = input.lines.filter((l) => !isOfferLine(l));
   const lineItems: DropLine[] = [...kept.map((l) => ({ ...l })), offerLine];
   const totalCentavos = input.totalCentavos + current + (named.amount_centavos ?? 0);

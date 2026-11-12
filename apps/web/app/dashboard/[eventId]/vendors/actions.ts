@@ -5513,7 +5513,11 @@ async function saveSelfAddedPriceBasis(
     .eq('vendor_id', vendorId)
     .is('marketplace_vendor_id', null)
     .select('vendor_id');
-  if (error || !written || written.length === 0) return { ok: false };
+  if (error) {
+    console.error('[saveSelfAddedPriceBasis] the price basis was not saved:', error.message);
+    return { ok: false };
+  }
+  if (!written || written.length === 0) return { ok: false };
   if (basis === 'fixed') return { ok: true, totalPhp: null };
   const terms = await readSelfAddedPriceTerms(supabase, eventId, vendorId);
   const t = basisTotal(basis, rate, terms);

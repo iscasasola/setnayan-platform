@@ -12,6 +12,7 @@
  * is NO total: the sheet says why, the save writes none, and a card never draws ₱0.
  */
 import { formatPhp } from './php';
+import { countNoun } from './format-number';
 
 /** The Card Maker's own keys (`vendor_services.pricing_basis`). `fixed` = One price = NULL on the booking. */
 export type SelfAddedBasis = 'fixed' | 'per_pax' | 'per_hour';
@@ -82,9 +83,7 @@ export function priceRowName(basis: SelfAddedBasis): string {
 
 /** "120 guests" · "1 guest" · "5 hours" · "6.5 hours" · "1 hour". */
 export function countWords(basis: Exclude<SelfAddedBasis, 'fixed'>, n: number): string {
-  const num = Number.isInteger(n) ? n.toLocaleString('en-PH') : String(n);
-  if (basis === 'per_pax') return `${num} ${n === 1 ? 'guest' : 'guests'}`;
-  return `${num} ${n === 1 ? 'hour' : 'hours'}`;
+  return basis === 'per_pax' ? countNoun(n, 'guest', 'guests') : countNoun(n, 'hour', 'hours');
 }
 
 /** "3:00 PM" in Manila (the schedule's own clock). */

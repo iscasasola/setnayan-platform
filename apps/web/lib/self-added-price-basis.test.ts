@@ -98,8 +98,8 @@ test('parsing — the form, the column, the read', () => {
 
 test('the saved card draws the line, then its OWN total — and no total when the count is not known', () => {
   const card = fs.readFileSync(path.join(__dirname, '../app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'), 'utf8');
-  assert.match(card, /basisLine\.showsTotal && hasRecordedPrice \?/);
-  assert.match(card, /<span className="sc-price">\{basisLine\.lead\} · <\/span>/);
+  assert.match(card, /basisLine && !\(basisLine\.showsTotal && hasRecordedPrice\) \?/);
+  assert.match(card, /<span className="sc-price" data-price-basis-line="">\{basisLine\.lead\} · <\/span>/);
 });
 
 test('the sheet uses the Card Maker’s words and the house PickMenu — a tap opens, never cycles', () => {

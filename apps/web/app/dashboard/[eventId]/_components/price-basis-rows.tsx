@@ -44,7 +44,11 @@ export const readPriceTermsInBrowser: PriceTermsReader = async (eventId, eventVe
       p_event_id: eventId,
       p_event_vendor_id: eventVendorId,
     });
-    if (error) return 'unread';
+    if (error) {
+      // Said on screen (GUESTS_UNREAD_WORDS / SCHEDULE_UNREAD_WORDS); the reason goes to the console.
+      console.warn('[price-basis] the guest count and schedule times could not be read:', error.message);
+      return 'unread';
+    }
     return parsePriceTerms(data) ?? 'unread';
   } catch {
     return 'unread';

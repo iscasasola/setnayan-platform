@@ -1611,21 +1611,16 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {basisLine ? (
-          // The rate and its count, then the card's own total — or no total, said, when the count or the hours are not
-          // known ("₱6,000 per hour · no times on the schedule yet").
-          <span data-price-basis-line="">
-            {basisLine.showsTotal && hasRecordedPrice ? (
-              <>
-                <span className="sc-price">{basisLine.lead} · </span>
-                <span className="price">{formatPhp(v.totalCostPhp)}</span>
-              </>
-            ) : (
-              <span className="sc-price">{basisLine.lead}</span>
-            )}
-          </span>
-        ) : v.totalCostPhp != null && v.totalCostPhp > 0 ? (
-          <span className="price">{formatPhp(v.totalCostPhp)}</span>
+        {/* A per-guest or per-hour price leads with its rate and count; the card's own total follows it — or no total,
+            said, when the count or the hours are not known ("₱6,000 per hour · no times on the schedule yet"). One
+            price span either way, so the bench card still draws the number exactly once. */}
+        {basisLine && !(basisLine.showsTotal && hasRecordedPrice) ? (
+          <span className="sc-price" data-price-basis-line="">{basisLine.lead}</span>
+        ) : hasRecordedPrice ? (
+          <>
+            {basisLine ? <span className="sc-price" data-price-basis-line="">{basisLine.lead} · </span> : null}
+            <span className="price">{formatPhp(v.totalCostPhp)}</span>
+          </>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",

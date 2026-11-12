@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { chatAttachmentPolicy } from '@/lib/r2-client-ref';
+import { chatAttachmentPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { presignClientRef } from '@/lib/r2-client-ref.server';
+import { r2Delete } from '@/lib/r2';
 
 /**
  * THE ONLY WAY TO READ A FILE SHARED IN A CONVERSATION.
@@ -90,4 +91,48 @@ export async function GET(
     // would be served a link minted for somebody else's session.
     headers: { 'Cache-Control': 'private, no-store' },
   });
+}
+
+/**
+ * 👈 REMOVE YOUR OWN FILE FROM THE CHAT (ruling 6076; owner 12 Nov 2026: "delete it outright").
+ *
+ * The swipe on your own file bubble calls this after its Undo window. A route method, not a server action: the
+ * server-action budget is at its ceiling, and this route already owns "a file in a conversation". The DATABASE
+ * decides (`remove_my_chat_file`, migration 20271341904583 — the caller's own session, so `auth.uid()` is theirs):
+ * only the sender, only a message that carries a file, only while they can still read the chat. Anything else is
+ * answered 404, exactly like a message that does not exist.
+ *
+ * The R2 object goes after the row, best-effort (`r2Delete`'s contract): the row is what GET re-proves, so a lingering
+ * object is unreachable through the app. Only a ref under THIS chat's own folder is ever deleted (`parseClientRef`
+ * with `chatAttachmentPolicy`) — a legacy URL or a ref anywhere else is left alone.
+ */
+export async function DELETE(
+  _req: Request,
+  ctx: { params: Promise<{ messageId: string }> },
+) {
+  const { messageId } = await ctx.params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new NextResponse('Not found', { status: 404 });
+
+  const { data, error } = await supabase.rpc('remove_my_chat_file', { p_message_id: messageId });
+  if (error) {
+    // NOT_YOURS / NO_FILE are refusals, not faults — but a refused write is never silent in the logs either.
+    console.error('[chat-attachment] remove refused', { messageId, error: error.message });
+    return new NextResponse('Not found', { status: 404 });
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as { thread_id: string; stored_ref: string | null } | undefined;
+  if (row?.stored_ref) {
+    const parsed = parseClientRef(row.stored_ref, chatAttachmentPolicy(row.thread_id));
+    if (parsed) {
+      try {
+        await r2Delete({ bucket: parsed.bucket, key: parsed.key });
+      } catch (err) {
+        console.error('[chat-attachment] r2 delete failed (row already gone)', { messageId, error: (err as Error).message });
+      }
+    }
+  }
+  return new NextResponse(null, { status: 204, headers: { 'Cache-Control': 'private, no-store' } });
 }

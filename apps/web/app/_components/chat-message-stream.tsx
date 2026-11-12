@@ -127,6 +127,7 @@ import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
 import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
 import { AttachmentBlock } from './chat/attachment-block';
+import { MaybeChatFileSwipe } from './chat/chat-file-swipe';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { setPrivateReply, usePrivateTo } from './chat/private-to';
@@ -2263,6 +2264,13 @@ export function ChatMessageStream({
                   {staffName}
                 </span>
               ) : null}
+              {/* 👈 Ruling 6076 · YOUR file bubble swipes left to Remove, with Undo (owner: "delete it outright"). Words never
+                  swipe, and a private line is words only. The database re-decides it is yours (`remove_my_chat_file`). */}
+              <MaybeChatFileSwipe
+                on={mine && privateWith === null && !!(m.attachment_r2_key || m.attachment_url)}
+                messageId={m.message_id}
+                name={m.attachment_name ?? null}
+              >
               <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
@@ -2371,6 +2379,7 @@ export function ChatMessageStream({
                 </span>
               </div>
               </div>
+              </MaybeChatFileSwipe>
               {privateWith !== null ? <PrivateTime at={m.created_at} alignEnd={mine} /> : null}
               <MessageHeart
                 count={heartCount}

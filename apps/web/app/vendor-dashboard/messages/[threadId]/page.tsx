@@ -2296,7 +2296,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // quote expired · decisions); the oldest blocking one the supplier can answer takes the screen.
             extraPins={pinFacts}
             blocker={chatBlocker}
-            pinBodies={{ ...decisionPinBodies(chatPins.facts), ...schedulePinBodies(chatPins.facts, threadId) }}
+            pinBodies={Object.assign(decisionPinBodies(chatPins.facts), schedulePinBodies(chatPins.facts, threadId))}
             plus={{
               eventId: thread.event_id,
               returnPath: embedded ? `/vendor-dashboard/clients/${thread.event_id}?tab=chat` : `/vendor-dashboard/messages/${threadId}`,

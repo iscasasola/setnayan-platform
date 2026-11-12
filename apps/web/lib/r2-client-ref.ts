@@ -580,7 +580,11 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // `chat` added 2026-10-28 (CHAT FILES) — a video up to 50 MB cannot ride the
   // send action, so the phone presigns `chat/<thread>/<own uid>` here; the route
   // checks thread membership AND that the folder is the caller's own.
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr', 'chat'])],
+  // `supplier-files` added 2026-11-12 (Piece 3b, a supplier's files for one event) — the shop's PRIVATE stored copies
+  // under `supplier-files/<shop>/<event>/`; its own root (never `vendors`, which must not reach this bucket) so the
+  // vendor tenancy binds the id to the caller's own shop, and the database refuses a stored copy outside that folder
+  // (guard_supplier_media_own_folder).
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr', 'chat', 'supplier-files'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.

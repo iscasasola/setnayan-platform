@@ -7,6 +7,7 @@
  *
  *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
+ *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
  *   ?s=helpers         Helpers (who=parish: owner + a free Helper · studio: admins, team members, an open vote)
  *   ?s=settings        Settings (&staff=1 — a scoped team member)
@@ -28,7 +29,10 @@ import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
 import { PlanSheet, type PlanPick, type SheetPlan } from '@/app/vendor-dashboard/subscription/_components/plan-sheet';
-import { changeKind, limitAsk, payToday, planChanges, planRowLine, sheetPlans, type PlanLimitKey } from '@/lib/plan-sheet';
+import { changeKind, limitAsk, payToday, planChanges, planDirection, planRowLine, sheetPlans, type PlanLimitKey } from '@/lib/plan-sheet';
+import { downgradeFit, type DowngradeFacts } from '@/lib/downgrade-limits';
+import { EARLY_SHOPS_PAPERS_DUE_ISO } from '@/lib/verified-badge';
+import { asVendorTier } from '@/lib/vendor-tier-caps';
 import { papersProgress } from '@/lib/locks';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { LabLimit, LabLock } from './lab-open';
@@ -90,7 +94,14 @@ const LAB_PRICES: Record<string, { monthly: number; annual: number }> = {
 };
 
 /** The plan sheet's rows from the lab's picks — the same lib calls the Plan screen makes (`plan-screen.tsx`). */
-function labSheet(tier: string, picks: readonly PlanPick[], expiresOn: string | null, expiresAt: string | null, nowMs: number): SheetPlan[] {
+function labSheet(
+  tier: string,
+  picks: readonly PlanPick[],
+  expiresOn: string | null,
+  expiresAt: string | null,
+  nowMs: number,
+  limits: { floor: boolean } | null = null,
+): SheetPlan[] {
   const by = new Map(picks.map((p) => [p.key, p]));
   return sheetPlans(tier).map((t) => {
     const paid = t === 'solo' || t === 'pro' || t === 'enterprise';
@@ -112,15 +123,58 @@ function labSheet(tier: string, picks: readonly PlanPick[], expiresOn: string | 
       ),
       pickLine: planPickLine(tier, t, expiresOn),
       changes: planChanges(tier, t, false),
+      fit:
+        limits && planDirection(tier, t) === 'down'
+          ? downgradeFit(LAB_DOWN_FACTS, asVendorTier(tier), t, {
+              paywallOn: false,
+              storageAllowanceBytes: limits.floor ? LAB_STORAGE_ALLOWANCE : null,
+              now: new Date(nowMs),
+            })
+          : null,
     };
   });
 }
+
+/**
+ * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Solo holds: five
+ * services over three categories, one taking three bookings a day, four counted seats, three included branches, a
+ * 100 km reach and a Verified badge on the 30 March renewal day. `&floor=1` adds the storage floor with a LAB-ONLY
+ * allowance (no plan has a storage allowance yet — `storageAllowanceBytes` in lib/downgrade-limits.server.ts).
+ */
+const labCard = (id: string, name: string, kind: string, family: string, daily: number | null) => ({
+  id,
+  name,
+  kind,
+  families: [family],
+  live: true,
+  hold: null,
+  holdStartsOn: null,
+  daily,
+});
+const LAB_DOWN_FACTS: DowngradeFacts = {
+  founder: false,
+  cards: [
+    labCard('c1', 'Wedding photos', 'photography', 'photo-video', 3),
+    labCard('c2', 'Same-day edit', 'videography', 'photo-video', 1),
+    labCard('c3', 'Prenup shoot', 'photography', 'photo-video', 1),
+    labCard('c4', 'Photo booth', 'photo_booth', 'entertainment', 1),
+    labCard('c5', 'Bridal flowers', 'florist', 'styling', 1),
+  ],
+  includedBranches: 3,
+  seats: { people: 5, freeHelpers: 1, counted: 4 },
+  extraSeats: 0,
+  reachKm: 100,
+  storedBytes: 7_400_000_000,
+  badge: { verification_state: 'verified', next_renewal_due_at: EARLY_SHOPS_PAPERS_DUE_ISO },
+};
+/** LAB-ONLY storage allowance — never a ruled figure. */
+const LAB_STORAGE_ALLOWANCE = 5_000_000_000;
 
 /** Lab-only "now" and term ends, so the sheet's today/then lines are stable in a screenshot. */
 const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
-function planFixture(who: Who, unverified: boolean, fail: boolean) {
+function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
@@ -147,7 +201,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
       isPaid={shop.tier !== 'free'}
       picker={
         <PlanSheet
-          plans={labSheet(shop.tier, plans, who === 'caterer' ? '8 Dec 2026' : shop.expires, LAB_EXPIRES_AT[shop.tier] ?? null, LAB_SHEET_NOW)}
+          plans={labSheet(shop.tier, plans, who === 'caterer' ? '8 Dec 2026' : shop.expires, LAB_EXPIRES_AT[shop.tier] ?? null, LAB_SHEET_NOW, limits)}
           current={shop.tier}
           cycle={shop.cycle}
           verified={!unverified}
@@ -360,7 +414,7 @@ export default async function SupplierPlanLabPage({
     body =
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
-        : planFixture(who, sp.unverified === '1', sp.fail === '1');
+        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null);
   }
   // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
   else if (s === 'lock') {

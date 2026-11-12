@@ -78,6 +78,11 @@ export type QuoteSeedLine = {
   basePhp: number;
   inclHours: number;
   extraPhp: number;
+  /**
+   * 🏷 The service card this line came from (owner 12 Nov: an offer comes off ITS card's lines only). Its price, its
+   * surcharges, its inclusions and its ticked add-ons all carry it; a typed line has none.
+   */
+  cardId?: string | null;
 };
 
 export type QuoteSeedCrew = {
@@ -319,7 +324,7 @@ export function quoteFromServiceCards(input: QuoteFromCardsInput): ServiceCardQu
     const label = c.label.trim() || 'Service';
 
     // 1 · the price, as the card sells it (bracket for the count when it has one)
-    const base = priceLine(card, label, c.brackets, pax);
+    const base: QuoteSeedLine = { ...priceLine(card, label, c.brackets, pax), cardId: card.vendor_service_id };
     lines.push(base);
 
     // 2 · guests above the base the price covers (the card's own added-pax rule)

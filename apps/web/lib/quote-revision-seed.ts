@@ -26,6 +26,7 @@
  * counted twice.
  */
 import type { ProposalLineItem } from './vendor-proposals';
+import { lineStructureOf } from './quote-line-structure';
 import {
   isResolvedSchedule,
   type AutoBalanceMeta,
@@ -77,25 +78,56 @@ export function seedScheduleFromStored(raw: unknown): QuoteRevisionSchedule | nu
   return { manual, autoBalance };
 }
 
-/** One seeded builder line — the builder's `QuoteSeedLine` shape, flat only. */
+/**
+ * One seeded builder line — the builder's `QuoteSeedLine` shape.
+ *
+ * 🧭 A LINE WRITTEN SINCE 12 NOV RE-OPENS AS IT WAS PRICED: its `basis`, rate and card ride in the `line_items` JSON
+ * (lib/quote-line-structure.ts), so a per-pax line comes back per-pax and keeps following their guest list — before,
+ * every revision flattened it to its stored amount with `minPax: 0`, and the supplier's minimum vanished. A line from
+ * an older quote (no basis stored) still seeds flat at its stored amount, as the header explains. The per-line minimum
+ * is gone: the quote has ONE minimum (`minPax` on the seed, from `merge_snapshot.min_pax`).
+ */
 export type QuoteRevisionLine = {
   label: string;
-  basis: 'flat';
+  basis: 'flat' | 'per_pax' | 'per_hour';
   free: boolean;
   flatPhp: number;
-  ratePhp: 0;
+  ratePhp: number;
   minPax: 0;
-  basePhp: 0;
-  inclHours: 0;
-  extraPhp: 0;
+  basePhp: number;
+  inclHours: number;
+  extraPhp: number;
+  /** The service card the line came from; null for a typed line or an older quote. */
+  cardId: string | null;
+};
+
+/**
+ * 🏷 THE OFFER THE REPLACED QUOTE CARRIED (owner 12 Nov, "QUOTE MONEY — THREE ANSWERS" (1): *"once the client has added
+ * a service at that price, that service's discount stays with it"*). Its named line is NOT folded into the Discount
+ * field: the revision re-applies it, re-priced while it still fits and at its stored amount once it no longer does
+ * (an offer that has since ended is still this quote's).
+ */
+export type QuoteRevisionOffer = {
+  id: string;
+  name: string;
+  /** What it took off, in pesos, as stored. */
+  offPhp: number;
+  /** Its stored caption ("5% off · on Garden buffet only · offer"). */
+  detail: string | null;
+  /** The gifts that came from it, by name (Complimentary lines). */
+  giftLabels: string[];
 };
 
 export type QuoteRevisionSeed = {
   /** The quote being replaced — named in the builder's banner. */
   of: { publicId: string; title: string; totalCentavos: number; status: string; sentAt: string | null };
   lines: QuoteRevisionLine[];
-  /** Sum of the negative lines, as a positive peso amount for the Discount field. */
+  /** Sum of the negative lines that are not an offer, as a positive peso amount for the Discount field. */
   discountPhp: number;
+  /** The offer this quote carried (its own named line), or null. */
+  offer: QuoteRevisionOffer | null;
+  /** The quote's ONE pax minimum (`merge_snapshot.min_pax`); null on a quote written before it. */
+  minPax: number | null;
   title: string;
   note: string;
   validUntil: string;
@@ -122,6 +154,7 @@ export type QuoteRevisionSource = {
   payment_method_ids: unknown;
   payment_schedule?: unknown;
   includes_setnayan_gift?: boolean | null;
+  merge_snapshot?: unknown;
 };
 
 /**
@@ -144,7 +177,7 @@ export type QuoteRevisionSource = {
  * as plain `string`, which degrades the row to `GenericStringError`.
  */
 export const QUOTE_REVISION_SELECT =
-  'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift' as const;
+  'public_id, title, total_centavos, status, sent_at, rendered_body, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift, merge_snapshot' as const;
 
 const peso = (centavos: number) => Math.round(centavos) / 100;
 
@@ -155,6 +188,8 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
 
   const lines: QuoteRevisionLine[] = [];
   let discountCentavos = 0;
+  let offer: QuoteRevisionOffer | null = null;
+  const offerGifts: { id: string; label: string }[] = [];
   for (const li of raw) {
     const label = String(li?.label ?? '').trim();
     if (!label) continue;
@@ -162,23 +197,51 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
       li?.amount_centavos == null || !Number.isFinite(Number(li.amount_centavos))
         ? null
         : Math.round(Number(li.amount_centavos));
+    const s = lineStructureOf(li);
     if (amount != null && amount < 0) {
+      if (s.offer_id && !offer) {
+        // The offer's own named line — kept as the offer, never folded into the Discount.
+        offer = { id: s.offer_id, name: label, offPhp: peso(-amount), detail: li?.detail ?? null, giftLabels: [] };
+        continue;
+      }
       // Folded into the Discount field — see the header for why.
       discountCentavos += -amount;
       continue;
     }
+    if (amount == null && s.offer_id) {
+      // A gift from the offer: it comes back with the offer, not as a line of its own.
+      offerGifts.push({ id: s.offer_id, label });
+      continue;
+    }
+    const rate = s.rate_centavos != null ? peso(s.rate_centavos) : 0;
+    const basis = amount != null && rate > 0 && (s.basis === 'per_pax' || s.basis === 'per_hour') ? s.basis : 'flat';
     lines.push({
       label,
-      basis: 'flat',
+      basis,
       free: amount == null,
       flatPhp: amount == null ? 0 : peso(amount),
-      ratePhp: 0,
+      ratePhp: basis === 'per_pax' ? rate : 0,
       minPax: 0,
-      basePhp: 0,
-      inclHours: 0,
-      extraPhp: 0,
+      basePhp: basis === 'per_hour' ? rate : 0,
+      inclHours: basis === 'per_hour' ? Math.max(0, s.incl_hours ?? 0) : 0,
+      extraPhp: basis === 'per_hour' ? peso(s.extra_hour_centavos ?? 0) : 0,
+      cardId: s.card_id ?? null,
     });
   }
+  // A gift-only offer has no named line of its own — its gifts still say which offer this quote carried.
+  if (!offer && offerGifts.length > 0) offer = { id: offerGifts[0]!.id, name: 'Your offer', offPhp: 0, detail: null, giftLabels: [] };
+  if (offer) {
+    const id = offer.id;
+    offer.giftLabels = offerGifts.filter((g) => g.id === id).map((g) => g.label);
+  }
+  // A gift from some OTHER offer than the one this quote carries seeds as an ordinary complimentary line.
+  for (const g of offerGifts) {
+    if (offer && g.id === offer.id) continue;
+    lines.push({ label: g.label, basis: 'flat', free: true, flatPhp: 0, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: null });
+  }
+  const snap = (row.merge_snapshot ?? {}) as { min_pax?: unknown };
+  const minRaw = Math.round(Number(snap.min_pax));
+  const minPax = snap.min_pax != null && Number.isFinite(minRaw) && minRaw > 0 ? minRaw : null;
 
   const ids = Array.isArray(row.payment_method_ids)
     ? (row.payment_method_ids as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
@@ -194,6 +257,8 @@ export function seedQuoteRevision(row: QuoteRevisionSource): QuoteRevisionSeed {
     },
     lines,
     discountPhp: peso(discountCentavos),
+    offer,
+    minPax,
     title: row.title ?? '',
     note: row.rendered_body ?? '',
     // ⏳ An EXPIRED quote seeds everything but its date: its Valid until is the past, and a send must be after today

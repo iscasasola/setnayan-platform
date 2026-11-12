@@ -165,7 +165,12 @@ test('🔑 the count and the date are the hide\'s own, and they reach Find\'s pa
   // The search sheet says the server's sentence before its "here yet" line.
   const overlay = read(OVERLAY);
   assert.match(overlay, /setNobodyFree\(res\.nobodyFreeWords \?\? null\);/);
-  assert.match(overlay, /\{nobodyFree \? \(\s*nobodyFree\s*\) : query\.trim\(\) \|\| filterCount > 0 \? \(/);
+  // The date-hide sentence is its own branch, decided BEFORE the empty copy's narrowing branch (which
+  // bench-category-search.test.ts pins), so an emptied list never reads "No … suppliers here yet".
+  assert.match(
+    overlay,
+    /results\.length === 0 && nobodyFree \? \(\s*(?:\/\/[^\n]*\n\s*)*<div className="empty"[^>]*>\{nobodyFree\}<\/div>\s*\) : results\.length === 0 \? \(/,
+  );
 });
 
 /* ── 4 · Discover's supplier view ───────────────────────────────────────── */

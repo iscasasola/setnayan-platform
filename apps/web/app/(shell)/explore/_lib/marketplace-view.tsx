@@ -4400,7 +4400,7 @@ function EmptyState({
   // suppliers match" or the invite-a-supplier outreach (they exist; they are taken). One door: clear the filters.
   if (nobodyFreeWords) {
     return (
-      <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center" data-find-empty="nobody_free">
+      <div className="mt-10 px-4 py-6 text-center" data-find-empty="nobody_free">
         <p className="text-base font-medium text-ink/75">{nobodyFreeWords}</p>
         {hasFilter ? (
           <div className="mt-4 flex flex-wrap justify-center gap-2">

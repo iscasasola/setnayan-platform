@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { VendorServiceRow } from '@/lib/vendor-services';
 import { findableShopGate } from '@/lib/findable-shop';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 
 /**
  * marketplace-service-cards.ts — the marketplace lists SERVICES, not shops.
@@ -54,6 +55,8 @@ export type MarketplaceServiceCard = {
   businessLogoRef: string | null;
   /** 🧪 `vendor_profiles.is_demo` — the card's shop row wears "(DEMO ONLY)" (owner 2026-11-06). */
   isDemo: boolean;
+  /** `vendor_profiles.verification_state = 'verified'` — the Verified pill on the card's shop line. */
+  verified?: boolean;
 };
 
 export type MarketplaceQuery = {
@@ -119,7 +122,7 @@ export async function fetchMarketplaceServiceCards(
   let q = supabase
     .from('vendor_services')
     .select(
-      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,public_visibility,is_demo)`,
+      `${SERVICE_COLS},vendor_profiles!inner(vendor_profile_id,business_name,business_slug,location_city,logo_url,is_published,verification_state,next_renewal_due_at,public_visibility,is_demo)`,
     )
     .eq('is_active', true)
     // 🔎 The ONE findable rule (lib/findable-shop.ts, DECISION_LOG 2026-11-07):
@@ -162,6 +165,11 @@ export async function fetchMarketplaceServiceCards(
       locationCity: (vp.location_city as string | null) ?? null,
       businessLogoRef: (vp.logo_url as string | null) ?? null,
       isDemo: vp.is_demo === true,
+      // The Verified pill: the BADGE rule (lapses at its deadline), never the raw state — lib/verified-badge.ts.
+      verified: hasVerifiedBadge({
+        verification_state: (vp.verification_state as string | null) ?? null,
+        next_renewal_due_at: (vp.next_renewal_due_at as string | null) ?? null,
+      }),
     };
   });
 }

@@ -81,7 +81,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // the work area's registration ON A STAGE only (owner: *"it should only show on stages."*).
   ['＋ Add a scene (Page ▾, end of the stage)', 'topBar', ["stageAdd?.kind === 'ready'", 'stageAdd.open()', 'makerAddShowsOn(selection) ? addScene : null']],
   ['…its row', 'pageMenu', ["label: '＋ Add a scene'"]],
-  ['Stage row + "● Invitation ▾" → Page ▾ → Stages ▾ (the stages and their pages, one picker — 2026-10-25)', 'topBar', ['<StudioSideSwitch', 'makerPageMenu({', 'onStage={pickPage}']],
+  ['Stage row + "● Invitation ▾" → Page ▾ → Stages ▾ (the stages and their pages, one picker — 2026-10-25)', 'topBar', ['<StageSwitch', 'makerPageMenu({', 'pickPage(key);']],
   // View ▾ (Desktop · Phone · Both) → 👁 Preview's Phone / Desktop row + its Both row (1024 px and wider).
   // "Both" (phone and desktop side by side) went with the old desktop Maker (owner 2026-10-25; desk answer 1 had dropped it).
   ['Desktop · Phone', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)']],
@@ -98,7 +98,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['…its row', 'pageMenu', ["label: 'Reset this stage…'"]],
   ['Reset this stage… (the confirm)', 'draftBar', ['MAKER_OPEN_RESET_EVENT', "intent: 'reset'"]],
   ['Undo · Apply (the slot)', 'topBar', ['{applySlot}']],
-  ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.previewMenu ?? null}']],
+  ['Undo · Apply (the buttons)', 'draftBar', ['label="History"', "intent: 'undo'", "intent: 'apply'", '{maker?.previewMenu ?? null}']],
   ['↺ Restore (Page ▾ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', "act === 'restore'"]],
   ['…its row', 'pageMenu', ["label: 'Restore what guests see'"]],
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],

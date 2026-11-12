@@ -145,9 +145,11 @@ test('1 · PROPERTY: the ✓ badge is the sheet’s lines; ↺ gives back exactl
         if (!patch) continue;
         lastKind = op <= 2 ? editKind : op <= 4 ? 'order' : 'per-stage';
         before.push(was);
-        /* ↺ goes back ten saves and no further (`HUB_DRAFT_HISTORY_LIMIT`): the oldest step falls off the stack. */
+        /* ↺ goes back ten saves and no further (`HUB_DRAFT_HISTORY_LIMIT`): the oldest step falls off the stack — all but
+           the state the edits started from (nothing drafted = what guests see), which the History list keeps as its last
+           row (owner 2026-11-09); the step from it then stands for the ones dropped ("Earlier edits"). */
         if (before.length > HUB_DRAFT_HISTORY_LIMIT) {
-          before.shift();
+          before.splice(1, 1);
           trimmed = true;
         }
         d = save(d, patch);

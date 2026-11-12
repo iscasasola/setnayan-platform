@@ -120,6 +120,7 @@ import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, rebaseOnDraft, up
 import { draftLeftAfterApply, type HubDraftRebased } from '@/lib/hub-draft-rebase';
 import { MERGE_BASE_FIELD } from '@/lib/merge-from-base';
 import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+import { hubDraftTimelineIndexOf, jumpHubDraft } from '@/lib/hub-draft-history';
 import { hostFirstName } from '@/lib/host-first-name.server';
 import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { isPublishedHubMusicRef } from '@/lib/hub-music-server';
@@ -158,6 +159,8 @@ import { MARCH_DRAFT_FULL_MESSAGE, MARCH_DRAFT_MAX_MOVES, runDraftedMarch } from
 import { callMarchStep } from '../guests/march-step';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
+/** ↺ A row tapped after the state it showed left the history (another screen's edits pushed it out). */
+const HUB_DRAFT_HISTORY_MOVED_MESSAGE = 'Your history changed on another screen — open ↺ again to see the newest.';
 
 export async function hubDraftAction(
   eventId: string,
@@ -342,6 +345,23 @@ export async function hubDraftAction(
          are still theirs to take back (`undoOwnHubDraftStep`). With no step of yours left ↺ is greyed (the bar's
          `canUndo`) and a press reaching here anyway changes nothing. */
       return answerWithBar((cur) => undoOwnHubDraftStep(cur, me), (cur) => hubDraftUndoMatched(cur, formData.get(HUB_DRAFT_EXPECT_FIELD)));
+    }
+    /* ↺ HISTORY (owner 2026-11-09, "↺ BECOMES A HISTORY LIST"; 2026-11-10 "ALL YES"): return the draft to one row of the
+       list. The row names its STATE (`stamp`) as well as its place (`to`): built on the draft as the write lands, a
+       list drawn before another screen's save still reaches the state it showed — or changes nothing when that state
+       is gone. Back across your own steps they stay greyed (redo); behind another host's newer edit only yours are
+       taken back (ruling B, `jumpHubDraft`). Draft only — the canvas reloads for it, like Undo. */
+    if (intent === 'history') {
+      const to = Number(formData.get('to'));
+      const stamp = String(formData.get('stamp') ?? '');
+      if (!Number.isInteger(to) || to < 0 || !stamp) return { ok: false, intent, error: 'That point in your history could not be read.' };
+      let gone = false;
+      const answer = await answerWithBar((cur) => {
+        const at = hubDraftTimelineIndexOf(cur, stamp, to);
+        gone = at < 0;
+        return gone ? cur : jumpHubDraft(cur, at, me);
+      });
+      return gone && answer.ok ? { ok: false, intent, error: HUB_DRAFT_HISTORY_MOVED_MESSAGE } : answer;
     }
     /* 💎 DROP ONE PRO EFFECT (the Apply sheet's ×, owner 2026-09-28). The list
        is recomputed HERE from the stored draft — the same one decision the
@@ -1053,7 +1073,8 @@ export async function hubDraftAction(
     const trimmed = await updateHubDraft(
       supabase,
       eventId,
-      (now) => ({ next: draftLeftAfterApply(current, { v: 1, ...remaining, history: [] }, now) }),
+      /* ↺ …and what it leaves is what guests see now: the History list's "Published <time>" row. */
+      (now) => ({ next: draftLeftAfterApply(current, { v: 1, ...remaining, history: [] }, now, new Date().toISOString()) }),
       snapshot,
     );
     const left: HubDraft = trimmed.draft ?? { v: 1, ...remaining, history: [] };

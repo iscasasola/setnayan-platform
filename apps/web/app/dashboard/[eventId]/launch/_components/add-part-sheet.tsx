@@ -196,6 +196,13 @@ function partBox(canvas: string, el?: string | null, frameSel: string = SHOWN_FR
   return { top: fr.top + r.top * k, left: fr.left + r.left * k, width: r.width * k, height: r.height * k, gapAbove: gap(-1), gapBelow: gap(1) };
 }
 
+/** ⤴ A part's box on the screen — where its editor rises from (`lib/maker-editor-rise.ts`), or null when it is not drawn. */
+export function makerPartRectOnScreen(stage: MakerStageKey, key: MakerPartKey, frameSel?: string): { left: number; top: number; width: number; height: number } | null {
+  const canvas = key === 'reveal' ? REVEAL_STUB : makerPartCanvasOn(stage, key);
+  const box = canvas ? partBox(canvas, MAKER_PARTS[key].el ?? null, frameSel) : null;
+  return box ? { left: box.left, top: box.top, width: box.width, height: box.height } : null;
+}
+
 /** Where a part sits on the screen (its top), or null when it is not drawn on the page now — ↑ ↓'s order. */
 export function makerPartTopOnScreen(stage: MakerStageKey, key: MakerPartKey, frameSel?: string): number | null {
   const canvas = key === 'reveal' ? REVEAL_STUB : makerPartCanvasOn(stage, key);

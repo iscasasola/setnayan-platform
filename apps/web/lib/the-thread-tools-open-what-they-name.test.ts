@@ -174,7 +174,8 @@ test('🔑 6 · the hash opener is mounted, so a deep link from elsewhere still 
 test('🔑 7 · every hash the client brief deep-links here is one of these ids', () => {
   const deepLinks = [...brief.matchAll(/\/vendor-dashboard\/messages\/\$\{threadId\}#([a-z-]+)/g)]
     .map((m) => m[1]!);
-  assert.ok(deepLinks.length >= 3, `expected the brief to deep-link the thread; found ${deepLinks.length}`);
+  // ≥ 2 since 12 Nov 2026 — the Details page's old shortcut pills (with their #build-quote) were removed.
+  assert.ok(deepLinks.length >= 2, `expected the brief to deep-link the thread; found ${deepLinks.length}`);
   const unknown = deepLinks.filter((h) => !PANEL_IDS.has(h) && !ANCHOR_IDS.has(h));
   assert.deepEqual(
     unknown,

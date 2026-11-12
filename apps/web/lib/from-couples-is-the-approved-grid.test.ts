@@ -37,13 +37,17 @@ function block(src: string, anchor: string): string {
 const tiny = (src: string) => [...src.matchAll(/text-\[(\d+(?:\.\d+)?)px\]/g)].map((m) => Number(m[1])).filter((n) => n < 12);
 
 const CARD = read('app/_components/service-card-view.tsx');
+// 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): the card FACE no longer carries photos; "From couples" lives in the
+// Service card grown, which the face opens. The grid's design is pinned there.
+const GROWN = read('app/v/[slug]/_components/service-details-sheet.tsx');
 const SHOP = read('app/vendor-dashboard/shop/_components/couple-photos-list.tsx');
 
 test('▦ the couple’s card: "From couples" is a three-column grid of large square photos, not a strip of thumbnails', () => {
-  const looks = block(CARD, 'data-card-couple-looks=""');
+  const looks = block(GROWN, 'data-grown-couple-looks=""');
   assert.match(looks, /From couples/);
-  assert.match(looks, /<ul className="[^"]*\bgrid grid-cols-3 gap-1\b[^"]*" data-card-couple-grid="">/, 'the photos are not the design’s 3-column grid');
-  assert.match(looks, /aspect-square[^"]*rounded-md\b/, 'a photo is not the design’s square, rounded tile (house rounded-md)');
+  assert.match(looks, /<ul className="[^"]*\bgrid grid-cols-3 gap-1\b[^"]*">/, 'the photos are not the design’s 3-column grid');
+  assert.match(looks, /aspect-square[^"]*rounded-lg\b/, 'a photo is not the design’s square, rounded tile');
+  assert.match(looks, /look\.verifiedBooking === true \? <VerifiedBookingMark \/> : null/, 'the mark is not drawn on the photo');
   assert.doesNotMatch(looks, /overflow-x-auto/, 'the photos went back to a sideways strip');
   assert.doesNotMatch(looks, /\b[hw]-24\b/, 'the photos went back to 96 px thumbnails');
   assert.deepEqual(tiny(looks), [], 'text below the 12 px public floor in "From couples"');

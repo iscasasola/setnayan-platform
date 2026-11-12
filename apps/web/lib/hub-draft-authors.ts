@@ -26,7 +26,7 @@ import { fitHubDraftHistory, isOwnStep, type HubDraft, type HubDraftPatch, type 
 
 /** Every state of the draft, oldest first — its Undo history, then the state it holds now. */
 function statesOf(d: HubDraft): HubDraftState[] {
-  const { v: _v, history, ...now } = d;
+  const { v: _v, history, ahead: _ahead, ...now } = d;
   return [...history, now];
 }
 
@@ -36,10 +36,19 @@ function newestOwnStep(states: HubDraftState[], me: string | undefined): number 
   return -1;
 }
 
+/* 👥 ↺ A state without who, when or in what words it was made — what the three-way merge compares. */
 const stripAuthor = (s: HubDraftState): HubDraftState => {
-  const { by: _by, ...rest } = s;
+  const { by: _by, at: _at, said: _said, pub: _pub, ...rest } = s;
   return rest;
 };
+/** …and those put back from the state they were read off. */
+const withMetaOf = (out: HubDraftState, from: HubDraftState): HubDraftState => ({
+  ...out,
+  ...(from.by ? { by: from.by } : {}),
+  ...(from.at ? { at: from.at } : {}),
+  ...(from.said ? { said: from.said } : {}),
+  ...(from.pub ? { pub: from.pub } : {}),
+});
 
 /**
  * ↺ Take back the newest step of `me`'s, keeping every later step of the other host's. With no step of `me`'s the
@@ -49,13 +58,21 @@ export function undoOwnHubDraftStep(d: HubDraft, me?: string): HubDraft {
   const states = statesOf(d);
   const k = newestOwnStep(states, me);
   if (k < 1) return d;
+  /* ↺ THE NEWEST STEP IS MINE: a plain step back along the history — the state left goes AHEAD, greyed, so a tap goes
+     forward again (owner 2026-11-10, "stepped-past history rows stay greyed until the next edit"). */
+  if (k === states.length - 1) {
+    const ahead = [states[k]!, ...(d.ahead ?? [])];
+    return fitHubDraftHistory({ v: 1, ...states[k - 1]!, history: states.slice(0, k - 1), ahead });
+  }
+  /* 👥 Behind the other host's newer step: only mine is taken back (theirs stay), and that is a new page — nothing to
+     go forward to, so no greyed rows. */
   const before = stripAuthor(states[k - 1]!);
   const after = stripAuthor(states[k]!);
   // mine = the later state (its value wins where both touched), theirs = the state before my step.
   const revert = (later: HubDraftState): HubDraftState => {
     const m = mergeFromBase(after, stripAuthor(later), before).value as HubDraftState;
     const out: HubDraftState = { ...m, events: m.events ?? {}, widgets: m.widgets ?? {} };
-    return later.by ? { ...out, by: later.by } : out;
+    return withMetaOf(out, later);
   };
   const next = [...states.slice(0, k), ...states.slice(k + 1).map(revert)];
   const now = next[next.length - 1]!;

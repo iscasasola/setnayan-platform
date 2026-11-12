@@ -286,6 +286,7 @@ const DECIDED: Record<string, string> = {
   manpower_gigs: 'OUT OF SCOPE — Manpower gigs',
   papic_guest_captures: 'OUT OF SCOPE — Papic points',
   papic_limited_snapshots: 'OUT OF SCOPE — Papic billing snapshot',
+  booking_change_asks: 'CLOSED — amount_centavos · proposed_plan per column; change_asks_read masks (migration 20271340018194)',
 };
 test('every amount a member or delegate can SELECT is a decided route', async () => {
   const rows = await q<{ t: string }>(`
@@ -301,4 +302,37 @@ test('every amount a member or delegate can SELECT is a decided route', async ()
   const found = rows.map((x) => x.t);
   console.log('member/delegate-readable amount tables:', JSON.stringify(found));
   assert.deepEqual(found.filter((t) => !(t in DECIDED)), [], 'a new member-readable amount route — decide it in DECIDED');
+});
+
+test('a counter or a proposed plan: a masked coordinator reads no amount — the columns are closed, the reader masks', async () => {
+  const w = await newWorld();
+  await q(`INSERT INTO public.booking_change_asks (thread_id, event_id, vendor_profile_id, subject, proposal_id, note, asked_by, amount_centavos, proposed_plan, raised_by)
+           VALUES ($1, $2, $3, 'quote', $4, 'Can we meet here?', $5, 9000000, NULL, 'host'),
+                  ($1, $2, $3, 'plan', $4, '', $5, NULL, '{"installments":[{"seq":0,"amount_centavos":9900000}]}'::jsonb, 'supplier')`,
+    [w.threadId, w.eventId, w.shop, w.proposal, w.host]);
+  type Row = { kind: string; amount_centavos: string | null; proposed_plan: unknown; money_hidden: boolean };
+  const read = (uid: string) => as(uid, () => q<Row>(`SELECT kind, amount_centavos::text AS amount_centavos, proposed_plan, money_hidden
+                                                        FROM public.change_asks_read($1) ORDER BY kind`, [w.threadId]));
+  // Closed per column: no browser session can SELECT the two money columns, whoever it is.
+  for (const uid of [w.coordinator, w.host]) {
+    await as(uid, async () => {
+      await assert.rejects(q(`SELECT amount_centavos FROM public.booking_change_asks WHERE thread_id = $1`, [w.threadId]), /permission denied/);
+    });
+    await db.exec('ROLLBACK').catch(() => {});
+    await as(uid, async () => {
+      await assert.rejects(q(`SELECT proposed_plan FROM public.booking_change_asks WHERE thread_id = $1`, [w.threadId]), /permission denied/);
+    });
+    await db.exec('ROLLBACK').catch(() => {});
+  }
+  // The masked coordinator: both asks, what they are, no money.
+  const masked = await read(w.coordinator);
+  assert.deepEqual(masked.map((r) => [r.kind, r.amount_centavos, r.proposed_plan, r.money_hidden]),
+    [['counter', null, null, true], ['plan', null, null, true]]);
+  // Hosts and the shop read the real figures.
+  for (const uid of [w.host, w.supplier]) {
+    const real = await read(uid);
+    assert.equal(real.find((r) => r.kind === 'counter')!.amount_centavos, '9000000');
+    assert.ok(real.find((r) => r.kind === 'plan')!.proposed_plan, 'the plan rows reach a host / the shop');
+    assert.ok(real.every((r) => r.money_hidden === false));
+  }
 });

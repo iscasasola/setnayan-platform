@@ -113,7 +113,8 @@ test('3 · the welcome shows once, and is not one of the steps', () => {
   assert.equal(spotlightSteps(steps, false).filter((s) => s.welcome).length, 0, 'a replay shows the welcome again');
   const mount = read('app/_components/spotlight-mount.tsx');
   assert.match(mount, /steps=\{spotlightSteps\(script\.steps, run\.record\)\}/, 'the mount does not drop the welcome on a replay');
-  assert.match(mount, /if \(!seen\) setRun\(\{ record: true,/, 'the first run is no longer the recorded one');
+  // (+ 12 Nov 2026: a shows-until-ticked tour closed unticked waits for the next visit — still the recorded run.)
+  assert.match(mount, /if \(!seen(?: && [^{]+)?\)\s*(?:\{[\s\S]{0,240}?)?setRun\(\{ record: true,/, 'the first run is no longer the recorded one');
   const engine = read('app/_components/spotlight-tour.tsx');
   // Counted by `spotlightCount` since 2026-10-22 (a dropped step is not a step either) — which skips the welcome.
   assert.match(engine, /const \{ n: shownN, of: counted \} = spotlightCount\(steps, i, dropped\);/, 'the engine no longer counts "Step N of M" with spotlightCount');

@@ -33,6 +33,7 @@
  */
 
 import { formatLongDate } from '@/lib/format-date';
+import { nextYearsPapersDue, papersDueIn } from '@/lib/papers-due';
 
 /** The owner's figure (Q5): the reminder goes out this many days ahead. */
 export const BADGE_REMINDER_DAYS = 60;
@@ -48,13 +49,11 @@ export const PERMIT_MAX_DAYS_AHEAD = 400;
 const DAY_MS = 86_400_000;
 
 /**
- * The Q4 deadline for the shops verified before the papers check existed:
- * 182 days (the vouch window, `BYPASS_WINDOW_DAYS`) from the ruling on
- * 2026-09-11, at the END of that day in Manila. Fixed rather than "now() + 182
- * days" at migrate time, so the date the owner is told is the date the badge
- * obeys, however long the PR waits to merge.
+ * The deadline for the shops verified before the papers check existed: the END of 30 March 2027 in Manila — the one
+ * renewal day (owner 12 Nov 2026: *"Yes, their due is on March 30, 2027"*, `lib/papers-due.ts`). It was 12 March 2027
+ * (182 days from the 2026-09-11 ruling) until migration `…_early_shops_renew_on_march_30` moved it.
  */
-export const EARLY_SHOPS_PAPERS_DUE_ISO = '2027-03-12T15:59:59.000Z';
+export const EARLY_SHOPS_PAPERS_DUE_ISO = papersDueIn(2027);
 
 export type BadgeFacts = {
   /** `vendor_profiles.verification_state`. Only `'verified'` can carry a badge. */
@@ -168,15 +167,13 @@ export function permitDeadlineFrom(raw: string, now: Date = new Date()): PermitD
 }
 
 /**
- * The deadline an approval writes. The permit's own date when the reviewer
- * recorded one; otherwise the one-year renewal the approval has always
- * written (so an approval with no permit date behaves exactly as before).
+ * The deadline an approval writes: 30 MARCH OF THE NEXT YEAR (owner 12 Nov 2026 — *"Renewal deadline. March 30 …
+ * The renewal is for the shops who already submitted their documents last year"*, `lib/papers-due.ts`). Papers approved
+ * in 2026 renew by 30 March 2027. Until that day it was the Mayor's Permit's printed date, else one year from approval;
+ * the reviewer's permit date is still recorded with the approval, but it no longer sets the badge's day.
  */
-export function deadlineAtApproval(approvedAt: Date, permitDeadlineIso: string | null): string {
-  if (permitDeadlineIso) return permitDeadlineIso;
-  const d = new Date(approvedAt.getTime());
-  d.setUTCFullYear(d.getUTCFullYear() + 1);
-  return d.toISOString();
+export function deadlineAtApproval(approvedAt: Date): string {
+  return nextYearsPapersDue(approvedAt);
 }
 
 // ---------------------------------------------------------------------------

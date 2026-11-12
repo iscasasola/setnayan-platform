@@ -21,6 +21,7 @@ export function ServiceFaceDoorButton({
     <button
       type="button"
       aria-label={label}
+      data-service-face-door=""
       aria-haspopup={hasPopup ? 'dialog' : undefined}
       onClick={(e) => onOpen(e.currentTarget.parentElement)}
       className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"

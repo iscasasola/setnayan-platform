@@ -68,13 +68,13 @@ const ROOTS = [
   'app/(shell)',
   'app/for-suppliers',
   'app/creators',
-  'app/waitlist',
+  // 'app/waitlist' left 2026-11-12: its only file, page.tsx, moved into app/(shell)/ (scanned above).
   'app/monogram',
   'app/realstories',
   'app/blog',
   'app/our-story',
   'app/features',
-  'app/tl',
+  // 'app/tl' left 2026-11-12: its only file, about/page.tsx, moved into app/(shell)/ (scanned above).
   'app/_components/home',
   'app/_components/frontdoor',
   'lib/blog.ts',

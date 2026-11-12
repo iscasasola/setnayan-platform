@@ -7687,6 +7687,7 @@
         "PageMasthead",
         "PapicCamera",
         "PapicGuestAccess",
+        "PaxPick",
         "PeekSay",
         "PeekToast",
         "Pending",
@@ -8887,6 +8888,7 @@
       "files": [
         "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
         "dashboard/[eventId]/messages/_components/couple-chats-empty.tsx",
+        "dashboard/[eventId]/messages/_components/event-groups.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/layout.tsx",
@@ -8904,9 +8906,12 @@
         "ChatInbox",
         "ChatOriginMark",
         "CoupleChatsEmpty",
+        "EventGroups",
         "FeedPageSkeleton",
         "Filter",
+        "GroupsList",
         "HTMLDivElement",
+        "Icon",
         "LeftChatRow",
         "Link",
         "LiveInboxRefresh",
@@ -11199,6 +11204,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/host-service-details.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/payment-asks-card.tsx",
@@ -11267,6 +11273,7 @@
         "FindInspirationRow",
         "FindInspirationStrip",
         "FormAnswerField",
+        "FormsFromShopList",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -11385,6 +11392,7 @@
         "dashboard/[eventId]/website/_components/hub-draft-button.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-dock.tsx",
         "dashboard/[eventId]/website/_components/hub-draft-field.tsx",
+        "dashboard/[eventId]/website/_components/hub-history-sheet.tsx",
         "dashboard/[eventId]/website/_components/maker-open-reset.ts",
         "dashboard/[eventId]/website/_components/maker-press-apply.ts",
         "dashboard/[eventId]/website/_components/website-pro-lock.tsx",
@@ -11395,9 +11403,12 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "ApplyProSheet",
         "DraftButton",
         "HTMLDivElement",
+        "HTMLSpanElement",
+        "HistorySheetModule",
         "HubDraftActionResult",
         "HubDraftBarLive",
         "HubDraftIntent",
@@ -11413,6 +11424,7 @@
         "PaidMark",
         "PanelPlace",
         "ResultLine",
+        "RiseRect",
         "UndoRunner"
       ]
     },
@@ -12296,7 +12308,8 @@
         "Lab",
         "LogPaymentCard",
         "PaymentStepCard",
-        "QuoteStepCard"
+        "QuoteStepCard",
+        "StreamLineCard"
       ]
     },
     "/dev/chat-cards-lab": {
@@ -12562,6 +12575,19 @@
         "UserBoard"
       ]
     },
+    "/dev/event-group-chat-lab": {
+      "files": [
+        "dev/event-group-chat-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/event-group-chat-lab?view=list"
+      ],
+      "actions": [],
+      "blocks": [
+        "GroupChatView",
+        "GroupsList"
+      ]
+    },
     "/dev/favorites-lab": {
       "files": [
         "dev/favorites-lab/page.tsx"
@@ -12614,6 +12640,7 @@
       "blocks": [
         "FormItemRow",
         "FormMaker",
+        "FormsFromShopList",
         "FormsLabClient",
         "FormsPageBody",
         "ReportForm",
@@ -15011,6 +15038,47 @@
         "Link",
         "PasswordField",
         "SubmitButton"
+      ]
+    },
+    "/samahan/chat/[threadId]": {
+      "files": [
+        "samahan/chat/[threadId]/_components/group-chat-view.tsx",
+        "samahan/chat/[threadId]/_components/group-plus-sheet.tsx",
+        "samahan/chat/[threadId]/_components/group-switcher.tsx",
+        "samahan/chat/[threadId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BackButton",
+        "ChatBox",
+        "ChatMessageStream",
+        "ChatSendForm",
+        "ChatThreadHead",
+        "GroupChatView",
+        "GroupSwitcher",
+        "GroupThreadToolsSheet",
+        "Link",
+        "Sheet",
+        "SubmitButton",
+        "ToolsSheetButton"
+      ]
+    },
+    "/samahan/chat/new": {
+      "files": [
+        "samahan/chat/new/_components/group-name-row.tsx",
+        "samahan/chat/new/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages"
+      ],
+      "actions": [],
+      "blocks": [
+        "BackButton",
+        "FormRows",
+        "GroupNameRow",
+        "SubmitButton",
+        "TypedRow"
       ]
     },
     "/samahan/join/[token]": {

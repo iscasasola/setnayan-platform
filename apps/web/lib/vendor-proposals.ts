@@ -71,6 +71,20 @@ export type ProposalLineItem = {
   label: string;
   detail?: string | null;
   amount_centavos: number | null;
+  /*
+   * 🧭 HOW THE LINE WAS PRICED (owner 12 Nov, quote money PR-1 — no schema change, they ride in the `line_items` JSON):
+   * the service card it came from, its basis and rate, so a revision re-opens a per-pax line AS per-pax (it used to
+   * flatten to its stored amount), and the offer a line is — so a revised quote keeps it. All optional: every quote
+   * written before them reads exactly as it did. Kept by `lineStructureOf` (lib/quote-line-structure.ts) on send.
+   */
+  card_id?: string | null;
+  basis?: 'flat' | 'per_pax' | 'per_hour';
+  /** per_pax: the rate per guest · per_hour: the base price. */
+  rate_centavos?: number;
+  incl_hours?: number;
+  extra_hour_centavos?: number;
+  /** `vendor_offers.public_id` — the offer's own named line, or a gift that came from it. */
+  offer_id?: string | null;
 };
 
 export type ProposalStatus =

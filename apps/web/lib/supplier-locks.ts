@@ -23,7 +23,10 @@ export type LockRefusal = 'quote_locked' | 'plan_locked' | 'form_locked' | 'not_
 
 /** The words a refused ask shows the asker (the couple) — the reason, never a bare "not allowed". A couple reads "final", never "lock" (owner d19; `the-couple-books-never-locks.test.ts`). */
 export const LOCK_REFUSAL_WORDS: Record<LockRefusal, string> = {
-  quote_locked: 'The supplier marked this quotation final — the price won’t change now.',
+  // 🔒 DECISION_LOG 2026-11-12 "A LOCKED QUOTATION STILL FOLLOWS THE GUEST LIST": the Quotation lock stops the couple's
+  // asks only — the price still rises with the guest list (`quote_follow_guest_count`, migration 20271339826198), so
+  // "the price won't change" would be untrue. Ships WITH the repricer, never before it.
+  quote_locked: 'The supplier marked this quotation final — only your guest count can move the price.',
   plan_locked: 'The supplier marked this payment plan final — the dates and amounts won’t change now.',
   form_locked: 'The supplier marked this form final — it can’t be changed now.',
   not_found: 'This is no longer in your chat.',

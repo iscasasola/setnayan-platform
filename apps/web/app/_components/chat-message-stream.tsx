@@ -120,7 +120,7 @@ import {
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
 import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, type HeartsByMessage } from '@/lib/chat-hearts';
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
-import { privateOtherId } from '@/lib/chat-private';
+import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
@@ -129,7 +129,7 @@ import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-doubl
 import { AttachmentBlock } from './chat/attachment-block';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
-import { usePrivateTo } from './chat/private-to';
+import { setPrivateReply, usePrivateTo } from './chat/private-to';
 import {
   CHAT_FILE_EXPIRED_LABEL,
   expiryDateFor,
@@ -221,6 +221,8 @@ type Props = {
   /** 👥 Your own face → "Leave this chat?" — a host only (never the supplier, coordinator or planner). Absent → no
    *  Leave. A host leaving (the optional note is stored for them only — never in the "left" line). Lane B's write. */
   memberLeave?: ((note: string | null) => Promise<void>) | null;
+  /** 💬 The strip's word — "Group chat" in an event group (owner-approved drawing, 12 Nov); absent → "Shared chat". */
+  stripWord?: string;
   /**
    * 📞 The page's `BookedCallButtons`. Inside a picked shell they go to its pinned head row with the 📎 (v8.3:
    * title · 📞 · 🎥 · 📎 · ⚙ · ✕ — `PickedHeadContext`); elsewhere they sit at the end of the host strip.
@@ -459,6 +461,7 @@ export function ChatMessageStream({
   shopLabel = null,
   memberAdd = null,
   memberLeave = null,
+  stripWord,
   headCalls = null,
   headNote = null,
   pins = null,
@@ -474,6 +477,12 @@ export function ChatMessageStream({
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  // 🔁 A REPLY GOES TO THE SAME PEOPLE (owner, 12 Nov): the newest private line written to you names who the composer's
+  // 🔒 opens ticked — its sender and its other recipients (`latestPrivateReply`). Your own newest private line clears it.
+  const replyKey = latestPrivateReply(messages, currentUserId)?.join(',') ?? '';
+  useEffect(() => {
+    setPrivateReply(threadId, replyKey ? replyKey.split(',') : null);
+  }, [threadId, replyKey]);
   // 🏪 The shop logo failed to load once → the initials for the rest of this visit (never a broken-image glyph).
   const [shopLogoBroken, setShopLogoBroken] = useState(false);
   /**
@@ -1589,7 +1598,7 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
@@ -2229,8 +2238,9 @@ export function ChatMessageStream({
               : null;
           // 🔒 A private message (DECISION_LOG 2026-11-09 🔒): the one other person's name, as THIS viewer sees it — the
           // recipient when you sent it, the sender when it came to you. `null` = everyone's message, the usual bubble.
-          const privateWithId = privateOtherId(m, currentUserId);
-          const privateWith = privateWithId === null ? null : personName(privateWithId);
+          // 👥 Several since 12 Nov ("Private · only you, Ana and Miguel"): every OTHER person, the viewer left out.
+          const privateWithIds = privateOtherIds(m, currentUserId);
+          const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
           const heartSet = hearts.get(m.message_id);
           const heartCount = heartSet?.size ?? 0;
           const corner = mine

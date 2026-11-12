@@ -149,6 +149,7 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/gifts', tab: 'people', note: 'Gifts & comps to people and shops.' },
 
   // ── CATALOGUE — what the app offers, and how it looks ─────────────────────
+  { route: '/admin/colours', tab: 'catalogue', note: 'How the app looks — its colours by job (owner 2026-11-12).' },
   {
     route: '/admin/categories',
     tab: 'catalogue',

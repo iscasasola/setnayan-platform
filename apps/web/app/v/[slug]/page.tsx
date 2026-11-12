@@ -117,7 +117,8 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
-import { arrivalParams, shopBackDoor, withShopArrival } from '@/lib/shop-back';
+import { arrivalParams, shopBackDoor, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { BackButton } from '@/app/_components/back-button';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CARD_COLUMN_CLASS,
@@ -1850,6 +1851,9 @@ export async function renderVendorBySlug({
     so the read above is not repeated), and it is read for anyone signed in, not only when a composer renders.
   */
   const viewerSignedIn = user !== null && !(user.is_anonymous ?? false);
+  /* ‹ THE TOP-LEFT BACK (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): where the arrival
+     came from, returned to in place; cold, Discover signed out and Home signed in (lib/shop-back.ts `shopTopBack`). */
+  const shopTop = shopTopBack(shopArrival, viewerSignedIn);
   const inquireEventState = bookable && viewerSignedIn ? (shopEventPicker ?? (await resolveAddShopToEvent(slug))) : null;
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
@@ -2445,7 +2449,7 @@ export async function renderVendorBySlug({
   const countViewInBrowser = cachedCopy && !isDemoVendor && teamPreview === null;
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
       <script
         type="application/ld+json"
@@ -2463,9 +2467,15 @@ export async function renderVendorBySlug({
               /vendors, and all dashboard chromes after V2 cutover Phase B
               (PRs #560-#564 + #572-#580). Matches the marketplace overlay
               pattern from PR #580. */}
-          <Link href="/" className="flex items-center text-ink">
-            <Wordmark size={22} />
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* ‹ ONE WAY BACK, AT THE TOP LEFT, FOR EVERYONE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
+                PROTOTYPE APPROVED"; owner: "when we enter a shop, event or anything, we should be able to go back to
+                home"). The shipped BackButton, returning in place; the page itself is not redrawn. */}
+            <BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />
+            <Link href="/" className="flex items-center text-ink">
+              <Wordmark size={22} />
+            </Link>
+          </div>
           {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
               shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
           {user ? (
@@ -3654,10 +3664,15 @@ export async function renderVendorBySlug({
             ) : null}
             {/* 🧭 BACK GOES WHERE YOU CAME FROM (owner 2026-11-07: "back to suppliers? it went to a wrong shell"). This
                 was a fixed `/explore` for every arrival — Discover, an event's Suppliers, a saved supplier. The door
-                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back". */}
-            <Link href={shopBack.href} className="button-secondary" data-shop-back={shopBack.back ? 'back' : 'cold'}>
-              {shopBack.label}
-            </Link>
+                is now `shopBackDoor` (lib/shop-back.ts); with no arrival it says "See more suppliers", never "Back".
+                2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED": "The low button stays for cold arrivals"):
+                with an arrival the top-left ‹ IS the way back, so this foot door is drawn only cold — never two
+                "Back"s on one page. */}
+            {!shopBack.back ? (
+              <Link href={shopBack.href} className="button-secondary" data-shop-back="cold">
+                {shopBack.label}
+              </Link>
+            ) : null}
           </div>
         </section>
           </div>

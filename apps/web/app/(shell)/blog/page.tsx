@@ -164,7 +164,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
   };
 
   return (
-    <main className="flex min-h-dvh flex-col bg-cream">
+    <main className="flex min-h-dvh flex-col bg-page">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogJsonLd) }}

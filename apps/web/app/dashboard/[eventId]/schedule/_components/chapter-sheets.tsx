@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { CalendarPlus, Check, MessageSquare, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Check, MessageSquare, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
@@ -264,7 +264,7 @@ export function DoneWarningBox({
         ) : null}
         <ActionButton tone="neutral" icon={Check} label="Save anyway" data-testid="chapter-done-save-anyway" onClick={onSaveAnyway} />
       </div>
-      <ActionButton tone="neutral" quiet label={`Keep ${keepWords}`} data-testid="chapter-done-keep" onClick={onKeep} />
+      <ActionButton tone="neutral" quiet icon={Undo2} label={`Keep ${keepWords}`} data-testid="chapter-done-keep" onClick={onKeep} />
     </div>
   );
 }

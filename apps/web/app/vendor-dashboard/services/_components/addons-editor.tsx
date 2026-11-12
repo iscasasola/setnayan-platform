@@ -85,7 +85,7 @@ export function AddonsEditor({
                   wordsField="addon_label"
                   wordsMax={80}
                   onKeepWords={(t) => patch(r.key, { label: t })}
-                  amount={{ value: r.price, name: 'From (PHP)', empty: 'from ₱', prefix: 'from ', field: 'addon_price', onKeep: (d) => patch(r.key, { price: d }) }}
+                  amount={{ value: r.price, name: 'From (PHP)', empty: 'from ₱', field: 'addon_price', onKeep: (d) => patch(r.key, { price: d }) }}
                   data="addon-line"
                 />
               </div>

@@ -533,6 +533,8 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       // 20271340018194 (Piece 1 · PR-3): the hosts' side answers a supplier's counter or plan only from inside the chat.
       'answer_change_ask',
       'ask_for_a_change', // lane C: only a member of the chat may ask (migration 20271332041210)
+      // 20271340018194: the chat's asks, for a member of the thread only; a masked coordinator's money is withheld.
+      'change_asks_read',
       'chat_blocker_shown',
       // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
       // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.

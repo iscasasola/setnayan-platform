@@ -259,9 +259,11 @@ export type ChangeAskRow = {
   raisedBy?: 'host' | 'supplier';
   /** The version an accept wrote. */
   answerProposalId?: string | null;
+  /** What the ask is — read even when its money is hidden from this reader. */
+  kind?: 'words' | 'counter' | 'plan';
+  /** A coordinator without Budget & payments: the amount and plan rows are withheld ("₱ — hosts only"). */
+  moneyHidden?: boolean;
 };
-
-const ASK_COLS = 'ask_id, subject, note, asked_at, status, proposal_id, amount_centavos, scope_label, proposed_plan, good_until, raised_by, answer_proposal_id';
 
 type AskDbRow = {
   ask_id: string;
@@ -276,6 +278,8 @@ type AskDbRow = {
   good_until: string | null;
   raised_by: 'host' | 'supplier' | null;
   answer_proposal_id: string | null;
+  kind?: 'words' | 'counter' | 'plan' | null;
+  money_hidden?: boolean | null;
 };
 
 function askOf(r: AskDbRow): ChangeAskRow {
@@ -292,18 +296,17 @@ function askOf(r: AskDbRow): ChangeAskRow {
     goodUntil: r.good_until,
     raisedBy: r.raised_by ?? 'host',
     answerProposalId: r.answer_proposal_id,
+    kind: r.kind ?? (r.amount_centavos != null ? 'counter' : r.proposed_plan != null ? 'plan' : 'words'),
+    moneyHidden: r.money_hidden === true,
   };
 }
 
 /** This chat's asks, newest first — the card finds its own by the moment it was asked. */
 export async function loadChangeAsks(threadId: string): Promise<{ ok: true; asks: ChangeAskRow[] } | Fail> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('booking_change_asks')
-    .select(ASK_COLS)
-    .eq('thread_id', threadId)
-    .order('asked_at', { ascending: false })
-    .limit(40);
+  // 💰 Through the masking reader: the counter's price and a plan's rows are closed per column to browser roles, and a
+  // coordinator without Budget & payments reads them as null with money_hidden (migration 20271340018194).
+  const { data, error } = await supabase.rpc('change_asks_read', { p_thread_id: threadId });
   if (error) return refused('change asks', error);
   return { ok: true, asks: ((data ?? []) as AskDbRow[]).map(askOf) };
 }

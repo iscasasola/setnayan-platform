@@ -698,3 +698,72 @@ COMMENT ON FUNCTION public.answer_change_ask(UUID, TEXT, TEXT) IS
   'The OTHER side answers an open ask: a words-only ask is revised/declined by the shop; a counter or plan is accepted/declined by whoever did not raise it. Accept writes exactly ONE new quote version, ACCEPTED (change_ask_write_version); an expired counter is refused (COUNTER_EXPIRED). Idempotent (an answered ask returns already). Posts the answer into the chat. Migrations 20271332041210 · 20271340018194.';
 
 COMMIT;
+
+-- ── 💰 A MASKED COORDINATOR READS NO COUNTER AMOUNT (round-4 rule, owner 2026-11-09) ─────────────────────────────
+-- A counter's price and a proposed plan's rows are amounts. booking_change_asks is read by every thread member,
+-- so — exactly as chat_threads.agreed_price_centavos (migration 20271333705710 §4) — the two money columns are closed
+-- PER COLUMN to browser roles, and the chat reads its asks through one masking reader: a coordinator without
+-- Budget & payments gets the ask with NULL money and money_hidden = TRUE; hosts and the shop read the real figures.
+-- Held by a-masked-coordinator-reads-no-amount-by-any-route.db.test.ts (DECIDED) and the counter db test.
+DO $$
+DECLARE
+  v_role TEXT;
+  v_cols TEXT;
+BEGIN
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    IF has_table_privilege(v_role, 'public.booking_change_asks', 'SELECT') THEN
+      SELECT string_agg(quote_ident(column_name), ', ' ORDER BY ordinal_position) INTO v_cols
+        FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'booking_change_asks'
+         AND column_name NOT IN ('amount_centavos', 'proposed_plan');
+      EXECUTE format('REVOKE SELECT ON public.booking_change_asks FROM %I', v_role);
+      EXECUTE format('GRANT SELECT (%s) ON public.booking_change_asks TO %I', v_cols, v_role);
+    END IF;
+  END LOOP;
+  REVOKE SELECT ON public.booking_change_asks FROM PUBLIC;
+  REVOKE SELECT (amount_centavos, proposed_plan) ON public.booking_change_asks FROM PUBLIC, anon, authenticated;
+
+  IF has_column_privilege('authenticated', 'public.booking_change_asks', 'amount_centavos', 'SELECT')
+     OR has_column_privilege('authenticated', 'public.booking_change_asks', 'proposed_plan', 'SELECT') THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED: a browser role can still SELECT a booking_change_asks amount';
+  END IF;
+  IF NOT has_column_privilege('authenticated', 'public.booking_change_asks', 'ask_id', 'SELECT')
+     OR NOT has_column_privilege('authenticated', 'public.booking_change_asks', 'status', 'SELECT') THEN
+    RAISE EXCEPTION 'POST-CONDITION FAILED: the column close took a column the app reads';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.change_asks_read(p_thread_id UUID)
+RETURNS TABLE (
+  ask_id UUID, subject TEXT, note TEXT, asked_at TIMESTAMPTZ, status TEXT, proposal_id UUID,
+  amount_centavos BIGINT, scope_label TEXT, proposed_plan JSONB, good_until DATE, raised_by TEXT,
+  answer_proposal_id UUID, kind TEXT, money_hidden BOOLEAN
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT a.ask_id, a.subject, a.note, a.asked_at, a.status, a.proposal_id,
+         CASE WHEN h.hidden THEN NULL ELSE a.amount_centavos END,
+         a.scope_label,
+         CASE WHEN h.hidden THEN NULL ELSE a.proposed_plan END,
+         a.good_until, a.raised_by, a.answer_proposal_id,
+         CASE WHEN a.amount_centavos IS NOT NULL THEN 'counter' WHEN a.proposed_plan IS NOT NULL THEN 'plan' ELSE 'words' END,
+         h.hidden
+    FROM public.booking_change_asks a
+    CROSS JOIN LATERAL (SELECT public.chat_thread_money_hidden(p_thread_id) AS hidden) h
+   WHERE a.thread_id = p_thread_id
+     -- The SAME admission as booking_change_asks_members_read (hosts' side · the shop · admin) — never wider.
+     AND (a.thread_id IN (SELECT public.current_thread_ids())
+          OR a.vendor_profile_id IN (SELECT public.current_vendor_ids())
+          OR a.vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
+          OR (SELECT public.is_admin()))
+   ORDER BY a.asked_at DESC
+   LIMIT 40;
+$$;
+REVOKE ALL ON FUNCTION public.change_asks_read(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.change_asks_read(UUID) TO authenticated;
+COMMENT ON FUNCTION public.change_asks_read(UUID) IS
+  'The chat''s asks (words · counters · plans), newest first, admitted exactly as booking_change_asks_members_read (the hosts'' side, the shop, an admin). A coordinator without Budget & payments (chat_thread_money_hidden) reads amount_centavos and proposed_plan as NULL with money_hidden = TRUE — those two columns are closed per column to browser roles. Migration 20271340018194.';

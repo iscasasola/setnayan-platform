@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7686
+# facts: 7690
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     630
-#   col       5545
+#   tpriv     629
+#   col       5549
 #   policy    1125
 #   view      9
-#   func      373
+#   func      374
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -38,7 +38,6 @@ tpriv	public.blacklisted_emails|anon	SIUD
 tpriv	public.blacklisted_emails|authenticated	SIUD
 tpriv	public.blocked_users|anon	SIUD
 tpriv	public.blocked_users|authenticated	SIUD
-tpriv	public.booking_change_asks|authenticated	S
 tpriv	public.booking_changes|authenticated	S
 tpriv	public.booking_fee_charges|anon	SIUD
 tpriv	public.booking_fee_charges|authenticated	SIUD
@@ -745,6 +744,7 @@ col	public.blocked_users.created_at	anon=SIU authenticated=SIU
 col	public.blocked_users.id	anon=SIU authenticated=SIU
 col	public.blocked_users.reason	anon=SIU authenticated=SIU
 col	public.booking_change_asks.answer_note	anon=- authenticated=S
+col	public.booking_change_asks.answer_proposal_id	anon=- authenticated=S
 col	public.booking_change_asks.answered_at	anon=- authenticated=S
 col	public.booking_change_asks.answered_by	anon=- authenticated=S
 col	public.booking_change_asks.ask_id	anon=- authenticated=S
@@ -752,8 +752,11 @@ col	public.booking_change_asks.asked_at	anon=- authenticated=S
 col	public.booking_change_asks.asked_by	anon=- authenticated=S
 col	public.booking_change_asks.event_id	anon=- authenticated=S
 col	public.booking_change_asks.form_id	anon=- authenticated=S
+col	public.booking_change_asks.good_until	anon=- authenticated=S
 col	public.booking_change_asks.note	anon=- authenticated=S
 col	public.booking_change_asks.proposal_id	anon=- authenticated=S
+col	public.booking_change_asks.raised_by	anon=- authenticated=S
+col	public.booking_change_asks.scope_label	anon=- authenticated=S
 col	public.booking_change_asks.status	anon=- authenticated=S
 col	public.booking_change_asks.subject	anon=- authenticated=S
 col	public.booking_change_asks.thread_id	anon=- authenticated=S
@@ -7358,7 +7361,7 @@ func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authentic
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
-func	public.ask_for_a_change(p_thread_id uuid, p_subject text, p_note text, p_proposal_id uuid, p_form_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.ask_for_a_change(p_thread_id uuid, p_subject text, p_note text, p_proposal_id uuid, p_form_id uuid, p_amount_centavos bigint, p_scope_label text, p_proposed_plan jsonb, p_good_until date, p_counters uuid)	secdef=yes exec=authenticated search_path=public
 func	public.ask_hosts_for_more_access(p_event_id uuid, p_area text, p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.begin_mood_board_change(p_event_id uuid, p_kind text, p_slot_key text)	secdef=yes exec=authenticated search_path=public
@@ -7374,6 +7377,7 @@ func	public.cancel_part_reopen_request(p_finalization_id uuid)	secdef=yes exec=a
 func	public.cancel_service_slot_reservation(p_reservation_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
+func	public.change_asks_read(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.change_request_payload_ok(p_op text, p_payload jsonb)	secdef=no exec=authenticated search_path=public
 func	public.chat_amendment_items_read(p_amendment_ids uuid[])	secdef=no exec=authenticated search_path=public
 func	public.chat_amendments_read(p_amendment_ids uuid[])	secdef=no exec=authenticated search_path=public

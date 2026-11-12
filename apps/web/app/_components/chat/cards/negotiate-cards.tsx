@@ -20,6 +20,7 @@ import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
 import { formatCentavosPhp } from '@/lib/php';
+import { HOSTS_ONLY } from '@/lib/money-mask';
 import {
   ASK_SUBJECT_WORD,
   counterOutcome,
@@ -409,7 +410,7 @@ export function NegotiationCard({
       if (!a.ok || !q.ok) return setRead({ at: 'failed' });
       const t = Date.parse(askedAt);
       const ask =
-        a.asks.find((x) => (kind === 'counter' ? x.amountCentavos != null : x.proposedPlan != null) && Math.abs(Date.parse(x.askedAt) - t) < 2000) ?? null;
+        a.asks.find((x) => x.kind === kind && Math.abs(Date.parse(x.askedAt) - t) < 2000) ?? null;
       setRead({ at: 'ok', data: { ask, quote: q.quote } });
     });
   }, [threadId, askedAt, kind]);
@@ -460,7 +461,7 @@ export function NegotiationCard({
         <div className="grid gap-2" data-negotiation={kind} data-negotiation-status={until.expired && ask!.status === 'open' ? 'expired' : ask!.status}>
           {kind === 'counter' ? (
             <p className="text-[20px] font-semibold tabular-nums text-ink">
-              {pesos(ask!.amountCentavos ?? 0)}{' '}
+              {ask!.moneyHidden ? HOSTS_ONLY : pesos(ask!.amountCentavos ?? 0)}{' '}
               {outcome ? (
                 <span className="text-[14px] font-normal text-ink/60">
                   {ask!.scopeLabel ? `for ${ask!.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}
@@ -468,7 +469,7 @@ export function NegotiationCard({
               ) : null}
             </p>
           ) : (
-            <PlanRows rows={ask!.proposedPlan ?? []} paid={paid} />
+            ask!.moneyHidden ? <p className="text-[15px] text-ink/60">{HOSTS_ONLY}</p> : <PlanRows rows={ask!.proposedPlan ?? []} paid={paid} />
           )}
           {ask!.note.trim() ? <p className="text-[15px] text-ink/80">&ldquo;{ask!.note}&rdquo;</p> : null}
           {ask!.status === 'open' && !until.expired && until.words ? <p className="text-[13px] text-ink/55">{until.words}</p> : null}
@@ -537,12 +538,14 @@ function Status({
   const line = (text: string, ok = false) => (
     <p className={`rounded-lg px-3 py-2 text-[13px] font-medium ${ok ? 'bg-success-50 text-success-700' : 'bg-ink/[0.05] text-ink/65'}`}>{text}</p>
   );
-  if (ask.status === 'accepted') return line(ask.amountCentavos != null ? 'Accepted · the new version is the quote now · what was paid stays' : 'Accepted · the new plan is on the quote now', true);
+  if (ask.status === 'accepted') return line((ask.kind ?? (ask.amountCentavos != null ? 'counter' : 'plan')) === 'counter' ? 'Accepted · the new version is the quote now · what was paid stays' : 'Accepted · the new plan is on the quote now', true);
   if (ask.status === 'declined') return line('Declined');
   if (ask.status === 'countered') return line('Countered');
   if (ask.status !== 'open') return null;
   if (expired) return line(expiredWords ?? 'Expired · ask again');
   if (stale) return line('The quote changed since — counter again on the new one');
+  // 💰 Money withheld from this reader: they cannot weigh the price, so they do not answer it — the hosts do.
+  if (ask.moneyHidden) return line('The hosts answer this one');
   if (mine) return line(`Waiting for ${viewer === 'vendor' ? 'the hosts' : 'the supplier'}`);
   return (
     <>

@@ -10,5 +10,8 @@
   cannot take from unpaid rows is shown as owed back to the couple and the accept is refused (FIVE GUARDS, 12 Nov).
 - "Expired · ask again" is derived from Good until; an expired counter cannot be accepted. A plan-locked quote refuses
   a plan proposal. New cards are lazy (`thread-parts` chunk).
+- 💰 A coordinator without Budget & payments reads no counter amount or plan rows (round-4 rule, 9 Nov):
+  `booking_change_asks.amount_centavos` / `proposed_plan` are closed per column to browser roles, and the chat reads
+  its asks through `change_asks_read`, which masks them ("₱ — hosts only") and admits exactly as the table's policy.
 
 SPEC IMPACT: None

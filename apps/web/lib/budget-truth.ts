@@ -75,6 +75,7 @@
 
 import { paidToVendorCentavos } from './paid-to-vendor';
 import { withBookedByPayment } from './booked-by-payment';
+import { mergeBookingMoney, readBookingMoney } from './event-vendor-money';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
@@ -1680,8 +1681,10 @@ export function checkMoneyInvariant(money: EventMoney): string | null {
 // ── The I/O wrapper ──────────────────────────────────────────────────────────
 
 const VENDOR_SELECT =
+  // 🔒 total_cost_php · transport_php · food_allowance_php · deposit_paid_php are NOT selectable on a user session
+  //    (#5936) — they are merged in from event_vendor_money_read (readBookingMoney) below.
   'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,' +
-  'total_cost_php,transport_php,food_allowance_php,deposit_paid_php,covers_plan_groups,' +
+  'covers_plan_groups,' +
   'archived_at,voided_by_fraud,package_role,notes,created_at,marketplace_vendor_id,manual_vendor_id,' +
   'event_vendor_package_id';
 
@@ -1736,7 +1739,7 @@ export async function resolveEventMoney(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventMoney> {
-  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes, costsRes] =
+  const [eventRes, vendorsRes, lineItemsRes, paymentsRes, ordersRes, benchmarksRes, costsRes, moneyRes] =
     await Promise.all([
       // SEC-2b: events_host, not events — estimated_budget_centavos is
       // SELECT-denied to `authenticated` on the base table by 20271008731642.
@@ -1779,6 +1782,11 @@ export async function resolveEventMoney(
         .select('cost_id,plan_group_id,label,amount_php,paid_php,due_date')
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
+      // 🔒 #5936 — the booking amounts' one door. A refusal here refuses the supplier rows (never ₱0).
+      readBookingMoney(supabase, eventId).then(
+        (money) => ({ money, error: null as unknown }),
+        (error: unknown) => ({ money: null, error }),
+      ),
     ]);
 
   // ── WHICH SOURCES ANSWERED (B0 · 2026-10-08) ─────────────────────────────
@@ -1795,14 +1803,21 @@ export async function resolveEventMoney(
   // the WHOLE query, which would zero the budget rather than degrade it.
   let vendorRows: VendorMoneyRow[] | null;
   if (vendorsRes.error && isMissingColumn(vendorsRes.error)) {
+    // Not `select('*')`: the five booking amounts are closed per column (#5936), so `*` is refused outright.
     const retry = await supabase
       .from('event_vendors')
-      .select('*')
+      .select('vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,notes,created_at,marketplace_vendor_id,manual_vendor_id')
       .eq('event_id', eventId)
       .order('created_at', { ascending: true });
     vendorRows = rowsOrRefused<VendorMoneyRow>(retry, (e) => refused('event_vendors', e));
   } else {
     vendorRows = rowsOrRefused<VendorMoneyRow>(vendorsRes, (e) => refused('event_vendors', e));
+  }
+  if (moneyRes.error) {
+    refused('event_vendor_money_read', moneyRes.error);
+    vendorRows = null;
+  } else if (vendorRows && moneyRes.money) {
+    vendorRows = mergeBookingMoney(vendorRows, moneyRes.money) as unknown as VendorMoneyRow[];
   }
 
   const lineItemRows = rowsOrRefused<LineItemMoneyRow>(lineItemsRes, (e) =>

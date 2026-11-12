@@ -150,6 +150,7 @@ import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
 import type { PayWayView } from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { readOneBookingMoney } from '@/lib/event-vendor-money';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -220,12 +221,16 @@ export async function updateVendorCosts(formData: FormData) {
   // (the form also carries transport/food). The edited total is the price for
   // the CURRENT pax, so the surcharge re-derives from there (zero until pax
   // grows further).
-  const { data: existing } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: existingRow } = await supabase
     .from('event_vendors')
-    .select('total_cost_php, marketplace_vendor_id')
+    .select('marketplace_vendor_id')
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  const existing = existingRow
+    ? { ...existingRow, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : existingRow;
 
   // 🔒 AN ACCEPTED QUOTE IS THE PRICE (controller ruling, 2026-09-19). This
   // form used to overwrite `total_cost_php` with whatever the couple typed —
@@ -1082,18 +1087,22 @@ export async function finalizeVendor(
   // vendor name themselves and has no vendor_profiles link) won't have
   // OTHER services to cascade in from, so the cascade is gated on the
   // marketplace link being non-null.
-  const { data: targetVendor, error: targetErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: targetVendorRow, error: targetErr } = await supabase
     .from('event_vendors')
     // The change lines ride along (named-FK embed) so the downpayment below is a
     // share of the agreed total NOW — a change order can be accepted before a
     // lock (owner 2026-09-11, "Show the total now"). A refused embed lands in
     // `targetErr` and the lock stops with the message, as any refused read does.
     .select(
-      `vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, total_cost_php, ${CHANGE_LINES_EMBED}`,
+      `vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id, service_id, ${CHANGE_LINES_EMBED}`,
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
+  const targetVendor = targetVendorRow
+    ? { ...targetVendorRow, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : targetVendorRow;
   if (targetErr) {
     return { status: 'error', message: targetErr.message };
   }
@@ -4385,14 +4394,18 @@ export async function cancelBookingAsHost(
   // forged vendor_id from outside the event will return null (RLS deny
   // is indistinguishable from row-missing in PostgREST), which we
   // surface as 'not_found' for the same idempotent re-cancel path.
-  const { data: vendorRow, error: readErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: vendorRaw, error: readErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, vendor_name, status, deposit_paid_php, deposit_recorded_at, marketplace_vendor_id, event_id',
+      'vendor_id, vendor_name, status, deposit_recorded_at, marketplace_vendor_id, event_id',
     )
     .eq('vendor_id', vendorIdRaw)
     .eq('event_id', eventIdRaw)
     .maybeSingle();
+  const vendorRow = vendorRaw
+    ? { ...vendorRaw, ...(await readOneBookingMoney(supabase, eventIdRaw, vendorIdRaw)) }
+    : vendorRaw;
   if (readErr) {
     // 42P01 / 42703 on event_vendors would mean the migration didn't
     // land — surface a clean error instead of leaking the SQL code.
@@ -5829,14 +5842,18 @@ export async function loadSelfAddedSupplier(
   if (!user) return { status: 'not_signed_in' };
 
   // Under the couple's own RLS — the read is the ownership check.
-  const { data: ev, error: evErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: evRow, error: evErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
+      'vendor_id, category, vendor_name, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
+  const ev = evRow
+    ? { ...evRow, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : evRow;
   if (evErr) return { status: 'error', message: evErr.message };
   if (!ev) return { status: 'error', message: 'Supplier not found.' };
   const row = ev as {

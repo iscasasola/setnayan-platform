@@ -127,6 +127,7 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { mergeBookingMoney, readBookingMoney } from '@/lib/event-vendor-money';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -380,7 +381,7 @@ export async function EventDashboard({
     // Vendor picks — lean select (this surface needs no enrichment columns).
     (async () => {
       try {
-        return await supabase
+        const res = await supabase
           .from('event_vendors')
           // The change lines ride in the SAME query (owner 2026-09-11, "Show the
           // total now"): the committed figure is the agreed total NOW, not the
@@ -392,11 +393,19 @@ export async function EventDashboard({
             // 💳 + manual_vendor_id and the payments (owner 2026-10-20, "booked if
             // paid"): a hand-added supplier with a recorded payment reads Booked
             // here too — lib/booked-by-payment.ts, applied once below.
-            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
+            // 🔒 total_cost_php comes from event_vendor_money_read (#5936), not the row select.
+            `vendor_id, vendor_name, category, status, lock_request_state, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
+        if (res.error || !res.data) return res;
+        // A refused amounts read refuses the whole read (never [] — that would say "no suppliers").
+        const money = await readBookingMoney(supabase, eventId).catch((e: unknown) =>
+          e instanceof Error ? e : new Error(String(e)),
+        );
+        if (money instanceof Error) return { ...res, data: null, error: { message: money.message } } as never;
+        return { ...res, data: mergeBookingMoney(res.data, money) };
       } catch (caught) {
         logQueryError(
           'EventDashboard (event_vendors SELECT threw)',

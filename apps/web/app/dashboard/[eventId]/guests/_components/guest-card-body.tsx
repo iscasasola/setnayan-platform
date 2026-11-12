@@ -1183,6 +1183,8 @@ export function GuestCardBody({
               services={notCounted.services}
               saved={notCounted.picked}
               field={NOT_COUNTED_FIELD}
+              meal={guest.meal_preference ?? null}
+              mealForm={formId}
               self={{
                 attending: guest.rsvp_status === 'attending' && !guest.represented_by_guest_id, // passed_away is already ruled out above
                 roles: [guest.role, ...(guest.extra_roles ?? [])],

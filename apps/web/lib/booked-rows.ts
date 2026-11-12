@@ -284,6 +284,14 @@ export const WAITING_UNTIL = 'no payments · no shared details · not on their c
 /** The ⓘ beside the heading. A waived fee is a completed handshake too. */
 export const WAITING_INFO =
   'Booking is a handshake: you ask, they agree. Until the supplier says yes on Setnayan there is no payment record, no shared details and nothing on their calendar. Their yes opens everything for your event.';
+/**
+ * K2 (owner 2026-11-12, "Yes, build it"): every row under Booked IS booked, and the pinned row already says
+ * "Booked", so the plain green "Booked" pill is not drawn. A pill is drawn only when it says something else
+ * ("Payment not received", a warn state). Waiting for their yes keeps its own pill.
+ */
+export function pillSaysMore(pill: { text: string; tone: TeamRowTone }): boolean {
+  return !(pill.tone === 'ok' && pill.text === 'Booked');
+}
 export const BOOKED_EMPTY = 'Nothing booked yet — book from Find or from your build.';
 export const NEXT_SET_PRICE = 'set the price so your buffer can count';
 /** The supplier group of the ledger did not answer. Never "nothing due". */

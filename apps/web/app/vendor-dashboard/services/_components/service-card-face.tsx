@@ -3,6 +3,7 @@ import { ServiceFace } from '@/app/_components/service-face';
 import { php, type Snapshot } from '@/lib/service-card-snapshot';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { FramedImg } from '@/app/_components/framed-img';
+import type { CoverPhoto } from '@/lib/service-cover-show';
 
 /**
  * service-card-face.tsx — the card a couple sees, drawn from a `Snapshot`.
@@ -35,6 +36,7 @@ export function ServiceCardFace({
   leafPathLabel,
   addonsFromPhp,
   coverUrl,
+  photos,
   footer,
   packLine = null,
 }: {
@@ -45,6 +47,8 @@ export function ServiceCardFace({
   addonsFromPhp?: number | null;
   /** Presigned/public URL of the current cover, when there is one. */
   coverUrl?: string | null;
+  /** 🎞 Photos the cover plays (a bundle: one from each of its services, named). ≥2 → the face's slideshow. */
+  photos?: ReadonlyArray<string | CoverPhoto> | null;
   /**
    * Replaces the preview's mock "Request a quote" chip. OMIT it (undefined) to
    * keep that chip — `null` is a real value here and renders no footer at all,
@@ -113,6 +117,7 @@ export function ServiceCardFace({
     <ServiceFace
       name={snap.name}
       cover={cover}
+      photos={photos}
       discount={snap.discountBadge}
       path={leafPathLabel || null}
       price={snap.priceText}

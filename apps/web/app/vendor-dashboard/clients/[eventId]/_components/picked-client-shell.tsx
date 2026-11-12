@@ -50,6 +50,12 @@ const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
 
 export const CLIENTS_LIST_HREF = '/vendor-dashboard/customers';
 
+/** 🔦 The supplier tour's two stops inside a client (owner 12 Nov 2026): where the chat is, and where the quotation is. */
+const MENU_TOURS: ReadonlyArray<{ id: PickedClientPage; tour: string }> = [
+  { id: 'chat', tour: 'client-chat' },
+  { id: 'quote', tour: 'client-quote' },
+];
+
 export function PickedClientShell({
   eventId,
   eventName,
@@ -82,6 +88,7 @@ export function PickedClientShell({
       // 📌 Chat fills the body and scrolls inside itself — the shell's pinned row and menu stay put above it.
       fillPages={['chat']}
       badges={{ chat: chatUnread }}
+      tours={MENU_TOURS}
       pickedId={eventId}
       title={eventName}
       menu={menu}

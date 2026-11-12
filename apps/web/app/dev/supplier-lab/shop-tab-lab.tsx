@@ -160,7 +160,7 @@ function shopLab(fail: boolean, none: boolean) {
             serviceHref="#services"
             bundlesOn
           />
-          <ShopBundles bundles={fail ? null : none ? [] : [{ id: 'b1', name: 'Bar & mocktail night', priceCentavos: 15_000_000, live: true, cardNames: ['Mobile Bar', 'Mocktail station'], includes: ['2 bartenders', 'Glassware and ice', '4 hours', 'Fresh fruit and syrups'], cardsAlonePhp: 155_000, openBookings: 0 }]} cards={none ? 0 : 2} />
+          <ShopBundles bundles={fail ? null : none ? [] : [{ id: 'b1', name: 'Bar & mocktail night', priceCentavos: 15_000_000, live: true, cardNames: ['Mobile Bar', 'Mocktail station'], includes: ['2 bartenders', 'Glassware and ice', '4 hours', 'Fresh fruit and syrups'], cardsAlonePhp: 155_000, openBookings: 0, photos: [{ url: '/realstories/jack-jill-g1.jpg', caption: 'Mobile Bar' }, { url: '/realstories/jack-jill-g2.jpg', caption: 'Mocktail station' }, { url: '/realstories/jack-jill-g3.jpg', caption: 'Mobile Bar' }] }]} cards={none ? 0 : 2} />
           {none ? (
             <ServicesEmptyCard />
           ) : (

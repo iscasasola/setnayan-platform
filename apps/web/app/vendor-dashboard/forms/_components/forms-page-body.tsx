@@ -8,10 +8,11 @@ import { Sheet } from '@/app/_components/sheet';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
-import { draftItemOf, usedWithLine, type FormDraft } from '@/lib/vendor-forms';
+import { draftItemOf, sentFormState, titleForCouple, usedWithLine, type FormDraft, type FormItemDraft } from '@/lib/vendor-forms';
 import type { EventFormsRead, ShopForm, SuggestionsRead } from '@/lib/vendor-forms.server';
 import { formsAction } from '../actions';
 import { FormMaker, type FormMakerCard, type FormMakerLocks } from './form-maker';
+import { FormViewSheet } from './form-view-sheet';
 
 type EventForms = Extract<EventFormsRead, { status: 'ok' }>;
 type Suggestions = Extract<SuggestionsRead, { status: 'ok' }>;
@@ -33,6 +34,7 @@ export function FormsPageBody({
   canSend,
   returnPath,
   library,
+  eventForms = null,
   cards,
   event,
   bookedUnread,
@@ -46,6 +48,8 @@ export function FormsPageBody({
   canSend: boolean;
   returnPath: string;
   library: ShopForm[] | null;
+  /** 📋 Piece 3a: the forms made for THIS event (an Edit from this page saves one). `null` = the read was refused. */
+  eventForms?: ShopForm[] | null;
   cards: FormMakerCard[];
   event: EventForms | null;
   bookedUnread: boolean;
@@ -61,8 +65,38 @@ export function FormsPageBody({
   const [using, startUse] = useTransition();
   const [said, setSaid] = useState<string | null>(null);
 
+  const [viewing, setViewing] = useState<ShopForm | null>(null);
   const edit = (f: ShopForm) =>
     setMaker({ open: true, draft: { formId: f.formId, title: f.title, items: f.items.map(draftItemOf), serviceIds: f.serviceIds } });
+  const sentOf = (formId: string) => event?.sent.find((x) => x.formId === formId) ?? null;
+  /**
+   * 📋 Piece 3a — "view first; an edit saves a NEW form" (DECISION_LOG 2026-11-12). On a client's page a form opens
+   * read-only; its Edit opens the Maker on a COPY for this event. The one exception: this event's own form that was
+   * never sent is still only this event's draft, so it is edited in place.
+   */
+  const editFromView = (f: ShopForm) => {
+    setViewing(null);
+    if (eventId && f.forEventId === eventId && !sentOf(f.formId)) {
+      setMaker({ open: true, draft: { formId: f.formId, title: f.title, items: f.items.map(draftItemOf), serviceIds: [], forEventId: eventId, inLibrary: f.inLibrary } });
+      return;
+    }
+    if (!eventId) return edit(f);
+    setMaker({
+      open: true,
+      draft: {
+        title: titleForCouple(f.title, coupleName),
+        items: f.items.map((r) => {
+          const { id: _id, ...rest } = draftItemOf(r);
+          return rest as FormItemDraft;
+        }),
+        serviceIds: [],
+        forEventId: eventId,
+        editedFromFormId: f.formId,
+        inLibrary: false,
+      },
+    });
+  };
+  const openForm = (f: ShopForm) => (eventId ? setViewing(f) : edit(f));
   const fresh = () => setMaker({ open: true, draft: null });
   const copySuggestion = (templateKey: string) =>
     startUse(async () => {
@@ -99,10 +133,11 @@ export function FormsPageBody({
                     </span>
                     <span
                       className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
-                        s.total > 0 && s.answered === s.total ? 'bg-success-100 text-success-800' : 'bg-warn-100 text-warn-900'
+                        sentFormState(s).key === 'open' || sentFormState(s).key === 'some' ? 'bg-warn-100 text-warn-900' : 'bg-success-100 text-success-800'
                       }`}
+                      data-forms-sent-state={sentFormState(s).key}
                     >
-                      {s.total === 0 ? 'No questions' : `${formatCount(s.answered)} of ${formatCount(s.total)} answered`}
+                      {s.total === 0 && !s.locked ? 'No questions' : sentFormState(s).words}
                     </span>
                   </SentHead>
                   {openSent === s.formId ? (
@@ -130,6 +165,39 @@ export function FormsPageBody({
         </section>
       ) : null}
 
+      {eventId ? (
+        <section className="space-y-3" aria-labelledby="forms-event-h" data-forms-this-event>
+          <h2 id="forms-event-h" className={H2}>
+            This event&rsquo;s forms · {formatCount(eventForms?.length ?? 0)}
+          </h2>
+          {eventForms === null ? (
+            <Unread what="this event’s forms" />
+          ) : eventForms.length === 0 ? (
+            <p className="text-sm text-ink/60">None yet. Open a form from your library and tap Edit — the edit is saved for {coupleName} as a new form.</p>
+          ) : (
+            <ul className="space-y-2">
+              {eventForms.map((f) => {
+                const sent = sentOf(f.formId);
+                return (
+                  <li key={f.formId}>
+                    <button type="button" className={ROW} onClick={() => setViewing(f)} data-forms-event-row={f.formId}>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
+                        <span className="block text-[12px] text-ink/60">
+                          {f.sizeLine} · {sent ? sentFormState(sent).words : 'Not sent yet'}
+                          {f.inLibrary ? ' · in your library' : ''}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 flex-none text-ink/40" aria-hidden />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
       <section className="space-y-3" aria-labelledby="forms-lib-h">
         <h2 id="forms-lib-h" className={H2}>
           Your forms · the library
@@ -143,7 +211,7 @@ export function FormsPageBody({
           <ul className="space-y-2" data-forms-library>
             {library.map((f) => (
               <li key={f.formId}>
-                <button type="button" className={ROW} onClick={() => edit(f)}>
+                <button type="button" className={ROW} onClick={() => openForm(f)}>
                   <span className="min-w-0">
                     <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
                     <span className="block text-[12px] text-ink/60">
@@ -213,7 +281,7 @@ export function FormsPageBody({
             suggestions={suggestions}
             onEdit={(f) => {
               setLoadOpen(false);
-              edit(f);
+              openForm(f);
             }}
             onUse={copySuggestion}
             busy={using}
@@ -241,7 +309,21 @@ export function FormsPageBody({
         eventId={eventId && canSend ? eventId : null}
         returnPath={returnPath}
         shopId={shopId}
+        coupleName={coupleName}
       />
+      {eventId ? (
+        <FormViewSheet
+          form={viewing}
+          sent={viewing ? sentOf(viewing.formId) : null}
+          open={viewing !== null}
+          onClose={() => setViewing(null)}
+          onEdit={editFromView}
+          eventId={eventId}
+          canSend={canSend}
+          returnPath={returnPath}
+          answersOpen={answersOpen}
+        />
+      ) : null}
     </div>
   );
 }

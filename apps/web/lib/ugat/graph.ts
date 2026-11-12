@@ -1791,18 +1791,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'chat_messages_private_is_words_only',
         mentions: 'recipient_user_id',
       },
+      // 💬 2026-11-12 — EVENT GROUP CHATS: a thread is a supplier chat or an event group (no supplier); a private
+      // line may go to several people, recipient_user_id stays the first of them (20271340374819).
+      { kind: 'column', table: 'chat_threads', column: 'kind' },
+      { kind: 'column', table: 'chat_threads', column: 'group_kind' },
+      {
+        kind: 'check',
+        table: 'chat_threads',
+        name: 'chat_threads_a_supplier_chat_has_a_supplier',
+        mentions: 'vendor_profile_id',
+      },
+      { kind: 'column', table: 'chat_messages', column: 'recipient_user_ids' },
+      {
+        kind: 'check',
+        table: 'chat_messages',
+        name: 'chat_messages_recipients_agree',
+        mentions: 'recipient_user_ids',
+      },
     ],
     chain: 5,
     pair: ['TYPE-VENDORS', 'TYPE-THREADS'],
     title: 'Event ↔ Vendor (conversation)',
     joint: 'chat_threads',
-    cardinality: 'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one thread, ever',
+    cardinality:
+      'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one SUPPLIER thread, ever · plus the event\'s GROUP threads (kind = group, no supplier): one General, one per guest-list role, any number a host makes',
     implementedBy:
-      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation. A decision topic files shared messages (chat_decision_messages — one open topic per message, never a private line) and a chat asks ONE OPEN poll at a time (chat_polls, partial unique index chat_polls_one_open_per_thread; 2–6 chat_poll_choices; chat_poll_votes one per person per poll, it moves); a closed poll is saved as the decision through chat_decision_open.',
+      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation. A decision topic files shared messages (chat_decision_messages — one open topic per message, never a private line) and a chat asks ONE OPEN poll at a time (chat_polls, partial unique index chat_polls_one_open_per_thread; 2–6 chat_poll_choices; chat_poll_votes one per person per poll, it moves); a closed poll is saved as the decision through chat_decision_open. 💬 2026-11-12 EVENT GROUP CHATS (20271340374819): chat_threads.kind = group carries no supplier (CHECK chat_threads_a_supplier_chat_has_a_supplier) and group_kind general (the hosts + attending guests, derived) · role (the hosts + the guests holding its roles, derived) · made (chat_thread_members rows only); chat_group_member_ids() is the one answer to who is in it, and member rows add or (left_at) remove people on top. Group rows are hidden from table reads (RESTRICTIVE chat_threads_groups_read_through_functions) and read through chat_group_list / chat_group_head / chat_group_members. A private line carries recipient_user_ids (several people; recipient_user_id = its first, CHECK chat_messages_recipients_agree).',
     writtenBy:
       'First-message-send handler (creates the thread row on first contact, either direction) · tg_chat_threads_seat_the_opener seats the asking host · chat_thread_add_host() / chat_thread_leave() post a system line each',
     guardedBy:
-      'current_thread_ids() — live chat_thread_members rows UNION the event\'s coordinators — on chat_messages_member_read/insert, chat_threads_member_read and chat_thread_members_read; the vendor branches are unchanged. Private rows: chat_messages_private_reaches_two (RESTRICTIVE) + chat_message_hearts_follow_the_message.',
+      'current_thread_ids() — live chat_thread_members rows UNION the event\'s coordinators — on chat_messages_member_read/insert, chat_threads_member_read and chat_thread_members_read; the vendor branches are unchanged. Groups: a third branch of current_thread_ids() (General / role, derived) and chat_group_create / _add / _leave (hosts make; hosts + coordinator add; hosts leave; General takes no supplier); chat_messages_group_rules refuses a supplier or a money card on a group line. Private rows: chat_messages_private_reaches_its_people (RESTRICTIVE — sender, recipients, an admin only inside an open vendor_disputes row) + chat_message_hearts_follow_the_message.',
     traps: 'Anonymity masks the vendor name/logo until they reply (vendor_first_reply_at gate) — but the thread LIST view leaks the logo early. See F5.',
     healthId: 'F5',
   },
@@ -3972,6 +3990,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'vendor_forms' },
       { kind: 'fk', table: 'vendor_forms', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'vendor_forms', column: 'retired_at' },
+      // 📋 Piece 3a (20271340142149): an edit from a client's page saves a NEW form kept with that event.
+      { kind: 'column', table: 'vendor_forms', column: 'in_library' },
+      { kind: 'fk', table: 'vendor_forms', column: 'for_event_id', references: 'events' },
+      { kind: 'fk', table: 'vendor_forms', column: 'edited_from_form_id', references: 'vendor_forms' },
       { kind: 'fk', table: 'vendor_questions', column: 'form_id', references: 'vendor_forms' },
       { kind: 'column', table: 'vendor_questions', column: 'item_kind' },
       { kind: 'column', table: 'vendor_questions', column: 'answer_type' },
@@ -3997,7 +4019,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'formsAction (app/vendor-dashboard/forms/actions.ts — op save · use · send · retire) under the shop’s own RLS; sendLinkedFormsForBooking — lib/vendor-forms-on-booking.server.ts, reached only through runDepositAcknowledgedEffects once the deposit is acknowledged — service role, for the forms linked to the booked cards',
     guardedBy:
-      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts',
+      'vendor_forms_owner_all / vendor_form_service_links_owner_all (the shop, or admin) · event_form_sends_vendor_insert (the shop, sent_by supplier, with a thread to that event) · vendor_forms_sent_couple_select + event_question_answers_form_sent_vendor_select (only a SENT form is read across the pair) · tests/db/a-form-reaches-only-its-event.db.test.ts · Piece 3a: vendor_forms_event_scope_guard + event_form_sends_own_event_guard + vendor_form_service_links_in_library_guard (an event-only form is sent only into its event, links to no card, and a library form leaves only by retiring) · tests/db/an-edited-form-stays-with-its-event.db.test.ts',
     traps:
       'vendor_questions.form_id NULL is the SHIPPED question set (the pre-forms questions) — every shipped reader filters it, and a reader that forgets returns a form’s items as if they were the shop’s standing questions. A retired form (retired_at set) leaves the library and is never sent on booking — both readers filter retired_at IS NULL (lib/vendor-forms.server.ts, lib/vendor-forms-on-booking.server.ts).',
   },
@@ -4186,6 +4208,41 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS: card_claim_words + card_claim_word_allowances admin-only (the maker\u2019s page and the save read them with the service role); vendor_image_hashes / vendor_image_flags admin-only as before · the save re-asks cardCheckRefusal before save_vendor_service · tests/db/a-claim-word-list-is-admin-only.db.test.ts · tests/db/one-photo-one-card-schema.db.test.ts · lib/service-card-checks.test.ts · app/vendor-dashboard/services/the-card-checks-run-before-create.test.ts',
     traps:
       'No price anything — the owner removed it (no column, no setting). A hash blocks another card only while it NAMES one: a hash made before this rule names its card only if the backfill matched its cover; an unhashed or unreadable photo is "unchecked" and lets the card through (fail-open, said on the row). The maker\u2019s photo verdict never carries the other shop — the report action re-asks the match server-side.',
+  },
+  {
+    /**
+     * 📁 A SHOP FILES AN EVENT (Piece 3b, migration 20271339773560 · DECISION_LOG 2026-11-12). One stored copy per file
+     * per shop (supplier_media, content hash); per event a shop files photos/videos under QUOTED services, documents in
+     * "This booking", maps portfolio photos (a pointer, no copy) and collects chat files and links.
+     */
+    id: 'J69',
+    claims: [
+      { kind: 'table', table: 'supplier_media' },
+      { kind: 'fk', table: 'supplier_media', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'supplier_media', column: 'content_sha256' },
+      { kind: 'column', table: 'supplier_media', column: 'taken_at' },
+      { kind: 'table', table: 'event_supplier_files' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_supplier_files', column: 'media_id', references: 'supplier_media' },
+      { kind: 'column', table: 'event_supplier_files', column: 'couple_decision' },
+      { kind: 'column', table: 'event_supplier_files', column: 'counts' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Shop → its files for one event (quoted services · This booking · mapped portfolio)',
+    joint: 'event_supplier_files',
+    cardinality:
+      'A shop stores each file ONCE (supplier_media UNIQUE shop × sha256); an event holds many event_supplier_files rows per shop; the same stored copy counts for at most ONE row anywhere (partial unique index counts_once); a portfolio photo maps at most once per event',
+    implementedBy:
+      'supplier_media (the one stored copy, its EXIF taken_at) · event_supplier_files (grp service | booking | linked | unfiled | links; counts · dedupe_of · couple_decision) · the view event_supplier_photos_listed (the ONE listing rule) · couple_decide_supplier_file (the couple’s only write)',
+    writtenBy:
+      'supplierFilesAction (app/vendor-dashboard/clients/[eventId]/files-actions.ts — op prepare · file · map · refile · remove) under the shop’s own RLS; coupleFilesAction (app/dashboard/[eventId]/vendors/[vendorId]/workspace/files-decide-actions.ts) through couple_decide_supplier_file',
+    guardedBy:
+      'guard_event_supplier_file (a thread with the event · a service of THIS event’s sent/seen/accepted quote · the shop’s own card and copy · taken_at copied from the copy · counts recomputed every write) · guard_supplier_media_own_folder · column grants (the supplier never writes counts/taken_at/couple_decision) · tests/db/a-supplier-files-an-event-under-its-quoted-services.db.test.ts',
+    traps:
+      'A portfolio photo shared into a client’s chat or Files is a MAPPING (grp linked, portfolio_ref) — never a supplier_media row and never counted. The listing rule is a VIEW, not a stored flag: a moved event date or a couple’s Hide applies at once. Photos on a portfolio from before this piece have no hash, so a re-upload of one is only caught once it is put on the portfolio through a hashed path (in_portfolio).',
   },
 ];
 

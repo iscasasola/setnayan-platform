@@ -24,6 +24,6 @@ test('the clients lab calls notFound() in production, before anything else', () 
 });
 
 test('the lab’s Schedule month is handed its inputs — it never asks the server', () => {
-  assert.match(LAB, /<ScheduleCalendar eventDate="2026-11-08" todayIso=\{LAB_TODAY\} lab=\{calFail \? null : LAB_CALENDAR\} \/>/);
+  assert.match(LAB, /<ScheduleCalendar eventDate="2026-11-08" todayIso=\{LAB_TODAY\} lab=\{cal === 'fail' \? null : cal === 'two' \? LAB_CALENDAR_TWO : LAB_CALENDAR\} \/>/);
   assert.doesNotMatch(LAB, /fetchCustomerCalendarMonth|createClient|supabase/, 'the lab reaches for the database');
 });

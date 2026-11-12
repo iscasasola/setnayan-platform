@@ -54,7 +54,7 @@ test('↺ · Restore · Reset: the bar stays busy until the page shows it — a 
   const inTransition = hook.slice(hook.indexOf('start(async'));
   assert.doesNotMatch(inTransition, /await (whenCanvasShowsIt|watch\.done)/);
   /* …and the pressed button says so. */
-  assert.match(bar, /label="Undo"[\s\S]{0,500}?working=\{working === 'undo'\}/);
+  assert.match(bar, /label="History"[\s\S]{0,500}?working=\{working === 'undo' \|\| working === 'history'\}/);
 });
 
 test('↺ shows its count from the action’s OWN answer — never only from the whole-Maker render that follows', () => {

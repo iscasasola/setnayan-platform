@@ -160,6 +160,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds resolveVendorDisplayName only (a creator surface\'s vendor credit) — no badge field on the result.' },
   ],
   [
+    'lib/find-inspiration.server.ts',
+    { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal for a liked photo\'s "From <shop> · <card>" line, owner 2026-11-12). No "Verified" badge renders there.' },
+  ],
+  [
     'lib/check-a-date.server.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal on /v/[slug]/dates). The page\'s Verified badge (shop.verified) calls hasVerifiedBadge.' },
   ],

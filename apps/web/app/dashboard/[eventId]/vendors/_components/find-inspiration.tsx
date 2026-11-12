@@ -19,15 +19,22 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useId } from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
+import { ChevronRight, MessageCircle, Plus } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { cardVerbWords } from '@/lib/supplier-card-verbs';
+import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
 import { Explain } from '@/app/_components/explain';
 import {
   FIND_BOARD_PARAM,
   FIND_INSPIRATION_WORDS as W,
   inspirationRowLine,
+  likedEmptyLine,
+  likedForTile,
+  likedFromLine,
   partCountLine,
   type FindInspiration,
+  type FindLikedPhoto,
 } from '@/lib/find-inspiration';
 
 /** A — "Your inspiration board", the first row of Find. */
@@ -78,7 +85,23 @@ export function FindInspirationRow({ board, href }: { board: FindInspiration; hr
 }
 
 /** B — the opened category's Inspiration strip, above its suppliers. Draws nothing for a category with no parts. */
-export function FindInspirationStrip({ board, tile, href }: { board: FindInspiration | null; tile: string; href: string }) {
+export function FindInspirationStrip({
+  board,
+  tile,
+  href,
+  head = W.stripHead,
+  more = W.seeAll,
+  max,
+}: {
+  board: FindInspiration | null;
+  tile: string;
+  href: string;
+  /** 📋 The strip's own words — "Ideas" and "More ideas" in the organized Find (owner 2026-11-12). */
+  head?: string;
+  more?: string;
+  /** At most this many part tiles (owner 2026-11-12: "4 idea photos"); the board holds the rest. */
+  max?: number;
+}) {
   if (!board) return null;
   if (board.read === 'unread') {
     return (
@@ -88,14 +111,14 @@ export function FindInspirationStrip({ board, tile, href }: { board: FindInspira
     );
   }
   if (!board.partTiles.includes(tile)) return null;
-  const parts = board.byTile[tile] ?? [];
+  const parts = (board.byTile[tile] ?? []).slice(0, max ?? Infinity);
   return (
     <div className="mb-3" data-find-inspiration-strip={tile}>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{W.stripHead}</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{head}</p>
         {parts.length > 0 ? (
           <Link href={href} scroll={false} className="inline-flex min-h-11 items-center px-1 text-[13px] font-medium text-terracotta-700">
-            {W.seeAll} ›
+            {more} ›
           </Link>
         ) : null}
       </div>
@@ -128,6 +151,105 @@ export function FindInspirationStrip({ board, tile, href }: { board: FindInspira
           </Link>
         </li>
       </ul>
+    </div>
+  );
+}
+
+/**
+ * 💗 LIKED IDEAS — the couple's liked photos inside an opened category, each linked to where it came from (owner
+ * 2026-11-12, the organized-Find prototype "Yes, build it"):
+ *   · from a supplier already on their list → "From <shop> · <card> ›", which opens that supplier's card;
+ *   · from a supplier NOT on their list → "From <shop> · <card>" and the card's ONE verb, "Ask for a quote" — the same
+ *     words and control as a service card's (`cardVerbWords('ask')`). It is NEVER automatic (owner: *"needs to
+ *     press"*): only the press asks, and the asked supplier joins this category's Asked;
+ *   · a community photo → "Find who does this ›", a search scoped to this category.
+ * Frames only on what you press: the photo is not framed; the link and the button are the controls.
+ */
+export function FindLikedIdeas({
+  board,
+  tile,
+  label,
+  busyKey = null,
+  onOpenCard,
+  onAsk,
+  onFindWho,
+}: {
+  board: FindInspiration | null;
+  tile: string;
+  label: string;
+  /** The photo whose Ask is waiting on its write. */
+  busyKey?: string | null;
+  onOpenCard: (p: FindLikedPhoto) => void;
+  onAsk: (p: FindLikedPhoto) => void;
+  onFindWho: () => void;
+}) {
+  if (!board || board.read === 'unread') return null;
+  const liked = likedForTile(board, tile);
+  const ask = cardVerbWords('ask');
+  return (
+    <div className="mb-3" data-find-liked={tile}>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+        {W.likedHead}
+        {liked.length > 0 ? ` · ${formatCount(liked.length)}` : ''}
+      </p>
+      {liked.length === 0 ? (
+        <p className="text-[13px] text-ink/55" data-find-liked-empty="">
+          {likedEmptyLine(label)}
+        </p>
+      ) : (
+        <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
+          {liked.map((p) => {
+            const from = likedFromLine(p);
+            return (
+              <li key={p.key} className="w-[148px] shrink-0 snap-start p-1" data-find-liked-photo={p.serviceId ?? p.vendorProfileId ?? 'community'}>
+                <span className="block h-[112px] overflow-hidden rounded-lg bg-ink/[0.06]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.imageUrl} alt={p.part} loading="lazy" className="h-full w-full object-cover" />
+                </span>
+                <span className="mt-1 block truncate text-[12.5px] text-ink/60">{p.part}</span>
+                {from && p.onList ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCard(p)}
+                    className="flex min-h-11 w-full items-center text-left text-[13px] font-medium leading-snug text-terracotta-700"
+                    data-find-liked-link=""
+                  >
+                    <span className="line-clamp-2">{from} ›</span>
+                  </button>
+                ) : from ? (
+                  <>
+                    <span className="block text-[12.5px] leading-snug text-ink/70" data-find-liked-from="">
+                      {from}
+                    </span>
+                    <ActionButton
+                      tone="brand"
+                      main
+                      icon={MessageCircle}
+                      label={ask.label}
+                      name={`${ask.label} — ${p.shop}`}
+                      disabled={busyKey === p.key}
+                      onClick={() => onAsk(p)}
+                      className="mt-1 w-full"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <span className="block text-[12.5px] text-ink/55">{W.community}</span>
+                    <button
+                      type="button"
+                      onClick={onFindWho}
+                      className="flex min-h-11 w-full items-center text-left text-[13px] font-medium text-terracotta-700"
+                      data-find-who=""
+                    >
+                      {W.findWho} ›
+                    </button>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

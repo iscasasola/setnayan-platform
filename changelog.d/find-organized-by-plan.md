@@ -8,3 +8,7 @@
 Overturned guards (owner ruling 2026-11-12 supersedes 2026-10-26 "cover header is calm"): `the-cover-header-is-calm.test.ts` (count/bar now in the pinned row), `the-info-dot-is-round.test.ts` (bench ⓘ removed), `more-to-compare.test.ts`, `marketplace-masthead-and-layout.test.ts`, `supplier-sheet.test.ts` (sheetDoor.open is now 3 calls), `the-badge-has-a-deadline.test.ts` (bill line for `lib/find-inspiration.server.ts`).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-11-12 "Find is organized by the plan" (Setnayan-specs 98e10d4d). Prototype: claude.ai/artifact/7CKa6wbHUH7xDGZm7b29fA.
+
+- **Pre-ship audit fixes (2026-11-13):**
+  - A liked photo from a real shop whose name could not be read now says "Couldn’t load the supplier", never "Community photo". It keeps "Find who does this ›".
+  - "From <shop> · <card> ›" opens the card the photo was filed under (`likedCardFor`, matching `BenchServiceCard.serviceId`), never the shop's other saved card.

@@ -65,6 +65,9 @@ export type BenchServiceCard = {
    * is switched off, the shop has no slug, or the supplier is withheld). Dropped with the name: an address names a shop.
    */
   detailsHref?: string | null;
+  /** The card's own id (`vendor_services.vendor_service_id`) — so a liked photo opens the card it was filed under,
+   *  never merely the shop's saved card. Absent on a hand-built card. */
+  serviceId?: string;
 };
 
 export type BenchServiceDiscount = StoredDiscount & { expires_at?: string | null };

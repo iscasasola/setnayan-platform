@@ -176,6 +176,24 @@ export function likedFromLine(p: FindLikedPhoto): string | null {
   return p.card ? `From ${p.shop} · ${p.card}` : `From ${p.shop}`;
 }
 
+/**
+ * The source line under a liked photo with no readable name. A photo with NO shop is a community photo; a photo from
+ * a real shop whose name could not be read says so — calling it "Community photo" would be false (reads are honest).
+ */
+export function likedSourceWord(p: Pick<FindLikedPhoto, 'vendorProfileId'>): string {
+  return p.vendorProfileId ? FIND_INSPIRATION_WORDS.sourceUnread : FIND_INSPIRATION_WORDS.community;
+}
+
+/**
+ * The card a liked photo's "From <shop> · <card> ›" opens: the card the photo was FILED UNDER. The shop's saved card is
+ * used only when it IS that card (or the photo names no card) — never a different card of the same shop, which would
+ * open "Full buffet" for a "Grazing table" photo. No match → no card (the sheet says less, never something false).
+ */
+export function likedCardFor<C extends { serviceId?: string }>(photoServiceId: string | null, saved: C | null): C | null {
+  if (!photoServiceId) return saved;
+  return saved?.serviceId === photoServiceId ? saved : null;
+}
+
 /** The parts a service supplies, with photos — the looks nested under it in the ✎ sheet. */
 export function looksForService(board: FindInspiration | null, serviceKey: string): readonly FindInspirationPart[] {
   if (!board || board.read !== 'ok') return [];
@@ -201,6 +219,8 @@ export const FIND_INSPIRATION_WORDS = {
   // 💗 The opened category (owner 2026-11-12, the organized-Find prototype).
   likedHead: 'Liked ideas',
   community: 'Community photo',
+  /** A shop's photo whose name could not be read — never called a community photo (that would be false). */
+  sourceUnread: 'Couldn’t load the supplier',
   findWho: 'Find who does this',
   ideasHead: 'Ideas',
   moreIdeas: 'More ideas',

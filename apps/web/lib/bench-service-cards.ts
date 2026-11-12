@@ -39,6 +39,7 @@ import { benchServiceCard, type BenchServiceCard } from '@/lib/bench-service-car
 import { cheapestStartsAt } from '@/lib/smart-sort';
 import type { FindCardRow } from '@/lib/find-service-cards';
 import { serviceCardAddress } from '@/lib/service-card-address';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { serviceDetailsEnabled } from '@/lib/service-details-flag';
 
 type CardRow = {
@@ -94,6 +95,7 @@ async function cardsForRows(
   ]);
   for (const row of rows) {
     out.set(row.vendor_service_id, {
+      serviceId: row.vendor_service_id,
       ...benchServiceCard({
         service: row,
         discounts: discounts.get(row.vendor_service_id) ?? [],
@@ -127,7 +129,10 @@ async function fetchShopSlugs(admin: SupabaseClient, shopIds: readonly string[])
     .from('vendor_profiles')
     .select('vendor_profile_id,business_slug')
     .in('vendor_profile_id', [...shopIds]);
-  if (error || !data) return out;
+  if (error || !data) {
+    if (error) logQueryError('benchServiceCards.shopSlugs', error, { shops: shopIds.length }, 'graceful_degrade');
+    return out;
+  }
   for (const r of data as { vendor_profile_id: string; business_slug: string | null }[]) {
     if (r.business_slug?.trim()) out.set(r.vendor_profile_id, r.business_slug.trim());
   }

@@ -235,7 +235,7 @@ import {
 } from '@/lib/find-service-cards';
 import { FindServicesSheet } from './find-services-sheet';
 import { FindInspirationRow, FindInspirationStrip, FindLikedIdeas } from './find-inspiration';
-import { FIND_INSPIRATION_WORDS, findBoardHref, type FindInspiration, type FindLikedPhoto } from '@/lib/find-inspiration';
+import { FIND_INSPIRATION_WORDS, findBoardHref, likedCardFor, type FindInspiration, type FindLikedPhoto } from '@/lib/find-inspiration';
 import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
 import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
@@ -3144,7 +3144,7 @@ export function ShortlistCategories({
       rating: there.rating,
       reviewCount: there.reviewCount,
       verified: there.isVerified,
-      card: serviceLook.face ? (serviceLook.cards?.[there.vendorId] ?? null) : null,
+      card: likedCardFor(p.serviceId, serviceLook.face ? (serviceLook.cards?.[there.vendorId] ?? null) : null),
       cardsRead: Boolean(serviceLook.cards),
       coverUrl: null,
       stateLine: null,

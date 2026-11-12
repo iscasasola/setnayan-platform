@@ -162,7 +162,7 @@ export default async function HelpArticlePage({ params }: Props) {
   };
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}

@@ -212,7 +212,7 @@ export async function fetchInlineMoreRow(input: {
     }
     // A supplier whose name is still withheld is not named by their card's title (`withholdCardNames`, per card).
     const withheld = new Set(search.results.filter((r) => r.nameAnonymized).map((r) => r.vendorProfileId));
-    allCards = allCards.map((c) => (c.card && withheld.has(c.profileId) ? { ...c, card: { ...c.card, name: '' } } : c));
+    allCards = allCards.map((c) => (c.card && withheld.has(c.profileId) ? { ...c, card: { ...c.card, name: '', detailsHref: null } } : c));
   }
   const listed = new Set((allCards ?? []).map((c) => c.service));
   const services: FindService[] = categoryServices

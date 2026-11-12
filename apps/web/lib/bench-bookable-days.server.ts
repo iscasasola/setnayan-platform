@@ -29,21 +29,24 @@ import {
 export async function findSuppliersWithNoBookingLeft(args: {
   admin: SupabaseClient;
   supplierIds: readonly string[];
-  canonicals: readonly string[];
+  /** The categories whose cards are judged. `null` = every category the supplier sells in — Discover's supplier
+   *  view with no category picked (2026-11-13): a supplier leaves only when EVERY bookable card is refused. */
+  canonicals: readonly string[] | null;
   eventDate: string | null;
   eventDatePrecision: string | null;
 }): Promise<Set<string>> {
   const days = unbookableDateScope(args.eventDate, args.eventDatePrecision);
-  if (!days || args.supplierIds.length === 0 || args.canonicals.length === 0) return new Set();
+  if (!days || args.supplierIds.length === 0 || (args.canonicals !== null && args.canonicals.length === 0)) return new Set();
 
   try {
-    const { data: cardRows, error: cardErr } = await args.admin
+    let cardQuery = args.admin
       .from('vendor_services')
       .select('vendor_service_id, vendor_profile_id')
       .in('vendor_profile_id', args.supplierIds as string[])
-      .in('category', args.canonicals as string[])
       .eq('is_active', true)
       .eq('is_linked_only', false);
+    if (args.canonicals !== null) cardQuery = cardQuery.in('category', args.canonicals as string[]);
+    const { data: cardRows, error: cardErr } = await cardQuery;
     if (cardErr) {
       logQueryError('bench-bookable-days: cards', cardErr);
       return new Set();

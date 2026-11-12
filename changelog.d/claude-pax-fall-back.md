@@ -15,6 +15,6 @@ Owner, 12 Nov 2026 (DECISION_LOG "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK 
 
 ⚠ A quote that already ROSE before this migration has no `sent_billed_pax`. Its current `billed_pax` and current line amounts become its floor, so it never falls: the pax it was sent at is never guessed.
 
-Guards: `tests/db/a-quote-follows-the-guest-list.db.test.ts` (+8, and the old "never down" case is rewritten to "falls back to what was sent") and `lib/quote-pax-follow.test.ts` (+9).
+Guards: `lib/supplier-locks.test.ts` (its "must not read the lock" check now reads "must never SKIP a locked quote; the lock only decides whether lines may fall"), `tests/db/a-quote-follows-the-guest-list.db.test.ts` (+8, and the old "never down" case is rewritten to "falls back to what was sent") and `lib/quote-pax-follow.test.ts` (+9).
 
 SPEC IMPACT: None. The ruling is already in DECISION_LOG 2026-11-12. This PR builds it.

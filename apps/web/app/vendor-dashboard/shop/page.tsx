@@ -14,6 +14,7 @@ import { canUse, papersProgress } from '@/lib/locks';
 import type { LockNeed } from '@/app/_components/lock/locked-feature';
 import { isPubliclyVisible } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { interleaveServicePhotos } from '@/lib/service-cover-show';
 import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor-avatar';
 
 import {
@@ -293,18 +294,37 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
         try {
           const { data, error } = await supabase
             .from('vendor_packages')
-            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id, display_order, vendor_services(title, starting_price_php, vendor_service_inclusions(label, sort_order)))`)
+            .select(`${VENDOR_PACKAGE_SELECT}, vendor_package_items(vendor_service_id, display_order, vendor_services(title, starting_price_php, primary_photo_r2_key, showcase_photo_r2_keys, vendor_service_inclusions(label, sort_order)))`)
             .eq('vendor_profile_id', vendorId)
             .order('updated_at', { ascending: false });
           if (error) {
             logQueryError('VendorShopPage.bundles', error, { vendorId }, 'graceful_degrade');
             return null;
           }
-          type Line = { vendor_service_id: string | null; display_order: number | null; vendor_services: { title: string | null; starting_price_php: number | string | null; vendor_service_inclusions?: { label: string; sort_order: number | null }[] | null } | null };
+          type Line = { vendor_service_id: string | null; display_order: number | null; vendor_services: { title: string | null; starting_price_php: number | string | null; primary_photo_r2_key?: string | null; showcase_photo_r2_keys?: string[] | null; vendor_service_inclusions?: { label: string; sort_order: number | null }[] | null } | null };
           const rows = (data ?? []) as unknown as Array<{ package_id: string; package_name: string | null; total_price_centavos: number | null; is_active: boolean | null; vendor_package_items?: Line[] | null }>;
           // 🔒 Open bookings per bundle — the card row refuses Offline and Delete while any is open (11 Nov). One count
           // each (bundles are few); an unread count stays null and the row says so, never reads as "none".
           const open = await Promise.all(rows.map((p) => countActiveBookings(supabase, p.package_id)));
+          // 🎞 A bundle's cover plays its services' photos (owner 12 Nov) — each card's cover + showcase, resolved the way
+          // this page resolves every photo, all at once; one bad ref only drops that photo.
+          const photosOf = await Promise.all(
+            rows.map((p) =>
+              Promise.all(
+                (p.vendor_package_items ?? [])
+                  .filter((l) => l.vendor_service_id)
+                  .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                  .map(async (l) => ({
+                    name: l.vendor_services?.title?.trim() || 'Service card',
+                    urls: await Promise.all(
+                      [l.vendor_services?.primary_photo_r2_key ?? null, ...(l.vendor_services?.showcase_photo_r2_keys ?? []).slice(0, 5)].map((k) =>
+                        k ? displayUrlForStoredAsset(k).catch(() => null) : Promise.resolve(null),
+                      ),
+                    ),
+                  })),
+              ),
+            ),
+          );
           return rows.map((p, i) => {
             const cardLines = (p.vendor_package_items ?? []).filter((l) => l.vendor_service_id).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
             const prices = cardLines.map((l) => (l.vendor_services?.starting_price_php == null ? null : Number(l.vendor_services.starting_price_php)));
@@ -326,6 +346,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
               ).map((g) => g.label),
               cardsAlonePhp: prices.length > 0 && prices.every((x) => x != null && Number.isFinite(x)) ? prices.reduce((a: number, x) => a + (x as number), 0) : null,
               openBookings: open[i] ?? null,
+              photos: interleaveServicePhotos(photosOf[i] ?? []),
             };
           });
         } catch (err) {

@@ -39,7 +39,7 @@ function FixturePane({ id }: { id: SettingsGroup }) {
           {['First field', 'Second field', 'Third field', 'Fourth field'].map((l) => (
             <div key={l} className="space-y-1">
               <label className="block text-sm font-medium text-ink">{l}</label>
-              <input className="input-field" defaultValue="" placeholder={l} />
+              <input /* field-ok: a fixture stand-in for a pane the lab cannot read */ className="input-field" defaultValue="" placeholder={l} />
             </div>
           ))}
         </div>

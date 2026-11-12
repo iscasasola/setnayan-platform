@@ -32,6 +32,7 @@ import {
   likedEmptyLine,
   likedForTile,
   likedFromLine,
+  likedSourceWord,
   partCountLine,
   type FindInspiration,
   type FindLikedPhoto,
@@ -234,7 +235,9 @@ export function FindLikedIdeas({
                   </>
                 ) : (
                   <>
-                    <span className="block text-[12.5px] text-ink/55">{W.community}</span>
+                    <span className="block text-[12.5px] text-ink/55" data-find-liked-source={p.vendorProfileId ? 'unread' : 'community'}>
+                      {likedSourceWord(p)}
+                    </span>
                     <button
                       type="button"
                       onClick={onFindWho}

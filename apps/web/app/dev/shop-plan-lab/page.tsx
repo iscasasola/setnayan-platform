@@ -9,25 +9,35 @@
  *
  *   ?plan=free|verified|solo|pro|ultra    (free = not verified yet; ultra = the `enterprise` tier)
  *   &outer=N                              the shop's own declared furthest distance (clamped to the plan)
+ *   &branches=N                           how many branches the fixture shop has (default 2 where the plan includes
+ *                                         them, clamped to `branchesIncluded`) — drawn by the shipped `ShopBranchesLine`
  */
 import { notFound } from 'next/navigation';
 import { SAMPLE_SHOP_PLAN_TIER, SampleShopPage, type SampleShopPlan } from '@/app/v/[slug]/_components/sample-shop-page';
+import { tierCaps } from '@/lib/vendor-tier-caps';
+
+/** Fixture branch cities for the lab shop (Tagaytay HQ) — sample data, dev-only. */
+const LAB_BRANCH_CITIES = ['Lipa', 'Batangas City', 'Silang', 'Nasugbu', 'Calamba', 'Sta. Rosa'] as const;
 
 export default async function ShopPlanLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; outer?: string }>;
+  searchParams: Promise<{ plan?: string; outer?: string; branches?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const plan: SampleShopPlan = sp.plan && sp.plan in SAMPLE_SHOP_PLAN_TIER ? (sp.plan as SampleShopPlan) : 'free';
+  const caps = tierCaps(SAMPLE_SHOP_PLAN_TIER[plan]);
+  const asked = sp.branches != null ? Math.floor(Number(sp.branches)) : 2;
+  const branchCount = Math.max(0, Math.min(Number.isFinite(asked) ? asked : 0, caps.branchesIncluded));
+  const branchCities = LAB_BRANCH_CITIES.slice(0, branchCount);
   return (
     <main className="min-h-dvh bg-cream">
       <p className="sr-only" data-lab-plan={plan}>
         Lab · {plan}
       </p>
       <div className="mx-auto w-full max-w-3xl">
-        <SampleShopPage plan={plan} declaredOuterKm={sp.outer ? Number(sp.outer) : null} />
+        <SampleShopPage plan={plan} declaredOuterKm={sp.outer ? Number(sp.outer) : null} branchCities={branchCities} />
       </div>
     </main>
   );

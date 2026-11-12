@@ -47,6 +47,31 @@ export function shopReachLine(reach: ShopReach, city: string | null | undefined)
 }
 
 /**
+ * "Also in Lipa · Batangas City" — the shop's OTHER branches, under the reach line (owner 2026-11-13, verbatim:
+ * *"Show the branches as needed"*). The cities come from the shop's paid, live branches (`fetchPublicVendorBranches`,
+ * `lib/vendor-branches.ts` — Pro and Ultra include them, `TIER_CAPS[t].branchesIncluded`). "As needed" = a shop with
+ * no branch, or none with a city, gets NO line at all: never an empty "Also in", never a teaser for a lower plan.
+ * A city equal to the shop's own (the reach line already names it) and a repeat are said once / not at all.
+ */
+export function shopAlsoInLine(
+  branchCities: ReadonlyArray<string | null | undefined>,
+  hqCity?: string | null,
+): string | null {
+  const own = hqCity?.trim().toLowerCase() ?? '';
+  const seen = new Set<string>();
+  const cities: string[] = [];
+  for (const raw of branchCities) {
+    const c = raw?.replace(/\s+/g, ' ').trim();
+    if (!c) continue;
+    const k = c.toLowerCase();
+    if (k === own || seen.has(k)) continue;
+    seen.add(k);
+    cities.push(c);
+  }
+  return cities.length > 0 ? `Also in ${cities.join(' · ')}` : null;
+}
+
+/**
  * The shop's own web address, shown "sampaguitatable.com → this page" (approved Q4 = A: the shop's own domain pointing
  * at the page). Solo+ (`customWebsiteName`, owner 2026-11-04), and only a domain the verification backend has stamped — an
  * unverified row is a domain that does not point here yet. Lower-cased and bare (no scheme, no slash).

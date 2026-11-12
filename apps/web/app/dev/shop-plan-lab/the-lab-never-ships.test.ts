@@ -25,14 +25,22 @@ test('the shop plan lab calls notFound() in production, before anything else', (
 test('the lab mounts the one sample drawing', () => {
   assert.match(LAB, /from '@\/app\/v\/\[slug\]\/_components\/sample-shop-page';/);
   assert.match(LAB, /<SampleShopPage plan=\{plan\}/);
+  assert.match(LAB, /branchCities=\{branchCities\}/, 'the lab no longer hands the drawing its branches (PR #7561)');
 });
 
 test('the drawing mounts the real plan pieces and the real rules', () => {
   assert.match(DRAWING, /from '\.\/shop-reach';/);
   assert.match(DRAWING, /from '\.\/shop-addresses';/);
+  assert.match(DRAWING, /from '\.\/shop-branches-line';/);
   assert.match(DRAWING, /from '\.\/pinned-review-card';/);
   assert.match(DRAWING, /from '@\/lib\/shop-page-plan';/);
   assert.match(DRAWING, /from '@\/lib\/vendor-tier-caps';/);
   assert.match(DRAWING, /<ShopReachMap reach=\{d\.reach\}/);
   assert.match(DRAWING, /<ShopAddresses setnayanAddress=/);
+});
+
+test('the /for-suppliers plan cards draw NO branches — an open owner question (ruling 5735)', () => {
+  const front = stripComments(readFileSync(join(HERE, '../../for-suppliers/_components/supplier-front-page.tsx'), 'utf8'));
+  assert.match(front, /<SampleShopPage plan=\{plan\} \/>/, 'the plan card no longer mounts the sample drawing bare');
+  assert.doesNotMatch(front, /branchCities/, 'the plan cards now draw branches — that needs the owner first');
 });

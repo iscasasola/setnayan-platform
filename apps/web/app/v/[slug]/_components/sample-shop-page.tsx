@@ -31,6 +31,7 @@ import { ImageBadge } from '@/app/_components/image-badge';
 import { DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { ShopReachLine, ShopReachMap } from './shop-reach';
 import { ShopAddresses } from './shop-addresses';
+import { ShopBranchesLine } from './shop-branches-line';
 import { PinnedReviewCard } from './pinned-review-card';
 import { NotYetVerifiedNotice } from './not-yet-verified-notice';
 import { ownWebAddress, pinnedQuote, shopReach, type ShopReach } from '@/lib/shop-page-plan';
@@ -114,7 +115,20 @@ export function samplePlanCaption(plan: SampleShopPlan): string {
   return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
-export function SampleShopPage({ plan, declaredOuterKm = null }: { plan: SampleShopPlan; declaredOuterKm?: number | null }) {
+/**
+ * `branchCities` — the shop's other branches, drawn by the shipped `ShopBranchesLine` ("Also in …", PR #7561). The lab
+ * passes fixture cities; the /for-suppliers plan cards pass NONE on purpose — whether a plan's preview shows branches
+ * is an open owner question (ruling 5735 brief: "Do NOT draw branches").
+ */
+export function SampleShopPage({
+  plan,
+  declaredOuterKm = null,
+  branchCities = [],
+}: {
+  plan: SampleShopPlan;
+  declaredOuterKm?: number | null;
+  branchCities?: readonly string[];
+}) {
   const d = samplePlanShop(plan, declaredOuterKm);
   const name = d.verified ? SAMPLE.name : SAMPLE.placeholder;
   const accentVars = d.personalize ? micrositeAccentVars(SAMPLE.accent) : undefined;
@@ -190,6 +204,7 @@ export function SampleShopPage({ plan, declaredOuterKm = null }: { plan: SampleS
                 Check a date
               </span>
             </div>
+            {branchCities.length > 0 ? <ShopBranchesLine cities={branchCities} hqCity={SAMPLE.city} /> : null}
             <ShopReachMap reach={d.reach} latitude={SAMPLE.lat} longitude={SAMPLE.lng} city={SAMPLE.city} />
             <ShopAddresses setnayanAddress={SAMPLE.setnayanAddress} ownAddress={d.ownAddress} />
             {d.quote ? <PinnedReviewCard quote={d.quote} stars={5} author="Verified couple" when="Mar 2026" /> : null}

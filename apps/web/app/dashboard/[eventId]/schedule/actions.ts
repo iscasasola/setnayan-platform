@@ -14,7 +14,8 @@ import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
 import { rightAfterPlace } from '@/lib/moment-follow.server';
 import { isOrMinutes, isTimeShape, type TimeShape } from '@/lib/time-shape';
 // 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
-import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
+import { partBefore, postChapterMovedLines, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
+import { timesThatStay } from '@/lib/schedule-hand-in-hand';
 // 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
 // the database's `*_part_lock` triggers (20271303409352) whatever door it comes through.
 import { refuseLockedPart } from '@/lib/supplier-part-lock.server';
@@ -704,12 +705,24 @@ export async function updateScheduleBlock(formData: FormData) {
   const withMoments = formData.get('with_moments') === '1' && patch.start_at !== undefined;
   // 🔔 One save, one notice per supplier: the moment — and, on a chapter move, every moment in it — read BEFORE.
   const part = await partBefore(supabase, eventId, [blockId], { withChildren: withMoments });
-  // 🔒 A chapter move carries every moment in it; a field save meets the lock only if it really moves the part.
-  await refuseLockedPart(supabase, part, { kind: 'fields' }, withMoments ? part.before : part.before.filter((m) => patchTouchesPart(m, patch)));
+  // 🗓 SCHEDULES HAND-IN-HAND part (b), rule 1 (owner 2026-11-12): a supplier's own arrive / done STAY when the chapter
+  // moves — every other moment comes along, as shipped. Their card says what moved against what they planned.
+  const keep = withMoments ? timesThatStay(blockId, part.before) : [];
+  const movedFrom = withMoments ? ((part.before.find((m) => m.block_id === blockId)?.start_at as string | null | undefined) ?? null) : null;
+  const movedTo = withMoments ? (patch.start_at ?? null) : null;
+  // 🔒 A chapter move carries every moment in it (but the kept times); a field save meets the lock only if it really
+  // moves the part.
+  await refuseLockedPart(
+    supabase,
+    part,
+    { kind: 'fields' },
+    withMoments ? part.before.filter((m) => !keep.includes(m.block_id)) : part.before.filter((m) => patchTouchesPart(m, patch)),
+  );
   if (withMoments) {
     const { data: moved, error: moveError } = await supabase.rpc('move_schedule_chapter', {
       p_block_id: blockId,
       p_start_at: patch.start_at,
+      p_keep_block_ids: keep,
     });
     if (moveError) throw new Error(moveError.message);
     if (typeof moved !== 'number' || moved < 1) throw new Error(NOTHING_CHANGED);
@@ -726,6 +739,9 @@ export async function updateScheduleBlock(formData: FormData) {
   // RLS answers a refused UPDATE with zero rows and no error — said, never "saved" (a chapter's row says "didn't save").
   if (!changed || changed.length === 0) throw new Error(NOTHING_CHANGED);
   await tellPartSuppliers(supabase, part, user.id);
+  // 🗓 Rule 1 + 3: one schedule card in each booked supplier's chat on this chapter ("Ceremony is now 30 min later than
+  // you planned"), pinned on their side until they press Seen. Best-effort: the move already landed.
+  if (withMoments) await postChapterMovedLines(part, blockId, movedFrom, movedTo);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }

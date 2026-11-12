@@ -487,3 +487,34 @@ export async function askForPaymentFromChat(formData: FormData): Promise<AskResu
   }
   return { ok: false, message: ASK_PAYMENT_WORDS[res.code] ?? ASK_PAYMENT_WORDS.error! };
 }
+
+// ── 🗓 The schedule card (SCHEDULES HAND-IN-HAND part (b), 2026-11-12) ────────────────────────────────────────────
+
+/**
+ * The supplier's Seen on this conversation's event (`event_supplier_schedule_marks.seen_at`) — both sides may read it
+ * (the supplier their own row, the hosts their event's). `seenAt: null` = never pressed; a refused read is `{ ok: false }`.
+ */
+export async function loadScheduleSeen(threadId: string): Promise<{ ok: true; eventId: string; seenAt: string | null } | Fail> {
+  const supabase = createClient();
+  const t = await supabase.from('chat_threads').select('event_id, vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  const thread = t.data as { event_id: string | null; vendor_profile_id: string | null } | null;
+  if (t.error || !thread?.event_id || !thread.vendor_profile_id) return refused('loadScheduleSeen.thread', t.error);
+  const m = await supabase
+    .from('event_supplier_schedule_marks')
+    .select('seen_at')
+    .eq('event_id', thread.event_id)
+    .eq('vendor_profile_id', thread.vendor_profile_id)
+    .maybeSingle();
+  if (m.error) return refused('loadScheduleSeen.marks', m.error);
+  return { ok: true, eventId: thread.event_id, seenAt: (m.data as { seen_at: string | null } | null)?.seen_at ?? null };
+}
+
+/** Seen — the shipped door (`supplier_mark_schedule` 'seen', the same mark the supplier's Schedule view presses). */
+export async function markScheduleSeenFromChat(eventId: string): Promise<AskResult> {
+  const { error } = await createClient().rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: 'seen' });
+  if (error) {
+    warned('markScheduleSeen', error);
+    return { ok: false, message: "That didn't send — try again." };
+  }
+  return { ok: true };
+}

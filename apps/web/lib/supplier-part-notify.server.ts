@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
+import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { scheduleChangeLine } from '@/lib/schedule-hand-in-hand';
 import {
   PART_FIELDS,
   changesByVendor,
@@ -151,5 +153,51 @@ async function notifyByPerson(eventId: string, byVendor: Map<string, PartChange[
       relatedUrl: supplierPartHref(eventId),
       eventId,
     });
+  }
+}
+
+/**
+ * 🗓 THE SCHEDULE CARD (SCHEDULES HAND-IN-HAND part (b), owner 2026-11-12, rules 1 + 3): after a chapter move landed,
+ * ONE line in each booked supplier's conversation on the chapter or on a moment in it —
+ * "Schedule changed · Ceremony · 2:00 PM → 2:30 PM · 30 min later". The stream draws it as the schedule card (both
+ * sides); the supplier's copy pins until they press Seen (`schedule_change`, `lib/chat-pin-facts.ts`). Their arrive /
+ * done did not move (`timesThatStay`), so the card says it against what they planned.
+ *
+ * The bookings come from the BEFORE read (`partBefore` with its children): whoever was on the chapter when it moved.
+ * Best-effort like every notice here: logged, never thrown into the host's save. No thread yet = nothing posted.
+ */
+export async function postChapterMovedLines(
+  part: PartSnapshot,
+  chapterId: string,
+  fromIso: string | null,
+  toIso: string | null,
+): Promise<void> {
+  try {
+    const chapter = part.before.find((m) => m.block_id === chapterId);
+    const body = scheduleChangeLine({ label: chapter?.label ?? null, fromIso, toIso });
+    if (!chapter || !body) return;
+    const bookings = new Set<string>();
+    for (const m of part.before) {
+      if (m.block_id !== chapterId && m.parent_block_id !== chapterId) continue;
+      for (const v of m.responsible_vendor_ids ?? []) bookings.add(v);
+    }
+    if (bookings.size === 0) return;
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('event_vendors')
+      .select('marketplace_vendor_id')
+      .eq('event_id', part.eventId)
+      .in('vendor_id', [...bookings])
+      .in('status', [...BOOKED_EVENT_VENDOR_STATUSES])
+      .is('archived_at', null)
+      .not('marketplace_vendor_id', 'is', null);
+    if (error) {
+      logQueryError('supplierPartNotify.movedLines', error, { eventId: part.eventId }, 'graceful_degrade');
+      return;
+    }
+    const shops = new Set(((data ?? []) as { marketplace_vendor_id: string }[]).map((r) => r.marketplace_vendor_id));
+    for (const vendorProfileId of shops) await postThreadSystemLine(admin, { eventId: part.eventId, vendorProfileId, body });
+  } catch (e) {
+    console.error('[postChapterMovedLines] best-effort line failed:', e);
   }
 }

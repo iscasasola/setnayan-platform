@@ -10,6 +10,7 @@
  *   coordinator_agree  a booked coordinator / planner the hosts have not agreed to yet (🤝 8 Nov)
  *   quote_expired      the newest quote is `expired` (🧾⏳ 9 Nov)
  *   decision           an open `chat_decision_topics` row
+ *   schedule_change    the newest "Schedule changed · …" line is newer than the supplier's Seen (supplier only, 🗓 12 Nov)
  *
  * 🔒 MONEY: a coordinator without "Budget & payments" = View reads **"₱ — hosts only"** for every amount (FINAL RULINGS
  * 2026-11-09). The strip happens HERE, on the server's facts, before anything reaches the browser.
@@ -18,6 +19,8 @@ import type { MoneyStep, QuoteScheduleRow } from './accepted-quote-terms';
 import { pesoFromCentavos } from './accepted-quote-terms';
 import { paymentReminder, stackPins, type PinFact } from './chat-pins';
 import { formatPhp } from './php';
+import { scheduleChangeFromLine } from './chat-card-lines';
+import { scheduleChangeHeadline, scheduleChangePinned } from './schedule-hand-in-hand';
 import type { BlockerKind } from '@/app/_components/chat/blocker-show';
 
 import { HOSTS_ONLY, maskPesos } from './money-mask';
@@ -55,6 +58,11 @@ export type PinFactInputs = {
   changes?: readonly { amendmentId: string; createdAt: string; deltaPhp: number | null }[] | null;
   /** Manila today, 'YYYY-MM-DD'. */
   todayPh: string;
+  /**
+   * 🗓 The newest schedule-change line in this chat (its id, when, and its words) and the supplier's Seen. Supplier side
+   * only; null = none, or not read.
+   */
+  scheduleChange?: { messageId: string; at: string; body: string; seenAt: string | null } | null;
 };
 
 const ms = (iso: string | null | undefined, fallback: number) => {
@@ -192,6 +200,20 @@ export function buildPinFacts(i: PinFactInputs): PinFact[] {
       answerer: 'you',
       themName: i.themName,
       sinceMs: ms(c.createdAt, i.nowMs),
+    });
+  }
+
+  // 🗓 Rule 3 (12 Nov): the schedule card pins on the supplier's side until they press Seen — never on the hosts'.
+  const sc = i.side === 'vendor' ? i.scheduleChange : null;
+  const said = sc ? scheduleChangeFromLine(sc.body) : null;
+  if (sc && said && scheduleChangePinned(sc.at, sc.seenAt)) {
+    push({
+      key: `schedule_change:${sc.messageId}`,
+      kind: 'schedule_change',
+      title: scheduleChangeHeadline(said.chapter, said.shift, 'you'),
+      answerer: 'you',
+      themName: i.themName,
+      sinceMs: ms(sc.at, i.nowMs),
     });
   }
 

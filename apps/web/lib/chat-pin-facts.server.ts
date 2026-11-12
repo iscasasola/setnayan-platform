@@ -217,7 +217,44 @@ export async function readChatPinFacts(
           })
       : Promise.resolve(false);
 
-  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden] = await Promise.all([
+  // 🗓 Rule 3 (SCHEDULES HAND-IN-HAND part (b), 12 Nov): the newest schedule-change line in this chat and the supplier's
+  // own Seen (`event_supplier_schedule_marks`, their RLS). Supplier side only — the hosts' copy never pins.
+  const scheduleRead =
+    args.side === 'vendor'
+      ? (async () => {
+          const [line, mark] = await Promise.all([
+            supabase
+              .from('chat_messages')
+              .select('message_id, created_at, body')
+              .eq('thread_id', args.threadId)
+              .eq('sender_role', 'system')
+              .like('body', 'Schedule changed · %')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabase
+              .from('event_supplier_schedule_marks')
+              .select('seen_at')
+              .eq('event_id', args.eventId)
+              .eq('vendor_profile_id', args.vendorProfileId)
+              .maybeSingle(),
+          ]);
+          if (line.error || mark.error) {
+            logQueryError('chatPins.scheduleChange', line.error ?? mark.error, { thread_id: args.threadId }, 'graceful_degrade');
+            return null;
+          }
+          const row = line.data as { message_id: string; created_at: string; body: string | null } | null;
+          if (!row) return null;
+          return {
+            messageId: row.message_id,
+            at: row.created_at,
+            body: row.body ?? '',
+            seenAt: (mark.data as { seen_at: string | null } | null)?.seen_at ?? null,
+          };
+        })()
+      : Promise.resolve(null);
+
+  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden, scheduleChange] = await Promise.all([
     quoteRead,
     callTimeRead,
     accessRead,
@@ -227,6 +264,7 @@ export async function readChatPinFacts(
     visibilityRead,
     changesRead,
     hiddenRead,
+    scheduleRead,
   ]);
   const masked = !visibility.mayRead || hidden === true;
 
@@ -245,6 +283,7 @@ export async function readChatPinFacts(
     quote,
     decisions,
     changes,
+    scheduleChange,
   };
   return {
     facts: buildPinFacts(inputs),

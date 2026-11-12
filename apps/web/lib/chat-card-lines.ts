@@ -72,12 +72,28 @@ export function pollFromLine(body: string | null | undefined): { question: strin
   return b.startsWith('Poll · ') && b.length > 'Poll · '.length ? { question: b.slice('Poll · '.length) } : null;
 }
 
+/**
+ * 🗓 "Schedule changed · Ceremony · 2:00 PM → 2:30 PM · 30 min later" — the line a host's chapter move posts in each
+ * booked supplier's conversation (SCHEDULES HAND-IN-HAND part (b), 2026-11-12; written by `scheduleChangeLine` in
+ * `lib/schedule-hand-in-hand.ts`). Exact words, never guessed: the chapter, both clocks and the shift as written.
+ */
+export function scheduleChangeFromLine(
+  body: string | null | undefined,
+): { chapter: string; from: string; to: string; shift: string } | null {
+  const m = /^Schedule changed · (.+) · ([^·→]+?) → ([^·→]+?) · ((?:\d+ days? ?)?(?:\d+ hr ?)?(?:\d+ min ?)?(?:later|earlier))$/.exec(
+    (body ?? '').trim(),
+  );
+  if (!m || !/\d/.test(m[4]!)) return null;
+  return { chapter: m[1]!, from: m[2]!, to: m[3]!, shift: m[4]! };
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'poll' | null {
+export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'poll' | 'schedule' | null {
   if (bookRequestFromLine(body)) return 'book';
   if (pollFromLine(body)) return 'poll';
   if (changeAskFromLine(body)) return 'ask';
   if (guestCountFromLine(body)) return 'guests';
   if (quoteRiseFromLine(body)) return 'rise';
+  if (scheduleChangeFromLine(body)) return 'schedule';
   return null;
 }

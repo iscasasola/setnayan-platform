@@ -39,7 +39,12 @@ export type PinKind =
   /** A sent quote the hosts never accepted ran past its Valid until (🧾⏳ 9 Nov — the sixth blocker). */
   | 'quote_expired'
   /** An open decision topic (the (+) "Decision" — "Pin a topic until it is settled"); either side closes it. */
-  | 'decision';
+  | 'decision'
+  /**
+   * 🗓 The hosts moved a chapter the supplier is on; it pins on the supplier's side until they press Seen (SCHEDULES
+   * HAND-IN-HAND part (b), rule 3, 2026-11-12). A change the host applied needs no other answer — never a blocker.
+   */
+  | 'schedule_change';
 
 /** The topic each pin wears (its icon is `TOPIC_ICON[topic]` — never a glyph of its own). */
 export const PIN_TOPIC: Record<PinKind, ChatTopic> = {
@@ -54,6 +59,7 @@ export const PIN_TOPIC: Record<PinKind, ChatTopic> = {
   access_ask: 'access',
   quote_expired: 'quote',
   decision: 'decision',
+  schedule_change: 'schedule',
 };
 
 export type PinFact = {
@@ -119,6 +125,7 @@ export function needsYouLevel(
     case 'guest_count':
     case 'access_ask':
     case 'decision':
+    case 'schedule_change':
       return 'due';
   }
 }

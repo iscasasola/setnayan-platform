@@ -6,11 +6,12 @@
  * this chunk fetched. Anything else stays the plain Setnayan line it always was.
  */
 import { bookRequestFromLine, changeAskFromLine, guestCountFromLine } from '@/lib/chat-cards';
-import { pollFromLine, quoteRiseFromLine } from '@/lib/chat-card-lines';
+import { pollFromLine, quoteRiseFromLine, scheduleChangeFromLine } from '@/lib/chat-card-lines';
 import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
 import { ChangeAskCard } from './ask-change-card';
 import { GuestRecountCard, QuoteRoseCard } from './guest-recount-card';
+import { ScheduleChangeCard } from './schedule-change-card';
 
 export function StreamLineCard({
   body,
@@ -54,5 +55,8 @@ export function StreamLineCard({
   if (g) return <GuestRecountCard threadId={threadId} from={g.from} to={g.to} viewer={viewer} supplierName={supplierName} eventDate={eventDate} />;
   const rise = quoteRiseFromLine(body);
   if (rise) return <QuoteRoseCard pax={rise.pax} deltaWords={rise.deltaWords} viewer={viewer} supplierName={supplierName} />;
+  // 🗓 A host's chapter move (SCHEDULES HAND-IN-HAND part (b)): pinned on the supplier's side until Seen.
+  const sched = scheduleChangeFromLine(body);
+  if (sched) return <ScheduleChangeCard threadId={threadId} createdAt={createdAt} {...sched} viewer={viewer} supplierName={supplierName} />;
   return null;
 }

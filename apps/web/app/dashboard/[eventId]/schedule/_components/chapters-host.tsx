@@ -590,6 +590,11 @@ export function ChaptersHost({
           doors={sheetDoors}
           heldBy={current.hours_vendor_id ? (who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue') : null}
           deleteSuppliers={suppliersOn(current)}
+          moments={moments.filter((m) => m.parent_block_id === current.block_id)}
+          onAsk={(momentId) => {
+            setSheet(null);
+            setMomentSheet({ kind: 'edit', id: momentId });
+          }}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}
           onDeleted={() => back(current)}

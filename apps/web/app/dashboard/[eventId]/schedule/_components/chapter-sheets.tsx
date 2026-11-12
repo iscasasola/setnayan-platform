@@ -1,13 +1,15 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { CalendarPlus, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Check, MessageSquare, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { chapterMove } from '@/lib/chapter-move';
+import { doneWarnings, timesThatStay, type DoneWarning } from '@/lib/schedule-hand-in-hand';
+import type { KeepAnswer } from '@/lib/form-row';
 import {
   CALL_LEAD_CHOICES,
   PHOTO_WHEN,
@@ -234,9 +236,18 @@ export function ChapterSheet({
   replyCount,
   deleteSuppliers = [],
   heldBy = null,
+  moments = [],
+  onAsk,
 }: {
   /** 🏛 The venue that holds this chapter's hours (by name) — its hours are a fact here, not fields. */
   heldBy?: string | null;
+  /**
+   * 🗓 This chapter's moments (SCHEDULES HAND-IN-HAND part (b), 2026-11-12): a supplier's own "is done" among them
+   * WARNS before a new time is saved (rule 2) and their arrive / done stay put when it moves (rule 1).
+   */
+  moments?: readonly { block_id: string; parent_block_id: string; label: string; start_at: string; vendor_ids: string[] }[];
+  /** "Ask them" — opens that supplier's done moment, where the shipped "Ask a supplier to change their times" is. */
+  onAsk?: (momentId: string) => void;
   /** 👷 Who Delete chapter takes off their parts, by name (the host reads them; the warning says them). */
   deleteSuppliers?: readonly string[];
   chapter: Chapter;
@@ -260,6 +271,58 @@ export function ChapterSheet({
   const [note, setNote] = useState<string | null>(null);
   const [other, setOther] = useState(false);
 
+  /**
+   * ⚠ RULE 2 (owner 2026-11-12): a new start or end that runs the chapter past a supplier's "is done" WARNS here before
+   * it saves — "<Shop> is done at 10:30 PM — ask them?" — and never blocks: Save anyway saves. Only a NEW crossing warns
+   * (one already true before this edit was already said). Lock my times still refuses in the database, as shipped.
+   */
+  const [warn, setWarn] = useState<{ row: 'start' | 'end'; lines: DoneWarning[]; go: () => Promise<KeepAnswer>; settle: (a: KeepAnswer) => void } | null>(null);
+  const tagged = moments.map((m) => ({ ...m, responsible_vendor_ids: m.vendor_ids }));
+  const kept = timesThatStay(c.block_id, tagged).length;
+  const gate = (row: 'start' | 'end', next: { start_at: string | null; end_at: string | null }, go: () => Promise<KeepAnswer>): Promise<KeepAnswer> => {
+    const already = new Set(doneWarnings({ start_at: c.start_at, end_at: c.end_at }, c.block_id, tagged).map((w) => w.blockId));
+    const lines = doneWarnings(next, c.block_id, tagged).filter((w) => !already.has(w.blockId));
+    if (lines.length === 0) return go();
+    return new Promise((settle) => setWarn({ row, lines, go, settle }));
+  };
+  const warning = (row: 'start' | 'end') =>
+    warn && warn.row === row ? (
+      <div role="alert" data-chapter-done-warning="" className="mt-2 grid gap-2 rounded-xl bg-warn-100/60 px-3 py-2">
+        {warn.lines.map((w) => (
+          <p key={w.blockId} className="text-[14px] font-medium text-warn-800">
+            {w.line}
+          </p>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          {onAsk ? (
+            <ActionButton
+              tone="brand"
+              icon={MessageSquare}
+              label={warn.lines.length === 1 ? `Ask ${warn.lines[0]!.shop}` : 'Ask them'}
+              data-testid="chapter-done-ask"
+              onClick={() => {
+                const first = warn.lines[0]!;
+                warn.settle({ ok: false, error: `You chose to ask ${first.shop} first.` });
+                setWarn(null);
+                onAsk(first.blockId);
+              }}
+            />
+          ) : null}
+          <ActionButton
+            tone="neutral"
+            icon={Check}
+            label="Save anyway"
+            data-testid="chapter-done-save-anyway"
+            onClick={() => {
+              const w = warn;
+              setWarn(null);
+              void w.go().then(w.settle, () => w.settle({ ok: false }));
+            }}
+          />
+        </div>
+      </div>
+    ) : null;
+
   /** Save these fields; on success lay the change on the list. */
   const keep = async (fields: Record<string, string>, next: Partial<Chapter>) => {
     const ok = await doors.save(c.block_id, fields);
@@ -275,10 +338,18 @@ export function ChapterSheet({
     // Leaving TBA sets a clock where there was none: the moments keep their own times. Every other move carries them.
     const move = chapterMove(c, day, hhmm, lastDay);
     if (!move) return NOT_SAVED;
-    const answer = await keep(move.fields, move.next);
-    if (answer.ok && move.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
-    else if (answer.ok && !move.leavingTba && move.delta !== 0 && c.moments > 0) setNote(`${c.label} moved. Its ${c.moments} moment${c.moments === 1 ? '' : 's'} moved with it.`);
-    return answer;
+    return gate('start', { start_at: move.next.start_at ?? null, end_at: move.next.end_at ?? null }, async () => {
+      const answer = await keep(move.fields, move.next);
+      const carried = Math.max(0, c.moments - kept);
+      if (answer.ok && move.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
+      else if (answer.ok && !move.leavingTba && move.delta !== 0 && c.moments > 0)
+        setNote(
+          `${c.label} moved. ${carried > 0 ? `Its ${carried} moment${carried === 1 ? '' : 's'} moved with it.` : ''}${
+            kept > 0 ? `${carried > 0 ? ' ' : ''}Suppliers’ arrive and done times stay — each one is told in their chat.` : ''
+          }`,
+        );
+      return answer;
+    });
   };
 
   /** ✕ on Starts — the time is not known (yet): the chapter keeps its DAY, has no end, no ingress, no egress, no call
@@ -354,6 +425,7 @@ export function ChapterSheet({
                 clearable
                 line={c.time_tba ? 'No call time until the time is set.' : undefined}
                 onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : goTba())}
+                below={warning('start')}
                 data="chapter-start"
               />
               )}
@@ -365,8 +437,9 @@ export function ChapterSheet({
                 line={c.end_at && wallDay(c.end_at) !== wallDay(c.start_at) ? 'The next day' : undefined}
                 onKeep={(t) => {
                   const end = endIsoFrom(c.start_at, t);
-                  return keep({ end_at: end ? end.slice(0, 16) : '' }, { end_at: end });
+                  return gate('end', { start_at: c.start_at, end_at: end }, () => keep({ end_at: end ? end.slice(0, 16) : '' }, { end_at: end }));
                 }}
+                below={warning('end')}
                 data="chapter-end"
               />
               )}

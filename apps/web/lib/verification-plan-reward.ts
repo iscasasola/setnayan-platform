@@ -13,10 +13,28 @@
  * (`lib/plan-gift.ts`), and it ends by itself (`sweep_vendor_tier_expiry`; a verified shop reads Verified after it —
  * `lib/vendor-tier-lapse.ts`). Ultra's key is `enterprise` (`TIER_LABEL`).
  *
+ * 🚫 THE TOOLS, NOT THE GIFTS (owner 12 Nov 2026: *"We only give the service but not the gifts, just for the verified
+ * and the founders verified"*). Ultra's own 4-weekly gifts (`PLAN_PERIOD_GIFTS`, 6 × Papic 150 — decided, not built)
+ * are NOT part of a verification reward. Nothing pays plan gifts today; the payer, when it is built, must skip a shop
+ * whose plan is this reward — `readVerificationRewardPlanUntil` says so.
+ *
  * 🔑 ONCE PER SHOP, EVER — the server half checks the audit log for an earlier reward before writing one, so a second
  * press, a re-grant, or papers approved after a founders verification never pays twice.
  */
 import type { VendorTier } from './vendor-tier-caps';
+
+/** A verification reward's Ultra gives the plan's tools only — never its 4-weekly gifts (owner 12 Nov 2026). */
+export const VERIFICATION_REWARD_CARRIES_PLAN_GIFTS = false as const;
+
+/**
+ * Is the shop's plan RIGHT NOW the one a verification reward gave? True when it is a comped Ultra ending exactly on the
+ * day the reward wrote (`rewardUntil`, from `readVerificationRewardPlanUntil`). A plan an admin set or extended by hand
+ * afterwards ends on another day, and is not a reward any more.
+ */
+export function planIsVerificationReward(row: PlanRow | null, rewardUntil: string | null): boolean {
+  if (!row || !rewardUntil || row.tier_state !== 'enterprise' || row.tier_source !== 'admin_comp' || !row.tier_expires_at) return false;
+  return Date.parse(row.tier_expires_at) === Date.parse(rewardUntil);
+}
 
 /** Ultra's tier key. */
 export const ULTRA_TIER: VendorTier = 'enterprise';

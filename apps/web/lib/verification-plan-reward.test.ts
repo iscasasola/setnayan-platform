@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ULTRA_SETS, ULTRA_TIER, PLAN_REWARD_SET_DAYS, ultraRewardWrite } from './verification-plan-reward';
+import { ULTRA_SETS, ULTRA_TIER, PLAN_REWARD_SET_DAYS, VERIFICATION_REWARD_CARRIES_PLAN_GIFTS, planIsVerificationReward, ultraRewardWrite } from './verification-plan-reward';
 import { stripComments } from './strip-comments';
 
 const NOW = new Date('2026-11-13T05:00:00.000Z');
@@ -52,4 +52,17 @@ test('once per shop: the server checks for an earlier reward first, and both doo
   assert.ok(founders.indexOf("door: 'founders'") > founders.indexOf("from('vendor_verification_bypasses').upsert"), 'the reward runs after the vouch is written');
   const regular = stripComments(readFileSync('app/admin/verify/actions.ts', 'utf8'));
   assert.match(regular, /input\.decision === 'approved' && toState === 'verified' && fromState !== 'verified'\) \{\s*await grantVerificationPlanReward\(admin, \{[\s\S]{0,120}door: 'regular'/);
+});
+
+test('the reward is Ultra’s tools, never its 4-weekly gifts — and the plan-gift table says so (owner 12 Nov 2026)', () => {
+  assert.equal(VERIFICATION_REWARD_CARRIES_PLAN_GIFTS, false);
+  const gifts = readFileSync('lib/badge-rewards.ts', 'utf8');
+  const at = gifts.indexOf('export const PLAN_PERIOD_GIFTS');
+  assert.ok(at > 0, 'PLAN_PERIOD_GIFTS moved');
+  assert.match(gifts.slice(Math.max(0, at - 900), at), /NEVER FOR A PLAN GIVEN AS A VERIFICATION REWARD[\s\S]*readVerificationRewardPlanUntil/, 'the plan-gift table no longer says a verification reward is excluded');
+  // The reward's own Ultra is recognised; a plan an admin moved by hand afterwards is not.
+  const w = ultraRewardWrite({ tier_state: 'free' }, 'founders', NOW)!;
+  assert.equal(planIsVerificationReward(w, w.tier_expires_at), true);
+  assert.equal(planIsVerificationReward({ ...w, tier_expires_at: new Date(NOW.getTime() + 400 * 86_400_000).toISOString() }, w.tier_expires_at), false);
+  assert.equal(planIsVerificationReward(w, null), false);
 });

@@ -21,7 +21,10 @@ For the owner's first real suppliers (invited from his own event, signing up 13 
   shipped comp (`tier_state` · `tier_expires_at` · `tier_source = 'admin_comp'`), so it reads "free until … · from
   Setnayan" and ends by itself. Once per shop, ever (`vendor_verification_plan_reward` audit row checked first); a
   comped Ultra still running is extended; a plan a shop pays for itself is never overwritten
-  (`lib/verification-plan-reward.ts`).
+  (`lib/verification-plan-reward.ts`). **The tools, not the gifts** (owner: *"We only give the service but not the
+  gifts"*): Ultra's 4-weekly 6 × Papic 150 (`PLAN_PERIOD_GIFTS`, decided, not built) is never part of this reward —
+  its docblock now says so, and `planIsVerificationReward` / `readVerificationRewardPlanUntil` let the future payer skip
+  such a shop.
 - **Today's "What you offer" step can finish.** It asked every service for 3 cards (Good · Better · Best) while a Free or
   Verified shop may make 1 per category — so it said "2 to go" forever. It now counts to the smaller of the two
   (`cardsToCount`).

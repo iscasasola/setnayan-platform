@@ -12,6 +12,23 @@ export type PlanRewardOutcome =
   | { kind: 'failed'; error: string };
 
 /**
+ * The end day the shop's verification reward wrote (its audit row's `to_expires_at`), or null — none, or unreadable.
+ * With `planIsVerificationReward` it tells a future plan-gift payer to skip this shop: the reward is the tools only.
+ */
+export async function readVerificationRewardPlanUntil(admin: SupabaseClient, vendorProfileId: string): Promise<string | null> {
+  const { data, error } = await admin
+    .from('admin_audit_log')
+    .select('metadata')
+    .eq('action', PLAN_REWARD_AUDIT_ACTION)
+    .eq('target_id', vendorProfileId)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const until = (data as { metadata?: { to_expires_at?: unknown } | null }).metadata?.to_expires_at;
+  return typeof until === 'string' ? until : null;
+}
+
+/**
  * 🏅 Give a newly verified shop its Ultra weeks (`lib/verification-plan-reward.ts`) — ONCE per shop, ever.
  *
  * Runs AFTER the verification itself is written, on the admin (service-role) client the grant already holds. It never

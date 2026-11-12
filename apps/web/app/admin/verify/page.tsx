@@ -2142,7 +2142,8 @@ function VouchControls({
           today. Their documents are due by {deadlineLabel(founderVouchExpiry(new Date()))}, with
           next year&rsquo;s verification. Couples see the same Verified badge as a fully checked
           shop — miss the deadline and the badge comes off by itself; the shop stays listed and
-          bookable. Their reward: {ULTRA_SETS.founders} &times; 4 weeks of Ultra (once per shop), plus
+          bookable. Their reward: {ULTRA_SETS.founders} &times; 4 weeks of Ultra&rsquo;s tools (once per shop; not Ultra&rsquo;s
+          monthly gifts), plus
           the Verified badge&rsquo;s own Papic 150 and 4 weeks of Papic Challenges.
         </p>
         <label className="block text-xs text-ink/65">

@@ -19,6 +19,7 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { feePesos, formatDueDate } from '@/lib/booking-fee-disclosure';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
+import { SettlePayBy, type SettlePay } from '@/app/_components/payment/settle-pay-by';
 
 export type CarryOverTopUp = {
   /** The oldest overdue top-up's bill — its pay page is the one door. */
@@ -31,6 +32,11 @@ export type CarryOverTopUp = {
   dueOn: string | null;
   /** The pay page for `orderId` (`vendorBookingFeePayPath`), built by the server. */
   payHref: string;
+  /**
+   * 💸 WHERE TO PAY (owner 13 Nov): the oldest overdue bill read the way /pay reads it (`readSettlePay`) — Pay by ▾,
+   * the minted QR, the account rows, the Receipt. Null when it could not be read: the sheet keeps its shipped door.
+   */
+  pay?: SettlePay | null;
 };
 
 export function TopUpCarryOver({
@@ -83,15 +89,17 @@ export function TopUpCarryOver({
               <dd className="text-[22px] text-ink">{feePesos(owed.amountPhp)}</dd>
             </div>
           </dl>
-          <div className="pt-2">
+          {owed.pay ? <SettlePayBy pay={owed.pay} /> : null}
+          <div className="space-y-2 pt-2">
             <ActionButton
               tone="brand"
               main
               icon={<Wallet aria-hidden strokeWidth={1.9} />}
               label={`Confirm & pay ${feePesos(owed.amountPhp)}`}
-              href={owed.payHref}
+              href={owed.pay ? owed.pay.receiptHref : owed.payHref}
               className="!h-12 w-full"
             />
+            <ActionButton tone="neutral" label="Not now" onClick={() => setOpen(false)} className="!h-11 w-full" />
           </div>
         </div>
       </Sheet>

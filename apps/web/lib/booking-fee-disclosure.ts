@@ -625,6 +625,11 @@ export type DueFeeBill = {
    * because a booked quote rose. It is due on the event day and HELD before it. Absent/false → an ordinary bill.
    */
   topUp?: boolean;
+  /**
+   * 💸 `orders.reference_code` — the settle sheet reads the bill the way /pay does (`readSettlePay`), so it can show
+   * WHERE to pay (owner 13 Nov). Absent → the shipped door to the pay page.
+   */
+  referenceCode?: string | null;
 };
 
 /** The one line that tells a supplier why a booking the couple typed in carries a fee. Null = nothing to say. */

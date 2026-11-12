@@ -683,6 +683,7 @@ export async function fetchDueFeeBills(
       dueOn: chargeId ? (dueByCharge.get(chargeId) ?? null) : null,
       introducedOn: chargeId ? (introducedByCharge.get(chargeId) ?? null) : null,
       topUp: chargeId ? topUpCharges.has(chargeId) : false,
+      referenceCode: o.reference_code ?? null,
     };
   });
 }

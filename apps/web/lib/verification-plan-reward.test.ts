@@ -45,7 +45,7 @@ test('a plan the shop pays for itself is never overwritten, and an open-ended co
 test('once per shop: the server checks for an earlier reward first, and both doors call it after the badge is written', () => {
   const server = stripComments(readFileSync('lib/verification-plan-reward.server.ts', 'utf8'));
   const check = server.indexOf(".eq('action', PLAN_REWARD_AUDIT_ACTION)");
-  const write = server.indexOf(".from('vendor_profiles').update(write)");
+  const write = server.indexOf(".from('vendor_profiles')\n    .update({ tier_state: write.tier_state");
   assert.ok(check > 0 && write > check, 'the earlier-reward check must come before the plan write');
   const founders = stripComments(readFileSync('app/admin/vendors/verification-bypass-actions.ts', 'utf8'));
   assert.match(founders, /grantVerificationPlanReward\(admin, \{ vendorProfileId: vendorId, door: 'founders'/);

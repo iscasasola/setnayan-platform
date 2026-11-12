@@ -227,7 +227,7 @@ const CSS_TEXT = `
 .sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:var(--sn-scrim);-webkit-backdrop-filter:blur(var(--sn-scrim-blur));backdrop-filter:blur(var(--sn-scrim-blur));padding:16px}
 .sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%;max-width:420px}
 .sn-spot-tick{display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;margin:4px 0 12px;font-size:14px;line-height:1.35;text-align:left;cursor:pointer}
-.sn-spot-tick input{width:20px;height:20px;flex:none;accent-color:var(--m-ink,#1e2229)}
+.sn-spot-tick input{width:20px;height:20px;flex:none;accent-color:currentColor}
 .sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
 .sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}
 @keyframes sn-spot-fall{to{transform:translateY(110vh) rotate(540deg);opacity:.2}}

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ULTRA_SETS, ultraRewardWrite, type VerificationDoor } from './verification-plan-reward';
+import { clearHomeShelf } from './home-shelf-clear';
 
 /** The audit action that marks a shop's verification plan reward as paid — and the once-per-shop check reads. */
 export const PLAN_REWARD_AUDIT_ACTION = 'vendor_verification_plan_reward';
@@ -23,7 +24,11 @@ export async function readVerificationRewardPlanUntil(admin: SupabaseClient, ven
     .eq('target_id', vendorProfileId)
     .limit(1)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    console.error('[readVerificationRewardPlanUntil] reward read refused', error.message);
+    return null;
+  }
+  if (!data) return null;
   const until = (data as { metadata?: { to_expires_at?: unknown } | null }).metadata?.to_expires_at;
   return typeof until === 'string' ? until : null;
 }
@@ -66,7 +71,12 @@ export async function grantVerificationPlanReward(
     return { kind: 'skipped', why: comped ? 'open_ended_ultra' : 'paid_plan' };
   }
 
-  const { error: updErr } = await admin.from('vendor_profiles').update(write).eq('vendor_profile_id', args.vendorProfileId);
+  const { error: updErr } = await admin
+    .from('vendor_profiles')
+    .update({ tier_state: write.tier_state, tier_expires_at: write.tier_expires_at, tier_source: write.tier_source })
+    .eq('vendor_profile_id', args.vendorProfileId);
+  // The plan shows on the home page's shop cards (its mark) — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (updErr) {
     console.error('[grantVerificationPlanReward] plan write refused', updErr.message);
     return { kind: 'failed', error: updErr.message };

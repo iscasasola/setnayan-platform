@@ -18,7 +18,9 @@
  *   &booked=1    the couple already booked you — every tool open
  *   &doors=1     (with m=quote) the quote's three doors (owner 11 Nov 2026): two fitting offers + one that does not,
  *                one saved bundle in "Start from", ＋ Make a new card last in the cards picker   &doors=locked  both 🔒
+ *                &doors=money  + a buffet-only offer with every part (% + ₱ · ₱5,000 to reserve · a gift) — PR-1 12 Nov
  *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
+ *                &picked=1 — drawn inside the picked client's full-screen layer (the quote's pinned bar lands in it)
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
  *                (sample hosts; the first is the fixture couple sender)
  *   ?m=chats     the supplier's Chats (✉): one row per event, Messenger order — "Unread · pinned", then "Recent"; two rows
@@ -83,6 +85,24 @@ import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
+
+/** &decide=media — the filed rows (sample files: nothing real; hrefs through `chatAttachmentHref` only). */
+function labMediaFiled(): FiledMessage[] {
+  const hour = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const file = (id: string, name: string, mime: string, size: number) =>
+    filedAttachmentOf(id, { body: null, sender_user_id: null, created_at: hour(30), attachment_r2_key: `r2://lab/${name}`, attachment_name: name, attachment_mime: mime, attachment_size_bytes: size });
+  const row = (id: string, body: string | null, by: string, h: number, attachment: FiledMessage['attachment']): FiledMessage => ({
+    messageId: id, body, senderUserId: by, sentAt: hour(h + 1), addedByUserId: by, addedAt: hour(h), attachment,
+  });
+  return [
+    row('00000000-0000-4000-8000-0000000f0001', null, LAB_USER, 1, file('00000000-0000-4000-8000-0000000f0001', 'sunset-drone-ref.jpg', 'image/jpeg', 2_310_000)),
+    row('00000000-0000-4000-8000-0000000f0002', null, LAB_STAFF, 2, file('00000000-0000-4000-8000-0000000f0002', 'drone-test-flight.mp4', 'video/mp4', 48_200_000)),
+    row('00000000-0000-4000-8000-0000000f0003', 'Signed copy with the drone add-on', LAB_STAFF, 3, file('00000000-0000-4000-8000-0000000f0003', 'Contract-v2-signed.pdf', 'application/pdf', 1_240_000)),
+    row('00000000-0000-4000-8000-0000000f0004', 'https://example.com/drone-permit-rules', LAB_USER, 4, null),
+    row('00000000-0000-4000-8000-0000000f0005', null, LAB_STAFF, 5, filedAttachmentOf('00000000-0000-4000-8000-0000000f0005', { body: null, sender_user_id: null, created_at: hour(900), attachment_name: 'Old-shot-list.pdf' })),
+  ];
+}
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
 function labChatsRead(state: string): SupplierChatsRead {
@@ -159,6 +179,23 @@ function labQuoteDoors(v: string | string[] | undefined): QuoteDoors | null {
         o({ id: 'lab-offer-dry', name: 'Dry-season weekday', pctOff: 5 }),
         o({ id: 'lab-offer-buffet', name: 'Weekday garden buffet', phpOff: 5000, reachesAll: false, cards: ['card-buffet'] }),
         o({ id: 'lab-offer-cocktail', name: 'Cocktail early bird', phpOff: 3000, reachesAll: false, cards: ['card-cocktail'] }),
+        // &doors=money (quote money PR-1, 12 Nov): a buffet-only offer with every part — % then ₱, a lower first
+        // payment and a gift — so the reach caption, the greyed plans and the "from offer" line can be seen.
+        ...(v === 'money'
+          ? [
+              o({
+                id: 'lab-offer-weekday',
+                name: 'Weekday garden buffet+',
+                pctOff: 3,
+                phpOff: 2000,
+                firstPayment: 5000,
+                firstPaymentUnit: 'php',
+                gifts: [{ kind: 'typed', label: 'Dessert bar for the kids', worthPhp: 4500 }],
+                reachesAll: false,
+                cards: ['card-buffet'],
+              }),
+            ]
+          : []),
       ],
     },
     bundles: { kind: 'read', bundles: [{ id: 'lab-bundle', name: 'Garden reception pair' }] },
@@ -266,9 +303,9 @@ export default async function SupplierChatLabPage({
         labSeed={{
           bundles: LAB_BUNDLES,
           lines: [
-            { label: 'Garden buffet · 5 dishes', basis: 'per_pax', free: false, flatPhp: 0, ratePhp: 650, minPax: 100, basePhp: 0, inclHours: 0, extraPhp: 0 },
-            { label: 'Waiters and set-up', basis: 'flat', free: false, flatPhp: 15000, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 },
-            { label: 'Cake table styling', basis: 'flat', free: true, flatPhp: 0, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 },
+            { label: 'Garden buffet · 5 dishes', basis: 'per_pax', free: false, flatPhp: 0, ratePhp: 650, minPax: 100, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
+            { label: 'Waiters and set-up', basis: 'flat', free: false, flatPhp: 15000, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
+            { label: 'Cake table styling', basis: 'flat', free: true, flatPhp: 0, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
           ],
           extras: [
             { id: 'x-dessert', label: 'Dessert table', line: { label: 'Dessert table', basis: 'flat', free: false, flatPhp: 9500, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 } },
@@ -315,21 +352,27 @@ export default async function SupplierChatLabPage({
   // 🗳 &decide=1 — an open decision pin (11 Nov): tap it and it rises (filed messages · Edit topic · Close · settled).
   // The lab has no database, so the risen view is handed FIXTURE filed rows (`labFiled`), labelled as the lab's own;
   // &decide=refused draws the refused read instead (the alert with Try again).
-  if (sp.decide === '1' || sp.decide === 'refused') {
+  if (sp.decide === '1' || sp.decide === 'refused' || sp.decide === 'media') {
     labPins.push({ key: 'decision:00000000-0000-4000-8000-00000000d001', kind: 'decision', title: 'Drone shot at sunset', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS, openedByYou: false, filedCount: 2 });
   }
+  // 📎 &decide=media — a decision holding a photo (no words), a video, a PDF, a bare link and an expired file (12 Nov);
+  // &as=couple draws it as the couple sees it (the same panel, the other side's "you"). Every href comes from
+  // `chatAttachmentHref`, as the real read does — in the lab the route has no file behind it, so a photo shows its icon.
+  const asCouple = sp.as === 'couple';
   const labFiled =
     sp.decide === '1'
       ? {
           me: LAB_STAFF,
           filed: {
             '00000000-0000-4000-8000-00000000d001': [
-              { messageId: LAB_MESSAGES[1]!.message_id, body: LAB_MESSAGES[1]!.body, senderUserId: LAB_STAFF, sentAt: LAB_MESSAGES[1]!.created_at, addedByUserId: LAB_STAFF, addedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
-              { messageId: LAB_MESSAGES[2]!.message_id, body: LAB_MESSAGES[2]!.body, senderUserId: LAB_USER, sentAt: LAB_MESSAGES[2]!.created_at, addedByUserId: LAB_USER, addedAt: new Date(Date.now() - 5 * 3_600_000).toISOString() },
+              { messageId: LAB_MESSAGES[1]!.message_id, body: LAB_MESSAGES[1]!.body, senderUserId: LAB_STAFF, sentAt: LAB_MESSAGES[1]!.created_at, addedByUserId: LAB_STAFF, addedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), attachment: null },
+              { messageId: LAB_MESSAGES[2]!.message_id, body: LAB_MESSAGES[2]!.body, senderUserId: LAB_USER, sentAt: LAB_MESSAGES[2]!.created_at, addedByUserId: LAB_USER, addedAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), attachment: null },
             ],
           },
         }
-      : undefined;
+      : sp.decide === 'media'
+        ? { me: asCouple ? LAB_USER : LAB_STAFF, filed: { '00000000-0000-4000-8000-00000000d001': labMediaFiled() } }
+        : undefined;
   if (sp.blocker === '1' && askOpen) {
     labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
   }
@@ -384,6 +427,30 @@ export default async function SupplierChatLabPage({
   // THE ONE BUILD (8 Nov 2026) · `&embed=quotation` — the picked client's Quotation page as the thread page's own
   // `__embed=quotation` view draws it: the quote tool alone, full width, no chat frame (the client's pinned row is above).
   if (sp.embed === 'quotation') {
+    // `&picked=1` — the same page INSIDE the picked client's full-screen layer (`PickedClientShell`), where the quote's
+    // pinned bar must land in the layer and be the bottom itself (QuotePinnedBar, 12 Nov 2026).
+    if (sp.picked === '1') {
+      const bodies = labPickedClientBodies(LAB_THREAD, "Ana's Wedding (Dec 12)", {});
+      bodies.quote = (
+        <div data-picked-client-page="quotation" className="space-y-3">
+          {toolNodes['build-quote']}
+        </div>
+      );
+      return (
+        <SupplierLabShell measure="own">
+          <PickedClientShell
+            eventId="lab-quotation"
+            eventName="Ana's Wedding (Dec 12)"
+            menu={pickedMenuFor(true)}
+            initialPage="quote"
+            bodies={bodies}
+            settingsLine={{ line: 'This client only', tip: 'Lab.' }}
+            settings={null}
+            chatUnread={0}
+          />
+        </SupplierLabShell>
+      );
+    }
     return (
       <SupplierLabShell measure="own">
         <div data-picked-client-page="quotation" className="mx-auto w-full max-w-xl space-y-3 px-0 pb-6">
@@ -539,7 +606,13 @@ export default async function SupplierChatLabPage({
               : {})}
             dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
             threadId={LAB_THREAD}
-            initialMessages={LAB_MESSAGES.map((x) => ({ ...x, thread_id: LAB_THREAD }))}
+            initialMessages={[
+              ...LAB_MESSAGES,
+              // &decide=media — a caption-less photo in the conversation: double-tap IT to file it (12 Nov).
+              ...(sp.decide === 'media'
+                ? [{ ...LAB_MESSAGES[2]!, message_id: '00000000-0000-4000-8000-0000000f0001', body: '', attachment_r2_key: 'r2://lab/sunset-drone-ref.jpg', attachment_name: 'sunset-drone-ref.jpg', attachment_mime: 'image/jpeg', attachment_size_bytes: 2_310_000 }]
+                : []),
+            ].map((x) => ({ ...x, thread_id: LAB_THREAD }))}
             currentUserId={LAB_STAFF}
             viewerRole="vendor"
             counterpartyLabel="Ana & Miguel"

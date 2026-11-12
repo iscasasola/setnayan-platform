@@ -28,23 +28,37 @@ export type ShopForm = {
   usedWith: number;
   sizeLine: string;
   updatedAt: string;
+  /** 📋 Piece 3a: FALSE = kept with `forEventId` only (an edit made from a client's page). */
+  inLibrary: boolean;
+  forEventId: string | null;
 };
 
 export type ShopCard = { id: string; title: string; category: string; isActive: boolean };
 
 export type ShopFormsRead =
-  | { status: 'ok'; forms: ShopForm[]; cards: ShopCard[] }
+  | {
+      status: 'ok';
+      /** The library: live forms with `in_library` (an event's own form joins only once "Save to my library"). */
+      forms: ShopForm[];
+      cards: ShopCard[];
+      /** 📋 Piece 3a "This event's forms": live forms made for `eventId` (empty when no event was asked). */
+      eventForms: ShopForm[];
+    }
   | { status: 'unread' };
 
 /** The shop's library — its live forms, their items, their card links and "used with N" — plus its cards. 5 reads, one batch. */
-export async function readShopForms(supabase: SupabaseClient, vendorProfileId: string): Promise<ShopFormsRead> {
+export async function readShopForms(supabase: SupabaseClient, vendorProfileId: string, forEvent?: string | null): Promise<ShopFormsRead> {
+  // The id is spliced into a PostgREST `or=` filter, so only a UUID shape is ever let in.
+  const eventId = forEvent && /^[0-9a-f-]{36}$/i.test(forEvent) ? forEvent : null;
+  const formsQ = supabase
+    .from('vendor_forms')
+    .select('form_id, title, updated_at, in_library, for_event_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .is('retired_at', null);
   const [formsRes, itemsRes, linksRes, sendsRes, cardsRes] = await Promise.all([
-    supabase
-      .from('vendor_forms')
-      .select('form_id, title, updated_at')
-      .eq('vendor_profile_id', vendorProfileId)
-      .is('retired_at', null)
-      .order('updated_at', { ascending: false }),
+    (eventId ? formsQ.or(`in_library.eq.true,for_event_id.eq.${eventId}`) : formsQ.eq('in_library', true)).order('updated_at', {
+      ascending: false,
+    }),
     supabase
       .from('vendor_questions')
       .select(ITEM_COLS)
@@ -69,7 +83,8 @@ export async function readShopForms(supabase: SupabaseClient, vendorProfileId: s
   const links = (linksRes.data ?? []) as { form_id: string; vendor_service_id: string }[];
   const used = new Map<string, number>();
   for (const s of (sendsRes.data ?? []) as { form_id: string }[]) used.set(s.form_id, (used.get(s.form_id) ?? 0) + 1);
-  const forms = ((formsRes.data ?? []) as { form_id: string; title: string; updated_at: string }[]).map((f) => {
+  type FormRow = { form_id: string; title: string; updated_at: string; in_library: boolean | null; for_event_id: string | null };
+  const all = ((formsRes.data ?? []) as FormRow[]).map((f): ShopForm => {
     const its = liveItems(items.filter((i) => i.form_id === f.form_id));
     return {
       formId: f.form_id,
@@ -79,12 +94,16 @@ export async function readShopForms(supabase: SupabaseClient, vendorProfileId: s
       usedWith: used.get(f.form_id) ?? 0,
       sizeLine: formSizeLine(its),
       updatedAt: f.updated_at,
+      inLibrary: f.in_library !== false,
+      forEventId: f.for_event_id ?? null,
     };
   });
+  const forms = all.filter((f) => f.inLibrary);
+  const eventForms = eventId ? all.filter((f) => f.forEventId === eventId) : [];
   const cards = (
     (cardsRes.data ?? []) as { vendor_service_id: string; title: string | null; category: string; is_active: boolean }[]
   ).map((c) => ({ id: c.vendor_service_id, title: c.title?.trim() || c.category, category: c.category, isActive: c.is_active }));
-  return { status: 'ok', forms, cards };
+  return { status: 'ok', forms, cards, eventForms };
 }
 
 /**
@@ -133,6 +152,8 @@ export type SentForm = {
   title: string;
   sentBy: 'supplier' | 'on_booking';
   sentAt: string;
+  /** The supplier's lock on this send (20271329937802 `event_form_sends.locked`) — the couple reads it as "Final". */
+  locked: boolean;
   items: FormItemRow[];
   answers: Record<string, string>;
   answered: number;
@@ -159,7 +180,7 @@ export async function readEventForms(
   const { eventId, vendorProfileId } = args;
   const sendsRes = await supabase
     .from('event_form_sends')
-    .select('form_id, sent_by, sent_at')
+    .select('form_id, sent_by, sent_at, locked')
     .eq('event_id', eventId)
     .eq('vendor_profile_id', vendorProfileId)
     .order('sent_at', { ascending: false });
@@ -167,7 +188,7 @@ export async function readEventForms(
     logQueryError('readEventForms.sends', sendsRes.error, { event_id: eventId }, 'graceful_degrade');
     return { status: 'unread' };
   }
-  const sends = (sendsRes.data ?? []) as { form_id: string; sent_by: 'supplier' | 'on_booking'; sent_at: string }[];
+  const sends = (sendsRes.data ?? []) as { form_id: string; sent_by: 'supplier' | 'on_booking'; sent_at: string; locked: boolean | null }[];
   const sentIds = sends.map((s) => s.form_id);
   let sent: SentForm[] = [];
   if (sentIds.length > 0) {
@@ -203,6 +224,7 @@ export async function readEventForms(
         title: titles.get(s.form_id) ?? 'Form',
         sentBy: s.sent_by,
         sentAt: s.sent_at,
+        locked: s.locked === true,
         items: its,
         answers: a,
         answered: c.answered,

@@ -1,17 +1,12 @@
 'use client';
 
-import Image from 'next/image';
-import Link from 'next/link';
-import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
-
-import {
-  CardRecordSection,
-  type CardRecordRating,
-} from '@/app/_components/card-record-section';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
-import { DemoOnlyMarker } from '@/app/_components/sample-marker';
-import { CardReviewsBlock } from '@/app/_components/card-reviews-block';
-import { isOptimizableImageUrl } from '@/lib/optimizable-image-url';
+import {
+  ServiceFace,
+  includesLineOf,
+  notIncludedWord,
+  type ServiceFaceDoor,
+} from '@/app/_components/service-face';
 import type { ServiceCard } from '@/lib/service-card-view-model';
 
 /**
@@ -42,28 +37,21 @@ export type ServiceCardShop = {
    * EVENTS"). Beside the logo link, never inside it (the marker's ⓘ is a button).
    */
   isDemo?: boolean;
+  /** The shop passed Setnayan's verification — the Verified pill on the shop line. */
+  verified?: boolean;
 };
 
 /**
- * service-card-view.tsx — THE service card. The one a couple sees.
+ * service-card-view.tsx — the marketplace / shop-page ADAPTER onto THE one service card face (`service-face.tsx`).
  *
- * ── WHY IT LEFT THE PUBLIC PROFILE (owner, 2026-09-08) ─────────────────────
- * *"there is already a template of how a service card looks like. all we want
- * is for that to show instead of this."* It did exist, and it was reachable
- * from exactly one place: `app/v/[slug]/_components/services-gallery.tsx`. A
- * vendor looking at their own shop saw a grey wrench glyph and one line of
- * text instead.
+ * It used to draw its own text-first card (name + mono price on top, a strip of 64 px photos, ✓ inclusions, looks,
+ * "crew meal required" AND a "Crew meal not included" chip, Serves, VIEW DETAILS). Owner, 12 Nov 2026, asked whether
+ * that was the service card template: *"Something else"* — then *"Yes, build it"* on the prototype that puts the Find
+ * card everywhere (DECISION_LOG "ONE SERVICE CARD, EVERYWHERE"). This file now only maps a `ServiceCard` into
+ * `ServiceFace`. The photos, the clip, looks, couples' photos, reviews, Serves and the record live in the Service card
+ * grown (`service-details-sheet.tsx`), which the face opens.
  *
- * Moved verbatim. Its only dependencies were lucide icons, `next/image` and
- * `CardRecordSection` — no page-local helper — so the public profile keeps
- * rendering exactly what it rendered before, and the vendor's list now renders
- * the same component from the same builder
- * (`lib/service-card-view-model.toServiceCard`).
- *
- * 🔑 ONE CARD, NOT TWO THAT LOOK ALIKE. The vendor-side preview
- * (`service-card-face.tsx`) still exists and is still an approximation — it
- * mirrors a form as you type, which this cannot do. It is deliberately NOT
- * captioned as what couples see; this component is what couples see.
+ * The door stays behind `detailsEnabled` (the details flag): OFF → a card to look at, no control on it.
  */
 export function ServiceCardView({
   card: c,
@@ -71,261 +59,57 @@ export function ServiceCardView({
   onOpen,
   detailsHref,
   shop,
+  path = null,
+  coverUrl = null,
 }: {
   card: ServiceCard;
   detailsEnabled: boolean;
-  /**
-   * Opens the details sheet. OPTIONAL, and every use of it is already behind
-   * `detailsEnabled` — which is what lets a SERVER component render this card.
-   *
-   * The vendor's own card list is a server component and cannot hand a function
-   * to a client one; it renders the card to be looked at, not opened. Making
-   * this required would have forced a client wrapper whose only job was to
-   * satisfy a type, or a second non-interactive copy of the card — and a second
-   * copy is the exact thing moving this component out of the profile page was
-   * meant to prevent.
-   *
-   * 🃏 It is handed the card's own box (Build 5 Lane C): the Service card grown RISES from that rectangle and falls
-   * back into it on ✕ (`lib/rise-motion.ts`).
-   */
+  /** Opens the details sheet in place (the shop's own page). Handed the card's own box, so the grown card rises from it. */
   onOpen?: (from: HTMLElement | null) => void;
-  /**
-   * TWO DESTINATIONS ON ONE CARD (owner, 2026-09-09) — the BODY opens this
-   * service's details; the LOGO opens the shop. This is the body's half.
-   *
-   * When present (and `detailsEnabled`), the stretched doorway is a `<Link>` to
-   * this address instead of a `<button>` that opens the in-page sheet. The
-   * marketplace is a server component and cannot hand a callback down; a card
-   * there has to NAVIGATE to the details rather than open them in place.
-   *
-   * ⛔ THE TWO CONTROLS ARE SIBLINGS, NEVER NESTED. An `<a>` inside an `<a>` is
-   * invalid HTML and browsers unnest it, which loses the inner link's keyboard
-   * focus. The shop row below is lifted with `relative z-10` — the same trick
-   * the showcase clip already uses — so it sits ABOVE the stretched overlay
-   * while remaining its sibling in the tree.
-   */
+  /** The marketplace NAVIGATES to the details (a server component cannot hand a callback down). */
   detailsHref?: string | null;
   /** The shop this card belongs to. Omit on the shop's own surfaces. */
   shop?: ServiceCardShop;
+  /** "Mobile Bar · Booths, carts & bars" — the card's category, said on the face. */
+  path?: string | null;
+  /** The card's own cover (`primary_photo_r2_key`, resolved). Falls back to its first photo — Find's rule. */
+  coverUrl?: string | null;
 }) {
-  // The doorway is a LINK when the caller gave it an address, a BUTTON when it
-  // gave a callback. One or the other, never both — two overlapping full-card
-  // controls would be two tab stops onto the same rectangle.
-  const doorwayHref = detailsEnabled && detailsHref ? detailsHref : null;
+  // A LINK when the caller gave an address, a BUTTON when it gave a callback — one door, never two.
+  const door: ServiceFaceDoor | undefined = !detailsEnabled
+    ? undefined
+    : detailsHref
+      ? { href: detailsHref, label: `View details for ${c.label}` }
+      : onOpen
+        ? { onOpen, label: `View details for ${c.label}`, hasPopup: true }
+        : undefined;
   return (
-    <div
+    <ServiceFace
       id={c.anchorId}
-      className={
-        detailsEnabled
-          ? 'relative flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40'
-          : 'flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4'
+      name={c.label}
+      coverUrl={coverUrl ?? c.photos[0] ?? null}
+      // 🎞 The card's showcase photos play on the cover (owner 12 Nov) — the face drops the cover's repeat.
+      photos={c.photos}
+      discount={c.discountLabel}
+      path={path}
+      shop={
+        shop
+          ? { name: shop.name, href: shop.href, logoUrl: shop.logoUrl, verified: shop.verified, isDemo: shop.isDemo }
+          : undefined
       }
-    >
-      {/* THE SHOP ROW — the card carries its shop's logo, and the logo opens
-          the shop (owner ruling, 2026-09-09). `relative z-10` lifts it above
-          the stretched doorway below, exactly as the showcase clip is lifted,
-          so it is a SIBLING of that control rather than nested inside it.
-          Anchored at the top so it reads as "this card belongs to this shop"
-          before the price, not as a footnote after it. */}
-      {shop ? (
-        <div className="relative z-10 mb-3 flex items-center gap-2">
-          <ShopMark shop={shop} />
-          {shop.isDemo === true ? <DemoOnlyMarker /> : null}
-        </div>
-      ) : null}
-
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="font-medium text-ink">{c.label}</p>
-        <p className="font-mono text-sm text-ink/80">{c.priceLabel}</p>
-      </div>
-
-      {/* Pricing-basis detail — how the anchor is computed (per-guest / per-hour).
-          Right-aligned so it reads as a footnote to the "from ₱X" anchor above. */}
-      {c.priceDetail ? (
-        <p className="text-right font-mono text-[11px] text-ink/50">{c.priceDetail}</p>
-      ) : null}
-
-      {c.discountLabel ? (
-        <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-terracotta/30 bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta-700">
-          <BadgePercent className="h-3 w-3 shrink-0" strokeWidth={2} aria-hidden />
-          {c.discountLabel}
-        </span>
-      ) : null}
-
-      {/* Showcase media — the vendor's own gallery for THIS service (≤5 photos
-          + one ≤30s clip). Rendered small + horizontal so the card stays a
-          card; empty media renders nothing (no placeholders). */}
-      {c.photos.length > 0 ? (
-        <div className="mt-3 flex gap-1.5 overflow-x-auto">
-          {c.photos.map((url, idx) => (
-            <div
-              key={url}
-              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink/5"
-            >
-              <Image
-                src={url}
-                alt={`${c.label} showcase ${idx + 1}`}
-                fill
-                sizes="64px"
-                className="object-cover"
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* 📸 FROM COUPLES (owner 2026-10-30) — couples' own photos of this card's work, approved by the shop, each with
-          the credit line the couple chose. Absent unless approved (`fetchServiceCardCouplePhotos`).
-          ✓ VERIFIED BOOKING (Supplier front page, 2026-11-06) — drawn ONLY when the database said this shop is booked
-          on the event the photo came from (`verifiedBooking`, derived at read by couple_photo_share_is_verified_booking);
-          a photo from a supplier the couple only added to a list shows its credit line and no mark. */}
-      {c.coupleLooks && c.coupleLooks.length > 0 ? (
-        <div className="mt-3" data-card-couple-looks="">
-          <p className="font-mono text-[12px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
-          {/* ▦ THE APPROVED DESIGN'S `.sgrid` (For Suppliers prototype, 2026-11-06): three columns of large square photos,
-              4 px apart, the house 8 px corner (the design’s 10 px; an arbitrary radius is lint-forbidden) — not a sideways strip of 96 px thumbnails. The mark sits ON the photo (`.vbm`). */}
-          <ul className="mt-1.5 grid grid-cols-3 gap-1" data-card-couple-grid="">
-            {c.coupleLooks.map((look) => (
-              <li key={look.id} className="min-w-0">
-                <div className="relative aspect-square overflow-hidden rounded-md bg-ink/5">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a couple's own photo, already a public URL */}
-                  <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
-                  {look.verifiedBooking === true ? <VerifiedBookingMark /> : null}
-                </div>
-                <p className="mt-1 truncate text-[12px] leading-tight text-ink/60" title={look.credit}>
-                  {look.credit}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {/* ⭐ THIS CARD'S REVIEWS (prototype 6 Nov § 4 / § 9) — under From couples; absent unless the page read them. */}
-      {c.reviews ? <CardReviewsBlock reviews={c.reviews} /> : null}
-
-      {c.videoUrl ? (
-        /* Poster-first: preload="metadata" shows the first frame without
-           downloading the clip; muted + playsInline keep mobile behavior tame. */
-        // eslint-disable-next-line jsx-a11y/media-has-caption
-        <video
-          src={c.videoUrl}
-          controls
-          preload="metadata"
-          playsInline
-          muted
-          className={
-            detailsEnabled
-              ? 'relative z-10 mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover'
-              : 'mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover'
-          }
-        />
-      ) : null}
-
-      {c.inclusions.length > 0 ? (
-        <ul className="mt-2 space-y-0.5">
-          {c.inclusions.map((line) => (
-            <li key={line} className="flex items-start gap-1.5 text-[12px] text-ink/70">
-              <Check
-                className="mt-0.5 h-3 w-3 shrink-0 text-mulberry"
-                strokeWidth={2.25}
-                aria-hidden
-              />
-              <span>{line}</span>
-            </li>
-          ))}
-          {c.inclusionsMore > 0 ? (
-            <li className="pl-[18px] text-[12px] text-ink/45">
-              +{c.inclusionsMore} more included
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
-
-      {/* 🔗🖼 ITS INSPIRATION LOOKS (owner 2026-10-30; website-by-plan design `.looks`: up to three small photos, "+N",
-          "No looks yet") — the shop's approved library photos linked to THIS card. Absent unless read. */}
-      {c.inspirationLooks ? <CardLooks looks={c.inspirationLooks} label={c.label} /> : null}
-
-      {c.meta ? <p className="mt-2 text-[12px] text-ink/55">{c.meta}</p> : null}
-
-      {c.notIncluded.length > 0 ? (
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {c.notIncluded.map((line) => (
-            <li
-              key={line}
-              className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/55"
-            >
-              <Info className="h-3 w-3 shrink-0 text-ink/40" strokeWidth={2} aria-hidden />
-              {line}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {/* The Setnayan gift — the SAME line the card offered in chat carries
-          (`SetnayanGiftLine`), so a couple meets the gift while choosing, not
-          only after a supplier has offered them the card. No number: the photo
-          count belongs to the quote. */}
-      {c.givesSetnayanGift ? (
-        <SetnayanGiftLine className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-terracotta-700" />
-      ) : null}
-
-      {/* Serves — who this service is declared for (coverage event types +
-          faiths). Subtle closing line; services without a coverage row show
-          nothing rather than guessing. */}
-      {c.serves ? (
-        <p className="mt-2 inline-flex items-start gap-1.5 text-[11px] text-ink/50">
-          <Users className="mt-0.5 h-3 w-3 shrink-0 text-ink/35" strokeWidth={2} aria-hidden />
-          <span>Serves: {c.serves}</span>
-        </p>
-      ) : null}
-
-      {/* Card record — the compiled history this card has earned. Appended, not
-          woven in: it closes the card below every claim the vendor authored, so
-          the proof reads last. `mt-auto` inside the section pins it to the
-          card's bottom edge across a grid row of unequal cards. Absent unless
-          the flag is on AND the card has been booked at least once. */}
-      {c.record ? (
-        <CardRecordSection record={c.record} variant="couple" rating={c.recordRating} />
-      ) : null}
-
-      {/* The doorway. A VISIBLE affordance, because a card that silently became
-          clickable is a card nobody clicks. Decorative only — the accessible
-          name lives on the stretched overlay below, so this is aria-hidden to
-          avoid announcing the same control twice. */}
-      {detailsEnabled ? (
-        <p
-          aria-hidden
-          className="mt-3 inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700"
-        >
-          View details
-          <ChevronRight className="h-3 w-3 shrink-0" strokeWidth={2} />
-        </p>
-      ) : null}
-
-      {/* THE STRETCHED DOORWAY — last child, so it covers the static content
-          without a z-index. The clip above carries `relative z-10` and stays
-          usable in place, and so does the shop row at the top: both are
-          SIBLINGS of this control, lifted above it, never nested inside it.
-
-          A LINK when the caller gave an address (the marketplace, which has to
-          navigate), a BUTTON when it gave a callback (the shop's own page,
-          which opens the sheet in place). Exactly one renders. */}
-      {detailsEnabled && doorwayHref ? (
-        <Link
-          href={doorwayHref}
-          aria-label={`View details for ${c.label}`}
-          className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        />
-      ) : detailsEnabled ? (
-        <button
-          type="button"
-          onClick={(e) => onOpen?.(e.currentTarget.parentElement)}
-          aria-label={`View details for ${c.label}`}
-          className="absolute inset-0 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        />
-      ) : null}
-    </div>
+      city={shop?.city ?? null}
+      rating={shop ? c.recordRating : null}
+      price={c.priceLabel || null}
+      priceNote={c.priceDetail}
+      includes={includesLineOf(c.inclusions, c.inclusionsMore)}
+      notIncluded={c.notIncluded.map(notIncludedWord)}
+      gift={
+        c.givesSetnayanGift ? (
+          <SetnayanGiftLine className="flex items-start gap-1 text-[10.5px] leading-snug text-[var(--m-orange-2)]" />
+        ) : null
+      }
+      door={door}
+    />
   );
 }
 
@@ -345,97 +129,5 @@ export function VerifiedBookingMark() {
     >
       ✓ Verified booking
     </span>
-  );
-}
-
-/** The card's looks strip: three thumbnails then "+N" (the approved design's `.looks` row). */
-function CardLooks({ looks, label }: { looks: NonNullable<ServiceCard['inspirationLooks']>; label: string }) {
-  if (looks.length === 0) {
-    return (
-      <p className="mt-2 text-[12px] text-ink/45" data-card-looks="0">
-        No looks yet
-      </p>
-    );
-  }
-  const shown = looks.slice(0, 3);
-  return (
-    <div className="mt-2 flex items-center gap-1.5" data-card-looks={looks.length}>
-      {shown.map((l) => (
-        <span key={l.id} className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink/5">
-          {/* eslint-disable-next-line @next/next/no-img-element -- an approved library photo, already a public URL */}
-          <img src={l.url} alt={`${label} — ${l.part}`} className="h-full w-full object-cover" loading="lazy" />
-        </span>
-      ))}
-      <span className="ml-0.5 text-[12.5px] text-ink/55">
-        {looks.length > 3 ? `+${looks.length - 3} · ` : ''}
-        {looks.length === 1 ? '1 look' : `${looks.length} looks`}
-      </span>
-    </div>
-  );
-}
-
-/**
- * The shop's logo + name, as ONE control that opens the shop.
- *
- * ⚠ THE LINK WRAPS THE LOGO **AND** THE NAME on purpose, and that is not a
- * widening of the owner's "the logo opens the shop". A bare 32px image link has
- * no accessible name and no readable label — a screen reader announces a link
- * with nothing in it, and a thumb misses it. The name is what LABELS the logo,
- * so the two are one target. It stays the logo's control: nothing else on the
- * card is inside it.
- *
- * A shop with no address (`href === null`) renders the same row with no link at
- * all rather than a dead `#` — a control that goes nowhere is worse than none.
- */
-function ShopMark({ shop }: { shop: ServiceCardShop }) {
-  const initials =
-    shop.name
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase())
-      .slice(0, 2)
-      .join('') || '?';
-
-  const inner = (
-    <>
-      {/* 🪤 A LEGACY `logo_url` IS A URL THE VENDOR PASTED, on any host, and
-          next/image answers 400 for a host that is not whitelisted — a picture
-          that is simply not there, with nothing thrown. Falls back to the
-          initials tile, which is a designed state. */}
-      {shop.logoUrl && isOptimizableImageUrl(shop.logoUrl) ? (
-        <span className="relative block h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-ink/5">
-          <Image src={shop.logoUrl} alt="" fill sizes="32px" className="object-cover" />
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-[11px] font-semibold text-terracotta-700"
-        >
-          {initials}
-        </span>
-      )}
-      <span className="min-w-0">
-        <span className="block truncate text-[12px] font-medium text-ink/80">{shop.name}</span>
-        {shop.city ? (
-          <span className="block truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            {shop.city}
-          </span>
-        ) : null}
-      </span>
-    </>
-  );
-
-  if (!shop.href) {
-    return <span className="flex min-w-0 items-center gap-2">{inner}</span>;
-  }
-
-  return (
-    <Link
-      href={shop.href}
-      aria-label={`Visit ${shop.name}`}
-      className="flex min-w-0 items-center gap-2 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta hover:text-terracotta"
-    >
-      {inner}
-    </Link>
   );
 }

@@ -29,6 +29,8 @@
  * that would have done it had no caller, so no shop was ever hidden by it.
  */
 
+import { nextYearsPapersDue } from './papers-due';
+
 /** Six months, in days. The owner's figure. */
 export const BYPASS_WINDOW_DAYS = 182;
 
@@ -79,6 +81,17 @@ export function bypassExpiryFrom(grantedAt: Date, windowDays = BYPASS_WINDOW_DAY
   const d = new Date(grantedAt.getTime());
   d.setUTCDate(d.getUTCDate() + windowDays);
   return d.toISOString();
+}
+
+/**
+ * 🏅 FOUNDERS VERIFICATION (owner, 12 Nov 2026): "any shop that I approve there run until next year's
+ * document verification deadline, which is on March 30 … they only need to submit their documents for the next
+ * year's verification process." So a vouch carries the ONE renewal day — 30 March of the year after it is pressed
+ * (`lib/papers-due.ts`): pressed in 2026 → 30 March 2027; pressed in 2027 → 30 March 2028. The same day an approval
+ * writes (`deadlineAtApproval`), so a founder and a checked shop renew together.
+ */
+export function founderVouchExpiry(grantedAt: Date): string {
+  return nextYearsPapersDue(grantedAt);
 }
 
 /**

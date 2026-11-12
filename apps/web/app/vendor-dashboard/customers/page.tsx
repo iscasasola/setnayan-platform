@@ -75,7 +75,7 @@ import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-ti
 import { countWords, overdueRead, toCollectTileWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
-import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, type ClientsContext } from './clients-show-sort';
+import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, scheduleScopeOptions, type ClientsContext } from './clients-show-sort';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { resolveAppointmentLabel } from '@/lib/appointments';
 import {
@@ -1019,6 +1019,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                     agent={clientsCtx.agent}
                     shown={narrowed.length}
                     keep={keepParamsFrom(sp, ['svc', 'st', 'client', 'who', 'group', 'sort', 'page', 'notice', 'add', 'gear'])}
+                    schedules={scheduleScopeOptions(monthPart.month)}
                   />
                 ),
               },

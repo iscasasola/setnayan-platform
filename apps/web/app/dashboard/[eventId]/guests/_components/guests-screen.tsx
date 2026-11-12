@@ -215,6 +215,7 @@ import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-
 import { guestsFilterMenu } from './guests-filter-menu';
 import { NO_FOLDS, foldNarrowed, foldSet, narrowingOf, sectionIsOpen, type NarrowFolds } from './section-fold';
 import { GuestsFilterSheet } from './guests-filter-sheet';
+import { paxFilterMatches, type PaxListService, type PaxPick } from '@/lib/guest-pax-filter';
 import { ReplyPushAsk } from './reply-push-ask';
 
 
@@ -261,6 +262,9 @@ export type GuestsScreenProps = {
   inviteTagByGuest?: Record<string, string>;
   /** 🍽 guest_id → "Not counted for Catering" (owner 2026-11-02, `lib/guest-not-counted.ts`). Absent → no notes. */
   notCountedByGuest?: Record<string, string>;
+  /** 🍽 Show & sort › one row per PER-HEAD service: who it counts · who is ticked out (owner 2026-11-12,
+      `lib/guest-pax-filter.ts`). Absent or empty → no pax rows. */
+  paxServices?: PaxListService[];
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
   /** guest_id → a face to draw. */
@@ -404,6 +408,7 @@ const DEFAULT_VIEWS: readonly GuestsView[] = ['list', 'map'];
 /** The shell bar's height while it shows — the sticky block sits under it. */
 /** 🍽 No "Not counted for" notes handed in (the labs, an older page) — one stable empty map, so a render never makes a new one. */
 const NO_NOTES: Record<string, string> = {};
+const NO_PAX: PaxListService[] = [];
 
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
@@ -440,6 +445,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tableByGuest,
     inviteTagByGuest = {},
     notCountedByGuest = NO_NOTES,
+    paxServices = NO_PAX,
     songsByGuest,
     faceByGuest,
     requests,
@@ -642,6 +648,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
+  // 🍽 Show & sort › "Catering ▾ Counted · Not counted" (owner 2026-11-12) — one per-head service at a time, on top of
+  // the rest, as the +1s are. 🔒 lib/the-list-shows-who-each-pax-service-counts.test.ts
+  const [paxPick, setPaxPick] = useState<PaxPick | null>(null);
   // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
   // ☑ A cold `?select=to-invite` (⚙ › Pick who's link) lands narrowed to To invite, as the in-place press does.
   /* ⇅ THE ONE SHOW · GROUP BY · SORT (R4 slice 1, owner 2026-10-29 — `lib/guests-filter.ts`): the count doors, the ⇅ of
@@ -680,12 +689,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
     const narrowed =
-      plusFilter || replyFilter
-        ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+      plusFilter || replyFilter || paxPick
+        ? found.filter(
+            (g) =>
+              plusOneFilterMatches(g, plusFilter) &&
+              replyFilterMatches(g, replyFilter) &&
+              paxFilterMatches(g, paxPick, paxServices),
+          )
         : found;
     // ⇅ Sort re-orders the same rows (Importance = the page's own order); a +1 stays beside their guest.
     return sortGuestsFor(narrowed, filter.sort, (id) => tableByGuest[id] ?? null) as GuestRow[];
-  }, [roster, q, facts, plusFilter, replyFilter, filter.sort, tableByGuest]);
+  }, [roster, q, facts, plusFilter, replyFilter, paxPick, paxServices, filter.sort, tableByGuest]);
 
   // ── The one Sort (list) and the one Arrange (map).
   // ⇅ Group by is the shared filter's (List: Role by default; the Map its own default where it has no Last name).
@@ -711,8 +725,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // invisible, a failure that looked like "not found") — and a tap still folds it (owner 2026-11-03, "i cannot
   // collapse the search results group"): the narrowed list keeps its own folds, scoped to that narrowing.
   // 🔒 a-filtered-group-folds.test.ts
-  const filtered = Boolean(plusFilter || replyFilter);
-  const narrowing = narrowingOf({ q, show: replyFilter ?? null, plus: plusFilter ?? null, group: view });
+  const filtered = Boolean(plusFilter || replyFilter || paxPick);
+  const paxNarrowing = paxPick ? `pax:${paxPick.id}:${paxPick.side}` : null;
+  const narrowing = narrowingOf({
+    q,
+    show: replyFilter ?? null,
+    plus: [plusFilter, paxNarrowing].filter(Boolean).join('|') || null,
+    group: view,
+  });
   const [narrowFolds, setNarrowFolds] = useState<NarrowFolds>(NO_FOLDS);
   const isOpen = (key: string) => sectionIsOpen(key, { narrowing, open, folds: narrowFolds });
   /** Open or shut these headings — in the whole list's `open`, or in the narrowed list's own folds. */
@@ -1494,6 +1514,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const clearAllFilters = () => {
     closeAsking();
     setPlusFilter(null);
+    setPaxPick(null);
     if (listGroupOf(filter) !== listGroupOf(NO_GUESTS_FILTER)) setOpen(firstOpen(listGroupOf(NO_GUESTS_FILTER)));
     setFilter(NO_GUESTS_FILTER);
     window.scrollTo({ top: 0 });
@@ -1515,6 +1536,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
           : null
       }
       asking={requestsInPlace ? { label: `Asking to join · ${formatCount(requests)}`, on: asking, onPick: () => (asking ? closeAsking() : openAsking()) } : null}
+      pax={
+        paxServices.length > 0
+          ? {
+              services: paxServices,
+              value: paxPick,
+              count: (pick) => roster.filter((g) => paxFilterMatches(g, pick, paxServices)).length,
+              onPick: (next) => {
+                setPaxPick(next);
+                window.scrollTo({ top: 0 });
+              },
+            }
+          : null
+      }
       shown={shown}
       onClearAll={clearAllFilters}
       tour="guests-sort"
@@ -2223,6 +2257,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       onClick={() => {
                         setReplyFilter(null);
                         setPlusFilter(null);
+                        setPaxPick(null);
                       }}
                       data-roster-clear-filter=""
                     >

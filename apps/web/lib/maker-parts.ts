@@ -293,6 +293,29 @@ export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   gifts: 'E-Gifts',
 };
 
+/**
+ * 🧭 STUDIO IS GONE (owner 2026-11-10, verbatim: *"Studio technically is gone since the pages there will be inside the
+ * different scenes it covers."* — DECISION_LOG 2026-11-10 "EVENT HUB = PURELY STAGES, BUILT FOR SPEED"; prototype
+ * `prototypes/event_hub_stages_scenes_2026-11-10/`). A page that used to be "Studio › <page>" is the scene's own
+ * editor now, so its door names the page alone — never the place that is gone. Held by
+ * `lib/no-door-leads-to-the-removed-studio.test.ts`.
+ */
+export const MAKER_INFO_DOOR_LABEL = 'Info';
+export function makerSceneDoorWords(page: string): string {
+  return `Open ${page}`;
+}
+
+/**
+ * 👆 A TAP ON THESE SCENES RISES THEIR EDITOR (Build 6 Lane F, prototype frames M3 · M4 · M5 · M6 · M8): the ring on
+ * the cover → the Logo Maker, Dress code → Palette + Dress Code, Love Story → its chapters, Schedule → the day,
+ * E-Gifts → ways to give. Every other part is SELECTED by a tap, as before (its tools in the lower third — the cover
+ * editor is the cover's own tools). Derived from the part map, never a second list.
+ */
+export function makerPartRisesEditor(key: MakerPartKey): MakerStudioTool | null {
+  const src = makerPartSource(key);
+  return src.kind === 'studio' ? src.tool : null;
+}
+
 /** A part's layouts: the shipped styles of the scene it is drawn in, or none. */
 export type MakerPartLayouts = { kind: 'scene'; type: string } | { kind: 'none' };
 
@@ -438,7 +461,7 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
  * THE PART'S ONE DOOR — Edit's row 1 where its editing cannot be done in the toolbar (owner 2026-10-09: *"Only jump
  * if it has editing that cannot be done there. Example: Schedule, Love Story, Wedding March, Logo"*). It opens the
  * tool IN PLACE and ‹ returns to the same stage and part; the only "go there" in the Maker, never a badge on the
- * canvas. Null: none. The words are the approved prototype's: "Open in Studio › <page>" · "Change it in Suppliers".
+ * canvas. Null: none. The words: "Open <page>" (Studio is gone, 2026-11-10 — `makerSceneDoorWords`) · "Change it in Suppliers".
  * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
  * only drawn where the page draws no such words.)
  */
@@ -446,14 +469,14 @@ export function makerPartQuietRow(
   key: MakerPartKey,
 ): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } | { guestsView: MakerGuestsView } } | null {
   const src = makerPartSource(key);
-  if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
+  if (src.kind === 'studio') return { words: makerSceneDoorWords(MAKER_STUDIO_TOOL_LABEL[src.tool]), to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
   /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */
   if (src.kind === 'guests') return { words: MAKER_GUESTS_DOOR_WORDS, to: { guests: src.row } };
   /* 🗂 R4: the march and the seat plan are Guests' views — another page of the app: a plain door to the view. */
   if (src.kind === 'guests-view') return { words: MAKER_GUESTS_VIEW_DOOR_WORDS[src.view], to: { guestsView: src.view } };
   /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
-  if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
+  if (src.kind === 'info') return { words: makerSceneDoorWords(MAKER_INFO_DOOR_LABEL), to: { studio: 'info' } };
   return null;
 }
 
@@ -560,7 +583,7 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   if (key === MAKER_COVER_PHOTO && tool === 'edit') return MAKER_COVER_PHOTO_EDIT_WHY;
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
-  if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
+  if (src?.kind === 'studio') return 'Nothing to change here — tap the scene to open its editor.';
   if (src?.kind === 'guests') return 'Nothing to change here — set it in Guests ⚙.';
   if (src?.kind === 'guests-view') return 'Nothing to change here — arrange it in Guests.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;

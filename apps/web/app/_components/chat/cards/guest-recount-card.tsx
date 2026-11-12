@@ -188,3 +188,48 @@ export function GuestRecountCard({
     </ChatCardShell>
   );
 }
+
+/**
+ * 👥💸 THE QUOTE ROSE BY ITSELF — under the line "Quote rose to N pax · +₱X" that `quote_follow_guest_count` posts
+ * (migration 20271339826198; Piece 1 · PR-2; DECISION_LOG 2026-11-12 "Three quote rulings" (1) and "QUOTE MONEY — THREE
+ * ANSWERS" (3)). Owner: a pax-driven rise does NOT need the couple to re-accept — paid payments stay, the Final balance
+ * grows, the couple is TOLD, not asked. So this card has no button on either side. Words only from the line itself.
+ */
+export function QuoteRoseCard({ pax, deltaWords, viewer, supplierName }: { pax: number; deltaWords: string; viewer: 'vendor' | 'couple'; supplierName: string }) {
+  return (
+    <ChatCardShell topic="quote" kicker="Guest list" title="Quote rose" tone="auto">
+      <div className="grid gap-2" data-quote-rose="">
+        <p className="text-[15px] text-ink">
+          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <b className="tabular-nums">+{deltaWords}</b>
+        </p>
+        <p className="text-[14px] text-ink/65">
+          {viewer === 'vendor'
+            ? 'Their guest list grew past your quote, so the per-guest lines followed it. The rise is added to the Final balance — paid payments stay as they are.'
+            : `${supplierName}’s quote follows your guest list. The rise is added to the Final balance — what you have paid stays as it is. Nothing to accept.`}
+        </p>
+      </div>
+    </ChatCardShell>
+  );
+}
+
+/**
+ * 📉 THE QUOTE FELL BACK BY ITSELF — under the line "Quote fell to N pax · −₱X" (migration 20271340566104; DECISION_LOG
+ * 2026-11-12 "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK — UNLESS THE SUPPLIER LOCKED IT"). The mirror of
+ * `QuoteRoseCard`: told, not asked — no button on either side; paid payments stay, the drop comes off the Final balance.
+ */
+export function QuoteFellCard({ pax, deltaWords, viewer, supplierName }: { pax: number; deltaWords: string; viewer: 'vendor' | 'couple'; supplierName: string }) {
+  return (
+    <ChatCardShell topic="quote" kicker="Guest list" title="Quote fell" tone="auto">
+      <div className="grid gap-2" data-quote-fell="">
+        <p className="text-[15px] text-ink">
+          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <b className="tabular-nums">−{deltaWords}</b>
+        </p>
+        <p className="text-[14px] text-ink/65">
+          {viewer === 'vendor'
+            ? 'Their guest list shrank, so the per-guest lines followed it. The drop comes off the Final balance — paid payments stay as they are.'
+            : `${supplierName}’s quote follows your guest list. The drop comes off the Final balance — what you have paid stays as it is. Nothing to accept.`}
+        </p>
+      </div>
+    </ChatCardShell>
+  );
+}

@@ -500,6 +500,8 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   let serviceCardIds: string[] | null = null;
   // 🎁 The shop's own gifts, one pack code per pack (re-judged by the core on send).
   let shopGiftCodes: string[] | null = null;
+  // 👥 What this quote billed against their guest list, and the supplier's ONE minimum (merge_snapshot, owner 12 Nov).
+  let pax: { live: number; min: number; billed: number } | null = null;
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
@@ -511,6 +513,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
       includesSetnayanGift?: boolean | null;
       serviceCardIds?: unknown;
       shopGiftCodes?: unknown;
+      pax?: { live?: unknown; min?: unknown; billed?: unknown } | null;
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
@@ -530,6 +533,10 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     shopGiftCodes = Array.isArray(parsed.shopGiftCodes)
       ? parsed.shopGiftCodes.filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 20)
       : null;
+    pax =
+      parsed.pax && typeof parsed.pax === 'object'
+        ? { live: Number(parsed.pax.live) || 0, min: Number(parsed.pax.min) || 0, billed: Number(parsed.pax.billed) || 0 }
+        : null;
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -545,6 +552,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     includesSetnayanGift,
     serviceCardIds,
     shopGiftCodes,
+    pax,
   });
 
   if (!result.ok) {

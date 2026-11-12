@@ -63,6 +63,38 @@ export type ClientsSort = (typeof CLIENTS_SORT)[number]['key'];
 export const CLIENTS_SHOW_EVENT = 'customers:show';
 export const CLIENTS_SHOWING_EVENT = 'customers:showing';
 
+/**
+ * 📅 SCHEDULE ▾ — which schedules the month marks (controller 2026-11-12, DECISION_LOG "CLIENTS SCHEDULE PICKER → SHOW &
+ * SORT", prototype `Build_Schedules_2026-11-12/schedules-hand-in-hand.html` part a). The "All schedules ▾" that sat
+ * ABOVE the month moved into Show & sort as a Schedule row, and a chip under the month says the pick and opens the SAME
+ * choices. Like Show it is ON-SCREEN, never the address: it changes the month's marks, not the list, so no request.
+ *   · the sheet's row → `CLIENTS_SCHEDULE_EVENT` (the month hears the pick);
+ *   · the month (its chip, or the sheet's pick landing) → `CLIENTS_SCHEDULING_EVENT` (the sheet hears what is shown).
+ */
+export const CLIENTS_SCHEDULE_EVENT = 'customers:schedule';
+export const CLIENTS_SCHEDULING_EVENT = 'customers:scheduling';
+export const ALL_SCHEDULES = 'all';
+
+/** The Schedule choices — every schedule, each one, (Pro+) one seat's work. ONE list for the sheet's row and the chip. */
+export function scheduleScopeOptions({
+  pools,
+  agents = [],
+  halls = false,
+}: {
+  pools: readonly { poolId: string; label: string }[];
+  agents?: readonly { value: string; label: string }[];
+  halls?: boolean;
+}): { key: string; label: string }[] {
+  return [
+    { key: ALL_SCHEDULES, label: halls ? 'All halls' : 'All schedules' },
+    ...pools.map((p) => ({ key: `pool:${p.poolId}`, label: halls ? p.label : `${p.label} schedule` })),
+    ...agents.map((a) => ({ key: `agent:${a.value}`, label: `${a.label}’s work` })),
+  ];
+}
+
+/** A choice is worth offering only when there is more than one thing to pick between (one schedule: no row, no chip). */
+export const schedulesOffered = (options: readonly unknown[]): boolean => options.length > 2;
+
 /** "Not given to a seat" — the Handled by value for an event no seat is assigned. */
 export const NO_SEAT = 'none';
 

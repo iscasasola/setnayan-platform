@@ -16,7 +16,8 @@ import { stripComments } from '../../../../lib/strip-comments';
 const HERE = __dirname;
 const SHEET = readFileSync(join(HERE, 'service-details-sheet.tsx'), 'utf8');
 const GALLERY = readFileSync(join(HERE, 'services-gallery.tsx'), 'utf8');
-const VIEW = readFileSync(join(HERE, '../../../_components/service-card-view.tsx'), 'utf8');
+// 2026-11-12 ONE SERVICE CARD: the card's door is the face's client button — that is where the tapped box is handed on.
+const VIEW = readFileSync(join(HERE, '../../../_components/service-face-door.tsx'), 'utf8');
 
 const ORDER = [...(SHEET.match(/GROWN_SECTION_ORDER = \[([^\]]+)\] as const/)?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
 
@@ -36,7 +37,7 @@ test('it rises full screen from the tapped card, on <body>, and the bars step aw
   assert.match(SHEET, /className="fixed inset-0 z-50 flex h-\[100dvh\] flex-col/, 'full screen, never a bottom sheet');
   assert.doesNotMatch(SHEET, /rounded-t-3xl|max-h-\[90vh\]/, 'the old bottom-sheet frame is back');
   // The card hands its own box to the gallery, the gallery hands it to the grown card.
-  assert.match(VIEW, /onClick=\{\(e\) => onOpen\?\.\(e\.currentTarget\.parentElement\)\}/);
+  assert.match(VIEW, /onClick=\{\(e\) => onOpen\(e\.currentTarget\.parentElement\)\}/);
   assert.match(GALLERY, /from=\{originRef\.current\}/);
 });
 

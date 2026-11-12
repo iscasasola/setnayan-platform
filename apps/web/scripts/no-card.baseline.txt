@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 624 files · 1673 lines
+# 622 files · 1670 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -48,7 +48,6 @@
 1 apps/web/app/_components/requirements-modal.tsx
 3 apps/web/app/_components/run-of-show-header.tsx
 1 apps/web/app/_components/schedule-suggest-chip.tsx
-2 apps/web/app/_components/service-card-view.tsx
 1 apps/web/app/_components/storyteller-tile.tsx
 1 apps/web/app/_components/thread-call-room.tsx
 1 apps/web/app/_components/thread-interest-chips.tsx
@@ -235,7 +234,7 @@
 4 apps/web/app/api/v1/page.tsx
 2 apps/web/app/blog/[slug]/_components/journal-partner-credit.tsx
 5 apps/web/app/blog/[slug]/page.tsx
-3 apps/web/app/blog/page.tsx
+3 apps/web/app/(shell)/blog/page.tsx
 1 apps/web/app/dashboard/(account)/_components/autosurfaced-events.tsx
 3 apps/web/app/dashboard/(account)/_components/life-story-section.tsx
 1 apps/web/app/dashboard/(account)/api-keys/page.tsx
@@ -466,12 +465,12 @@
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
 1 apps/web/app/dev/avatar-sheet-lab/sheet-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
-1 apps/web/app/download/page.tsx
+1 apps/web/app/(shell)/download/page.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
 1 apps/web/app/monogram/_monogram-motion.tsx
-2 apps/web/app/monogram/page.tsx
+2 apps/web/app/(shell)/monogram/page.tsx
 2 apps/web/app/monogram/public-monogram-studio.tsx
 3 apps/web/app/onboarding/_shared/services-step.tsx
 2 apps/web/app/onboarding/wedding/page.tsx
@@ -504,7 +503,7 @@
 1 apps/web/app/realstories/_components/stories-search.tsx
 1 apps/web/app/realstories/[slug]/page.tsx
 1 apps/web/app/signup/loading.tsx
-2 apps/web/app/tl/about/page.tsx
+2 apps/web/app/(shell)/tl/about/page.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
 6 apps/web/app/tour/budget/_components/tour-budget-planner.tsx
 1 apps/web/app/tour/budget/_components/tour-vendor-itemization.tsx
@@ -598,7 +597,6 @@
 3 apps/web/app/vendor-dashboard/services/_components/payment-schedule-editor.tsx
 1 apps/web/app/vendor-dashboard/services/_components/pricing-basis-editor.tsx
 1 apps/web/app/vendor-dashboard/services/_components/refinements-editor.tsx
-1 apps/web/app/vendor-dashboard/services/_components/service-card-face.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
 9 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx

@@ -75,6 +75,8 @@ export type LabChatMode = {
    * login on both sides always resolved to the host. `?self=couple` draws that "Now".
    */
   selfShop?: 'vendor' | 'couple';
+  /** 🏪 `?logo=1` — the shop's logo on its messages (the couple page passes the presigned, revealed logo). A sample. */
+  shopLogoUrl?: string;
 };
 
 /** 🏪 The `selfShop` thread: the host asks, then the SAME login answers from the shop. Sample words only. */
@@ -108,7 +110,7 @@ function LabPins() {
   );
 }
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
+export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop, shopLogoUrl }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
@@ -172,6 +174,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           // 👥 The ＋ and Leave are the event side's only — the supplier's chat passes neither.
           {...(side === 'couple' && actions.add && actions.leave ? { memberAdd: { candidates: LAB_ADDABLE, add: actions.add }, memberLeave: actions.leave } : {})}
           counterpartyLabel={counterpartyLabel}
+          {...(side === 'couple' && shopLogoUrl ? { shopLogoUrl } : {})}
           headNote={<ChatPrivacyTip viewer={side} />}
           {...(tallPins ? { pins: <LabPins /> } : {})}
           senderNames={side === 'couple' && !selfShop ? { [LAB_STAFF]: 'Paolo' } : {}}

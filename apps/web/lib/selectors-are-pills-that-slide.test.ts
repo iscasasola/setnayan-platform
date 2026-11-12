@@ -365,22 +365,15 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.match(kit, /\{slide \? <PillThumb \/> : null\}\s*\{children\}/, 'the thumb is not the first child of the track');
   assert.match(kit, /slide = true,/);
   assert.match(kit, /className=\{`\$\{iSegClass\(on, tone\)\} \$\{className\}`\}/);
-  // 1 · Stages | Studio, in its wine. 2 · Look's Background · Elements · Music.
-  /* Two halves, one thumb — on every screen of the new Maker (owner 2026-10-08: "Stages and Studio both has
-     dropdown" · "keep selector always balanced in width no matter what is pressed?"). Each half is the track's own
-     DIRECT child and says whether it is picked (`aria-pressed`), in the segment's own look (`iSegClass`) — so the one
-     thumb finds the picked half and lies on it; the two are always the same width, so it travels exactly one half. */
+  // 1 · THE STAGE PILL. 2 · Look's Background · Elements · Music.
+  /* 🔁 UPDATED ON PURPOSE 2026-11-11 (Build 6 Lane F): Studio is gone, so "Stages | Studio" is no longer two halves on one
+     track — the bar's selector is ONE pill, the stage ▾ (prototype frame M1: the picked half alone, in the accent). Nothing
+     to slide between, so no thumb; it is a pill and nothing else. */
   const side = read(`${L}/stages-studio-parts.tsx`);
-  const sw = side.slice(side.indexOf('export function StudioSideSwitch('), side.indexOf('function tileOption('));
-  assert.ok(sw.length > 4000, 'anti-vacuity: Stages | Studio was not found');
-  assert.equal((sw.match(/<ISegmented\b/g) ?? []).length, 1);
-  assert.match(sw, /<ISegmented label="Stages or Studio">\s*<StudioHalf\s+kind="stage"\s+on=\{onStages\}[\s\S]*?\/>\s*<StudioHalf kind="page" on=\{!onStages\}[^\n]*\/>\s*<\/ISegmented>/, 'Stages | Studio is not ONE track of two halves');
-  assert.match(sw, /return \(\s*<button\s+type="button"\s+aria-pressed=\{on\}[\s\S]*?className=\{`\$\{iSegClass\(on\)\} \$\{HALF_ROOM\}`\}/, 'a half is not the segment — the thumb cannot find the picked one');
-  assert.doesNotMatch(sw, /bg-sn-accent|data-seg-fill|<PillThumb/, 'a half paints a pill (or a thumb) of its own');
-  /* Equal halves: the segment's own `flex-1`, and nothing that gives one half a width of its own. */
-  const room = /const HALF_ROOM =\s*'([^']*)'/.exec(sw)?.[1] ?? '';
-  assert.ok(room.split(' ').includes('min-w-0'), 'a long name can widen its half');
-  assert.doesNotMatch(room, /flex-none|flex-initial|shrink-0|basis-|\bw-\[/, 'a half has a width of its own — the thumb no longer travels exactly one half');
+  const sw = side.slice(side.indexOf('export function StageSwitch('), side.indexOf('/**\n * ▁ THE ONE BOTTOM SHEET'));
+  assert.ok(sw.length > 1500, 'anti-vacuity: the stage pill was not found');
+  assert.doesNotMatch(sw, /<ISegmented\b|StudioHalf|<PillThumb/, 'the stage pill is still a track of halves');
+  assert.match(sw, /data-stage-pill=""[\s\S]*?className="sn-press [^"]*rounded-full bg-sn-accent [^"]*text-sn-on-accent"/, 'the stage pill is not the accent pill');
   assert.match(read(`${L}/studio-tools.tsx`), /<ISegmented label="Look">\s*\{LOOK_SECTION_ITEM_KEYS\.map\(\(k\) => \(\s*<ISeg /);
 
   // 3 · PHASES (Look | Background | Arrange · Build in | Action | Build out) — every use: the thumb is in the component.

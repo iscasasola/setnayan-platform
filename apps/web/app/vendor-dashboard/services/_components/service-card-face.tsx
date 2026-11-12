@@ -1,7 +1,9 @@
-import { Gift, Plus, AlertCircle, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Gift, Plus, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
+import { ServiceFace } from '@/app/_components/service-face';
 import { php, type Snapshot } from '@/lib/service-card-snapshot';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import { FramedImg } from '@/app/_components/framed-img';
+import type { CoverPhoto } from '@/lib/service-cover-show';
 
 /**
  * service-card-face.tsx — the card a couple sees, drawn from a `Snapshot`.
@@ -34,6 +36,7 @@ export function ServiceCardFace({
   leafPathLabel,
   addonsFromPhp,
   coverUrl,
+  photos,
   footer,
   packLine = null,
 }: {
@@ -44,6 +47,8 @@ export function ServiceCardFace({
   addonsFromPhp?: number | null;
   /** Presigned/public URL of the current cover, when there is one. */
   coverUrl?: string | null;
+  /** 🎞 Photos the cover plays (a bundle: one from each of its services, named). ≥2 → the face's slideshow. */
+  photos?: ReadonlyArray<string | CoverPhoto> | null;
   /**
    * Replaces the preview's mock "Request a quote" chip. OMIT it (undefined) to
    * keep that chip — `null` is a real value here and renders no footer at all,
@@ -56,128 +61,94 @@ export function ServiceCardFace({
    */
   packLine?: string | null;
 }) {
-  return (
-  <div
-    className="flex items-start gap-3 rounded-2xl border p-3"
-    style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-  >
-    <div
-      className="flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg"
-      style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-    >
-      {coverUrl ? (
-        // The 80×112 cover (5:7), derived from the photo's saved framing (Photo Frame Template).
-        <FramedImg src={coverUrl} aspect={80 / 112} />
-      ) : snap.hasCover ? (
+  // THE ONE FACE (`app/_components/service-face.tsx`, owner 12 Nov "ONE SERVICE CARD, EVERYWHERE"). This file only
+  // maps the maker's Snapshot in; it draws nothing of its own.
+  const cover = coverUrl ? (
+    // The 80×112 cover (5:7), derived from the photo's saved framing (Photo Frame Template).
+    <FramedImg src={coverUrl} aspect={80 / 112} />
+  ) : (
+    <span className="flex h-full w-full items-center justify-center bg-[var(--m-orange-4)] text-[var(--m-orange-deep)]">
+      {snap.hasCover ? (
         <CheckCircle2 aria-hidden className="h-6 w-6" strokeWidth={1.5} />
       ) : (
         <ImageIcon aria-hidden className="h-6 w-6" strokeWidth={1.5} />
       )}
-    </div>
-    <div className="min-w-0 flex-1 space-y-1">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          {snap.name}
-        </span>
-        {snap.discountBadge ? (
-          <span
-            className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-            style={{ background: 'var(--m-sage)', color: 'var(--m-ink)' }}
-          >
-            {snap.discountBadge}
-          </span>
-        ) : null}
-      </div>
-      {leafPathLabel ? (
-        <p className="truncate text-[11px]" style={{ color: 'var(--m-slate-2)' }}>
-          {leafPathLabel}
-        </p>
-      ) : null}
-      <p className="flex items-center gap-2 text-xs">
-        {/* No star here on purpose — the real card shows a "shop
-            rating" only once the shop has a real review, never a
-            per-card number (see CardRecordSection). A hardcoded 4.5
-            would tell the vendor couples see praise this card has
-            not earned. */}
-        <span className="font-medium" style={{ color: 'var(--m-orange-2)' }}>
-          {snap.priceText}
-        </span>
-      </p>
-      {snap.includesLine ? (
-        <p className="flex items-start gap-1 text-[11px] font-medium" style={{ color: 'var(--m-sage-deep, var(--m-ink))' }}>
-          <Gift aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
-          <span>{snap.includesLine}</span>
-        </p>
-      ) : null}
-      {addonsFromPhp != null ? (
-        <p className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-          <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Add-ons from +{php(addonsFromPhp)}
-        </p>
-      ) : null}
-      {snap.notIncluded.length ? (
-        <p
-          className="flex items-start gap-1 rounded-md px-2 py-1 text-[11px]"
-          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-        >
-          <AlertCircle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.75} />
-          <span>Not included: {snap.notIncluded.join(' · ')}</span>
-        </p>
-      ) : null}
-      {/*
-        ⚖ TWO PROMISES, NEVER MERGED INTO ONE LINE.
+    </span>
+  );
+  /*
+    ⚖ TWO PROMISES, NEVER MERGED INTO ONE LINE.
 
-        `givesSetnayanGift` is the yes/no the supplier answers about the
-        SETNAYAN gift — Papic credits, sized at 40% of the booking fee and
-        charged to them (owner 2026-09-09). `hasExclusive` is the retired
-        free-text field, which two live cards still promise through: "Free
-        1-hour extension for Setnayan couples" and "FREE". Those are the
-        SUPPLIER'S own words about their OWN service and cost Setnayan nothing.
+    `givesSetnayanGift` is the yes/no the supplier answers about the
+    SETNAYAN gift — Papic credits, sized at 40% of the booking fee and
+    charged to them (owner 2026-09-09). `hasExclusive` is the retired
+    free-text field, which two live cards still promise through: "Free
+    1-hour extension for Setnayan couples" and "FREE". Those are the
+    SUPPLIER'S own words about their OWN service and cost Setnayan nothing.
 
-        Rendering one line for both would either bill two suppliers for a gift
-        they never chose, or print the supplier's private wording as if we sized
-        it. They stay two branches, and the gift wins when a card somehow has
-        both, because it is the one Setnayan stands behind.
+    Rendering one line for both would either bill two suppliers for a gift
+    they never chose, or print the supplier's private wording as if we sized
+    it. They stay two branches, and the gift wins when a card somehow has
+    both, because it is the one Setnayan stands behind.
 
-        🔒 NO NUMBER HERE, EVER. The photo count is a function of the agreed
-        price, which does not exist while a card is being advertised — a figure
-        printed here could be broken by a lower quote and honouring it would
-        breach the 40% ceiling. The count belongs on the QUOTE (owner: "papic
-        credits will be auto computed based on what they pay"). Any future edit
-        that puts a quantity on this line is a bug, not an improvement.
-      */}
-      {snap.givesSetnayanGift ? (
-        <SetnayanGiftLine
-          className="flex items-center gap-1 text-[10px]"
-          style={{ color: 'var(--m-orange-2)' }}
-        />
-      ) : packLine ? (
-        <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }} data-card-gift-pack="">
-          <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
-          <span>{packLine}</span>
-        </p>
-      ) : snap.hasExclusive ? (
-        <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
-          <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Setnayan Exclusive inside · opens in chat
-        </p>
-      ) : null}
-      {footer === undefined ? (
-        <p className="flex items-center gap-2 pt-1">
-          <span
-            className="rounded-lg px-3 py-1.5 text-[11px] font-medium"
-            style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
-          >
-            Request a quote
+    🔒 NO NUMBER HERE, EVER. The photo count is a function of the agreed
+    price, which does not exist while a card is being advertised — a figure
+    printed here could be broken by a lower quote and honouring it would
+    breach the 40% ceiling. The count belongs on the QUOTE (owner: "papic
+    credits will be auto computed based on what they pay"). Any future edit
+    that puts a quantity on this line is a bug, not an improvement.
+  */
+  const gift = snap.givesSetnayanGift ? (
+    <SetnayanGiftLine
+      className="flex items-center gap-1 text-[10.5px]"
+      style={{ color: 'var(--m-orange-2)' }}
+    />
+  ) : packLine ? (
+    <p className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--m-orange-2)' }} data-card-gift-pack="">
+      <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+      <span>{packLine}</span>
+    </p>
+  ) : snap.hasExclusive ? (
+    <p className="flex items-center gap-1 text-[10.5px]" style={{ color: 'var(--m-orange-2)' }}>
+      <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+      Setnayan Exclusive inside · opens in chat
+    </p>
+  ) : null;
+  return (
+    <ServiceFace
+      name={snap.name}
+      cover={cover}
+      photos={photos}
+      discount={snap.discountBadge}
+      path={leafPathLabel || null}
+      price={snap.priceText}
+      includes={snap.includesLine}
+      extra={
+        addonsFromPhp != null ? (
+          <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
+            <Plus aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Add-ons from +{php(addonsFromPhp)}
           </span>
-          <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
-            final price by quote
-          </span>
-        </p>
-      ) : (
-        footer
-      )}
-    </div>
-  </div>
+        ) : null
+      }
+      notIncluded={snap.notIncluded}
+      gift={gift}
+      footer={
+        footer === undefined ? (
+          <p className="flex items-center gap-2">
+            <span
+              className="rounded-lg px-3 py-1.5 text-[11px] font-medium"
+              style={{ background: 'var(--m-ink)', color: 'var(--m-paper)' }}
+            >
+              Request a quote
+            </span>
+            <span className="text-[10px]" style={{ color: 'var(--m-slate-3)' }}>
+              final price by quote
+            </span>
+          </p>
+        ) : (
+          footer
+        )
+      }
+    />
   );
 }

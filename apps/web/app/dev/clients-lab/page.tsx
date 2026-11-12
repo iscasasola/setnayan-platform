@@ -8,6 +8,7 @@
  *                             sheet — Service · Status · Client · Handled by · Group by · Sort).
  *     &show=overdue|unread|schedules|collect   that list open, in place ("Viewing all …").
  *     &agent=1                  the sheet as a seat sees it ("Your clients only").
+ *     &pools=2                  two schedules + one seat's work: Show & sort's Schedule row and the chip under the month.
  *   ?v=pick&page=details      the picked client (`PickedClientShell`) on its Details page, v113 order: numbers · Hosts ·
  *                             the brief · Suppliers on this event · Decisions (Build 2 #42: the list, v118's five rows) ·
  *                             Forms sent.
@@ -15,6 +16,7 @@
  *   ?v=pick&page=schedule     its Schedule page: the Clients month itself (`ScheduleCalendar` → `CustomersCalendar`
  *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
  *     &cal=fail                 the month's one read refused — said, never an empty month.
+ *     &cal=two                  a shop with two schedules — the month's Schedule chip shows (2026-11-12).
  *
  * 📅 Build 2 #43 (B2-A): `?v=events` is the ONE Clients screen — "Clients · 4 booked · ₱18,000 to collect · ⚙", the
  * month (the shipped `CustomersCalendar`, lab inputs, no request), the tiles as their own row, Overdue / Unread, then
@@ -53,7 +55,8 @@ import { buildSupplierDay, type SupplierBlockRow } from '@/lib/supplier-schedule
 import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
 import type { ScheduleAsk } from '@/lib/schedule-ask';
 import type { MoneyRow } from '@/lib/vendor-money';
-import { LAB_CALENDAR, LAB_TODAY } from './lab-calendar';
+import { LAB_AGENT_CATEGORIES, LAB_AGENTS, LAB_CALENDAR, LAB_CALENDAR_TWO, LAB_TODAY } from './lab-calendar';
+import { scheduleScopeOptions } from '@/app/vendor-dashboard/customers/clients-show-sort';
 import { BookedQrsList, type BookedQrRow } from '@/app/vendor-dashboard/invite/_components/booked-qrs-list';
 import { LockedQrGenerator, type LockedQrInitial } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { PaymentPage, type PaymentMoney } from '@/app/vendor-dashboard/clients/[eventId]/_pages/payment';
@@ -140,7 +143,7 @@ const ASKED: ScheduleAsk[] = [
 
 function pickedBodies(
   page: PickedClientPage,
-  calFail: boolean,
+  cal: 'fail' | 'two' | null,
   decisions: 'full' | 'none' | 'partial' = 'full',
   refundsFail = false,
 ): Record<PickedClientPage, ReactNode> {
@@ -183,7 +186,7 @@ function pickedBodies(
     ),
     schedule: (
       <>
-        <ScheduleCalendar eventDate="2026-11-08" todayIso={LAB_TODAY} lab={calFail ? null : LAB_CALENDAR} />
+        <ScheduleCalendar eventDate="2026-11-08" todayIso={LAB_TODAY} lab={cal === 'fail' ? null : cal === 'two' ? LAB_CALENDAR_TWO : LAB_CALENDAR} />
         <div className="mt-4">
           <SupplierSchedule
             eventId="lab"
@@ -350,7 +353,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           initialPage={page}
           bodies={pickedBodies(
             page,
-            one(sp.cal) === 'fail',
+            one(sp.cal) === 'fail' ? 'fail' : one(sp.cal) === 'two' ? 'two' : null,
             one(sp.decisions) === 'none' ? 'none' : one(sp.decisions) === 'partial' ? 'partial' : 'full',
             one(sp.refunds) === 'fail',
           )}
@@ -363,6 +366,10 @@ export default async function ClientsLabPage({ searchParams }: Props) {
 
   const show = one(sp.show) ?? null;
   const agent = one(sp.agent) === '1';
+  // `&pools=2`: two schedules and one seat's work — the Schedule row in Show & sort and the chip under the month show.
+  const two = one(sp.pools) === '2';
+  const cal = two ? LAB_CALENDAR_TWO : LAB_CALENDAR;
+  const calAgents = two ? LAB_AGENTS : [];
   const doors: CustomersDoor[] = [
     { key: 'booked', value: '4', word: 'booked', dot: 'booked' },
     { key: 'schedules', value: String(MEETINGS.length), word: 'schedules' },
@@ -400,8 +407,10 @@ export default async function ClientsLabPage({ searchParams }: Props) {
                 initialMonth: LAB_TODAY.slice(0, 7),
                 initialDay: one(sp.day) ?? null,
                 todayIso: LAB_TODAY,
-                pools: LAB_CALENDAR.pools,
-                bookings: LAB_CALENDAR.bookings,
+                pools: cal.pools,
+                bookings: cal.bookings,
+                agents: calAgents,
+                agentCategories: two ? LAB_AGENT_CATEGORIES : {},
                 blocks: LAB_CALENDAR.blocks,
                 dayActions: one(sp.refuse) === '1' ? { addManualBlock: labDayRefused, removeBlock: labDayRefused } : { addManualBlock: labDayWrite, removeBlock: labDayWrite },
                 fetchMonth: null,
@@ -442,6 +451,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
                     agent={agent}
                     shown={CLIENTS.length}
                     keep="v=events"
+                    schedules={scheduleScopeOptions({ pools: cal.pools, agents: calAgents })}
                   />
                 ),
               },

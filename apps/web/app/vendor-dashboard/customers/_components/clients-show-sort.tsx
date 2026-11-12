@@ -14,6 +14,10 @@ import {
   DEFAULT_CLIENTS_GROUP,
   CLIENTS_SHOWING_EVENT,
   CLIENTS_SHOW_EVENT,
+  ALL_SCHEDULES,
+  CLIENTS_SCHEDULE_EVENT,
+  CLIENTS_SCHEDULING_EVENT,
+  schedulesOffered,
   NO_SEAT,
   clientsChoiceApplied,
   clientsChoiceParams,
@@ -28,6 +32,8 @@ const ALL = '*';
  * rows: Show · Service ▾ · Status · Client · Handled by, then Group by and Sort.
  *
  *   · SHOW shows a list the page already drew, in place — no request (the pinned row hears `CLIENTS_SHOW_EVENT`).
+ *   · SCHEDULE (2026-11-12) is which schedules the month marks — moved here from above the month, on-screen like Show
+ *     (the month hears `CLIENTS_SCHEDULE_EVENT`; its chip's pick comes back on `CLIENTS_SCHEDULING_EVENT`).
  *   · Every other row rides the address (`clients-show-sort.ts`): the page narrows and orders the WHOLE roster before
  *     paging, so a pick never hides an event that sits on page 2. The page stays where it is (`scroll: false`).
  *   · HANDLED BY: owners and admins pick All seats · Me · each seat · Not given to a seat; an agent sees the v113 line
@@ -44,7 +50,10 @@ export function ClientsShowSort({
   agent,
   shown,
   keep,
+  schedules = [],
 }: {
+  /** The month's Schedule choices (`scheduleScopeOptions`) — the same list its chip opens. Fewer than 3 → no row. */
+  schedules?: readonly { key: string; label: string }[];
   choice: ClientsChoice;
   initialShow: string | null;
   /** The shop's services, by id (Service ▾). */
@@ -67,6 +76,18 @@ export function ClientsShowSort({
     window.addEventListener(CLIENTS_SHOWING_EVENT, on);
     return () => window.removeEventListener(CLIENTS_SHOWING_EVENT, on);
   }, []);
+  // 📅 Schedule: on-screen, like Show — the month owns the marks; the sheet says (and picks) which schedules it draws.
+  const [schedule, setSchedule] = useState<string>(ALL_SCHEDULES);
+  useEffect(() => {
+    const on = (e: Event) => setSchedule((e as CustomEvent<string>).detail || ALL_SCHEDULES);
+    window.addEventListener(CLIENTS_SCHEDULING_EVENT, on);
+    return () => window.removeEventListener(CLIENTS_SCHEDULING_EVENT, on);
+  }, []);
+  const pickSchedule = (k: string) => {
+    setSchedule(k);
+    window.dispatchEvent(new CustomEvent(CLIENTS_SCHEDULE_EVENT, { detail: k }));
+  };
+  const offerSchedules = schedulesOffered(schedules);
 
   const go = (next: ClientsChoice) => {
     const params = new URLSearchParams(keep);
@@ -79,7 +100,8 @@ export function ClientsShowSort({
     setShow(k);
     window.dispatchEvent(new CustomEvent(CLIENTS_SHOW_EVENT, { detail: k === 'all' ? null : k }));
   };
-  const applied = clientsChoiceApplied(choice, agent) + (show !== 'all' ? 1 : 0);
+  const applied =
+    clientsChoiceApplied(choice, agent) + (show !== 'all' ? 1 : 0) + (offerSchedules && schedule !== ALL_SCHEDULES ? 1 : 0);
   const on = applied > 0;
 
   return (
@@ -106,12 +128,24 @@ export function ClientsShowSort({
           panelData={{ 'data-filter-sheet': 'clients' }}
           onClearAll={() => {
             pickShow('all');
+            if (offerSchedules) pickSchedule(ALL_SCHEDULES);
             go({ svc: null, st: null, client: null, who: null, group: DEFAULT_CLIENTS_GROUP, sort: 'waiting' });
           }}
           showLabel={`Show ${formatCount(shown)} ${shown === 1 ? 'client' : 'clients'}`}
         >
           <ShowSortTopic name="Who you see" first />
           <ChosenRow data="clients-show" name="Show" line="Which list is on screen" value={show} options={CLIENTS_SHOW} onPick={pickShow} dataAttr="data-clients-show" />
+          {offerSchedules ? (
+            <ChosenRow
+              data="clients-schedule"
+              name="Schedule"
+              line="Which marks the month draws"
+              value={schedule}
+              options={schedules}
+              onPick={pickSchedule}
+              dataAttr="data-clients-schedule"
+            />
+          ) : null}
           {services.length > 1 ? (
             <ChosenRow
               data="clients-service"

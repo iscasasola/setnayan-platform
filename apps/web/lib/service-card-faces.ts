@@ -21,6 +21,7 @@ import 'server-only';
  * explore-shows-what-it-costs). Moving /explore onto this helper is a follow-up
  * that must move those guards with it — not a drive-by.
  */
+import { displayServiceLabel } from '@/lib/vendors';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MarketplaceServiceCard } from '@/lib/marketplace-service-cards';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -47,6 +48,10 @@ export type ServiceCardFace = {
   card: ServiceCard;
   detailsHref: string | null;
   shop: ServiceCardShop;
+  /** The card's trade ("Mobile Bar") — its path line on the face. */
+  path: string;
+  /** The card's own cover, resolved. */
+  coverUrl: string | null;
 };
 
 export async function buildServiceCardFaces(
@@ -119,7 +124,11 @@ export async function buildServiceCardFaces(
         href: shopAddress(c.businessSlug),
         logoUrl: logoByShop.get(c.vendorProfileId) ?? null,
         city: c.locationCity,
+        isDemo: c.isDemo,
+        verified: c.verified,
       },
+      path: displayServiceLabel(c.row.category),
+      coverUrl: publicUrlForStoredAsset(c.row.primary_photo_r2_key) ?? null,
     };
   });
 }

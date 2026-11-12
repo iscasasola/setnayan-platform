@@ -56,7 +56,8 @@ export function quoteSeedFromBundle(
 ): QuoteBundleSeed {
   const sums = bundleSums(cards, Math.round((Number(bundle.extraDiscountCentavos) || 0) / 100), now);
   const lines: QuoteSeedLine[] = [
-    ...sums.lines.map((l) => flat(l.name, l.lowestPhp ?? 0, false)),
+    // 🏷 Each card's line names its card, so an offer that reaches one card comes off that card's line only.
+    ...sums.lines.map((l) => ({ ...flat(l.name, l.lowestPhp ?? 0, false), cardId: l.id })),
     ...gatherInclusions(cards).map((g) => flat(g.label, 0, true)),
   ];
   const name = bundle.name.trim() || 'Your bundle';

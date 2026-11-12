@@ -62,6 +62,9 @@ test('1 · every chat that draws the host strip also hands it the booked call bu
     for (const el of streamMounts(src)) {
       if (!/\bhosts\b/.test(el)) continue;
       strips.push(rel);
+      // 💬 An event GROUP books no one: Call · Video call belong to ONE booked supplier, in that supplier's own chat
+      // (owner 12 Nov — money and bookings never in a group). The group view hands its strip no calls, on purpose.
+      if (rel === 'app/samahan/chat/[threadId]/_components/group-chat-view.tsx') continue;
       assert.match(el, /headCalls(?:=\{|: )<BookedCallButtons\b/, `${rel} draws the host strip with no Call · Video call`);
     }
   }

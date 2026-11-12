@@ -134,8 +134,10 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
   }
   assert.equal(existsSync(join(VD, 'calendar', 'surface.tsx')), false, 'calendar/surface.tsx (the second renderer) is back');
   assert.equal(existsSync(join(HERE, '_components', 'customers-filter-bar.tsx')), false, 'the filter bar is back — Dates has ONE dropdown');
-  assert.match(MONTH, /<PickMenu label="Schedules"/, 'the month lost its ONE dropdown — "All schedules ▾"');
-  assert.match(MONTH, /\{ key: 'all', label: halls \? 'All halls' : 'All schedules' \}/, 'the dropdown does not say "All schedules" (or "All halls" for a venue)');
+  // 2026-11-12: the ONE "All schedules ▾" left the top of the month for Show & sort + a chip under it
+  // (`the-schedule-pick-is-in-show-sort.test.ts`); its words are the shared `scheduleScopeOptions`.
+  assert.match(MONTH, /<PickMenu\s+label="Schedule"[\s\S]{0,120}options=\{options\}/, 'the month lost its ONE schedule dropdown (the chip)');
+  assert.match(MONTH, /const options = scheduleScopeOptions\(\{ pools, agents, halls \}\)/, 'the month builds its own schedule choices again');
   assert.match(MONTH, /monthPicker=\{\(view, go\) => \(\s*<PickMenu\s+label="Month"/, 'the month is not a dropdown between ‹ and ›');
   // The pure fold, executed: blocked and held are blocked; a seat is booked; an ask or a waiter is holding.
   const base = { state: null, consumed: 0, inquiryCount: 0, waitlistCount: 0 } as const;

@@ -129,7 +129,7 @@ function saidOf(picks: readonly ReadPick[]): string | null {
 /* ── the card's line ───────────────────────────────────────────────────── */
 
 /** The Studio, named as the house names it — plain words on the card, never a link (no go-edit-elsewhere). */
-export const OUTFIT_SET_IN = 'Set it in Studio › Palette + Dress Code';
+export const OUTFIT_SET_IN = 'Set it in Event Hub › Dress code';
 export const OUTFIT_NOT_SET = 'Not set yet';
 
 /** "VIP · Immediate Family" → "VIP · Immediate Family’s"; "Guests" → "Guests’"; "The bride" → "the bride’s". */

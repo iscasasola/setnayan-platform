@@ -107,5 +107,6 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/[slug]/invite/actions.ts › submitInviteReply": "invite door 02 (reply) → door 03, the thank-you (`/invite/enter?rsvp=`) — a wizard step",
   "app/[slug]/welcome/actions.ts › confirmPlusOneName": "+1 welcome step → the event page (or `?pass=1`, their pass) — a wizard step that claims the seat",
   "app/dashboard/(account)/api-keys/actions.ts › createApiKey": "create key → `?just_created=<key>` shows the new key ONCE; in place it would never be shown",
+  "app/samahan/chat/actions.ts › groupChat": "+ New group → the new group's chat (create-then-open); Join chat → the group you left, now open (join). Send · Add · Leave never redirect",
   "app/open-shop/claim-actions.ts › finishClaimDoor": "claim a shop → the claim's finalize step / the shop profile — a claim flow",
 };

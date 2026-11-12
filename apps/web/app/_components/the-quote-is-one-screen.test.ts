@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from '../../lib/strip-comments';
 
 const maker = stripComments(readFileSync(join(__dirname, 'proposal-maker.tsx'), 'utf8'));
+const startLib = stripComments(readFileSync(join(__dirname, '..', '..', 'lib', 'quote-money.ts'), 'utf8'));
 const stream = stripComments(readFileSync(join(__dirname, 'chat-message-stream.tsx'), 'utf8'));
 const page = stripComments(readFileSync(join(__dirname, '..', 'vendor-dashboard', 'messages', '[threadId]', 'page.tsx'), 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
@@ -36,29 +37,34 @@ test('the sections, once each, in the owner\'s eleven-step order (THE ONE BUILD,
   // cards (content placed, inclusions) · From your catalogue · 5 Gift · 6 Travel and crew meal · 7 Discount ·
   // 8 Payment schedule · 9 Payment method · 10 Quote effectivity — and 11, Total + Save + Send, pinned below them.
   // (Was ['start','lines','catalogue','money'], 2026-10-14 — the same controls, re-grouped, none dropped.)
-  const ids = [...maker.matchAll(/<QuoteSection id="([a-z]+)"/g)].map((m) => m[1]);
+  // ⚖ 12 Nov 2026 (owner, approved quote-maker-polish design): "Following their guest list" after the name, then
+  // "Your offer" ABOVE Discount (offer first, then the typed discount) and "What it comes to" after it — new by owner
+  // ruling, the rest unchanged.
+  const ids = [...maker.matchAll(/<QuoteSection\s+id="([a-z]+)"/g)].map((m) => m[1]);
   assert.deepEqual(ids, [
     'start',
     'name',
+    'guests',
     'cards',
     'catalogue',
     'gift',
     'travel',
+    'offer',
     'discount',
+    'sum',
     'plan',
     'methods',
     'effectivity',
   ]);
-  assert.equal(count(maker, /<\/QuoteSection>/g), 10);
+  assert.equal(count(maker, /<\/QuoteSection>/g), 13);
 });
 
 test('11 · the total, Save and the ONE Send ride a pinned bar; the name is the first field', () => {
-  const bar = maker.slice(maker.indexOf('data-quote-pinned-bar'));
-  assert.ok(maker.indexOf('data-quote-pinned-bar') > 0, 'the pinned bar is gone');
-  assert.match(bar.slice(0, 900), /className="sticky z-sn-sticky\b/, 'the bar is not pinned on the page layer token (spec §10 #23)');
-  assert.match(bar.slice(0, 900), /bottom: 'max\(var\(--sn-bottomdock-h, 0px\), var\(--sn-thumb-room, 0px\)\)'/, 'the bar sits UNDER the dock / thumb row');
-  // `sticky` only pins when no ancestor inside the form is a scroll box: the form clips, it does not scroll.
-  assert.match(maker, /className="overflow-clip rounded-2xl border border-ink\/10 bg-cream shadow-sm"/, 'an overflow-hidden form makes the bar inert');
+  const bar = maker.slice(maker.indexOf('<QuotePinnedBar'));
+  assert.ok(maker.indexOf('<QuotePinnedBar') > 0, 'the pinned bar is gone');
+  // The bar is PORTALED and fixed to the screen — never `sticky` inside a scroll box it cannot escape (live 12 Nov 2026);
+  // where it lands and what it stands on are held by `the-quote-bar-is-pinned.test.ts`.
+  assert.match(maker, /<QuotePinnedBar formRef=\{formRef\}>/, 'the bar left the pinned layer');
   assert.match(bar, /data-quote-answer=""[\s\S]{0,300}formatCentavos\(netPayable\)/, 'the total left the bar');
   assert.ok(bar.indexOf('<SubmitButton') > 0, 'Send is not in the pinned bar');
   assert.match(bar.slice(0, bar.indexOf('<SubmitButton')), />\s*Save\s*</, 'Save is not beside Send');
@@ -98,9 +104,11 @@ test('ONE Send, last — after "As they see it"', () => {
 });
 
 test('Start from: card · a saved quote (only when there is one) · blank — and blank fills no discount', () => {
-  assert.match(maker, /\.\.\.cards\.map\(\(c\) => \(\{ key: `card:\$\{c\.id\}`/);
-  assert.match(maker, /\.\.\.saved\.map\(\(t\) => \(\{ key: `tpl:\$\{t\.id\}`/, 'saved quotes are not offered from the list');
-  assert.match(maker, /\{ key: 'blank', label: 'Blank' \}/);
+  // 🗂 12 Nov: the list is built by `startFromOptions` (lib/quote-money.ts), grouped under headings.
+  assert.match(maker, /const startOptions = startFromOptions\(\{ revisionTitle: [^}]*cards, bundles: bundleOptions, saved \}\);/);
+  assert.match(startLib, /\.\.\.input\.cards\.map\(\(c\) => \(\{ key: `card:\$\{c\.id\}`/);
+  assert.match(startLib, /\.\.\.input\.saved\.map\(\(t\) => \(\{ key: `tpl:\$\{t\.id\}`/, 'saved quotes are not offered from the list');
+  assert.match(startLib, /\{ key: 'blank', label: 'Blank' \}/);
   const blank = maker.slice(maker.indexOf('setItems([newLine(false)]);'), maker.indexOf('setReasonFromCard(false);', maker.indexOf('setItems([newLine(false)]);')));
   assert.match(blank, /setDiscountPhp\(0\)/, 'a blank start carries a discount over');
   assert.match(blank, /setDiscountReason\(null\)/);

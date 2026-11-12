@@ -171,6 +171,7 @@ import {
 import { pickedPageBodies } from './_pages/switch';
 import type { PickedPageContext } from './_pages/context';
 import { FilesPage } from './_pages/files';
+import { EventFilesSection } from './_pages/event-files';
 import { ReservationLine } from './_pages/payment';
 // Call launcher is code-split (WebRTC · ssr:false) so the Call tab's bundle
 // stays out of the initial page JS until that tab mounts — see the lazy loader.
@@ -2003,7 +2004,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       brief={brief}
       headcountRule={headcountRule}
       headcountNames={headcountNames}
-      threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
       paletteEntries={paletteEntries}
@@ -2129,6 +2129,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       chatFilesMeasured={chatFilesMeasured}
       threadId={threadId}
       isBooked={isBooked}
+      board={<EventFilesSection ctx={pickedCtx} mode="files" />}
     />
   );
 
@@ -2635,95 +2636,47 @@ function VendorCompletionCard({
 }
 
 // ===========================================================================
-// Returning-client marker + quick-action bar (Details/Overview tab, PR 5).
+// Returning-client marker (Details/Overview tab, PR 5).
 //
-// Marker: rendered ONLY when `returningFlag` is present — i.e. this couple has a
+// Rendered ONLY when `returningFlag` is present — i.e. this couple has a
 // prior CONFIRMED booking with this vendor on a DIFFERENT event (answering an
 // inquiry is now free — the returning-client signal is informational only). The reuse RPC returns the
 // most-recent prior event's name/date (DISTINCT ON) — not an exact count and not
 // its event_id — so we name that one past event rather than link a list.
 //
-// Action bar: shortcut links only (no new call/quote logic). Chat + Call both
-// open the thread (the P2P call surface lands there per the Workspace spec);
-// Quote deep-links the thread's one quote panel (#build-quote — the builder
-// with the saved-template shortcut inside it, SUP-H); Files jumps to this
-// card's Files tab; Details is the current view (inert).
+// 🧹 The shortcut pills that sat under it (Chat · Quote · Files · Details) were removed 12 Nov 2026 (owner, live): a
+// leftover from before the picked-client menu, which already opens every one of those pages — and its "Quote" went to
+// the chat's #build-quote, not the Quotation page. 🔒 lib/the-details-page-has-no-second-menu.test.ts
 // ===========================================================================
-function ReturningMarkerAndActions({
-  eventId,
-  threadId,
-  returningFlag,
-}: {
-  eventId: string;
-  threadId: string | null;
-  returningFlag: ReturningClientFlag | null;
-}) {
-  const actionBase =
-    'inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors';
-
+function ReturningMarker({ returningFlag }: { returningFlag: ReturningClientFlag | null }) {
+  if (!returningFlag) return null;
   return (
     <ShopCard>
-      {returningFlag ? (
-        <div className="mb-3 flex items-start gap-3 rounded-xl border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5">
-          <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
-            <History aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-mulberry">
-              Returning client · you&rsquo;ve worked together before
-            </p>
-            <p className="mt-0.5 text-xs text-ink/65">
-              {returningFlag.prior_event_display_name ? (
-                <>
-                  Previously booked you for{' '}
-                  <span className="font-medium text-ink/80">
-                    {returningFlag.prior_event_display_name}
-                  </span>
-                  {returningFlag.prior_event_date
-                    ? ` · ${fmtShortDate(returningFlag.prior_event_date)}`
-                    : ''}
-                  .
-                </>
-              ) : (
-                'This couple has booked you on a previous event.'
-              )}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}`}
-            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
-          >
-            <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
-          </Link>
-        ) : null}
-        {/* 📵 "Call" (→ the chat's call panel) is gone with the panel — owner 2026-10-28, "remove both voice and video call". */}
-        <Link
-          href={
-            threadId
-              ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : customerLandingHref('proposals')
-          }
-          className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
-        >
-          <FileText aria-hidden className="h-3.5 w-3.5" /> Quote
-        </Link>
-        <Link
-          href={`/vendor-dashboard/clients/${eventId}?tab=files`}
-          className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
-        >
-          <Paperclip aria-hidden className="h-3.5 w-3.5" /> Files
-        </Link>
-        <span
-          aria-current="page"
-          className={`${actionBase} cursor-default border-ink/15 bg-ink/5 text-ink/55`}
-        >
-          <Info aria-hidden className="h-3.5 w-3.5" /> Details
+      <div className="flex items-start gap-3 rounded-xl border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-mulberry/10 text-mulberry">
+          <History aria-hidden className="h-4 w-4" strokeWidth={2} />
         </span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-mulberry">
+            Returning client · you&rsquo;ve worked together before
+          </p>
+          <p className="mt-0.5 text-xs text-ink/65">
+            {returningFlag.prior_event_display_name ? (
+              <>
+                Previously booked you for{' '}
+                <span className="font-medium text-ink/80">
+                  {returningFlag.prior_event_display_name}
+                </span>
+                {returningFlag.prior_event_date
+                  ? ` · ${fmtShortDate(returningFlag.prior_event_date)}`
+                  : ''}
+                .
+              </>
+            ) : (
+              'This couple has booked you on a previous event.'
+            )}
+          </p>
+        </div>
       </div>
     </ShopCard>
   );
@@ -2739,7 +2692,6 @@ function OverviewTab(props: {
   headcountRule: SupplierHeadcount | null;
   /** The couple's words for roles, for the rule's line. */
   headcountNames: RoleNames | null;
-  threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
   paletteEntries: { key: string; label: string; colors: string[] }[];
@@ -2806,7 +2758,6 @@ function OverviewTab(props: {
     brief,
     headcountRule,
     headcountNames,
-    threadId,
     returningFlag,
     isBooked,
     paletteEntries,
@@ -2838,11 +2789,7 @@ function OverviewTab(props: {
     <div className="space-y-4">
       {/* Returning-client marker + quick-action bar (Relationship Workspace ·
           Details tab, PR 5). Additive — sits at the top of the Overview. */}
-      <ReturningMarkerAndActions
-        eventId={eventId}
-        threadId={threadId}
-        returningFlag={returningFlag}
-      />
+      <ReturningMarker returningFlag={returningFlag} />
 
       {/* Imported hint (invite the couple to Setnayan). */}
       {isImported ? (

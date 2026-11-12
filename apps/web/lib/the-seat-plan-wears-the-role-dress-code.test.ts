@@ -109,7 +109,7 @@ test('nothing picked for the role: the room keeps the role\'s own person, and th
   assert.deepEqual(none.seat, { attire: 'suit', said: null });
   assert.deepEqual(none.words, { wear: OUTFIT_NOT_SET, from: OUTFIT_SET_IN, said: false });
   assert.equal(OUTFIT_NOT_SET, 'Not set yet');
-  assert.equal(OUTFIT_SET_IN, 'Set it in Studio › Palette + Dress Code'); // the tile's name since 2026-10-28 ("DRESS CODE STAYS IN STUDIO, WITH THE PALETTE")
+  assert.equal(OUTFIT_SET_IN, 'Set it in Event Hub › Dress code'); // Studio is gone (2026-11-10): the Dress code scene opens Palette + Dress Code
   /* a Nikah wali is a man by his role, so he is not left a blank token */
   assert.deepEqual(dress('wali' as GuestRole, who(null), {}).seat, { attire: 'suit', said: null });
 });

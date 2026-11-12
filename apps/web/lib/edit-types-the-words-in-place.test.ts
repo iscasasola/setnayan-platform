@@ -123,7 +123,7 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
       React.createElement(StageEdit, { fields, tapped, onType: () => {}, onKeep: keep }),
     );
   const rowsOf = (html: string) => [...html.matchAll(/class="([^"]*)" data-stage-edit-row="([a-z]+)"(?: data-stage-edit-words="([a-z_]+)")?/g)].map((m) => ({ row: /row-start-(\d)/.exec(m[1]!)?.[1], kind: m[2], id: m[3] ?? null }));
-  const door = { kind: 'studio' as const, words: 'Open in Studio › Info', open: () => {} };
+  const door = { kind: 'studio' as const, words: 'Open Info', open: () => {} };
 
   /* A part of ONE text (the names): the field in row 1, and NO door though it has one.
      (🔁 Re-aimed 2026-10-11 (DECISION_LOG "IN THE MAKER, A SCENE IS MOVED BY DRAGGING IT ON THE PAGE AND REMOVED BY DROPPING IT ON A BIN"): row 4 held ↑ Earlier · ↓ Later · Remove; a scene is now held on the
@@ -145,10 +145,10 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
   assert.deepEqual(rowsOf(draw(four)).map((r) => r.row), ['1', '2', '3']);
 
   /* A part with NO text the page draws (the Schedule): its ONE door in row 1. */
-  setStagePanelNow({ picked: 'schedule', quiet: { kind: 'studio', words: 'Open in Studio › Schedule', open: () => {} }, about: null });
+  setStagePanelNow({ picked: 'schedule', quiet: { kind: 'studio', words: 'Open Schedule', open: () => {} }, about: null });
   const jump = draw([]);
   assert.deepEqual(rowsOf(jump), [{ row: '1', kind: 'door', id: null }]);
-  assert.equal((jump.match(/aria-label="Open in Studio › Schedule"/g) ?? []).length, 1, 'the door is not ONE button');
+  assert.equal((jump.match(/aria-label="Open Schedule"/g) ?? []).length, 1, 'the door is not ONE button');
   assert.doesNotMatch(jump, /data-form-row-pill/);
   /* No Add, on any of them (the ＋ on the page stays the way to add a part). */
   for (const html of [one, draw(own), jump]) {
@@ -169,7 +169,7 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     ['dress', 'Palette + Dress Code'],
   ];
   for (const [k, page] of jumps) {
-    assert.equal(makerPartQuietRow(k)?.words, `Open in Studio › ${page}`, `${k}: its door`);
+    assert.equal(makerPartQuietRow(k)?.words, `Open ${page}`, `${k}: its door`);
     assert.equal(makerPartSource(k).kind, 'studio');
   }
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
@@ -188,14 +188,14 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     const src = makerPartSource(k);
     const want =
       src.kind === 'studio'
-        ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
+        ? `Open ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
         : src.kind === 'supplier'
           ? 'Change it in Suppliers'
           : src.kind === 'guests'
             ? MAKER_GUESTS_DOOR_WORDS
             : src.kind === 'guests-view'
               ? MAKER_GUESTS_VIEW_DOOR_WORDS[src.view]
-              : 'Open in Studio › Info';
+              : 'Open Info';
     assert.equal(q.words, want, `${k}: “${q.words}”`);
     assert.ok(q.words.length <= 40, `${k}: the door does not fit one row`);
   }
@@ -291,7 +291,7 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
   assert.match(mark, /<span class="[^"]*" data-stage-about=""><button[^>]*data-explain=""[^>]*aria-label="About Digital pass"[^>]*aria-haspopup="dialog"/, 'the ⓘ is not the app’s explanation template, named for the part');
   assert.equal(renderToStaticMarkup(React.createElement(QuietBar)), '', 'a row holding only a name and an ⓘ is back');
   /* A part with a door AND sentences: the door alone in the row, the sentences behind the same ⓘ. */
-  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open in Studio › E-Gifts', open: () => {} }, about: SAID });
+  setStagePanelNow({ picked: 'gifts', quiet: { kind: 'studio', words: 'Open E-Gifts', open: () => {} }, about: SAID });
   const row = renderToStaticMarkup(React.createElement(QuietBar));
   assert.equal((row.match(/<button/g) ?? []).length, 1, 'the door’s row holds something beside the door');
   assert.doesNotMatch(row, /data-explain|data-stage-about/, 'an ⓘ is back in the door’s row');

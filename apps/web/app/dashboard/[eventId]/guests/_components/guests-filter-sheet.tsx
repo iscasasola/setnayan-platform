@@ -4,6 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { PlusOneFilter } from '@/lib/guest-roster-view';
 import { guestsFilterIsOn, type GuestsFilter } from '@/lib/guests-filter';
+import type { PaxListService, PaxPick } from '@/lib/guest-pax-filter';
 import { FilterFace } from './guests-filter-menu';
 
 /**
@@ -12,6 +13,7 @@ import { FilterFace } from './guests-filter-menu';
  *
  * One sheet from the bottom, in thumb reach: "Show & sort · N applied", then two topics —
  *   Who you see          Show ▾ · +1s ▾ (only when the list has +1s)
+ *   Who each service counts   one ▾ per per-head service (owner 2026-11-12) — only when the event has one
  *   How it is laid out   Group by ▾ · Sort ▾
  * — each set of choices ONE dropdown (the shipped `ChosenRow`: a PickMenu in a Form row, title + one line, the rest in
  * ⓘ), and at the foot "Clear all" + "Show N guests". The options and their rules are the shipped ones, unchanged
@@ -34,6 +36,14 @@ export type GuestsFilterSheetProps = {
   plus: { value: PlusOneFilter | null; onPick: (next: PlusOneFilter | null) => void } | null;
   /** 📥 "Asking to join · N" inside Show (the couple, R4 slice 11) — null when it is not offered. */
   asking: { label: string; on: boolean; onPick: () => void } | null;
+  /** 🍽 One row per PER-HEAD service — "Catering ▾ Everyone · Counted · Not counted" (owner 2026-11-12,
+      `lib/guest-pax-filter.ts`). Null when the event has none (no topic is drawn). `count` = the guests a pick shows. */
+  pax: {
+    services: readonly PaxListService[];
+    value: PaxPick | null;
+    count: (pick: PaxPick) => number;
+    onPick: (next: PaxPick | null) => void;
+  } | null;
   /** How many guests the list shows now — "Show N guests". */
   shown: number;
   /** ✕ Clear all — every choice back to the plain list. */
@@ -51,7 +61,7 @@ export function GuestsFilterSheet({
 }) {
   const [open, setOpen] = useState(false);
   // The dot only — the count ("· N applied") is the panel's, so it loads with it.
-  const on = guestsFilterIsOn(props.filter, 'list') || Boolean(props.plus?.value) || Boolean(props.asking?.on);
+  const on = guestsFilterIsOn(props.filter, 'list') || Boolean(props.plus?.value) || Boolean(props.asking?.on) || Boolean(props.pax?.value);
   return (
     <>
       <button

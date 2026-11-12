@@ -9,6 +9,9 @@
  *   ?m=new      the Form Maker, new and empty
  *   ?m=report   Clients › <client> › Report (`ReportForm`)
  *   ?m=couple   the couple answering a sent form in the supplier's room (`SupplierFormAnswers`)
+ *   ?m=view     📋 Piece 3a — a library form opened READ-ONLY first (`FormViewSheet`: Edit · Send to chat)
+ *   ?m=edit     📋 Piece 3a — its Edit: the Maker on a copy "for Reyes & Santos" with "Also keep in my library"
+ *   ?m=couple-list  📋 Piece 3a — the couple's one "Forms from <shop>" list (`FormsFromShopList`)
  * Buttons post the REAL actions; pressing them here needs a session (the lab draws, it does not save).
  * Names are samples: nobody real.
  */

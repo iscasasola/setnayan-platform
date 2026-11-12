@@ -47,7 +47,12 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_profiles: eqUid('user_id'),
   // two reads: the lines the subject WROTE, and (RA 10173 access right, Build 3 lane B round 3) the private
   // lines sent TO them — recipient_user_id is the person a private line is about, as much as its sender.
-  chat_messages: new RegExp(String.raw`\.eq\(\s*'(sender_user_id|recipient_user_id)'\s*,\s*${UID}\s*\)`),
+  // 💬 2026-11-12 (20271340374819): a private line may go to SEVERAL people, so the received read is
+  // `.contains('recipient_user_ids', [user.id])` — still exactly the subject, never a wider set.
+  chat_messages: new RegExp(
+    String.raw`\.eq\(\s*'(sender_user_id|recipient_user_id)'\s*,\s*${UID}\s*\)` +
+      String.raw`|\.contains\(\s*'recipient_user_ids'\s*,\s*\[\s*${UID}\s*\]\s*\)`,
+  ),
   orders: eqUid('user_id'),
   payments: eqUid('user_id'),
   guest_face_enrollments: /\.in\(\s*'guest_id'\s*,\s*ownGuestIds\s*\)/, // pinned below

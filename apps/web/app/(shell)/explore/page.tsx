@@ -3834,12 +3834,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   )}
                   detailsEnabled
                   detailsHref={serviceCardAddress(c)}
+                  path={displayServiceLabel(c.row.category)}
+                  coverUrl={serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null}
                   shop={{
                     name: c.businessName,
                     href: shopAddress(c.businessSlug),
                     logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
                     city: c.locationCity,
                     isDemo: c.isDemo,
+                    verified: c.verified,
                   }}
                 />
               </li>

@@ -429,7 +429,7 @@ test('ANTI-VACUITY: the tax-identity scan sees the known readers', () => {
   // explore catalogue's next_renewal_due_at read are both on vendor_profiles.
   assert.ok(TAX_SITES.length >= 3, `only ${TAX_SITES.length} tax-identity read sites found — the scanner is blind`);
   const files = new Set(TAX_SITES.map((s) => s.file));
-  assert.ok(files.has('app/(shell)/explore/page.tsx'), 'the scan no longer sees the explore catalogue read');
+  assert.ok(files.has('app/(shell)/explore/_lib/marketplace-view.tsx'), 'the scan no longer sees the explore catalogue read'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   const fixture = [
     "import { createClient } from '@/lib/supabase/server';",
     'export async function bad() {',

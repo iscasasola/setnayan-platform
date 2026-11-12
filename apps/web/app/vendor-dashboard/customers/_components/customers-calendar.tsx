@@ -507,7 +507,12 @@ export function CustomersCalendar({
             type="button"
             className="sn-press min-h-0 font-semibold text-sn-accent underline-offset-2 hover:underline"
             disabled={rereading}
-            onClick={() => startReread(() => router.refresh())}
+            onClick={() =>
+              startReread(() => {
+                // one-render: keep (retry) — nothing was written here; the hours read is asked again after a refusal.
+                router.refresh();
+              })
+            }
             data-testid="dates-hours-try-again"
           >
             {rereading ? 'Reading…' : 'Try again'}

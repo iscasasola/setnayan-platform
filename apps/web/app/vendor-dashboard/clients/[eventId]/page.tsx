@@ -1870,7 +1870,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           const pay = b.topUp ? settlePays.get(b.orderId) : undefined;
           if (!pay) return null;
           const copy = feeDueCopy(b, manilaToday(), feeEnforced);
-          return (accent: string) => (
+          return function topUpSettleDoor(accent: string) {
+            return (
             <TopUpSettleSheet
               orderId={b.orderId}
               label={copy.payLabel ?? 'Settle'}
@@ -1880,7 +1881,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               coupleName={b.coupleName}
               pay={pay}
             />
-          );
+            );
+          };
         }}
       />
       <WaivedFeeRows charges={clientWaived} />

@@ -33,6 +33,19 @@ Tests: `tests/db/a-top-up-is-held-until-the-event-day.db.test.ts` (12, replayed 
   featured story (`readOverdueTopUpEventIds`). Same switch as the event gate: with the fee lock off, nothing is unlisted.
 - **A moved event moves its top-up**: a trigger re-stamps every still-owing top-up when `events.event_date` changes.
 
+- **The settle sheets say WHERE to pay** (owner 13 Nov: *"how can they settle if they do not have the QR Code or
+  information where to pay"*; prototype `booking_fee_top_up_2026-11-13` "Where to pay (under Pay by)"). A top-up bill's
+  door on the client page ("Settle early" held · "Settle" due/overdue) now opens one sheet (`top-up-settle-sheet.tsx`),
+  and the carry-over sheet gains the same part: **Pay by ▾** (one `PickMenu`, the admin's OPEN receiving accounts in
+  admin order, first selected, in the rail cards' words — `railCardWords`, now shared with `ChannelToggle`) · "how you
+  pay Setnayan" · the SHIPPED `PaymentDetailsBlock` (reference + Copy · the QR with the amount · "or send to our number"
+  · name / number / exact amount, each with Copy · Open GCash) · Receipt · Add (the shipped proof stage on /pay) · the
+  main button · Not now. One paying style (owner 20 Sep): the figure is /pay's own (`fetchPayableByReference`) and
+  each code is minted on the server (`lib/booking-fee-settle-pay.server.ts`). A carry-over of SEVERAL overdue bills keeps
+  its shipped door (a code carries one bill's figure, never a sum); a failed read keeps the shipped door too.
+  `PaymentDetailsBlock`'s account name and number now WRAP instead of truncating (every surface). Guard:
+  `app/_components/payment/the-settle-sheet-says-where-to-pay.test.ts`.
+
 SPEC IMPACT: None — implements the 2026-11-12 DECISION_LOG row as written. Still NOT uncounted: the raw star
 histogram on the shop page and the marketplace's sort-by-rating, both of which read the unfiltered
 `vendor_review_stats` (which already counts reviews the trusted stars exclude).

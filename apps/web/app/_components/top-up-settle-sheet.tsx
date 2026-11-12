@@ -10,7 +10,7 @@
  * Every peso and every word is handed in by the server (`feeDueCopy`, `readSettlePay`); nothing is priced here.
  */
 import { useState } from 'react';
-import { Wallet } from 'lucide-react';
+import { Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { SettlePayBy, type SettlePay } from '@/app/_components/payment/settle-pay-by';
@@ -83,7 +83,7 @@ export function TopUpSettleSheet({
               href={pay.receiptHref}
               className="!h-12 w-full"
             />
-            <ActionButton tone="neutral" label="Not now" onClick={() => setOpen(false)} className="!h-11 w-full" />
+            <ActionButton tone="neutral" quiet icon={<X aria-hidden strokeWidth={1.9} />} label="Not now" onClick={() => setOpen(false)} className="!h-11 w-full" />
           </div>
         </div>
       </Sheet>

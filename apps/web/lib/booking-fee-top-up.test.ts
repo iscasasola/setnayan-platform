@@ -175,3 +175,24 @@ test('rule 6 · a dropped quote shows no credit — no app or lib file reads the
     .map((f) => relative(WEB, f));
   assert.deepEqual(hits, [], `a booking-fee credit reached a screen: ${hits.join(', ')}`);
 });
+
+/* ── Unlisted and uncounted: the PUBLIC page leaves the event out ───────────────────────────────────────────────── */
+
+test('the public shop page leaves out the review, page photos, hero and featured story of an unlisted event', () => {
+  // SABOTAGE: drop any one of the four uses of `unlistedEvents` / `unlistedPageRefs` on the page → RED.
+  const page = read('app/v/[slug]/page.tsx');
+  assert.match(page, /const unlistedEvents = await readOverdueTopUpEventIds\(vendor\.vendor_profile_id, /);
+  assert.match(page, /fetchReviewsForVendorWithCouple\(admin, vendor\.vendor_profile_id, \{ limit, offset: 0, excludeEventIds: \[\.\.\.unlistedEvents\] \}\)/);
+  assert.match(page, /if \(pinnedOutsideWindow\?\.event_id && unlistedEvents\.has\(pinnedOutsideWindow\.event_id\)\) pinnedOutsideWindow = null;/);
+  assert.match(page, /resolvePortfolioPhotos\(\(vendor\.portfolio_r2_keys \?\? \[\]\)\.filter\(\(k: string\) => !unlistedPageRefs\.has\(k\)\)\)/);
+  assert.match(page, /unlistedPageRefs\.has\(microsite\.heroPhotoKey\)/);
+  assert.match(page, /\.filter\(\(id\) => !unlistedEvents\.has\(id\)\)/);
+  const sheet = read('lib/supplier-sheet-read.ts');
+  assert.match(sheet, /excludeEventIds: \[\.\.\.unlisted\]/);
+});
+
+test('the review list keeps a review whose celebration was deleted (NULL event) when it excludes events', () => {
+  // `event_id NOT IN (…)` alone is NULL for a NULL event_id and would silently drop every orphaned review.
+  const reviews = read('lib/reviews.ts');
+  assert.match(reviews, /q\.or\(`event_id\.is\.null,event_id\.not\.in\.\(\$\{skip\.join\(','\)\}\)`\)/);
+});

@@ -24,6 +24,15 @@ each surface says. Nothing new is priced; every figure is the charge row's own.
 
 Tests: `tests/db/a-top-up-is-held-until-the-event-day.db.test.ts` (12, replayed SQL) · `lib/booking-fee-top-up.test.ts` (12).
 
-SPEC IMPACT: None — implements the 2026-11-12 DECISION_LOG row as written. Not built (flagged on the PR): the PUBLIC
-side of "unlisted and uncounted" (the shop page's photos from that event and its review in the rating), and opening
-the guest-list repricer to BOOKED quotes (`quote_follow_guest_count` still skips `deal_locked`).
+- **Unlisted and uncounted, on the PUBLIC side too** (owner approved 12 Nov). Migration
+  `20271341273990_an_overdue_top_up_unlists_the_event.sql`: one predicate, `booking_fee_top_up_overdue(shop, event)`,
+  takes that event's review out of the shop's public stars (`vendor_trusted_review_stats`) and the card's
+  (`vendor_service_trusted_review_stats`); settling re-reads the stars at once (a trigger on the charge), and a daily
+  request-driven job (`booking-fee-top-up-unlist`) catches the day a held top-up becomes overdue. The public shop page
+  leaves out that event's review (list and pin), the photos put on the page from it, the hero if it is one, and its
+  featured story (`readOverdueTopUpEventIds`). Same switch as the event gate: with the fee lock off, nothing is unlisted.
+- **A moved event moves its top-up**: a trigger re-stamps every still-owing top-up when `events.event_date` changes.
+
+SPEC IMPACT: None — implements the 2026-11-12 DECISION_LOG row as written. Still NOT uncounted: the raw star
+histogram on the shop page and the marketplace's sort-by-rating, both of which read the unfiltered
+`vendor_review_stats` (which already counts reviews the trusted stars exclude).

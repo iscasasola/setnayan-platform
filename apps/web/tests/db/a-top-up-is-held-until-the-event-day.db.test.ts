@@ -296,3 +296,61 @@ test('a moved event day moves its still-owing top-up with it — a settled one s
   await db.query(`UPDATE public.events SET event_date = $1::date WHERE event_id = $2`, [await manilaDay(60), eventId]);
   assert.equal((await charges(evId)).find((c) => c.kind === 'amendment_delta')!.due, settledDue, 'a settled top-up moved');
 });
+
+/* ── Unlisted and uncounted: an overdue top-up takes that event's review out of the public stars ────────────────── */
+
+async function stars(vendorProfileId: string): Promise<number> {
+  const r = await db.query<{ n: number }>(
+    `SELECT COALESCE((SELECT trusted_review_count FROM public.vendor_trusted_review_stats WHERE vendor_profile_id = $1), 0)::int AS n`,
+    [vendorProfileId],
+  );
+  return r.rows[0]!.n;
+}
+
+test('an OVERDUE top-up uncounts that event’s review from the public stars; settling counts it again', async () => {
+  // SABOTAGE: drop the ⟵ TOP-UP line from vendor_trusted_review_stats → RED.
+  const { vendorProfileId, eventId, evId } = await paidThenRise(await manilaDay(10));
+  const couple = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [`${uniq()}@couple.test`],
+  );
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'couple')`, [eventId, couple.rows[0]!.id]);
+  await db.query(
+    `INSERT INTO public.vendor_reviews (vendor_profile_id, event_id, couple_user_id, rating_overall,
+       rating_communication, rating_quality, rating_value, rating_on_time, body)
+     VALUES ($1,$2,$3,5,5,5,5,5,'Wonderful.')`,
+    [vendorProfileId, eventId, couple.rows[0]!.id],
+  );
+  await db.query(`UPDATE public.platform_settings SET fee_unlocks_event_enforced = TRUE WHERE id = 1`);
+  try {
+    await db.query(`SELECT public.booking_fee_top_up_refresh_stars()`);
+    const counted = await stars(vendorProfileId);
+    assert.ok(counted >= 1, 'the review is counted while the top-up is only held');
+
+    const id = await db.query<{ charge_id: string }>(
+      `SELECT charge_id FROM public.booking_fee_charges WHERE event_vendor_id = $1 AND kind = 'amendment_delta'`,
+      [evId],
+    );
+    await db.query(`UPDATE public.booking_fee_charges SET expires_at = NOW() - INTERVAL '2 days' WHERE charge_id = $1`, [id.rows[0]!.charge_id]);
+    const overdue = await db.query<{ o: boolean }>(`SELECT public.booking_fee_top_up_overdue($1,$2) AS o`, [vendorProfileId, eventId]);
+    assert.equal(overdue.rows[0]!.o, true);
+    await db.query(`SELECT public.booking_fee_top_up_refresh_stars()`);
+    assert.equal(await stars(vendorProfileId), counted - 1, 'an overdue top-up left its review in the stars');
+
+    // Settling flips the status → the trigger re-reads the stars at once.
+    await db.query(`SELECT public.booking_fee_settle_charge($1,'manual','ORD-STARS')`, [id.rows[0]!.charge_id]);
+    assert.equal(await stars(vendorProfileId), counted, 'settling did not count the review again');
+  } finally {
+    await db.query(`UPDATE public.platform_settings SET fee_unlocks_event_enforced = NULL WHERE id = 1`);
+  }
+});
+
+test('with the fee lock switched off, nothing is ever unlisted', async () => {
+  const { vendorProfileId, eventId, evId } = await paidThenRise(await manilaDay(10));
+  await db.query(
+    `UPDATE public.booking_fee_charges SET expires_at = NOW() - INTERVAL '2 days' WHERE event_vendor_id = $1 AND kind = 'amendment_delta'`,
+    [evId],
+  );
+  const r = await db.query<{ o: boolean }>(`SELECT public.booking_fee_top_up_overdue($1,$2) AS o`, [vendorProfileId, eventId]);
+  assert.equal(r.rows[0]!.o, false);
+});

@@ -59,7 +59,7 @@ test('the sample size actually reaches the card', () => {
   // …and the page reads the column at all. A floor fed by a column nobody
   // selects is a floor that silently switches the feature off — the same shape
   // as a phantom column, refused rather than thrown.
-  const page = code('app/(shell)/explore/page.tsx');
+  const page = code('app/(shell)/explore/_lib/marketplace-view.tsx'); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   assert.match(
     page,
     /avg_response_minutes, replied_thread_count'/,

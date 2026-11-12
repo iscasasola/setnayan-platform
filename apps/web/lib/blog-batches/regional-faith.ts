@@ -686,7 +686,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare real venues and suppliers side by side, commission-free.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

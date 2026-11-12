@@ -101,7 +101,7 @@ test('an explicit choice is honoured, case and padding forgiven', () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
 const page = () =>
-  stripComments(readFileSync(join(WEB, 'app/(shell)/explore/page.tsx'), 'utf8'));
+  stripComments(readFileSync(join(WEB, 'app/(shell)/explore/_lib/marketplace-view.tsx'), 'utf8')); // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
 
 test('the page uses the resolver rather than re-spelling the rule', () => {
   const s = page();

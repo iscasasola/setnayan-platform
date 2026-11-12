@@ -238,7 +238,9 @@ test('an unknown address keeps only route words; public marketing pages stay exa
   assert.equal(await visitRoutePattern('/v/bituin-catering'), '/v/[slug]');
   const unknown = await visitRoutePattern('/nobody-knows/maria-santos-private/09171234567');
   assert.ok(unknown && !/maria|santos|0917/.test(unknown), `an unknown path leaked: ${unknown}`);
-  for (const p of ['/', '/pricing', '/features', '/for-suppliers', '/explore', '/privacy', '/terms', '/login']) {
+  // 🔄 2026-11-12: '/explore' left — it is no longer a page (it forwards 308 to Discover `/` before any visit is
+  // counted; Find suppliers moved inside Discover), so the route map rightly no longer knows it.
+  for (const p of ['/', '/pricing', '/features', '/for-suppliers', '/privacy', '/terms', '/login']) {
     assert.equal(await visitRoutePattern(p), p, `${p} must stay exact`);
   }
 });

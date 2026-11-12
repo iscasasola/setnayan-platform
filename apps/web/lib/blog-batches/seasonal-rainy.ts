@@ -214,7 +214,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse verified Philippine venues and ask each one your power and wet-weather questions before you commit.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -358,7 +358,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare verified Filipino wedding suppliers by city and category before the ber-month calendars fill up.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -627,7 +627,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare verified Philippine venues and suppliers by date and see what off-peak availability really looks like.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -704,7 +704,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse verified Filipino suppliers and put these questions to each one before you commit.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

@@ -33,7 +33,12 @@ import { SETTINGS_GO_EVENT, SETTINGS_GROUP_ICONS, SETTINGS_SHOWN_EVENT } from '.
 
 const SETTINGS_PATH = '/dashboard/profile';
 
-export function SettingsRailContext() {
+export function SettingsRailContext({
+  at = SETTINGS_PATH,
+}: {
+  /** The page these rows belong to. Only `/dev/account-lab` passes it (its own address); the layout never does. */
+  at?: string;
+} = {}) {
   const pathname = usePathname() ?? '';
   const searchParams = useSearchParams();
   const fromUrl = searchParams?.get('tab');
@@ -48,7 +53,7 @@ export function SettingsRailContext() {
     return () => window.removeEventListener(SETTINGS_SHOWN_EVENT, onShown);
   }, []);
 
-  if (pathname !== SETTINGS_PATH) return null;
+  if (pathname !== at) return null;
 
   return (
     <div className="hidden tab:contents" data-settings-rail="">
@@ -61,7 +66,7 @@ export function SettingsRailContext() {
         return (
           <a
             key={id}
-            href={`${SETTINGS_PATH}?tab=${id}`}
+            href={`${at}?tab=${id}`}
             className="fd-row"
             data-on={on ? 'true' : 'false'}
             aria-current={on ? 'page' : undefined}

@@ -655,6 +655,9 @@ export function CategorySearchOverlay({
               href={`/dashboard/${eventId}/studio/setnayan-ai`}
             />
           </div>
+        ) : results.length === 0 && nobodyFree ? (
+          // 2026-11-13 "we only show what fits": the date hide emptied the list — say WHO is missing and WHY.
+          <div className="empty" data-find-empty="nobody_free">{nobodyFree}</div>
         ) : results.length === 0 ? (
           // Two different facts, two different sentences (2026-07-29). The
           // shipped copy always said "try a different search, or widen your
@@ -664,9 +667,7 @@ export function CategorySearchOverlay({
           // reads as a broken screen; saying the category is still filling up
           // is the same news, told truthfully.
           <div className="empty">
-            {nobodyFree ? (
-              nobodyFree
-            ) : query.trim() || filterCount > 0 ? (
+            {query.trim() || filterCount > 0 ? (
               <>
                 No {label.toLowerCase()} suppliers match yet. Try a different
                 search, or widen your filters.

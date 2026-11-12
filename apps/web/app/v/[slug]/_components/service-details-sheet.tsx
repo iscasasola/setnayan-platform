@@ -256,6 +256,8 @@ export function ServiceDetailsSheet({
   const hidable = (key: string | null, label: string, className: string, inner: ReactNode) => {
     if (!curating || key === null) return <div className={className}>{inner}</div>;
     const h = isHidden(key);
+    // A tile fills its square (the label sits over its foot); a row keeps the label at its end.
+    const tile = className.includes('absolute inset-0');
     return (
       <button
         type="button"
@@ -268,13 +270,17 @@ export function ServiceDetailsSheet({
         }}
         aria-pressed={h}
         aria-label={`${label} · ${h ? 'hidden on this card · tap to show it' : 'tap to hide it on this card'}`}
-        className={`${className} sn-press relative text-left`}
+        className={`${className} sn-press text-left${tile ? '' : ' relative'}`}
         data-card-hidable=""
         data-hidden={h ? '' : undefined}
       >
-        <span className={h ? 'block opacity-35 grayscale' : 'block'}>{inner}</span>
+        <span className={`${tile ? 'absolute inset-0 block' : 'block min-w-0 flex-1'}${h ? ' opacity-35 grayscale' : ''}`}>{inner}</span>
         {h ? (
-          <span className="pointer-events-none absolute inset-x-1 bottom-1 flex items-center justify-center gap-1 rounded-md bg-[var(--sn-canvas)]/90 px-1.5 py-0.5 text-[11px] font-medium text-ink/70">
+          <span
+            className={`pointer-events-none flex items-center justify-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-tight text-ink/70 ${
+              tile ? 'absolute inset-x-1 bottom-1 bg-[var(--sn-canvas)]/90 text-center' : 'shrink-0'
+            }`}
+          >
             <EyeOff aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
             Hidden on this card
           </span>
@@ -559,7 +565,7 @@ export function ServiceDetailsSheet({
               onClick={() => setCoupleView((v) => !v)}
               aria-pressed={coupleView}
               aria-label="Couple view · show the card without the hidden items"
-              className={roundBtn}
+              className={`${roundBtn}${coupleView ? ' !border-terracotta !bg-terracotta !text-white' : ''}`}
               data-grown-couple-view={coupleView ? 'on' : ''}
             >
               <Eye aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -701,11 +707,17 @@ export function ServiceDetailsSheet({
             }}
             data-grown-thumb="preview"
           >
-            <span aria-disabled="true" className={actionButtonClass('brand', { main: true, extra: 'w-full opacity-90' })}>
+            <button
+              type="button"
+              onClick={() => setTold('This is the couple’s button. On your own card it is a preview — it opens no chat.')}
+              aria-label="Inquire about this · Preview"
+              className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
+              data-grown-inquire-preview=""
+            >
               <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               <span>Inquire about this</span>
               <span className="ml-1 rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-medium">Preview</span>
-            </span>
+            </button>
           </div>
         ) : inquireMode !== 'none' ? (
           <div

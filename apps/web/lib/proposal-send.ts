@@ -1,4 +1,5 @@
 import { manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
+import { keepLineStructure, lineStructureOf } from '@/lib/quote-line-structure';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -493,6 +494,23 @@ export interface SendCustomProposalInput {
    * against a fresh read of the stock and the limit, and a refusal stops the send.
    */
   shopGiftCodes?: string[] | null;
+  /**
+   * 👥 PAX FOLLOWS THEIR GUEST LIST (owner 12 Nov 2026): the live count the maker read, the supplier's ONE quote-level
+   * minimum, and what it billed (= max of the two). Written into `merge_snapshot` as `billed_pax` / `min_pax` (no
+   * schema change); a revision re-opens at the same minimum. Absent = an older client: nothing is written.
+   */
+  pax?: { live: number; min: number; billed: number } | null;
+}
+
+/** The pax facts for `merge_snapshot` — whole non-negative counts, billed never below the minimum. {} when absent. */
+export function quotePaxSnapshot(pax: SendCustomProposalInput['pax']): { billed_pax?: number; min_pax?: number } {
+  if (!pax) return {};
+  const n = (v: unknown) => {
+    const x = Math.round(Number(v));
+    return Number.isFinite(x) && x >= 0 ? x : 0;
+  };
+  const min = n(pax.min);
+  return { billed_pax: Math.max(n(pax.billed), n(pax.live), min), min_pax: min };
 }
 
 /**
@@ -543,7 +561,8 @@ function sanitizeCustomLineItems(
         li?.amount_centavos == null || !Number.isFinite(Number(li.amount_centavos))
           ? null
           : intOrZero(li.amount_centavos);
-      return { label, detail: detailRaw && detailRaw.length > 0 ? detailRaw : null, amount_centavos: amount };
+      // 🧭 The line's pricing facts (card · basis · rate · offer) ride along, validated — lib/quote-line-structure.ts.
+      return { label, detail: detailRaw && detailRaw.length > 0 ? detailRaw : null, amount_centavos: amount, ...lineStructureOf(li) };
     })
     .filter((li) => li.label.length > 0);
 
@@ -597,7 +616,8 @@ export async function sendCustomProposalCore(
     eventId,
   });
   const enforced = applyFreeTransportToQuote(sanitized.lineItems, freeTransport);
-  const lineItems: ProposalLineItem[] = enforced.lineItems;
+  // The enforcement rebuilds each line bare; the pricing facts go back on, in order (a revision re-opens from them).
+  const lineItems: ProposalLineItem[] = keepLineStructure(sanitized.lineItems, enforced.lineItems);
   const totalCentavos = enforced.totalCentavos;
 
   // Payment schedule (§ 8) — RE-RESOLVE server-side from the drafts so the
@@ -680,6 +700,8 @@ export async function sendCustomProposalCore(
       merge_snapshot: {
         source: 'proposal_maker',
         resolved_at: new Date().toISOString(),
+        // 👥 Pax follows their guest list (owner 12 Nov): what this quote billed, and the supplier's ONE minimum.
+        ...quotePaxSnapshot(input.pax),
       },
       rendered_body: renderedBody,
       rendered_terms: '',

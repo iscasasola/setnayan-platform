@@ -66,9 +66,25 @@ import type { QuoteEventBrief } from '@/lib/quote-event-brief';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
 import { QuoteShopGifts, type QuoteShopGiftsBuy } from '@/app/_components/quote-shop-gifts';
-import { Package, Plus, Tag } from 'lucide-react';
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Package, Plus, Tag } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { useOneOpen } from '@/lib/one-open';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
-import { appliedOfferNow, offerLineItem, offersForQuote } from '@/lib/quote-offer-door';
+import { appliedOfferNow, offerLineItem, offersForQuote, partsWords, reachWords, type QuoteOfferFit } from '@/lib/quote-offer-door';
+import {
+  FIRST_OPEN,
+  billedPax,
+  lineIsOpen,
+  presetClash,
+  quoteMoney,
+  seedMinPax,
+  sendGate,
+  startFromOptions,
+  tapLine,
+  toggleAll,
+  type LineFold,
+} from '@/lib/quote-money';
+import { firstPaymentOf, giftName, type OfferGift } from '@/lib/offers';
 import { cardMakerFromQuote, quoteDraftKey, QUOTE_CARD_PARAM } from '@/lib/quote-card-return';
 import { parseSavedQuoteDraft } from '@/lib/saved-quote';
 import type { QuoteBundleSeed } from '@/lib/quote-from-bundle';
@@ -119,6 +135,8 @@ type Line = {
    * through, with a way back — it is left out of the total and of what is sent, never deleted under the supplier.
    */
   dropped?: boolean;
+  /** 🏷 The service card the line came from — an offer comes off its own cards' lines only (owner 12 Nov). */
+  cardId?: string | null;
 };
 
 type Crew = { mode: CrewMode; size: number; perHeadPhp: number };
@@ -188,7 +206,8 @@ function newLine(free: boolean): Line {
     free,
     flatPhp: free ? 0 : 5000,
     ratePhp: 200,
-    minPax: 100,
+    // 👥 No per-line minimum any more — the quote has ONE "Bill at least" (owner 12 Nov).
+    minPax: 0,
     basePhp: 20000,
     inclHours: 6,
     extraPhp: 2500,
@@ -201,7 +220,8 @@ function lineToRow(l: Line): PackageLinePricingRow {
     pricing_basis: l.basis === 'flat' ? 'fixed' : l.basis,
     replacement_value_centavos: toCentavos(l.flatPhp),
     per_pax_price_centavos: toCentavos(l.ratePhp),
-    min_pax: l.minPax > 0 ? Math.round(l.minPax) : null,
+    // The quote's ONE minimum is already in the billed pax the line is resolved at (`billedPax`).
+    min_pax: null,
     hour_base_centavos: toCentavos(l.basePhp),
     min_hours: l.inclHours > 0 ? Math.round(l.inclHours) : null,
     extra_hour_centavos: toCentavos(l.extraPhp),
@@ -217,8 +237,7 @@ function resolveLineCentavos(l: Line, pax: number, hours: number): number {
 function basisDetail(l: Line, pax: number, hours: number): string | null {
   if (l.free) return 'Complimentary';
   if (l.basis === 'per_pax') {
-    const billable = Math.max(pax, l.minPax || 0);
-    return `${formatCentavos(toCentavos(l.ratePhp))} × ${billable} pax`;
+    return `${formatCentavos(toCentavos(l.ratePhp))} × ${formatCount(pax)} pax`;
   }
   if (l.basis === 'per_hour') {
     const extra = Math.max(0, hours - (l.inclHours || 0));
@@ -238,47 +257,80 @@ function QuoteSection({
   id,
   title,
   hint,
+  info,
+  action,
+  pin = false,
   children,
 }: {
   id: string;
   title: string;
   hint?: string;
+  /** ⓘ The section's help, behind the ONE info dot (`InfoTip`) — the captions moved off the screen (design 12 Nov). */
+  info?: string;
+  /** One control at the heading's end (the lines' open-all / fold-all icon). */
+  action?: React.ReactNode;
+  /** The heading pins while its section scrolls (the "Pick service cards" heading, owner 12 Nov). */
+  pin?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section data-quote-section={id} aria-label={title} className="border-b border-ink/10">
-      <p className="flex items-baseline justify-between gap-3 px-4 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
-        <span>{title}</span>
-        {hint ? <span className="normal-case tracking-normal text-ink/40">{hint}</span> : null}
-      </p>
+      <div
+        className={`flex min-h-9 items-center justify-between gap-3 px-4 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45${pin ? ' sticky top-0 z-[2] bg-cream pb-1' : ''}`}
+        data-quote-section-head={pin ? 'pinned' : ''}
+      >
+        {info ? (
+          <InfoTip label={title} align="start">
+            <span className="block max-w-[16rem] text-xs normal-case tracking-normal text-ink/75">{info}</span>
+          </InfoTip>
+        ) : (
+          <span>{title}</span>
+        )}
+        <span className="flex items-center gap-2">
+          {hint ? <span className="normal-case tracking-normal text-ink/40">{hint}</span> : null}
+          {action}
+        </span>
+      </div>
       {children}
     </section>
   );
 }
 
-/** The three ways to be paid the prototype offers, plus whatever the supplier has built by hand. */
-type PlanPreset = 'p20' | 'half' | 'full';
-/** The prototype's final-payment timing for its plans, in days before the event. */
-const PLAN_FINAL_DAYS = 7;
-/** The prototype's three plans — each label is composed from the plan's own numbers, never typed beside them. */
-const PLAN_PRESETS: ReadonlyArray<{ key: PlanPreset; label: string; percent: number; finalDays: number }> = (
+/** The ways to be paid the approved design offers (12 Nov), plus "Custom" — whatever the supplier builds by hand. */
+type PlanPreset = 'p20' | 'p30' | 'half' | 'full';
+/**
+ * The design's plans — each label composed from the plan's own numbers, never typed beside them. A plan is a first
+ * payment on booking, an optional second payment a month out, and the auto Final balance (which always pays the rest).
+ */
+const PLAN_PRESETS: ReadonlyArray<{
+  key: PlanPreset;
+  label: string;
+  percent: number;
+  second: { percent: number; days: number } | null;
+  finalDays: number;
+}> = (
   [
-    ['p20', 20],
-    ['half', 50],
-    ['full', 100],
+    ['p20', 20, { percent: 40, days: 30 }, 14],
+    ['p30', 30, { percent: 35, days: 30 }, 14],
+    ['half', 50, null, 7],
+    ['full', 100, null, 7],
   ] as const
-).map(([key, percent]) => ({
+).map(([key, percent, second, finalDays]) => ({
   key,
   percent,
-  finalDays: PLAN_FINAL_DAYS,
+  second,
+  finalDays,
   label:
     percent === 100
       ? 'Full when they book'
-      : percent === 50
-        ? `Half to book · half ${PLAN_FINAL_DAYS} days before`
-        : `${percent}% to book · rest ${PLAN_FINAL_DAYS} days before`,
+      : second
+        ? `${percent}% to book · ${second.percent}% · ${100 - percent - second.percent}%`
+        : percent === 50
+          ? `Half to book · half ${finalDays} days before`
+          : `${percent}% to book · rest ${finalDays} days before`,
 }));
-
+/** The menu's last row — the rows below are the supplier's own (the Final balance stays auto). */
+const PLAN_CUSTOM = 'custom';
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 
@@ -477,8 +529,23 @@ export function ProposalMaker({
     here, and named in the header rather than left to be inferred.
   */
   const seedPax = livePax ?? requestedPax;
-  const [pax, setPax] = useState(seedPax);
+  /*
+    👥 PAX FOLLOWS THEIR GUEST LIST (owner 12 Nov 2026, verbatim: *"our quotation maker will follow their pax at auto.
+    but they will set the minimum count for their pax. it only goes up as their guests go up."*). No guests stepper:
+    the count is read live, the supplier sets ONE quote-level "Bill at least", and every per-pax line is priced at
+    billed = max(their count, the minimum). A revision opens at the minimum the replaced quote was sent with.
+  */
+  const [minPax, setMinPax] = useState(() => revision?.minPax ?? 0);
+  const pax = billedPax(seedPax, minPax);
   const [hours, setHours] = useState(requestedHours);
+  // 🪗 One line open at a time, the first open; the heading's icon opens / folds every line (owner 12 Nov).
+  const [fold, setFold] = useState<LineFold>(FIRST_OPEN);
+  // The lines join the ONE one-open set: opening another dropdown folds them (lib/one-open.ts).
+  const linesOpen = fold.mode === 'all' || fold.key !== null;
+  useOneOpen(linesOpen, () => setFold({ mode: 'one', key: null }));
+  // 📅 An early Send shakes the Valid until row (design 12 Nov); the server refuses a blank one regardless.
+  const [validNudge, setValidNudge] = useState(0);
+  const validRowRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Line[]>(() =>
     revision && revision.lines.length > 0
       ? revision.lines.map((s) => ({ ...s, key: nextKey() }))
@@ -538,7 +605,10 @@ export function ProposalMaker({
   const [reasonFromCard, setReasonFromCard] = useState(false);
   // 🏷 APPLY AN OFFER — the offer the supplier applied (its own named line), and the offer the CARD discount already is
   // (the seed's winner), so the same offer is never offered twice. Never applied automatically (prototype frame 6).
-  const [appliedOfferId, setAppliedOfferId] = useState<string | null>(null);
+  // A REVISION RE-APPLIES the offer its quote carried (owner 12 Nov: "that service's discount stays with it").
+  const [appliedOfferId, setAppliedOfferId] = useState<string | null>(() => revision?.offer?.id ?? null);
+  // 🎁 The Setnayan gift packs an applied offer put on the quote — taken off again when the offer is removed.
+  const [offerGiftCodes, setOfferGiftCodes] = useState<string[]>([]);
   const [cardOfferId, setCardOfferId] = useState<string | null>(null);
   // What the last door did, in one line ("Wedding pair · ₱46,500 · every line stays editable"), or why it could not.
   const [doorNote, setDoorNote] = useState<string | null>(null);
@@ -587,13 +657,22 @@ export function ProposalMaker({
     typed over the seed. Named for the seed, not for "the request", because
     those are no longer the same number.
   */
-  const atSeed = pax === seedPax && hours === requestedHours;
   /** The live count and the inquiry count actually differ and both are known. */
   const countsDiffer = livePax != null && livePax !== requestedPax;
 
+  // 🏷 The quote's card names (the offer's "on <card> only") and the gift names an offer's gifts are drawn with.
+  const cardName = (id: string) => cards.find((c) => c.id === id)?.label ?? 'its card';
+  const keptOffer = revision?.offer ?? null;
+  /** The line that opens first — the first priced line still on the quote. */
+  const firstLineKey = items.find((l) => !l.free && !l.dropped)?.key ?? null;
+  const giftCtx = {
+    packs: shopGifts?.packs ?? [],
+    addons: cards.flatMap((c) => c.addons.map((a) => ({ id: a.id, cardId: c.id, label: a.label, fromPhp: a.fromPhp }))),
+  };
+
   // Everything numeric flows through the shared resolver. Rebuilds only when a
   // pricing input changes.
-  const { subtotal, gross, credit, netPayable, lineItems, offerFits, appliedOffer } = useMemo(() => {
+  const { subtotal, afterOffer, discountOff, gross, credit, netPayable, lineItems, offerFits, appliedOffer, offerReach } = useMemo(() => {
     const crewRow: PackageLinePricingRow = {
       crew_meal_mode: crew.mode,
       crew_size: crew.size > 0 ? Math.round(crew.size) : 0,
@@ -610,14 +689,13 @@ export function ProposalMaker({
       .map((x) => ({ ...x.line, key: `x_${x.id}` }));
     const resolved = [...items.filter((l) => !l.dropped), ...extraLines].map((l) => ({ l, c: resolveLineCentavos(l, pax, hours) }));
     const linesSum = resolved.reduce((s, x) => s + x.c, 0);
-    // 🏷 THE OFFERS THAT FIT, priced by the Offer Maker's own functions against what the lines come to
-    // (lib/quote-offer-door.ts) — and the applied one, re-priced as the lines move (gone once it no longer fits).
+    // 🏷 THE OFFERS THAT FIT, priced by the Offer Maker's own functions against ONLY the lines of the cards each one
+    // reaches (lib/quote-offer-door.ts, owner 12 Nov) — and the applied one, re-priced as the lines move.
     const offerInput =
       doors?.offers.kind === 'read'
         ? {
             offers: doors.offers.offers,
-            cardIds: cards.filter((c) => pickedCards[c.id]).map((c) => c.id),
-            anchorPhp: linesSum / 100,
+            lines: resolved.map(({ l, c }) => ({ cardId: l.cardId ?? null, amountPhp: c / 100 })),
             today: doors.offers.today,
             eventDate,
             now: new Date(),
@@ -625,25 +703,53 @@ export function ProposalMaker({
           }
         : null;
     const fits = offerInput ? offersForQuote(offerInput) : [];
-    const applied = offerInput ? appliedOfferNow(appliedOfferId, offerInput) : null;
+    // A revision's offer stays with its quote: re-priced while it fits, at its stored amount once it no longer does.
+    const kept: QuoteOfferFit | null =
+      keptOffer && appliedOfferId === keptOffer.id
+        ? { id: keptOffer.id, name: keptOffer.name, words: (keptOffer.detail ?? '').replace(/ · offer$/, ''), offPhp: keptOffer.offPhp, reachesAll: true, reachIds: [], firstPayment: null, gifts: [] }
+        : null;
+    const applied = (offerInput ? appliedOfferNow(appliedOfferId, offerInput) : null) ?? kept;
+    const reach = applied && applied !== kept ? reachWords(applied, cardName) : null;
     const offerC = applied ? Math.round(applied.offPhp * 100) : 0;
     const charge = crewChargeCentavos(crewRow);
     const trans = transportChargeCentavos(transportRow);
-    const sub = linesSum + charge + trans;
-    const discountC = toCentavos(discountPhp);
-    const grs = Math.max(0, sub - discountC - offerC);
     const cr = crewCreditCentavos(crewRow);
-    const net = Math.max(0, grs - cr);
+    // 💸 OFFER FIRST, THEN THE TYPED DISCOUNT (owner 12 Nov) — one order, in lib/quote-money.ts.
+    const money = quoteMoney({
+      linesCentavos: linesSum,
+      chargesCentavos: charge + trans,
+      offerCentavos: offerC,
+      discountCentavos: toCentavos(discountPhp),
+      creditCentavos: cr,
+    });
 
-    // Compose the persisted itemization. Discount + crew-offset credit ride as
-    // NEGATIVE lines so the server's re-summed total equals net payable.
+    // Compose the persisted itemization. The offer, the discount and the crew-offset credit ride as NEGATIVE lines
+    // so the server's re-summed total equals net payable. Each priced line carries its card, basis and rate
+    // (lib/quote-line-structure.ts), so a revision re-opens it as it was priced.
     const li: ProposalLineItem[] = [];
     for (const { l, c } of resolved) {
       li.push({
         label: l.label.trim() || 'Line item',
         detail: basisDetail(l, pax, hours),
         amount_centavos: l.free ? null : c,
+        ...(l.cardId ? { card_id: l.cardId } : {}),
+        ...(l.free
+          ? {}
+          : l.basis === 'per_pax'
+            ? { basis: 'per_pax' as const, rate_centavos: toCentavos(l.ratePhp) }
+            : l.basis === 'per_hour'
+              ? { basis: 'per_hour' as const, rate_centavos: toCentavos(l.basePhp), incl_hours: Math.max(0, Math.round(l.inclHours)), extra_hour_centavos: toCentavos(l.extraPhp) }
+              : { basis: 'flat' as const }),
       });
+    }
+    // 🎁 AN OFFER'S GIFTS — each a "from offer" Complimentary line (a Setnayan gift pack rides the shop-gift block
+    // instead, where the send re-judges it against the stock and the limit).
+    if (applied) {
+      const names =
+        applied === kept
+          ? (keptOffer?.giftLabels ?? [])
+          : applied.gifts.filter((g) => g.kind !== 'sn').map((g) => giftName(g, giftCtx));
+      for (const name of names) li.push({ label: name, detail: `from offer · ${applied.name}`, amount_centavos: null, offer_id: applied.id });
     }
     if (crew.mode === 'charge' && charge > 0) {
       li.push({
@@ -657,7 +763,11 @@ export function ProposalMaker({
     } else if (transport.mode === 'distance') {
       li.push({ label: 'Transportation', detail: 'Quoted after site check', amount_centavos: null });
     }
-    if (discountC > 0) {
+    // 🏷 An applied offer is ITS OWN NAMED LINE on their quote — never folded into a price (prototype frame 6) — and it
+    // comes BEFORE the typed discount (owner 12 Nov: "offer first then typed discount").
+    const offerLine = applied && money.offer > 0 ? offerLineItem({ ...applied, offPhp: money.offer / 100 }, reach) : null;
+    if (offerLine) li.push(offerLine);
+    if (money.discount > 0) {
       // PR-C: on an attributed thread the discount IS the promised viewer
       // promo — label it so the customer quote reflects the chapter deal.
       li.push(
@@ -665,9 +775,9 @@ export function ProposalMaker({
           ? {
               label: 'Viewer promo',
               detail: viewerPromo.terms,
-              amount_centavos: -discountC,
+              amount_centavos: -money.discount,
             }
-          : { label: 'Discount', detail: discountReason, amount_centavos: -discountC },
+          : { label: 'Discount', detail: discountReason, amount_centavos: -money.discount },
       );
     } else if (viewerPromo) {
       // No peso amount entered yet — still reflect the promised promo on the
@@ -678,8 +788,6 @@ export function ProposalMaker({
         amount_centavos: null,
       });
     }
-    // 🏷 An applied offer is ITS OWN NAMED LINE on their quote — never folded into a price (prototype frame 6).
-    if (applied) li.push(offerLineItem(applied));
     if (crew.mode === 'offset' && cr > 0) {
       li.push({
         label: 'Crew meal — couple provides',
@@ -687,8 +795,65 @@ export function ProposalMaker({
         amount_centavos: -cr,
       });
     }
-    return { subtotal: sub, gross: grs, credit: cr, netPayable: net, lineItems: li, offerFits: fits, appliedOffer: applied };
-  }, [items, extras, extrasOn, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo, doors, cards, pickedCards, eventDate, appliedOfferId, cardOfferId]);
+    return {
+      subtotal: money.subtotal,
+      afterOffer: money.afterOffer,
+      discountOff: money.discount,
+      gross: money.total,
+      credit: cr,
+      netPayable: money.net,
+      lineItems: li,
+      offerFits: fits,
+      appliedOffer: applied ? { ...applied, offPhp: money.offer / 100 } : null,
+      offerReach: reach,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cardName / giftCtx read `cards` / `shopGifts`, listed
+  }, [items, extras, extrasOn, crew, transport, discountPhp, discountReason, pax, hours, viewerPromo, doors, cards, eventDate, appliedOfferId, cardOfferId, keptOffer, shopGifts]);
+
+  /** A seed's per-guest minimum becomes the quote's ONE "Bill at least" (none stated → the supplier's stays). */
+  const takeSeedMin = (lines: readonly { basis: string; minPax: number }[]) => {
+    const m = seedMinPax(lines);
+    if (m != null) setMinPax(m);
+  };
+
+  /*
+    🏷 APPLY (OR REMOVE) AN OFFER — only ever the supplier's pick (prototype frame 6: never automatic). Its parts land
+    where they belong: the price part is its own named line (the memo above); a lower first payment sets the plan's
+    first row (the presets that clash with it grey, with the reason); a Setnayan gift pack rides the shop-gift block,
+    where the send re-judges it; the shop's own extras and typed gifts are "from offer" Complimentary lines.
+  */
+  const applyOffer = (id: string | null) => {
+    const fit = id ? (offerFits.find((f) => f.id === id) ?? null) : null;
+    const packs = fit && shopGifts ? fit.gifts.flatMap((g: OfferGift) => (g.kind === 'sn' ? [g.code] : [])) : [];
+    setShopGiftCodes((codes) => {
+      const next = [...codes];
+      for (const code of offerGiftCodes) {
+        const at = next.indexOf(code);
+        if (at >= 0) next.splice(at, 1);
+      }
+      return [...next, ...packs];
+    });
+    setOfferGiftCodes(packs);
+    setAppliedOfferId(id);
+    if (fit?.firstPayment) {
+      const fp = fit.firstPayment;
+      const totalPhp = gross / 100;
+      setInstallments((prev) => [
+        {
+          key: nextSchedKey(),
+          label: 'First payment',
+          kind: fp.unit === 'pct' ? 'percent' : 'fixed',
+          amountPhp: fp.unit === 'pct' ? null : firstPaymentOf({ firstPayment: fp.value, firstPaymentUnit: 'php' }, totalPhp),
+          percent: fp.unit === 'pct' ? fp.value : null,
+          due: 'on_lock',
+          offsetDays: 0,
+        },
+        ...prev.slice(1),
+      ]);
+    }
+  };
+  /** The applied offer's own first payment — the plan presets that contradict it are greyed with this reason. */
+  const offerFirst = appliedOffer?.firstPayment ?? null;
 
   /**
    * THE GIFT, RE-PRICED AS THEY TYPE — and what it costs them.
@@ -815,8 +980,11 @@ export function ProposalMaker({
           stock and the limit (`writeQuoteShopGifts`) — this list is a request, never a grant.
         */
         shopGiftCodes,
+        /* 👥 What this quote billed against their guest list, and the ONE minimum — `merge_snapshot` (owner 12 Nov). */
+        pax: { live: seedPax, min: minPax, billed: pax },
       }),
-    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `cards`/`pickedCards` are read for serviceCardIds as before
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, seedPax, minPax, pax],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -893,6 +1061,8 @@ export function ProposalMaker({
     startSeed(async () => {
       const seed = await loadPackageLinesForQuote(packageId);
       if (!seed || seed.lines.length === 0) return;
+      takeSeedMin(seed.lines);
+      setFold(FIRST_OPEN);
       setItems(
         seed.lines.map((s: QuoteSeedLine) => ({
           key: nextKey(),
@@ -901,7 +1071,7 @@ export function ProposalMaker({
           free: s.free,
           flatPhp: s.flatPhp,
           ratePhp: s.ratePhp,
-          minPax: s.minPax,
+          minPax: 0,
           basePhp: s.basePhp,
           inclHours: s.inclHours,
           extraPhp: s.extraPhp,
@@ -945,7 +1115,9 @@ export function ProposalMaker({
         discountPhp,
         coupleProvidesCrewMeal: Boolean(coupleCrewProvider),
       });
-      setItems(after.lines.map((l) => ({ ...l, key: nextKey() })));
+      takeSeedMin(after.lines);
+      setFold(FIRST_OPEN);
+      setItems(after.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() })));
       setCrew(after.crew);
       setTransport(after.transport);
       setDiscountPhp(after.discountPhp);
@@ -977,7 +1149,9 @@ export function ProposalMaker({
 
   /** A saved quote, loaded whole: its lines, crew, transport, discount + reason, how they pay, good for, note. */
   function applySavedDraft(d: SavedQuoteDraft) {
-    setItems(d.lines.map((l) => ({ ...l, key: nextKey() })));
+    takeSeedMin(d.lines);
+    setFold(FIRST_OPEN);
+    setItems(d.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() })));
     setCrew(d.crew);
     setTransport(d.transport);
     setDiscountPhp(d.discountPhp);
@@ -993,7 +1167,7 @@ export function ProposalMaker({
   function startFrom(key: string) {
     setFrom(key);
     // A fresh start: no offer carried over from the last one, and the last door's line goes.
-    setAppliedOfferId(null);
+    applyOffer(null);
     setDoorNote(null);
     if (key.startsWith('card:')) {
       // One card, fresh — its own lines, terms and discount; more cards can still be added below.
@@ -1033,7 +1207,9 @@ export function ProposalMaker({
         if (got.draft) applySavedDraft(got.draft);
         else {
           if (got.packageSeed && got.packageSeed.lines.length > 0) {
-            setItems(got.packageSeed.lines.map((l) => ({ ...l, key: nextKey() })));
+            takeSeedMin(got.packageSeed.lines);
+            setFold(FIRST_OPEN);
+            setItems(got.packageSeed.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() })));
             if (got.packageSeed.crew) setCrew(got.packageSeed.crew);
             if (got.packageSeed.transport) setTransport(got.packageSeed.transport);
           }
@@ -1044,6 +1220,7 @@ export function ProposalMaker({
       return;
     }
     // Blank — one empty line, nothing carried over. No discount is filled in (owner 2026-10-14: offered, never filled).
+    setFold(FIRST_OPEN);
     setItems([newLine(false)]);
     setDiscountPhp(0);
     setDiscountReason(null);
@@ -1052,7 +1229,9 @@ export function ProposalMaker({
 
   /** 🧺 A bundle, loaded whole into the quote — the lines are the quote's own from here on. */
   function applyBundle(b: QuoteBundleSeed) {
-    setItems(b.lines.map((l) => ({ ...l, key: nextKey() })));
+    takeSeedMin(b.lines);
+    setFold(FIRST_OPEN);
+    setItems(b.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() })));
     setDiscountPhp(b.discountPhp);
     setDiscountReason(b.discountReason);
     setReasonFromCard(false);
@@ -1080,7 +1259,7 @@ export function ProposalMaker({
     try {
       window.sessionStorage.setItem(
         quoteDraftKey(threadId),
-        JSON.stringify({ draft: draftForSave(), title, pax, hours, picked: cards.filter((c) => pickedCards[c.id]).map((c) => c.id), offerId: appliedOfferId }),
+        JSON.stringify({ draft: draftForSave(), title, minPax, hours, picked: cards.filter((c) => pickedCards[c.id]).map((c) => c.id), offerId: appliedOfferId }),
       );
     } catch {
       /* a private window keeps nothing — the card still comes back into the quote, on a fresh draft */
@@ -1090,7 +1269,7 @@ export function ProposalMaker({
 
   /** Back from the Card Maker with `?quote_card=` — the kept draft, then the new card's lines added to it. */
   function returnWithNewCard(cardId: string) {
-    let kept: { draft?: unknown; title?: string; pax?: number; hours?: number; picked?: string[]; offerId?: string | null } | null = null;
+    let kept: { draft?: unknown; title?: string; minPax?: number; hours?: number; picked?: string[]; offerId?: string | null } | null = null;
     try {
       kept = JSON.parse(window.sessionStorage.getItem(quoteDraftKey(threadId)) ?? 'null');
       window.sessionStorage.removeItem(quoteDraftKey(threadId));
@@ -1102,11 +1281,12 @@ export function ProposalMaker({
     u.searchParams.delete(QUOTE_CARD_PARAM);
     window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
     const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
-    const kPax = typeof kept?.pax === 'number' && kept.pax > 0 ? kept.pax : pax;
+    const kMin = typeof kept?.minPax === 'number' && kept.minPax > 0 ? kept.minPax : minPax;
+    const kPax = billedPax(seedPax, kMin);
     const kHours = typeof kept?.hours === 'number' && kept.hours > 0 ? kept.hours : hours;
     if (draft) applySavedDraft(draft);
     if (kept?.title) setTitle(kept.title);
-    setPax(kPax);
+    setMinPax(kMin);
     setHours(kHours);
     if (kept?.offerId) setAppliedOfferId(kept.offerId);
     const picked = [...(kept?.picked ?? []), cardId].filter((id) => cards.some((c) => c.id === id));
@@ -1118,20 +1298,16 @@ export function ProposalMaker({
         setDoorNote('Your new card is saved — it could not be added here. Pick it from your cards.');
         return;
       }
-      const lines = seed.lines.map((l) => ({ ...l, key: nextKey() }));
+      const lines = seed.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() }));
       setItems((prev) => (draft ? [...prev, ...lines] : lines));
       setDoorNote(`${seed.title || 'Your new card'} is on the quote · every line stays editable`);
     });
   }
 
-  const bundleOptions = doors?.bundles.kind === 'read' ? doors.bundles.bundles.map((b) => ({ key: `bundle:${b.id}`, label: `Bundle · ${b.name}` })) : [];
-  const startOptions = [
-    ...(revision ? [{ key: 'revision', label: `Updating “${revision.of.title}”` }] : []),
-    ...cards.map((c) => ({ key: `card:${c.id}`, label: c.label })),
-    ...bundleOptions,
-    ...saved.map((t) => ({ key: `tpl:${t.id}`, label: `Saved · ${t.name}` })),
-    { key: 'blank', label: 'Blank' },
-  ];
+  const bundleOptions = doors?.bundles.kind === 'read' ? doors.bundles.bundles : [];
+  // 🗂 START FROM, GROUPED (owner 12 Nov): Updating first · SERVICE CARDS · BUNDLES · SAVED QUOTES · Blank last — the
+  // headings are PickMenu's own group runs, and the "Bundle ·" / "Saved ·" prefixes are gone (lib/quote-money.ts).
+  const startOptions = startFromOptions({ revisionTitle: revision ? revision.of.title : null, cards, bundles: bundleOptions, saved });
 
   /*
     THE FIRST OPEN. The panel is mounted closed with the thread (one mount, every anchor unique) — so the seed and the
@@ -1146,7 +1322,8 @@ export function ProposalMaker({
       firstOpenDone.current = true;
       if (labSeed) {
         setExtras(labSeed.extras);
-        setItems(labSeed.lines.map((l) => ({ ...l, key: nextKey() })));
+        takeSeedMin(labSeed.lines);
+        setItems(labSeed.lines.map((l) => ({ ...l, minPax: 0, key: nextKey() })));
         setFrom(cards[0] ? `card:${cards[0].id}` : 'blank');
         if (cards[0]) setPickedCards({ [cards[0].id]: true });
         return;
@@ -1184,29 +1361,35 @@ export function ProposalMaker({
 
   /* ── HOW THEY PAY — the prototype's three plans, one tap each; the rows below stay editable ─────────────────── */
   const planPresetOf = (): PlanPreset | null => {
-    if (installments.length !== 1) return null;
-    const first = installments[0]!;
+    const [first, second, ...more] = installments;
+    if (!first || more.length > 0) return null;
     if (first.kind !== 'percent' || first.due !== 'on_lock') return null;
     const hit = PLAN_PRESETS.find(
-      (p) => p.percent === first.percent && (p.percent === 100 || (autoBalanceMeta.due === 'before_event' && autoBalanceMeta.offsetDays === p.finalDays)),
+      (p) =>
+        p.percent === first.percent &&
+        (p.second
+          ? second?.kind === 'percent' && second.percent === p.second.percent && second.due === 'before_event' && second.offsetDays === p.second.days
+          : !second) &&
+        (p.percent === 100 || (autoBalanceMeta.due === 'before_event' && autoBalanceMeta.offsetDays === p.finalDays)),
     );
     return hit?.key ?? null;
   };
   const applyPlanPreset = (key: string) => {
+    // "Custom" keeps the rows as they are — they are the supplier's own from here (the Final balance stays auto).
+    if (key === PLAN_CUSTOM) return;
     const p = PLAN_PRESETS.find((x) => x.key === key);
-    if (!p) return;
+    if (!p || presetClash(offerFirst)) return;
     setInstallments([
       { key: nextSchedKey(), label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 },
+      ...(p.second
+        ? [{ key: nextSchedKey(), label: ordinalLabel(1), kind: 'percent' as const, amountPhp: null, percent: p.second.percent, due: 'before_event' as const, offsetDays: p.second.days }]
+        : []),
     ]);
     setAutoBalanceMeta((m) => ({ ...m, due: 'before_event', offsetDays: p.finalDays }));
   };
   const planWords = (): string => {
     const preset = planPresetOf();
-    if (preset) return PLAN_PRESETS.find((p) => p.key === preset)!.label;
-    const first = installments[0];
-    const firstWords =
-      first?.kind === 'percent' ? `${first.percent ?? 0}% to book` : first ? `${formatCentavos(toCentavos(first.amountPhp ?? 0))} to book` : 'Your own plan';
-    return `${firstWords} · ${installments.length + (autoRow && autoRow.amount_centavos > 0 ? 1 : 0)} payments`;
+    return preset ? PLAN_PRESETS.find((p) => p.key === preset)!.label : 'Custom';
   };
 
   /* ── SAVE THIS QUOTE ─────────────────────────────────────────────────────── */
@@ -1214,13 +1397,14 @@ export function ProposalMaker({
     v: SAVED_QUOTE_VERSION,
     lines: items
       .filter((l) => !l.dropped)
-      .map(({ label, basis, free, flatPhp, ratePhp, minPax, basePhp, inclHours, extraPhp }) => ({
+      .map(({ label, basis, free, flatPhp, ratePhp, basePhp, inclHours, extraPhp }) => ({
         label,
         basis,
         free,
         flatPhp,
         ratePhp,
-        minPax,
+        // The saved shape keeps a per-line minimum; the quote's ONE minimum rides on its per-pax lines.
+        minPax: basis === 'per_pax' ? minPax : 0,
         basePhp,
         inclHours,
         extraPhp,
@@ -1252,14 +1436,18 @@ export function ProposalMaker({
     });
   };
 
-  /*
-    Undo my edits — back to what the builder OPENED at, not back to the inquiry
-    count. Reset that jumped to a different number than the one the supplier
-    started from would be a second, silent re-pricing.
-  */
-  const resetToSeed = () => {
-    setPax(seedPax);
-    setHours(requestedHours);
+  /** An early Send: bring the Valid until row into view, shake it, and say it is required (design 12 Nov). */
+  const nudgeValidUntil = () => {
+    setValidNudge((n) => n + 1);
+    const row = validRowRef.current;
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (typeof row.animate === 'function' && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      row.animate(
+        [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(0)' }],
+        { duration: 360, easing: 'ease-in-out' },
+      );
+    }
   };
 
   /** The couple's card for this draft once sent — the same rule their conversation reads. */
@@ -1407,8 +1595,132 @@ export function ProposalMaker({
             />
           </label>
       </QuoteSection>
+      {/* ── 👥 FOLLOWING THEIR GUEST LIST (owner 12 Nov) — no guests stepper: their count is read live, the supplier
+          sets ONE "Bill at least", and every per-pax line bills max(their count, the minimum). Hours stay. ── */}
+      <QuoteSection
+        id="guests"
+        title="Following their guest list"
+        info="Billed pax is the higher of their list and your minimum. It only goes up as their guests go up — it never drops below your minimum."
+      >
+        <div className="divide-y divide-ink/10 px-4" data-quote-guests="">
+          <div className="flex min-h-[52px] items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-ink">On their list</span>
+              <span className="block text-xs text-ink/55">
+                live · changes as they add names
+                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
+              </span>
+            </span>
+            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
+              {formatCount(seedPax)}
+            </strong>
+          </div>
+          <div className="flex min-h-[52px] items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-ink">Bill at least</span>
+              <span className="block text-xs text-ink/55">your minimum · one for the whole quote</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMinPax((n) => Math.max(0, n - 10))}
+                aria-label="Ten fewer"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-terracotta-700"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={minPax}
+                onChange={(e) => setMinPax(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+                aria-label="Bill at least"
+                data-quote-min-pax=""
+                className={`${numField} h-11 w-16 text-center`}
+              />
+              <button
+                type="button"
+                onClick={() => setMinPax((n) => n + 10)}
+                aria-label="Ten more"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-terracotta-700"
+              >
+                +
+              </button>
+            </span>
+          </div>
+          <div className="flex min-h-[52px] items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-ink">Billed</span>
+              <span className="block text-xs text-ink/55">
+                {pax > seedPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
+              </span>
+            </span>
+            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
+              {formatCount(pax)} <span className="text-xs font-normal text-ink/55">pax</span>
+            </strong>
+          </div>
+          <div className="flex min-h-[52px] items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-sm text-ink">Hours</span>
+              <span className="block text-xs text-ink/55">coverage</span>
+            </span>
+            <span className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setHours((n) => Math.max(1, n - 1))}
+                aria-label="One hour less"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-terracotta-700"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value) || 0)}
+                aria-label="Hours"
+                className={`${numField} h-11 w-14 text-center`}
+              />
+              <button
+                type="button"
+                onClick={() => setHours((n) => n + 1)}
+                aria-label="One hour more"
+                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-terracotta-700"
+              >
+                +
+              </button>
+            </span>
+          </div>
+        </div>
+      </QuoteSection>
       {/* ── 2–4 · PICK SERVICE CARDS · CONTENT PLACED · INCLUSIONS ── */}
-      <QuoteSection id="cards" title="Pick service cards" hint="pick as many">
+      {/* 🪗 The heading PINS while the lines scroll, and carries the ONE open-every-line / fold-every-line icon (owner
+          12 Nov: "One at a time + expand all" · "On the pinned heading"; the icons are find-thumb-row's). */}
+      <QuoteSection
+        id="cards"
+        title="Pick service cards"
+        hint="pick as many"
+        pin
+        info="Each picked card is one priced line, its inclusions inside it. Tap a line to open it (the open one folds) · swipe left to drop · ⠿ drag to reorder."
+        action={
+          <button
+            type="button"
+            onClick={() => setFold(toggleAll)}
+            aria-label={fold.mode === 'all' ? 'Fold every line' : 'Open every line'}
+            aria-pressed={fold.mode === 'all'}
+            data-quote-lines-all={fold.mode === 'all' ? 'open' : 'folded'}
+            className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:text-ink"
+          >
+            {fold.mode === 'all' ? (
+              <ChevronsDownUp aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+            ) : (
+              <ChevronsUpDown aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+            )}
+          </button>
+        }
+      >
       {/* 2 · PICK SERVICE CARDS — the shop's service cards seed the quote (owner 2026-09-22), "pick as many" (v113 step 2).
           ONE multi-pick PickMenu (house rule: any set of choices is one dropdown) over the SAME `toggleCard`; each card
           contributes its priced line, its freebies and the add-ons ticked under it. Mounted ONCE, only when the shop has
@@ -1522,87 +1834,11 @@ export function ProposalMaker({
       ) : null}
         </details>
       ) : null}
-      {/* Header — seeded pax/hours (rule 0) */}
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink/10 p-4">
-        <div className="min-w-0">
-          <h3 className="font-serif text-xl font-semibold leading-none text-ink">
-            {coupleName?.trim() || 'New quote'}
-          </h3>
-          <p className="mt-1.5 text-xs text-ink/55">
-            {atSeed ? (
-              <>
-                Sized to their plan now · <strong className="text-ink/75">{formatCount(seedPax)} pax</strong> · {requestedHours}h
-                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
-              </>
-            ) : (
-              <>
-                Quoting <strong className="text-ink/75">{formatCount(pax)} pax · {hours}h</strong> — their plan says {formatCount(seedPax)} now
-                {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}{' '}
-                <button
-                  type="button"
-                  onClick={resetToSeed}
-                  className="text-terracotta-700 underline hover:text-terracotta"
-                >
-                  reset
-                </button>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {/* GUESTS — a counter (prototype "Guests · Re-prices per-guest lines"): − / + move it by ten, the field
-              takes any number. Every per-guest line re-prices as it moves. */}
-          <div className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50" data-quote-guests="">
-            guests
-            <span className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPax((n) => Math.max(1, n - 10))}
-                aria-label="Ten fewer guests"
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-ink"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={pax}
-                onChange={(e) => setPax(Number(e.target.value) || 0)}
-                aria-label="Guests"
-                className={`${numField} h-11 w-16 text-center`}
-              />
-              <button
-                type="button"
-                onClick={() => setPax((n) => n + 10)}
-                aria-label="Ten more guests"
-                className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/[0.06] text-base text-ink"
-              >
-                +
-              </button>
-            </span>
-          </div>
-          <label className="flex flex-col items-center gap-1 text-[10px] uppercase tracking-wider text-ink/50">
-            hrs
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value) || 0)}
-              className={`${numField} w-14 text-center`}
-            />
-          </label>
-        </div>
-      </div>
-      {/* Line items */}
-      <div className="space-y-2 border-b border-ink/10 p-4">
-        <div className="flex items-center justify-between">
-          <span className={lbl}>Line items</span>
-          <span className="text-[11px] text-ink/45">swipe left to drop · ⠿ drag to reorder</span>
-        </div>
+      {/* Line items — folded but the open one (the first, at the start); the help is behind the heading's ⓘ. */}
+      <div className="space-y-2 border-b border-ink/10 p-4" data-quote-lines="">
         {items.map((l) => {
           const cents = resolveLineCentavos(l, pax, hours);
+          const isOpen = lineIsOpen(fold, l.key, firstLineKey);
           return (
             /* SWIPE LEFT = DROP, with Undo (house rule 4 Nov; v113 step 4). The drop is the shipped reversible one:
                struck, left out of the total, "Put back" — never deleted. */
@@ -1667,6 +1903,19 @@ export function ProposalMaker({
                 >
                   🎁
                 </button>
+                {/* 🪗 Tap to open this line's rows; the open one folds (one open at a time, owner 12 Nov). */}
+                {!l.free && !l.dropped ? (
+                  <button
+                    type="button"
+                    onClick={() => setFold((f) => tapLine(f, l.key, firstLineKey))}
+                    aria-expanded={isOpen}
+                    aria-label={isOpen ? `Fold ${l.label || 'this line'}` : `Open ${l.label || 'this line'}`}
+                    data-quote-line-fold={isOpen ? 'open' : 'folded'}
+                    className="sn-press inline-flex h-11 w-9 flex-none items-center justify-center text-terracotta-700"
+                  >
+                    <ChevronDown aria-hidden className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} strokeWidth={2} />
+                  </button>
+                ) : null}
                 {/* A DROPPED line keeps its way back — "Put back" (owner 4 Nov: swipe left drops; no ✕ on the row). */}
                 {l.dropped ? (
                   <button
@@ -1681,7 +1930,12 @@ export function ProposalMaker({
                 ) : null}
               </div>
 
-              {!l.free && !l.dropped ? (
+              {!l.free && !l.dropped && !isOpen ? (
+                <p className="pl-6 text-xs text-ink/50" data-quote-line-caption="">
+                  {basisDetail(l, pax, hours) ?? 'Flat price'}
+                </p>
+              ) : null}
+              {!l.free && !l.dropped && isOpen ? (
                 <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-dashed border-ink/10 pl-6 pt-2 text-xs text-ink/60">
                   <select
                     value={l.basis}
@@ -1718,15 +1972,7 @@ export function ProposalMaker({
                           className={`${numField} w-20`}
                         />
                       </span>
-                      <span>/pax · min</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={l.minPax}
-                        onChange={(e) => patchLine(l.key, { minPax: Number(e.target.value) || 0 })}
-                        aria-label="Minimum pax"
-                        className={`${numField} w-16`}
-                      />
+                      <span>/pax · billed {formatCount(pax)}</span>
                     </>
                   ) : (
                     <>
@@ -1769,6 +2015,16 @@ export function ProposalMaker({
             </SwipeToDelete>
           );
         })}
+        {/* 🎁 An applied offer's gifts — "from offer" Complimentary lines (no switch: the offer gives them). */}
+        {lineItems
+          .filter((x) => x.offer_id && x.amount_centavos == null)
+          .map((x) => (
+            <div key={`og-${x.label}`} className="flex min-h-11 items-center gap-2 rounded-xl bg-success-100/40 px-2.5" data-quote-offer-gift="">
+              <span className="min-w-0 flex-1 truncate pl-6 text-sm text-ink">{x.label}</span>
+              <span className="whitespace-nowrap rounded-full bg-terracotta/10 px-2 py-0.5 text-[10.5px] font-medium text-terracotta-700">from offer</span>
+              <span className="whitespace-nowrap text-[10.5px] font-medium text-ink/70">Complimentary</span>
+            </div>
+          ))}
         <div className="flex gap-2 pt-1">
           <button
             type="button"
@@ -2054,7 +2310,88 @@ export function ProposalMaker({
         </div>
       </div>
       </QuoteSection>
-      {/* ── 7 · DISCOUNT — with the subtotal it comes off and the total it leaves ── */}
+      {/* ── 🏷 YOUR OFFER (owner 12 Nov: a section of its own, ABOVE Discount — offer first, then the typed discount).
+          The shop's running Offer Maker offers that fit this quote, priced by the Offer Maker's own functions against
+          ONLY the lines of the cards each one reaches; never automatic (prototype frame 6). Behind the shared lock:
+          SHOWN, never hidden. ── */}
+      {doors ? (
+        <QuoteSection
+          id="offer"
+          title="Your offer"
+          info="Never applied by itself — you pick it. Its % or ₱ comes off only the lines of the cards it reaches, % first, then ₱ off the rest. A lower first payment sets the plan's first payment; a gift is a Complimentary line."
+        >
+          <div className="space-y-2 px-4 py-3">
+            {doors.offers.kind !== 'read' ? (
+              doors.offers.kind === 'locked' ? (
+                <div data-quote-offer-door="locked">
+                  <LockedFeature
+                    lock="offerMaker"
+                    need={doors.offers.need}
+                    lead={<Tag aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
+                    line="Apply one of your offers to this quote"
+                    data="quote-offer-lock"
+                  />
+                </div>
+              ) : (
+                <p role="status" className="text-xs text-ink/60" data-quote-offer-door="unread">
+                  Couldn&rsquo;t load your offers just now — the quote works without one.
+                </p>
+              )
+            ) : appliedOffer ? (
+              <div className="flex items-center justify-between gap-2 text-sm text-ink/70" data-quote-offer-door="applied">
+                <span className="min-w-0">
+                  <span className="block text-ink">{appliedOffer.name}</span>
+                  <span className="block text-[11px] text-terracotta-700" data-quote-offer-parts="">
+                    {[partsWords(appliedOffer), offerReach].filter(Boolean).join(' · ') || 'your offer'}
+                  </span>
+                </span>
+                <span className="flex flex-none items-center gap-1">
+                  {appliedOffer.offPhp > 0 ? (
+                    <span className="tabular-nums text-success-700" data-quote-offer-off="">
+                      −{formatCentavos(toCentavos(appliedOffer.offPhp))}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => applyOffer(null)}
+                    aria-label={`Take ${appliedOffer.name} off this quote`}
+                    className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] text-terracotta-700 underline"
+                  >
+                    Remove
+                  </button>
+                </span>
+              </div>
+            ) : offerFits.length > 0 ? (
+              <div data-quote-offer-door="pick">
+                <PickMenu
+                  label="Apply an offer"
+                  value=""
+                  options={offerFits.map((f) => ({
+                    key: f.id,
+                    label: f.name,
+                    hint: [
+                      partsWords(f),
+                      reachWords(f, cardName),
+                      f.offPhp > 0 ? `−${formatCentavos(toCentavos(f.offPhp))} on this quote` : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · '),
+                  }))}
+                  onPick={(id) => applyOffer(id)}
+                  buttonText={`Apply an offer · ${offerFits.length} ${offerFits.length === 1 ? 'fits' : 'fit'}`}
+                  dataAttr="data-quote-offer-pick"
+                  className="min-h-11 w-full"
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-ink/55" data-quote-offer-door="none">
+                {cardOfferId ? 'Your offer is already in the card discount.' : 'No running offer of yours fits this quote.'}
+              </p>
+            )}
+          </div>
+        </QuoteSection>
+      ) : null}
+      {/* ── 7 · DISCOUNT — the supplier's own ₱ figure, taken off AFTER the offer (owner 12 Nov) ── */}
       <QuoteSection id="discount" title="Discount">
       <div className="space-y-2 border-b border-ink/10 bg-cream/70 p-4">
         {/* PR-C — viewer-promo nudge: this inquiry arrived through a storyteller
@@ -2071,16 +2408,13 @@ export function ProposalMaker({
             Enter the peso value below as the discount — it settles off-platform.
           </div>
         ) : null}
-        <div className="flex items-baseline justify-between text-sm text-ink/60">
-          <span>Subtotal</span>
-          <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
-        </div>
         <div className="flex items-center justify-between text-sm text-ink/60">
-          <span>
-            {viewerPromo ? 'Discount · viewer promo' : 'Discount'}
+          <span className="min-w-0">
+            <span className="block">{viewerPromo ? 'Discount · viewer promo' : 'Your discount'}</span>
+            <span className="block text-[11px] text-ink/45">your own ₱ figure · comes off after the offer</span>
             {discountReason ? (
-              <span data-testid="quote-discount-reason" className="ml-1 text-[11px] text-terracotta-700">
-                · {discountReason}
+              <span data-testid="quote-discount-reason" className="block text-[11px] text-terracotta-700">
+                {discountReason}
               </span>
             ) : null}
           </span>
@@ -2126,63 +2460,29 @@ export function ProposalMaker({
             />
           </label>
         ) : null}
-        {/* 🏷 APPLY AN OFFER — beside Discount, never automatic (prototype frame 6). The shop's running Offer Maker offers
-            that fit this quote's cards, priced by the Offer Maker's own functions; the applied one is its own named line
-            in the card discount's price-line style. Behind the shared lock: SHOWN, never hidden. */}
-        {doors && doors.offers.kind !== 'read' ? (
-          doors.offers.kind === 'locked' ? (
-            <div data-quote-offer-door="locked">
-              <LockedFeature
-                lock="offerMaker"
-                need={doors.offers.need}
-                lead={<Tag aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
-                line="Apply one of your offers to this quote"
-                data="quote-offer-lock"
-              />
-            </div>
-          ) : (
-            <p role="status" className="text-xs text-ink/60" data-quote-offer-door="unread">
-              Couldn&rsquo;t load your offers just now — the quote works without one.
-            </p>
-          )
-        ) : doors ? (
-          appliedOffer ? (
-            <div className="flex items-center justify-between gap-2 text-sm text-ink/60" data-quote-offer-door="applied">
-              <span className="min-w-0">
-                {appliedOffer.name}
-                <span className="ml-1 text-[11px] text-terracotta-700">· {appliedOffer.words} · your offer</span>
-              </span>
-              <span className="flex flex-none items-center gap-1">
-                <span className="tabular-nums text-success-700" data-quote-offer-off="">
-                  −{formatCentavos(toCentavos(appliedOffer.offPhp))}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setAppliedOfferId(null)}
-                  aria-label={`Take ${appliedOffer.name} off this quote`}
-                  className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] text-terracotta-700 underline"
-                >
-                  Remove
-                </button>
-              </span>
-            </div>
-          ) : offerFits.length > 0 ? (
-            <div data-quote-offer-door="pick">
-              <PickMenu
-                label="Apply an offer"
-                value=""
-                options={offerFits.map((f) => ({ key: f.id, label: f.name, hint: `${f.words} · −${formatCentavos(toCentavos(f.offPhp))} on this quote` }))}
-                onPick={(id) => setAppliedOfferId(id)}
-                buttonText={`Apply an offer · ${offerFits.length} ${offerFits.length === 1 ? 'fits' : 'fit'}`}
-                dataAttr="data-quote-offer-pick"
-                className="min-h-11 w-full"
-              />
-            </div>
-          ) : (
-            <p className="text-xs text-ink/55" data-quote-offer-door="none">
-              {cardOfferId ? 'Your offer is already in the card discount.' : 'No running offer of yours fits this quote.'}
-            </p>
-          )
+      </div>
+      </QuoteSection>
+      {/* ── 💸 WHAT IT COMES TO — Subtotal → the offer's named line (its reach) → Discount → Total (design 12 Nov). ── */}
+      <QuoteSection id="sum" title="What it comes to">
+      <div className="space-y-1.5 border-b border-ink/10 bg-cream/70 p-4" data-quote-sum="">
+        <div className="flex items-baseline justify-between text-sm text-ink/60">
+          <span>Subtotal</span>
+          <span className="font-serif tabular-nums">{formatCentavos(subtotal)}</span>
+        </div>
+        {appliedOffer && subtotal - afterOffer > 0 ? (
+          <div className="flex items-baseline justify-between gap-2 text-sm text-ink/60" data-quote-sum-offer="">
+            <span className="min-w-0">
+              {appliedOffer.name}
+              <span className="ml-1 text-[11px] text-terracotta-700">· {offerReach ?? 'your offer'}</span>
+            </span>
+            <span className="tabular-nums text-success-700">−{formatCentavos(subtotal - afterOffer)}</span>
+          </div>
+        ) : null}
+        {discountOff > 0 ? (
+          <div className="flex items-baseline justify-between text-sm text-ink/60" data-quote-sum-discount="">
+            <span>{viewerPromo ? 'Viewer promo' : 'Discount'}</span>
+            <span className="tabular-nums text-success-700">−{formatCentavos(discountOff)}</span>
+          </div>
         ) : null}
         <div className="flex items-baseline justify-between border-t border-ink/15 pt-2">
           <span className="text-sm font-medium text-ink">Total</span>
@@ -2203,7 +2503,11 @@ export function ProposalMaker({
       </div>
       </QuoteSection>
       {/* ── 8 · PAYMENT SCHEDULE ── */}
-      <QuoteSection id="plan" title="Payment schedule">
+      <QuoteSection
+        id="plan"
+        title="Payment schedule"
+        info={`The first payment is what the couple pays to lock the date. The final balance always settles the plan to ₱0${credit > 0 ? '; the crew-meal credit comes off it first' : ''}. Pick a plan, or edit the rows to make it Custom.`}
+      >
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}
       <div className="space-y-2 border-b border-ink/10 p-4">
         <div className="flex items-center justify-between">
@@ -2226,10 +2530,18 @@ export function ProposalMaker({
         {/* HOW THEY PAY — the prototype's three plans as ONE dropdown; the plan's own rows below stay editable. */}
         <div className="flex flex-wrap items-center justify-between gap-2" data-quote-plan="">
           <span className="text-sm text-ink/70">How they pay</span>
+          {/* A preset that contradicts the applied offer's first payment is greyed, its reason beside it (design 12 Nov);
+              "Custom" = the rows below as the supplier set them — the Final balance stays auto. */}
           <PickMenu
             label="How they pay"
-            value={planPresetOf()}
-            options={PLAN_PRESETS.map((p) => ({ key: p.key, label: p.label }))}
+            value={planPresetOf() ?? PLAN_CUSTOM}
+            options={[
+              ...PLAN_PRESETS.map((p) => {
+                const clash = presetClash(offerFirst);
+                return { key: p.key, label: p.label, ...(clash ? { disabledNote: clash } : {}) };
+              }),
+              { key: PLAN_CUSTOM, label: 'Custom', hint: 'type each payment' },
+            ]}
             buttonText={planWords()}
             onPick={applyPlanPreset}
             dataAttr="data-quote-plan-pick"
@@ -2252,6 +2564,11 @@ export function ProposalMaker({
                 {isDown ? (
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-terracotta/50 bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
                     🔒 locks
+                  </span>
+                ) : null}
+                {isDown && offerFirst ? (
+                  <span className="whitespace-nowrap rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700" data-quote-first-from-offer="">
+                    from offer
                   </span>
                 ) : null}
                 <input
@@ -2418,10 +2735,6 @@ export function ProposalMaker({
         >
           + Add payment · splits the balance
         </button>
-        <p className="text-[11px] text-ink/45">
-          The first payment is what the couple pays to lock the date. The final balance always
-          settles the plan to ₱0{credit > 0 ? '; the crew-meal credit comes off it first' : ''}.
-        </p>
       </div>
       </QuoteSection>
       {/* ── 9 · PAYMENT METHOD — ONE multi-pick PickMenu over the shop's OWN published methods (v113 step 9; no
@@ -2467,7 +2780,17 @@ export function ProposalMaker({
       <div className="space-y-3 px-4 py-3">
           {/* 📅 VALID UNTIL (2026-11-09, "no lifetime quotation"): the one shared picker — 7 / 14 / 30 days / Pick a date,
               none preselected, a choice past the event not offered; required to send (the server refuses blank). */}
-          <div className="block space-y-1" data-quote-good-for="">
+          <div
+            ref={validRowRef}
+            className={`block space-y-1 rounded-xl ${sendGate(validUntil).ready ? '' : 'bg-terracotta/[0.08] p-2'}`}
+            data-quote-good-for=""
+            data-quote-valid-required={sendGate(validUntil).ready ? 'set' : 'required'}
+          >
+            {!sendGate(validUntil).ready ? (
+              <p className="text-xs font-medium text-terracotta-700" role={validNudge > 0 ? 'alert' : undefined}>
+                {validNudge > 0 ? 'Required to send — set a date first' : sendGate(validUntil).caption}
+              </p>
+            ) : null}
             <ValidUntilPicker
               todayIso={todayIso}
               eventDate={eventDate}
@@ -2636,13 +2959,31 @@ export function ProposalMaker({
           >
             Save
           </button>
-          <SubmitButton
-            form={formId}
-            pendingLabel="Sending…"
-            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
-          >
-            Send quote
-          </SubmitButton>
+          {/* 📅 SEND WAITS FOR VALID UNTIL (9 Nov "no lifetime quotation"; design 12 Nov): dimmed until it is set, and an
+              early press shakes the row and says why — the server refuses a blank one regardless (`validUntilRefusal`). */}
+          {sendGate(validUntil).ready ? (
+            <SubmitButton
+              form={formId}
+              pendingLabel="Sending…"
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            >
+              Send quote
+            </SubmitButton>
+          ) : (
+            <button
+              type="button"
+              form={formId}
+              onClick={nudgeValidUntil}
+              aria-describedby={`${formId}-valid-why`}
+              data-quote-send="dim"
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream opacity-45"
+            >
+              Send quote
+              <span id={`${formId}-valid-why`} className="sr-only">
+                Set Valid until first — it is required to send
+              </span>
+            </button>
+          )}
         </div>
       </QuotePinnedBar>
     </form>

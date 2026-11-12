@@ -18,6 +18,7 @@
  *   &booked=1    the couple already booked you — every tool open
  *   &doors=1     (with m=quote) the quote's three doors (owner 11 Nov 2026): two fitting offers + one that does not,
  *                one saved bundle in "Start from", ＋ Make a new card last in the cards picker   &doors=locked  both 🔒
+ *                &doors=money  + a buffet-only offer with every part (% + ₱ · ₱5,000 to reserve · a gift) — PR-1 12 Nov
  *   &embed=quotation  THE ONE BUILD — the picked client's Quotation page: the quote tool alone, full width
  *                &picked=1 — drawn inside the picked client's full-screen layer (the quote's pinned bar lands in it)
  *   &hosts=1     THE ONE BUILD (8 Nov 2026) — the picked client's Chat: the hosts strip on top, each host's run named
@@ -160,6 +161,23 @@ function labQuoteDoors(v: string | string[] | undefined): QuoteDoors | null {
         o({ id: 'lab-offer-dry', name: 'Dry-season weekday', pctOff: 5 }),
         o({ id: 'lab-offer-buffet', name: 'Weekday garden buffet', phpOff: 5000, reachesAll: false, cards: ['card-buffet'] }),
         o({ id: 'lab-offer-cocktail', name: 'Cocktail early bird', phpOff: 3000, reachesAll: false, cards: ['card-cocktail'] }),
+        // &doors=money (quote money PR-1, 12 Nov): a buffet-only offer with every part — % then ₱, a lower first
+        // payment and a gift — so the reach caption, the greyed plans and the "from offer" line can be seen.
+        ...(v === 'money'
+          ? [
+              o({
+                id: 'lab-offer-weekday',
+                name: 'Weekday garden buffet+',
+                pctOff: 3,
+                phpOff: 2000,
+                firstPayment: 5000,
+                firstPaymentUnit: 'php',
+                gifts: [{ kind: 'typed', label: 'Dessert bar for the kids', worthPhp: 4500 }],
+                reachesAll: false,
+                cards: ['card-buffet'],
+              }),
+            ]
+          : []),
       ],
     },
     bundles: { kind: 'read', bundles: [{ id: 'lab-bundle', name: 'Garden reception pair' }] },
@@ -267,9 +285,9 @@ export default async function SupplierChatLabPage({
         labSeed={{
           bundles: LAB_BUNDLES,
           lines: [
-            { label: 'Garden buffet · 5 dishes', basis: 'per_pax', free: false, flatPhp: 0, ratePhp: 650, minPax: 100, basePhp: 0, inclHours: 0, extraPhp: 0 },
-            { label: 'Waiters and set-up', basis: 'flat', free: false, flatPhp: 15000, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 },
-            { label: 'Cake table styling', basis: 'flat', free: true, flatPhp: 0, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 },
+            { label: 'Garden buffet · 5 dishes', basis: 'per_pax', free: false, flatPhp: 0, ratePhp: 650, minPax: 100, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
+            { label: 'Waiters and set-up', basis: 'flat', free: false, flatPhp: 15000, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
+            { label: 'Cake table styling', basis: 'flat', free: true, flatPhp: 0, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0, cardId: 'card-buffet' },
           ],
           extras: [
             { id: 'x-dessert', label: 'Dessert table', line: { label: 'Dessert table', basis: 'flat', free: false, flatPhp: 9500, ratePhp: 0, minPax: 0, basePhp: 0, inclHours: 0, extraPhp: 0 } },

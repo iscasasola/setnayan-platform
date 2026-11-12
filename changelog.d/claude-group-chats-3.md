@@ -18,5 +18,8 @@ Owner ruling (specs DECISION_LOG 2026-11-12 "EVENT GROUP CHATS APPROVED AS DRAWN
 - Dev lab `/dev/event-group-chat-lab` (fixtures; production 404s it). Guards: `lib/event-group-chats.test.ts`.
 - Migration `20271340374819` gains `chat_group_people` (the event's people, hosts/coordinator only), the per-column
   SELECT grant for the new `chat_threads` columns, and "You" on the list's last line.
+- Migration also gains `chat_threads_group_fields_are_the_servers`: a browser session may only open a supplier
+  conversation and never write a thread's kind or group fields (the table-level grants make a column REVOKE inert).
+  Exposure baseline regenerated — every added line is a group column, a group function or the rewritten private rule.
 
 SPEC IMPACT: None

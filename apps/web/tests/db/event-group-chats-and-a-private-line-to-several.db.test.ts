@@ -345,6 +345,19 @@ test('the event\'s people (for "+ New group" and the ＋) are told to hosts and 
   assert.deepEqual(await people(w.supplier), [], 'a supplier is told nobody');
 });
 
+test('a browser can never open a group or turn a supplier chat into one', async () => {
+  const w = await newWorld();
+  const ins = await attempt(w.hostA, () => db.query(
+    `INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_by_user_id, kind, group_kind, group_name)
+     VALUES ($1, NULL, $2, 'group', 'made', 'Secret')`, [w.eventId, w.hostA]));
+  assert.match(ins ?? '', /GROUP_IS_OPENED_BY_SETNAYAN|row-level security|permission denied/);
+  const upd = await attempt(w.hostA, () => db.query(
+    `UPDATE public.chat_threads SET group_name = 'Renamed' WHERE thread_id = $1`, [w.supplierThread]));
+  assert.match(upd ?? '', /GROUP_IS_OPENED_BY_SETNAYAN/, 'a host wrote a group field on a supplier chat');
+  // …and the function door still opens one.
+  assert.ok(await openGeneral(w));
+});
+
 // ── money never enters a group ──────────────────────────────────────────────
 
 test('a group line names no supplier and carries no money card', async () => {

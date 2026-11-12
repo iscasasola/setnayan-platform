@@ -154,10 +154,42 @@ CREATE POLICY chat_threads_groups_read_through_functions
 -- a group are not (the policy above).
 GRANT SELECT (kind, group_kind, group_name, group_key, group_roles) ON public.chat_threads TO authenticated;
 
--- No browser write ever names a kind: the insert grant does not exist for
--- these columns, and a group is opened only by the functions below.
-REVOKE INSERT (kind, group_kind, group_name, group_key, group_roles) ON public.chat_threads FROM authenticated, anon;
-REVOKE UPDATE (kind, group_kind, group_name, group_key, group_roles) ON public.chat_threads FROM authenticated, anon;
+-- No browser write ever makes or edits a group. ⚠ A column REVOKE is INERT
+-- here: chat_threads' INSERT/UPDATE grants are TABLE-level, so every new
+-- column inherits them (the exposure-freeze guard measured it). The fence is
+-- this trigger: an end-user session may only open a SUPPLIER conversation
+-- and may never change a thread's kind or its group fields. The group
+-- functions below run as their owner, so they pass.
+CREATE OR REPLACE FUNCTION public.tg_chat_threads_group_fields_are_the_servers()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.kind IS DISTINCT FROM 'supplier' OR NEW.group_kind IS NOT NULL OR NEW.group_name IS NOT NULL
+       OR NEW.group_key IS NOT NULL OR NEW.group_roles IS NOT NULL THEN
+      RAISE EXCEPTION 'chat_threads: GROUP_IS_OPENED_BY_SETNAYAN — a group chat is made through its own door'
+        USING ERRCODE = '42501';
+    END IF;
+  ELSIF NEW.kind IS DISTINCT FROM OLD.kind OR NEW.group_kind IS DISTINCT FROM OLD.group_kind
+     OR NEW.group_name IS DISTINCT FROM OLD.group_name OR NEW.group_key IS DISTINCT FROM OLD.group_key
+     OR NEW.group_roles IS DISTINCT FROM OLD.group_roles THEN
+    RAISE EXCEPTION 'chat_threads: GROUP_IS_OPENED_BY_SETNAYAN — a thread''s kind and group fields are not written from a browser'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.tg_chat_threads_group_fields_are_the_servers() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS chat_threads_group_fields_are_the_servers ON public.chat_threads;
+CREATE TRIGGER chat_threads_group_fields_are_the_servers
+  BEFORE INSERT OR UPDATE ON public.chat_threads
+  FOR EACH ROW EXECUTE FUNCTION public.tg_chat_threads_group_fields_are_the_servers();
 
 -- ── 2 · who is a person of this event, and who is in a group ────────────────
 -- 'host' · 'coordinator' · 'supplier' (owner or live team member of a shop

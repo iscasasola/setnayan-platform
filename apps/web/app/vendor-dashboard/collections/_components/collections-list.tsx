@@ -191,7 +191,7 @@ export function CollectionsList({
       ) : (
         <Rail data="best">
           {best.map((p, i) => (
-            <Tile key={p.key} name="" sub={bestWorkLine(p.views, i === 0, formatCount)} photo={p.url} open={openPhotos('best', bestPhotos)} data="best" />
+            <Tile key={p.key} name="" sub={bestWorkLine(p.views, i === 0, formatCount)} photo={p.url} open={openPhotos('best', bestPhotos)} data="best" hero />
           ))}
         </Rail>
       )}

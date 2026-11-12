@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useContext, useRef, useState, type ReactNode } from 'react';
 import { useHeroPin } from '../../_components/use-hero-pin';
 import { ListFilter, Plus } from 'lucide-react';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
@@ -111,6 +111,8 @@ export function PortfolioView({
   chats?: PhotoChatShare | null;
 }) {
   // One pick for Show (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
+  // 💬 The page hands its chats in; a lab may provide them around the view instead (never both).
+  const inheritedChats = useContext(PhotoChatContext);
   const [picked, setPicked] = useState<string | null>(null);
   const [showing, setShowing] = useState(false);
   const [order, setOrder] = useState<'listed' | 'name'>('listed');
@@ -207,7 +209,7 @@ export function PortfolioView({
         />
       </div>
 
-      <PhotoChatContext.Provider value={chats}>
+      <PhotoChatContext.Provider value={chats ?? inheritedChats}>
       <section className="pt-1" data-supplier-collections="">
         {igFlash}
         <p hidden className="px-4 py-3 text-[14px] text-ink/65" data-portfolio-search-none="">

@@ -105,6 +105,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'microsite_featured_editorial_ids, microsite_featured_service_ids, ' +
   'microsite_hero_photo_key, microsite_pinned_review_id, microsite_sections, ' +
   'microsite_video_ids, name_revealed_at, next_renewal_due_at, outer_radius_km, ' +
+  // portfolio_section_order (migration 20271342126686) — the order the shop put its Portfolio sections in. Its own
+  // setting, exported like the microsite_* curation above.
+  'portfolio_section_order, ' +
   // A scheduled plan change, and money the shop is holding against a future
   // bill. Exported, never withheld: this is the shop's own commercial record —
   // what they are on, what it becomes, and what we still owe them. A

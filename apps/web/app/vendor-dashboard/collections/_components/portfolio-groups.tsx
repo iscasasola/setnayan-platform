@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useId, useRef, useState, useTransition } from 'react';
+import { useContext, useEffect, useId, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Link2, Play, Plus, Send } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
@@ -82,6 +82,14 @@ export function PhotoGrid({ photos, data }: { photos: OpenedPhotos; data: string
     setSending(false);
     setShowAt(null);
   };
+  // The neighbours are fetched while this one is looked at, so the slide never brings in a blank frame.
+  useEffect(() => {
+    if (at === null) return;
+    for (const j of [at - 1, at + 1]) {
+      const u = photos.urls[j];
+      if (u) new Image().src = u;
+    }
+  }, [at, photos.urls]);
   const more = photos.total - photos.urls.length;
   return (
     <div data-collection-open={data}>

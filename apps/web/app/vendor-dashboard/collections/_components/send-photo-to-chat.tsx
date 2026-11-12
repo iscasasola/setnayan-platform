@@ -14,8 +14,8 @@ import type { OfferServiceResult } from '@/lib/offer-service-core';
  * *"Share will go to their picked chatbox. they search for it or find it manually"*).
  *
  * A panel risen INSIDE the shared photo viewer (`PhotoViewer`'s `panel`), drawn the prototype's way:
- *   head "Send to a chat" · "1 photo · the couple sees it in the chat" → THE card share list (`ShareTargetList`, with its
- *   search box — never a second chat list) → a pick opens the confirm: "Send 1 photo to <client>", an optional note,
+ *   head "Send to a chat" · "This photo · the couple sees it in the chat" → THE card share list (`ShareTargetList`, with
+ *   its search box — never a second chat list) → a pick opens the confirm: "Send this photo to <client>", an optional note,
  *   Back · Send.
  *   · the rows are `readShareTargets`'s accepted, not-removed chats; the server re-checks the pick (`sharePhotoCore`,
  *     reached through the shipped `offerServiceInterest` with `via=photo` — no new server action);
@@ -36,7 +36,7 @@ export const PhotoChatContext = createContext<PhotoChatShare | null>(null);
 
 export const PHOTO_CHAT_WORDS = {
   title: 'Send to a chat',
-  line: '1 photo · the couple sees it in the chat',
+  line: 'This photo · the couple sees it in the chat',
   fetchFailed: 'We couldn’t get the photo just now — nothing was sent. Try again.',
   tooLarge: 'This photo is too large to send from here — nothing was sent.',
 } as const;
@@ -105,9 +105,9 @@ export function SendPhotoToChat({ url, share, onDone }: { url: string; share: Ph
         </p>
       ) : picked ? (
         <div className="pb-1" data-photo-chat-confirm={picked.threadId}>
-          <p className="pb-2 text-[15px] font-semibold">Send 1 photo to {picked.name}</p>
-          {/* field-ok: the note IS the chat message's words — the chat composer's own one-line box, inside the dark viewer panel */}
+          <p className="pb-2 text-[15px] font-semibold">Send this photo to {picked.name}</p>
           <input
+            // field-ok: the note IS the chat message's words — the chat composer's own one-line box, in the dark viewer panel
             value={note}
             onChange={(e) => setNote(e.currentTarget.value)}
             maxLength={500}

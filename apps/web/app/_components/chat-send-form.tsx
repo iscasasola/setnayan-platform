@@ -252,6 +252,25 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const takeShortcut = (input: HTMLInputElement) => {
     const file = input.files?.[0] ?? null;
     input.value = '';
+    attachFile(file);
+  };
+  /**
+   * 📥 Piece 3c (DECISION_LOG 2026-11-12 "EVERYTHING SHARED IN THE CHAT IS COLLECTED ON FILES"): a file DRAGGED onto
+   * the chat or PASTED into the box rides the same ONE `attachment` input as the shortcuts — so it is compressed,
+   * judged and sent exactly like a picked one, and lands on Files sorted by kind. While private: words only.
+   */
+  const [dropping, setDropping] = useState(false);
+  const takeDropped = (files: FileList | null | undefined): boolean => {
+    const file = files?.[0] ?? null;
+    if (!file) return false;
+    if (privateTo) {
+      setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
+      return true;
+    }
+    attachFile(file);
+    return true;
+  };
+  function attachFile(file: File | null) {
     if (!file || !fileInputRef.current) return;
     try {
       const dt = new DataTransfer();
@@ -262,7 +281,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       return;
     }
     acceptFile(file);
-  };
+  }
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
 
@@ -323,6 +342,31 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   return (
     <form
       ref={formRef}
+      data-chat-dropping={dropping ? '' : undefined}
+      onDragOver={(e) => {
+        if (!Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
+        e.preventDefault();
+        if (!dropping) setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDropping(false);
+      }}
+      onDrop={(e) => {
+        setDropping(false);
+        if (!e.dataTransfer?.files?.length) return;
+        e.preventDefault();
+        takeDropped(e.dataTransfer.files);
+      }}
+      onPaste={(e) => {
+        // 📥 A pasted picture or file (not private — the box's own handler already refused that) is attached like a
+        // picked one; pasted words stay words.
+        if (privateTo || e.defaultPrevented) return;
+        const dt = e.clipboardData;
+        if (!dt.files.length) return;
+        e.preventDefault();
+        takeDropped(dt.files);
+      }}
       action={async (formData: FormData) => {
         // We strip `return_to` so the server action doesn't redirect — the
         // Realtime stream is now the source of truth for the painted UI.
@@ -409,6 +453,11 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       ) : null}
 
       {/* Chosen-file chip — shown once a file is picked, before send. */}
+      {dropping ? (
+        <p role="status" className="mb-2 rounded-2xl border-2 border-dashed border-sn-accent/50 py-3 text-center text-[14px] font-medium text-ink" data-chat-drop-line="">
+          Drop to send
+        </p>
+      ) : null}
       {fileName ? (
         <div className="flex items-center gap-2 self-start rounded-full border border-ink/15 bg-ink/[0.04] py-1 pl-3 pr-1 text-xs text-ink/75">
           <Paperclip className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />

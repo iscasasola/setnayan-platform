@@ -94,9 +94,12 @@ test('no /features path is a NAV_ROUTE, so the glass nav never stacks on the she
   const block = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec(src);
   assert.ok(block, 'NAV_ROUTES not found in site-chrome.tsx — this check would pass vacuously.');
   const routes = [...(block[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1] ?? '');
-  assert.ok(
-    routes.includes('/download'),
-    `NAV_ROUTES parsed without /download (a stable member) — the parser is wrong. Got: ${routes.join(', ')}`,
+  // 2026-11-12: NAV_ROUTES is EMPTY on purpose — its last seven members moved into app/(shell)/ (owner: "these are on old shells") — so no real member can be the positive control. The parser is probed instead: fed a one-member declaration of the same shape, it must return that member.
+  const probe = /const NAV_ROUTES = new Set<string>\(\[([\s\S]*?)\]\)/.exec("const NAV_ROUTES = new Set<string>([\n  '/probe',\n]);");
+  assert.deepEqual(
+    [...(probe?.[1] ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]),
+    ['/probe'],
+    'the NAV_ROUTES parser cannot read a one-member probe — this check would pass vacuously',
   );
   const stacked = routes.filter((r) => FEATURES_URL.test(r));
   assert.deepEqual(

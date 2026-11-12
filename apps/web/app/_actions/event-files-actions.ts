@@ -9,7 +9,9 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { formatCount } from '@/lib/format-number';
 import { createHash } from 'node:crypto';
-import { r2Delete, r2GetBytes } from '@/lib/r2';
+import { r2Copy, r2Delete, r2GetBytes } from '@/lib/r2';
+import { randomUUID } from 'node:crypto';
+import { parseStoredAsset } from '@/lib/uploads';
 import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
 
 /**
@@ -25,6 +27,10 @@ import { fileKindOf, readExifTakenAt } from '@/lib/supplier-files';
  *   • `map`    — "From your portfolio": each pick becomes a POINTER (grp linked) to the existing photo — no copy, keeps
  *                its own service. Only the shop's own portfolio / card photos are accepted.
  *   • `remove` — a filed row leaves this event (the stored copy stays: it may back other files).
+ *   • `filechat` — 📥 Piece 3c "File under a service": a photo/video the SHOP sent in this event's chat is filed under a
+ *                quoted service. The server reads the chat file's bytes, measures hash + date; bytes already stored are a
+ *                link (no copy). New bytes get ONE kept copy in the shop's folder — the chat file itself is deleted by the
+ *                90-day chat clean-up, so the filed photo must not lean on it.
  * Couple op:
  *   • `decide` — Show · Hide (one or many, "Approve all") through `couple_decide_supplier_file`, the couple's ONLY write;
  *                then ONE line in the supplier's chat ("Ana & Miguel approved 3 photos · shown on your shop" / "… hid 1
@@ -222,6 +228,88 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       return { status: 'error', message: NOT_SAVED };
     }
     return done({ status: 'done', count: (data ?? []).length, message: 'Added · linked, not copied' });
+  }
+
+  if (op === 'filechat') {
+    const messageId = String(fd.get('message_id') ?? '');
+    const serviceId = String(fd.get('service_id') ?? '');
+    if (!UUID.test(messageId) || !UUID.test(serviceId)) return { status: 'error', message: 'Pick which quoted service this is for.' };
+    // The message: this shop's own, in its thread with THIS event (RLS reads it; the event + shop are re-checked here).
+    const { data: msg } = await supabase
+      .from('chat_messages')
+      .select('message_id, event_id, vendor_profile_id, sender_role, attachment_r2_key, attachment_mime, attachment_name, attachment_size_bytes')
+      .eq('message_id', messageId)
+      .maybeSingle();
+    const m = msg as {
+      event_id: string;
+      vendor_profile_id: string;
+      sender_role: string;
+      attachment_r2_key: string | null;
+      attachment_mime: string | null;
+      attachment_name: string | null;
+      attachment_size_bytes: number | null;
+    } | null;
+    if (!m || m.event_id !== eventId || m.vendor_profile_id !== shop) return { status: 'error', message: 'That file is not in this chat.' };
+    if (m.sender_role !== 'vendor') return { status: 'error', message: 'Only your own photos are filed under a service.' };
+    const kind = fileKindOf(m.attachment_mime, m.attachment_name ?? '');
+    if (kind === 'document') return { status: 'error', message: 'A document goes in This booking, not under a service.' };
+    const src = parseStoredAsset(m.attachment_r2_key);
+    if (!src || src.kind !== 'r2' || src.bucket !== 'setnayan-thread-files' || !src.key.startsWith('chat/')) {
+      return { status: 'error', message: 'That file can no longer be filed. Send it again.' };
+    }
+    let mediaId: string;
+    try {
+      const { bytes } = await r2GetBytes({ bucket: src.bucket, key: src.key });
+      const sha = createHash('sha256').update(bytes).digest('hex');
+      const { data: had } = await supabase.from('supplier_media').select('media_id').eq('vendor_profile_id', shop).eq('content_sha256', sha).maybeSingle();
+      if (had) mediaId = (had as { media_id: string }).media_id;
+      else {
+        const takenAt = kind === 'photo' ? readExifTakenAt(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer) : null;
+        const ext = (m.attachment_name ?? '').match(/\.[a-z0-9]{2,5}$/i)?.[0]?.toLowerCase() ?? '';
+        const toKey = `supplier-files/${shop}/${eventId}/${randomUUID()}${ext}`;
+        await r2Copy({ bucket: src.bucket, fromKey: src.key, toKey });
+        const ins = await supabase
+          .from('supplier_media')
+          .insert({
+            vendor_profile_id: shop,
+            content_sha256: sha,
+            r2_ref: `r2://${src.bucket}/${toKey}`,
+            mime: m.attachment_mime || 'application/octet-stream',
+            size_bytes: m.attachment_size_bytes,
+            taken_at: takenAt,
+          })
+          .select('media_id')
+          .single();
+        if (ins.error || !ins.data) {
+          if (ins.error) logQueryError('eventFilesAction.filechat.store', ins.error, { event_id: eventId }, 'graceful_degrade');
+          return { status: 'error', message: NOT_SAVED };
+        }
+        mediaId = (ins.data as { media_id: string }).media_id;
+      }
+    } catch (e) {
+      console.error('[eventFilesAction.filechat] read failed:', e instanceof Error ? e.message : e);
+      return { status: 'error', message: 'That file could not be read just now. Please try again.' };
+    }
+    const { data, error } = await supabase
+      .from('event_supplier_files')
+      .insert({
+        event_id: eventId,
+        vendor_profile_id: shop,
+        grp: 'service',
+        kind,
+        vendor_service_id: serviceId,
+        media_id: mediaId,
+        chat_message_id: messageId,
+        file_name: m.attachment_name?.slice(0, 200) || (kind === 'video' ? 'Video' : 'Photo'),
+        size_bytes: m.attachment_size_bytes,
+        mime: m.attachment_mime,
+      })
+      .select('file_id');
+    if (error || !data || data.length !== 1) {
+      if (error) logQueryError('eventFilesAction.filechat', error, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'error', message: error?.message.includes('quote') ? 'Only a service in this event’s quote can hold photos.' : NOT_SAVED };
+    }
+    return done({ status: 'done', message: 'Filed under the service' });
   }
 
   if (op === 'remove') {

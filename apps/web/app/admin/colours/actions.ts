@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath, revalidateTag } from 'next/cache';
+import { revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
@@ -23,7 +23,7 @@ export type ColoursActionState = { ok: boolean; message: string | null; saved: A
  * admin-gated; the set re-judged HERE with the editor's own rules (`judgeAppColours`), so an unreadable set or two
  * button kinds that look alike are REFUSED with the same words the editor showed; a no-op when unchanged; an
  * `admin_audit_log` row (`app_colours_edit`, before → after); the platform-settings tag cleared and the root layout
- * revalidated so the next page wears it. A set equal to today's colours is stored as NULL (nothing to emit).
+ * cleared so the next page wears it (the root layout reads through that tag — no layout-wide revalidatePath, which would re-inflate the vendor dashboard layout). A set equal to today's colours is stored as NULL (nothing to emit).
  */
 export async function saveAppColours(_prev: ColoursActionState, formData: FormData): Promise<ColoursActionState> {
   const { userId } = await requireAdminAction();
@@ -69,7 +69,6 @@ async function writeColours(adminUserId: string, next: AppColours | null, said: 
     .eq('id', 1);
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}`, saved: null };
-  revalidatePath('/', 'layout');
 
   const audit = await admin.from('admin_audit_log').insert({
     action: 'app_colours_edit',

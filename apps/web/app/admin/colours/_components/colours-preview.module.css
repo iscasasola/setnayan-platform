@@ -392,7 +392,8 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--pv-priv);
+  /* the private WORDS shade — derived to read ≥ 4.5:1 under white, where the outline colour may not (#0284C7 → 4.10) */
+  background: var(--pv-priv-text);
   color: #ffffff;
 }
 .send svg {

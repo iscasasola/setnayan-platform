@@ -2,8 +2,12 @@ import type { CSSProperties, ReactNode } from 'react';
 import { ArrowRight, Calendar, Check, CreditCard, Lock, MessageSquare, Pencil, Plus, Send, ShoppingBasket } from 'lucide-react';
 import {
   FRAME_LIFT_SHADOW,
+  TILE_KEYS,
+  TILE_LABEL,
   derive,
+  lightestPoint,
   type AppColours,
+  type JobKey,
 } from '@/lib/app-colours';
 import s from './colours-preview.module.css';
 
@@ -163,4 +167,111 @@ export function ColoursPreview({ d }: { d: AppColours }) {
       </div>
     </div>
   );
+}
+
+/** One job's sample strip on the editor row — sample figures, never a reading (this file is a SAMPLE by name). */
+export function Sample({ job, d }: { job: JobKey; d: AppColours }) {
+  const wrap = (children: ReactNode) => (
+    <div className={pv.sample} style={previewVars(d)} aria-hidden>
+      {children}
+    </div>
+  );
+  const band = `linear-gradient(${d.bandAngle}, ${d.bandFrom}, ${d.bandTo})`;
+  switch (job) {
+    case 'page':
+      return wrap(
+        <div className="flex-1 rounded-md px-3 py-2.5" style={{ background: d.page }}>
+          <span className="font-semibold text-ink">Good morning, Maria</span>
+        </div>,
+      );
+    case 'band':
+      return wrap(
+        <>
+          <div className="flex-1 rounded-md px-3.5 py-3 text-white" style={{ background: band }}>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.1em]">Budget left</div>
+            <div className="text-[26px] font-extrabold tracking-[-0.02em]">₱148,500</div>
+          </div>
+          <span className="font-mono text-[12px] text-ink/60">lightest point {lightestPoint(d.bandFrom, d.bandTo)}</span>
+        </>,
+      );
+    case 'frame':
+      return wrap(
+        <div className="flex-1 rounded-md px-3.5 pb-1 pt-3.5" style={{ background: band }}>
+          <div className={`${pv.frame} relative top-2`} style={{ borderColor: d.frameLift === 'none' ? 'var(--m-line)' : 'transparent' }}>
+            <b className="text-[13px]">Where it goes</b>
+            <div className="text-[12px] text-[color:var(--m-slate-2)]">Booked · Schedules · Asked</div>
+          </div>
+        </div>,
+      );
+    case 'money':
+      return wrap(
+        <>
+          <span className={pv.sampleBand}>
+            <span className={`${pv.chip} ${pv.chipMoney}`}>
+              <i>
+                <CreditCard />
+              </i>
+              Pay deposit
+            </span>
+          </span>
+          <span className={`${pv.btn} ${pv.money}`}>Pay ₱25,000</span>
+          <span className={`${pv.btn} ${pv.moneyOut}`}>Confirm</span>
+        </>,
+      );
+    case 'decision':
+      return wrap(
+        <>
+          <span className={pv.sampleBand}>
+            <span className={`${pv.chip} ${pv.chipDecision}`}>
+              <i>
+                <ArrowRight />
+              </i>
+              Next
+            </span>
+          </span>
+          <span className={`${pv.btn} ${pv.decision}`}>Next: choose a date</span>
+          <span className={`${pv.btn} ${pv.decisionOut}`}>Add</span>
+          <span className="font-mono text-[12px] text-ink/60">outlined word {derive.decisionWord(d.decision)}</span>
+        </>,
+      );
+    case 'private':
+      return wrap(
+        <>
+          <div className={`${pv.msg} ${pv.priv} max-w-none flex-1`}>
+            <div className={pv.strip}>🔒 Private · only you and Jose</div>
+            <div className={pv.privText}>After payday?</div>
+          </div>
+          <span className="font-mono text-[12px] text-ink/60">
+            words {derive.privateText(d.private)} · wash {derive.privateTint(d.private)}
+          </span>
+        </>,
+      );
+    case 'toggle':
+      return wrap(
+        <>
+          <span className={`${pv.switch} ${pv.switchOn}`} />
+          <span className={pv.switch} />
+          <span className={`${pv.pill} ${pv.pillOn}`}>1 month</span>
+          <span className={pv.pill}>Custom</span>
+        </>,
+      );
+    case 'tiles':
+      return wrap(
+        <>
+          {TILE_KEYS.map((k, i) => (
+            <div key={k} className={`${pv.cat} min-w-[140px] flex-1`} style={{ '--tc': d.tiles[k], '--w': `${[72, 45, 30, 58][i]}%` } as CSSProperties}>
+              <span className={pv.tile}>
+                <Check />
+              </span>
+              <div className={pv.catText}>
+                <b>{TILE_LABEL[k]}</b>
+                <div className={pv.bar}>
+                  <i />
+                </div>
+              </div>
+            </div>
+          ))}
+        </>,
+      );
+  }
 }

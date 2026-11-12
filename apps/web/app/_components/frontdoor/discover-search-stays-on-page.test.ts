@@ -70,7 +70,9 @@ test('2 · a member’s /?q= stays on / and draws the results in the sections’
   assert.doesNotMatch(code('app/page.tsx'), /redirect\(/, 'app/page.tsx sends a search somewhere else again');
   const fd = code('app/_components/frontdoor/front-door.tsx');
   assert.match(fd, /<DiscoverThumbRow key=\{searchQuery\} q=\{searchQuery\} \/>/, 'the row is not redrawn with the words it searched');
-  assert.match(fd, /\{searchQuery \? \(\s*shellSearch \? \(\s*<div data-discover-results="" data-search-results="">\s*<FrontDoorResults[\s\S]*?place="discover"/);
+  // 2026-11-12: the supplier view (a supplier parameter on `/`) is tested first, so the search branch now follows
+  // `: !data ? null :` instead of opening the expression — the search still draws in the sections' place.
+  assert.match(fd, /: !data \? null : searchQuery \? \(\s*shellSearch \? \(\s*<div data-discover-results="" data-search-results="">\s*<FrontDoorResults[\s\S]*?place="discover"/);
 });
 
 test('3 · an empty query renders the normal Discover feed, never a blank page', () => {

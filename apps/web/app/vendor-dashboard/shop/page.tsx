@@ -318,7 +318,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
                     name: l.vendor_services?.title?.trim() || 'Service card',
                     urls: await Promise.all(
                       [l.vendor_services?.primary_photo_r2_key ?? null, ...(l.vendor_services?.showcase_photo_r2_keys ?? []).slice(0, 5)].map((k) =>
-                        k ? displayUrlForStoredAsset(k).catch(() => null) : Promise.resolve(null),
+                        k
+                          ? displayUrlForStoredAsset(k).catch((err) => {
+                              // One photo that will not resolve drops out of the bundle's slideshow; the rest still play.
+                              logQueryError('VendorShopPage.bundlePhoto', err, { vendorId, packageId: p.package_id }, 'graceful_degrade');
+                              return null;
+                            })
+                          : Promise.resolve(null),
                       ),
                     ),
                   })),

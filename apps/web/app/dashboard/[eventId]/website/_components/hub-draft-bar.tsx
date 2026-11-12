@@ -8,7 +8,8 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, Undo2, X } from 'lucide-react';
+import { Check, History, X } from 'lucide-react';
+import type { RiseRect } from '@/lib/rise-motion';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
@@ -23,6 +24,7 @@ import {
   HUB_DROP_ALL_PRO,
   type HubDraftActionResult,
   type HubDraftBarLive,
+  type HubDraftHistoryRow,
   type HubDraftIntent,
   type HubDraftRefusal,
   type HubDraftSummary,
@@ -146,7 +148,24 @@ function heldLine(h: { label: string; reason: HubDraftRefusal }): string {
 }
 
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
-const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset'];
+const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset', 'history'];
+
+/* ↺ THE HISTORY LIST (owner 2026-11-09, Build 6 Lane F ruling 5) is LAZY — loaded at the first ↺, never in the Maker's
+   first load (`hub-history-sheet.tsx`). */
+type HistorySheetModule = typeof import('./hub-history-sheet');
+let historySheet: HistorySheetModule | null = null;
+let historySheetLoad: Promise<HistorySheetModule> | null = null;
+function loadHistorySheet(): Promise<HistorySheetModule> {
+  historySheetLoad ??= import('./hub-history-sheet').then((m) => (historySheet = m));
+  return historySheetLoad;
+}
+/* …warmed at idle once the Maker is up, as the drawn undo is (`onFirstUndoStep`): the first ↺ never waits for it. */
+if (typeof window !== 'undefined') {
+  const warm = () => void loadHistorySheet().catch(() => (historySheetLoad = null));
+  const idle = (window as { requestIdleCallback?: (fn: () => void, o?: { timeout: number }) => void }).requestIdleCallback;
+  if (idle) idle(warm, { timeout: 4000 });
+  else window.setTimeout(warm, 1500);
+}
 
 /* ↺ THE PRESS THAT DRAWS ITS OWN UNDO (`lib/maker-undo-run.ts`) is LAZY — warmed once the journal holds a step it
    could draw (`onFirstUndoStep`), so the first ↺ never waits for it. Never in the Maker's first load. */
@@ -284,7 +303,8 @@ function useDraftIntent(eventId: string, action: HubDraftDoor) {
       /* ↺ The journal follows the server: after a slow ↺, off its top (its own barrier first) until its newest step IS the server's state;
          Restore and Apply leave no step of it standing. */
       if (r.ok && intent === 'undo') undoJournal.trimTo(r.stamp ?? null);
-      if (r.ok && (intent === 'restore' || intent === 'apply')) undoJournal.clear();
+      /* ↺ A History row moves the draft along its timeline — no step the Maker drew stands where it was. */
+      if (r.ok && (intent === 'restore' || intent === 'apply' || intent === 'history')) undoJournal.clear();
       setResult(r);
     });
   };
@@ -393,9 +413,28 @@ export function HubDraftToolbar({
      on apply and point out the effect chosen"*). Apply opens it — never the
      write — while the draft holds a Pro effect this event has not unlocked. */
   const [sheetOpen, setSheetOpen] = useState(false);
+  /* ↺ THE HISTORY LIST — open, and the ↺'s rect it rose from (✕ falls back into it). */
+  const [historyFrom, setHistoryFrom] = useState<RiseRect | null | false>(false);
+  const [, setHistoryLoaded] = useState(0);
+  const openHistory = (button: HTMLElement | null) => {
+    const r = button?.getBoundingClientRect();
+    const from = r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+    if (historySheet) setHistoryFrom(from);
+    else void loadHistorySheet().then(() => {
+      setHistoryLoaded((n) => n + 1);
+      setHistoryFrom(from);
+    });
+  };
   const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
+  /* ↺ A row tapped: one step back across your own newest edit is the shipped ↺ (`undo` — drawn at once when the Maker
+     drew that step, `lib/maker-drawn-undo.ts`); any other row names its state (`history`, `jumpHubDraft`). */
+  const tapHistory = (row: HubDraftHistoryRow, rows: readonly HubDraftHistoryRow[]) => {
+    const here = rows.find((r) => r.where === 'here');
+    if (row.tap === 'go' && here && row.i === here.i - 1 && !here.theirs) return run({ intent: 'undo' });
+    run({ intent: 'history', to: String(row.i), stamp: row.stamp });
+  };
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);
@@ -457,6 +496,7 @@ export function HubDraftToolbar({
      on the canvas, which is a frame of its own (a tap there never reaches this
      window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
   const panelRef = useRef<HTMLDivElement>(null);
+  const historyAnchor = useRef<HTMLSpanElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -583,15 +623,31 @@ export function HubDraftToolbar({
       ) : null}
       {/* 💊 [ ↺ Undo | 👁 Preview ] — ONE shared pill (owner 2026-10-05, the pill
           system: related controls share one pill); ✓ Apply is its own, green. */}
-      <IconPill label="Undo and preview">
+      <IconPill label="History and preview">
+        {/* ↺ HISTORY (owner 2026-11-09, "↺ BECOMES A HISTORY LIST"): the list of this draft's edits rises from here. */}
+        <span className="contents" ref={historyAnchor}>
         <DraftButton
-          label="Undo"
-          icon={<Undo2 aria-hidden className="h-5 w-5" strokeWidth={2} />}
+          label="History"
+          icon={<History aria-hidden className="h-5 w-5" strokeWidth={2} />}
           bar="icon"
           phone={{ width: MAKER_BAR_PHONE.undoTop }}
+          disabled={pending || !summary.history}
+          disabledReason={working === 'undo' || working === 'history' ? 'Going back — one moment' : 'Your history could not be read'}
+          working={working === 'undo' || working === 'history'}
+          onClick={() => openHistory(historyAnchor.current?.querySelector('button') ?? null)}
+        />
+        </span>
+        {/* ↺ ONE STEP BACK, NOT DRAWN — the button a scene's own "Undo" line presses (`SCENE_UNDO_BUTTON`,
+            `scene-drag.tsx`): the step back the History list's row below "here" takes, through the same act (drawn at
+            once when the Maker drew that step). ↺ itself opens the list now (owner 2026-11-09). */}
+        <button
+          type="button"
+          hidden
+          aria-hidden="true"
+          tabIndex={-1}
+          data-bar-item="Undo"
+          data-maker-step-back=""
           disabled={pending || !summary.canUndo}
-          disabledReason={working === 'undo' ? 'Undoing — one moment' : 'Nothing of yours to undo'}
-          working={working === 'undo'}
           onClick={() => act({ intent: 'undo' })}
         />
         {/* 👁 The shell's Preview menu, beside Undo (owner 2026-10-04: ⋯ → Preview). */}
@@ -622,6 +678,21 @@ export function HubDraftToolbar({
         ) : null}
       </span>
       </IconPill>
+      {/* ↺ The History list — portalled full screen by the sheet itself (`hub-history-sheet.tsx`). */}
+      {historyFrom !== false && historySheet && summary.history ? (
+        <historySheet.default
+          rows={summary.history}
+          applyCount={applyCount}
+          pending={pending}
+          from={historyFrom}
+          onTap={(row) => tapHistory(row, summary.history ?? [])}
+          onApply={() => {
+            setHistoryFrom(false);
+            setSheetOpen(true);
+          }}
+          onClose={() => setHistoryFrom(false)}
+        />
+      ) : null}
       {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
           ancestor would make `position: fixed` hug the bar instead of the screen. */}
       {sheetOpen && typeof document !== 'undefined' ? createPortal(

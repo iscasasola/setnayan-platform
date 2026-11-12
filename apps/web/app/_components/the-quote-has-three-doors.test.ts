@@ -33,10 +33,13 @@ const THREAD = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
 test('1 · Apply an offer: the Offer Maker’s own pricing, off the total, its own line, one tap, lock shown', () => {
   assert.match(PM, /const fits = offerInput \? offersForQuote\(offerInput\) : \[\];/, 'the offers that fit are no longer the Offer Maker’s own answer');
   assert.match(PM, /appliedOfferNow\(appliedOfferId, offerInput\)/, 'the applied offer is no longer re-priced as the lines move');
-  assert.match(PM, /anchorPhp: linesSum \/ 100/, 'the offer no longer comes off what the lines come to');
-  assert.match(PM, /const grs = Math\.max\(0, sub - discountC - offerC\);/, 'the applied offer no longer comes off the total');
-  assert.match(PM, /if \(applied\) li\.push\(offerLineItem\(applied\)\);/, 'the applied offer is no longer its own named line on their quote');
-  assert.match(PM, /onPick=\{\(id\) => setAppliedOfferId\(id\)\}/, 'an offer is no longer applied by the supplier’s pick');
+  // 🎯 12 Nov (owner): an offer comes off ITS OWN cards' lines only — each line is handed over with its card.
+  assert.match(PM, /lines: resolved\.map\(\(\{ l, c \}\) => \(\{ cardId: l\.cardId \?\? null, amountPhp: c \/ 100 \}\)\)/, 'the offer no longer comes off the lines of its own cards');
+  // 💸 12 Nov (owner): offer first, then the typed discount — the one money order (lib/quote-money.ts).
+  assert.match(PM, /offerCentavos: offerC,/, 'the applied offer no longer comes off the total');
+  assert.match(PM, /const offerLine = applied && money\.offer > 0 \? offerLineItem\(/, 'the applied offer is no longer its own named line on their quote');
+  assert.match(PM, /if \(offerLine\) li\.push\(offerLine\);/);
+  assert.match(PM, /onPick=\{\(id\) => applyOffer\(id\)\}/, 'an offer is no longer applied by the supplier’s pick');
   assert.doesNotMatch(PM, /setAppliedOfferId\(\s*(fits|offerFits)\[/, 'an offer is applied automatically — the prototype says never');
   const door = PM.slice(PM.indexOf('data-quote-offer-door="locked"') - 200, PM.indexOf('data-quote-offer-door="locked"') + 400);
   assert.match(door, /<LockedFeature\s+lock="offerMaker"/, 'a locked Offer Maker is no longer SHOWN with the shared lock');
@@ -58,7 +61,9 @@ test('2 · Make a new card: the shipped Card Maker, and back into the quote', ()
 });
 
 test('3 · Start from a bundle: the Bundle Maker’s sums on the server, behind its lock; lock shown', () => {
-  assert.match(PM, /key: `bundle:\$\{b\.id\}`/, 'bundles are no longer in Start from');
+  // 🗂 12 Nov: Start from is built by `startFromOptions`, under a BUNDLES heading (lib/quote-money.ts).
+  assert.match(PM, /startFromOptions\(\{[^}]*bundles: bundleOptions/, 'bundles are no longer in Start from');
+  assert.match(read('lib/quote-money.ts'), /key: `bundle:\$\{b\.id\}`/, 'bundles are no longer in Start from');
   assert.match(PM, /loadPackageLinesForQuote\(id\)/, 'a bundle is no longer loaded through the shipped package loader');
   const loader = ACTIONS.slice(ACTIONS.indexOf('export async function loadPackageLinesForQuote'), ACTIONS.indexOf('export type QuoteCatalogueExtra'));
   assert.match(loader, /canUse\('bundleMaker', shop\)\.ok/, 'a bundle loads into a quote without the Bundle Maker’s lock');

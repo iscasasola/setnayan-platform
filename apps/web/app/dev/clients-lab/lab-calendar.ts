@@ -43,3 +43,21 @@ export const LAB_CALENDAR = {
     { requestedDate: '2026-11-12', count: 1 },
   ],
 };
+
+/**
+ * `&pools=2` / `&cal=two` — the same month for a shop with TWO schedules and one seat (2026-11-12, the Schedule pick in
+ * Show & sort + the chip under the month): a Video team booked on the 14th and the 28th, and Mia, given the video work.
+ */
+const VIDEO: SchedulePool = { ...POOL, poolId: 'p-video', label: 'Video team', calendarName: 'Video team', capacity: 1, categories: ['video'] };
+
+export const LAB_CALENDAR_TWO = {
+  ...LAB_CALENDAR,
+  pools: [POOL, VIDEO],
+  bookings: [
+    ...BOOKINGS,
+    { poolId: 'p-video', bookedDate: '2026-11-14', eventName: 'Cruz wedding' },
+    { poolId: 'p-video', bookedDate: '2026-11-28', eventName: 'Ana & Miguel wedding' },
+  ],
+};
+export const LAB_AGENTS = [{ value: 'tm-mia', label: 'Mia' }];
+export const LAB_AGENT_CATEGORIES: Record<string, string[]> = { 'tm-mia': ['video'] };

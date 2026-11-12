@@ -163,34 +163,28 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
     /const seedPax = livePax \?\? requestedPax;/,
     'the seed is the LIVE count, falling back to the inquiry count when there is none',
   );
+  // 👥 12 Nov 2026 (owner): *"our quotation maker will follow their pax at auto. but they will set the minimum count
+  // for their pax."* The field the supplier could type over is GONE — the quote bills max(their live count, ONE
+  // minimum). So the seed is no longer something to reset to; it is read, every render, and named beside the
+  // inquiry count it may have moved away from.
   assert.match(
     makerSrc,
-    /useState\(seedPax\)/,
-    'and the editable field actually opens at it — a seed nothing reads is not a seed',
+    /const pax = billedPax\(seedPax, minPax\);/,
+    'the billed count follows the live count (never below the minimum) — a seed nothing reads is not a seed',
   );
-
-  // ⚠ BY COUNT, NOT BY PRESENCE. The header has TWO branches — at-seed and
-  // edited — and each shows a figure. A `match` anywhere in the file passes
-  // while one branch has silently lost its label, which is what a first version
-  // of this assertion did: the mutation that stripped one branch left it green.
   assert.equal(
     (makerSrc.match(/was \{formatCount\(requestedPax\)\} at inquiry/g) ?? []).length,
-    2,
-    'both branches must name the inquiry count the quote is being moved away from',
+    1,
+    'the guest-list row must name the inquiry count the quote is moved away from',
   );
-  assert.equal(
-    (makerSrc.match(/\{formatCount\(seedPax\)\} pax|their plan says \{formatCount\(seedPax\)\} now/g) ?? []).length,
-    2,
-    'and both must say the figure they opened at is the current plan',
-  );
+  assert.match(makerSrc, /data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}/, 'and show their live count as "On their list"');
 });
 
-test('reset returns to what the builder opened at, not to the inquiry count', () => {
-  // A reset that jumped to a DIFFERENT number than the one the supplier started
-  // from would be a second, silent re-pricing dressed up as an undo.
-  assert.match(makerSrc, /const resetToSeed = \(\) => \{\s*\n\s*setPax\(seedPax\);/);
+test('nothing snaps the quote back to the inquiry count', () => {
+  // With no editable field there is nothing to reset; what must never happen is a quiet re-pricing back to the
+  // inquiry count behind the supplier.
   assert.equal(
-    (makerSrc.match(/setPax\(requestedPax\)/g) ?? []).length,
+    (makerSrc.match(/setPax\(|requestedPax\)\s*;/g) ?? []).length,
     0,
     'nothing may snap the field back to the inquiry count behind the supplier',
   );

@@ -194,6 +194,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // Each works out its back per visit — who sent you (`lib/pay-back-link.ts`, `lib/proposal-back.ts`).
   '/pay/[reference]': { none: 'computed', by: 'lib/pay-back-link.ts' },
   '/proposals/[publicId]': { none: 'computed', by: 'lib/proposal-back.ts' },
+  // 💬 An event group chat is opened by a host, the coordinator, a guest and a supplier alike — its ‹ goes to THAT
+  // person's Chats (or a guest's events), worked out per visit (`groupChatBack`); "+ New group" back to the event's Chats.
+  '/samahan/chat/[threadId]': { none: 'computed', by: 'lib/chat-groups.ts' },
+  '/samahan/chat/new': { none: 'computed', by: 'lib/chat-groups.ts' },
   // One-link pages sent by email or QR — nothing behind them.
   '/receipts/[receiptId]': { none: 'token' },
   '/receipts/order/[orderId]': { none: 'token' },

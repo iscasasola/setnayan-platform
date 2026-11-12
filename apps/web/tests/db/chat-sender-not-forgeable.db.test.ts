@@ -245,7 +245,8 @@ test('META: the table, the sender columns and the four roles all still exist', a
   const labels = roles.rows.map((r) => r.enumlabel).sort();
   assert.deepEqual(
     labels,
-    ['coordinator', 'couple', 'system', 'vendor'],
+    // 💬 'guest' added by 20271339978803 (event group chats) — and added to the forgery loop below.
+    ['coordinator', 'couple', 'guest', 'system', 'vendor'],
     'chat_sender_role changed shape. Every added value is a new costume an attacker could ' +
       'have worn; add it to the forgery loop below rather than leaving it untested.',
   );
@@ -410,7 +411,7 @@ test('authenticated holds no UPDATE anywhere on the table', async () => {
 test('BEHAVIOURAL: a couple CANNOT post a message stamped as anyone but themselves', async () => {
   // The exact attack, once per costume. Catalog privileges and real behaviour
   // have disagreed before, so this becomes the role and tries it.
-  for (const role of ['vendor', 'system', 'coordinator', 'couple']) {
+  for (const role of ['vendor', 'system', 'coordinator', 'couple', 'guest']) {
     const msg = await attempt(
       F.couple,
       `INSERT INTO public.chat_messages

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { ClipboardList } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { answeredCount, liveItems, type FormItemRow } from '@/lib/vendor-forms';
+import { answeredCount, liveItems, sentFormState, type FormItemRow } from '@/lib/vendor-forms';
+import { FormsFromShopList } from './forms-from-shop-list';
 import { parseVideoLink } from '@/lib/video-embed';
 import { formatCount } from '@/lib/format-number';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -18,6 +19,11 @@ import { SupplierFormAnswers } from './supplier-form-answers';
  * admits nothing else. Nothing sent → renders nothing (no empty panel, no advert). A refused read SAYS so.
  *
  * Saves through the shipped `saveSupplierAnswers`, which accepts an item of a form sent into this event.
+ *
+ * 📋 PIECE 3a (DECISION_LOG 2026-11-12, call 5 "no cap on forms per event; the couple sees all of a supplier's open
+ * forms in one place"): a supplier may send ANY number of forms, so the sections are headed by ONE list —
+ * "Forms from <shop>" — open ones first, each with its state (Open · Answered N of M · All answered · Final, the
+ * supplier's lock), each row jumping to its form. The privacy line sits behind the list's (i).
  */
 export async function SupplierFormsCard({
   supabase,
@@ -37,7 +43,7 @@ export async function SupplierFormsCard({
 }) {
   const sendsRes = await supabase
     .from('event_form_sends')
-    .select('form_id, sent_at')
+    .select('form_id, sent_at, locked')
     .eq('event_id', eventId)
     .eq('vendor_profile_id', vendorProfileId)
     .order('sent_at', { ascending: true });
@@ -45,7 +51,9 @@ export async function SupplierFormsCard({
     logQueryError('SupplierFormsCard.sends', sendsRes.error, { event_id: eventId }, 'graceful_degrade');
     return <Unread shopName={shopName} />;
   }
-  const ids = ((sendsRes.data ?? []) as { form_id: string }[]).map((s) => s.form_id);
+  const sendRows = (sendsRes.data ?? []) as { form_id: string; locked: boolean | null }[];
+  const lockedIds = new Set(sendRows.filter((s) => s.locked === true).map((s) => s.form_id));
+  const ids = sendRows.map((s) => s.form_id);
   if (ids.length === 0) return whenEmpty;
 
   const [formsRes, itemsRes, answersRes] = await Promise.all([
@@ -73,9 +81,24 @@ export async function SupplierFormsCard({
     await Promise.all(mediaRefs.map(async (r) => [r, await displayUrlForStoredAsset(r)] as const)),
   );
 
+  // One state per form, then open ones first (Open → Answered N of M → All answered → Final), sent order inside each.
+  const RANK = { open: 0, some: 1, all: 2, final: 3 } as const;
+  const stateOf = new Map(
+    ids.map((formId) => {
+      const its = liveItems(items.filter((i) => i.form_id === formId));
+      const c = answeredCount(its, new Set(its.filter((i) => answers.has(i.question_id)).map((i) => i.question_id)));
+      return [formId, sentFormState({ locked: lockedIds.has(formId), answered: c.answered, total: c.total })] as const;
+    }),
+  );
+  const ordered = [...ids].sort((a, b) => RANK[stateOf.get(a)!.key] - RANK[stateOf.get(b)!.key]);
+
   return (
     <div className="space-y-8" data-supplier-forms>
-      {ids.map((formId) => {
+      <FormsFromShopList
+        shopName={shopName}
+        rows={ordered.map((formId) => ({ formId, title: titles.get(formId) ?? `${shopName}’s form`, state: stateOf.get(formId)! }))}
+      />
+      {ordered.map((formId) => {
         const its = liveItems(items.filter((i) => i.form_id === formId));
         const c = answeredCount(its, new Set(its.filter((i) => answers.has(i.question_id)).map((i) => i.question_id)));
         return (

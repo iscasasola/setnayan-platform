@@ -56,7 +56,7 @@ const CARD_ELEMENTS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
   {
     element: 'initials when there is no photograph',
     anchor: /<span className="ini">\{initials\(v\.name\)\}<\/span>/,
-    count: 2,
+    count: 1,
     why: 'the fallback is part of the design, not an error state',
   },
   {
@@ -77,11 +77,11 @@ const CARD_ELEMENTS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
     count: 1,
     why: 'why this supplier is being shown at all',
   },
-  { element: 'the name', anchor: /<span className="vn">\{v\.name\}<\/span>/, count: 2,
+  { element: 'the name', anchor: /<span className="vn">\{v\.name\}<\/span>/, count: 1,
     why: 'who it is' },
-  { element: 'the city', anchor: /<MapPin size=\{11\}/, count: 2,
+  { element: 'the city', anchor: /<MapPin size=\{11\}/, count: 1,
     why: 'where they work' },
-  { element: 'the rating', anchor: /<Star size=\{11\}/, count: 2,
+  { element: 'the rating', anchor: /<Star size=\{11\}/, count: 1,
     why: 'what other couples said' },
   {
     element: 'the Setnayan badge',
@@ -92,9 +92,21 @@ const CARD_ELEMENTS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
   {
     element: 'the Verified badge',
     anchor: /<span className="bdg verified">/,
-    count: 2,
+    count: 1,
     why: 'checked, and it is a trust signal',
   },
+  // ── 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE) ── the second shape ("to compare") is drawn by the one face
+  // (`app/_components/service-face.tsx`), so its initials, name, city, rating and Verified moved from markup in this
+  // file to the props it hands the face. The five counts above went 2 → 1 for that reason ONLY; each element is
+  // pinned here instead, so the second shape still cannot lose one.
+  { element: 'to compare: the photograph (initials when none) — through the face', anchor: /<ServiceFace\s+framed=\{false\}[\s\S]{0,200}?coverUrl=\{cover\}/, count: 1,
+    why: 'a card with no picture is not a card' },
+  { element: 'to compare: the name + Verified — through the face', anchor: /shop=\{\{ name: v\.name, href: null, logoUrl: null, verified: v\.verified \}\}/, count: 1,
+    why: 'who it is, and it is checked' },
+  { element: 'to compare: the city — through the face', anchor: /city=\{v\.city \?\? null\}/, count: 1,
+    why: 'where they work' },
+  { element: 'to compare: the rating — through the face', anchor: /rating=\{v\.rating != null \? \{ avg: v\.rating, count: v\.reviewCount \} : null\}/, count: 1,
+    why: 'what other couples said' },
   { element: 'fit badges', anchor: /<FitBadges v=\{v\} \/>/, count: 1,
     why: 'reach, budget, date, clash' },
   {
@@ -145,7 +157,7 @@ const RAIL_CONTROLS: ReadonlyArray<{ element: string; anchor: RegExp; count: num
 test('the scan read the real file (an empty read is a green lie)', () => {
   assert.ok(src.length > 20000, `the bench read as ${src.length} chars — the scan is not reading it`);
   assert.ok(actionsSrc.length > 1000, 'the actions component read empty');
-  assert.equal(CARD_ELEMENTS.length, 15, 'the pinned element list changed size — say so in the PR');
+  assert.equal(CARD_ELEMENTS.length, 19, 'the pinned element list changed size — say so in the PR');
 });
 
 /**

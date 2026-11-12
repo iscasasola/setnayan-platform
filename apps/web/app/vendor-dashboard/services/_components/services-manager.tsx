@@ -825,6 +825,8 @@ export async function VendorServicesManager({
                           false,
                         )}
                         detailsEnabled={false}
+                        path={displayServiceLabel(svc.category)}
+                        coverUrl={svc.primary_photo_r2_key ? showcaseDisplayUrls[svc.primary_photo_r2_key] ?? null : null}
                       />
                       <Link
                         href={editHref}

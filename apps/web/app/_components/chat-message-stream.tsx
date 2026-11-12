@@ -22,11 +22,10 @@
 // while we were offline catch up without a page reload.
 
 import Link from 'next/link';
-import { OpenFileLink } from '@/app/_components/open-file-link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { FileText, Paperclip, Share, X } from 'lucide-react';
+import { Paperclip, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton } from '@/components/action-button';
 import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
@@ -107,7 +106,6 @@ import type { SupplierStanding } from '@/lib/supplier-standing';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
-import { formatCount } from '@/lib/format-number';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import {
   CHAT_PENDING_EVENT,
@@ -127,7 +125,8 @@ import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
-import { bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
+import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
+import { AttachmentBlock } from './chat/attachment-block';
 import { loadOpenFilings, type Filing, type OpenDecisionTopic } from '@/lib/chat-decisions';
 import { ChatPinnedStack } from './chat/chat-pinned-stack';
 import { setPrivateReply, usePrivateTo } from './chat/private-to';
@@ -202,6 +201,13 @@ type Props = {
    * initials + first name. Absent → exactly as before. NULL → the strip says it could not load.
    */
   hosts?: readonly ChatHost[] | null;
+  /**
+   * 🏪 THE SHOP'S FACE (12 Nov 2026). The display URL of the supplier's logo, passed ONLY by the couple's thread page and
+   * only once the shop's name is REVEALED (`couple_thread_supplier_names` sends no logo before — a logo is as identifying
+   * as the name). A message from the shop's side then wears it as its small round avatar; absent, or a picture that
+   * fails to load → the initials, as before.
+   */
+  shopLogoUrl?: string | null;
   /**
    * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
    * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
@@ -451,6 +457,7 @@ export function ChatMessageStream({
   senderNames = {},
   fileExpiry = null,
   hosts,
+  shopLogoUrl = null,
   shopLabel = null,
   memberAdd = null,
   memberLeave = null,
@@ -476,6 +483,8 @@ export function ChatMessageStream({
   useEffect(() => {
     setPrivateReply(threadId, replyKey ? replyKey.split(',') : null);
   }, [threadId, replyKey]);
+  // 🏪 The shop logo failed to load once → the initials for the rest of this visit (never a broken-image glyph).
+  const [shopLogoBroken, setShopLogoBroken] = useState(false);
   /**
    * 👀 "Seen" is LIVE (chat gaps, 8 Nov): the server's read is the start; a "read" broadcast from the other side on this
    * stream's own presence channel moves it while you look. It only ever moves forward.
@@ -574,6 +583,11 @@ export function ChatMessageStream({
   const [filePick, setFilePick] = useState<string | null>(null);
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
   const lastTap = useRef<LastTap>(NO_TAP);
+  // 📎 A single tap on a file waits DOUBLE_TAP_MS to see if a second one files it instead (attachmentTap).
+  const fileOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (fileOpenTimer.current) clearTimeout(fileOpenTimer.current);
+  }, []);
   const refetchFilings = useCallback(async () => {
     const got = await loadOpenFilings(supabase, threadId);
     setFilingsRefused(got === null);
@@ -2246,12 +2260,29 @@ export function ChatMessageStream({
               <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
               {!mine ? (
                 run.last ? (
-                  <span
-                    aria-hidden
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
-                  >
-                    {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
-                  </span>
+                  shopLogoUrl && !shopLogoBroken && m.sender_role === 'vendor' ? (
+                    // 🏪 A message sent as the shop wears the shop's logo — same 28px round as the initials.
+                    <span aria-hidden className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-ink/[0.1]" data-chat-shop-face="">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- a presigned R2 logo; next/image needs a configured loader for arbitrary R2 hosts */}
+                      <img
+                        src={shopLogoUrl}
+                        alt=""
+                        width={28}
+                        height={28}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                        onError={() => setShopLogoBroken(true)}
+                      />
+                    </span>
+                  ) : (
+                    <span
+                      aria-hidden
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
+                    >
+                      {host ? hostInitials(host) : coHost ? initialsOf(senderNames[m.sender_user_id ?? ''] ?? 'Co host') : initialsOf(counterpartyLabel)}
+                    </span>
+                  )
                 ) : (
                   <span aria-hidden className="w-7 shrink-0" />
                 )
@@ -2297,6 +2328,20 @@ export function ChatMessageStream({
                     sizeBytes={m.attachment_size_bytes ?? null}
                     owns={ownsBubble(m, viewerRole, currentUserId)}
                     hasBody={!!m.body}
+                    // 👆👆 Double-tap the photo / file itself files the message — the bubble's own rule (attachmentTap).
+                    gate={(open) => {
+                      const tap = attachmentTap(lastTap.current, m.message_id, performance.now(), privateWith === null);
+                      lastTap.current = tap.next;
+                      if (fileOpenTimer.current) clearTimeout(fileOpenTimer.current);
+                      fileOpenTimer.current = null;
+                      if (tap.openPicker) {
+                        setFilePick(m.message_id);
+                        return true;
+                      }
+                      if (tap.openFileAfterMs === null || tap.openFileAfterMs === 0) return false;
+                      fileOpenTimer.current = setTimeout(open, tap.openFileAfterMs);
+                      return true;
+                    }}
                   />
                 ) : isExpired(m) ? (
                   // The file went with the 90-days-after rule (C2): its name stays, and it says so.
@@ -2542,83 +2587,3 @@ function initialsOf(name: string): string {
   return (a + b).toUpperCase() || '·';
 }
 
-function formatBytes(bytes: number | null): string {
-  if (!bytes || bytes <= 0) return '';
-  if (bytes < 1024) return `${formatCount(bytes)} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${formatCount(kb, kb < 10 ? 1 : 0)} KB`;
-  const mb = kb / 1024;
-  return `${formatCount(mb, mb < 10 ? 1 : 0)} MB`;
-}
-
-/**
- * Renders an in-bubble attachment. Image MIMEs get a lazy <img> thumbnail that
- * links to the full-size file; everything else (PDF / doc) renders a compact
- * file chip with the name, size, and an open/download link. The bytes live on
- * public R2 (chat file sharing, PR 2) — signed-URL hardening is a follow-up.
- */
-function AttachmentBlock({
-  url,
-  name,
-  mime,
-  sizeBytes,
-  owns,
-  hasBody,
-}: {
-  url: string;
-  name: string | null;
-  mime: string | null;
-  sizeBytes: number | null;
-  owns: boolean;
-  hasBody: boolean;
-}) {
-  const isImage = (mime ?? '').startsWith('image/');
-  const label = name?.trim() || (isImage ? 'Image' : 'Attachment');
-  const size = formatBytes(sizeBytes);
-
-  if (isImage) {
-    return (
-      <OpenFileLink
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`block overflow-hidden rounded-xl ${hasBody ? 'mt-2' : ''}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded R2 asset; next/image needs a configured loader/domain for arbitrary R2 hosts */}
-        <img
-          src={url}
-          alt={label}
-          loading="lazy"
-          className="max-h-64 max-w-full rounded-xl object-cover"
-        />
-      </OpenFileLink>
-    );
-  }
-
-  return (
-    <OpenFileLink
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      download={name ?? undefined}
-      className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${
-        hasBody ? 'mt-2' : ''
-      } ${
-        owns
-          ? 'bg-cream/20 text-cream hover:bg-cream/30'
-          : 'bg-ink/[0.06] text-ink hover:bg-ink/10'
-      }`}
-    >
-      <FileText className="h-5 w-5 shrink-0 opacity-80" strokeWidth={1.75} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{label}</span>
-        {size ? (
-          <span className={`block text-[11px] ${owns ? 'text-cream/70' : 'text-ink/55'}`}>
-            {size}
-          </span>
-        ) : null}
-      </span>
-      <Share aria-hidden className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-    </OpenFileLink>
-  );
-}

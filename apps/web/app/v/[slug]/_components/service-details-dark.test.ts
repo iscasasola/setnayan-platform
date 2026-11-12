@@ -31,6 +31,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const gallery =
   readFileSync(join(here, 'services-gallery.tsx'), 'utf8') +
   readFileSync(join(here, '../../../_components/service-card-view.tsx'), 'utf8');
+// 2026-11-12 ONE SERVICE CARD (owner: "Yes, build it"): the card itself is drawn by the one face; the view only maps
+// data in and decides the DOOR. The face and its client door button are read too, so the gate is pinned end to end.
+const face =
+  readFileSync(join(here, '../../../_components/service-face.tsx'), 'utf8') +
+  readFileSync(join(here, '../../../_components/service-face-door.tsx'), 'utf8');
 const composer = readFileSync(join(here, 'inquiry-composer.tsx'), 'utf8');
 // `toServiceCard` — and the conditional spread that keeps details-only keys out
 // of the flag-OFF payload — moved to `lib/service-card-view-model.ts` on
@@ -45,10 +50,6 @@ const lockModal = readFileSync(
   'utf8',
 );
 
-/** The class string the shipped card has always carried. */
-const SHIPPED_CARD_CLASSES =
-  "'flex h-full flex-col rounded-xl border border-ink/10 bg-cream p-4'";
-
 test('the gallery defaults the flag OFF — a caller that forgets it gets today', () => {
   assert.match(
     gallery,
@@ -57,60 +58,37 @@ test('the gallery defaults the flag OFF — a caller that forgets it gets today'
   );
 });
 
-test('ServiceCardView is flag-gated, and OFF is the byte-identical static div', () => {
+test('ServiceCardView is flag-gated, and OFF is a card with NO control on it', () => {
   assert.match(
     gallery,
     /function ServiceCardView\(\{[\s\S]{0,200}?detailsEnabled/,
     'ServiceCardView must take detailsEnabled',
   );
-  // The OFF branch is the literal class string that ships today. Written as an
-  // explicit literal (not a conditional suffix) precisely so this can be pinned.
-  assert.ok(
-    gallery.includes(SHIPPED_CARD_CLASSES),
-    'the flag-OFF card must keep the exact shipped class string',
+  // 2026-11-12: the shipped text-first card (its class string, its clip) was retired by the owner for the one face —
+  // so "byte-identical" became "no control": with the flag OFF the view hands the face NO door at all.
+  assert.match(
+    gallery,
+    /const door: ServiceFaceDoor \| undefined = !detailsEnabled\s*\?\s*undefined/,
+    'with the flag OFF the card must get no door',
   );
-  // The clip is lifted above the stretched overlay ONLY when the flag is on —
-  // otherwise its class string must be untouched too.
-  assert.ok(
-    gallery.includes("'mt-2 max-h-44 w-full rounded-lg bg-ink/5 object-cover'"),
-    'the flag-OFF clip must keep the exact shipped class string',
-  );
+  assert.match(gallery, /door=\{door\}/, 'the view must hand the face exactly the gated door');
+  // The clip is not on the small card any more (it lives in the Service card grown).
+  assert.doesNotMatch(gallery.slice(gallery.indexOf('export function ServiceCardView')), /<video\b/);
 });
 
 test('the doorway, the affordance and the sheet are ALL behind the flag', () => {
-  // ── THE DOORWAY IS NOW TWO CONTROLS, AND BOTH ARE BEHIND THE FLAG ────────
-  // 2026-09-09: the marketplace card body opens that service's details, so the
-  // stretched overlay became a `<Link>` there — the marketplace is a server
-  // component and cannot hand `onOpen` down. The BUTTON (the in-page sheet, the
-  // only one this flag actually gates) is unchanged.
-  //
-  // The old assertion matched the literal `{detailsEnabled ? (<button`, which a
-  // second control necessarily breaks. Replacing it with a weaker "a button
-  // exists somewhere" would have gutted the guard, so both controls are pinned
-  // instead: neither may render outside a `detailsEnabled` branch.
-  const doorway = gallery.slice(gallery.indexOf('THE STRETCHED DOORWAY'));
-  assert.match(
-    doorway,
-    /\{detailsEnabled && doorwayHref \? \(\s*<Link/,
-    'the stretched doorway LINK must be behind detailsEnabled',
-  );
-  assert.match(
-    doorway,
-    /\) : detailsEnabled \? \(\s*<button/,
-    'the stretched doorway button must be behind detailsEnabled',
-  );
+  // The door is either a LINK (an address) or the client BUTTON (a callback) — both only when the view handed one in,
+  // and the view hands one in only behind detailsEnabled (pinned above).
+  assert.match(face, /\{door && 'href' in door \? \(\s*<Link/, 'the stretched doorway LINK must only render for a door');
+  assert.match(face, /\) : door \? \(\s*<ServiceFaceDoorButton/, 'the stretched doorway button must only render for a door');
   // Neither control may exist anywhere else in the card.
   assert.equal(
-    (gallery.match(/absolute inset-0 rounded-xl/g) ?? []).length,
+    (face.match(/absolute inset-0 rounded-2xl/g) ?? []).length,
     2,
     'a third full-card control appeared, or one lost its gate',
   );
-  // The visible "View details" affordance.
-  assert.match(
-    gallery,
-    /\{detailsEnabled \? \(\s*<p/,
-    'the View details affordance must be behind detailsEnabled',
-  );
+  // No separate "View details" affordance any more — the whole face is the door (owner 12 Nov).
+  assert.doesNotMatch(gallery + face, /View details\s*</, 'a visible View details affordance came back');
   // The dialog itself — mounted only when the flag is on AND a card is open.
   assert.match(
     gallery,

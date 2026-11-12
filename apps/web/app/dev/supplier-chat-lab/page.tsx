@@ -84,6 +84,24 @@ import type { ChatsRowNeedsYou } from '@/lib/chats-by-event';
 import { LabPlusSeed } from '@/app/dev/_components/lab-plus-seed';
 import type { PinFact } from '@/lib/chat-pins';
 import { decisionPinBodies } from '@/app/_components/chat/decision-pin-bodies';
+import { filedAttachmentOf, type FiledMessage } from '@/lib/chat-decisions';
+
+/** &decide=media — the filed rows (sample files: nothing real; hrefs through `chatAttachmentHref` only). */
+function labMediaFiled(): FiledMessage[] {
+  const hour = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const file = (id: string, name: string, mime: string, size: number) =>
+    filedAttachmentOf(id, { body: null, sender_user_id: null, created_at: hour(30), attachment_r2_key: `r2://lab/${name}`, attachment_name: name, attachment_mime: mime, attachment_size_bytes: size });
+  const row = (id: string, body: string | null, by: string, h: number, attachment: FiledMessage['attachment']): FiledMessage => ({
+    messageId: id, body, senderUserId: by, sentAt: hour(h + 1), addedByUserId: by, addedAt: hour(h), attachment,
+  });
+  return [
+    row('00000000-0000-4000-8000-0000000f0001', null, LAB_USER, 1, file('00000000-0000-4000-8000-0000000f0001', 'sunset-drone-ref.jpg', 'image/jpeg', 2_310_000)),
+    row('00000000-0000-4000-8000-0000000f0002', null, LAB_STAFF, 2, file('00000000-0000-4000-8000-0000000f0002', 'drone-test-flight.mp4', 'video/mp4', 48_200_000)),
+    row('00000000-0000-4000-8000-0000000f0003', 'Signed copy with the drone add-on', LAB_STAFF, 3, file('00000000-0000-4000-8000-0000000f0003', 'Contract-v2-signed.pdf', 'application/pdf', 1_240_000)),
+    row('00000000-0000-4000-8000-0000000f0004', 'https://example.com/drone-permit-rules', LAB_USER, 4, null),
+    row('00000000-0000-4000-8000-0000000f0005', null, LAB_STAFF, 5, filedAttachmentOf('00000000-0000-4000-8000-0000000f0005', { body: null, sender_user_id: null, created_at: hour(900), attachment_name: 'Old-shot-list.pdf' })),
+  ];
+}
 
 /** `?m=chats` — fixture rows in the shape the Chats page builds (sample names: nobody real). */
 function labChatsRead(state: string): SupplierChatsRead {
@@ -316,21 +334,27 @@ export default async function SupplierChatLabPage({
   // 🗳 &decide=1 — an open decision pin (11 Nov): tap it and it rises (filed messages · Edit topic · Close · settled).
   // The lab has no database, so the risen view is handed FIXTURE filed rows (`labFiled`), labelled as the lab's own;
   // &decide=refused draws the refused read instead (the alert with Try again).
-  if (sp.decide === '1' || sp.decide === 'refused') {
+  if (sp.decide === '1' || sp.decide === 'refused' || sp.decide === 'media') {
     labPins.push({ key: 'decision:00000000-0000-4000-8000-00000000d001', kind: 'decision', title: 'Drone shot at sunset', answerer: 'you', themName: 'Ana & Miguel', sinceMs: Date.now() - DAY_MS, openedByYou: false, filedCount: 2 });
   }
+  // 📎 &decide=media — a decision holding a photo (no words), a video, a PDF, a bare link and an expired file (12 Nov);
+  // &as=couple draws it as the couple sees it (the same panel, the other side's "you"). Every href comes from
+  // `chatAttachmentHref`, as the real read does — in the lab the route has no file behind it, so a photo shows its icon.
+  const asCouple = sp.as === 'couple';
   const labFiled =
     sp.decide === '1'
       ? {
           me: LAB_STAFF,
           filed: {
             '00000000-0000-4000-8000-00000000d001': [
-              { messageId: LAB_MESSAGES[1]!.message_id, body: LAB_MESSAGES[1]!.body, senderUserId: LAB_STAFF, sentAt: LAB_MESSAGES[1]!.created_at, addedByUserId: LAB_STAFF, addedAt: new Date(Date.now() - 2 * 3_600_000).toISOString() },
-              { messageId: LAB_MESSAGES[2]!.message_id, body: LAB_MESSAGES[2]!.body, senderUserId: LAB_USER, sentAt: LAB_MESSAGES[2]!.created_at, addedByUserId: LAB_USER, addedAt: new Date(Date.now() - 5 * 3_600_000).toISOString() },
+              { messageId: LAB_MESSAGES[1]!.message_id, body: LAB_MESSAGES[1]!.body, senderUserId: LAB_STAFF, sentAt: LAB_MESSAGES[1]!.created_at, addedByUserId: LAB_STAFF, addedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), attachment: null },
+              { messageId: LAB_MESSAGES[2]!.message_id, body: LAB_MESSAGES[2]!.body, senderUserId: LAB_USER, sentAt: LAB_MESSAGES[2]!.created_at, addedByUserId: LAB_USER, addedAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), attachment: null },
             ],
           },
         }
-      : undefined;
+      : sp.decide === 'media'
+        ? { me: asCouple ? LAB_USER : LAB_STAFF, filed: { '00000000-0000-4000-8000-00000000d001': labMediaFiled() } }
+        : undefined;
   if (sp.blocker === '1' && askOpen) {
     labPins.unshift({ key: 'booking_ask:lab', kind: 'booking_ask', title: 'They asked to book you', answerer: 'you', themName: 'Ana & Miguel', sinceMs: 0, dueMs: Date.parse('2026-10-15T20:00:00Z') });
   }
@@ -564,7 +588,13 @@ export default async function SupplierChatLabPage({
               : {})}
             dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
             threadId={LAB_THREAD}
-            initialMessages={LAB_MESSAGES.map((x) => ({ ...x, thread_id: LAB_THREAD }))}
+            initialMessages={[
+              ...LAB_MESSAGES,
+              // &decide=media — a caption-less photo in the conversation: double-tap IT to file it (12 Nov).
+              ...(sp.decide === 'media'
+                ? [{ ...LAB_MESSAGES[2]!, message_id: '00000000-0000-4000-8000-0000000f0001', body: '', attachment_r2_key: 'r2://lab/sunset-drone-ref.jpg', attachment_name: 'sunset-drone-ref.jpg', attachment_mime: 'image/jpeg', attachment_size_bytes: 2_310_000 }]
+                : []),
+            ].map((x) => ({ ...x, thread_id: LAB_THREAD }))}
             currentUserId={LAB_STAFF}
             viewerRole="vendor"
             counterpartyLabel="Ana & Miguel"

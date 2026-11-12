@@ -17,6 +17,7 @@
  *
  * Pure: no I/O, so the claim finish, the approval and the tests share one rule.
  */
+import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { signedAmount, type AmendmentItemKind } from '@/lib/proposal-amendments';
 
@@ -107,7 +108,7 @@ export function purchaseChangeNote(shopName: string | null | undefined): string 
 
 /** The card's chat line (`chat_messages.body`), the same shape `createAmendmentFromChat` posts. */
 export function purchaseChangeCardBody(n: number): string {
-  return `🧾 Deal — ${n} item${n === 1 ? '' : 's'}`;
+  return `🧾 Deal — ${formatCount(n)} item${n === 1 ? '' : 's'}`;
 }
 
 /** The couple's in-app notice when the proposal reaches their chat. */

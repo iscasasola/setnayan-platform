@@ -178,7 +178,7 @@ const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   // (shotPolicy = giftShotEventPolicy(eventId), pinned in lib/the-couples-gift-list-follows-the-drawing.test.ts).
   ['lib/wish-list.server.ts', /displayUrlForPrivateStoredAsset\(ref, shotPolicy, \{ ttlSeconds: GIFT_SHOT_TTL_SECONDS \}\)/],
   ['app/vendor-dashboard/shop/inline-docs-actions.ts', /displayUrlForPrivateStoredAsset\(ref, vendorVerificationDocPolicy\(vendorProfileId\)\)/],
-  ['app/(shell)/explore/page.tsx', /displayUrlForCatalogueArt\(ref\)/],
+  ['app/(shell)/explore/_lib/marketplace-view.tsx', /displayUrlForCatalogueArt\(ref\)/], // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   ['app/admin/categories/_components/load.ts', /displayUrlForCatalogueArt\(raw\)/],
   ['lib/onboarding-refinements.ts', /displayUrlForCatalogueArt\(ref\)/],
 ];

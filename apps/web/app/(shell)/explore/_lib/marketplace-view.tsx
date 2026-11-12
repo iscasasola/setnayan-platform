@@ -1,3 +1,19 @@
+/**
+ * marketplace-view.tsx — THE supplier marketplace: who may be shown, in what order, and how it is drawn.
+ *
+ * ─── MOVED HERE 2026-11-12, UNCHANGED, FROM `app/(shell)/explore/page.tsx` ─────────────────────────────────
+ * Owner: *"find suppliers needs to be also inside discover already. they do not need to have their own page"*
+ * (DECISION_LOG 2026-11-12 "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"). The page's data loading and its results
+ * rendering moved here so BOTH `/explore` and Discover's supplier view on `/` call ONE pipeline: there is one
+ * definition of who may be shown (`FINDABLE_SHOP_GATE`, `LIVE_SHOP_GATE`, the demo / fraud / inquirable gates), never
+ * a second copy drifting toward showing a hidden shop. Code was MOVED, not rewritten: every comment below still sits
+ * with the code it explains, and the guards that read the old page by path now read this file.
+ *
+ * `surface` is the only new input. `explore` renders byte-for-byte what `/explore` rendered. `discover` changes the
+ * CHROME only — Discover's one search box instead of a second one, Sort ▾ and Filters instead of the chip rows, one
+ * summary line instead of the active-filter bands, links that stay on `/` — never which shops may appear.
+ */
+import 'server-only';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
@@ -38,10 +54,10 @@ import {
   fetchServiceCardRecords,
   type CompiledCardRecord,
 } from '@/lib/service-card-record';
-import { EventTypeNotifyForm } from './_components/event-type-notify-form';
-import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
-import { CategoryTile, type CategoryTileData } from './_components/category-tile';
-import { SaveVendorButton } from './_components/save-vendor-button';
+import { EventTypeNotifyForm } from '../_components/event-type-notify-form';
+import { TaxonomySearch } from '../_components/taxonomy-search';
+import { CategoryTile, type CategoryTileData } from '../_components/category-tile';
+import { SaveVendorButton } from '../_components/save-vendor-button';
 import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
 // 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
 // Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
@@ -55,7 +71,7 @@ import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_c
 // S40 (0 runtime importers, confirmed dead); IconTileFolderStrip.tsx defines
 // its own `FolderTab` type (structurally identical, per the comment above),
 // so the type import now points there instead.
-import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
+import { IconTileFolderStrip, type FolderTab } from '../_components/icon-tile-folder-strip';
 import { countLiveShops, countRealShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
 import {
   shopsStillSettingUp,
@@ -77,9 +93,17 @@ import type { VendorServiceDiscount } from '@/lib/vendor-services';
 import { buildServesLine } from '@/lib/service-serves-line';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
-import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
-import { ExploreSearchHero, type ExploreChip } from './_components/explore-search-hero';
-import type { FilterDrawerProps } from './_components/filter-drawer';
+import { StickyMarketplaceHeader } from '../_components/sticky-marketplace-header';
+import { ExploreSearchHero, type ExploreChip } from '../_components/explore-search-hero';
+import type { FilterDrawerProps } from '../_components/filter-drawer';
+import { DiscoverSupplierHead } from '../_components/discover-supplier-head';
+import {
+  FAITH_KEY_TO_LABEL,
+  FAITH_KEY_TO_URL,
+  FAITH_KEYS_ORDER,
+  FAITH_URL_TO_KEY,
+  type FaithKey,
+} from '@/lib/marketplace-faith-options';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -97,7 +121,7 @@ import {
   type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
-import { FOLDER_SERVICE_COUNT } from '@/lib/taxonomy-folder-counts';
+import { TAXONOMY_OPTIONS, taxonomyLabel } from '@/lib/marketplace-category-options';
 import { getTaxonomy, type TaxonomySnapshot } from '@/lib/taxonomy-db';
 import {
   displayLogoUrl,
@@ -128,7 +152,7 @@ import {
   getCanonicalBuckets,
   type VendorCount,
 } from '@/lib/vendor-counts';
-import { FolderVendorsSection } from './_components/folder-vendors-section';
+import { FolderVendorsSection } from '../_components/folder-vendors-section';
 import { fetchUserEvents, formatEventDateWithPrecision, resolvePrimaryHostEvent, type EventDatePrecision } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 import {
@@ -137,12 +161,12 @@ import {
   getBatchVendorAvailableDays,
   getEventCommonAvailability,
 } from '@/lib/vendor-availability';
-import { VendorsAvailabilityBanner } from './_components/vendors-availability-banner';
+import { VendorsAvailabilityBanner } from '../_components/vendors-availability-banner';
 // 2026-05-22 quick-view redesign — see CLAUDE.md decision log row
 // "Ship vendor marketplace card quick-view redesign + 4-badge system".
 // VendorCard replaces the inline VendorMarketCard render and consumes
 // the badge engine + review carousel + service-photo enrichment.
-import { VendorCard } from './_components/vendor-card';
+import { VendorCard } from '../_components/vendor-card';
 import {
   computeVendorBadges,
   fetchCompletedBookingCounts,
@@ -154,10 +178,29 @@ import { searchReads, type ReadHit } from '@/lib/site-search';
 import {
   resolveExploreScope,
   browseAllVendorsHref,
+  BROWSE_ALL_EVENT_TYPES,
 } from '@/lib/explore-event-type-scope';
+import { discoverSupplierHref } from '@/lib/discover-suppliers';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
-import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+
+/** Where the view is drawn — see `MarketplaceView`. */
+export type MarketplaceSurface = 'explore' | 'discover';
+/** The address every self-link is built on: `/explore`, or Discover's `/` (2026-11-12). */
+type MarketplaceBase = '/explore' | '/';
+
+/**
+ * One value per key. Next hands a repeated parameter (`?q=a&q=b`) over as an array, and every reader below calls
+ * `.trim()` on what it gets — the first value is the one the old page would have meant.
+ */
+function singleValued(raw: MarketplaceSearchParams): MarketplaceSearchParams {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const one = Array.isArray(v) ? v[0] : v;
+    if (typeof one === 'string') out[k] = one;
+  }
+  return out as MarketplaceSearchParams;
+}
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -220,24 +263,9 @@ function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
   }
 }
 
-// Derive a human-readable label from a snake_case canonical_service key.
-// Pre-baked overrides for cases that don't title-case cleanly (acronyms,
-// hyphenated terms, Setnayan-branded SKUs).
-const TAXONOMY_LABEL_OVERRIDE: Record<string, string> = {
-  pre_nup_photographer: 'Pre-Nup Photographer',
-  pre_nup_shoot_locations: 'Pre-Nup Shoot Locations',
-  setnayan_papic: 'Setnayan · Papic',
-  setnayan_ai_edited_highlight: 'Setnayan · AI Highlight',
-};
-
-function taxonomyLabel(key: string): string {
-  if (TAXONOMY_LABEL_OVERRIDE[key]) return TAXONOMY_LABEL_OVERRIDE[key];
-  return key
-    .split('_')
-    .map((w) => (w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(' ');
-}
-
+// 🧭 `taxonomyLabel` + `TAXONOMY_OPTIONS` MOVED 2026-11-12, unchanged, to `@/lib/marketplace-category-options` —
+// Discover's "All categories ▾" offers the SAME list from a client component, which cannot import this server-only
+// view. Imported back here, so this view and that dropdown name every category the same way.
 /**
  * How many services a customer can actually browse inside each folder.
  * Counted, never typed — the same two exclusions the marketplace itself
@@ -251,18 +279,6 @@ function taxonomyLabel(key: string): string {
  * private copies of one customer-visible count is how they drift. Imported
  * here rather than recomputed so a taxonomy edit moves both or neither.
  */
-
-// Build the full 192-item autocomplete list once at module load.
-const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
-  TAXONOMY_MAP,
-)
-  .map(([key, meta]) => ({
-    key,
-    label: taxonomyLabel(key),
-    column: WEDDING_FOLDER_SHORT_LABEL[meta.folder],
-    columnCount: FOLDER_SERVICE_COUNT[meta.folder] ?? 0,
-  }))
-  .sort((a, b) => a.label.localeCompare(b.label));
 
 // Multi-field marketplace text search (owner directive 2026-06-13 — "we just
 // want a search bar … they can search for a category + vendor + service +
@@ -359,61 +375,6 @@ const EXPLORE_HERO_CHIPS: ReadonlyArray<ExploreChip> = [
   { label: 'Hair & Makeup', href: '/explore?category=bridal_hmua' },
   { label: 'Cake', href: '/explore?category=wedding_cake' },
 ];
-
-// GEO Phase G4 (2026-05-28) — enriched marketplace metadata. Adds canonical
-// URL, keywords (AI-engine match hint), and a richer description that
-// surfaces the verified-vendor + 0% commission positioning. The per-vendor
-// LocalBusiness JSON-LD lives on /v/[slug] (same sprint, sister PR) — this
-// page is a category landing page so the metadata-only treatment is
-// proportional to the surface's role in the funnel.
-/*
-  ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
-  The shared shell reads the session, so every route in this group must be
-  dynamic — and a layout's `dynamic` DOES cover its children (measured: with
-  the pages declaring nothing, `force-dynamic` on the group layout alone moved
-  them from `○ Static` to `ƒ Dynamic` in the build table). This file used to
-  carry its own copy, along with a docblock asserting a layout could not do
-  this. That assertion was false. Twenty copies of one rule is twenty places
-  for it to disagree with itself — do not re-add it here.
-*/
-
-export const metadata = {
-  title: 'Filipino wedding suppliers marketplace',
-  description:
-    'Browse verified Filipino wedding suppliers on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
-  alternates: { canonical: '/explore' },
-  keywords: [
-    'Filipino wedding suppliers',
-    'Philippines wedding photographers',
-    'Manila wedding caterers',
-    'Cebu wedding planners',
-    'verified wedding suppliers Philippines',
-    'wedding marketplace Philippines',
-    'Setnayan suppliers',
-  ],
-  openGraph: {
-    images: BRAND_OG_IMAGES,
-    title: 'Filipino wedding suppliers · Setnayan marketplace',
-    description:
-      'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
-    url: '/explore',
-    siteName: 'Setnayan',
-    locale: 'en_PH',
-    type: 'website',
-  },
-  // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
-  // card so social shares render the 1200×630 /brand/og-card.webp instead of a
-  // 144×144 thumbnail. ⚠ The card must be NAMED here: a page's own `twitter` /
-  // `openGraph` object replaces the layout's whole object (shallow merge), so
-  // "layout-level" left this page with no picture at all until 2026-10-23.
-  twitter: {
-    images: BRAND_TWITTER_IMAGES,
-    card: 'summary_large_image',
-    title: 'Filipino wedding suppliers · Setnayan marketplace',
-    description:
-      'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
-  },
-};
 
 // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
 // enumerating the 12 wedding folders. Each ListItem points at the
@@ -532,8 +493,7 @@ function venueSettingShortLabel(key: string): string {
     ?? key.replace(/_/g, ' ');
 }
 
-type Props = {
-  searchParams: Promise<{
+export type MarketplaceSearchParams = {
     q?: string;
     category?: string;
     city?: string;
@@ -616,7 +576,8 @@ type Props = {
      *  the approved registry in `parseFilters`; an unknown value is null, never
      *  a fallback to a different lens. */
     lens?: string;
-  }>;
+    /** Discover only (2026-11-12): any other key the front page carries (`q` is shared) — ignored here. */
+    [key: string]: string | string[] | undefined;
 };
 
 // Single-source notice copy for query-string-driven banners on /vendors. Add
@@ -822,10 +783,14 @@ const SLUG_TO_TILE: Map<string, WeddingTile> = new Map(
 );
 
 function parseFilters(
-  raw: Awaited<Props['searchParams']>,
+  raw: MarketplaceSearchParams,
   /** The live group ids (Admin › Categories) — a new group is filterable by URL at once. */
   folderOrder: readonly string[],
+  /** Where self-links point (2026-11-12): `/explore`, or Discover's `/`. */
+  base: MarketplaceBase = '/explore',
 ): {
+  /** Where every self-link this view builds points — see `buildHref`. */
+  base: MarketplaceBase;
   q: string;
   // `category` is the marketplace "filter by service" param. It can be:
   //   - one of the 28-enum VendorCategory keys (set by the chip UI)
@@ -992,6 +957,7 @@ function parseFilters(
   const rawLens = typeof raw.lens === 'string' ? raw.lens : '';
   const lens: LensKey | null = isLensKey(rawLens) ? rawLens : null;
   return {
+    base,
     q,
     category,
     city,
@@ -1011,93 +977,9 @@ function parseFilters(
   };
 }
 
-/**
- * 2026-05-30 — Ceremony Faith pill canonical lookups. The TaxonomyEntry
- * uses TitleCase faith keys ('Catholic' / 'Christian' / 'INC' / 'Muslim'
- * / 'Cultural') because they were authored as display labels. The URL
- * carries lowercase so /vendors?folder=ceremony&faith=catholic stays
- * scannable + matches the existing param style (?venue=garden, etc.).
- * The pill UI reads `FAITH_KEY_TO_LABEL` for the chip caption.
- *
- * INC stays uppercase as the label (it's an organization name —
- * Iglesia Ni Cristo) but the URL param is `inc` for consistency.
- */
-// Derived from the canonical lib vocabulary (minus Civil — civil couples have
-// no faith pill; they simply see the universal set). Adding a faith to
-// WEDDING_FAITH_KEYS forces the URL/label maps below to be extended here.
-export type FaithKey = Exclude<WeddingFaithKey, 'Civil'>;
-const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
-  catholic: 'Catholic',
-  christian: 'Christian',
-  inc: 'INC',
-  muslim: 'Muslim',
-  cultural: 'Cultural',
-  chinese: 'Chinese',
-  jewish: 'Jewish',
-  born_again: 'Born Again',
-  aglipayan: 'Aglipayan',
-  lds: 'LDS',
-  sda: 'SDA',
-  jw: 'JW',
-  hindu: 'Hindu',
-  sikh: 'Sikh',
-  buddhist: 'Buddhist',
-  orthodox: 'Orthodox',
-};
-const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
-  Catholic: 'catholic',
-  Christian: 'christian',
-  INC: 'inc',
-  Muslim: 'muslim',
-  Cultural: 'cultural',
-  Chinese: 'chinese',
-  Jewish: 'jewish',
-  'Born Again': 'born_again',
-  Aglipayan: 'aglipayan',
-  LDS: 'lds',
-  SDA: 'sda',
-  JW: 'jw',
-  Hindu: 'hindu',
-  Sikh: 'sikh',
-  Buddhist: 'buddhist',
-  Orthodox: 'orthodox',
-};
-const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
-  Catholic: 'Catholic',
-  Christian: 'Christian',
-  INC: 'INC',
-  Muslim: 'Muslim',
-  Cultural: 'Cultural',
-  Chinese: 'Chinese',
-  Jewish: 'Jewish',
-  'Born Again': 'Born Again',
-  Aglipayan: 'Aglipayan (IFI)',
-  LDS: 'LDS (Latter-day Saints)',
-  SDA: 'Seventh-day Adventist',
-  JW: "Jehovah's Witnesses",
-  Hindu: 'Hindu',
-  Sikh: 'Sikh',
-  Buddhist: 'Buddhist',
-  Orthodox: 'Orthodox Christian',
-};
-const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
-  'Catholic',
-  'Muslim',
-  'INC',
-  'Chinese',
-  'Born Again',
-  'Christian',
-  'Cultural',
-  'Jewish',
-  'Aglipayan',
-  'LDS',
-  'SDA',
-  'JW',
-  'Hindu',
-  'Sikh',
-  'Buddhist',
-  'Orthodox',
-];
+// 2026-11-12 — the faith lookups (FaithKey · FAITH_URL_TO_KEY · FAITH_KEY_TO_URL · FAITH_KEY_TO_LABEL ·
+// FAITH_KEYS_ORDER) moved, unchanged and with their comments, to `lib/marketplace-faith-options.ts`, so
+// Discover's Shops shelf can offer the same faiths without loading this server-only view.
 
 /**
  * Off-Season Promos (Wave 5) — the set of vendor_profile_ids that have a LIVE
@@ -1248,11 +1130,24 @@ async function fetchDemoStartingPrices(
   }
 }
 
-export default async function VendorsMarketplacePage({ searchParams }: Props) {
-  const raw = await searchParams;
+export async function MarketplaceView({
+  raw: rawIn,
+  surface,
+}: {
+  /** The address's parameters, already awaited. */
+  raw: MarketplaceSearchParams;
+  /**
+   * WHERE THE VIEW IS DRAWN (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED").
+   *   `explore`  — `/explore`, exactly as it rendered before the move.
+   *   `discover` — Discover's supplier view on `/`: the same pipeline and the same cards, under Discover's chrome
+   *                (one search box — the top bar's; Sort ▾ and Filters instead of the chip rows; links stay on `/`).
+   */
+  surface: MarketplaceSurface;
+}) {
+  const raw = singleValued(rawIn);
   // One taxonomy read per request (React `cache()`), shared with every later reader on this page.
   const pageTax = await getTaxonomy();
-  let filters = parseFilters(raw, pageTax.folderOrder);
+  let filters = parseFilters(raw, pageTax.folderOrder, surface === 'discover' ? '/' : '/explore');
   const admin = createAdminClient();
 
   // DB-driven event-type roster (2026-06-13 cutover) — ACTIVE vocab rows.
@@ -1577,11 +1472,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // public entry), not only filtered/searched views. Cookie-free (service-role
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
-  after(() => runAdminDigestFlush().catch(() => {}));
-  // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
-  // fired here too (before the catalog-mode early return) so the marketplace's
-  // main public entry drives them daily. Per-job daily DB claim; never throws.
-  after(() => runDailyEmailJobs().catch(() => {}));
+  //
+  // 2026-11-12 — ON DISCOVER (`surface === 'discover'`) BOTH ARE SKIPPED HERE: `app/page.tsx` already schedules
+  // `runAdminDigestFlush` and `runDailyEmailJobs` on every `/` request, the supplier view included. Scheduling them
+  // twice per request would only spend a second claim read each.
+  if (surface === 'explore') {
+    after(() => runAdminDigestFlush().catch(() => {}));
+    // Daily email jobs (anniversary · renewal · Papic drop warning) — CRON-FREE,
+    // fired here too (before the catalog-mode early return) so the marketplace's
+    // main public entry drives them daily. Per-job daily DB claim; never throws.
+    after(() => runDailyEmailJobs().catch(() => {}));
+  }
 
   /*
     💸 ONE `head: true` COUNT ON THE LANDING ONLY. It is not run on a filtered
@@ -1817,6 +1718,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
   const marketplaceIsEmpty = liveShopCount === 0;
+
+  /*
+    🔎 DISCOVER, WITH NO SHOP OPEN YET (2026-11-12). `/explore` draws its whole catalogue landing here (`CatalogView`:
+    hero, its own search box, the folder strip). Discover has ONE search box — the top bar's — so that landing is not
+    brought along: the supplier view says the shipped empty line, in the shipped words (`front-door-feed.tsx`'s Shops
+    shelf), with its one door. The app's store build hides the line exactly as it hides the empty Shops shelf
+    (`hidesEmptyShelfInApp`, DECISION_LOG 2026-10-19 (2)).
+  */
+  if (surface === 'discover' && isLandingView && marketplaceIsEmpty) {
+    const lineHidden = hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount);
+    return (
+      <div data-discover-supplier-view="" className="w-full pb-16">
+        <h2 className="fd-sechead">
+          <span>Suppliers</span>
+        </h2>
+        {lineHidden ? null : (
+          <p className="text-sm text-ink/70">
+            No supplier has opened a shop yet.{' '}
+            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+              Open your shop
+            </Link>
+          </p>
+        )}
+      </div>
+    );
+  }
 
   if (isLandingView && marketplaceIsEmpty) {
     return (
@@ -3317,6 +3244,336 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
+  /*
+    2026-11-12 — TWO PIECES BOTH SURFACES DRAW, lifted out of the `/explore` render below UNCHANGED (comments moved
+    with them) so Discover's supplier view draws the very same nodes instead of a copy: the lens chips, and the
+    results (the grid or the empty state, then the pages).
+  */
+  const lensRow = (
+    <>
+      {/* ── THE LENS CHIPS (owner 2026-08-29: "use the lenses") ──────────
+          Rendered ONLY when more than one lens is offerable — with a
+          single chip there is nothing to choose, and a lone control that
+          changes nothing reads as broken. On today's marketplace, and for
+          any signed-out visitor, that is exactly the case: only "Best
+          matches" is offerable and this strip does not appear at all.
+
+          ⛔ Kept VISUALLY SEPARATE from the plain Sort row below, which is
+          the bench's own rule: "Top rated" is a comparator the visitor
+          asked for, while a lens is Setnayan recommending an order. The
+          two must not read as one list of equivalent options. */}
+      {visible.length > 0 && offerableLenses.length > 1 ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-ink/55">Show me</span>
+          {offerableLenses.map((k) => {
+            const active = (activeLens ?? 'fit') === k;
+            return (
+              <Link
+                key={k}
+                href={buildHref(filters, { lens: k, page: 1 })}
+                aria-current={active ? 'true' : undefined}
+                className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
+                style={
+                  active
+                    ? {
+                        background: 'var(--m-orange-4)',
+                        borderColor: 'var(--m-orange-3)',
+                        color: 'var(--m-orange-deep)',
+                      }
+                    : {
+                        background: 'var(--m-paper)',
+                        borderColor: 'var(--m-line)',
+                        color: 'var(--m-slate-2)',
+                      }
+                }
+              >
+                {LENSES[k].label}
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </>
+  );
+  const resultsBody = (
+    <>
+      {visible.length === 0 ? (
+        <EmptyState
+          filters={filters}
+          broadenedCount={broadenedCount}
+          stillSettingUp={stillSettingUp}
+          eventTypeLabel={
+            filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
+          }
+        />
+      ) : (
+        serviceCards !== null ? (
+        /*
+          THE LANDING'S BODY — one card per SERVICE.
+
+          `detailsEnabled={false}` renders the card to be LOOKED AT: every
+          interactive branch inside the view is already gated on that flag, so
+          a server component can render it without a client wrapper existing
+          only to satisfy a type. Same call shape the vendor's own card list
+          uses, so all three surfaces draw the identical card.
+        */
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
+          {serviceCards.map((c) => (
+            <li key={c.row.vendor_service_id}>
+              {/*
+                TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
+                service's details, the shop LOGO opens the shop. The card used
+                to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
+                why a second link could not simply be added inside it.
+
+                ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
+                argument stays FALSE, and that is deliberate, not a slip. They
+                are two different questions:
+                  · the view's flag asks "is this card a doorway?" — it is now,
+                    because it has an address to go to.
+                  · the builder's flag asks "put the details-sheet-only keys in
+                    the payload?" — no. Those exist for the in-page sheet on
+                    the shop's own page, they are gated on
+                    NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
+                    would break the byte-identical-payload contract that
+                    `service-details-dark.test.ts` pins.
+                The public id the address needs is read from the DATABASE ROW,
+                which always carries it — see `lib/service-card-address.ts`.
+              */}
+              <ServiceCardView
+                card={toServiceCard(
+                  c.row,
+                  serviceCardInclusions.get(c.row.vendor_service_id),
+                  serviceCardDiscounts.get(c.row.vendor_service_id),
+                  serviceCardServes.get(c.row.vendor_service_id),
+                  serviceCardShowcase.get(c.row.vendor_service_id),
+                  serviceCardHidingPrices.has(c.vendorProfileId),
+                  null,
+                  new Date(),
+                  serviceCardRecords.get(c.row.vendor_service_id) ?? null,
+                  cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
+                  false,
+                  serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
+                )}
+                detailsEnabled
+                detailsHref={serviceCardAddress(c)}
+                path={displayServiceLabel(c.row.category)}
+                coverUrl={serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null}
+                shop={{
+                  name: c.businessName,
+                  href: shopAddress(c.businessSlug),
+                  logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
+                  city: c.locationCity,
+                  isDemo: c.isDemo,
+                  verified: c.verified,
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+        ) : (
+        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
+          {visible.map((v) => {
+            /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
+               It hid a Free vendor's stars and count (the card rendered
+               "new") and emptied the review carousel for Free + Verified.
+               Reviews are merit-only on every tier now. */
+            // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
+            // star average + review count read the TRUSTED (receipt-backed,
+            // arm's-length) stat, so fake / self-dealt reviews can't inflate
+            // the number couples see. Same source the couple_trusted / top_pick
+            // badges use.
+            //
+            // 🔒 NOT TIER-GATED (owner ruling re-confirmed 2026-08-09). Until
+            // today a Free vendor's card zeroed its rating and count and read
+            // as "new" however many real reviews it had, and its review
+            // carousel was emptied — a paid shop's reputation looked better
+            // than an unpaid one's for money rather than merit. The trusted
+            // stat is the only filter that belongs here.
+            /* `null` = the trusted-stats read FAILED, which is not the same
+               as this vendor having no trusted reviews. Passing 0/0 here
+               would label them "New to Setnayan". */
+            const trustedUnknown = trustedReviewStatsByVendorId === null;
+            const vTrusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
+            const cardRating = Number(vTrusted?.avg ?? 0);
+            const cardReviewCount = vTrusted?.count ?? 0;
+            const cardReviews = reviewsByVendorId.get(v.vendor_profile_id) ?? [];
+            return (
+              <li key={v.vendor_profile_id}>
+                {/* 2026-05-22 quick-view redesign — VendorCard
+                    replaces the legacy VendorMarketCard. Adds the
+                    4-badge row + service hero photo + recent-reviews
+                    carousel + "Service by Business" header line per
+                    the owner directive (CLAUDE.md decision log). */}
+                <VendorCard
+                  vendor={v}
+                  rating={cardRating}
+                  reviewCount={cardReviewCount}
+                  ratingUnknown={trustedUnknown}
+                  isAuthenticated={user !== null}
+                  isFollowing={followedSet.has(v.vendor_profile_id)}
+                  isSaved={savedSet.has(v.vendor_profile_id)}
+                  saveEvents={saveChoices}
+                  eventId={coupleEventId}
+                  venueAnchor={venueAnchor}
+                  badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
+                  reviews={cardReviews}
+                  activeCategory={filters.category}
+                  revalidateTo={surface === 'discover' ? '/' : '/explore'}
+                />
+              </li>
+            );
+          })}
+        </ul>
+        )
+      )}
+
+      <Pagination
+        filters={filters}
+        page={filters.page}
+        totalPages={totalPages}
+        total={totalCount ?? rows.length}
+      />
+    </>
+  );
+
+  /*
+    🔎 DISCOVER'S SUPPLIER VIEW (2026-11-12 · DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED" ·
+    prototypes/discover_with_suppliers_2026-11-12_fable.html). The SAME pipeline, the SAME cards and pages, under
+    Discover's chrome on `/`:
+      · ONE search box — the top bar's (signed out) or Discover's search row (signed in). StickyMarketplaceHeader
+        (and its "Narrow these results…" box) and the focused-mode search form are NOT drawn here.
+      · [All categories ▾] [Sort ▾] [Filters] — Sort is ONE dropdown (the chip row is `/explore`'s); Off-season is a
+        switch inside Filters (the band is `/explore`'s); the faith strip's job is done by the ONE summary line.
+      · The compare line sits in the head, once two are saved (the shipped `CompareShortlistBanner`).
+      · No ItemList JSON-LD: `/` describes the whole site (`app/page.tsx`), and every `/?…` address canonicalises to
+        `/` — the marketplace's structured data stays with `/explore`'s metadata.
+    `<div>`, not `<main>`: Discover's shell already draws the page's one <main>.
+  */
+  if (surface === 'discover') {
+    const categoryLabel = filters.category ? taxonomyLabel(filters.category) : null;
+    const scopeLabel =
+      categoryLabel ??
+      (filters.tile ? WEDDING_TILE_LABEL[filters.tile] : filters.folder ? WEDDING_FOLDER_SHORT_LABEL[filters.folder] : null);
+    const shownEventType =
+      filters.eventType && filters.eventType !== BROWSE_ALL_EVENT_TYPES
+        ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType)
+        : null;
+    const summary: string[] = [];
+    if (scopeLabel) summary.push(scopeLabel);
+    if (filters.q) summary.push(`“${filters.q}”`);
+    if (filters.city) summary.push(filters.city);
+    if (shownEventType) summary.push(shownEventType);
+    if (filters.faithFilter) summary.push(FAITH_KEY_TO_LABEL[filters.faithFilter]);
+    if (filters.verifiedOnly) summary.push('Verified only');
+    if (filters.matchEvent) summary.push('Matches your event');
+    if (filters.offSeason) summary.push('Off-season savings');
+    const filterCount = [
+      filters.city.length > 0,
+      shownEventType !== null,
+      filters.faithFilter !== null,
+      filters.verifiedOnly,
+      filters.matchEvent,
+      filters.offSeason,
+    ].filter(Boolean).length;
+    // What Apply must keep that the drawer does not draw: the tile scope, the lens, and — with nothing else left —
+    // the view's mark, so applying no filter stays in the supplier view.
+    const drawerCarry: Array<readonly [string, string]> = [];
+    if (filters.tile) drawerCarry.push(['tile', WEDDING_TILE_SLUG[filters.tile]]);
+    if (filters.lens && filters.lens !== 'fit') drawerCarry.push(['lens', filters.lens]);
+    drawerCarry.push(['browse', '1']);
+    const drawer = {
+      filters: {
+        q: filters.q,
+        category: filters.category,
+        city: filters.city,
+        sort: filters.sort,
+        verifiedOnly: filters.verifiedOnly,
+        matchEvent: filters.matchEvent,
+        eventType: filters.eventType,
+        folder: filters.folder,
+        venueDefault: filters.venueDefault,
+        focusedMode: filters.focusedMode,
+        faith: filters.faithFilter ? FAITH_KEY_TO_URL[filters.faithFilter] : '',
+      },
+      sortOptions: SORT_KEYS.map((k) => ({ value: k, label: SORT_LABEL[k] })),
+      faithOptions: FAITH_KEYS_ORDER.map((k) => ({ value: FAITH_KEY_TO_URL[k], label: FAITH_KEY_TO_LABEL[k] })),
+      eventTypeOptions: eventTypeVocab.map((t) => ({ value: t.key, label: t.label })),
+      matchableEvent,
+      hostVenueSetting,
+      hostVenueLabel: hostVenueSetting ? venueSettingLongLabel(hostVenueSetting) : null,
+      showVenueToggle: (filters.tile === 'reception' || filters.folder === 'venue') && hostVenueSetting !== null,
+      hasActiveFilters: filterCount > 0 || filters.q.length > 0 || filters.category !== null,
+      action: '/',
+      clearHref: clearAllHref(filters),
+      sortInside: false,
+      offSeason: filters.offSeason,
+      carry: drawerCarry,
+    } satisfies Omit<FilterDrawerProps, 'open' | 'onClose'>;
+    return (
+      <div data-discover-supplier-view="" className="w-full pb-16">
+        <NoticeBanner noticeKey={noticeKey} />
+        {eventContextFailed && filters.matchEvent ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t load your event just now, so{' '}
+            <strong>&ldquo;match my event&rdquo; isn&rsquo;t narrowing these results</strong> —
+            you&rsquo;re seeing everyone, not only the suppliers who fit your ceremony and
+            date. Reload to try again.
+          </p>
+        ) : null}
+        {viewerStateFailed ? (
+          <p
+            role="status"
+            className="mx-auto mb-4 max-w-3xl rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
+          >
+            We couldn&rsquo;t check which suppliers you&rsquo;ve saved or followed, so those
+            marks are missing below. <strong>Nothing has been unsaved</strong> — your list is
+            safe; this page just can&rsquo;t see it right now.
+          </p>
+        ) : null}
+        <DiscoverSupplierHead
+          title={scopeLabel ?? 'Suppliers'}
+          categoryLabel={categoryLabel}
+          focused={filters.focusedMode}
+          summary={summary}
+          clearHref={clearAllHref(filters)}
+          sort={{
+            value: filters.sort,
+            options: SORT_KEYS.map((k) => ({
+              key: k,
+              label: SORT_LABEL[k],
+              href: buildHref(filters, { sort: k, page: 1 }),
+            })),
+          }}
+          filters={{ count: filterCount, drawer }}
+          compare={<CompareShortlistBanner compareHref={compareHref} />}
+        />
+        {filters.focusedMode ? null : lensRow}
+        {venueFilterFiring && (filters.venueFacet ?? hostVenueSetting) ? (
+          <VenueFilterBanner
+            settingKey={(filters.venueFacet ?? hostVenueSetting) as string}
+            showAllHref={buildHref(filters, { venueDefault: 'off' })}
+          />
+        ) : null}
+        {availability.kind === 'active' &&
+        coupleEventId &&
+        (availability.availableDays.length === 0 || availability.availableDays.length <= 7) ? (
+          <VendorsAvailabilityBanner
+            eventId={coupleEventId}
+            availableDays={availability.availableDays}
+            lockedCount={availability.lockedCount}
+            windowLabel={availability.windowLabel}
+          />
+        ) : null}
+        {resultsBody}
+        <ReadsResults hits={readHits} query={filters.q} />
+      </div>
+    );
+  }
+
   return (
     /*
       🛒 SAME SHELL FOR THE FILTERED MARKETPLACE (owner, twice). `bleed` for the
@@ -3516,48 +3773,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               *
               *  Hidden when the grid is empty, so it can never sit above "no
               *  vendors found" offering to re-order nothing. */}
-            {/* ── THE LENS CHIPS (owner 2026-08-29: "use the lenses") ──────────
-                Rendered ONLY when more than one lens is offerable — with a
-                single chip there is nothing to choose, and a lone control that
-                changes nothing reads as broken. On today's marketplace, and for
-                any signed-out visitor, that is exactly the case: only "Best
-                matches" is offerable and this strip does not appear at all.
-
-                ⛔ Kept VISUALLY SEPARATE from the plain Sort row below, which is
-                the bench's own rule: "Top rated" is a comparator the visitor
-                asked for, while a lens is Setnayan recommending an order. The
-                two must not read as one list of equivalent options. */}
-            {visible.length > 0 && offerableLenses.length > 1 ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-ink/55">Show me</span>
-                {offerableLenses.map((k) => {
-                  const active = (activeLens ?? 'fit') === k;
-                  return (
-                    <Link
-                      key={k}
-                      href={buildHref(filters, { lens: k, page: 1 })}
-                      aria-current={active ? 'true' : undefined}
-                      className="inline-flex min-h-[36px] items-center rounded-full border px-3 text-xs font-semibold transition-colors"
-                      style={
-                        active
-                          ? {
-                              background: 'var(--m-orange-4)',
-                              borderColor: 'var(--m-orange-3)',
-                              color: 'var(--m-orange-deep)',
-                            }
-                          : {
-                              background: 'var(--m-paper)',
-                              borderColor: 'var(--m-line)',
-                              color: 'var(--m-slate-2)',
-                            }
-                      }
-                    >
-                      {LENSES[k].label}
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : null}
+            {lensRow}
             {visible.length > 0 ? (
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-ink/55">Sort</span>
@@ -3774,142 +3990,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           </div>
         ) : null}
 
-        {visible.length === 0 ? (
-          <EmptyState
-            filters={filters}
-            broadenedCount={broadenedCount}
-            stillSettingUp={stillSettingUp}
-            eventTypeLabel={
-              filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
-            }
-          />
-        ) : (
-          serviceCards !== null ? (
-          /*
-            THE LANDING'S BODY — one card per SERVICE.
-
-            `detailsEnabled={false}` renders the card to be LOOKED AT: every
-            interactive branch inside the view is already gated on that flag, so
-            a server component can render it without a client wrapper existing
-            only to satisfy a type. Same call shape the vendor's own card list
-            uses, so all three surfaces draw the identical card.
-          */
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
-            {serviceCards.map((c) => (
-              <li key={c.row.vendor_service_id}>
-                {/*
-                  TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
-                  service's details, the shop LOGO opens the shop. The card used
-                  to be ONE wrapping <Link> to the legacy `/v/{slug}`, which is
-                  why a second link could not simply be added inside it.
-
-                  ⚠ `detailsEnabled` (the VIEW) is true while the builder's last
-                  argument stays FALSE, and that is deliberate, not a slip. They
-                  are two different questions:
-                    · the view's flag asks "is this card a doorway?" — it is now,
-                      because it has an address to go to.
-                    · the builder's flag asks "put the details-sheet-only keys in
-                      the payload?" — no. Those exist for the in-page sheet on
-                      the shop's own page, they are gated on
-                      NEXT_PUBLIC_SERVICE_DETAILS_ENABLED, and shipping them here
-                      would break the byte-identical-payload contract that
-                      `service-details-dark.test.ts` pins.
-                  The public id the address needs is read from the DATABASE ROW,
-                  which always carries it — see `lib/service-card-address.ts`.
-                */}
-                <ServiceCardView
-                  card={toServiceCard(
-                    c.row,
-                    serviceCardInclusions.get(c.row.vendor_service_id),
-                    serviceCardDiscounts.get(c.row.vendor_service_id),
-                    serviceCardServes.get(c.row.vendor_service_id),
-                    serviceCardShowcase.get(c.row.vendor_service_id),
-                    serviceCardHidingPrices.has(c.vendorProfileId),
-                    null,
-                    new Date(),
-                    serviceCardRecords.get(c.row.vendor_service_id) ?? null,
-                    cardRecordRatingFromTrusted(serviceCardShopStats.get(c.vendorProfileId)),
-                    false,
-                    serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null,
-                  )}
-                  detailsEnabled
-                  detailsHref={serviceCardAddress(c)}
-                  path={displayServiceLabel(c.row.category)}
-                  coverUrl={serviceCardCoverUrls.get(c.row.vendor_service_id) ?? null}
-                  shop={{
-                    name: c.businessName,
-                    href: shopAddress(c.businessSlug),
-                    logoUrl: serviceCardLogoUrls.get(c.vendorProfileId) ?? null,
-                    city: c.locationCity,
-                    isDemo: c.isDemo,
-                    verified: c.verified,
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-          ) : (
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
-            {visible.map((v) => {
-              /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
-                 It hid a Free vendor's stars and count (the card rendered
-                 "new") and emptied the review carousel for Free + Verified.
-                 Reviews are merit-only on every tier now. */
-              // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the card's PUBLIC
-              // star average + review count read the TRUSTED (receipt-backed,
-              // arm's-length) stat, so fake / self-dealt reviews can't inflate
-              // the number couples see. Same source the couple_trusted / top_pick
-              // badges use.
-              //
-              // 🔒 NOT TIER-GATED (owner ruling re-confirmed 2026-08-09). Until
-              // today a Free vendor's card zeroed its rating and count and read
-              // as "new" however many real reviews it had, and its review
-              // carousel was emptied — a paid shop's reputation looked better
-              // than an unpaid one's for money rather than merit. The trusted
-              // stat is the only filter that belongs here.
-              /* `null` = the trusted-stats read FAILED, which is not the same
-                 as this vendor having no trusted reviews. Passing 0/0 here
-                 would label them "New to Setnayan". */
-              const trustedUnknown = trustedReviewStatsByVendorId === null;
-              const vTrusted = trustedReviewStatsByVendorId?.get(v.vendor_profile_id);
-              const cardRating = Number(vTrusted?.avg ?? 0);
-              const cardReviewCount = vTrusted?.count ?? 0;
-              const cardReviews = reviewsByVendorId.get(v.vendor_profile_id) ?? [];
-              return (
-                <li key={v.vendor_profile_id}>
-                  {/* 2026-05-22 quick-view redesign — VendorCard
-                      replaces the legacy VendorMarketCard. Adds the
-                      4-badge row + service hero photo + recent-reviews
-                      carousel + "Service by Business" header line per
-                      the owner directive (CLAUDE.md decision log). */}
-                  <VendorCard
-                    vendor={v}
-                    rating={cardRating}
-                    reviewCount={cardReviewCount}
-                    ratingUnknown={trustedUnknown}
-                    isAuthenticated={user !== null}
-                    isFollowing={followedSet.has(v.vendor_profile_id)}
-                    isSaved={savedSet.has(v.vendor_profile_id)}
-                    saveEvents={saveChoices}
-                    eventId={coupleEventId}
-                    venueAnchor={venueAnchor}
-                    badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
-                    reviews={cardReviews}
-                    activeCategory={filters.category}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-          )
-        )}
-
-        <Pagination
-          filters={filters}
-          page={filters.page}
-          totalPages={totalPages}
-          total={totalCount ?? rows.length}
-        />
+        {resultsBody}
 
         {/* THE OTHER TWO NOUNS. The box that sends people here says "suppliers,
             stories and guides"; until 2026-08-15 this page answered the first
@@ -3951,6 +4032,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
 function buildHref(
   filters: {
+    /** `/explore` (the default) or Discover's `/` — 2026-11-12. */
+    base?: MarketplaceBase;
     q: string;
     category: string | null;
     city: string;
@@ -4023,8 +4106,21 @@ function buildHref(
   // NOTHING, so today's URLs stay byte-identical and a shared link that carries
   // no lens lands on today's ordering — which is what every existing link is.
   if (merged.lens && merged.lens !== 'fit') params.set('lens', merged.lens);
+  // 🔎 DISCOVER (2026-11-12): the same parameters on `/`. With no supplier parameter left (only `q`, or nothing),
+  // `discoverSupplierHref` adds the view's mark so the link stays in the supplier view instead of falling into
+  // Discover's own search or its shelves (lib/discover-suppliers.ts).
+  if (merged.base === '/') return discoverSupplierHref(params);
   const qs = params.toString();
   return qs.length > 0 ? `/explore?${qs}` : '/explore';
+}
+
+/**
+ * "Clear all filters" — every narrowing dropped, the planning context kept. `/explore` keeps its two addresses
+ * verbatim; Discover stays in its supplier view (the mark), and `from=plan` survives exactly as it does here.
+ */
+function clearAllHref(filters: { base?: MarketplaceBase; focusedMode: boolean }): string {
+  if (filters.base === '/') return filters.focusedMode ? '/?from=plan' : discoverSupplierHref(new URLSearchParams());
+  return filters.focusedMode ? '/explore?from=plan' : '/explore';
 }
 
 /**
@@ -4170,6 +4266,7 @@ function EmptyState({
   eventTypeLabel,
 }: {
   filters: {
+    base?: MarketplaceBase;
     q: string;
     category: string | null;
     city: string;
@@ -4299,7 +4396,16 @@ function EmptyState({
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
-          href={browseAllVendorsHref(filters.focusedMode)}
+          href={
+            filters.base === '/'
+              ? discoverSupplierHref(
+                  new URLSearchParams({
+                    event_type: BROWSE_ALL_EVENT_TYPES,
+                    ...(filters.focusedMode ? { from: 'plan' } : {}),
+                  }),
+                )
+              : browseAllVendorsHref(filters.focusedMode)
+          }
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
           Or browse all suppliers instead →
@@ -4346,7 +4452,7 @@ function EmptyState({
               chrome-stripped layout. Direct visits never set focusedMode
               so this is a no-op for them. */}
           <Link
-            href={filters.focusedMode ? '/explore?from=plan' : '/explore'}
+            href={clearAllHref(filters)}
             className="button-secondary inline-flex h-10 px-4"
           >
             Clear all filters

@@ -295,7 +295,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
               itself the moment one does.
             </p>
             <p>
-              <Link href="/explore" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
+              <Link href="/?browse=1" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
               {nationwide ? (
                 <>
                   {' · '}
@@ -335,7 +335,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
             {cards.length > CARDS_SHOWN ? (
               <p className="mt-4 text-sm text-ink/60">
                 Showing {formatCount(CARDS_SHOWN)} of {formatCount(cards.length)}.{' '}
-                <Link href="/explore" className="underline underline-offset-4">See them all on the marketplace</Link>
+                <Link href="/?browse=1" className="underline underline-offset-4">See them all on the marketplace</Link>
               </p>
             ) : null}
 

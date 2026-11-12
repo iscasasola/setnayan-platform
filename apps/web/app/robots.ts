@@ -7,7 +7,7 @@ import type { MetadataRoute } from 'next';
 const ALLOWED_PATHS = [
   '/',
   '/v/',
-  '/explore',
+  // '/explore' left 2026-11-12: it forwards (308) to Discover `/` — Find suppliers moved inside Discover.
   '/for-suppliers',
   '/for-coordinators',
   '/creators',

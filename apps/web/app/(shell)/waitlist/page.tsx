@@ -56,7 +56,7 @@ export default function WaitlistPage() {
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
             <Link
-              href="/explore"
+              href="/?browse=1"
               className="inline-flex items-center gap-1.5 px-2 text-sm font-semibold text-ink underline-offset-4 hover:underline"
             >
               Browse suppliers first

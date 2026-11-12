@@ -223,7 +223,7 @@ export default function MarketplaceLandingPage() {
         the marketplace can be browsed by anyone, right now, so the honest
         first door is the thing itself. Starting a wedding is the second door.
       */
-      primary={{ href: '/explore', label: 'Browse the marketplace' }}
+      primary={{ href: '/?browse=1', label: 'Browse the marketplace' }}
       secondary={{ href: '/onboarding/wedding?from=marketplace', label: 'Start planning · free' }}
       productName="Marketplace"
       studioKey="marketplace"
@@ -237,7 +237,7 @@ export default function MarketplaceLandingPage() {
       closing={{
         heading: 'Start with who you need',
         body: 'The Marketplace is free to browse, with 0% commission on bookings. Find your suppliers here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the marketplace',
       }}
       structuredData={[APP_LD, FAQ_LD]}

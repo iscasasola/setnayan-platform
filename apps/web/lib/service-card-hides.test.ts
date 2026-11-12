@@ -103,7 +103,7 @@ test('heroClipFrom: at frame 0 the clip sits over the cover, mapped back through
   const w = 80 / sx;
   const r1 = (n: number) => Math.round(n * 10) / 10;
   const clip = heroClipFrom(hero, cover, from, to);
-  const [top, right, bottom, left] = [...clip.matchAll(/([\d.]+)px/g)].slice(0, 4).map((m) => Number(m[1]));
+  const [top = 0, right = 0, bottom = 0, left = 0] = [...clip.matchAll(/([\d.]+)px/g)].slice(0, 4).map((m) => Number(m[1]));
   assert.equal(left, r1(l));
   assert.equal(right, r1(390 - (l + w)));
   // The cover's mapped top falls past the hero here, so the clip is clamped to the hero and never inverts.

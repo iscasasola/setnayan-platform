@@ -630,7 +630,7 @@ export function ServiceDetailsSheet({
                 <span>
                   {owner.opens === null
                     ? 'Opens couldn’t load'
-                    : `Opened ${lines(owner.opens, 'time', 'times')} in the last 12 months · only your team sees this`}
+                    : `Opened ${lines(owner.opens, 'time', 'times')} in the last 12 months · only your shop sees this`}
                 </span>
               </p>
             ) : null}

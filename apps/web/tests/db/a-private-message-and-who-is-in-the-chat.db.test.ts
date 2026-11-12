@@ -495,6 +495,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   // checks that NEW.chat_message_id is a message of THIS shop's thread with THIS event (EXISTS) — never reads a body,
   // returns nothing but NEW, and its refusal is a fixed sentence.
   'guard_event_supplier_file', // EXISTS on message_id + thread only; no body read or returned
+  // 👈 20271341904583 (ruling 6076, owner: "delete it outright"): removes the CALLER's own file message — sender =
+  // auth.uid() and still readable by them; returns only that row's thread id and stored ref (their own file), never
+  // a body, never another row. Pinned by you-may-remove-your-own-file-from-a-chat.db.test.ts.
+  'remove_my_chat_file',
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
@@ -554,6 +558,8 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_thread_add_host',
       'chat_thread_leave',
       'count_unread_message_threads',
+      // 👈 20271341904583 (ruling 6076): only a member who can still read the chat removes their own file.
+      'remove_my_chat_file',
       // 20271333348826 (Build 3 lane B, round 3): coordinators post like hosts — the sender trigger's coordinator
       // branch admits an event_members coordinator only for a thread this helper already lets them read.
       'tg_chat_messages_derive_sender',

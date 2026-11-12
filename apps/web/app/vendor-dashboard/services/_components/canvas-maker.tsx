@@ -1221,7 +1221,7 @@ export function CanvasMaker({
             <div data-maker-row="included">
               <MakerSection
                 label="What’s included"
-                count={snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'at least one line'}
+                aside={snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'at least one line'}
                 tip="Every line is part of the price · swipe a line left to remove it."
               />
               <InclusionsEditor initial={initial?.inclusions ?? []} bare />
@@ -1254,7 +1254,7 @@ export function CanvasMaker({
             <div data-maker-row="extras">
               <MakerSection
                 label="Extras"
-                count="priced add-ons · optional"
+                aside="priced add-ons · optional"
                 tip="Add-ons: priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote."
               />
               <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
@@ -1263,7 +1263,7 @@ export function CanvasMaker({
 
             {/* ── Gift — ONE dropdown (No gift · Setnayan gift · the shop's packs). app/_components/gift-pick.tsx ── */}
             <div data-maker-row="gift">
-              <MakerSection label="Gift" count="optional" />
+              <MakerSection label="Gift" aside="optional" />
               <FormRows width="short">
                 <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" row />
               </FormRows>
@@ -1271,7 +1271,7 @@ export function CanvasMaker({
 
             {/* ── Photos — one cover is enough. ── */}
             <div data-maker-row="photos">
-              <MakerSection label="Photos" count={`one cover is enough${snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''}`} />
+              <MakerSection label="Photos" aside={`one cover is enough${snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''}`} />
               <FormRows width="short">
                 <FormRow name="Cover photo" about={{ title: 'Cover photo', words: 'The first thing couples see. PNG, JPEG or WebP up to 5 MB.' }} data="cover">
                   <div className="flex-none" data-maker-cover="">
@@ -1953,12 +1953,12 @@ function SubIcon({ children }: { children: ReactNode }) {
  * 📐 A SECTION OF THE ONE FORM (prototype `card_maker_one_form_2026-11-11`): a mono label — its small count beside it — over
  * ONE divider, the section's hint in its ⓘ. Nothing is boxed but what you press.
  */
-function MakerSection({ label, count, tip }: { label: string; count?: string; tip?: string }) {
+function MakerSection({ label, aside, tip }: { label: string; aside?: string; tip?: string }) {
   return (
     <div data-maker-section="" className="flex min-h-[44px] items-end gap-2 border-b border-ink/10 pb-1.5">
       <span className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-ink/60">
         {label}
-        {count ? <small className="ml-2 font-sans text-[12px] font-normal normal-case tracking-normal text-ink/50">{count}</small> : null}
+        {aside ? <small className="ml-2 font-sans text-[12px] font-normal normal-case tracking-normal text-ink/50">{aside}</small> : null}
       </span>
       {tip ? (
         <InfoTip label="" ariaLabel={`About ${label}`}>

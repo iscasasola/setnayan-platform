@@ -59,6 +59,9 @@ export type BenchServiceCard = {
    * still cover. Emptied with the name while a supplier is withheld: a photo can name a shop as surely as its name.
    */
   photos?: string[];
+  /** The card's own id (`vendor_services.vendor_service_id`) — so a liked photo opens the card it was filed under,
+   *  never merely the shop's saved card. Absent on a hand-built card. */
+  serviceId?: string;
 };
 
 export type BenchServiceDiscount = StoredDiscount & { expires_at?: string | null };

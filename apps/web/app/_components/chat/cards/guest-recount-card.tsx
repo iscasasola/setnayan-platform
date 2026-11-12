@@ -211,3 +211,25 @@ export function QuoteRoseCard({ pax, deltaWords, viewer, supplierName }: { pax: 
     </ChatCardShell>
   );
 }
+
+/**
+ * 📉 THE QUOTE FELL BACK BY ITSELF — under the line "Quote fell to N pax · −₱X" (migration 20271340566104; DECISION_LOG
+ * 2026-11-12 "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK — UNLESS THE SUPPLIER LOCKED IT"). The mirror of
+ * `QuoteRoseCard`: told, not asked — no button on either side; paid payments stay, the drop comes off the Final balance.
+ */
+export function QuoteFellCard({ pax, deltaWords, viewer, supplierName }: { pax: number; deltaWords: string; viewer: 'vendor' | 'couple'; supplierName: string }) {
+  return (
+    <ChatCardShell topic="quote" kicker="Guest list" title="Quote fell" tone="auto">
+      <div className="grid gap-2" data-quote-fell="">
+        <p className="text-[15px] text-ink">
+          Now <b className="tabular-nums">{formatCount(pax)} pax</b> · <b className="tabular-nums">−{deltaWords}</b>
+        </p>
+        <p className="text-[14px] text-ink/65">
+          {viewer === 'vendor'
+            ? 'Their guest list shrank, so the per-guest lines followed it. The drop comes off the Final balance — paid payments stay as they are.'
+            : `${supplierName}’s quote follows your guest list. The drop comes off the Final balance — what you have paid stays as it is. Nothing to accept.`}
+        </p>
+      </div>
+    </ChatCardShell>
+  );
+}

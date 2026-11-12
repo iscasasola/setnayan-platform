@@ -2,8 +2,9 @@
  * /dev/chat-cards-c-lab — Supplier Build 3 · lane C's step-by-step cards on fixture data: no sign-in, no database.
  * DEV-ONLY: production builds 404 this route. Names and amounts are samples — nobody real.
  *
- *   ?m=quote|payment|logpay|form|answer|files|decision|ask|askcard|recount|book   the card
+ *   ?m=quote|payment|logpay|form|answer|files|decision|ask|askcard|counter|countercard|plan|plancard|recount|book   the card
  *   ?m=rose     "Quote rose to N pax · +₱X" as both sides' streams draw it (PR-2) · ?m=balance  the Final balance growing
+ *   ?m=fell     "Quote fell to N pax · −₱X" as both sides' streams draw it · ?m=drop  the Final balance shrinking (paid stays)
  *   &e=1                                                                          its honest EMPTY state
  *   &step=N                                                                       open on step N (filled up to it)
  */
@@ -15,6 +16,8 @@ import { FormAnswerCard, FormStepCard } from '@/app/_components/chat/cards/form-
 import { FilesStepCard } from '@/app/_components/chat/cards/files-step-card';
 import { DecisionStepCard } from '@/app/_components/chat/cards/decision-step-card';
 import { AskChangeDoor, ChangeAskCard } from '@/app/_components/chat/cards/ask-change-card';
+import { NegotiateDraft, NegotiationCard } from '@/app/_components/chat/cards/negotiate-cards';
+import type { ChangeAskRow, NegotiationQuote } from '@/app/_components/chat/cards/card-calls';
 import { GuestRecountCard } from '@/app/_components/chat/cards/guest-recount-card';
 import { BookRequestCard } from '@/app/_components/chat/cards/book-request-card';
 import type { QuoteForCard } from '@/app/_components/chat/cards/card-calls';
@@ -58,6 +61,28 @@ const QUOTE: QuoteForCard = {
   pax: 150,
   requote: 'ok',
 };
+
+// 🤝 PR-3 negotiation fixture — ₱60,000, the first ₱30,000 paid; read against a fixed "today" so the shots are stable.
+const TODAY = '2026-11-12';
+const NEGO: NegotiationQuote = {
+  proposalId: QUOTE.proposalId,
+  title: QUOTE.title,
+  status: 'sent',
+  totalCentavos: C(60_000),
+  lines: QUOTE.lines,
+  planRows: [
+    { seq: 0, label: 'First payment', amount_centavos: C(30_000) },
+    { seq: 1, label: 'Final balance', amount_centavos: C(30_000), is_auto_balance: true },
+  ],
+  creditCentavos: 0,
+  floorCentavos: C(30_000),
+  paidSeqs: [0],
+  locks: { quote: false, plan: false },
+};
+const COUNTER = (over: Partial<ChangeAskRow>): ChangeAskRow => ({
+  askId: 'c1', subject: 'quote', note: 'Our budget tops out here — can we meet at this?', askedAt: `${TODAY}T02:00:00Z`, status: 'open',
+  proposalId: QUOTE.proposalId, amountCentavos: C(55_000), scopeLabel: null, goodUntil: '2026-11-18', raisedBy: 'host', ...over,
+});
 
 const FORMS = [
   { formId: 'f1', title: 'Wedding day details', questions: ['Where do you get ready?', 'Who are the VIPs we must not miss?', 'Any family to keep apart in photos?'] },
@@ -135,6 +160,39 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             <ChangeAskCard threadId={THREAD} subject="plan" askedAt={new Date().toISOString()} viewer="couple" returnPath={BACK} seed={{ askId: 'a2', subject: 'plan', note: 'Could the second payment move to February?', askedAt: new Date().toISOString(), status: 'open', proposalId: null }} />
           </div>
         );
+      case 'counter':
+        return <NegotiateDraft threadId={THREAD} kind="counter" viewer="couple" supplierName="Lumina Studio" returnPath={BACK} seed={{ quote: empty ? { ...NEGO, locks: { quote: true, plan: false } } : NEGO, today: TODAY, amount: '55000' }} />;
+      case 'plan':
+        return <NegotiateDraft threadId={THREAD} kind="plan" viewer={empty ? 'vendor' : 'couple'} supplierName="Lumina Studio" returnPath={BACK} seed={{ quote: empty ? { ...NEGO, locks: { quote: false, plan: true } } : sp.paid === '1' ? NEGO : { ...NEGO, paidSeqs: [], floorCentavos: null }, today: TODAY }} />;
+      case 'countercard':
+        return (
+          <div className="grid gap-3">
+            <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="vendor" seed={{ ask: COUNTER({}), quote: NEGO, today: TODAY }} />
+            <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="couple" seed={{ ask: COUNTER({ status: 'accepted' }), quote: NEGO, today: TODAY }} />
+            <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="vendor" seed={{ ask: COUNTER({ goodUntil: '2026-11-10', askedAt: '2026-11-04T02:00:00Z' }), quote: NEGO, today: TODAY }} />
+          </div>
+        );
+      case 'plancard':
+        return (
+          <NegotiationCard
+            threadId={THREAD}
+            kind="plan"
+            askedAt={`${TODAY}T02:00:00Z`}
+            viewer="couple"
+            seed={{
+              ask: COUNTER({
+                amountCentavos: null, subject: 'plan', raisedBy: 'supplier', note: 'Three payments, if that helps?',
+                proposedPlan: [
+                  { seq: 0, label: 'First payment', amount_centavos: C(30_000) },
+                  { seq: 1, label: 'Second payment', amount_centavos: C(15_000) },
+                  { seq: 2, label: 'Final balance', amount_centavos: C(15_000), is_auto_balance: true },
+                ],
+              }),
+              quote: NEGO,
+              today: TODAY,
+            }}
+          />
+        );
       case 'recount':
         return <GuestRecountCard threadId={THREAD} from={150} to={170} viewer="vendor" supplierName="Lumina Studio" eventDate={EVENT_DAY} seed={empty ? { quote: { ...QUOTE, locks: { quote: true, plan: false } }, perPax: [] } : { quote: QUOTE, perPax: [{ key: 'l2', label: 'Guest portrait prints', rateCentavos: C(40), minPax: 100 }] }} />;
       case 'rose':
@@ -161,6 +219,39 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
           <div className="grid gap-4">
             <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">Before · 150 pax</p>
             <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger, step: 0 }} />
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">After · {r.line}</p>
+            <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger: after, step: 0 }} />
+          </div>
+        );
+      }
+      case 'fell':
+      case 'drop': {
+        // 📉 The fall-back (migration 20271340566104): the same fixture quote, risen 150 → 170 guests, then 10 guests
+        // leave — the UNLOCKED quote falls back to 160 by the pure mirror of `quote_follow_guest_count`.
+        const base = { lines: [{ label: 'Full-day coverage', amount_centavos: C(54_000), basis: 'flat' }, { label: 'Guest portrait prints', amount_centavos: C(6_000), basis: 'per_pax', rate_centavos: C(40) }], totalCentavos: QUOTE.totalCentavos, schedule: null, minPax: 100, billedPax: 150, booked: false };
+        const up = followGuestCount(base, 170);
+        if (!up.rose) return null;
+        const risen = { ...base, lines: up.lines, totalCentavos: up.totalCentavos, billedPax: up.billedPax, sentBilledPax: 150 };
+        const r = followGuestCount(risen, 160, [0], C(30_000));
+        if (!r.fell) return null;
+        if (m === 'fell') {
+          return (
+            <div className="grid gap-4">
+              {(['couple', 'vendor'] as const).map((v) => (
+                <div key={v} className="grid gap-1">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{v === 'couple' ? 'The couple’s chat' : 'The supplier’s chat'}</p>
+                  <StreamLineCard body={r.line} createdAt={new Date().toISOString()} at="Today 10:42" threadId={THREAD} viewer={v} supplierName={v === 'couple' ? 'Lumina Studio' : 'you'} eventDate={EVENT_DAY} returnPath={BACK} />
+                </div>
+              ))}
+            </div>
+          );
+        }
+        const before = planLedger({ manual: QUOTE.plan!.manual, autoBalance: QUOTE.plan!.autoBalance, agreedCentavos: up.totalCentavos, paidSeqs: new Set([0]) });
+        const after = planLedger({ manual: QUOTE.plan!.manual, autoBalance: QUOTE.plan!.autoBalance, agreedCentavos: r.totalCentavos, paidSeqs: new Set([0]) });
+        return (
+          <div className="grid gap-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">Now · 170 pax</p>
+            <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger: before, step: 0 }} />
             <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">After · {r.line}</p>
             <PaymentStepCard threadId={THREAD} eventId={EVENT} eventDate={EVENT_DAY} returnPath={BACK} seed={{ ledger: after, step: 0 }} />
           </div>

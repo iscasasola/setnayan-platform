@@ -81,12 +81,12 @@ test('the deadline states: ahead → reminder at 60 days → lapsed', () => {
 
 /* ── Q4 — THE EARLY SHOPS ──────────────────────────────────────────────────── */
 
-test('Q4 · the early shops get the vouch window, counted from the ruling, ending on 12 March 2027', () => {
-  // End of the ruling's day in Manila → end of the deadline's day: exactly the vouch window.
+test('Q4 · the early shops renew on the one renewal day — 30 March 2027 (owner 12 Nov 2026; was 12 March)', () => {
+  assert.equal(EARLY_SHOPS_PAPERS_DUE_ISO, '2027-03-30T15:59:59.000Z', 'the end of 30 March in Manila');
+  assert.equal(deadlineLabel(EARLY_SHOPS_PAPERS_DUE_ISO), 'March 30, 2027');
+  // The 2026-09-11 backfill gave them exactly the vouch window (12 March 2027) — the move below starts from that day.
   const rulingDayEnd = new Date('2026-09-11T23:59:59+08:00');
-  const days = (Date.parse(EARLY_SHOPS_PAPERS_DUE_ISO) - rulingDayEnd.getTime()) / 86_400_000;
-  assert.equal(days, BYPASS_WINDOW_DAYS);
-  assert.equal(deadlineLabel(EARLY_SHOPS_PAPERS_DUE_ISO), 'March 12, 2027');
+  assert.equal((Date.parse('2027-03-12T15:59:59.000Z') - rulingDayEnd.getTime()) / 86_400_000, BYPASS_WINDOW_DAYS);
 });
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -94,7 +94,7 @@ const MIG_DIR = resolve(HERE, '../../../supabase/migrations');
 const MIG_FILE = readdirSync(MIG_DIR).find((n) => n.endsWith('_verified_badge_deadlines.sql'));
 const MIG_SQL = MIG_FILE ? readFileSync(resolve(MIG_DIR, MIG_FILE), 'utf8').replace(/--[^\n]*/g, '') : '';
 
-test('Q4 · the migration and the code carry the SAME date — one is not allowed to drift', () => {
+test('Q4 · the backfill wrote 12 March 2027 everywhere — the day the 30 March move looks for, to the second', () => {
   assert.ok(MIG_FILE, 'the badge-deadline migration is missing');
   const stamps = MIG_SQL.match(/TIMESTAMPTZ '([^']+)'/g) ?? [];
   assert.ok(stamps.length >= 2, `expected the deadline on the vouch row AND the profile, found ${stamps.length}`);
@@ -102,8 +102,8 @@ test('Q4 · the migration and the code carry the SAME date — one is not allowe
     const raw = /TIMESTAMPTZ '([^']+)'/.exec(st)![1]!;
     assert.equal(
       new Date(raw.replace(' ', 'T').replace(/\+08$/, '+08:00')).toISOString(),
-      EARLY_SHOPS_PAPERS_DUE_ISO,
-      `the migration writes ${raw}, the code says ${EARLY_SHOPS_PAPERS_DUE_ISO}`,
+      '2027-03-12T15:59:59.000Z',
+      `the backfill writes ${raw} — the 30 March move (…_early_shops_renew_on_march_30) would miss it`,
     );
   }
 });
@@ -147,10 +147,12 @@ test('Q5 · the reviewer is prefilled with 31 December — a Mayor’s Permit ru
   assert.equal(defaultPermitValidUntil(new Date('2026-12-31T17:00:00Z')), '2027-12-31');
 });
 
-test('Q5 · approval writes the permit date; with none, the one-year renewal it always wrote', () => {
-  const at = new Date('2026-09-11T04:00:00.000Z');
-  assert.equal(deadlineAtApproval(at, '2026-12-31T15:59:59.000Z'), '2026-12-31T15:59:59.000Z');
-  assert.equal(deadlineAtApproval(at, null), '2027-09-11T04:00:00.000Z');
+test('approval writes the one renewal day — 30 March of the next year (owner 12 Nov 2026)', () => {
+  assert.equal(deadlineAtApproval(new Date('2026-09-11T04:00:00.000Z')), '2027-03-30T15:59:59.000Z');
+  assert.equal(deadlineAtApproval(new Date('2027-02-10T04:00:00.000Z')), '2028-03-30T15:59:59.000Z', 'a February approval renews the year after');
+  // Manila's year: 31 Dec 17:00 UTC is already 1 Jan in Manila.
+  assert.equal(deadlineAtApproval(new Date('2026-12-31T17:00:00Z')), '2028-03-30T15:59:59.000Z');
+  assert.equal(deadlineLabel(deadlineAtApproval(new Date('2026-11-13T05:00:00Z'))), 'March 30, 2027');
 });
 
 /* ── THE DAILY PASS ────────────────────────────────────────────────────────── */
@@ -224,7 +226,7 @@ test('the reminder names the date and the days, and the permit one names the per
   assert.match(r.title, /Mayor's Permit runs out on December 31, 2026/);
   assert.match(r.body, /60 days/);
   const p = badgeReminderCopy({ reason: 'papers', deadlineIso: EARLY_SHOPS_PAPERS_DUE_ISO, daysLeft: 1 });
-  assert.match(p.title, /March 12, 2027/);
+  assert.match(p.title, /March 30, 2027/);
   assert.match(p.body, /1 day to send/);
 });
 

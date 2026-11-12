@@ -216,6 +216,10 @@ export const NO_REWARD_BADGES: readonly string[] = ['years', 'rating', 'plan', '
  * ⚖ NOT GRANTED HERE — owner ruled 2026-11-05: build them later, as their OWN kind. Plan gifts lapse at the end of
  * each 4 weeks (4 Nov ruling); badge rewards never expire. Kept apart so neither rule breaks the other. The numbers sit
  * here so they have one home.
+ * 🚫 NEVER FOR A PLAN GIVEN AS A VERIFICATION REWARD (owner 12 Nov 2026: *"We only give the service but not the gifts,
+ * just for the verified and the founders verified"*). The Ultra weeks a verification grants carry Ultra's TOOLS only —
+ * whoever builds the payer must skip a shop whose current plan is that reward (`readVerificationRewardPlanUntil`,
+ * `lib/verification-plan-reward.server.ts`; `VERIFICATION_REWARD_CARRIES_PLAN_GIFTS`).
  */
 export const PLAN_PERIOD_GIFTS: Readonly<Record<'pro' | 'enterprise', BadgeReward>> = { pro: papic(2), enterprise: papic(6) };
 

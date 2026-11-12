@@ -28,6 +28,8 @@ import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { fetchShopInspirationLooks, type ShopInspirationClient } from '@/lib/shop-inspiration.server';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { videoTitlesOf } from '@/lib/video-link-titles';
+import { readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
+import { bestWorkOf, type BestWorkPhoto } from '@/lib/portfolio-best-work';
 import {
   ALBUM_OPEN_MAX,
   eventAlbums,
@@ -83,6 +85,13 @@ export type CollectionsData = {
   groups: PortfolioGroups;
   /** 🌱 The shop's trades supply an inspiration part — Portfolio draws "Add to the inspiration library" (moved from Shop). */
   libraryOpen: boolean;
+  /**
+   * ⭐ YOUR BEST WORK (ruling 5940): the page photos couples opened most, most-viewed first, from the counter that
+   * already exists (`vendor_portfolio_photo_views`). `null` = the count could not be read — said, never "Nothing yet".
+   */
+  best: BestWorkPhoto[] | null;
+  /** 🖼 The supplier's stored section order (`portfolio_section_order`); `null` = unread → the shipped order. */
+  sectionOrder: string[] | null;
 };
 
 /** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
@@ -104,7 +113,8 @@ export async function loadCollectionsData(
     const { data, error } = await supabase
       .from('vendor_profiles')
       // `gallery_video_titles` rides this one row read (Video links' titles, migration 20271334860034) — no new request.
-      .select(`tier_state, gallery_video_titles, ${MICROSITE_COLUMNS}`)
+      // …and `portfolio_section_order` (Reorder, migration 20271342126686) — same row, no new request.
+      .select(`tier_state, gallery_video_titles, portfolio_section_order, ${MICROSITE_COLUMNS}`)
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
     if (error) logQueryError('VendorCollections.ownRow', error, { vendorId }, 'graceful_degrade');
@@ -317,6 +327,8 @@ export async function loadCollectionsData(
     }),
   ).then((xs) => Object.fromEntries(xs.filter((x): x is readonly [string, string] => x !== null)));
 
+  // ⭐ Your best work — the per-photo views the public page already counts (one read, the hero's own reader).
+  const viewsRead = readPortfolioPhotoViews(supabase, vendorId);
   // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
   const allowanceRead = readPortfolioAllowance(supabase, vendorId);
   // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
@@ -357,7 +369,7 @@ export async function loadCollectionsData(
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
-  const [allowance, walletBalance] = await Promise.all([allowanceRead, walletRead]);
+  const [allowance, walletBalance, views] = await Promise.all([allowanceRead, walletRead, viewsRead]);
   const portfolioCap = portfolioPhotoCap(
     (own?.tier_state as string | null | undefined) ?? null,
     allowanceForCap(allowance),
@@ -395,6 +407,8 @@ export async function loadCollectionsData(
     igMedia: ig.media,
     igUnavailable: ig.unavailable,
     libraryOpen: access.allowed,
+    best: bestWorkOf(portfolioRefs, portfolioDisplayMap, views),
+    sectionOrder: own && Array.isArray(own.portfolio_section_order) ? (own.portfolio_section_order as string[]) : null,
     groups: {
       events:
         albumUrls === null

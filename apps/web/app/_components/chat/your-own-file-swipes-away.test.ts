@@ -20,6 +20,8 @@ test('the swipe is THE ONE SWIPE with Undo, and the delete waits out the window 
   const src = read('app/_components/chat/chat-file-swipe.tsx');
   assert.match(src, /import \{ SwipeToDelete \} from '@\/app\/_components\/swipe-to-delete'/);
   assert.match(src, /deleteWithUndo\(\{/);
+  // The picked shell turns its page on a sideways swipe — the file bubble opts out, or Remove can never open.
+  assert.match(src, /<div data-no-page-swipe="" className="max-w-full">\s*<UndoToastHost \/>\s*<SwipeToDelete/);
   assert.match(src, /fetch\(`\/api\/chat\/attachment\/\$\{encodeURIComponent\(messageId\)\}`, \{ method: 'DELETE', keepalive: true \}\)/);
 });
 

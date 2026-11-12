@@ -19,9 +19,17 @@ export const CHAT_FILE_REMOVED_LABEL = 'Your file was removed';
 
 export function ChatFileSwipe({ messageId, name, children }: { messageId: string; name: string | null; children: ReactNode }) {
   const [gone, setGone] = useState(false);
-  if (gone) return <div hidden data-swipe-gone="" />;
+  // The Undo toast's host stays mounted while the bubble is hidden — it IS the way back.
+  if (gone)
+    return (
+      <>
+        <UndoToastHost />
+        <div hidden data-swipe-gone="" />
+      </>
+    );
   return (
-    <>
+    // `data-no-page-swipe`: inside the picked shell a sideways swipe turns the page — on YOUR file it opens Remove instead.
+    <div data-no-page-swipe="" className="max-w-full">
       <UndoToastHost />
       <SwipeToDelete
         label={`Remove your file${name ? ` ${name}` : ''}`}
@@ -45,7 +53,7 @@ export function ChatFileSwipe({ messageId, name, children }: { messageId: string
       >
         {children}
       </SwipeToDelete>
-    </>
+    </div>
   );
 }
 

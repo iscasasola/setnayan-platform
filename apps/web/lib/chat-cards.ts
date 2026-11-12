@@ -320,3 +320,177 @@ export function formProgress(answers: readonly (string | null)[]): { at: number;
 
 // ── Decision topics ──────────────────────────────────────────────────────────
 
+
+// ── Counter with a price · Propose a payment plan · one-tap Accept (Piece 1 · PR-3, owner 12 Nov) ─────────────────
+//
+// What the card SHOWS before anyone taps; the database writes the same thing (migration 20271340018194 ·
+// `change_ask_resplit` / `change_ask_write_version`) and `tests/db/a-counter-a-plan-and-one-tap-accept.db.test.ts`
+// holds the two equal. Money never comes from the browser at Accept — the counter's amount and a plan's rows were
+// fixed when the OTHER side raised them.
+
+/** One stored plan row as the re-split reads it (`vendor_proposals.payment_schedule.installments[]`). */
+export type StoredPlanRow = { seq: number; label?: string; amount_centavos: number; raw_centavos?: number; is_auto_balance?: boolean } & Record<string, unknown>;
+
+/**
+ * THE PLAN RE-SPLITS — paid rows never change, no row goes below zero (owner 12 Nov (3): "paid amounts are never
+ * touched; only what is still to be settled changes"). A rise lands on the unpaid Final balance (else the latest
+ * unpaid row, else a new Final balance row); a drop comes off the Final balance first, then the latest unpaid rows.
+ * 💸 FIVE GUARDS (owner 12 Nov): what a drop cannot take from unpaid rows is money OWED BACK to the couple — returned
+ * as `owedBackCentavos`, never written as a negative row.
+ */
+export function resplitAfterCounter(
+  rows: readonly StoredPlanRow[],
+  newTotalCentavos: number,
+  paidSeqs: ReadonlySet<number>,
+): { rows: StoredPlanRow[]; owedBackCentavos: number } {
+  const out = [...rows].map((r) => ({ ...r })).sort((a, b) => a.seq - b.seq);
+  const sum = out.reduce((s, r) => s + r.amount_centavos, 0);
+  const delta = Math.max(0, Math.round(newTotalCentavos)) - sum;
+  // Unpaid rows, Final balance first, then latest first — the same order the database walks.
+  const unpaid = out
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => !paidSeqs.has(r.seq))
+    .sort((a, b) => Number(!!b.r.is_auto_balance) - Number(!!a.r.is_auto_balance) || b.r.seq - a.r.seq);
+  if (delta > 0) {
+    const t = unpaid[0];
+    if (!t) {
+      const seq = out.length ? Math.max(...out.map((r) => r.seq)) + 1 : 0;
+      out.push({
+        seq, label: 'Final balance', kind: 'auto', amount_centavos: delta, raw_centavos: delta, percent_bps: null, due: 'before_event',
+        offset_days: 7, is_downpayment: out.length === 0, is_auto_balance: true, credit_applied_centavos: 0,
+      });
+    } else {
+      const cur = out[t.i]!;
+      out[t.i] = { ...cur, amount_centavos: cur.amount_centavos + delta, raw_centavos: (cur.raw_centavos ?? cur.amount_centavos) + delta };
+    }
+    return { rows: out, owedBackCentavos: 0 };
+  }
+  let need = -delta;
+  for (const { i } of unpaid) {
+    if (need <= 0) break;
+    const cur = out[i]!;
+    const amt = Math.max(0, cur.amount_centavos);
+    const take = Math.min(amt, need);
+    out[i] = { ...cur, amount_centavos: amt - take, raw_centavos: Math.max(0, (cur.raw_centavos ?? amt) - take) };
+    need -= take;
+  }
+  return { rows: out, owedBackCentavos: Math.max(0, need) };
+}
+
+/** A quote line a counter may be about — a line with a price. */
+export function counterableLines(lines: readonly CardLine[]): CardLine[] {
+  return lines.filter((l) => l.amountCentavos != null && l.amountCentavos > 0);
+}
+
+/**
+ * What an accepted counter makes: the new total (the whole quote → the amount; one line → that line replaced), and the
+ * re-split plan with what would be owed back. `refusal` is the card's words when it cannot be accepted.
+ */
+export function counterOutcome(input: {
+  totalCentavos: number;
+  lines: readonly CardLine[];
+  amountCentavos: number;
+  scopeLabel: string | null;
+  floorCentavos: number | null;
+  planRows: readonly StoredPlanRow[] | null;
+  paidSeqs: ReadonlySet<number>;
+}): { newTotalCentavos: number; wasCentavos: number; rows: StoredPlanRow[] | null; owedBackCentavos: number; refusal: string | null } {
+  let was = input.totalCentavos;
+  let newTotal = Math.round(input.amountCentavos);
+  if (input.scopeLabel) {
+    const hit = counterableLines(input.lines).find((l) => l.label.trim().toLowerCase() === input.scopeLabel!.trim().toLowerCase());
+    if (!hit) return { newTotalCentavos: input.totalCentavos, wasCentavos: 0, rows: null, owedBackCentavos: 0, refusal: 'That line is no longer on the quote.' };
+    was = hit.amountCentavos!;
+    newTotal = input.totalCentavos - was + Math.round(input.amountCentavos);
+  }
+  const split = input.planRows && input.planRows.length > 0 ? resplitAfterCounter(input.planRows, newTotal, input.paidSeqs) : null;
+  const owed = split?.owedBackCentavos ?? 0;
+  const refusal = owed > 0
+    ? `${formatCentavos(owed)} would be owed back to the couple — what was paid is the floor.`
+    : floorRefusal(newTotal, input.floorCentavos);
+  return { newTotalCentavos: newTotal, wasCentavos: was, rows: split?.rows ?? null, owedBackCentavos: owed, refusal };
+}
+
+/** "Good until 18 Nov · 6 days left" / "Expired 10 Nov · ask again" — derived from the date, never a stored state. */
+export function goodUntilWords(goodUntil: string | null, todayIso: string): { expired: boolean; words: string | null } {
+  if (!goodUntil) return { expired: false, words: null };
+  const day = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+  const left = Math.round((day(goodUntil) - day(todayIso)) / 86_400_000);
+  const label = new Date(day(goodUntil)).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  if (left < 0) return { expired: true, words: `Expired ${label} · ask again` };
+  return { expired: false, words: `Good until ${label} · ${left === 0 ? 'last day' : `${left} day${left === 1 ? '' : 's'} left`}` };
+}
+
+/** The Good until choices a counter offers: about a week, about two, or no limit (the approved design). */
+export function goodUntilChoices(todayIso: string): { key: string; label: string; date: string | null }[] {
+  const add = (n: number) => {
+    const d = new Date(Date.UTC(Number(todayIso.slice(0, 4)), Number(todayIso.slice(5, 7)) - 1, Number(todayIso.slice(8, 10)) + n));
+    return d.toISOString().slice(0, 10);
+  };
+  const word = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return [
+    { key: 'w1', label: `${word(add(6))} · in 6 days`, date: add(6) },
+    { key: 'w2', label: `${word(add(13))} · in 13 days`, date: add(13) },
+    { key: 'none', label: 'No limit', date: null },
+  ];
+}
+
+/** Today in Manila as YYYY-MM-DD — the day a Good until is read against (the database reads the same zone). */
+export function manilaToday(now: number = Date.now()): string {
+  return new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
+}
+
+/**
+ * The plans a side may propose instead of the live one — the quote maker's own three presets (first payment when they
+ * book, the rest a week before). A preset that would change a PAID row is drawn greyed with the reason (the database
+ * refuses it too: PAID_ROW_CHANGED); the plan they already have is left out.
+ */
+export const NEGOTIATE_PLAN_PRESETS: readonly { key: string; percent: number; label: string }[] = [
+  { key: 'p20', percent: 20, label: '20% to book · rest 7 days before' },
+  { key: 'half', percent: 50, label: 'Half to book · half 7 days before' },
+  { key: 'full', percent: 100, label: 'Full when they book' },
+];
+
+export function planProposalOptions(input: {
+  totalCentavos: number;
+  creditCentavos: number;
+  liveRows: readonly StoredPlanRow[];
+  paidSeqs: ReadonlySet<number>;
+}): { key: string; label: string; rows: ResolvedSchedule['installments']; shut: string | null; same: boolean }[] {
+  const base = Math.max(0, Math.round(input.totalCentavos)) + Math.max(0, Math.round(input.creditCentavos));
+  return NEGOTIATE_PLAN_PRESETS.map((p) => {
+    const resolved = resolveSchedule({
+      manual: [{ label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 }],
+      autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 7 },
+      baseCentavos: base,
+      creditCentavos: Math.max(0, Math.round(input.creditCentavos)),
+    });
+    const rows = resolved.installments;
+    const same = rows.length === input.liveRows.length && rows.every((r, i) => input.liveRows[i]?.amount_centavos === r.amount_centavos);
+    const movesPaid = [...input.paidSeqs].some((s) => {
+      const was = input.liveRows.find((r) => r.seq === s);
+      const now = rows.find((r) => r.seq === s);
+      return !was || !now || was.amount_centavos !== now.amount_centavos;
+    });
+    const short = rows.reduce((s, r) => s + r.amount_centavos, 0) !== Math.round(input.totalCentavos);
+    return { key: p.key, label: p.label, rows, same, shut: movesPaid ? 'A paid payment never changes' : short ? "Doesn't pay the whole quote" : null };
+  });
+}
+
+/** The words the server's counter / plan / accept refusals arrive as → what the card says. */
+export function negotiateRefusalWords(message: string | null | undefined): string {
+  const m = message ?? '';
+  if (m.includes('COUNTER_EXPIRED')) return 'This one expired — ask again.';
+  if (m.includes('ITEM_LOCKED')) return 'The supplier made this final.';
+  if (m.includes('QUOTE_MOVED')) return 'The quote changed since — look at the new one.';
+  if (m.includes('DEAL_LOCKED')) return 'This booking is confirmed — changes go through a change order.';
+  if (m.includes('BELOW_WHAT_WAS_PAID')) return 'That is less than what was paid — the difference would be owed back.';
+  if (m.includes('BELOW_PAID_FLOOR') || m.includes('QUOTE_BELOW_PAID_FLOOR')) return "Can't go below what was paid for.";
+  if (m.includes('PAID_ROW_CHANGED')) return 'A paid payment never changes.';
+  if (m.includes('PLAN_DOES_NOT_PAY_IN_FULL')) return 'The plan must pay the whole quote.';
+  if (m.includes('NO_SUCH_LINE')) return 'That line is no longer on the quote.';
+  if (m.includes('GOOD_UNTIL_PAST')) return 'Pick a Good until from today on.';
+  if (m.includes('COUNTER_NOT_OPEN')) return 'That one was already answered.';
+  if (m.includes('QUOTE_EXPIRED')) return "The quote's Valid until has passed — the supplier sends a new one.";
+  return askRefusalWords(m);
+}

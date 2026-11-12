@@ -45,7 +45,8 @@ test('the picked client (flag ON) folds the Script in at the end of Schedule', (
   const body = scheduleBody();
   assert.match(body, /\{showScript \? \(\s*<section id=\{SCRIPT_FOLD_ID\}/, 'shown on exactly the OFF card\u2019s condition');
   assert.match(body, /\{gated\(scriptNode\)\}/, 'same node, same fee gate as the OFF card');
-  assert.ok(body.indexOf('gated(scheduleNode)') < body.indexOf('SCRIPT_FOLD_ID'), 'the Script fold sits AFTER the schedule');
+  const sched = body.indexOf('{scheduleGated}');
+  assert.ok(sched >= 0 && sched < body.indexOf('SCRIPT_FOLD_ID'), 'the Script fold sits AFTER the schedule');
   assert.match(PAGE, /scrollToScript=\{wantsScriptFold\(rawTab\) && showScript\}/, '?tab=script must land on the fold');
   assert.ok(
     (VENDOR_CLIENT_TABS as readonly string[]).includes('script'),

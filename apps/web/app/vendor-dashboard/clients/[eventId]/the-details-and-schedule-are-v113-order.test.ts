@@ -81,7 +81,7 @@ test('5 · Schedule’s month is the Clients calendar — one part, its own plac
   assert.match(cal, /Your calendar couldn’t load just now/, 'a refused month is not said');
   const body = PAGE.slice(PAGE.indexOf('      schedule: (\n'));
   const at = body.indexOf('<ScheduleCalendar eventDate={brief.event.event_date}');
-  assert.ok(at >= 0 && at < body.indexOf('{gated(scheduleNode)}'), 'the month is not first on Schedule');
+  assert.ok(at >= 0 && at < body.indexOf('{scheduleGated}'), 'the month is not first on Schedule');
   const cc = stripComments(readFileSync(join(HERE, '../../customers/_components/customers-calendar.tsx'), 'utf8'));
   assert.match(cc, /if \(onClients\) syncUrl\(\);/, 'the Schedule month writes the Clients URL');
   assert.match(cc, /if \(onClients\) window\.dispatchEvent\(new CustomEvent\(DATES_FIGURES_EVENT/, 'the Schedule month speaks for Clients’ pinned row');

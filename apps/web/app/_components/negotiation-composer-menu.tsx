@@ -140,7 +140,9 @@ export function NegotiationComposerMenu({
   // meeting
   return (
     <form
-      action={createScheduleRequestFromChat}
+      action={async (fd) => {
+        await createScheduleRequestFromChat(fd);
+      }}
       className="mb-1.5 flex flex-col gap-2 rounded-xl border border-mulberry/20 bg-mulberry/[0.04] p-2.5"
     >
       <input type="hidden" name="thread_id" value={threadId} />

@@ -174,3 +174,6 @@ export function resolveAppointmentLabel(
   }
   return typeLabels[a.type] ?? humanizeAppointmentType(a.type);
 }
+
+/** The (+) Meeting card's field: `createScheduleRequestFromChat` answers IN PLACE (a result, no redirect). */
+export const MEETING_IN_PLACE_FIELD = 'in_place';

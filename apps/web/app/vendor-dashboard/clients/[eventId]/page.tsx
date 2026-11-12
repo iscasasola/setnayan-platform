@@ -1719,14 +1719,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     });
   }
 
-  // Appointments (Relationship Workspace + Appointments, PR 12). Booked-only —
-  // the vendor-insert RLS requires a booked (vendor, event) relationship, so the
-  // scheduler is meaningless at the inquiry stage. One cheap reference read of
-  // the category → meeting-type catalog + this org's appointment rows on the
-  // event, both under the vendor's own RLS.
+  // Appointments (Relationship Workspace + Appointments, PR 12). Booked — OR an OPEN chat with this couple (owner
+  // 12 Nov 2026, "Yes, before booking": an ocular visit or a tasting comes before the booking; migration
+  // 20271340846228 lets the supplier write a meeting tied to the open chat, and the Scheduler posts that chat's id).
+  // Until then a meeting made in the chat never showed here — "not synching properly with schedules". One cheap
+  // reference read of the category → meeting-type catalog + this org's appointment rows on the event, both under the
+  // vendor's own RLS.
+  const meetingsOpen = isBooked || (thread?.inquiry_status === 'accepted' && !!threadId);
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
-  if (isBooked) {
+  if (meetingsOpen) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
     const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
       supabase
@@ -2136,6 +2138,24 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
      never kept over the older copy. */
   const scheduleCopyPath = supplierSchedulePath(eventId);
   const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
+  // 📅 The meetings with this couple — the shop's own rows (its own RLS read), so like the shop's calendar they sit
+  // OUTSIDE the fee gate: a meeting set in the chat before the booking shows here too (owner 12 Nov 2026).
+  const appointmentsNode = meetingsOpen ? (
+    <div className="mt-5 border-t border-ink/10 pt-4" data-schedule-appointments="">
+      <AppointmentsSection
+        role="vendor"
+        eventId={eventId}
+        vendorProfileId={profile.vendor_profile_id}
+        returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
+        threadId={threadId}
+        currentUserId={user.id}
+        counterpartyName={eventName}
+        presets={appointmentPresets}
+        appointments={appointmentViews}
+      />
+    </div>
+  ) : null;
+
   const scheduleNode = (
     <>
       {scheduleCopyPath ? (
@@ -2159,23 +2179,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         search={search}
         // 🗓 v113's Schedule order (owner 2026-11-08): your part (Where · Hours · Asked of you · the chapters) and then
         // Appointments, BEFORE the handover and change requests — so the meetings sit with the day, not under the paperwork.
-        appointments={
-          isBooked ? (
-            <div className="mt-5 border-t border-ink/10 pt-4" data-schedule-appointments="">
-              <AppointmentsSection
-                role="vendor"
-                eventId={eventId}
-                vendorProfileId={profile.vendor_profile_id}
-                returnPath={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-                threadId={threadId}
-                currentUserId={user.id}
-                counterpartyName={eventName}
-                presets={appointmentPresets}
-                appointments={appointmentViews}
-              />
-            </div>
-          ) : null
-        }
+        appointments={appointmentsNode}
       />
     </>
   );
@@ -2250,6 +2254,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
   const gated = (node: React.ReactNode): React.ReactNode => (feeUnlocked ? node : feeLockPanel);
+  // Schedule behind the fee lock still keeps its meetings (above) — the lock withholds the couple's detail, never the
+  // shop's own appointments with them.
+  const scheduleGated: React.ReactNode = feeUnlocked ? (
+    scheduleNode
+  ) : (
+    <>
+      {feeLockPanel}
+      {appointmentsNode}
+    </>
+  );
 
   // ---- Flag OFF: the current tabbed Customer Card, byte-identical ----
   if (!relationshipShellEnabled) {
@@ -2282,7 +2296,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {tab === 'overview' ? coupleAnswersNode : null}
             {tab === 'quote' ? quoteNodeFlagOff : null}
             {tab === 'files' ? gated(filesNode) : null}
-            {tab === 'schedule' ? gated(scheduleNode) : null}
+            {tab === 'schedule' ? scheduleGated : null}
             {tab === 'script' ? gated(scriptNode) : null}
             {tab === 'activity' ? gated(activityNode) : null}
           </div>
@@ -2482,7 +2496,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
               on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
           {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
-          {gated(scheduleNode)}
+          {scheduleGated}
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (
             <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">

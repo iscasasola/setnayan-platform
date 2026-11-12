@@ -63,7 +63,10 @@ export function ThreadAnswerLine({
 
 /**
  * QUICK REPLIES (prototype "Yes po, that day is free · Let me check and reply today · Sending our price now"). Each is
- * the shipped send (`sendChatMessage`) as a plain form — it works without JavaScript and lands back in the thread.
+ * the shipped send (`sendChatMessage`) as a plain form, posted with NO `return_to` (the composer's own rule,
+ * `chat-send-form.tsx`): the action does not redirect, so nothing navigates and the live stream paints the reply where
+ * the supplier already is. Owner 12 Nov 2026, *"Send messages resets the whole screen"*: the old `return_to` sent a tap
+ * inside the picked client's Chat page to the full-screen messages route — another screen, scrolled to the top.
  * "Yes po, that day is free" is offered ONLY on a day the answer line calls open: a canned yes over a full day is a
  * promise the lock will refuse.
  */
@@ -88,7 +91,6 @@ export function QuickReplies({
           {/* 🏪 The supplier's quick reply speaks for the shop (owner, 11 Nov — lib/chat-sent-as.ts). */}
           <input type="hidden" name={CHAT_SENT_AS_FIELD} value="vendor" />
           <input type="hidden" name="body" value={q} />
-          <input type="hidden" name="return_to" value={`/vendor-dashboard/messages/${threadId}`} />
           <SubmitButton
             pendingLabel="Sending…"
             className="sn-press inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-ink/15 bg-ink/[0.04] px-4 text-sm text-ink hover:border-ink/30"

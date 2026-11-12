@@ -4,7 +4,7 @@
  * 📅 MEETING — the first real (+) card on the shared frame (Supplier Build 3 · lane B).
  *
  * Owner, 8 Nov: *"Meeting: ① name → ② date → ③ time → ④ who → Send. The other side answers the same way."* The card
- * posts the SHIPPED meeting request (`createScheduleRequestFromChat`): one `event_appointments` row (status
+ * posts the SHIPPED meeting request (`createScheduleRequestFromChat`, in place): one `event_appointments` row (status
  * `proposed`) and its card in the chat — the same act the old "Deal or meeting" panel posted, so the answer side is
  * the shipped meeting card (Accept · Propose a new time · Decline) and Decisions / Details / the Schedule read it.
  *
@@ -18,6 +18,8 @@ import { DateRow } from '@/app/_components/form-row-date';
 import { TypedRow } from '@/app/_components/form-row';
 import { MeetingHowFields } from '@/app/_components/meeting-how-fields';
 import { createScheduleRequestFromChat } from '@/app/_components/negotiation-actions';
+import { MEETING_IN_PLACE_FIELD } from '@/lib/appointments';
+import { Problem } from './cards/card-bits';
 import { TIME_SLOTS, dayBeforeEventIso, todayIsoLocal } from '@/lib/appointment-slots';
 import { ChatStepCard, type ChatCardStep } from './chat-step-card';
 import { dayWords } from '@/lib/agreed-now';
@@ -56,6 +58,7 @@ export function MeetingStepCard({
   const [date, setDate] = useState<string | null>(seed?.date ?? null);
   const [time, setTime] = useState<string | null>(seed?.time ?? null);
   const [sending, setSending] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const today = todayIsoLocal();
   const lastDay = dayBeforeEventIso(eventDate);
   const title = kind === 'other' ? name.trim() || 'Meeting' : kind ?? 'Meeting';
@@ -129,7 +132,12 @@ export function MeetingStepCard({
     {
       title: 'How will you meet?',
       sub: date && timeLabel ? `${title} · ${dayWords(date) ?? date} · ${timeLabel}` : undefined,
-      body: <MeetingHowFields />,
+      body: (
+        <div className="grid gap-2">
+          <MeetingHowFields />
+          <Problem text={problem} />
+        </div>
+      ),
       ok: true,
     },
   ];
@@ -138,9 +146,15 @@ export function MeetingStepCard({
     <form
       id={formId}
       action={async (fd) => {
+        // 📅 The card closes only on a SAVED meeting (owner 12 Nov 2026, "cannot add schedule"): it used to close before
+        // the server answered, so a refusal took the meeting with it and the page reloaded with nothing said.
         setSending(true);
+        setProblem(null);
+        fd.set(MEETING_IN_PLACE_FIELD, '1');
+        const r = await createScheduleRequestFromChat(fd);
+        setSending(false);
+        if (!r || !r.ok) return setProblem(r?.message ?? 'Couldn’t send the meeting. Try again.');
         onSent?.();
-        await createScheduleRequestFromChat(fd);
       }}
     >
       <input type="hidden" name="thread_id" value={threadId} />

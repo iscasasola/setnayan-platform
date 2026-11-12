@@ -31,7 +31,7 @@ import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
-import { postedKindToStored } from '@/lib/appointments';
+import { MEETING_IN_PLACE_FIELD, postedKindToStored } from '@/lib/appointments';
 import { virtualLocationFromForm } from '@/lib/virtual-meeting';
 import {
   signedAmount,
@@ -57,17 +57,29 @@ function safeReturn(v: FormDataEntryValue | null): string | null {
 }
 
 /**
- * Create a schedule request from a chat message. Inserts a 'proposed'
- * event_appointments row and posts a chat_messages card linking to it. No-op
- * (redirect back) when the flag is off, the thread isn't accepted, or the caller
- * isn't a member. Best-effort notification to the other party.
+ * What a meeting request came to — said in words, never a silent reload. `back` is where the redirecting form lands.
+ * Owner 12 Nov 2026 (*"other (+) tools cannot add schedule"*): the (+) Meeting card closed BEFORE the server answered
+ * and every refusal was a bare `redirect(back)` the page never read — the meeting vanished and the screen reset. The
+ * card now awaits this and keeps itself open with the reason.
  */
-export async function createScheduleRequestFromChat(formData: FormData): Promise<void> {
+export type MeetingRequestResult =
+  | { ok: true; back: string | null }
+  | { ok: false; back: string | null; message: string; login?: true };
+
+const MEETING_NOT_SAVED = 'Couldn’t send the meeting. Try again.';
+
+/**
+ * Create a schedule request from a chat message. Inserts a 'proposed'
+ * event_appointments row and posts a chat_messages card linking to it. Refused
+ * (with its reason) when the flag is off, the thread isn't open, or the caller
+ * isn't a side of it. Best-effort notification to the other party.
+ */
+async function requestMeeting(formData: FormData): Promise<MeetingRequestResult> {
   const threadId = str(formData.get('thread_id'), 64);
   const back = safeReturn(formData.get('return_to'));
-  const dest = back ?? '/dashboard';
+  const fail = (message: string): MeetingRequestResult => ({ ok: false, back, message });
 
-  if (!chatNegotiationEnabled() || !threadId) redirect(dest);
+  if (!chatNegotiationEnabled() || !threadId) return fail('Meetings are not open on this chat.');
 
   // In-person or Virtual only — Virtual is stored as 'video'; nothing new is
   // written as 'voice' (owner 2026-10-28: no calls inside Setnayan).
@@ -78,22 +90,23 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
   const title = str(formData.get('title'), 120);
   const shapeOk =
     !!date && !!time && /^\d{4}-\d{2}-\d{2}$/.test(date) && /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
-  if (!kind || !shapeOk) redirect(dest);
+  if (!kind || !shapeOk) return fail('Pick a day, a time and how you will meet.');
   // Read at the VENUE. The offset used to be typed in right here, which meant
   // three copies of it across the appointment paths and one form that never
   // got one at all.
   const scheduledIso = datetimeLocalToIso(`${date}T${time}:00`);
-  if (!scheduledIso) redirect(dest);
+  if (!scheduledIso) return fail('Pick a day, a time and how you will meet.');
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) return { ok: false, back, message: 'Sign in again to send it.', login: true };
 
   const thread = await fetchThreadById(supabase, threadId);
-  // Schedule requests only make sense on an OPEN (accepted) relationship.
-  if (!thread || thread.inquiry_status !== 'accepted') redirect(dest);
+  // Schedule requests only make sense on an OPEN (accepted) relationship — booked or not (owner 12 Nov 2026,
+  // "Yes, before booking": migration 20271340846228 lets the supplier's side write it on an open chat too).
+  if (!thread || thread.inquiry_status !== 'accepted') return fail('Meetings open once the chat is open.');
 
   // Resolve the caller's role on this thread. RLS independently enforces write
   // access, so a mis-derived role can never grant access — this only stamps
@@ -118,7 +131,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     : vendorCheck.data
       ? 'vendor'
       : null;
-  if (!role) redirect(dest);
+  if (!role) return fail('Only the two sides of this chat can set a meeting.');
 
   // A Virtual meeting is a Jitsi link of ours — made here when the form's is missing or not ours
   // (owner 2026-11-04 "VIRTUAL = JITSI ONLY"). Nothing another app's is ever written.
@@ -136,15 +149,9 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     .eq('event_id', thread.event_id)
     .maybeSingle();
   const eventDate = (evRow as { event_date?: string | null } | null)?.event_date ?? null;
-  const failWindow = (msg: string): never => {
-    if (back) {
-      redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(msg)}`);
-    }
-    redirect(dest);
-  };
-  if ((date as string) < todayManila) failWindow('Pick a meeting date from today onward.');
+  if ((date as string) < todayManila) return fail('Pick a meeting date from today onward.');
   if (eventDate && (date as string) >= eventDate) {
-    failWindow('Meetings must be scheduled before the event day.');
+    return fail('Meetings must be scheduled before the event day.');
   }
 
   const label = title ?? 'Meeting';
@@ -169,8 +176,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     .maybeSingle();
   if (apptErr || !appt) {
     console.error('[negotiation] appointment insert failed:', apptErr?.message);
-    if (back) redirect(`${back}${back.includes('?') ? '&' : '?'}error=1`);
-    redirect(dest);
+    return fail(MEETING_NOT_SAVED);
   }
   const appointmentId = (appt as { appointment_id: string }).appointment_id;
 
@@ -233,9 +239,25 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
     console.error('[negotiation] notify failed:', e);
   }
 
-  if (back) {
-    revalidatePath(revalidationTarget(back));
-    redirect(back);
+  // The Schedule tab, the pins and the stream re-read in place — never a navigation that resets the screen.
+  if (back) revalidatePath(revalidationTarget(back));
+  return { ok: true, back };
+}
+
+/**
+ * Two doors, one export (the server-action budget is a ceiling):
+ *   · a plain form (the suggest chip, the composer menu) lands back where it was posted from, carrying a refusal as
+ *     `?error=1&msg=…` — the shape those pages already read;
+ *   · 📅 the (+) Meeting card posts `in_place=1` and AWAITS the answer, so it closes only on a saved meeting and otherwise
+ *     keeps the person's day and time with the reason on it. No redirect — the page re-reads in place.
+ */
+export async function createScheduleRequestFromChat(formData: FormData): Promise<MeetingRequestResult | undefined> {
+  const out = await requestMeeting(formData);
+  if (formData.get(MEETING_IN_PLACE_FIELD) === '1') return out;
+  if (!out.ok && out.login) redirect('/login');
+  const dest = out.back ?? '/dashboard';
+  if (!out.ok && out.back) {
+    redirect(`${out.back}${out.back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(out.message)}`);
   }
   redirect(dest);
 }

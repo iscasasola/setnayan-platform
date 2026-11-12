@@ -88,9 +88,9 @@ async function cardsForRows(
     fetchVendorsHidingPricesPublicly(admin, shopIds),
   ]);
   for (const row of rows) {
-    out.set(
-      row.vendor_service_id,
-      benchServiceCard({
+    out.set(row.vendor_service_id, {
+      serviceId: row.vendor_service_id,
+      ...benchServiceCard({
         service: row,
         discounts: discounts.get(row.vendor_service_id) ?? [],
         inclusions: inclusions.get(row.vendor_service_id) ?? [],
@@ -104,7 +104,7 @@ async function cardsForRows(
           .filter((u): u is string => Boolean(u)),
         now,
       }),
-    );
+    });
   }
   return out;
 }

@@ -131,7 +131,7 @@ test('🔑 the action reads cards only for suppliers the search already returned
 test('🔑 a list still loading, or one that failed, never reads as a count or as "Nobody"', () => {
   assert.match(LIST, /const \[moreLoading, setMoreLoading\] = useState\(true\);/, 'the first frame would say "Nobody"');
   assert.match(LIST, /const counted = !moreError && \(!moreLoading \|\| shown > 0\);/);
-  assert.match(LIST, /\{counted \? \(\s*<>\s*\{' '\}\s*· <Count value=\{shown\} id=\{`sup-cmp-\$\{tile\}`\} \/> \{shown === 1 \? 'card' : 'cards'\}\s*<\/>\s*\) : null\}/);
+  assert.match(LIST, /\{counted && !suggest \? \(\s*<>\s*\{' '\}\s*· <Count value=\{shown\} id=\{`sup-cmp-\$\{tile\}`\} \/> \{shown === 1 \? 'card' : 'cards'\}\s*<\/>\s*\) : null\}/);
   assert.equal((LIST.match(/<Count\b/g) ?? []).length, 1, 'a second, unguarded count');
   // Loading first; then an empty list says "Nobody" ONLY when nothing failed.
   assert.match(
@@ -199,6 +199,8 @@ test('the sort is the bench’s ONE value — behind Find’s ⇅ now — and th
   // (2026-10-31) "Nearest" is one Sort row per venue with a pin, so the lenses are flat-mapped and a venue row's key
   // (`near:ceremony`) sets the same `near` value — still ONE sort value, set from the ⇅.
   assert.match(BENCH, /sortMenu=\{findSortMenu\(\{[\s\S]*?\.\.\.lensChips\.flatMap[\s\S]*?\.\.\.BENCH_PLAIN_SORTS\.map[\s\S]*?sort: effectiveSort === 'near'[\s\S]*?: effectiveSort,[\s\S]*?onSort: \(k\) => \{[\s\S]*?setSort\('near'\)[\s\S]*?setSort\(k as BenchSort\);/);
-  assert.match(BENCH, /onSeeAll=\{\(\) => openSearch\(t\.tile, t\.label\)\}/);
-  assert.match(LIST, /label=\{inlineMoreSeeAllLabel\(label\)\}\s*onClick=\{onSeeAll\}/);
+  // The row's ONE door to its full search (2026-11-12: "Search all", "Find who does this" and "Search again" share it).
+  assert.match(BENCH, /const searchHere = \(\) => openSearch\(t\.tile, t\.label\);/);
+  assert.match(BENCH, /onSeeAll=\{searchHere\}/);
+  assert.match(LIST, /label=\{suggest \? searchAllLabel\(label, page\.totalCards\) : inlineMoreSeeAllLabel\(label\)\}\s*onClick=\{onSeeAll\}/);
 });

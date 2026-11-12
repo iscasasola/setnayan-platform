@@ -361,6 +361,12 @@ test('(6) the page paints with the tokens measured above', () => {
     assert.ok(classes.includes(c), `.button-primary no longer wears ${c} — (1) measures a pair the page does not paint`);
   }
   assert.equal(classes.filter((c) => /^text-(?!sm$|xs$|base$|lg$)/.test(c)).join(' '), 'text-cream', 'the label takes a second colour');
+  // 🎨 The decision job (Admin › Colours, 12 Nov 2026) re-states the fill and hover — and with nothing saved they ARE
+  // `--color-mulberry` / `-600`, read at the button, so the pair measured above is still the pair painted on a guest
+  // page (`--sn-decision` is never declared in globals.css; a saved set resets it to `initial` inside `.sn-editorial`).
+  assert.match(CSS, /\n {2}\.button-primary \{\n {4}background-color: rgb\(var\(--sn-decision, var\(--color-mulberry\)\)\);\n {2}\}/);
+  assert.match(CSS, /\n {2}\.button-primary:hover \{\n {4}background-color: rgb\(var\(--sn-decision-600, var\(--color-mulberry-600\)\)\);\n {2}\}/);
+  assert.doesNotMatch(CSS, /^\s*--sn-decision(?:-600)?\s*:/m, '--sn-decision is declared in the stylesheet — a :root alias would freeze a theme’s button to the house terracotta');
 
   // The footer's sign-off, and the door's buttons.
   const shell = stripComments(read('app/[slug]/_components/invitation-shell.tsx'));

@@ -53,6 +53,14 @@ test('each category colour is a token with the ruled light and dark value', () =
   }
 });
 
+/**
+ * The ONE file allowed the light hexes: Admin › Colours' code defaults (owner 12 Nov 2026). A colour input needs a hex,
+ * and an unset setting must equal what globals.css paints — so `lib/app-colours.test.ts` holds every one of its tile
+ * defaults equal to the `:root` `--sn-cat-*` triple above, and the moods reuse a hex (Ocean's decision is #C9471A) as
+ * a BUTTON colour, not a category. No component; nothing it holds is painted except through the `--sn-cat-*` tokens.
+ */
+const SETTING_MIRRORS = new Set(['lib/app-colours.ts']);
+
 test('no component writes a category colour as a raw hex', () => {
   const hexes = Object.values(RULED).flatMap((v) => [v.light, v.dark]);
   const re = new RegExp(`#(${hexes.map((h) => h.slice(1)).join('|')})\\b`, 'i');
@@ -62,7 +70,8 @@ test('no component writes a category colour as a raw hex', () => {
       if (name === 'node_modules' || name === '.next') continue;
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
-      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && re.test(readFileSync(p, 'utf8'))) hits.push(relative(WEB, p));
+      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !SETTING_MIRRORS.has(relative(WEB, p)) && re.test(readFileSync(p, 'utf8')))
+        hits.push(relative(WEB, p));
     }
   };
   for (const d of ['app', 'components', 'lib']) walk(join(WEB, d));

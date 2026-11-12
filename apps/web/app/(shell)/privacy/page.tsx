@@ -52,7 +52,7 @@ export default function PrivacyPage() {
       variant yields both. Owner 2026-08-15: the rail's small print points here,
       and it used to throw the person out of the app.
     */
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <article className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

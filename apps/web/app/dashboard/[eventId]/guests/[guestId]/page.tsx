@@ -70,7 +70,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-5 pb-16">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl space-y-5 pb-16">
       <Link
         href={`/dashboard/${eventId}/guests`}
         className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"

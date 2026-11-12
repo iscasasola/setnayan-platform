@@ -176,7 +176,7 @@ export default async function PackageBookingPage({ params }: Props) {
   // is a narrow receipt and deliberately reads narrower than a roster. Losing
   // them would widen the page, which is a different change nobody asked for.
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
+    <div className="mx-auto w-full max-w-2xl tab:max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
       <Link
         href={eventHomeHref}
         className="inline-flex items-center gap-1.5 text-xs text-ink/60 transition-colors hover:text-terracotta-700"

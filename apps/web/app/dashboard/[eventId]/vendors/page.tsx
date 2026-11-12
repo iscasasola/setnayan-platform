@@ -313,7 +313,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (profile.marketplaceEnabled !== true) {
     return (
-      <section className="sn-col space-y-6" data-suppliers-not-listed="">
+      <section className="sn-col sn-col-wide space-y-6" data-suppliers-not-listed="">
         <PageMasthead title="Suppliers" />
         <p className="text-[15px] text-ink/65">Suppliers aren&rsquo;t listed for this kind of event yet.</p>
       </section>
@@ -388,7 +388,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // empty bench. Say what happened instead (your-team-read-is-honest.test.ts).
   if (!vendorsRead.measured) {
     return (
-      <section className="sn-col space-y-4">
+      <section className="sn-col sn-col-wide space-y-4">
         <PageMasthead title="Suppliers" />
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
           Suppliers

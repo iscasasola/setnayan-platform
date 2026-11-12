@@ -98,7 +98,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // 🔌 A refused guest read is never a page of nobody (reads-are-honest, 2026-11-02 audit #14).
   if (!guestsRead.measured) {
     return (
-      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+      <section className="mx-auto w-full max-w-3xl tab:max-w-3xl px-4 py-6">
         <ReadRefusedNotice what="your guest list" />
       </section>
     );
@@ -210,7 +210,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const defaultDerived = deriveMonogram(event.display_name);
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-6 tab:mx-auto tab:w-full tab:max-w-3xl">
       <PageMasthead
         titleNode={
           <>

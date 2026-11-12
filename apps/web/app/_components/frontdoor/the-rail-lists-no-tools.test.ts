@@ -92,9 +92,10 @@ const TOOL_PAGES = new Set<string>([
   // The in-app rows the retired Builder · Together groups carried.
   '/dashboard/samahan',
   '/explore/compare',
-  // Every /features "Try it", except the Marketplace's, which is the ruled "Find
-  // suppliers" row (signed out only — asserted below).
-  ...FEATURE_PAGES.map((f) => f.tryHref).filter((h): h is NonNullable<typeof h> => !!h && h !== '/explore'),
+  // Every /features "Try it". The Marketplace's used to be exempt as the "Find
+  // suppliers" row; that row left the rail 2026-11-12 (supplier browsing lives on
+  // Discover, `/?browse=1`), so no exemption is left — no rail row opens it either.
+  ...FEATURE_PAGES.map((f) => f.tryHref).filter((h): h is NonNullable<typeof h> => !!h),
 ]);
 
 const STATES: ReadonlyArray<[string, 'front-door' | 'app' | 'doorway', Who, string]> = [

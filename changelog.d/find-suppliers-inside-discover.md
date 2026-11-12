@@ -9,3 +9,10 @@ Owner, 12 Nov 2026: *"find suppliers needs to be also inside discover already. t
 - **Retired: the Find suppliers page and row.** The signed-out rail is four rows: Discover · For suppliers · For coordinators · Features (then Sign in). `/explore` forwards permanently (308) to `/` with every parameter carried — `notice` alone is dropped — through `lib/legacy-redirects.ts`, so in-event `?folder=…&from=plan` links keep their plan context. A bare `/explore` is Discover itself. `/vendors/*` forwards along the same path; `/explore/compare` stays where it is. Public doors (about, marketplace, realstories, the `/suppliers` landings, the blog, the footer, not-found, waitlist, admin demo links) now open `/?browse=1`. Admin and supplier saves refresh `/` instead of `/explore`. Sitemap, robots and llms.txt drop `/explore`; the search action is `/?q=`.
 
 SPEC IMPACT: None — DECISION_LOG row 2026-11-12 "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED…" already records it.
+
+**CI fix (2026-11-12).** Three tests still pointed at the retired `/explore` page:
+the Marketplace feature page's "Try it" now opens `/?browse=1` and names the moved
+code as its evidence (`explore/_lib/marketplace-view.tsx`, `discover-supplier-controls.tsx`);
+the waitlist_picked email falls back to `/?browse=1`; the rail guard drops its
+"Find suppliers" exemption (that row left the rail). Two route helpers in guards now
+read `/?…` as the root page (query string is not part of the path) — neither loosened.

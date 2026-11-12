@@ -92,7 +92,7 @@ export function NotCountedResult({
         <div key={s.id} className="mb-2 grid gap-2 rounded-xl bg-ink/[0.04] px-4 py-3 text-[13px] leading-snug" data-kids-suggestion={s.id}>
           <span className="text-ink">
             <b className="block font-medium">{kidsSuggestionWords(s.label)}</b>
-            <span className="block text-ink/60">Kids meal · some caterers still charge kids’ plates.</span>
+            <span className="block text-ink/60">Kids meal · some suppliers still charge for children.</span>
           </span>
           <span className="flex justify-end gap-1.5">
             <ActionButton tone="neutral" icon={X} label="Not now" onClick={() => setNotNow((d) => [...d, s.id])} />

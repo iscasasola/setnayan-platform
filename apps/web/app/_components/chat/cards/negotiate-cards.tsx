@@ -487,7 +487,7 @@ export function NegotiationCard({
             onCounter={kind === 'counter' ? () => setCountering(true) : null}
           />
           {countering && quote && ask ? (
-            <div className="mt-1 grid gap-2 rounded-xl border border-ink/10 p-3" data-counter-back="">
+            <div className="mt-1 grid gap-2 border-t border-ink/10 pt-3" data-counter-back="">
               <CounterBody
                 threadId={threadId}
                 quote={quote}

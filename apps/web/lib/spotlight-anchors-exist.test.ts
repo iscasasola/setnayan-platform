@@ -160,14 +160,19 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'day-planning': 'app/dashboard/[eventId]/page.tsx',
   'post-story': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
   'post-photos': 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
-  // THE ONE BUILD (8 Nov): Today's Next card (`next-card.tsx`) is retired and deleted — its stop lights the Needs-you
-  // heading.
-  'today-next': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
-  'shop-details': 'app/vendor-dashboard/shop/page.tsx',
-  'shop-add-service': 'app/vendor-dashboard/shop/_components/services-empty-card.tsx',
+  // 🔦 The supplier's first-login tour (owner 12 Nov 2026): logo · cover photo · service cards · ⚙ › Your page · the page
+  // editor · an event · its Chat and Quotation tabs. (`today-next`, `shop-details`, `shop-add-service` and `today-money`
+  // were the old journey's stops.)
+  'shop-logo': 'app/vendor-dashboard/shop/_components/shop-cover.tsx',
+  'shop-cover-photo': 'app/vendor-dashboard/shop/_components/shop-cover.tsx',
+  'shop-gear': 'app/vendor-dashboard/shop/_components/shop-cover.tsx',
+  'shop-services': 'app/vendor-dashboard/shop/page.tsx',
+  'shop-your-page': 'app/vendor-dashboard/shop/_components/shop-settings-rows.tsx',
+  'shop-page-list': 'app/vendor-dashboard/website/_components/page-parts.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
-  // 📌 The money count is the pinned row's filter since 2026-10-28 — drawn by `TodayCounts`.
-  'today-money': 'app/vendor-dashboard/_components/today-stats.tsx',
+  'customers-event': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
+  'client-chat': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
+  'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',

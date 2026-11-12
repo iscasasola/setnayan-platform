@@ -37,7 +37,14 @@ test('a final quotation says the guest count can still move it — and the repri
   const body = sql.slice(sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.quote_follow_guest_count('));
   assert.ok(body.length > 0 && body.includes('FOR UPDATE'), 'quote_follow_guest_count is gone');
   const fn = body.slice(0, body.indexOf('$$;'));
-  assert.doesNotMatch(fn, /changes_locked/, 'the repricer must not read the Quotation lock — a final quotation still follows the list');
+  // 📉 Since the fall-back (migration 20271340566104, DECISION_LOG "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK — UNLESS
+  // THE SUPPLIER LOCKED IT") the repricer DOES read the lock — but only to stop a FALL: it may never skip a locked quote.
+  // The rise itself is held by tests/db/a-quote-follows-the-guest-list.db.test.ts ("rises but never falls back").
+  const skips = fn.split('\n').filter((l) => /locked/.test(l) && /CONTINUE|RETURN/.test(l));
+  assert.deepEqual(skips, [], 'the repricer must not skip a final quotation — it still rises with the list');
+  assert.match(fn, /quote_follow_lines\(r\.line_items, v_billed, NOT v_locked\)/, 'the lock only decides whether the lines may fall');
+  const ifs = [...fn.matchAll(/IF[^;]*v_locked[^;]*THEN\s+CONTINUE/g)];
+  assert.equal(ifs.length, 0, 'no lock branch ends in CONTINUE');
 });
 
 test('the RPCs the switch and the check call exist in the migrations', () => {

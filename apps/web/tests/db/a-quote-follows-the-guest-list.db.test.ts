@@ -3,7 +3,8 @@
  *
  * Against the replayed migrations, the guest list (not a typed number) moves a standing, not-yet-booked quote:
  *   · SQL and the TS mirror (`lib/quote-pax-follow.ts`) give the same lines, total and plan — to the centavo;
- *   · it NEVER goes down, never below the quote's Bill-at-least minimum, never below what was sent;
+ *   · an UNLOCKED quote falls back as guests leave (20271340566104), never below the Bill-at-least minimum or what was
+ *     sent; a LOCKED one never falls; a drop comes off unpaid auto rows only, capped at what is unsettled;
  *   · paid rows never change — the rise lands on the auto Final balance (a paid auto row → a new one takes it);
  *   · a supplier's `changes_locked` quotation STILL rises; a BOOKED deal is untouched (Piece 2);
  *   · each service counts its own guests ("Not counted for ▾"), and a kids meal never ticks anything by itself;
@@ -16,7 +17,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
-import { followGuestCount, quoteRiseWords, type FollowLine, type FollowSchedule } from '../../lib/quote-pax-follow';
+import { followGuestCount, quoteFallWords, quoteRiseWords, type FollowLine, type FollowSchedule } from '../../lib/quote-pax-follow';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -161,6 +162,7 @@ const read = async (id: string) =>
 const lines = async (w: World) =>
   (await db.query<{ body: string }>(`SELECT body FROM public.chat_messages WHERE thread_id = $1 AND sender_role = 'system' ORDER BY created_at`, [w.threadId])).rows.map((r) => r.body);
 const rises = async (w: World) => (await lines(w)).filter((b) => b.startsWith('Quote rose to '));
+const falls = async (w: World) => (await lines(w)).filter((b) => b.startsWith('Quote fell to '));
 const count = async (w: World) => (await db.query<{ n: number }>(`SELECT public.quote_guest_count($1, $2) AS n`, [w.eventId, w.vendorId])).rows[0]!.n;
 
 test('👥 the list grows past the quote → it rises by itself: per-head lines only, rise on the Final balance, one chat line', async () => {
@@ -224,7 +226,7 @@ test('⚖ SQL and the TS mirror agree to the centavo — lines, total, plan, bil
   }
 });
 
-test('⬆ never down: guests leave → the quote holds; it never goes below the minimum or what was sent', async () => {
+test('⬇ guests leave → an unlocked quote falls back, never below the minimum or what was sent (20271340566104)', async () => {
   const w = await newWorld();
   const b = build({ billed: 150, minPax: 150 });
   const p = await quote(w, b);
@@ -235,11 +237,11 @@ test('⬆ never down: guests leave → the quote holds; it never goes below the 
   assert.equal(up, b.total + 10 * RATE);
   await db.query(`UPDATE public.guests SET rsvp_status = 'declined' WHERE guest_id = ANY($1::uuid[])`, [ids.slice(0, 60)]);
   assert.equal(await count(w), 100);
-  assert.equal(Number((await read(p)).total_centavos), up, 'a shrinking list never lowers it');
+  assert.equal(Number((await read(p)).total_centavos), b.total, 'a shrinking list brings it back to what was sent — no further');
   await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(60)]);
-  assert.equal(Number((await read(p)).total_centavos), up);
-  assert.ok(Number((await read(p)).total_centavos) >= b.total, 'never below the sent total');
+  assert.equal(Number((await read(p)).total_centavos), b.total);
   assert.equal((await rises(w)).length, 1);
+  assert.deepEqual(await falls(w), [quoteFallWords(150, 10 * RATE)]);
 });
 
 test('🔒 a supplier’s final (changes_locked) quotation STILL rises; a BOOKED deal is untouched', async () => {
@@ -351,4 +353,156 @@ test('🛡 a browser session cannot call the repricer or the count', async () =>
   await assert.rejects(db.query(`SELECT public.quote_follow_guest_count($1)`, [w.eventId]), /permission denied/);
   await assert.rejects(db.query(`SELECT public.quote_guest_count($1, $2)`, [w.eventId, w.vendorId]), /permission denied/);
   await db.exec('RESET ROLE');
+});
+
+// ── 📉 THE FALL-BACK (migration 20271340566104; DECISION_LOG 2026-11-12 "WHEN A GUEST IS REMOVED, THE PRICE FALLS BACK —
+// UNLESS THE SUPPLIER LOCKED IT") ─────────────────────────────────────────────────────────────────────────────────
+
+type Snap = { billed_pax?: number; sent_billed_pax?: number; min_pax?: number };
+const asQuote = (r: Row, locked = false) => ({
+  lines: r.line_items,
+  totalCentavos: Number(r.total_centavos),
+  schedule: r.payment_schedule,
+  minPax: (r.merge_snapshot as Snap).min_pax ?? null,
+  billedPax: (r.merge_snapshot as Snap).billed_pax ?? null,
+  sentBilledPax: (r.merge_snapshot as Snap).sent_billed_pax ?? null,
+  booked: false,
+  locked,
+});
+
+test('📉 SQL and the TS mirror agree on every fall — lines, total, plan, billed pax, words', async () => {
+  const cases = [
+    { up: 140, down: 120, minPax: 100 },
+    { up: 140, down: 60, minPax: 100 }, // to the sent pax
+    { up: 140, down: 60, minPax: 0, extraPerPax: 4_500, firstPct: 35 },
+    { up: 103, down: 101, minPax: 0, rate: 12_345 },
+  ];
+  for (const c of cases) {
+    const w = await newWorld();
+    const b = build({ billed: 100, minPax: c.minPax, rate: c.rate, extraPerPax: c.extraPerPax, firstPct: c.firstPct });
+    const p = await quote(w, b);
+    const ids = await addGuests(w, c.up);
+    const before = await read(p);
+    assert.equal(Number(before.total_centavos) > b.total, true, JSON.stringify(c));
+    const ts = followGuestCount(asQuote(before), Math.max(c.down, 0));
+    await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(c.down)]);
+    const r = await read(p);
+    assert.ok(ts.fell, JSON.stringify(c));
+    assert.equal(Number(r.total_centavos), ts.totalCentavos, JSON.stringify(c));
+    assert.deepEqual(r.line_items, JSON.parse(JSON.stringify(ts.lines)), JSON.stringify(c));
+    assert.deepEqual(r.payment_schedule, JSON.parse(JSON.stringify(ts.schedule)), JSON.stringify(c));
+    assert.equal(r.merge_snapshot.billed_pax, ts.billedPax);
+    assert.equal(r.merge_snapshot.sent_billed_pax, 100, 'the pax it was sent at is remembered');
+    assert.deepEqual(await falls(w), [ts.line]);
+  }
+});
+
+test('📉 back to the sent quote exactly — the round trip leaves the same money on every line and row', async () => {
+  const w = await newWorld();
+  const b = build();
+  const p = await quote(w, b);
+  const ids = await addGuests(w, 130);
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(100)]);
+  const r = await read(p);
+  assert.equal(Number(r.total_centavos), b.total);
+  assert.deepEqual(r.line_items.map((l) => l.amount_centavos), b.lines.map((l) => l.amount_centavos));
+  assert.deepEqual(r.payment_schedule.installments!.map((i) => i.amount_centavos), b.schedule.installments!.map((i) => i.amount_centavos));
+  assert.deepEqual(await falls(w), ['Quote fell to 100 pax · −₱19,500']);
+});
+
+test('🔒 a locked (changes_locked) quotation rises but never falls back', async () => {
+  const w = await newWorld();
+  const p = await quote(w, build(), 'sent', { locked: true });
+  const ids = await addGuests(w, 130);
+  const up = Number((await read(p)).total_centavos);
+  assert.equal(up, build().total + 30 * RATE);
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(90)]);
+  assert.equal(Number((await read(p)).total_centavos), up, 'the locked price is the floor');
+  assert.deepEqual(await falls(w), []);
+  await addGuests(w, 50); // 140 → still rises
+  assert.equal(Number((await read(p)).total_centavos), build().total + 40 * RATE);
+});
+
+test('💳 a fall never touches a paid row — a paid Final balance leaves nothing to take it from', async () => {
+  const w = await newWorld();
+  const b = build();
+  const p = await quote(w, b, 'accepted');
+  const ids = await addGuests(w, 120);
+  const risenRow = await read(p);
+  const fin = risenRow.payment_schedule.installments![1]!;
+  await db.query(
+    `INSERT INTO public.event_vendor_payments (event_id, vendor_id, amount_php, method, schedule_instance_seq) VALUES ($1, $2, $3, 'GCash', 1)`,
+    [w.eventId, w.vendorId, fin.amount_centavos / 100],
+  );
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(100)]);
+  const r = await read(p);
+  assert.equal(Number(r.total_centavos), Number(risenRow.total_centavos), 'paid → the price stays');
+  assert.deepEqual(r.payment_schedule, risenRow.payment_schedule);
+  assert.deepEqual(await falls(w), []);
+});
+
+test('💳 a drop bigger than the unsettled balance stops there (a paid Final balance + a small new one)', async () => {
+  const w = await newWorld();
+  const b = build();
+  const p = await quote(w, b, 'accepted');
+  const ids = await addGuests(w, 100);
+  await db.query(
+    `INSERT INTO public.event_vendor_payments (event_id, vendor_id, amount_php, method, schedule_instance_seq) VALUES ($1, $2, $3, 'GCash', 1)`,
+    [w.eventId, w.vendorId, b.schedule.installments![1]!.amount_centavos / 100],
+  );
+  await addGuests(w, 3); // a NEW auto row of 3 guests' worth
+  const risenRow = await read(p);
+  assert.equal(risenRow.payment_schedule.installments!.length, 3);
+  const ts = followGuestCount(asQuote(risenRow), 100, [1]);
+  // 3 guests leave — the new auto row is exactly what is unsettled, and it goes.
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(0, 3)]);
+  const r = await read(p);
+  assert.ok(ts.fell);
+  assert.equal(Number(r.total_centavos), b.total);
+  assert.deepEqual(r.payment_schedule.installments, b.schedule.installments, 'the paid rows as they were; the emptied auto row left');
+  assert.deepEqual(r.payment_schedule, JSON.parse(JSON.stringify(ts.schedule)), 'SQL and TS agree on the capped case');
+});
+
+test('💳 no plan: the fall stops at what has been paid on the booking', async () => {
+  const w = await newWorld();
+  const b = build();
+  const p = await quote(w, { ...b, schedule: null as unknown as FollowSchedule });
+  const ids = await addGuests(w, 130);
+  const risenRow = await read(p);
+  const paid = Number(risenRow.total_centavos) - 10 * RATE; // ₱6,500 still to settle
+  await db.query(`INSERT INTO public.event_vendor_payments (event_id, vendor_id, amount_php, method) VALUES ($1, $2, $3, 'GCash')`, [w.eventId, w.vendorId, paid / 100]);
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(100)]);
+  const r = await read(p);
+  assert.equal(Number(r.total_centavos), paid, 'falls 10 guests, never under what is paid');
+  assert.equal(r.merge_snapshot.billed_pax, 120);
+  const ts = followGuestCount(asQuote(risenRow), 100, [], paid);
+  assert.ok(ts.fell);
+  assert.equal(ts.totalCentavos, paid);
+});
+
+test('📉 a BOOKED deal stays untouched on the way down too', async () => {
+  const w = await newWorld();
+  const p = await quote(w, build(), 'accepted');
+  const ids = await addGuests(w, 130);
+  const up = Number((await read(p)).total_centavos);
+  await db.query(`UPDATE public.event_vendors SET status = 'contracted', total_cost_php = $2 WHERE vendor_id = $1`, [w.vendorId, up / 100]);
+  await db.query(`DELETE FROM public.guests WHERE guest_id = ANY($1::uuid[])`, [ids.slice(100)]);
+  assert.equal(Number((await read(p)).total_centavos), up);
+  assert.deepEqual(await falls(w), []);
+});
+
+test('🍽 ticking a guest "Not counted for" a service lowers that service’s quote; an accepted booking follows', async () => {
+  const w = await newWorld();
+  const b = build();
+  await db.query(`UPDATE public.event_vendors SET status = 'shortlisted', total_cost_php = $2 WHERE vendor_id = $1`, [w.vendorId, b.total / 100]);
+  const p = await quote(w, b, 'accepted');
+  const kids = await addGuests(w, 5, 'attending', 'kids');
+  await addGuests(w, 100);
+  assert.equal(Number((await read(p)).total_centavos), b.total + 5 * RATE);
+  await db.query(`INSERT INTO public.guest_not_counted_for (guest_id, event_vendor_id) SELECT unnest($1::uuid[]), $2`, [kids, w.vendorId]);
+  assert.equal(Number((await read(p)).total_centavos), b.total, 'the couple’s tick takes the 5 kids’ plates back off');
+  const ev = await db.query<{ t: string; base: number }>(`SELECT total_cost_php::text AS t, pax_quote_base AS base FROM public.event_vendors WHERE vendor_id = $1`, [w.vendorId]);
+  assert.equal(Number(ev.rows[0]!.t), b.total / 100);
+  assert.equal(ev.rows[0]!.base, 100);
+  assert.deepEqual(await falls(w), ['Quote fell to 100 pax · −₱3,250']);
 });

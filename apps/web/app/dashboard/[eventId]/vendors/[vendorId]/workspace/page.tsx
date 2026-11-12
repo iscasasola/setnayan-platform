@@ -146,6 +146,7 @@ import { HandoverInbox, type HandoverRow } from './_components/handover-inbox';
 import { ShotListCard, type ShotListCardState } from './_components/shot-list-card';
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
+import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -3069,7 +3070,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         )}
       </div>
     ),
-    files: <div data-picked-supplier-page="files">{documentsSection}</div>,
+    files: (
+      <div className="space-y-6" data-picked-supplier-page="files">
+        {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
+        {ev.marketplace_vendor_id ? (
+          <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+        ) : null}
+        {documentsSection}
+      </div>
+    ),
     inspiration: inspirationSection,
     // 🚩 Report (owner 11 Nov 2026, "There is also no report") — the host's shipped Report a problem, about this supplier.
     report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,

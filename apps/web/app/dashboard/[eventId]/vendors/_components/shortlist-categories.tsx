@@ -1986,7 +1986,8 @@ function InlineMoreCard({
   onInquire: () => void;
 }) {
   // The service card's own cover first; else the photo the search resolved.
-  const cover = svc?.coverUrl ?? benchCardImage(v);
+  // No cover of its own but showcase photos → the first photo, not the shop's logo (the marketplace's C2 rule).
+  const cover = svc?.coverUrl ?? svc?.photos?.[0] ?? benchCardImage(v);
   const ringDoor = useContext(SheetDoorCtx);
   const ringAt = onOpen ? ringTile : null;
   useSheetRing(ringDoor, ringAt, v.vendorProfileId, onOpen);
@@ -1998,6 +1999,7 @@ function InlineMoreCard({
         framed={false}
         name={svc?.name || label}
         coverUrl={cover}
+        photos={svc?.photos ?? null}
         coverCorner={
           v.boosted ? (
             <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-[9px] uppercase tracking-wide text-cream">

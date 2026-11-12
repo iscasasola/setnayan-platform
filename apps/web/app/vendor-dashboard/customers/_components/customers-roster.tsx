@@ -296,6 +296,8 @@ export function RosterRowView({
       <SupplierOpenRow
         id={list ? `customer-${list}-${r.eventId}` : `customer-${r.eventId}`}
         data="customer-row"
+        // 🔦 The supplier tour's "Open an event" stop — the first row drawn is the one lit.
+        tour="customers-event"
         title={title}
         titleNode={<Marked text={title} query={query} />}
         line={rowWords}

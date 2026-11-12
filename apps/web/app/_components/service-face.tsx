@@ -3,8 +3,10 @@ import { AlertCircle, BadgeCheck, Gift, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
+import { ServiceFaceCoverShow } from '@/app/_components/service-face-cover-show';
 import { ServiceFaceDoorButton } from '@/app/_components/service-face-door';
 import { formatCount } from '@/lib/format-number';
+import { coverPhotoList, type CoverPhoto } from '@/lib/service-cover-show';
 
 /**
  * service-face.tsx — THE ONE SERVICE CARD FACE. Every service card in the app is drawn here.
@@ -20,8 +22,12 @@ import { formatCount } from '@/lib/format-number';
  *   · the price, in the app's font · ONE "Includes:" line (words only — 11 Nov "INCLUDED LINES HAVE NO PRICE")
  *   · ONE "Not included:" line (crew meal is said once, here) · the gift line
  *
- * Photos, the clip, looks, couples' photos, reviews, Serves and the card record are NOT on the face — they live in the
+ * The clip, looks, couples' photos, reviews, Serves and the card record are NOT on the face — they live in the
  * Service card grown, which the face opens.
+ *
+ * 🎞 THE COVER PLAYS (owner 12 Nov, "Yes, build it"): given `photos`, the cover crossfades through the cover + the
+ * showcase photos (≤6), and a swipe on the photo turns it — `service-face-cover-show.tsx`, rules in
+ * `lib/service-cover-show.ts`. One photo → the still cover, exactly as before. A bundle passes its services' photos.
  *
  * 🔒 THE CALLER OWNS ONLY WHAT IS AROUND THE FACE: the door (where a tap goes) and the footer (Find's verbs, the
  * maker's "Request a quote" drawing, nothing in a thread). The supplier's Edit · Share · Online row sits UNDER the
@@ -76,6 +82,7 @@ function initialsOf(name: string): string {
 export function ServiceFace({
   name,
   coverUrl = null,
+  photos,
   cover,
   coverCorner,
   discount = null,
@@ -99,6 +106,11 @@ export function ServiceFace({
   name: string;
   /** Plain display URL of the cover. Ignored when `cover` is given. */
   coverUrl?: string | null;
+  /**
+   * The card's other photos (already-resolved display URLs; a bundle passes `CoverPhoto`s named by service). With the
+   * cover they make ≥2 → the cover plays and swipes. Wins over `cover`, which is the single still picture.
+   */
+  photos?: ReadonlyArray<string | CoverPhoto> | null;
   /** A ready cover node (the maker passes its framed image). */
   cover?: ReactNode;
   /** A small pill ON the cover ("Featured"). */
@@ -133,7 +145,11 @@ export function ServiceFace({
   framed?: boolean;
   id?: string;
 }) {
-  const coverNode =
+  const show = coverPhotoList(cover ? null : coverUrl, photos);
+  const plays = show.length >= 2;
+  const coverNode = plays ? (
+    <ServiceFaceCoverShow photos={show} cornerAbove={Boolean(coverCorner)} />
+  ) : (
     cover ??
     (coverUrl ? (
       // eslint-disable-next-line @next/next/no-img-element -- an already-resolved display URL, like Find's cover
@@ -142,7 +158,8 @@ export function ServiceFace({
       <span aria-hidden className="font-serif text-[22px] italic text-[var(--m-paper)]">
         {initialsOf(shop?.name ?? name)}
       </span>
-    ));
+    ))
+  );
 
   return (
     <div
@@ -157,7 +174,9 @@ export function ServiceFace({
       <div className="grid grid-cols-[80px_minmax(0,1fr)] items-start gap-x-3 gap-y-1">
         <span className="relative flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--m-slate)]">
           {coverNode}
-          {coverCorner ? <span className="absolute inset-x-1.5 bottom-1.5 text-center">{coverCorner}</span> : null}
+          {coverCorner ? (
+            <span className={`absolute inset-x-1.5 bottom-1.5 text-center${plays ? ' pointer-events-none z-20' : ''}`}>{coverCorner}</span>
+          ) : null}
         </span>
 
         <span className="flex min-w-0 flex-col gap-[3px]">
@@ -217,6 +236,7 @@ export function ServiceFace({
         <Link
           href={door.href}
           aria-label={door.label}
+          data-service-face-door=""
           className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         />
       ) : door ? (

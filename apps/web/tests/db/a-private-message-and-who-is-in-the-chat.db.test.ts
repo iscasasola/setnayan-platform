@@ -474,6 +474,9 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  // 20271340018194 (Piece 1 · PR-3): inserts the new quote version's card line (a shop message with its proposal_id);
+  // reads no message and returns the new proposal id — no body leaves it.
+  'change_ask_write_version',
   // 🗳 20271338412990 (chat decisions · polls): none returns a body. The filing check reads a message's thread_id and
   // recipient_user_id only to REFUSE a private line ('private'); file / move lock the message row; poll_open inserts
   // its own system line and returns the poll id.
@@ -488,6 +491,10 @@ const AUDITED_DEFINER_READERS: string[] = [
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
+  // 📁 20271339773560 (Piece 3b · a supplier's files): a trigger, EXECUTE revoked from every browser role. It only
+  // checks that NEW.chat_message_id is a message of THIS shop's thread with THIS event (EXISTS) — never reads a body,
+  // returns nothing but NEW, and its refusal is a fixed sentence.
+  'guard_event_supplier_file', // EXISTS on message_id + thread only; no body read or returned
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
@@ -535,7 +542,11 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_threads.chat_threads_member_read',
     ],
     functions: [
+      // 20271340018194 (Piece 1 · PR-3): the hosts' side answers a supplier's counter or plan only from inside the chat.
+      'answer_change_ask',
       'ask_for_a_change', // lane C: only a member of the chat may ask (migration 20271332041210)
+      // 20271340018194: the chat's asks, for a member of the thread only; a masked coordinator's money is withheld.
+      'change_asks_read',
       'chat_blocker_shown',
       // 20271332497337 (Build 3 lane B): the decision topics' membership check — a member of the chat (this helper)
       // or the shop's team; chat_decision_open / _set_closed / the topics' read policy all ask it.

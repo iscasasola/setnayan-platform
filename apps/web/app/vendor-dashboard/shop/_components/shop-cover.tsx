@@ -228,6 +228,7 @@ export function ShopCover({
               aria-label="Shop settings"
               className="grid h-10 w-10 place-items-center rounded-full border border-white/30 bg-[rgba(20,18,14,.35)] backdrop-blur"
               data-shop-cover-gear=""
+              data-tour="shop-gear"
             >
               <Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} />
             </button>
@@ -287,7 +288,7 @@ export function ShopCover({
           QR · Cover. Nothing was dropped when the band became the one hero. */}
       <div className="space-y-2 px-4 pt-3" data-shop-cover-doors="">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => openSheet('logo')} className="relative shrink-0 rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
+          <button type="button" onClick={() => openSheet('logo')} className="relative shrink-0 rounded-full" aria-label="Your logo — view or change" data-shop-logo="" data-tour="shop-logo">
             <VendorAvatar
               logoUrl={d.logoUrl}
               frame={d.logoFrame}
@@ -321,7 +322,7 @@ export function ShopCover({
           <CoverIcon label="Share" icon={<Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
           <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('promote')} data="promote" />
           <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('qr')} data="qr" />
-          <button type="button" onClick={() => openSheet('cover')} className={COVER_PILL} data-shop-cover-edit="">
+          <button type="button" onClick={() => openSheet('cover')} className={COVER_PILL} data-shop-cover-edit="" data-tour="shop-cover-photo">
             <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
             Cover
           </button>

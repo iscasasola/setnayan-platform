@@ -82,6 +82,25 @@ export function bypassExpiryFrom(grantedAt: Date, windowDays = BYPASS_WINDOW_DAY
 }
 
 /**
+ * 🏅 FOUNDERS VERIFICATION (owner, 12 Nov 2026): "any shop that I approve there run until next year's
+ * document verification deadline, which is on March 30, 2027 … they only need to submit their documents for
+ * the next year's verification process." So a vouch granted before that day carries THAT day — the END of
+ * 30 March 2027 in Manila — as its deadline, whatever day it is pressed. Fixed, not "now + 182 days", so the
+ * date the supplier is told is the date the badge obeys.
+ */
+export const FOUNDERS_PAPERS_DUE_ISO = '2027-03-30T15:59:59.000Z';
+
+/**
+ * The deadline a vouch pressed at `grantedAt` carries: the founders' day while it is still ahead, and the
+ * six-month window ({@link bypassExpiryFrom}) once it has passed — a vouch must never be born already lapsed.
+ */
+export function founderVouchExpiry(grantedAt: Date): string {
+  return grantedAt.getTime() < Date.parse(FOUNDERS_PAPERS_DUE_ISO)
+    ? FOUNDERS_PAPERS_DUE_ISO
+    : bypassExpiryFrom(grantedAt);
+}
+
+/**
  * TRUE when a vouch's window closed with no approved papers — the daily pass
  * then stamps the vouch row lapsed. It HIDES NOTHING: what a lapse costs is
  * the badge, and the badge reads its own deadline (`hasVerifiedBadge`).

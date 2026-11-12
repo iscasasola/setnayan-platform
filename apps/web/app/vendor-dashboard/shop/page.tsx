@@ -691,7 +691,7 @@ async function ShopHome({
             in categories under. They are all services"*): the head (compresses into one sticky row; its ＋ = New bundle ·
             New service) → BUNDLES → every service card, grouped Group › Category (the one taxonomy). No Coverage · Service
             cards · Tools picker, no "Add a service or coverage" dropdown, no second "+ Add a service" link. */}
-        <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
+        <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="" data-tour="shop-services">
           <ShopServicesHead
             line={servicesLine(data)}
             compact={servicesCompact(data)}

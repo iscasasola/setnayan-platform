@@ -24,7 +24,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const WIZARD = read('app/open-shop/_components/open-shop-wizard.tsx');
 const ACTIONS = read('app/open-shop/actions.ts');
 const PAGE = read('app/open-shop/page.tsx');
-const PICKER = read('app/open-shop/_components/service-picker.tsx');
+const PICKER = read('app/_components/service-picker.tsx');
 const TILES = read('app/open-shop/_components/event-tiles.tsx');
 const PANE = read('app/_components/auth/sign-in-here-panel.tsx');
 const LINK = read('app/_components/auth/sign-in-here-link.tsx');

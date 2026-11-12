@@ -11,7 +11,7 @@ import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FIRST_BOOKING_FREE_LABEL, coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
 import { tileIcon } from '@/lib/taxonomy-icons';
-import { ServicePicker, type PickerLeafView, type PickerParentView } from './service-picker';
+import { ServicePicker, type PickerLeafView, type PickerParentView } from '@/app/_components/service-picker';
 
 /** Where a leaf sits in the tree: its tier-2 category (the meter's unit, the card it lands in) and its group. */
 export type LeafPlace = {

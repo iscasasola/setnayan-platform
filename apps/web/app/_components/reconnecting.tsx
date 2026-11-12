@@ -67,7 +67,7 @@ export function Reconnecting({ reset, onGiveUp }: { reset: () => void; onGiveUp:
   }, []);
 
   return (
-    <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+    <main className="min-h-screen bg-page text-ink flex items-center justify-center px-6 py-16">
       <p role="status" aria-live="polite" className="font-sans text-base text-ink/70">
         Reconnecting…
       </p>

@@ -309,7 +309,7 @@ export default async function PricingPage() {
       The shared shell (front-door-shell). ⚠ THIS PAGE OWNS NO <main> of the shell's — the doorway variant yields the
       landmark to the host, so the wrapper below becomes one.
     */
-    <main className="min-h-screen bg-cream text-ink">
+    <main className="min-h-screen bg-page text-ink">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }} />
 
       {/* 1 · HERO */}

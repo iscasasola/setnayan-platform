@@ -236,7 +236,7 @@ export default async function HelpPage({ searchParams }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
       />
-      <main className="min-h-dvh bg-cream pb-24 lg:pb-0">
+      <main className="min-h-dvh bg-page pb-24 lg:pb-0">
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">

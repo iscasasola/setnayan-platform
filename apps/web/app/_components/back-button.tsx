@@ -29,6 +29,12 @@ import { pageBackLink } from '@/lib/page-home';
  * back affordance points at a known destination. Plain <Link>, so it works in
  * server and client components alike. `min-h-[44px]` keeps the tap target ≥44px
  * (mobile). Pass `className` to nudge layout (e.g. drop the default `mb-4`).
+ *
+ * ↩ `inPlace` (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): the pill RETURNS IN PLACE the
+ * way the chat's ‹ does — when this tab came here from a page of ours, the press is the browser's back, so Discover
+ * comes back with its filters and scroll; the `href` is only the cold arrival's fallback. `{ whileAt }` steps back
+ * only while the address is still the one the visit arrived at (the host's event page pushes its tabs as history —
+ * after a tab, the browser's back would be the previous tab, not Discover).
  */
 export function BackButton(
   props:
@@ -46,6 +52,8 @@ export function BackButton(
          * the browser's back, so the list comes back where it was scrolled (`chat/chat-back.tsx`).
          */
         variant?: 'pill' | 'chat';
+        /** Return in place — see the docblock. */
+        inPlace?: boolean | { whileAt: string };
       }
     | {
         /** @deprecated pass `route` — see the docblock. */
@@ -55,6 +63,8 @@ export function BackButton(
         label?: string;
         className?: string;
         variant?: 'pill' | 'chat';
+        /** Return in place — see the docblock. */
+        inPlace?: boolean | { whileAt: string };
       },
 ) {
   const { className = '' } = props;
@@ -83,13 +93,15 @@ export function BackButton(
       </ReturnInPlace>
     );
   }
-  return (
+  const pill = (
     <Link
       href={href}
-      className={`mb-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink ${className}`}
+      className={`mb-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink active:bg-ink/15 ${className}`}
     >
       <ArrowLeft aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
       {label}
     </Link>
   );
+  if (!props.inPlace) return pill;
+  return <ReturnInPlace whileAt={typeof props.inPlace === 'object' ? props.inPlace.whileAt : undefined}>{pill}</ReturnInPlace>;
 }

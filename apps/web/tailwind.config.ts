@@ -183,6 +183,9 @@ const config: Config = {
         // The slot names stay semantic ("accent / surface / ink / cta") not
         // literal — see CLAUDE.md 2026-05-30 row for the unification rationale.
         cream: 'rgb(var(--color-cream) / <alpha-value>)',
+        // `page` — the page BEHIND everything (body + full-height wrappers only). Its own setting since 12 Nov 2026 so
+        // the background can change without greying cards or button labels. See `--sn-page-bg` in globals.css.
+        page: 'rgb(var(--sn-page-bg) / <alpha-value>)',
         // `paper` — surface slot used widely in dashboard editors
         // (`bg-paper` rows, `text-paper` on dark CTAs like the Build button).
         // It only ever existed as the `--m-paper` CSS var, NEVER as a Tailwind

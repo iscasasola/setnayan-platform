@@ -50,6 +50,16 @@ test('the tappable mark in each shared piece wears the accent — not a grey, no
   }
 });
 
+/**
+ * The ONE guest-tree file allowed to draw a shared piece, and why. 2026-11-12 (DECISION_LOG "DISCOVER WITH SUPPLIERS —
+ * PROTOTYPE APPROVED", answer 3): a visitor Discover sent to someone's public event gets ONE ‹ Discover — Setnayan's
+ * own control, not the couple's, so it wears Setnayan's accent ON PURPOSE; it is never drawn for an invited guest
+ * (lib/discover-way-back.test.ts holds that). Any other guest file importing a shared piece still fails.
+ */
+const GUEST_EXEMPT: Readonly<Record<string, string>> = {
+  'app/[slug]/_components/discover-arrival-back.tsx': 'app/_components/back-button.tsx',
+};
+
 test('none of those shared pieces is drawn on a guest page', () => {
   const walk = (rel: string): string[] =>
     readdirSync(join(WEB, rel)).flatMap((name) => {
@@ -62,7 +72,9 @@ test('none of those shared pieces is drawn on a guest page', () => {
   for (const file of new Set(TAPPABLE_MARKS.map((m) => m.file))) {
     /* `app/_components/chat/thread-list-card.tsx` is imported as `…/_components/chat/thread-list-card`. */
     const stem = file.replace(/^app\//, '').replace(/\.tsx$/, '');
-    const importers = guest.filter(([, src]) => new RegExp(`from ['"][^'"]*${stem.replace(/[/.]/g, '\\$&')}['"]`).test(src)).map(([f]) => f);
+    const importers = guest
+      .filter(([f, src]) => GUEST_EXEMPT[f] !== file && new RegExp(`from ['"][^'"]*${stem.replace(/[/.]/g, '\\$&')}['"]`).test(src))
+      .map(([f]) => f);
     assert.deepEqual(importers, [], `${file} is drawn on a guest page — its mark would wear the app’s colour inside the couple’s Event Hub`);
   }
 });

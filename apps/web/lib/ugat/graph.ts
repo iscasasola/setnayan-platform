@@ -1791,18 +1791,36 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'chat_messages_private_is_words_only',
         mentions: 'recipient_user_id',
       },
+      // 💬 2026-11-12 — EVENT GROUP CHATS: a thread is a supplier chat or an event group (no supplier); a private
+      // line may go to several people, recipient_user_id stays the first of them (20271340374819).
+      { kind: 'column', table: 'chat_threads', column: 'kind' },
+      { kind: 'column', table: 'chat_threads', column: 'group_kind' },
+      {
+        kind: 'check',
+        table: 'chat_threads',
+        name: 'chat_threads_a_supplier_chat_has_a_supplier',
+        mentions: 'vendor_profile_id',
+      },
+      { kind: 'column', table: 'chat_messages', column: 'recipient_user_ids' },
+      {
+        kind: 'check',
+        table: 'chat_messages',
+        name: 'chat_messages_recipients_agree',
+        mentions: 'recipient_user_ids',
+      },
     ],
     chain: 5,
     pair: ['TYPE-VENDORS', 'TYPE-THREADS'],
     title: 'Event ↔ Vendor (conversation)',
     joint: 'chat_threads',
-    cardinality: 'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one thread, ever',
+    cardinality:
+      'One-to-one per pair · UNIQUE(event_id, vendor_profile_id) — exactly one SUPPLIER thread, ever · plus the event\'s GROUP threads (kind = group, no supplier): one General, one per guest-list role, any number a host makes',
     implementedBy:
-      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation. A decision topic files shared messages (chat_decision_messages — one open topic per message, never a private line) and a chat asks ONE OPEN poll at a time (chat_polls, partial unique index chat_polls_one_open_per_thread; 2–6 chat_poll_choices; chat_poll_votes one per person per poll, it moves); a closed poll is saved as the decision through chat_decision_open.',
+      'chat_threads UNIQUE(event, vendor). The HOSTS in a conversation are rows in chat_thread_members (2026-11-09: it starts with the host who asked; a host or coordinator adds hosts, the supplier cannot; a host may leave — left_at + an optional ≤200-char left_note only they can read (column grant) — and while left reads NO message of the thread, though their own member row stays readable so the list shows it greyed; a host rejoins themselves through chat_thread_add_host). Coordinators are NOT rows: every event_members coordinator is in every thread of the event and cannot leave. The supplier side stays derived from vendor_profiles + vendor_team_members. A chat_messages row with recipient_user_id is PRIVATE: sender, recipient and is_admin() only (a RESTRICTIVE policy), words only (CHECK chat_messages_private_is_words_only), recipient must be in the conversation. A decision topic files shared messages (chat_decision_messages — one open topic per message, never a private line) and a chat asks ONE OPEN poll at a time (chat_polls, partial unique index chat_polls_one_open_per_thread; 2–6 chat_poll_choices; chat_poll_votes one per person per poll, it moves); a closed poll is saved as the decision through chat_decision_open. 💬 2026-11-12 EVENT GROUP CHATS (20271340374819): chat_threads.kind = group carries no supplier (CHECK chat_threads_a_supplier_chat_has_a_supplier) and group_kind general (the hosts + attending guests, derived) · role (the hosts + the guests holding its roles, derived) · made (chat_thread_members rows only); chat_group_member_ids() is the one answer to who is in it, and member rows add or (left_at) remove people on top. Group rows are hidden from table reads (RESTRICTIVE chat_threads_groups_read_through_functions) and read through chat_group_list / chat_group_head / chat_group_members. A private line carries recipient_user_ids (several people; recipient_user_id = its first, CHECK chat_messages_recipients_agree).',
     writtenBy:
       'First-message-send handler (creates the thread row on first contact, either direction) · tg_chat_threads_seat_the_opener seats the asking host · chat_thread_add_host() / chat_thread_leave() post a system line each',
     guardedBy:
-      'current_thread_ids() — live chat_thread_members rows UNION the event\'s coordinators — on chat_messages_member_read/insert, chat_threads_member_read and chat_thread_members_read; the vendor branches are unchanged. Private rows: chat_messages_private_reaches_two (RESTRICTIVE) + chat_message_hearts_follow_the_message.',
+      'current_thread_ids() — live chat_thread_members rows UNION the event\'s coordinators — on chat_messages_member_read/insert, chat_threads_member_read and chat_thread_members_read; the vendor branches are unchanged. Groups: a third branch of current_thread_ids() (General / role, derived) and chat_group_create / _add / _leave (hosts make; hosts + coordinator add; hosts leave; General takes no supplier); chat_messages_group_rules refuses a supplier or a money card on a group line. Private rows: chat_messages_private_reaches_its_people (RESTRICTIVE — sender, recipients, an admin only inside an open vendor_disputes row) + chat_message_hearts_follow_the_message.',
     traps: 'Anonymity masks the vendor name/logo until they reply (vendor_first_reply_at gate) — but the thread LIST view leaks the logo early. See F5.',
     healthId: 'F5',
   },

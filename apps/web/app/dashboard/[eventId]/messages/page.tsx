@@ -46,6 +46,7 @@ import { ChatInbox, type InboxRow } from './_components/chat-inbox';
 import { formatLongDate } from '@/lib/format-date';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { LiveInboxRefresh } from '@/app/_components/live-inbox-refresh';
+import { EventGroups } from './_components/event-groups';
 
 export const metadata = { title: 'Chats' };
 
@@ -293,6 +294,9 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
           {search.error}
         </p>
       ) : null}
+
+      {/* 💬 Groups first, then Suppliers (owner 11–12 Nov, "EVENT GROUP CHATS APPROVED AS DRAWN") — server-rendered rows. */}
+      <EventGroups supabase={supabase} eventId={eventId} />
 
       <ChatInbox
         rows={inboxRows}

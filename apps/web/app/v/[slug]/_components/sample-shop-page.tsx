@@ -64,7 +64,7 @@ const SAMPLE = {
 const PHOTOS = '/marketing/for-suppliers-2026-11-06';
 const SAMPLE_CARDS = [
   { title: 'Plated dinner', line: '3-course menu · service staff · tableware', photo: `${PHOTOS}/supplier-caterer-hero.webp` },
-  { title: 'Family-style feast', line: 'Shared platters · rice station · service staff', photo: `${PHOTOS}/03-nfc-dessert-table.webp` },
+  { title: 'Family-style feast', line: 'Shared platters · rice station · service staff', photo: `${PHOTOS}/supplier-team-hero.webp` },
   { title: 'Grazing table', line: 'Cheese · fruit · charcuterie · styled table', photo: `${PHOTOS}/15-consultation.webp` },
 ] as const;
 

@@ -131,7 +131,8 @@ function PlanPageSheet({
     return () => window.removeEventListener('popstate', onPop);
   }, [fall, pushed]);
 
-  useModalA11y({ open: true, onClose: close, containerRef: layer, initialFocusRef: back });
+  // Open once the layer is on <body> (the portal lands a render after mount — before that there is no container to trap).
+  useModalA11y({ open: host !== null, onClose: close, containerRef: layer, initialFocusRef: back });
 
   // ⤴ THE RISE — once, from the miniature, as soon as the layer is on <body>.
   useLayoutEffect(() => {

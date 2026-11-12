@@ -42,5 +42,5 @@ test('a line is pressable only where the hosts may ask — the shared lines stay
   // The supplier's "As they see it" preview never hands onAsk in.
   assert.doesNotMatch(read('app/_components/proposal-maker.tsx'), /<QuoteCardLines[^>]*onAsk/);
   // The sent form carries its own id and title into the ask.
-  assert.match(read('app/_components/chat/cards/form-step-card.tsx'), /<AskChangeDoor threadId=\{threadId\}[^>]*formId=\{read\.data\.formId\} formTitle=\{read\.data\.title\}/);
+  assert.match(read('app/_components/chat/cards/form-step-card.tsx'), /<AskChangeDoor threadId=\{threadId\}[^>]*formId=\{form\.formId\} formTitle=\{form\.title\}/);
 });

@@ -37,10 +37,10 @@ export function QuoteCardLines({ items, onAsk }: { items: readonly QuoteCardLine
               type="button"
               onClick={() => onAsk(li.label!.trim())}
               aria-label={`Ask for a change: ${li.label!.trim()}`}
-              className="-mx-1 flex min-h-9 w-[calc(100%+0.5rem)] items-center justify-between gap-3 rounded-md px-1 text-left hover:bg-terracotta/[0.08]"
+              className="-mx-1 flex min-h-9 w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 text-left hover:bg-terracotta/[0.08]"
               data-ask-part="line"
             >
-              {words}
+              <span className="flex min-w-0 flex-1 items-baseline justify-between gap-3">{words}</span>
               <MessageCircleQuestion aria-hidden className="h-3.5 w-3.5 shrink-0 text-mulberry" />
             </button>
           </li>

@@ -135,17 +135,12 @@ export function FormAnswerCard({ threadId, title, returnPath, seed }: { threadId
   if (read.at === 'ok' && !read.data) return null;
   return (
     <ChatCardShell topic="forms" kicker="Form" title={title} tone="theirs">
-      {read.at === 'loading' ? <Loading /> : read.at === 'failed' ? <CouldNotLoad what="this form" onRetry={load} /> : <Answering form={read.data!} returnPath={returnPath} />}
-      {/* ✋ Ruling 6076 · the ask starts from THIS form and carries it (its id, its title). A final form is not asked about —
-          the card already says the supplier made it final. */}
-      {read.at === 'ok' && read.data && !read.data.locked ? (
-        <AskChangeDoor threadId={threadId} supplierName="the supplier" formId={read.data.formId} formTitle={read.data.title} locks={{ form: false }} returnPath={returnPath} />
-      ) : null}
+      {read.at === 'loading' ? <Loading /> : read.at === 'failed' ? <CouldNotLoad what="this form" onRetry={load} /> : <Answering form={read.data!} threadId={threadId} returnPath={returnPath} />}
     </ChatCardShell>
   );
 }
 
-function Answering({ form, returnPath }: { form: FormToAnswer; returnPath: string }) {
+function Answering({ form, threadId, returnPath }: { form: FormToAnswer; threadId: string; returnPath: string }) {
   const [answers, setAnswers] = useState<(string | null)[]>(form.questions.map((q) => q.answer));
   const prog = formProgress(answers);
   const [at, setAt] = useState(prog.done ? -1 : prog.at);
@@ -189,6 +184,9 @@ function Answering({ form, returnPath }: { form: FormToAnswer; returnPath: strin
             <ActionButton tone="brand" main icon={ChevronRight} label="Continue" onClick={() => setPaused(false)} />
           </div>
         ) : null}
+        {/* ✋ Ruling 6076 · the ask starts from THIS form and carries it (its id, its title) — on the form's overview,
+            never over a question being answered. A final form is not asked about (the branch above says so). */}
+        <AskChangeDoor threadId={threadId} supplierName="the supplier" formId={form.formId} formTitle={form.title} locks={{ form: false }} returnPath={returnPath} />
       </div>
     );
   }

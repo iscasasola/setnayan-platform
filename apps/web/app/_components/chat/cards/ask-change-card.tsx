@@ -97,7 +97,7 @@ export function AskChangeDoor({
               type="button"
               onClick={() => setPart({ subject: 'plan', name: null })}
               aria-label="Ask for a change: Payment plan"
-              className="mt-1 flex min-h-9 w-full items-center justify-between gap-3 rounded-md border-t border-terracotta/20 pt-1 text-left text-xs text-ink/70 hover:bg-terracotta/[0.08]"
+              className="mt-1 flex min-h-9 w-full items-center justify-between gap-3 border-t border-terracotta/20 text-left text-xs text-ink/70 hover:bg-terracotta/[0.08]"
               data-ask-part="plan"
             >
               <span>{ASK_SUBJECT_WORD.plan}</span>

@@ -235,8 +235,7 @@ export function DecisionForm({
               data="decide-note"
             />
           </FormRows>
-          <p className="flex items-baseline gap-2 rounded-xl bg-ink/[0.03] px-4 py-3 text-sm text-ink" data-cards-move="">
-            <b className="text-lg">{cards}</b>
+          <p className="rounded-xl bg-ink/[0.03] px-4 py-3 text-sm font-medium text-ink" data-cards-move="">
             <span>{cardsMoveLine(cards, from, to)}</span>
           </p>
           {shops > 1 ? (

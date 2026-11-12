@@ -3,12 +3,13 @@
 /**
  * The "Name your service" form. Its two typed fields are drawn with the ONE Field template (`TypedRow`,
  * boxed), posting `proposed_label` and `proposed_note` exactly as the raw boxes did. An empty or
- * too-short name shakes into view and nothing is sent (`nudgeFormRows`); the server checks it again
+ * too-short name is refused in place (the row's own check, then `proposeCategory`); the server checks it again
  * (`proposeCategory`, and the table's own 2–80 CHECK).
  */
 import { useState, type ReactNode } from 'react';
 
-import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { StayForm } from '@/app/_components/stay-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { proposeCategory } from '@/app/vendor-dashboard/services/actions';
 import { serviceNameProblem } from '@/lib/service-requests';
@@ -27,14 +28,9 @@ export function RequestNameForm({
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');
   return (
-    <form
-      action={proposeCategory}
-      className="space-y-4"
-      data-request-form=""
-      onSubmit={(event) => {
-        if (nudgeFormRows(event.currentTarget) > 0) event.preventDefault();
-      }}
-    >
+    // A door: a refusal (?error=) is said in place without losing what was typed; the landing (the new request's
+    // page, or the maker for a service we already have) is another screen, so it navigates.
+    <StayForm door="svServices.proposeCategory" action={proposeCategory} className="space-y-4" data-request-form="">
       {/* Survives the redirect so "Back to your card" still shows after submitting — server actions can't
           read the page's own URL. */}
       <input type="hidden" name="from_locked_kind" value={fromMaker ? '1' : ''} />
@@ -72,6 +68,6 @@ export function RequestNameForm({
       <SubmitButton className="button-primary min-h-11 w-full sm:w-auto" pendingLabel="Sending…">
         Send request
       </SubmitButton>
-    </form>
+    </StayForm>
   );
 }

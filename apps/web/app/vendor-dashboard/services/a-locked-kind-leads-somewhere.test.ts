@@ -34,7 +34,7 @@ const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const MANAGER = 'app/vendor-dashboard/services/_components/services-manager.tsx';
 const ACTIONS = 'app/vendor-dashboard/services/actions.ts';
 const ANCHOR = 'lib/service-picker-anchor.ts';
-const REQUEST_PAGE = 'app/vendor-dashboard/services/requests/new/page.tsx';
+const REQUEST_PAGE = 'app/vendor-dashboard/services/requests/_components/tell-us-view.tsx';
 const REQUEST_FORM = 'app/vendor-dashboard/services/requests/_components/name-fields.tsx';
 
 test('the files under test actually read back', () => {

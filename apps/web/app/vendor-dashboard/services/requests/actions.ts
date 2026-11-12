@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { SERVICE_REQUESTS_HREF } from '@/lib/service-requests';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 
 async function ownShop() {
   const supabase = await createClient();
@@ -59,6 +60,8 @@ export async function putCardUnderRequest(formData: FormData) {
   // A zero-row update is not a success: the card is not this shop's.
   if (!moved) return redirect(`${here}?error=${encodeURIComponent('That card is not in your shop.')}`);
 
+  // The card's place on the shop's public page follows its request, so the cached copy is cleared.
+  revalidateShopPage(vendorProfileId);
   revalidatePath(here);
   revalidatePath(SERVICE_REQUESTS_HREF);
   revalidatePath('/vendor-dashboard/shop');

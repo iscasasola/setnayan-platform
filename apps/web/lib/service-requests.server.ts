@@ -193,13 +193,15 @@ export async function markRequestSeen(supabase: Db, vendorProfileId: string, req
       .is('supplier_seen_at', null)
       .maybeSingle();
     if (!data) return;
-    await createAdminClient()
+    const { error } = await createAdminClient()
       .from('taxonomy_category_requests')
       .update({ supplier_seen_at: new Date().toISOString() })
       .eq('request_id', requestId)
       .eq('proposed_by_vendor_id', vendorProfileId)
       .neq('status', 'pending')
       .is('supplier_seen_at', null);
+    // The notice simply stays up; the failure is recorded, never shown.
+    if (error) logQueryError('markRequestSeen (taxonomy_category_requests)', error);
   } catch {
     /* the notice simply stays up */
   }

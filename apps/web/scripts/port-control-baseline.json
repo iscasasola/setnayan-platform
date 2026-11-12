@@ -3225,6 +3225,8 @@
       "files": [
         "admin/categories/requests/_components/admin-request-bits.tsx",
         "admin/categories/requests/_components/decision-form.tsx",
+        "admin/categories/requests/_components/list-view.tsx",
+        "admin/categories/requests/_components/request-view.tsx",
         "admin/categories/requests/loading.tsx",
         "admin/categories/requests/page.tsx"
       ],
@@ -3238,12 +3240,15 @@
         "AdminRow",
         "AdminStatusPill",
         "DecisionChoice",
+        "DecisionForm",
         "FormRows",
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
         "PickMenu",
+        "RequestDraftNotes",
         "Row",
+        "ServiceRequestsListView",
         "SubmitButton",
         "TypedRow"
       ]
@@ -3255,11 +3260,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "AdminStatusPill",
-        "DecisionForm",
         "Link",
-        "PageMasthead",
-        "RequestDraftNotes"
+        "ServiceRequestAdminView"
       ]
     },
     "/admin/chat-flags": {
@@ -13311,6 +13313,21 @@
         "VendorServiceRow"
       ]
     },
+    "/dev/service-requests-lab": {
+      "files": [
+        "dev/service-requests-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RequestDetailView",
+        "RequestRow",
+        "ServiceRequestAdminView",
+        "ServiceRequestsListView",
+        "TellUsWhatYouDoView",
+        "YourRequestsView"
+      ]
+    },
     "/dev/shop-back-lab": {
       "files": [
         "dev/shop-back-lab/page.tsx"
@@ -18044,49 +18061,53 @@
     },
     "/vendor-dashboard/services/requests": {
       "files": [
+        "vendor-dashboard/services/requests/_components/card-pick.tsx",
         "vendor-dashboard/services/requests/_components/name-fields.tsx",
         "vendor-dashboard/services/requests/_components/request-bits.tsx",
+        "vendor-dashboard/services/requests/_components/request-detail-view.tsx",
+        "vendor-dashboard/services/requests/_components/tell-us-view.tsx",
+        "vendor-dashboard/services/requests/_components/your-requests-view.tsx",
         "vendor-dashboard/services/requests/actions.ts",
         "vendor-dashboard/services/requests/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/services/requests"
+        "/vendor-dashboard/services/requests",
+        "/vendor-dashboard/shop"
       ],
       "actions": [
-        "proposeCategory"
+        "proposeCategory",
+        "putCardUnderRequest"
       ],
       "blocks": [
+        "CardPick",
         "DecisionNotice",
         "FormRows",
         "Link",
+        "MyRequest",
         "PageMasthead",
+        "PickMenu",
+        "RequestNameForm",
         "RequestRowLink",
         "RequestStatusPill",
+        "ShopCard",
         "ShopEmpty",
         "ShopNotice",
         "ShopPill",
+        "StayForm",
         "SubmitButton",
-        "TypedRow"
+        "TypedRow",
+        "YourRequestsView"
       ]
     },
     "/vendor-dashboard/services/requests/[requestId]": {
       "files": [
         "vendor-dashboard/services/requests/[requestId]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/shop"
-      ],
-      "actions": [
-        "putCardUnderRequest"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
-        "RequestStatusPill",
-        "Search",
-        "ShopCard",
-        "ShopNotice",
-        "SubmitButton"
+        "RequestDetailSearch",
+        "RequestDetailView"
       ]
     },
     "/vendor-dashboard/services/requests/new": {
@@ -18096,12 +18117,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
-        "RequestNameForm",
-        "Search",
-        "ShopCard",
-        "ShopNotice"
+        "TellUsSearch",
+        "TellUsWhatYouDoView"
       ]
     },
     "/vendor-dashboard/settings": {

@@ -43,6 +43,7 @@ import { secondaryTilesVerdict } from './_components/model';
 import { formatCount } from '@/lib/format-number';
 import { addCategoryCore, addServiceCore, moveServiceCore, slugify } from './_components/taxonomy-writes';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
+import { revalidateShopPage } from '@/lib/shop-page-cache';
 import {
   ADMIN_SERVICE_REQUESTS_HREF,
   decisionProblem,
@@ -1097,7 +1098,7 @@ export async function decideServiceRequest(formData: FormData) {
     }
   }
 
-  await admin.from('admin_audit_log').insert(
+  const { error: auditErr } = await admin.from('admin_audit_log').insert(
     ids.map((id) => ({
       action: `taxonomy.request_${STATUS_FOR_CHOICE[choice]}`,
       target_table: 'taxonomy_category_requests',
@@ -1112,8 +1113,12 @@ export async function decideServiceRequest(formData: FormData) {
       },
       actor_user_id: user.id,
     })),
-  );
+  );  // The decision already stands; a lost audit row is logged, never shown as a failed decision.
+  if (auditErr) logQueryError('decideServiceRequest (admin_audit_log)', auditErr);
 
+
+  // Every shop whose cards moved shows them under the decided service on its public page — clear each cached copy.
+  if (canonical) for (const shop of new Set(siblings.map((r) => r.proposed_by_vendor_id))) revalidateShopPage(shop);
   revalidatePath(BASE);
   revalidatePath(ADMIN_SERVICE_REQUESTS_HREF);
   revalidatePath('/explore');

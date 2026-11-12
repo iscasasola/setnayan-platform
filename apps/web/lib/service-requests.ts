@@ -196,11 +196,12 @@ export function unseenDecision<T extends { status: RequestStatus; supplier_seen_
 /** The notice's one line, per outcome. */
 export function noticeLine(status: Exclude<RequestStatus, 'pending'>, cards: number, place: string): string {
   const yours = `Your ${cards} card${cards === 1 ? '' : 's'}`;
+  const show = cards === 1 ? 'shows' : 'show';
   switch (status) {
     case 'promoted':
-      return cards ? `Added as a new service. ${yours} now show under ${place}.` : `Added as a new service: ${place}.`;
+      return cards ? `Added as a new service. ${yours} now ${show} under ${place}.` : `Added as a new service: ${place}.`;
     case 'mapped':
-      return cards ? `Moved to a service we have. ${yours} now show under ${place}.` : `Moved to ${place}.`;
+      return cards ? `Moved to a service we have. ${yours} now ${show} under ${place}.` : `Moved to ${place}.`;
     case 'kept_private':
       return `Kept just for your shop. Your cards stay under ${place}.`;
     case 'rejected':

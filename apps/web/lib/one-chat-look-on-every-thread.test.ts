@@ -264,7 +264,7 @@ test('the frame is the full-screen takeover on a phone — the top bar and the b
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   const at = css.indexOf('AN OPEN CHAT THREAD IS FULL SCREEN ON A PHONE');
   assert.ok(at > 0, 'the takeover rule is gone');
-  const rule = css.slice(at, css.indexOf('@media (min-width: 1024px)', at));
+  const rule = css.slice(at, css.indexOf('@media (min-width: 701px)', at));
   assert.match(rule, /\[data-chat-takeover\] \{\s*position: fixed;\s*inset: 0;\s*z-index: 45;/);
   // Above the bottom dock (z 30) and the shell's top bar; below the sheets (z 50) that open over it.
   assert.ok(45 > 30 && 45 < 50);
@@ -272,5 +272,6 @@ test('the frame is the full-screen takeover on a phone — the top bar and the b
   const still = css.indexOf('.sn-page-enter:has([data-chat-takeover])');
   assert.ok(still > 0, 'the route rise draws the thread inside the page first');
   const media = css.lastIndexOf('@media', still);
-  assert.match(css.slice(media, still + 80), /^@media \(max-width: 1023\.98px\) \{\s*\.sn-page-enter:has\(\[data-chat-takeover\]\) \{ animation: none; \}/, 'the thread still rises on a phone');
+  // A phone is below 701, the system's line (owner 2026-11-13, D3 — it was 1024, which gave a 768 tablet the phone's thread).
+  assert.match(css.slice(media, still + 80), /^@media \(max-width: 700\.98px\) \{\s*\.sn-page-enter:has\(\[data-chat-takeover\]\) \{ animation: none; \}/, 'the thread still rises on a phone');
 });

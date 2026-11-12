@@ -105,6 +105,8 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.25);transition:transform .15s}
 .sw[aria-checked="true"]{background:var(--ok)}
 .sw[aria-checked="true"]::after{transform:translateX(16px)}
+.unl{height:30px;padding:0 12px;border-radius:999px;border:0;background:var(--accent);color:#fff;font:600 12.5px var(--sans);cursor:pointer;flex:none}
+.unl.sm{height:24px;padding:0 9px;font-size:11.5px}
 .sw.sm{width:34px;height:20px}
 .sw.sm::after{width:14px;height:14px}
 .sw.sm[aria-checked="true"]::after{transform:translateX(14px)}
@@ -234,7 +236,13 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
         <li><b>The switch is new in this spot.</b> It writes the same setting as Event settings › <q>Plan it myself</q> (<code>events.planning_mode</code>), reversed: AI on = Plan it myself off.</li>
         <li>Lines when on: <q>Smart matching, fit scoring, and the watch guard are on — free while we are in launch.</q> When off, the Plan it myself list: <q>Supplier matching Off · Deadlines Off · Reminders Off</q>.</li>
         <li>⚙ is a 40 px icon instead of a circle bigger than the dropdown. It and the date and place still open their shipped sheets.</li>
+        <li><b>Who has AI:</b> Event Plus and Event Pro turn it on (<code>activateEventPlan</code>, <code>lib/sku-activation.ts</code>). The paywall is parked today, so every event has it, Free included. With the paywall on, a Free event has no switch. It gets the shipped line <q>Setnayan AI comes with Event Plus and Event Pro</q> and <q>Unlock</q> instead.</li>
       </ul>
+      <div><span class="seg" role="group" aria-label="Event plan">
+        <button type="button" id="e-launch" aria-pressed="true">Today (paywall parked)</button>
+        <button type="button" id="e-plan" aria-pressed="false">Plus or Pro</button>
+        <button type="button" id="e-free" aria-pressed="false">Free, paywall on</button>
+      </span></div>
     </div>
     <div class="phones">
       <div class="frame"><div class="cap"><span class="eyebrow">Expanded</span><span>top of the page</span></div><div class="phone short" data-demo="expanded"></div></div>
@@ -356,7 +364,7 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
     <div class="pin">
       <div class="mini">
         <span class="facts-s"><button type="button" class="tap d" data-sheet="date">Fri, Dec 18</button><span class="dot">·</span><button type="button" class="tap" data-sheet="place">Seda Vertis North</button></span>
-        <span class="aiS"><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/></svg><span class="name">Setnayan AI</span><button type="button" class="sw sm" role="switch" aria-checked="true" aria-label="Setnayan AI"></button></span>
+        <span class="aiS"><svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/></svg><span class="name">Setnayan AI</span><button type="button" class="sw sm" role="switch" aria-checked="true" aria-label="Setnayan AI"></button><button type="button" class="unl sm" hidden>Unlock</button></span>
       </div>
       <div class="row">
         <button type="button" class="pick" aria-haspopup="menu" aria-expanded="false"><span class="pick-w">Find</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -368,6 +376,7 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
       <svg class="spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.96 0z"/></svg>
       <div class="txt"><div class="name">Setnayan AI</div><div class="line"></div></div>
       <button type="button" class="sw" role="switch" aria-checked="true" aria-label="Setnayan AI"></button>
+      <button type="button" class="unl" hidden>Unlock</button>
     </div>
     <div class="body">
       <div class="cover"><h4>Cover your event <small>10 of 32 covered</small></h4></div>
@@ -395,6 +404,9 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
   function note(ph,text){ ph.querySelectorAll('.note-sheet').forEach(function(e){e.remove();}); var n=document.createElement('div'); n.className='note-sheet'; n.setAttribute('role','status'); n.textContent=text; ph.appendChild(n); setTimeout(function(){n.remove();},2600); }
 
   /* ── 1 · HEADER ─────────────────────────────────────────── */
+  /* Who has AI: 'launch' = paywall parked (every event, today) · 'plan' = Event Plus / Event Pro · 'free' = paywall on, no plan. */
+  var PLAN_LINE='Setnayan AI comes with Event Plus and Event Pro';
+  var ent='launch'; var headers=[];
   var tpl=document.getElementById('hdr');
   document.querySelectorAll('[data-demo]').forEach(function(ph){
     ph.appendChild(tpl.content.cloneNode(true));
@@ -404,7 +416,15 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
     if(kind!=='live'){ sc.style.overflow='hidden'; var b=ph.querySelector('.body'); b.style.maxHeight='150px'; b.style.overflow='hidden'; }
     if(kind==='compressed'){ pin.classList.add('stuck'); facts.hidden=true; ai.hidden=true; }
     function setMode(m){ mode=m; ph.querySelector('.pick-w').textContent=MODES[m].w; ph.querySelector('.count').textContent=MODES[m].c; }
-    function setAi(on){ aiOn=on; ph.querySelectorAll('.sw').forEach(function(s){s.setAttribute('aria-checked',String(on));}); ph.querySelector('.ai .line').textContent=on?ON_LINE:OFF_LINE; }
+    function setAi(on){
+      aiOn=on;
+      var locked=ent==='free';
+      ph.querySelectorAll('.sw').forEach(function(s){ s.hidden=locked; s.setAttribute('aria-checked',String(on)); });
+      ph.querySelectorAll('.unl').forEach(function(u){ u.hidden=!locked; });
+      ph.querySelector('.ai .line').textContent = locked ? PLAN_LINE : !on ? OFF_LINE : ent==='plan' ? PLAN_LINE : ON_LINE;
+    }
+    headers.push(function(){ setAi(ent!=='free'); });
+    ph.querySelectorAll('.unl').forEach(function(u){ u.addEventListener('click',function(){ note(ph,'Opens Event Plus and Event Pro. Not built: today Unlock goes to the Setnayan AI page, which still sells AI on its own.'); }); });
     setMode('find'); setAi(true);
     ph.querySelectorAll('.sw').forEach(function(s){ s.addEventListener('click',function(){ setAi(!aiOn); }); });
     if(kind==='live'){
@@ -430,6 +450,11 @@ section.part{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);ga
       note(ph, t.getAttribute('data-sheet')==='date' ? 'Opens the shipped date sheet. Unchanged.' : 'Opens the shipped place sheet. Unchanged.');
     }); });
   });
+
+  ['launch','plan','free'].forEach(function(k){ document.getElementById('e-'+k).onclick=function(){
+    ent=k; ['launch','plan','free'].forEach(function(j){ document.getElementById('e-'+j).setAttribute('aria-pressed',String(j===k)); });
+    headers.forEach(function(f){ f(); });
+  }; });
 
   /* ── 2 · SETNAYAN AI ON / OFF ───────────────────────────── */
   var aiMode='find', aiOn=true, guardIssue=true;

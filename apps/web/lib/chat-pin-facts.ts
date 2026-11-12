@@ -62,7 +62,14 @@ export type PinFactInputs = {
    * 🗓 The newest schedule-change line in this chat (its id, when, and its words) and the supplier's Seen. Supplier side
    * only; null = none, or not read.
    */
-  scheduleChange?: { messageId: string; at: string; body: string; seenAt: string | null } | null;
+  scheduleChange?: {
+    messageId: string;
+    at: string;
+    body: string;
+    seenAt: string | null;
+    /** How many schedule-change lines (this one included) are newer than the Seen — "+ N older changes" under the pin. */
+    unseen?: number;
+  } | null;
 };
 
 const ms = (iso: string | null | undefined, fallback: number) => {
@@ -214,6 +221,7 @@ export function buildPinFacts(i: PinFactInputs): PinFact[] {
       answerer: 'you',
       themName: i.themName,
       sinceMs: ms(sc.at, i.nowMs),
+      ...(sc.unseen && sc.unseen > 1 ? { olderCount: sc.unseen - 1 } : {}),
     });
   }
 

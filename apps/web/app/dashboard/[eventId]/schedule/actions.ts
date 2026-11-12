@@ -14,7 +14,7 @@ import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
 import { rightAfterPlace } from '@/lib/moment-follow.server';
 import { isOrMinutes, isTimeShape, type TimeShape } from '@/lib/time-shape';
 // 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
-import { partBefore, postChapterMovedLines, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
+import { partBefore, postChapterMovedLines, readShopNames, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
 import { timesThatStay } from '@/lib/schedule-hand-in-hand';
 // 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
 // the database's `*_part_lock` triggers (20271303409352) whatever door it comes through.
@@ -707,7 +707,11 @@ export async function updateScheduleBlock(formData: FormData) {
   const part = await partBefore(supabase, eventId, [blockId], { withChildren: withMoments });
   // 🗓 SCHEDULES HAND-IN-HAND part (b), rule 1 (owner 2026-11-12): a supplier's own arrive / done STAY when the chapter
   // moves — every other moment comes along, as shipped. Their card says what moved against what they planned.
-  const keep = withMoments ? timesThatStay(blockId, part.before) : [];
+  // Only a moment that starts with ITS booked shop's name is that shop's time (ruling 5574 #7) — "Bridal car arrives"
+  // moves with its chapter. Names that could not be read refuse the move rather than guess which times stay.
+  const shops = withMoments ? await readShopNames(supabase, eventId, part.before) : null;
+  if (withMoments && !shops) throw new Error('Couldn’t read who is booked on this chapter, so nothing moved. Try again.');
+  const keep = withMoments && shops ? timesThatStay(blockId, part.before, shops) : [];
   const movedFrom = withMoments ? ((part.before.find((m) => m.block_id === blockId)?.start_at as string | null | undefined) ?? null) : null;
   const movedTo = withMoments ? (patch.start_at ?? null) : null;
   // 🔒 A chapter move carries every moment in it (but the kept times); a field save meets the lock only if it really

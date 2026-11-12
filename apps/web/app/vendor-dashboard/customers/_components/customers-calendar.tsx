@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
@@ -176,6 +177,9 @@ export function CustomersCalendar({
     if (onClients) window.dispatchEvent(new CustomEvent(CLIENTS_SCHEDULING_EVENT, { detail: scope }));
   }, [scope, onClients]);
   const [pending, startTransition] = useTransition();
+  // 🗓 "Try again" under a booked row whose hours could not be read — the page's server read runs again.
+  const router = useRouter();
+  const [rereading, startReread] = useTransition();
   const [monthInputs, setMonthInputs] = useState<Map<string, MonthInputs>>(
     () => new Map([[initialMonth, { dayStates: initialDayStates, dayStatesRead: initialDayStatesRead, waitlist: initialWaitlist }]]),
   );
@@ -467,12 +471,14 @@ export function CustomersCalendar({
         .filter((d) => d.date >= todayIso)
         .map((d) => ({ day: d.date, rows: rowsOf(d.date).filter((r) => r.kind !== 'nothing') }))
         .filter((g) => g.rows.length > 0);
-  const drawRow = (r: DayRow, day: CalendarDay) => (
+  const drawRow = (r: DayRow, day: CalendarDay) => {
+    const row = (
     <DatesRow
       key={r.key}
       data={r.kind}
       title={r.title}
       line={r.line || undefined}
+      line2={r.line2 || undefined}
       badge={r.hours ? { tone: 'quiet', word: r.hours } : r.badge}
       href={onClients ? daySheetHref(day) : undefined}
       lead={
@@ -488,7 +494,28 @@ export function CustomersCalendar({
         ) : undefined
       }
     />
-  );
+    );
+    if (!r.unread) return row;
+    // 🗓 A refused hours read SAYS so under the plain row (approved prototype) — outside the row's link, so the press
+    // means one thing. Try again re-reads the page's own month (the server reads the hours again).
+    return (
+      <div key={r.key} data-dates-row-hours-unread="">
+        {row}
+        <p role="status" className="-mt-1.5 pb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
+          Couldn&rsquo;t read the hours ·{' '}
+          <button
+            type="button"
+            className="sn-press min-h-0 font-semibold text-sn-accent underline-offset-2 hover:underline"
+            disabled={rereading}
+            onClick={() => startReread(() => router.refresh())}
+            data-testid="dates-hours-try-again"
+          >
+            {rereading ? 'Reading…' : 'Try again'}
+          </button>
+        </p>
+      </div>
+    );
+  };
   // 📌 A day heading pins under the pinned row, and under the week strip once it shows.
   const headTop = pinH + (folded ? 54 : 0);
 

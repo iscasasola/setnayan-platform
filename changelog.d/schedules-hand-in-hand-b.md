@@ -21,6 +21,26 @@ Owner ruling 2026-11-12 (DECISION_LOG "SCHEDULES HAND-IN-HAND part (b)"); protot
   hall reads only the chapter whose `hours_vendor_id` is its booking (or, before the venue sent hours, the chapter
   it is linked to), and nothing rather than the whole event's hours when it has none.
 
+### 2026-11-13 · fix(schedule): audit gaps closed before merge
+
+- **The drag warns too.** The desktop board's `moveChapter` saved straight past a supplier's "done"; it now runs the
+  same gate as Chapter details (`newDoneWarnings`) and asks in the same box (`DoneWarningBox`) — warn, never block.
+- **Ruling 5574 #7 — only the shop's own words stay.** `supplierTimeOf` now also requires the label to START WITH a
+  tagged booking's shop name (`ShopNames`, read by `readShopNames` on the server and from the page's suppliers on the
+  client). "Bridal car arrives" with the car hire tagged moves with its chapter. Names that could not be read refuse
+  the move ("nothing moved") rather than guess.
+- **The warning box answers three ways**, as the prototype: Ask <shop> · Save anyway · **Keep <time>**. Closing the
+  sheet with it up settles it — nothing written, nothing left waiting.
+- **The hosts' card** says "<Shop> hasn't seen it yet" until Seen; the supplier's pin says **"+ N older changes ·
+  Seen answers them all"** when more than one change is unanswered.
+- **Prototype deltas:** Starts / Ends are ▾ quarter-hour choices (`quarterHourChoices`, the same 5 AM–11:45 PM window
+  as the day's Add a moment), each saying what it does ("30 min later · ends 10:30 PM"); the booked row is two lines
+  (hours, then "you arrive · done"); the supplier's moments carry a small **stays** mark after a move; a refused hours
+  read says **"Couldn't read the hours · Try again"** under "Booked here" instead of degrading silently.
+- **Ruling 5606 #4:** a non-hall booked day whose chapters are all Time TBA reads "Time TBA".
+
+Not changed: rule 4's per-booking link (owner ruling pending); same-day capacity; the bottom bar stays.
+
 Held by `lib/schedules-hand-in-hand.test.ts` and `tests/db/a-suppliers-times-stay-when-a-chapter-moves.db.test.ts`.
 Screens: `build-sessions/shots-schedules-b/`.
 

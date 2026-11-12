@@ -28,12 +28,41 @@ export type SupplierTime = keyof typeof TIMES_SUFFIX;
 type TaggedMoment = { label: string | null; responsible_vendor_ids?: readonly string[] | null };
 
 /**
- * Is this moment a supplier's own arrive / done? Both halves must hold: the words My times wrote AND a booking tagged
- * on it — "Bride arrives" with no supplier on it is the couple's moment and moves with its chapter like any other.
+ * Each booking's shop name(s), by the booking row (`event_vendors.vendor_id`) — the name My times writes in front of its
+ * words. A booking may carry two (the shop's own name and the name the host booked it under); either one counts.
  */
-export function supplierTimeOf(m: TaggedMoment): SupplierTime | null {
+export type ShopNames = ReadonlyMap<string, readonly (string | null | undefined)[]>;
+
+/** One booking → its names, from the rows a page already holds ({ id, name }). */
+export function shopNamesOf(rows: readonly { id: string; name: string | null | undefined }[]): ShopNames {
+  const out = new Map<string, string[]>();
+  for (const r of rows) {
+    const n = (r.name ?? '').trim();
+    if (!n) continue;
+    const list = out.get(r.id) ?? [];
+    if (!list.includes(n)) list.push(n);
+    out.set(r.id, list);
+  }
+  return out;
+}
+
+/**
+ * Is this moment a supplier's own arrive / done? ALL THREE must hold: the words My times wrote, a booking tagged on it,
+ * AND the label STARTS WITH that booking's shop name (ruling 5574 #7). "Bride arrives" with no supplier on it, and
+ * "Bridal car arrives" with the car hire tagged on it, are the couple's moments — they move with their chapter like any
+ * other. A booking whose name was not read keeps nothing (the moment moves, as shipped) rather than guessing.
+ */
+export function supplierTimeOf(m: TaggedMoment, shops: ShopNames): SupplierTime | null {
   if (!m.responsible_vendor_ids || m.responsible_vendor_ids.length === 0) return null;
   const label = (m.label ?? '').trim();
+  const lower = label.toLowerCase();
+  const named = m.responsible_vendor_ids.some((id) =>
+    (shops.get(id) ?? []).some((n) => {
+      const name = (n ?? '').trim().toLowerCase();
+      return name.length > 0 && lower.startsWith(name);
+    }),
+  );
+  if (!named) return null;
   for (const kind of ['arrive', 'done'] as const) {
     const suffix = TIMES_SUFFIX[kind];
     if (label.length > suffix.length && label.endsWith(suffix)) return kind;
@@ -55,8 +84,9 @@ export function shopOfTime(label: string | null): string {
 export function timesThatStay<M extends TaggedMoment & { block_id: string; parent_block_id: string | null }>(
   chapterId: string,
   moments: readonly M[],
+  shops: ShopNames,
 ): string[] {
-  return moments.filter((m) => m.parent_block_id === chapterId && supplierTimeOf(m) !== null).map((m) => m.block_id);
+  return moments.filter((m) => m.parent_block_id === chapterId && supplierTimeOf(m, shops) !== null).map((m) => m.block_id);
 }
 
 /** Whole minutes as the card says them: "30 min" · "1 hr" · "1 hr 15 min" · "1 day 2 hr". */
@@ -124,18 +154,34 @@ export function doneWarnings(
   next: { start_at: string | null; end_at: string | null },
   chapterId: string,
   moments: ReadonlyArray<TaggedMoment & { block_id: string; parent_block_id: string | null; start_at: string | null }>,
+  shops: ShopNames,
 ): DoneWarning[] {
   const last = Date.parse(next.end_at ?? next.start_at ?? '');
   if (!Number.isFinite(last)) return [];
   const out: DoneWarning[] = [];
   for (const m of moments) {
-    if (m.parent_block_id !== chapterId || supplierTimeOf(m) !== 'done' || !m.start_at) continue;
+    if (m.parent_block_id !== chapterId || supplierTimeOf(m, shops) !== 'done' || !m.start_at) continue;
     const done = Date.parse(m.start_at);
     if (!Number.isFinite(done) || done >= last) continue;
     const shop = shopOfTime(m.label);
     out.push({ blockId: m.block_id, shop, at: m.start_at, line: `${shop} is done at ${clockWords(m.start_at)} — ask them?` });
   }
   return out.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+/**
+ * The ONE gate both doors run before a chapter's new time saves — Chapter details' Starts / Ends / Date AND the desktop
+ * board's drag (`moveChapter`): only a crossing that is NEW warns (one already true before this edit was already said).
+ */
+export function newDoneWarnings(
+  was: { start_at: string | null; end_at: string | null },
+  next: { start_at: string | null; end_at: string | null },
+  chapterId: string,
+  moments: ReadonlyArray<TaggedMoment & { block_id: string; parent_block_id: string | null; start_at: string | null }>,
+  shops: ShopNames,
+): DoneWarning[] {
+  const already = new Set(doneWarnings(was, chapterId, moments, shops).map((w) => w.blockId));
+  return doneWarnings(next, chapterId, moments, shops).filter((w) => !already.has(w.blockId));
 }
 
 /* ── 4 · the supplier's booked row ────────────────────────────────────────────────────────────────────────────── */
@@ -175,6 +221,8 @@ export function bookedRowHours(args: {
   isHall: boolean;
   chapters: readonly HoursChapter[];
   moments: readonly HoursMoment[];
+  /** This booking's shop name(s) — only a moment that starts with one is the shop's own time. */
+  shops: ShopNames;
 }): { hours: string | null; mine: string | null } {
   const onDay = args.chapters.filter((c) => wallDay(c.start_at) === args.bookedDate);
   let hours: string | null;
@@ -183,7 +231,8 @@ export function bookedRowHours(args: {
     const linked = held.length > 0 ? held : onDay.filter((c) => (c.responsible_vendor_ids ?? []).includes(args.bookingId));
     hours = linked.length > 0 ? `${linked.map((c) => c.label.trim() || 'A chapter').join(', ')} · ${span(linked) ?? 'Time TBA'}` : null;
   } else {
-    hours = span(onDay);
+    // ⏰ A booked day whose chapters are all Time TBA says so (ruling 5606 #4) — never "Booked here" as if unknown.
+    hours = onDay.length > 0 ? (span(onDay) ?? 'Time TBA') : null;
   }
   const dayIds = new Set(onDay.map((c) => c.block_id));
   const mineOf = (kind: SupplierTime) =>
@@ -194,7 +243,7 @@ export function bookedRowHours(args: {
           m.parent_block_id &&
           dayIds.has(m.parent_block_id) &&
           (m.responsible_vendor_ids ?? []).includes(args.bookingId) &&
-          supplierTimeOf(m) === kind,
+          supplierTimeOf(m, args.shops) === kind,
       )
       .map((m) => m.start_at!)
       .sort((a, b) => Date.parse(a) - Date.parse(b));
@@ -203,4 +252,56 @@ export function bookedRowHours(args: {
   const done = dones[dones.length - 1];
   const mine = [arrive ? `you arrive ${clockWords(arrive)}` : '', done ? `done ${clockWords(done)}` : ''].filter(Boolean).join(' · ');
   return { hours, mine: mine || null };
+}
+
+/* ── Chapter details' Starts ▾ / Ends ▾ — the quarter-hour choices ─────────────────────────────────────────────── */
+
+/** The same window the day's "Add a moment" Starts ▾ offers (`startOptions`, day-sheets): 5:00 AM to 11:45 PM. */
+const FIRST_QUARTER = 5 * 60;
+const LAST_QUARTER = 23 * 60 + 45;
+
+const minutesOf = (hhmm: string): number | null => {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const hhmmOf = (mins: number): string => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+/** "14:30" → "2:30 PM". */
+export function hhmmWords(hhmm: string): string {
+  const m = minutesOf(hhmm);
+  if (m === null) return '';
+  const h = Math.floor(m / 60);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m % 60).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/**
+ * A ▾ that OPENS its choices (house rule — a dropdown never cycles): every quarter hour of the day, plus the time held
+ * now when it sits off that grid, so the pill never reads blank. Each says what it does against the plan: "as planned",
+ * "30 min later · ends 6:30 PM" (Starts — the end comes along), "1 hr later" (Ends). `none` puts a first choice that
+ * clears it (Starts → Time TBA, Ends → no end).
+ */
+export function quarterHourChoices(args: {
+  current: string;
+  /** Starts only: the end as it stands ("22:00"), so each choice says where the end lands. */
+  end?: string | null;
+  none?: string | null;
+}): Array<{ key: string; label: string; hint?: string }> {
+  const now = minutesOf(args.current);
+  const end = args.end ? minutesOf(args.end) : null;
+  const mins: number[] = [];
+  for (let m = FIRST_QUARTER; m <= LAST_QUARTER; m += 15) mins.push(m);
+  if (now !== null && !mins.includes(now)) mins.push(now);
+  mins.sort((a, b) => a - b);
+  const out: Array<{ key: string; label: string; hint?: string }> = args.none ? [{ key: '', label: args.none }] : [];
+  for (const m of mins) {
+    const key = hhmmOf(m);
+    let hint: string | undefined;
+    if (now !== null) {
+      const shift = shiftWords(m - now);
+      if (!shift) hint = 'as planned';
+      else if (end !== null) hint = `${shift} · ends ${hhmmWords(hhmmOf((((end + (m - now)) % 1440) + 1440) % 1440))}`;
+      else hint = shift;
+    }
+    out.push({ key, label: hhmmWords(key), ...(hint ? { hint } : {}) });
+  }
+  return out;
 }

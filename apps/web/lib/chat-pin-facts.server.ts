@@ -19,6 +19,10 @@ import { buildPinFacts, type PinFactInputs } from './chat-pin-facts';
 import type { PinFact } from './chat-pins';
 import { manilaTodayIsoFor } from './quote-valid-until';
 import { logQueryError } from './supabase/error-detect';
+import { scheduleChangePinned } from './schedule-hand-in-hand';
+
+/** 🗓 How many schedule-change lines one chat read takes — the newest and enough to count the older unanswered ones. */
+const SCHEDULE_LINES_READ = 20;
 
 export type ChatPinRead = {
   facts: PinFact[];
@@ -230,8 +234,8 @@ export async function readChatPinFacts(
               .eq('sender_role', 'system')
               .like('body', 'Schedule changed · %')
               .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle(),
+              // The newest, and enough older ones to say "+ N older changes" under it (approved prototype).
+              .limit(SCHEDULE_LINES_READ),
             supabase
               .from('event_supplier_schedule_marks')
               .select('seen_at')
@@ -243,13 +247,16 @@ export async function readChatPinFacts(
             logQueryError('chatPins.scheduleChange', line.error ?? mark.error, { thread_id: args.threadId }, 'graceful_degrade');
             return null;
           }
-          const row = line.data as { message_id: string; created_at: string; body: string | null } | null;
+          const rows = (line.data ?? []) as { message_id: string; created_at: string; body: string | null }[];
+          const row = rows[0];
           if (!row) return null;
+          const seenAt = (mark.data as { seen_at: string | null } | null)?.seen_at ?? null;
           return {
             messageId: row.message_id,
             at: row.created_at,
             body: row.body ?? '',
-            seenAt: (mark.data as { seen_at: string | null } | null)?.seen_at ?? null,
+            seenAt,
+            unseen: rows.filter((r) => scheduleChangePinned(r.created_at, seenAt)).length,
           };
         })()
       : Promise.resolve(null);

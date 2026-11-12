@@ -80,6 +80,8 @@ export type PinFact = {
   openedByYou?: boolean;
   /** 🗳 A decision only: how many messages are filed under it ("2 filed ›"). null = the count was not read — no number. */
   filedCount?: number | null;
+  /** 🗓 A schedule change only: how many OLDER changes are unanswered too ("+ 2 older changes · Seen answers them all"). */
+  olderCount?: number;
 };
 
 export type NeedsYouLevel = 'blocker' | 'due' | 'waiting';

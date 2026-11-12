@@ -6,7 +6,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { postThreadSystemLine } from '@/lib/chat-system-line.server';
-import { scheduleChangeLine } from '@/lib/schedule-hand-in-hand';
+import { scheduleChangeLine, type ShopNames } from '@/lib/schedule-hand-in-hand';
 import {
   PART_FIELDS,
   changesByVendor,
@@ -87,6 +87,47 @@ export async function partBefore(
   }
   const ids = before.map((m) => m.block_id);
   return { eventId, blockIds: ids, before, touched: new Set(opts.touched ? ids : []) };
+}
+
+/**
+ * 🗓 The shop name(s) of every booking tagged on these moments — what `supplierTimeOf` checks a label against (ruling
+ * 5574 #7: "<shop> arrives" is the supplier's own time only when it starts with THAT shop's name). Both the name the
+ * host booked it under and the shop's own name count. Read under the caller's RLS (the hosts read their own event's
+ * bookings and the shops' names, as `readScheduleSuppliers` does). Null = refused — the caller says so, never guesses.
+ */
+export async function readShopNames(
+  supabase: SupabaseClient,
+  eventId: string,
+  moments: readonly { responsible_vendor_ids?: readonly string[] | null }[],
+): Promise<ShopNames | null> {
+  const ids = [...new Set(moments.flatMap((m) => m.responsible_vendor_ids ?? []))];
+  const out = new Map<string, string[]>();
+  if (ids.length === 0) return out;
+  const rows = await supabase.from('event_vendors').select('vendor_id, vendor_name, marketplace_vendor_id').eq('event_id', eventId).in('vendor_id', ids);
+  if (rows.error) {
+    logQueryError('supplierPartNotify.shopNames', rows.error, { eventId }, 'graceful_degrade');
+    return null;
+  }
+  const list = (rows.data ?? []) as { vendor_id: string; vendor_name: string | null; marketplace_vendor_id: string | null }[];
+  const shopIds = [...new Set(list.map((r) => r.marketplace_vendor_id).filter((x): x is string => Boolean(x)))];
+  const shopName = new Map<string, string>();
+  if (shopIds.length > 0) {
+    const shops = await supabase.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', shopIds);
+    if (shops.error) {
+      logQueryError('supplierPartNotify.shopNames.profiles', shops.error, { eventId }, 'graceful_degrade');
+      return null;
+    }
+    for (const s of (shops.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]) {
+      if (s.business_name?.trim()) shopName.set(s.vendor_profile_id, s.business_name.trim());
+    }
+  }
+  for (const r of list) {
+    const names = [r.marketplace_vendor_id ? shopName.get(r.marketplace_vendor_id) : null, r.vendor_name?.trim() || null].filter(
+      (n): n is string => Boolean(n),
+    );
+    if (names.length > 0) out.set(r.vendor_id, [...new Set(names)]);
+  }
+  return out;
 }
 
 /** After the write landed: read the same moments again and tell each supplier on them, once. Never throws. */

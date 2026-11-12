@@ -61,7 +61,8 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ViewAsMenu } from './schedule-view-as';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
-import { ChapterDeleteWords, ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
+import { ChapterDeleteWords, ChapterSheet, DoneWarningBox, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
+import { newDoneWarnings, shopNamesOf, timesThatStay, type DoneWarning } from '@/lib/schedule-hand-in-hand';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { SchedulePeople } from './schedule-people';
 import { chapterMove, draggedStart, type ChapterMove } from '@/lib/chapter-move';
@@ -210,6 +211,10 @@ export function ChaptersHost({
   const [dayFilter, setDayFilter] = useState<string | null>(null);
   /** ↕ The desktop board's last drag (slice 10): its Undo, or the failure said in words. */
   const [moved, setMoved] = useState<{ id: string; label: string; back: ChapterMove } | { failed: string } | null>(null);
+  /** ⚠ A drag that runs a chapter past a supplier's "is done" waits here for an answer (rule 2 — the sheet's gate). */
+  const [dragWarn, setDragWarn] = useState<{ id: string; label: string; keepWords: string; lines: DoneWarning[]; save: () => void } | null>(null);
+  /** 🗓 The supplier times that STAYED in the last move — marked "stays" on the chapter's page until the next visit. */
+  const [stayed, setStayed] = useState<ReadonlySet<string>>(() => new Set());
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
     lab && labOpen ? { kind: 'edit', id: labOpen.moment } : null,
@@ -308,6 +313,8 @@ export function ChaptersHost({
     }
     return { ...base, crews };
   }, [input, tasks]);
+  /** 🗓 Each booking's shop name(s) — only "<that shop> arrives / is done" is a supplier's own time (ruling 5574 #7). */
+  const shops = useMemo(() => shopNamesOf(who.suppliers), [who]);
   const api = useMemo<Api | null>(
     () =>
       input.measured
@@ -346,21 +353,36 @@ export function ChaptersHost({
               const move = chapterMove(c, to.day, to.hhmm, input.lastDay);
               if (!move || move.delta === 0) return;
               const before: Partial<Chapter> = { start_at: c.start_at, end_at: c.end_at, time_tba: c.time_tba };
-              // In place, at once — the page never resets; a refused save puts it back and says so.
-              setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...move.next } : x)));
-              void doors.save(id, move.fields).then((ok) => {
-                if (!ok) {
-                  setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...before } : x)));
-                  setMoved({ failed: `${c.label} couldn’t be moved. Try again.` });
-                  return;
-                }
-                const back = chapterMove({ ...c, ...move.next }, wallDay(c.start_at), wallTime(c.start_at), input.lastDay);
-                if (back) setMoved({ id, label: c.label, back });
-              });
+              const inChapter = moments.filter((m) => m.parent_block_id === id).map((m) => ({ ...m, responsible_vendor_ids: m.vendor_ids }));
+              const keptIds = timesThatStay(id, inChapter, shops);
+              const save = () => {
+                // In place, at once — the page never resets; a refused save puts it back and says so.
+                setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...move.next } : x)));
+                void doors.save(id, move.fields).then((ok) => {
+                  if (!ok) {
+                    setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...before } : x)));
+                    setMoved({ failed: `${c.label} couldn’t be moved. Try again.` });
+                    return;
+                  }
+                  if (keptIds.length > 0) setStayed(new Set(keptIds));
+                  const back = chapterMove({ ...c, ...move.next }, wallDay(c.start_at), wallTime(c.start_at), input.lastDay);
+                  if (back) setMoved({ id, label: c.label, back });
+                });
+              };
+              // ⚠ RULE 2 on the drag too: the SAME gate as Chapter details (`newDoneWarnings`) — warn, never block.
+              const lines = newDoneWarnings(
+                { start_at: c.start_at, end_at: c.end_at },
+                { start_at: move.next.start_at ?? c.start_at, end_at: move.next.end_at ?? null },
+                id,
+                inChapter,
+                shops,
+              );
+              if (lines.length === 0) return save();
+              setDragWarn({ id, label: c.label, keepWords: clockWords(c.start_at), lines, save });
             },
           }
         : null,
-    [chapters, moments, tasks, who, input, openId, pendingDelete, lens, setSettingsPart, dayFilter, doors],
+    [chapters, moments, tasks, who, shops, input, openId, pendingDelete, lens, setSettingsPart, dayFilter, doors],
   );
 
   if (!input.measured || !api) {
@@ -432,6 +454,7 @@ export function ChaptersHost({
           onEdit={() => setSheet('edit')}
           onAddMoment={(section) => setMomentSheet({ kind: 'new', section })}
           onOpenMoment={(id) => setMomentSheet({ kind: 'edit', id })}
+          stayed={stayed}
           suppliers={chapterSuppliers(current, moments, tasks, who.suppliers)}
           viewAs={input.viewAs ? { input: input.viewAs, lens, setLens } : null}
           onSettings={() => setSettingsOpen(true)}
@@ -591,6 +614,8 @@ export function ChaptersHost({
           heldBy={current.hours_vendor_id ? (who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue') : null}
           deleteSuppliers={suppliersOn(current)}
           moments={moments.filter((m) => m.parent_block_id === current.block_id)}
+          shops={shops}
+          onStayed={(ids) => setStayed(new Set(ids))}
           onAsk={(momentId) => {
             setSheet(null);
             setMomentSheet({ kind: 'edit', id: momentId });
@@ -642,6 +667,32 @@ export function ChaptersHost({
                 }}
               />
             </div>
+          </div>
+        </Sheet>
+      ) : null}
+
+      {/* ⚠ A drag past a supplier's "is done" — the same box as Chapter details: Ask, Save anyway, Keep <time>. Closing
+          it keeps the chapter where it was; nothing is written. */}
+      {dragWarn ? (
+        <Sheet open onClose={() => setDragWarn(null)} labelledById={`drag-warn-${dragWarn.id}`} title={`Move ${dragWarn.label}?`}>
+          <div data-chapter-drag-warning={dragWarn.id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+            <h3 id={`drag-warn-${dragWarn.id}`} className="sr-only">
+              Move {dragWarn.label}?
+            </h3>
+            <DoneWarningBox
+              lines={dragWarn.lines}
+              keepWords={dragWarn.keepWords}
+              onAsk={(first) => {
+                setDragWarn(null);
+                setMomentSheet({ kind: 'edit', id: first.blockId });
+              }}
+              onSaveAnyway={() => {
+                const w = dragWarn;
+                setDragWarn(null);
+                w.save();
+              }}
+              onKeep={() => setDragWarn(null)}
+            />
           </div>
         </Sheet>
       ) : null}
@@ -709,6 +760,7 @@ function ChapterPage({
   onEdit,
   onAddMoment,
   onOpenMoment,
+  stayed,
   suppliers = [],
   held = null,
   viewAs = null,
@@ -743,6 +795,8 @@ function ChapterPage({
   onEdit: () => void;
   onAddMoment: (section: ChapterSection) => void;
   onOpenMoment: (id: string) => void;
+  /** 🗓 The supplier times that stayed in the last move — a small "stays" under their clock (approved prototype). */
+  stayed?: ReadonlySet<string>;
 }) {
   /* 🎭 Ingress · Event · Egress are all OPEN (owner 2026-11-04, prototype frame 2: "Ingress and Egress are open, one line
      per supplier, marked Backstage"); a tap folds or unfolds one. `open` is the section last tapped — + Add a moment
@@ -931,6 +985,11 @@ function ChapterPage({
                         <>
                           <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
                             {momentClockWords(m, c, clockWords)}
+                            {stayed?.has(m.block_id) ? (
+                              <span className="block text-[10px] font-bold uppercase tracking-[0.08em] text-gold-deep" data-moment-stayed="">
+                                stays
+                              </span>
+                            ) : null}
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] text-ink">{m.label}</span>

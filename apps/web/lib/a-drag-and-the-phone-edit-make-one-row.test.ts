@@ -38,7 +38,7 @@ test('2 · snaps to 5 minutes; one door, in place, with Undo', () => {
   assert.deepEqual(draggedStart(c.start_at, 13), { day: '2026-12-18', hhmm: '14:15' });
   assert.deepEqual(draggedStart(c.start_at, -12), { day: '2026-12-18', hhmm: '13:50' });
   const sheets = code(`${SCHED}chapter-sheets.tsx`);
-  assert.match(sheets, /const move = chapterMove\(c, day, hhmm, lastDay\);\s*if \(!move\) return NOT_SAVED;\s*return gate\('start', \{[^}]*\}, async \(\) => \{\s*const answer = await keep\(move\.fields, move\.next\);/, 'the phone edit has a rule of its own');
+  assert.match(sheets, /const move = chapterMove\(c, day, hhmm, lastDay\);\s*if \(!move\) return NOT_SAVED;\s*return gate\(row, \{[^}]*\}, async \(\) => \{\s*const answer = await keep\(move\.fields, move\.next\);/, 'the phone edit has a rule of its own');
   const host = code(`${SCHED}chapters-host.tsx`);
   const drag = host.slice(host.indexOf('moveChapter: (id, minutes) => {'), host.indexOf('moveChapter: (id, minutes) => {') + 1400);
   assert.match(drag, /const move = chapterMove\(c, to\.day, to\.hhmm, input\.lastDay\);/, 'the drag moves by another rule');

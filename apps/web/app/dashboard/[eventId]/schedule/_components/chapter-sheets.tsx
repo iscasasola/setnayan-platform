@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CalendarPlus, Check, MessageSquare, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -8,7 +8,7 @@ import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_compon
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { chapterMove } from '@/lib/chapter-move';
-import { doneWarnings, timesThatStay, type DoneWarning } from '@/lib/schedule-hand-in-hand';
+import { hhmmWords, newDoneWarnings, quarterHourChoices, timesThatStay, type DoneWarning, type ShopNames } from '@/lib/schedule-hand-in-hand';
 import type { KeepAnswer } from '@/lib/form-row';
 import {
   CALL_LEAD_CHOICES,
@@ -109,6 +109,7 @@ export const LAB_CHAPTER_DOORS: ChapterDoors = {
 };
 
 const OTHER_PLACE = '__other__';
+const EMPTY_SHOPS: ShopNames = new Map();
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };
 /** The clock a TBA chapter is stored at: its DAY at 00:00 (never drawn). */
 const TBA_CLOCK = '00:00';
@@ -221,6 +222,53 @@ export function NewChapterSheet({
   );
 }
 
+/* ── ⚠ the "done" warning — ONE box for Chapter details and the board's drag ─────────────────────────────────────── */
+
+/**
+ * ⚠ RULE 2 (owner 2026-11-12): "<Shop> is done at 10:30 PM — ask them?" — warns, never blocks. Three answers, as the
+ * approved prototype draws them: Ask <shop> (opens their done moment, where the shipped ask is), Save anyway (saves),
+ * and Keep <the time it holds now> (nothing is written). Chapter details and the desktop board's drag both draw it.
+ */
+export function DoneWarningBox({
+  lines,
+  keepWords,
+  onAsk,
+  onSaveAnyway,
+  onKeep,
+}: {
+  lines: readonly DoneWarning[];
+  /** The time the chapter keeps on "Keep …" ("2:00 PM") — the button reads "Keep 2:00 PM". */
+  keepWords: string;
+  onAsk?: ((first: DoneWarning) => void) | null;
+  onSaveAnyway: () => void;
+  onKeep: () => void;
+}) {
+  const first = lines[0];
+  if (!first) return null;
+  return (
+    <div role="alert" data-chapter-done-warning="" className="mt-2 grid gap-2 rounded-xl bg-warn-100/60 px-3 py-2">
+      {lines.map((w) => (
+        <p key={w.blockId} className="text-[14px] font-medium text-warn-800">
+          {w.line}
+        </p>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        {onAsk ? (
+          <ActionButton
+            tone="brand"
+            icon={MessageSquare}
+            label={lines.length === 1 ? `Ask ${first.shop}` : 'Ask them'}
+            data-testid="chapter-done-ask"
+            onClick={() => onAsk(first)}
+          />
+        ) : null}
+        <ActionButton tone="neutral" icon={Check} label="Save anyway" data-testid="chapter-done-save-anyway" onClick={onSaveAnyway} />
+      </div>
+      <ActionButton tone="neutral" quiet label={`Keep ${keepWords}`} data-testid="chapter-done-keep" onClick={onKeep} />
+    </div>
+  );
+}
+
 /* ── chapter details ─────────────────────────────────────────────────────────────────────────────────────────── */
 
 export function ChapterSheet({
@@ -237,8 +285,14 @@ export function ChapterSheet({
   deleteSuppliers = [],
   heldBy = null,
   moments = [],
+  shops = EMPTY_SHOPS,
   onAsk,
+  onStayed,
 }: {
+  /** 🗓 Each booking's shop name(s): only "<that shop> arrives / is done" is a supplier's own time (ruling 5574 #7). */
+  shops?: ShopNames;
+  /** 🗓 After a move landed: the supplier times that STAYED — the page marks them "stays" (approved prototype). */
+  onStayed?: (ids: string[]) => void;
   /** 🏛 The venue that holds this chapter's hours (by name) — its hours are a fact here, not fields. */
   heldBy?: string | null;
   /**
@@ -272,56 +326,106 @@ export function ChapterSheet({
   const [other, setOther] = useState(false);
 
   /**
-   * ⚠ RULE 2 (owner 2026-11-12): a new start or end that runs the chapter past a supplier's "is done" WARNS here before
-   * it saves — "<Shop> is done at 10:30 PM — ask them?" — and never blocks: Save anyway saves. Only a NEW crossing warns
-   * (one already true before this edit was already said). Lock my times still refuses in the database, as shipped.
+   * ⚠ RULE 2 (owner 2026-11-12): a new start, end or date that runs the chapter past a supplier's "is done" WARNS here
+   * before it saves (`newDoneWarnings` — the same gate as the board's drag) and never blocks: Save anyway saves. Keep
+   * <time> and closing the sheet SETTLE it — nothing is written and nothing is left waiting. Lock my times still refuses
+   * in the database, as shipped.
    */
-  const [warn, setWarn] = useState<{ row: 'start' | 'end'; lines: DoneWarning[]; go: () => Promise<KeepAnswer>; settle: (a: KeepAnswer) => void } | null>(null);
+  type Warn = { row: 'start' | 'end' | 'date'; lines: DoneWarning[]; go: () => Promise<KeepAnswer>; settle: (a: KeepAnswer) => void };
+  const [warn, setWarnState] = useState<Warn | null>(null);
+  const warnRef = useRef<Warn | null>(null);
+  const setWarn = (w: Warn | null) => {
+    warnRef.current = w;
+    setWarnState(w);
+  };
+  /** A warning answered without saving (Keep, Ask, the sheet closed): the row's own words, never "didn't save". */
+  const unsaid = useRef(false);
+  const settleUnsaved = (error: string) => {
+    const w = warnRef.current;
+    if (!w) return;
+    unsaid.current = true;
+    setWarn(null);
+    w.settle({ ok: false, error });
+  };
+  // The sheet leaving (✕, the scrim, the page) with a warning up settles it — no promise is left hanging.
+  useEffect(
+    () => () => {
+      const w = warnRef.current;
+      warnRef.current = null;
+      if (w) w.settle({ ok: false, error: null });
+    },
+    [],
+  );
+  const close = () => {
+    settleUnsaved('Nothing changed.');
+    onClose();
+  };
   const tagged = moments.map((m) => ({ ...m, responsible_vendor_ids: m.vendor_ids }));
-  const kept = timesThatStay(c.block_id, tagged).length;
-  const gate = (row: 'start' | 'end', next: { start_at: string | null; end_at: string | null }, go: () => Promise<KeepAnswer>): Promise<KeepAnswer> => {
-    const already = new Set(doneWarnings({ start_at: c.start_at, end_at: c.end_at }, c.block_id, tagged).map((w) => w.blockId));
-    const lines = doneWarnings(next, c.block_id, tagged).filter((w) => !already.has(w.blockId));
+  const keptIds = timesThatStay(c.block_id, tagged, shops);
+  const kept = keptIds.length;
+  const gate = (row: Warn['row'], next: { start_at: string | null; end_at: string | null }, go: () => Promise<KeepAnswer>): Promise<KeepAnswer> => {
+    const lines = newDoneWarnings({ start_at: c.start_at, end_at: c.end_at }, next, c.block_id, tagged, shops);
     if (lines.length === 0) return go();
     return new Promise((settle) => setWarn({ row, lines, go, settle }));
   };
-  const warning = (row: 'start' | 'end') =>
+  const keepWords = (row: Warn['row']) =>
+    row === 'end' ? (c.end_at ? clockWords(c.end_at) : 'no end') : row === 'date' ? 'the date' : c.time_tba ? TIME_TBA : clockWords(c.start_at);
+  const warning = (row: Warn['row']) =>
     warn && warn.row === row ? (
-      <div role="alert" data-chapter-done-warning="" className="mt-2 grid gap-2 rounded-xl bg-warn-100/60 px-3 py-2">
-        {warn.lines.map((w) => (
-          <p key={w.blockId} className="text-[14px] font-medium text-warn-800">
-            {w.line}
-          </p>
-        ))}
-        <div className="flex flex-wrap gap-2">
-          {onAsk ? (
-            <ActionButton
-              tone="brand"
-              icon={MessageSquare}
-              label={warn.lines.length === 1 ? `Ask ${warn.lines[0]!.shop}` : 'Ask them'}
-              data-testid="chapter-done-ask"
-              onClick={() => {
-                const first = warn.lines[0]!;
-                warn.settle({ ok: false, error: `You chose to ask ${first.shop} first.` });
-                setWarn(null);
+      <DoneWarningBox
+        lines={warn.lines}
+        keepWords={keepWords(row)}
+        onAsk={
+          onAsk
+            ? (first) => {
+                settleUnsaved(`You chose to ask ${first.shop} first.`);
                 onAsk(first.blockId);
-              }}
-            />
-          ) : null}
-          <ActionButton
-            tone="neutral"
-            icon={Check}
-            label="Save anyway"
-            data-testid="chapter-done-save-anyway"
-            onClick={() => {
-              const w = warn;
-              setWarn(null);
-              void w.go().then(w.settle, () => w.settle({ ok: false }));
-            }}
-          />
-        </div>
-      </div>
+              }
+            : null
+        }
+        onSaveAnyway={() => {
+          const w = warn;
+          setWarn(null);
+          void w.go().then(w.settle, () => w.settle({ ok: false }));
+        }}
+        onKeep={() => settleUnsaved(`Kept ${keepWords(row)}.`)}
+      />
     ) : null;
+
+  /**
+   * 🕑 Starts ▾ / Ends ▾ — a dropdown that OPENS its quarter-hour choices (house rule; approved prototype), through the
+   * same gate. While it saves the row says so; a save that did not land says why; a warning answered without saving
+   * says nothing more (the pill is back on the time it holds).
+   */
+  const [timeLine, setTimeLine] = useState<{ row: 'start' | 'end'; kind: 'saving' | 'failed'; text: string } | null>(null);
+  const pickTime = async (row: 'start' | 'end', act: () => Promise<KeepAnswer>) => {
+    unsaid.current = false;
+    setTimeLine({ row, kind: 'saving', text: 'Saving…' });
+    let answer: KeepAnswer;
+    try {
+      answer = await act();
+    } catch {
+      answer = NOT_SAVED;
+    }
+    if (answer && answer.ok === false && !unsaid.current) setTimeLine({ row, kind: 'failed', text: answer.error ?? 'Try again.' });
+    else setTimeLine(null);
+  };
+  const timeBelow = (row: 'start' | 'end') => (
+    <>
+      {timeLine && timeLine.row === row && !(warn && warn.row === row) ? (
+        timeLine.kind === 'saving' ? (
+          <p role="status" className="mt-1 text-[13px] text-ink/60" data-chapter-time-saving={row}>
+            {timeLine.text}
+          </p>
+        ) : (
+          <p role="alert" className="mt-1 text-[13px] font-semibold text-danger-700" data-chapter-time-failed={row}>
+            Couldn’t save. {timeLine.text}
+          </p>
+        )
+      ) : null}
+      {warning(row)}
+    </>
+  );
 
   /** Save these fields; on success lay the change on the list. */
   const keep = async (fields: Record<string, string>, next: Partial<Chapter>) => {
@@ -333,14 +437,15 @@ export function ChapterSheet({
 
   /** A new start (date or clock): the chapter, its end and its moments move together. A TBA chapter that gets a clock
    *  leaves TBA in the same save; one that only changes day stays TBA and its moments move by the days. */
-  const moveTo = async (day: string, hhmm: string) => {
+  const moveTo = async (day: string, hhmm: string, row: 'start' | 'date' = 'start') => {
     // ↕ ONE RULE with the desktop board's drag (`lib/chapter-move.ts`, slice 10): the same fields, the same row.
     // Leaving TBA sets a clock where there was none: the moments keep their own times. Every other move carries them.
     const move = chapterMove(c, day, hhmm, lastDay);
     if (!move) return NOT_SAVED;
-    return gate('start', { start_at: move.next.start_at ?? null, end_at: move.next.end_at ?? null }, async () => {
+    return gate(row, { start_at: move.next.start_at ?? null, end_at: move.next.end_at ?? null }, async () => {
       const answer = await keep(move.fields, move.next);
       const carried = Math.max(0, c.moments - kept);
+      if (answer.ok && !move.leavingTba && move.delta !== 0 && kept > 0) onStayed?.(keptIds);
       if (answer.ok && move.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
       else if (answer.ok && !move.leavingTba && move.delta !== 0 && c.moments > 0)
         setNote(
@@ -379,7 +484,7 @@ export function ChapterSheet({
   return (
     <Sheet
       open
-      onClose={onClose}
+      onClose={close}
       labelledById={headingId}
       title={stage === 'details' ? 'Chapter details' : stage === 'uninvite' ? 'Take it off the invitation?' : 'Delete chapter'}
     >
@@ -413,33 +518,43 @@ export function ChapterSheet({
                 name="Date"
                 value={wallDay(c.start_at)}
                 max={lastDay}
-                onKeep={(d) => moveTo(d, c.time_tba ? '' : wallTime(c.start_at))}
+                onKeep={(d) => moveTo(d, c.time_tba ? '' : wallTime(c.start_at), 'date')}
+                below={warning('date')}
                 data="chapter-date"
               />
               )}
               {heldBy ? null : (
-              <TimeRow
+              <ChosenRow
                 name="Starts"
+                label="Starts"
                 value={c.time_tba ? '' : wallTime(c.start_at)}
-                empty={TIME_TBA}
-                clearable
+                options={quarterHourChoices({ current: c.time_tba ? '' : wallTime(c.start_at), end: c.end_at && !c.time_tba ? wallTime(c.end_at) : null, none: TIME_TBA })}
+                buttonText={c.time_tba ? TIME_TBA : hhmmWords(wallTime(c.start_at))}
                 line={c.time_tba ? 'No call time until the time is set.' : undefined}
-                onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : goTba())}
-                below={warning('start')}
+                onPick={(t) => {
+                  if (t === (c.time_tba ? '' : wallTime(c.start_at))) return;
+                  void pickTime('start', () => (t ? moveTo(wallDay(c.start_at), t) : goTba()));
+                }}
+                below={timeBelow('start')}
                 data="chapter-start"
               />
               )}
               {c.time_tba || heldBy ? null : (
-              <TimeRow
+              <ChosenRow
                 name="Ends"
+                label="Ends"
                 value={wallTime(c.end_at)}
-                clearable
+                options={quarterHourChoices({ current: wallTime(c.end_at), none: 'No end time' })}
+                buttonText={c.end_at ? hhmmWords(wallTime(c.end_at)) : 'No end time'}
                 line={c.end_at && wallDay(c.end_at) !== wallDay(c.start_at) ? 'The next day' : undefined}
-                onKeep={(t) => {
-                  const end = endIsoFrom(c.start_at, t);
-                  return gate('end', { start_at: c.start_at, end_at: end }, () => keep({ end_at: end ? end.slice(0, 16) : '' }, { end_at: end }));
+                onPick={(t) => {
+                  if (t === wallTime(c.end_at)) return;
+                  void pickTime('end', () => {
+                    const end = endIsoFrom(c.start_at, t);
+                    return gate('end', { start_at: c.start_at, end_at: end }, () => keep({ end_at: end ? end.slice(0, 16) : '' }, { end_at: end }));
+                  });
                 }}
-                below={warning('end')}
+                below={timeBelow('end')}
                 data="chapter-end"
               />
               )}

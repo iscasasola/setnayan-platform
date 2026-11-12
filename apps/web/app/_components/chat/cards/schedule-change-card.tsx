@@ -9,7 +9,7 @@
  *       "Ceremony is now 30 min later than you planned".
  *   3 · It PINS in the supplier's chat until they press Seen (the pin is `schedule_change` in `lib/chat-pins.ts`). Seen is
  *       the shipped mark (`supplier_mark_schedule` 'seen'); a change the host applied needs no other answer. The hosts'
- *       copy shows the supplier's answer: "Seen · Nov 12", or nothing yet.
+ *       copy shows the supplier's answer: "Seen · Nov 12", or "<Shop> hasn't seen it yet".
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Eye } from 'lucide-react';
@@ -87,6 +87,11 @@ export function ScheduleChangeCard({
             <ActionButton tone="brand" main icon={Eye} label="Seen" onClick={press} disabled={busy || !seen} data-testid="schedule-change-seen" />
             <Problem text={problem} />
           </>
+        ) : seen ? (
+          // The hosts' copy, while the supplier has not pressed Seen (approved prototype). An unread Seen says nothing.
+          <p className="text-[14px] font-medium text-warn-800" data-schedule-change-unseen="">
+            {supplierName} hasn’t seen it yet
+          </p>
         ) : null}
       </div>
     </ChatCardShell>

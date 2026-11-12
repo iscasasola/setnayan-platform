@@ -9,11 +9,11 @@ import type { DatesBlock, DatesBooking } from '@/lib/vendor-dates';
 export function datesBookingsForWire(
   bookings: PoolBookingEntry[],
   /** 🗓 The booked day's hours and the shop's own arrive · done (`readBookedDayHours`); absent = the plain row. */
-  hours?: ReadonlyMap<string, { hours: string | null; mine: string | null }>,
+  hours?: ReadonlyMap<string, { hours: string | null; mine: string | null; unread?: true }>,
 ): DatesBooking[] {
   return bookings.map((b) => {
     const h = hours?.get(b.poolBookingId);
-    return { poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName, ...(h ? { hours: h.hours, mine: h.mine } : {}) };
+    return { poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName, ...(h ? { hours: h.hours, mine: h.mine, ...(h.unread ? { hoursUnread: true } : {}) } : {}) };
   });
 }
 

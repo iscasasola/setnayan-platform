@@ -166,7 +166,12 @@ export async function draftSaysExisting(requestId: string, tree: RequestTree | n
       .select('verdict, closest_existing')
       .eq('request_id', requestId)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      // No redirect to an existing service, then — the request is already filed and queued; the miss is recorded.
+      logQueryError('draftSaysExisting (taxonomy_category_request_drafts)', error);
+      return null;
+    }
+    if (!data) return null;
     const row = data as { verdict: string; closest_existing: string | null };
     if (row.verdict !== 'existing' || !row.closest_existing) return null;
     return tree.service.has(row.closest_existing) ? row.closest_existing : null;

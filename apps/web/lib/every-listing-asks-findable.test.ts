@@ -53,7 +53,7 @@ const RETYPED_VERIFIED = /\.eq\(\s*['"](?:vendor_profiles\.)?verification_state[
 const LISTINGS: ReadonlyArray<{ surface: string; path: string; minGates?: number; retypedAllowed?: number }> = [
   // Explore — the grid, the "Show all" count and the empty-landing live shops (3 gates). The one re-typed pair is the
   // "Verified only" filter, a NARROWING the couple asks for on top of the gate.
-  { surface: 'Explore grid', path: 'app/(shell)/explore/page.tsx', minGates: 3, retypedAllowed: 1 },
+  { surface: 'Explore grid', path: 'app/(shell)/explore/_lib/marketplace-view.tsx', minGates: 3, retypedAllowed: 1 }, // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
   { surface: 'Explore service cards', path: 'lib/marketplace-service-cards.ts' },
   // Tile counts + preview cards ask the gate (2). The two re-typed pairs are deliberately VERIFIED-only: the
   // marketing "N verified suppliers" figure (a claim about verified shops), and the tile's "Sample: A · B · C" line,

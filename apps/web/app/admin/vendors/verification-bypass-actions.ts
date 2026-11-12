@@ -179,7 +179,7 @@ export async function grantVerificationBypass(formData: FormData): Promise<void>
   revalidateShopPage(vendorId);
   revalidatePath('/admin/accounts');
   revalidatePath('/admin/verify');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 }
 
 /** Withdraw a vouched listing by hand, before its deadline. */
@@ -214,5 +214,5 @@ export async function revokeVerificationBypass(formData: FormData): Promise<void
   });
   revalidateShopPage(vendorId);
   revalidatePath('/admin/accounts');
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
 }

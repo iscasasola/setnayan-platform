@@ -27,8 +27,8 @@ export type PendingSend = {
   state: 'sending' | 'sent' | 'failed';
   /** Why it did not go, in words, when the composer knows (a file refused or too big — C2's sentences). */
   reason?: string;
-  /** 🔒 Sent privately — the one person's name, so the faded bubble already wears the private look. */
-  privateTo?: string | null;
+  /** 🔒 Sent privately — the other people's names (one or several, owner 12 Nov), so the faded bubble already wears the private look. */
+  privateTo?: string | readonly string[] | null;
 };
 
 export const CHAT_PENDING_EVENT = 'chat-stream:pending';

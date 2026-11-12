@@ -4,7 +4,7 @@
  * Booked mode).
  *
  *   Waiting for their yes   ⓘ   N asked · nothing opens until they agree
- *   Booked                      N booked · N without a price
+ *   N booked · N without a price      (no "Booked" heading — the pinned row says it; K1 2026-11-12)
  *   (one collapsed row each — ONE open at a time, `BookedRowList`)
  *
  * 🧹 BOOKED IS JUST THE TEAM (owner 2026-11-02, *"and booked-team will just be booked."*): the Team · Budget ·
@@ -133,10 +133,9 @@ export function BookedBody({
         </section>
       ) : null}
 
-      <section data-booked-section="booked" aria-labelledby="bk-booked-h">
-        <h2 id="bk-booked-h" className={H2}>
-          Booked
-        </h2>
+      {/* K1 (owner 2026-11-12, "Yes, build it"): no "Booked" heading — the pinned row already says Booked and its
+          count, so the sub-line is the first line under it. Waiting for their yes keeps its heading: another state. */}
+      <section data-booked-section="booked" aria-label="Booked">
         {booked.length === 0 ? (
           <div data-booked-empty="">
             <p className={SUB}>{BOOKED_EMPTY}</p>

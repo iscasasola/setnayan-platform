@@ -224,6 +224,31 @@ export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean 
   return rows;
 }
 
+/**
+ * 💬 A GROUP'S (+) AND "/" (owner, 12 Nov — "EVENT GROUP CHATS APPROVED AS DRAWN" (2)): Decision · Poll · Meeting ·
+ * Photos & files ONLY. Quote · Payment · Form never appear in a group — the sheet's last row says where they live (each
+ * supplier's own chat), drawn quiet and not pressable, so it is never a door. The database refuses a money card on a
+ * group line too (`chat_messages_group_rules`, migration 20271340374819).
+ *
+ * ⚠ Meeting and Photos & files are drawn SHUT in a group for now, with their reason: a meeting card is booked with ONE
+ * supplier (`event_appointments` names a shop) and the chat-file upload checks a supplier conversation — neither has a
+ * group door yet. Never a dead Send; the row says why.
+ */
+export const GROUP_NOT_YET_REASON = 'Not open in group chats yet';
+export const GROUP_MONEY_ROW_LABEL = 'Quote · Payment · Form';
+export const GROUP_MONEY_ROW_REASON = 'In each supplier’s own chat — never in a group';
+
+export function groupPlusRows(opts: { pollOpen?: boolean }): PlusRow[] {
+  return [
+    { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    { ...pollRow(opts.pollOpen), line: 'Everyone in the group picks' },
+    { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: null, shutNow: { reason: GROUP_NOT_YET_REASON } },
+    { key: 'file', label: 'Photos & files', line: 'A photo, a video or a document', card: 'file', door: null, shutNow: { reason: GROUP_NOT_YET_REASON } },
+    // The pointer, never a door: no card, no door, always shut — its reason is where the money lives.
+    { key: 'quote', label: GROUP_MONEY_ROW_LABEL, line: GROUP_MONEY_ROW_REASON, card: null, door: null, shutNow: { reason: GROUP_MONEY_ROW_REASON } },
+  ];
+}
+
 /** The card the (+) has open in this chat — a draft being filled, or a sent one awaiting its answer. */
 export type RunningTopic = {
   key: string;

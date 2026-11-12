@@ -3,7 +3,8 @@
  * evident a private message"*). Not a second chat look: the stream's own bubble takes `PRIVATE_BUBBLE_FILL` instead of
  * its two fills, and draws these two pieces, the same on the sender's side and the recipient's:
  *
- *   · `PrivateMark`  — the strip on TOP of the bubble: "🔒 Private · only you and Jose". Given `null` (a message to
+ *   · `PrivateMark`  — the strip on TOP of the bubble: "🔒 Private · only you and Jose" · "🔒 Private · only you, Ana
+ *                      and Miguel" (several, owner 12 Nov). Given `null` (a message to
  *                      everyone) it draws NOTHING, so a normal bubble can never wear it.
  *   · `PrivateTime`  — the time row under the bubble, the lock repeated: "🔒 6:05 PM".
  *
@@ -17,8 +18,9 @@ import { PRIVATE_BUBBLE_FILL, PRIVATE_MARK, PRIVATE_STRIP_TEXT, privateStripLabe
 
 export { PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT };
 
-export function PrivateMark({ privateWith }: { privateWith: string | null }) {
-  if (privateWith === null) return null;
+/** `privateWith` — the OTHER people's names as this reader sees them (one, or several since 12 Nov); null/[] = shared. */
+export function PrivateMark({ privateWith }: { privateWith: string | readonly string[] | null }) {
+  if (privateWith === null || privateWith.length === 0) return null;
   return (
     <p className={`mb-1 flex items-center gap-1 text-[11.5px] font-semibold ${PRIVATE_STRIP_TEXT}`} data-chat-private-strip="">
       <Lock aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.2} />

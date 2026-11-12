@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1838
+# ledger: 1842
 # tables: 494
-# columns: 5988
+# columns: 5997
 # notnull: 3623
 [ledger]
 20260512000000
@@ -1850,6 +1850,10 @@
 20271338412990
 20271338442002
 20271339373845
+20271339826198
+20271339978803
+20271340142149
+20271340374819
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2281,6 +2285,7 @@ chat_messages.message_id
 chat_messages.offered_service_id
 chat_messages.proposal_id
 chat_messages.recipient_user_id
+chat_messages.recipient_user_ids
 chat_messages.sender_role
 chat_messages.sender_user_id
 chat_messages.sent_as
@@ -2327,9 +2332,14 @@ chat_threads.decline_reason
 chat_threads.declined_at
 chat_threads.displaced_from_status
 chat_threads.event_id
+chat_threads.group_key
+chat_threads.group_kind
+chat_threads.group_name
+chat_threads.group_roles
 chat_threads.inquiry_source
 chat_threads.inquiry_status
 chat_threads.is_returning
+chat_threads.kind
 chat_threads.last_push_notified_at
 chat_threads.locked_at
 chat_threads.locked_by_user_id
@@ -6725,8 +6735,11 @@ vendor_form_service_links.created_at
 vendor_form_service_links.form_id
 vendor_form_service_links.vendor_service_id
 vendor_forms.created_at
+vendor_forms.edited_from_form_id
+vendor_forms.for_event_id
 vendor_forms.form_id
 vendor_forms.from_template_key
+vendor_forms.in_library
 vendor_forms.public_id
 vendor_forms.retired_at
 vendor_forms.title
@@ -8108,7 +8121,6 @@ chat_messages.is_bot
 chat_messages.message_id
 chat_messages.sender_role
 chat_messages.thread_id
-chat_messages.vendor_profile_id
 chat_poll_choices.choice_id
 chat_poll_choices.label
 chat_poll_choices.poll_id
@@ -8133,10 +8145,10 @@ chat_threads.created_at
 chat_threads.event_id
 chat_threads.inquiry_status
 chat_threads.is_returning
+chat_threads.kind
 chat_threads.public_id
 chat_threads.thread_id
 chat_threads.updated_at
-chat_threads.vendor_profile_id
 communities.archived
 communities.community_id
 communities.created_at
@@ -10801,6 +10813,7 @@ vendor_form_service_links.form_id
 vendor_form_service_links.vendor_service_id
 vendor_forms.created_at
 vendor_forms.form_id
+vendor_forms.in_library
 vendor_forms.public_id
 vendor_forms.title
 vendor_forms.updated_at

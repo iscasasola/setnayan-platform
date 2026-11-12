@@ -1799,6 +1799,8 @@ export function ChatMessageStream({
               its View quote live in "See every version" on the live card — never twice.
             */
             const replaced = card?.status === 'superseded';
+            // 💬 Lane C · the hosts' side never edits a price — they ask, from the part (6076; a lazy chunk, live quote only).
+            const askOnLines = !replaced && viewerRole === 'couple' && isLatestProposal && !!card && ['sent', 'viewed', 'accepted'].includes(card.status);
             return (
               <li
                 key={m.message_id}
@@ -1861,8 +1863,22 @@ export function ChatMessageStream({
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
-                      {/* The card's lines — one component with the supplier's "As they see it" preview. */}
-                      {replaced ? null : <QuoteCardLines items={items} />}
+                      {/* The card's lines — one component with the supplier's "As they see it" preview. On the
+                          hosts' live quote the lines ARE the ask's door (ruling 6076 — an ask starts from the part it
+                          changes): tap a line, or the payment plan, and "Ask for a change" opens attached to it. A
+                          lazy chunk, so the lines are handed to it instead of drawn here twice. */}
+                      {replaced ? null : askOnLines ? (
+                        <AskChangeDoor
+                          threadId={threadId}
+                          supplierName={counterpartyLabel}
+                          proposalId={m.proposal_id}
+                          lines={items}
+                          locks={card.locks ?? {}}
+                          returnPath={returnPathFor(m)}
+                        />
+                      ) : (
+                        <QuoteCardLines items={items} />
+                      )}
                       {quoteDiff && quoteVersion?.previous ? (
                         <QuoteWhatChanged changes={quoteDiff} sinceVersion={quoteVersion.previous.version} />
                       ) : null}
@@ -2001,16 +2017,6 @@ export function ChatMessageStream({
                         ) : null}
                       </div>
                       )}
-                      {/* 💬 Lane C · the hosts' side never edits a price — they ask (a lazy chunk, only on the live quote). */}
-                      {!replaced && viewerRole === 'couple' && isLatestProposal && card && ['sent', 'viewed', 'accepted'].includes(card.status) ? (
-                        <AskChangeDoor
-                          threadId={threadId}
-                          supplierName={counterpartyLabel}
-                          proposalId={m.proposal_id}
-                          locks={card.locks ?? {}}
-                          returnPath={returnPathFor(m)}
-                        />
-                      ) : null}
                       {isLatestProposal && quoteVersions && m.proposal_id ? (
                         <QuoteVersionsRow
                           versions={versionsNewestFirst(quoteVersions, m.proposal_id)}

@@ -22,6 +22,7 @@ import { formatCount } from '@/lib/format-number';
 import { ChatCardShell, ChatStepCard, isStepEnter, type ChatCardStep } from '../chat-step-card';
 import { loadSentFormForAnswer, loadShopFormsForCard, type FormToAnswer } from './card-calls';
 import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
+import { AskChangeDoor } from './ask-change-card';
 
 type LibForm = { formId: string; title: string; questions: string[] };
 
@@ -135,6 +136,11 @@ export function FormAnswerCard({ threadId, title, returnPath, seed }: { threadId
   return (
     <ChatCardShell topic="forms" kicker="Form" title={title} tone="theirs">
       {read.at === 'loading' ? <Loading /> : read.at === 'failed' ? <CouldNotLoad what="this form" onRetry={load} /> : <Answering form={read.data!} returnPath={returnPath} />}
+      {/* ✋ Ruling 6076 · the ask starts from THIS form and carries it (its id, its title). A final form is not asked about —
+          the card already says the supplier made it final. */}
+      {read.at === 'ok' && read.data && !read.data.locked ? (
+        <AskChangeDoor threadId={threadId} supplierName="the supplier" formId={read.data.formId} formTitle={read.data.title} locks={{ form: false }} returnPath={returnPath} />
+      ) : null}
     </ChatCardShell>
   );
 }

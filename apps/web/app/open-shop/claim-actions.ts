@@ -26,6 +26,8 @@ import { decideOpenShopAccount } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { purchaseChange } from '@/lib/supplier-purchase-change';
+import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -270,6 +272,31 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
       ],
     }).catch((e: unknown) => ({ status: 'error' as const, message: e instanceof Error ? e.message : String(e) }));
     if (res.status !== 'ok') console.warn('[claim-door] the bundle was not saved:', res.status);
+  }
+
+  // ── 🧾 A CHANGE TO WHAT THE COUPLE BOUGHT IS THEIRS TO APPROVE (DECISION_LOG 2026-11-07 — owner: *"price change, or
+  // service change on their purchase gets changed, needs approval"*). The couple's recorded services and price (read on
+  // the server, never the post) against the couple's cards as the supplier confirmed them — only `theirs`: a service the
+  // supplier added is their own card and never asks the couple. A difference is STAGED as the shipped amendment, on no
+  // conversation yet; the couple's Approve delivers it into their chat (`answerClaimAccess`). Their row is not touched.
+  // Fail-soft: the shop is open; a missed staging only loses the ask, and it is logged.
+  if (!fromSetnayan && eventId && landing.parentVendor) {
+    try {
+      await stagePurchaseChange(admin, {
+        eventId,
+        recordVendorId: landing.parentVendor.vendor_id,
+        shopId: vendorProfileId,
+        supplierUserId: user.id,
+        shopName: answers.name || shop.business_name || null,
+        change: purchaseChange({
+          recordPrice: recordRead.record.price,
+          recorded: recordRead.record.services,
+          confirmed: theirs,
+        }),
+      });
+    } catch (e) {
+      console.error('[claim-door] the purchase change was not staged:', e);
+    }
   }
 
   revalidateShopPage(vendorProfileId);

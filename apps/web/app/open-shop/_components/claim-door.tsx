@@ -578,7 +578,9 @@ export function ClaimDoor({
               <ActionButton tone="neutral" icon={Plus} label="Add a service" onClick={() => setAdding(true)} />
             </span>
           )}
-          {fromHint(' · a service you remove leaves their record too')}
+          {/* 🧾 Removing one of the couple's services is a change to what they bought — it goes to them to approve
+              (DECISION_LOG 2026-11-07, `lib/supplier-purchase-change.ts`); their record keeps it until they say yes. */}
+          {fromHint(team ? '' : ' · a service you remove goes to them to approve')}
         </div>
       );
     body = (

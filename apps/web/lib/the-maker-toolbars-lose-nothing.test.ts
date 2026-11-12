@@ -98,7 +98,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['…its row', 'pageMenu', ["label: 'Reset this stage…'"]],
   ['Reset this stage… (the confirm)', 'draftBar', ['MAKER_OPEN_RESET_EVENT', "intent: 'reset'"]],
   ['Undo · Apply (the slot)', 'topBar', ['{applySlot}']],
-  ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.previewMenu ?? null}']],
+  ['Undo · Apply (the buttons)', 'draftBar', ['label="History"', "intent: 'undo'", "intent: 'apply'", '{maker?.previewMenu ?? null}']],
   ['↺ Restore (Page ▾ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', "act === 'restore'"]],
   ['…its row', 'pageMenu', ["label: 'Restore what guests see'"]],
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],

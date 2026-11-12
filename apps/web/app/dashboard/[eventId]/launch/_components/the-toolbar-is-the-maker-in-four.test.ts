@@ -100,7 +100,7 @@ async function paint(opts: { hasWork?: boolean; firstVisit?: boolean; selection?
     return React.createElement(
       'div',
       { className: 'contents' },
-      React.createElement('button', { 'data-maker-tool': 'undo' }, 'Undo'),
+      React.createElement('button', { 'data-maker-tool': 'history' }, 'History'),
       maker?.previewMenu ?? null,
       React.createElement('button', { 'data-maker-tool': 'apply' }, 'Apply'),
     );
@@ -139,13 +139,14 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
-test('the rendered toolbar is EXACTLY Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
+test('the rendered toolbar is EXACTLY Stages | Studio · ↺ History · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
   /* 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
-     out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. */
-  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'undo', 'apply', 'settings']);
+     out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. ↺ is HISTORY since 2026-11-09 ("↺ BECOMES A HISTORY
+     LIST"): the same place, the same icon role — it opens the list of this draft's edits. */
+  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'history', 'apply', 'settings']);
   const html = await paint();
-  /* 👁 Preview is in the DOM between Undo and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
-  assert.deepEqual(toolsOf(html), ['side', 'undo', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
+  /* 👁 Preview is in the DOM between History and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
+  assert.deepEqual(toolsOf(html), ['side', 'history', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
   const header = headerOf(html);
   assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'Preview shows on a phone');
   // The old bar is gone: no Page ▾, no Event Details door, no Look chip.
@@ -169,12 +170,16 @@ test('a viewer with no work (a coordinator): the same one Maker’s bar, without
   assert.doesNotMatch(headerOf(html), /Only the host can open this part of the Event Hub Maker\.|data-maker-page-menu/, 'the old Maker’s shut door or Page ▾ is back');
 });
 
-test('by SOURCE: the real draft bar draws Undo · Preview · Apply in that order, and no Restore button', () => {
+test('by SOURCE: the real draft bar draws History · Preview · Apply in that order, and no Restore button', () => {
   const bar = stripComments(readFileSync(join(HERE, '../../website/_components/hub-draft-bar.tsx'), 'utf8'));
-  const undo = bar.indexOf('label="Undo"');
+  const undo = bar.indexOf('label="History"');
   const view = bar.indexOf('{maker?.previewMenu ?? null}');
   const apply = bar.indexOf('label="Apply"');
-  assert.ok(undo > 0 && view > undo && apply > view, 'the draft bar is not Undo · Preview · Apply');
+  assert.ok(undo > 0 && view > undo && apply > view, 'the draft bar is not History · Preview · Apply');
+  /* ↺ …and the ↺ OPENS the list — it never takes a step back by itself (owner 2026-11-09). */
+  const press = bar.slice(undo, bar.indexOf('</span>', undo));
+  assert.match(press, /onClick=\{\(\) => openHistory\(/, '↺ does not open the History list');
+  assert.doesNotMatch(press, /intent: 'undo'/, '↺ takes a step back by itself again — it opens the list');
   assert.doesNotMatch(bar, /label="Restore"/, 'Restore is back on the bar — it is Page ▾’s');
   assert.doesNotMatch(bar, /<summary\b/, 'the draft bar grew a second menu');
   // …and the shell hands it the Preview menu through the context; no ⋯ on the bar.

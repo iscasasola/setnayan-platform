@@ -26,6 +26,7 @@ import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { rebaseHubDraftPatch } from '@/lib/hub-draft-rebase';
 import { TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
 import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+import { hubDraftHistoryRows, hubDraftTimelineIndexOf, jumpHubDraft, namedHistoryRows } from '@/lib/hub-draft-history';
 
 /**
  * 👥 THE LAB'S TWO HOSTS (owner 2026-10-18, rulings A + B). A tab opened with `?as=indalecio` or `?as=claire` is that
@@ -160,7 +161,7 @@ export function labRows(own: boolean | LabOwnKind = false): InvitationWidgetRow[
 /** What the draft is compared against: the sample's rows — on the Scrub chain (`?scrub=1`), wearing the chain's start. */
 /** A draft STATE with nothing in it — the lab with nothing published. */
 const noState = (): HubDraftState => ({ events: {}, widgets: {} });
-const stateOf = ({ history: _history, v: _v, ...state }: HubDraft): HubDraftState => state;
+const stateOf = ({ history: _history, v: _v, ahead: _ahead, by: _by, at: _at, said: _said, pub: _pub, ...state }: HubDraft): HubDraftState => state;
 const asDraft = (state: HubDraftState | null | undefined): HubDraft => ({ v: 1, ...(state ?? noState()), history: [] });
 
 /** `over` laid on `under` by the real merge (a widget's fields one by one, a stage's place and show stage by stage). */
@@ -191,9 +192,12 @@ export function labLive(scrub: boolean, published: HubDraftState | null = null, 
 /** The ✓ bar for the lab's draft — the SAME summary, named changes and Pro effects the real save answers with. */
 export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, me?: string, own: LabOwnKind = null): HubDraftBarLive {
   const live = labLive(scrub, published, own);
+  /* ↺ The History list's rows, the lab's two hosts named (`LAB_HOSTS`) — the real loader's rows (`historyRowsFor`). */
+  const rows = hubDraftHistoryRows(draft, live, me);
+  const history = namedHistoryRows(rows, new Map(rows.flatMap((r) => (r.by ? [[r.by, labHostName(r.by)] as const] : []))));
   return {
-    free: { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) },
-    owned: { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) },
+    free: { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false), history },
+    owned: { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true), history },
     proEffects: hubDraftProEffects(draft, live, false).map(hubProEffectView),
     priceLabel: null,
   };
@@ -245,7 +249,7 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
 export function labDraftStep(
   current: HubDraft,
   /** `pro` — 💎 `?pro=1`: the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown; as?: unknown },
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown; as?: unknown; to?: unknown; stamp?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
@@ -275,6 +279,13 @@ export function labDraftStep(
     // ↺ Only this tab's host's own steps (ruling B) — with no host, the newest step, as before.
     const step = done(undoOwnHubDraftStep(current, me), fields.bar === '1');
     return matched === undefined || !step.result.ok ? step : { ...step, result: { ...step.result, matched } };
+  }
+  /* ↺ HISTORY — one row of the list, by its state's stamp and its place: the real action's `jumpHubDraft`. */
+  if (intent === 'history') {
+    const to = Number(fields.to);
+    const at = typeof fields.stamp === 'string' && Number.isInteger(to) ? hubDraftTimelineIndexOf(current, fields.stamp, to) : -1;
+    if (at < 0) return { draft: current, published, result: { ok: false, intent, error: 'Your history changed on another screen — open ↺ again to see the newest.' } };
+    return done(jumpHubDraft(current, at, me), fields.bar === '1');
   }
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
@@ -319,8 +330,10 @@ export function labDraftStep(
     const went = withoutHeld(stateOf(current), plan.remaining);
     const next = layState(published, went);
     const some = Object.keys(next.events).length + Object.keys(next.widgets).length + Object.keys(next.editorial ?? {}).length + Object.keys(next.fixedStyles ?? {}).length > 0;
+    // ↺ What Apply leaves is what guests see now — the History list's "Published <time>" row.
+    const left: HubDraft = { v: 1, ...plan.remaining, history: [], pub: new Date().toISOString() };
     return {
-      draft: { v: 1, ...plan.remaining, history: [] },
+      draft: left,
       published: some ? next : null,
       result: {
         ok: true,
@@ -328,7 +341,7 @@ export function labDraftStep(
         applied: hubDraftCountedChanges({ ...plan, refused: [] }).length,
         held: plan.refused.map((item) => ({ label: hubDraftItemLabel(item, makerSceneLabel), reason: 'needs_pro' as const })),
         /* ✓ …and the bar of what is left, when asked — as the real Apply answers (`hub-draft-actions.ts`). */
-        ...(fields.bar === '1' ? { bar: labDraftBar({ v: 1, ...plan.remaining, history: [] }, scrub, some ? next : null) } : {}),
+        ...(fields.bar === '1' ? { bar: labDraftBar(left, scrub, some ? next : null, me) } : {}),
       },
     };
   }

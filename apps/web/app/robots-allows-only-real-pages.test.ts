@@ -59,9 +59,11 @@ test('every bare robots Allow entry with a folder has a page of its own', () => 
 
 test('a bare /explore/compare is redirected by the middleware before anything streams', () => {
   const mw = stripComments(readFileSync(join(WEB, 'middleware.ts'), 'utf8'));
+  // 🔄 2026-11-12: it lands on Discover's supplier view (`/?browse=1`) — `/explore` is no longer a page (owner: *"find
+  // suppliers needs to be also inside discover already. they do not need to have their own page"*).
   assert.match(
     mw,
-    /pathname === '\/explore\/compare' && !request\.nextUrl\.searchParams\.get\('ids'\)\)\s*\{\s*return NextResponse\.redirect\(new URL\('\/explore', request\.url\), 307\)/,
+    /pathname === '\/explore\/compare' && !request\.nextUrl\.searchParams\.get\('ids'\)\)\s*\{\s*return NextResponse\.redirect\(new URL\('\/\?browse=1', request\.url\), 307\)/,
     'middleware.ts no longer answers a bare /explore/compare with a 307 — the page redirect streams and Safari logs every aborted prefetch',
   );
 });

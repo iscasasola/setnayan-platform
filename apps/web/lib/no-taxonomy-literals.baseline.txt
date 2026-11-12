@@ -20,8 +20,7 @@ app/_components/plan3d/kit/booth-templates.ts	list	3	# DESIGN · 3D booth sign t
 app/_components/plan3d/venue-decor.tsx	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/_components/plan3d/venue-objects.tsx	compare	3	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/(shell)/explore/_components/icon-tile-folder-strip.tsx	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
-app/(shell)/explore/page.tsx	import	10	# module-level copies left: the TAXONOMY_OPTIONS autocomplete and the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). Exit: thread the snapshot
-app/(shell)/explore/page.tsx	list	1	# module-level copies left: the TAXONOMY_OPTIONS autocomplete and the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). Exit: thread the snapshot
+app/(shell)/explore/_lib/marketplace-view.tsx	import	10	# module-level copies left: the tile-slug URL pair (SLUG_TO_TILE + buildHref must change TOGETHER). JSON-LD + ?folder= now read getTaxonomy(). MOVED 2026-11-12 from explore/page.tsx (the pipeline, shared with Discover). Exit: thread the snapshot
 app/admin/accounts/_surfaces/demo-vendors-surface.tsx	import	3	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 app/admin/categories/_components/load.ts	compare	1	# ADMIN · the editor’s own load
 app/admin/categories/page.tsx	compare	1	# ADMIN · the editor’s own default selection
@@ -68,6 +67,8 @@ lib/event-type-profile.ts	list	1	# UNREVIEWED · found when the guard landed (20
 lib/ghost-booths.ts	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/ghost-booths.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/inspiration-parts.ts	list	12	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
+lib/marketplace-category-options.ts	import	3	# MOVED 2026-11-12 from explore/page.tsx, unchanged · the TAXONOMY_OPTIONS autocomplete (/explore + Discover's "All categories ▾"). Exit: build it from getTaxonomy()
+lib/marketplace-category-options.ts	list	1	# MOVED 2026-11-12 from explore/page.tsx, unchanged · the TAXONOMY_OPTIONS autocomplete (/explore + Discover's "All categories ▾"). Exit: build it from getTaxonomy()
 lib/mood-board-derive.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/mood-board.ts	compare	2	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/moodboard-finalization.ts	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables

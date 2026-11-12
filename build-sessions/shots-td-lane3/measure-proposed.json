@@ -1,0 +1,284 @@
+[
+ {
+  "side": "couple",
+  "w": 390,
+  "label": "proposed",
+  "list": {
+   "x": 0,
+   "y": 0,
+   "w": 0,
+   "h": 0,
+   "display": "none",
+   "position": "static"
+  },
+  "pane": {
+   "x": 16,
+   "y": 63,
+   "w": 358,
+   "h": 652,
+   "display": "block",
+   "position": "static"
+  },
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 792,
+   "w": 358,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 0,
+   "y": 0,
+   "w": 0,
+   "h": 0,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 390
+ },
+ {
+  "side": "couple",
+  "w": 768,
+  "label": "proposed",
+  "list": {
+   "x": 96,
+   "y": 85,
+   "w": 324,
+   "h": 725,
+   "display": "block",
+   "position": "static"
+  },
+  "pane": {
+   "x": 420,
+   "y": 85,
+   "w": 324,
+   "h": 939,
+   "display": "flex",
+   "position": "sticky"
+  },
+  "box": {
+   "x": 421,
+   "y": 85,
+   "w": 323,
+   "h": 939,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 437,
+   "y": 972,
+   "w": 291,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 96,
+   "y": 127,
+   "w": 324,
+   "h": 683,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 768
+ },
+ {
+  "side": "couple",
+  "w": 1280,
+  "label": "proposed",
+  "list": {
+   "x": 272,
+   "y": 85,
+   "w": 444,
+   "h": 725,
+   "display": "block",
+   "position": "static"
+  },
+  "pane": {
+   "x": 716,
+   "y": 85,
+   "w": 532,
+   "h": 715,
+   "display": "flex",
+   "position": "sticky"
+  },
+  "box": {
+   "x": 717,
+   "y": 85,
+   "w": 531,
+   "h": 715,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 733,
+   "y": 748,
+   "w": 499,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 272,
+   "y": 127,
+   "w": 444,
+   "h": 683,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 1280
+ },
+ {
+  "side": "supplier",
+  "w": 390,
+  "label": "proposed",
+  "list": {
+   "x": 0,
+   "y": 0,
+   "w": 0,
+   "h": 0,
+   "display": "none",
+   "position": "static"
+  },
+  "pane": {
+   "x": 0,
+   "y": 51,
+   "w": 390,
+   "h": 688,
+   "display": "block",
+   "position": "static"
+  },
+  "box": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "display": "flex",
+   "position": "fixed"
+  },
+  "composer": {
+   "x": 16,
+   "y": 792,
+   "w": 358,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 0,
+   "y": 0,
+   "w": 0,
+   "h": 0,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 390
+ },
+ {
+  "side": "supplier",
+  "w": 768,
+  "label": "proposed",
+  "list": {
+   "x": 72,
+   "y": 61,
+   "w": 348,
+   "h": 739,
+   "display": "block",
+   "position": "static"
+  },
+  "pane": {
+   "x": 420,
+   "y": 61,
+   "w": 348,
+   "h": 963,
+   "display": "flex",
+   "position": "sticky"
+  },
+  "box": {
+   "x": 437,
+   "y": 73,
+   "w": 315,
+   "h": 951,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 453,
+   "y": 972,
+   "w": 283,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 88,
+   "y": 117,
+   "w": 316,
+   "h": 683,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 768
+ },
+ {
+  "side": "supplier",
+  "w": 1280,
+  "label": "proposed",
+  "list": {
+   "x": 240,
+   "y": 61,
+   "w": 473,
+   "h": 739,
+   "display": "block",
+   "position": "static"
+  },
+  "pane": {
+   "x": 713,
+   "y": 61,
+   "w": 567,
+   "h": 739,
+   "display": "flex",
+   "position": "sticky"
+  },
+  "box": {
+   "x": 730,
+   "y": 73,
+   "w": 534,
+   "h": 727,
+   "display": "flex",
+   "position": "static"
+  },
+  "composer": {
+   "x": 746,
+   "y": 748,
+   "w": 502,
+   "h": 44,
+   "display": "flex",
+   "position": "static"
+  },
+  "inbox": {
+   "x": 256,
+   "y": 117,
+   "w": 441,
+   "h": 683,
+   "display": "flex",
+   "position": "static"
+  },
+  "openRow": true,
+  "scrollW": 1280
+ }
+]

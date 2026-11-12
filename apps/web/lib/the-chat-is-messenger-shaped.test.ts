@@ -134,7 +134,10 @@ test('from 701 the list and the open thread stand side by side — the system’
   assert.match(panes, /export const CHAT_PANES_FROM = '\(min-width: 701px\)';/);
   // Never empty: with no thread open the latest one opens — from 701 only, so a phone list is never replaced (or read).
   assert.match(panes, /if \(mq\.matches\) router\.replace\(latestHref/, 'the empty right column does not open the latest chat');
-  assert.match(panes, /if \(!open && !latestHref\) return <>\{list\}<\/>;/, 'a list with nothing to open splits around an empty pane');
+  assert.match(panes, /const splits = open \|\| Boolean\(latestHref\);/);
+  assert.match(panes, /if \(!splits\) return <>\{list\}<\/>;/, 'a list with nothing to open splits around an empty pane');
+  // The pane ends at the window's foot where the page's column starts below the pin line (the couple's 24 px gutter).
+  assert.match(panes, /root\.style\.setProperty\('--sn-chat-pane-gap'/, 'the pane runs past the window and hides the composer');
   // Each tree: the list page hands the newest active chat and the arrival; each thread route draws the list page beside it.
   for (const [page, layout] of [
     ['app/dashboard/[eventId]/messages/page.tsx', 'app/dashboard/[eventId]/messages/[threadId]/layout.tsx'],

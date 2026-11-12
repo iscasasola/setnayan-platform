@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7688
+# facts: 7691
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     630
-#   col       5547
+#   col       5550
 #   policy    1125
 #   view      9
 #   func      373
@@ -5116,8 +5116,11 @@ col	public.vendor_form_service_links.created_at	anon=- authenticated=SI
 col	public.vendor_form_service_links.form_id	anon=- authenticated=SI
 col	public.vendor_form_service_links.vendor_service_id	anon=- authenticated=SI
 col	public.vendor_forms.created_at	anon=- authenticated=SIU
+col	public.vendor_forms.edited_from_form_id	anon=- authenticated=SIU
+col	public.vendor_forms.for_event_id	anon=- authenticated=SIU
 col	public.vendor_forms.form_id	anon=- authenticated=SIU
 col	public.vendor_forms.from_template_key	anon=- authenticated=SIU
+col	public.vendor_forms.in_library	anon=- authenticated=SIU
 col	public.vendor_forms.public_id	anon=- authenticated=SIU
 col	public.vendor_forms.retired_at	anon=- authenticated=SIU
 col	public.vendor_forms.title	anon=- authenticated=SIU

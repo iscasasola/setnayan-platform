@@ -158,11 +158,18 @@ test('🔑 the cards are the suppliers’ service cards, and say nothing about p
   assert.match(LIST, /svc=\{c\.card \?\? \(moreAll \? null : \(moreCards\?\.\[row\.vendorProfileId\] \?\? null\)\)\}/);
   assert.match(LIST, /cardsRead=\{!cardsUnread && \(moreAll \? true : moreCards !== null\)\}/);
   assert.match(LIST, /setMoreCards\(res\.serviceCardByProfileId\);/);
-  for (const line of ['svc?.discountBadge', 'svc.priceText', 'svc.includesLine', "svc.notIncluded.join(' · ')"]) {
+  // 2026-11-12 ONE SERVICE CARD: the card hands its facts to the one face, which prints them.
+  for (const line of [
+    'discount={svc?.discountBadge ?? null}',
+    'price={svc?.priceText ?? null}',
+    'includes={svc?.includesLine ?? null}',
+    'notIncluded={svc?.notIncluded ?? []}',
+  ]) {
     assert.ok(CARD.includes(line), `the marketplace card stopped printing ${line}`);
   }
   // The supplier's own name is still printed (the placeholder, when withheld).
-  assert.match(CARD, /<span className="vn">\{v\.name\}<\/span>/);
+  // 2026-11-12 ONE SERVICE CARD: printed by the face's shop line, handed in as the shop's name.
+  assert.match(CARD, /shop=\{\{ name: v\.name,/);
 });
 
 test('the verbs follow the button rule: one row, Ask for a quote is the main verb, no hand-made button', () => {

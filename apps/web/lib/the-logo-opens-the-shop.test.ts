@@ -46,7 +46,11 @@ import { stripComments } from './strip-comments';
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(join(here, rel), 'utf8');
 
-const cardView = stripComments(read('../app/_components/service-card-view.tsx'));
+// 12 Nov 2026 (ONE SERVICE CARD, EVERYWHERE): the marketplace card is drawn by the ONE face; `service-card-view.tsx`
+// maps the shop in and `service-face.tsx` draws the shop line. The claims below are about the two together.
+const cardView =
+  stripComments(read('../app/_components/service-card-view.tsx')) +
+  stripComments(read('../app/_components/service-face.tsx'));
 const explore = stripComments(read('../app/(shell)/explore/page.tsx'));
 const query = stripComments(read('./marketplace-service-cards.ts'));
 const sitemap = stripComments(read('../app/sitemap-vendors.xml/route.ts'));
@@ -108,12 +112,12 @@ test('the shop row is lifted ABOVE the stretched doorway, not inside it', () => 
   // the LAST child, paints over the logo and eats its clicks.
   assert.match(
     cardView,
-    /shop \? \(\s*<div className="relative z-10[^"]*">/,
+    /<span className="relative z-10[^"]*" data-service-face-shop="">/,
     'the shop row lost its z-10 lift — the stretched doorway now covers the logo',
   );
   // And the doorway must still be the last child of the card.
-  const doorwayAt = cardView.lastIndexOf('absolute inset-0 rounded-xl');
-  const shopAt = cardView.indexOf('<ShopMark');
+  const doorwayAt = cardView.lastIndexOf('absolute inset-0 rounded-2xl');
+  const shopAt = cardView.indexOf('<ShopLine');
   assert.ok(shopAt !== -1 && doorwayAt > shopAt, 'the shop row is no longer above the doorway');
 });
 
@@ -152,9 +156,10 @@ test('a logo on a host next/image cannot serve falls back, never breaks', () => 
   // The LEGACY shape: `logo_url` may hold a URL the vendor pasted, on any host.
   // next/image answers 400 for an unlisted host and the picture is simply not
   // there — nothing throws. It must reach the initials tile instead.
-  assert.match(
-    cardView,
-    /shop\.logoUrl && isOptimizableImageUrl\(shop\.logoUrl\) \? \(/,
+  // The one face draws the 20 px logo with a plain <img>, so a pasted legacy host loads as-is; next/image (which
+  // answers 400 for an unlisted host) must not come back to the card.
+  assert.ok(
+    !/from 'next\/image'/.test(cardView),
     'the logo goes to next/image unguarded; an unlisted host renders broken markup',
   );
   // The rule itself, and it is ONE rule — the marketplace vendor card imports

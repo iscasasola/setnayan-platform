@@ -23,9 +23,15 @@ swapped the whole header.
 - guard: `app/(shell)/old-shell-pages-wear-the-shell.test.ts` (sabotage: put
   `/blog` back in NAV_ROUTES → red); path updates in tests and baselines;
   regenerate port-control, design-rules and Ugat screens baselines
-- ⚠ known coverage gap (same as /for-suppliers on 2026-11-04): the port-control
-  scanner reads only a route's own folder, so links inside `app/creators/_components/`
-  and the other left-behind section files are no longer in its baseline
+- the port-control scanner (`scripts/port-controls.mjs`) read only a route's own
+  folder, so a page moved into a route group silently dropped the sections it
+  left behind (/creators lost `/realstories`, `/signup` and 19 blocks; /for-suppliers
+  had the same gap since 2026-11-04). It now also reads the same path with the
+  `(group)` segment removed — own files + private folders, never child routes, and
+  only while that folder serves no page of its own. All eight moved pages keep
+  every control they had on main; /features, /help, /panood, /papic and
+  /realstories regain files they had lost. Held by a new case in
+  `port-guard-reach.test.ts` (fails without the fix)
 
 Not changed: the reading pages `/blog/[slug]`, `/help/[slug]` and `/tour` keep
 their own top banner plus the reskin footer.

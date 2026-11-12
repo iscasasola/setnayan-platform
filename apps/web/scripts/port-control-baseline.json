@@ -129,7 +129,8 @@
     "/(shell)/blog": {
       "files": [
         "(shell)/blog/loading.tsx",
-        "(shell)/blog/page.tsx"
+        "(shell)/blog/page.tsx",
+        "blog/_components/story-card.tsx"
       ],
       "destinations": [
         "/blog",
@@ -181,11 +182,19 @@
     "/(shell)/creators": {
       "files": [
         "(shell)/creators/loading.tsx",
-        "(shell)/creators/page.tsx"
+        "(shell)/creators/page.tsx",
+        "creators/_components/creator-story-hero.tsx",
+        "creators/_components/creator-story-sections.tsx",
+        "creators/_components/creators-motion.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/creators",
+        "/realstories",
+        "/signup"
+      ],
       "actions": [],
       "blocks": [
+        "CardGrid",
         "CreatorStoryCTA",
         "CreatorStoryChapter",
         "CreatorStoryHero",
@@ -195,13 +204,22 @@
         "CreatorStoryWedge",
         "CreatorStoryWho",
         "CreatorStoryWhy",
+        "Eyebrow",
+        "FeatureLI",
+        "GridCard",
+        "H2",
+        "HTMLDivElement",
+        "Image",
+        "Lede",
+        "Link",
         "RevealOnView"
       ]
     },
     "/(shell)/download": {
       "files": [
         "(shell)/download/loading.tsx",
-        "(shell)/download/page.tsx"
+        "(shell)/download/page.tsx",
+        "download/_download-motion.tsx"
       ],
       "destinations": [
         "/api/download/mac",
@@ -210,14 +228,22 @@
       "actions": [],
       "blocks": [
         "AppWindowHero",
+        "DockApp",
+        "GuestRow",
+        "HTMLAnchorElement",
         "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
         "LineRevealH1",
         "Link",
+        "Logo",
         "MagneticDownloadButton",
+        "NavRow",
         "Note",
         "PlatformCompatBanner",
         "Req",
         "RevealGroup",
+        "StatCard",
         "Step",
         "Value"
       ]
@@ -348,14 +374,77 @@
     "/(shell)/features/(hub)": {
       "files": [
         "(shell)/features/(hub)/loading.tsx",
-        "(shell)/features/(hub)/page.tsx"
+        "(shell)/features/(hub)/page.tsx",
+        "features/_PageBody.tsx",
+        "features/_coming-chip.tsx",
+        "features/_feature-page.tsx",
+        "features/_feature-price.ts",
+        "features/_icons.ts",
+        "features/_plans-view.tsx",
+        "features/_row-sheet.tsx",
+        "features/_sections/_Ecosystem.tsx",
+        "features/_sections/_FeatureGroups.tsx",
+        "features/_sections/_FinalCTA.tsx",
+        "features/_sections/_Hero.tsx",
+        "features/_sections/_HowItWorks.tsx",
+        "features/_sections/_Plans.tsx",
+        "features/_sections/_Story.tsx",
+        "features/_sections/_WhySetnayan.tsx",
+        "features/_story-client.tsx",
+        "features/_story-icons.tsx",
+        "features/_story-sample-moments.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/blog/[seg]",
+        "/for-suppliers",
+        "/open-shop",
+        "/pricing",
+        "/signup",
+        "/suppliers"
+      ],
       "actions": [],
       "blocks": [
+        "Bar",
+        "ChapterBlock",
+        "ComingChip",
+        "Ctx.Provider",
+        "EcosystemBand",
+        "Explain",
+        "FeatureGroups",
+        "FeaturesHero",
         "FeaturesPageBody",
+        "FeaturesPlans",
+        "FeaturesStory",
+        "FinalCTA",
+        "Fragment",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HowItWorks",
         "HowSearchField",
-        "HowSearchResults"
+        "HowSearchResults",
+        "Icon",
+        "Image",
+        "Link",
+        "LocaleSwitch",
+        "LockIcon",
+        "Moment",
+        "Num",
+        "OtherIcon",
+        "PersonaChoice",
+        "PersonaPicker",
+        "PersonaScope",
+        "PersonaText",
+        "PickMenu",
+        "PlanCol",
+        "PlanKinds",
+        "PlansCompare",
+        "Row",
+        "RowSheet",
+        "Scope",
+        "StoryIcon",
+        "Tag",
+        "Tile",
+        "WhySetnayan"
       ]
     },
     "/(shell)/features/[slug]": {
@@ -410,16 +499,47 @@
     "/(shell)/for-suppliers": {
       "files": [
         "(shell)/for-suppliers/loading.tsx",
-        "(shell)/for-suppliers/page.tsx"
+        "(shell)/for-suppliers/page.tsx",
+        "for-suppliers/_components/plan-table-data.ts",
+        "for-suppliers/_components/supplier-badge-shelf.tsx",
+        "for-suppliers/_components/supplier-front-client.tsx",
+        "for-suppliers/_components/supplier-front-data.ts",
+        "for-suppliers/_components/supplier-front-info.tsx",
+        "for-suppliers/_components/supplier-front-page.tsx",
+        "for-suppliers/_components/supplier-plan-table.tsx"
       ],
       "destinations": [
         "/pricing"
       ],
       "actions": [],
       "blocks": [
+        "Cell",
+        "CheckADateDemo",
+        "CtaDock",
+        "DayStatus",
+        "FeeStory",
+        "FoldPill",
+        "GrowTier",
+        "GrowTiers",
+        "HTMLButtonElement",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HeroStage",
+        "Image",
+        "Info",
         "Link",
+        "Photo",
+        "Pill",
+        "PriceShapeCalc",
+        "QrChip",
+        "QrCtx.Provider",
+        "QrKey",
+        "QrSheetProvider",
+        "SupplierBadgeShelf",
         "SupplierFrontCodes",
-        "SupplierFrontPage"
+        "SupplierFrontPage",
+        "SupplierFrontRoot",
+        "SupplierPlanTable"
       ]
     },
     "/(shell)/guest-list": {
@@ -440,7 +560,8 @@
     "/(shell)/help": {
       "files": [
         "(shell)/help/loading.tsx",
-        "(shell)/help/page.tsx"
+        "(shell)/help/page.tsx",
+        "help/actions.ts"
       ],
       "destinations": [
         "/dashboard/[seg]/refer",
@@ -457,7 +578,8 @@
         "HowSearchResults",
         "Icon",
         "Link",
-        "SubmitButton"
+        "SubmitButton",
+        "VendorTier"
       ]
     },
     "/(shell)/marketplace": {
@@ -478,7 +600,9 @@
     "/(shell)/monogram": {
       "files": [
         "(shell)/monogram/loading.tsx",
-        "(shell)/monogram/page.tsx"
+        "(shell)/monogram/page.tsx",
+        "monogram/_monogram-motion.tsx",
+        "monogram/public-monogram-studio.tsx"
       ],
       "destinations": [
         "/login?next=/monogram",
@@ -487,11 +611,21 @@
       ],
       "actions": [],
       "blocks": [
+        "Blob",
         "ClosingCta",
+        "HTMLDivElement",
+        "HTMLElement",
+        "HTMLHeadingElement",
+        "HTMLOListElement",
         "Link",
         "MonogramHeadline",
+        "PanelThread",
         "PublicMonogramStudio",
-        "StepsReveal"
+        "StepsReveal",
+        "StudioAnim",
+        "StudioAnimKind",
+        "StudioApi",
+        "StudioRevealPlayer"
       ]
     },
     "/(shell)/mood-board": {
@@ -512,13 +646,15 @@
     "/(shell)/our-story": {
       "files": [
         "(shell)/our-story/loading.tsx",
-        "(shell)/our-story/page.tsx"
+        "(shell)/our-story/page.tsx",
+        "our-story/_pivot-line.tsx"
       ],
       "destinations": [
         "/privacy"
       ],
       "actions": [],
       "blocks": [
+        "HTMLParagraphElement",
         "Link",
         "OurStoryManifesto"
       ]
@@ -599,7 +735,9 @@
     "/(shell)/panood": {
       "files": [
         "(shell)/panood/loading.tsx",
-        "(shell)/panood/page.tsx"
+        "(shell)/panood/page.tsx",
+        "panood/actions.ts",
+        "panood/guest-pick-actions.ts"
       ],
       "destinations": [
         "/onboarding/wedding?from=panood",
@@ -609,7 +747,9 @@
       "actions": [],
       "blocks": [
         "DoorwayPage",
+        "GuestPickSessionResult",
         "Link",
+        "PanoodIceServersResult",
         "SpotlightSection"
       ]
     },
@@ -621,24 +761,41 @@
         "(shell)/papic/_papic-scan.tsx",
         "(shell)/papic/_papic-sections.tsx",
         "(shell)/papic/loading.tsx",
-        "(shell)/papic/page.tsx"
+        "(shell)/papic/page.tsx",
+        "papic/_components/camera-controls.tsx",
+        "papic/_components/camera-page-lock.tsx",
+        "papic/_components/papic-buy-shell.tsx",
+        "papic/_components/papic-guest-buy-panel.tsx",
+        "papic/_components/upload-chip.tsx",
+        "papic/actions.ts",
+        "papic/face-enroll-actions.ts"
       ],
       "destinations": [
         "/papic/try",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "releaseGuestDedicatedShots",
+        "startPapicGuestPurchase"
+      ],
       "blocks": [
         "Code",
         "Cost",
         "DemoFilm",
         "DemoQrPair",
         "Fact",
+        "HTMLDivElement",
         "HubHead",
+        "Icon",
         "Image",
+        "InfoTip",
         "Link",
         "Mini",
+        "OfferForm",
+        "OfferSubmit",
+        "OverlayBackdrop",
         "PapicAnchor",
+        "PapicBuyShell",
         "PapicDial",
         "PapicFeatures",
         "PapicFilm",
@@ -647,9 +804,14 @@
         "PapicFreeCreditFact",
         "PapicHub",
         "PapicScan",
+        "PersistSeatClipWebCopyResult",
+        "RecordSeatCaptureResult",
+        "ReleaseSection",
         "Reveal",
         "Row",
-        "Spotlights"
+        "Spotlights",
+        "TagSeatCaptureResult",
+        "UploaderSnapshot"
       ]
     },
     "/(shell)/papic/try": {
@@ -784,7 +946,10 @@
     "/(shell)/realstories": {
       "files": [
         "(shell)/realstories/loading.tsx",
-        "(shell)/realstories/page.tsx"
+        "(shell)/realstories/page.tsx",
+        "realstories/_components/gallery.tsx",
+        "realstories/_components/share-buttons.tsx",
+        "realstories/_components/stories-search.tsx"
       ],
       "destinations": [
         "/creators",
@@ -794,9 +959,23 @@
       ],
       "actions": [],
       "blocks": [
+        "BoomerangVideo",
+        "Companions",
+        "FacebookGlyph",
+        "FacetRow",
+        "HTMLDivElement",
+        "HTMLInputElement",
+        "HTMLVideoElement",
         "Link",
+        "PickMenu",
+        "PinterestGlyph",
         "RealStoriesGallery",
-        "StoriesSearch"
+        "SectionHead",
+        "StoriesSearch",
+        "StoryCard",
+        "StorytellerTile",
+        "Tile",
+        "VendorCreditChip"
       ]
     },
     "/(shell)/refunds": {
@@ -6034,7 +6213,10 @@
         "dashboard/(launcher)/incoming-request-actions.ts",
         "dashboard/(launcher)/layout.tsx",
         "dashboard/(launcher)/loading.tsx",
-        "dashboard/(launcher)/page.tsx"
+        "dashboard/(launcher)/page.tsx",
+        "dashboard/_components/pending-vendor-inquiry-dispatcher.tsx",
+        "dashboard/_components/secure-account-banner.tsx",
+        "dashboard/layout.tsx"
       ],
       "destinations": [
         "/",
@@ -6046,6 +6228,7 @@
         "/dashboard/profile?tab=profile",
         "/dashboard/samahan/[seg]",
         "/dashboard?seg=memories",
+        "/signup?next=[seg]",
         "/u/[seg]",
         "/vendor-dashboard",
         "/vendor-dashboard/services/new",
@@ -6060,6 +6243,7 @@
         "AccountBottomNav",
         "AccountSwitcher",
         "ActionButton",
+        "AnonGateProvider",
         "AppPreload",
         "AppRailShell",
         "AutoSurfacedEvents",
@@ -6084,6 +6268,7 @@
         "Flash",
         "ForTagMark",
         "GlassEventCard",
+        "GuidedTour",
         "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6108,7 +6293,9 @@
         "NewEventButton",
         "NewEventCard",
         "NewThingTile",
+        "OfflineViewerScript",
         "Pen",
+        "PendingVendorInquiryDispatcher",
         "PeopleSegment",
         "PermanenceWarning",
         "PinnedRow",
@@ -6122,6 +6309,7 @@
         "RemoveDialog",
         "SaveFileLink",
         "SectionLabel",
+        "SecureAccountBanner",
         "ShelfExample",
         "ShelfInfo",
         "SidePanel",
@@ -6131,6 +6319,7 @@
         "StartPlanningLink",
         "StayForm",
         "SupplierRecordsNote",
+        "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
         "VendorAvatar",

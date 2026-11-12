@@ -2,15 +2,15 @@
 
 /**
  * The stream's system lines that ARE a lane-C card (Supplier Build 3 · lane C): a booking ask, an ask for a change,
- * a guest-count change. The stream asks `streamLineKind` (pure, no import cost) whether a line is one; only then is
+ * a guest-count change, a quote that rose with the guest list. The stream asks `streamLineKind` (pure, no import cost) whether a line is one; only then is
  * this chunk fetched. Anything else stays the plain Setnayan line it always was.
  */
 import { bookRequestFromLine, changeAskFromLine, guestCountFromLine } from '@/lib/chat-cards';
-import { negotiationFromLine, pollFromLine } from '@/lib/chat-card-lines';
+import { negotiationFromLine, pollFromLine, quoteRiseFromLine } from '@/lib/chat-card-lines';
 import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
 import { ChangeAskCard } from './ask-change-card';
-import { GuestRecountCard } from './guest-recount-card';
+import { GuestRecountCard, QuoteRoseCard } from './guest-recount-card';
 import { NegotiationCard } from './negotiate-cards';
 
 export function StreamLineCard({
@@ -56,5 +56,7 @@ export function StreamLineCard({
   }
   const g = guestCountFromLine(body);
   if (g) return <GuestRecountCard threadId={threadId} from={g.from} to={g.to} viewer={viewer} supplierName={supplierName} eventDate={eventDate} />;
+  const rise = quoteRiseFromLine(body);
+  if (rise) return <QuoteRoseCard pax={rise.pax} deltaWords={rise.deltaWords} viewer={viewer} supplierName={supplierName} />;
   return null;
 }

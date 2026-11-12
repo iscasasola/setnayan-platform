@@ -46,6 +46,7 @@ import 'server-only';
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { discoverSupplierHref } from '@/lib/discover-suppliers';
 
 import { matchesCommandQuery } from '@/lib/command-match';
 import { searchReads } from '@/lib/site-search';
@@ -392,7 +393,9 @@ export async function FrontDoorResults({
               ? 'We searched our writing, the shops we publish, and anything of yours. The marketplace searches differently — by category, city and what a supplier actually does — so it is worth trying there.'
               : 'The marketplace searches by category, city and what a supplier actually does, across every shop and all 192 categories.'}
           </p>
-          <Link href={`/explore?q=${encodeURIComponent(query)}`} className="fd-go">
+          {/* 🔎 2026-11-12: the supplier view on this page (Find suppliers moved inside Discover), narrowed by the
+              same words — `/?q=…&browse=1` (lib/discover-suppliers.ts). Same words on the door. */}
+          <Link href={discoverSupplierHref(new URLSearchParams({ q: query }))} className="fd-go">
             Search suppliers for &ldquo;{query}&rdquo; &rarr;
           </Link>
         </div>

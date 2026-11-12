@@ -117,8 +117,9 @@ export type FeatureShot = {
   alt: Bi<string>;
 };
 
-/** The existing pages a visitor can try a feature on — no new try pages here. */
-export type FeatureTryHref = '/papic' | '/panood' | '/pa3d/try' | '/pawebsite' | '/explore' | '/explore/compare';
+/** The existing pages a visitor can try a feature on — no new try pages here.
+ *  `/?browse=1` is Discover's supplier view — supplier browsing moved there from `/explore` (2026-11-12 ruling). */
+export type FeatureTryHref = '/papic' | '/panood' | '/pa3d/try' | '/pawebsite' | '/?browse=1' | '/explore/compare';
 
 export type FeaturePageEntry = Readonly<{
   slug: FeatureSlug;

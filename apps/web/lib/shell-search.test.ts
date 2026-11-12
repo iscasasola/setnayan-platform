@@ -88,8 +88,9 @@ function landsInShell(href: string): { ok: boolean; why: string } {
 
 test('premise: the resolver finds the doorway and the shell where they are', () => {
   // A resolver that resolved nothing would make every assertion below vacuous.
-  assert.equal(landsInShell('/explore').ok, false, '/explore should resolve into the (shell) doorway layout');
-  assert.match(landsInShell('/explore').why, /doorway/);
+  // 🔄 2026-11-12: probed on /help — /explore is no longer a page (it forwards to Discover), so it resolves nowhere.
+  assert.equal(landsInShell('/help').ok, false, '/help should resolve into the (shell) doorway layout');
+  assert.match(landsInShell('/help').why, /doorway/);
   assert.equal(landsInShell('/').ok, false, '/ is the public front door, not the account shell');
   assert.equal(landsInShell('/dashboard/people').ok, true, landsInShell('/dashboard/people').why);
 });
@@ -153,7 +154,9 @@ test('2 · in the shared view, the marketplace row lives only in the front-door 
   const shellSide = src.slice(branch, src.indexOf(') : (', branch));
   assert.match(shellSide, /<ShellOnward\b/, 'the shell side no longer draws ShellOnward');
   assert.doesNotMatch(shellSide, /\/explore/, 'the shell side links to the marketplace');
-  const explore = [...src.matchAll(/\/explore\?q=/g)].map((m) => m.index!);
+  // 🔄 2026-11-12: the marketplace is Discover's supplier view now — the one link is built by `discoverSupplierHref`
+  // (`/?q=…&browse=1`), not a `/explore?q=` literal (owner: Find suppliers moved inside Discover).
+  const explore = [...src.matchAll(/discoverSupplierHref\(new URLSearchParams\(\{ q: query \}\)\)/g)].map((m) => m.index!);
   assert.equal(explore.length, 1, 'expected exactly one marketplace link, in the front-door branch');
   assert.ok(explore[0]! > branch + shellSide.length, 'the marketplace link moved into the shell branch');
 });

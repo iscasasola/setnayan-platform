@@ -384,7 +384,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
       is in the shared bar; the marketplace is a rail row. The `<h1>` below is
       untouched, so the page keeps exactly one heading.
     */
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         {/*

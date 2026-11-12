@@ -1838,7 +1838,7 @@ export function GenericOnboarding(props: Props) {
   const exit = onboardingExit(authed);
 
   return (
-    <main className="flex min-h-screen flex-col bg-paper">
+    <main className="flex min-h-screen flex-col bg-page">
       {/* Brand lockup — the Setnayan mark + wordmark, so the non-wedding onboarding
           carries the brand from the first screen (the "brand visible" onboarding rule),
           matching the wedding flow's header. Gold mark + mono champagne wordmark. */}

@@ -1,0 +1,424 @@
+/*
+ * THE LIVE PREVIEW — a couple's Home, painted from the DRAFT only (`--pv-*`, set inline by the editor). Ported rule for
+ * rule from the approved prototype (corpus Design_App_Colours_2026-11-12/app-colours-admin.html, `.pv …`). It is a
+ * PICTURE of the app, not the app: it reads none of the app's tokens, so what it shows is the draft and nothing else,
+ * and it is aria-hidden (the job rows carry every number a screen reader needs).
+ */
+.pv {
+  --pv-bg: #ffffff;
+  --pv-g1: #c24e25;
+  --pv-g2: #c24e25;
+  --pv-ga: 135deg;
+  --pv-band-ink: #ffffff;
+  --pv-card: #ffffff;
+  --pv-r: 14px;
+  --pv-edge: #e1dcd1;
+  --pv-money: #2b744a;
+  --pv-decision: #c24e25;
+  --pv-dword: #9d3f1e;
+  --pv-priv: #0284c7;
+  --pv-priv-text: #0369a1;
+  --pv-priv-tint: #e0f2fe;
+  --pv-toggle: #c24e25;
+  --pv-booked: #166b4a;
+  --pv-schedule: #2f6db5;
+  --pv-asked: #c9471a;
+  --pv-collect: #a2457e;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e1dcd1;
+  border-radius: var(--m-r-xl);
+  background: var(--pv-bg);
+  color: #2c2a29;
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  transition: background 300ms var(--sn-ease);
+}
+.phonebar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 18px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pv-band-ink);
+}
+.band {
+  position: relative;
+  padding: 36px 18px 26px;
+  background: linear-gradient(var(--pv-ga), var(--pv-g1), var(--pv-g2));
+  color: var(--pv-band-ink);
+  transition: background 300ms var(--sn-ease), color 300ms;
+}
+.wave .band {
+  border-radius: 0 0 36px 36px / 0 0 22px 22px;
+}
+.flat .band {
+  border-bottom: 1px solid var(--pv-edge);
+}
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.92;
+}
+.big {
+  margin-top: 4px;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+.big small {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.92;
+}
+.sub {
+  margin-top: 4px;
+  font-size: 13px;
+  opacity: 0.95;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+/* A pressable CHIP on the band — white pill, coloured icon circle, ink word. Never looks like a frame. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px 0 6px;
+  border-radius: var(--m-r-full);
+  background: #ffffff;
+  color: #2c2a29;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.35);
+}
+.chip i {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #ffffff;
+}
+.chip i svg {
+  width: 15px;
+  height: 15px;
+}
+.chipMoney i {
+  background: var(--pv-money);
+}
+.chipDecision i {
+  background: var(--pv-decision);
+}
+.body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 16px;
+}
+.overlap .body {
+  margin-top: -18px;
+  padding-top: 0;
+}
+/* THE FRAME: the draft's fill, rounded by --pv-r, lifted by the draft's shadow; a line only when there is no lift. */
+.frame {
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: var(--pv-r);
+  background: var(--pv-card);
+  box-shadow: var(--pv-sh, none);
+  transition: box-shadow 300ms var(--sn-ease), border-radius 300ms var(--sn-ease), border-color 300ms;
+}
+.lined .frame {
+  border-color: var(--pv-edge);
+}
+.frame h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.frame h4 small {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6e6a62;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+/* The preview's buttons: the app's one shape (.ab), painted from the draft. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid;
+  border-radius: var(--m-r-full);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 300ms var(--sn-ease), border-color 300ms var(--sn-ease), color 300ms var(--sn-ease);
+}
+.btn svg {
+  width: 17px;
+  height: 17px;
+}
+.money {
+  border-color: var(--pv-money);
+  background: var(--pv-money);
+  color: #ffffff;
+}
+.moneyOut {
+  border-color: color-mix(in srgb, var(--pv-money) 45%, transparent);
+  background: color-mix(in srgb, var(--pv-money) 9%, transparent);
+  color: var(--pv-money);
+}
+.decision {
+  border-color: var(--pv-decision);
+  background: var(--pv-decision);
+  color: #ffffff;
+}
+.decisionOut {
+  border-color: color-mix(in srgb, var(--pv-decision) 45%, transparent);
+  background: color-mix(in srgb, var(--pv-decision) 9%, transparent);
+  color: var(--pv-dword);
+}
+.neutral {
+  border-color: rgba(44, 42, 41, 0.18);
+  color: #2c2a29;
+}
+/* Category rows: icon tile + name + a thin bar in the tile's colour. */
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.cat + .cat {
+  border-top: 1px solid rgba(44, 42, 41, 0.06);
+}
+.tile {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--m-r-sm);
+  background: color-mix(in srgb, var(--tc) 12%, #ffffff);
+  color: var(--tc);
+}
+.tile svg {
+  width: 19px;
+  height: 19px;
+}
+.catText {
+  flex: 1;
+  min-width: 0;
+}
+.catText b {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.catText b small {
+  font-weight: 500;
+  color: #6e6a62;
+}
+.bar {
+  overflow: hidden;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: var(--m-r-full);
+  background: rgba(44, 42, 41, 0.08);
+}
+.bar i {
+  display: block;
+  width: var(--w);
+  height: 100%;
+  border-radius: var(--m-r-full);
+  background: var(--tc);
+}
+/* Toggle + pills. */
+.set {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(44, 42, 41, 0.06);
+}
+.set:first-of-type {
+  border-top: 0;
+}
+.setText {
+  flex: 1;
+  font-size: 14px;
+}
+.setText small {
+  display: block;
+  font-size: 12px;
+  color: #6e6a62;
+}
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 28px;
+  border-radius: var(--m-r-full);
+  background: rgba(44, 42, 41, 0.2);
+  transition: background-color var(--sn-pill-dur) var(--sn-ease);
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.switchOn {
+  background: var(--pv-toggle);
+}
+.switchOn::after {
+  left: 23px;
+}
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(44, 42, 41, 0.18);
+  border-radius: var(--m-r-full);
+  color: #2c2a29;
+  font-size: 13px;
+  font-weight: 500;
+}
+.pillOn {
+  border-color: var(--pv-toggle);
+  background: var(--pv-toggle);
+  color: #ffffff;
+}
+/* Private chat. */
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.msg {
+  max-width: 86%;
+  padding: 9px 12px;
+  border-radius: var(--m-r-md) var(--m-r-md) var(--m-r-md) 4px;
+  background: rgba(44, 42, 41, 0.06);
+  font-size: 13.5px;
+  line-height: 1.35;
+  align-self: flex-start;
+}
+.priv {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--pv-priv) 35%, transparent);
+  border-radius: var(--m-r-md) var(--m-r-md) 4px var(--m-r-md);
+  background: var(--pv-priv-tint);
+  align-self: flex-end;
+}
+.strip {
+  padding: 5px 12px 0;
+  color: var(--pv-priv-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.privText {
+  padding: 4px 12px 9px;
+  color: #2c2a29;
+}
+.compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.box {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--pv-priv);
+  border-radius: var(--m-r-full);
+  background: var(--pv-card);
+  color: #6e6a62;
+  font-size: 13px;
+}
+.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  /* the private WORDS shade — derived to read ≥ 4.5:1 under white, where the outline colour may not (#0284C7 → 4.10) */
+  background: var(--pv-priv-text);
+  color: #ffffff;
+}
+.send svg {
+  width: 17px;
+  height: 17px;
+}
+/* A job row's sample strip — the same pieces, on the page's soft wash. */
+.sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--m-r-md);
+  background: #ede8de;
+}
+.sampleBand {
+  display: inline-flex;
+  padding: 8px;
+  border-radius: var(--m-r-md);
+  background: linear-gradient(var(--pv-ga), var(--pv-g1), var(--pv-g2));
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv,
+  .pv * {
+    transition: none !important;
+  }
+}

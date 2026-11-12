@@ -7,6 +7,8 @@
  *
  *   ?plan=free|verified|solo|pro|ultra    (free = not verified yet; ultra = the `enterprise` tier)
  *   &outer=N                              the shop's own declared furthest distance (clamped to the plan)
+ *   &branches=N                           how many branches the fixture shop has (default 2 where the plan includes
+ *                                         them, clamped to `branchesIncluded`) — drawn by the shipped `ShopBranchesLine`
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -14,6 +16,7 @@ import { MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { ShopReachLine, ShopReachMap } from '@/app/v/[slug]/_components/shop-reach';
+import { ShopBranchesLine } from '@/app/v/[slug]/_components/shop-branches-line';
 import { ShopAddresses } from '@/app/v/[slug]/_components/shop-addresses';
 import { PinnedReviewCard } from '@/app/v/[slug]/_components/pinned-review-card';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
@@ -22,11 +25,13 @@ import { tierCaps } from '@/lib/vendor-tier-caps';
 
 const PLAN_TIER = { free: 'free', verified: 'verified', solo: 'solo', pro: 'pro', ultra: 'enterprise' } as const;
 type Plan = keyof typeof PLAN_TIER;
+/** Fixture branch cities for the lab shop (Tagaytay HQ) — sample data, dev-only. */
+const LAB_BRANCH_CITIES = ['Lipa', 'Batangas City', 'Silang', 'Nasugbu', 'Calamba', 'Sta. Rosa'] as const;
 
 export default async function ShopPlanLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; outer?: string }>;
+  searchParams: Promise<{ plan?: string; outer?: string; branches?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -39,6 +44,9 @@ export default async function ShopPlanLabPage({
   const quote = caps.premiumPage
     ? pinnedQuote('Plated service ran on time for 180 guests — the kare-kare got asked about all night.')
     : null;
+  const asked = sp.branches != null ? Math.floor(Number(sp.branches)) : 2;
+  const branchCount = Math.max(0, Math.min(Number.isFinite(asked) ? asked : 0, caps.branchesIncluded));
+  const branchCities = LAB_BRANCH_CITIES.slice(0, branchCount);
   const name = verified ? 'Sampaguita Table' : 'A caterer in Tagaytay';
 
   return (
@@ -70,6 +78,7 @@ export default async function ShopPlanLabPage({
                 Replies in your Setnayan inbox
               </span>
             </div>
+            <ShopBranchesLine cities={branchCities} hqCity="Tagaytay" />
             <ShopReachMap reach={reach} latitude={14.1153} longitude={120.9621} city="Tagaytay" />
             <ShopAddresses setnayanAddress="setnayan.com/sampaguita-table" ownAddress={ownAddress} />
             {quote ? (

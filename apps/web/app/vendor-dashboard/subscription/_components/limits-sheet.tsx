@@ -30,12 +30,12 @@ function FitLine({ r }: { r: FitRow }) {
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-ink">{r.title}</span>
         <span className="block text-[12.5px] leading-snug text-ink/70">{r.line}</span>
+        {r.fix ? (
+          <span className="block pt-1.5">
+            <ActionButton tone={r.state === 'blocks' ? 'brand' : 'neutral'} quiet icon={ArrowRight} label={r.fix.label} href={r.fix.href} />
+          </span>
+        ) : null}
       </span>
-      {r.fix ? (
-        <span className="shrink-0">
-          <ActionButton tone={r.state === 'blocks' ? 'brand' : 'neutral'} quiet icon={ArrowRight} label={r.fix.label} href={r.fix.href} />
-        </span>
-      ) : null}
     </div>
   );
 }
@@ -49,7 +49,7 @@ export function LimitsList({ fit }: { fit: DowngradeFit }) {
       <p className="hc-k2">{misfits.length > 0 ? `What doesn’t fit ${name}` : `Everything you have fits ${name}`}</p>
       {fit.rows.length > 0 ? (
         <div className="pt-1">
-          {fit.rows.map((r) => (
+          {[...fit.rows.filter((r) => r.state === 'blocks'), ...fit.rows.filter((r) => r.state !== 'blocks')].map((r) => (
             <FitLine key={r.key} r={r} />
           ))}
         </div>

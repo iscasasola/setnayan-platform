@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7756
+# facts: 7758
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5588
 #   policy    1135
 #   view      10
-#   func      388
+#   func      390
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -229,8 +229,8 @@ tpriv	public.event_vendor_preferences|authenticated	SIUD
 tpriv	public.event_vendor_refunds|authenticated	S
 tpriv	public.event_vendor_working_notes|anon	SIUD
 tpriv	public.event_vendor_working_notes|authenticated	SIUD
-tpriv	public.event_vendors|anon	SIUD
-tpriv	public.event_vendors|authenticated	SIUD
+tpriv	public.event_vendors|anon	IUD
+tpriv	public.event_vendors|authenticated	IUD
 tpriv	public.event_walkthrough_zones|authenticated	SIUD
 tpriv	public.event_wish_items|authenticated	SIUD
 tpriv	public.faith_vocab|anon	SIUD
@@ -2358,7 +2358,7 @@ col	public.event_vendors.deposit_dispute_settled_at	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_dispute_settled_by_user_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_id	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_method_label	anon=SIU authenticated=SIU
-col	public.event_vendors.deposit_paid_php	anon=SIU authenticated=SIU
+col	public.event_vendors.deposit_paid_php	anon=IU authenticated=IU
 col	public.event_vendors.deposit_proof_url	anon=SIU authenticated=SIU
 col	public.event_vendors.deposit_recorded_at	anon=SIU authenticated=SIU
 col	public.event_vendors.event_date_at_delete	anon=SIU authenticated=SIU
@@ -2366,7 +2366,7 @@ col	public.event_vendors.event_id	anon=SIU authenticated=SIU
 col	public.event_vendors.event_type_at_delete	anon=SIU authenticated=SIU
 col	public.event_vendors.event_vendor_package_id	anon=SIU authenticated=SIU
 col	public.event_vendors.excluded_from_market_median	anon=SIU authenticated=SIU
-col	public.event_vendors.food_allowance_php	anon=SIU authenticated=SIU
+col	public.event_vendors.food_allowance_php	anon=IU authenticated=IU
 col	public.event_vendors.hard_single_group	anon=SIU authenticated=SIU
 col	public.event_vendors.host_inclusions	anon=SIU authenticated=SIU
 col	public.event_vendors.linked_vendor_profile_id	anon=SIU authenticated=SIU
@@ -2387,7 +2387,7 @@ col	public.event_vendors.package_item_id	anon=SIU authenticated=SIU
 col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
-col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
+col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU
@@ -2404,8 +2404,8 @@ col	public.event_vendors.source	anon=SIU authenticated=SIU
 col	public.event_vendors.source_category	anon=SIU authenticated=SIU
 col	public.event_vendors.source_venue_directory_id	anon=SIU authenticated=SIU
 col	public.event_vendors.status	anon=SIU authenticated=SIU
-col	public.event_vendors.total_cost_php	anon=SIU authenticated=SIU
-col	public.event_vendors.transport_php	anon=SIU authenticated=SIU
+col	public.event_vendors.total_cost_php	anon=IU authenticated=IU
+col	public.event_vendors.transport_php	anon=IU authenticated=IU
 col	public.event_vendors.updated_at	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendors.vendor_name	anon=SIU authenticated=SIU
@@ -7535,6 +7535,8 @@ func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.event_hub_viewers(p_event_id uuid, p_window_minutes integer)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.event_team_presence_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.event_vendor_money_event_ids()	secdef=yes exec=authenticated search_path=public
+func	public.event_vendor_money_read(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.expire_lapsed_quotes(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp

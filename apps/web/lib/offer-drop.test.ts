@@ -80,7 +80,7 @@ test('🔒 an offer on one card comes off THAT card’s lines only — priced by
   assert.deepEqual(reachedLines(LINES, o, base.quoteCardIds).map((l) => l.label), ['Garden buffet'], 'a gift (null) line or another card was reached');
   const r = offerVersion({ ...base, offer: o });
   assert.ok(r.ok, !r.ok ? r.reason : '');
-  const expected = offersForQuote({ offers: [o], cardIds: ['card-buffet'], anchorPhp: 90000, today: TODAY, eventDate: base.eventDate, now: NOW })[0]!;
+  const expected = offersForQuote({ offers: [o], lines: [{ cardId: 'card-buffet', amountPhp: 90000 }], today: TODAY, eventDate: base.eventDate, now: NOW })[0]!;
   assert.equal(r.version.fit.offPhp, expected.offPhp);
   assert.equal(r.version.fit.offPhp, offAmount(o, 90000), 'not the Offer Maker’s own sum on the card');
   assert.equal(r.version.fit.offPhp, 10000, '10% of ₱90,000 then ₱1,000 — not the whole ₱110,000 quote');

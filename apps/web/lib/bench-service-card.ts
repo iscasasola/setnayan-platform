@@ -54,6 +54,11 @@ export type BenchServiceCard = {
   givesSetnayanGift: boolean;
   /** The card's cover photograph, already a display URL — null when none. */
   coverUrl: string | null;
+  /**
+   * 🎞 The card's showcase photos (resolved, ≤5) — the cover plays through them (owner 12 Nov). Absent / empty → the
+   * still cover. Emptied with the name while a supplier is withheld: a photo can name a shop as surely as its name.
+   */
+  photos?: string[];
 };
 
 export type BenchServiceDiscount = StoredDiscount & { expires_at?: string | null };
@@ -80,6 +85,8 @@ export function benchServiceCard(input: {
   hidePrices: boolean;
   /** The cover, already resolved to a display URL by the caller. */
   coverUrl: string | null;
+  /** 🎞 The showcase photos, already resolved by the caller. */
+  photos?: readonly string[];
   /** The render's clock — injected, never read here. */
   now: Date;
 }): BenchServiceCard {
@@ -106,6 +113,7 @@ export function benchServiceCard(input: {
       : snap.notIncluded,
     givesSetnayanGift: snap.givesSetnayanGift,
     coverUrl: input.coverUrl,
+    photos: [...(input.photos ?? [])],
   };
 }
 
@@ -129,7 +137,7 @@ export function withholdCardNames(
   const out: Record<string, BenchServiceCard> = { ...cards };
   for (const id of anonymizedIds) {
     const card = out[id];
-    if (card) out[id] = { ...card, name: '' };
+    if (card) out[id] = { ...card, name: '', photos: [] };
   }
   return out;
 }

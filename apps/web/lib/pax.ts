@@ -229,6 +229,9 @@ export async function resolveLivePax(
  */
 export { computeAddedPaxSurcharge } from './added-pax-surcharge';
 
+/** A confirmed booking (the SQL `vendor_requote_blocker` 'deal_locked' set) — the repricer leaves these to Piece 2. */
+const BOOKED_STATUSES: ReadonlySet<string> = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+
 export type PaxSurchargeProposal = {
   /** event_vendors.vendor_id (the booking row id) — Accept/Decline target. */
   eventVendorId: string;
@@ -261,6 +264,8 @@ export async function fetchVendorPaxProposals(
     vendorProfileId: string;
     livePax: number | null;
     paxAtInquiry: number | null;
+    /** Does the shop's standing quote follow the guest list? null = the read was refused (propose nothing). */
+    quoteFollowsGuestList?: boolean | null;
   },
 ): Promise<PaxSurchargeProposal[]> {
   const { eventId, vendorProfileId, livePax, paxAtInquiry } = opts;
@@ -283,7 +288,7 @@ export async function fetchVendorPaxProposals(
   const { data: rows } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, service_id, total_cost_php, pax_quote_base, pax_surcharge_php, cost_basis_pax',
+      'vendor_id, category, vendor_name, service_id, status, total_cost_php, pax_quote_base, pax_surcharge_php, cost_basis_pax',
     )
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
@@ -306,8 +311,17 @@ export async function fetchVendorPaxProposals(
     }
   }
 
+  // 👥💸 ONE PAX MECHANISM, NEVER TWO (Piece 1 · PR-2, migration 20271339826198). A not-yet-booked booking whose
+  // standing quote carries its own per-head rate is repriced by `quote_follow_guest_count` as the list grows; an
+  // added-guest surcharge on top would charge the same guests twice (the database refuses it too —
+  // `event_vendors_pax_follow_owns_the_count`). The caller reads the quote (`standingQuoteFollowsGuestList`); a refused
+  // read (null) proposes NOTHING rather than a possible double charge.
+  const followed = opts.quoteFollowsGuestList;
+  if (followed === null) return [];
+
   const proposals: PaxSurchargeProposal[] = [];
   for (const r of rows) {
+    if (followed === true && !BOOKED_STATUSES.has(String(r.status))) continue;
     // Only committed costs can be surcharged — nothing to adjust otherwise.
     if (r.total_cost_php == null) continue;
     const svc = r.service_id ? rateByService.get(r.service_id) : undefined;

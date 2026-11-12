@@ -34,7 +34,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stripComments } from '@/lib/strip-comments';
-import { PLUS_ROW_PAGE, hostPlusRows } from '@/lib/chat-plus';
+import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, hostPlusRows } from '@/lib/chat-plus';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import {
   PICKED_SUPPLIER_PAGES,
@@ -138,7 +138,10 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
   // The host's (+) rows sit under pages of THIS menu, in its order, Report last.
   const order = PICKED_SUPPLIER_PAGES.map((p) => p.id as string);
   for (const canLogPayment of [true, false]) {
-    const ranks = hostPlusRows({ canLogPayment }).map((r) => order.indexOf(PLUS_ROW_PAGE[r.key]));
+    // 🤝 The Negotiate group (12 Nov) heads the (+) above every page — it is not a page of this menu (chat-plus.test 8 holds it first).
+    const ranks = hostPlusRows({ canLogPayment })
+      .filter((r) => PLUS_ROW_PAGE[r.key] !== NEGOTIATE_GROUP)
+      .map((r) => order.indexOf(PLUS_ROW_PAGE[r.key] as string));
     assert.ok(ranks.every((r) => r >= 0), 'a host (+) row sits under a page the picked supplier does not have');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, 'the host’s (+) runs against its menu’s order');
     assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'report');

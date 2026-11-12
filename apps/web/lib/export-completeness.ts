@@ -277,6 +277,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'event_supplier_files',
+    decision: 'excluded',
+    why:
+      'What a SHOP filed for one event (Piece 3b, 2026-11-12) — photos under a quoted service, booking documents, ' +
+      'mapped portfolio pointers and links — keyed to the shop (vendor_profile_id) and the event, not to a person. ' +
+      '`created_by` is an actor stamp on which shop account pressed upload; the row says nothing about that person. ' +
+      'The shop reads every row on the client\'s Files page and the couple decides on them in their approvals sheet.',
+  },
+  {
     table: 'shop_gift_stock_entries',
     decision: 'excluded',
     why:

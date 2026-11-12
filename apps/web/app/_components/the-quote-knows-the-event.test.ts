@@ -27,12 +27,15 @@ test('the brief is mounted once, under Pick service cards ("Their event"), above
   // 2026-11-08 · THE ONE BUILD (v113, the owner's eleven steps): the fold sits under step 2 "Pick service cards",
   // right above the guests counter it informs — where v113 draws "Their event". Still one fold, still above the header.
   assert.equal(count(maker, /data-testid="quote-event-brief"/g), 1);
-  const from = maker.indexOf('<QuoteSection id="cards"');
+  // 2026-11-12 · the guests & hours moved into their own section ABOVE it ("Following their guest list", owner ruling),
+  // so the fold now sits under Pick service cards, after the counts it informs.
+  const from = maker.search(/<QuoteSection\s+id="cards"/);
   const to = maker.indexOf('</QuoteSection>', from);
   const start = maker.slice(from, to);
+  assert.ok(from > 0, 'Pick service cards is gone');
   assert.match(start, /data-quote-their-event=""/, 'the brief lost its "Their event" fold');
   assert.match(start, /data-testid="quote-event-brief"/);
-  assert.ok(maker.indexOf('data-testid="quote-event-brief"') < maker.indexOf('Header — seeded pax/hours'));
+  assert.ok(maker.search(/<QuoteSection\s+id="guests"/) < from, 'the guest list section left its place above the cards');
   assert.equal(count(maker, /data-testid="quote-brief-withheld"/g), 1);
 });
 

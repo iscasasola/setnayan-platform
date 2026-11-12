@@ -21,6 +21,6 @@ PR-1 → PR-3; the (+) registration of its two rows is left to the controller (s
 - **See every version · side by side** — `versionsSideBySide` + `versionsOldestFirst` in `lib/quote-versions.ts`, on
   ONE line pairing shared with `quoteChanges`; `quote-versions-compare.tsx` (two pickers, changed rows marked) with a
   "Side by side" door on `quote-version-line.tsx`.
-- Ugat: joint J69 (Thread → Proposal). Lab: `/dev/offer-card-lab`.
+- Ugat: joint J70 (Thread → Proposal). Lab: `/dev/offer-card-lab`.
 
 SPEC IMPACT: None

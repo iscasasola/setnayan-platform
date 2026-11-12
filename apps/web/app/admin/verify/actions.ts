@@ -38,6 +38,7 @@ import {
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -523,14 +524,13 @@ async function applyApplicationDecision(
       toState = 'verified';
       appStatus = 'approved';
       appDecision = 'approved';
-      // 🔑 THE BADGE'S DEADLINE (owner 2026-09-11 · Q5): the Mayor's Permit's
-      // own printed date when the reviewer recorded it, so the reminder lands
-      // 60 days before THAT and the badge comes off the day it runs out. The
-      // one-year renewal stays as the fallback, byte-for-byte what this wrote
-      // before. The shop's listing and bookability never read this column.
+      // 🔑 THE BADGE'S DEADLINE — the ONE renewal day, 30 March of the next year (owner 12 Nov 2026,
+      // `deadlineAtApproval`): the reminder lands 60 days before it and the badge comes off on it. The reviewer's
+      // permit date is recorded with the approval (audit below) but no longer sets the day. The shop's listing and
+      // bookability never read this column.
       approveSideEffects = {
         last_verified_at: now,
-        next_renewal_due_at: deadlineAtApproval(new Date(now), input.permitDeadlineIso ?? null),
+        next_renewal_due_at: deadlineAtApproval(new Date(now)),
         public_visibility: 'verified',
       };
       break;
@@ -675,12 +675,23 @@ async function applyApplicationDecision(
           metadata: {
             evidence_at_grant: evidence,
             badge_deadline: approveSideEffects.next_renewal_due_at ?? null,
-            badge_deadline_source: input.permitDeadlineIso ? 'mayors_permit' : 'one_year_renewal',
+            badge_deadline_source: 'march_30_renewal',
+            permit_valid_until: input.permitDeadlineIso ?? null,
           },
         }
       : {}),
   });
   if (auditErr) return { ok: false, error: plainRefusal('AdminVerifyActions (auditErr)', auditErr) };
+
+  // 🏅 Regular verification's reward (owner 12 Nov 2026): the four papers approved → 1 × 4 weeks of Ultra, once per
+  // shop, ever — a shop founders-verified earlier already had its weeks (`lib/verification-plan-reward.server.ts`).
+  if (input.decision === 'approved' && toState === 'verified' && fromState !== 'verified') {
+    await grantVerificationPlanReward(admin, {
+      vendorProfileId: vendor.vendor_profile_id,
+      door: 'regular',
+      actorUserId: input.actor.user_id,
+    });
+  }
 
   // Cross-account signal (Phase B · 2026-06-19): tell the vendor their
   // verification status changed, carrying the decision_reason. Only the three

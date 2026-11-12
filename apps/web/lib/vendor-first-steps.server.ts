@@ -7,7 +7,8 @@ import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 import { businessProfileChecklist, profileGaps, type VendorProfileRow } from '@/lib/vendor-profile';
-import { offerProgress, type SetupCard } from '@/lib/supplier-setup';
+import { cardsToCount, offerProgress, type SetupCard } from '@/lib/supplier-setup';
+import { tierCaps } from '@/lib/vendor-tier-caps';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 /** The coarse profile categories (`syncProfileFromCoverages` preserves the same set beside the leaves). */
@@ -103,7 +104,19 @@ export async function fetchVendorFirstStepsState(
     serviceCount: serviceRead.count,
     // 🔢 Each real service once — never the coarse profile category beside its own leaf (owner 2026-10-29).
     offer: serviceRead.cards
-      ? offerProgress((profile as { services?: string[] | null }).services ?? [], serviceRead.cards, COARSE_SERVICE_KEYS)
+      ? offerProgress(
+          (profile as { services?: string[] | null }).services ?? [],
+          serviceRead.cards,
+          COARSE_SERVICE_KEYS,
+          // 🔢 Never more than the plan lets this shop make (`cardsToCount`). The row handed in carries neither column
+          // today (`FULL_VENDOR_PROFILE_SELECT`), so this reads the Free allowance — the right one here: this rail is
+          // drawn only for a shop not yet verified, and no plan opens before the papers (`canUse`). A comped or founder
+          // shop that could make more simply finishes the step sooner — never a step that cannot finish.
+          cardsToCount(
+            tierCaps((profile as { tier_state?: string | null }).tier_state).servicesPerLeaf,
+            (profile as { is_founder?: boolean | null }).is_founder === true,
+          ),
+        )
       : null,
     docsStatus: (application?.status as VerificationAppStatus | undefined) ?? 'none',
     // 🔢 One count: the four required papers (owner 2026-10-22) — never every upload.

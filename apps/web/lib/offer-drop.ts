@@ -184,12 +184,11 @@ export function offerVersion(input: {
   if (input.lines.some((l) => l.offer_id === input.offer.id)) return { ok: false, reason: applyRefusalWords('ALREADY_APPLIED') };
   if (input.lines.some((l) => typeof l.offer_id === 'string' && l.offer_id.length > 0)) return { ok: false, reason: applyRefusalWords('ANOTHER_OFFER') };
   const reached = reachedLines(input.lines, input.offer, input.quoteCardIds);
-  const anchorCentavos = reached.reduce((s, l) => s + (l.amount_centavos ?? 0), 0);
   const cardIds = [...new Set(reached.map((l) => lineCardId(l, input.quoteCardIds)).filter((c): c is string => !!c))];
   const fit = offersForQuote({
     offers: [input.offer],
-    cardIds,
-    anchorPhp: anchorCentavos / 100,
+    // Main's door (owner 12 Nov) anchors an offer on the lines it reaches; hand it exactly the reached lines.
+    lines: reached.map((l) => ({ cardId: lineCardId(l, input.quoteCardIds), amountPhp: (l.amount_centavos ?? 0) / 100 })),
     today: input.today,
     eventDate: input.eventDate,
     now: input.now,

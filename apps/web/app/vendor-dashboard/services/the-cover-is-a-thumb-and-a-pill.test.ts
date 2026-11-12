@@ -38,12 +38,14 @@ test('thumb mode draws one thumb and one ActionButton, and none of the big-box p
   assert.match(fu, /const currentCount = \((?:pillMode \|\| )?thumbMode \? 0 : items\.length\) \+ inFlight\.length;/);
 });
 
-test('adding a line or an extra is the shipped ActionButton pill, not a text link', () => {
+// 📐 Ruling 6058 (the Card Maker as one form, approved 11 Nov 2026): "Add a line" / "Add an extra" is the LAST ROW of its
+// list (`AddLineRow`, app/_components/form-row-line.tsx) — it was a floating ActionButton pill; never a bare text link.
+test('adding a line or an extra is the list’s last row, not a text link', () => {
   const inc = read('app/vendor-dashboard/services/_components/service-list-editors.tsx');
   const bare = inc.slice(inc.indexOf('data-inclusions-bare'));
-  assert.match(bare.slice(0, 4000), /<ActionButton tone="neutral" icon=\{Plus\} label="Add a line" onClick=\{add\} \/>/);
+  assert.match(bare.slice(0, 4000), /<AddLineRow label="Add a line" onAdd=\{add\}/);
   const add = read('app/vendor-dashboard/services/_components/addons-editor.tsx');
   const addBare = add.slice(add.indexOf('data-addons-bare'));
-  assert.match(addBare.slice(0, 5000), /<ActionButton tone="neutral" icon=\{Plus\} label="Add an extra" onClick=\{add\} \/>/);
+  assert.match(addBare.slice(0, 5000), /<AddLineRow label="Add an extra" onAdd=\{add\}/);
   assert.doesNotMatch(addBare.slice(0, addBare.indexOf('</div>\n    );')), /text-sn-accent/);
 });

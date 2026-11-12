@@ -84,8 +84,19 @@ function ignoredBlocks(source: string): string[] {
   );
 }
 
+/**
+ * 📐 A Form-row template's `name` is the row's LABEL ("Price", "Cover photo"), never a form field: those rows post only
+ * through `fieldName` (app/_components/form-row.tsx · lib/tell-the-form.ts), and the maker's one form (ruling 6058) is
+ * drawn with them. Their label is set aside before the scan; a `fieldName` is not, so a row that posts still counts.
+ */
+const FORM_ROW_LABEL = /(<(?:TypedRow|ChosenRow|OpensRow|FormRow|SwitchRow)\s+)name(\s*=)/g;
+
 function namesIn(source: string): string[] {
   const out: string[] = [];
+  source = source.replace(FORM_ROW_LABEL, '$1label$2');
+  for (const m of source.matchAll(/(?<![\w$.])fieldName\s*=\s*"([^"]*)"/g)) {
+    out.push(m[1] ?? '');
+  }
   // name="literal"
   for (const m of source.matchAll(/(?<![\w$.])name\s*=\s*"([^"]*)"/g)) {
     out.push(m[1] ?? '');
@@ -200,9 +211,8 @@ test('the maker posts EVERY field the wizard posts — the server cannot tell a 
   );
   // Anything beyond the wizard's set is a NAMED field the save reads — never an unnamed extra.
   // `<SupplierThumbRow name="maker">` names the thumb row (its guard anchor), not a form field.
-  // 🃏 `<TypedRow name="A short note for Setnayan">` (card-checks.tsx, "It's mine — report it") is the row's LABEL; it has
-  // no `fieldName`, so it posts nothing with the card — the note goes by `cardPhotoAction`, never by the card form.
-  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker', 'A short note for Setnayan']);
+  // 🃏 `<TypedRow name="A short note for Setnayan">` (card-checks.tsx) is a row's LABEL — set aside by `FORM_ROW_LABEL`.
+  const known = new Set<string>([...MAKER_ONLY_FIELDS, 'maker']);
   const onlyCanvas = sorted(canvas).filter((n) => !wizard.has(n) && !known.has(n));
   assert.deepEqual(
     onlyCanvas,

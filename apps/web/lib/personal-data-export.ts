@@ -1146,7 +1146,7 @@ export async function buildPersonalDataExport(
       .select('thread_id, blocker_kind, subject_key, shown_count, first_shown_at, last_shown_at')
       .eq('user_id', user.id),
     // 🔒 RA 10173 access right (owner FINAL RULINGS 2026-11-09): the PRIVATE lines sent TO this person
-    // (`recipient_user_id` = the subject, migration 20271329968207). Their sender's own copy is
+    // (the subject is in `recipient_user_ids`, migrations 20271329968207 · 20271340374819). Their sender's own copy is
     // `chat_messages_authored`; this is the recipient's. Privileged when the key is present, because a host who
     // has since left the conversation still owns what was said to them; bounded by recipient_user_id = the
     // subject, fixed projection. Without the key, the person's own session reads it (the restrictive policy lets
@@ -1154,7 +1154,9 @@ export async function buildPersonalDataExport(
     (admin ?? supabase)
       .from('chat_messages')
       .select('message_id, thread_id, sender_role, body, created_at')
-      .eq('recipient_user_id', user.id)
+      // 💬 2026-11-12: a private line may go to several people (recipient_user_ids, migration 20271340374819) —
+      // this person is one of them, wherever in the list.
+      .contains('recipient_user_ids', [user.id])
       .order('created_at', { ascending: true }),
   ]);
 

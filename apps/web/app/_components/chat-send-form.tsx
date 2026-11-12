@@ -34,8 +34,8 @@ import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, privateBoxPlaceholder } from '@/lib/chat-private';
-import { setPrivateTo, useChatPeople, usePrivateTo } from '@/app/_components/chat/private-to';
+import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, joinNames, privateBoxPlaceholder } from '@/lib/chat-private';
+import { setPrivateTo, useChatPeople, usePrivateReply, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { SubmitButton } from './submit-button';
 import { pressMs } from './press-feel';
@@ -112,9 +112,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
   // (paperclip · camera · photo) are not drawn, and a file already picked is let go. × on the chip → everyone again.
+  // 🔒 TWO DOORS (owner, 12 Nov): a face in the strip (one person) or the 🔒's ticks (several) — one list either way.
   const privateTo = usePrivateTo(threadId);
+  const privateNames = privateTo ? privateTo.map((p) => p.name) : [];
   // 🔒 The composer's own door: the people in this chat (the strip's faces, you excluded); none → no 🔒.
   const chatPeople = useChatPeople(threadId);
+  // 🔁 A reply goes to the same people (owner, 12 Nov): the 🔒 opens with them ticked.
+  const replyIds = usePrivateReply(threadId);
   const [pickingPrivate, setPickingPrivate] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   /* ↔ THE COMPOSER SLIDES (owner, 9 Nov: "fully animate the message when the text box expands and the buttons move to the
@@ -181,8 +185,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
     window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
   };
-  // The 🔒 (the one door) turning private mode on puts the cursor in the box.
-  const privateUserId = privateTo?.userId ?? null;
+  // Either door turning private mode on (or changing who) puts the cursor in the box.
+  const privateUserId = privateTo ? privateTo.map((p) => p.userId).join(',') : null;
   useEffect(() => {
     if (privateUserId) textareaRef.current?.focus();
   }, [privateUserId]);
@@ -366,7 +370,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           fileName: hasFile ? (formData.get('attachment') as File).name : null,
           at: Date.now(),
           state: 'sending',
-          privateTo: privateTo?.name ?? null,
+          privateTo: privateTo ? privateNames : null,
         };
         window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
         setSlashText(null);
@@ -389,12 +393,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     >
       <input type="hidden" name="thread_id" value={threadId} />
       {sentAs ? <input type="hidden" name={CHAT_SENT_AS_FIELD} value={sentAs} /> : null}
-      {privateTo ? <input type="hidden" name={CHAT_PRIVATE_FIELD} value={privateTo.userId} /> : null}
+      {privateTo?.map((p) => <input key={p.userId} type="hidden" name={CHAT_PRIVATE_FIELD} value={p.userId} />)}
 
-      {/* 🔒 The 🔒's list — pick one person, the message box goes private for them. */}
+      {/* 🔒 The 🔒's list — tick one or several, the message box goes private for them. */}
       {!privateTo && pickingPrivate && chatPeople.length > 0 ? (
         <PrivatePeopleList
           people={chatPeople}
+          initiallyTicked={replyIds ?? []}
           onPick={(to) => {
             setPickingPrivate(false);
             setPrivateTo(threadId, to);
@@ -543,8 +548,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
-          aria-label={privateTo ? privateBoxPlaceholder(privateTo.name) : 'Message'}
+          placeholder={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
+          aria-label={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
           className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-ink/[0.06] px-3.5 placeholder:text-ink/45'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
           data-rides=""
           onPaste={(e) => {
@@ -625,7 +630,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
               iconOnly
               icon={X}
               label="To everyone"
-              name={`Stop the private message to ${privateTo.name} — the next message goes to everyone`}
+              name={`Stop the private message to ${joinNames(privateNames)} — the next message goes to everyone`}
               className="absolute -bottom-[3px] right-0"
               onClick={() => {
                 setPrivateTo(threadId, null);

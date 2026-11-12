@@ -23,7 +23,7 @@ import {
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
-import { CHAT_PRIVATE_FIELD, privateToFromForm } from '@/lib/chat-private';
+import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
 
 /**
@@ -104,8 +104,9 @@ export async function sendChatMessage(formData: FormData) {
       ? { ref: rawRef.trim(), name: typeof rawRefName === 'string' ? rawRefName : '' }
       : null;
 
-  // 🔒 Private to one person (the composer's chip) — parsed here, judged in the core.
-  const privateTo = privateToFromForm(formData.get(CHAT_PRIVATE_FIELD), null);
+  // 🔒 Private to one person (a face) or several (the 🔒's ticks) — one field per person; parsed here, judged in the core.
+  const privateList = privateToListFromForm(formData.getAll(CHAT_PRIVATE_FIELD), null);
+  const privateTo = privateList.length > 0 ? privateList : null;
 
   // 🏪 The supplier's composer says it is the shop's (`lib/chat-sent-as.ts`); the host's says nothing.
   const asSide = sentAsFromForm(formData.get(CHAT_SENT_AS_FIELD));
@@ -164,8 +165,8 @@ export async function notifyOtherParty(args: {
    * the notification type from chat_message to vendor_inquiry_received.
    */
   isFirstMessage?: boolean;
-  /** 🔒 A private message: ONLY this person is told (marked private); nobody else is notified or sees a placeholder. */
-  privateTo?: string | null;
+  /** 🔒 A private message: ONLY these people are told (marked private); nobody else is notified or sees a placeholder. */
+  privateTo?: string | readonly string[] | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -188,20 +189,21 @@ export async function notifyOtherParty(args: {
   const preview = args.body.slice(0, 140);
 
   if (args.privateTo) {
+    // 👥 One or several (owner, 12 Nov) — each recipient told once, at their own door; nobody else.
+    const recipients = typeof args.privateTo === 'string' ? [args.privateTo] : [...args.privateTo];
     // The shop's people (the owner, or a team member who may chat here) read the thread at the supplier's door; a host
     // at the event's.
-    const toShop =
-      vendorRes.data?.user_id === args.privateTo ||
-      (await readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId })).userIds.includes(
-        args.privateTo,
-      );
-    await emitNotification({
-      userId: args.privateTo,
-      type: 'chat_message',
-      title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
-      body: preview,
-      relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : `/dashboard/${args.eventId}/messages/${args.threadId}`,
-    });
+    const shopPeople = (await readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId })).userIds;
+    for (const to of recipients) {
+      const toShop = vendorRes.data?.user_id === to || shopPeople.includes(to);
+      await emitNotification({
+        userId: to,
+        type: 'chat_message',
+        title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
+        body: preview,
+        relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : `/dashboard/${args.eventId}/messages/${args.threadId}`,
+      });
+    }
     return;
   }
 

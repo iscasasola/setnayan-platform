@@ -532,10 +532,13 @@ test('the marketing top nav never appears inside the app', () => {
     That premise was falsified on 2026-08-15 when /help joined the shared shell.
     Repointed to `/download`, which is a pure marketing endpoint with no product
     surface behind it — the property that actually makes a route a safe control.
+    ⚠ REPOINTED AGAIN 2026-11-12: /download joined the shared shell with /blog
+    (owner: "these are on old shells"). /waitlist is the next pure marketing
+    endpoint; if it converts too, repoint here rather than loosen the check.
   */
   assert.ok(
-    routes.includes('/download'),
-    `The marketing route parser did not find /download, a stable member — it ` +
+    routes.includes('/waitlist'),
+    `The marketing route parser did not find /waitlist, a stable member — it ` +
       `is broken and every assertion below would pass vacuously. Found ${routes.length}: ` +
       routes.slice(0, 6).join(', '),
   );

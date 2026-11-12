@@ -1381,101 +1381,106 @@ export default async function EventHomePage({
       {/* 🧩 Home's services grow in place (owner 2026-10-23) — their first-visit spotlight, after the journey; only
           where the cards are drawn (the couple, on the web). No price in any step. */}
       {serviceCards && !(dayOfActive || afterActive) ? <Spotlight tourKey={HOST_PAGE_TOURS.home} after={HOST_PAGE_TOURS_AFTER} replay="page" /> : null}
+      {/* 🖥 THE EVENT DAY AND AFTER, ON THE LARGE-SCREEN GRAMMAR (tablet/desktop lane 4, owner-approved D4 "Redo
+          event-day/after Home", 2026-11-13). Below 701 every wrapper here is `display: contents`, so the phone draws the
+          very same stack it always did, in the same order. From the couple dashboard's `tab:` line the two states are
+          the WIDE column (`tab:max-w-5xl`), one stack with a gap; from `lg` the stack only GAINS a column — what is
+          happening now on the left, its doors on the right — and the receded planning tools span both underneath.
+          🔒 the-day-home-sits-in-the-system.test.ts */}
       {/* ☀ The day-of console and the after page draw no cover, so the Today asks lead them here; before the day they
           are lines of the Today list UNDER the cover (`todayAsks` above — nothing renders above Home's cover). */}
-      {dayOfActive || afterActive ? todayAsks : null}
-      <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
-      {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
-          SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}
       {dayOfActive ? (
-        <ReadyForNoSignal
-          viewer={user.id}
-          eventId={eventId}
-          eventDate={event.event_date as string | null}
-          eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
-          checkin={doorCrew}
-          host={viewerMemberType === 'couple'}
-          rows={readyRows}
-        />
-      ) : null}
-      {dayOfActive ? (
-        <DayOfModeGrid
-          eventId={eventId}
-          blocks={dayOfBlocks.map((b) => ({
-            block_id: b.block_id,
-            label: b.label,
-            start_at: b.start_at,
-            end_at: b.end_at,
-            location: b.location,
-            time_tba: b.time_tba === true,
-          }))}
-          headTable={dayOfHeadTable}
-          nearbyTables={dayOfNearbyTables}
-          tablesFailed={dayOfTablesFailed}
-          blocksFailed={dayOfBlocksFailed}
-          sameDayVendors={dayOfSameDayVendors}
-          // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
-          liveWallActive={dayOfLiveWallActive && !storeShell}
-          broadcast={dayOfBroadcast}
-          papic={
-            <DayPapicRow
+        <div data-home-day="on" className="contents tab:mx-auto tab:flex tab:w-full tab:max-w-5xl tab:flex-col tab:gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+          <div data-home-day-now="" className="contents tab:flex tab:min-w-0 tab:flex-col tab:gap-4">
+            {todayAsks}
+            <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+            {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
+                SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}
+            <ReadyForNoSignal
+              viewer={user.id}
               eventId={eventId}
-              face={dayPapicFace({
-                svc: dayPapicSvc,
-                papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
-                permitted: canViewPapicCounts,
-                tile: papicTile,
-              })}
-              svc={dayPapicSvc}
-              left={papicNow.count}
-              cardHref={papicInMemories ? papicCardHref(eventId) : null}
+              eventDate={event.event_date as string | null}
+              eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+              checkin={doorCrew}
+              host={viewerMemberType === 'couple'}
+              rows={readyRows}
             />
-          }
-        />
-      ) : null}
-      {/* 👀 Who's here on the day — the team on the dashboard and the guests opening the Event Hub (owner 2026-10-29). */}
-      {dayOfActive ? whosHereCard : null}
-
-      {/* Day-of takeover (council verdict Phase 6, owner sign-off #4). On the
-       *  day itself the planning stack RECEDES: it is still one tap away, but
-       *  it stops being the thing the page leads with. A couple opening this at
-       *  the reception needs what is happening now — not "74% planned" and a
-       *  reminder to book a caterer they are currently eating the food of.
-       *
-       *  Receded, NOT removed. A host who genuinely needs the vendor list on
-       *  the day would otherwise be stranded, and the last hours before a
-       *  ceremony are the worst possible moment to hide a phone number. */}
-      {dayOfActive ? (
-        <>
-          {/* 🍎 The live desk (/live) is the paid Live Photo Wall's page — refused in the iPhone app. */}
-          {storeShell ? null : (
-          <Link
-            href={`/dashboard/${eventId}/live`}
-            className="sn-tile sn-press flex items-center justify-between gap-3 text-left"
-            data-tour="day-live"
-          >
-            <span className="min-w-0">
-              <span className="block text-[15px] font-semibold text-ink">
-                Open the live desk
+            <DayOfModeGrid
+              eventId={eventId}
+              blocks={dayOfBlocks.map((b) => ({
+                block_id: b.block_id,
+                label: b.label,
+                start_at: b.start_at,
+                end_at: b.end_at,
+                location: b.location,
+                time_tba: b.time_tba === true,
+              }))}
+              headTable={dayOfHeadTable}
+              nearbyTables={dayOfNearbyTables}
+              tablesFailed={dayOfTablesFailed}
+              blocksFailed={dayOfBlocksFailed}
+              sameDayVendors={dayOfSameDayVendors}
+              // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
+              liveWallActive={dayOfLiveWallActive && !storeShell}
+              broadcast={dayOfBroadcast}
+              papic={
+                <DayPapicRow
+                  eventId={eventId}
+                  face={dayPapicFace({
+                    svc: dayPapicSvc,
+                    papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
+                    permitted: canViewPapicCounts,
+                    tile: papicTile,
+                  })}
+                  svc={dayPapicSvc}
+                  left={papicNow.count}
+                  cardHref={papicInMemories ? papicCardHref(eventId) : null}
+                />
+              }
+            />
+            {/* 👀 Who's here on the day — the team on the dashboard and the guests opening the Event Hub (owner 2026-10-29). */}
+            {whosHereCard}
+          </div>
+          {/* Day-of takeover (council verdict Phase 6, owner sign-off #4). On the
+           *  day itself the planning stack RECEDES: it is still one tap away, but
+           *  it stops being the thing the page leads with. A couple opening this at
+           *  the reception needs what is happening now — not "74% planned" and a
+           *  reminder to book a caterer they are currently eating the food of.
+           *
+           *  Receded, NOT removed. A host who genuinely needs the vendor list on
+           *  the day would otherwise be stranded, and the last hours before a
+           *  ceremony are the worst possible moment to hide a phone number. */}
+          <div data-home-day-doors="" className="contents tab:flex tab:min-w-0 tab:flex-col tab:gap-4">
+            {/* 🍎 The live desk (/live) is the paid Live Photo Wall's page — refused in the iPhone app. */}
+            {storeShell ? null : (
+            <Link
+              href={`/dashboard/${eventId}/live`}
+              className="sn-tile sn-press flex items-center justify-between gap-3 text-left"
+              data-tour="day-live"
+            >
+              <span className="min-w-0">
+                <span className="block text-[15px] font-semibold text-ink">
+                  Open the live desk
+                </span>
+                <span className="mt-0.5 block text-[12.5px] text-ink/55">
+                  Announcements, Memory lane and what is happening now.
+                </span>
               </span>
-              <span className="mt-0.5 block text-[12.5px] text-ink/55">
-                Announcements, Memory lane and what is happening now.
-              </span>
-            </span>
-            <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
-          </Link>
-          )}
+              <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
+            </Link>
+            )}
 
-          {/* 🧾 The rest of Your services on the day — More left the bar (owner 22 Oct 2026, "Yes remove
-              more"), so every service keeps its door here; Papic is already at the top of the console. */}
-          <YourServices
-            eventId={eventId}
-            services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
-            papicLeft={papicNow.count}
-            cards={serviceCards}
-          />
+            {/* 🧾 The rest of Your services on the day — More left the bar (owner 22 Oct 2026, "Yes remove
+                more"), so every service keeps its door here; Papic is already at the top of the console. */}
+            <YourServices
+              eventId={eventId}
+              services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
+              papicLeft={papicNow.count}
+              cards={serviceCards}
+            />
+          </div>
 
-          <details className="sn-tile">
+          <details className="sn-tile lg:col-span-2">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70" data-tour="day-planning">
               Planning tools — still here if you need them
             </summary>
@@ -1495,7 +1500,7 @@ export default async function EventHomePage({
               />
             </div>
           </details>
-        </>
+        </div>
       ) : afterActive && afterSummary ? (
         /*
           ─── AFTER THE DAY: THE SUMMARY LEADS, THE PLANNING STACK RECEDES ───
@@ -1510,31 +1515,37 @@ export default async function EventHomePage({
           up, or still settling a balance, opens the disclosure and has every
           tool exactly where it was. The rail keeps all its rows too.
         */
-        <>
-          <FinishedEventSummary
-            eventId={eventId}
-            noun={eventNoun(event.event_type as string | null)}
-            dateLabel={
-              event.event_date ? formatEventDate(event.event_date as string) || null : null
-            }
-            slug={(event as { slug?: string | null }).slug ?? null}
-            summary={afterSummary}
-            storeShell={storeShell}
-          />
+        <div data-home-day="after" className="contents tab:mx-auto tab:flex tab:w-full tab:max-w-5xl tab:flex-col tab:gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+          <div data-home-day-now="" className="contents tab:flex tab:min-w-0 tab:flex-col tab:gap-4">
+            {todayAsks}
+            <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+            <FinishedEventSummary
+              eventId={eventId}
+              noun={eventNoun(event.event_type as string | null)}
+              dateLabel={
+                event.event_date ? formatEventDate(event.event_date as string) || null : null
+              }
+              slug={(event as { slug?: string | null }).slug ?? null}
+              summary={afterSummary}
+              storeShell={storeShell}
+            />
+          </div>
 
-          {whosHereCard}
+          <div data-home-day-doors="" className="contents tab:flex tab:min-w-0 tab:flex-col tab:gap-4">
+            {whosHereCard}
 
-          {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
-              the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
-          {/* 📷 Papic's card is in Memories (2026-11-08) — where it is drawn there, its row stands down here. */}
-          <YourServices
-            eventId={eventId}
-            services={homeServiceRowAll.filter((s) => !(papicInMemories && s.key === 'papic'))}
-            papicLeft={papicNow.count}
-            cards={serviceCards}
-          />
+            {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
+                the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
+            {/* 📷 Papic's card is in Memories (2026-11-08) — where it is drawn there, its row stands down here. */}
+            <YourServices
+              eventId={eventId}
+              services={homeServiceRowAll.filter((s) => !(papicInMemories && s.key === 'papic'))}
+              papicLeft={papicNow.count}
+              cards={serviceCards}
+            />
+          </div>
 
-          <details className="sn-tile">
+          <details className="sn-tile lg:col-span-2">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">
               Planning tools — still here if you need them
             </summary>
@@ -1554,7 +1565,7 @@ export default async function EventHomePage({
               />
             </div>
           </details>
-        </>
+        </div>
       ) : (
         /* 📱 THE FIRST SCREEN, AND NOTHING ELSE (owner 2026-10-02, DECISION_LOG
          *  "HOME IS THE FIRST SCREEN ONLY"; the control center, owner-approved
@@ -1562,6 +1573,8 @@ export default async function EventHomePage({
          *  `<EventDashboard>` is mounted only by the two receded views above
          *  (day-of · after the day) — never here. */
         <>
+          {afterActive ? todayAsks : null}
+          <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
           {homeFirstScreen}
         </>
       )}

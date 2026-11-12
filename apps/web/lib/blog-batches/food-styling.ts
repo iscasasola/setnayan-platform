@@ -66,7 +66,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare caterers side by side, by city and budget, with zero commission on anything you book.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -289,7 +289,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find and compare mobile bar suppliers near your venue, with no booking commission.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -363,7 +363,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse food-cart and snack suppliers, compare packages, and book with zero commission.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -436,7 +436,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find cake designers near your venue and compare styles and packages, commission-free.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -509,7 +509,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse florists and stylists by city and style, and book the team that matches your mood board.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -583,7 +583,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find lights-and-sounds and AV suppliers who know your venue, and compare them commission-free.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -732,7 +732,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse wedding hosts and emcees, watch their work, and book the right voice for your day.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

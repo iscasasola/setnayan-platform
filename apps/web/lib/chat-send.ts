@@ -24,7 +24,7 @@ import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filte
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 import { readShopChatPeople } from './chat-shop-people.server';
-import { CHAT_PRIVATE_RECIPIENT_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
+import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 import type { ChatSentAs } from './chat-sent-as';
 
 /**
@@ -126,7 +126,7 @@ export async function sendChatMessageCore(
      * private message is WORDS ONLY and its recipient must be a party to this thread; only they are notified, and the
      * auto-reply is never woken by one. Who can READ it is the database's rule (RLS), not this function's.
      */
-    privateTo?: string | null;
+    privateTo?: string | readonly string[] | null;
     /**
      * 🏪 THE SCREEN'S SIDE (owner, 11 Nov — `lib/chat-sent-as.ts`). `'vendor'` = typed in the supplier's chat: the
      * message speaks for the SHOP even when the sender is also a host of this event. Absent = the old derivation
@@ -238,26 +238,35 @@ export async function sendChatMessageCore(
 
   // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.
   // everything else is public."); the recipient must be one of this thread's parties: a host of the event or the shop.
-  const privateTo = input.privateTo && input.privateTo !== user.id ? input.privateTo : null;
+  // 👥 SEVERAL PEOPLE (owner, 12 Nov — "PRIVATE MESSAGES — TWO DOORS, SEVERAL PEOPLE"): one id or a list, yourself left out.
+  const privateList = (
+    input.privateTo == null ? [] : typeof input.privateTo === 'string' ? [input.privateTo] : [...input.privateTo]
+  ).filter((id, i, all) => Boolean(id) && id !== user.id && all.indexOf(id) === i);
+  const privateTo = privateList.length > 0 ? privateList : null;
   if (privateTo) {
     if (hasAttachment || storedRef) {
       return { ok: false, code: 'private_words_only', message: PRIVATE_WORDS_ONLY_MESSAGE };
     }
     const partyAdmin = createAdminClient();
-    // The shop side is the owner AND the team members who may chat here (a host can reply privately to a team member).
-    const [asHost, shop] = await Promise.all([
+    // The shop side is the owner AND the team members who may chat here (a host can reply privately to a team member);
+    // the event side is its hosts and its coordinators (the strip's faces). The database re-judges each against THIS
+    // thread's members (tg_chat_messages_private_is_between_members) — this is the words the sender sees.
+    const [eventSide, shop] = await Promise.all([
       partyAdmin
         .from('event_members')
         .select('user_id')
         .eq('event_id', thread.event_id)
-        .eq('user_id', privateTo)
-        .eq('member_type', 'couple')
-        .maybeSingle(),
+        .in('user_id', privateTo)
+        .in('member_type', ['couple', 'coordinator']),
       shopPeopleRead(),
     ]);
-    const asShop = { data: shop.userIds.includes(privateTo) ? privateTo : null };
-    if (!asHost.data && !asShop.data) {
-      return { ok: false, code: 'private_recipient', message: 'That person is not in this chat — your message was not sent.' };
+    const onEventSide = new Set(((eventSide.data ?? []) as { user_id: string }[]).map((r) => r.user_id));
+    for (const to of privateTo) {
+      const asHost = { data: onEventSide.has(to) ? to : null };
+      const asShop = { data: shop.userIds.includes(to) ? to : null };
+      if (!asHost.data && !asShop.data) {
+        return { ok: false, code: 'private_recipient', message: 'That person is not in this chat — your message was not sent.' };
+      }
     }
   }
 
@@ -498,7 +507,8 @@ export async function sendChatMessageCore(
     vendor_profile_id: thread.vendor_profile_id,
     body: trimmed,
     ...(attachment ?? {}),
-    ...(privateTo ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo } : {}),
+    // One person keeps the shipped column; several go in the list (recipient_user_id = its first, set by the database).
+    ...(privateTo ? (privateTo.length === 1 ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo[0] } : { [CHAT_PRIVATE_RECIPIENTS_COLUMN]: privateTo }) : {}),
     ...sidePayload,
   });
   if (error) {

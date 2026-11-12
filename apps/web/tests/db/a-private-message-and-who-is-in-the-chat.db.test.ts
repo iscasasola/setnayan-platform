@@ -480,11 +480,17 @@ const AUDITED_DEFINER_READERS: string[] = [
   'chat_decision_file_message', // locks the message row; returns a status word
   'chat_decision_filing_refusal', // thread + recipient only — refuses a private line; returns a word, no body
   'chat_decision_move_message', // locks the message row; returns a status word
+  // 💬 20271340374819 (event group chats): the Groups list's last line is filtered to rows the CALLER may read
+  // (shared · sent · one of its recipients) — pinned by event-group-chats-and-a-private-line-to-several.db.test.ts;
+  // the post-line helper inserts a system line and returns nothing.
+  'chat_group_list', // preview filtered by recipient_user_ids for the caller
+  'chat_group_post_line', // inserts a system line in a group; returns nothing
   'chat_poll_open', // inserts the poll's own system line; returns the poll id
   'chat_record_post_line', // finds the thread and inserts a system line; returns nothing
   'count_unread_message_threads', // filters recipient_user_id (20271329968207/20271330575424)
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
+  'tg_chat_messages_group_rules', // 20271340374819: reads NEW's thread kind only; returns no other row
   'tg_chat_messages_guard_end_user_write', // screens NEW's own body only
   'tg_chat_messages_private_is_between_members', // this lane's recipient check
   'unread_message_threads_by_event', // filters recipient_user_id
@@ -518,6 +524,8 @@ test('current_thread_ids() is read by exactly the measured callers', async () =>
       'chat_decision_messages.chat_decision_messages_read',
       // 20271332497337 (Build 3 lane B): a decision topic is read by the chat's members (and the shop's team).
       'chat_decision_topics.chat_decision_topics_read',
+      // 💬 20271340374819: a group member (a guest included) reads the group's hearts.
+      'chat_message_hearts.chat_message_hearts_group_member_read',
       'chat_messages.chat_messages_member_insert',
       'chat_messages.chat_messages_member_read',
       'chat_poll_choices.chat_poll_choices_read',

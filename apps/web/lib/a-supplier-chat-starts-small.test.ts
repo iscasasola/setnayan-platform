@@ -65,7 +65,7 @@ test('1 · the supplier never sees the ＋', () => {
   assert.match(read('app/dev/_components/lab-picked-chat.tsx'), /side === 'couple' && actions\.add && actions\.leave \? \{ memberAdd:/);
 });
 
-test('2 · the faces: someone else is a picture (the 🔒 is the one private door); your own face as a host → "Leave this chat?"; else nothing', () => {
+test('2 · the faces: someone else = a private message to them (door 1, 12 Nov); your own face as a host → "Leave this chat?"; else nothing', () => {
   // The supplier, a coordinator or a planner: no `leave` → their own face is not even a button.
   const strip = renderToStaticMarkup(h(ChatHostStrip, { hosts: [MARIA], presentIds: new Set<string>(), youId: 'u-shop', threadId: 't1' }));
   assert.doesNotMatch(strip, /data-chat-host-face="you"/);
@@ -73,12 +73,14 @@ test('2 · the faces: someone else is a picture (the 🔒 is the one private doo
   const you = hostStrip.match(/<button[^>]*data-chat-host-face="you"[^>]*>/)?.[0] ?? '';
   assert.match(you, /aria-haspopup="dialog"/, 'your own face does not open the Leave pop-up');
   assert.match(you, /aria-label="Leave this chat"/);
-  // Another face is a PICTURE (owner-approved prototype, 11 Nov 2026): the 🔒 beside the message box is the ONE door to
-  // a private message (lib/a-private-message-looks-private.test.ts 6).
-  assert.doesNotMatch(hostStrip, /data-chat-host-face="u-jose"/, 'another face is a button again');
-  assert.doesNotMatch(hostStrip, /privately/, 'a face is a private-message door again');
+  // Another face is DOOR 1 to a private message to that ONE person (owner, 12 Nov 2026 — "PRIVATE MESSAGES — TWO DOORS,
+  // SEVERAL PEOPLE", reversing the 11 Nov picture): never Leave, never your own face (lib/a-private-message-looks-private
+  // .test.ts 6). Your own face is still only Leave.
+  const other = hostStrip.match(/<button[^>]*data-chat-host-face="private"[^>]*>/)?.[0] ?? '';
+  assert.match(other, /aria-label="Message Jose privately"/, 'another face is not the one-person private door');
+  assert.doesNotMatch(other, /haspopup|Leave/, 'another face offers Leave');
+  assert.doesNotMatch(you, /privately/, 'your own face is a private door');
   const src = read('app/_components/chat/chat-host-strip.tsx');
-  assert.doesNotMatch(src, /setPrivateTo/, 'the strip opens private mode again — the 🔒 is the one door');
   assert.match(src, /\{leave \? \(\s*<LeaveChatDialog/, 'Leave is not the pop-up');
   assert.doesNotMatch(src, /data-chat-leave-confirm|HostFaceMenu/, 'the retired inline Leave row came back');
 

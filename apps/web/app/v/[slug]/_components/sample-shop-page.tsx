@@ -7,7 +7,7 @@
  *     into are THIS component — the miniature is it scaled, never a separate picture.
  *
  * 🔑 NOT A SECOND COPY OF THE PAGE'S RULES. It mounts the REAL card-column pieces `/v/[slug]` renders — `ShopReachLine`
- * + `ShopReachMap` (the shipped `ReachMap` / pin map), `ShopAddresses`, `PinnedReviewCard`, `ShopBadgePill`,
+ * + `ShopReachMap` (the shipped `ReachMap` / pin map), `ShopAddresses`, `PinnedReviewCard`, the circular Verified `ImageBadge` (`badgeImageOf`),
  * `NotYetVerifiedNotice` — and decides every plan difference with the page's own primitives:
  *   · reach            → `shopReach` (lib/shop-page-plan.ts over `serviceRadiusKm`, lib/vendor-tier-caps.ts);
  *   · own web address  → `ownWebAddress` over `tierCaps(tier).customWebsiteName` (Solo+);
@@ -27,7 +27,7 @@ import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import { MessageCircle, Send, CalendarCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
-import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { ImageBadge } from '@/app/_components/image-badge';
 import { DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { ShopReachLine, ShopReachMap } from './shop-reach';
 import { ShopAddresses } from './shop-addresses';
@@ -35,6 +35,7 @@ import { PinnedReviewCard } from './pinned-review-card';
 import { NotYetVerifiedNotice } from './not-yet-verified-notice';
 import { ownWebAddress, pinnedQuote, shopReach, type ShopReach } from '@/lib/shop-page-plan';
 import { verifiedBadge } from '@/lib/shop-badges';
+import { badgeImageOf } from '@/lib/shop-badge-row';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { micrositeAccentVars, micrositeCan } from '@/lib/vendor-microsite';
 
@@ -164,7 +165,14 @@ export function SampleShopPage({ plan, declaredOuterKm = null }: { plan: SampleS
                 <p className="text-base text-ink/70">{SAMPLE.tagline}</p>
               </>
             )}
-            {d.verified ? <ShopBadgePill badge={verifiedBadge()} className="w-fit" /> : null}
+            {d.verified ? (
+              /* the page's hero badge row — the CIRCULAR image badge (owner 12 Nov 2026, "Circles + spacing") */
+              <div data-shop-hero-badges="" className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex leading-[0]" data-shop-badge={verifiedBadge().key}>
+                  <ImageBadge {...badgeImageOf(verifiedBadge())} uid={`sample-${plan}-verified`} size={48} label={verifiedBadge().label} />
+                </span>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
               <ShopReachLine reach={d.reach} city={SAMPLE.city} />
               <span className="inline-flex items-center gap-1">

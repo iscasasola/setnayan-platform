@@ -6,7 +6,7 @@ Solo / Pro / Ultra Grow tab panel (so it switches with the tab): a 3:4 miniature
 "Your page on <Plan> · What couples see · <caption> · Open ›".
 
 - **One drawing.** `app/v/[slug]/_components/sample-shop-page.tsx` (`SampleShopPage`) mounts the real card-column pieces
-  of `/v/[slug]` (`ShopReachLine` + `ShopReachMap`, `ShopAddresses`, `PinnedReviewCard`, `ShopBadgePill`,
+  of `/v/[slug]` (`ShopReachLine` + `ShopReachMap`, `ShopAddresses`, `PinnedReviewCard`, the circular Verified `ImageBadge`,
   `NotYetVerifiedNotice`) and decides every plan difference with the page's own rules (`shopReach` / `ownWebAddress` /
   `pinnedQuote` over `tierCaps`, `micrositeCan`, `micrositeAccentVars`). `/dev/shop-plan-lab` now renders it too, so
   the lab and the plan cards cannot drift. The miniature is that drawing at 390 px scaled to 112 px; the full-screen view

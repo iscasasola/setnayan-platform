@@ -454,13 +454,23 @@ test('🔒 4 · a proposal waits; a host or the coordinator accepts it in place;
 
 // ─── 5 · what a suppliers grant shows (verified, not changed) ────────────
 
-test('5 · a "Suppliers" grant shows the other suppliers’ prices and contact details (stated in the PR, not changed here)', async () => {
-  const r = await as<{ total_cost_php: string | null; contact_phone: string | null; contact_email: string | null }>(
+test('5 · a "Suppliers" grant shows the other suppliers’ contact details — and, since #5936, NOT their prices', async () => {
+  // Migration 20271341392450 closed the five booking amounts per column: a seat without Budget & payments is refused
+  // the price outright, and event_vendor_money_read hands it back hidden (never ₱0). The contact details are still
+  // the Suppliers job (stated in the PR that opened the seat, not changed here).
+  const price = await as(W.photographer, `SELECT total_cost_php FROM public.event_vendors WHERE vendor_id = $1`, [W.floristRow]);
+  assert.match(price.error ?? '', /permission denied/i, 'the florist’s price must be refused to a supplier holding Suppliers only');
+  const hidden = await as<{ total_cost_php: string | null; money_shown: boolean }>(
     W.photographer,
-    `SELECT total_cost_php, contact_phone, contact_email FROM public.event_vendors WHERE vendor_id = $1`,
+    `SELECT total_cost_php, money_shown FROM public.event_vendor_money_read($1) WHERE vendor_id = $2`,
+    [W.eventId, W.floristRow],
+  );
+  assert.deepEqual(hidden.rows, [{ total_cost_php: null, money_shown: false }], 'the reader hides the price from a Suppliers-only seat');
+  const r = await as<{ contact_phone: string | null; contact_email: string | null }>(
+    W.photographer,
+    `SELECT contact_phone, contact_email FROM public.event_vendors WHERE vendor_id = $1`,
     [W.floristRow],
   );
   assert.equal(r.rows.length, 1);
-  assert.equal(Number(r.rows[0]!.total_cost_php), 50000, 'the florist’s price is readable to a supplier holding Suppliers');
   assert.equal(r.rows[0]!.contact_email, 'shop@example.test', 'the florist’s contact is readable to a supplier holding Suppliers');
 });

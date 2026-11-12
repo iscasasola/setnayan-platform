@@ -209,7 +209,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Browse trusted Filipino suppliers — handlers, stylists, and the teams who make these moments — by city and category.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],
@@ -621,7 +621,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Find trusted Filipino suppliers — bridal cars, stylists, coordinators — by city and category.',
-        href: '/explore',
+        href: '/?browse=1',
         label: 'Browse the vendor marketplace',
       },
     ],

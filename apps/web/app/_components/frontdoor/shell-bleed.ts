@@ -62,11 +62,13 @@
 // '/features' joined 2026-11-11 with the v3 story (owner-approved): its photo hero and photo strips run edge to edge,
 // and every section keeps its own 16 px gutters and 1200 px cap. Only the English hub — /tl/features keeps its
 // shipped column until the story is written in Taglish. Its page sits in the `(hub)` route group.
+// '/explore' LEFT 2026-11-12: it is no longer a page — it forwards to Discover (`/`), where the supplier view now lives
+// (owner: *"find suppliers needs to be also inside discover already. they do not need to have their own page"*).
+// `/` is not a shelled route; the front door draws its own gutters.
 // '/blog' and '/download' joined 2026-11-12 with their move into the shell: the
 // articles cover photo is edge-to-edge, and both pages cap every section's
 // width themselves (max-w-6xl), so the shell's prose column would squeeze them.
 export const DOORWAY_BLEED_PATHS = [
-  '/explore',
   '/for-suppliers',
   '/for-coordinators',
   '/features',

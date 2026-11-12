@@ -161,7 +161,7 @@ async function respondToPartnership(
 
   revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect(`${PANEL_PATH}?${next === 'accepted' ? 'accepted' : 'declined'}=1`);
 }
 
@@ -204,7 +204,7 @@ export async function withdrawPartnership(formData: FormData) {
 
   revalidateShopPage(vendorProfileId);
   revalidatePath(PANEL_PATH);
-  revalidatePath('/explore');
+  revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
   redirect(`${PANEL_PATH}?withdrawn=1`);
 }
 

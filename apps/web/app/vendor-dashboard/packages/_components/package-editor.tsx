@@ -357,7 +357,7 @@ export function PackageEditor({
   const kv = 'flex min-h-9 items-center justify-between gap-3 text-[14px] text-ink';
 
   // The couple's card, drawn from the draft by the SHIPPED `PackageCard` — what /v/[slug] will show, not a second
-  // drawing of it — beside the form from 768. Each picked card by `ServiceCardFace`, the ONE face Find renders.
+  // drawing of it — beside the form from 701. Each picked card by `ServiceCardFace`, the ONE face Find renders.
   const previewPkg: VendorPackageWithItems = {
     package_id: packageId ?? 'new',
     vendor_profile_id: '',
@@ -433,7 +433,7 @@ export function PackageEditor({
     >
       <UndoToastHost />
       <div
-        className="md:grid md:grid-cols-[minmax(0,1fr)_300px] md:gap-6"
+        className="tab:grid tab:grid-cols-[minmax(0,1fr)_300px] tab:gap-6"
         data-bundle-maker=""
         onFocus={(e) => setTyping(e.target instanceof HTMLInputElement)}
         onBlur={() => setTyping(false)}
@@ -852,8 +852,8 @@ export function PackageEditor({
           ) : null}
         </div>
 
-        {/* ---- What the couple gets, as they will see it — beside the form from 768 ---- */}
-        <aside className="hidden pt-4 md:block" aria-label="As couples see it">
+        {/* ---- What the couple gets, as they will see it — beside the form from 701 ---- */}
+        <aside className="hidden pt-4 tab:block" aria-label="As couples see it">
           <div className="sticky top-4 space-y-3 pr-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">As couples see it · live</p>
             {preview}

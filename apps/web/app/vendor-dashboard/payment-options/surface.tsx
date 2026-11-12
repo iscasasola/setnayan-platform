@@ -142,7 +142,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
       className={
         embedded
           ? 'w-full pb-2'
-          : 'mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8'
+          : 'mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8'
       }
     >
       {embedded ? null : <PageMasthead title="How clients pay you" />}

@@ -101,6 +101,7 @@ import { ULTRA_SETS } from '@/lib/verification-plan-reward';
 import {
   BADGE_REMINDER_DAYS,
   badgeDeadline,
+  deadlineAtApproval,
   deadlineLabel,
   defaultPermitValidUntil,
 } from '@/lib/verified-badge';
@@ -1753,12 +1754,12 @@ function ActionRow({
               the label tells the reviewer to read the paper. Blank = the
               one-year renewal. Validated server-side (`permitDeadlineFrom`). */}
           <label className="flex items-center gap-2 text-xs text-ink/70">
-            <span>Mayor&rsquo;s Permit valid until (as printed)</span>
+            <span>Mayor&rsquo;s Permit valid until (as printed) · recorded — the badge renews on {deadlineLabel(deadlineAtApproval(new Date()))}</span>
             <input
               type="date"
               name="permit_valid_until"
               defaultValue={defaultPermitValidUntil()}
-              title={`The shop is reminded ${BADGE_REMINDER_DAYS} days before this date; on it the Verified badge comes off (the shop stays listed and bookable).`}
+              title={`Recorded with the approval. Every verified shop renews on 30 March of the next year: reminded ${BADGE_REMINDER_DAYS} days before, and the Verified badge comes off that day if the papers are not renewed (the shop stays listed and bookable).`}
               className="h-9 rounded-md border border-ink/20 bg-white px-2 text-xs text-ink"
             />
           </label>

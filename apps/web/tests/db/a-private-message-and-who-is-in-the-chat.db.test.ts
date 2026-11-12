@@ -474,13 +474,13 @@ test('every function that reads chat_messages bodies is one this lane audited', 
 // The measured list, each judged for a private-message leak (see the report
 // for the reasoning per function). Kept sorted.
 const AUDITED_DEFINER_READERS: string[] = [
+  'apply_dropped_offer', // 🏷 PR-4 (20271339379038): reads ONE message's offer id · good-until · event · thread, never its body; a private line can never carry an offer (tg_chat_messages_offer_is_this_suppliers refuses it); inserts its own system line; returns the new quote id
   // 20271340018194 (Piece 1 · PR-3): inserts the new quote version's card line (a shop message with its proposal_id);
   // reads no message and returns the new proposal id — no body leaves it.
   'change_ask_write_version',
   // 🗳 20271338412990 (chat decisions · polls): none returns a body. The filing check reads a message's thread_id and
   // recipient_user_id only to REFUSE a private line ('private'); file / move lock the message row; poll_open inserts
   // its own system line and returns the poll id.
-  'apply_dropped_offer', // 🏷 PR-4 (20271339379038): reads ONE message's offer id · good-until · event · thread, never its body; a private line can never carry an offer (tg_chat_messages_offer_is_this_suppliers refuses it); inserts its own system line; returns the new quote id
   'chat_decision_file_message', // locks the message row; returns a status word
   'chat_decision_filing_refusal', // thread + recipient only — refuses a private line; returns a word, no body
   'chat_decision_move_message', // locks the message row; returns a status word

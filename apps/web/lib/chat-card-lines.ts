@@ -64,6 +64,16 @@ export function quoteRiseFromLine(body: string | null | undefined): { pax: numbe
 }
 
 /**
+ * 📉 "Quote fell to 160 pax · −₱800" — the line `quote_follow_guest_count` posts when the guest list shrinks under an
+ * UNLOCKED, not-yet-booked quote that had risen (migration 20271340566104, SQL `quote_fall_words`). Exact words, as
+ * `quoteRiseFromLine` (the minus is U+2212, as the database writes it).
+ */
+export function quoteFallFromLine(body: string | null | undefined): { pax: number; deltaWords: string } | null {
+  const m = /^Quote fell to (\d{1,3}(?:,\d{3})*) pax · −(₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)$/.exec((body ?? '').trim());
+  return m ? { pax: Number(m[1]!.replace(/,/g, '')), deltaWords: m[2]! } : null;
+}
+
+/**
  * 🗳 "Poll · <question>" — the line a posted poll rides (migration 20271338412990 writes it with the poll). Its close /
  * reopen lines ("Poll closed · …", "Poll reopened · …") stay plain lines.
  */
@@ -73,11 +83,12 @@ export function pollFromLine(body: string | null | undefined): { question: strin
 }
 
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'poll' | null {
+export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | null {
   if (bookRequestFromLine(body)) return 'book';
   if (pollFromLine(body)) return 'poll';
   if (changeAskFromLine(body)) return 'ask';
   if (guestCountFromLine(body)) return 'guests';
   if (quoteRiseFromLine(body)) return 'rise';
+  if (quoteFallFromLine(body)) return 'fall';
   return null;
 }

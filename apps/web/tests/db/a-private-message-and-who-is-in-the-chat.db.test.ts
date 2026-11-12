@@ -477,6 +477,7 @@ const AUDITED_DEFINER_READERS: string[] = [
   // 🗳 20271338412990 (chat decisions · polls): none returns a body. The filing check reads a message's thread_id and
   // recipient_user_id only to REFUSE a private line ('private'); file / move lock the message row; poll_open inserts
   // its own system line and returns the poll id.
+  'apply_dropped_offer', // 🏷 PR-4 (20271339379038): reads ONE message's offer id · good-until · event · thread, never its body; a private line can never carry an offer (tg_chat_messages_offer_is_this_suppliers refuses it); inserts its own system line; returns the new quote id
   'chat_decision_file_message', // locks the message row; returns a status word
   'chat_decision_filing_refusal', // thread + recipient only — refuses a private line; returns a word, no body
   'chat_decision_move_message', // locks the message row; returns a status word
@@ -486,6 +487,7 @@ const AUDITED_DEFINER_READERS: string[] = [
   'tg_chat_message_hearts_scope', // copies a heart's thread from its message; returns no body
   'tg_chat_messages_card_names_this_conversation', // validates NEW's card ids; returns no other row
   'tg_chat_messages_guard_end_user_write', // screens NEW's own body only
+  'tg_chat_messages_offer_is_this_suppliers', // 🏷 PR-4: validates NEW's offer id + day and refuses it on a private line; reads no other message
   'tg_chat_messages_private_is_between_members', // this lane's recipient check
   'unread_message_threads_by_event', // filters recipient_user_id
   'unread_message_threads_by_vendor', // filters recipient_user_id

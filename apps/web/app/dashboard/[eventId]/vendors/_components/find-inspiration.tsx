@@ -267,7 +267,7 @@ export function InspirationBoardSheet({ children }: { children: React.ReactNode 
     router.replace(rest ? `${pathname}?${rest}` : pathname, { scroll: false });
   };
   return (
-    <Sheet open onClose={close} labelledById={titleId} full>
+    <Sheet open onClose={close} labelledById={titleId} full rise>
       <div className="px-5 pb-[calc(1rem+var(--sn-safe-b,0px))] pt-5" data-find-inspiration-board="">
         <h2 id={titleId} className="pr-12 text-[17px] font-semibold text-ink">
           {W.sheetTitle}

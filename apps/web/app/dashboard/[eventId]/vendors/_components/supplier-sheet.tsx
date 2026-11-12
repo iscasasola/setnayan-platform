@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Check, Heart, MapPin, MessageCircle, RotateCw, Star, Share } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Heart, MapPin, MessageCircle, RotateCw, Star, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ActionButton } from '@/components/action-button';
@@ -48,6 +48,8 @@ import {
   sheetWorkHeading,
   type SheetFit,
   type SupplierSheetData,
+  sheetWalkLine,
+  SHEET_WALK_HINT,
 } from '@/lib/supplier-sheet';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 
@@ -84,6 +86,27 @@ export type SupplierSheetTarget = {
 
 export type SupplierSheetLoad = (vendorProfileId: string, tile: string) => Promise<SupplierSheetData | null>;
 
+/** 👉 THE CATEGORY WALK the card view follows (owner 2026-11-12, "ok let's do that"): a sideways swipe on the card's BODY
+ *  goes to the next / previous supplier in the open category — Booked, then Asked, then Suggested — and the peek row
+ *  names both ends. `at` is null when the supplier is not on the walk or walks alone. */
+export type SupplierSheetWalk = {
+  at: (t: SupplierSheetTarget) => { index: number; total: number; prev: string | null; next: string | null } | null;
+  step: (t: SupplierSheetTarget, dir: 1 | -1) => boolean;
+};
+
+/**
+ * Does a swipe that STARTS here belong to something that scrolls sideways itself (a photo row, the slideshow)? Where
+ * the finger starts decides the owner — the prototype's rule, so the three gestures never collide.
+ */
+function ownsSideways(from: HTMLElement | null, stop: HTMLElement): boolean {
+  for (let el = from; el && el !== stop; el = el.parentElement) {
+    if (el.dataset.swipePhoto !== undefined) return true;
+    const ox = getComputedStyle(el).overflowX;
+    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth) return true;
+  }
+  return false;
+}
+
 /** One answer per supplier per visit — a second look costs nothing. */
 const SEEN = new Map<string, SupplierSheetData>();
 const seenKey = (t: SupplierSheetTarget) => `${t.vendorProfileId}|${t.tile}`;
@@ -112,16 +135,23 @@ const SHEET_CSS = [
   'html.dark [data-supplier-sheet]{--m-paper:#232019;--m-paper-2:#2A2620;--m-line:rgba(251,250,247,.16);--m-line-soft:rgba(251,250,247,.1);' +
     '--m-ink:#FBFAF7;--m-slate:#E8E5DD;--m-slate-2:#B6B1A6;--m-slate-3:#9C978C;--m-orange-2:#E2B968;--m-orange-4:rgba(226,185,104,.14);' +
     '--m-orange-deep:#E2B968;--m-sage:rgba(123,199,154,.18);--m-sage-deep:#7BC79A}',
+  // 👉 a step along the walk slides the next supplier in from the side it came from.
+  '@keyframes sup-in-r{from{opacity:0;transform:translateX(28px)}}@keyframes sup-in-l{from{opacity:0;transform:translateX(-28px)}}',
+  '.sup-step-next{animation:sup-in-r .22s cubic-bezier(.2,.7,.2,1)}.sup-step-prev{animation:sup-in-l .22s cubic-bezier(.2,.7,.2,1)}',
+  '@media (prefers-reduced-motion:reduce){.sup-step-next,.sup-step-prev{animation:none}}',
 ].join('');
 
 export default function SupplierSheet({
   eventId,
   target,
   load,
+  walk = null,
   onClose,
 }: {
   eventId: string;
   target: SupplierSheetTarget;
+  /** The open category's walk — absent (null) where the sheet is opened from outside a category. */
+  walk?: SupplierSheetWalk | null;
   /** The sheet's ONE request. Handed in by the bench (the lab hands a stand-in). */
   load: SupplierSheetLoad;
   onClose: () => void;
@@ -136,6 +166,76 @@ export default function SupplierSheet({
   const [portal, setPortal] = useState<HTMLElement | null>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
   useEffect(() => setPortal(document.body), []);
+  // 👉 A step along the walk hands this sheet ANOTHER supplier: what it knew is theirs, so it starts again from what
+  // this visit already holds for the new one (never a flash of the last supplier's reviews).
+  const shownKey = `${target.vendorProfileId ?? target.vendorId ?? ''}|${target.tile}`;
+  const [shown, setShown] = useState(shownKey);
+  if (shown !== shownKey) {
+    setShown(shownKey);
+    const kept = onSetnayan ? (SEEN.get(seenKey(target)) ?? null) : null;
+    setData(kept);
+    setState(onSetnayan && !kept ? 'loading' : 'idle');
+    setFollowing(kept?.following ?? null);
+    setSaid(null);
+  }
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [stepped, setStepped] = useState<'next' | 'prev' | null>(null);
+  const stepTo = (dir: 1 | -1) => {
+    if (!walk?.step(target, dir)) return;
+    setStepped(dir > 0 ? 'next' : 'prev');
+    const scroller = bodyRef.current?.parentElement;
+    if (scroller) scroller.scrollTop = 0;
+  };
+  // ── THE THREE GESTURES (owner 2026-11-12; the slideshow prototype's rules, extended). Where the finger STARTS decides
+  // the owner and the first 8 px lock the axis: sideways on the photo = the photo (its own); sideways on the BODY = the
+  // next / previous supplier (60 px); down 80 px from the photo, or from the body while it sits at its top = close.
+  // The body's own up/down scroll is untouched (touch-action: pan-y), and the tap that ends a swipe is swallowed.
+  const gesture = useRef<{ x: number; y: number; axis: 'x' | 'y' | null; photo: boolean; side: boolean; top: boolean; done: boolean } | null>(null);
+  const swallow = useRef(false);
+  const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) {
+      gesture.current = null;
+      return;
+    }
+    const t = e.touches[0]!;
+    const from = e.target as HTMLElement;
+    const photo = Boolean(from.closest('[data-swipe-photo]'));
+    gesture.current = {
+      x: t.clientX,
+      y: t.clientY,
+      axis: null,
+      photo,
+      side: !photo && !ownsSideways(from, e.currentTarget),
+      top: (e.currentTarget.parentElement?.scrollTop ?? 0) <= 0,
+      done: false,
+    };
+  };
+  const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const g = gesture.current;
+    if (!g || g.done) return;
+    const t = e.touches[0]!;
+    const dx = t.clientX - g.x;
+    const dy = t.clientY - g.y;
+    if (!g.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+    if (g.axis === 'x') {
+      if (g.side && walk && Math.abs(dx) >= 60) {
+        g.done = true;
+        swallow.current = true;
+        stepTo(dx < 0 ? 1 : -1);
+      }
+    } else if (dy >= 80 && (g.photo || g.top)) {
+      g.done = true;
+      swallow.current = true;
+      onClose();
+    }
+  };
+  const onTouchEnd = () => {
+    gesture.current = null;
+    if (swallow.current) window.setTimeout(() => (swallow.current = false), 350);
+  };
 
   const ask = useCallback(() => {
     if (!target.vendorProfileId) return;
@@ -247,9 +347,10 @@ export default function SupplierSheet({
   const photos = data?.photos ? sheetPhotoRow(data.photos) : null;
   const eyebrow = [target.categoryLabel, target.city].filter(Boolean).join(' · ');
   const k2 = 'font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45';
+  const walkAt = walk?.at(target) ?? null;
 
   return createPortal(
-    <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise>
+    <Sheet open onClose={onClose} labelledById="supplier-sheet-name" wide rise full>
       {/* A press's result peeks from the TOP (§ 9 kind 12); the line under the
           buttons stays as its lasting copy. */}
       {said?.key ? (
@@ -257,10 +358,49 @@ export default function SupplierSheet({
           {said.text}
         </PeekToast>
       ) : null}
-      <div className="space-y-4 px-5 pb-4 pt-5" data-supplier-sheet={target.vendorProfileId ?? 'own'}>
+      <div
+        ref={bodyRef}
+        className={`flex min-h-full touch-pan-y flex-col space-y-4 px-5 pb-4 pt-5${stepped ? ` sup-step-${stepped}` : ''}`}
+        key={shownKey}
+        data-supplier-sheet={target.vendorProfileId ?? 'own'}
+        data-swipe-body=""
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
+        onClickCapture={(e) => {
+          if (!swallow.current) return;
+          swallow.current = false;
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
         {/* One height: a <button> is floored at 44 px by globals.css and a link
             is not — the button rule is a 40 px pill, whatever the element. */}
         <style>{SHEET_CSS}</style>
+        {walkAt ? (
+          <nav aria-label="Suppliers in this category" className="-mx-2 grid grid-cols-[1fr_auto_1fr] items-center gap-1 pr-10 text-[12.5px]" data-sheet-walk="">
+            {walkAt.prev ? (
+              <button type="button" onClick={() => stepTo(-1)} className="inline-flex min-h-11 min-w-0 items-center gap-0.5 rounded-full px-2 text-left text-ink/70 hover:bg-ink/5" data-sheet-walk-prev="">
+                <ChevronLeft size={15} strokeWidth={2} aria-hidden className="shrink-0" />
+                <span className="truncate">{walkAt.prev}</span>
+              </button>
+            ) : (
+              <span />
+            )}
+            <span className="whitespace-nowrap text-center font-mono text-[10.5px] uppercase tracking-[0.08em] text-ink/50" data-sheet-walk-at="">
+              {sheetWalkLine(walkAt.index, walkAt.total, target.categoryLabel)}
+            </span>
+            {walkAt.next ? (
+              <button type="button" onClick={() => stepTo(1)} className="inline-flex min-h-11 min-w-0 items-center justify-end gap-0.5 rounded-full px-2 text-right text-ink/70 hover:bg-ink/5" data-sheet-walk-next="">
+                <span className="truncate">{walkAt.next}</span>
+                <ChevronRight size={15} strokeWidth={2} aria-hidden className="shrink-0" />
+              </button>
+            ) : (
+              <span />
+            )}
+          </nav>
+        ) : null}
         <header className="pr-10">
           <p className={k2}>{eyebrow}</p>
           <h2 id="supplier-sheet-name" className="mt-1 font-display text-[22px] leading-tight text-ink">
@@ -431,6 +571,13 @@ export default function SupplierSheet({
           </section>
         ) : null}
 
+        {/* The verbs at the thumb: a short card view still ends at the bottom of the screen. */}
+        <div aria-hidden className="!mt-auto" />
+        {walkAt ? (
+          <p className="pt-2 text-center text-[12px] text-ink/45 lg:hidden" data-sheet-walk-hint="">
+            {SHEET_WALK_HINT}
+          </p>
+        ) : null}
         {onSetnayan ? (
           <div className="sticky bottom-0 -mx-5 bg-cream px-5 pb-1 pt-2.5" data-sheet-cta="">
             {/* Buttons keep their words (owner 2026-10-12): the row wraps, nothing drops to an icon. */}

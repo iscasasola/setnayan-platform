@@ -7,9 +7,9 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1847
+# ledger: 1848
 # tables: 496
-# columns: 6033
+# columns: 6034
 # notnull: 3641
 [ledger]
 20260512000000
@@ -1857,6 +1857,7 @@
 20271340142149
 20271340374819
 20271340566104
+20271341145486
 20271341349934
 20271341658320
 [columns]
@@ -5613,6 +5614,7 @@ platform_secret_rotations.updated_at
 platform_settings.admin_digest_enabled
 platform_settings.admin_digest_last_sent_at
 platform_settings.ai_signup_discount_pct
+platform_settings.app_colours
 platform_settings.bdo_account_name
 platform_settings.bdo_account_number
 platform_settings.bdo_available_as_of

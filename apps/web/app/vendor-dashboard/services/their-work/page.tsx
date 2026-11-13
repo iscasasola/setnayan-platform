@@ -9,6 +9,7 @@ import { readShopWork } from '@/lib/card-portfolio-albums.server';
 import { ALBUM_STRIP_MAX, albumLine, bookedOnRows, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { TheirWorkList, type TheirOwnUploadsView } from './their-work-list';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { cardName } from '@/lib/card-portfolio-albums';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -86,7 +87,10 @@ async function readOwnUploads(supabase: SupabaseClient, vendorProfileId: string)
     .select('title, category, primary_photo_r2_key, showcase_photo_r2_keys')
     .eq('vendor_profile_id', vendorProfileId)
     .eq('is_active', true);
-  if (error) return null;
+  if (error) {
+    logQueryError('theirWork.ownUploads', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
   const rows = (data ?? []) as { title: string | null; category: string; primary_photo_r2_key: string | null; showcase_photo_r2_keys: string[] | null }[];
   const refs: string[] = [];
   const from: string[] = [];

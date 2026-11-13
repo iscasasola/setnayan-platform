@@ -16,3 +16,12 @@ From the controller's 390 px couple walkthrough (couple testnayan3, event wanda-
   (`singlePickedWeddingDate`). Papic's window is read from `event_date`, so it switches on for the one-pick case.
 
 SPEC IMPACT: Implements the owner's 14 Nov ruling already in the corpus (DECISION_LOG 16f7e76a); nothing new to write.
+
+## 2026-11-13 · fix(wedding): a wedding with no venue type is "Not set", never a default "Banquet hall" (F-W2-02)
+
+Owner, 13 Nov 2026: "not set". Migration `20271345020514` relaxes `events_wedding_fields_consistency` so a wedding needs
+its ceremony type but its reception `venue_setting` may be NULL (a non-wedding still carries neither). The wedding
+onboarding now stores NULL when the couple picked no reception setting (`venueSettingForReceptionPicks`), and Details
+already draws NULL as "Not set". Existing rows are not rewritten: a stored 'banquet_hall' may be a real pick.
+
+SPEC IMPACT: None (the owner's ruling is recorded by the controller in DECISION_LOG "FIVE OWNER ANSWERS IN ONE MESSAGE").

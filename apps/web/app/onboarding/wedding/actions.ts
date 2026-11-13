@@ -548,7 +548,8 @@ export async function commitOnboardingWedding(
   }
 
   // venue_setting from the couple's first reception "setting" pick (drives the
-  // marketplace reception filter); fall back to banquet_hall if none picked.
+  // marketplace reception filter); NULL — "Not set" — when none was picked (owner
+  // 13 Nov 2026, F-W2-02), never a default banquet hall.
   const venueSetting = venueSettingForReceptionPicks(payload.receptionSettings ?? []);
 
   // Normalize legacy 'nolimit' value (pre-fix localStorage cache) → DB canonical 'no_limit'.

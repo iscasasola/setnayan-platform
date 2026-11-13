@@ -567,7 +567,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On Suppliers, open the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once the booking is locked in, they show as Booked, with what is next — like paying the deposit.',
+        body: 'On Suppliers, open the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have booked them, they show as Booked, with what is next — like your first payment.',
       },
       {
         // A manual venue's pin is set where the venue is (Suppliers' date-and-place line, `fact-sheets.tsx`); a shop's

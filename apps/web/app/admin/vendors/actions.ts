@@ -27,6 +27,7 @@ import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
   nextPhotoChallengeExpiry,
   fetchVendorPhotoChallengePricePhp,
+  VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP,
 } from '@/lib/vendor-photo-challenge';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 
@@ -711,7 +712,8 @@ export async function executeVendorSkuComp(
     .eq('vendor_profile_id', vendorProfileId);
   if (grantErr) throw new Error(grantErr.message);
 
-  const pricePhp = await fetchVendorPhotoChallengePricePhp(admin);
+  // The comp's recorded retail value — the catalogue row, else the guarded fallback exactly as before (admin record only).
+  const pricePhp = (await fetchVendorPhotoChallengePricePhp(admin)) ?? VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP;
 
   const { error: insertErr } = await admin.from('comp_grants').insert({
     user_id: null,

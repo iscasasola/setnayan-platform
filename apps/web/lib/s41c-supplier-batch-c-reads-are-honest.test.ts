@@ -202,7 +202,7 @@ const LOG_SITE_FLOORS: { file: string; sites: { label: string; floor: number }[]
     { label: '[supabase-error] lib/trusted-circle-recs.ts · rpc:trusted_circle_vendor_signal', floor: 1 },
   ] },
   { file: 'lib/vendor-branches.ts', sites: [
-    { label: '[supabase-error] vendor-branches: branch fee (using fallback)', floor: 1 },
+    { label: '[supabase-error] vendor-branches: branch fee unread', floor: 1 },
     { label: '[supabase-error] lib/vendor-branches.ts · from:vendor_branches.select', floor: 1 },
   ] },
   { file: 'lib/vendor-card-copy.ts', sites: [

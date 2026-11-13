@@ -17,7 +17,6 @@ import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import {
-  TIER_PRICE_PHP,
   TIER_CAPS,
   asVendorTier,
   isTierAtLeast,
@@ -29,9 +28,7 @@ import {
 import {
   fetchVendorAiAddonState,
   isVendorAiAddonActive,
-  VENDOR_AI_ADDON_FALLBACK_PHP,
 } from '@/lib/vendor-addon-pricing';
-import { VENDOR_DEEP_SEARCH_FALLBACK_PHP } from '@/lib/vendor-deep-search-addon';
 import {
   fetchVendor3dBoothState,
   fetchVendor3dBoothPricePhp,
@@ -246,9 +243,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     fetchVendorAddonPricePhp(supabase, 'ai_chatbot_basic', currentTier),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
   ]);
-  const aiAddonPricePhp = aiAddonBandPricePhp ?? VENDOR_AI_ADDON_FALLBACK_PHP;
+  // 💰 The catalogue row or NO figure (owner 2026-11-13: no typed prices) — never a remembered fallback on screen.
+  const aiAddonPricePhp = aiAddonBandPricePhp;
   // Deep Search — for the doorway copy below, so the tile never quotes a price the runner won't charge.
-  const deepSearchPricePhp = deepSearchBandPricePhp ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
+  const deepSearchPricePhp = deepSearchBandPricePhp;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
@@ -433,8 +431,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       name: planWord(tier),
       price: Object.fromEntries(
         (['monthly', 'annual'] as const).flatMap((cy) => {
-          const v = priceBySku.get(skuFor(tier, cy)) ?? TIER_PRICE_PHP[tier][cy];
-          return Number.isFinite(v) ? [[cy, v]] : [];
+          // 💰 The catalogue row or nothing (owner 2026-11-13): an unread plan price shows no figure and no Pay button.
+          const v = priceBySku.get(skuFor(tier, cy));
+          return v !== undefined && Number.isFinite(v) ? [[cy, v]] : [];
         }),
       ) as PlanPick['price'],
       tooShort: {
@@ -748,7 +747,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           <p className="mt-0.5 text-sm text-ink/60">
             {isPaidTierForAddon
               ? isVerifiedVendor
-                ? `We research your business and hand you a “what we learned” review. ₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one search per purchase.`
+                ? `We research your business and hand you a “what we learned” review. ${deepSearchPricePhp !== null ? `₱${deepSearchPricePhp.toLocaleString('en-PH')} per search, one` : 'One'} search per purchase.`
                 : 'Get verified to run Deep Search — it researches your business and hands you a “what we learned” review to copy in.'
               : 'A paid-plan add-on: we research your business and hand you a “what we learned” review to auto-fill your profile.'}
           </p>

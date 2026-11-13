@@ -86,7 +86,7 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   );
   const [extraSeats, seatFeePhp] = await Promise.all([
     fetchExtraAgentSeats(supabase, vendorProfileId),
-    canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(0),
+    canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(null),
   ]);
   const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
   // 🧑‍🤝‍🧑 One Helper rides free on every plan (lib/vendor-free-helper.ts) — the SAME

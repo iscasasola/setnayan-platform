@@ -57,9 +57,11 @@ const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
  * purchase." (2026-11-09). Two prices — should an admin ever split the rows again — read "₱X a search on Free, Verified
  * and Solo · ₱Y on Pro and Ultra, one search per purchase." Never a free search.
  */
-export function deepSearchBandWords(band: { entryPhp: number; growthPhp: number }): string {
+export function deepSearchBandWords(band: { entryPhp: number | null; growthPhp: number | null }): string {
   const entry = `${TIER_LABEL.free}, Verified and ${TIER_LABEL.solo}`;
   const growth = `${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}`;
+  // 💰 An unread side shows no figure (owner 2026-11-13: no typed prices).
+  if (band.entryPhp === null || band.growthPhp === null) return 'One search per purchase.';
   return band.entryPhp === band.growthPhp
     ? `${peso(band.entryPhp)} a search on every plan, one search per purchase.`
     : `${peso(band.entryPhp)} a search on ${entry} · ${peso(band.growthPhp)} on ${growth}, one search per purchase.`;

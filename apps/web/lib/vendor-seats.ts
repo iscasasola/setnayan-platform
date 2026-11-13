@@ -17,15 +17,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * the downgrade/lapse "admin picks who to drop" reconcile.
  */
 
-/**
- * Extra-seat fee FALLBACK (owner 2026-07-02 · ₱250 / 28-day). The canonical,
- * admin-managed price lives in the `vendor_billing_catalog` row
- * `vendor_extra_seat` (price in PHP). Read it with {@link fetchSeatFeePhp};
- * this literal keeps the flow working if the seeding migration hasn't
- * been applied yet or RLS hides the row.
+/*
+ * 💰 NO TYPED SEAT FEE (truth sweep, owner 2026-11-13: the site carries no typed prices). The extra-seat fee is the
+ * `vendor_billing_catalog` row `vendor_extra_seat`, read by {@link fetchSeatFeePhp}. The `SEAT_FEE_PHP` literal that
+ * used to stand in for an unread row is deleted: it was shown on the Team page AND minted into the seat order, so a
+ * failed read quoted and charged a remembered price. Now an unread row shows no figure and the sale is refused.
  */
-// 💲 2026-11-04 (owner, final price sheet): ₱990 per 4 weeks, Ultra only — moves WITH the `vendor_extra_seat` row.
-export const SEAT_FEE_PHP = 990;
 
 /** The catalog sku_code the extra-seat fee is read from (seeded by migration). */
 export const SEAT_SKU_CODE = 'vendor_extra_seat';
@@ -97,11 +94,10 @@ export async function fetchExtraAgentSeats(
 }
 
 /**
- * Resolve the live extra-seat fee (PHP) from the admin-managed catalog, falling
- * back to {@link SEAT_FEE_PHP} when the row is missing/unreadable. Mirrors
- * `fetchBranchFeePhp`.
+ * The live extra-seat fee (PHP) from the admin-managed catalog — or null when the row is missing, inactive,
+ * unpriced or unreadable. Null means "no figure on screen, no sale", never a remembered price.
  */
-export async function fetchSeatFeePhp(supabase: SupabaseClient): Promise<number> {
+export async function fetchSeatFeePhp(supabase: SupabaseClient): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_billing_catalog')
@@ -110,13 +106,13 @@ export async function fetchSeatFeePhp(supabase: SupabaseClient): Promise<number>
       .eq('is_active', true)
       .maybeSingle();
     if (error) {
-      console.error('[supabase-error] vendor-seats: seat fee (using fallback)', error);
-      return SEAT_FEE_PHP;
+      console.error('[supabase-error] vendor-seats: seat fee unread', error);
+      return null;
     }
-    if (!data) return SEAT_FEE_PHP;
+    if (!data) return null;
     const price = Number((data as { price_php: number | string }).price_php);
-    return Number.isFinite(price) && price > 0 ? price : SEAT_FEE_PHP;
+    return Number.isFinite(price) && price > 0 ? price : null;
   } catch {
-    return SEAT_FEE_PHP;
+    return null;
   }
 }

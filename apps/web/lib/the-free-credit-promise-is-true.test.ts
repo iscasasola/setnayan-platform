@@ -220,11 +220,12 @@ test('the floor is never sold as a feature', () => {
 });
 
 test('the three outcomes of the column map exactly onto what SQL mints', () => {
-  // value → that number · off → nothing at all · unknown → the seed SQL itself
-  // COALESCEs to. Any other mapping is the page and the database disagreeing.
+  // value → that number · off → nothing at all · unknown → nothing at all (2026-11-13, owner: no typed numbers on a
+  // customer screen — a read that FAILED cannot know what SQL will mint, so it must not quote the seed).
   assert.equal(papicFreeCreditPoints({ kind: 'value', points: 90 }), 90);
   assert.equal(papicFreeCreditPoints(OFF), null);
-  assert.equal(papicFreeCreditPoints(UNKNOWN), PAPIC_FREE_GRANT_POINTS_FALLBACK);
+  assert.equal(papicFreeCreditPoints(UNKNOWN), null);
+  assert.equal(papicFreeCreditPromise(UNKNOWN), null);
   assert.equal(papicFreeCreditPromise(OFF), null);
   // A 'value' that is somehow not positive is the off case too — belt and
   // braces, because `points` is a plain number in the type.

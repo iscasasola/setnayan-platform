@@ -58,7 +58,7 @@
  * the same string by construction — see `the-free-credit-promise-is-true.test.ts`.
  */
 
-import { PAPIC_FREE_GRANT_POINTS_FALLBACK, type PapicFreeGrantRead } from './papic-tier-copy';
+import type { PapicFreeGrantRead } from './papic-tier-copy';
 
 /**
  * The condition, in the page's voice. ONE copy, shared by every surface, so the
@@ -111,6 +111,10 @@ export function papicFreeCreditPromise(read: PapicFreeGrantRead): PapicFreeCredi
  */
 export function papicFreeCreditPoints(read: PapicFreeGrantRead): number | null {
   if (read.kind === 'off') return null;
-  if (read.kind === 'unknown') return PAPIC_FREE_GRANT_POINTS_FALLBACK;
+  // 💰 2026-11-13 (truth sweep, owner: no typed numbers on a customer screen): an UNREAD allowance is not a known
+  // one. This used to quote the seed (`PAPIC_FREE_GRANT_POINTS_FALLBACK`, 50) — the figure SQL COALESCEs to when the
+  // row is MISSING — but "unknown" is a read that failed, not a row that is missing, so the page cannot know what
+  // SQL will mint. It says nothing, exactly as it does when the allowance is switched off.
+  if (read.kind === 'unknown') return null;
   return read.points > 0 ? read.points : null;
 }

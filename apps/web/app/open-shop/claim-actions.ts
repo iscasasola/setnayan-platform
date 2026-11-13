@@ -28,6 +28,8 @@ import { decideOpenShopAccount } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
+import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -318,6 +320,43 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
         const url = new URL(getURLFromRedirectError(e) ?? '', 'http://claim-door.local');
         if (url.searchParams.get('error')) console.warn('[claim-door] a payment option was refused:', url.searchParams.get('error'));
       }
+    }
+  }
+
+  // ── 🧾 A CHANGE TO WHAT THE COUPLE BOUGHT IS THEIRS TO APPROVE (DECISION_LOG 2026-11-07 — owner: *"price change, or
+  // service change on their purchase gets changed, needs approval"*). The couple's recorded services and price (read on
+  // the server, never the post) against the couple's cards as the supplier confirmed them — only `theirs`: a service the
+  // supplier added is their own card and never asks the couple. A difference is STAGED as the shipped amendment, on no
+  // conversation yet; the couple's Approve delivers it into their chat (`answerClaimAccess`). Their row is not touched.
+  // Fail-soft: the shop is open; a missed staging only loses the ask, and it is logged.
+  if (!fromSetnayan && eventId && landing.parentVendor) {
+    try {
+      const change = purchaseChange({
+        recordPrice: recordRead.record.price,
+        recorded: recordRead.record.services,
+        confirmed: theirs,
+        // The details slide's "Price" — the couple's bundle price as the supplier states it.
+        statedPrice: answers.price,
+      });
+      await stagePurchaseChange(admin, {
+        eventId,
+        recordVendorId: landing.parentVendor.vendor_id,
+        shopId: vendorProfileId,
+        supplierUserId: user.id,
+        shopName: answers.name || shop.business_name || null,
+        change,
+        // 🔒 AN APPROVED CLAIM CHANGE IS LOCKABLE (DECISION_LOG 2026-11-13): the real quote behind it — the couple's
+        // agreed guests / hours × the pricing the supplier confirmed here. Null when the lines cannot make the exact
+        // price the couple is asked to accept; the Deal then goes out unlockable, as before.
+        quote: claimChangeQuote({
+          recordBasis: recordRead.record.priceBasis,
+          agreedCount: recordRead.record.agreedCount,
+          confirmed: theirs,
+          lockPrice: change.price?.to ?? recordRead.record.price,
+        }),
+      });
+    } catch (e) {
+      console.error('[claim-door] the purchase change was not staged:', e);
     }
   }
 

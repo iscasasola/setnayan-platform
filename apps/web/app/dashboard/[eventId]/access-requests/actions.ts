@@ -36,6 +36,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { foundYouLeadNotice, readFoundYou } from '@/lib/found-you';
 import { claimAnswerNotice } from '@/lib/claim-access-wait';
 import { correctionsNotice, supplierCorrections } from '@/lib/supplier-corrections';
+import { deliverPurchaseChange, withdrawStagedPurchaseChange } from '@/lib/supplier-purchase-change.server';
 
 export type AnswerResult = { ok: boolean; error?: string };
 
@@ -235,6 +236,32 @@ async function answerClaimAccess(
       });
     } catch (e) {
       console.error('[access-requests] claim corrections failed:', e);
+    }
+  }
+
+  // 🧾 A PRICE OR SERVICE CHANGE ON THEIR PURCHASE IS THEIRS TO APPROVE (DECISION_LOG 2026-11-07). What the supplier
+  // changed at the claim door was staged as the shipped amendment, on no conversation; Approve puts it in the couple's
+  // chat as the amendment card (accept · counter · decline), Decline withdraws it. Their row keeps their price and
+  // services until they accept. Fail-soft: the answer is committed; a missed delivery is logged and stays staged.
+  if (ask.vendor_profile_id) {
+    try {
+      if (approve && result.granted) {
+        const { data: shopRow } = await admin
+          .from('vendor_profiles')
+          .select('business_name')
+          .eq('vendor_profile_id', ask.vendor_profile_id)
+          .maybeSingle();
+        await deliverPurchaseChange(admin, {
+          eventId,
+          shopId: ask.vendor_profile_id,
+          bookingVendorId: result.booking_vendor_id ?? ask.event_vendor_id,
+          shopName: (shopRow as { business_name?: string | null } | null)?.business_name ?? null,
+        });
+      } else if (!approve) {
+        await withdrawStagedPurchaseChange(admin, { eventId, shopId: ask.vendor_profile_id });
+      }
+    } catch (e) {
+      console.error('[access-requests] claim purchase change failed:', e);
     }
   }
 

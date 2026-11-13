@@ -97,6 +97,8 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'lib/sample-event/hub.ts': ['celebration'],
   // event-type keys / tags
   'lib/checklist-event-type-defs.ts': ['celebration'],
+  // the KEY of the roster row whose shown word becomes "Other events" on the supplier door (walk 13 Nov, F-W1-06)
+  'app/open-shop/_components/event-tiles.tsx': ['celebration'],
   'lib/event-anchor.ts': ['celebration'],
   'lib/event-brief.ts': ['celebration'],
   'lib/onboarding/type-questions.ts': ['celebration'],

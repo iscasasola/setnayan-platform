@@ -212,7 +212,7 @@ const PARTS = [
   },
   {
     // The FILM's name under public/add-ons/demo, not an add-on key: the
-    // "Custom QR per guest" product folded into Event Hub Pro (2026-09-27) and
+    // "Custom QR per guest" product folded into Event Pro (2026-09-27) and
     // its page is gone, but the recording — every guest holding their own
     // code — is still what this part says.
     slug: 'custom-qr-guest',

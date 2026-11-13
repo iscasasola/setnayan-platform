@@ -39,12 +39,12 @@
  *                                    Suppliers' "N looks on your board" (→ Find's board) — or both reads refused
  *   ?view=guests-see[&page=save_the_date|rsvp|event|editorial]  🗓 Home's "Parts of the page" switches (the REAL
  *                                    `HubPartsSwitches` over the REAL What-guests-see table) — "The day's program" row
- *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
+ *   ?view=pro                        💎 what Event Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
- *                                    selling Event Hub Pro through Apple, in each outcome
+ *                                    selling Event Pro through Apple, in each outcome
  *   ?level=1 | level=unread          🔑 "<shop> joined as your coordinator" (owner 2026-10-29) — the REAL
  *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
  *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
@@ -70,7 +70,7 @@
  *                                    (owner 2026-11-05, "it shouldn't rely on the hub"), so the cover and the countdown
  *                                    read it with no Apply. The lab's date door keeps the day in the `lab_home_date`
  *                                    cookie and redraws (the lab has no database); `?picked=` sets it by hand.
- *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
+ *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Pro (owner 2026-10-14):
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
  *                                    not added · pending = payments waiting · unread = the reads failed
@@ -442,7 +442,7 @@ export default async function HomeLab({
   const E = '00000000-0000-4000-8000-000000000000';
   // 🗓 Home's "Parts of the page" switches over the real What-guests-see table — "The day's program" row (2026-11-06).
   if (q.view === 'guests-see') return <LabGuestsSee page={q.page} eventId={E} />;
-  // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Hub Pro's.
+  // 💎 Host 5 — far from the lab's Papic ladder seed, whose figures are not Event Pro's.
   if (q.view === 'pro') {
     const offer = resolveHubProOffer({ channel: 'save_the_date', phase: 'plan', ownsPro: false });
     return (

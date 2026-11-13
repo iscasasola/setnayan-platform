@@ -142,7 +142,7 @@ export function overPlanWords(fit: Exclude<FitAnswer, { ok: true }>, plan: Vendo
   return `${name} holds ${fit.cap} ${fit.cap === 1 ? 'category' : 'categories'}. Turn one off first.`;
 }
 
-/** The meter line: "2 categories · 4 services — Solo holds this". */
+/** The meter line: "2 categories · 4 services — Supplier Plus holds this". */
 export function meterWords(kept: readonly PlanCard[], plan: VendorTier): string {
   const families = new Set(kept.flatMap((c) => c.families)).size;
   const n = kept.length;

@@ -30,7 +30,7 @@ import {
  * `order_awaiting_reconciliation` (added 2026-06-24) — NOT the borrowed
  * `vendor_token_purchase_pending`. The tray renders the TYPE as its badge, so
  * the old reuse made a couple's PHP order read "TOKEN PURCHASE AWAITING
- * PAYMENT" (wrong — the customer token wallet is retired; couples pay PHP
+ * PAYMENT" (wrong — the customer token balance is retired; couples pay PHP
  * direct). The dedicated type renders "Awaiting reconciliation". Deep-link
  * points at /admin/payments FILTERED TO THIS ORDER (adminOrderDeepLink).
  *

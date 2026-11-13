@@ -7,10 +7,10 @@
  */
 
 /**
- * 💎 IS A KIT PART OF EVENT HUB PRO? — ONE CONSTANT.
+ * 💎 IS A KIT PART OF EVENT PRO? — ONE CONSTANT.
  *
  * Owner 2026-10-16, verbatim: *"the accents we added should be part of pro."* So: tried free in the Maker (the
- * canvas wears it), named "Decorations" at Apply, and on the guest page only while the event owns Event Hub Pro —
+ * canvas wears it), named "Decorations" at Apply, and on the guest page only while the event owns Event Pro —
  * the event's unlock, so it covers everyone on the event, and an internal host counts (`eventSkuActive` →
  * `eventHostIsInternal`). A free event's guests see no decorations; the switch and the Maker's preview stay.
  *

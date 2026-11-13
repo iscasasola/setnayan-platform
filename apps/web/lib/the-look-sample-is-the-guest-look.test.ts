@@ -682,7 +682,7 @@ test('(8) a button colour stored before the ruling changes NOTHING a guest’s E
         if (failures.length < 6) failures.push(`${where} · ${key}: with ${row.site_button_color} ${JSON.stringify(a[key])?.slice(0, 140)} ≠ without ${JSON.stringify(b[key])?.slice(0, 140)}`);
       }
     }
-    /* …and the same for a guest of an event WITHOUT Event Hub Pro. */
+    /* …and the same for a guest of an event WITHOUT Event Pro. */
     try {
       assert.deepEqual(guestLookFrom(row, hub(themeId), false), guestLookFrom(none, hub(themeId), false));
     } catch {

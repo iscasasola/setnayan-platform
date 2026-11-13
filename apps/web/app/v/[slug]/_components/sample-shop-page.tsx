@@ -20,15 +20,15 @@
  *
  * No headings inside: the drawing sits in another page (the supplier front page has its own h1/h2 and styles them), so
  * the name and the About label are paragraphs with the page's classes — the look is the same, the outline is not lied to.
- * It wears the demo chip — "(DEMO ONLY)", the owner's later words for a sample shop (DECISION_LOG "DEMO SHOPS + DEMO
- * EVENTS"; the retired "Sample shop" label is held off by the-sample-shop-wears-the-sample-marker.test.ts). Server-rendered; the only client parts are the shipped map and ⓘ.
+ * It is marked "Sample shop" (owner, 13 Nov 2026: *"make it sample shop instead of demo only"*) — it is an
+ * illustration on the supplier front page, not a demo shop row; real `is_demo` shops keep "(DEMO ONLY)". Server-rendered; the only client parts are the shipped map and ⓘ.
  */
 import Image from 'next/image';
 import type { CSSProperties } from 'react';
 import { MessageCircle, Send, CalendarCheck } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { ImageBadge } from '@/app/_components/image-badge';
-import { DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
+import { SampleMarker } from '@/app/_components/sample-marker';
 import { ShopReachLine, ShopReachMap } from './shop-reach';
 import { ShopAddresses } from './shop-addresses';
 import { ShopBranchesLine } from './shop-branches-line';
@@ -159,7 +159,7 @@ export function SampleShopPage({
     >
       <div className="flex items-center justify-between gap-4 border-b border-ink/5 px-4 py-4">
         <Wordmark size={22} />
-        <SampleMarker />
+        <SampleMarker>Sample shop</SampleMarker>
       </div>
       {d.verified ? null : <NotYetVerifiedNotice />}
       <div className="space-y-8 px-4 pb-10 pt-8">
@@ -261,7 +261,7 @@ export function SampleShopPage({
         </section>
       </div>
       <p className="px-4 pb-10 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">
-        {DEMO_ONLY_LABEL} · a sample, not a real shop
+        Sample shop · drawn, not a real shop
       </p>
     </div>
   );

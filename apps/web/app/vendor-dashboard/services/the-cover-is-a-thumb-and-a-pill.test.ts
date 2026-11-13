@@ -15,11 +15,14 @@ import { join } from 'node:path';
 const root = join(__dirname, '..', '..', '..');
 const read = (p: string) => readFileSync(join(root, p), 'utf8');
 
-test('the card maker asks for the cover as a thumb and a pill', () => {
+// 🖼 SUPERSEDED FOR THE CARD MAKER (owner 2026-11-13, "CARD MAKER GALLERY UPLOAD APPROVED"): the cover is no longer a
+// thumb + pill of its own — it is the gallery's first tile, tagged "Primary" (held in the-card-photos-are-one-gallery.test.ts).
+// `thumb` mode stays in FileUpload, unchanged, for any square single image that asks for it.
+test('the card maker’s cover is the gallery’s primary — no cover uploader of its own', () => {
   const maker = read('app/vendor-dashboard/services/_components/canvas-maker.tsx');
-  const cover = maker.match(/<FileUpload\b[^>]*?name="primary_photo_r2_key"[\s\S]*?\/>/);
-  assert.ok(cover, 'the cover FileUpload is in the maker');
-  assert.match(cover![0], /thumb=\{\{\s*add:\s*'Add a cover',\s*replace:\s*'Replace'\s*\}\}/);
+  assert.doesNotMatch(maker, /<FileUpload\b[^>]*?name="primary_photo_r2_key"/, 'a separate cover uploader is back');
+  const gallery = read('app/vendor-dashboard/services/_components/card-photo-gallery.tsx');
+  assert.match(gallery, /name="primary_photo_r2_key" value=\{order\[0\]\}/, 'the first tile posts as the cover');
 });
 
 test('thumb mode draws one thumb and one ActionButton, and none of the big-box parts', () => {
@@ -30,7 +33,7 @@ test('thumb mode draws one thumb and one ActionButton, and none of the big-box p
   assert.match(block![0], /<ActionButton[\s\S]*?label=\{first \? thumb!\.replace : thumb!\.add\}/);
   assert.equal((block![0].match(/<ActionButton\b/g) ?? []).length, 1, 'exactly one pill');
   // The drop box, the big single preview, the filename rows and the help line all stand down in thumb mode.
-  assert.match(fu, /\{!atCapacity && !rowMode && !thumbMode \? \(/);
+  assert.match(fu, /\{!atCapacity && !rowMode && !thumbMode(?: && !tilesMode)? \? \(/);
   assert.match(fu, /isSingleImagePreview && !rowMode && (?:!pillMode && )?!thumbMode \? \(/);
   assert.match(fu, /&& !rowMode && !thumbMode && \(/);
   assert.match(fu, /help && !rowMode && (?:!\(pillMode && items\.length > 0\) && )?!thumbMode \?/);

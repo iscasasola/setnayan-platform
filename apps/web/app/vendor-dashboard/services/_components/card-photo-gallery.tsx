@@ -152,7 +152,7 @@ export function CardPhotoGallery({
           <div className="flex items-center gap-2.5 border-b border-ink/10 py-1.5 pl-4 pr-2">
             {openUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={openUrl} alt="" className="h-10 w-10 flex-none rounded-[10px] object-cover" />
+              <img src={openUrl} alt="" className="h-10 w-10 flex-none rounded-lg object-cover" />
             ) : null}
             <span id={headId} className="min-w-0 flex-1 font-semibold text-ink">
               {openIsPrimary ? 'Primary photo' : `Photo ${formatCount(openIdx + 1)} of ${formatCount(n)}`}

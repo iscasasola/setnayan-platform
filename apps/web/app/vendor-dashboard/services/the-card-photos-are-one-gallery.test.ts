@@ -18,10 +18,11 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
+import { stripComments as strip } from '@/lib/strip-comments';
+
 (globalThis as unknown as { React: unknown }).React = React;
 
 const DIR = join(__dirname, '_components');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const MAKER = strip(readFileSync(join(DIR, 'canvas-maker.tsx'), 'utf8'));
 const GALLERY = strip(readFileSync(join(DIR, 'card-photo-gallery.tsx'), 'utf8'));
 const UPLOAD = strip(readFileSync(join(__dirname, '../../_components/file-upload.tsx'), 'utf8'));
@@ -50,11 +51,15 @@ test('the gallery is the shipped FileUpload in tiles mode, capped at the card li
 });
 
 test('FileUpload draws the add tile as the grid’s last cell, gone at the limit, and no drop box in tiles mode', () => {
-  const grid = UPLOAD.slice(UPLOAD.indexOf('data-upload-tiles='), UPLOAD.indexOf('</ul>', UPLOAD.indexOf('data-upload-add')));
-  const addAt = grid.indexOf('data-upload-add');
-  assert.ok(addAt > grid.indexOf('failed.map('), 'the add tile follows the photos, the pies and the failed tiles');
-  assert.match(grid, /\{tilesMode && !atCapacity \? \(/, 'the add tile hides at the limit');
-  assert.match(grid, /<ImagePlus\b/);
+  assert.match(UPLOAD, /const addTile =\s*tilesMode && !atCapacity \? \(/, 'the add tile hides at the limit');
+  const tile = UPLOAD.slice(UPLOAD.indexOf('const addTile ='), UPLOAD.indexOf(') : null;', UPLOAD.indexOf('const addTile =')));
+  assert.match(tile, /data-upload-add=""/);
+  assert.match(tile, /<ImagePlus\b/);
+  assert.match(tile, /\{fileInput\}/, 'the add tile is the picker');
+  // last in the grid: after the photos, the pies and the failed tiles
+  const grid = UPLOAD.slice(UPLOAD.indexOf('{(isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? ('));
+  const end = grid.indexOf('</ul>');
+  assert.ok(grid.indexOf('{addTile}') > grid.indexOf('{failed.map((item) => (') && grid.indexOf('{addTile}') < end);
   assert.match(UPLOAD, /!atCapacity && !rowMode && !thumbMode && !tilesMode \? \(/, 'no big drop box beside the grid');
   // the stall watchdog and the pie are the shipped ones, not redrawn
   assert.match(UPLOAD, /const UPLOAD_STALL_MS = 45_000;/);

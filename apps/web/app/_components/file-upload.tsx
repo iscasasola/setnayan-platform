@@ -1326,12 +1326,12 @@ export function FileUpload({
         const gone = items[at];
         if (!gone) return null;
         removeItem(gone.id);
+        // Undo puts the tile back where it stood. Nothing is told: the host's own order already holds it again.
         return () =>
           setItems((prev) => {
             if (prev.some((i) => i.r2Ref === gone.r2Ref)) return prev;
             const next = [...prev];
             next.splice(Math.min(at, next.length), 0, gone);
-            toSay.current = next;
             return next;
           });
       },
@@ -1498,6 +1498,32 @@ export function FileUpload({
       className="sr-only"
     />
   );
+
+  /* ➕ THE ADD TILE (`tiles`, the owner's picture 13 Nov): the grid's last cell — a rounded square, a light edge, the
+     raised fill, ImagePlus centred. Gone at the limit (`atCapacity`); a delete brings it back. */
+  const addTile =
+    tilesMode && !atCapacity ? (
+      <li className="relative aspect-square">
+        <label
+          htmlFor={inputId}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          aria-label={tiles!.addLabel}
+          data-upload-add=""
+          className={`flex h-full w-full cursor-pointer items-center justify-center rounded-xl border bg-white text-ink/70 transition-colors dark:bg-ink/5 ${
+            disabled
+              ? 'cursor-not-allowed opacity-60'
+              : isDragging
+                ? 'border-terracotta bg-terracotta/5 text-terracotta'
+                : 'border-ink/15 hover:border-terracotta/60'
+          }`}
+        >
+          <ImagePlus aria-hidden className="h-8 w-8" strokeWidth={1.6} />
+          {fileInput}
+        </label>
+      </li>
+    ) : null;
 
   /** "PNG, JPG or WEBP" — the accepted types as a person says them. */
   const typeWords = (() => {
@@ -1983,17 +2009,24 @@ export function FileUpload({
           A video renders as a real <video> (muted, preload=metadata) rather
           than a play glyph, so the poster frame shows — same reason as the
           picture: the vendor is checking WHICH clip, not that one exists. */}
-      {tilesMode || (isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
+      {/* `tiles` with nothing in it yet: the grid is the add tile alone. */}
+      {tilesMode && items.length === 0 && inFlight.length === 0 && failed.length === 0 ? (
+        <ul data-upload-tiles="" className="grid grid-cols-3 gap-2">
+          {addTile}
+        </ul>
+      ) : null}
+      {(isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
         <ul data-upload-tiles={tilesMode ? '' : undefined} className={`grid grid-cols-3 gap-2 ${tilesMode ? '' : 'sm:grid-cols-4'}`}>
-          {shownItems.map((item, idx) =>
-            tilesMode ? (
+          {tilesMode
+            ? shownItems.map((item, idx) => (
               // 🖼 `tiles`: the photo IS the button — a tap opens the host's sheet (Set as primary · Delete · Cancel).
               <li key={item.id} title={item.filename} data-upload-tile={idx === 0 ? 'lead' : ''} className="relative aspect-square">
                 <button
+                  data-upload-tile-open=""
                   type="button"
                   onClick={() => tiles!.onTap(item.r2Ref)}
                   aria-label={`${idx === 0 ? `${tiles!.leadTag} photo` : `Photo ${formatCount(idx + 1)}`} — open`}
-                  className="relative block h-full w-full overflow-hidden rounded-[14px] bg-cream" // no-card-ok: the tile is a <button> (tap opens the photo's sheet)
+                  className="relative block h-full w-full overflow-hidden rounded-xl bg-cream" // no-card-ok: the tile is a <button> (tap opens the photo's sheet)
                 >
                   {isImage(item.contentType) && item.displayUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -2014,7 +2047,10 @@ export function FileUpload({
                   ) : null}
                 </button>
               </li>
-            ) : (
+              ))
+            : null}
+          {items.map((item) => (
+            tilesMode ? null : (
             <li
               key={item.id}
               title={item.filename}
@@ -2078,8 +2114,7 @@ export function FileUpload({
                 </span>
               </button>
             </li>
-          ),
-          )}
+          )))}
           {inFlight.map((item) => (
             <li
               key={item.id}
@@ -2136,28 +2171,7 @@ export function FileUpload({
           ))}
           {/* ➕ THE ADD TILE (`tiles`, owner's picture 13 Nov): the grid's last cell — a rounded square, a light edge,
               the raised fill, ImagePlus centred. Gone at the limit (`atCapacity`); a delete brings it back. */}
-          {tilesMode && !atCapacity ? (
-            <li className="relative aspect-square">
-              <label
-                htmlFor={inputId}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                aria-label={tiles!.addLabel}
-                data-upload-add=""
-                className={`flex h-full w-full cursor-pointer items-center justify-center rounded-[14px] border bg-white text-ink/70 transition-colors dark:bg-ink/5 ${
-                  disabled
-                    ? 'cursor-not-allowed opacity-60'
-                    : isDragging
-                      ? 'border-terracotta bg-terracotta/5 text-terracotta'
-                      : 'border-ink/15 hover:border-terracotta/60'
-                }`}
-              >
-                <ImagePlus aria-hidden className="h-8 w-8" strokeWidth={1.6} />
-                {fileInput}
-              </label>
-            </li>
-          ) : null}
+          {addTile}
         </ul>
       ) : null}
 

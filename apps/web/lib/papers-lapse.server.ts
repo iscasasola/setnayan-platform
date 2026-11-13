@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emitNotification } from '@/lib/notification-emit';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import {
   PAPERS_LAPSED_AUDIT_ACTION,
   PAPERS_LAPSED_NOTICE,
@@ -62,6 +63,8 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
         .eq('vendor_profile_id', row.vendor_profile_id)
         .is('papers_lapsed_at', null)
         .select('vendor_profile_id');
+      // The home page remembers the live shops for 60 s — this shop just left them (lib/home-shelf-clear.ts).
+      clearHomeShelf('shops');
       if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
       if (stampErr || !Array.isArray(changed) || changed.length !== 1) continue;
       stamped += 1;
@@ -74,7 +77,7 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
           relatedUrl: '/vendor-dashboard/profile#docs',
         }).catch(() => undefined);
       }
-      await admin.from('admin_audit_log').insert({
+      const { error: auditErr } = await admin.from('admin_audit_log').insert({
         action: PAPERS_LAPSED_AUDIT_ACTION,
         target_table: 'vendor_profiles',
         target_id: row.vendor_profile_id,
@@ -87,6 +90,7 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
           notified: Boolean(row.user_id),
         },
       });
+      if (auditErr) console.error('[papers-lapse] audit write failed', auditErr.message);
     }
     return stamped;
   } catch (e) {

@@ -176,7 +176,7 @@ export async function runAutoVerifyOnSubmit(args: {
 
   // ── One JSON log per submission — masked, no bytes, no signed URLs ───────
   try {
-    await args.admin.from('admin_audit_log').insert({
+    const { error: logErr } = await args.admin.from('admin_audit_log').insert({
       action: AUTO_CHECK_AUDIT_ACTION,
       target_table: 'vendor_verification_applications',
       target_id: args.applicationId,
@@ -190,6 +190,7 @@ export async function runAutoVerifyOnSubmit(args: {
         live_page: live,
       },
     });
+    if (logErr) console.error('[auto-verify] audit log write failed', logErr.message);
   } catch {
     // The log never decides anything; a failed write must not change the outcome.
   }

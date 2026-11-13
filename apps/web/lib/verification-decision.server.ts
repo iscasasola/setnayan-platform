@@ -192,11 +192,12 @@ export async function applyApplicationDecision(
   // has already crossed. Best-effort: most shops were never vouched for, and
   // the badge reads `next_renewal_due_at`, not this row.
   if (input.decision === 'approved') {
-    await admin
+    const { error: vouchErr } = await admin
       .from('vendor_verification_bypasses')
       .update({ expires_at: null, updated_at: now })
       .eq('vendor_profile_id', vendor.vendor_profile_id)
       .not('expires_at', 'is', null);
+    if (vouchErr) console.error('[verification-decision] vouch deadline clear failed', vouchErr.message);
   }
 
   // ---- Step 3: vendor_tier_history audit row. ----

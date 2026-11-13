@@ -118,7 +118,8 @@ test('the faint labels clear AA — the drawing made this exact correction', () 
     0,
     'a faint label fell back to the page token that measures 3.67:1',
   );
-  assert.match(src, /const MUTE = '#6E6A62';/, 'the AA-clearing grey is not the label colour');
+  // --m-slate-2 is #6E6A62 (globals.css) — a token, never a raw hex (lib/every-back-goes-home.test.ts).
+  assert.match(src, /const MUTE = 'var\(--m-slate-2\)';/, 'the AA-clearing grey is not the label colour');
   assert.ok((src.match(/\bMUTE\b/g) ?? []).length >= 6, 'the AA-clearing grey is not being used');
 });
 

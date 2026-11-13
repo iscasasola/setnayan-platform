@@ -64,7 +64,8 @@ const TYPED_FIELDS: Record<ReadableSlotKey, ReadonlyArray<{ key: string; label: 
   ],
 };
 
-const MUTE = '#6E6A62';
+/** --m-slate-2: 5.38:1 on white, the AA-clearing grey (the faint --m-slate-3 measures 3.67:1). */
+const MUTE = 'var(--m-slate-2)';
 
 function asSlot(v: unknown): IntakeSlot | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
@@ -142,7 +143,6 @@ export function PaperUploadPlace({
   const [checking, setChecking] = useState(0);
   const [reports, setReports] = useState<IntakeReport[]>([]);
   const [pickerKey, setPickerKey] = useState(0);
-  const [open, setOpen] = useState<ReadableSlotKey | null>(null);
 
   const slots = useMemo(
     () => Object.fromEntries(ROWS.map((r) => [r.slot, asSlot(payload.docMap[r.slot])])) as Record<ReadableSlotKey, IntakeSlot | null>,
@@ -168,7 +168,7 @@ export function PaperUploadPlace({
   const pinConfirmed =
     Boolean(proposal) && (payload.identityValues.registered_address ?? '').trim() === (permit?.evidence?.model?.address ?? proposal?.address ?? '').trim();
 
-  const send = (refs: string[]) => {
+  const save = (refs: string[]) => {
     if (refs.length === 0) return;
     setChecking(refs.length);
     start(async () => {
@@ -211,7 +211,7 @@ export function PaperUploadPlace({
             label="Upload documents"
             help="Pick 1, 2 or all 3 at once — any order. PDF / JPG / PNG up to 15 MB each."
             disabled={pending}
-            onChange={(val) => send(Array.isArray(val) ? val : val ? [val] : [])}
+            onChange={(val) => save(Array.isArray(val) ? val : val ? [val] : [])}
           />
           {pending && checking > 0 ? (
             <p className="inline-flex items-center gap-1.5 text-sm" role="status" style={{ color: 'var(--m-ink)' }}>
@@ -232,7 +232,7 @@ export function PaperUploadPlace({
               key={`${r.r2Key}-${r.page ?? 'x'}-${i}`}
               className="rounded-lg px-3 py-2 text-xs"
               style={{
-                background: r.outcome === 'read_ok' || r.outcome === 'replaced' ? 'var(--m-paper-2, #FAF8F4)' : 'var(--m-orange-4)',
+                background: r.outcome === 'read_ok' || r.outcome === 'replaced' ? 'var(--m-paper-2)' : 'var(--m-orange-4)',
                 color: 'var(--m-ink)',
               }}
             >
@@ -261,7 +261,6 @@ export function PaperUploadPlace({
         {ROWS.map((row) => {
           const s = slots[row.slot];
           const model = s?.evidence?.model ?? null;
-          const isOpen = open === row.slot;
           let status: { icon: 'ok' | 'wait' | 'person' | 'none'; text: string };
           if (s?.r2_key && s.manual) status = { icon: 'person', text: 'A person will check this' };
           else if (s?.r2_key && model) status = { icon: 'ok', text: readSummary(row.slot, model) };
@@ -286,13 +285,7 @@ export function PaperUploadPlace({
                   Start here
                 </p>
               ) : null}
-              <button
-                type="button"
-                className="flex w-full min-h-[44px] items-start gap-3 text-left"
-                aria-expanded={isOpen}
-                onClick={() => setOpen(isOpen ? null : row.slot)}
-                disabled={!s?.r2_key}
-              >
+              <div className="flex min-h-[44px] items-start gap-3">
                 <StatusIcon kind={status.icon} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
@@ -307,9 +300,9 @@ export function PaperUploadPlace({
                     </span>
                   ) : null}
                 </span>
-              </button>
+              </div>
 
-              {s?.r2_key && model && !s.manual && (isOpen || inCount < 3) ? (
+              {s?.r2_key && model && !s.manual ? (
                 <div className="mt-2 space-y-1 pl-9">
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                     {readLines(row.slot, model).map(([k, v]) => (
@@ -355,12 +348,12 @@ export function PaperUploadPlace({
 function StatusIcon({ kind }: { kind: 'ok' | 'wait' | 'person' | 'none' }) {
   const style =
     kind === 'ok'
-      ? { background: 'var(--m-sage-4, #E6F0E9)', color: 'var(--m-sage-deep)' }
+      ? { background: 'var(--m-paper-2)', color: 'var(--m-sage-deep)' }
       : kind === 'wait'
         ? { background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }
         : kind === 'person'
-          ? { background: '#EEF1F5', color: '#3B4E67' }
-          : { background: '#F1F0EE', color: MUTE };
+          ? { background: 'var(--m-line-soft)', color: 'var(--m-slate)' }
+          : { background: 'var(--m-line-soft)', color: MUTE };
   const Icon = kind === 'ok' ? Check : kind === 'wait' ? Clock : kind === 'person' ? UserRound : Minus;
   return (
     <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full" style={style}>

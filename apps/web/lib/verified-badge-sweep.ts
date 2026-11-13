@@ -131,7 +131,7 @@ export async function runVerifiedBadgeDeadlineSweep(
     .limit(MAX_PER_PASS);
   if (error) {
     console.error('[verified-badge-sweep] candidate read failed:', error.message);
-    return { reminded: 0, lapsed: 0, vouchesSettled: 0 };
+    return { reminded: 0, lapsed: 0, vouchesSettled: 0, papersLapsed: await stampLapsedPapers(admin, now) };
   }
   const profiles = (rows ?? []) as Array<{
     vendor_profile_id: string;

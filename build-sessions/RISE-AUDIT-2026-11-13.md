@@ -24,9 +24,9 @@ Guard: `app/_components/rise/the-rise-screen-is-one-full-screen.test.ts`.
 | batch | what | state |
 |---|---|---|
 | 1 | every ⚙ rises — `MenuSettingsButton` `rise` becomes the default (Home · Guests · Event Hub · Suppliers · Memories · People · Today · Clients · Portfolio · Supplier Hub · Shop). The picked client's own ⚙ keeps its sheet (`rise={false}`: it is already inside a risen view — one level). | ✅ this PR |
-| 2 | lock & upsell explainers that are still sheets/dialogs → `RiseScreen` (`IapUnlockSheet` · `IapPapicSheet` · `IapLiveWatchSheet` · `ChoosePlanSheet` · `ApplyProSheet`) | next |
+| 2 | lock & upsell explainers that were still sheets/dialogs → `RiseScreen` (`IapUnlockSheet` · `IapPapicSheet` · `IapLiveWatchSheet` · `ChoosePlanSheet`). `RiseScreen` gains `busy` (a purchase in flight holds every way out) and `useRiseClose` / `WithRiseClose` (an inner Done / Not now falls back exactly as ✕ does). | ✅ this PR |
 | 3 | avatar-sheet rows (Your details · Your page · Helpers · Plan · Settings · Billing · Profile & settings) — page jump → rise | next |
-| 4 | Prints ⚙ (`StudioPrintSettings`, its fields must never unmount) · `offer-editor.tsx` / `body-panel.tsx` own overlays → `RiseScreen` | next |
+| 4 | Prints ⚙ (`StudioPrintSettings`, its fields must never unmount) · `ApplyProSheet` (drawn at z-90 inside the Maker — above the pop layer, needs a layer decision first) · `offer-editor.tsx` / `body-panel.tsx` own overlays → `RiseScreen` | next |
 | 5+ | the content sheets marked RISE below (service/supplier card, schedule, forms, chat info, admin drawers) | next |
 
 ## A · Every ⚙ (settings door)
@@ -54,11 +54,11 @@ Guard: `app/_components/rise/the-rise-screen-is-one-full-screen.test.ts`.
 |---|---|---|---|
 | `app/_components/lock/locked-feature.tsx` · `LockedFeature` / `LockExplainer` / `LockButton` | any 🔒 row (analytics, bundles, proposal maker, plan) | rise | rise |
 | `app/_components/lock/limit-sheet.tsx` · `LimitSheet`; `vendor-dashboard/subscription/_components/limits-sheet.tsx` | a limit reached | rise | rise |
-| `app/_components/iap/iap-unlock-sheet.tsx` · `IapUnlockSheet` (Patiktok · Setnayan AI · Pakanta · Memories thank-you) | locked add-on | sheet | RISE — b2 |
-| `app/_components/iap/iap-papic-sheet.tsx` · `IapPapicSheet` | Papic upsell | sheet | RISE — b2 |
-| `app/_components/iap/iap-live-watch-sheet.tsx` · `IapLiveWatchSheet` | Live watch upsell | sheet | RISE — b2 |
-| `app/_components/app-store/choose-plan-sheet.tsx` · `ChoosePlanSheet` (Live Studio control) | choose a plan | dialog | RISE — b2 |
-| `dashboard/[eventId]/website/_components/apply-pro-sheet.tsx` | "Unlock Pro and Apply" | dialog | RISE — b2 |
+| `app/_components/iap/iap-unlock-sheet.tsx` · `IapUnlockSheet` (Patiktok · Setnayan AI · Pakanta · Memories thank-you) | locked add-on | sheet | RISE ✅ b2 |
+| `app/_components/iap/iap-papic-sheet.tsx` · `IapPapicSheet` | Papic upsell | sheet | RISE ✅ b2 |
+| `app/_components/iap/iap-live-watch-sheet.tsx` · `IapLiveWatchSheet` | Live watch upsell | sheet | RISE ✅ b2 |
+| `app/_components/app-store/choose-plan-sheet.tsx` · `ChoosePlanSheet` (Live Studio control) | choose a plan | dialog | RISE ✅ b2 |
+| `dashboard/[eventId]/website/_components/apply-pro-sheet.tsx` | "Unlock Pro and Apply" | dialog (z-90, in the Maker) | RISE — b4 (layer check first) |
 | `app/_components/anon-gate/save-to-continue.tsx` | an anonymous save | dialog | stays (one ask) |
 
 ## C · Home, account pages and the avatar sheet

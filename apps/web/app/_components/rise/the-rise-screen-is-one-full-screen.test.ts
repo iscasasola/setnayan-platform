@@ -78,7 +78,11 @@ test('3 · a full-screen modal on the pop layer; bars away; the house modal cont
   assert.match(SCREEN, /useChromeAway\(true\);/, 'the bars stay while the screen is up');
   assert.match(SCREEN, /useModalA11y\(\{ open: Boolean\(host\), onClose: close, containerRef: rootRef \}\)/, 'not the house modal contract (or the page is not held)');
   assert.doesNotMatch(SCREEN, /lockScroll: false/, 'the page under it is not held — ✕ would not return to the same scroll');
-  assert.match(SCREEN, /const close = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
+  assert.match(SCREEN, /const backClose = useBackCloses\(true, playClose\);/, 'the phone’s Back leaves the page');
+  // ⤵ An inner Done / Not now steps out through the SAME close (the reverse, the Back entry), and a purchase in flight holds
+  // every way out (13 Nov rollout).
+  assert.match(SCREEN, /<RiseCloseContext\.Provider value=\{close\}>/, 'an inner close skips the reverse');
+  assert.match(SCREEN, /if \(closingRef\.current \|\| busyRef\.current\) return;/, 'a busy screen still closes');
   assert.match(SCREEN, /riseOriginNow\(\)/, 'the screen does not rise out of what was tapped');
   assert.equal([...SCREEN.matchAll(/riseScreenMotion\(rectOf\(originRef\.current\), viewport\(\), prefersReducedMotion\(\)\)/g)].length, 2, 'the open and the close are not the same motion');
   assert.match(SCREEN, /el\.animate\(m\.frames, \{ \.\.\.m\.timing, direction: 'reverse', fill: 'forwards' \}\)/, 'the close is not the open played backwards');
@@ -157,4 +161,29 @@ test('5 · the Shop tab map: every door rises into the ONE screen — no popup s
   assert.match(files.cover, /onClick=\{\(\) => setViewOpen\(true\)\}[\s\S]{0,260}data-view-shop-pin=""/, 'the pinned row’s View shop does not rise');
   assert.equal([...files.cover.matchAll(/target="_blank"/g)].length, 1, 'View shop opens a new tab again');
   assert.match(fn(files.cover, 'ViewShopScreen'), /target="_blank"[\s\S]{0,200}data-view-shop-browser=""/, 'the risen page lost its "Open in browser ↗"');
+});
+
+// ⤴ 13 Nov rollout, batch 2 (build-sessions/RISE-AUDIT-2026-11-13.md § B): the lock and upsell explainers that were still a
+// popup sheet or a drawer of their own rise through the ONE screen. 🛡 SABOTAGE (seen RED, then restored): `<RiseScreen` →
+// `<Sheet open` in iap-papic-sheet.tsx.
+test('6 · every lock / upsell explainer rises — no popup sheet, no drawer of its own', () => {
+  const explainers = [
+    'app/_components/iap/iap-unlock-sheet.tsx',
+    'app/_components/iap/iap-papic-sheet.tsx',
+    'app/_components/iap/iap-live-watch-sheet.tsx',
+    'app/_components/app-store/choose-plan-sheet.tsx',
+    'app/_components/lock/locked-feature.tsx',
+    'app/_components/lock/limit-sheet.tsx',
+  ];
+  for (const rel of explainers) {
+    const src = code(rel);
+    assert.match(src, /import \{ RiseScreen\b[^}]*\} from '@\/app\/_components\/rise\/rise-screen';/, `${rel} does not open the ONE risen screen`);
+    assert.match(src, /<RiseScreen\b/, `${rel} does not rise`);
+    assert.doesNotMatch(src, /<Sheet\b|role="dialog"/, `${rel} still opens a popup where a Rise belongs`);
+  }
+  // A purchase in flight holds every way out; the inner Done / Not now fall back the same way ✕ does.
+  for (const rel of explainers.slice(0, 3)) {
+    assert.match(code(rel), /busy=\{buying\}/, `${rel}: ✕ closes mid-purchase`);
+    assert.match(code(rel), /<WithRiseClose fallback=\{closed\}>/, `${rel}: an inner close skips the fall`);
+  }
 });

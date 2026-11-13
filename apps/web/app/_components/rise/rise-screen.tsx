@@ -28,7 +28,7 @@
  * Never a second copy: a ⚙ rises through `MenuSettingsButton rise`, everything else mounts this.
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts
  */
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Info, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -52,6 +52,22 @@ function rectOf(el: HTMLElement | null): RiseRect | null {
 
 const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
 
+/**
+ * ⤵ THE SAME CLOSE FROM INSIDE (13 Nov rollout): a "Done" / "Not now" drawn in the body steps out exactly as ✕ does — the
+ * same reverse into the thing you tapped, through the same Back entry — never an unmount that skips the fall. Outside a
+ * RiseScreen it is null, so a part drawn in both a sheet and a rise falls back to its own close.
+ */
+const RiseCloseContext = createContext<(() => void) | null>(null);
+export function useRiseClose(): (() => void) | null {
+  return useContext(RiseCloseContext);
+}
+
+/** Render-prop form for a part whose close buttons live in the same component that mounts the screen. */
+export function WithRiseClose({ fallback, children }: { fallback: () => void; children: (close: () => void) => ReactNode }) {
+  const close = useRiseClose();
+  return <>{children(close ?? fallback)}</>;
+}
+
 export type RiseScreenProps = {
   /** The head's name (the settings prototype: bold, over one short line). Absent: the body draws its own heading — pass
    *  `labelledById` — and the head is the ✕ alone (v119's `rbar`). */
@@ -70,18 +86,22 @@ export type RiseScreenProps = {
   fill?: boolean;
   /** Called once the close has played (the caller unmounts the screen). */
   onClose: () => void;
+  /** While true (a purchase in flight) ✕, Esc, Back and an inner close all wait — the screen stays up. */
+  busy?: boolean;
   /** `data-rise-screen` — the guard's and the lab's anchor. */
   data: string;
   children: ReactNode;
 };
 
-export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, data, children }: RiseScreenProps) {
+export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, children }: RiseScreenProps) {
   const host = usePortalHost();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const originRef = useRef<HTMLElement | null>(null);
   const closingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   const headingId = useId();
   const infoId = useId();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -108,7 +128,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
 
   // ⤵ CLOSE — the same frames played backwards into the same thing, then the caller's onClose.
   const playClose = useCallback(() => {
-    if (closingRef.current) return;
+    if (closingRef.current || busyRef.current) return;
     closingRef.current = true;
     const done = () => onCloseRef.current();
     const el = rootRef.current;
@@ -118,7 +138,10 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
   }, []);
 
   // ← The phone's Back closes the screen, not the page; ✕ and Esc step back through the same entry.
-  const close = useBackCloses(true, playClose);
+  const backClose = useBackCloses(true, playClose);
+  const close = useCallback(() => {
+    if (!busyRef.current) backClose();
+  }, [backClose]);
 
   // The house modal contract: focus in, Tab kept inside, Esc closes (only the topmost layer answers), the page under it
   // held still and put back on the same pixel.
@@ -189,7 +212,9 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
           }
         >
           {/* Inside this layer a part that floats at the foot (the supplier's thumb row) stays IN it, never under it. */}
-          <InSheet.Provider value>{children}</InSheet.Provider>
+          <InSheet.Provider value>
+            <RiseCloseContext.Provider value={close}>{children}</RiseCloseContext.Provider>
+          </InSheet.Provider>
         </div>
       </div>
       {thumb ? (

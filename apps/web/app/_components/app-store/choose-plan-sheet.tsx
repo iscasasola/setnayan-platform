@@ -1,15 +1,14 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { CreditCard, X } from 'lucide-react';
+import { useState } from 'react';
+import { CreditCard } from 'lucide-react';
 
 import {
   InlineCheckoutDrawer,
   type InlineCheckoutDrawerProps,
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
@@ -128,8 +127,6 @@ export function ChoosePlanSheet({
   const [accepted, setAccepted] = useState(false);
   /** Withhold checkout while an unaccepted acknowledgement is on screen. */
   const checkoutLocked = !!acknowledgement && !accepted;
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
   /**
    * 🔒 A PLAN SHEET IS A PRICE LIST. The drawer inside it goes inert in the App
    * Store / Play Store shell, but the trigger (`· ₱…`) and every row's price do
@@ -156,19 +153,12 @@ export function ChoosePlanSheet({
         ) : null}
       </button>
 
+      {/* ⤴ RISE FULL SCREEN (owner 2026-11-10 "fullscreen everything"; build-sessions/RISE-AUDIT-2026-11-13.md batch 2):
+          the plan list rises out of the button you tapped and falls back into it on ✕ — the ONE RiseScreen, never a
+          drawer of its own. The words and rows inside are unchanged. */}
       {open ? (
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="choose-plan-title"
-          className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
-        >
-          {/* Backdrop */}
-          <OverlayBackdrop onClose={() => setOpen(false)} label="Close plan picker" />
-
-          {/* Sheet */}
-          <div className="relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
+        <RiseScreen labelledById="choose-plan-title" onClose={() => setOpen(false)} data="choose-plan">
+          <div className="flex flex-col">
             <header className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
               <div className="space-y-0.5">
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -181,14 +171,6 @@ export function ChoosePlanSheet({
                   <p className="max-w-xs text-xs text-ink/60">{introCopy}</p>
                 ) : null}
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-                className="rounded-full p-1 text-ink/55 hover:bg-ink/5 hover:text-ink"
-              >
-                <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </button>
             </header>
 
             {/* PROMINENT, above the plans: a fact that changes whether the buyer
@@ -229,7 +211,7 @@ export function ChoosePlanSheet({
             ) : null}
 
 
-            <ul className="flex-1 divide-y divide-ink/10 overflow-y-auto pb-[max(0px,env(safe-area-inset-bottom))]">
+            <ul className="flex-1 divide-y divide-ink/10">
               {plans.map((plan) => (
                 <li key={plan.sku_code} className="flex flex-col gap-2 px-5 py-4">
                   <div className="flex items-start justify-between gap-3">
@@ -288,7 +270,7 @@ export function ChoosePlanSheet({
               </footer>
             ) : null}
           </div>
-        </div>
+        </RiseScreen>
       ) : null}
     </>
   );

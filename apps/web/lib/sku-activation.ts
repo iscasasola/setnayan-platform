@@ -25,6 +25,7 @@ import {
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
@@ -1458,7 +1459,10 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
  * numbers), and a re-approval grants nothing. A refund deletes this order's rows (`reversePapicPassPoints`, by
  * order_id) and re-derives the AI flag (`deactivateSetnayanAiIfUnowned` now counts Plus and Pro).
  */
-export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY];
+// 💎 Event Ultra (owner 2026-11-13) is the third plan: the same hook — AI on, credits topped up to ITS row's number
+// (Plus then Ultra lands Plus's credits + the difference, never both). Its Pro / Live Watch / Patiktok need no hook:
+// they are read off the Ultra order itself (`SKU_OWNERSHIP_ALIASES`), so approving it IS the unlock.
+export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, EVENT_ULTRA_SKU];
 
 async function activateEventPlan(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
@@ -1522,6 +1526,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 💎 Event Plus / Event Pro → Setnayan AI on + their included Papic credits (owner 2026-11-04).
   EVENT_PLUS: activateEventPlan,
   [COUPLE_WEBSITE_PRO_SERVICE_KEY]: activateEventPlan,
+  [EVENT_ULTRA_SKU]: activateEventPlan,
 
   // 'vendor_photo_challenge' → Papic Challenges, a ₱2,500 / 28-day SHOP
   // subscription (owner 2026-08-28: "unlimited us 2500 for 4 weeks"). Stamps

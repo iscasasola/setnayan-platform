@@ -91,7 +91,15 @@ export function worksOutWords(basis: Exclude<SelfAddedBasis, 'fixed'>, totalPhp:
 }
 
 /** The saved cards' lines, by booking id (`readSelfAddedPriceLines`). */
-export type SelfAddedPriceLine = { basis: SelfAddedBasis; count: number | null };
+export type SelfAddedPriceLine = {
+  basis: SelfAddedBasis;
+  count: number | null;
+  /**
+   * Set only on a CLAIMED per-guest booking (20271343652941): its price now follows the guest list, and the card says
+   * why (`guestFollowLine`) instead of the "After they claim" promise. Absent = still the couple's own record.
+   */
+  follow?: { agreedGuests: number; billedGuests: number } | null;
+};
 export type SelfAddedPriceLines = Record<string, SelfAddedPriceLine>;
 
 /**

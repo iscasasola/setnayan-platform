@@ -49,7 +49,9 @@ export function usePublishCoverRing(covered: number, total: number, on: boolean)
   const setRing = ctx?.setRing;
   useLayoutEffect(() => {
     if (!setRing) return;
-    setRing(on && total > 0 ? { covered, total } : null);
+    // 📋 An empty list is published too (owner 2026-11-12): the pinned row then says "nothing added yet" — never a
+    // blank that reads as still loading. Off (the pre-replan bench) → nothing published.
+    setRing(on ? { covered, total } : null);
   }, [setRing, covered, total, on]);
   useLayoutEffect(() => () => setRing?.(null), [setRing]);
 }
@@ -60,21 +62,34 @@ export function coverPercent(r: CoverRing | null): number {
   return Math.max(0, Math.min(100, Math.round((r.covered / r.total) * 100)));
 }
 
-/** "6 of 14 covered" — quiet, on the title's right. Read, never pressed. */
+/** The words while Find lists nothing (a brand-new event). */
+export const COVER_NOTHING_YET = 'nothing added yet';
+
+/** "6 of 14 covered" — quiet, beside Find ▾ in the pinned row (owner 2026-11-12). Read, never pressed. */
 export function CoverCount() {
   const ring = useContext(CoverRingContext)?.ring ?? null;
   if (!ring) return null;
+  if (ring.total <= 0) {
+    return (
+      <span data-cover-count="" data-cover-empty="" className="font-sans text-[13px] tracking-normal text-ink/60">
+        {COVER_NOTHING_YET}
+      </span>
+    );
+  }
   return (
-    <span data-cover-count="" className="ml-auto shrink-0 font-sans text-[13px] font-medium tracking-normal text-ink/60">
-      <Count value={ring.covered} id="sup-ring-covered" /> of <Count value={ring.total} id="sup-ring-total" /> covered
+    <span data-cover-count="" className="font-sans text-[13px] font-medium tracking-normal text-ink/60">
+      <Count value={ring.covered} id="sup-ring-covered" /> of <Count value={ring.total} id="sup-ring-total" />
+      {/* At 320 the row keeps "6 of 12" and lets the word go — Find ▾, the next page and ⚙ never wrap (2026-11-12). */}
+      <span className="max-[359px]:sr-only"> covered</span>
     </span>
   );
 }
 
-/** The thin bar under the title — the same count, drawn. */
+/** The thin bar along the pinned row's foot — the same count, drawn. Nothing listed → no bar. */
 export function CoverBar() {
   const ring = useContext(CoverRingContext)?.ring ?? null;
   const pct = coverPercent(ring);
+  if (ring && ring.total <= 0) return null;
   return (
     <div
       data-cover-bar=""
@@ -83,7 +98,7 @@ export function CoverBar() {
       aria-valuemin={0}
       aria-valuemax={ring?.total ?? 0}
       aria-valuenow={ring?.covered ?? 0}
-      className="mb-3 mt-2 h-[3px] overflow-hidden rounded-full bg-ink/10"
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] overflow-hidden bg-ink/10"
     >
       <div
         className="h-full rounded-full bg-[rgb(var(--color-ok))] transition-[width] duration-500 ease-out motion-reduce:transition-none"

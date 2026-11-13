@@ -16,5 +16,7 @@
 - **F-A-12** Overview: the expense cards name no table or column (`platform_expenses` / `next_due_on`), a failed
   ledger read says so plainly (and is now logged), and the watchlist drops `setnayan.ph` (not ours) and token packs
   (retired).
+- **F-A-11** Insights times are Manila time (`lib/admin/manila-stamp.ts`), never a `… UTC` slice or a UTC day.
+- **F-A-21** "Celebration removals" reads "Event removals" (page, menu, Work row).
 
 SPEC IMPACT: None.

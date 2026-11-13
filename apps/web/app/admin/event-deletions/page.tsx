@@ -75,9 +75,9 @@ export default async function EventDeletionsPage() {
         are, so a visible title is the same word twice (owner-locked, and
         `admin-page-starts-at-its-content.test.ts` holds it).
       */}
-      <PageMasthead title="Celebration removals" />
+      <PageMasthead title="Event removals" />
       <p className="max-w-prose text-sm text-ink/70">
-        A couple can remove their own celebration. They can’t when money has
+        A couple can remove their own event. They can’t when money has
         moved — a bill we confirmed, a receipt, or a payment nobody has checked
         yet. Those come here.
       </p>

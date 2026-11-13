@@ -172,7 +172,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // Account deletions above: that closes a PERSON, this removes one
         // celebration and leaves the account alone.
         key: 'event-deletions',
-        label: 'Celebration removals',
+        label: 'Event removals',
         href: '/admin/event-deletions',
         icon: UserX,
         matchPrefix: '/admin/event-deletions',

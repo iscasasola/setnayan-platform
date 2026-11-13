@@ -47,3 +47,18 @@ test('F-A-12 · Overview speaks plainly: no table or column names, no setnayan.p
   assert.doesNotMatch(ac, /setnayan\.ph/);
   assert.doesNotMatch(ac, /token packs?/i);
 });
+
+test('F-A-11 · Insights times are Manila time, never a UTC slice', async () => {
+  const { manilaStampLabel, manilaDayLabel } = await import('@/lib/admin/manila-stamp');
+  assert.match(manilaStampLabel('2026-11-13T16:30:00Z'), /Nov 14, 2026, 12:30/, '16:30 UTC is 12:30 AM the next day in Manila');
+  assert.equal(manilaDayLabel('2026-11-13T17:00:00Z'), manilaDayLabel('2026-11-14T00:00:00+08:00'));
+  for (const rel of [
+    'app/admin/app-performance/_surfaces/overview-surface.tsx',
+    'app/admin/app-performance/_surfaces/intelligence-surface.tsx',
+    'app/admin/app-performance/_surfaces/operations-surface.tsx',
+  ]) {
+    const src = code(rel);
+    assert.doesNotMatch(src, /\} UTC/, `${rel} prints a UTC stamp`);
+    assert.doesNotMatch(src, /new Date\([^)]*\)\.toLocaleString\('en-PH'\)/, `${rel} formats on the server's clock`);
+  }
+});

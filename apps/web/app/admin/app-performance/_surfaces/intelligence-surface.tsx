@@ -2,6 +2,7 @@
 // re-homed here (2026-07-10) so the App Performance menu is ONE tabbed
 // studio. Its actions/_components stay under /admin/intelligence; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
+import { manilaDayLabel, manilaStampLabel } from '@/lib/admin/manila-stamp';
 import { cookies } from 'next/headers';
 import { Radar, AlertTriangle, Banknote, Trophy } from 'lucide-react';
 import {
@@ -69,7 +70,7 @@ function parseWindow(raw: string | undefined): StaleWindowKey {
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Never';
-  return iso.slice(0, 10);
+  return manilaDayLabel(iso);
 }
 
 export async function IntelligenceSurface({ searchParams }: Props) {
@@ -140,7 +141,7 @@ export async function IntelligenceSurface({ searchParams }: Props) {
           Apply
         </button>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Refreshed {stats.generatedAt.slice(0, 16).replace('T', ' ')} UTC
+          Refreshed {manilaStampLabel(stats.generatedAt)}
         </span>
       </form>
 

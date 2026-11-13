@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { manilaDayLabel } from '@/lib/admin/manila-stamp';
 import {
   ADMIN_QUEUE_META,
   computeDueState,
@@ -175,7 +176,7 @@ export async function ActionCenterZone() {
                     />
                     {style.word}
                     {c.row.oldestAt
-                      ? ` · oldest ${c.row.oldestAt.slice(0, 10)}`
+                      ? ` · oldest ${manilaDayLabel(c.row.oldestAt)}`
                       : ''}
                   </p>
                 </Link>

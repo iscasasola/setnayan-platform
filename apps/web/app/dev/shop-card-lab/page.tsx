@@ -184,7 +184,7 @@ const LAB_PAPER = labFacts({ names: { first: 'Ana', second: 'Miguel' } });
 const LAB_PHOTO = labFacts({
   kind: 'photo', dark: true, names: { first: 'Indalecio', second: 'Claire' }, weekday: 'Friday', date: '18 December 2026',
   photoSrc: '/event-types/wedding.webp', ground: 'hero',
-  legibility: { '--hub-ink': '#FBFAF7', '--hub-heading': '#FBFAF7', '--hub-accent-text': '#E6D3A8', '--hub-scrim': 'rgba(20,14,10,.62)' },
+  legibility: { '--hub-ink': 'rgb(251 250 247)', '--hub-heading': 'rgb(251 250 247)', '--hub-accent-text': 'rgb(230 211 168)', '--hub-scrim': 'rgba(20,14,10,.62)' },
 });
 
 const EVENTS: Card[] = [

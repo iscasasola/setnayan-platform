@@ -17,6 +17,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { formatCount } from '@/lib/format-number';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
+import { Badge } from '@/app/_components/badge';
 
 /**
  * VendorQuickViewInspector — the desktop inspector body for a Shortlist "bench"
@@ -130,13 +131,9 @@ export function VendorQuickViewInspector({
         {/* Status + identity chips */}
         <div className="flex flex-wrap items-center gap-2">
           {v.status === 'locked' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-mulberry px-2.5 py-1 text-[12px] font-bold text-cream">
-              ★ Chosen
-            </span>
+            <Badge tone="ok">★ Chosen</Badge>
           ) : (
-            <span className="rounded-full border border-ink/12 px-2.5 py-1 text-[12px] font-medium text-ink/55">
-              Considering
-            </span>
+            <Badge tone="quiet">Considering</Badge>
           )}
           {v.city ? (
             <span className="inline-flex items-center gap-1 text-[12px] text-ink/60">

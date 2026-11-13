@@ -37,6 +37,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   savePlanBuildNamed,
   deleteBudgetBuild,
@@ -839,24 +840,22 @@ export function BuildCompare({
         </div>
       )}
 
-      {replan ? (
-        <p className="text-xs text-ink/45">
-          <span className="text-success-700">●</span> Booked picks are{' '}
-          <span className="text-ink/70">pinned identical rows</span> — every plan has them. The rows
-          below are your <span className="text-ink/70">candidates</span>: save different candidate
-          sets under different names, compare them here, then book the winner.{' '}
-          <span className="text-ink/70">Load</span> puts a saved plan’s candidates back into your
-          build — your booked suppliers are never touched.
-        </p>
-      ) : (
-        <p className="text-xs text-ink/45">
-          <span className="text-terracotta-700">Current</span> is your live plan. Save it as a new named
-          build to bank a version, then change your picks and save another to compare. Use{' '}
-          <span className="text-ink/70">Modify</span> to load a saved plan back into your working
-          build, or <span className="text-ink/70">Book</span> to load it and head to the Book tab to
-          finalize those suppliers.
-        </p>
-      )}
+      {/* 📐 The legend explains — so it sits behind the ⓘ (design template rule 7), every word kept. */}
+      <InfoTip label="How plans work" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+        {replan ? (
+          <>
+            Booked picks are pinned identical rows — every plan has them. The rows below are your candidates: save
+            different candidate sets under different names, compare them here, then book the winner. Load puts a saved
+            plan’s candidates back into your build — your booked suppliers are never touched.
+          </>
+        ) : (
+          <>
+            Current is your live plan. Save it as a new named build to bank a version, then change your picks and save
+            another to compare. Use Modify to load a saved plan back into your working build, or Book to load it and
+            head to the Book tab to finalize those suppliers.
+          </>
+        )}
+      </InfoTip>
     </div>
   );
 }

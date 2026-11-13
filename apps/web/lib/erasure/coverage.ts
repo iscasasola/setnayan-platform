@@ -1500,6 +1500,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s private saved-vendor list, keyed to them alone.',
   },
   {
+    table: 'notice_closes',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL — which notices THIS person closed (one notice system, 2026-11-14). A per-person memory with no counterparty value.',
+  },
+  {
     table: 'event_colour_grants_coordinator',
     column: 'user_id',
     why:

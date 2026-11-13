@@ -28,6 +28,10 @@ export function isPlaceholderNameWord(part: NamePart, value: string | null | und
   // It is a stand-in in ANY box (an older page could post one into First); no real name starts with "+".
   const label = /^\+\s*\d*\s*·?\s*TBA\b/i.test(v) || /^TBA(\s+\+\d*)?$/i.test(v);
   if (part === 'display') return label;
+  // 〰 A NAME PART WITH NO LETTER AND NO DIGIT IS NOT A NAME (walk 13 Nov 2026, F-W3-22 / F-W3-31): a lone "—", "-" or
+  // "." stored as a last name drew "Someone —" in the invite ("Hi Someone —! 💌"), the invite page, the RSVP card and the
+  // chat. It is read as empty, exactly like the "+1" stand-in — so the name falls back cleanly to the other part.
+  if (!/[\p{L}\p{N}]/u.test(v)) return true;
   // In a name box either stand-in word is one — the RSVP writes "TBA" first and "+1" last, a host may type either anywhere.
   return label || v.toUpperCase() === PLACEHOLDER_FIRST_NAME || /^\+\d*$/.test(v);
 }

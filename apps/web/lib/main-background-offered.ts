@@ -6,7 +6,7 @@
  * whose Source ▾ is Colour · Scene ◆ · Video ◆ · Upload ◆ and its picture cards) was built ONLY outside the app-store
  * shell, since its first day (2c6a6018ce: a Pro control is hidden in the shell). Without it, Look › Background falls
  * back to the shell's rows (`details-look-pages.tsx` `sourceHolds`): Pattern · Focus · Blur · Shade and the page
- * colour — no way to pick a source. His event is Event Hub Pro, and an unlock belongs to the event (owner
+ * colour — no way to pick a source. His event is Event Pro, and an unlock belongs to the event (owner
  * 2026-10-15): a Pro event's couple is never shown less in the app than on the web.
  *
  * ✅ THE RULE: built on the web, and in the store shell for an event that OWNS Pro (`makerProUsable`'s own rule —

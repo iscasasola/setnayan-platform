@@ -1908,6 +1908,7 @@ export function GenericOnboarding(props: Props) {
           {/* 🔘 THE ONE BOTTOM BAR (step-bar.tsx, Lane P slice 5): Back + the main verb are the house ActionButton,
               the same bar the wedding draws. Back keeps its slot on step 0 (drawn invisible) so the verb never jumps. */}
           <StepBar
+            stepKey={step}
             back={{ onClick: () => go(-1), disabled: step === 0 || committing, hidden: step === 0 }}
             main={
               isLast

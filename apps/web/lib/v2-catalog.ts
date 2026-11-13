@@ -72,8 +72,8 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   RSVP_PRO_WEBSITE:    'partial',  // RSVP Pro upgrade ₱4,499
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
-  COUPLE_WEBSITE_PRO:  'live',     // Event Hub PRO unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22 · migration 20271282742262) — each part's gates read it live
+  COUPLE_WEBSITE_PRO:  'live',     // Event Pro unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
+  // 💎 Event Pro, part by part (owner 2026-10-22 · migration 20271282742262) — each part's gates read it live
   // (`eventHubPartActive`, lib/couple-website-pro.ts). Sold in the Maker, never at sign-up.
   COUPLE_HUB_PART_REVEAL: 'live',
   COUPLE_HUB_PART_BACKGROUND: 'live',
@@ -251,8 +251,8 @@ export async function fetchV2CustomerCatalog(
         // same switch — never its own, separate launch.
         .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
     }
-    // 💎 The eleven Event Hub Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
-    // Event Hub Pro page — never as eleven more lines on /pricing, which keeps the one "Event Hub Pro" line. Its parts
+    // 💎 The eleven Event Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
+    // Event Pro page — never as eleven more lines on /pricing, which keeps the one "Event Pro" line. Its parts
     // are read by `lib/hub-parts.ts` callers straight from the catalogue.
     query = query.not('service_code', 'like', 'COUPLE_HUB_PART_%');
   }

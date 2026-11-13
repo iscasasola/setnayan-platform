@@ -15,7 +15,7 @@
  *                          the hold is `is_active` false too, so the SAME predicate hides it
  *   ?f=stay-on             "Which services stay on" — a Free shop whose first booking is done, three services on:
  *                          Today's line + the REAL `StayOnPicker` (its form posts to the real action, which refuses here)
- *   ?f=stay-on&down=1      the same picker for a Pro shop with Solo scheduled (A DOWNGRADE PUTS EXTRA SERVICES ON HOLD)
+ *   ?f=stay-on&down=1      the same picker for a Pro shop with Supplier Plus scheduled (A DOWNGRADE PUTS EXTRA SERVICES ON HOLD)
  *   ?f=held                the supplier's own Services row for a held card: the REAL `PlanHoldTag` in place of the
  *                          switch, and the row line
  *
@@ -137,7 +137,7 @@ const PLAN_CARDS = (hold: PlanCard['hold'] = null, startsOn: VendorTier | null =
   { id: '00000000-0000-4000-8000-00000000ca04', name: 'Stage Lights & Sound', kind: 'lights_and_sound', families: ['production_technical'], live: true, hold: null, holdStartsOn: null },
 ];
 
-/** A fourth service in a third family — more than Solo holds (2 categories), for the downgrade frame. */
+/** A fourth service in a third family — more than Supplier Plus holds (2 categories), for the downgrade frame. */
 const PHOTO_BOOTH: PlanCard = { id: '00000000-0000-4000-8000-00000000ca05', name: 'Photo Booth Corner', kind: 'photo_booth', families: ['photo_video'], live: true, hold: null, holdStartsOn: null };
 
 function plansFor(current: VendorTier, pending: VendorTier | null): StayOnPlan[] {
@@ -163,7 +163,7 @@ export default async function CardModerationLabPage({
       <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 sm:px-6">
         <div className="space-y-1">
           <p className="font-serif text-2xl text-ink">Saysay Live Band</p>
-          <p className="text-xs text-ink/55">Lab · {down ? 'Pro, Solo scheduled' : 'Free, first booking done'} — Today, then My Shop › Services</p>
+          <p className="text-xs text-ink/55">Lab · {down ? 'Pro, Supplier Plus scheduled' : 'Free, first booking done'} — Today, then My Shop › Services</p>
         </div>
         <StayOnTodayLineView text={down ? HOLD_WORDS.todayDowngrade('solo', 'November 30, 2026') : HOLD_WORDS.todayFirstBooking} />
         <div className="border-b border-ink/10 pb-4">

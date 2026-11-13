@@ -86,6 +86,11 @@ test('1 · every running chapter is Happening now, with its running moment; What
   assert.deepEqual(onItsDay.now, [], 'a Time TBA chapter runs at midnight');
   const ahead = homeScheduleFrom({ blocks: [tba], tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01' });
   assert.equal(ahead.next[0]?.v, 'Sat, Nov 21 · Time TBA', 'a Time TBA chapter shows a clock');
+
+  // 📅 F-W2-01 (walk 13 Nov): an event with NO date — its blocks sit on a seeded placeholder day, so no day is said.
+  const undated = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01', undated: true });
+  assert.match(undated.next[0]!.v, /^9:00 AM/, 'an undated event names a placeholder day');
+  assert.doesNotMatch(JSON.stringify(undated), /Sat, Dec 12/, 'an undated event names a placeholder day');
 });
 
 test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) · need you · owe times — a zero hides its door', () => {

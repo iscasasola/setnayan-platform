@@ -10,7 +10,7 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
 const PRO = iapProductForServiceKey('COUPLE_WEBSITE_PRO');
 
 /**
- * 🍎 EVENT PRO (was "Event Hub Pro"; renamed and re-productised as `event_pro` by the owner's 2026-11-04 price
+ * 🍎 EVENT PRO (renamed and re-productised as `event_pro` by the owner's 2026-11-04 price
  * sheet), BOUGHT THROUGH APPLE — the page the Maker's "Unlock Pro and
  * Apply" opens in the iPhone app (owner 2026-10-18, ruling 2: Pro is offered
  * ONLY at ✓ Apply). It plays the part the web's Pro page plays: it sells, then
@@ -39,7 +39,7 @@ type AppleProScreenProps = {
 
 /**
  * Everything (Full Pro) — the one product the app sells for the Event Hub (owner 2026-10-26: "just have the upgrade
- * event hub pro"; the part-by-part Apple products of 2026-10-22 are retired, never attached to a version). Since
+ * Event Pro"; the part-by-part Apple products of 2026-10-22 are retired, never attached to a version). Since
  * 2026-11-04 that product is `event_pro` ("Event Pro") — `PRO` is looked up by its catalogue code, so the id is never
  * typed here. Event Plus is NOT offered on this screen: it is reached from "Unlock Pro and Apply", and Plus does not
  * unlock the held Pro changes.

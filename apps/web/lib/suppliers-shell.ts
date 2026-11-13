@@ -30,6 +30,20 @@ export const SUPPLIERS_MODE_LABEL: Record<SuppliersMode, string> = {
   booked: 'Booked',
 };
 
+/** 📌 One line under each page's name in the row's menu (owner 2026-11-12, "option 4" — the prototype's words). */
+export const SUPPLIERS_MODE_MEANING: Record<SuppliersMode, string> = {
+  find: 'look, ask, accept a price',
+  build: 'combine and compare',
+  booked: 'who is booked, what is next',
+};
+
+/** ▶ The row's one action — the NEXT page: Find → Build → Booked → Find (owner 2026-11-12, "option 4"). */
+export const SUPPLIERS_NEXT_MODE: Record<SuppliersMode, SuppliersMode> = {
+  find: 'build',
+  build: 'booked',
+  booked: 'find',
+};
+
 /**
  * Each mode's own bus key — what a press on its segment dispatches over
  * `goToBuildTab`, and what `?tab=` mirrors. Three of the four shipped tab keys

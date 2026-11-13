@@ -19,6 +19,11 @@
  *       dashboard holds (the Maker's Look sample) a rule either sets only what the island hands back, or is written
  *       `:not(.sn-editorial *)`.
  *   (6) THE CONTRAST LINT CAN READ IT — `rgb(var(--token))` is a form `lint-label-on-fill-contrast` resolves.
+ *
+ * 🎨 DECISION SPLIT FROM TOGGLE (Admin › Colours, owner 12 Nov 2026 — corpus Design_App_Colours_2026-11-12): the main
+ * button is the DECISION job. Its fill is `--sn-decision` and its words `--sn-on-decision`, each FALLING BACK to the
+ * accent pair above — those tokens are unset until the admin saves a set (`lib/app-colours.ts`), so with nothing saved
+ * the button reads `--sn-accent` / `--sn-on-accent` exactly as (1) always held. Still one declaration each.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -96,8 +101,8 @@ test('(1) the dashboards’ main button: the fill is the accent and the words ar
   assert.deepEqual(
     declsOf(main.body),
     [
-      ['background', 'rgb(var(--sn-accent))'],
-      ['color', 'rgb(var(--sn-on-accent))'],
+      ['background', 'rgb(var(--sn-decision, var(--sn-accent)))'],
+      ['color', 'rgb(var(--sn-on-decision, var(--sn-on-accent)))'],
     ],
     'the main button’s rule is more (or other) than its fill and its ink — the accent is ONE setting',
   );
@@ -114,7 +119,7 @@ test('(2) no state of the main button puts its words on another fill — a hover
   /* What the hover does say names the accent, never the gold it replaced. */
   const hover = only(`.app-surface .button-primary${ISLAND}:hover`);
   assert.match(hover.body, /transform: translateY\(-2px\);/);
-  assert.match(hover.body, /box-shadow: 0 14px 26px -12px rgb\(var\(--sn-accent\) \/ 0\.6\);/);
+  assert.match(hover.body, /box-shadow: 0 14px 26px -12px rgb\(var\(--sn-decision, var\(--sn-accent\)\) \/ 0\.6\);/);
   for (const r of DASH) assert.doesNotMatch(r.body, /--sn-gold-|--m-orange|mulberry/, `${r.sels.join(', ')} still names the gold (or writes the accent by another name)`);
 });
 

@@ -284,7 +284,7 @@ export default async function SuppliersLabPage({
   const groups = new Map<string, typeof vendors>();
   for (const v of vendors) if (v.planGroupId) groups.set(v.planGroupId, [...(groups.get(v.planGroupId) ?? []), v]);
   const ringTiles = folders.flatMap((f) => f.tiles.map((t) => ({ tile: t.tile, planned: t.planned, vendorCount: t.vendors.length, lockedCount: t.vendors.filter((v) => v.status === 'locked').length })));
-  const ring = resolveBenchRing({ tiles: ringTiles, excludedTiles: [], pinnedTile: one('open'), starterTiles: [...popularTilesFor('wedding')] });
+  const ring = resolveBenchRing({ tiles: ringTiles, excludedTiles: [], pinnedTile: one('open'), starterTiles: [...popularTilesFor('wedding')], listedOnly: true });
   const liveTally: LiveTallyBase = {
     children: [...groups].map(([groupId, vs]) => ({
       groupId,

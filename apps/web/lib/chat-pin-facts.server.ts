@@ -19,6 +19,10 @@ import { buildPinFacts, type PinFactInputs } from './chat-pin-facts';
 import type { PinFact } from './chat-pins';
 import { manilaTodayIsoFor } from './quote-valid-until';
 import { logQueryError } from './supabase/error-detect';
+import { scheduleChangePinned } from './schedule-hand-in-hand';
+
+/** 🗓 How many schedule-change lines one chat read takes — the newest and enough to count the older unanswered ones. */
+const SCHEDULE_LINES_READ = 20;
 
 export type ChatPinRead = {
   facts: PinFact[];
@@ -217,7 +221,47 @@ export async function readChatPinFacts(
           })
       : Promise.resolve(false);
 
-  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden] = await Promise.all([
+  // 🗓 Rule 3 (SCHEDULES HAND-IN-HAND part (b), 12 Nov): the newest schedule-change line in this chat and the supplier's
+  // own Seen (`event_supplier_schedule_marks`, their RLS). Supplier side only — the hosts' copy never pins.
+  const scheduleRead =
+    args.side === 'vendor'
+      ? (async () => {
+          const [line, mark] = await Promise.all([
+            supabase
+              .from('chat_messages')
+              .select('message_id, created_at, body')
+              .eq('thread_id', args.threadId)
+              .eq('sender_role', 'system')
+              .like('body', 'Schedule changed · %')
+              .order('created_at', { ascending: false })
+              // The newest, and enough older ones to say "+ N older changes" under it (approved prototype).
+              .limit(SCHEDULE_LINES_READ),
+            supabase
+              .from('event_supplier_schedule_marks')
+              .select('seen_at')
+              .eq('event_id', args.eventId)
+              .eq('vendor_profile_id', args.vendorProfileId)
+              .maybeSingle(),
+          ]);
+          if (line.error || mark.error) {
+            logQueryError('chatPins.scheduleChange', line.error ?? mark.error, { thread_id: args.threadId }, 'graceful_degrade');
+            return null;
+          }
+          const rows = (line.data ?? []) as { message_id: string; created_at: string; body: string | null }[];
+          const row = rows[0];
+          if (!row) return null;
+          const seenAt = (mark.data as { seen_at: string | null } | null)?.seen_at ?? null;
+          return {
+            messageId: row.message_id,
+            at: row.created_at,
+            body: row.body ?? '',
+            seenAt,
+            unseen: rows.filter((r) => scheduleChangePinned(r.created_at, seenAt)).length,
+          };
+        })()
+      : Promise.resolve(null);
+
+  const [quote, callTime, accessAsks, feeBills, coordinatorAgree, decisions, visibility, changes, hidden, scheduleChange] = await Promise.all([
     quoteRead,
     callTimeRead,
     accessRead,
@@ -227,6 +271,7 @@ export async function readChatPinFacts(
     visibilityRead,
     changesRead,
     hiddenRead,
+    scheduleRead,
   ]);
   const masked = !visibility.mayRead || hidden === true;
 
@@ -245,6 +290,7 @@ export async function readChatPinFacts(
     quote,
     decisions,
     changes,
+    scheduleChange,
   };
   return {
     facts: buildPinFacts(inputs),

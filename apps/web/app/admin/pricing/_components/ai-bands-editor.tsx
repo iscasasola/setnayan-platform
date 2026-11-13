@@ -65,14 +65,14 @@ export function AiBandsEditor({
     <div>
       <p className="mb-5 max-w-prose text-sm leading-relaxed text-ink/70">
         Setnayan AI does not cost the same for a wedding as it does for a coffee catch-up. Five
-        price bands; every kind of celebration sits in <strong>exactly one</strong> of them. Ticking
-        a kind here takes it out of wherever it was, so the same celebration can never be quoted two
+        price bands; every kind of event sits in <strong>exactly one</strong> of them. Ticking
+        a kind here takes it out of wherever it was, so the same event can never be quoted two
         prices.
       </p>
 
       <div className="mb-6 grid grid-cols-2 gap-2 rounded-2xl border border-ink/10 bg-ink/[0.02] p-3.5 sm:grid-cols-4">
         <Stat label="Price bands" value={String(bands.length)} />
-        <Stat label="Kinds of celebration" value={String(totalKinds)} />
+        <Stat label="Kinds of event" value={String(totalKinds)} />
         <Stat label="No price chosen" value={String(unassigned.length)} bad={unassigned.length > 0} />
         <Stat label="Sold as its own row" value={String(bands.filter((b) => b.isSellable).length)} />
       </div>
@@ -154,14 +154,14 @@ function UnassignedTray({ kinds }: { kinds: EventKindView[] }) {
           <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
         )}
         {empty
-          ? 'Every kind of celebration has a price'
-          : `${kinds.length} kind${kinds.length === 1 ? '' : 's'} of celebration ${
+          ? 'Every kind of event has a price'
+          : `${kinds.length} kind${kinds.length === 1 ? '' : 's'} of event ${
               kinds.length === 1 ? 'has' : 'have'
             } no price of their own`}
       </h3>
       <p className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-ink/65">
         {empty
-          ? 'This stays here on purpose. The next kind of celebration you add will appear in this box until you give it a band — so a price is never chosen for it by accident.'
+          ? 'This stays here on purpose. The next kind of event you add will appear in this box until you give it a band — so a price is never chosen for it by accident.'
           : 'These are being charged already — they fall through to the middle band, because that is what happens when nothing is chosen. Nobody decided that price. Give each one a home, or decide out loud that the middle is right for it.'}
       </p>
       {!empty && (
@@ -275,7 +275,7 @@ function BandCard({
           </p>
         )}
         {band.kinds.length === 0 ? (
-          <p className="text-[13px] italic text-ink/50">No kind of celebration pays this price.</p>
+          <p className="text-[13px] italic text-ink/50">No kind of event pays this price.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {band.kinds.map((k) => (
@@ -313,10 +313,10 @@ function BandCard({
             defaultValue=""
             required
             className="input-field h-9 max-w-[15rem] text-sm"
-            aria-label={`Move a kind of celebration into band ${band.band}`}
+            aria-label={`Move a kind of event into band ${band.band}`}
           >
             <option value="" disabled>
-              Choose a celebration…
+              Choose an event…
             </option>
             {/* Only kinds NOT already here — moving a kind into the band it is
                 already in is a no-op the action would report as "no changes". */}

@@ -18,5 +18,8 @@
   (retired).
 - **F-A-11** Insights times are Manila time (`lib/admin/manila-stamp.ts`), never a `… UTC` slice or a UTC day.
 - **F-A-21** "Celebration removals" reads "Event removals" (page, menu, Work row).
+- **F-A-13** Categories no longer names a code file (`lib/attire-designs.ts`). The node keys stay behind their ⓘ, as
+  designed.
+- **F-A-14** Pricing: the SKU code is not drawn on a price row (the title names it), and "celebration" reads "event".
 
 SPEC IMPACT: None.

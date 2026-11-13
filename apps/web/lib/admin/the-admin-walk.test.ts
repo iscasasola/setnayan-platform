@@ -62,3 +62,12 @@ test('F-A-11 · Insights times are Manila time, never a UTC slice', async () => 
     assert.doesNotMatch(src, /new Date\([^)]*\)\.toLocaleString\('en-PH'\)/, `${rel} formats on the server's clock`);
   }
 });
+
+test('F-A-13/F-A-14 · Categories and Pricing name no code paths, no SKU codes, no "celebration"', () => {
+  assert.doesNotMatch(code('app/admin/categories/_components/map-panels.tsx'), /lib\/attire-designs\.ts/);
+  const cat = code('app/admin/pricing/_components/catalog-editor.tsx');
+  assert.doesNotMatch(cat, /\{row\.code\}<\/code>/, 'a SKU code is drawn on the price row again');
+  for (const rel of ['app/admin/pricing/_components/catalog-editor.tsx', 'app/admin/pricing/_components/papic-type-sizing-editor.tsx', 'app/admin/pricing/_components/ai-bands-editor.tsx']) {
+    assert.doesNotMatch(code(rel), /\bcelebrations?\b/i, `${rel} says "celebration"`);
+  }
+});

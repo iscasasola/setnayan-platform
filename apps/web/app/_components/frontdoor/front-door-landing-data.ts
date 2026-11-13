@@ -321,12 +321,19 @@ export const SUPPLIER_STAGES: readonly { term: string; line: string }[] = [
 
 /**
  * What the three plan cards may say, READ by the caller (Build 6 Lane J — "the plan tables tell the truth"):
- *   · `plusCredits` / `proCredits` — the catalogue's `included_papic_credits` for EVENT_PLUS / COUPLE_WEBSITE_PRO, the
+ *   · `plusCredits` / `proCredits` / `ultraCredits` — the catalogue's `included_papic_credits` for EVENT_PLUS /
+ *     COUPLE_WEBSITE_PRO / EVENT_ULTRA, the
  *     number the activation hook actually tops the event up to (`activateEventPlan`); null = unread → no number said;
  *   · `freePapic` — the live free-credit sentence (`papicFreeCreditPromise`), null when the free grant is off.
  * The theme count is `FREE_THEMES.length` (lib/invite-themes.ts), never typed.
  */
-export type PlanFacts = { plusCredits: number | null; proCredits: number | null; freePapic: string | null };
+export type PlanFacts = {
+  plusCredits: number | null;
+  proCredits: number | null;
+  /** 💎 EVENT_ULTRA's `included_papic_credits` (owner 2026-11-13). Absent/null = unread → no number said. */
+  ultraCredits?: number | null;
+  freePapic: string | null;
+};
 
 const creditsLine = (n: number | null): string[] =>
   n !== null && n > 0 ? [`${formatCount(n)} Papic credits — ${formatCount(n)} photos from your guests’ phones`] : [];
@@ -399,6 +406,22 @@ export const PRO_PEEK: readonly string[] = [
  */
 export function proMore(f: PlanFacts): readonly string[] {
   return ['No Setnayan watermark on your Event Hub', ...creditsLine(f.proCredits)];
+}
+
+/**
+ * 💎 Event Ultra (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): what the card shows first, then what it adds
+ * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch and Patiktok (read off the Ultra order,
+ * `SKU_OWNERSHIP_ALIASES`), the 12-month originals (`papic_events_past_fullres_clock` reads the row) and the included
+ * credits (`activateEventPlan`). ⚠ Canvas prints are part of Ultra but are NOT said here yet: the Our Day poster that
+ * prints on canvas is approved, not built (`eventCanvasPrintsActive` is ready for it). They join the card the day the
+ * poster ships — the Lane J rule above.
+ */
+export const ULTRA_PEEK: readonly string[] = [
+  'Live Watch for one day — your event streamed on your Event Hub',
+  'Your full-size photos kept 12 months after the event, not 3',
+];
+export function ultraMore(f: PlanFacts): readonly string[] {
+  return ['Patiktok — save and share your reels', ...creditsLine(f.ultraCredits ?? null)];
 }
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */

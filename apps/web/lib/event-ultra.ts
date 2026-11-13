@@ -50,20 +50,30 @@ export type PlanOrderFact = { service_key: string | null; status: string | null;
 const PAID = new Set(['paid', 'fulfilled']);
 
 /**
+ * The moment canvas left Event Pro for NEW buyers: the end of the ruling day, 13 Nov 2026 (Manila). A date, not a
+ * price. Canvas prints did not exist in the app before this (the Our Day poster is approved, not built), so no Pro
+ * buyer has ever printed one — the line only decides who keeps the right when the poster ships. Moving it LATER only
+ * grandfathers more events; never move it earlier.
+ */
+export const CANVAS_LEFT_PRO_AT = '2026-11-14T00:00:00+08:00';
+
+/**
  * 🖼 CANVAS PRINTS — Ultra, plus a GRANDFATHER for Event Pro (owner 2026-11-13: *"Canvas + Patiktok move OUT of Pro
  * for new buyers; couples who already bought Pro keep what they paid for"*).
  *
  *   · an approved Ultra order → yes;
- *   · an approved Event Pro order placed BEFORE Ultra went on sale (`ultraOnSaleSince`, the Ultra row's `created_at` —
- *     read, never typed) → yes: they bought Pro while canvas was part of it;
- *   · anything else → no. An unread launch date (null) grandfathers EVERY approved Pro order — a failed read may only
- *     ever keep a paid unlock, never take one away.
+ *   · an approved Event Pro order placed BEFORE `CANVAS_LEFT_PRO_AT` → yes: they bought Pro while canvas was part of it;
+ *   · anything else → no. An order with no readable date is grandfathered — a bad read may only ever keep a paid
+ *     unlock, never take one away.
  *
  * Patiktok needs no twin of this: Pro never granted `PATIKTOK_COMPILER` in code (it was always its own order), so
  * nothing a Pro buyer holds today is removed.
  */
-export function canvasPrintsUnlockedFrom(orders: readonly PlanOrderFact[], ultraOnSaleSince: string | null): boolean {
-  const since = ultraOnSaleSince ? Date.parse(ultraOnSaleSince) : NaN;
+export function canvasPrintsUnlockedFrom(
+  orders: readonly PlanOrderFact[],
+  cutoverIso: string = CANVAS_LEFT_PRO_AT,
+): boolean {
+  const since = Date.parse(cutoverIso);
   return orders.some((o) => {
     if (!o.status || !PAID.has(o.status)) return false;
     if (o.service_key === EVENT_ULTRA_SKU) return true;

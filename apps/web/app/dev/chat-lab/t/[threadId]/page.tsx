@@ -91,6 +91,14 @@ async function LabThread({ params, searchParams }: LabProps) {
   const last = LAB_MESSAGES[LAB_MESSAGES.length - 1]!;
   const theirLastReadAt = one('seen') === '1' ? new Date(Date.parse(last.created_at) + 60_000).toISOString() : null;
   const dealEntry = dealEntryFor({ side, hasQuote: true });
+  // 👈 `?file=ring|sheet|late|booking` — your own file (message 9) just sent (the ↺ ring), its swipe's sheet in the first
+  // 5 minutes, after 5 minutes, and on a booking file (2026-11-13 undo ring + swipe). No database: the stream's lab stand-in.
+  const fileMode = one('file');
+  const fileAgoMs = { ring: 1_000, sheet: 2 * 60_000, late: 6 * 60_000, booking: 60_000 }[fileMode as 'ring'] ?? null;
+  const fileId = LAB_MESSAGES[LAB_MESSAGES.length - 1]!.message_id;
+  const messages = LAB_MESSAGES.map((m) =>
+    fileAgoMs !== null && m.message_id === fileId ? { ...m, thread_id: threadId, created_at: new Date(Date.now() - fileAgoMs).toISOString() } : { ...m, thread_id: threadId },
+  );
   const expiryEventDate =
     one('expiry') === '1' ? new Date(Date.now() - 80 * 86_400_000).toISOString().slice(0, 10) : '2026-12-18';
 
@@ -153,7 +161,12 @@ async function LabThread({ params, searchParams }: LabProps) {
               plus={{ eventId: LAB_EVENT, returnPath: `/dev/chat-lab/t/${threadId}` }}
               dealEntry={dealEntry}
               threadId={threadId}
-              initialMessages={LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId }))}
+              initialMessages={messages}
+              labFileRemove={
+                fileAgoMs === null
+                  ? undefined
+                  : { booking: fileMode === 'booking', openSheetFor: fileMode === 'ring' ? null : fileId }
+              }
               currentUserId={LAB_USER}
               viewerRole={side}
               counterpartyLabel={label}

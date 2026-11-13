@@ -16,6 +16,7 @@
  * the migration was reshaped before it reached production.
  */
 import type { CSSProperties } from 'react';
+import { formatCount } from './format-number';
 
 import {
   DEFAULT_PICTURE_FRAME,
@@ -25,6 +26,24 @@ import {
   readPictureFrame,
   type PictureFrame,
 } from './picture-frame';
+
+/**
+ * 📏 THE ONE RULE FOR A SHOP LOGO'S FILE (walk 13 Nov 2026, F-W1-09). "Add your logo" said "PNG · JPEG · WEBP · HEIC ·
+ * HEIF · up to 10 MB" and Today's logo row said "PNG, JPEG, or WebP up to 2 MB" — two client limits typed separately.
+ * What the server enforces is `/api/upload`'s `media` bucket: 10 MB (`BUCKET_MAX_BYTES.media`), with HEIC / HEIF in its
+ * allowed types; both uploads also shrink the picture in the browser first (`compressImage`). Both doors now hand THIS
+ * to their `FileUpload`, and Today's help line is written from it.
+ */
+export const SHOP_LOGO_UPLOAD = {
+  maxSizeMB: 10,
+  acceptedTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'],
+} as const satisfies { maxSizeMB: number; acceptedTypes: readonly string[] };
+
+/** "PNG, JPEG, WEBP, HEIC or HEIF up to 10 MB" — the rule above, as a person reads it. */
+export function shopLogoLimitsWords(): string {
+  const names = SHOP_LOGO_UPLOAD.acceptedTypes.map((t) => t.replace('image/', '').toUpperCase());
+  return `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]} up to ${formatCount(SHOP_LOGO_UPLOAD.maxSizeMB)} MB`;
+}
 
 /** The screen right after "Open my shop": "Add your logo". */
 export const OPEN_SHOP_LOGO_PATH = '/open-shop/logo';

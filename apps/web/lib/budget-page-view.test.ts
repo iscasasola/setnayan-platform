@@ -179,7 +179,7 @@ function fullLedger(over: Partial<MoneyInputs> = {}) {
     ],
     orders: [
       // Placed at 01:00 on Sep 14 in Manila — which is still Sep 13 in UTC.
-      { order_id: 'o1', description: 'Event Hub Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid', created_at: '2026-09-13T17:00:00Z' },
+      { order_id: 'o1', description: 'Event Pro', service_key: 'EVENT_HUB_PRO', requested_total_php: 2_499, confirmed_total_php: 2_499, status: 'paid', created_at: '2026-09-13T17:00:00Z' },
       { order_id: 'o3', description: 'Live Watch', service_key: 'LIVE_WATCH', requested_total_php: 2_500, confirmed_total_php: 2_500, status: 'awaiting_payment', created_at: '2026-09-30T03:00:00Z' },
       // Applied for, not approved: an estimate. Not in the list.
       { order_id: 'o4', description: 'Papic', service_key: 'PAPIC', requested_total_php: 2_899, confirmed_total_php: null, status: 'submitted', created_at: '2026-09-29T03:00:00Z' },
@@ -256,7 +256,7 @@ test('bought on Setnayan: paid and awaiting-payment orders only, dated by the da
   assert.deepEqual(
     orders!.map((o) => [o.name, o.bookedOn, o.amountPhp, o.owedPhp, o.status]),
     [
-      ['Event Hub Pro', '2026-09-14', 2_499, 0, 'paid'],
+      ['Event Pro', '2026-09-14', 2_499, 0, 'paid'],
       ['Live Watch', '2026-09-30', 2_500, 2_500, 'owing'],
     ],
     'submitted (an estimate), cancelled, and the supplier-paid booking fee must not appear; ' +

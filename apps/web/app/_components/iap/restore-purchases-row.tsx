@@ -16,7 +16,7 @@ const RETIRED_NAME: Readonly<Record<string, string>> = { SETNAYAN_AI: 'Setnayan 
  *
  * Restore asks Apple for this Apple ID's transactions and hands each to our
  * server, which matches it to THIS account's purchases and switches on anything
- * not yet on — never twice. Event Hub Pro and Live Watch are listed by event;
+ * not yet on — never twice. Event Pro and Live Watch are listed by event;
  * Papic credits are not "restored": they live on the event, never on the phone.
  */
 export function RestorePurchasesRow({ className }: { className: string }) {

@@ -5,7 +5,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { InfoTip } from '@/app/_components/info-tip';
 
 /**
- * /pricing's client pieces (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25` revision 5): Event Hub Pro's
+ * /pricing's client pieces (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25` revision 5): Event Pro's
  * "Everything / Just the parts you need" dropdown, and the "Included with every event" group whose last rows open with
  * "See all included ↓" on a phone (on a wide screen every row shows). A set of choices is ONE dropdown — the house
  * `PickMenu`, never a pill row. Every figure arrives as a label the server formatted from `platform_retail_catalog_v2`;
@@ -17,7 +17,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 const PICK_FRAME = 'border border-ink/10';
 
 /**
- * EVENT HUB PRO · "Everything ▾" — Everything · ₱… / Just the parts you need · from ₱…. Everything shows nothing more
+ * EVENT PRO · "Everything ▾" — Everything · ₱… / Just the parts you need · from ₱…. Everything shows nothing more
  * (the item's line already says it); the parts body (the eleven `COUPLE_HUB_PART_*` rows, drawn on the server) shows
  * only when picked.
  */

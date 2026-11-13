@@ -6,7 +6,7 @@ import { formatPhp } from '@/lib/php';
 import { LabFrame } from './lab-client';
 
 /**
- * 🧪 /dev/pro-parts-lab — "Event Hub Pro, part by part" (owner 2026-10-22), frame by frame of
+ * 🧪 /dev/pro-parts-lab — "Event Pro, part by part" (owner 2026-10-22), frame by frame of
  * `prototypes/pro_part_by_part_2026-10-22.html`, drawn by the SHIPPED components with made-up facts and NO database:
  *
  *   ?frame=sheet-two · sheet-four · sheet-cap · sheet-ready   — the ✓ Apply sheet (frames 1, 1-closer, 2, ready)
@@ -15,9 +15,9 @@ import { LabFrame } from './lab-client';
  *   ?frame=parts-free · parts-owned                           — the parts page (frame 4)
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)
  *   ?frame=sheet-apple · apple · apple-on                     — 🍎 the iPhone app: the one-unlock sheet, Apple's page
- *                                                               selling Event Hub Pro whole (owner 2026-10-26)
+ *                                                               selling Event Pro whole (owner 2026-10-26)
  *
- *   &sale=off — ⛔ the parts OFF SALE (owner 2026-10-26, "just have the upgrade event hub pro"): no part price reaches
+ *   &sale=off — ⛔ the parts OFF SALE (owner 2026-10-26, "just have the upgrade Event Pro"): no part price reaches
  *   any surface, exactly as production draws them once the catalogue rows are inactive. Without it: the 2026-10-22
  *   part-by-part frames, kept for the record.
  *
@@ -65,7 +65,7 @@ export default async function ProPartsLab({ searchParams }: { searchParams: Prom
       <div className="min-h-dvh bg-cream">
         <ProPartsBody
           eventId="00000000-0000-4000-8000-000000000000"
-          title="Event Hub Pro"
+          title="Event Pro"
           back={{ href: '/dev/pro-parts-lab', label: 'Back to the Maker' }}
           fromMaker
           hubHref="/dev/pro-parts-lab"

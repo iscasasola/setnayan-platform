@@ -49,7 +49,7 @@ export async function hubOwnershipForWrite(eventId: string): Promise<HubOwnershi
 
 /**
  * Refuse a look write a couple without its part may not make — to the one Event
- * Hub Pro buy surface, the same destination every existing Pro refusal uses.
+ * Pro buy surface, the same destination every existing Pro refusal uses.
  * Returns only when the write is allowed.
  */
 export async function requireLookPro(eventId: string, change: LookChange, part: HubPartId): Promise<void> {

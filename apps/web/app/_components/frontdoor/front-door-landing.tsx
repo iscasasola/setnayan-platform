@@ -24,7 +24,7 @@
  *
  * ─── NO PRICE IS TYPED HERE ──────────────────────────────────────────────────────────────────────────────
  * Event Plus and Event Pro are read from `platform_retail_catalog_v2` (`planPricesFrom`, below): Event Pro is
- * Event Hub Pro (`COUPLE_WEBSITE_PRO`), Event Plus is `EVENT_PLUS`. A row that is not on sale draws "per event"
+ * Event Pro (`COUPLE_WEBSITE_PRO`), Event Plus is `EVENT_PLUS`. A row that is not on sale draws "per event"
  * and no figure, so Plus shows its price on its own the day its row goes on sale. The add-on tiles open their own
  * feature pages, which read the live catalogue. ₱0 is the free tier, not a price.
  */
@@ -136,7 +136,7 @@ export function frontPageSample(now: Date): FrontPageSample | null {
 /** Event Plus, Event Pro and Event Ultra, in pesos — null when the row is not on sale or could not be read. */
 export type PlanPrices = { plus: number | null; pro: number | null; ultra: number | null };
 
-/** The service codes the plan cards read. Event Pro IS Event Hub Pro. 💎 Event Ultra: owner 2026-11-13. */
+/** The service codes the plan cards read. Event Pro IS `COUPLE_WEBSITE_PRO`. 💎 Event Ultra: owner 2026-11-13. */
 export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' } as const;
 
 /**

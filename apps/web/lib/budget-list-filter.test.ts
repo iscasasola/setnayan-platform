@@ -44,7 +44,7 @@ const LIST: BudgetList = {
     },
   ],
   orders: [
-    { orderId: 'o1', name: 'Event Hub Pro', bookedOn: '2026-09-14', amountPhp: 2_499, owedPhp: 0, status: 'paid' },
+    { orderId: 'o1', name: 'Event Pro', bookedOn: '2026-09-14', amountPhp: 2_499, owedPhp: 0, status: 'paid' },
   ],
   expenses: [
     {
@@ -91,7 +91,7 @@ test('Owing keeps only what still has money owed — in all three groups', () =>
 test('Paid keeps only what is paid in full — in all three groups', () => {
   assert.deepEqual(names(filterBudgetList(LIST, 'paid', '')), {
     suppliers: ['Santuario de San Vicente de Paúl'],
-    orders: ['Event Hub Pro'],
+    orders: ['Event Pro'],
     expenses: ['Church offering'],
   });
 });

@@ -15,6 +15,8 @@
  *   &checks=1                     🃏 the card checks — fix before Create (owner 2026-10-26) on fixtures: the six seed claim
  *                                 words, this lab's trades (with an alias), and a photo ask that says the cover is on
  *                                 another shop's card and a showcase photo on another of this shop's cards
+ *   &photos=1..6                  🖼 an edited card holding this many photos (the cover + the showcase) — the one gallery
+ *                                 (owner 2026-11-13), drawn with the repo's own sample pictures under /public/realstories
  *   &booked=1                     🔒 an edited card couples have booked — the price row says they keep their price (Build 5 Lane C)
  *   &host=today                   the maker inside TODAY's host — the "What you offer" step's ＋ Start opens it as the
  *                                 same `SetupOfferFold` sheet the page draws, so its own sheets (What you offer, Preview,
@@ -284,6 +286,16 @@ export default async function CardMakerLabPage({
   const isEdit = s === 'edit' || s === 'unread';
   const fixed = s === 'fixed';
   const fx = isEdit ? editFixture(shop) : null;
+  // 🖼 `&photos=N` — the card's photos as the one gallery shows them (the first is the primary). Sample pictures only.
+  const labPhotos = Math.max(0, Math.min(6, Number(sp.photos) || 0));
+  if (fx && labPhotos > 0) {
+    const pics = ['peter-mary-g3', 'maria-juan-tagaytay', 'john-jane-g2', 'peter-mary-g2', 'jack-rose-baguio', 'jack-jill-g1'];
+    const refs = pics.slice(0, labPhotos).map((p) => `r2://media/lab/${p}.jpg`);
+    fx.initial.coverPhotoR2Key = refs[0]!;
+    fx.editing.coverKey = refs[0]!;
+    fx.initial.showcasePhotoR2Keys = refs.slice(1);
+    fx.initial.mediaDisplayUrls = Object.fromEntries(refs.map((r, i) => [r, `/realstories/${pics[i]}.jpg`]));
+  }
   const inToday = sp.host === 'today';
   const withChecks = sp.checks === '1';
   const labTrades = FAKE_TREE.flatMap((p) =>

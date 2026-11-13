@@ -67,3 +67,48 @@ test('RW-57 · a closed onboarding sheet cannot be scrolled into view', () => {
   assert.match(css, /\.onbw \.sheet\{visibility:hidden;/);
   assert.match(css, /\.onbw \.sheet\.open\{visibility:visible;/);
 });
+
+test('RW-108 · a claimed per-guest booking reads the couple’s figure and count on Details, never ₱0', async () => {
+  const { agreedRows } = await import('./agreed-now');
+  const base = {
+    viewerUserId: 'v',
+    quotes: [],
+    event: { eventDate: '2027-05-01', estimatedPax: 150, finalPax: null },
+    changes: [],
+    meetings: [],
+    names: new Map<string, string>(),
+    booking: { isBooked: false, declined: false },
+    quoteBy: 'You',
+  };
+  const rows = agreedRows({ ...base, perGuest: { totalPhp: 4000, guests: 4 } });
+  const quote = rows.find((r) => r.key === 'quote')!;
+  const count = rows.find((r) => r.key === 'guest_count')!;
+  assert.equal(quote.label, 'Agreed price · per guest');
+  assert.match(quote.value, /4,000 · 4 guests/);
+  assert.equal(count.value, '4 guests');
+  assert.equal(count.label, 'Guest count · billed');
+  // Without a readable total: the count alone, never ₱0.
+  const noTotal = agreedRows({ ...base, perGuest: { totalPhp: null, guests: 4 } }).find((r) => r.key === 'quote')!;
+  assert.equal(noTotal.value, '4 guests');
+  // Not a claimed per-guest booking: as shipped.
+  assert.equal(agreedRows(base).find((r) => r.key === 'quote')!.value, 'No quote sent yet');
+
+  const { detailsNumbers } = await import('../app/vendor-dashboard/clients/[eventId]/_components/details-numbers');
+  const cells = detailsNumbers({
+    isBooked: false, todayIso: '2026-11-14', eventDate: '2027-05-01', ledger: null, onPlan: false,
+    sentQuotePhp: undefined, perGuest: { totalPhp: 4000, guests: 4 }, peso: (n) => `₱${n.toLocaleString('en-PH')}`,
+  });
+  const q = cells.find((c) => c.key === 'quote')!;
+  assert.deepEqual([q.label, q.value, q.sub], ['Agreed', '₱4,000', '4 guests']);
+  const zero = detailsNumbers({
+    isBooked: false, todayIso: '2026-11-14', eventDate: null, ledger: null, onPlan: false,
+    sentQuotePhp: undefined, perGuest: { totalPhp: 0, guests: 4 }, peso: (n) => `₱${n}`,
+  }).find((c) => c.key === 'quote')!;
+  assert.notEqual(zero.value, '₱0');
+  // Both surfaces are wired to the read #7633 added.
+  for (const f of ['app/_components/chat/agreed-now.tsx', 'app/vendor-dashboard/clients/[eventId]/page.tsx']) {
+    const src = stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
+    assert.match(src, /readShopPerGuest\(/, f);
+    assert.match(src, /perGuest[:,]/, f);
+  }
+});

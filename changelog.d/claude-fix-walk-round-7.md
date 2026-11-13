@@ -25,3 +25,4 @@
 
 SPEC IMPACT: None.
 - RW-57: the closed onboarding supplier sheet can no longer be scrolled into view (phone frame clips, closed sheet hidden).
+- RW-108: a claimed per-guest booking's Details tab (Agreed now + the number cells) reads the couple's figure and count via `readShopPerGuest` (#7633), never "No quote sent yet", the 150 estimate, or ₱0.

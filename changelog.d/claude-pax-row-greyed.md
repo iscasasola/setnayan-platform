@@ -6,4 +6,4 @@ row "Per-guest suppliers · Shows once a supplier is priced per guest". The gues
 and posts nothing. A refused read says "Couldn't load your suppliers", never "none yet".
 Guard: `apps/web/lib/the-pax-row-greys-never-hides.test.ts`.
 
-SPEC IMPACT: None (follows the owner's 13 Nov instruction; DECISION_LOG row added in the specs repo).
+SPEC IMPACT: None (follows the owner's 13 Nov instruction).

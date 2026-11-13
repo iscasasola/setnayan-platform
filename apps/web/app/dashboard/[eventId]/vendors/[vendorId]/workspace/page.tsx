@@ -667,7 +667,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // 📅 …AND ONLY ONCE THE DAY HAS PASSED (walk 13 Nov 2026, F-W1-72): it was offered — and pre-ticked — 179 days before
   // the event with nothing paid. A supplier cannot have delivered an event that has not happened; a refused or empty
   // date read offers nothing (never a guess). The box itself now starts unticked (`HandoverInbox`).
-  const { data: deliverDateRow } = await supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+  const { data: deliverDateRow, error: deliverDateError } = await supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle();
+  // A refused read offers nothing (the box waits for a day it can prove has passed) — and is logged, never silent.
+  if (deliverDateError) logQueryError('CoupleVendorWorkspace.deliverDate', deliverDateError, { eventId }, 'graceful_degrade');
   const deliverEventDate = (deliverDateRow as { event_date?: string | null } | null)?.event_date ?? null;
   const dayHasPassed = deliverEventDate !== null && deliverEventDate.slice(0, 10) < manilaToday();
   const canAdvanceToDelivered = dayHasPassed && ev.status !== 'delivered' && ev.status !== 'complete';

@@ -354,11 +354,11 @@ export default async function EditorialEditorPage({
   }
 
   /*
-    ⚠ THE EVENT HUB PRO WALL IS RETIRED (owner 2026-08-21):
+    ⚠ THE EVENT PRO WALL IS RETIRED (owner 2026-08-21):
     "make this feature part of free and not part of the event hub pro."
 
     A non-PRO couple with no saved editorial used to meet a WebsiteProLock here
-    reading "Author your front-page story … It's part of Event Hub PRO" — so the
+    reading "Author your front-page story … It's part of Event PRO" — so the
     story Setnayan had already written ABOUT THEM was visible to them only as a
     price.
 

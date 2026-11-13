@@ -256,7 +256,7 @@ export function CoverStep({
           </div>
           {storyKeepsLivingHero ? (
             <p className="mt-2 text-xs leading-relaxed text-ink/55">
-              Your story itself still opens on the picture from your site. The
+              Your story itself still opens on the picture from your Event Hub. The
               shelf card and the shared link carry the one you just picked.
             </p>
           ) : null}
@@ -301,7 +301,7 @@ export function CoverStep({
         A capture can only be your cover if it passed the same checks as
         everything else &mdash; screened, and nobody in it opted out.{' '}
         <strong className="font-semibold text-ink/75">
-          {chosen ? `${chosen.source} — ${chosen.label}` : 'The one on your site now'}
+          {chosen ? `${chosen.source} — ${chosen.label}` : 'The one on your Event Hub now'}
         </strong>{' '}
         is your cover now.
       </p>

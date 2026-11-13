@@ -65,7 +65,7 @@ export default async function OurPhotosEditorPage({
 
   /* 💎 TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29 — "◆ marks Pro and never
      blocks"). This page used to answer a free couple with nothing but "Unlock
-     Event Hub PRO". Now every couple uploads and sees their gallery here; for a
+     Event PRO". Now every couple uploads and sees their gallery here; for a
      couple without Pro the form saves to the Event Hub DRAFT (`draft=1` —
      `updateOurPhotos` screens every photo first, then `draftEventsAndReturn`),
      guests see nothing yet, and the Maker's Apply sheet names the gallery and
@@ -104,8 +104,8 @@ export default async function OurPhotosEditorPage({
   const saved = search.saved === '1';
   const drafted = search.drafted === '1';
   const error = search.error;
-  // 🍎 The gallery is part of Event Hub Pro, a paid web extra the iPhone app does not
-  // name, price or unlock — the app draws no Pro mark and no "Apply with Event Hub Pro".
+  // 🍎 The gallery is part of Event Pro, a paid web extra the iPhone app does not
+  // name, price or unlock — the app draws no Pro mark and no "Apply with Event Pro".
   const storeShell = await isStoreShellRequest();
 
   return (
@@ -130,11 +130,11 @@ export default async function OurPhotosEditorPage({
         ) : null}
         {!proActive && !storeShell ? (
           <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
-            <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
+            <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} text="Pro" size="xs" />
             <span>
               {heldForPro || drafted
-                ? 'Saved in your Event Hub draft. Guests see these photos after you Apply with Event Hub Pro in your Event Hub Maker.'
-                : 'Add your photos and see them here. Guests see them after you Apply with Event Hub Pro in your Event Hub Maker.'}
+                ? 'Saved in your Event Hub draft. Guests see these photos after you Apply with Event Pro in your Event Hub Maker.'
+                : 'Add your photos and see them here. Guests see them after you Apply with Event Pro in your Event Hub Maker.'}
             </span>
           </p>
         ) : null}

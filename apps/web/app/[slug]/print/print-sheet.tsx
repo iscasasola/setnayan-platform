@@ -318,7 +318,7 @@ export function PrintSheet({
         <figure className="k-hero">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={heroStill} alt={`${data.firstNames}, from the ${words.eventWord}`} loading="eager" decoding="sync" />
-          <figcaption>{data.firstNames}, from the celebration — captured on the day.</figcaption>
+          <figcaption>{data.firstNames}, from the event — captured on the day.</figcaption>
         </figure>
       ) : null}
 

@@ -112,7 +112,7 @@ import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
  * ── THE DRAFT, NEVER LIVE ─────────────────────────────────────────────────
  * Every change posts `hubDraftAction` intent=save with the hero row's `main` —
  * the same one draft action the Reveal and the Logo use. A free couple may try
- * it; it goes live at Apply, where Event Hub Pro is asked for.
+ * it; it goes live at Apply, where Event Pro is asked for.
  *
  * 🔎 A REFUSED SAVE, OR A FRAME THAT COULD NOT BE READ, SAYS SO. Footage whose
  * colours were not measured is never used — its words would sit over pixels
@@ -147,7 +147,7 @@ export type MainBackgroundPage = {
 
 type LookWrite = BackgroundWrite;
 
-const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' };
+const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Pro' };
 /** "Just the colour" — nothing laid over the page colour. */
 const NO_PICTURE: HubMainGround = { ground: 'none' };
 /** A card with no picture of its own yet — paper, never a blank. */
@@ -388,7 +388,7 @@ function Choice({
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[13px] font-semibold">
           {label}
-          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" tone="current" /> : null}
         </span>
         {note ? <span className={`block text-[11.5px] ${on ? 'text-cream/80' : 'text-ink/60'}`}>{note}</span> : null}
       </span>
@@ -911,7 +911,7 @@ export function MainBackgroundPanel({
       group: 'Moving background',
       ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
       ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
-        ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
+        ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Pro' } }
         : {}),
   });
   const groundOwnOptions: PickOption[] = [
@@ -925,14 +925,14 @@ export function MainBackgroundPanel({
           group: 'Your own',
           ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
           ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
-          ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+          ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Pro' } } : {}),
         }]),
     {
       key: 'src:media',
       label: 'Upload media',
       group: 'Your own',
       ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
-      ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+      ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Pro' } } : {}),
     },
     { key: 'src:none', label: 'Just the colour', group: 'Plain' },
   ];
@@ -1393,13 +1393,13 @@ export function MainBackgroundPanel({
 
         {/* ✨ EFFECTS — on top of whatever the background is, on every source (owner 2026-10-08). Drawn where the sample
             screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render. Every effect is ◆
-            (owner 2026-10-16): without Event Hub Pro it is tried free like any Pro choice — written to the draft, worn by
+            (owner 2026-10-16): without Event Pro it is tried free like any Pro choice — written to the draft, worn by
             the sample, and named at ✓ Apply (`mainGroundChange`). */}
         {onSample ? (
           <BgEffects
             eventId={eventId}
             effect={fx}
-            /* ◆ only while it is TRIED (no Event Hub Pro): `proMark` is 'unlocked' — truthy — for an owner. */
+            /* ◆ only while it is TRIED (no Event Pro): `proMark` is 'unlocked' — truthy — for an owner. */
             locked={proMark === 'try'}
             swatch={fxLay?.still ? paper : fxLay?.image ? `${fxLay.image}${fxLay.color ? `, ${fxLay.color}` : ''}` : (fxLay?.color ?? paper)}
             picture={fxLay?.still ? <StillOverSwatch src={fxLay.still} swatch="transparent" position={fxLay.position} /> : null}

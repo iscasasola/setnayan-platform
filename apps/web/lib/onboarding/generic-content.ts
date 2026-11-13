@@ -48,7 +48,7 @@ export const GENERIC_EXP_AXES: ExpAxis[] = [
   {
     id: 'roots',
     eyebrow: 'The style',
-    question: 'Where does your celebration lean?',
+    question: 'Where does your event lean?',
     options: [
       { key: 'tradition', title: 'Rooted in tradition', desc: 'Tradition, family, and heritage at the heart.' },
       { key: 'modern', title: 'Modern & fresh', desc: 'Clean, current, and design-forward.' },

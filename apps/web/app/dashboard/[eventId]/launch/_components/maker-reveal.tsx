@@ -71,7 +71,7 @@ export const MakerRevealStageContext = createContext<RevealStage | null>(null);
 /**
  * THE REVEAL — chosen once, in the Maker (Phase 6).
  *
- * "No reveal" is free; every opening is Event Hub Pro (owner 2026-09-24, "all
+ * "No reveal" is free; every opening is Event Pro (owner 2026-09-24, "all
  * reveal is paid"). A free couple may TRY an opening here — it goes into the
  * draft and plays in their own preview — and pays at Apply (owner 2026-09-25).
  * The couple's theme dresses whichever opening they choose; with none chosen,
@@ -341,7 +341,7 @@ export function MakerRevealPicker({
         </InfoTip>
         {mark ? (
           <span className="pointer-events-none relative">
-            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} tone="auto" />
+            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} tone="auto" />
           </span>
         ) : null}
         {on ? <Check aria-hidden className="pointer-events-none relative h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
@@ -354,7 +354,7 @@ export function MakerRevealPicker({
       How your Event Hub opens for a guest — once, before the page. Your {themeName} theme dresses it
       {dressing ? `: ${dressing.charAt(0).toLowerCase()}${dressing.slice(1)}.` : '.'}
       {!ownsPro && !storeShell && openings.length > 0
-        ? ' Every opening is part of Event Hub Pro — try one here; guests see it after you Apply with Pro.'
+        ? ' Every opening is part of Event Pro — try one here; guests see it after you Apply with Pro.'
         : null}
     </InfoTip>
   );
@@ -781,7 +781,7 @@ function RevealStagePart({
                   {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
                   {id !== REVEAL_NONE_ID && mark ? (
                     <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">
-                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
+                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" />
                     </span>
                   ) : null}
                 </>

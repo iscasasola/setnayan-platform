@@ -258,11 +258,11 @@ export default async function SaveTheDatePage({ params }: Props) {
       fetchRevealConfig(),
       // The Cinematic Reveal is bundle-only (2026-07-22): once its catalog row is
       // is_active=false, the standalone drawer would dead-end at checkout, so we
-      // gate on real sellability and upsell Event Hub PRO instead. Reads DB
+      // gate on real sellability and upsell Event PRO instead. Reads DB
       // is_active → self-heals through the migration-push window.
       resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
       formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
-      // The couple's OWN photo / film / song are Event Hub Pro (owner
+      // The couple's OWN photo / film / song are Event Pro (owner
       // 2026-09-24). The one host-facing resolver (service client, host of THIS
       // event), as the save action's gate reads it, so a co-host who did not
       // place the order sees the same answer the save gives.
@@ -402,7 +402,7 @@ export default async function SaveTheDatePage({ params }: Props) {
 
 
   // 🔒 The Save-the-Date film is free planning and stays; its two upsells (the
-  // cinematic-openings unlock and Event Hub PRO) are prices, and the App Store /
+  // cinematic-openings unlock and Event PRO) are prices, and the App Store /
   // Play Store shell shows none (guideline 3.1.1; lib/store-shell.ts).
   const storeShell = await isStoreShellRequest();
   return (
@@ -469,7 +469,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           <Check aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={2.5} />
           <p className="text-sm text-success-800">
             <span className="font-medium">Cinematic openings unlocked.</span> Your chosen opening
-            lifts to reveal your page on your live site.
+            lifts to reveal your page on your live Event Hub.
           </p>
         </div>
       ) : storeShell ? null /* 🔒 no price, no unlock in the App Store / Play Store shell — lib/store-shell.ts */ : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
@@ -509,7 +509,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
         </section>
       ) : (
-        // Bundle-only: the cinematic opening comes with Event Hub PRO. Upsell it
+        // Bundle-only: the cinematic opening comes with Event PRO. Upsell it
         // (a real, working buy surface) rather than a standalone checkout that
         // would be rejected — owners already hit the "unlocked" branch above.
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
@@ -520,17 +520,17 @@ export default async function SaveTheDatePage({ params }: Props) {
               strokeWidth={1.75}
             />
             <div className="space-y-1">
-              <h2 className="font-serif text-lg italic">The cinematic opening is part of Event Hub PRO</h2>
+              <h2 className="font-serif text-lg italic">The cinematic opening is part of Event PRO</h2>
               <p className="max-w-prose text-sm text-ink/70">
                 Your film is free. The{' '}
                 <span className="font-medium text-ink">cinematic opening</span> — plus Editorial
-                PRO and every premium touch across your site — comes with Event Hub PRO.
+                PRO and every premium touch across your Event Hub — comes with Event PRO.
               </p>
             </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
-              One unlock for your whole website
+              One unlock for your whole Event Hub
               {websiteProPricePhp != null ? (
                 <>
                   {' '}
@@ -545,7 +545,7 @@ export default async function SaveTheDatePage({ params }: Props) {
               href={`/dashboard/${eventId}/studio/website-pro`}
               className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              Unlock Event Hub PRO
+              Unlock Event PRO
             </Link>
           </div>
         </section>

@@ -47,7 +47,7 @@ export function StyleCards({
   label?: string;
   /** Which set this carousel is (`data-style-carousel`) — '' for a scene's own styles. */
   data?: string;
-  /** `pro` — 💎 an Event Hub Pro ◆ look: its name carries ◆ (tried free, named at ✓ Apply). */
+  /** `pro` — 💎 an Event Pro ◆ look: its name carries ◆ (tried free, named at ✓ Apply). */
   options: ReadonlyArray<{ id: string; name: string; pro?: boolean }>;
   value: string | null;
   onPick: (id: string) => void;

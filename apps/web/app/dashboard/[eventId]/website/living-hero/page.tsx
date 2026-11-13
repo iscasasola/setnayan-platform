@@ -42,7 +42,7 @@ export default async function LivingHeroPage({
 
   if (error || !event) notFound();
 
-  // 🎞 A living hero is the couple's own film at the top — Event Hub Pro (owner
+  // 🎞 A living hero is the couple's own film at the top — Event Pro (owner
   // 2026-09-24, "A"). `saveLivingHero` refuses it for a free couple; the studio
   // is not offered either. One they already have stays on the page and is
   // removed from the hero-photo editor.
@@ -54,7 +54,7 @@ export default async function LivingHeroPage({
           eventId={eventId}
           backHref={`/dashboard/${eventId}/website`}
           featureName="Living hero"
-          description="Turn a few seconds of your own video into a gentle, looping hero at the top of your Event Hub. It's part of Event Hub PRO."
+          description="Turn a few seconds of your own video into a gentle, looping hero at the top of your Event Hub. It's part of Event PRO."
         />
       </div>
     );

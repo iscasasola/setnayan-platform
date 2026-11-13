@@ -69,7 +69,7 @@ type Props = {
    *  2026-07-10); when false, the media steps show an "unlocks with the Reveal"
    *  note and won't play on the live Save-the-Date until purchased. */
   ownsReveal: boolean;
-  /** Does the event own Event Hub Pro? The couple's OWN background photo, film
+  /** Does the event own Event Pro? The couple's OWN background photo, film
    *  and song are Pro (owner 2026-09-24, "A") — `saveAllStdContent` refuses them
    *  for a free couple, so the three uploaders are locked here to match. Our
    *  themes, backgrounds and the film itself stay free. Defaults to true so a
@@ -214,10 +214,10 @@ export function StdBuilderClient({
   const uploadLock = (what: string) =>
     ownsPro ? undefined : (
       <p className="rounded-xl bg-mulberry/5 px-3.5 py-3 text-xs text-ink/70">
-        Your own {what} is part of <span className="font-medium text-ink">Event Hub Pro</span>. Our
+        Your own {what} is part of <span className="font-medium text-ink">Event Pro</span>. Our
         backgrounds and your words stay free.{' '}
         <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
-          Unlock Event Hub Pro
+          Unlock Event Pro
         </Link>
       </p>
     );
@@ -862,7 +862,7 @@ export function StdBuilderClient({
                   currentValue={siteMusicKey}
                   onFilePicked={handleMusicFilePicked}
                   onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
-                  help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+                  help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your Event Hub song."
                 />
               ) : (
                 uploadLock('song')
@@ -879,7 +879,7 @@ export function StdBuilderClient({
                   href={`/dashboard/${eventId}/website/site-chrome`}
                   className="inline-flex items-center gap-1 text-xs font-medium text-ink/55 hover:text-terracotta"
                 >
-                  Manage site music
+                  Manage Event Hub music
                   <ExternalLink aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 </Link>
               </div>
@@ -1010,15 +1010,15 @@ export function StdBuilderClient({
             </div>
           ) : result === 'pro' ? (
             <p className="rounded-xl bg-mulberry/5 px-4 py-3 text-center text-sm text-ink/75">
-              Nothing was saved — your own photo, film or song is part of Event Hub Pro.{' '}
+              Nothing was saved — your own photo, film or song is part of Event Pro.{' '}
               <Link href={proHref} className="font-medium text-mulberry underline underline-offset-2">
-                Unlock Event Hub Pro
+                Unlock Event Pro
               </Link>
             </p>
           ) : result === 'error' || result === 'needs-pro' ? (
             <p className="rounded-xl border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-center text-sm text-terracotta">
               {result === 'needs-pro'
-                ? 'Opening effects need Event Hub Pro — nothing was saved. Turn the effect back off to save your film.'
+                ? 'Opening effects need Event Pro — nothing was saved. Turn the effect back off to save your film.'
                 : 'Something went wrong — please try again.'}
             </p>
           ) : null}

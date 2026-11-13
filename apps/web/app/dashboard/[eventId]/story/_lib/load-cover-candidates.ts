@@ -76,7 +76,7 @@ export async function loadCoverCandidates(args: {
       kind: 'hero',
       ref: null,
       source: 'Living hero',
-      label: 'The one on your site now',
+      label: 'The one on your Event Hub now',
       previewUrl,
     });
   }

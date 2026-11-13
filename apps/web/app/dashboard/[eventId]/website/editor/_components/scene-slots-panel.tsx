@@ -17,7 +17,7 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
  * `video`); no new server action. No script: every choice is a form.
  *
  * 💎 PRO, TRIED HERE, PAID AT APPLY. Putting a picture or a clip into a scene is
- * Event Hub Pro (owner: media is Pro). Every control here posts `draft=1`, so a
+ * Event Pro (owner: media is Pro). Every control here posts `draft=1`, so a
  * couple without Pro may pick one — it shows on the canvas with ◆ PRO — and the
  * Apply sheet names it ("Photo in the scene · …") until they unlock or take it
  * off (owner 2026-09-28). In the app-store shell the pickers stay hidden. The
@@ -104,7 +104,7 @@ export function SceneSlotsPanel({
               <div key={i} className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex w-16 items-center gap-1 text-[0.62rem] text-ink/55">
                   {t.clip ? 'Clip' : t.media > 1 ? `Photo ${i + 1}` : 'Photo'}
-                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
+                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
                 </span>
                 {slot.media ? (
                   <SafeForm action={saveAction}>

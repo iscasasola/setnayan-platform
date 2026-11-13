@@ -1593,7 +1593,7 @@ export const loadGuestContext = cache(
       slug: canonicalSlug,
       qrToken: guest.qr_token,
       // The event's look (lib/qr-look.ts): the Setnayan mark for a free event,
-      // the couple's own logo · shape · pattern · ink on Event Hub Pro.
+      // the couple's own logo · shape · pattern · ink on Event Pro.
       look: await qrLookAhead,
       ownerSlug,
     });

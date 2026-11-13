@@ -861,7 +861,7 @@ async function skeletonHeroArriving(
  */
 /**
  * 🎭 Would the page mount an opening (the veil)? The SAME decision `RevealMount` makes — `revealAllowedFor` over the
- * admin's Reveal Studio config, the couple's own opening (else the theme's), and Event Hub Pro ownership — through the
+ * admin's Reveal Studio config, the couple's own opening (else the theme's), and Event Pro ownership — through the
  * same `cache()`d reads (`fetchRevealConfig`, `stdOpeningsActiveCached`, `resolveHubTheme`). The host's draft preview
  * (`?preview=draft`) plays a drafted opening before Pro is bought (try then pay), so it counts as owned here. Never
  * throws: a failed read draws the loading screen as it always was.

@@ -83,7 +83,7 @@ import { IconPill } from '../../launch/_components/icon-pill';
  * shell (`storeShell`) there is no price, no link and no pay path — a Pro key
  * is held and reads "◆ N waiting for Pro", with "Remove Pro changes" (owner 2026-10-08, "keep, marked"), and never
  * names the web (anti-steering, 3.1.1 — controller 2026-10-23). Where Apple sells Pro (`appleIap`) the dock hands
- * `storeShell: false` and the Apply sheet asks for Event Hub Pro whole, on Apple's sheet (owner 2026-10-26).
+ * `storeShell: false` and the Apply sheet asks for Event Pro whole, on Apple's sheet (owner 2026-10-26).
  */
 
 export type HubDraftBarProps = {
@@ -109,7 +109,7 @@ export type HubDraftBarProps = {
   /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
   partPricePhp?: Partial<Record<HubPartId, number>>;
   fullPricePhp?: number | null;
-  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Hub Pro whole, with no web figure. */
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Pro whole, with no web figure. */
   appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
@@ -131,7 +131,7 @@ export { HubDraftField } from './hub-draft-field';
 export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
-  needs_pro: 'needs Event Hub Pro — it stays in your draft',
+  needs_pro: 'needs Event Pro — it stays in your draft',
   waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
@@ -714,7 +714,7 @@ export function HubDraftToolbar({
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
           pricing={
-            /* 🍎 The app sells Event Hub Pro whole — never part by part (owner 2026-10-26: "just have the upgrade event
+            /* 🍎 The app sells Event Pro whole — never part by part (owner 2026-10-26: "just have the upgrade event
                hub pro"); its sheet is the one-unlock sheet. On the web the parts follow the catalogue: none on sale →
                no part price was read → the same one-unlock sheet. */
             !storeShell && !appleIap && partPricePhp && Object.keys(partPricePhp).length > 0
@@ -760,18 +760,18 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                <PaidMark state="try" bare label="Event Pro" size="xs" />
                 {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} className="mr-1 align-middle" />
-                Apply needs Event Hub Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
+                Apply needs Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Hub Pro
+                      Get Event Pro
                     </Link>
                   </>
                 )}

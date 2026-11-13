@@ -360,7 +360,7 @@ function SuggestionsRow({
  *
  * Every figure is a catalogue read handed in; in the app-store shell a couple without the part sees no paid row.
  * ⛔ Since 2026-10-26 the part is off sale (owner: "just have the upgrade event hub pro") — no price is handed in, and
- * the row says Event Hub Pro instead of the part.
+ * the row says Event Pro instead of the part.
  */
 export function AddressField({
   eventId,
@@ -403,7 +403,7 @@ export function AddressField({
   const offered = owns || !storeShell;
   /* What renaming needs, said where no part is on sale — never named in the store shell (a couple there without the
      address sees no paid row at all: `offered`). */
-  const needs = storeShell ? null : 'Event Hub Pro';
+  const needs = storeShell ? null : 'Event Pro';
   if (compact) {
     /* ⚙ The same three answers as below, on ONE row (prototype `.addr`): held → the box saves live (its Save);
        on sale → the box drafts, ◆ waits for ✓ Apply; neither (the store shell) → the address is shown, not typed.
@@ -430,7 +430,7 @@ export function AddressField({
           {...(owns ? {} : { onDraft: draftAddress, drafted })}
           aside={
             <>
-              {owns || storeShell ? null : <PaidMark state="try" bare label={price ? 'Custom address' : 'Event Hub Pro'} size="xs" />}
+              {owns || storeShell ? null : <PaidMark state="try" bare label={price ? 'Custom address' : 'Event Pro'} size="xs" />}
               <Explain title="Event Hub address">
                 {owns
                   ? `On every link, print and pass. ${rules}`

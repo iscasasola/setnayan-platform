@@ -84,7 +84,7 @@ export function SetDateNudge({ eventId, eventType = null }: Props) {
         <p className="text-sm text-ink/65">
           {noun === 'wedding'
             ? 'Lock it in to start the countdown and unlock your Save-the-Date and editorial pages.'
-            : 'Lock it in to start the countdown and open the pages of your site that wait for a date.'}
+            : 'Lock it in to start the countdown and open the pages of your Event Hub that wait for a date.'}
         </p>
         <a
           href={`/dashboard/${eventId}/date-selection`}

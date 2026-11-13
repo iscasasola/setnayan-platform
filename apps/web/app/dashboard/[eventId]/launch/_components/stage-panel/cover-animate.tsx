@@ -25,7 +25,7 @@ import { Dd } from './kit';
 /**
  * 🎬 COVER SCENE › ANIMATE — ONE ENTRANCE FOR THE WHOLE COVER (owner-approved 2026-10-16; prototype
  * `cover_scene_edit_animate_2026-10-16.html` `drawCoverAnimate`; Pro ◆ at Apply — "ALL ANIMATE, EFFECTS, STYLES AND
- * ACCENTS ARE EVENT HUB PRO ◆"). The toolbar's own four rows:
+ * ACCENTS ARE EVENT PRO ◆"). The toolbar's own four rows:
  *
  *   row 1   Entrance ▾ — The theme's own · Event title first · Top to bottom · All together · Soft focus · From the sides · Still
  *   row 2   Movement ◆ — Quick · Calm · Cinematic (every word's speed); grey while nothing enters

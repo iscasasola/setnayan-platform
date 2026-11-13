@@ -507,7 +507,7 @@ type SiteBodyProps = {
   /** 🏷 The event plan's Setnayan mark (`eventSetnayanMark`, Build 6 Lane L): Free = the watermark · Event Plus = one
    *  quiet "Made with Setnayan" · Event Pro = none. Absent → read from `proWatermarkHidden` as before. */
   setnayanMark?: SetnayanMark | null;
-  /** 💎 The Event Hub Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
+  /** 💎 The Event Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
    *  Auto-scroll are Motion's. Absent: every part while the footer is off (Full Pro), none otherwise — the old meaning. */
   hubParts?: readonly HubPartId[];
   /** 🖼 THE MAKER'S CANVAS — TRUE only when the page resolved `?editor=1` AND
@@ -795,7 +795,7 @@ export async function SiteBody({
   const rsvpAsk = resolveRsvpAsk(event.rsvp_ask_config);
   // 🖼 The reply sheet's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`).
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
-  // The Love Story's photos (Event Hub Pro) ride the SAME one signing pass as
+  // The Love Story's photos (Event Pro) ride the SAME one signing pass as
   // the section backgrounds — one Promise.all per page, one allow-list.
   const canvasMediaRefs = [
     ...new Set([
@@ -833,7 +833,7 @@ export async function SiteBody({
     ITS SCENE AND IS ADDED FROM THAT SCENE'S STYLE") — decided ONCE here and handed to each fixed place
     (`lib/art-kits.ts` · `kit-piece.tsx`): each scene's Accent pick (`style_preferences.scene_accents`, draft-overlaid
     on the host's canvas) or the look's default; the look's own seal, flourish and divider when the RESOLVED theme brings
-    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Hub Pro as the viewer is shown it
+    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Pro as the viewer is shown it
     (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
     Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
   */
@@ -4562,7 +4562,7 @@ export async function SiteBody({
           owning audio in its own phase, not about the veil: over the invitation
           the veil (z-60) sits above this control (z-50), so it is hidden until
           the veil lifts, and the music never autoplays — it starts only on a
-          tap. Suppressing it here would silence a paid Event Hub PRO feature
+          tap. Suppressing it here would silence a paid Event PRO feature
           for the whole invitation phase to solve a clash that cannot happen. */}
       {/* 🖼 Not in the Maker's canvas — the song is set in the inspector. */}
       {plan.backgroundMusic && bgMusicUrl && !isEditorCanvas ? <BackgroundMusic src={bgMusicUrl} design={hubMusicButton(heroRow?.config_json)} /> : null}

@@ -295,7 +295,7 @@ export default async function EditorialPrintPage({
   }
 
   // The QR encodes the canonical living-story URL, in the event's LOOK (lib/qr-look.ts
-  // — the Setnayan mark for a free event, the couple's own on Event Hub Pro), through
+  // — the Setnayan mark for a free event, the couple's own on Event Pro), through
   // the same level-H, quiet-zone renderer every guest QR uses. Best-effort: a QR
   // failure just drops the code, never the sheet.
   const storyUrl = `${SITE_URL}/${event.slug ?? slug}`;

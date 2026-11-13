@@ -16,7 +16,7 @@
  *   • Free One points    → papic_event_pool_config.free_one_camera_points
  *   • Photo / clip weight→ lib/papic-cameras.ts constants, via papic-tier-copy
  *   • Setnayan AI price  → the type's tier SKU, via resolveSetnayanAiTypePricePhp
- *   • Event Hub Pro price→ platform_retail_catalog_v2 COUPLE_WEBSITE_PRO (same rule as the rungs)
+ *   • Event Pro price→ platform_retail_catalog_v2 COUPLE_WEBSITE_PRO (same rule as the rungs)
  * A rung whose tier row is inactive, or whose catalog price is missing/inactive,
  * DISAPPEARS from the ladder rather than rendering at a stale or invented price.
  * That degradation is the point: the couple sees a shorter true ladder, never a
@@ -193,7 +193,7 @@ export async function readServicesStepView(
   );
 
   /**
-   * ── CARD 3 · EVENT HUB PRO (owner 2026-09-25) ──────────────────────────────
+   * ── CARD 3 · EVENT PRO (owner 2026-09-25) ──────────────────────────────
    * Priced by the SAME rule and the SAME maps as the Papic rungs above — the
    * catalog row through `setupPricePhp` — because that is exactly what the mint
    * charges for it (`priceOf` in onboarding-services-orders.ts). No resolver of

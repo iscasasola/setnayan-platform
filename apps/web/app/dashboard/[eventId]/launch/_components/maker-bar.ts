@@ -22,7 +22,7 @@ import type { MakerDevice } from './maker-context';
  *
  *     Stages | Studio · ↺ Undo · ✓ Apply (n) · ⚙              (a desktop adds 👁 Preview between Undo and Apply)
  *
- * 🧭 THE HUB'S PINNED ROW (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+ * 🧭 THE HUB'S PINNED ROW (owner 2026-10-30, DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV STAYS"): the
  * Maker sits under the app's own top bar and above its bottom nav, so this bar is the Hub's pinned row, as Guests' and
  * Suppliers' are — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. The ✕ Exit is DROPPED (call 1: the app's nav is the way out);
  * ↺ Undo · ✓ Apply STAY here (call 3); ⚙ Event Hub settings ends it (`MenuSettingsButton menu="hub"`).
@@ -344,7 +344,7 @@ export function makerPageActions(
       label: '＋ Add a scene',
       group,
       // ◆ PRO for a couple trying it — usable now, asked for at Apply (never a padlock).
-      ...(input.addScene.tried ? { trail: { text: '◆ PRO', tone: 'muted' as const, label: paidMarkLabel('try', 'Event Hub Pro') } } : {}),
+      ...(input.addScene.tried ? { trail: { text: '◆ PRO', tone: 'muted' as const, label: paidMarkLabel('try', 'Event Pro') } } : {}),
     });
   } else if (input.addScene?.kind === 'refused') {
     stageRows.push({ key: MAKER_PAGE_ACTIONS.addScene, label: '＋ Add a scene', group, disabledNote: input.addScene.note });

@@ -16,7 +16,7 @@ import { applySheetParts, applySheetButtons, partsBuyHref, type ApplySheetPricin
 export const APPLY_SHEET_MAX_LINES = 8;
 
 /**
- * 💎 THE APPLY SHEET — Apply is where Event Hub Pro is asked for.
+ * 💎 THE APPLY SHEET — Apply is where Event Pro is asked for.
  *
  * Owner, 2026-09-28, verbatim: *"they can edit it with pro features. but need
  * to upgrade to pro when clicked on apply and point out the effect chosen that
@@ -27,7 +27,7 @@ export const APPLY_SHEET_MAX_LINES = 8;
  * DRAFT. When they press Apply and the draft holds any, THIS opens instead of
  * the write, and lists each effect by what and where — "Font · Names on the
  * Hero", "Animation · Schedule", "Theme · Velvet". Each row can take the couple
- * to it, or take it off the draft. The first action is the one Event Hub Pro
+ * to it, or take it off the draft. The first action is the one Event Pro
  * page, at the catalogue's price (`priceLabel` — read live, never typed); the
  * second is the Apply that already shipped: everything free goes live, the Pro
  * effects stay in the draft (#6075's split).
@@ -89,7 +89,7 @@ export function ApplyProSheet({
   onRemoveHeld?: () => void;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
   priceLabel: string | null;
-  /** The one Event Hub Pro page — null in the store shell (then no effects are passed either). */
+  /** The one Event Pro page — null in the store shell (then no effects are passed either). */
   proHref: string | null;
   pending: boolean;
   onGo: (effect: HubProEffectView) => void;
@@ -130,13 +130,13 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
-            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Hub Pro'}
+            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Pro'}
           </p>
           {none ? null : (
-            <InfoTip label="" ariaLabel="About Event Hub Pro effects" align="end">
+            <InfoTip label="" ariaLabel="About Event Pro effects" align="end">
               {grouped
                 ? 'These are in your draft. Guests see them once their part is unlocked for this event — everyone on it. Tap one to go to it, take one off, or apply the rest now; the Pro ones stay in your draft.'
-                : 'These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
+                : 'These are in your draft. Guests see them once you unlock Event Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
             </InfoTip>
           )}
           <button
@@ -161,7 +161,7 @@ export function ApplyProSheet({
                 {changes.slice(0, APPLY_SHEET_MAX_LINES).map((c, i) => (
                   <li key={`${c.place}·${c.what}·${i}`} data-apply-change="" className="flex min-w-0 items-center gap-1.5 text-ink">
                     {c.pro ? (
-                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Hub Pro" size="xs" />
+                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Pro" size="xs" />
                     ) : (
                       <span aria-hidden className="inline-block h-1 w-1 shrink-0 rounded-full bg-ink/30" />
                     )}
@@ -181,7 +181,7 @@ export function ApplyProSheet({
             {heldForPro > 0 ? (
               <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
                 <p className="inline-flex items-center gap-1.5">
-                  <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                  <PaidMark state="try" bare label="Event Pro" size="xs" />
                   {formatCount(heldForPro)} waiting for Pro
                 </p>
                 {onRemoveHeld ? (
@@ -212,7 +212,7 @@ export function ApplyProSheet({
                       onClick={() => setOpenPart(open ? null : g.part)}
                       className="flex min-h-11 w-full items-center gap-2 rounded-2xl px-2 text-left disabled:cursor-default"
                     >
-                      <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                      <PaidMark state="try" bare label="Event Pro" size="xs" />
                       <span className="min-w-0 flex-1 text-sm">
                         <span className="block font-semibold text-ink">{g.name}</span>
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
@@ -305,7 +305,7 @@ export function ApplyProSheet({
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
                 {/* Every row here is Pro — the diamond alone, no word repeated seven times. */}
-                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                <PaidMark state="try" bare label="Event Pro" size="xs" />
                 {/* 🚫 No "Go to ↗" (owner 2026-10-22) — the row itself is the press. */}
                 <button
                   type="button"

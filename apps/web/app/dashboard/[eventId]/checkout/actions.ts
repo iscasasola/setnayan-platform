@@ -583,7 +583,7 @@ export async function submitOrderAction(
   // and arithmetic on that brand yields a plain bigint that will not type-check
   // back into a total. The 36× overcharge is now unrepresentable rather than
   // guarded. See the module header.
-  /* 💎 Several Event Hub Pro parts in one press (owner 2026-10-22) — the parts are read strictly from the form and
+  /* 💎 Several Event Pro parts in one press (owner 2026-10-22) — the parts are read strictly from the form and
      priced by the authority from the catalogue; anything else on this key is refused there. */
   const hubParts = serviceKey === HUB_PARTS_ORDER_KEY ? parseHubPartsField(formData.get('hub_parts')) : [];
   const authority = await resolveOrderChargeCentavos({
@@ -914,7 +914,7 @@ export async function submitOrderAction(
     if (linesErr) {
       await insertFaultLog({
         event_type: 'SUPABASE_SAVE_ERROR',
-        element_name: 'Event Hub Pro parts order lines (onboarding_order_items INSERT)',
+        element_name: 'Event Pro parts order lines (onboarding_order_items INSERT)',
         file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
         error_message: String(linesErr.message),
         payload_snapshot: { orderId, eventId: eventIdClean, hubParts },

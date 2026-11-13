@@ -532,7 +532,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // position nobody read.
       fetchFloorPlanMeasured(supabase, eventId),
       // The guest drawer's QR used to fold a CUSTOM_QR_GUEST ownership read in
-      // here. That product folded into Event Hub Pro (owner 2026-09-27): the
+      // here. That product folded into Event Pro (owner 2026-09-27): the
       // drawer's PNG route now draws every guest's code in the event's look, so
       // there is nothing left to gate and no read to make.
     ]);

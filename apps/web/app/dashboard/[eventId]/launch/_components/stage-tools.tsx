@@ -394,7 +394,7 @@ export function StageTools({
   const previewingRef = useRef(false);
   previewingRef.current = previewing;
   /**
-   * 🫥 THE TOOLBAR STOWED TO ITS HEAD (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — … THE EDITING
+   * 🫥 THE TOOLBAR STOWED TO ITS HEAD (owner 2026-10-30, DECISION_LOG "EVENT PRO (look redesign) — … THE EDITING
    * TOOLBAR SHOWS AND HIDES"): a tap on the empty page, a scroll of the page or a swipe down puts it away — the part
    * stays picked, its frame stays on the page — and the head that is left ("You're editing · … ▴") brings it back, as
    * does any part or tool picked. It SHOWS on arrival (call 2: something is always picked) and hides on the first

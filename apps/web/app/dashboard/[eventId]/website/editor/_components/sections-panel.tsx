@@ -178,7 +178,7 @@ export function SectionsPanel({
    *  working for any caller that has not wired it yet. */
   setMotionAction?: (formData: FormData) => void | Promise<void>;
   /**
-   * TRUE when the event does not own Event Hub Pro: Scrub and Auto-scroll are
+   * TRUE when the event does not own Event Pro: Scrub and Auto-scroll are
    * shown but locked (owner 2026-09-24 — one Pro unlock covers every advanced
    * feature). A boolean, never a component — nothing callable crosses here.
    * `setWidgetMotion` refuses a free couple independently; Scroll is never
@@ -207,7 +207,7 @@ export function SectionsPanel({
   /** Take the next free slot. Hidden once all six are in use. */
   addCustomAction?: (formData: FormData) => void | Promise<void>;
   /**
-   * Does this event own Event Hub PRO? Two things in this panel are Pro (owner
+   * Does this event own Event PRO? Two things in this panel are Pro (owner
    * 2026-09-22/24: "Free is the page we write. Pro is changing how it looks"):
    * a section of the couple's own, and how any section LOOKS and MOVES — its
    * photo, crop, zoom and motion. Defaults to true so a caller that has not
@@ -223,7 +223,7 @@ export function SectionsPanel({
   customLock?: React.ReactNode;
   /**
    * 💎 The couple's own scenes with NOTHING in them live (hidden or visible).
-   * Without Event Hub Pro their words go into the DRAFT (owner 2026-09-29, "yes
+   * Without Event Pro their words go into the DRAFT (owner 2026-09-29, "yes
    * to all 3") — the form posts `draft=1`, Apply asks Pro to fill the scene and
    * the sheet names it ("Words · …"). Read from the LIVE rows by the page:
    * `rows` here are the draft laid over live, which may already hold words.
@@ -244,7 +244,7 @@ export function SectionsPanel({
   /* 💎 TRIED FREE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit
      it with pro features. but need to upgrade to pro when clicked on apply"*).
      Every form here posts `draft=1`, and Apply holds each Pro pick for a couple
-     without Event Hub Pro — so on the web every look control is USABLE, wearing
+     without Event Pro — so on the web every look control is USABLE, wearing
      ◆ PRO. Only the app-store shell still hides them (`hideLocked`). */
   const proUsable = makerProUsable({ owns: ownsPro, storeShell: hideLocked });
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
@@ -438,7 +438,7 @@ export function SectionsPanel({
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       <p className="mb-1 inline-flex items-center gap-1 font-mono text-[0.58rem] uppercase tracking-[0.16em] text-ink/45">
                         How it moves
-                        {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null}
+                        {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} size="xs" /> : null}
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
@@ -509,7 +509,7 @@ export function SectionsPanel({
                                       type="submit"
                                       aria-pressed={on}
                                       disabled={locked}
-                                      title={locked ? 'Comes with Event Hub Pro.' : HUB_TRANSITION_HINT[t]}
+                                      title={locked ? 'Comes with Event Pro.' : HUB_TRANSITION_HINT[t]}
                                       className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[0.58rem] ${
                                         on
                                           ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
@@ -519,7 +519,7 @@ export function SectionsPanel({
                                       }`}
                                     >
                                       {locked ? (
-                                        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" tone="current" />
+                                        <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} size="xs" tone="current" />
                                       ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>
@@ -531,7 +531,7 @@ export function SectionsPanel({
                                   href={`/dashboard/${eventId}/studio/website-pro`}
                                   className="text-[0.58rem] font-semibold text-ink/60 underline underline-offset-2 hover:text-ink"
                                 >
-                                  Unlock with Event Hub Pro
+                                  Unlock with Event Pro
                                 </a>
                               ) : null}
                             </div>
@@ -1302,7 +1302,7 @@ function SectionColourChoices({
  * — the draft door; guests see nothing until Apply. Colour, both glasses, No
  * background and the shape are FREE (owner 2026-09-24: "changing background
  * color is free. making media a background is pro"). Photo and Snippet are
- * offered to a couple who owns Event Hub Pro only — a free couple is shown no
+ * offered to a couple who owns Event Pro only — a free couple is shown no
  * photo to pick (the 2026-09-24 "A" ruling, `a-free-section-shows-no-look-
  * controls.test.ts`); the panel's one lock names it. Which photo, which colour,
  * and the crop are picked in the rows under this one — this row says WHAT the

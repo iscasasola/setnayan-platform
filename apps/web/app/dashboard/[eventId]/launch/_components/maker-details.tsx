@@ -532,7 +532,7 @@ function addressEditor(props: Pick<MakerDetailsProps, 'eventId' | 'slug' | 'slug
  * ⚙ YOUR EVENT HUB — the address · Go live · who can view · which version · the Event Bar · the event QR (its on/off,
  * its look, Copy · Share · Download): Studio › Info's "More for guests" fold (`StudioHubSettings`), built by THIS one
  * function wherever it is drawn — in that fold, and OPEN in the Hub's ⚙ Event Hub settings (owner 2026-10-30, DECISION_LOG
- * "EVENT HUB PRO (look redesign)"; 2026-10-27 "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address stays in Event Hub ⚙).
+ * "EVENT PRO (look redesign)"; 2026-10-27 "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address stays in Event Hub ⚙).
  * The launch page hands the ⚙'s copy to the Maker with its late panels (`MakerLate.hubSettings`). Null without Studio.
  */
 export function hubSettingsEditor(
@@ -799,7 +799,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         )}
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           Your QR code
-          {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" /> : null}
+          {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Pro')} text="Event Pro" size="xs" /> : null}
         </p>
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
@@ -1038,7 +1038,7 @@ export function MakerDetails(props: MakerDetailsProps) {
             : qr.storeShell
               ? /* 🍎 The iPhone app names no paid extra — and draws no QR look controls (`QrLookControls`). */
                 'Every guest QR carries the Setnayan mark in the centre.'
-              : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
+              : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Pro.'}
         </p>
         {qrAlways}
         {nfcToggle}

@@ -5,7 +5,7 @@ import { SealMark } from './seal-mark';
 import styles from './velvet.module.css';
 
 /**
- * VELVET — the Opulent invite theme (Event Hub Pro). See velvet.module.css.
+ * VELVET — the Opulent invite theme (Event Pro). See velvet.module.css.
  *
  * The photo is painted as a CSS background whose URL goes through
  * `JSON.stringify` — a quoted, escaped CSS string — so a presigned URL's `&`,

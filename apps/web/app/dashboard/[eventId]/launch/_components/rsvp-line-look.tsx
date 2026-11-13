@@ -87,7 +87,7 @@ export function RsvpLineLookRows({
   return (
     <div className="contents" data-rsvp-line-look={line}>
       <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" data-rsvp-line-look-row="font">
-        {/* 💎 ◆ — a reply line's Style is Event Hub Pro (2026-10-16): tried here, named at ✓ Apply. */}
+        {/* 💎 ◆ — a reply line's Style is Event Pro (2026-10-16): tried here, named at ✓ Apply. */}
         <span className={SP_LOOK_ROW_LABEL}>Font ◆</span>
         <span className={SP_DD} data-stage-dd="font">
           <FontPick eventId={eventId} label="Font" dataAttr="data-rsvp-look-font" value={now.f ?? null} lead="Event Hub font" onPick={(f) => onPick({ f })} className={SP_DD_BUTTON} />

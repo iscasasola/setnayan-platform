@@ -180,7 +180,7 @@ export async function ShareLinkPanel({
 
   // SVG QR of the join link — a guest scans this, so it wears the event's look
   // (lib/qr-look.ts: the Setnayan mark for a free event, the couple's own on
-  // Event Hub Pro) at level H, like every other guest code. Inline, no client JS.
+  // Event Pro) at level H, like every other guest code. Inline, no client JS.
   const qrSvg = joinUrl ? await renderStyledUrlQrSvg(joinUrl, qrLookFromRow(lookRow, ownsQr), 320) : null;
 
   /* 💬 THE GROUP-CHAT MESSAGE for this ONE shared link (owner 2026-09-29) —

@@ -10,7 +10,7 @@ import { isStoreShellRequest } from '@/lib/request-platform';
  * design spec §3). Rendered ONLY when a couple is NOT PRO **and** has no
  * existing content for the feature (the grandfather rule — a couple that
  * already set content, or owns PRO, always sees the real editor). Never seven
- * separate buy buttons: one umbrella CTA into the existing Event Hub PRO buy
+ * separate buy buttons: one umbrella CTA into the existing Event PRO buy
  * surface (/dashboard/[eventId]/studio/website-pro). Presentation only — the
  * server action for each editor re-enforces the gate.
  *
@@ -20,10 +20,10 @@ import { isStoreShellRequest } from '@/lib/request-platform';
  *                free editor (e.g. the background-music field on site-chrome).
  *
  * 🔒 IN THE STORE SHELL THERE IS NO LOCK TO SHOW (sweep 2026-10-19 row C14).
- * Event Hub PRO is a digital unlock with no In-App Purchase yet, so the app
+ * Event PRO is a digital unlock with no In-App Purchase yet, so the app
  * may not advertise it (guideline 3.1.1). `StoreShellLinkGuard` already hid
- * the "Unlock Event Hub PRO" button (its href is a refused /studio route),
- * which left the card's "Part of Event Hub PRO" / "One unlock covers…" words
+ * the "Unlock Event PRO" button (its href is a refused /studio route),
+ * which left the card's "Part of Event PRO" / "One unlock covers…" words
  * on screen with nothing to press — an upsell with the door removed. So the
  * card is not drawn at all: 'inline' renders nothing (the field is simply not
  * there, like every other web-only feature), 'page' says only that this part
@@ -66,10 +66,10 @@ export async function WebsiteProLock({
   const card = (
     <div className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-6 sm:p-8">
       <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-mulberry/10 text-mulberry">
-        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Hub Pro')} size="lg" tone="current" />
+        <PaidMark state="locked" label={paidMarkLabel('locked', 'Event Pro')} size="lg" tone="current" />
       </span>
       <p className="mt-4 font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
-        Part of Event Hub PRO
+        Part of Event PRO
       </p>
       <h2 className="mt-1 font-serif text-2xl italic tracking-tight text-ink sm:text-3xl">
         {featureName}
@@ -79,7 +79,7 @@ export async function WebsiteProLock({
         href={upsellHref}
         className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-mulberry-600"
       >
-        Unlock Event Hub PRO
+        Unlock Event PRO
         <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
       </Link>
       <p className="mt-3 text-xs text-ink/45">

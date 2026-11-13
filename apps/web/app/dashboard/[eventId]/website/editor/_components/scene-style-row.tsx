@@ -51,7 +51,7 @@ import {
   type HubElementAlign,
 } from '@/lib/element-style';
 
-/** `pro` — 💎 an Event Hub Pro ◆ look (`lib/scene-style-pro.ts`): tried free here, named at ✓ Apply. */
+/** `pro` — 💎 an Event Pro ◆ look (`lib/scene-style-pro.ts`): tried free here, named at ✓ Apply. */
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean; pro?: boolean };
 
 export function SceneStyleRow({

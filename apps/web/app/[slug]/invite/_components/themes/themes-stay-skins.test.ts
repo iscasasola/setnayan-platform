@@ -1,7 +1,7 @@
 /**
  * themes-stay-skins.test.ts — five invite themes, one product.
  *
- * Owner 2026-09-10: five themes, House free and four under Event Hub Pro, on the
+ * Owner 2026-09-10: five themes, House free and four under Event Pro, on the
  * couple's reveal background. What keeps five themes ONE product is that a theme
  * is a SKIN on DoorShell: it owns what sits behind and around the card, never
  * the card, its edge or its one action. And what keeps them from costing every

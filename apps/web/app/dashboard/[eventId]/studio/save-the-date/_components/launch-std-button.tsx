@@ -204,7 +204,7 @@ export function LaunchStdButton({
             ) : null}
           </p>
           <p className="text-xs text-ink/50">
-            You can make it private again anytime in Website → Privacy.
+            You can make it private again anytime in Event Hub → Privacy.
           </p>
         </div>
       ) : scheduledAt ? (

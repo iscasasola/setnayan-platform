@@ -316,11 +316,11 @@ export async function saveEditorial(
       : {};
 
   /*
-    ⚠ THE EVENT HUB PRO GATE IS RETIRED HERE (owner 2026-08-21):
+    ⚠ THE EVENT PRO GATE IS RETIRED HERE (owner 2026-08-21):
     "make this feature part of free and not part of the event hub pro."
 
     It used to refuse a save from a non-PRO couple who had never authored an
-    editorial, with "Editing your editorial is part of Event Hub PRO."
+    editorial, with "Editing your editorial is part of Event PRO."
 
     🔑 THE REASON THE OWNER GAVE IS WORTH KEEPING: Setnayan auto-crafts this
     story for them. An auto-written story its own subject cannot correct reads
@@ -596,7 +596,7 @@ export async function saveEditorial(
     } catch {
       return {
         ok: false,
-        error: 'Your story saved, but the Event Hub Pro touches could not be kept. Please save again.',
+        error: 'Your story saved, but the Event Pro touches could not be kept. Please save again.',
       };
     }
   }

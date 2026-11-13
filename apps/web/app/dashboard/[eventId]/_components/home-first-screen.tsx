@@ -675,7 +675,7 @@ function paidCard(eventId: string, svc: HomeService, row: PaidRow): ReactNode {
 
 /**
  * 🧾 A PAID ROW (owner 2026-10-14 🧾 + ✅; prototype `rowFull` / `rowSlim`) — the shipped service
- * glance, never a new card. Owned: name · brand · "On" (Event Hub Pro: "Pro on · …") and the
+ * glance, never a new card. Owned: name · brand · "On" (Event Pro: "Pro on · …") and the
  * main door where it is another page; waiting for approval: the dashed words; not added: the SLIM
  * line — its catalogue price under the name and **Add**, which opens the service's own page,
  * where the shipped purchase already lives. No meter: only Papic has a true total.

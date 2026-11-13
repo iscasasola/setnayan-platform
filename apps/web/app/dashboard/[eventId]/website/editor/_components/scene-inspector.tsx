@@ -35,7 +35,7 @@ import { PickMenu } from './pick-menu';
  * 💎 PRO, TRIED HERE, PAID AT APPLY (owner 2026-09-28, verbatim: *"they can edit
  * it with pro features. but need to upgrade to pro when clicked on apply and
  * point out the effect chosen that caused them to upgrade to pro"*). How a scene
- * moves is still Event Hub Pro, but every row saves to the DRAFT, so a couple
+ * moves is still Event Pro, but every row saves to the DRAFT, so a couple
  * without it uses the same controls — marked ◆ PRO, never locked — and the
  * Apply sheet names what they chose ("Animation · Schedule"). In the app-store
  * shell a couple without Pro is shown only "Reset how it moves" (the one motion

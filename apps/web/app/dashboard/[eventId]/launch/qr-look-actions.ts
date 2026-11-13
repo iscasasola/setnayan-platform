@@ -13,7 +13,7 @@ import { draftedEventColumn, saveHubDraftPatch } from '@/lib/hub-draft-store';
  *
  * ── 💾 INTO THE DRAFT, NOT LIVE (owner 2026-09-29, "yes to all 3") ─────────
  * It used to write `events.style_preferences.qr` straight away and refuse a
- * couple without Event Hub Pro. Now every couple's pick goes into the Event Hub
+ * couple without Event Pro. Now every couple's pick goes into the Event Hub
  * DRAFT as `style_preferences: { qr }` — the Details preview draws it for the
  * host (`/api/website/qr/<slug>?draft=1`), the Apply sheet names it ("QR look ·
  * Your QR code"), and Apply MERGES it into the live blob only with Pro

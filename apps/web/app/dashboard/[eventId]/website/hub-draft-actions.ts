@@ -13,7 +13,7 @@
  *             that carries `draft=1` (`HUB_DRAFT_FIELD`) sends its save here via
  *             `lib/hub-draft-store.ts`, after its own validation.
  *   apply   — write the draft to the live page. THE PRO GATE IS HERE: every key
- *             the one look rule calls Pro is refused without Event Hub Pro and
+ *             the one look rule calls Pro is refused without Event Pro and
  *             STAYS in the draft, so the couple can pay and Apply again. In the
  *             iOS / Android store shell Pro keys are always held ("Apply on the
  *             web") — web-bought Pro is not usable in the app yet (owner
@@ -401,7 +401,7 @@ export async function hubDraftAction(
     const live = await readHubLiveState(supabase, eventId);
     const storeShell = iapGate.storeShell && !iapGate.iap;
     /* ⛔ THE GATE. `hubOwnershipForWrite` is what the event ACTIVELY owns of
-       Event Hub Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
+       Event Pro — Full Pro, each part, the cap (owner 2026-10-22, part by
        part) — the same read every live look writer's `lookProAllows` makes, and
        each drafted item is asked for ITS parts. In the store shell a Pro key is
        never applied. */

@@ -9,7 +9,7 @@
  *      — read from the source, because a fixture that supplied `ownsPro` itself
  *      would invent both sides of the question.
  *   2. The sixth story shows the ONE line — "Add more stories and your photos ·
- *      Go Event Hub Pro" — linking to the existing offer on the web, and the
+ *      Go Event Pro" — linking to the existing offer on the web, and the
  *      words alone (no link, no ₱) in the app-store shell.
  *   3. 🎨 NO THEME PICKER anywhere in Love Story — one theme line with a link
  *      to the Event Hub Maker (owner 2026-09-25).
@@ -24,6 +24,10 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+// The CTA words are lib's (`LOVE_STORY_PRO_CTA`), so this reads them rather than retyping the plan name.
+import { LOVE_STORY_PRO_CTA } from '@/lib/love-story-moments';
+
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -90,13 +94,13 @@ test('🔒 the sixth: the one line, to the existing offer, with the catalogue pr
   const html = await paint({});
   assert.match(html, /data-love-story-cap="reached"/);
   assert.match(html, /Add more stories and your photos/);
-  assert.match(html, /href="\/dashboard\/E1\/studio\/website-pro"[^>]*>Go Event Hub Pro · ₱3,500/);
+  assert.match(html, new RegExp(`href="/dashboard/E1/studio/website-pro"[^>]*>${esc(LOVE_STORY_PRO_CTA)} · ₱3,500`));
 });
 
 test('⛔ the store shell: the words only — no link, no button, no ₱', async () => {
   const html = await paint({ storeShell: true, proPrice: null, refused: 'stories' });
   assert.match(html, /data-love-story-pro-line="shell"/);
-  assert.doesNotMatch(html, /Go Event Hub Pro/);
+  assert.doesNotMatch(html, new RegExp(esc(LOVE_STORY_PRO_CTA)));
   assert.doesNotMatch(html, /studio\/website-pro/);
   assert.doesNotMatch(html, /₱/);
 });

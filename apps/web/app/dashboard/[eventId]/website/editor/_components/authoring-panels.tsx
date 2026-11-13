@@ -230,10 +230,10 @@ export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
       <p className="mt-2 flex items-center gap-1 text-[0.7rem] font-semibold text-amber-800">
         <PaidMark
           state={ownsPro ? 'unlocked' : 'try'}
-          label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
+          label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Pro')}
           size="xs"
         />
-        Event Hub Pro
+        Event Pro
       </p>
       <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">
         <li>A font or an animation of your own on any scene</li>
@@ -241,7 +241,7 @@ export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
       </ul>
       {ownsPro ? null : (
         <p className="mt-2 text-[0.7rem] text-ink/60">
-          Try all of it now — Apply asks for Event Hub Pro when you publish.
+          Try all of it now — Apply asks for Event Pro when you publish.
         </p>
       )}
     </div>

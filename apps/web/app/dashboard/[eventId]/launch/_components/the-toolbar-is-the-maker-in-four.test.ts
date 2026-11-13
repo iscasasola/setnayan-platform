@@ -42,7 +42,7 @@
  *
  *     ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n)
  *
- * 🧭 2026-10-30 — THE HUB KEEPS THE APP'S NAV (DECISION_LOG "EVENT HUB PRO (look redesign)"): the bar is the Hub's
+ * 🧭 2026-10-30 — THE HUB KEEPS THE APP'S NAV (DECISION_LOG "EVENT PRO (look redesign)"): the bar is the Hub's
  * pinned row under the app's top bar, the ✕ is dropped and ⚙ ends it:
  *
  *     [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n) · ⚙
@@ -140,7 +140,7 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
 test('the rendered toolbar is EXACTLY Stages | Studio · ↺ History · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
-  /* 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
+  /* 🧭 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
      out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. ↺ is HISTORY since 2026-11-09 ("↺ BECOMES A HISTORY
      LIST"): the same place, the same icon role — it opens the list of this draft's edits. */
   assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'history', 'apply', 'settings']);
@@ -361,7 +361,7 @@ test('first open: no tour and no Pro — ONE quiet line on the canvas, and only 
   assert.match(first, /data-maker-first-hint=""[^>]*>Tap anything to change it</);
   /* (The shut "Your Event Hub" sheet was the one dialog in the DOM; since 2026-10-30 it is the ⚙'s and draws nothing shut.) */
   assert.equal((first.match(/role="dialog"/g) ?? []).length, 0, 'a dialog opened on the first visit');
-  assert.doesNotMatch(first, /Event Hub Pro|maker-tour-title/, 'a tour or a Pro pitch opens before the first tap');
+  assert.doesNotMatch(first, /Event Pro|maker-tour-title/, 'a tour or a Pro pitch opens before the first tap');
   assert.doesNotMatch(await paint({ firstVisit: false }), /data-maker-first-hint/, 'the line shows after the first visit');
   // The first touch records it; the tour itself only plays from ⋯ › About the Maker, never recording.
   const shell = src('maker-shell.tsx');

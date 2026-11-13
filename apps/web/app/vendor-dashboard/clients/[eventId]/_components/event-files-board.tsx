@@ -2,9 +2,11 @@
 
 import { useId, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ChevronDown, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Tag, Trash2, Upload, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Tag, Trash2, Upload } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -801,22 +803,15 @@ function InspirationRow({
           {tags.map((t) => {
             const w = tagStateWords(t);
             return (
-              <div key={t.assetId} className="flex min-h-12 items-center gap-2 rounded-xl bg-ink/[0.04] px-3.5 py-2" data-files-tag={t.state}>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-medium text-ink">{t.label}</span>
-                  <span className="block text-[12px] text-ink/60">{w.line}</span>
-                </span>
-                <span className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] ${PILL[t.state]}`}>{w.pill}</span>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => onUntag(t.assetId)}
-                  aria-label={`Remove from ${t.label}`}
-                  className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink/60 disabled:opacity-40"
-                >
-                  <X className="h-4 w-4" aria-hidden />
-                </button>
-              </div>
+              <SwipeToDelete key={t.assetId} label={`Remove from ${t.label}`} word="Remove" busy={busy} onDelete={() => onUntag(t.assetId)}>
+                <div className="flex min-h-12 items-center gap-2 rounded-xl bg-ink/[0.04] px-3.5 py-2" data-files-tag={t.state}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-medium text-ink">{t.label}</span>
+                    <span className="block text-[12px] text-ink/60">{w.line}</span>
+                  </span>
+                  <span className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] ${PILL[t.state]}`}>{w.pill}</span>
+                </div>
+              </SwipeToDelete>
             );
           })}
           <TagPicker
@@ -858,17 +853,20 @@ function TagPicker({
   const [picked, setPicked] = useState<string[]>([]);
   const [rights, setRights] = useState(false);
   const listId = useId();
+  const boxRef = useRef<HTMLDivElement>(null);
+  // The list opens below the sheet's fold — the shared reveal brings it into view, as every fold does.
+  const intend = useRevealOnOpen(open, () => ({ head: boxRef.current }));
   if (options.length === 0) {
     return <p className="text-[13px] text-ink/60">Your {cardTitle} card does not offer another inspiration.</p>;
   }
   const close = () => (setOpen(false), setPicked([]), setRights(false), onCancel?.());
   return (
-    <div className="space-y-2" data-files-tag-picker={open ? 'open' : 'closed'}>
+    <div ref={boxRef} className="space-y-2" data-files-tag-picker={open ? 'open' : 'closed'}>
       <button
         type="button"
         aria-expanded={open}
         aria-controls={listId}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => (open ? close() : (intend(), setOpen(true)))}
         className="flex min-h-12 w-full items-center gap-2 rounded-xl bg-ink/[0.04] px-3.5 text-left text-[15px] text-ink"
       >
         <Tag className="h-4 w-4 flex-none text-sn-accent" aria-hidden />

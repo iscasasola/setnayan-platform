@@ -62,7 +62,7 @@ export function tagStateWords(t: Pick<FileTag, 'state' | 'reason'>): { pill: str
 }
 
 /** The line under the list (frame 5) — the photo stays in Files whatever happens to a tag. */
-export const UNTAG_LINE = 'Removing a tag takes the photo out of that inspiration. The photo stays in Files.';
+export const UNTAG_LINE = 'Swipe an inspiration left to remove it. Removing a tag takes the photo out of that inspiration; the photo stays in Files.';
 /** Frame 3's note — the inspiration points at this same photo. */
 export const BY_REFERENCE_LINE = 'The photo is not copied. The inspiration points to this same photo.';
 /** Frame 4's note — one service at a time, so the list fits every picked photo. */

@@ -96,10 +96,10 @@ const openTile = (name: string) => {
 // 🏷 The couple's side (frames 8 · 9 · 11) and the shop page (frame 10) — fixture photos, no database.
 const LINE = 'Wedding · Makati Shangri-La · Sep 2026';
 const LIB: GalleryAsset[] = [
-  { assetId: 'a1', imageUrl: tile(3), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#c8907a', '#e9d8c4'], isEventLinked: true, eventLine: LINE, alsoIn: [{ slotKey: 'cake', label: 'Cake & desserts' }] },
-  { assetId: 'a2', imageUrl: tile(1), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#a99fc8'], isEventLinked: true, eventLine: 'Debut · Tagaytay Highlands · Aug 2026', alsoIn: [] },
-  { assetId: 'a3', imageUrl: tile(2), label: 'Grazing table', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: ['#d9c08a'], isEventLinked: false },
-  { assetId: 'a4', imageUrl: tile(0), label: 'Long table', credit: 'Casa Verde Styling · Stylist', vendorProfileId: SHOP, shopSlug: null, swatches: ['#9bb894'], isEventLinked: false },
+  { assetId: 'a1', imageUrl: tile(3), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: true, eventLine: LINE, alsoIn: [{ slotKey: 'cake', label: 'Cake & desserts' }] },
+  { assetId: 'a2', imageUrl: tile(1), label: '', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: true, eventLine: 'Debut · Tagaytay Highlands · Aug 2026', alsoIn: [] },
+  { assetId: 'a3', imageUrl: tile(2), label: 'Grazing table', credit: 'Rosa Mendoza Catering · Caterer', vendorProfileId: SHOP, shopSlug: 'rosa', swatches: [], isEventLinked: false },
+  { assetId: 'a4', imageUrl: tile(0), label: 'Long table', credit: 'Casa Verde Styling · Stylist', vendorProfileId: SHOP, shopSlug: null, swatches: [], isEventLinked: false },
 ];
 const libPage = (assets: GalleryAsset[]) => async () => ({ assets, total: assets.length, withheld: 0, offset: 0, limit: 24, hasMore: false });
 

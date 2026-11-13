@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7810
+# facts: 7812
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5627
 #   policy    1142
 #   view      10
-#   func      393
+#   func      395
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6873,7 +6873,7 @@ policy	public.moodboard_asset_color_ranges|moodboard_asset_color_ranges_admin_al
 policy	public.moodboard_asset_color_ranges|moodboard_asset_color_ranges_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM moodboard_library_assets a WHERE ((a.asset_id = moodboard_asset_color_ranges.asset_id) AND (a.approved_at IS NOT NULL) AND (a.retired_at IS NULL)))) check=NULL
 policy	public.moodboard_asset_color_ranges|moodboard_asset_color_ranges_vendor_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM moodboard_library_assets a WHERE ((a.asset_id = moodboard_asset_color_ranges.asset_id) AND (a.uploaded_by = ( SELECT auth.uid() AS uid))))) check=(EXISTS ( SELECT 1 FROM moodboard_library_assets a WHERE ((a.asset_id = moodboard_asset_color_ranges.asset_id) AND (a.uploaded_by = ( SELECT auth.uid() AS uid)))))
 policy	public.moodboard_library_assets|moodboard_library_assets_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
-policy	public.moodboard_library_assets|moodboard_library_assets_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((approved_at IS NOT NULL) AND (retired_at IS NULL)) check=NULL
+policy	public.moodboard_library_assets|moodboard_library_assets_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((approved_at IS NOT NULL) AND (retired_at IS NULL) AND ((event_file_id IS NULL) OR inspiration_photo_is_on_the_shop(event_file_id))) check=NULL
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_delete_own	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=((uploaded_by = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND (u.account_type = 'vendor'::account_type))))) check=NULL
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((uploaded_by = ( SELECT auth.uid() AS uid)) AND (source = 'stylist_upload'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND (u.account_type = 'vendor'::account_type)))))
 policy	public.moodboard_library_assets|moodboard_library_assets_vendor_select_own	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((uploaded_by = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND (u.account_type = 'vendor'::account_type))))) check=NULL
@@ -7621,7 +7621,9 @@ func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_c
 func	public.incoming_requests_for_me()	secdef=yes exec=authenticated search_path=public
 func	public.inspiration_category_service_pairs()	secdef=no exec=authenticated search_path=public
 func	public.inspiration_part_derived_categories_all()	secdef=no exec=authenticated search_path=public
+func	public.inspiration_photo_is_on_the_shop(p_file_id uuid)	secdef=yes exec=anon,authenticated search_path=""
 func	public.inspiration_suggestion_services(p_slot_key text)	secdef=no exec=authenticated search_path=public
+func	public.inspiration_tag_event_lines(p_asset_ids uuid[])	secdef=yes exec=anon,authenticated search_path=""
 func	public.is_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_booked_coordinator(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=public

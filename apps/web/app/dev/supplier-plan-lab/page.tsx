@@ -63,6 +63,7 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
+import { storageRowLine } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -139,7 +140,8 @@ function labSheet(
  * 📉 `?s=plan&who=studio&limits=1` — the LIMITS SHEET (ruling 5683) on a Pro shop with more than Solo holds: five
  * services over three categories, one taking three bookings a day, four counted seats, three included branches, a
  * 100 km reach and a Verified badge on the 30 March renewal day. `&floor=1` adds the storage floor with a LAB-ONLY
- * allowance (no plan has a storage allowance yet — `storageAllowanceBytes` in lib/downgrade-limits.server.ts).
+ * allowance (the lab's own number, so the floor draws on any plan; the real one is `storageAllowanceBytes`, read from
+ * TIER_CAPS — Solo 5 GB · Pro 10 GB · Ultra 15 GB since 2026-11-13).
  */
 const labCard = (id: string, name: string, kind: string, family: string, daily: number | null) => ({
   id,
@@ -287,6 +289,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
         giftUntilDay: gift ? gift.untilDay : null,
         giftEnded: mode === 'ended',
       })}
+      storageLine={storageRowLine(tier, { status: 'ok', bytes: 1_240_000_000 })}
     />
   );
 }

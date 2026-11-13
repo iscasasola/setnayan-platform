@@ -73,7 +73,8 @@ import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { downgradeFit } from '@/lib/downgrade-limits';
-import { readDowngradeFacts, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
+import { readDowngradeFacts, readStoredBytes, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
+import { storageRowLine } from '@/lib/supplier-storage';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
@@ -566,6 +567,21 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       })
     : PORTFOLIO_ALLOWANCE_UNREAD;
 
+  // 💾 STORAGE (owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB) — "1.2 GB of 5 GB used", from the
+  // SAME read the limits sheet and the upload refusal use. A read that failed says so, never "0 MB". No allowance (Free ·
+  // Verified) = no row. The limits sheet above already read it for every paid plan; read again only if it did not.
+  const storageLine =
+    storageAllowanceBytes(currentTier) === null
+      ? null
+      : storageRowLine(
+          currentTier,
+          downgradeFacts
+            ? downgradeFacts.storedBytes === null
+              ? { status: 'unread' }
+              : { status: 'ok', bytes: downgradeFacts.storedBytes }
+            : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
+        );
+
   return (
     <Column embedded={embedded}>
       <PlanRows
@@ -641,6 +657,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         featured={featured}
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
+        storageLine={storageLine}
       />
 
       {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MailWarning } from 'lucide-react';
+import { Notice, NOTICE_ACTION } from '@/app/_components/notices/notices';
 import { isEmailConfigured } from '@/lib/email';
 import { readRecentDeliveries } from '@/lib/email-delivery.server';
 import { homeAlert } from '@/lib/email-delivery-log';
@@ -24,28 +24,26 @@ export async function EmailDeliveryStrip() {
   });
   if (!alert) return null;
 
+  // 🔔 A LIVE notice (ONE NOTICE SYSTEM, owner approved 14 Nov 2026) that cannot be hidden: email not arriving
+  // affects other people. Its fact is in the key, so a different trouble is a different notice.
   const danger = alert.tone === 'danger';
   return (
-    <Link
-      href="/admin/settings?tab=notifications#email-delivery"
-      data-email-delivery-strip={alert.tone}
-      className={`mb-4 flex items-start gap-3 rounded-xl border p-4 transition-colors ${
-        danger
-          ? 'border-danger-300 bg-danger-50 hover:bg-danger-100'
-          : 'border-amber-300 bg-amber-50 hover:bg-amber-100'
-      }`}
-    >
-      <MailWarning
-        aria-hidden
-        className={`mt-0.5 h-5 w-5 shrink-0 ${
-          danger ? 'text-danger-700' : 'text-amber-800'
-        }`}
-        strokeWidth={1.75}
-      />
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-ink">{alert.headline}</span>
-        <span className="block text-xs text-ink/70">{alert.detail}</span>
-      </span>
-    </Link>
+    <Notice
+      kind="live"
+      tone={danger ? 'problem' : 'warning'}
+      closable={false}
+      noticeKey={`email-delivery:${alert.tone}:${alert.headline}`}
+      title={alert.headline}
+      detail={alert.detail}
+      actions={
+        <Link
+          href="/admin/settings?tab=notifications#email-delivery"
+          data-email-delivery-strip={alert.tone}
+          className={NOTICE_ACTION}
+        >
+          Open email settings
+        </Link>
+      }
+    />
   );
 }

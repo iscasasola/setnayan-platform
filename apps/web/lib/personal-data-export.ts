@@ -918,6 +918,7 @@ export async function buildPersonalDataExport(
     stageNotesRes,
     founderSeatRes,
     savedSuppliersRes,
+    noticeClosesRes,
     helpMessagesRes,
     referralCodesRes,
     reservationsRes,
@@ -1066,6 +1067,12 @@ export async function buildPersonalDataExport(
       .select('vendor_profile_id, vendor_service_id, source_event_id, saved_at')
       .eq('user_id', user.id)
       .order('saved_at', { ascending: true }),
+    // Which notices they closed, when, and how many times (one notice system, 2026-11-14).
+    supabase
+      .from('notice_closes')
+      .select('notice_key, closed_at, close_count')
+      .eq('user_id', user.id)
+      .order('closed_at', { ascending: true }),
     // What they wrote to Setnayan support. Our staff's internal `admin_notes`
     // and the handler's id are not selected.
     supabase
@@ -1241,6 +1248,7 @@ export async function buildPersonalDataExport(
   const stageNotes = listOutcome('stage_notes_sent', stageNotesRes, adminUnavailable);
   const founderSeat = listOutcome('founder_seat', founderSeatRes);
   const savedSuppliers = listOutcome('saved_suppliers', savedSuppliersRes);
+  const noticesClosed = listOutcome('notices_closed', noticeClosesRes);
   const helpMessages = listOutcome('help_messages_sent', helpMessagesRes);
   const referralCodes = listOutcome('referral_codes', referralCodesRes);
   const reservations = listOutcome('reservations_made', reservationsRes);
@@ -1388,6 +1396,7 @@ export async function buildPersonalDataExport(
     stageNotes,
     founderSeat,
     savedSuppliers,
+    noticesClosed,
     helpMessages,
     referralCodes,
     reservations,
@@ -1565,6 +1574,8 @@ export async function buildPersonalDataExport(
     stage_notes_sent: stageNotes.rows,
     founder_seat: founderSeat.rows,
     saved_suppliers: savedSuppliers.rows,
+    // Notices you closed (Got it / Not now / Hide), so they stay closed on a new phone.
+    notices_closed: noticesClosed.rows,
     // What you wrote to Setnayan support.
     help_messages_sent: helpMessages.rows,
     referral_codes: referralCodes.rows,

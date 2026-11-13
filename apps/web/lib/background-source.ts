@@ -29,7 +29,7 @@
  * before this dropdown existed opens on the right source.
  *
  * ◆ follows the shipped Pro rule (`mainGroundChange`, lib/hub-draft.ts): a
- * moving background and any media of the couple's own are Event Hub Pro, tried
+ * moving background and any media of the couple's own are Event Pro, tried
  * free and named at Apply. ⚠ A ready-made Scene is stored as own media, so the
  * shipped rule holds it as Pro too — the mark says so (the restudy drew Scene
  * without a ◆; making scenes free is a pricing rule, the owner's call).
@@ -65,7 +65,7 @@ export function backgroundSourcesOffered(stored: BackgroundSource): readonly Bac
   return stored === 'pattern' ? BACKGROUND_SOURCES : BACKGROUND_SOURCES_OFFERED;
 }
 
-/** Which sources Apply asks Event Hub Pro for — exactly what `mainGroundChange` holds as an addition. */
+/** Which sources Apply asks Event Pro for — exactly what `mainGroundChange` holds as an addition. */
 export const BACKGROUND_SOURCE_IS_PRO: Readonly<Record<BackgroundSource, boolean>> = {
   colour: false,
   pattern: false,

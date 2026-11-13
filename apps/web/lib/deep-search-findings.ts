@@ -55,7 +55,7 @@ const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 /**
  * The band in words, for the card's ⓘ: one price for everyone reads "₱499 a search on every plan, one search per
  * purchase." (2026-11-09). Two prices — should an admin ever split the rows again — read "₱X a search on Free, Verified
- * and Solo · ₱Y on Pro and Ultra, one search per purchase." Never a free search.
+ * and Supplier Plus · ₱Y on Pro and Ultra, one search per purchase." Never a free search.
  */
 export function deepSearchBandWords(band: { entryPhp: number | null; growthPhp: number | null }): string {
   const entry = `${TIER_LABEL.free}, Verified and ${TIER_LABEL.solo}`;

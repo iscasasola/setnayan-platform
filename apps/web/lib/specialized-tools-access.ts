@@ -191,7 +191,7 @@ export type SpecializedToolsEligibility =
   | { ok: false; reason: SpecializedToolsDenyReason };
 
 /**
- * Who may BUY the unlock (owner 2026-11-09): a verified shop on Verified or Solo. Pro and Ultra are
+ * Who may BUY the unlock (owner 2026-11-09): a verified shop on Verified or Supplier Plus. Pro and Ultra are
  * refused because their plan already includes it — taking ₱499 for something they hold is the
  * defect. Buying while a window runs is allowed: it stacks.
  */

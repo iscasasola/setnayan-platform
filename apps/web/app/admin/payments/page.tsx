@@ -694,7 +694,7 @@ function PaymentsList({
   /** The search term as typed, for the no-match line. */
   query: string;
   payments: PaymentJoined[];
-  /** Which celebration each order belongs to — see fetchOrderEventInfo. */
+  /** Which event each order belongs to — see fetchOrderEventInfo. */
   eventInfo: OrderEventInfoResult;
   /** Itemised bill per order_id — see fetchDeskBills. */
   deskBills: Map<string, DeskBill>;
@@ -1451,7 +1451,7 @@ type OrderEventInfoResult = {
 /**
  * The event behind each order on screen — name, type, date — in one batched
  * read. `orders.event_id` was already selected on this page and used only to
- * ring same-day rows; nothing ever rendered WHICH celebration the money was
+ * ring same-day rows; nothing ever rendered WHICH event the money was
  * for.
  *
  * Distinct from fetchSameDayOrderIds on purpose: that one degrades to an empty
@@ -1491,10 +1491,10 @@ async function fetchOrderEventInfo(
 }
 
 /**
- * One line saying which celebration this money is for — or saying, plainly,
+ * One line saying which event this money is for — or saying, plainly,
  * why there isn't one. Three states that must never look alike (the same
  * principle as buyerLabel above): not event-scoped is INTENT, a failed read is
- * a fault, and a missing row means the celebration was removed.
+ * a fault, and a missing row means the event was removed.
  */
 function CelebrationLine({
   eventId,
@@ -1509,7 +1509,7 @@ function CelebrationLine({
     return (
       <p className="text-xs text-ink/55">
         <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">For</span>{' '}
-        Not tied to a celebration — an account-level purchase.
+        Not tied to an event — an account-level purchase.
       </p>
     );
   }
@@ -1518,8 +1518,8 @@ function CelebrationLine({
       <p className="text-xs text-[color:var(--sn-warning-deep)]">
         <span className="font-mono text-[10px] uppercase tracking-[0.15em]">For</span>{' '}
         {readFailed
-          ? 'Could not read which celebration this is for — reload before approving.'
-          : 'The celebration on this bill no longer exists.'}
+          ? 'Could not read which event this is for — reload before approving.'
+          : 'The event on this bill no longer exists.'}
       </p>
     );
   }

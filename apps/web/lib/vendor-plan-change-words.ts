@@ -2,7 +2,7 @@
  * lib/vendor-plan-change-words.ts — what a shop is told about a plan change.
  *
  * A scheduled plan change is a PROMISE ABOUT THE FUTURE: "you are on Pro now,
- * you become Solo on 19 October, and the ₱1,400 you are holding comes off your
+ * you become Supplier Plus on 19 October, and the ₱1,400 you are holding comes off your
  * next bill automatically." If that cannot be said in one plain sentence, the
  * mechanism behind it is wrong — so the sentences live here, pure and tested,
  * rather than being assembled inline in JSX where nothing can check them.
@@ -74,7 +74,7 @@ export interface PlanSituation {
 export interface PlanLines {
   /** "You are on Pro." — always present. */
   now: string;
-  /** "It changes to Solo on 19 October 2026." — only when one is scheduled. */
+  /** "It changes to Supplier Plus on 19 October 2026." — only when one is scheduled. */
   change: string | null;
   /** "You have ₱1,400 on your account…" — only when they hold money. */
   credit: string | null;
@@ -85,7 +85,7 @@ export interface PlanLines {
  * whole story a supplier needs about where their plan stands.
  *
  * The change sentence is deliberately WITHDRAWN when there is no date to name.
- * "It changes to Solo" with no date is worse than saying nothing: it is a
+ * "It changes to Supplier Plus" with no date is worse than saying nothing: it is a
  * promise with no due date, and the reader cannot tell whether it means today.
  */
 export function planLines(s: PlanSituation): PlanLines {

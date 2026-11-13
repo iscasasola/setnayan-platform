@@ -35,7 +35,7 @@
  *
  * ⚠ CHANGING THIS STRING CHANGES EVERY MARKED PHOTOGRAPH ON THE PLATFORM —
  * marketplace uploads, admin library assets, gallery renders, and the small
- * URL line on the seal. It is a brand lock (never `STNYN`), and `mark-fits-
+ * URL line on the seal. It is a brand lock (the full spelling, never abbreviated), and `mark-fits-
  * and-marks.test.ts` asserts the plate still FITS at whatever length it has.
  * A longer string is not a text change; it is a geometry change.
  */

@@ -1,6 +1,6 @@
 /**
  * ⚙ THE HUB'S ⚙ EVENT HUB SETTINGS HOLDS THE REST — owner, 30 Oct: *"Stages and the Studio will be on dropdown. move all
- * other details on the settings."* (DECISION_LOG 2026-10-30 "EVENT HUB PRO (look redesign)"; 2026-10-27 "LOOK MOVES TO
+ * other details on the settings."* (DECISION_LOG 2026-10-30 "EVENT PRO (look redesign)"; 2026-10-27 "LOOK MOVES TO
  * EVENT HUB SETTINGS" · "INFO SPLITS BY WHAT IT IS ABOUT" · "STUDIO IS LOOK AND WORDS ONLY"; 2026-10-26 "EACH MENU HAS
  * ITS OWN SETTINGS"; prototype `prototypes/build-contracts-2026-10-30/event-hub-pro/` "⚙ Settings").
  *
@@ -10,7 +10,7 @@
  *   3 · YOUR EVENT HUB: the shipped "More for guests" rows, OPEN — built by the one builder Info's fold uses
  *       (`hubSettingsEditor`), handed to the Maker with its late panels; while on its way, or unreadable, it SAYS so;
  *   4 · the work area no longer draws the old navigator's Go live · visibility · version rows or its QR card beside
- *       them (one setting, one place) — only the Event Hub Pro line is its to add;
+ *       them (one setting, one place) — only the Event Pro line is its to add;
  *   5 · E-GIFTS: Ways to give opens the shipped E-Gifts page, with the line its Studio card says.
  *
  * Read from SOURCE (the sheet is drawn on <body> only in a browser).
@@ -73,7 +73,7 @@ test('3 · Your Event Hub: the shipped rows, open — one builder, handed over l
   assert.match(details, /bare=\{bare\}\s*\/>/);
 });
 
-test('4 · the work area draws only the Event Hub Pro line beside it — no second Go live, visibility, version or QR', () => {
+test('4 · the work area draws only the Event Pro line beside it — no second Go live, visibility, version or QR', () => {
   const work = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   assert.doesNotMatch(work, /\bMORE_ROWS\b|\bmoreRows\b/, 'the old navigator’s Your Event Hub rows are drawn again');
   assert.match(work, /createPortal\(\s*<MoreExtras liveHref=\{null\} proUnlockHref=\{proUnlockHref\} proPriceLabel=\{proPriceLabel\} showProCta=\{showProCta\} \/>,\s*moreHost,\s*\)/, 'the work area draws its QR card beside the ⚙’s');

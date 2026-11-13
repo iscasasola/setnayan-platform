@@ -23,7 +23,7 @@ export type StudioTileKey = (typeof STUDIO_TILE_KEYS)[number];
 /**
  * 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27, DECISION_LOG "STUDIO IS LOOK AND WORDS ONLY — LOGO · PALETTE +
  * DRESS CODE · LOVE STORY · PRINTS": *"I want to make the event hub maker have less things to do on its studio."*;
- * built 2026-10-30 with the Event Hub Pro redesign — *"Stages and the Studio will be on dropdown. move all other details
+ * built 2026-10-30 with the Event Pro redesign — *"Stages and the Studio will be on dropdown. move all other details
  * on the settings."*). The pages Studio ▾ LISTS — and the Studio home's cards, and "n of N ready". The other pages stay
  * pages the Maker opens, each through its new home, so every door to them still lands:
  *   · Look and E-Gifts → the Hub's ⚙ Event Hub settings (`hub-settings.tsx`: Look's sections · Ways to give);

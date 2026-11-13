@@ -59,7 +59,7 @@ const FREE_COUPLE = { ownsPro: false } as const;
 test('1 · Classic, Modern and Cyber Neon are free; Rustic and the rest are Pro', () => {
   assert.deepEqual(FREE_THEMES.map((t) => t.id), ['house', 'galeriya', 'cyber']);
   assert.deepEqual(FREE_THEMES.map((t) => t.name), ['Classic', 'Modern', 'Cyber Neon']);
-  assert.equal(INVITE_THEMES.abaca.tier, 'pro', 'Rustic is still Event Hub Pro');
+  assert.equal(INVITE_THEMES.abaca.tier, 'pro', 'Rustic is still Event Pro');
   assert.ok(PRO_THEMES.some((t) => t.id === 'abaca'));
   assert.equal(FREE_THEMES.length + PRO_THEMES.length, HUB_THEMES.length, 'every shipped theme is free or Pro');
   assert.equal(themeNames(FREE_THEMES), 'Classic, Modern and Cyber Neon');
@@ -158,8 +158,8 @@ test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files 
     const html = await paintPrints(id, false);
     const name = INVITE_THEMES[id].name;
     assert.match(html, /data-prints-access="free-theme"/, `${id}: the access line`);
-    /* RE-AIMED 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the theme's whole set and every guest's ticket are still
-       OFFERED in the free theme — as the ◆ door to Event Hub Pro, in every theme; each piece's own file stays free (below). */
+    /* RE-AIMED 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT PRO"): the theme's whole set and every guest's ticket are still
+       OFFERED in the free theme — as the ◆ door to Event Pro, in every theme; each piece's own file stays free (below). */
     assert.ok(html.includes(`Whole set · ${name} (PDF)`), `${id}: the theme's whole set is not offered`);
     assert.ok(html.includes(`Every guest’s ticket · ${name}`), `${id}: the theme's passes are not offered`);
     assert.match(html, /data-print-all-in-one-pro=""/, `${id}: the all-in-one files are not the ◆ door for a free couple`);
@@ -180,7 +180,7 @@ test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files 
 
 /* ══ 5 · THE COUPLE'S OWN MEDIA IS PRO — ON EVERY THEME ════════════════════
    Owner 2026-09-29, "yes" (DECISION_LOG "A PRO COUPLE KEEPS THEIR OWN
-   PHOTO/VIDEO BACKGROUND ON EVERY THEME"): a couple who OWNS Event Hub Pro keeps
+   PHOTO/VIDEO BACKGROUND ON EVERY THEME"): a couple who OWNS Event Pro keeps
    their hero photo/video behind the page, on the door and on prints on a free
    theme too; a free or lapsed couple on a free theme gets the theme's own loop. */
 
@@ -306,7 +306,7 @@ test('6c · the picker and the tours name the free themes from the registry — 
     assert.ok(m[1]!.startsWith(free), `a tour types its own free-theme list: "${m[0]}"`);
   }
   const src = read('app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx');
-  assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event Hub Pro\./);
+  assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event (?:Hub )?Pro\./);
   // No typed free list survives in anything a couple reads.
   const hits: string[] = [];
   for (const root of ['app', 'lib']) {

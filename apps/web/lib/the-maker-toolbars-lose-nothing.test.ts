@@ -69,7 +69,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // → 2026-10-04 (PR-0, owner: ⋯ → 👁 Preview; "apply icon · undo icon · exit
   // icon"): ⋯'s rows moved to 👁 Preview (how the page is seen) and Page ▾ (the
   // rest, `makerPageActions`) — re-pointed again, still not dropped.
-  // 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): ✕ Exit is DROPPED — its home is the app's own
+  // 🧭 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)", call 1): ✕ Exit is DROPPED — its home is the app's own
   // nav, which now stays on screen around the Maker (the shell sits in its room); Home is the ✕'s old door.
   ['✕ Exit → the app’s nav (top bar · rail · bottom nav), kept on screen', 'topBar', ['MAKER_IN_THE_APP_CSS', 'useTheAppsRoom(shellRef)']],
   ['…and "Your Event Hub" (who can view · the QR) → the pinned row’s ⚙', 'topBar', ['<HubSettingsGear', 'onOpenChange={setMoreOpen}']],

@@ -7,7 +7,7 @@
  *   Save · Classic (PDF) / Save · <theme> (PDF) / Sample (JPG) / Whole set / Every guest's pass / Save PDF (free prints)  → Action button (`ActionButton`, via
  *       `PrintSaveButton variant="action"`: the same fetch → share sheet / download, the same states — "Preparing…" (a waiting button, still a button) ·
  *       "Tap to save" · the plain error line · "Saved.")
- *   the pass zip, "Download all" (a Pro couple: the file; a free couple: the door to the Event Hub Pro unlock)         → Action button (the diamond in the icon's place)
+ *   the pass zip, "Download all" (a Pro couple: the file; a free couple: the door to the Event Pro unlock)         → Action button (the diamond in the icon's place)
  *   a piece's name · its sizes · its size ▾                                                                              → Form row (`ChosenRow` with its small line) / Form row
  *   every include switch (Parents · Opening line · E-Gifts · … 12)                                                       → Switch (`SwitchRow`, posting through the print words form)
  *   the seat plan's 3D · 2D · List                                                                                       → Dropdown (`ChosenRow`) — three choices
@@ -81,7 +81,7 @@ test('1 · every Download on Studio › Prints is the ONE ActionButton — a but
         const act = tools.slice(tools.indexOf('data-prints-row="act"'));
         const mains = (act.match(/class="ab ab-brand ab-main[^"]*"/g) ?? []).length;
         if (it.key === 'download' && pro === false) {
-          /* A free couple's Everything is the ◆ door (the note that leads to Event Hub Pro) — the button still the template's. */
+          /* A free couple's Everything is the ◆ door (the note that leads to Event Pro) — the button still the template's. */
           assert.ok(mains <= 1, `${theme}/${pro}: Everything has two filled buttons`);
         } else {
           assert.equal(mains, 1, `${theme}/${pro} ${it.key}: the toolbar has not exactly ONE filled Download`);

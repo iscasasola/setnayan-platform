@@ -24,7 +24,7 @@
  *
  * ─── NO PRICE IS TYPED HERE ──────────────────────────────────────────────────────────────────────────────
  * Event Plus and Event Pro are read from `platform_retail_catalog_v2` (`planPricesFrom`, below): Event Pro is
- * Event Hub Pro (`COUPLE_WEBSITE_PRO`), Event Plus is `EVENT_PLUS`. A row that is not on sale draws "per event"
+ * Event Pro (`COUPLE_WEBSITE_PRO`), Event Plus is `EVENT_PLUS`. A row that is not on sale draws "per event"
  * and no figure, so Plus shows its price on its own the day its row goes on sale. The add-on tiles open their own
  * feature pages, which read the live catalogue. ₱0 is the free tier, not a price.
  */

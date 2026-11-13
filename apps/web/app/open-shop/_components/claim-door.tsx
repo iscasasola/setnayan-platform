@@ -28,10 +28,15 @@ import {
   claimDraftKey,
   seedBundleName,
   seedClaimCards,
+  claimPricingMissing,
+  CLAIM_EXTRAS_MAX,
+  type ClaimCardPricing,
   type ClaimDetailKey,
   type ClaimDoorAnswers,
   type ClaimDoorRecord,
 } from '@/lib/claim-door';
+import { basisLabel, claimPricePrefill, claimStaysLine, countWords, type SelfAddedBasis } from '@/lib/self-added-price-basis';
+import { PAY_WAY_PROVIDERS } from '@/lib/self-added-pay-ways';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ServicePicker, type PickerParentView } from './service-picker';
 import { PlanInline } from './plan-sheet';
@@ -56,10 +61,32 @@ import { finishClaimDoor } from '../claim-actions';
  * loses nothing. The finish is `finishClaimDoor`, which hands the consent to the shipped finalize.
  */
 
-type Screen = 'invite' | 'details' | `ed:${ClaimDetailKey}` | `card:${number}` | 'bundle' | 'plan' | 'account';
+type Screen = 'invite' | 'details' | `ed:${ClaimDetailKey}` | `card:${number}` | 'pay' | 'bundle' | 'plan' | 'account';
 
 type Picked = { category: string; leaf: string | null; label: string; tileId: string | null; fromRecord: boolean };
-type Card = { name: string; price: string; inclusions: string[]; bundled: boolean; specialties: Record<string, string[]> };
+type Card = {
+  name: string;
+  price: string;
+  inclusions: string[];
+  bundled: boolean;
+  specialties: Record<string, string[]>;
+  /**
+   * 🧾 v2 — the Card Maker's own pricing fields, pre-filled from what the couple agreed (`claimPricePrefill`). Absent on
+   * a draft kept before v2 (and on every card the supplier adds) = One price, priced by `price`.
+   */
+  basis?: SelfAddedBasis;
+  /** The couple recorded the basis — the slide draws it as a read-only row. */
+  basisFromRecord?: boolean;
+  perPax?: string;
+  minPax?: string;
+  rounds?: boolean;
+  minHours?: string;
+  hourBase?: string;
+  extraHour?: string;
+  extras?: { name: string; price: string }[];
+};
+/** One way to pay the couple recorded, as the supplier confirms it (`ClaimDoorRecord.payWays`, same order). */
+type PayDraft = { keep: boolean; provider: string; accountName: string; accountNumber: string; keepQr: boolean };
 /** What pressing Claim it fills "Your role at the shop" with (owner 10 Nov: "If that is pressed, this should be owner"). */
 export const CLAIM_OWNER_ROLE = 'Owner';
 
@@ -82,6 +109,8 @@ type Draft = {
   planAgreed: boolean;
   /** The account slide's email way — what was typed (pre-filled from the invite). The password is never kept. */
   email: string;
+  /** 🏦 "Your payment details, as <couple> recorded" — absent on a draft kept before it. */
+  payWays?: PayDraft[];
 };
 
 const peso = (n: number | string | null | undefined) =>
@@ -98,6 +127,23 @@ function Box(props: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'className
       className="input-field"
     />
   );
+}
+
+/** A door card's pricing, as posted (`ClaimCardPricing`) — '' boxes are null, never 0. */
+function cardPricing(c: Card): ClaimCardPricing {
+  const n = (v: string | undefined) => {
+    const x = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+    return Number.isFinite(x) && x > 0 ? x : null;
+  };
+  return {
+    basis: c.basis ?? 'fixed',
+    perPax: n(c.perPax),
+    minPax: n(c.minPax),
+    minHours: n(c.minHours),
+    hourBase: n(c.hourBase),
+    extraHour: n(c.extraHour),
+    extras: (c.extras ?? []).filter((x) => x.name.trim()).map((x) => ({ name: x.name.trim(), price: n(x.price) })),
+  };
 }
 
 /** The in-place sign-in's success hook: nothing to do here — its own `router.refresh()` redraws the slide signed in. */
@@ -170,21 +216,37 @@ export function ClaimDoor({
       inclusions: [...record.inclusions],
       plan: record.plan.map((p) => ({ label: p.label, amount: String(p.amount) })),
       services,
-      cards: seedClaimCards(record).map((c) => ({
-        name: c.name,
-        price: c.price ? String(c.price) : '',
-        inclusions: c.inclusions,
-        bundled: c.bundled,
-        specialties: {},
-      })),
+      cards: seedClaimCards(record).map((c, i) => {
+        const base: Card = { name: c.name, price: c.price ? String(c.price) : '', inclusions: c.inclusions, bundled: c.bundled, specialties: {} };
+        // 🧾 v2: the couple's own card opens on how they said the price works, pre-filled from what they agreed.
+        if (i !== 0 || record.from !== 'couple' || !record.priceBasis) return base;
+        const pre = claimPricePrefill(record.priceBasis, record.price, record.agreedCount ?? null);
+        return {
+          ...base,
+          basis: pre.basis,
+          basisFromRecord: true,
+          ...(pre.basis === 'per_pax' ? { perPax: pre.perPax, minPax: pre.minPax, rounds: pre.rounds } : {}),
+          ...(pre.basis === 'per_hour' ? { minHours: pre.minHours, hourBase: pre.hourBase, extraHour: pre.extraHour } : {}),
+          extras: [{ name: '', price: '' }],
+        };
+      }),
       bundleName: seedBundleName(record.services.map((s) => s.label)),
       extras: [],
       planAgreed: false,
       email: record.inviteEmail ?? '',
+      payWays: (record.payWays ?? []).map((w) => ({
+        keep: true,
+        provider: w.provider ?? PAY_WAY_PROVIDERS[0]!,
+        accountName: w.accountName ?? '',
+        accountNumber: w.accountNumber ?? '',
+        keepQr: !!w.qrUrl,
+      })),
     };
   };
   const [d, setD] = useState<Draft>(seed);
   const [planErr, setPlanErr] = useState<string | null>(null);
+  /** The card slide's one refusal — per hour with no price for an extra hour (v2: it is the supplier's to set). */
+  const [cardErr, setCardErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // Google / Apple are drawn on this shell (the wizard's own rule); with neither, Email is the only way and starts open.
   const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
@@ -225,6 +287,8 @@ export function ClaimDoor({
     'details',
     ...editKeys.map((k) => `ed:${k}` as Screen),
     ...d.cards.map((_, i) => `card:${i}` as Screen),
+    // 🏦 The couple recorded how to pay them — the supplier confirms or fixes it (owner 2026-11-13).
+    ...(!team && (record.payWays?.length ?? 0) > 0 ? (['pay'] as Screen[]) : []),
     ...(team ? [] : (['bundle'] as Screen[])),
     'plan',
     'account',
@@ -261,7 +325,19 @@ export function ClaimDoor({
       inclusions: c.inclusions.map((l) => l.trim()).filter(Boolean),
       bundled: c.bundled && d.services[i]?.fromRecord === true,
       fromRecord: d.services[i]?.fromRecord === true,
+      ...(c.basis ? { pricing: cardPricing(c) } : {}),
     })),
+    ...(d.payWays && d.payWays.length
+      ? {
+          payWays: d.payWays.map((w) => ({
+            keep: w.keep,
+            provider: w.accountNumber.trim() ? w.provider : null,
+            accountName: w.accountName.trim(),
+            accountNumber: w.accountNumber.trim(),
+            keepQr: w.keepQr,
+          })),
+        }
+      : {}),
     bundle: { name: d.bundleName.trim(), extras: d.extras.map((x) => x.trim()).filter(Boolean) },
     specialties: Object.fromEntries(
       d.cards.flatMap((c, i) => {
@@ -272,7 +348,7 @@ export function ClaimDoor({
   };
 
   // ── the shared frame pieces ────────────────────────────────────────────────────────────────────────────────────
-  const stepOf = d.screen === 'invite' ? 1 : d.screen === 'details' || d.screen.startsWith('ed:') ? 2 : d.screen.startsWith('card:') ? 3 : d.screen === 'bundle' ? 4 : d.screen === 'plan' ? 5 : 6;
+  const stepOf = d.screen === 'invite' ? 1 : d.screen === 'details' || d.screen.startsWith('ed:') ? 2 : d.screen.startsWith('card:') || d.screen === 'pay' ? 3 : d.screen === 'bundle' ? 4 : d.screen === 'plan' ? 5 : 6;
   // Setnayan's door has no bundle step: plan and account move up one.
   const step = team && stepOf > 4 ? stepOf - 1 : stepOf;
   const fromHint = (extra = '') => (
@@ -626,7 +702,9 @@ export function ClaimDoor({
             )
           : band(
               <>
-                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)} · {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
+                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)}
+                {c.basisFromRecord && c.basis && c.basis !== 'fixed' && record.agreedCount ? ` · ${countWords(c.basis, record.agreedCount)} agreed` : ''} ·{' '}
+                {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
               </>,
             )}
         {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
@@ -636,16 +714,29 @@ export function ClaimDoor({
           </span>
         ) : (
           <>
-            {field(
-              'Price',
-              <span className="flex items-center gap-2">
-                <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
-                  ₱
-                </span>
-                <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
-              </span>,
-              undefined,
-              'shown as “from”',
+            {c.basis ? (
+              <CardPricing
+                c={c}
+                inviter={record.inviterName}
+                agreedCount={record.agreedCount ?? null}
+                error={cardErr}
+                onChange={(patch) => {
+                  setCardErr(null);
+                  setCard(patch);
+                }}
+              />
+            ) : (
+              field(
+                'Price',
+                <span className="flex items-center gap-2">
+                  <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+                    ₱
+                  </span>
+                  <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
+                </span>,
+                undefined,
+                'shown as “from”',
+              )
             )}
             <div className="grid gap-1">
               <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -708,7 +799,86 @@ export function ClaimDoor({
         ) : null}
       </div>
     );
-    primary = { label: order[at + 1]?.startsWith('card:') ? 'Next card' : 'Continue', onClick: next };
+    primary = {
+      label: order[at + 1]?.startsWith('card:') ? 'Next card' : 'Continue',
+      // Per hour: the price for each extra hour is theirs to set, and the door asks for it (v2).
+      onClick: () => {
+        if (!inBundle && c.basis && claimPricingMissing(cardPricing(c))) {
+          setCardErr('Add your price for each extra hour.');
+          return;
+        }
+        setCardErr(null);
+        next();
+      },
+    };
+  } else if (d.screen === 'pay') {
+    title = 'Your payment details';
+    line = `As ${record.inviterName} recorded — confirm or fix them.`;
+    const ways = d.payWays ?? [];
+    const setWay = (j: number, patch: Partial<PayDraft>) => set({ payWays: ways.map((w, k) => (k === j ? { ...w, ...patch } : w)) });
+    body = (
+      <div className="grid gap-5" data-claim-door-pay="">
+        {band(
+          <>
+            Your payment details, as <b>{record.inviterName}</b> recorded. They go on your shop as how clients pay you.
+          </>,
+        )}
+        {(record.payWays ?? []).map((rec, j) => {
+          const w = ways[j];
+          if (!w) return null;
+          return (
+            <div key={j} className="grid max-w-[620px] gap-3 border-t pt-4 first:border-t-0 first:pt-0" style={{ borderColor: 'var(--m-line)' }} data-claim-door-pay-way={j}>
+              <label className="flex min-h-11 items-center gap-2 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                <input type="checkbox" checked={w.keep} onChange={(e) => setWay(j, { keep: e.target.checked })} className="h-4 w-4 accent-[var(--m-ink)]" />
+                Use this on my shop
+              </label>
+              {w.keep ? (
+                <>
+                  <div className="grid gap-1">
+                    <InfoTip label="Account type" ariaLabel="About the account type" align="start" labelClassName="text-sm font-medium">
+                      The bank or e-wallet — the same list as Your details › How clients pay you.
+                    </InfoTip>
+                    <PickMenu
+                      label="Account type"
+                      value={w.provider}
+                      options={PAY_WAY_PROVIDERS.map((p) => ({ key: p, label: p }))}
+                      onPick={(k) => setWay(j, { provider: k })}
+                      dataAttr="data-claim-door-pay-provider"
+                    />
+                  </div>
+                  {field('Account name', <Box value={w.accountName} maxLength={96} placeholder="e.g. Rosa Dizon" onChange={(e) => setWay(j, { accountName: e.target.value })} />)}
+                  {field(
+                    'Account number / mobile',
+                    <Box value={w.accountNumber} maxLength={64} inputMode="numeric" placeholder="e.g. 0917 000 0000" onChange={(e) => setWay(j, { accountNumber: e.target.value })} />,
+                  )}
+                  {rec.details && !rec.accountNumber ? (
+                    <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                      They wrote: {rec.details}
+                    </p>
+                  ) : null}
+                  {rec.qrUrl ? (
+                    <div className="grid gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- a presigned private picture */}
+                      <img src={rec.qrUrl} alt="Your QR, as they recorded it" className="h-40 w-40 rounded-lg bg-white object-contain ring-1 ring-black/10" />
+                      <label className="flex min-h-11 items-center gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
+                        <input type="checkbox" checked={w.keepQr} onChange={(e) => setWay(j, { keepQr: e.target.checked })} className="h-4 w-4 accent-[var(--m-ink)]" />
+                        Keep this QR
+                      </label>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          );
+        })}
+        <p className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          <InfoTip label="Checked before couples see them" ariaLabel="About how these are checked" align="start">
+            Saved exactly as when you add them on Your details: bank details show to your clients at once, and a QR shows
+            once it is read — or once our team clears it. You can change or hide them there any time.
+          </InfoTip>
+        </p>
+      </div>
+    );
   } else if (d.screen === 'bundle') {
     const theirCards = d.cards.filter((_, i) => d.services[i]?.fromRecord === true);
     const ownCards = d.cards.filter((_, i) => d.services[i]?.fromRecord !== true);
@@ -1039,5 +1209,185 @@ export function ClaimDoor({
         </aside>
       </div>
     </main>
+  );
+}
+
+/**
+ * 🧾 THE CARD SLIDE'S PRICING (v2, owner 2026-11-13; `v2.html` "Claim door, card slide"). A read-only "How the price
+ * works" row (the couple's choice), then the Card Maker's own fields and labels (`pricing-basis-editor.tsx` part
+ * "main"/"more", `addons-editor.tsx`), pre-filled from what the couple agreed — each its title and at most one short
+ * line, the explanation in its ⓘ (T17). The band says the couple's agreed total stays as their booking.
+ */
+function CardPricing({
+  c,
+  inviter,
+  agreedCount,
+  error,
+  onChange,
+}: {
+  c: Card;
+  inviter: string;
+  agreedCount: number | null;
+  error: string | null;
+  onChange: (patch: Partial<Card>) => void;
+}) {
+  const basis = c.basis ?? 'fixed';
+  const total = Number(digits(c.price)) || null;
+  const extras = c.extras && c.extras.length ? c.extras : [{ name: '', price: '' }];
+  const num = (v: string | undefined) => (v ? formatCount(Number(digits(v))) : '');
+  const amountBox = (value: string | undefined, onValue: (v: string) => void, placeholder: string, label: string, bad = false) => (
+    <span className="flex items-center gap-2">
+      <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+        ₱
+      </span>
+      <Box
+        value={num(value)}
+        inputMode="numeric"
+        placeholder={placeholder}
+        aria-label={label}
+        aria-invalid={bad || undefined}
+        onChange={(e) => onValue(digits(e.target.value))}
+      />
+    </span>
+  );
+  const pfield = (label: string, tip: string, input: React.ReactNode, short?: React.ReactNode, data?: string) => (
+    <div className="grid max-w-[620px] gap-1" data-claim-door-price-field={data}>
+      <InfoTip label={label} ariaLabel={`About ${label}`} align="start" labelClassName="text-sm font-medium">
+        {tip}
+      </InfoTip>
+      {input}
+      {short ? (
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          {short}
+        </p>
+      ) : null}
+    </div>
+  );
+  const stays = claimStaysLine(inviter, basis, total, agreedCount);
+  return (
+    <div className="grid gap-4" data-claim-door-pricing={basis}>
+      {c.basisFromRecord ? (
+        pfield(
+          'How the price works',
+          `How ${inviter} recorded it. Your service card is priced the same way.`,
+          <p className="flex min-h-11 items-center justify-between rounded-xl px-3 text-[15px]" style={{ background: 'var(--m-paper-2)', color: 'var(--m-ink)' }} data-claim-door-basis="">
+            <span>{basisLabel(basis)}</span>
+            <small style={{ color: 'var(--m-slate-3)' }}>as {inviter} recorded</small>
+          </p>,
+          undefined,
+          'basis',
+        )
+      ) : null}
+      {basis === 'per_pax' ? (
+        <>
+          {pfield(
+            'From, per guest (PHP)',
+            `Your per-head rate. Pre-filled with ${inviter}’s total ÷ the guests they agreed; change it if it’s wrong.`,
+            amountBox(c.perPax, (v) => onChange({ perPax: v, rounds: false }), 'e.g. 650', 'From, per guest (PHP)'),
+            c.rounds && total && agreedCount ? `Rounded to whole pesos from ${peso(total)} ÷ ${formatCount(agreedCount)}` : undefined,
+            'per_pax',
+          )}
+          {pfield(
+            'Minimum guests',
+            `The floor — your card shows rate × minimum. Pre-filled with the guests ${inviter} agreed.`,
+            <Box value={num(c.minPax)} inputMode="numeric" placeholder="e.g. 50" aria-label="Minimum guests" onChange={(e) => onChange({ minPax: digits(e.target.value) })} />,
+            undefined,
+            'min_pax',
+          )}
+        </>
+      ) : basis === 'per_hour' ? (
+        <>
+          {pfield(
+            'Minimum hours',
+            `Hours your “from” price covers. Pre-filled with the hours ${inviter} agreed.`,
+            <Box
+              value={c.minHours ?? ''}
+              inputMode="decimal"
+              placeholder="e.g. 5"
+              aria-label="Minimum hours"
+              onChange={(e) => onChange({ minHours: e.target.value.replace(/[^\d.]/g, '') })}
+            />,
+            undefined,
+            'min_hours',
+          )}
+          {pfield(
+            'From (PHP)',
+            `Covers your minimum hours. Pre-filled with ${inviter}’s total.`,
+            amountBox(c.hourBase, (v) => onChange({ hourBase: v }), 'e.g. 8,000', 'From (PHP)'),
+            undefined,
+            'hour_base',
+          )}
+          {pfield(
+            'Each extra hour (PHP)',
+            `Charged for each hour beyond the minimum. ${inviter} did not agree this — it is yours to set.`,
+            amountBox(c.extraHour, (v) => onChange({ extraHour: v }), 'e.g. 1,500', 'Each extra hour (PHP)', !!error),
+            error ? (
+              <span role="alert" style={{ color: 'var(--m-mulberry-deep)' }} data-claim-door-price-error="">
+                {error}
+              </span>
+            ) : (
+              'Needed'
+            ),
+            'extra_hour',
+          )}
+        </>
+      ) : (
+        <>
+          {pfield(
+            'From (PHP)',
+            `Whole pesos — couples see it as “from”. Pre-filled with the one price ${inviter} recorded.`,
+            amountBox(c.price, (v) => onChange({ price: v }), 'e.g. 25,000', 'From (PHP)'),
+            undefined,
+            'from',
+          )}
+          <div className="grid max-w-[620px] gap-2" data-claim-door-extras="">
+            <InfoTip label="Extras" ariaLabel="About extras" align="start" labelClassName="text-sm font-medium">
+              Priced add-ons, optional — “from ₱” each, up to {CLAIM_EXTRAS_MAX}. A couple adds them to this card when they ask
+              for a quote; they are never added to {inviter}’s price.
+            </InfoTip>
+            {extras.map((x, j) => (
+              <div key={j} className="grid grid-cols-[1fr_7.5rem_auto] items-center gap-2">
+                <Box
+                  value={x.name}
+                  maxLength={80}
+                  placeholder="e.g. Extra hour of coverage"
+                  aria-label={`Extra ${j + 1}`}
+                  onChange={(e) => onChange({ extras: extras.map((y, k) => (k === j ? { ...y, name: e.target.value } : y)) })}
+                />
+                <Box
+                  value={num(x.price)}
+                  inputMode="numeric"
+                  placeholder="from ₱"
+                  aria-label={`Extra ${j + 1} from (PHP)`}
+                  onChange={(e) => onChange({ extras: extras.map((y, k) => (k === j ? { ...y, price: digits(e.target.value) } : y)) })}
+                />
+                <ActionButton
+                  tone="neutral"
+                  quiet
+                  iconOnly
+                  icon={X}
+                  label={`Remove extra ${j + 1}`}
+                  onClick={() => {
+                    const left = extras.filter((_, k) => k !== j);
+                    onChange({ extras: left.length ? left : [{ name: '', price: '' }] });
+                  }}
+                />
+              </div>
+            ))}
+            {extras.length < CLAIM_EXTRAS_MAX ? (
+              <span>
+                <ActionButton tone="neutral" icon={Plus} label="Add an extra" onClick={() => onChange({ extras: [...extras, { name: '', price: '' }] })} />
+              </span>
+            ) : null}
+          </div>
+        </>
+      )}
+      {stays && c.basisFromRecord ? (
+        <p className="flex items-start gap-2 rounded-xl px-3 py-2.5 text-[13.5px]" style={{ background: 'var(--m-paper-2)', color: 'var(--m-ink)' }} data-claim-door-stays="">
+          <Heart aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
+          <span>{stays}</span>
+        </p>
+      ) : null}
+    </div>
   );
 }

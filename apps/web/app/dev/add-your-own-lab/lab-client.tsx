@@ -23,19 +23,6 @@ import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { ShellBoundaryProvider } from '@/app/_components/shell-boundary';
 import { SupplierShareStandInCtx } from '@/app/dashboard/[eventId]/_components/supplier-share-button';
 import type { SupplierSharePayload } from '@/lib/supplier-share';
-import type { PriceTermsReader } from '@/app/dashboard/[eventId]/_components/price-basis-rows';
-
-/**
- * 🧾 The lab's stand-in for the guest count / schedule hours a Per guest or Per hour price multiplies (no session
- * here): 120 counted on the guest list; a supplier not added yet has no times, a saved one is on the schedule
- * Arrive 3:00 PM · Done 8:00 PM (5 hours) — the approved prototype's sample (states 4 · 5 · 6).
- */
-const labTerms: PriceTermsReader = async (_eventId, eventVendorId) => {
-  await new Promise((r) => setTimeout(r, 200));
-  return eventVendorId
-    ? { counted: 120, hours: 5, arriveAt: '2026-12-18T07:00:00Z', doneAt: '2026-12-18T12:00:00Z' }
-    : { counted: 120, hours: null, arriveAt: null, doneAt: null };
-};
 
 export function LabCard({ initial }: { initial: CanvasInitial | null }) {
   return (
@@ -83,7 +70,6 @@ export function LabRecord({
       coverCatalog={coverCatalog}
       edit={edit}
       saveRecord={labSaveRecord}
-      readTerms={labTerms}
       makeLink={async () => (link ? { ok: true as const, ...link } : { ok: false as const, error: 'We could not make their link just now.' })}
       onClose={() => {}}
       onCreated={() => {}}
@@ -120,7 +106,6 @@ export function LabAdd({
       coverCatalog={coverCatalog}
       eventDateIso="2026-12-18"
       addSupplier={async (fd) => labAdd(fd, link)}
-      readTerms={labTerms}
       makeLink={async () => (link ? { ok: true as const, ...link } : { ok: false as const, error: 'We could not make their link just now.' })}
       onClose={() => {}}
       onCreated={() => {}}

@@ -17,8 +17,16 @@
  * the Pay sheet is the couple's own record of a payment, written by the Budget's `logPayment` — a different file
  * that never sees these.
  *
+ * 🏦 THE SUPPLIER'S OWN SHAPE (owner 2026-11-13: *"the payment method information. either QR or account type, account
+ * name and account number or both"*). A way now carries the SAME fields, under the SAME names, as a supplier's own
+ * published destination (`vendor_payment_methods`, Your details › How clients pay you): `provider` (the account type,
+ * from the supplier's own `PAYMENT_PROVIDERS` list), `account_name`, `account_number`, and the QR. So on the claim door
+ * the supplier confirms these and they are saved, unchanged in shape, through the shipped `addPaymentMethod`. The old
+ * free-text `details` is still read (ways saved before this), never written by the add sheet.
+ *
  * PURE.
  */
+import { PAYMENT_PROVIDERS, type CoupleFacingMethod } from './vendor-payment-methods';
 
 export const PAY_WAY_METHODS = [
   { key: 'gcash', label: 'GCash' },
@@ -38,8 +46,37 @@ export const PAY_WAY_DETAILS_MAX = 400;
 /** The form carried the "How to pay them" editor — so an emptied list is saved as empty, not skipped. */
 export const PAY_WAYS_PRESENT_FIELD = 'pay_ways_present';
 
-/** One way as stored. `qr` is the private `r2://` ref, or null. */
-export type StoredPayWay = { method: PayWayMethod; details: string | null; qr: string | null };
+/** The supplier's own account-type list (`vendor_payment_methods.provider`) — BDO · GCash · Maya · BPI · … · Other. */
+export const PAY_WAY_PROVIDERS = PAYMENT_PROVIDERS;
+export const PAY_WAY_ACCOUNT_NAME_MAX = 96;
+export const PAY_WAY_ACCOUNT_NUMBER_MAX = 64;
+
+/**
+ * One way as stored. `qr` is the private `r2://` ref, or null. `provider` · `account_name` · `account_number` are the
+ * supplier's own field names (`vendor_payment_methods`); a way saved before them has only `details`.
+ */
+export type StoredPayWay = {
+  method: PayWayMethod;
+  details: string | null;
+  qr: string | null;
+  provider?: string | null;
+  account_name?: string | null;
+  account_number?: string | null;
+};
+
+/** The way's method, from the account type picked (the record's older Method ▾ keys, so every reader still reads it). */
+export function methodForProvider(provider: string | null | undefined, hasQr: boolean): PayWayMethod {
+  if (provider === 'GCash') return 'gcash';
+  if (provider === 'Maya') return 'maya';
+  if (provider === 'Other') return 'other';
+  if (provider) return 'bank';
+  return hasQr ? 'qrph' : 'other';
+}
+
+/** What a way is called on screen — its account type, else its older method word. */
+export function payWayName(w: Pick<StoredPayWay, 'method' | 'provider'>): string {
+  return w.provider && PAY_WAY_PROVIDERS.includes(w.provider) ? w.provider : payWayLabel(w.method);
+}
 
 /** One way as the record card and the Pay sheet draw it — the QR presigned for this viewer. */
 export type PayWayView = StoredPayWay & { qrUrl: string | null };
@@ -61,8 +98,12 @@ export function readStoredPayWays(raw: unknown): StoredPayWay[] {
     if (!isMethod(w.method)) return [];
     const details = typeof w.details === 'string' && w.details.trim() ? w.details : null;
     const qr = typeof w.qr === 'string' && w.qr.startsWith('r2://') ? w.qr : null;
-    if (!details && !qr) return [];
-    return [{ method: w.method, details, qr }];
+    const text = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+    const account_number = text(w.account_number, PAY_WAY_ACCOUNT_NUMBER_MAX);
+    const account_name = text(w.account_name, PAY_WAY_ACCOUNT_NAME_MAX);
+    const provider = typeof w.provider === 'string' && PAY_WAY_PROVIDERS.includes(w.provider) ? w.provider : null;
+    if (!details && !qr && !account_number) return [];
+    return [{ method: w.method, details, qr, ...(account_number ? { provider, account_name, account_number } : {}) }];
   });
 }
 
@@ -81,24 +122,99 @@ export function parsePostedPayWays(
   const methods = fd.getAll('pay_way_method');
   const details = fd.getAll('pay_way_details');
   const qrs = fd.getAll('pay_way_qr');
+  const providers = fd.getAll('pay_way_provider');
+  const names = fd.getAll('pay_way_account_name');
+  const numbers = fd.getAll('pay_way_account_number');
+  const at = (list: unknown[], i: number) => (typeof list[i] === 'string' ? (list[i] as string).trim() : '');
   const ways: StoredPayWay[] = [];
   for (let i = 0; i < methods.length; i += 1) {
     const m = methods[i];
-    const d = typeof details[i] === 'string' ? (details[i] as string).trim() : '';
-    const q = typeof qrs[i] === 'string' ? (qrs[i] as string).trim() : '';
-    if (!d && !q) continue;
+    const d = at(details, i);
+    const q = at(qrs, i);
+    const prov = at(providers, i);
+    const accName = at(names, i);
+    const accNumber = at(numbers, i);
+    if (!d && !q && !accNumber && !accName) continue;
     if (!isMethod(m)) return { ok: false, message: 'Pick how they are paid for every way you added.' };
     if (d.length > PAY_WAY_DETAILS_MAX) return { ok: false, message: `Keep each way's details under ${PAY_WAY_DETAILS_MAX} characters.` };
     if (q && !qrAllowed(q)) return { ok: false, message: 'Their QR picture did not upload properly — add it again.' };
-    ways.push({ method: m, details: d || null, qr: q || null });
+    if (accName && !accNumber && !q && !d) return { ok: false, message: 'Add the account number — or their QR — for each way you added.' };
+    if (accName.length > PAY_WAY_ACCOUNT_NAME_MAX || accNumber.length > PAY_WAY_ACCOUNT_NUMBER_MAX)
+      return { ok: false, message: 'That account name or number is too long.' };
+    const provider = accNumber && PAY_WAY_PROVIDERS.includes(prov) ? prov : null;
+    ways.push({
+      method: m,
+      details: d || null,
+      qr: q || null,
+      ...(accNumber ? { provider, account_name: accName || null, account_number: accNumber } : {}),
+    });
   }
   if (ways.length > PAY_WAYS_MAX) return { ok: false, message: `A record can hold at most ${PAY_WAYS_MAX} ways to pay.` };
   return { ok: true, ways };
 }
 
 /** The closed fold's one line — "GCash · Bank transfer", or null when none is added. */
-export function payWaysSummary(ways: ReadonlyArray<{ method: string }>): string | null {
-  return ways.length ? ways.map((w) => payWayLabel(w.method)).join(' · ') : null;
+export function payWaysSummary(ways: ReadonlyArray<{ method: string; provider?: string | null }>): string | null {
+  return ways.length ? ways.map((w) => (w.provider && PAY_WAY_PROVIDERS.includes(w.provider) ? w.provider : payWayLabel(w.method))).join(' · ') : null;
+}
+
+/**
+ * A plan with payments needs somewhere to send them (owner 2026-11-13: at least one way only if a payment plan exists;
+ * otherwise optional). The sentence the sheet and the save both say.
+ */
+export const PAY_WAY_NEEDED_WORDS = 'Add how to pay them — their QR, or the account details — since you set a payment plan.';
+/**
+ * Does the posted plan carry a payment? The SAME rule `addManualSupplier` uses: a named line with an amount or a day.
+ * Two named, empty starter lines are no plan.
+ */
+export function planPostsPayments(fd: { getAll(name: string): unknown[] }): boolean {
+  const labels = fd.getAll('plan_label');
+  const filled = (k: string, i: number) => {
+    const v = fd.getAll(k)[i];
+    return typeof v === 'string' && v.trim().length > 0;
+  };
+  return labels.some((l, i) => typeof l === 'string' && l.trim().length > 0 && (filled('plan_value', i) || filled('plan_anchor', i)));
+}
+
+export function payWaysNeeded(planHasPayments: boolean, ways: ReadonlyArray<unknown>): boolean {
+  return planHasPayments && ways.length === 0;
+}
+
+/**
+ * The couple's ways in the SUPPLIER'S couple-facing shape (`CoupleFacingMethod`), so the record card shows them in the
+ * shipped VendorDirectPay sheet — its look and its always-on disclosure — never a second drawing. A way with both an
+ * account and a QR is the two destinations the supplier would publish: a Bank / e-wallet row and a QR row.
+ */
+export function payWaysAsDirectPay(ways: ReadonlyArray<PayWayView>): CoupleFacingMethod[] {
+  const out: CoupleFacingMethod[] = [];
+  ways.forEach((w, i) => {
+    const base = {
+      label: payWayName(w),
+      provider: w.provider ?? null,
+      account_name: null as string | null,
+      account_number: null as string | null,
+      decoded_destination: null,
+      link_url: null,
+      link_domain: null,
+      note: null as string | null,
+      is_primary: i === 0,
+      qr_display_url: null as string | null,
+    };
+    if (w.account_number || (!w.qr && w.details)) {
+      out.push({
+        ...base,
+        payment_method_id: `own-${i}-bank`,
+        method_type: 'bank',
+        account_name: w.account_name ?? null,
+        account_number: w.account_number ?? null,
+        note: w.account_number ? null : w.details,
+      });
+    }
+    if (w.qr && w.qrUrl) {
+      out.push({ ...base, payment_method_id: `own-${i}-qr`, method_type: 'qr', is_primary: i === 0 && !w.account_number, qr_display_url: w.qrUrl, note: w.account_number ? null : w.details });
+    }
+  });
+  return out;
 }
 
 /**

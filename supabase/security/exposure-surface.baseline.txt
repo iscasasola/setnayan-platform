@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7761
+# facts: 7760
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5591
 #   policy    1135
 #   view      10
-#   func      390
+#   func      389
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2323,6 +2323,7 @@ col	public.event_vendor_working_notes.event_vendor_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.note_id	anon=SIU authenticated=SIU
 col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
+col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
@@ -2389,7 +2390,6 @@ col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=SIU authenticated=SIU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
-col	public.event_vendors.pricing_rate_php	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
 col	public.event_vendors.selection_match_rank	anon=SIU authenticated=SIU
@@ -7552,7 +7552,6 @@ func	public.generate_screen_name_for_vendor(p_vendor_profile_id uuid)	secdef=yes
 func	public.get_event_service_counts(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.get_lead_trust_flags(p_vendor_profile_id uuid, p_event_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.get_returning_client_flags(p_vendor_profile_id uuid, p_event_ids uuid[])	secdef=yes exec=anon,authenticated search_path=UNPINNED
-func	public.get_self_added_price_terms(p_event_id uuid, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.get_vendor_booked_service_categories(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_catering_metrics(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.get_vendor_cocktail_editor(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public

@@ -923,6 +923,12 @@ export async function createVendorService(formData: FormData) {
       profile.vendor_profile_id,
       { discounts: discountRows, inclusions: inclusionRows, brackets: bracketRows },
     );
+    // Priced add-ons (`addons-editor.tsx` rows) — the same replace-all the canvas save runs, only when the form carried
+    // the editor. The claim door's Extras arrive this way (v2, owner 2026-11-13). Best-effort, like the lists above.
+    if (formData.get('addons_present') === '1') {
+      const addonErr = await replaceServiceAddons(supabase, created.vendor_service_id, profile.vendor_profile_id, parseAddonRows(formData));
+      if (addonErr) console.warn('[createVendorService] the add-ons were not saved:', addonErr);
+    }
   }
 
   // Repost-watch/NSFW hash-scan on a new cover — same post-response hook the

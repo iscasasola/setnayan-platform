@@ -766,9 +766,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
     // just typed, never a stored agreed total, so it is not one to route through
     // agreedTotalNow.
-    // 18 since 2026-11-13: `saveSelfAddedPriceBasis` WRITES rate × the guest count / the schedule's hours into the
-    // `total_cost_php` field it hands `updateVendorCosts` (the one writer) — a write, never a total shown back.
-    column: 18,
+    column: 17,
   },
   'lib/booking-payment-plan.server.ts': {
     what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
@@ -901,7 +899,7 @@ const NOT_A_PRICE_SHOWN: Record<string, string> = {
   'app/dev/budget-lab/fixture.ts':
     'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/price-basis-rows.tsx':
-    'WRITES the typed One price into the shipped `total_cost_php` field of the add sheet / record card (moved here with "How the price works ▾", 2026-11-13); the per guest / per hour sum it draws is rate × the guest count or hours as typed, and no table is queried here',
+    'WRITES the typed total (One price’s Price, or Per guest / Per hour’s Total agreed) into the shipped `total_cost_php` field of the add sheet / record card (moved here with "How the price works ▾", 2026-11-13, v2); the "works out to" in its ⓘ is that typed total ÷ the typed count, and no table is queried here',
   'app/dashboard/[eventId]/_components/record-card-folds.tsx':
     'WRITES the HEADLINE price of a supplier the couple added (the record card, 2026-10-29) — its field starts from `loadSelfAddedSupplier`’s headline on purpose (pre-filling the agreed total would fold change lines into the headline on save), and the closed fold only echoes what is typed in that field; no table is queried here',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':

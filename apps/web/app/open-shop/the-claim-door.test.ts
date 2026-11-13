@@ -132,10 +132,10 @@ test('2 · every field the couple recorded pre-fills the door', () => {
   assert.deepEqual(claimDetailKeysOf({ ...REC, contactPerson: null, plan: [] }), ['name', 'phone', 'service', 'price', 'incl']);
 });
 
-test('2 · v21’s order: invited by → tick what is wrong → one detail per slide → one slide per card → bundle → plan → account', () => {
+test('2 · v21’s order: invited by → tick what is wrong → one detail per slide → one slide per card → (the couple’s pay details, 2026-11-13) → bundle → plan → account', () => {
   assert.match(
     DOOR,
-    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
+    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),[\s\S]{0,240}?\.\.\.\(!team && \(record\.payWays\?\.length \?\? 0\) > 0 \? \(\['pay'\] as Screen\[\]\) : \[\]\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
   );
   // Slide 1 wears the door's frame: one terracotta main verb — "Claim it" (owner 10 Nov; it was "Confirm — continue"),
   // the grey pills for Sign in & claim and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).

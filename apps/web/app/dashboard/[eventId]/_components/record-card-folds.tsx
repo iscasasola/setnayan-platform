@@ -17,18 +17,18 @@ import { AddressPinField } from './address-pin-field';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import { PayWaysEditor } from './pay-ways-editor';
+import { VendorDirectPay } from './vendor-direct-pay';
+import { payWaysAsDirectPay } from '@/lib/self-added-pay-ways';
 import { PriceBasisRows } from './price-basis-rows';
-import { selfAddedCardLine, type PriceTermsRead, type SelfAddedBasis } from '@/lib/self-added-price-basis';
+import { agreedSuffix, type SelfAddedBasis } from '@/lib/self-added-price-basis';
 
-/** "How the price works ▾" — the modal owns the choice and the rate (the add sheet draws the same rows). */
+/** "How the price works ▾" — the modal owns the choice and the agreed count (the add sheet draws the same rows). */
 export type RecordBasisRows = {
   basis: SelfAddedBasis;
   onBasis: (b: SelfAddedBasis) => void;
-  rateKept: string;
-  ratePhp: number | null;
-  onRateType: (t: string) => void;
-  onRateKeep: (t: string) => void;
-  terms: PriceTermsRead;
+  /** The guests / hours agreed, as kept ('' = none yet). */
+  countKept: string;
+  onCountKeep: (t: string) => void;
 };
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
@@ -106,7 +106,7 @@ export function RecordCardFolds({
   pending: boolean;
   nameKept: string;
   priceKept: string;
-  /** What the payment plan adds up to: the typed price, or rate × the number (null = no total). */
+  /** What the payment plan adds up to: the typed total (null = none yet). */
   priceNumber: number | null;
   /** The KEPT total the plan's dated rows count from — the modal works it out for every basis. */
   keptTotalPhp?: number | null;
@@ -124,19 +124,11 @@ export function RecordCardFolds({
 }) {
   const row = (last = false) => `px-0.5 ${last ? '' : 'border-b border-ink/10'}`;
   const keptTotal = Number(priceKept.replace(/,/g, ''));
-  // The Price fold's closed line follows the choice: "₱1,350 per guest · 120 counted · ₱162,000".
-  const basisLine =
-    basisRows && basisRows.basis !== 'fixed'
-      ? selfAddedCardLine({
-          basis: basisRows.basis,
-          ratePhp: basisRows.ratePhp,
-          terms: basisRows.terms === 'loading' ? 'unread' : basisRows.terms,
-        })
-      : null;
-  const priceSummary =
-    basisLine && basisRows?.terms !== 'loading'
-      ? `${basisLine.lead}${basisLine.showsTotal && priceNumber != null ? ` · ${formatPhp(priceNumber)}` : ''}`
-      : lines.price;
+  // The Price fold's closed line follows the choice (v2): "₱162,000 · 120 guests agreed".
+  const countN = basisRows ? Number(basisRows.countKept.replace(/,/g, '')) : NaN;
+  const suffix =
+    basisRows && Number.isFinite(countN) && countN > 0 ? agreedSuffix({ basis: basisRows.basis, count: countN }) : null;
+  const priceSummary = suffix && priceNumber != null ? `${formatPhp(priceNumber)} · ${suffix}` : lines.price;
   return (
     <div data-record-card-folds="" className="border-t border-ink/10">
       <Fold title="Contact" summary={lines.contact ?? 'Add who to call'} summaryEnd defaultOpen className={row()} data="record-contact">
@@ -184,18 +176,15 @@ export function RecordCardFolds({
 
       <Fold title="Price" summary={priceSummary ?? 'Set the price'} summaryEnd className={row()} data="record-price">
         <PriceBasisRows
-          eventId={eventId}
           basis={basisRows?.basis ?? 'fixed'}
           onBasis={basisRows?.onBasis ?? (() => {})}
-          priceKept={priceKept}
-          priceAbout={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
-          onPriceType={onPriceType}
-          onPriceKeep={onPriceKeep}
-          rateKept={basisRows?.rateKept ?? ''}
-          ratePhp={basisRows?.ratePhp ?? null}
-          onRateType={basisRows?.onRateType ?? (() => {})}
-          onRateKeep={basisRows?.onRateKeep ?? (() => {})}
-          terms={basisRows?.terms ?? 'loading'}
+          totalKept={priceKept}
+          totalAbout={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
+          onTotalType={onPriceType}
+          onTotalKeep={onPriceKeep}
+          countKept={basisRows?.countKept ?? ''}
+          onCountType={() => {}}
+          onCountKeep={basisRows?.onCountKeep ?? (() => {})}
           after={
             <TypedRow
               name="Inclusions"
@@ -250,6 +239,12 @@ export function RecordCardFolds({
       >
         <div className="pb-3">
           <PayWaysEditor eventId={eventId} initial={edit.payWays === undefined ? [] : edit.payWays} disabled={pending} onSummary={onPayLine} />
+          {/* The saved ways in the SHIPPED direct-pay sheet — its look and its always-on disclosure (owner 2026-11-13). */}
+          {edit.payWays && edit.payWays.length > 0 ? (
+            <div className="pt-3" data-record-direct-pay="">
+              <VendorDirectPay vendorName={edit.name.trim() || 'this supplier'} methods={payWaysAsDirectPay(edit.payWays)} />
+            </div>
+          ) : null}
         </div>
       </Fold>
 

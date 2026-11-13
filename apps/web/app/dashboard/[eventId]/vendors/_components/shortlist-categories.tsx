@@ -42,7 +42,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
-import type { SelfAddedPriceLines } from '@/lib/self-added-price-basis';
+import { afterClaim, agreedSuffix, type SelfAddedPriceLines } from '@/lib/self-added-price-basis';
 import {
   Search,
   ChevronDown,
@@ -1342,8 +1342,8 @@ const PayDueCtx = createContext<Readonly<Record<string, string>>>({});
  * failed read must not look like "no link was ever sent".
  */
 const InviteStatusCtx = createContext<InviteStatusByVendorId | undefined>(undefined);
-/** 🧾 A self-added supplier priced per guest / per hour — "₱1,350 per guest · 120 counted · ₱162,000" (owner-approved
- *  2026-11-13). Absent / null → every card draws its price as shipped. */
+/** 🧾 A self-added supplier's price basis (v2, owner 2026-11-13) — "₱162,000 · 120 guests agreed" and its "After they
+ *  claim" line. Absent / null (a refused read) → every card draws its price as shipped. */
 const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undefined);
 
 /**
@@ -1611,21 +1611,28 @@ function VendorCard({
           </span>
         ) : null}
         <FitBadges v={v} />
-        {/* A per-guest or per-hour price leads with its rate and count; the card's own total follows it — or no total,
-            said, when the count or the hours are not known ("₱6,000 per hour · no times on the schedule yet"). One
-            price span either way, so the bench card still draws the number exactly once. */}
-        {basisLine && !(basisLine.showsTotal && hasRecordedPrice) ? (
-          <span className="sc-price" data-price-basis-line="">{basisLine.lead}</span>
-        ) : hasRecordedPrice ? (
-          <>
-            {basisLine ? <span className="sc-price" data-price-basis-line="">{basisLine.lead} · </span> : null}
+        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
+        {hasRecordedPrice ? (
+          agreedSuffix(basisLine) ? (
+            <span data-price-basis-line="">
+              <span className="price">{formatPhp(v.totalCostPhp)}</span>{' '}
+              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+            </span>
+          ) : (
             <span className="price">{formatPhp(v.totalCostPhp)}</span>
-          </>
+          )
+        ) : null}
+        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
+        {basisLine && hasRecordedPrice ? (
+          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+            {afterClaim(basisLine.basis).line}
+          </span>
         ) : null}
         {/* No price recorded with THIS couple yet → the service card's own
             "from ₱X". Withheld by the shop, or never set → "Price on request",
             and only when the cards were actually read. */}
-        {look.face && !hasRecordedPrice && !basisLine && !v.includedWith ? (
+        {look.face && !hasRecordedPrice && !v.includedWith ? (
           svc?.priceText ? (
             <span className="sc-price">{svc.priceText}</span>
           ) : selfAdded ? (

@@ -473,6 +473,8 @@ const UPLOAD_RESPONSE_MS = 300_000;
  */
 const TILE_X = 'absolute right-0 top-0 flex h-11 w-11 items-start justify-end rounded-full p-1.5 text-ink/70 hover:text-danger-700';
 const TILE_X_DISC = 'flex h-6 w-6 items-center justify-center rounded-full bg-cream/90';
+/** The `tiles` add tile's box (`variant="gallery"` + `tiles`): a rounded square, the raised fill, ImagePlus centred. */
+const ADD_TILE = 'flex h-full w-full cursor-pointer items-center justify-center rounded-xl border bg-white text-ink/70 transition-colors dark:bg-ink/5'; // no-card-ok: the add tile's own class — a <label> control
 
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
@@ -1511,13 +1513,7 @@ export function FileUpload({
           onDragLeave={onDragLeave}
           aria-label={tiles!.addLabel}
           data-upload-add=""
-          className={`flex h-full w-full cursor-pointer items-center justify-center rounded-xl border bg-white text-ink/70 transition-colors dark:bg-ink/5 ${
-            disabled
-              ? 'cursor-not-allowed opacity-60'
-              : isDragging
-                ? 'border-terracotta bg-terracotta/5 text-terracotta'
-                : 'border-ink/15 hover:border-terracotta/60'
-          }`}
+          className={`${ADD_TILE} ${disabled ? 'cursor-not-allowed opacity-60' : isDragging ? 'border-terracotta bg-terracotta/5 text-terracotta' : 'border-ink/15 hover:border-terracotta/60'}`} // no-card-ok: the add tile is the picker's <label> (a control), drawn with the owner's light edge
         >
           <ImagePlus aria-hidden className="h-8 w-8" strokeWidth={1.6} />
           {fileInput}

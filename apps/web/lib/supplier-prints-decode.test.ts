@@ -22,7 +22,7 @@ import { printQrUrl } from '@/lib/supplier-prints-shop';
 import { PRINT_DESIGNS, PRINT_PIECES, PRINT_QR_ORDER, pieceHasQr, type PrintPiece, type PrintSide } from '@/lib/supplier-prints';
 import { shopBadges } from '@/lib/shop-badges';
 import { checkADateUrl } from '@/lib/check-a-date';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { myPageUrl, ownPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { reviewDoorPath } from '@/lib/shop-review-door';
 
@@ -63,7 +63,8 @@ test('seven sides carry the code — every piece but the card’s front', () => 
 
 test('the printed address is the one the Promote codes already build — never typed here', () => {
   assert.equal(printQrUrl('dates', ORIGIN, SLUG), checkADateUrl(ORIGIN, SLUG));
-  assert.equal(printQrUrl('page', ORIGIN, SLUG), myPageUrl(ORIGIN, SLUG));
+  // 💳 A printed My page code is the supplier's own link: ?src=own (owner 2026-11-13, F-W1-58).
+  assert.equal(printQrUrl('page', ORIGIN, SLUG), ownPageUrl(ORIGIN, SLUG));
   assert.equal(printQrUrl('shortlist', ORIGIN, SLUG), buildVendorInviteUrl(SLUG, { eventType: null, category: null }));
   assert.equal(printQrUrl('dates', ORIGIN, SLUG), `${ORIGIN}/v/${SLUG}/dates`);
   // Reviews opens the WRITE door (owner 2026-11-06 "Write a review"): /v/<slug>/review → the couple's "Leave a review",

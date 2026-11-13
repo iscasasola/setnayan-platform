@@ -60,3 +60,10 @@ test('RW-67 · a service card says its daily limit once — the shared schedule\
   assert.match(c, /const scheduleLine = sharedSchedule \? `Shares \$\{sharedSchedule\.name\}` : 'Its own';/);
   assert.match(c, /that is the number that holds\./);
 });
+
+test('RW-57 · a closed onboarding sheet cannot be scrolled into view', () => {
+  const css = readFileSync(join(process.cwd(), 'app/onboarding/wedding/_styles/onboarding.css'), 'utf8');
+  assert.match(css, /\.onbw \.phone\{overflow:clip;\}/);
+  assert.match(css, /\.onbw \.sheet\{visibility:hidden;/);
+  assert.match(css, /\.onbw \.sheet\.open\{visibility:visible;/);
+});

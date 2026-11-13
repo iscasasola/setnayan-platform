@@ -24,3 +24,4 @@
 - Guard: `lib/the-walk-round-7.test.ts`.
 
 SPEC IMPACT: None.
+- RW-57: the closed onboarding supplier sheet can no longer be scrolled into view (phone frame clips, closed sheet hidden).

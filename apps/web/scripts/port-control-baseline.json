@@ -4338,9 +4338,7 @@
         "admin/payouts/loading.tsx",
         "admin/payouts/page.tsx"
       ],
-      "destinations": [
-        "/admin/payments"
-      ],
+      "destinations": [],
       "actions": [
         "holdPayoutAction",
         "markPayoutPaidAction",

@@ -40,3 +40,8 @@
   "Oldest 150 days · no set time" — it was counted "on pace" beside "0 past promise".
 
 SPEC IMPACT: None.
+
+- CI follow-up: the payout-split guard now pins that the admin Payouts page quotes no stage split (F-A-10 removed the
+  old 20/60/20 there on purpose); merged `origin/main` (kept this branch's admin wording; Real Stories takes main's
+  "event" and drops the retired `verifiedNote`); regenerated the port baseline (one intended removal: Payouts' link to
+  Payments lived in the deleted "customers pay through Setnayan" sentence), the screens map and the admin map.

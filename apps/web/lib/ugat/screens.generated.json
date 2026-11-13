@@ -432,6 +432,7 @@
 ],
 "brokenDoors": [],
 "legacyRedirects": [
+{"source":"/admin/vendors/verification","destination":"/admin/verify"},
 {"source":"/dashboard/:eventId/studio/live-studio-roam","destination":"/dashboard/:eventId/studio/live-studio-control"},
 {"source":"/dashboard/:eventId/studio/live-studio-roam/:path*","destination":"/dashboard/:eventId/studio/live-studio-control/:path*"},
 {"source":"/for-vendors","destination":"/for-suppliers"},

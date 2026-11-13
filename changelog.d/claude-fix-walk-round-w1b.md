@@ -9,5 +9,12 @@
   own `contracted` / `deposit_paid` status now counts as booked.
 - **F-W1-65** Not a code bug: "Booked" on Today counts booked events DATED this Manila month (owner Q2 default; the
   full row says "this month"). The walk's booking is May 2027, so November reads 0.
+- **F-W1-71** The couple's handover (an album, a link, a sign-off) and its Confirm receipt move from the picked
+  supplier's Payment page to its **Files** page, and the "delivered your handover" notice and the event Home's handover
+  link now open Files. Drawn once, not twice.
+- **F-W1-67 / F-W1-73** A tab switch on the picked screen (the supplier's client card and the couple's supplier
+  workspace — one shared shell) now writes `?tab=` with a `null` history state, so Next's router adopts the address.
+  It used to pass the router's own state, which Next lets through without telling the router, so the next refresh
+  (a chat poll, a save) wrote the old `?tab=` back and a reload opened the wrong page.
 
 SPEC IMPACT: None.

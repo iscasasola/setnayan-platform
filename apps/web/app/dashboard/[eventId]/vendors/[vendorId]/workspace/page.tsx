@@ -2074,19 +2074,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             readFailed={Boolean(changeOrderRowsError)}
           />
 
-          {/*
-            Delivery Handover — the vendor posted finished work (gallery link /
-            proof image / note / sign-off); the couple confirms receipt here.
-            Acknowledge is a single-winner RPC; confirming can also mark the
-            booking delivered (reuses the existing review-request emit).
-          */}
-          <HandoverInbox
-            eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            handovers={handovers}
-            canAdvanceToDelivered={canAdvanceToDelivered}
-          />
+          {/* 📦 The Delivery Handover moved to Files (walk 13 Nov 2026, F-W1-71) — see `pickedBodies.files`. */}
 
           {/*
             DAY-10 · Shot list — the supplier's must-get shots from their day-of
@@ -3115,6 +3103,19 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {ev.marketplace_vendor_id ? (
           <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
         ) : null}
+        {/*
+          📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple
+          confirms receipt here. Acknowledge is a single-winner RPC; confirming can also mark the booking delivered.
+          It lives in FILES (walk 13 Nov 2026, F-W1-71: the album was delivered and the couple looked for it in Files,
+          where it was not — it sat under Payment). The supplier's "delivered your handover" notice opens this page.
+        */}
+        <HandoverInbox
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          handovers={handovers}
+          canAdvanceToDelivered={canAdvanceToDelivered}
+        />
         {documentsSection}
       </div>
     ),

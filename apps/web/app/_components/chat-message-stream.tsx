@@ -2027,7 +2027,7 @@ export function ChatMessageStream({
                         */}
                         {quoteState.offerLock && lockTarget && !bookingsOpen ? (
                           <p role="status" data-bookings-open-soon="" className="text-sm text-ink/70">
-                            <span className="inline-flex h-9 items-center rounded-lg border border-ink/15 px-4 font-medium text-ink/60">
+                            <span className="inline-flex h-9 items-center rounded-lg bg-ink/[0.06] px-4 font-medium text-ink/60">
                               {BOOKINGS_OPEN_SOON}
                             </span>
                             <span className="mt-1.5 block">{BOOKINGS_CLOSED_COUPLE_MESSAGE}</span>

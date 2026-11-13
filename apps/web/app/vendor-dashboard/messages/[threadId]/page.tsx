@@ -2117,7 +2117,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           {/* 🧾 RW-24 (walk 13 Nov 2026): a quote sent before saying yes is refused — the notice is said HERE, on the
               pending inquiry, where it used to be drawn only for an open conversation (so the refusal was silent). */}
           {proposalNotice ? (
-            <p role="status" data-proposal-notice="pending" className="rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink">
+            <p role="status" data-proposal-notice="pending" className="rounded-xl bg-mulberry/[0.08] px-4 py-2.5 text-sm text-ink">
               {proposalNotice}
             </p>
           ) : null}

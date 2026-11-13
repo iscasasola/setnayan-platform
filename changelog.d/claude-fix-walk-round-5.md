@@ -20,9 +20,11 @@
   a reference nor a screenshot is NOT a payment. The fee page's log says "Nothing logged yet", the order totals no
   longer count it as pending review, and the admin payments card says "Nothing logged yet" in place of a paid date.
   Admin Money already counted only matched money.
-- **RW-38** The supplier was told "Pay the booking fee and we'll tell the couple their booking is confirmed". It now
-  says the booking stands for the couple whatever happens and the fee is due — and names the gate ("pay it to open this
-  event's details and day-of tools") only when the live gate (`resolveFeeEnforcement`) is on.
+- **RW-38** The supplier now reads "You took the booking — it stands for the couple whatever happens. Your Setnayan
+  booking fee for it is due. We tell the couple their booking is confirmed once it is paid." — and the gate ("paying it
+  also opens this event's details and day-of tools") only when the live gate (`resolveFeeEnforcement`) is on. ⚠ The
+  couple's "confirmed" message IS still held until the fee settles, so the words say so; that hold conflicts with the
+  2026-11-12 ruling and is flagged for the owner, not changed here.
 - **RW-39** A Setnayan-sourced booking's chip read "In-house" beside "fee due". It reads **From Setnayan** now — the same
   sources the fee counts as sourced.
 - **Round 6 folded in (same cause as RW-37 — the bill's placeholder payment row):**

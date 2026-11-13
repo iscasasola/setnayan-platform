@@ -91,6 +91,8 @@ export function lockAgreeFeeHeld(raw: unknown): boolean {
 export const BOOKING_STANDS = 'You took the booking — it stands for the couple whatever happens.';
 /** RW-38: what is owed, plainly. */
 export const FEE_DUE = 'Your Setnayan booking fee for it is due.';
+/** RW-38: true to the code today — the couple's "your booking is confirmed" waits for the fee. */
+export const COUPLE_TOLD_ONCE_PAID = 'We tell the couple their booking is confirmed once it is paid.';
 /** Where the supplier pays — the shipped booking-fee hub (each due bill has its Pay there). */
 const PAY_THE_FEE_HREF = '/vendor-dashboard/booking-fees';
 
@@ -103,9 +105,12 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
           tone: 'ok',
           // RW-38 (walk 13 Nov 2026): the couple is never hurt by the supplier's fee (DECISION_LOG 2026-11-12) — the
           // booking stands; what the unpaid fee gates is the SUPPLIER's side, said only when the live gate is on.
+          // ⚠ The couple's "confirmed" message IS still held until the fee settles (`vendorAgreeToLock`'s
+          // `feeBilledUnpaid`) — so the supplier is told that too, truthfully (the conflict with the 2026-11-12
+          // ruling is flagged to the owner in the PR, not hidden by the words).
           text: ctx.feeLocksEvent
-            ? `${BOOKING_STANDS} ${FEE_DUE} Pay it to open this event’s details and day-of tools.`
-            : `${BOOKING_STANDS} ${FEE_DUE}`,
+            ? `${BOOKING_STANDS} ${FEE_DUE} ${COUPLE_TOLD_ONCE_PAID} Paying it also opens this event’s details and day-of tools.`
+            : `${BOOKING_STANDS} ${FEE_DUE} ${COUPLE_TOLD_ONCE_PAID}`,
           door: { label: 'Pay the booking fee', href: PAY_THE_FEE_HREF },
         }
       : {

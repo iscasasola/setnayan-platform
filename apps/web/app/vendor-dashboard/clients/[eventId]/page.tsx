@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';

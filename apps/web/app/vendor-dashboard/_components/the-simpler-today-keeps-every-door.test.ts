@@ -243,10 +243,10 @@ test('5 · after Agree with the news held: the shipped sentence and "Pay the boo
   const { lockAgreeNotice } = await import('@/lib/lock-answer-notice');
   const said = lockAgreeNotice('ok', { feeHeld: true })!;
   // RW-38 (walk 13 Nov 2026): the couple is never hurt by the fee — the booking stands; the gate is named only when on.
-  assert.equal(said.text, 'You took the booking — it stands for the couple whatever happens. Your Setnayan booking fee for it is due.');
+  assert.equal(said.text, 'You took the booking — it stands for the couple whatever happens. Your Setnayan booking fee for it is due. We tell the couple their booking is confirmed once it is paid.');
   assert.equal(
     lockAgreeNotice('ok', { feeHeld: true, feeLocksEvent: true })!.text,
-    'You took the booking — it stands for the couple whatever happens. Your Setnayan booking fee for it is due. Pay it to open this event’s details and day-of tools.',
+    'You took the booking — it stands for the couple whatever happens. Your Setnayan booking fee for it is due. We tell the couple their booking is confirmed once it is paid. Paying it also opens this event’s details and day-of tools.',
   );
   const { html } = await draw({ desk: [INQUIRY], outcome: { text: said.text, tone: 'ok', door: said.door ?? null } });
   const at = html.indexOf('role="status" data-supplier-outcome="ok"');

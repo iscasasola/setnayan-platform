@@ -65,10 +65,10 @@ test('RW-37 · a bill’s own placeholder payment row (no reference, no screensh
 test('RW-38 · the supplier is told the booking stands for the couple; a gate is named only when it is on', async () => {
   const { lockAgreeNotice } = await import('./lock-answer-notice');
   const off = lockAgreeNotice('ok', { feeHeld: true })!.text;
-  assert.doesNotMatch(off, /tell the couple/);
+  assert.match(off, /We tell the couple their booking is confirmed once it is paid\./, 'true to the code: the news is held');
   assert.match(off, /it stands for the couple whatever happens/);
   assert.doesNotMatch(off, /open this event/, 'no gate claimed while the gate is off');
-  assert.match(lockAgreeNotice('ok', { feeHeld: true, feeLocksEvent: true })!.text, /Pay it to open this event’s details and day-of tools\./);
+  assert.match(lockAgreeNotice('ok', { feeHeld: true, feeLocksEvent: true })!.text, /Paying it also opens this event’s details and day-of tools\./);
 });
 
 test('RW-39 · a Setnayan-sourced booking’s chip reads From Setnayan, never In-house', () => {

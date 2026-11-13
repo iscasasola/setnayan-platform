@@ -20,7 +20,8 @@ test('a pending request is not "your people"', () => {
 test('one row per person — a confirmed connection is not listed again under the group', () => {
   assert.match(src, /fetchSamahanSecondDegree\(supabase, admin, userId, confirmed\)/);
   assert.match(src, /if \(m\.known\) continue;/);
-  const helper = src.slice(src.indexOf('async function confirmedConnectionUserIds'));
+  const helper = stripComments(readFileSync(join(import.meta.dirname, 'confirmed-connection-user-ids.ts'), 'utf8'));
+  assert.match(helper, /export async function confirmedConnectionUserIds/);
   assert.match(helper, /\.eq\('status', 'confirmed'\)/, 'pending requests must not count as known');
 });
 

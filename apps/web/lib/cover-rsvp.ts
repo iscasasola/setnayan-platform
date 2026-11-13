@@ -23,7 +23,7 @@
  * `app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts`.
  */
 import type { ReplyCard } from './guest-me-parts';
-import { replyWindowWords, type ReplyWindow } from './reply-window';
+import type { ReplyWindow } from './reply-window';
 
 /** What the cover's foot button draws for this reader. */
 export type CoverRsvp =
@@ -51,7 +51,11 @@ export function coverRsvpOf(input: {
    * dead end. A shut window now draws its own line here, not a button. Absent = open (the Maker's canvas).
    */
   window?: ReplyWindow;
-  organizer?: string;
+  /**
+   * The window's own sentence (`replyWindowWords(window, organizer)?.line`), worded by the CALLER — this module stays a
+   * leaf the page's test fixtures can import before their seams (a value import of `reply-window` loads the admin client).
+   */
+  windowLine?: string | null;
 }): CoverRsvp | null {
   const c = input.card;
   if (c) {
@@ -63,10 +67,9 @@ export function coverRsvpOf(input: {
   }
   if (!input.visitorHref) return null;
   if (input.window && input.window.state !== 'open') {
-    const words = replyWindowWords(input.window, input.organizer);
     return input.window.state === 'closed'
       ? { kind: 'closed', line: COVER_RSVP_CLOSED }
-      : { kind: 'not_yet', line: words?.line ?? 'Replies are not open yet' };
+      : { kind: 'not_yet', line: input.windowLine || 'Replies are not open yet' };
   }
   return { kind: 'ask', href: input.visitorHref };
 }

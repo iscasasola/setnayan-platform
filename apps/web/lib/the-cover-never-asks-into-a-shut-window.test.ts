@@ -27,7 +27,10 @@ test('a visitor gets the window’s line when replies are not open, the button w
 
 test('the page’s stranger path hands the window in', () => {
   const src = stripComments(readFileSync(join(import.meta.dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
-  assert.match(src, /coverRsvpOf\(\{ card: null, visitorHref: replyDoor, window: repliesWindow/);
+  assert.match(
+    src,
+    /coverRsvpOf\(\{\s*card: null,\s*visitorHref: replyDoor,\s*window: repliesWindow,\s*windowLine: replyWindowWords\(repliesWindow, clientWords\.theOrganizer\)\?\.line,/,
+  );
 });
 
 test('one picked date is the date on the create-event door too (F-W3-30)', () => {

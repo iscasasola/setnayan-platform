@@ -464,10 +464,7 @@ export default async function VendorOnTheDayPage({
     <HubScreen menu={menu} event={selected} seg={seg} pane={pane} thumb={<HubThumbRow seg={seg} add={hubAddChoices(selected)} />}>
       {/* Q7 — shown only once the owner sets an end date; says nothing while unset ("no invented deadline"). */}
       {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
-        // F-W1-75: what is free is the TOOLS, not each booking's fee — said so, so it cannot read as "no fee to open a day".
-        <p className="pt-3 text-sm text-ink/60" data-hub-free-until="">
-          The day-of tools are {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)!.replace(/^Free/, 'free')}.
-        </p>
+        <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
       ) : null}
       {body}
       {/* ↩ ONE Undo toast for the console — the shot list and issues log delete by swipe with Undo (owner 2026-11-03). */}

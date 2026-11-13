@@ -82,6 +82,11 @@ export type CustomerEventSummaryInput = {
   createdAt: string | null;
   /** `events.event_date` — a date key. */
   targetDate: string | null;
+  /**
+   * The couple's candidate date(s) / window when no day is set — `eventDateOptionWords` ("May 22, 2027 · option").
+   * Said in place of "Not set yet" (walk 13 Nov 2026); ignored once `targetDate` is set.
+   */
+  targetDateOptions?: string | null;
   /** Headcount the couple is planning for NOW (live pax). */
   pax: number | null;
   /**
@@ -180,8 +185,8 @@ export function buildCustomerEventSummary(
   const facts: CustomerFactRow[] = [
     {
       label: 'Target date',
-      value: input.targetDate ? formatLongDate(input.targetDate) : UNKNOWN,
-      unknown: !input.targetDate,
+      value: input.targetDate ? formatLongDate(input.targetDate) : (clean(input.targetDateOptions) ?? UNKNOWN),
+      unknown: !input.targetDate && !clean(input.targetDateOptions),
       // Only ever set when there is a date to be in demand for.
       note: input.targetDate ? (clean(input.dateDemandNote) ?? null) : null,
       noteIsPrivate: true,

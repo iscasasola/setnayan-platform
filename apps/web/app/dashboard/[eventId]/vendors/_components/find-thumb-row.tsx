@@ -66,6 +66,7 @@ export function FindThumbRow({
   emptyPanel = null,
   sortMenu = null,
   onGoToCategory,
+  preset = null,
 }: {
   /** Every category is open → the control offers "Collapse all". */
   allOpen: boolean;
@@ -90,6 +91,12 @@ export function FindThumbRow({
    * then goes where the Find page's row goes, as before.
    */
   onGoToCategory?: (tile: string) => boolean;
+  /**
+   * 🔎 THE BENCH PUTS WORDS IN THE BOX (walk 13 Nov 2026) — a marketplace hit pressed under "Nothing in your shortlist
+   * matches" opens its category and searches it for that shop; a category hit empties the box. A new `n` sets the
+   * box's text to `text` and the list hears it at once (no 250 ms wait). The box still owns its text.
+   */
+  preset?: { text: string; n: number } | null;
 }) {
   const { mode, leaving, thumbUp } = useSuppliersMode();
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -135,6 +142,13 @@ export function FindThumbRow({
     return () => window.clearTimeout(t);
   }, [text, onSearch]);
 
+  useEffect(() => {
+    if (!preset) return;
+    said.current = preset.text;
+    setText(preset.text);
+    onSearch(preset.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset?.n]);
   // ── The empty state: open while the box is in use with nothing typed.
   const [open, setOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -235,6 +249,13 @@ export function FindThumbRow({
             onClick: emptyPanel != null ? () => setOpen(true) : undefined,
             'aria-expanded': emptyPanel != null ? showPanel : undefined,
             'aria-controls': showPanel ? panelId : undefined,
+          },
+          // ✕ — the list hears the empty box AT ONCE (walk 13 Nov 2026: "Nothing in your shortlist matches “SetnaProd”"
+          // outlived the cleared box). The thumb row's own contract: a host that waits after the last letter clears here.
+          onClear: () => {
+            said.current = '';
+            setText('');
+            onSearch('');
           },
         }}
         right={sortMenu ? [sortMenu] : []}

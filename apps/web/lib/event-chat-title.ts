@@ -14,6 +14,50 @@
  * is two titles, two rows, two chats: the date is part of the name.
  */
 
+import { fitDateScope, type EventFitDates } from '@/lib/bench-bookable-days';
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+/** "2027-05-22" → "May 22, 2027" — fixed month names, so the server and the tests read the same words. */
+function dayWithYear(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${MONTH_SHORT[(m ?? 1) - 1]} ${d}, ${y}`;
+}
+
+/**
+ * 📅 THE COUPLE'S DATE OPTIONS, BEFORE A DATE IS SET (walk 13 Nov 2026: a birthday with one candidate, 2027-05-22,
+ * read "(date not set)" · DATE "Not set yet" · "no date yet" to the supplier it asked). The days come from
+ * `fitDateScope` — the ONE reader of `event_date → date_candidates → date_window` that Find already judges on — so
+ * the supplier is told exactly the days the couple's search was filtered by.
+ *
+ *   one candidate   → "May 22, 2027 · option"
+ *   several         → "May 22, 2027 or Jun 5, 2027 · options"
+ *   a date window   → "May 1, 2027 – May 20, 2027 · window"
+ *   a set day, a span, a month, or nothing → null (the caller's own date words, or "Not set yet", stand).
+ */
+export function eventDateOptionWords(ev: EventFitDates): string | null {
+  const scope = fitDateScope(ev);
+  if (!scope || scope.days.length === 0) return null;
+  if (scope.kind === 'dates') {
+    return `${scope.days.map(dayWithYear).join(' or ')} · ${scope.days.length > 1 ? 'options' : 'option'}`;
+  }
+  if (scope.kind === 'range') {
+    const first = scope.days[0]!;
+    const last = scope.days[scope.days.length - 1]!;
+    return first === last ? `${dayWithYear(first)} · window` : `${dayWithYear(first)} – ${dayWithYear(last)} · window`;
+  }
+  return null;
+}
+
+/**
+ * The candidate days alone, for a sentence — "May 22, 2027" · "May 22, 2027 or Jun 5, 2027". Null unless the event's
+ * date is its candidates (`fitDateScope` kind 'dates'). The couple's opening message says them (walk 13 Nov 2026).
+ */
+export function eventCandidateDays(ev: EventFitDates): string | null {
+  const scope = fitDateScope(ev);
+  return scope?.kind === 'dates' && scope.days.length > 0 ? scope.days.map(dayWithYear).join(' or ') : null;
+}
+
 /** "Ana & Miguel" → "Ana"; "Indalecio Casasola" → "Indalecio"; "" → null. */
 export function firstNameOf(name: string | null | undefined): string | null {
   const first = (name ?? '').trim().split(/\s*(?:&|\+|,|\band\b)\s*|\s+/i)[0]?.trim();
@@ -41,12 +85,15 @@ export function eventChatTitle(args: {
   kind: string | null | undefined;
   date: string | null | undefined;
   nowMs: number;
+  /** `eventDateOptionWords` — said in place of "(date not set)" when the couple has candidate dates or a window. */
+  options?: string | null;
 }): string {
   const kind = args.kind?.trim() || 'Event';
   const own = (args.name ?? '').trim();
   // The event's own title already reads "<someone>'s <thing>" — keep it as the customer wrote it.
   const base = /\S['’]s\s+\S/.test(own) ? own : firstNameOf(own) ? `${firstNameOf(own)}'s ${kind}` : kind;
-  return `${base} ${eventChatDate(args.date, args.nowMs)}`;
+  const day = eventChatDate(args.date, args.nowMs);
+  return `${base} ${day === '(date not set)' && args.options?.trim() ? `(${args.options.trim()})` : day}`;
 }
 
 /**
@@ -73,10 +120,13 @@ export function eventRowTitle(args: {
   kind: string | null | undefined;
   date: string | null | undefined;
   nowMs: number;
+  /** `eventDateOptionWords` — said in place of "date not set" when the couple has candidate dates or a window. */
+  options?: string | null;
 }): string {
   const own = (args.name ?? '').trim();
   const kind = args.kind?.trim() || (own ? null : 'Event');
   const saysKind = Boolean(kind && own && own.toLowerCase().includes(kind.toLowerCase()));
-  const day = eventChatDate(args.date, args.nowMs).slice(1, -1);
+  const said = eventChatDate(args.date, args.nowMs).slice(1, -1);
+  const day = said === 'date not set' && args.options?.trim() ? args.options.trim() : said;
   return [own || null, saysKind ? null : kind, day].filter(Boolean).join(' · ');
 }

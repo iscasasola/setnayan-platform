@@ -24,3 +24,9 @@ test('F-W1-72 · "Also mark this supplier delivered" starts unticked and waits f
   assert.match(page, /const dayHasPassed = deliverEventDate !== null && deliverEventDate\.slice\(0, 10\) < manilaToday\(\);/);
   assert.match(page, /const canAdvanceToDelivered = dayHasPassed && /);
 });
+
+test('F-W1-70 · a contracted booking is booked on the couple’s row, pool hold or not', () => {
+  const src = code('lib/conversation-list.ts');
+  const fn = src.slice(src.indexOf('async function readCoupleStageFacts'), src.indexOf('export const SUPPLIER_NAME_UNREADABLE'));
+  assert.match(fn, /r\.status === 'contracted' \|\| r\.status === 'deposit_paid'\)\) \{\s*facts\.booked\.add\(r\.marketplace_vendor_id\);/);
+});

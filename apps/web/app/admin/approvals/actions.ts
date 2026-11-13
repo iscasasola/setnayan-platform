@@ -114,6 +114,7 @@ async function executeApproved(
   admin: AdminClient,
   row: {
     action_type: ApprovalActionType;
+    approval_id?: string | null;
     payload?: Record<string, unknown> | null;
     target_user_id: string | null;
     target_id: string | null;
@@ -265,6 +266,21 @@ async function executeApproved(
     return;
   }
 
+  // Owner 2026-11-13 — what a supplier plan includes, changed like a price. The number rides in the payload.
+  if (row.action_type === 'approve_plan_contents_change') {
+    if (!row.decided_by) throw new Error('Plan change has no confirming admin');
+    if (!row.initiated_by) throw new Error('Plan change has no initiating admin');
+    if (!row.payload) throw new Error('Plan change has no payload');
+    const { executePlanContentsChange } = await import('@/app/admin/pricing/plan-contents-actions');
+    await executePlanContentsChange(admin, {
+      payload: row.payload,
+      initiatedByAdminId: row.initiated_by,
+      confirmingAdminId: row.decided_by,
+      approvalId: row.approval_id ?? null,
+    });
+    return;
+  }
+
   if (!row.target_user_id) throw new Error('Request has no target user');
   const t = row.target_user_id;
 
@@ -330,6 +346,7 @@ export async function approveRequest(formData: FormData) {
   try {
     await executeApproved(admin, claimed as {
       action_type: ApprovalActionType;
+      approval_id: string | null;
       // Kept in step with executeApproved's parameter — a cast that omits a
       // field does not fail at the cast, it fails at the call, one line later.
       payload?: Record<string, unknown> | null;

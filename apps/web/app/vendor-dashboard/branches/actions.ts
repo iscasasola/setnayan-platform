@@ -19,7 +19,8 @@ import {
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { TIER_LABEL, canBuyExtraBranches, includedBranchesLeft, planHasBranches, tierCaps } from '@/lib/vendor-tier-caps';
+import { TIER_LABEL, canBuyExtraBranches, planHasBranches } from '@/lib/vendor-tier-caps';
+import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import { formatCount } from '@/lib/format-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -259,7 +260,10 @@ export async function createBranch(
     .eq('included_in_plan', true)
     .is('cancelled_at', null);
   if (includedErr) return err('We could not check your plan’s branches just now. Please try again in a moment.');
-  if (includedBranchesLeft(tier, includedInUse ?? 0) > 0) {
+  // 🧮 The plan's branches as the admin last set them (vendor_plan_contents, owner 2026-11-13) — the same number the
+  // database gate reads through vendor_tier_limit(); the code value when unread.
+  const planCaps = await fetchLiveTierCaps(supabase, tier);
+  if (Math.max(0, planCaps.branchesIncluded - Math.max(0, includedInUse ?? 0)) > 0) {
     const { error: incErr } = await supabase.from('vendor_branches').insert({
       parent_vendor_profile_id: vendorProfileId,
       branch_label: label,
@@ -281,7 +285,7 @@ export async function createBranch(
   // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
   // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
   if (!canBuyExtraBranches(tier)) {
-    const total = tierCaps(tier).branchesIncluded;
+    const total = planCaps.branchesIncluded;
     return err(
       total > 0
         ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`

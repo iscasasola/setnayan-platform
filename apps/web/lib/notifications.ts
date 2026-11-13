@@ -620,7 +620,12 @@ export type NotificationType =
      `offerServiceCore` when the Share icon under a card on Shop › Services posts it (`offerServiceInterest` with `via=share`). The
      in-chat ＋ offer keeps `chat_message`. ⚠ IN-APP ONLY (no new emails): NOT on EMAIL_ENABLED_TYPES —
      `a-shared-card-never-emails.test.ts`. ⚠ ENUM value in its own migration (notification_type_service_card_shared). */
-  | 'service_card_shared';
+  | 'service_card_shared'
+  /** Owner 2026-11-13 (ACCOUNT SUSPEND): an admin put the account on hold / the hold was lifted — told in plain words
+     (lib/account-suspension.ts). ⚠ IN-APP ONLY: not on EMAIL_ENABLED_TYPES (owner rule 2026-10-11). ⚠ ENUM values in
+     their own migration (notification_type_account_suspension). */
+  | 'account_suspended'
+  | 'account_unsuspended';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -766,6 +771,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   supplier_questions_sent: 'A supplier sent you questions',
   supplier_report: 'A supplier sent a report',
   service_card_shared: 'A supplier shared a service card',
+  account_suspended: 'Your account is on hold',
+  account_unsuspended: 'Your account is active again',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -1022,6 +1029,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   supplier_report: 'bg-warn-100 text-warn-900',
   // A card in the chat to look at, nothing waits on it → the chat's own informational sky.
   service_card_shared: 'bg-sky-100 text-sky-800',
+  // An account hold — something the person must know about, not an ask → the action-needed amber; the lift → sky.
+  account_suspended: 'bg-warn-100 text-warn-900',
+  account_unsuspended: 'bg-sky-100 text-sky-800',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.

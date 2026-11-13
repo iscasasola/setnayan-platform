@@ -454,13 +454,23 @@ test('🔒 4 · a proposal waits; a host or the coordinator accepts it in place;
 
 // ─── 5 · what a suppliers grant shows (verified, not changed) ────────────
 
-test('5 · a "Suppliers" grant shows the other suppliers’ prices and contact details (stated in the PR, not changed here)', async () => {
+test('5 · a "Suppliers" grant shows the other suppliers’ contact details; the money reader hides their prices', async () => {
+  // #5936 · migration 20271342818285 (migration A of two): the app reads the five booking amounts only through
+  // event_vendor_money_read, which hides them from a seat without Budget & payments. The direct column is still
+  // selectable until migration B (the per-column close, a follow-up PR) — that PR turns the price assertion below
+  // into "refused".
+  const hidden = await as<{ total_cost_php: string | null; money_shown: boolean }>(
+    W.photographer,
+    `SELECT total_cost_php, money_shown FROM public.event_vendor_money_read($1) WHERE vendor_id = $2`,
+    [W.eventId, W.floristRow],
+  );
+  assert.deepEqual(hidden.rows, [{ total_cost_php: null, money_shown: false }], 'the reader hides the price from a Suppliers-only seat');
   const r = await as<{ total_cost_php: string | null; contact_phone: string | null; contact_email: string | null }>(
     W.photographer,
     `SELECT total_cost_php, contact_phone, contact_email FROM public.event_vendors WHERE vendor_id = $1`,
     [W.floristRow],
   );
   assert.equal(r.rows.length, 1);
-  assert.equal(Number(r.rows[0]!.total_cost_php), 50000, 'the florist’s price is readable to a supplier holding Suppliers');
+  assert.equal(Number(r.rows[0]!.total_cost_php), 50000, 'the florist’s price is still readable directly until migration B closes the column');
   assert.equal(r.rows[0]!.contact_email, 'shop@example.test', 'the florist’s contact is readable to a supplier holding Suppliers');
 });

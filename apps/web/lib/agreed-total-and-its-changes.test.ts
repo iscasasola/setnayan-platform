@@ -690,7 +690,12 @@ const SOURCES: ReadonlyMap<string, string> = new Map(
 );
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
 /** THE SET — derived from the source, never typed: every file that reads the column. */
-const READERS = new Set([...SOURCES].filter(([, src]) => /total_cost_php/.test(src)).map(([f]) => f));
+// #5936: a browser read of the price now arrives through lib/event-vendor-money.ts (the one path today; the column close lands in migration B),
+// so a file that calls the reader reads total_cost_php as surely as one that names it — it stays on the roster.
+const BOOKING_MONEY_READ = /\b(readBookingMoney|readOneBookingMoney|withBookingMoney)\s*\(/;
+const READERS = new Set(
+  [...SOURCES].filter(([, src]) => /total_cost_php/.test(src) || BOOKING_MONEY_READ.test(src)).map(([f]) => f),
+);
 
 const AGREED_NOW = /\bagreedTotalNow\s*\(/;
 const EMBED = /\$\{CHANGE_LINES_EMBED\}/;
@@ -710,7 +715,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
       [PAGE_READ, 1],
       [/agreedTotalNow\(bk\.total_cost_php, byVendor\.get\(/, 1],
     ],
-    column: 3,
+    column: 2,
   },
   'lib/vendor-card-from-couple.ts': {
     what: 'the seed for a claimed supplier’s first card — the price they publish',
@@ -724,7 +729,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/_components/event-dashboard.tsx': {
     what: 'event home — the committed figure',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const cost = agreedTotalNow\(row\.total_cost_php, row\.change_lines\)/, 1]],
-    column: 3,
+    column: 2,
   },
   'app/dashboard/[eventId]/vendors/page.tsx': {
     what: 'the couple’s supplier list, plan budget, “remaining”, build guard',
@@ -744,7 +749,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
       [/packageHeader\.priceCentavos \+ Math\.round\(changesSinceLockNum \* 100\)/, 1],
       [/\{changesSinceLockNum !== 0 \?/, 1],
     ],
-    column: 7,
+    column: 6,
   },
   // ⚖ 13 → 21 on 2026-09-21, and none of the eight is a display of the agreed
   // total. Seven WRITE the price (the price-only branch of updateVendorCosts,
@@ -766,7 +771,9 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     // `total_cost_php` FORM FIELD for the fee-leak price check — a price the couple
     // just typed, never a stored agreed total, so it is not one to route through
     // agreedTotalNow.
-    column: 17,
+    // 11 since #5936 (PR #7560, Fix A): the three reads inside updateVendorCosts' payload — the hidden-total
+    // compare and the two `total_cost_php: newTotal` writes — moved to lib/booking-cost-write.ts.
+    column: 11,
   },
   'lib/booking-payment-plan.server.ts': {
     what: 'the payment plan amounts — frozen at the direct lock and at the supplier’s yes',
@@ -776,7 +783,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',
     needles: [[AGREED_NOW, 1], [EMBED, 1], [/const rolled = \(r: VRow\) =>\s*\(agreedTotalNow\(/, 1]],
-    column: 4,
+    column: 3,
   },
   'lib/claim-door.server.ts': {
     what: 'the claim door — the price the couple recorded, shown to the supplier they invited',
@@ -799,7 +806,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'lib/checklist-budget.ts': {
     what: 'checklist budget — committed per plan group (folded in checklist-budget-attribution)',
     needles: [[EMBED, 1]],
-    column: 1,
+    column: 0,
   },
   'lib/checklist-budget-attribution.ts': {
     what: 'checklist budget — the per-supplier cost',
@@ -814,12 +821,12 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'lib/budget.ts': {
     what: 'budget card (draws the breakdown) — resolveAgreedTotal, twice',
     needles: [[/\bresolveAgreedTotal\s*\(/, 2]],
-    column: 4,
+    column: 2,
   },
   'lib/budget-truth.ts': {
     what: 'budget resolver (draws the breakdown) — resolveAgreedTotal',
     needles: [[/\bresolveAgreedTotal\s*\(/, 1]],
-    column: 6,
+    column: 5,
   },
   'lib/agreed-total-and-its-changes.ts': {
     what: 'THE RULE ITSELF',
@@ -838,6 +845,8 @@ const PASSES_THROUGH: Record<string, string> = {
   'lib/shortlist-taxonomy.ts': 'buildShortlistFolders prices the shortlist from vendorRows',
   'lib/vendors-plan-budget.ts': 'buildPlanBudgetModel rolls up each pick’s price',
   'lib/vendors.ts': 'fetchEventVendors returns the raw row (HONEST SHOP’s file)',
+  'lib/event-vendor-money.ts':
+    'THE READER (#5936) — hands the raw column from event_vendor_money_read back onto the row the caller already reads; every caller is on its own roster here and folds (or not) exactly as it did when it selected the column itself',
 };
 /** entry function → its callers: the ones that FOLD first, and the ones that read no price. */
 const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }> = {
@@ -888,6 +897,8 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
 
 /** NOT A PRICE SHOWN TO A PERSON — each with the reason that makes it so. */
 const NOT_A_PRICE_SHOWN: Record<string, string> = {
+  'lib/booking-cost-write.ts':
+    'WRITES the headline the costing form posted (updateVendorCosts’ payload rule, #5936) and compares the stored headline to it only to decide whether the pax surcharge re-baselines — shows nothing, and writes no amount at all when the reader hid them',
   'app/dev/suppliers-lab/fixtures.ts':
     'FIXTURE rows for /dev/suppliers-lab (no event, no database, 404 in production) — typed in the lab, never read from event_vendors',
   'app/dev/suppliers-lab/booked-fixtures.ts':

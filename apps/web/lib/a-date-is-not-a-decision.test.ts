@@ -144,7 +144,8 @@ test('the expired minis are gated, and the ones that stayed true are not (ruling
   );
   // Budget stays ungated too — the half of the rule that is easy to lose.
   assert.ok(
-    source.includes('if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {'),
+    // #5936 (PR #7560, Fix B) added the hidden state to the condition — still no phase gate.
+    source.includes("if (committed.state === 'hidden' || committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {"),
     'the budget mini must NOT be gated on the event being ahead (it has no phase gate at all)',
   );
 });

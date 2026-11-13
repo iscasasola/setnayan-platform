@@ -231,6 +231,7 @@ import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { HOSTS_ONLY } from '@/lib/money-mask';
 import { StayForm } from '@/app/_components/stay-form';
+import { readOneBookingMoney } from '@/lib/event-vendor-money';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -348,14 +349,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Primary fetch — event_vendors row, gated by RLS to host-on-event only.
   // `notFound()` covers both "row doesn't exist" and "row exists but RLS denied"
   // outcomes, since either way the host has no business viewing this URL.
-  const { data: vendorRow, error: vendorErr } = await supabase
+  // 🔒 the booking amounts come from event_vendor_money_read (#5936), not the row select.
+  const { data: vendorRaw, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  const vendorRow = vendorRaw
+    ? { ...vendorRaw, ...(await readOneBookingMoney(supabase, eventId, vendorId)) }
+    : vendorRaw;
 
   if (vendorErr || !vendorRow) notFound();
 

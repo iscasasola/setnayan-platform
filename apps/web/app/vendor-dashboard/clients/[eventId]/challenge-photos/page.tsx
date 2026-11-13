@@ -1,13 +1,13 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Trophy, ImageIcon, PlayCircle } from 'lucide-react';
+import { ArrowLeft, PlayCircle } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { fetchVendorChallengePhotos } from '@/lib/papic-games';
 import { displayChallengePrompt } from '@/lib/papic-missions';
-import { ShopCard } from '../../../_components/kit';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
@@ -86,68 +86,65 @@ export default async function VendorChallengePhotosPage({
   const total = sections.reduce((n, s) => n + s.tiles.length, 0);
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6">
-      <Link
+    <section className="mx-auto w-full max-w-5xl space-y-2 px-4 py-4 sm:px-6">
+      <ActionButton
+        tone="neutral"
+        quiet
+        icon={<ArrowLeft aria-hidden strokeWidth={2} />}
+        label="Back to client"
         href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-        className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
+      />
+
+      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
+      <h1 className="sr-only">Challenge photos</h1>
+
+      <TemplateSection
+        label="Challenge photos"
+        first
+        tip="Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you. Yours to use."
+        right={total > 0 ? `${total} shared` : undefined}
       >
-        <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Back to client
-      </Link>
-
-      <header>
-        <h1 className="flex items-center gap-2 text-xl font-semibold text-ink">
-          <Trophy aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2} />
-          Challenge photos
-        </h1>
-        <p className="mt-1 text-sm text-ink/60">
-          Guest photos and videos from the challenges you sponsored — only the ones a
-          guest chose to share with you. Yours to use.
-        </p>
-      </header>
-
-      {total === 0 ? (
-        <ShopCard pad="none" className="p-8 text-center">
-          <ImageIcon aria-hidden className="mx-auto h-8 w-8 text-ink/25" strokeWidth={1.5} />
-          <p className="mt-3 text-sm text-ink/55">
-            No shared photos yet. They appear here as guests complete your challenges and
-            tap “share” — once you’ve sponsored Papic Challenges for this event.
-          </p>
-        </ShopCard>
-      ) : (
-        sections.map((s, i) => (
-          <ShopCard key={i} pad="roomy">
-            <p className="text-sm font-medium text-ink">{displayChallengePrompt(s.prompt)}</p>
-            <p className="mt-0.5 text-xs text-ink/45">
-              {s.tiles.length} shared {s.tiles.length === 1 ? 'shot' : 'shots'}
-            </p>
-            <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
-              {s.tiles.map((t) => (
-                <a
-                  key={t.captureId}
-                  href={t.openUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block aspect-square overflow-hidden rounded-xl border border-ink/10 bg-ink/5"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={t.tileUrl}
-                    alt="Shared guest photo"
-                    className="h-full w-full object-cover transition group-hover:opacity-90"
-                    loading="lazy"
-                  />
-                  {t.isClip ? (
-                    <span className="absolute inset-0 flex items-center justify-center bg-ink/20">
-                      <PlayCircle aria-hidden className="h-8 w-8 text-white" strokeWidth={1.75} />
-                    </span>
-                  ) : null}
-                </a>
-              ))}
-            </div>
-          </ShopCard>
-        ))
-      )}
+        {total === 0 ? (
+          <TemplateEmpty data="challenge-photos">
+            No shared photos yet — they arrive as guests finish your challenges and tap “share”.
+          </TemplateEmpty>
+        ) : (
+          <div className="space-y-6">
+            {sections.map((s, i) => (
+              <div key={i} className="border-t border-[color:var(--m-line)] pt-3 first:border-t-0 first:pt-1">
+                <p className="text-[15px] font-semibold leading-tight text-ink">{displayChallengePrompt(s.prompt)}</p>
+                <p className={`mt-0.5 ${TEMPLATE_SUBLINE}`}>
+                  {s.tiles.length} shared {s.tiles.length === 1 ? 'shot' : 'shots'}
+                </p>
+                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {s.tiles.map((t) => (
+                    <a
+                      key={t.captureId}
+                      href={t.openUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative block aspect-square overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={t.tileUrl}
+                        alt="Shared guest photo"
+                        className="h-full w-full object-cover transition group-hover:opacity-90"
+                        loading="lazy"
+                      />
+                      {t.isClip ? (
+                        <span className="absolute inset-0 flex items-center justify-center bg-ink/20">
+                          <PlayCircle aria-hidden className="h-8 w-8 text-white" strokeWidth={1.75} />
+                        </span>
+                      ) : null}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </TemplateSection>
     </section>
   );
 }

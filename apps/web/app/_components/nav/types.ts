@@ -58,6 +58,11 @@ export type NavBadge = {
   tone: NavBadgeTone;
   /** Optional sr-only label override when count alone is ambiguous. */
   label?: string;
+  /**
+   * Shown in place of the number — "—" when the count could not be read (T28/T29: a failed read is never a 0 and never
+   * a quiet nothing). With `text`, the badge draws even at `count: 0`. Default: the number, as before.
+   */
+  text?: string;
 };
 
 export type NavItem = {

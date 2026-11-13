@@ -13,7 +13,7 @@ import {
 import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
-import { TOP_UP_CHARGE_KIND } from '@/lib/booking-fee-top-up';
+import { feeOrdersToEmail } from '@/lib/booking-fee-top-up';
 
 /**
  * Vendor Booking-Fee SURFACING — the DB-touching half (fetch + notification
@@ -140,9 +140,14 @@ export async function maybeSweepVendorBookingFeeNotifications(
 
     // 💸 RULE 5 (owner 2026-11-12, "no new emails"): a booking-fee TOP-UP is told by the shipped chat line and
     // Today's `booking_fee_overdue` blocker — never by this sweep, whose `order_quoted` type is on the EMAIL
-    // allowlist. Its orders are dropped here. A refused read drops nothing (the shipped behaviour) and is logged.
-    const topUpOrders = await readTopUpOrderIds(admin, dueOrders);
-    const toTell = dueOrders.filter((o) => !topUpOrders.has(o.order_id));
+    // allowlist. FAIL CLOSED (audit hold, 13 Nov): only an order whose charge was READ as an ordinary fee is emailed.
+    // A refused read emails nobody (logged, the run skipped); an empty read emails nobody — never "no filter".
+    const charges = await readFeeChargeKinds(admin, dueOrders);
+    if (charges === null) return;
+    const toTell = feeOrdersToEmail(
+      dueOrders.map((o) => ({ ...o, chargeId: chargeIdFromBookingFeeLockServiceKey(o.service_key) })),
+      charges,
+    );
     if (toTell.length === 0) return;
 
     // Which of those already have a notification (idempotency key = the pay-page
@@ -209,31 +214,22 @@ export async function maybeSweepVendorBookingFeeNotifications(
 }
 
 /**
- * Which of these fee orders bill a TOP-UP (`booking_fee_charges.kind = 'amendment_delta'`). The order's
- * `service_key` names its charge (`chargeIdFromBookingFeeLockServiceKey`). A refused read returns an empty set — the
- * sweep then behaves exactly as shipped — and is logged, never swallowed.
+ * The charge KIND of each of these fee orders (`booking_fee_charges.kind`; the order's `service_key` names its charge
+ * via `chargeIdFromBookingFeeLockServiceKey`). A refused read returns NULL — never an empty list — and is logged, so
+ * the sweep can tell "could not read" from "read, nothing ordinary" and email nobody on either.
  */
-async function readTopUpOrderIds(
+async function readFeeChargeKinds(
   admin: ReturnType<typeof createAdminClient>,
-  orders: ReadonlyArray<{ order_id: string; service_key: string | null }>,
-): Promise<Set<string>> {
-  const byCharge = new Map<string, string>();
-  for (const o of orders) {
-    const chargeId = chargeIdFromBookingFeeLockServiceKey(o.service_key);
-    if (chargeId) byCharge.set(chargeId, o.order_id);
-  }
-  const out = new Set<string>();
-  if (byCharge.size === 0) return out;
-  const { data, error } = await admin
-    .from('booking_fee_charges')
-    .select('charge_id,kind')
-    .in('charge_id', [...byCharge.keys()]);
+  orders: ReadonlyArray<{ service_key: string | null }>,
+): Promise<Array<{ charge_id: string; kind: string | null }> | null> {
+  const chargeIds = [
+    ...new Set(orders.map((o) => chargeIdFromBookingFeeLockServiceKey(o.service_key)).filter((id): id is string => !!id)),
+  ];
+  if (chargeIds.length === 0) return [];
+  const { data, error } = await admin.from('booking_fee_charges').select('charge_id,kind').in('charge_id', chargeIds);
   if (error) {
-    logQueryError('vendor-booking-fees: top-up kinds', error);
-    return out;
+    logQueryError('vendor-booking-fees: charge kinds (sweep skipped, nobody emailed)', error);
+    return null;
   }
-  for (const c of (data ?? []) as Array<{ charge_id: string; kind: string | null }>) {
-    if (c.kind === TOP_UP_CHARGE_KIND) out.add(byCharge.get(c.charge_id)!);
-  }
-  return out;
+  return (data ?? []) as Array<{ charge_id: string; kind: string | null }>;
 }

@@ -237,12 +237,13 @@ export async function sendChatMessageCore(
     return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
   }
 
-  // 💸 WORDS ONLY WHILE A BOOKING-FEE TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up rules): the shop's event
-  // is locked by an unsettled top-up past its event day, so its message keeps words — a file is refused, said in the
-  // lock's own words. Only the SHOP side, only with a file; a held top-up (or a failed read) refuses nothing.
+  // 💸 WORDS ONLY ON A NEW INQUIRY WHILE A BOOKING-FEE TOP-UP IS OVERDUE (owner 2026-11-12, booking-fee top-up rules;
+  // prototype "booked clients are unaffected"): on a thread where the shop is NOT booked, an unsettled top-up past its
+  // event day (from any of the shop's events) keeps its message to words — a file is refused, said in the lock's own
+  // words. Only the SHOP side, only with a file; a booked client, a held top-up or a failed read refuses nothing.
   if (senderRole === 'vendor' && (hasAttachment || storedRef)) {
-    const { readOverdueTopUpForEvent } = await import('./booking-fee-top-up.server');
-    const owed = await readOverdueTopUpForEvent(
+    const { readWordsOnlyTopUp } = await import('./booking-fee-top-up.server');
+    const owed = await readWordsOnlyTopUp(
       thread.vendor_profile_id,
       thread.event_id,
       new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date()),

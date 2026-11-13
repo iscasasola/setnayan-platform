@@ -4,7 +4,7 @@
  *   1 · DUE on the event day ("Due today"), gated only from the DAY AFTER.
  *   2 · may be settled EARLY — "Settle early" before the event day.
  *   4 · HELD before the event day: no page gate, no carry-over onto a new booking until overdue.
- *   5 · NO email — the sweep that emails a due bill drops a top-up.
+ *   5 · NO email — the sweep that emails a due bill emails ONLY orders read as ordinary fees (fail closed).
  *   6 · a quote that drops shows no credit — nothing in the app reads the credit row.
  *
  * Rule 3 (a free first booking stays free) and the SQL half of 1 + 4 are pinned against the replayed database in
@@ -18,11 +18,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   TOP_UP_WORDS,
+  feeOrdersToEmail,
   overdueTopUps,
   topUpIsHeld,
   topUpOwedPhp,
   topUpPayLabel,
   topUpStage,
+  wordsOnlyTopUpPhp,
 } from './booking-fee-top-up';
 import { eventAccessUnlocked, feeLockCopy } from './event-access-stage';
 import { feeDueCopy, type DueFeeBill } from './booking-fee-disclosure';
@@ -146,13 +148,77 @@ test('an ordinary bill keeps the shipped words (a top-up flag changes nothing el
 
 /* ── RULE 5 · no email ──────────────────────────────────────────────────────────────────────────────────────────── */
 
-test('rule 5 · the emailing fee sweep drops every top-up order before it notifies', () => {
-  // SABOTAGE: notify `dueOrders` instead of `toTell` → RED.
+const ORDERS = [
+  { order_id: 'O-primary', chargeId: 'C-primary' },
+  { order_id: 'O-topup', chargeId: 'C-topup' },
+  { order_id: 'O-unread', chargeId: 'C-unread' },
+  { order_id: 'O-nokey', chargeId: null },
+];
+
+test('rule 5 · FAIL CLOSED — a failed charge read emails nobody', () => {
+  // SABOTAGE: `if (charges === null) return orders` (the old "no filter") → RED.
+  assert.deepEqual(feeOrdersToEmail(ORDERS, null), []);
+});
+
+test('rule 5 · FAIL CLOSED — an empty charge read emails nobody', () => {
+  // The old deny-list read an empty set as "nothing to drop" and emailed every due order, top-ups included.
+  assert.deepEqual(feeOrdersToEmail(ORDERS, []), []);
+});
+
+test('rule 5 · only an order whose charge was READ as an ordinary fee is emailed — never a top-up, never an unread one', () => {
+  const told = feeOrdersToEmail(ORDERS, [
+    { charge_id: 'C-primary', kind: 'primary' },
+    { charge_id: 'C-topup', kind: 'amendment_delta' },
+    { charge_id: 'C-stranger', kind: 'primary' },
+  ]).map((o) => o.order_id);
+  assert.deepEqual(told, ['O-primary']);
+});
+
+test('rule 5 · the emailing fee sweep notifies only what feeOrdersToEmail allows, and skips the run on a failed read', () => {
+  // SABOTAGE: notify `dueOrders` instead of `toTell`, or drop the `charges === null` return → RED.
   const src = read('lib/vendor-booking-fees.server.ts');
   const sweep = src.slice(src.indexOf('export async function maybeSweepVendorBookingFeeNotifications'));
-  assert.match(sweep, /const toTell = dueOrders\.filter\(\(o\) => !topUpOrders\.has\(o\.order_id\)\);/);
+  assert.match(sweep, /const charges = await readFeeChargeKinds\(admin, dueOrders\);\s*if \(charges === null\) return;/);
+  assert.match(sweep, /const toTell = feeOrdersToEmail\(/);
   assert.match(sweep, /for \(const o of toTell\) \{/);
   assert.doesNotMatch(sweep.slice(sweep.indexOf('const toTell')), /for \(const o of dueOrders\)/);
+  const reader = src.slice(src.indexOf('async function readFeeChargeKinds'));
+  assert.match(reader, /if \(error\) \{[^}]*return null;/, 'a refused read must be null, never an empty list');
+});
+
+/* ── WORDS ONLY · a new inquiry, never a booked client ──────────────────────────────────────────────────────────── */
+
+const OVERDUE_TOP_UP = { amount_charged_centavos: 13000, expires_at: DUE_AT };
+
+test('words only · an UNBOOKED inquiry is narrowed while the shop has an overdue top-up on another event', () => {
+  assert.equal(wordsOnlyTopUpPhp({ booked: false, charges: [OVERDUE_TOP_UP], todayPh: DAY_AFTER }), 130);
+});
+
+test('words only · a BOOKED client is never narrowed — the couple who owes the top-up included', () => {
+  // SABOTAGE: drop the `booked !== false` arm → RED.
+  assert.equal(wordsOnlyTopUpPhp({ booked: true, charges: [OVERDUE_TOP_UP], todayPh: DAY_AFTER }), null);
+});
+
+test('words only · a failed read narrows nothing — never read as "unbooked" or "owes"', () => {
+  assert.equal(wordsOnlyTopUpPhp({ booked: null, charges: [OVERDUE_TOP_UP], todayPh: DAY_AFTER }), null);
+  assert.equal(wordsOnlyTopUpPhp({ booked: false, charges: null, todayPh: DAY_AFTER }), null);
+});
+
+test('words only · a held or due-today top-up narrows nothing', () => {
+  assert.equal(wordsOnlyTopUpPhp({ booked: false, charges: [OVERDUE_TOP_UP], todayPh: BEFORE }), null);
+  assert.equal(wordsOnlyTopUpPhp({ booked: false, charges: [OVERDUE_TOP_UP], todayPh: EVENT_DAY }), null);
+});
+
+test('words only · the read asks the SHOP-wide top-ups and this thread\'s booking — and both callers use it', () => {
+  // SABOTAGE: scope the top-up read back to `.eq('event_id', eventId)` (the booked event that owes it) → RED.
+  const src = read('lib/booking-fee-top-up.server.ts');
+  const fn = src.slice(src.indexOf('export async function readWordsOnlyTopUp'), src.indexOf('export async function readOverdueTopUpEventIds'));
+  const chargesRead = fn.slice(fn.indexOf(".from('booking_fee_charges')"));
+  assert.doesNotMatch(chargesRead.slice(0, chargesRead.indexOf(']);')), /\.eq\('event_id'/);
+  assert.match(fn, /\.from\('event_vendors'\)[\s\S]*?\.in\('status', CONFIRMED_VENDOR_STATUSES/);
+  assert.match(fn, /booked: bookedRes\.error \? null : /);
+  assert.match(read('lib/chat-send.ts'), /await readWordsOnlyTopUp\(/);
+  assert.match(read('app/vendor-dashboard/messages/[threadId]/page.tsx'), /readWordsOnlyTopUp\(profile\.vendor_profile_id, thread\.event_id, /);
 });
 
 /* ── RULE 6 · no credit shown ───────────────────────────────────────────────────────────────────────────────────── */

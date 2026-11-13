@@ -2,7 +2,7 @@
 
 import { useId, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Trash2, Upload } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Clock, EyeOff, FileText, Images, Link2, Play, Plus, Search, SlidersHorizontal, Tag, Trash2, Upload, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
@@ -17,6 +17,20 @@ import {
 } from '@/lib/supplier-files';
 import type { EventFile, PortfolioPick, QuotedService } from '@/lib/supplier-files.server';
 import { eventFilesAction, type EventFilesState } from '@/app/_actions/event-files-actions';
+import { RIGHTS_WARRANTY_TEXT } from '@/lib/moodboard-gallery-pure';
+import {
+  BY_REFERENCE_LINE,
+  ONE_SERVICE_LINE,
+  UNTAG_LINE,
+  partsLeftToTag,
+  pickedWords,
+  tagButtonWords,
+  tagCountsByFile,
+  tagStateWords,
+  type FileTag,
+  type OfferedPart,
+  type TagState,
+} from '@/lib/inspiration-tags';
 
 /**
  * 📁 A SUPPLIER'S FILES FOR ONE EVENT — the board (Piece 3b · prototype legend rows 139–143 · 149; DECISION_LOG
@@ -52,6 +66,13 @@ export type EventFilesBoardProps = {
   returnPath: string;
   /** 📥 Piece 3c: the chat's files could not be read — said, never drawn as a chat with nothing in it. */
   chatUnread?: boolean;
+  /**
+   * 🏷 Inspiration tags (DECISION_LOG 2026-11-14) — Files only. `undefined` = not offered here (the Hub); `null` = the
+   * tags could not be read (said in the photo sheet, never drawn as "none yet").
+   */
+  tags?: FileTag[] | null;
+  /** 🏷 Per quoted service card: the inspirations it offers (`inspiration_part_services`). */
+  offered?: Record<string, OfferedPart[]>;
 };
 
 type Sort = 'newest' | 'oldest' | 'name' | 'size';
@@ -80,7 +101,14 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
   const [busy, start] = useTransition();
   const target = useRef<{ grp: 'service' | 'booking'; serviceId: string | null }>({ grp: 'booking', serviceId: null });
   const input = useRef<HTMLInputElement>(null);
-  const ids = { sort: useId(), plus: useId(), upl: useId(), pf: useId(), view: useId() };
+  const ids = { sort: useId(), plus: useId(), upl: useId(), pf: useId(), view: useId(), tag: useId() };
+  // 🏷 Select mode (frame 4): photos of ONE service at a time, so the list of inspirations fits them all.
+  const [selecting, setSelecting] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [tagSheet, setTagSheet] = useState(false);
+  const tagging = p.mode === 'files' && p.tags !== undefined;
+  const tagCounts = useMemo(() => tagCountsByFile(p.tags ?? []), [p.tags]);
+  const stopSelecting = () => (setSelecting(null), setPicked([]), setTagSheet(false));
 
   const quotedIds = useMemo(() => new Set(p.quoted.map((s) => s.id)), [p.quoted]);
   const visible = useMemo(() => {
@@ -140,6 +168,27 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
       fd.set('event_id', p.eventId);
       fd.set('return_path', p.returnPath);
       eventFilesAction({ status: 'idle' }, fd).then(resolve, () => resolve({ status: 'error', message: 'We couldn’t reach Setnayan. Please try again.' }));
+    });
+
+  /** 🏷 Tag photos to inspirations / take one tag off — the Files dispatcher's `tag` · `untag` ops. */
+  const tagPhotos = (fileIds: string[], slots: string[], rights: boolean, after?: () => void) =>
+    start(async () => {
+      const fd = new FormData();
+      fd.set('op', 'tag');
+      fd.set('file_ids', JSON.stringify(fileIds));
+      fd.set('slots', JSON.stringify(slots));
+      fd.set('rights', rights ? '1' : '0');
+      const r = await run(fd);
+      setSaid(r.status === 'error' ? { ok: false, words: r.message } : { ok: true, words: r.status === 'done' ? r.message : 'Tagged' });
+      if (r.status !== 'error') after?.();
+    });
+  const untag = (assetId: string) =>
+    start(async () => {
+      const fd = new FormData();
+      fd.set('op', 'untag');
+      fd.set('asset_id', assetId);
+      const r = await run(fd);
+      setSaid(r.status === 'error' ? { ok: false, words: r.message } : { ok: true, words: r.status === 'done' ? r.message : 'Removed' });
     });
 
   /** Upload new: hash on the phone → skip the upload when the bytes are stored → else presign, PUT, file. */
@@ -314,10 +363,22 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
 
       {groups.map((g) => (
         <section key={g.key} aria-label={g.title} className="space-y-2" data-files-group={g.key}>
-          <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/60">
-            {g.title} · {formatCount(g.rows.length)}
-            {g.key === 'booking' ? <span className="ml-1 normal-case tracking-normal text-ink/45">kept after the event, never on your shop</span> : null}
-          </h3>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink/60">
+              {g.title} · {formatCount(g.rows.length)}
+              {g.key === 'booking' ? <span className="ml-1 normal-case tracking-normal text-ink/45">kept after the event, never on your shop</span> : null}
+            </h3>
+            {tagging && quotedIds.has(g.key) && g.rows.some((f) => f.grp === 'service' && f.kind === 'photo') && (selecting === null || selecting === g.key) ? (
+              <button
+                type="button"
+                onClick={() => (selecting === g.key ? stopSelecting() : (setSelecting(g.key), setPicked([])))}
+                className="min-h-11 px-1 text-[14px] font-medium text-sn-accent"
+                data-files-select={g.key}
+              >
+                {selecting === g.key ? 'Cancel' : 'Select'}
+              </button>
+            ) : null}
+          </div>
           {g.rows.length === 0 ? (
             <p className="text-sm text-ink/55">
               {g.key === 'booking'
@@ -327,7 +388,17 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
                   : 'Nothing yet. Tap ＋ to add from your portfolio or upload new.'}
             </p>
           ) : g.grid ? (
-            <Grid rows={g.rows} greyed={p.mode === 'hub' && !p.feeUnlocked} onOpen={setViewer} />
+            <Grid
+              rows={g.rows}
+              greyed={p.mode === 'hub' && !p.feeUnlocked}
+              onOpen={setViewer}
+              tagCounts={tagging ? tagCounts : undefined}
+              picking={
+                selecting === g.key
+                  ? { on: picked, toggle: (id) => setPicked((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id])) }
+                  : undefined
+              }
+            />
           ) : (
             <ul className="space-y-1.5">
               {g.rows.map((f) => (
@@ -354,6 +425,31 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
           )}
         </section>
       ))}
+
+      {selecting ? (
+        <>
+          <p className="text-[13px] text-ink/65" data-files-select-note="">
+            {ONE_SERVICE_LINE}
+          </p>
+          <div className="sticky bottom-[max(env(safe-area-inset-bottom),12px)] z-20 flex items-center gap-2 rounded-2xl bg-cream px-3 py-2.5 shadow-lg ring-1 ring-ink/10" data-files-select-bar="">
+            <span className="min-w-0 flex-1 text-[14px] font-medium text-ink">
+              {picked.length ? `${formatCount(picked.length)} ${picked.length === 1 ? 'photo' : 'photos'}` : 'Pick photos'}
+            </span>
+            <button type="button" onClick={stopSelecting} className="min-h-11 rounded-full bg-ink/[0.05] px-4 text-[14px] font-medium text-ink/75">
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={picked.length === 0}
+              onClick={() => setTagSheet(true)}
+              className="inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-4 text-[14px] font-medium text-cream disabled:opacity-40"
+              data-files-select-tag=""
+            >
+              Tag to inspiration <ChevronDown className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </>
+      ) : null}
 
       {p.mode === 'hub' && !p.feeUnlocked ? (
         <p className="text-[13px] text-ink/65" data-hub-fee-hold>
@@ -438,6 +534,25 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
         }
       />
 
+      {/* 🏷 Several at once (frame 4) — the same list as the photo sheet's (frame 3) */}
+      <Sheet open={tagSheet && selecting !== null} onClose={() => setTagSheet(false)} labelledById={ids.tag} rise>
+        <div className="space-y-3 px-4 pb-4 pt-3" data-files-tag-sheet="">
+          <h2 id={ids.tag} className="pr-12 text-[19px] font-semibold text-ink">
+            {formatCount(picked.length)} {picked.length === 1 ? 'photo' : 'photos'} · {p.serviceTitles[selecting ?? ''] ?? 'this service'}
+          </h2>
+          <TagPicker
+            key={`multi-${picked.join(',')}`}
+            options={p.offered?.[selecting ?? ''] ?? []}
+            cardTitle={p.serviceTitles[selecting ?? ''] ?? 'this service'}
+            lead="Add to an inspiration"
+            startOpen
+            busy={busy}
+            onCancel={() => setTagSheet(false)}
+            onTag={(slots, rights) => tagPhotos(picked, slots, rights, stopSelecting)}
+          />
+        </div>
+      </Sheet>
+
       {/* The viewer */}
       <Sheet open={viewer !== null} onClose={() => setViewer(null)} labelledById={ids.view} rise>
         {viewer ? (
@@ -475,6 +590,17 @@ export function EventFilesBoard(p: EventFilesBoardProps) {
               <InfoTip label={`On your shop · ${shopStateWords(viewer.state, p.coupleName)}`} labelAs="p" labelClassName="text-[14px] font-medium text-ink" align="start">
                 {SHOP_RULES_LINE}
               </InfoTip>
+            ) : null}
+            {tagging && viewer.grp === 'service' && viewer.kind === 'photo' ? (
+              <InspirationRow
+                key={viewer.fileId}
+                tags={p.tags === null ? null : (p.tags ?? []).filter((t) => t.fileId === viewer.fileId)}
+                offered={p.offered?.[viewer.serviceId ?? ''] ?? []}
+                cardTitle={p.serviceTitles[viewer.serviceId ?? ''] ?? 'this service'}
+                busy={busy}
+                onTag={(slots, rights) => tagPhotos([viewer.fileId], slots, rights)}
+                onUntag={untag}
+              />
             ) : null}
             {viewer.fromChat ? null : (
             <ActionButton
@@ -550,7 +676,21 @@ function FileUnder({
 }
 
 /** The shipped Portfolio grid's shape: full-bleed, 3 columns, 2 px gaps, square tiles, two rows then "+N". */
-function Grid({ rows, greyed, onOpen }: { rows: EventFile[]; greyed: boolean; onOpen: (f: EventFile) => void }) {
+function Grid({
+  rows,
+  greyed,
+  onOpen,
+  tagCounts,
+  picking,
+}: {
+  rows: EventFile[];
+  greyed: boolean;
+  onOpen: (f: EventFile) => void;
+  /** 🏷 How many inspirations each photo is in (frame 1) — Files only. */
+  tagCounts?: Record<string, number>;
+  /** 🏷 Select mode (frame 4): a tap picks a photo instead of opening it. */
+  picking?: { on: string[]; toggle: (fileId: string) => void };
+}) {
   const [all, setAll] = useState(false);
   const cap = 6;
   const shown = all || rows.length <= cap ? rows : rows.slice(0, cap - 1);
@@ -559,9 +699,19 @@ function Grid({ rows, greyed, onOpen }: { rows: EventFile[]; greyed: boolean; on
     <ul className={`-mx-4 grid grid-cols-3 gap-[2px] ${greyed ? 'opacity-45 grayscale' : ''}`} data-files-grid>
       {shown.map((f) => {
         const Icon = f.state ? STATE_ICON[f.state] : null;
+        const tags = tagCounts?.[f.fileId] ?? 0;
+        const pickable = picking && f.grp === 'service' && f.kind === 'photo';
+        const on = pickable ? picking.on.includes(f.fileId) : false;
         return (
           <li key={f.fileId} className="relative aspect-square bg-ink/[0.06]">
-            <button type="button" onClick={() => onOpen(f)} aria-label={f.name} className="block h-full w-full">
+            <button
+              type="button"
+              onClick={() => (picking ? (pickable ? picking.toggle(f.fileId) : undefined) : onOpen(f))}
+              aria-label={tags ? `${f.name}, ${formatCount(tags)} ${tags === 1 ? 'inspiration' : 'inspirations'}` : f.name}
+              aria-pressed={pickable ? on : undefined}
+              disabled={Boolean(picking) && !pickable}
+              className={`block h-full w-full disabled:opacity-40 ${on ? 'ring-4 ring-inset ring-sn-accent' : ''}`}
+            >
               {f.url && f.kind === 'photo' ? (
                 // eslint-disable-next-line @next/next/no-img-element -- a signed private R2 link, not an optimisable asset
                 <img src={f.url} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -581,6 +731,23 @@ function Grid({ rows, greyed, onOpen }: { rows: EventFile[]; greyed: boolean; on
                 <Icon className="h-3.5 w-3.5" aria-hidden />
               </span>
             ) : null}
+            {tags > 0 && !picking ? (
+              <span
+                className="pointer-events-none absolute bottom-1 left-1 inline-flex h-[22px] items-center gap-0.5 rounded-full bg-cream px-1.5 text-[11.5px] font-semibold text-ink ring-1 ring-ink/10"
+                data-tile-tags={tags}
+              >
+                <Tag className="h-3 w-3" aria-hidden />
+                {formatCount(tags)}
+              </span>
+            ) : null}
+            {pickable ? (
+              <span
+                className={`pointer-events-none absolute left-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 ${on ? 'border-sn-accent bg-sn-accent text-white' : 'border-white bg-ink/25'}`}
+                data-tile-picked={on ? '' : undefined}
+              >
+                {on ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : null}
+              </span>
+            ) : null}
           </li>
         );
       })}
@@ -592,6 +759,166 @@ function Grid({ rows, greyed, onOpen }: { rows: EventFile[]; greyed: boolean; on
         </li>
       ) : null}
     </ul>
+  );
+}
+
+const PILL: Record<TagState, string> = {
+  checking: 'bg-info-50 text-info-700',
+  waiting: 'bg-ink/[0.06] text-ink/65',
+  shown: 'bg-success-50 text-success-700',
+  refused: 'bg-danger-50 text-danger-700',
+  private: 'bg-warn-50 text-warn-700',
+};
+
+/**
+ * 🏷 The photo sheet's one new row (frames 2 · 3 · 5): the photo's inspirations, each with its own state and its own
+ * ✕, then "Add to (another) inspiration ▾" — only the parts this photo's service card offers.
+ */
+function InspirationRow({
+  tags,
+  offered,
+  cardTitle,
+  busy,
+  onTag,
+  onUntag,
+}: {
+  tags: FileTag[] | null;
+  offered: OfferedPart[];
+  cardTitle: string;
+  busy: boolean;
+  onTag: (slots: string[], rights: boolean) => void;
+  onUntag: (assetId: string) => void;
+}) {
+  return (
+    <div className="space-y-2 border-t border-ink/10 pt-3" data-files-inspiration="">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/60">Inspiration</p>
+      {tags === null ? (
+        <p role="alert" className="text-sm text-ink/70">
+          We couldn’t load this photo’s inspirations just now. Reload in a moment — nothing was lost.
+        </p>
+      ) : (
+        <>
+          {tags.map((t) => {
+            const w = tagStateWords(t);
+            return (
+              <div key={t.assetId} className="flex min-h-12 items-center gap-2 rounded-xl bg-ink/[0.04] px-3.5 py-2" data-files-tag={t.state}>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-medium text-ink">{t.label}</span>
+                  <span className="block text-[12px] text-ink/60">{w.line}</span>
+                </span>
+                <span className={`flex-none rounded-full px-2.5 py-0.5 text-[12px] ${PILL[t.state]}`}>{w.pill}</span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onUntag(t.assetId)}
+                  aria-label={`Remove from ${t.label}`}
+                  className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-full text-ink/60 disabled:opacity-40"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            );
+          })}
+          <TagPicker
+            options={partsLeftToTag(offered, tags)}
+            cardTitle={cardTitle}
+            lead={tags.length ? 'Add to another inspiration' : 'Add to an inspiration'}
+            busy={busy}
+            onTag={onTag}
+          />
+          {tags.length ? <p className="text-[12px] text-ink/55">{UNTAG_LINE}</p> : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 🏷 "Add to an inspiration ▾" (frame 3): pick one or more of the parts the card offers, tick the shipped rights line
+ * (never pre-ticked), then "Tag to N inspirations". Cancel closes the list — the way back.
+ */
+function TagPicker({
+  options,
+  cardTitle,
+  lead,
+  busy,
+  startOpen = false,
+  onTag,
+  onCancel,
+}: {
+  options: OfferedPart[];
+  cardTitle: string;
+  lead: string;
+  busy: boolean;
+  startOpen?: boolean;
+  onTag: (slots: string[], rights: boolean) => void;
+  onCancel?: () => void;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [rights, setRights] = useState(false);
+  const listId = useId();
+  if (options.length === 0) {
+    return <p className="text-[13px] text-ink/60">Your {cardTitle} card does not offer another inspiration.</p>;
+  }
+  const close = () => (setOpen(false), setPicked([]), setRights(false), onCancel?.());
+  return (
+    <div className="space-y-2" data-files-tag-picker={open ? 'open' : 'closed'}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => (open ? close() : setOpen(true))}
+        className="flex min-h-12 w-full items-center gap-2 rounded-xl bg-ink/[0.04] px-3.5 text-left text-[15px] text-ink"
+      >
+        <Tag className="h-4 w-4 flex-none text-sn-accent" aria-hidden />
+        <span className="min-w-0 flex-1 font-medium">{lead}</span>
+        {picked.length || lead === 'Add to an inspiration' ? <span className="flex-none text-[13px] text-ink/55">{pickedWords(picked.length)}</span> : null}
+        <ChevronDown className={`h-4 w-4 flex-none text-ink/55 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+      {open ? (
+        <>
+          <div id={listId} className="space-y-1" role="group" aria-label={lead}>
+            {options.map((o) => {
+              const on = picked.includes(o.slotKey);
+              return (
+                <label key={o.slotKey} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3.5 text-[15px] text-ink hover:bg-ink/[0.03]">
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={() => setPicked((s) => (on ? s.filter((x) => x !== o.slotKey) : [...s, o.slotKey]))}
+                    className="h-[18px] w-[18px] accent-[rgb(var(--color-mulberry))]"
+                  />
+                  <span className="font-medium">{o.label}</span>
+                </label>
+              );
+            })}
+            <p className="px-3.5 text-[12px] text-ink/50">Other inspirations · your {cardTitle} card does not offer them.</p>
+          </div>
+          <label className="flex cursor-pointer items-start gap-3 px-1 pt-1 text-[13px] text-ink">
+            <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-[18px] w-[18px] flex-none" data-files-tag-rights="" />
+            <span>{RIGHTS_WARRANTY_TEXT}</span>
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={close} className="min-h-11 rounded-full bg-ink/[0.05] px-4 text-[14px] font-medium text-ink/75">
+              Cancel
+            </button>
+            <ActionButton
+              tone="brand"
+              main
+              icon={Tag}
+              label={tagButtonWords(picked.length)}
+              disabled={picked.length === 0 || !rights}
+              waiting={busy}
+              className="flex-1"
+              onClick={() => onTag(picked, rights)}
+              data-testid="files-tag-apply"
+            />
+          </div>
+          <p className="text-[12px] text-ink/55">{BY_REFERENCE_LINE}</p>
+        </>
+      ) : null}
+    </div>
   );
 }
 

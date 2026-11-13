@@ -29,6 +29,9 @@ import { storageRefusalWords } from '@/lib/supplier-storage.server';
  *   • `map`    — "From your portfolio": each pick becomes a POINTER (grp linked) to the existing photo — no copy, keeps
  *                its own service. Only the shop's own portfolio / card photos are accepted.
  *   • `remove` — a filed row leaves this event (the stored copy stays: it may back other files).
+ *   • `tag`    — 🏷 filed photos → the inspirations their card offers (DECISION_LOG 2026-11-14), each pair through the
+ *                library's one screened door (`importEditorialMediaToGallery` → `storeScreenedAsset`), landing "Checking".
+ *   • `untag`  — 🏷 a tag leaves its inspiration: RETIRED, never deleted (a couple's saved board keeps it, credited).
  *   • `filechat` — 📥 Piece 3c "File under a service": a photo/video the SHOP sent in this event's chat is filed under a
  *                quoted service. The server reads the chat file's bytes, measures hash + date; bytes already stored are a
  *                link (no copy). New bytes get ONE kept copy in the shop's folder — the chat file itself is deleted by the
@@ -52,6 +55,9 @@ export type EventFilesState =
 const NOT_SAVED = 'We couldn’t add that file. Nothing was lost — please try again.';
 const SHA = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f-]{36}$/i;
+/** 🏷 One tag request at most: photos × inspirations (each pair is one screened photo). */
+const TAG_MAX_PHOTOS = 12;
+const TAG_MAX_PARTS = 6;
 
 export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Promise<EventFilesState> {
   const op = String(fd.get('op') ?? '');
@@ -327,6 +333,83 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       return { status: 'error', message: error?.message.includes('quote') ? 'Only a service in this event’s quote can hold photos.' : NOT_SAVED };
     }
     return done({ status: 'done', message: 'Filed under the service' });
+  }
+
+  // ── 🏷 Inspiration tags (DECISION_LOG 2026-11-14) — a filed photo tagged to the parts its card offers ──────────
+  if (op === 'tag') {
+    const parse = (k: string, re: RegExp, max: number) => {
+      try {
+        const xs = (JSON.parse(String(fd.get(k) ?? '[]')) as unknown[]).filter((x): x is string => typeof x === 'string' && re.test(x));
+        return [...new Set(xs)].slice(0, max + 1);
+      } catch {
+        return [];
+      }
+    };
+    const fileIds = parse('file_ids', UUID, TAG_MAX_PHOTOS);
+    const slots = parse('slots', /^[a-z0-9_]{1,60}$/, TAG_MAX_PARTS);
+    if (fileIds.length === 0 || slots.length === 0) return { status: 'error', message: 'Pick a photo and an inspiration first.' };
+    if (fileIds.length > TAG_MAX_PHOTOS || slots.length > TAG_MAX_PARTS) {
+      return { status: 'error', message: `Tag up to ${formatCount(TAG_MAX_PHOTOS)} photos to ${formatCount(TAG_MAX_PARTS)} inspirations at a time.` };
+    }
+    // The photos must be THIS event's, under the shop's own RLS — the library door re-proves the rest.
+    const { data: mine, error: mineErr } = await supabase
+      .from('event_supplier_files')
+      .select('file_id')
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', shop)
+      .in('file_id', fileIds);
+    if (mineErr || !mine || mine.length !== fileIds.length) return { status: 'error', message: 'That photo is not in this event’s Files.' };
+    const rights = String(fd.get('rights') ?? '') === '1';
+    // Heavy (screen · watermark · store · scan) — loaded only when a tag is made.
+    const { importEditorialMediaToGallery } = await import('@/app/vendor-dashboard/moodboard-library/actions');
+    let n = 0;
+    let refusal: string | null = null;
+    for (const fileId of fileIds) {
+      for (const slotKey of slots) {
+        try {
+          await importEditorialMediaToGallery({ eventFileId: fileId, slotKey, rightsWarranted: rights });
+          n++;
+        } catch (e) {
+          refusal ??= e instanceof Error && e.message ? e.message : 'We couldn’t tag that photo just now.';
+        }
+      }
+    }
+    if (n === 0) return { status: 'error', message: refusal ?? 'We couldn’t tag that photo just now.' };
+    return done({
+      status: 'done',
+      count: n,
+      message: refusal ? `Tagged ${formatCount(n)} · the rest: ${refusal}` : `Tagged · Setnayan is checking ${n === 1 ? 'it' : 'them'}`,
+    });
+  }
+
+  if (op === 'untag') {
+    const assetId = String(fd.get('asset_id') ?? '');
+    if (!UUID.test(assetId)) return { status: 'error', message: 'Pick a tag first.' };
+    // event_file_id is the service role's alone (migration 20271345380761) — read there, scoped to this shop.
+    const admin = createAdminClient();
+    const { data: row } = await admin
+      .from('moodboard_library_assets')
+      .select('asset_id, vendor_profile_id, event_file_id')
+      .eq('asset_id', assetId)
+      .eq('vendor_profile_id', shop)
+      .maybeSingle();
+    const fileId = (row as { event_file_id: string | null } | null)?.event_file_id ?? null;
+    if (!fileId) return { status: 'error', message: 'That tag is already gone.' };
+    const { data: own } = await supabase.from('event_supplier_files').select('file_id').eq('file_id', fileId).eq('event_id', eventId).eq('vendor_profile_id', shop).maybeSingle();
+    if (!own) return { status: 'error', message: 'That photo is not in this event’s Files.' };
+    // 🔑 RETIRED, NEVER DELETED (ruling 6): a couple may have saved it, and their board tile cascades on a delete.
+    const { data, error } = await admin
+      .from('moodboard_library_assets')
+      .update({ retired_at: new Date().toISOString() })
+      .eq('asset_id', assetId)
+      .eq('vendor_profile_id', shop)
+      .is('retired_at', null)
+      .select('asset_id');
+    if (error || !data || data.length !== 1) {
+      if (error) logQueryError('eventFilesAction.untag', error, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'error', message: 'We couldn’t remove that tag. Please try again.' };
+    }
+    return done({ status: 'done', message: 'Taken out of that inspiration · the photo stays in Files' });
   }
 
   if (op === 'remove') {

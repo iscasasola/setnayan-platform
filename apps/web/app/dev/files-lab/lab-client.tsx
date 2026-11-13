@@ -7,6 +7,7 @@ import { shopStateOf } from '@/lib/supplier-files';
 import { FilesFinder } from '@/app/vendor-dashboard/clients/[eventId]/_pages/files-finder';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
 import type { EventFile } from '@/lib/supplier-files.server';
+import type { FileTag, OfferedPart } from '@/lib/inspiration-tags';
 
 const EV = '00000000-0000-4000-8000-0000000000e1';
 const SHOP = '00000000-0000-4000-8000-0000000000cc';
@@ -67,8 +68,60 @@ const FILES: EventFile[] = [
   f({ grp: 'linked', kind: 'photo', name: 'dessert-bar.jpg', serviceId: DESSERT, counts: false }),
 ];
 
+// 🏷 Inspiration tags (DECISION_LOG 2026-11-14) — the parts the Garden buffet card offers, and three tags.
+const OFFERED: Record<string, OfferedPart[]> = {
+  [BUFFET]: [
+    { slotKey: 'table', label: 'Tables' },
+    { slotKey: 'cake', label: 'Cake & desserts' },
+    { slotKey: 'cocktail', label: 'Cocktail & bar' },
+  ],
+  [COCKTAIL]: [{ slotKey: 'cocktail', label: 'Cocktail & bar' }],
+};
+const byName = (name: string) => FILES.find((x) => x.name === name)!.fileId;
+const TAGS: FileTag[] = [
+  { assetId: 't1', fileId: byName('Buffet line.jpg'), slotKey: 'table', label: 'Tables', state: 'shown', reason: null },
+  { assetId: 't2', fileId: byName('Buffet line.jpg'), slotKey: 'cake', label: 'Cake & desserts', state: 'checking', reason: null },
+  { assetId: 't3', fileId: byName('Carving station.jpg'), slotKey: 'table', label: 'Tables', state: 'waiting', reason: null },
+];
+const click = (sel: string) => (document.querySelector(sel) as HTMLElement | null)?.click();
+/** Opens a tile by its name — after "+N" shows the rest of its group. */
+const openTile = (name: string) => {
+  for (const b of document.querySelectorAll('[data-files-grid] li:last-child button')) if (b.textContent?.startsWith('+')) (b as HTMLElement).click();
+  setTimeout(() => click(`[data-files-grid] button[aria-label^="${name}"]`), 150);
+};
+
 export function FilesLabClient({ mode }: { mode: string }) {
   useEffect(() => {
+    if (mode.startsWith('tag-')) {
+      const steps: (() => void)[] =
+        mode === 'tag-open'
+          ? [() => openTile('Setup.jpg')]
+          : mode === 'tag-pick'
+            ? [
+                () => openTile('Setup.jpg'),
+                () => {},
+                () => click('[data-files-tag-picker] > button'),
+                () => {
+                  const boxes = [...document.querySelectorAll('[data-files-tag-picker] input[type="checkbox"]')] as HTMLElement[];
+                  boxes[0]?.click();
+                  boxes[1]?.click();
+                },
+                () => click('[data-files-tag-rights]'),
+              ]
+            : mode === 'tag-after'
+              ? [() => openTile('Buffet line.jpg')]
+              : mode === 'tag-select'
+                ? [
+                    () => click(`[data-files-select="${BUFFET}"]`),
+                    () => {
+                      const tiles = [...document.querySelectorAll(`[data-files-group="${BUFFET}"] [data-files-grid] button[aria-pressed]`)] as HTMLElement[];
+                      [0, 1, 3].forEach((i) => tiles[i]?.click());
+                    },
+                  ]
+                : [];
+      const timers = steps.map((fn, i) => setTimeout(fn, 600 + i * 450));
+      return () => timers.forEach(clearTimeout);
+    }
     if (mode === 'filechat') {
       const t2 = setTimeout(() => (document.querySelector('[data-files-group="unfiled"] li button') as HTMLElement | null)?.click(), 600);
       return () => clearTimeout(t2);
@@ -153,6 +206,8 @@ export function FilesLabClient({ mode }: { mode: string }) {
       }))}
       feeUnlocked={mode !== 'hub-fee'}
       returnPath="/dev/files-lab"
+      tags={mode.startsWith('hub') ? undefined : TAGS}
+      offered={OFFERED}
     />
   );
 }

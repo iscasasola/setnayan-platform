@@ -77,7 +77,7 @@ export async function readPostEventForMaker(input: {
       admin.from('event_editorial').select('draft_json, hero_photo_id').eq('event_id', eventId).maybeSingle(),
       admin
         .from('events')
-        .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref')
+        .select('landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek')
         .eq('event_id', eventId)
         .maybeSingle(),
       loadEditorialData(eventId).catch(() => null),
@@ -130,10 +130,13 @@ export async function readPostEventForMaker(input: {
     /* 🪑 👥 The seat plan's tables and the entourage — each read by the SAME
        loader the page draws it with, so a scene is filled exactly when the page
        has something to draw. */
-    const [tablesRes, entourageGroups] = await Promise.all([
+    const [tablesRes, entourageGroups, giftsRes] = await Promise.all([
       admin.from('event_tables').select('public_id', { count: 'exact', head: true }).eq('event_id', eventId),
       loadEntourage(admin, eventId).catch(() => []),
+      giftCount(admin, eventId),
     ]);
+    /* 🎁 The gift thank-you scene reads the couple's line as the Maker shows it (live with the draft over it). */
+    const draftedFirst = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
     if (tablesRes.error) logQueryError('PostEventCompile.tables', tablesRes.error, { event_id: eventId }, 'graceful_degrade');
 
     const sources: PostEventSources = {
@@ -158,6 +161,8 @@ export async function readPostEventForMaker(input: {
       seatingTables: tablesRes.error ? 0 : (tablesRes.count ?? 0),
       entourage: entourageGroups.flatMap(peopleOf).length,
       beforeAfter: Boolean(data.coverChosen && data.eventHeroUrl),
+      giftThanks: giftLineWritten(draftedFirst),
+      gifts: giftsRes,
       liveWall: { active: data.photoWallActive, photos: data.photoWallPhotos.length },
       reviews: data.reviews.length,
       services: data.servicesAvailed.length,
@@ -210,6 +215,7 @@ export async function readPostEventForMaker(input: {
       wrote,
       dayHappened: true,
       arrangement: postEventArrangementOf(drafted),
+      chaptersPeek: typeof event.chapters_peek === 'boolean' ? event.chapters_peek : null,
     };
   } catch {
     return { ok: false };
@@ -234,7 +240,7 @@ async function readPostEventBeforeTheDay(input: {
       admin.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
       admin
         .from('events')
-        .select('love_story, special_message, pakanta_song_r2_key, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref')
+        .select('love_story, special_message, pakanta_song_r2_key, landing_page_hero_image_url, landing_page_hero_video_r2_key, story_cover_kind, story_cover_ref, chapters_peek')
         .eq('event_id', eventId)
         .maybeSingle(),
     ]);
@@ -254,6 +260,8 @@ async function readPostEventBeforeTheDay(input: {
     const love = event.love_story && typeof event.love_story === 'object' ? (event.love_story as Record<string, unknown>) : {};
     const anchors = love.anchors && typeof love.anchors === 'object' ? (love.anchors as Record<string, unknown>) : {};
     const hero = resolveHero(event);
+    const draftedFirst = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
+    const gifts = await giftCount(admin, eventId);
     const sources: PostEventSources = {
       cover: hero.photoRef ? 'hero' : 'card',
       milestones: Array.isArray(love.milestones) ? love.milestones.length : 0,
@@ -273,6 +281,8 @@ async function readPostEventBeforeTheDay(input: {
       specialMessage: Boolean(str(event.special_message)),
       song: str(anchors.song) ?? (str(event.pakanta_song_r2_key) ? 'Their song' : null),
       whatsNext: null,
+      giftThanks: giftLineWritten(draftedFirst),
+      gifts,
     };
     const fresh = compilePostEventScenes(sources, new Date().toISOString(), { dayHappened: false });
     const drafted = overlayPostEventDraftJson(draft, input.draftEditorial ?? null);
@@ -284,8 +294,31 @@ async function readPostEventBeforeTheDay(input: {
       wrote: false,
       dayHappened: false,
       arrangement: postEventArrangementOf(drafted),
+      chaptersPeek: typeof event.chapters_peek === 'boolean' ? event.chapters_peek : null,
     };
   } catch {
     return { ok: false };
   }
+}
+
+/** 🎁 Has the couple written their one gift thank-you line (`sceneLooks.gifts.words.body`)? */
+function giftLineWritten(draftJson: unknown): boolean {
+  return Boolean(postEventArrangementOf(draftJson).sceneLooks.gifts?.words?.body);
+}
+
+/**
+ * 🎁 How many gifts guests said they sent — a COUNT for the couple's own tile ("for 31 gifts"), never an amount.
+ * Not removed by the couple. An unreadable count is 0, said as "Your thank-you line" — never a wrong number.
+ */
+async function giftCount(admin: ReturnType<typeof createAdminClient>, eventId: string): Promise<number> {
+  const { count, error } = await admin
+    .from('event_gift_records')
+    .select('gift_record_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('removed_at', null);
+  if (error) {
+    logQueryError('PostEventCompile.gifts', error, { event_id: eventId }, 'graceful_degrade');
+    return 0;
+  }
+  return count ?? 0;
 }

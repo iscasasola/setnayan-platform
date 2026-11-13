@@ -140,7 +140,6 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/[slug]/invite/page.tsx': ['via', "the opening's wax seal draws a row selected with INVITE_MARK_COLUMNS"],
   'app/[slug]/page.tsx': ['via', "the link preview's address (shareCardLookToken) draws loadEventShell's event (app/[slug]/_lib/loaders.ts)"],
   'app/[slug]/print/page.tsx': ['carries', 'the recap print sheet'],
-  'app/[slug]/recap/page.tsx': ['carries', 'the recap masthead'],
   'app/[slug]/seat/_components/arrival-bloom.tsx': ['lettered', 'Your seat draws the lettered mark only (the seat read selects no logo)'],
   'app/_components/account-switcher/get-switcher-data.ts': ['host', "the host's own account switcher"],
   'app/_components/event-monogram.tsx': ['resolver', "draws whatever its caller's row carries, through resolveEventMonogramSvg"],

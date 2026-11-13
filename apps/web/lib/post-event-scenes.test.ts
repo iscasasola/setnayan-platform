@@ -90,7 +90,7 @@ test('the fixture day compiles to the prototype’s 29 scenes, plus the two it s
   const auto = scenes.filter((s) => s.status === 'auto');
   const skipped = scenes.filter((s) => s.status === 'skipped');
   assert.equal(auto.length, 29, auto.map((s) => s.key).join(','));
-  assert.deepEqual(skipped.map((s) => s.key).sort(), ['said', 'wall']);
+  assert.deepEqual(skipped.map((s) => s.key).sort(), ['gifts', 'said', 'wall']);
   // The prototype's template per scene (post_event_auto_story_2026-09-25.html).
   const tpl = Object.fromEntries(scenes.map((s) => [s.key, s.template]));
   assert.deepEqual(
@@ -237,7 +237,7 @@ test('draftToScenes follows the saved order and the switches — the page’s ow
     // guestColumns and the 2026-09-29 blocks were not in the saved order → they
     // append in the canonical order, exactly as `resolveSectionOrder` does
     'letters', 'seating', 'entourage', 'beforeAfter',
-    'couple', 'song', 'next',
+    'gifts', 'couple', 'song', 'next',
   ]);
   assert.equal(rows.find((r) => r.key === 'wishes')!.hidden, true);
   assert.equal(rows.find((r) => r.key === 'gallery')!.hidden, false);
@@ -252,7 +252,8 @@ test('📑 the DEFAULT order is the approved one (owner 2026-10-05) — a couple
     'gallery', 'film', 'videos', 'you',
     'wishes', 'asked', 'letters',
     'seating', 'vendors', 'entourage', 'wall', 'said', 'powered', 'loved', 'beforeAfter',
-    'couple', 'song', 'next',
+    // 🎁 The gift thank-you (owner 2026-11-13) — just before the close.
+    'gifts', 'couple', 'song', 'next',
   ]);
 });
 
@@ -270,4 +271,18 @@ test('the navigator list numbers only what guests meet; skipped and hidden rows 
   assert.deepEqual(numbered, numbered.map((_, i) => i), 'consecutive from 0');
   assert.equal(list[0]!.key, 'cover');
   assert.deepEqual(list.slice(-3).map((r) => r.key), ['couple', 'song', 'next']);
+});
+
+/* 🎁 owner 2026-11-13 (2): one thank-you line for all givers. Filled once the couple wrote it; else said as skipped
+   (after the day) or waiting (before it) — never an empty box, never an amount. */
+test('🎁 the gift thank-you scene is filled by the couple’s one line, and says why when it is not', () => {
+  const none = compilePostEventScenes(FULL, AT).scenes.find((s) => s.key === 'gifts')!;
+  assert.equal(none.status, 'skipped');
+  assert.match(none.note ?? '', /thank-you line/);
+  const before = compilePostEventScenes(EMPTY, AT, { dayHappened: false }).scenes.find((s) => s.key === 'gifts')!;
+  assert.equal(before.status, 'waiting');
+  const written = compilePostEventScenes({ ...FULL, giftThanks: true, gifts: 31 }, AT).scenes.find((s) => s.key === 'gifts')!;
+  assert.equal(written.status, 'auto');
+  assert.equal(written.source, 'Your thank-you line · for 31 gifts');
+  assert.doesNotMatch(written.source, /₱|php/i, 'a count, never an amount');
 });

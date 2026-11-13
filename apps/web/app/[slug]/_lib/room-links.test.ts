@@ -148,7 +148,8 @@ test('every room that should carry a way out does, and the exceptions are named'
     );
   };
 
-  for (const room of ['find-seat', 'find-my-table', 'pabuya', 'recap', 'seat', 'venue']) {
+  // (recap left 2026-11-13: `/{slug}/recap` now only sends to the story — owner, "POST EVENT = A STORY" (5).)
+  for (const room of ['find-seat', 'find-my-table', 'pabuya', 'seat', 'venue']) {
     assert.ok(mounted(room), `${room} lost its way out — it is a dead end again`);
   }
 

@@ -52,6 +52,7 @@ import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
+import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
 // Carried forward so AI answer engines + SERP cards keep extracting the same
@@ -343,6 +344,10 @@ export default async function HomePage({
   // photo against every registered selfie, before Papic closes. Sliced — a
   // photo cap + a time budget per ~5-min claim; resumable. Never throws.
   after(() => maybeRunFaceRescan().catch(() => {}));
+  // ⏳ The owner's own two-admin requests run 24 h after he types the word
+  // (DECISION_LOG 2026-11-13). Public traffic carries it so a request still
+  // runs when he is away from the console. Throttled; never throws.
+  after(() => maybeRunOwnerApprovals().catch(() => {}));
 
   return (
     <>

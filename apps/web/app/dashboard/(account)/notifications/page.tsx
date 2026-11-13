@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchNotificationEventPlaces, fetchOwnNotifications } from '@/lib/notifications';
+import { fetchOwnNotifications } from '@/lib/notifications';
+import { fetchNotificationEventPlaces } from '@/lib/notification-places';
 import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';

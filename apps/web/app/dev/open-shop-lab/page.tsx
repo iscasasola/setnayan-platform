@@ -26,7 +26,7 @@ import { notFound } from 'next/navigation';
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
 import { ClaimDoor } from '@/app/open-shop/_components/claim-door';
 import type { ClaimDoorRecord } from '@/lib/claim-door';
-import type { PickerParentView } from '@/app/open-shop/_components/service-picker';
+import type { PickerParentView } from '@/app/_components/service-picker';
 import type { SpecialtyField } from '@/app/open-shop/_components/service-cards';
 import { AddYourLogo } from '@/app/open-shop/logo/_components/add-your-logo';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';

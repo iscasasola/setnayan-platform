@@ -191,8 +191,9 @@ export function UnreadBellBadge({
     */
     void (async () => {
       try {
-        const [{ fetchOwnNotifications, fetchNotificationEventPlaces }, { createClient }] = await Promise.all([
+        const [{ fetchOwnNotifications }, { fetchNotificationEventPlaces }, { createClient }] = await Promise.all([
           import('@/lib/notifications'),
+          import('@/lib/notification-places'),
           import('@/lib/supabase/client'),
         ]);
         const supabase = createClient();

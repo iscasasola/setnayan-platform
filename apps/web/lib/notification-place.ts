@@ -22,7 +22,7 @@
  * person sits on several shops (`/vendor-dashboard/…` names none), or the read failed — the place is `null`, and a
  * null place is DRAWN as the words "Place didn't load" (`placeLineWords`). Never a blank tile, never a guessed place.
  *
- * Pure: no I/O, no React. The reads live in `lib/notifications.ts fetchNotificationEventPlaces` (one batch for the
+ * Pure: no I/O, no React. The reads live in `lib/notification-places.ts fetchNotificationEventPlaces` (one batch for the
  * whole list) and in `lib/push-send.server.ts` (one notice). 🔒 lib/notification-place.test.ts
  */
 import { eventStance, type EventStance } from './event-board';

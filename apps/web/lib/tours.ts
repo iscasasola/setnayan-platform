@@ -14,7 +14,8 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 import {
   Apple,
@@ -308,6 +309,16 @@ export type TourDefinition = {
   /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
   spotlight?: SpotlightScript;
 };
+
+/**
+ * 💳 The Money tour's fee step, from the rule itself (walk RW-20): ON → when it is charged + the free first booking + own
+ * clients free; OFF → that no booking fee is charged right now. `NEXT_PUBLIC_BOOKING_FEE_ENABLED` (`isBookingFeeEnabled`).
+ */
+export function bookingFeeTourLine(feeOn: boolean): string {
+  return feeOn
+    ? `One booking fee per booking from Setnayan. ${BOOKING_FEE_CHARGED_WHEN} ${FIRST_BOOKING_ON_US} Your own clients are always free.`
+    : 'No booking fee is charged right now. Your own clients are always free.';
+}
 
 export const TOURS: Record<TourKey, TourDefinition> = {
   couple_welcome_v1: {
@@ -1512,7 +1523,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'hub-next-days',
           title: 'Your events',
-          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
+          // RW-20 / F-W1-75 (walk 13 Nov 2026): no fee rule typed here — whether a day waits on its fee is a live setting,
+          // and a day that does says so on its own row (`feeLockCopy`).
+          body: 'Pick the event to set up — every booked day and every event you run. A day that is waiting on its booking fee says so on its row.',
         },
         {
           anchor: 'hub-empty',
@@ -1590,8 +1603,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'money-fees',
           title: 'Setnayan’s fee',
-          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
-          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+          // RW-20 (walk 13 Nov 2026): the sentences are the lock's own — WHEN it is charged and what is waived — and the
+          // switch decides whether it is charged at all; never "due after the day", which no code does.
+          body: bookingFeeTourLine(isBookingFeeEnabled()),
         },
       ],
       finale: {

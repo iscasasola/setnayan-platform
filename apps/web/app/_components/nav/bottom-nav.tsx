@@ -1176,8 +1176,8 @@ function BottomNavTab({
               transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           />
-          {item.badge && item.badge.count > 0 ? (
-            <BadgeDot tone={item.badge.tone} count={item.badge.count} label={item.badge.label} />
+          {item.badge && (item.badge.count > 0 || item.badge.text) ? (
+            <BadgeDot tone={item.badge.tone} count={item.badge.count} label={item.badge.label} text={item.badge.text} />
           ) : null}
         </span>
         {/* Label collapses to nothing in compact mode (height + fade) — only the
@@ -1279,11 +1279,12 @@ function AccordionCell({
             transition: 'transform 175ms cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         />
-        {item.badge && item.badge.count > 0 ? (
+        {item.badge && (item.badge.count > 0 || item.badge.text) ? (
           <BadgeDot
             tone={item.badge.tone}
             count={item.badge.count}
             label={item.badge.label}
+            text={item.badge.text}
           />
         ) : null}
       </span>
@@ -1382,10 +1383,13 @@ function BadgeDot({
   tone,
   count,
   label,
+  text,
 }: {
   tone: NavBadgeTone;
   count: number;
   label?: string;
+  /** In place of the number ("—" for a count that could not be read). */
+  text?: string;
 }) {
   const toneStyle: Record<NavBadgeTone, { bg: string; fg: string }> = {
     neutral: { bg: '#E7E5E4', fg: '#44403C' },
@@ -1394,7 +1398,7 @@ function BadgeDot({
     orange: { bg: 'var(--m-orange-2)', fg: 'var(--m-paper)' },
   };
   const { bg, fg } = toneStyle[tone];
-  const display = count > 9 ? '9+' : String(count);
+  const display = text ?? (count > 9 ? '9+' : String(count));
 
   // aria-label on a role-less <span> is naming-prohibited (ignored by most
   // screen readers) — the visible/sr-only pair below actually announces the

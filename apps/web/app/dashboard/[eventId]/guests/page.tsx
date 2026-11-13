@@ -1153,6 +1153,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       inviteTagByGuest={inviteTagsByGuest ?? {}}
       notCountedByGuest={notCountedByGuest}
       paxServices={paxServices}
+      paxRefused={!notCountedList}
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}

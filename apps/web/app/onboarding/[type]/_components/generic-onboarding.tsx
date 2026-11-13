@@ -165,6 +165,8 @@ type Props = {
   todayISO?: string;
   /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026. */
   dateExempt?: boolean;
+  /** 📅 The type's cap (`event_type_profiles.max_days`) — above 1 the date step asks "How many days is your event?". */
+  maxDays?: number;
   /**
    * Entrance grey-out (owner ruling 2026-09-11 — "same treatment for any other
    * one-at-a-time event type"). Server-resolved (page.tsx, `getBlockingLifeEvent`
@@ -216,6 +218,8 @@ type Draft = {
   dateCandidates?: string[];
   windowStart?: string | null;
   windowEnd?: string | null;
+  /** 📅 How many days (owner 2026-11-13). Optional: an older draft resumes as 1. */
+  eventDays?: number;
   pax: string;
   region: string;
   axes: Record<string, string>;
@@ -262,6 +266,7 @@ export function GenericOnboarding(props: Props) {
     servicesStepAiValue = null,
     todayISO,
     dateExempt = false,
+    maxDays = 1,
     entranceBlocking = null,
     setupView = null,
     setupSteps = [],
@@ -361,6 +366,7 @@ export function GenericOnboarding(props: Props) {
   const [dateCandidates, setDateCandidates] = useState<string[]>([]);
   const [windowStart, setWindowStart] = useState<string | null>(null);
   const [windowEnd, setWindowEnd] = useState<string | null>(null);
+  const [eventDays, setEventDays] = useState(1);
   const [anchorOrigin, setAnchorOrigin] = useState<string>('wedding');
   const isAnniversary = eventType === 'anniversary';
   // "Make it a yearly thing?" — the owner-locked toggle types. Anniversary and
@@ -505,6 +511,7 @@ export function GenericOnboarding(props: Props) {
           setDateCandidates(d.dateCandidates ?? []);
           setWindowStart(d.windowStart ?? null);
           setWindowEnd(d.windowEnd ?? null);
+          setEventDays(typeof d.eventDays === 'number' ? d.eventDays : 1);
           setAnchorOrigin(d.anchorOrigin ?? 'wedding');
           setRecurs(d.recurs === true);
           setDateValue(d.dateValue ?? '');
@@ -589,12 +596,12 @@ export function GenericOnboarding(props: Props) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}), ...(engine ? { preset, needs } : {}) };
+      const d: Draft = { v: 1, startedAt: Date.now(), displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, ...(setupAnswers ? { setup: setupAnswers } : {}), ...(engine ? { preset, needs } : {}) };
       localStorage.setItem(draftKey, JSON.stringify(d));
     } catch {
       /* quota / private mode — non-fatal */
     }
-  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, pax, region, axes, details, specialtyValues, setupAnswers, engine, preset, needs]);
+  }, [hydrated, draftKey, displayName, honoree, anchorDate, anchorOrigin, recurs, dateValue, dateMode, dateCandidates, windowStart, windowEnd, eventDays, pax, region, axes, details, specialtyValues, setupAnswers, engine, preset, needs]);
 
   // ── ANCHOR ≠ CELEBRATION ────────────────────────────────────────────────────
   // `anchor_date` is what the event commemorates; `event_date` is when it is
@@ -1035,6 +1042,7 @@ export function GenericOnboarding(props: Props) {
       dateCandidates: dateMode === 'specific' ? celebrationDates : [],
       windowStart: dateMode === 'window' ? windowStart : null,
       windowEnd: dateMode === 'window' ? windowEnd : null,
+      eventDays,
       moodFeelKey: feel,
       experiencePersona: personaKey,
       experienceForWhom:
@@ -1599,7 +1607,10 @@ export function GenericOnboarding(props: Props) {
               candidates={celebrationDates}
               windowStart={windowStart}
               windowEnd={windowEnd}
+              days={eventDays}
+              maxDays={maxDays}
               onChange={(patch: DateCalendarValue) => {
+                if (patch.days !== undefined) setEventDays(patch.days);
                 if (patch.dateMode !== undefined) setDateMode(patch.dateMode);
                 if (patch.dateCandidates !== undefined) {
                   setDateCandidates(patch.dateCandidates);

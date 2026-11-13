@@ -307,7 +307,9 @@ test('the map is called "Root map" everywhere a person reads its name — never 
   // DECISION_LOG 2026-10-02 "'UGAT MAP' IS NOW CALLED THE 'ROOT MAP'".
   const groups = src('app/admin/_components/admin-nav-groups.tsx');
   assert.match(groups, /key: 'ugat',\s*label: 'Root map',/, 'the menu group lost its name');
-  assert.match(src('app/admin/_components/admin-rail-context.tsx'), /ugat: 'Root map'/, 'the rail caption');
+  // The rail's 'Root map' caption left with the six-group rail (owner 13 Nov 2026: five tabs); the map is
+  // Catalogue ⚙ › Root map now, named in the one source.
+  assert.match(src('lib/admin/admin-tabs.ts'), /label: 'Root map'/, 'Catalogue ⚙ lost the Root map row');
   assert.match(src('app/admin/ugat/map/page.tsx'), /Entity map · Root map · Admin/);
   const studio = src('app/admin/ugat/page.tsx');
   assert.match(studio, /aria-label="Root map sections"/);

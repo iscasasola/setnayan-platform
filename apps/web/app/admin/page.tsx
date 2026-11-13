@@ -5,7 +5,7 @@ import { Tile } from './_overview-tile';
 import { AppleSecretReminder } from './_apple-secret-reminder';
 import { EmailDeliveryStrip } from './_email-delivery-strip';
 import { KpiStatCard } from './_components/kpi-stat-card';
-import { WhatYouChange, EditingIsOnTheComputer } from './_components/what-you-change';
+import { WhatYouChange } from './_components/what-you-change';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -534,7 +534,6 @@ export default async function AdminOverview() {
        *  detail follows below. Before this, "Pricing" — 52% of his recorded
        *  work — appeared NOWHERE on this page. Nothing else here was moved. */}
       <WhatYouChange counts={whatYouChange} />
-      <EditingIsOnTheComputer />
 
       {/* LANE BENTO · the overview's own curated consequence lanes (Trust &
        *  supply / Money / Recourse / Approvals & support — overview-only,

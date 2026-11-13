@@ -259,6 +259,9 @@ type EventBudgetRow = {
   date_candidates: string[] | null;
   date_window_start: string | null;
   date_window_end: string | null;
+  // 📅 The main span's last day and the day count (owner 2026-11-13) — the date · place line reads them.
+  event_end_date: string | null;
+  event_days: number | null;
   // Planning mode (owner 2026-06-05) — 'manual' collapses the strip + (Home)
   // turns off Setnayan AI + deadlines. Default 'guided'.
   planning_mode: string | null;
@@ -356,7 +359,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, event_end_date, event_days, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -2906,7 +2909,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         ? (teamRowList.find((r) => r.vendorId === booked.vendor_id)?.name ?? booked.vendor_name)
         : null;
       return {
-        date: suppliersDateFact(planDate, planPrecision),
+        date: suppliersDateFact(planDate, planPrecision, {
+          endDate: ev.event_end_date ?? null,
+          options: {
+            mode: ev.date_mode,
+            candidates: ev.date_candidates,
+            windowStart: ev.date_window_start,
+            windowEnd: ev.date_window_end,
+            days: ev.event_days ?? 1,
+          },
+        }),
         // The area by its own name; an unlisted spelling is shown as typed
         // (what the Build body's Location tile already prints).
         place: suppliersPlaceFact(venueName, regionLabel(ev.region) ?? ev.region),

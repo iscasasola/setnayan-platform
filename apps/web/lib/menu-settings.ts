@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio' | 'client';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub' | 'portfolio' | 'client' | 'admin';
 
 export type SettingsEntry = {
   /**
@@ -209,6 +209,20 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'Settings for this client only.',
     live: true,
     tip: 'Settings for this client only. What you set for every client stays in Clients settings.',
+  },
+  /**
+   * 🛠 THE ADMIN TAB'S ⚙ (owner 13 Nov 2026, "admin has been ok'ed" — `prototypes/admin_pub/`, BUILDER-NOTES T2: "The ⚙
+   * is at the right end, 44 px, and opens that tab's settings sheet"). ONE mount, in the admin pinned row
+   * (`app/admin/_components/admin-tab-rows.tsx`), shared by the five tabs: each tab hands its own `line` and its own
+   * rows (Money ⚙ › Receiving accounts · Launch offer · …, from `lib/admin/admin-tabs.ts`). A tab with no settings
+   * draws no ⚙ — the gear never opens nothing.
+   */
+  admin: {
+    door: 'first-row-gear',
+    sheet: 'Tab settings',
+    line: 'The settings behind this tab.',
+    live: true,
+    tip: 'The settings behind this tab. Admin-of-admin — team, secrets, switches, business — is under your avatar.',
   },
 };
 

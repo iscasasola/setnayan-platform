@@ -2925,17 +2925,12 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   padding-left: var(--sn-safe-l);
   padding-right: var(--sn-safe-r);
 }
-.sn-vt-fab {
-  view-transition-name: sn-navfab;
-}
-::view-transition-group(sn-bottomnav),
-::view-transition-group(sn-navfab) {
+/* (`.sn-vt-fab` / `sn-navfab` retired 2026-11-13 with the last floating button, the admin's — owner: five tabs.) */
+::view-transition-group(sn-bottomnav) {
   animation: none;
 }
 ::view-transition-old(sn-bottomnav),
-::view-transition-new(sn-bottomnav),
-::view-transition-old(sn-navfab),
-::view-transition-new(sn-navfab) {
+::view-transition-new(sn-bottomnav) {
   animation: none;
   mix-blend-mode: normal;
 }

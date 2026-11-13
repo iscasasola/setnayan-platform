@@ -15,13 +15,16 @@
  * between one shell and two, and it is why this is a fragment of rows rather
  * than a component that owns a rail.
  *
- * ─── THE SIX ROWS ARE NOT REDRAWN HERE ────────────────────────────────────
- * 🔒 `ADMIN_NAV_GROUPS` → `adminRailMenus()` in `admin-sidebar.tsx` is THE
- * source: six groups rendered FLAT as six top-level rows (owner 2026-07-15,
- * *"solid menu with no submenus"*) — Today · People & shops · Studio · Set up ·
- * Numbers · Money — then "All surfaces", which is a LINK to /admin/more and is
- * deliberately NOT a seventh group. This file chooses the ELEMENT, never the
- * membership. If a row is wrong, the fix is in the groups.
+ * ─── THE FIVE TABS, FROM THE ONE SOURCE (owner 13 Nov 2026) ──────────────
+ * 🔒 The approved admin (`Setnayan-specs/prototypes/admin_pub/`, DECISION_LOG
+ * 2026-11-13 "ADMIN DRAWING APPROVED — BUILD IT") is five tabs — Work · Money ·
+ * People · Catalogue · Insights — and on a computer they are this rail (the
+ * drawing's Place map: "desktop/tablet: the five tabs as the left rail", owner
+ * 2026-10-28). The rows come from `lib/admin/admin-tabs.ts`, the same list the
+ * phone bar draws, so the two can never name a place differently. The old six
+ * groups + "All surfaces" (`ADMIN_NAV_GROUPS`) no longer draw the rail; every
+ * page they reached is a view of one of the five tabs, picked from the pinned
+ * row's `Page · View ▾` (`admin-routes-all-have-a-tab.test.ts`).
  *
  * ─── WHY THE ROWS WEAR `.fd-*` AND NOT `--m-sidebar-*` ────────────────────
  * The rail is chrome and paints the front door's cream (`.fd[data-chrome='app']
@@ -44,47 +47,16 @@
  */
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
 
-import type { NavBadgeTone, NavItem } from '@/app/_components/nav/types';
+import type { NavBadgeTone } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
-import type {
-  AdminQueueCounts,
-  AdminQueueDueState,
-} from '@/lib/admin/queue-counts';
+import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
+import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
+import { ADMIN_TABS, activeAdminTabKey } from '@/lib/admin/admin-tabs';
 
-import { adminRailMenus, activeAdminMenuKey } from './admin-sidebar';
+import { ADMIN_TAB_ICON, workBadge } from './admin-bottom-nav';
+import { useAdminAddress } from './admin-address';
 import { formatCount } from '@/lib/format-number';
-
-/**
- * The word under the icon at the 72px strip. The full label is often two words
- * ("People & shops", "All surfaces") and the strip is one ellipsised line, so a
- * caption that is just the label truncates — rows that read the same at a
- * glance. These are the distinguishing word, chosen the way the shared rows
- * choose theirs.
- *
- * A key with no entry falls back to the label; a missing caption costs
- * legibility at one breakpoint, never a row.
- *
- * 🛑 THIS IS A SECOND COPY OF EVERY MENU NAME, AND IT SILENTLY OUT-RANKED THE
- * FIRST. Between 1024px and 1280px the stylesheet hides `.fd-label-text` and
- * shows `.fd-icon-caption`, so on that width THIS MAP IS THE MENU — the group
- * label is in the markup and invisible. The 2026-08-25 recut renamed the six
- * groups in `ADMIN_NAV_GROUPS` and did not touch this, so the owner opened the
- * console the next morning and reported, correctly, *"it still looks the
- * same"*: he was reading the captions. A caption must be a contiguous word-run
- * of its own group's label, and `the-menu-name-has-one-source.test.ts` fails
- * if it is not — so the next rename cannot leave this behind in silence.
- */
-const STRIP_CAPTION: Record<string, string> = {
-  queues: 'Today',
-  directory: 'People',
-  media: 'Studio',
-  ugat: 'Root map', // owner 2026-10-02: the Ugat map is called the Root map
-  funnels: 'Numbers',
-  'settings-group': 'Money',
-  'all-surfaces': 'All',
-};
 
 /** The rail's own count colours. Neutral is the rail's meta ink; amber and red
  *  are the semantic tokens the top-bar pill and the queue tiles already use, so
@@ -99,25 +71,28 @@ const BADGE_TONE: Record<NavBadgeTone, string> = {
 export function AdminRailContext({
   navSlots,
   queueCounts,
-  queueStates,
+  overdue = 0,
+  dueSoon = 0,
+  unreadable = 0,
+  at,
 }: {
   navSlots?: Record<string, NavSlotLite>;
   queueCounts?: AdminQueueCounts;
-  queueStates?: Record<string, AdminQueueDueState>;
+  /** Lab only — an address drawn on fixtures. */
+  at?: string;
+  overdue?: number;
+  dueSoon?: number;
+  unreadable?: number;
 }) {
-  const pathname = usePathname() ?? '/admin';
   /*
-    QUERY-AWARE, because the admin's own routes are. The Accounts and Studio
-    hubs ship sibling tabs (`/admin/accounts?tab=users` vs `?tab=events`) and
-    the shipped matcher reads them; dropping the params here would light the
-    same row for both, which is the double-lighting `match-path.ts` was written
-    to end. `useSearchParams()` returns null on the first static paint and the
-    matcher documents that as "no params present" — it resolves on hydration.
+    QUERY-AWARE, because the admin's own routes are: `/admin/studio?tab=referrals`
+    is Money while `/admin/studio` is Catalogue. `useSearchParams()` returns null
+    on the first static paint, which the matcher reads as "no params" — it
+    resolves on hydration.
   */
-  const searchParams = useSearchParams();
-
-  const menus = adminRailMenus({ navSlots, queueCounts, queueStates });
-  const activeKey = activeAdminMenuKey(menus, pathname, searchParams);
+  const { pathname, params } = useAdminAddress(at);
+  const activeKey = activeAdminTabKey(pathname, params);
+  const badge = workBadge(queueCounts, overdue, dueSoon, unreadable);
 
   return (
     <>
@@ -125,45 +100,44 @@ export function AdminRailContext({
       <div className="fd-rlabel">
         Setnayan HQ <small>the console</small>
       </div>
-      {menus.map((menu) => (
-        <AdminRailRow key={menu.key} menu={menu} active={activeKey === menu.key} />
-      ))}
+      {ADMIN_TABS.map((tab) => {
+        // The same registry slot the phone bar reads, so a rename reads the same at every width.
+        const slot = navSlots?.[`admin.bottom-nav.${tab.key}`];
+        if (slot?.isHidden) return null;
+        const label = slot?.label ?? tab.label;
+        const Icon = slot ? navIconComponent(slot.icon) : ADMIN_TAB_ICON[tab.icon];
+        const active = activeKey === tab.key;
+        const b = tab.key === 'work' ? badge : null;
+        return (
+          <Link
+            key={tab.key}
+            href={tab.href}
+            title={label}
+            /*
+              `data-on` is the stylesheet's hook; `aria-current` is the half a screen
+              reader gets. NEITHER IS EVER A LITERAL — a hardcoded `data-on="true"`
+              would light this row on every admin page. `admin-rail-context.test.ts`
+              fails if a literal returns.
+            */
+            className="fd-row"
+            data-on={active ? 'true' : 'false'}
+            aria-current={active ? 'page' : undefined}
+            data-admin-rail={tab.key}
+          >
+            <span className="fd-gi inline-flex items-center justify-center" aria-hidden>
+              <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </span>
+            <span className="fd-label-text">{label}</span>
+            {/* One word per tab, so the 72px strip's caption IS the name — never a second copy of it. */}
+            <span className="fd-icon-caption">{label}</span>
+            {b ? (
+              <span className={`fd-ct fd-mono font-semibold ${BADGE_TONE[b.tone]}`} aria-label={b.label}>
+                {b.text ?? (b.count > 99 ? '99+' : formatCount(b.count))}
+              </span>
+            ) : null}
+          </Link>
+        );
+      })}
     </>
-  );
-}
-
-function AdminRailRow({ menu, active }: { menu: NavItem; active: boolean }) {
-  const Icon = menu.icon;
-  return (
-    <Link
-      href={menu.href}
-      title={menu.description ?? menu.label}
-      /*
-        `data-on` is the stylesheet's hook; `aria-current` is the half a screen
-        reader gets, and a rail that only looks right is only half right.
-        NEITHER IS EVER A LITERAL — the front-door rail shipped with `Home`
-        hardcoded `data-on="true"`, which was harmless on the one URL it
-        rendered on and would have lit Home on all 296 pages the moment the
-        same rail moved inside the app. `admin-rail-context.test.ts` fails if a
-        literal returns.
-      */
-      className="fd-row"
-      data-on={active ? 'true' : 'false'}
-      aria-current={active ? 'page' : undefined}
-    >
-      <span className="fd-gi inline-flex items-center justify-center" aria-hidden>
-        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      </span>
-      <span className="fd-label-text">{menu.label}</span>
-      <span className="fd-icon-caption">{STRIP_CAPTION[menu.key] ?? menu.label}</span>
-      {menu.badge && menu.badge.count > 0 ? (
-        <span
-          className={`fd-ct fd-mono font-semibold ${BADGE_TONE[menu.badge.tone]}`}
-          aria-label={menu.badge.label}
-        >
-          {menu.badge.count > 99 ? '99+' : formatCount(menu.badge.count)}
-        </span>
-      ) : null}
-    </Link>
   );
 }

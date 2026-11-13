@@ -35,12 +35,24 @@ guard is kept; only placement, grouping and motion change.
   behind verified + bookable; Lock only in package cards; section-bar tabs; no web address on unverified; motion has a
   reduced fallback and hides nothing before JS). Column and identity-chip guards updated for the two looks.
 
-Follow-up: the composer-only reads (requirements template, saved requirements, AI flag, existing thread, linked
-services, event-type roster) still run but feed nothing now — safe to remove in a cleanup PR.
+Review fixes (same PR, 13 Nov):
+- **One visible "Inquire".** A service card's details sheet button now reads **"Choose this service"** and opens the
+  same pop-up with that card picked; a card with no price reads **"Price on request"** (`lib/service-card-view-model.ts`
+  and the page's own price line) instead of "Inquire". New guard walks every `.tsx` the page renders and allows the
+  word "Inquire" exactly once — the main button (the phone float is that same element).
+- **Calling-card order** matches the prototype: Inquire (filled) · Add to your event (ghost), then Check a date · Share.
+- **Lock beside its price**: `PackageCard` gains `ctaBesidePrice` (price left, "Lock this package" right, wrapping on a
+  narrow card); the dashboard callers keep the foot slot.
+- **Seal and reach motion** (README rows 3 and 8): `ImageBadge drawn` turns the verified seal's ring and ✓ into strokes
+  (`pathLength=1`) that draw after the stamp; `ReachMap`'s plan ring carries `data-reach-ring` and draws, fills, then
+  an "N km" tag (`kmTag`, shop page only) fades in and the pin drops. CSS only, `from`-only keyframes so the resting
+  state is complete; reduced motion = the 120 ms fade.
+- **Dead reads removed**: the composer-only reads no longer run — linked services (`vendor_service_links`), the
+  existing-thread lookup, requirement facets + saved templates, composer live pax, the AI-mode event row, the
+  event-type roster, and the composer's event-picker call.
 
-Not in this PR: the person page (`/u/[userSlug]`), `sample-shop-page.tsx` and `/for-suppliers` (a later step); the reach
-ring's draw-on animation (the map is the shipped OSM embed) and the seal's ring/tick stroke draw (the seal is the shipped
-image badge); the prototype's portfolio mosaic / albums / story-card and review-bar redraws (the shipped sections render
-inside the new grouping); moving the Lock button beside the price inside `PackageCard`.
+Not in this PR: the person page (`/u/[userSlug]`), `sample-shop-page.tsx` and `/for-suppliers` (a later step); the
+prototype's portfolio mosaic / albums / story-card and review-bar redraws (the shipped sections render inside the new
+grouping); the Ultra "nationwide" ripple and the ring growing on a plan change (no plan switch on a public page).
 
 SPEC IMPACT: None — matches the approved prototype.

@@ -76,8 +76,8 @@ test('the shop page: message doors ask canMessage, booking doors keep bookable',
   assert.equal(count(page, 'const bookable = isBookable(visibility);'), 1, 'bookable no longer comes from isBookable');
 
   // MESSAGE doors.
-  assert.match(page, /const showInquiryComposer =\s*canMessage && coupleEventId !== null/, 'the composer is not on canMessage');
-  assert.match(page, /anonComposerServices: AnonComposerService\[\] =\s*canMessage && coupleEventId === null/, 'the signed-out composer is not on canMessage');
+  // The inline composers and the reads only they used are gone (13 Nov 2026); the pop-up's event list is on canMessage.
+  assert.match(page, /const inquireEventState = canMessage && viewerSignedIn \? await resolveAddShopToEvent\(slug\) : null;/, 'the pop-up\'s event list is not on canMessage');
   // 13 Nov 2026 ("Yes, only one"): no Inquire section and no hero Inquire — the ONE Inquire is in the action row below,
   // and the pop-up it opens is mounted on canMessage.
   assert.match(page, /\{canMessage \? \(\s*<InquireSheet\b/, 'the Inquire pop-up is not on canMessage');

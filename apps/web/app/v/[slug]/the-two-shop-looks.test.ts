@@ -78,6 +78,12 @@ test('Lock lives only on the package cards', () => {
   const end = PAGE.indexOf('\nfunction ', fn + 10);
   assert.ok(fn > 0 && lock > fn && lock < end, 'the Lock control left the package card section');
   assert.match(PAGE, /<PackageCard\s[\s\S]{0,120}ctaSlot=\{cta\}/, 'the Lock is no longer the package card\'s own slot');
+  // Beside its price, as the prototype draws it (price left, Lock right) — not at the card's foot.
+  assert.match(PAGE, /<PackageCard\s[\s\S]{0,160}ctaSlot=\{cta\}\s*ctaBesidePrice\b/, 'the Lock fell back to the card\'s foot');
+  const card = stripComments(readFileSync(join(HERE, '../../_components/vendor-packages/package-card.tsx'), 'utf8'));
+  const row = card.slice(card.indexOf('data-package-price-row'), card.indexOf('data-package-price-row') + 500);
+  assert.match(row, /formatCentavosPhp\(pkg\.total_price_centavos\)[\s\S]*\{ctaSlot\}/, 'the price row does not hold the price, then the Lock');
+  assert.match(card, /\{ctaSlot && !ctaBesidePrice \? <div className="mt-5">/, 'the Lock shows twice — in the price row and at the foot');
   // No page-level Lock door: the panel says what Lock does in words, it is not a button.
   assert.doesNotMatch(PANEL, /<button|<Link|LockPackageModal/, 'the panel grew a Lock door');
   const modal = stripComments(readFileSync(join(HERE, '../../_components/vendor-packages/lock-modal.tsx'), 'utf8'));
@@ -119,4 +125,24 @@ test('motion: CSS only, a complete resting state, and a full reduced-motion fall
   const bar = read('_components/shop-section-bar.tsx');
   assert.equal((bar.match(/new IntersectionObserver\(/g) ?? []).length, 1, 'one observer, not many');
   assert.match(bar, /io\.unobserve\(e\.target\)/, 'the observer must let go after adding .in once');
+});
+
+// README motion 3 and 8: the seal stamps, then its ring and tick draw; the reach ring draws, fills, and its "N km" tag
+// fades in. Strokes with pathLength 1 whose keyframes only say where they START — so at rest (and under reduced motion,
+// where everything is a 120 ms fade) the ring and tick are complete.
+test('motion: the seal\'s ring and tick draw, and the reach ring draws itself — complete at rest', () => {
+  const css = readFileSync(join(HERE, '_components/shop-motion.module.css'), 'utf8');
+  for (const hook of ['data-badge-ring', 'data-badge-tick', 'data-reach-ring', 'data-reach-km']) {
+    assert.match(css, new RegExp(`\\.verified :global\\(\\[${hook}\\]\\)`), `${hook} has no motion on the verified look`);
+  }
+  assert.match(css, /@keyframes drawStroke \{ from \{ stroke-dashoffset: 1; \} \}/, 'the draw must be from-only, so the rest is drawn');
+  assert.doesNotMatch(css, /\.verified[^{]*\{[^}]*stroke-dashoffset: 1/, 'a stroke is hidden in a resting rule');
+  const badge = stripComments(readFileSync(join(HERE, '../../_components/image-badge.tsx'), 'utf8'));
+  assert.match(badge, /pathLength=\{1\}\s*strokeDasharray="1"[\s\S]{0,80}data-badge-ring=""/);
+  assert.match(badge, /pathLength=\{1\}\s*strokeDasharray="1"\s*data-badge-tick=""/);
+  assert.match(PAGE, /badge=\{verifiedBadge\(\)\}[\s\S]{0,140}\bdrawn\b/, 'the verified seal is not the drawn one');
+  const map = stripComments(readFileSync(join(HERE, '../../vendor-dashboard/shop/_components/reach-map.tsx'), 'utf8'));
+  assert.match(map, /pathLength=\{1\}\s*strokeDasharray="1"[\s\S]{0,80}data-reach-ring=""/);
+  const reach = read('_components/shop-reach.tsx');
+  assert.match(reach, /<ReachMap[\s\S]{0,260}\bkmTag\b/, 'the shop page\'s ring lost its km tag');
 });

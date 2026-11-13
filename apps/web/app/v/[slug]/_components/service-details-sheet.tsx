@@ -15,7 +15,7 @@
  *   the face      the card's own name · by the shop · price · the best offer · how the price works · the gift line
  *   facts FIRST   What's included (the WHOLE list + crew) · Not included (+ Serves) · The record · Reviews
  *   media LAST    Photos (an even 3-column grid, +N past six) · Clip (a row; tap plays it in place) · Inspiration
- *   thumb row     Inquire about this (its caption lives in ⓘ)
+ *   thumb row     Choose this service (opens the shop's ONE Inquire pop-up with this card picked; caption in ⓘ)
  *
  * 📌 SECTION ROWS PIN. Each section wraps its own head, so under the pinned bar the head of the section you are in pins
  * compact (its name and count), and the next section's head pushes it out — one pinned row at a time. Tapping it glides
@@ -51,7 +51,7 @@ import { formatCount } from '@/lib/format-number';
 import type { ServiceCard } from './services-gallery';
 
 /**
- * How the grown card's "Inquire about this" behaves, decided SERVER-side because only the server knows which composer
+ * How the grown card's "Choose this service" behaves, decided SERVER-side because only the server knows which composer
  * (if any) is on the page:
  *
  *   • 'focus'  — the signed-in couple's `InquiryComposer` is mounted. The button points it at THIS service and opens it.
@@ -457,7 +457,7 @@ export function ServiceDetailsSheet({
             data-grown-thumb=""
           >
             {inquireMode === 'focus' ? (
-              <ActionButton tone="brand" main icon={MessageCircle} label="Inquire about this" onClick={onInquire} className="w-full" />
+              <ActionButton tone="brand" main icon={MessageCircle} label="Choose this service" onClick={onInquire} className="w-full" />
             ) : (
               <a
                 href="#get-in-touch"
@@ -467,7 +467,7 @@ export function ServiceDetailsSheet({
                 className={actionButtonClass('brand', { main: true, extra: 'w-full' })}
               >
                 <MessageCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                <span>Inquire about this</span>
+                <span>Choose this service</span>
               </a>
             )}
           </div>

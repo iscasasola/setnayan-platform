@@ -48,7 +48,7 @@ export function ServicesGallery({
    */
   detailsEnabled = false,
   /**
-   * How the sheet's "Inquire about this" should behave — decided server-side
+   * How the sheet's "Choose this service" should behave — decided server-side
    * because only the server knows which composer is on the page. Ignored while
    * `detailsEnabled` is false.
    */

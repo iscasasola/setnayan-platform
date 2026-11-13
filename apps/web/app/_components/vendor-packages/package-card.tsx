@@ -16,6 +16,7 @@ import type { CoupleBundleGift } from '@/lib/package-gift';
 export function PackageCard({
   pkg,
   ctaSlot,
+  ctaBesidePrice = false,
   hidePrice = false,
   gift = null,
 }: {
@@ -27,6 +28,12 @@ export function PackageCard({
    */
   gift?: CoupleBundleGift;
   ctaSlot?: React.ReactNode;
+  /**
+   * 🔒 THE LOCK BESIDE ITS PRICE (prototype public_pages_three_2026-11-13, owner-approved 13 Nov): on the public shop
+   * page the package's one action sits in the price row — price left, "Lock this package" right, wrapping under it on
+   * a narrow card — instead of at the card's foot. Off (the default) ⇒ the dashboard callers keep the foot slot.
+   */
+  ctaBesidePrice?: boolean;
   /**
    * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
    * 2026-07-16 #6). When true, the peso figures are suppressed — the package
@@ -47,11 +54,22 @@ export function PackageCard({
           <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
             {pkg.package_name}
           </h3>
-          <p className="mt-1 font-mono text-lg text-ink">
-            {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
-          </p>
+          {ctaBesidePrice && ctaSlot ? null : (
+            <p className="mt-1 font-mono text-lg text-ink">
+              {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
+            </p>
+          )}
         </div>
       </header>
+
+      {ctaBesidePrice && ctaSlot ? (
+        <div data-package-price-row="" className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="font-mono text-lg text-ink">
+            {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
+          </p>
+          <div className="min-w-0 shrink-0">{ctaSlot}</div>
+        </div>
+      ) : null}
 
       {pkg.description ? (
         <p className="mt-3 text-sm leading-relaxed text-ink/75">
@@ -112,7 +130,7 @@ export function PackageCard({
         </p>
       ) : null}
 
-      {ctaSlot ? <div className="mt-5">{ctaSlot}</div> : null}
+      {ctaSlot && !ctaBesidePrice ? <div className="mt-5">{ctaSlot}</div> : null}
     </article>
   );
 }

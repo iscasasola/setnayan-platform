@@ -22,9 +22,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(HERE, 'page.tsx'), 'utf8');
@@ -54,15 +54,20 @@ test('the hero carries no Inquire, and the card\'s Inquire is filled and ungated
 test('Share and Add to your event sit beside the one Inquire, as ghosts', () => {
   const at = code.indexOf('data-shop-main-inquire=""');
   assert.ok(at > 0, 'could not locate the card\'s Inquire — update this test with the markup');
-  const after = code.slice(at, at + 1600);
+  const after = code.slice(at, at + 2600);
   assert.ok(after.includes('<ShareButton'), 'the Share button left the action row');
   assert.match(after, /<SaveVendorButton[\s\S]*?label="Add to your event"[\s\S]*?className="button-secondary/, 'Add to your event is not a ghost beside Inquire');
   assert.doesNotMatch(after.slice(0, after.indexOf('<ShareButton')), /button-primary/, 'a second filled button sits beside Inquire');
+  // Order (prototype, owner 13 Nov): Inquire · Add to your event, then Check a date · Share.
+  const add = after.indexOf('<SaveVendorButton');
+  const date = after.indexOf('<CheckADateLink');
+  const share = after.indexOf('<ShareButton');
+  assert.ok(add > 0 && date > add && share > date, `the row order is not Inquire · Add · Check a date · Share (${add}, ${date}, ${share})`);
 });
 
 // 13 Nov 2026, owner verbatim "Yes, only one": exactly ONE page-level Inquire control on every shop page — no section-bar
-// tab, no Inquire section or form at the foot, no hero button. A service card's "Inquire about this" (inside its details
-// sheet) is the same action with that card picked, not a second page-level door.
+// tab, no Inquire section or form at the foot, no hero button. A service card's details sheet says "Choose this service"
+// and opens the same pop-up with that card picked — the same action, never a second Inquire.
 test('exactly one page-level Inquire control per shop page', () => {
   assert.equal((code.match(/href="#get-in-touch"/g) ?? []).length, 1, 'a second link into the Inquire pop-up on the page');
   assert.doesNotMatch(code, /<InquiryComposer\b|<AnonInquiryComposer\b/, 'an inline Inquire form came back at the foot');
@@ -77,4 +82,48 @@ test('exactly one page-level Inquire control per shop page', () => {
   assert.match(cols, /SHOP_MAIN_INQUIRE_CLASS =\s*'button-primary[^']*max-md:fixed[^']*'/);
   // The service card's own Inquire reaches the same pop-up, card picked.
   assert.match(code, /inquireMode=\{canMessage \? 'anchor' : 'none'\}/);
+});
+
+// 13 Nov 2026 (coordinator, owner "only one"): the WORD "Inquire" is one visible control per shop page. Walk every .tsx
+// the page renders (its import tree) and count visible "Inquire" text — a JSX text node or a string literal that starts
+// with it. The page's own main button is the only one; the phone float is that same element, never a copy. A card with
+// no price reads "Price on request" (lib/service-card-view-model.ts), and the details sheet reads "Choose this service".
+test('the word "Inquire" is ONE visible control across everything the shop page renders', () => {
+  const WEB = join(HERE, '..', '..', '..');
+  const resolve = (spec: string, from: string): string | null => {
+    const base = spec.startsWith('@/') ? join(WEB, spec.slice(2)) : spec.startsWith('.') ? normalize(join(dirname(from), spec)) : null;
+    if (!base) return null;
+    for (const ext of ['.tsx', '/index.tsx']) if (existsSync(base + ext)) return base + ext;
+    return null;
+  };
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const seen = new Set<string>();
+  const todo: Array<[string, number]> = [[join(HERE, 'page.tsx'), 0]];
+  const hits: string[] = [];
+  while (todo.length > 0) {
+    const [file, depth] = todo.pop()!;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const raw = readFileSync(file, 'utf8');
+    if (depth < 5) {
+      for (const m of raw.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
+        const next = resolve(m[1]!, file);
+        if (next && !next.includes('.test.') && !seen.has(next)) todo.push([next, depth + 1]);
+      }
+    }
+    const code = strip(raw);
+    for (const m of code.matchAll(/(?:['"`]|>)\s*Inquire\b/g)) {
+      hits.push(`${file.slice(WEB.length + 1)}:${code.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  assert.ok(seen.size > 20, `the import walk found only ${seen.size} files — the resolver broke`);
+  assert.deepEqual(
+    hits.map((h) => h.replace(/:\d+$/, '')),
+    ['app/v/[slug]/page.tsx'],
+    `expected the word "Inquire" once (the main button), found: ${hits.join(', ')}`,
+  );
+  const card = strip(readFileSync(join(WEB, 'lib', 'service-card-view-model.ts'), 'utf8'));
+  assert.doesNotMatch(card, /'Inquire'/, 'a card with no price says "Inquire" — a second Inquire on the page');
+  const sheet = strip(readFileSync(join(HERE, '_components', 'service-details-sheet.tsx'), 'utf8'));
+  assert.equal((sheet.match(/Choose this service/g) ?? []).length, 2, 'the details sheet button no longer reads "Choose this service"');
 });

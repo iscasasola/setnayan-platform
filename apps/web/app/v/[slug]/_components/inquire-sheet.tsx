@@ -108,7 +108,7 @@ export function InquireSheet({
       const a = (e.target as Element | null)?.closest?.('a[href="#get-in-touch"]');
       if (!a) return;
       e.preventDefault();
-      // A service card's own "Inquire about this" names its card, so the pop-up opens with it picked.
+      // A service card's "Choose this service" names its card, so the pop-up opens with it picked.
       const svc = a.getAttribute('data-inquire-service');
       const picks = svc ? [svc] : undefined;
       if (!signedIn) {

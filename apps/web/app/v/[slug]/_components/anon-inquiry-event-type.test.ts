@@ -46,12 +46,9 @@ test('the composer asks what kind of event', () => {
 });
 
 test('the offered event types come from the live vocab, never a hard-coded list', () => {
-  assert.match(
-    page,
-    /getCreatableEventTypes\(\)/,
-    'the vendor page must feed the composer from the live event-type vocab — a hard-coded ' +
-      'list drifts from what create-event will accept and offers types it then rejects',
-  );
+  // 13 Nov 2026 ("Yes, only one"): the page no longer mounts this composer, so it no longer reads the roster for it —
+  // a read that feeds nothing on the page is exactly the dead fetch this PR removed.
+  assert.doesNotMatch(page, /getCreatableEventTypes\(\)/, 'the page reads the event-type roster for a composer it no longer mounts');
   // A literal roster in the composer is the exact failure this guards against.
   assert.doesNotMatch(
     composer,

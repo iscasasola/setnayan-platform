@@ -5,7 +5,7 @@
  *
  * 🔑 THE RESTING STATE IS THE BASE STYLE. Arrival motion is `from`-only keyframes (no JS); scroll motion hides a part
  * only once `ShopSectionBar` has set `data-shop-js` on the root, and its one IntersectionObserver adds `.in`. With no
- * JS the page is simply still and complete. Transform / opacity / clip-path only — no layout work per frame.
+ * JS the page is simply still and complete. Transform / opacity / stroke-dashoffset only — no layout work per frame.
  *
  * Only the verified look wears `.verified`; the unverified shop gets `.calm` (one 240 ms fade, the prototype's).
  */
@@ -56,6 +56,26 @@
 .verified :global([data-shop-hero-badges]) > *:nth-child(3) { animation-delay: 1230ms; }
 .verified :global([data-shop-hero-badges]) > *:nth-child(4) { animation-delay: 1320ms; }
 .verified :global([data-shop-hero-badges]) > *:nth-child(n + 5) { animation-delay: 1410ms; }
+/* 3 (cont.) · the seal's ring, then its tick, draw themselves (`ImageBadge drawn` — strokes with pathLength 1). */
+.verified :global([data-badge-ring]) {
+  animation: drawStroke 900ms var(--sn-ease-rise) 900ms both;
+}
+.verified :global([data-badge-tick]) {
+  animation: drawStroke 500ms var(--sn-ease-rise) 1250ms both;
+}
+/* 8 · the reach ring draws itself, then fills; the "N km" tag fades in; the pin drops (ReachMap, client-drawn — it
+   plays when the map mounts). At rest every part is complete: the keyframes only say where they start from. */
+.verified :global([data-reach-ring]) {
+  animation:
+    drawStroke 1300ms var(--sn-ease-rise) 250ms both,
+    ringFill 700ms ease-out 1100ms both;
+}
+.verified :global([data-reach-km]) {
+  animation: fadeIn 500ms ease-out 1300ms both;
+}
+.verified :global([data-reach-pin]) {
+  animation: pinDrop 520ms var(--sn-ease-rise) 120ms both;
+}
 /* Tablet+ only: on a phone the card holds the floating Inquire, and an animating transform would become its
    containing block and drag it off the bottom of the screen. */
 @media (min-width: 768px) {
@@ -123,6 +143,9 @@
 @keyframes settle { from { transform: scale(1.06); } }
 @keyframes drift { to { transform: translateY(9%); } }
 @keyframes sink { to { opacity: 0.15; transform: translateY(-26px); } }
+@keyframes drawStroke { from { stroke-dashoffset: 1; } }
+@keyframes ringFill { from { fill-opacity: 0; } }
+@keyframes pinDrop { from { opacity: 0; transform: translateY(-14px); } }
 
 /* ── REDUCED MOTION — every movement above becomes a 120 ms cross-fade; nothing travels, nothing scales. */
 @media (prefers-reduced-motion: reduce) {

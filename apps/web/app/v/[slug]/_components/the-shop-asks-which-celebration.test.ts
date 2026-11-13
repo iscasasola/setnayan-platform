@@ -66,7 +66,7 @@ test('the URL claim is CHECKED against the viewer’s own memberships', () => {
 test('the picker\'s choices still reach the page — Add to your event and the Inquire pop-up', () => {
   const src = code(PAGE);
   assert.doesNotMatch(src, /<AddToEvent\b/, 'the retired foot picker came back');
-  assert.match(src, /const inquireEventState = canMessage && viewerSignedIn \? \(shopEventPicker \?\? \(await resolveAddShopToEvent\(slug\)\)\) : null;/);
+  assert.match(src, /const inquireEventState = canMessage && viewerSignedIn \? await resolveAddShopToEvent\(slug\) : null;/);
   const save = src.slice(src.indexOf('<SaveVendorButton'), src.indexOf('<SaveVendorButton') + 700);
   assert.match(
     save,

@@ -1,6 +1,5 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -45,10 +44,7 @@ export default async function TheirWorkPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6" data-their-work="">
       <div className="mb-2 flex min-h-11 items-center gap-2">
-        <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
-          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-          Shop
-        </Link>
+        <BackButton route="/vendor-dashboard/services/their-work" />
       </div>
       <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
       <p className="mt-1 text-[14px] text-ink/60">One album per event · newest first · type · venue · month · no names</p>

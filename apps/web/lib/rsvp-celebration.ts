@@ -9,7 +9,7 @@
  *
  *   · None       — free, and the DEFAULT (an absent key reads as None, so every
  *                  event that never opened the dropdown is byte-for-byte as it was);
- *   · Confetti · Fireworks · Petals · Sparklers — ◆ Event Hub Pro: tried in the
+ *   · Confetti · Fireworks · Petals · Sparklers — ◆ Event Pro: tried in the
  *                  Maker's draft, named at Apply, written only with Pro
  *                  (`eventItemIsPro` / `planHubDraftApply`, lib/hub-draft.ts).
  *
@@ -52,7 +52,7 @@ export function isRsvpCelebration(v: unknown): v is RsvpCelebration {
   return typeof v === 'string' && (RSVP_CELEBRATIONS as readonly string[]).includes(v);
 }
 
-/** Every effect is Event Hub Pro; None never is. */
+/** Every effect is Event Pro; None never is. */
 export function celebrationIsPro(kind: RsvpCelebration): boolean {
   return kind !== 'none';
 }

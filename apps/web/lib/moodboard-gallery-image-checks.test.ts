@@ -93,11 +93,11 @@ test('the wordmark is the URL, spelled out', () => {
   // asserted `WATERMARK_TEXT === 'SETNAYAN'` from 2026-09-04 until the owner
   // directive that every inspiration photo must carry an address somebody can
   // actually type. It went red on the rename, which is the test doing its job —
-  // the brand lock it holds is "spelled out, never STNYN", and that survives
+  // the brand lock it holds is "spelled out, never abbreviated", and that survives
   // the change intact because the URL contains the full word.
   assert.equal(WATERMARK_TEXT, 'WWW.SETNAYAN.COM');
   assert.ok(WATERMARK_TEXT.includes('SETNAYAN'));
-  assert.doesNotMatch(WATERMARK_TEXT, /STNYN/);
+  assert.doesNotMatch(WATERMARK_TEXT, /STN[Y]N/); // never the abbreviation
 });
 
 test('an oversized upload is capped, and still marked', async () => {

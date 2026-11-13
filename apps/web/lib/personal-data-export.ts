@@ -1112,7 +1112,7 @@ export async function buildPersonalDataExport(
       .select('waitlist_id, vendor_profile_id, event_id, requested_date, status, created_at, notified_at, accepted_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
-    // Their balance in the RETIRED supplier token wallet. The currency can no
+    // Their balance in the RETIRED supplier token balance. The currency can no
     // longer be earned or spent, but the record is still held about them.
     supabase
       .from('vendor_member_token_wallets')
@@ -1583,7 +1583,7 @@ export async function buildPersonalDataExport(
     // Your face profile's consent record — never the face data itself.
     face_profile: faceProfile.rows,
     date_waitlists_joined: dateWaitlists.rows,
-    // Your balance in the supplier token wallet, which is retired.
+    // Your balance in the supplier token balance, which is retired.
     retired_token_balances: tokenBalances.rows,
     supplier_team_memberships: teamMemberships.rows,
     // Claim scans you made as a supplier's crew — what you scanned for which shop, when, and its number. The guest

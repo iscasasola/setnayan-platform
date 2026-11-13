@@ -106,7 +106,7 @@ export function nextPhotoChallengeExpiry(
 // ── Can this shop BUY it? ────────────────────────────────────────────────────
 
 export type PhotoChallengeDenyReason =
-  /** Tier below Pro (Solo/Verified/Free) — Pro/Enterprise only, pre-2026-07-25 gate. */
+  /** Tier below Pro (Supplier Plus/Verified/Free) — Pro/Enterprise only, pre-2026-07-25 gate. */
   | 'tier_too_low'
   /** Paid tier but the shop is not verified yet. */
   | 'unverified'
@@ -125,7 +125,7 @@ export type PhotoChallengeEligibility =
 
 /**
  * The plans that may turn Papic Challenges on. OWNER 2026-08-29, verbatim:
- * *"Solo and Pro can buy Papic Challenges. they can only but if they are
+ * *"Supplier Plus and Pro can buy Papic Challenges. they can only but if they are
  * solo,pro,enterprise,custom. but not when they are free"*.
  *
  * `isTierAtLeast(tier, 'solo')` is exactly that list: the ladder is
@@ -170,7 +170,7 @@ export function photoChallengePurchaseEligibility(
   // WHETHER IT MAY BUY AT ALL. The owner turned that switch on the same day and
   // ruled the floor separately — *"not when they are free"* — which the old
   // shape could not express: with the flag on it admitted everybody, with the
-  // flag off it refused Solo, and he wants Solo in and free out.
+  // flag off it refused Supplier Plus, and he wants Supplier Plus in and free out.
   //
   // 🔑 One switch answering two questions is how a price change silently becomes
   // an access change. The flag keeps its PRICE job; the floor is its own rule.

@@ -29,6 +29,8 @@ import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
+import { shopCategoryCount } from '@/lib/shop-category-count';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
 import { fetchCorrectionRequests, identityLockOf, type LockedIdentityFieldKey, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
 import {
@@ -396,6 +398,9 @@ export async function loadDetailsData(
     logoFrame: readLogoFrame(profile),
     logoDisplayMap: logo.map,
     services: (profile.services ?? []) as string[],
+    // 🔢 F-W1-03: counted as sign-up counts them — opening a shop writes the coarse key AND the leaf, so
+    // `services.length` read "2 categories" for one.
+    serviceCategoryCount: shopCategoryCount((profile.services ?? []) as string[], await getTaxonomy()),
     serviceLabels: vocab.serviceLabels,
     extraServiceLeaves: vocab.extraServiceLeaves,
     vendorProfileId: vendorId,

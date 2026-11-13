@@ -80,7 +80,7 @@ export type ChargeSource =
   | 'package_catalog'
   | 'setnayan_ai_event_type'
   | 'setnayan_ai_comeback'
-  /** 💎 Event Hub Pro, part by part (owner 2026-10-22) — parts at their catalogue sum, or the rest to everything. */
+  /** 💎 Event Pro, part by part (owner 2026-10-22) — parts at their catalogue sum, or the rest to everything. */
   | 'hub_parts'
   /** 💳 Event Ultra for an event that already paid for Plus or Pro — the row's price less that plan's (owner 2026-11-13). */
   | 'event_ultra_upgrade'

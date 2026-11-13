@@ -14578,6 +14578,7 @@
         "Step",
         "SubmitButton",
         "SwipeToDelete",
+        "T",
         "TakenSignIn",
         "TurnstileField",
         "UndoToastHost"
@@ -15733,7 +15734,6 @@
         "vendor-dashboard/_components/portfolio-upload.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/row-icon.tsx",
-        "vendor-dashboard/_components/setup-daily-step.tsx",
         "vendor-dashboard/_components/setup-days-off-row.tsx",
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-papers.tsx",
@@ -15805,7 +15805,6 @@
       ],
       "actions": [
         "acceptInquiry",
-        "action",
         "agreeDeletion",
         "agreeLock",
         "answerDateChange",
@@ -15817,13 +15816,11 @@
         "disconnectInstagram",
         "formAction",
         "markServiceComplete",
-        "null",
         "postReviewReply",
         "rejectLock",
         "renewAction",
         "respondMeeting",
-        "toggleInstagramMediaVisibility",
-        "updatePoolCapacity"
+        "toggleInstagramMediaVisibility"
       ],
       "blocks": [
         "A",
@@ -15869,7 +15866,6 @@
         "FieldSaveResult",
         "FileUpload",
         "Fold",
-        "FormCounter",
         "FormRow",
         "FormRows",
         "Fragment",
@@ -15942,7 +15938,6 @@
         "Scope",
         "Screen",
         "Section",
-        "SetupDailyStep",
         "SetupDaysOffRow",
         "SetupFoldKey",
         "SetupOfferFold",
@@ -15959,7 +15954,6 @@
         "SpotlightMount",
         "StageBadge",
         "State",
-        "StayForm",
         "StayOnTodayLine",
         "StayOnTodayLineView",
         "StepChip",

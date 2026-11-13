@@ -192,14 +192,14 @@ test('THE CLAMP · enforcement reads the clamped rings, proven against the raw o
   // Same stored row, same venue, only the tier moves. If enforcement read the
   // declared columns the answer would be identical on every tier — it is not.
   // (Pro's 50 km cap does not bite a 40 km inner ring, so Pro matches Enterprise
-  // here; Solo's 30 km cap (2026-10-23, was 20) does, and Free's 0 km cap collapses the pair entirely.)
+  // here; Supplier Plus's 30 km cap (2026-10-23, was 20) does, and Free's 0 km cap collapses the pair entirely.)
   const raw = { declaredInnerKm: 40, declaredOuterKm: 100, distanceKm: 35 };
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'enterprise' }).transportLocked, true);
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'pro' }).transportLocked, true);
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).transportLocked, false);
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'free' }).transportLocked, false);
-  // …and the same row on Solo is not merely "unlocked", it is out of range —
-  // the vendor's own 100 km outer ring is not something Solo pays for.
+  // …and the same row on Supplier Plus is not merely "unlocked", it is out of range —
+  // the vendor's own 100 km outer ring is not something Supplier Plus pays for.
   assert.equal(resolveFreeTransportDecision({ ...raw, tier: 'solo' }).verdict, 'outside_range');
 });
 

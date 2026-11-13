@@ -54,7 +54,7 @@
  * the `venue_map` scene's `config_json.venue`) — `venueDrawingFor` below is the
  * ONE reader the guest card uses. `parishDrawingFor` only answers "does the
  * library HAVE a drawing of this venue?" — what the Maker asks before it offers
- * the choice at all. Event Hub Pro: tried in the draft, named at Apply.
+ * the choice at all. Event Pro: tried in the draft, named at Apply.
  */
 
 import type { EventVenue } from '@/lib/event-venues';

@@ -40,6 +40,7 @@ import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
 import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 import { papicChapterCaptureDecision, readChapterId } from '@/lib/papic-chapter';
 import { linkCaptureToChapter, papicChapterRefusal } from '@/lib/papic-chapter.server';
+import { eventDaysOf, phoneShotOnEventDay } from '@/lib/papic-phone-uploads';
 
 // POST /api/papic/guest-capture
 //
@@ -87,6 +88,8 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 type CaptureRow = {
   capture_id: string;
+  /** 📲 Guest upload v2: NULL for a camera shot; 'waiting' for a phone upload held for the couple's check. */
+  phone_upload?: string | null;
   media_type: string | null;
   r2_object_key: string | null;
   poster_r2_key: string | null;
@@ -242,6 +245,55 @@ async function creditRefusal(
   return null;
 }
 
+// ── 📲 ADDED FROM THE PHONE'S GALLERY (guest upload v2 — owner 2026-11-13; rulings 2026-11-14, #7607) ───────────────
+// A phone upload is an ordinary guest capture with three differences, all decided HERE (the sheet is a courtesy):
+//   · it costs the UPLOAD price — `papicCaptureCost(kind, ms, 'upload')`, the camera price × PAPIC_UPLOAD_MULTIPLIER;
+//   · it may only be a photo TAKEN on the event's day(s) — judged by the shot instant the phone read off the file
+//     (`judgedShotInstant`, bounded by this server's clock), in Manila;
+//   · the couple's `papic_uploads_open` must be on ("gate the write, not the button" — 20271170068924), and their
+//     `papic_phone_uploads_held` decides whether the row is born shown ('live') or hidden until they check it
+//     ('waiting' + hidden_at — the shipped Hide; hiding never refunds, which is ruling 4).
+function isPhoneUpload(body: Body): boolean {
+  return body.source === 'phone';
+}
+
+/** The capture's price: the camera price for a camera shot, the upload price for a phone upload. */
+function shotCost(body: Body, mediaType: 'photo' | 'clip', durationMs: number | null): number {
+  return papicCaptureCost(mediaType, durationMs, isPhoneUpload(body) ? 'upload' : 'camera');
+}
+
+/**
+ * For a NEW phone upload: refused (uploads off · not the event day) or allowed, with whether it is held. Fails CLOSED
+ * on an unreadable row — unlike the camera's window, nothing is lost: the file is still in the guest's gallery and the
+ * phone keeps the queued copy (`kept`), so a refusal here costs a retry, never a photograph.
+ */
+async function phoneUploadGate(
+  session: GuestSession,
+  admin: Admin,
+  shotAtMs: number,
+): Promise<{ res: NextResponse | null; held: boolean }> {
+  const { data, error } = await admin
+    .from('events')
+    .select('event_date, event_end_date, papic_uploads_open, papic_phone_uploads_held')
+    .eq('event_id', session.event_id)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:events.select(phone upload)', error);
+    return { res: json({ error: 'record_failed' }, 503), held: false };
+  }
+  const row = data as {
+    event_date: string | null;
+    event_end_date: string | null;
+    papic_uploads_open: boolean | null;
+    papic_phone_uploads_held: boolean | null;
+  };
+  if (row.papic_uploads_open === false) return { res: json({ error: 'uploads_closed' }, 403), held: false };
+  if (!phoneShotOnEventDay(shotAtMs, eventDaysOf(row.event_date, row.event_end_date))) {
+    return { res: json({ error: 'not_event_day' }, 403), held: false };
+  }
+  return { res: null, held: row.papic_phone_uploads_held === true };
+}
+
 function parseDuration(body: Body): { ok: true; ms: number | null } | { ok: false } {
   const raw = body.duration_ms;
   const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : NaN;
@@ -340,10 +392,12 @@ async function handleSign(
       return json({ error: 'not_recorded_yet' }, 409);
     }
     const duration = parseDuration(body);
+    const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
     const refused =
-      (await chapterGate(session, admin, body, judgedShotInstant(body.captured_at_ms, Date.now()))).res ??
+      (isPhoneUpload(body) ? (await phoneUploadGate(session, admin, shotAtMs)).res : null) ??
+      (await chapterGate(session, admin, body, shotAtMs)).res ??
       (await moderationRefusal(session, admin)) ??
-      (await creditRefusal(session, admin, papicCaptureCost(mediaType, duration.ok ? duration.ms : null)));
+      (await creditRefusal(session, admin, shotCost(body, mediaType, duration.ok ? duration.ms : null)));
     if (refused) return refused;
   }
 
@@ -412,6 +466,10 @@ async function handleRecord(
   const durationMs = isClip ? duration.ms : null;
 
   const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
+  // 📲 A phone upload: the couple's switch and the event day, before anything else is asked.
+  const phone = isPhoneUpload(body) ? await phoneUploadGate(session, admin, shotAtMs) : null;
+  if (phone?.res) return phone.res;
+  const held = phone?.held === true;
   const chapter = await chapterGate(session, admin, body, shotAtMs);
   const refusedEarly = chapter.res ?? (await moderationRefusal(session, admin));
   if (refusedEarly) return refusedEarly;
@@ -427,7 +485,8 @@ async function handleRecord(
 
   // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
   // event pool meters. An absent or unparseable duration falls to the top band.
-  const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs);
+  // 📲 A phone upload pays the upload price (× PAPIC_UPLOAD_MULTIPLIER) — `shotCost`.
+  const cost = shotCost(body, isClip ? 'clip' : 'photo', durationMs);
   const refused = await creditRefusal(session, admin, cost);
   if (refused) return refused;
 
@@ -599,6 +658,12 @@ async function handleRecord(
       patch.subject_center_x = subjectCenterX;
       patch.subject_center_y = subjectCenterY;
     }
+    // 📲 Marked, and — when the couple chose "After I check" — born HIDDEN, in this same write, before the screen
+    // runs and before any surface (the wall included) is offered the row.
+    if (phone) {
+      patch.phone_upload = held ? 'waiting' : 'live';
+      if (held) patch.hidden_at = new Date().toISOString();
+    }
     const { error: patchErr } = await admin.from('papic_guest_captures').update(patch).eq('capture_id', captureId);
     if (patchErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(first piece)', patchErr);
   }
@@ -650,7 +715,8 @@ async function handleRecord(
     } catch {
       // best-effort — derivatives never break a capture
     }
-    await afterVisible(session, captureId);
+    // 📲 A held phone upload never goes to the wall — the couple has not seen it yet.
+    if (!held) await afterVisible(session, captureId);
   });
   if (isClip && (!wantFull || playable === 'clip_raw')) {
     await handOffToDrive(session, r2Ref, 'video/mp4', captureId);
@@ -858,7 +924,8 @@ async function handleAttach(
           // best-effort
         }
       }
-      await afterVisible(session, captureId);
+      // 📲 A phone upload still waiting for the couple's check never goes to the wall.
+      if (prior.phone_upload !== 'waiting') await afterVisible(session, captureId);
     });
     if (!wantFull) await handOffToDrive(session, displayRef, 'image/webp', captureId);
   }
@@ -917,7 +984,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: priorRow, error: priorErr } = await admin
     .from('papic_guest_captures')
-    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, tile_r2_key, thumb_r2_key, clip_web_r2_key, moderation_state')
+    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, tile_r2_key, thumb_r2_key, clip_web_r2_key, moderation_state, phone_upload')
     .eq('guest_id', session.guest_id)
     .eq('client_capture_id', clientCaptureId)
     .maybeSingle();

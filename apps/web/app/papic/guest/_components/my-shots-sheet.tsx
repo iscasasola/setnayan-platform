@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { usePapicUploads } from '@/app/papic/_components/upload-chip';
 import { formatCount } from '@/lib/format-number';
@@ -32,6 +32,8 @@ export type MyShot = {
   durationMs?: number | null;
   /** Still on this phone, not yet in the event's Memories. */
   waiting?: boolean;
+  /** 📲 Added from the phone's gallery: "from your phone", or "with <hosts>" while the couple checks it first. */
+  note?: string;
 };
 
 /** This event's guest shots still on the phone, not yet recorded by the event. */
@@ -75,11 +77,17 @@ export function MyShotsSheet({
   onClose,
   shots: given,
   eventId,
+  onAddFromPhone,
 }: {
   open: boolean;
   onClose: () => void;
   shots: MyShot[];
   eventId: string;
+  /**
+   * 📲 "Add from your phone" (guest upload v2, approved 2026-11-13) — the one button in this sheet's head. Null when
+   * this guest has no camera of their own to add with (no owner tag), and the button is not drawn.
+   */
+  onAddFromPhone: (() => void) | null;
 }) {
   const snap = usePapicUploads();
   const waiting = unsentIds(snap, eventId);
@@ -170,6 +178,20 @@ export function MyShotsSheet({
           </div>
         </div>
 
+        {onAddFromPhone ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-3">
+            <button
+              type="button"
+              onClick={onAddFromPhone}
+              data-add-from-phone-door=""
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-mulberry-600 px-4 text-[14px] font-semibold text-white"
+            >
+              <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+              Add from your phone
+            </button>
+          </div>
+        ) : null}
+
         {n === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-cream/60">Your shots land here as you take them.</p>
         ) : (
@@ -187,6 +209,11 @@ export function MyShotsSheet({
                   {s.media === 'clip' ? (
                     <span className="absolute bottom-1.5 right-1.5 rounded bg-black/50 px-1.5 py-px text-[10px] font-semibold">
                       {clipLength(s.durationMs)}
+                    </span>
+                  ) : null}
+                  {s.note && !s.waiting ? (
+                    <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-center text-[9.5px]">
+                      {s.note}
                     </span>
                   ) : null}
                   {s.waiting ? (

@@ -288,7 +288,7 @@ export function ChatFileSwipe({
         </SwipeToDelete>
       </OwnFileRow>
       {failed ? (
-        <p role="alert" className="mt-1 text-[13px] text-danger-700 dark:text-danger-200" data-chat-file-remove-failed="">
+        <p role="alert" className="mt-1 text-[13px] text-danger-700" data-chat-file-remove-failed="">
           {CHAT_FILE_REMOVE_FAILED}
         </p>
       ) : null}

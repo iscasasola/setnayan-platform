@@ -39,7 +39,7 @@ test('a plan with NO seats (Free with the paywall on) still takes its one Helper
   assert.equal(canSeat({ members: [m('a', 'viewer')], founderUserId: FOUNDER, cap, change: { kind: 'invite', role: 'viewer' } }), false);
 });
 
-test('Solo (1 seat): a Team member AND a Helper fit; a third person does not', () => {
+test('Supplier Plus (1 seat): a Team member AND a Helper fit; a third person does not', () => {
   const cap = 1;
   const team = [m('a', 'agent')];
   assert.equal(canSeat({ members: team, founderUserId: FOUNDER, cap, change: { kind: 'invite', role: 'viewer' } }), true);

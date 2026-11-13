@@ -59,14 +59,13 @@ const QUEUE_CARDS: QueueCardDef[] = [
 const MANUAL_WATCHLIST: { label: string; todo: string }[] = [
   { label: 'Suno credits', todo: 'Top up before the next Music Maker batch — no balance API.' },
   { label: 'Claude API headroom', todo: 'Setnayan AI + contract intelligence draw on this.' },
-  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Animated Monogram generation.' },
+  { label: 'OpenAI / DALL·E balance', todo: 'Empty balance blocks Logo Maker generation.' },
   { label: 'Recraft credits', todo: 'Marketing / editorial image generation.' },
   { label: 'R2 storage & Supabase tier', todo: 'Review usage vs plan — upgrade before it throttles.' },
   { label: 'Vercel build minutes', todo: 'Keep machine Elastic + skip-deployments ON; watch the spend.' },
   { label: 'Resend & Sentry quotas', todo: 'Email sends + error events vs monthly plan.' },
   { label: 'Secrets rotation', todo: 'R2 token · service-role key · API keys on a rotation calendar.' },
-  { label: 'Domains & certs', todo: 'setnayan.com · setnayan.ph · app-signing certificates.' },
-  { label: 'Supplier token packs', todo: 'Mint/adjust token packs in Pricing when campaigns need them.' },
+  { label: 'Domains & certs', todo: 'setnayan.com · app-signing certificates.' },
 ];
 
 const STATE_STYLE: Record<

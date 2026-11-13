@@ -118,7 +118,7 @@ test('2b · no shipped code reads the per-day or weekly cap to refuse anything',
 });
 
 test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06) — the shop’s day is still not', () => {
-  // Owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: "Solo has 1 per
+  // Owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: "Supplier Plus has 1 per
   // date/service, pro has 3 per date/service, ultra has 5 per date/service". It caps ONE card's day; 2a above (no limit
   // on a SHOP's bookings a day, `slotsPerDay`) stands, and every plan can still take a booking on every card.
   assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
@@ -127,12 +127,12 @@ test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
   }
-  // Owner click 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": "1 each, like Solo.
-  // Completes the allowance: Free 1 · Verified 1 · Solo 1 · Pro 3 · Ultra 5."
+  // Owner click 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": "1 each, like Supplier Plus.
+  // Completes the allowance: Free 1 · Verified 1 · Supplier Plus 1 · Pro 3 · Ultra 5."
   assert.equal(TIER_CAPS.free.bookingsPerDatePerService, 1);
   assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, 1);
-  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Free is "like Solo"');
-  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Verified is "like Solo"');
+  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Free is "like Supplier Plus"');
+  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Verified is "like Supplier Plus"');
   // The allowance is complete: no plan may fall back to an "unruled" ceiling any more.
   for (const t of VENDOR_TIERS) {
     assert.ok(TIER_CAPS[t].bookingsPerDatePerService <= 5, `${t}: no plan takes more than Ultra's 5 before add-ons`);

@@ -4,10 +4,10 @@
  * `retire_the_custom_supplier_plan`, 20271310256381).
  *
  * 🔑 WHY THIS IS ONE CONSTANT (Lane G · Step 0 rows 14–15, 2026-11-10). On 2026-10-23 the SQL sweep learned
- * that Solo lapses too, and its header promised the one ended Solo comp would lapse "on its next dashboard
+ * that Supplier Plus lapses too, and its header promised the one ended Supplier Plus comp would lapse "on its next dashboard
  * visit". It never did: the only caller (`app/vendor-dashboard/layout.tsx`) fires the sweep only for a tier in
- * its own inline `['pro', 'enterprise']` — so the database knew Solo lapses and was never asked. SetnaProd's
- * gift ended 19 Oct and still read Solo on 10 Nov, and the Plan page printed the past date as the future.
+ * its own inline `['pro', 'enterprise']` — so the database knew Supplier Plus lapses and was never asked. SetnaProd's
+ * gift ended 19 Oct and still read Supplier Plus on 10 Nov, and the Plan page printed the past date as the future.
  * The list is held equal to the SQL by `lib/a-solo-plan-is-asked-to-lapse.test.ts`.
  */
 export const LAPSING_TIERS = ['solo', 'pro', 'enterprise'] as const;
@@ -32,7 +32,7 @@ export function tierHasLapsed(
  * day, exactly what `sweep_vendor_tier_expiry` would write. Any other row comes back unchanged (same object).
  *
  * 🔑 WHY (Build 5 row 14 + Lane W, 2026-11-11). The Plan screen asks the sweep before it draws a run-out plan, but a
- * REFUSED sweep left the first read in place and the page printed "You are on Solo · until Oct 19, 2026" — a past day
+ * REFUSED sweep left the first read in place and the page printed "You are on Supplier Plus · until Oct 19, 2026" — a past day
  * drawn as the future, identical to a live plan. The database's gates already treat that row as Free (they re-check
  * `tier_expires_at`), so the screen must say the same thing whether or not the write-back landed.
  */

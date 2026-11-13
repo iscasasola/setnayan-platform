@@ -209,7 +209,7 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
   });
 });
 
-test('3 · a moving background of ours is Event Hub Pro — named at Apply, taken off alone; the colour alone is free', () => {
+test('3 · a moving background of ours is Event Pro — named at Apply, taken off alone; the colour alone is free', () => {
   // Owner 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
   // SETTINGS"): *"pick our animated loop background"* is paid; a colour is free.
   const loop = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main: { ground: 'loop', loop: 'velvet' } } } });

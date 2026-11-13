@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import { ingestToWall } from '@/lib/live-wall';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { eventDaysOf, eventDaysWords } from '@/lib/papic-phone-uploads';
 
 // /api/papic/phone-uploads — 📲 GUEST PHONE UPLOADS (guest upload v2; owner 2026-11-13, rulings 2026-11-14 on #7607).
@@ -149,6 +150,9 @@ export async function POST(req: Request) {
     return json({ error: 'save_failed' }, 500);
   }
   const decided = ((data ?? []) as { capture_id: string }[]).map((r) => r.capture_id);
+  // A Keep puts a photo back into view (hidden_at cleared): every stored copy of the event's story, recap, keepsake and
+  // share card is told it is stale, exactly as the couple's own Hide / Unhide does.
+  if (decided.length > 0) await everyCopyIsNowStale(eventId);
 
   // A kept photo now shows like any other guest shot: the FaceBlock bake, then the wall gate (best-effort — a failed
   // wall ingest never undoes a Keep; the wall's own reconcile picks it up).

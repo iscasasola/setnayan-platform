@@ -10,13 +10,11 @@ import { GuestPhoneReview, PublishRecapForm } from '@/app/dashboard/[eventId]/st
 import type { WaitingPhoneUpload } from '@/lib/papic-phone-uploads';
 
 const LAB_EVENT = '00000000-0000-4000-8000-0000000000aa';
-const tile = (c: string) =>
-  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="${c}"/></svg>`)}`;
 const WAITING: WaitingPhoneUpload[] = [
-  { captureId: '00000000-0000-4000-8000-000000000001', who: 'Ana Reyes', at: '3:40 PM', media: 'photo', durationMs: null, url: tile('#8a5a3c') },
-  { captureId: '00000000-0000-4000-8000-000000000002', who: 'Tito Ben', at: '4:30 PM', media: 'photo', durationMs: null, url: tile('#5a6b4a') },
-  { captureId: '00000000-0000-4000-8000-000000000003', who: 'Lia Santos', at: '5:22 PM', media: 'photo', durationMs: null, url: tile('#3c5a7a') },
-  { captureId: '00000000-0000-4000-8000-000000000004', who: 'Marco D.', at: '7:48 PM', media: 'clip', durationMs: 6000, url: tile('#7a3c5a') },
+  { captureId: '00000000-0000-4000-8000-000000000001', who: 'Ana Reyes', at: '3:40 PM', media: 'photo', durationMs: null, url: null },
+  { captureId: '00000000-0000-4000-8000-000000000002', who: 'Tito Ben', at: '4:30 PM', media: 'photo', durationMs: null, url: null },
+  { captureId: '00000000-0000-4000-8000-000000000003', who: 'Lia Santos', at: '5:22 PM', media: 'photo', durationMs: null, url: null },
+  { captureId: '00000000-0000-4000-8000-000000000004', who: 'Marco D.', at: '7:48 PM', media: 'clip', durationMs: 6000, url: null },
 ];
 
 async function noop() {}

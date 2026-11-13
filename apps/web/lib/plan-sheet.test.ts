@@ -109,7 +109,7 @@ test('today is the RPC arithmetic — and no number when the unused value is unr
   const unread = payToday({ ...base, kind: 'upgrade', price: 100, unusedPhp: null, creditPhp: 0 });
   assert.equal(unread.amount, null);
   assert.match(unread.line, /exact amount shows on your order/);
-  assert.match(payToday({ ...base, kind: 'downgrade', price: 100, unusedPhp: 0, creditPhp: 0 }).line, /^Starts when Solo ends on 8 Dec 2026/);
+  assert.match(payToday({ ...base, kind: 'downgrade', price: 100, unusedPhp: 0, creditPhp: 0 }).line, /^Starts when Supplier Plus ends on 8 Dec 2026/);
 });
 
 test('no peso and no jargon is typed in the sheet', () => {

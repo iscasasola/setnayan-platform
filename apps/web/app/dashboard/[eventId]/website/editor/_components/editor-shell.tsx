@@ -102,7 +102,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventStoryControls, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
@@ -2606,6 +2606,19 @@ export function MakerWork({
                   A scene with nothing in it is skipped, never shown empty. The written story is free.
                 </InfoTip>
               )}
+            </li>
+          ) : null}
+          {/* 📖🎁 "Reads as" (Story · Page) and, before Post Event opens, "Peek now" — the story-wide controls, above
+              its scenes (owner 2026-11-13, "SIX CALLS SETTLED" (1)(6)). */}
+          {stage === 'editorial' && navigator.postEvent && navigator.postEvent !== 'unreadable' && elementEditing ? (
+            <li className="w-[min(20rem,80vw)] shrink-0 self-center px-1 lg:mb-2 lg:w-auto lg:self-stretch" data-maker-post-event-story="">
+              <PostEventStoryControls
+                eventId={eventId}
+                arrangement={navigator.postEvent.arrangement}
+                chaptersPeek={navigator.postEvent.chaptersPeek}
+                dayHappened={navigator.postEvent.dayHappened}
+                draftAction={elementEditing.draftAction}
+              />
             </li>
           ) : null}
           {/* 🧭 THE STAGE'S OWN LIST — what the canvas draws, in the order it

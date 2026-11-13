@@ -107,7 +107,6 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/couple-website-pro.ts': 'its definition, and the Editorial dual unlock (free for everyone)',
   'app/[slug]/_lib/hub-look.ts': '`websiteProActiveFor` — the footer reader (gate 37)',
   'app/[slug]/_lib/loaders.ts': 'the footer (`proWatermarkHidden`, gate 37) and the guest look shell',
-  'app/[slug]/recap/page.tsx': 'the recap footer (gate 37)',
   'lib/setnayan-mark-by-plan.server.ts': 'the Setnayan mark by plan — Event Pro (everything) takes every mark off (gate 37, DECISION_LOG 2026-11-04)',
   'app/[slug]/print/page.tsx': 'the print page footer (gate 37)',
   'app/[slug]/_components/editorial/editorial-content.tsx': 'the editorial colophon footer (gate 37)',

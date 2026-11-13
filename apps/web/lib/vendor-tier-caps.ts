@@ -712,11 +712,11 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
 export const TIER_LABEL: Record<VendorTier, string> = {
   free: 'Free',
   verified: 'Free · Verified',
-  solo: 'Solo',
-  pro: 'Pro',
+  solo: 'Supplier Plus',
+  pro: 'Supplier Pro',
   // ⚖ The plan a person sees is "Ultra" (owner 2026-10-23: plan names are Solo · Pro · Ultra). The internal key
   // `enterprise` and every SKU id stay unchanged — only the words move. `no-enterprise-plan-name.test.ts` holds it.
-  enterprise: 'Ultra',
+  enterprise: 'Supplier Ultra',
 };
 
 /**

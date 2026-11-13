@@ -172,7 +172,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
             </span>
           ) : (
             <span>
-              Papic Challenges comes with a paid plan — Solo, Pro or Ultra.
+              Papic Challenges comes with a paid plan — Supplier Plus, Supplier Pro or Supplier Ultra.
               Move up above to add it.
             </span>
           )}

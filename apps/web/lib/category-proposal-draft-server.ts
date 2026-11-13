@@ -140,7 +140,7 @@ async function askTheModelForADraft(
     message = await client.messages.create(
       {
         model: DRAFT_MODEL,
-        max_tokens: 700,
+        max_tokens: 1100,
         system: DRAFT_SYSTEM_PROMPT,
         messages: [
           {
@@ -187,6 +187,14 @@ async function writeDraft(requestId: string, draft: CategoryProposalDraft): Prom
       })),
       drafted_by: draft.draftedBy,
       drafted_at: new Date().toISOString(),
+      // 2026-11-13 — the fuller draft for a truly new service (columns from 20271342770993).
+      ...(draft.verdict === 'new'
+        ? {
+            suggested_description: draft.description ?? null,
+            suggested_search_words: draft.searchWords ?? [],
+            suggested_inspirations: draft.inspirations ?? [],
+          }
+        : {}),
     },
     { onConflict: 'request_id' },
   );

@@ -31,6 +31,7 @@ export function PhoneUploadsHeldPicker({ eventId, held: heldAtOpen }: { eventId:
         return;
       }
       setSaved(true);
+      // one-render: keep (fetch) — it follows a `fetch()` to /api/papic/phone-uploads; no server action answered with a render.
       router.refresh();
     } catch {
       setError('Couldn’t save that — check your connection and try again.');

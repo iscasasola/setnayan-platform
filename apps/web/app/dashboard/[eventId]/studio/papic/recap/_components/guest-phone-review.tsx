@@ -51,6 +51,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
     const done = await post({ op: what === 'keep' ? 'keep' : 'leave_out', ids: [id] }, id);
     if (done) {
       setDecided((d) => ({ ...d, [id]: what }));
+      // one-render: keep (fetch) — it follows a `fetch()` to /api/papic/phone-uploads; no server action answered with a render.
       router.refresh();
     }
   };
@@ -83,6 +84,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
               const done = await post({ op: 'keep_all' }, 'all');
               if (done) {
                 setDecided((d) => ({ ...d, ...Object.fromEntries(done.map((id) => [id, 'keep' as const])) }));
+                // one-render: keep (fetch) — it follows a `fetch()` to /api/papic/phone-uploads; no server action answered with a render.
                 router.refresh();
               }
             }}

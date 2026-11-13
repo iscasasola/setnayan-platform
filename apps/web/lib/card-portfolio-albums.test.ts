@@ -147,8 +147,8 @@ test('§3 · a multi-card booking is ONE album with one "Booked on" row per card
 test('§4 · a retired card keeps its name and says "retired"', () => {
   const e3 = work().find((a) => a.eventId === 'E3')!;
   assert.deepEqual(bookedOnRows(e3, CARDS), [{ serviceId: 'BOOTH', name: 'Pabati booth', retired: true }]);
-  const page = read('app/vendor-dashboard/services/their-work/page.tsx');
-  assert.match(page, /r\.retired \? \([\s\S]{0,200}>retired</, 'Their work must draw the retired pill');
+  const page = read('app/vendor-dashboard/services/their-work/their-work-list.tsx');
+  assert.match(page, /r\.retired \? <span[^>]*>retired</, 'Their work must draw the retired pill');
   assert.match(page, /Booked on/);
 });
 

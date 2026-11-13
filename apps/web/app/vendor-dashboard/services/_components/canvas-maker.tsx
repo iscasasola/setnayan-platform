@@ -37,7 +37,6 @@ import { Field } from '@/app/_components/forms/field';
 import { ChosenRow, FormRow, FormRows, OpensRow, TypedRow } from '@/app/_components/form-row';
 import { FormCounter } from '@/app/_components/form-counter';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { FileUpload } from '@/app/_components/file-upload';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
@@ -90,7 +89,9 @@ import {
   DiscountsEditor,
   PriceBracketsEditor,
 } from './service-list-editors';
-import { ShowcaseMediaFields } from './showcase-media-fields';
+import { ShowcaseClipField } from './showcase-media-fields';
+import { CARD_PHOTOS_FULL_TIP, CARD_PHOTOS_TIP, CardPhotoGallery } from './card-photo-gallery';
+import { CARD_MAX_PHOTOS } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
@@ -849,8 +850,6 @@ export function CanvasMaker({
     ask: photoCheck,
   });
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
-  // A blocked photo under "More photos" opens that fold, so the photo it names is on screen.
-  const showcaseBlocked = checks.photos.some((p) => p.where === 'showcase' && (p.verdict === 'another_shop' || p.verdict === 'this_shop'));
   const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
    * 🎞 THE FIRST OPEN OF "MORE SETTINGS" SHOWS WHAT IS INSIDE (owner 2026-11-04: "when i opened more settings. we want
@@ -914,13 +913,6 @@ export function CanvasMaker({
   // ── The one page of fields (makers prototype 7 Nov 2026 § 3) ──────────────
   const [aboutOpen, setAboutOpen] = useState(false);
   const [incMissing, setIncMissing] = useState(false);
-  // "More photos · a clip" opens by itself when the card already has some (copied options open the same way, below).
-  const showcaseOpen = Boolean(initial?.showcaseVideoR2Key) || (initial?.showcasePhotoR2Keys.length ?? 0) > 0;
-  // …and when a photo there is blocked, so the photo the check names is on screen.
-  const [showcaseAsk, setShowcaseAsk] = useState(0);
-  useEffect(() => {
-    if (showcaseBlocked) setShowcaseAsk((n) => n + 1);
-  }, [showcaseBlocked]);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
   const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
     key: o.key,
@@ -1269,49 +1261,39 @@ export function CanvasMaker({
               </FormRows>
             </div>
 
-            {/* ── Photos — one cover is enough. ── */}
+            {/* ── Photos — ONE gallery (owner 2026-11-13, `card_maker_gallery_upload_2026-11-13`): the primary first, the
+                rest after, the add tile last (gone at 6); every help line in the section's ⓘ (T17). The clip stays its
+                own row under it. ── */}
             <div data-maker-row="photos">
-              <MakerSection label="Photos" aside={`one cover is enough${snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''}`} />
+              <MakerSection
+                label="Photos"
+                aside={snap.hasCover ? `${formatCount(CARD_MAX_PHOTOS)} at most` : 'one is enough'}
+                tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= CARD_MAX_PHOTOS ? CARD_PHOTOS_FULL_TIP : CARD_PHOTOS_TIP}
+              />
+              <div className="pt-2.5" data-maker-gallery="">
+                <CardPhotoGallery
+                  vendorProfileId={vendorProfileId}
+                  primaryCurrent={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
+                  showcaseCurrent={initial?.showcasePhotoR2Keys}
+                  displayUrls={initial?.mediaDisplayUrls}
+                />
+              </div>
               <FormRows width="short">
-                <FormRow name="Cover photo" about={{ title: 'Cover photo', words: 'The first thing couples see. PNG, JPEG or WebP up to 5 MB.' }} data="cover">
-                  <div className="flex-none" data-maker-cover="">
-                    <FileUpload
-                      bucket="media"
-                      pathPrefix={`vendors/${vendorProfileId}/services`}
-                      name="primary_photo_r2_key"
-                      unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
-                      maxSizeMB={5}
-                      acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                      mark="supplier"
-                      frame="square"
-                      previews="service-card"
-                      compressImage
-                      variant="square"
-                      thumb={{ add: 'Add a cover', replace: 'Replace' }}
-                      qrGuard
-                      currentValue={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
-                      initialDisplayUrls={initial?.mediaDisplayUrls}
-                    />
-                  </div>
-                </FormRow>
-                {/* "One cover is enough": the showcase photos and the clip sit behind one row, MOUNTED while shut so what
-                    they hold still posts — opened by itself when the card already has some, or a photo there is blocked. */}
+                {/* The clip — its own row, unchanged (the shipped uploader, mounted while shut so it still posts). */}
                 <div data-maker-showcase="">
                   <OpensRow
-                    name="More photos · a clip"
-                    answer={snap.photoCount || snap.hasClip ? `${snap.photoCount ? `${formatCount(snap.photoCount)} photo${snap.photoCount === 1 ? '' : 's'}` : ''}${snap.photoCount && snap.hasClip ? ' · ' : ''}${snap.hasClip ? 'a clip' : ''}` : ''}
+                    name="Clip"
+                    answer={snap.hasClip ? `▶ ${clipPillLabel(clipSeconds)}` : ''}
                     empty="None yet"
-                    defaultOpen={showcaseOpen}
-                    openAsk={showcaseAsk}
+                    defaultOpen={Boolean(initial?.showcaseVideoR2Key)}
                     data="showcase"
                   >
                     <div className="pb-3 pt-1">
-                      <ShowcaseMediaFields
+                      <ShowcaseClipField
                         vendorProfileId={vendorProfileId}
                         unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
                         onClipDurationSeconds={onClipDurationSeconds}
                         videoCurrent={initial?.showcaseVideoR2Key ?? null}
-                        photosCurrent={initial?.showcasePhotoR2Keys}
                         displayUrls={initial?.mediaDisplayUrls}
                       />
                     </div>

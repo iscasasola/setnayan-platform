@@ -383,6 +383,32 @@ type FileUploadBaseProps = {
    * Held by app/vendor-dashboard/services/the-cover-is-a-thumb-and-a-pill.test.ts.
    */
   thumb?: { add: string; replace: string };
+  /**
+   * 🖼 THE GALLERY IS THE WHOLE FIELD (owner 2026-11-13 — the Card Maker's photos; approved drawing
+   * `prototypes/card_maker_gallery_upload_2026-11-13/`). `variant="gallery"` + `multiple` only; ignored otherwise.
+   * With it the grid is everything the widget draws:
+   *   · the finished tiles in the host's `order` (refs not in it yet follow, in upload order), the first wearing
+   *     `leadTag` ("Primary");
+   *   · a tap on a finished tile calls `onTap(ref)` — the host opens its own sheet; no ✕ and no re-frame on the tile;
+   *   · the ADD TILE is the grid's last cell (a rounded square with ImagePlus, named `addLabel`), and it is gone at
+   *     `maxFiles` — no drop box, no formats line (that copy belongs in the host's ⓘ);
+   *   · `handle.current.remove(ref)` drops a finished photo and hands back its undo (it returns where it stood).
+   * The 0–100 pie, the 45 s stall watchdog and the failed tile (`failedSays`) are the shipped ones, unchanged.
+   * Held by app/vendor-dashboard/services/the-card-photos-are-one-gallery.test.ts.
+   */
+  tiles?: {
+    order: readonly string[];
+    leadTag: string;
+    onTap: (r2Ref: string) => void;
+    addLabel: string;
+    handle?: { current: GalleryTilesHandle | null };
+  };
+};
+
+/** What a `tiles` host may ask of the grid (`FileUploadBaseProps.tiles`). */
+export type GalleryTilesHandle = {
+  /** Drop the finished photo with this ref. Returns its undo (puts it back where it stood), or null when it is not here. */
+  remove: (r2Ref: string) => (() => void) | null;
 };
 
 /**
@@ -598,6 +624,7 @@ export function FileUpload({
   refusalLink,
   pills,
   thumb,
+  tiles,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1289,6 +1316,31 @@ export function FileUpload({
     });
   }
 
+  /* 🖼 `tiles`: the host's Delete (its sheet) drops a photo here, and its Undo puts the same photo back where it stood. */
+  const tilesHandle = tiles?.handle;
+  useEffect(() => {
+    if (!tilesHandle) return;
+    tilesHandle.current = {
+      remove: (r2Ref) => {
+        const at = items.findIndex((i) => i.r2Ref === r2Ref);
+        const gone = items[at];
+        if (!gone) return null;
+        removeItem(gone.id);
+        return () =>
+          setItems((prev) => {
+            if (prev.some((i) => i.r2Ref === gone.r2Ref)) return prev;
+            const next = [...prev];
+            next.splice(Math.min(at, next.length), 0, gone);
+            toSay.current = next;
+            return next;
+          });
+      },
+    };
+    return () => {
+      tilesHandle.current = null;
+    };
+  }, [tilesHandle, items]);
+
   /**
    * RE-OPEN TO EDIT IN PLACE (Photo Frame Template · "Tapping the photo on its row opens the same step with
    * the saved framing"). The step re-frames the CLEAN original — the file picked in this visit, else the shop's
@@ -1375,6 +1427,14 @@ export function FileUpload({
    */
   const previewBoxHeight = bigPreview ? 'min-h-[16rem]' : dropzoneHeight;
   const isGallery = variant === 'gallery';
+  /** `tiles`: the grid is the whole field — the host's order, a tap opens its sheet, the add tile is the last cell. */
+  const tilesMode = tiles != null && isGallery && multiple;
+  const shownItems = tilesMode
+    ? [
+        ...tiles!.order.map((r) => items.find((i) => i.r2Ref === r)).filter((i): i is UploadedItem => i != null),
+        ...items.filter((i) => !tiles!.order.includes(i.r2Ref)),
+      ]
+    : items;
 
   /**
    * ── THE EMPTY SLOT IS THE SHAPE OF THE RESULT (owner 2026-08-10) ───────────
@@ -1683,7 +1743,7 @@ export function FileUpload({
         </div>
       ) : null}
 
-      {!atCapacity && !rowMode && !thumbMode ? (
+      {!atCapacity && !rowMode && !thumbMode && !tilesMode ? (
         <label
           htmlFor={inputId}
           onDrop={onDrop}
@@ -1923,9 +1983,38 @@ export function FileUpload({
           A video renders as a real <video> (muted, preload=metadata) rather
           than a play glyph, so the poster frame shows — same reason as the
           picture: the vendor is checking WHICH clip, not that one exists. */}
-      {(isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {items.map((item) => (
+      {tilesMode || (isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
+        <ul data-upload-tiles={tilesMode ? '' : undefined} className={`grid grid-cols-3 gap-2 ${tilesMode ? '' : 'sm:grid-cols-4'}`}>
+          {shownItems.map((item, idx) =>
+            tilesMode ? (
+              // 🖼 `tiles`: the photo IS the button — a tap opens the host's sheet (Set as primary · Delete · Cancel).
+              <li key={item.id} title={item.filename} data-upload-tile={idx === 0 ? 'lead' : ''} className="relative aspect-square">
+                <button
+                  type="button"
+                  onClick={() => tiles!.onTap(item.r2Ref)}
+                  aria-label={`${idx === 0 ? `${tiles!.leadTag} photo` : `Photo ${formatCount(idx + 1)}`} — open`}
+                  className="relative block h-full w-full overflow-hidden rounded-[14px] bg-cream" // no-card-ok: the tile is a <button> (tap opens the photo's sheet)
+                >
+                  {isImage(item.contentType) && item.displayUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.displayUrl} alt={item.filename} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-ink/55">
+                      <FileText className="h-5 w-5" strokeWidth={1.75} />
+                      <span className="w-full truncate text-center text-[10px]">{item.filename}</span>
+                    </span>
+                  )}
+                  {idx === 0 ? (
+                    <span
+                      data-upload-lead-tag=""
+                      className="absolute bottom-1.5 left-1.5 rounded-full bg-ink px-[7px] py-1 font-mono text-[9.5px] font-bold uppercase leading-none tracking-[0.12em] text-cream"
+                    >
+                      {tiles!.leadTag}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ) : (
             <li
               key={item.id}
               title={item.filename}
@@ -1989,7 +2078,8 @@ export function FileUpload({
                 </span>
               </button>
             </li>
-          ))}
+          ),
+          )}
           {inFlight.map((item) => (
             <li
               key={item.id}
@@ -2044,6 +2134,30 @@ export function FileUpload({
               </button>
             </li>
           ))}
+          {/* ➕ THE ADD TILE (`tiles`, owner's picture 13 Nov): the grid's last cell — a rounded square, a light edge,
+              the raised fill, ImagePlus centred. Gone at the limit (`atCapacity`); a delete brings it back. */}
+          {tilesMode && !atCapacity ? (
+            <li className="relative aspect-square">
+              <label
+                htmlFor={inputId}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                aria-label={tiles!.addLabel}
+                data-upload-add=""
+                className={`flex h-full w-full cursor-pointer items-center justify-center rounded-[14px] border bg-white text-ink/70 transition-colors dark:bg-ink/5 ${
+                  disabled
+                    ? 'cursor-not-allowed opacity-60'
+                    : isDragging
+                      ? 'border-terracotta bg-terracotta/5 text-terracotta'
+                      : 'border-ink/15 hover:border-terracotta/60'
+                }`}
+              >
+                <ImagePlus aria-hidden className="h-8 w-8" strokeWidth={1.6} />
+                {fileInput}
+              </label>
+            </li>
+          ) : null}
         </ul>
       ) : null}
 

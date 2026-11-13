@@ -16,6 +16,8 @@ import { openAsksOf, type DatesAsk } from '@/lib/vendor-dates';
 export async function readOpenAsks(
   threads: { thread_id: string; event_id: string; inquiry_status: string | null; created_at: string }[],
   bookedEventIds: ReadonlySet<string>,
+  /** This shop — its own booking rows say which asks it already said yes to (F-W1-68). */
+  vendorProfileId: string,
 ): Promise<{ asks: DatesAsk[]; measured: boolean }> {
   const ids = [
     ...new Set(
@@ -25,9 +27,22 @@ export async function readOpenAsks(
     ),
   ];
   if (ids.length === 0) return { asks: [], measured: true };
-  const { rows, error } = await readInChunks(ids, (part) =>
-    createAdminClient().from('events').select('event_id, display_name, event_date').in('event_id', part),
-  );
+  const [{ rows, error }, agreedRead] = await Promise.all([
+    readInChunks(ids, (part) => createAdminClient().from('events').select('event_id, display_name, event_date').in('event_id', part)),
+    /* 📅 AGREED, NOT YET PAID (owner 13 Nov 2026, F-W1-68): the shop said yes — its booking row is `contracted` /
+       `deposit_paid` — but no first payment holds the date yet (ruling 5, 27 Jul), so there is no pool booking and the
+       thread is still open. That is Booked, never "Asking". A refused read leaves it an ask (the old words), logged. */
+    readInChunks(ids, (part) =>
+      createAdminClient()
+        .from('event_vendors')
+        .select('event_id')
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .in('status', ['contracted', 'deposit_paid'])
+        .in('event_id', part),
+    ),
+  ]);
+  if (agreedRead.error) logQueryError('VendorCustomersPage.openAsks.agreed', agreedRead.error, {}, 'graceful_degrade');
+  const agreed = new Set(((agreedRead.rows ?? []) as { event_id: string }[]).map((r) => r.event_id));
   if (error) logQueryError('VendorCustomersPage.openAsks', error, {}, 'graceful_degrade');
   const events = new Map(
     ((rows ?? []) as { event_id: string; display_name: string | null; event_date: string | null }[]).map((e) => [
@@ -35,6 +50,6 @@ export async function readOpenAsks(
       { date: e.event_date, name: e.display_name },
     ]),
   );
-  return { asks: openAsksOf(threads, events, bookedEventIds), measured: !error };
+  return { asks: openAsksOf(threads, events, bookedEventIds, agreed), measured: !error };
 }
 

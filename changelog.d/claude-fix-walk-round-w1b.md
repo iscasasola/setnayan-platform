@@ -20,5 +20,10 @@
   still sending is ignored, and a save that lands says "Handover sent — the couple will confirm receipt." under the
   form (`StayForm sayNote`, the door's own news line). A press that stays on the page never reached the page's
   `?handover=sent` banner, so a successful send said nothing.
+- **F-W1-68** (owner 13 Nov 2026: "until first payment is completed" — the date is still held only once the first payment
+  is in, ruling 5 kept). An agreed but unpaid booking no longer reads "Asking" on the supplier's calendar and schedule:
+  the open-asks reader marks an ask `agreed` when the shop's own booking row is `contracted` / `deposit_paid`, and the
+  day shows it as **Booked · Date held once the first payment is in** (a Booked dot, never counted as asking or toward
+  "Holding this date"). "Run of show · Live" is unchanged (owner: "Live").
 
 SPEC IMPACT: None.

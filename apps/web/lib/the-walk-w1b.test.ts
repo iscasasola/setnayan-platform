@@ -64,3 +64,26 @@ test('F-W1-69 · "Send link" sends once per press and says it was sent', () => {
   assert.ok(forms.length >= 3, `the handover forms (${forms.length})`);
   for (const f of forms) assert.match(f, /\bsayNote\b/, 'a handover form that does not say "sent"');
 });
+
+test('F-W1-68 · an agreed booking waiting on its first payment reads Booked, never Asking', async () => {
+  const { asksByDate, openAsksOf, dayRowsOf, withAgreedDot } = await import('@/lib/vendor-dates');
+  const { BOOKED_DATE_HELD, BOOKED_DATE_HELD_LINE } = await import('@/lib/booking-ask-words');
+  assert.equal(BOOKED_DATE_HELD, 'Booked · date held once the first payment is in');
+  const threads = [
+    { thread_id: 't1', event_id: 'e1', inquiry_status: 'accepted', created_at: '2026-11-01T00:00:00Z' },
+    { thread_id: 't2', event_id: 'e2', inquiry_status: 'pending', created_at: '2026-11-02T00:00:00Z' },
+  ];
+  const events = new Map([
+    ['e1', { date: '2027-05-12', name: 'Debut 18' }],
+    ['e2', { date: '2027-05-12', name: 'Other' }],
+  ]);
+  const asks = openAsksOf(threads, events, new Set(), new Set(['e1']));
+  assert.deepEqual(asksByDate(asks), [{ requestedDate: '2027-05-12', count: 1, agreed: ['Debut 18'] }], 'the agreed one is not counted as asking');
+  const rows = dayRowsOf('2027-05-12', { today: '2026-11-13', poolIds: new Set(), poolLabel: () => '', namePools: false, bookings: [], blocks: [], holds: [], asking: 1, agreed: ['Debut 18'], waiting: 0 });
+  const agreedRow = rows.find((r) => r.title === 'Debut 18');
+  assert.equal(agreedRow?.line, BOOKED_DATE_HELD_LINE);
+  assert.equal(agreedRow?.badge?.word, 'Booked');
+  assert.deepEqual(withAgreedDot(null, true), { dots: ['booked'] });
+  const src = code('app/vendor-dashboard/customers/open-asks.ts');
+  assert.match(src, /\.eq\('marketplace_vendor_id', vendorProfileId\)\s*\.in\('status', \['contracted', 'deposit_paid'\]\)/);
+});

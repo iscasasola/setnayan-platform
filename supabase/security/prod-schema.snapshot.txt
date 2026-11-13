@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1868
-# tables: 500
-# columns: 6075
-# notnull: 3662
+# ledger: 1869
+# tables: 501
+# columns: 6082
+# notnull: 3669
 [ledger]
 20260512000000
 20260513000000
@@ -1874,6 +1874,7 @@
 20271343002292
 20271343328401
 20271343340931
+20271343652941
 20271343761700
 20271344038763
 20271344061337
@@ -3605,6 +3606,13 @@ event_vendor_found.found_at_claim_at
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.due_date
@@ -9027,6 +9035,13 @@ event_vendor_found.first_source
 event_vendor_found.last_viewed_at
 event_vendor_found.vendor_profile_id
 event_vendor_found.view_count
+event_vendor_guest_follow.agreed_guests
+event_vendor_guest_follow.agreed_total_php
+event_vendor_guest_follow.billed_guests
+event_vendor_guest_follow.event_id
+event_vendor_guest_follow.event_vendor_id
+event_vendor_guest_follow.followed_at
+event_vendor_guest_follow.followed_total_php
 event_vendor_line_items.amount_php
 event_vendor_line_items.created_at
 event_vendor_line_items.event_id

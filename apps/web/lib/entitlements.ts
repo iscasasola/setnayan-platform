@@ -7,6 +7,7 @@ import {
   promoFreeSkusForCouples,
 } from '@/lib/promo-free-windows';
 import { PANOOD_PAID_SKUS } from '@/lib/panood-watermark';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
 import { askedOnce, insideRender, isServiceRoleClient } from '@/lib/request-once';
 import { eventRowOnce } from '@/lib/event-row-once';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
@@ -339,8 +340,14 @@ async function readCompActiveSkus(supabase: SupabaseClient, eventId: string): Pr
  */
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
   Object.freeze({
-    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO']),
-    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO']),
+    // 💎 EVENT ULTRA (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): everything in Event Pro + Live Watch (self-run)
+    // + Patiktok, conferred read side only by the one Ultra order (`EVENT_ULTRA_GRANTS`, lib/event-ultra.ts). Aliases are
+    // NOT transitive, so every list below that names COUPLE_WEBSITE_PRO names EVENT_ULTRA too —
+    // `event-ultra-grants.test.ts` fails if one is missed. One-directional: a Pro order never confers Ultra.
+    COUPLE_WEBSITE_PRO: Object.freeze([EVENT_ULTRA_SKU]),
+    PATIKTOK_COMPILER: Object.freeze([EVENT_ULTRA_SKU]),
+    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
+    STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
     // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A
     // then"): Event Hub Pro ALSO unlocks the logo animation. The standalone
     // ANIMATED_MONOGRAM row stays on sale for couples who only want the
@@ -348,7 +355,7 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Hub Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']),
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU]),
     // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the
     // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
     // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the
@@ -358,7 +365,7 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // wall backdrop"). It was the line that made a ₱1,000 monogram purchase
     // unlock an LED maker whose output nothing could produce. The whole
     // product is removed in this PR; there is no longer a key to alias TO.
-    LIVE_STUDIO: Object.freeze([...PANOOD_PAID_SKUS]),
+    LIVE_STUDIO: Object.freeze([...PANOOD_PAID_SKUS, EVENT_ULTRA_SKU]),
   });
 
 /**

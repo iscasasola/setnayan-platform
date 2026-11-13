@@ -45,6 +45,7 @@ import './_components/frontdoor/front-door.css';
 import './_components/frontdoor/front-door-landing.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
+import { ChatOriginMark } from './_components/chat/chat-back';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
@@ -200,12 +201,13 @@ const websiteJsonLd = {
   inLanguage: 'en-PH',
   publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
   // Sitelinks search box — lets Google surface a search field for the brand
-  // SERP, pointed at the vendor-discovery surface.
+  // SERP. 2026-11-12: pointed at Discover's own search (`/?q=`) — /explore forwards to `/` now (Find suppliers
+  // moved inside Discover; the drawing's SEO plan: "the search action points at /?q=").
   potentialAction: {
     '@type': 'SearchAction',
     target: {
       '@type': 'EntryPoint',
-      urlTemplate: `${SITE_URL}/explore?q={search_term_string}`,
+      urlTemplate: `${SITE_URL}/?q={search_term_string}`,
     },
     'query-input': 'required name=search_term_string',
   },
@@ -355,7 +357,12 @@ export default async function HomePage({
       {/* 💾 `/auth/sign-out` lands here: no auth cookie → the last-seen store
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
-      <FrontDoor q={q} />
+      {/* ↩ Discover is a list the pages it opens return to IN PLACE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
+          PROTOTYPE APPROVED"): this marks the tab, so a shop's, a person's or an event's ‹ is the browser's back and
+          Discover comes back with its filters and scroll (chat/chat-back.tsx `ReturnInPlace`). */}
+      <ChatOriginMark />
+      {/* 🔎 Every parameter, not only `q`: a supplier parameter opens Discover's supplier view (2026-11-12). */}
+      <FrontDoor q={q} params={params} />
     </>
   );
 }

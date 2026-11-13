@@ -234,7 +234,7 @@ test('3 · one mechanism: the riding row pins on every input, ThumbRow hands it 
     ['app/dashboard/(account)/people/_components/people-roster-view.tsx', /data-people-search="" data-search-results=""/],
     ['app/_components/frontdoor/front-door.tsx', /data-discover-results="" data-search-results=""/],
     ['app/dashboard/[eventId]/budget/_components/budget-screen.tsx', /data-budget-list=""[^>]*data-search-results=""/],
-    ['app/(shell)/explore/page.tsx', /grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results=""/],
+    ['app/(shell)/explore/_lib/marketplace-view.tsx', /grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results=""/], // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     ['app/_components/how-search/how-search.tsx', /data-how-results="" data-search-results=""/],
     ['app/_components/how-search/how-search.tsx', /data-how-results="" data-search-none=""/],
   ];

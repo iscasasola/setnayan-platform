@@ -102,6 +102,17 @@ export const LAB_CHAPTER_MOMENTS: ChapterMoment[] = [
   m('0011', LAB_PLANNING_CHAPTER.block_id, 'Last pinning', '15:15', false, '', '2026-12-05'),
 ];
 
+/**
+ * 🗓 `?times=1` (Schedules hand in hand (b)): the photographer's own arrive / done on the Reception — the times that STAY
+ * when it moves, and whose "is done" warns — and a host moment with a supplier tagged ("Bridal car arrives", the planner
+ * on it) that MOVES with it (ruling 5574 #7: only a label that starts with the shop's name is theirs).
+ */
+export const LAB_SUPPLIER_TIMES: ChapterMoment[] = [
+  m('0014', LAB_CHAPTERS[4]!.block_id, 'Lightbox Studio arrives', '17:00', false, 'Lightbox Studio', LAB_EVENT_DAY, { vendor_ids: ['v-photo'] }),
+  m('0015', LAB_CHAPTERS[4]!.block_id, 'Bridal car arrives', '17:45', false, 'The Planning Desk', LAB_EVENT_DAY, { vendor_ids: ['v-coord'] }),
+  m('0016', LAB_CHAPTERS[4]!.block_id, 'Lightbox Studio is done', '22:30', false, 'Lightbox Studio', LAB_EVENT_DAY, { vendor_ids: ['v-photo'] }),
+];
+
 /* ── the run-of-show shape: ONE moment, THREE parallel tasks, TWO places ─────────────────────────────────────── */
 
 export const LAB_MOMENT: MomentLike & { label: string; parent_block_id: string } = {

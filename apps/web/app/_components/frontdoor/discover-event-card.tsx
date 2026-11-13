@@ -16,6 +16,7 @@ import Link from 'next/link';
 
 import type { DiscoverEventCard as Card } from '@/lib/discover-events-core';
 import { shopInitials } from '@/lib/shop-initials';
+import { withDiscoverArrival } from '@/lib/discover-way-back';
 import { ChannelLink } from './front-door-feed';
 import { DiscoverEventCover, coverPrintsTheName } from './discover-event-cover';
 
@@ -50,7 +51,9 @@ export function DiscoverEventCard({ card }: { card: Card }) {
         )}
         <div className="fd-itxt">
           <p className={nameOnCover ? 'fd-ttl fd-ttl-said' : 'fd-ttl'}>
-            <Link href={card.href} className="fd-stretch">
+            {/* ‹ `?via=discover` — the event page draws its one back button ONLY for a visitor this card sent (2026-11-12,
+                DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED", answer 3; lib/discover-way-back.ts). */}
+            <Link href={withDiscoverArrival(card.href)} className="fd-stretch">
               {nameOnCover ? <span className="sr-only">{card.title}</span> : card.title}
             </Link>
           </p>

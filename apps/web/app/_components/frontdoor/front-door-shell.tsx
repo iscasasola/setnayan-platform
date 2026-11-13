@@ -13,7 +13,9 @@
  * component) and passes straight through.
  *
  * ─── THE RAIL, IN ORDER (owner 2026-10-01, built 2026-10-23) ──────────────
- *   Signed out  Discover · Find suppliers · For suppliers · For coordinators · Features · Sign in
+ *   Signed out  Discover · For suppliers · For coordinators · Features · Sign in
+ *               (owner 2026-11-12: "Find suppliers" left — supplier browsing lives inside Discover;
+ *               DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED")
  *               (owner 2026-11-11: "How it works" left — it opened /features, the Features row's page;
  *               "For coordinators" moved up from the small print)
  *   Signed in   Discover · My Home (Events · People · shop · Memories · HQ) ·
@@ -62,6 +64,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { isRailFocused, type RailFocus, type RailFocusIcon } from './rail-focus';
 import { useSignInPanel } from '@/app/_components/auth/sign-in-here';
+import { supplierSearchCarry } from '@/lib/discover-suppliers';
 import { SIGNED_IN_LANDING } from '@/lib/sign-in-landing';
 import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 import { useIsDesktop } from '@/lib/use-responsive';
@@ -100,13 +103,13 @@ import type { EventMenuIconName } from '@/lib/customer-menu';
 
   ⌕ U+2315 is TELEPHONE RECORDER. It sat in the Marketplace row for months
   doing duty as a magnifier. It is now `Compass`, which is what `customer-menu`
-  has always given Explore — the app's own answer, not a second one.
+  has always given Explore — the app's own answer, not a second one. (2026-11-12: that row is gone —
+  Find suppliers moved inside Discover — and `Compass` with it.)
 */
 import {
   ArrowLeft,
   Blocks,
   ClipboardCheck,
-  Compass,
   House,
   LayoutGrid,
   Search,
@@ -1422,7 +1425,7 @@ export function FrontDoorShell({
             heading link goes.
           */}
           {/*
-            🧭 SIGNED OUT: Discover · Find suppliers · For suppliers · For coordinators · Features, then the
+            🧭 SIGNED OUT (until 2026-11-12, when Find suppliers moved inside Discover — see below): Discover · Find suppliers · For suppliers · For coordinators · Features, then the
             sign-in prompt — five rows, no feature list (owner 2026-11-11, DECISION_LOG "THE SIGNED-OUT
             SIDEBAR = DISCOVER · FIND SUPPLIERS · FOR SUPPLIERS · FOR COORDINATORS · FEATURES · SIGN IN", drawn
             in `prototypes/sidebar_menu_plan_2026-11-11_fable.html`; it amends owner 2026-10-01, DECISION_LOG
@@ -1435,12 +1438,11 @@ export function FrontDoorShell({
           */}
           {account.signedIn ? null : (
             <>
-              <Link href="/explore" {...rowProps('find')}>
-                <RailIcon as={Compass} />
-                <span className="fd-label-text">Find suppliers</span>
-                <span className="fd-icon-caption">Suppliers</span>
-              </Link>
-              {/* "For suppliers" sits RIGHT UNDER "Find suppliers" (owner 2026-11-06,
+              {/* 🔎 NO "Find suppliers" ROW (owner 2026-11-12: *"find suppliers needs to be also inside discover
+                  already. they do not need to have their own page"*; DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE
+                  APPROVED"). Supplier browsing is Discover's Shops shelf and its supplier view; `/explore` forwards
+                  there. FOUR signed-out rows now: Discover · For suppliers · For coordinators · Features. */}
+              {/* "For suppliers" sat RIGHT UNDER "Find suppliers" (owner 2026-11-06,
                   PLAN B2: a supplier walking up signed-out could not find the door — it
                   sat at the bottom among the legal links). Moved, not copied: the small
                   print no longer carries it. `data-web-only` travels with it — the
@@ -1749,9 +1751,33 @@ export function FrontDoorShell({
  * resolvers are checked against (`lib/public-search-nouns.ts`), so the promise
  * and the mechanism cannot drift apart again without a red test.
  */
+/*
+ * 🛒 2026-11-12 — ONE SEARCH BOX ON DISCOVER'S SUPPLIER VIEW (DECISION_LOG 2026-11-12 "DISCOVER WITH SUPPLIERS —
+ * PROTOTYPE APPROVED": typing while a category is open narrows that category). When the box is sent FROM `/` while
+ * the supplier view is open, the view's category and filters ride along as hidden fields, added at the moment of
+ * sending from the address itself (`supplierSearchCarry`) — so the box is the same control on every page, needs no
+ * hook (the doorway pages render statically), and anywhere else it still sends `q` alone.
+ */
+function carrySupplierView(form: HTMLFormElement) {
+  if (window.location.pathname !== '/') return;
+  for (const [k, v] of supplierSearchCarry(new URLSearchParams(window.location.search))) {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = k;
+    input.value = v;
+    form.appendChild(input);
+  }
+}
+
 function SearchBox() {
   return (
-    <form className="fd-searchbox" action="/" method="get" role="search">
+    <form
+      className="fd-searchbox"
+      action="/"
+      method="get"
+      role="search"
+      onSubmit={(e) => carrySupplierView(e.currentTarget)}
+    >
       <input
         type="search"
         name="q"

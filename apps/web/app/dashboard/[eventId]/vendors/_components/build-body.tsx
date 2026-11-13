@@ -763,9 +763,7 @@ function BuildLineRow({
             <span className="text-base text-ink/45" aria-hidden>
               —
             </span>
-          ) : (
-            <ActionButton tone="brand" icon={Search} label={`Find in ${line.label}`} onClick={onFind} />
-          )
+          ) : null
         ) : who.includedWith ? null : who.pricePhp != null ? (
           <span className="whitespace-nowrap text-[15px] font-semibold tabular-nums text-ink">
             <Count value={who.pricePhp} format="peso" id={`sup-build-line-${line.tile}`} />
@@ -774,6 +772,13 @@ function BuildLineRow({
           <ActionButton tone="brand" main icon={Pencil} label="Set price" name={`Set price — ${who.name}`} href={priceHref(who.vendorId)} prefetch={false} />
         )}
       </div>
+      {/* A line with nobody: its door sits on its own row under the words (the approved prototype's drawing), so a long
+          category name ("Jewelleries & Accessories") is never squeezed into a narrow column beside a wide button. */}
+      {who == null && !canChoose ? (
+        <div className="col-span-2 justify-self-start" data-build-find={line.tile}>
+          <ActionButton tone="brand" icon={Search} label={`Find in ${line.label}`} onClick={onFind} />
+        </div>
+      ) : null}
     </li>
   );
 }

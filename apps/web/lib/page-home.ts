@@ -118,6 +118,9 @@ const CUSTOMERS_CONTRACTS = '/vendor-dashboard/customers?seg=money&open=contract
  * are named. A page missing here falls back to rule 4 / 5 above.
  */
 export const HOMES: Readonly<Record<string, Entry>> = {
+  // Compare's home is Discover's supplier view since /explore folded into Discover (2026-11-12, DECISION_LOG
+  // "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): its old parent `/explore` now only redirects.
+  '/explore/compare': { home: '/?browse=1', label: 'Suppliers' },
   /* ── account ─────────────────────────────────────────────────────────────────────────────────────── */
   // Settings is where API keys are opened (audit ✅ "looked odd but fine").
   '/dashboard/api-keys': { home: '/dashboard/profile' },
@@ -126,8 +129,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/dashboard/samahan/**': { home: '/dashboard?seg=people&view=samahan' },
   // 🏠 An alaga's page belongs to Home › People › Loved ones (its URL parent only forwards there).
   '/dashboard/people/[dependentId]': { home: '/dashboard?seg=people&view=alaga' },
-  // A person's public profile is opened from People (`app/u/_components/profile-back.tsx`).
-  '/u/[userSlug]': { home: '/dashboard?seg=people' },
+  // A person's public profile goes back WHERE THE VISIT CAME FROM, in place — Discover, People, anywhere (2026-11-12,
+  // DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"; was a fixed Home › People, drawn signed in only). Cold:
+  // People signed in, Discover signed out — per visit, so computed (`app/u/_components/profile-back.tsx`).
+  '/u/[userSlug]': { none: 'computed', by: 'app/u/_components/profile-back.tsx' },
   '/u/[userSlug]/c/[chapterId]': { home: '/u/[userSlug]', label: 'Profile' },
   // The claim link is made and shared from People; the issuer who opens it lands back there (audit ⚠, kept).
   '/claim/[token]': { home: '/dashboard?seg=people' },
@@ -186,7 +191,13 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // saved supplier — read from the arrival (`?src=` / a checked `?event=`). Was a fixed `/explore` (the 28 Oct audit ❌
   // "goes to the front page" fixed one arrival and broke the rest — owner 2026-11-07: "back to suppliers? it went to a
   // wrong shell"). With no arrival it says "See more suppliers" → /explore, never "Back".
+  // 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): that door is now ALSO the top-left ‹ for everyone,
+  // returning in place; cold, it is "home" — Discover signed out, Home signed in (`shopTopBack`).
   '/v/[slug]': { none: 'computed', by: 'lib/shop-back.ts' },
+  // 🎟 The host's own event page draws NO back — an invited guest sees nothing from Setnayan — EXCEPT for a visitor
+  // Discover's event card sent (`?via=discover`, read in the browser only): one ‹ Discover (2026-11-12, "DISCOVER WITH
+  // SUPPLIERS — PROTOTYPE APPROVED", answer 3). Per visit, so computed. (Its sub-pages keep `/[slug]/**` below.)
+  '/[slug]': { none: 'computed', by: 'lib/discover-way-back.ts' },
   '/suppliers/[event]/[category]': { home: '/suppliers' },
   '/tl/*': { home: '/' },
   // The API reference is read by whoever holds a key, made in Settings › API keys.

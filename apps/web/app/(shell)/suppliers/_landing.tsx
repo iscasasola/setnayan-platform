@@ -263,7 +263,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
   };
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <main className="min-h-dvh bg-page">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <nav aria-label="Breadcrumb" className="text-sm text-ink/60">
@@ -295,7 +295,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
               itself the moment one does.
             </p>
             <p>
-              <Link href="/explore" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
+              <Link href="/?browse=1" className="font-medium text-ink underline underline-offset-4">Browse every verified supplier</Link>
               {nationwide ? (
                 <>
                   {' · '}
@@ -335,7 +335,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
             {cards.length > CARDS_SHOWN ? (
               <p className="mt-4 text-sm text-ink/60">
                 Showing {formatCount(CARDS_SHOWN)} of {formatCount(cards.length)}.{' '}
-                <Link href="/explore" className="underline underline-offset-4">See them all on the marketplace</Link>
+                <Link href="/?browse=1" className="underline underline-offset-4">See them all on the marketplace</Link>
               </p>
             ) : null}
 

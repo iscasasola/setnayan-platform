@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Search, X } from 'lucide-react';
 
 import { rankTaxonomyOptionsWithClose } from '@/lib/taxonomy-search-rank';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -68,6 +68,7 @@ export function ServicePicker({
   onSearchAll,
   excludeCategories,
   excludeServices,
+  onShop,
   autoFocus = false,
 }: {
   tree: PickerParentView[];
@@ -88,6 +89,13 @@ export function ServicePicker({
   excludeCategories?: ReadonlySet<string>;
   /** Services already on the list — never offered again (search or rows). */
   excludeServices?: ReadonlySet<string>;
+  /**
+   * ➕ THE DASHBOARD'S "ADD A SERVICE" (ruling 5820): the services ALREADY ON YOUR SHOP (a card of that service exists).
+   * Unlike `excludeServices` they stay SHOWN — in search, in a category's rows — marked "On your shop", and are not a
+   * button: never pickable twice. A category whose only service is on the shop opens on the tap instead of adding it.
+   * `/open-shop` passes none (a new shop has nothing on it), so sign-up is unchanged.
+   */
+  onShop?: ReadonlySet<string>;
   /** "Another category" puts the cursor in the search box (prototype `add-svc`). */
   autoFocus?: boolean;
 }) {
@@ -144,7 +152,26 @@ export function ServicePicker({
 
   // The prototype's rows: one line, the path under it when it teaches where a trade lives, a › at the right.
   const rowStyle = 'flex min-h-[50px] w-full items-center justify-between gap-2 px-3.5 py-2.5 text-left text-[15px]';
-  const row = (leaf: PickerLeafView, path?: string) => (
+  const row = (leaf: PickerLeafView, path?: string) =>
+    onShop?.has(leaf.canonicalService) ? (
+      /* Already on the shop: shown so the supplier sees it is there, and NOT a button — never picked twice. */
+      <div className={rowStyle} aria-disabled="true" data-service-on-shop={leaf.canonicalService}>
+        <span className="min-w-0">
+          <span className="block truncate" style={{ color: 'var(--m-slate-3)' }}>
+            {leaf.label}
+          </span>
+          {path ? (
+            <span className="block truncate text-xs" style={{ color: 'var(--m-slate-3)' }}>
+              {path}
+            </span>
+          ) : null}
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium" style={{ color: 'rgb(var(--color-ok))' }}>
+          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          On your shop
+        </span>
+      </div>
+    ) : (
     <button type="button" className={rowStyle} onClick={() => onPick(leaf)} data-open-shop-service-row={leaf.canonicalService}>
       <span className="min-w-0">
         <span className="block truncate" style={{ color: 'var(--m-ink)' }}>
@@ -159,7 +186,7 @@ export function ServicePicker({
       </span>
       <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
     </button>
-  );
+    );
   /** The small caps heading at the top of a list ("Matches", "Coordination services"). */
   const heading = (words: string, data?: Record<string, string>) => (
     <li
@@ -179,7 +206,9 @@ export function ServicePicker({
       onOpen={(id) => {
         // Owner 7 Nov (prototype v16 updated in place, specs f15a3a7, DECISION_LOG 2026-11-07): a category with only ONE
         // service adds that service on the tap — no drill-in row. Its optional specialties are never auto-picked.
-        const only = tree.flatMap((p) => p.branches).find((b) => b.tileId === id)?.leaves;
+        const leaves = tree.flatMap((p) => p.branches).find((b) => b.tileId === id)?.leaves;
+        // ➕ Its one service already ON YOUR SHOP (the dashboard's Add a service): open the category, so the row shows it.
+        const only = leaves?.length === 1 && onShop?.has(leaves[0]!.canonicalService) ? undefined : leaves;
         if (only && only.length === 1 && offered(only[0]!)) {
           setQuery('');
           onPick(only[0]!);

@@ -38,7 +38,7 @@ import {
 import { basisLabel, claimPricePrefill, claimStaysLine, countWords, type SelfAddedBasis } from '@/lib/self-added-price-basis';
 import { PAY_WAY_PROVIDERS } from '@/lib/self-added-pay-ways';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { ServicePicker, type PickerParentView } from './service-picker';
+import { ServicePicker, type PickerParentView } from '@/app/_components/service-picker';
 import { PlanInline } from './plan-sheet';
 import type { SpecialtyField } from './service-cards';
 import { finishClaimDoor } from '../claim-actions';

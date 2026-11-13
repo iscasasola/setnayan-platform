@@ -6,7 +6,7 @@
  *   · an UNLOCKED quote falls back as guests leave (20271340566104), never below the Bill-at-least minimum or what was
  *     sent; a LOCKED one never falls; a drop comes off unpaid auto rows only, capped at what is unsettled;
  *   · paid rows never change — the rise lands on the auto Final balance (a paid auto row → a new one takes it);
- *   · a supplier's `changes_locked` quotation STILL rises; a BOOKED deal is untouched (Piece 2);
+ *   · a supplier's `changes_locked` quotation STILL rises; a BOOKED deal rises like it and never falls (Piece 2);
  *   · each service counts its own guests ("Not counted for ▾"), and a kids meal never ticks anything by itself;
  *   · an accepted quote's `event_vendors.total_cost_php` follows, and the added-guest surcharge can no longer stack;
  *   · one chat line, "Quote rose to N pax · +₱X", in the (event, shop) conversation both sides read.
@@ -244,20 +244,45 @@ test('⬇ guests leave → an unlocked quote falls back, never below the minimum
   assert.deepEqual(await falls(w), [quoteFallWords(150, 10 * RATE)]);
 });
 
-test('🔒 a supplier’s final (changes_locked) quotation STILL rises; a BOOKED deal is untouched', async () => {
+test('🔒 a supplier’s final (changes_locked) quotation STILL rises; a BOOKED deal rises too (Piece 2)', async () => {
   const locked = await newWorld();
   const pl = await quote(locked, build(), 'sent', { locked: true });
   await addGuests(locked, 110);
   assert.equal(Number((await read(pl)).total_centavos), build().total + 10 * RATE, 'the lock stops asks, never the guest list');
 
+  // SABOTAGE: restore the deal_locked CONTINUE in quote_follow_guest_count → RED.
   const booked = await newWorld();
   const pb = await quote(booked, build(), 'accepted');
   await db.query(`UPDATE public.event_vendors SET status = 'contracted', total_cost_php = $2 WHERE vendor_id = $1`, [booked.vendorId, build().total / 100]);
   await addGuests(booked, 140);
-  assert.equal(Number((await read(pb)).total_centavos), build().total, 'booked → Piece 2, not here');
+  assert.equal(Number((await read(pb)).total_centavos), build().total + 40 * RATE, 'a booked quote follows the guest list up (Piece 2)');
   const ev = await db.query<{ t: string }>(`SELECT total_cost_php::text AS t FROM public.event_vendors WHERE vendor_id = $1`, [booked.vendorId]);
-  assert.equal(Number(ev.rows[0]!.t), build().total / 100);
-  assert.deepEqual(await rises(booked), []);
+  assert.equal(Number(ev.rows[0]!.t), (build().total + 40 * RATE) / 100, 'the booking total follows the quote');
+  assert.equal((await rises(booked)).length, 1, 'one chat line for the rise');
+});
+
+test('🏁 a job already DELIVERED or COMPLETE never moves its booking total (Piece 2 stops at the finished job)', async () => {
+  // SABOTAGE: drop the delivered/complete CONTINUE at the top of quote_follow_guest_count's loop → RED (the proposal
+  // reprices even though the booking total stays put).
+  for (const done of ['delivered', 'complete']) {
+    const w = await newWorld();
+    const b = build();
+    const p = await quote(w, b, 'accepted');
+    await db.query(`UPDATE public.event_vendors SET status = $2::public.vendor_status, total_cost_php = $3 WHERE vendor_id = $1`, [w.vendorId, done, b.total / 100]);
+    const before = await read(p);
+    await addGuests(w, 140);
+    const ev = await db.query<{ t: string }>(`SELECT total_cost_php::text AS t FROM public.event_vendors WHERE vendor_id = $1`, [w.vendorId]);
+    assert.equal(Number(ev.rows[0]!.t), b.total / 100, `a ${done} job's total moved`);
+    const after = await read(p);
+    assert.deepEqual(after.line_items, before.line_items, `a ${done} job's quote lines moved`);
+    assert.equal(Number(after.total_centavos), b.total, `a ${done} job's quote total moved`);
+    const fin = (s: FollowSchedule) => s.installments!.find((i) => i.is_auto_balance);
+    assert.deepEqual(fin(after.payment_schedule), fin(before.payment_schedule), `a ${done} job's Final installment moved`);
+    assert.deepEqual(after.payment_schedule, before.payment_schedule, `a ${done} job's payment plan moved`);
+    assert.equal(after.merge_snapshot.billed_pax, before.merge_snapshot.billed_pax, `a ${done} job's billed pax moved`);
+    assert.deepEqual(await rises(w), [], `a ${done} job got a "Quote rose" chat line`);
+    assert.deepEqual(await falls(w), [], `a ${done} job got a "Quote fell" chat line`);
+  }
 });
 
 test('💳 paid rows never change: a paid Final balance → a NEW auto row takes the rise', async () => {
@@ -480,7 +505,7 @@ test('💳 no plan: the fall stops at what has been paid on the booking', async 
   assert.equal(ts.totalCentavos, paid);
 });
 
-test('📉 a BOOKED deal stays untouched on the way down too', async () => {
+test('📉 a BOOKED deal never falls — it follows like a locked quote (Piece 2)', async () => {
   const w = await newWorld();
   const p = await quote(w, build(), 'accepted');
   const ids = await addGuests(w, 130);

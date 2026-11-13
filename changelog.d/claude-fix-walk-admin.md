@@ -21,5 +21,8 @@
 - **F-A-13** Categories no longer names a code file (`lib/attire-designs.ts`). The node keys stay behind their ⓘ, as
   designed.
 - **F-A-14** Pricing: the SKU code is not drawn on a price row (the title names it), and "celebration" reads "event".
+- **F-A-15** Event types read their admin-managed names ("Get-together", not "simple event") on Intelligence,
+  Payments, an account's card, an event's card and Gifts — one reader, `readEventTypeNames()`, over the shipped
+  `getEventTypeVocab`.
 
 SPEC IMPACT: None.

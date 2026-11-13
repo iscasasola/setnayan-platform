@@ -71,3 +71,19 @@ test('F-A-13/F-A-14 · Categories and Pricing name no code paths, no SKU codes, 
     assert.doesNotMatch(code(rel), /\bcelebrations?\b/i, `${rel} says "celebration"`);
   }
 });
+
+test('F-A-15 · admin pages name event types from the admin-managed list, never the raw key', () => {
+  const reader = code('lib/admin/event-type-names.server.ts');
+  assert.match(reader, /getEventTypeVocab\(\)/);
+  for (const rel of [
+    'app/admin/app-performance/_surfaces/intelligence-surface.tsx',
+    'app/admin/payments/page.tsx',
+    'app/admin/users/[userId]/page.tsx',
+    'app/admin/events/[eventId]/page.tsx',
+    'app/admin/gifts/page.tsx',
+  ]) {
+    const src = code(rel);
+    assert.match(src, /readEventTypeNames\(\)/, `${rel} does not read the event-type names`);
+    assert.doesNotMatch(src, /\{\(?e?v?\.?event_type as string \| null\)? \?\? '—'\}/, `${rel} draws a raw event_type`);
+  }
+});

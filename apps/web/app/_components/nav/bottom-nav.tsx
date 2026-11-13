@@ -93,6 +93,18 @@ import { formatCount } from '@/lib/format-number';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 import { useKeyboardRide } from '@/lib/keyboard-ride';
 import { dispatchTabReselect } from './use-chrome-away';
+import {
+  isTabFirstState,
+  recallTab,
+  rememberTab,
+  requestRestore,
+  restoreScroll,
+  scrollToTop,
+  tabHref,
+  tabRoot,
+  takeRestore,
+  type TabState,
+} from '@/lib/tab-memory';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -240,6 +252,8 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
     }
   }, [items.length]);
 
+  const memory = useTabMemory(items, pathname, isActive);
+
   if (items.length < 1) return null;
 
   const n = Math.min(items.length, 6);
@@ -272,6 +286,7 @@ function BottomNavFlat({ items }: { items: BottomNavItem[] }) {
               key={item.key}
               item={item}
               active={i === activeIndex}
+              remembered={memory[tabRoot(item.href)] ?? null}
               pressed={pressed === i}
               compact={compact}
               onPressStart={() => {
@@ -958,9 +973,56 @@ function tabTourToken(href: string): string {
 
 /* ── flat-path tab cell (unchanged) ────────────────────────────────────── */
 
+/**
+ * 🔁 EVERY BOTTOM MENU REMEMBERS WHERE YOU LEFT IT (owner 2026-11-13, `lib/tab-memory.ts`). While a tab is the one you
+ * are on, its page and scroll are written to the session as you move; every other tab reads its own back, so its href
+ * becomes the page you left it on. Read after mount only — the server and the first paint draw the tabs' own hrefs.
+ * Also puts back the scroll a tap asked for when its page arrives (`takeRestore`).
+ */
+function useTabMemory(
+  items: BottomNavItem[],
+  pathname: string,
+  isActive: (item: BottomNavItem) => boolean,
+): Record<string, TabState | null> {
+  const [memory, setMemory] = useState<Record<string, TabState | null>>({});
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const hrefsKey = items.map((it) => it.href).join('|');
+  useEffect(() => {
+    const list = itemsRef.current;
+    const here = () => window.location.pathname + window.location.search;
+    const mine = list.find((it) => isActive(it));
+    const note = () => {
+      if (mine) rememberTab(mine.href, { path: here(), y: window.scrollY });
+    };
+    note();
+    const back = takeRestore(here());
+    if (back !== null) restoreScroll(back);
+    const next = Object.fromEntries(list.map((it) => [tabRoot(it.href), recallTab(it.href)]));
+    setMemory((m) => (JSON.stringify(m) === JSON.stringify(next) ? m : next));
+    if (!mine) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        note();
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) window.cancelAnimationFrame(raf);
+      note();
+    };
+  }, [pathname, hrefsKey, isActive]);
+  return memory;
+}
+
 function BottomNavTab({
   item,
   active,
+  remembered,
   pressed,
   compact,
   onPressStart,
@@ -968,6 +1030,8 @@ function BottomNavTab({
 }: {
   item: BottomNavItem;
   active: boolean;
+  /** 🔁 Where this tab was left (`useTabMemory`) — null until read, or when nothing is remembered. */
+  remembered: TabState | null;
   pressed: boolean;
   /** Icons-only mode — a <SubNav> is docked, so collapse the label row. The
    *  icon size is unchanged (owner 2026-06-16: "do not shrink the icon"). */
@@ -976,11 +1040,13 @@ function BottomNavTab({
   onPressEnd: () => void;
 }) {
   const Icon = item.icon;
+  // 🔁 Another tab → the page you left it on; the tab you are on → its own page (`lib/tab-memory.ts`).
+  const href = tabHref(item, active, remembered, (path) => bottomNavItemMatches(path, item));
 
   return (
     <li>
       <Link
-        href={item.href}
+        href={href}
         aria-current={active ? 'page' : undefined}
         aria-haspopup={item.onSelect ? 'dialog' : undefined}
         data-tour={tabTourToken(item.href)}
@@ -994,7 +1060,16 @@ function BottomNavTab({
           /* 🔁 A re-tap on the ACTIVE tab tells the page (THE ONE BUILD F4 — Clients goes back to its unselected list).
              A page that handles it cancels the event and the tab's own navigation is skipped; else it navigates as
              before. 🔒 app/_components/nav/the-chrome-steps-away.test.ts */
+          /* 🔁 FIRST STATE / LAST STATE (owner 2026-11-13, lib/tab-memory.ts). The tab you are on, already on its own
+             page → scroll to the top, no navigation; under it → its href is its own page (Link lands at the top).
+             Another tab → its href is the page you left it on, and the scroll is asked back for when it arrives. */
           if (active && dispatchTabReselect({ key: item.key, href: item.href })) e.preventDefault();
+          else if (active) {
+            if (isTabFirstState(window.location.pathname + window.location.search, item)) {
+              e.preventDefault();
+              scrollToTop();
+            }
+          } else if (remembered && href === remembered.path) requestRestore(remembered);
         }}
         onPointerDown={onPressStart}
         onPointerUp={onPressEnd}

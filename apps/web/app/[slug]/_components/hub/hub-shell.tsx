@@ -109,6 +109,23 @@ import {
 } from '../../_lib/hub-tabs';
 import { SITE_MENU_ANCHORS, type SiteMenuTabKey } from '../../_lib/site-menu';
 import { hashOpensSheet } from '../rsvp-sheet-state';
+import { createPaneMemory, restoreScroll, scrollToTop } from '@/lib/tab-memory';
+
+/**
+ * 🔁 EVERY BOTTOM MENU REMEMBERS WHERE YOU LEFT IT (owner 2026-11-13, `lib/tab-memory.ts`): another tab opens where you
+ * left it; the tab you are on goes back to its top. These bars switch panes, so a pane's last state is its scroll.
+ */
+const panes = createPaneMemory();
+function landPane(from: string, to: string, show: () => void): void {
+  const r = panes.switchPane(window.location.pathname, from, to, window.scrollY);
+  if (r === 'top') {
+    scrollToTop();
+    return;
+  }
+  show();
+  window.scrollTo({ top: 0 });
+  if (r.y > 0) restoreScroll(r.y);
+}
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type HubPanelKey =
@@ -263,7 +280,8 @@ function HubStageFrame({
   const overflowActive = overflow.some((m) => m.key === active);
 
   function select(key: HubPanelKey) {
-    go(key, 'push');
+    // 🔁 Another panel → where you left it; the panel you are on → its top.
+    landPane(active, key, () => go(key, 'push'));
     setMoreOpen(false);
   }
 
@@ -517,12 +535,11 @@ function HubPageFrame({ slots, onePage = false }: HubPageProps) {
       if (tab) {
         if (!keysRef.current.includes(tab)) return;
         e.preventDefault();
-        if (tab !== activeRef.current) {
+        // 🔁 Another tab opens where you left it (its top the first time); the tab you are on goes back up.
+        landPane(activeRef.current, tab, () => {
           showTab(tab);
           go(tab, 'push');
-        }
-        // A new page opens at its top; tapping the tab you are on goes back up.
-        window.scrollTo({ top: 0 });
+        });
         return;
       }
       // A mark on another tab. The reply sheet's own marks are the sheet's.

@@ -12,17 +12,20 @@ import hp from './home-profile.module.css';
  * home-segment-bar.tsx — HOME'S SECTIONS: Events · People · Shop · Memories (owner 11 Nov 2026, "One profile page
  * approve" — v3; the order is "THE ACCOUNT BAR ORDER", Shop only for an owner).
  *
- * v3 `.segs`: UNDERLINED TABS, numbers only where a cheap read exists (Events N · Shop N; People and Memories are
- * words). Each tab is a LINK (`/dashboard?seg=…`): a deep link, Back, a new tab all work, and the server draws the
+ * v3 `.segs`: UNDERLINED TABS, numbers only where a cheap read exists (Events N · Shop N · People "N asking"; Memories
+ * is a word). Since 13 Nov 2026 the tabs are Home's ONE row of sections — the header's pill doors that repeated them
+ * are gone (owner: *"dupes … simple and just 1"*), so a number that waits on you (`hot`) is drawn here, in the brand
+ * colour, with its word in the accessible name. Each tab is a LINK (`/dashboard?seg=…`): a deep link, Back, a new tab all work, and the server draws the
  * section's body. The motions, all the house's own:
  *   · the underline slides to the picked tab;
  *   · the body slides in from the side its section lies on (`HomeSegBody`; a fade under "reduce motion");
  *   · RE-TAP = TOP (T5): the picked tab, or the Home tab while on Home (`useTabReselect('home')`), scrolls back to
  *     the top instead of reloading.
  * The tabs are drawn twice by the top (`CollapsingTop`): once under the header at rest, once under the pinned row when
- * it has locked — the same component, so the two never disagree. `HomeSegMemory` is mounted ONCE: it remembers the
- * section (`HOME_LAST_SEG_KEY`), so Discover → Home comes back to it (read by `account-bottom-nav.tsx`), and owns the
- * Home tab's re-tap.
+ * it has locked — the same component, so the two never disagree. `HomeSegMemory` is mounted ONCE and owns the Home
+ * tab's re-tap (the top of the section). Discover → Home coming back to the section you left AND the place in it
+ * (owner 9 Nov, DECISION_LOG row 44a4c660: "tapping home returns you to your last view on home"; 13 Nov: "any menu")
+ * is the shared bar's, the same for every tab (`app/_components/nav/tab-memory.ts`).
  */
 
 function toTop() {
@@ -30,14 +33,10 @@ function toTop() {
   window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
 }
 
-export function HomeSegMemory({ seg }: { seg: HomeSeg }) {
-  useEffect(() => {
-    try {
-      window.sessionStorage.setItem(HOME_LAST_SEG_KEY, seg);
-    } catch {
-      /* storage refused — Home then comes back to Events, a correct answer */
-    }
-  }, [seg]);
+export function HomeSegMemory() {
+  // Re-tap Home ON Home: the top of the section you are in, in one tap (the shared bar has already forgotten Home's
+  // kept view — `tab-memory.ts`). Coming back to Home from another tab is the bar's: it opens Home's last address
+  // (`/dashboard?seg=…`) and puts its scroll back, the same for every tab.
   useTabReselect(
     'home',
     useCallback(() => {
@@ -52,12 +51,15 @@ export function HomeTabs({
   seg,
   segs,
   counts,
+  hot = {},
   copy = false,
 }: {
   seg: HomeSeg;
   segs: readonly HomeSeg[];
-  /** The tab's number, only where a cheap read answered (events · service cards). */
+  /** The tab's number, only where a cheap read answered (events · service cards · people asking). */
   counts: Partial<Record<HomeSeg, number>>;
+  /** A number that waits on you, keyed by tab → its word ("asking"): the brand colour, and the word read aloud. */
+  hot?: Partial<Record<HomeSeg, string>>;
   /** The second drawing (in the locked top) — it carries no tour anchor, so the spotlight finds ONE. */
   copy?: boolean;
 }) {
@@ -92,7 +94,12 @@ export function HomeTabs({
           scroll={false}
         >
           {HOME_SEG_LABEL[s]}
-          {typeof counts[s] === 'number' ? <span className={hp.n}>{formatCount(counts[s] as number)}</span> : null}
+          {typeof counts[s] === 'number' ? (
+            <span className={hp.n} data-hot={hot[s] ? '' : undefined} data-home-tab-n={s}>
+              {formatCount(counts[s] as number)}
+              {hot[s] ? <span className="sr-only"> {hot[s]}</span> : null}
+            </span>
+          ) : null}
         </Link>
       ))}
       <span ref={line} className={hp.line} aria-hidden />
@@ -122,22 +129,6 @@ export function HomeTabs({
       {tabs}
     </div>
   );
-}
-
-/** The header's doors scroll sideways (v3 `.counts`): the open section's door is brought into view, never the page. */
-export function HomeDoorsInView({ seg }: { seg: HomeSeg }) {
-  useEffect(() => {
-    const row = document.querySelector<HTMLElement>('[data-home-profile] [data-profile-doors]');
-    const door = row?.querySelector<HTMLElement>(`[data-home-door="${seg}"]`);
-    if (!row || !door) return;
-    const left = door.offsetLeft - row.offsetLeft;
-    const right = left + door.offsetWidth;
-    if (left < row.scrollLeft || right > row.scrollLeft + row.clientWidth) {
-      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      row.scrollTo({ left: Math.max(0, right - row.clientWidth + 16), behavior: reduce ? 'auto' : 'smooth' });
-    }
-  }, [seg]);
-  return null;
 }
 
 /**

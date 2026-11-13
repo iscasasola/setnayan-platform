@@ -32,6 +32,8 @@ import { useEffect, useRef, useState } from 'react';
 
 const TILE = 256;
 const HEIGHT = 240;
+/** The reach ring's colour — its fill, its stroke and its "N km" tag share this one value. */
+const RING_COLOUR = 'var(--m-terracotta, #b65d3c)';
 /** Equatorial metres-per-pixel at zoom 0 (Web-Mercator, 256px tiles). */
 const MPP_Z0 = 156543.03392;
 
@@ -71,9 +73,15 @@ type Props = {
    * supplier's own wording below, unchanged.
    */
   ariaLabel?: string;
+  /**
+   * 🏷 THE "N km" TAG (prototype public_pages_three_2026-11-13 motion 8 — the public shop page only): a small label at
+   * the plan ring's upper right, `data-reach-km`, so the page's CSS can fade it in after the ring draws. The plan ring
+   * itself always carries `data-reach-ring` + `pathLength=1` (complete at rest, so this map is unchanged everywhere).
+   */
+  kmTag?: boolean;
 };
 
-export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false, ariaLabel }: Props) {
+export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false, ariaLabel, kmTag = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -198,12 +206,38 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
               cx={W / 2}
               cy={H / 2}
               r={ringPx}
-              style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.14 }}
-              stroke="var(--m-terracotta, #b65d3c)"
+              style={{ fill: RING_COLOUR, fillOpacity: 0.14 }}
+              stroke={RING_COLOUR}
               strokeWidth={2}
               strokeOpacity={0.9}
+              pathLength={1}
+              strokeDasharray="1"
+              transform={`rotate(-90 ${W / 2} ${H / 2})`}
+              data-reach-ring=""
             />
           )}
+          {kmTag && ringPx > 0 ? (
+            <g data-reach-km="">
+              <rect
+                x={Math.min(W - 62, W / 2 + ringPx * 0.7 - 4)}
+                y={Math.max(8, H / 2 - ringPx * 0.7 - 22)}
+                width={58}
+                height={22}
+                rx={11}
+                fill="#fff"
+                fillOpacity={0.92}
+              />
+              <text
+                x={Math.min(W - 62, W / 2 + ringPx * 0.7 - 4) + 29}
+                y={Math.max(8, H / 2 - ringPx * 0.7 - 22) + 15}
+                textAnchor="middle"
+                className="text-[11px] font-semibold"
+                style={{ fill: RING_COLOUR }}
+              >
+                {`${radiusKm} km`}
+              </text>
+            </g>
+          ) : null}
           {outerPx > 0 && (
             <circle
               cx={W / 2}
@@ -231,6 +265,7 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
           {innerPx > 0 ? label(`Free transpo · ${inner} km`, H / 2 - innerPx - 6, 'var(--m-sage-deep)') : null}
           {/* HQ — a map pin, its point on the spot */}
           <g transform={`translate(${W / 2 - 11} ${H / 2 - 30})`}>
+            <g data-reach-pin="">
             <path
               d="M11 0C4.9 0 0 4.9 0 11c0 8.2 11 19 11 19s11-10.8 11-19C22 4.9 17.1 0 11 0z"
               style={{ fill: 'rgb(var(--sn-accent))' }}
@@ -238,6 +273,7 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
               strokeWidth={1.5}
             />
             <circle cx={11} cy={11} r={4} fill="#fff" />
+            </g>
           </g>
         </svg>
       )}

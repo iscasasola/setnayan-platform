@@ -39,7 +39,14 @@ import { formatCount } from '@/lib/format-number';
 const SERVICE_CARD_INCLUSION_LIMIT = 3;
 
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
-export type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
+export type ServiceShowcaseMedia = {
+  photos: string[];
+  videoUrl: string | null;
+  /** 🃏 The stored refs behind `photos` (same order) and the clip — what a hide per card is keyed on, since the display
+   *  URLs are presigned and change. Optional: only the shop page resolves them (`withCardHides`). */
+  photoRefs?: string[];
+  videoRef?: string | null;
+};
 
 /**
  * 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30).
@@ -133,6 +140,20 @@ export type ServiceCard = {
    * when the card has neither, so every other card serializes byte-for-byte as before. Never a price.
    */
   reviews?: CardReviews;
+  /**
+   * 🃏 HIDE PER CARD (Build 5 Lane C, `lib/service-card-hides.ts`). `photoRefs` pairs with `photos` (same order) and
+   * `clipRef` with `videoUrl`, so the supplier's tap can name what it hides; `hiddenOnCard` lists the hidden items'
+   * keys — couples and the 👁 Couple view leave them out, the supplier sees them greyed. ALL OPTIONAL and ABSENT when
+   * the grown card is off or the card has none, so every other card serializes byte-for-byte as before.
+   */
+  photoRefs?: string[];
+  clipRef?: string;
+  hiddenOnCard?: string[];
+  /**
+   * 🃏 The hides read FAILED (`cardWithoutHidden(card, 'unread')`): the card's hideable items were left out because
+   * nobody could say which the shop hid, and the grown card says so in one line. Absent on every other card.
+   */
+  hidesUnread?: true;
 };
 
 export type CardReviews = {
@@ -144,11 +165,14 @@ export type CardReviews = {
     /** "A. & M. · Dec 2026" — the couple's "Shown as", then the month. null with no quote. */
     by: string | null;
     verifiedBooking: boolean;
+    /** 🃏 The quoted review's id — what a hide on this card names (`review:host:<id>`). null with no quote. */
+    reviewId?: string | null;
   } | null;
   guests: {
     count: number;
     average: number;
-    newest: { shownName: string; stars: number; line: string | null; photoUrl: string | null } | null;
+    /** `reviewId` — 🃏 what a hide on this card names (`review:guest:<id>`). */
+    newest: { shownName: string; stars: number; line: string | null; photoUrl: string | null; reviewId?: string } | null;
     /** Where "read all" lands — the shop page's "From guests" group. */
     readAllHref: string;
   } | null;
@@ -207,7 +231,8 @@ export function toServiceCard(
   const priceLabel =
     !hidePrices && row.starting_price_php !== null && row.starting_price_php > 0
       ? `from ${formatPhpRounded(row.starting_price_php)}`
-      : 'Inquire';
+      : // Never "Inquire": on a shop page that word is the ONE Inquire button (owner 13 Nov 2026, "Yes, only one").
+        'Price on request';
 
   // Pricing-basis detail — HOW the "from ₱X" anchor is computed. Per-pax shows
   // the per-guest rate (+ the min floor when set); per-hour shows the base

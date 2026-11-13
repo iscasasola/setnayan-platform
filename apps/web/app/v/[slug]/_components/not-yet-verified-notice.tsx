@@ -12,8 +12,10 @@ import { NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from '@/lib/findable-sho
  */
 export function NotYetVerifiedNotice() {
   return (
-    <section aria-label={NOT_YET_VERIFIED_LINE} data-not-yet-verified className="border-b border-ink/10 bg-warn-50/70">
-      <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+    // 🌿 A soft card at the top of the calm column since 13 Nov 2026 (prototype `public_pages_three_2026-11-13`,
+    // `.notice`) — was a full-width strip under the site header. Same words, same ⓘ.
+    <section aria-label={NOT_YET_VERIFIED_LINE} data-not-yet-verified className="mb-6 rounded-2xl bg-warn-50/70">
+      <div className="flex w-full items-center gap-3 px-4 py-3">
         <ShieldAlert aria-hidden className="h-5 w-5 shrink-0 text-warn-800" strokeWidth={1.75} />
         <InfoTip label={NOT_YET_VERIFIED_LINE} labelClassName="text-sm font-medium text-ink" align="start">
           {NOT_YET_VERIFIED_INFO}

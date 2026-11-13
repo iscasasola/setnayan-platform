@@ -17,11 +17,13 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Check, ChevronRight, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { Check, ChevronRight, Eye, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import type { QueuePeek } from '@/lib/admin/queue-peek';
 import { partitionQueues } from '@/lib/admin/queue-partition';
 import { EXPANDABLE_QUEUES } from '@/lib/admin/queue-peek';
 import { QueueDrawer } from './queue-drawer';
+import { GreenBatchAction, type GreenBatch } from './green-batch';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type {
   AdminQueueLane,
@@ -47,6 +49,10 @@ export type TriageItem = {
   ageLabel?: string;
   /** Items behind this row, when the queue is the one `?open=` names. */
   peek?: QueuePeek | null;
+  /** A trail to watch (`watchOnly` in ADMIN_QUEUE_META) — shown, never summed as work waiting. */
+  watchOnly?: boolean;
+  /** Payments only: the green/held sort behind "Approve all N green" (admin slice 4). */
+  greenBatch?: GreenBatch;
 };
 
 type Props = {
@@ -187,6 +193,9 @@ function TriageRow({
           />
         )}
       </Link>
+      {item.greenBatch ? (
+        <GreenBatchAction batch={item.greenBatch} backTo={toggleHref ?? '/admin/work'} />
+      ) : null}
       {item.peek ? (
         <QueueDrawer
           peek={item.peek}
@@ -212,6 +221,8 @@ function triageTotals(items: TriageItem[]) {
     soon = 0,
     onPace = 0;
   for (const i of items) {
+    // A trail to watch is not work waiting — it keeps its badge, not a place here.
+    if (i.watchOnly) continue;
     const n = i.count ?? 0;
     if (n <= 0) continue;
     if (i.dueState === 'overdue') late += n;
@@ -270,13 +281,18 @@ function LaneChips({
   lane?: AdminQueueLane;
   basePath: string;
 }) {
-  const waiting = (rows: TriageItem[]) =>
-    rows.reduce((sum, i) => sum + Math.max(0, i.count ?? 0), 0);
+  /* 🚨 A CHIP SUMMED AN UNREAD QUEUE AS ZERO — "All 0" under "19 queues couldn't
+     be read" (slice 1b walk, 13 Nov). A chip whose lane holds an uncounted queue
+     prints "—", never a number that leaves the unread one out. */
+  const waiting = (rows: TriageItem[]): string =>
+    rows.some((i) => i.count === null)
+      ? '—'
+      : String(rows.reduce((sum, i) => sum + Math.max(0, i.count ?? 0), 0));
 
   const present = ADMIN_LANE_ORDER.filter((l) => items.some((i) => i.lane === l));
   if (present.length < 2) return null; // a filter with one option is not a filter
 
-  const chip = (href: string, label: string, n: number, active: boolean) => (
+  const chip = (href: string, label: string, n: string, active: boolean) => (
     <Link
       key={label}
       href={href}
@@ -330,6 +346,9 @@ const SETTLE_NOTICES: Record<string, { tone: 'warn' | 'ok'; headline: string }> 
   saved: { tone: 'ok', headline: 'Saved' },
   /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28) — every outcome a supplier row can end in, said. */
   approved: { tone: 'ok', headline: 'Approved — the shop is told in the app' },
+  /* ➕ "APPROVE ALL N GREEN" (admin slice 4) — `why` carries the per-row tally. */
+  batch: { tone: 'ok', headline: 'Green payments approved' },
+  'batch-partial': { tone: 'warn', headline: 'Some payments were left for you' },
   'sent-back': { tone: 'ok', headline: 'Sent back with the reason — the shop sees it on its setup' },
   declined: { tone: 'ok', headline: 'Declined with the reason — the shop is told in the app' },
   'type-added': { tone: 'ok', headline: 'Event type added' },
@@ -411,6 +430,17 @@ export function QueuesTriageFeed({
     return q ? `${basePath}?${q}` : basePath;
   };
 
+  /*
+    ➕ THE NEXT CARD (approved drawing, work.html — "the Next card is the #1
+    item"). The one framed thing on the list: the most urgent queue holding
+    work, with its own Open. Read from `items`, which the page hands down
+    ALREADY RANKED by the shared comparator — so the Next card can never name
+    a different queue than the one at the top of the list. A trail to watch is
+    never "next"; an unread queue (count null) is not work we can name, so the
+    card is withheld rather than guessed (the unread notice speaks instead).
+  */
+  const next = items.find((i) => !i.watchOnly && (i.count ?? 0) > 0);
+
   const shown = lane ? items.filter((i) => i.lane === lane) : items;
   const { overdue, waiting, clear } = partitionQueues(shown);
 
@@ -457,6 +487,31 @@ export function QueuesTriageFeed({
         })()
       ) : null}
 
+      {next ? (
+        <section aria-label="Next" className="sn-tile mb-4 p-4">
+          <p className="sn-eye flex flex-wrap items-baseline justify-between gap-x-3">
+            <span>Next{next.ageLabel ? ` · ${next.ageLabel}` : ''}</span>
+            <span className="font-mono text-[11px] normal-case tracking-normal text-[color:var(--sn-ink-500)]">
+              {formatCount(totalOpen)} need you
+            </span>
+          </p>
+          <h2 className="mt-1 text-lg font-semibold" style={{ color: 'var(--sn-ink-900)' }}>
+            {next.label} · {formatCount(next.count)} waiting
+          </h2>
+          <p className="mt-0.5 text-sm text-[color:var(--sn-ink-500)]">{next.description}</p>
+          <div className="mt-3">
+            <ActionButton
+              tone="neutral"
+              icon={<Eye />}
+              label="Open"
+              name={`Open ${next.label}`}
+              main
+              href={canExpand(next.key) ? toggleFor(next.key) : next.href}
+            />
+          </div>
+        </section>
+      ) : null}
+
       {lead}
 
       <TriageStrip items={items} />
@@ -484,8 +539,11 @@ export function QueuesTriageFeed({
               style={{ color: 'var(--sn-ink-500)' }}
             />
           </span>
-          <span className="text-sm text-[color:var(--sn-ink-500)]">
-            All queues clear. Open any queue to review history or recent decisions.
+          <span className="flex flex-col gap-0.5">
+            <strong className="text-base">Nothing needs you</strong>
+            <span className="text-sm text-[color:var(--sn-ink-500)]">
+              All queues clear. Open any queue to review history or recent decisions.
+            </span>
           </span>
         </div>
       )}

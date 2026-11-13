@@ -49,7 +49,7 @@ test('a card shows its OWN reviews, hosts and guests apart', () => {
     guestStats: new Map([['s1', { count: 40, average: 4.9 }]]),
     hostReviews: [
       { service_id: 's1', body: 'Old words', created_at: '2026-01-01T00:00:00Z', couple_display_name: 'A. & M.', booked_through_setnayan: true },
-      { service_id: 's1', body: 'New words', created_at: '2026-12-01T00:00:00Z', couple_display_name: 'A. & M.', booked_through_setnayan: true },
+      { review_id: 'hr-new', service_id: 's1', body: 'New words', created_at: '2026-12-01T00:00:00Z', couple_display_name: 'A. & M.', booked_through_setnayan: true },
       { service_id: 's3', body: 'Another card', created_at: '2026-12-02T00:00:00Z', couple_display_name: 'X', booked_through_setnayan: false },
     ],
     guestRows: [guest({ created_at: '2026-12-10T00:00:00Z', line: 'older' }), guest({ line: 'newest' })],
@@ -61,6 +61,9 @@ test('a card shows its OWN reviews, hosts and guests apart', () => {
   assert.match(s1.hosts?.by ?? '', /^A\. & M\. · /);
   assert.equal(s1.guests?.count, 40);
   assert.equal(s1.guests?.newest?.line, 'newest');
+  // 🃏 The shown review's id rides along, so the shop can hide it on this card (`lib/service-card-hides.ts`).
+  assert.equal(s1.hosts?.reviewId, 'hr-new');
+  assert.equal(s1.guests?.newest?.reviewId, 'g');
   assert.equal(s1.guests?.readAllHref, '#guest-reviews');
   // s2: the number alone — no quote borrowed from another card
   assert.equal(m.get('s2')!.hosts?.quote, null);

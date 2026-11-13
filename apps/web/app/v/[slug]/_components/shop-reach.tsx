@@ -44,6 +44,7 @@ export function ShopReachMap({
         lng={lng}
         radiusKm={reach.km}
         ariaLabel={`Map: serves up to ${reach.km} kilometres around ${city ?? 'the shop'}`}
+        kmTag
       />
       <a
         href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=11/${lat}/${lng}`}

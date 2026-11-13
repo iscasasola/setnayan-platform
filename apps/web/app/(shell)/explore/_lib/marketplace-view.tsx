@@ -81,7 +81,8 @@ import {
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
-import { describeUnbookableScope, unbookableDateScope } from '@/lib/bench-bookable-days';
+import { fitDateScope, fitDaysToAsk, type EventFitDates } from '@/lib/bench-bookable-days';
+import { regionPin } from '@/lib/your-place';
 import { readCardRefusals, readSuppliersWithNoBookingLeft } from '@/lib/bench-bookable-days.server';
 import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-what-fits';
 import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
@@ -1253,6 +1254,9 @@ export async function MarketplaceView({
   // in the same select so the intersection filter doesn't add a roundtrip.
   let coupleEventDate: string | null = null;
   let coupleEventDatePrecision: 'year' | 'month' | 'day' | null = null;
+  // 📅 The rest of the event's dates the fit judges (owner 2026-11-13): the main span's end, and — before a venue is
+  // booked — the candidate dates and the window. `fitDateScope` reads them; read in the same select, no roundtrip.
+  let coupleFitDates: EventFitDates | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
@@ -1274,7 +1278,7 @@ export async function MarketplaceView({
       const { data: ev, error: evError } = await admin
         .from('events')
         .select(
-          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
+          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
@@ -1296,6 +1300,11 @@ export async function MarketplaceView({
           lat: Number(ev.venue_latitude),
           lng: Number(ev.venue_longitude),
         };
+      } else {
+        // 📍 No pin → the event's Region, as its curated centroid (owner 2026-11-13; `regionPin`). Never
+        // `style_preferences.search_areas`, never the film's city.
+        const rp = regionPin((ev as { region?: string | null } | null)?.region ?? null);
+        if (rp) venueAnchor = { lat: rp.latitude, lng: rp.longitude };
       }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
@@ -1325,6 +1334,22 @@ export async function MarketplaceView({
         if (p === 'year' || p === 'month' || p === 'day') {
           coupleEventDatePrecision = p;
         }
+      }
+      if (ev) {
+        const d = ev as {
+          event_end_date?: string | null;
+          date_candidates?: unknown;
+          date_window_start?: string | null;
+          date_window_end?: string | null;
+        };
+        coupleFitDates = {
+          eventDate: coupleEventDate,
+          precision: coupleEventDatePrecision,
+          endDate: d.event_end_date ?? null,
+          candidates: d.date_candidates ?? null,
+          windowStart: d.date_window_start ?? null,
+          windowEnd: d.date_window_end ?? null,
+        };
       }
     }
   }
@@ -1579,7 +1604,9 @@ export async function MarketplaceView({
     leaves this view — the refusal is `service_cards_unbookable_on` (`readCardRefusals`), the one Find uses. A card of
     a shop already on the couple's list stays. A failed read hides nothing. `lib/discover-shows-what-fits.ts`.
   */
-  const dateHideDays = coupleEventId ? unbookableDateScope(coupleEventDate, coupleEventDatePrecision) : null;
+  const dateHideScope = coupleEventId && coupleFitDates ? fitDateScope(coupleFitDates) : null;
+  // Accommodation cards are judged on every night ±1, so those nights are read too.
+  const dateHideDays = dateHideScope ? fitDaysToAsk(dateHideScope, true) : null;
   let knownForDateHide: Promise<Set<string> | null> | null = null;
   // Who the couple already knows: their list (read above, no second query) and every supplier who opened their
   // event (`vendor_event_unlocks`) — the bench search's own "already knows" (`leavesBenchSearch`). Read only when the
@@ -1619,8 +1646,9 @@ export async function MarketplaceView({
       (c) => c.row.vendor_service_id,
       (c) => c.vendorProfileId,
       refused,
-      dateHideDays,
+      dateHideScope,
       known,
+      (c) => c.row.category,
     );
     serviceCards = fit.cards;
     hiddenForDate += fit.hidden;
@@ -2496,8 +2524,7 @@ export async function MarketplaceView({
       admin,
       supplierIds: visible.map((r) => r.vendor_profile_id),
       canonicals: dateHideCanonicals,
-      eventDate: coupleEventDate,
-      eventDatePrecision: coupleEventDatePrecision,
+      dates: coupleFitDates ?? { eventDate: coupleEventDate, precision: coupleEventDatePrecision },
     });
     const known = noBookingLeft && noBookingLeft.size > 0 ? await knownOnEventForDateHide() : NOBODY_KNOWN;
     const fit = keepSuppliersThatFit(visible, (r) => r.vendor_profile_id, noBookingLeft, known);
@@ -2506,11 +2533,11 @@ export async function MarketplaceView({
     if (!fit.checked) dateUnchecked = true;
   }
   const dateUncheckedLine = dateUnchecked
-    ? dateUncheckedWords(describeUnbookableScope(coupleEventDate, coupleEventDatePrecision))
+    ? dateUncheckedWords(dateHideScope)
     : null;
   const nobodyFreeWords =
     hiddenForDate > 0
-      ? findNobodyFreeWords(describeUnbookableScope(coupleEventDate, coupleEventDatePrecision))
+      ? findNobodyFreeWords(dateHideScope)
       : null;
 
   // Sort + ad-floating already happened SQL-side (see .order chain above),

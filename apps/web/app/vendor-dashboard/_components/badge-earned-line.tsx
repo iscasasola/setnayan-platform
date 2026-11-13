@@ -82,7 +82,7 @@ export function BadgeEarnedLine({
     setNews(null);
   };
   return (
-    <div className="mb-3 border-b border-ink/10 pb-3 md:flex md:items-center md:gap-3" data-badge-earned={n.key} role="status">
+    <div className="mt-3 mb-1 border-b border-ink/10 pb-3 md:flex md:items-center md:gap-3" data-badge-earned={n.key} role="status">
       {/* Row 1 — the pill and ONE short line; the reason is behind the ⓘ. */}
       <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 md:flex-1" data-badge-earned-head="">
         <ShopBadgePill badge={n.badge} size="xs" className="shrink-0" />

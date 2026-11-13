@@ -152,6 +152,7 @@ export default async function LauncherLayout({
             context this layout already loaded; Discover only where `/` opens. */}
         <AccountBarSlot
           tabs={accountBarTabs({ discoverOpen })}
+          hasShop={switcherData.context.hasVendor}
         />
         {/* 📲 What the account has, preloaded once the page is idle — the host app for
             the event they host, the supplier app for a shop (owner 2026-10-02, "THE

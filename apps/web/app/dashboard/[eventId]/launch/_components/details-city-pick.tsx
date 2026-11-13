@@ -55,7 +55,9 @@ export function CityPick({
   value: string;
   /** The reception's pin, when it has one — the list is measured from it. */
   near: { lat: number; lng: number } | null;
-  onPick: (name: string) => void;
+  /** The picked place's name — and the place itself, whose `rk` is its region (the Suppliers place sheet writes a
+   *  non-wedding's City or area as `events.region`, owner 2026-11-13). Callers that need only the name ignore it. */
+  onPick: (name: string, place: WeddingCity) => void;
   /**
    * What the list shows with nothing typed and Near me off. `nearest` (the Maker's Details, as shipped): the places
    * nearest the reception's pin, else the top 30. `top10` (the Suppliers place sheet — owner 2026-10-30, "we show the
@@ -125,7 +127,7 @@ export function CityPick({
   }
 
   const pick = (c: WeddingCity) => {
-    onPick(c.n);
+    onPick(c.n, c);
     setOpen(false);
     setQuery('');
   };

@@ -13,7 +13,7 @@ import { PRO_THEMES } from '@/lib/invite-themes';
 import { TOURS } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
-// The client pieces — Event Hub Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
+// The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 
 /**

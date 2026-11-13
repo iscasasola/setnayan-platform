@@ -1,5 +1,5 @@
 /**
- * hub-parts.test.ts — 💎 EVENT HUB PRO, PART BY PART (owner 2026-10-22, DECISION_LOG "EVENT HUB PRO, PART BY PART";
+ * hub-parts.test.ts — 💎 EVENT PRO, PART BY PART (owner 2026-10-22, DECISION_LOG "EVENT PRO, PART BY PART";
  * prototype `prototypes/pro_part_by_part_2026-10-22.html`; gate inventory PRO-GATES.md, 37 gates → 11 parts).
  *
  * Properties, not phrasings:

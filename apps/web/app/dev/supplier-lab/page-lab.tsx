@@ -336,7 +336,7 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      // The plan's own reach (Free 0 · Solo 30 · Pro 50) — the lab draws what the shop's plan really allows.
+      // The plan's own reach (Free 0 · Supplier Plus 30 · Pro 50) — the lab draws what the shop's plan really allows.
       reachKm: tierCaps(f.tier).serviceRadiusKm,
       innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,

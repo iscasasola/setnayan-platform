@@ -165,7 +165,7 @@ export async function readPrintEvent(admin: SupabaseClient, eventId: string): Pr
   return (data as PrintEventRow | null) ?? null;
 }
 
-/** Is Event Hub Pro live for this event right now — the print-ready gate.
+/** Is Event Pro live for this event right now — the print-ready gate.
  *  👁 As the viewer is SHOWN it (`asViewed`): an internal viewer viewing as a
  *  free couple sees the free set. It gates what is drawn and served, never a
  *  write. */
@@ -749,7 +749,7 @@ export async function loadPrintSet(
   // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the resolver the guest page wears) — the ground a Pro
   // print's Hub look is laid on (`printLooksFor`).
   const looks = printLooksFor(theme, sampleGallery ? opts.samplePalette : event.role_palette, { sampleGallery });
-  /* 🖨 EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — WITH EVENT HUB PRO (owner 2026-10-21: *"shouldn't this mimic the event hub
+  /* 🖨 EVERY PRINT WEARS THE EVENT'S OWN HUB LOOK — WITH EVENT PRO (owner 2026-10-21: *"shouldn't this mimic the event hub
      design? and so does the other prints?"* → *"yes wire all, and yes it's Pro"*). The ONE door (`printLookForEvent`): a free
      event gets plain white and its Hub is never read. The sample gallery draws each theme as the theme, never one couple's Hub.
      Pro is the EVENT's (`printOwnsPro`, as viewed) — the same for every host on it. */

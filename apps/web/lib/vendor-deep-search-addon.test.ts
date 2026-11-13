@@ -15,7 +15,7 @@ import {
 
 const OK: DeepSearchEligibilityInput = { tier: 'solo', verification: 'verified' };
 
-test('eligible: any verified PAID tier (Solo/Pro/Ultra) passes', () => {
+test('eligible: any verified PAID tier (Supplier Plus/Pro/Ultra) passes', () => {
   for (const tier of ['solo', 'pro', 'enterprise']) {
     assert.deepEqual(
       deepSearchEligibility({ tier, verification: 'verified' }),

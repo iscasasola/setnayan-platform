@@ -88,7 +88,7 @@ test('every surface that paints the page ground asks the one rule', () => {
   );
   assert.equal(gated.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
   assert.match(helper, /import \{ heroGroundNeedsOwnership \} from '@\/lib\/page-ground';/);
-  // 🎞 …or, for a moving background of ours (2026-10-05, Event Hub Pro), the
+  // 🎞 …or, for a moving background of ours (2026-10-05, Event Pro), the
   // loop — only once `loopShows` (owned, or the host's own canvas).
   assert.match(
     helper,

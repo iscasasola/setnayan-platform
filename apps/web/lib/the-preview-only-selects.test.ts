@@ -165,7 +165,7 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 1);
   assert.match(tools, /const ordered = useCallback\(\(\) => partsInPageOrder\(parts, \(k\) => makerPartTopOnScreen\(stageKey, k, frameSel\)\), \[frameSel, parts, stageKey\]\);/);
   /* A tap on the page's ground still lets go. */
-  /* 🫥 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): a tap on the page's ground puts the toolbar away and
+  /* 🫥 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)"): a tap on the page's ground puts the toolbar away and
      KEEPS the part — something stays picked, as the rule above says. */
   assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\)/);
 });

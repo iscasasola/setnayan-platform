@@ -17,7 +17,15 @@ action, query or data logic changed.
   warm surface with the button piece, the plan progress is a hairline section with bold money; "Offer another
   service" and the outcome reason are PickMenus (no native select); "How did this inquiry end?" is a section with
   its explanation behind ⓘ; Questions for the couple says a failed read in amber and empty as one line.
+- **The shared chat pieces (couple and supplier alike)** — the head, the tool panel's Close, the ⋮ menu's report
+  form, the composer's file chip and refusals, the conversation list and the message stream use the three text
+  strengths and tokens (no 9–11 px typewriter words, no ink at part strength, no raw palette shades); the quote
+  card's buttons are the button piece and its badge the shared chip; a stream that could not load its cards says so
+  in amber, and an empty one is one plain line. The conversation list is a column with a hairline, not a card.
+  The supplier's customer sheet, its trigger and the saved-template quote follow (two PickMenus replace the native
+  selects; Send waits until a template is chosen, as `required` did).
 - Guard `lib/the-blocker-row-and-the-plus-match-v8-3.test.ts`: the shut ＋ regex now reads the token pair
-  (same intent — grey when shut).
+  (same intent — grey when shut); `lib/a-private-message-looks-private.test.ts` and
+  `lib/the-chat-is-messenger-shaped.test.ts` read the new house-fill token the same way.
 
 SPEC IMPACT: None — implements the approved template; no decision changed.

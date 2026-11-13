@@ -66,7 +66,8 @@ test('the head is ‹ · avatar · name · event line · the chat menu — ONE h
   ] as const) {
     assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
   }
-  assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, 'the shared head has no avatar beside the name');
+  // The avatar round wears the template's warm surface token since 2026-11-14 (was ink at 10 %).
+  assert.match(head, /rounded-full bg-\[color:var\(--m-paper-2\)\]/, 'the shared head has no avatar beside the name');
   assert.match(head, /\[&>\*(?:\+\*)?\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const p of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
     const s = read(p);

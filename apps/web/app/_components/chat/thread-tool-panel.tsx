@@ -39,17 +39,18 @@ export function ThreadToolPanel({
       id={id}
       data-thread-tool
       open={open || undefined}
-      className="group scroll-mt-24 border-t border-ink/10 bg-cream [&:not([open])]:hidden"
+      className="group scroll-mt-24 border-t border-[color:var(--m-line)] bg-cream [&:not([open])]:hidden"
     >
       <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 py-2 text-sm font-semibold text-ink marker:content-none [&::-webkit-details-marker]:hidden sm:px-4">
         <span>{label}</span>
-        <span className="truncate font-normal text-ink/45">{hint}</span>
+        <span className="truncate font-normal text-[color:var(--m-slate-2)]">{hint}</span>
         {/* The way OUT. A panel that can only be opened never goes away. */}
-        <span className="ml-auto shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-xs font-medium text-ink/55 group-hover:border-ink/30">
-          Close
+        {/* Drawn as the grey button piece (`.ab .ab-neutral`, rule 3); the whole summary is the press (≥44). */}
+        <span className="ab ab-neutral ml-auto shrink-0">
+          <span className="lbl">Close</span>
         </span>
       </summary>
-      <div className="max-h-[55dvh] overflow-y-auto border-t border-ink/10 p-3 sm:px-4">
+      <div className="max-h-[55dvh] overflow-y-auto border-t border-[color:var(--m-line)] p-3 sm:px-4">
         {children}
       </div>
     </details>

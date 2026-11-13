@@ -8,7 +8,7 @@
  * from is READ OFF what is stored — no second column to drift from the first.
  *
  * Tiny and pure on purpose: `lib/hub-draft.ts` asks it (an Our-music pick is
- * free to use; the couple's own song is Event Hub Pro), and that file rides in
+ * free to use; the couple's own song is Event Pro), and that file rides in
  * the Maker's first load. The moods, titles and upload rules stay in
  * `lib/hub-music.ts`, which the first load never needs.
  */

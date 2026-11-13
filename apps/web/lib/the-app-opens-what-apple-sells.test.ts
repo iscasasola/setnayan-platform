@@ -2,7 +2,7 @@
  * the-app-opens-what-apple-sells.test.ts — 🍎 VERSION 1.1: WHERE APPLE SELLS IN
  * THE APP, WHAT IT SELLS IS USABLE THERE — AND NOWHERE ELSE DOES ANYTHING CHANGE.
  *
- * #6637 (merged flag-dark 2026-10-18) put Papic credits, Event Hub Pro and Live
+ * #6637 (merged flag-dark 2026-10-18) put Papic credits, Event Pro and Live
  * Watch on Apple's sheet; its "Not built here" list is this file's subject:
  *
  *   1 · the Papic and Live Watch CONTROL pages open in the app — only where Apple

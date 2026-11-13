@@ -177,7 +177,7 @@ type UnexpectedChargeSource = Exclude<
   | 'package_catalog'
   | 'setnayan_ai_event_type'
   | 'setnayan_ai_comeback'
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — catalogue figures only, summed and capped at the rest.
+  // 💎 Event Pro, part by part (owner 2026-10-22) — catalogue figures only, summed and capped at the rest.
   | 'hub_parts'
   // 💲 The website-only welcome price (owner 2026-10-28) — the set-up rule on a figure one of the above resolved.
   | 'welcome_first_purchase'

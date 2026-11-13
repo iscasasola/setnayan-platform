@@ -303,7 +303,7 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     assert.ok(src.length > 400, `${file} scanned nearly empty`);
     scanned += 1;
     const known = KNOWN_LINK_OUTS[file]?.count ?? 0;
-    /* 🚪 AMENDED 30 Oct (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): the ✕ — the shell's one allowed link
+    /* 🚪 AMENDED 30 Oct (DECISION_LOG "EVENT PRO (look redesign)", call 1): the ✕ — the shell's one allowed link
        since 25 Oct — is DROPPED; the app's own nav is the way out. The shell is held at no link like every other
        file (`the-hub-is-left-by-the-apps-nav.test.ts`). */
     const seen = linkOuts(src);

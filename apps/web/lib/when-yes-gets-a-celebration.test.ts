@@ -7,7 +7,7 @@
  *   1 · THE STORE — the pick lives in `events.rsvp_ask_config.celebration`,
  *       beside the When yes words; absent / junk reads as None.
  *   2 · PICK → DRAFT → APPLY — a free couple may try every effect; Apply names
- *       it and HOLDS it without Event Hub Pro, while the words drafted beside it
+ *       it and HOLDS it without Event Pro, while the words drafted beside it
  *       still go live; with Pro it goes live; back to None is always free.
  *   3 · THE GUEST — plays ONCE: only after a fresh yes (`?rsvp=ok`), the flag
  *       is taken off the address once it has ended (the reply funnel reads it
@@ -119,7 +119,7 @@ test('a free couple: the words drafted BESIDE a held effect still go live — wi
   assert.deepEqual(effect.remove, { events: { rsvp_ask_config: { words: { thanksHeading: 'See you there, {name}' } } } });
 });
 
-test('with Event Hub Pro the effect goes live whole; back to None is free for anyone', () => {
+test('with Event Pro the effect goes live whole; back to None is free for anyone', () => {
   const owned = planHubDraftApply(draftOf({ celebration: 'fireworks' }), live(null), true);
   assert.equal(owned.refused.length, 0);
   assert.deepEqual(owned.apply.map((i) => i.value), [{ celebration: 'fireworks' }]);

@@ -117,7 +117,7 @@ test('(1) the source is what the stored main background IS — nothing new is st
 
 /* ── (2) five sources, ◆ where the shipped rule asks for Pro ──────────── */
 
-test('(2) Source ▾ offers Colour · Scene · Video · Upload — no Pattern to pick; a stored pattern is still said — ◆ exactly where Apply asks for Event Hub Pro', () => {
+test('(2) Source ▾ offers Colour · Scene · Video · Upload — no Pattern to pick; a stored pattern is still said — ◆ exactly where Apply asks for Event Pro', () => {
   // Owner 2026-10-08, on the local copy: "Color · no more Pattern · Scene · Video · Upload".
   assert.deepEqual([...BACKGROUND_SOURCES_OFFERED], ['colour', 'scene', 'video', 'own']);
   assert.deepEqual(BACKGROUND_SOURCES_OFFERED.map((k) => BACKGROUND_SOURCE_LABEL[k]), ['Colour', 'Scene', 'Video', 'Upload']);
@@ -199,7 +199,7 @@ test('(4) every card has a drawn fallback under its picture — never a broken i
   assert.match(card, /aria-pressed="true"/);
   assert.match(card, /data-bg-card-picture=""[^>]*style="background:#abcdef"/, 'the card has no drawn fallback');
   assert.match(card, />Dots</);
-  assert.match(card, /aria-label="Event Hub Pro"[^>]*>◆</, 'a Pro card is not marked ◆');
+  assert.match(card, /aria-label="Event (?:Hub )?Pro"[^>]*>◆</, 'a Pro card is not marked ◆');
   assert.doesNotMatch(card, /<img|<video/, 'a card with no picture draws an image tag');
   // A pattern card is the guest page's own pattern over the page colour — one definition, two readers.
   for (const k of HUB_MAIN_PATTERNS) assert.match(MAIN_GROUND_PATTERN_CSS[k].image, /rgb\(var\(--color-ink\) \/ 0\.\d+\)/, `${k} is not drawn in the page's ink`);
@@ -460,7 +460,7 @@ test('(9) a card is PHONE-SHAPED: a 3 : 4 portrait frame of a fixed width that c
     const name = /<span[^>]*data-bg-card-name=""[^>]*>/.exec(html)![0];
     for (const c of ['w-0', 'min-w-full']) assert.ok(attr(name, 'class').split(/\s+/).includes(c), `${what}: a long name can widen the card (${c} missing)`);
     assert.match(html, /<span class="truncate">[^<]+<\/span>/, `${what}: the name is not cut on one line`);
-    if ('pro' in props) assert.match(html, /<\/span><span aria-label="Event Hub Pro" class="shrink-0[^"]*">◆<\/span>/, `${what}: the ◆ can be cut off with the name`);
+    if ('pro' in props) assert.match(html, /<\/span><span aria-label="Event (?:Hub )?Pro" class="shrink-0[^"]*">◆<\/span>/, `${what}: the ◆ can be cut off with the name`);
     // The ring is on the frame itself (a shadow, so it keeps the frame's shape and radius).
     // 🎴 ONE STYLE CARD (owner 2026-10-08, the template gallery: "no framing" · "Selected Card needs to be highlighted with
     // same terracota"): the PICKED card wears a 3-px ring in the selector's accent (`accent` = `--sn-accent`, the terracotta today — never the gold

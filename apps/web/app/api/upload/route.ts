@@ -905,7 +905,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // ── THE ALLOWANCE IS A CAP, AND IT FOLLOWS THE PLAN ────────────────────────
   // DECISION_LOG 2026-09-25: "they can only upload a total of 100MB compressed
-  // files"; owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB — the
+  // files"; owner FINAL 2026-10-15: Free 10 MB · Event Pro 500 MB — the
   // reservation reads the plan itself (lib/couple-media-allowance.server.ts).
   // `sizeBytes` is the COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
   // before calling this route — and the signed content-length binds the PUT to

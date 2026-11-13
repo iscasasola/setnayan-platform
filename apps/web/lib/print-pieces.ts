@@ -135,7 +135,7 @@ export function isPlainPrintSheet(piece: AnyPrintPieceKey): boolean {
  * CLASSIC LOOK; THE THEMED VERSION IS PRO"): *"let's allow free for all? but if
  * they want to print with theme is pro?"* → *"oaky build it that way."* Every
  * piece prints print-ready and unwatermarked in Classic (`house`) for every
- * event; the same piece in a PRO theme is Event Hub Pro.
+ * event; the same piece in a PRO theme is Event Pro.
  *
  * 🎨 "THEMED" IS NOT "PRO" (owner 2026-09-29, *"Okay use modern and cyber
  * FREE"*). Modern and Cyber Neon are free themes, so they print print-ready and
@@ -167,7 +167,7 @@ export function isThemedPrint(theme: InviteThemeId): boolean {
 }
 
 /**
- * Does this print's print-ready file need Event Hub Pro? Only in a PRO theme —
+ * Does this print's print-ready file need Event Pro? Only in a PRO theme —
  * keyed on the registry's `tier`, never on "is it Classic", so a free theme
  * (Classic, Modern, Cyber Neon) prints free and a Pro one never slips through.
  */
@@ -402,7 +402,7 @@ export type PrintBrand = 'line' | 'mark' | 'none';
 /**
  * 🏷 How THIS look carries Setnayan. Every look a couple's print is drawn in names it (`plainPrintLook` → line, the Pro
  * looks → mark); a look that does not is read by its theme: Classic is the free print's face, every other theme on paper
- * is Event Hub Pro (DECISION_LOG 2026-10-21 "free = plain white").
+ * is Event Pro (DECISION_LOG 2026-10-21 "free = plain white").
  */
 export function printBrandOf(look: Pick<PrintLook, 'brand' | 'theme'>): PrintBrand {
   return look.brand ?? (look.theme === 'house' ? 'line' : 'mark');
@@ -528,7 +528,7 @@ export type PrintMode = 'screen' | 'sample' | 'print';
  *   · every piece in a FREE theme (Classic, Modern, Cyber Neon — `isProPrint`
  *     is false) downloads print-ready — bleed, crop marks, no watermark — for
  *     every event, store shell included; a free theme is not a purchase;
- *   · the SAME piece in a Pro theme is Event Hub Pro. Without Pro a Pro-themed
+ *   · the SAME piece in a Pro theme is Event Pro. Without Pro a Pro-themed
  *     piece is a SAMPLE — compressed, screen resolution, a "Sample" mark, no
  *     bleed, no crop marks, no layers — and the per-guest pass batch in a theme
  *     is refused;
@@ -549,8 +549,8 @@ export function printAccess(input: { ownsPro: boolean; storeShell: boolean }): {
 }
 
 /**
- * 🗂 EVERY "DOWNLOAD ALL" IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL'
- * IS EVENT HUB PRO"; verbatim: *"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's
+ * 🗂 EVERY "DOWNLOAD ALL" IS EVENT PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD ALL'
+ * IS EVENT PRO"; verbatim: *"Whole set (PDF) and Every guest's pass (PDF) become Pro. Each piece's own PDF, and each guest's
  * own pass one at a time, stay free."*). The all-in-one files — every guest's pass ganged on A4 (`passes`, every size, the phone
  * card's included) and the whole set as one PDF (`set`, anything but its watermarked sample sheet) — need the event's Event Hub
  * Pro, in EVERY theme, Classic too. The route refuses them (`app/api/hub-print/[piece]/route.ts`); the page marks them ◆.

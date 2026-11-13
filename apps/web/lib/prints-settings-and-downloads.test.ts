@@ -9,7 +9,7 @@
  *   3 · Guest prints are EXACTLY the four (Event pass · Digital ticket · Guest QR codes · Table signs & place cards): each has View as ▾
  *       (ONE pick shared by all four), a Download for that guest and All guests ◆. The Event card is not per guest.
  *   4 · One guest's place card is a real file: `/seating/print?guest=<id>` draws that card alone (`cardsOnly`), refuses an unseated
- *       guest in words; the whole pack is Event Hub Pro at its route, after its free answers.
+ *       guest in words; the whole pack is Event Pro at its route, after its free answers.
  *   5 · Everything ◆: one route piece (`everything`), Pro, the set + every guest's pass + the day's sheets, a failed part fails the file;
  *       ONE QR picture per guest in ONE book (`renderPrintBook`), STREAMED (a buffered Vercel response stops at 4.5 MB), 300 s.
  *   6 · The words: View as ▾'s groups and counts, the count lines (the number IS the file, never a guess), the ◆ notes, the bar's ⬇.
@@ -224,7 +224,7 @@ test('5 · Everything ◆: one piece of the route, Pro, the set + every guest’
   assert.match(fn, /if \(!res\.ok \|\| !\(res\.headers\.get\('content-type'\) \?\? ''\)\.includes\('application\/pdf'\)\) continue;/);
   /* The page: Everything ◆ is the zip's pattern, the same Pro note words as the route's refusal. */
   assert.equal(allInOneRefusal('everything'), `${EVERYTHING_PRO_NOTE.title}. ${EVERYTHING_PRO_NOTE.body}`);
-  assert.deepEqual(EVERYTHING_HEAD, { title: 'Everything', line: 'one file · Event Hub Pro' });
+  assert.deepEqual(EVERYTHING_HEAD, { title: 'Everything', line: 'one file · Event Pro' });
 });
 
 test('6 · the words: View as ▾’s groups, the count lines (the number IS the file), the ◆ notes, the bar’s ⬇', async () => {
@@ -243,9 +243,9 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
   assert.doesNotMatch(guestPrintCountLine('seating-pack', null), /\d+ place cards?/);
   assert.equal(guestPrintCountLine('pass', null), 'Every guest who has not declined');
   /* The ◆ notes are the prototype's, said the same by the routes. */
-  assert.equal(PLACE_CARDS_PRO_NOTE.title, 'Every place card in one file is Event Hub Pro');
+  assert.equal(PLACE_CARDS_PRO_NOTE.title, 'Every place card in one file is Event Pro');
   assert.equal(allInOneRefusal('seating-pack'), `${PLACE_CARDS_PRO_NOTE.title}. ${PLACE_CARDS_PRO_NOTE.body}`);
-  assert.match(read(`${L}/studio-prints-six.tsx`), /confirmLabel="Event Hub Pro"\s*cancelLabel="Not now"/, 'the ◆ note’s buttons are not "Not now" · "Event Hub Pro"');
+  assert.match(read(`${L}/studio-prints-six.tsx`), /confirmLabel="Event (?:Hub )?Pro"\s*cancelLabel="Not now"/, 'the ◆ note’s buttons are not "Not now" · "Event Pro"');
   /* The bar's ⬇ is gone with the bar (2026-10-26): every slide's own Download is the file, and "Everything" is the last slide. */
   const carousel = read(`${L}/studio-prints-carousel.tsx`);
   assert.match(carousel, /if \(slide\.everything\) \{[\s\S]*?label=\{saveWord\(state, 'Download everything'\)\}/, 'the Everything slide’s main verb is not "Download everything"');

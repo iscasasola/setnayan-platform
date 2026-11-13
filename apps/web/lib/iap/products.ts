@@ -7,7 +7,7 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  * verbatim: *"Yes — use all five in-app purchase recommendations and start the
  * in-app purchase build."* So:
  *
- *   (1) Sold in the iPhone app first: Papic credits, Event Hub Pro, Live Watch.
+ *   (1) Sold in the iPhone app first: Papic credits, Event Pro, Live Watch.
  *       Setnayan AI is a second wave; supplier plans stay web-only.
  *       ↳ The second wave (owner 2026-10-23): Setnayan AI, Music Maker, Patiktok,
  *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS. The Mood Board pack
@@ -15,8 +15,8 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *         The Thank You product (`papic_thank_you`) was RETIRED when the Thank-You Video went free (owner 2026-10-26,
  *         "let us remove thank you from the inapp purchase" → "make it free for now") — listed in
  *         `RETIRED_IAP_PRODUCT_IDS`, never reused.
- *       ↳ The eleven Event Hub Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
- *         2026-10-26, "just have the upgrade event hub pro") — Event Hub Pro is sold whole; their ids are listed in
+ *       ↳ The eleven Event Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
+ *         2026-10-26, "just have the upgrade Event Pro") — Event Pro is sold whole; their ids are listed in
  *         `RETIRED_HUB_PART_PRODUCT_IDS` and never reused.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
@@ -103,9 +103,9 @@ export type IapProduct = {
 const PREFIX = 'com.setnayan.app.';
 
 /**
- * 🗑 EVENT HUB PRO, PART BY PART — RETIRED, NEVER OFFERED (owner 2026-10-26: "and just have the upgrade event hub pro"
+ * 🗑 EVENT PRO, PART BY PART — RETIRED, NEVER OFFERED (owner 2026-10-26: "and just have the upgrade Event Pro"
  * … "i mean no more by part as well on the website"). The eleven part products of 2026-10-22 were made in App Store
- * Connect but never attached to a version and never sold; Event Hub Pro (`event_hub_pro`) is the one Event Hub product.
+ * Connect but never attached to a version and never sold; Event Pro (`event_hub_pro`) is the one Event Hub product.
  * They are OUT of `IAP_PRODUCTS` — so StoreKit is never asked for them, `iapProductById` answers null and the server
  * refuses one by name — and kept HERE, the way `mood_board_renders_50` is kept in a comment, only so an id is never
  * reused (ids are forever). Spelled here, not derived from `lib/hub-parts.ts`'s table, so a renamed part can never
@@ -270,7 +270,7 @@ export const RETIRED_HUB_PART_SERVICE_KEYS: readonly string[] = RETIRED_HUB_PART
  * (ids are forever). `mood_board_renders_50` predates this list and stays named in comments above.
  */
 export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
-  // The eleven Event Hub Pro parts — Event Hub Pro is sold whole (owner 2026-10-26).
+  // The eleven Event Pro parts — Event Pro is sold whole (owner 2026-10-26).
   ...RETIRED_HUB_PART_PRODUCT_IDS,
   // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
   `${PREFIX}papic_thank_you`,

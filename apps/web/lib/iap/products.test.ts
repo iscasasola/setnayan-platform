@@ -37,8 +37,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, Live Watch, Music Maker, Patiktok; no supplier plan, no Setnayan AI', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
-    // 🗑 The eleven Event Hub Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
-    // upgrade event hub pro") — Event Hub Pro is the one Event Hub product. See RETIRED_HUB_PART_PRODUCT_IDS.
+    // 🗑 The eleven Event Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
+    // upgrade Event Pro") — Event Pro is the one Event Hub product. See RETIRED_HUB_PART_PRODUCT_IDS.
     // 💰 Event Pro (`event_pro`, replaces `event_hub_pro`) and Event Plus (`event_plus`) — owner 2026-11-02 / 2026-11-04.
     'COUPLE_WEBSITE_PRO',
     'EVENT_PLUS',
@@ -229,12 +229,12 @@ test('🗑 2026-11-04 — event_hub_pro and the four Setnayan AI products are re
 });
 
 test('🗑 the eleven part products are retired — sold by nothing, their ids kept so none is ever reused (owner 2026-10-26)', () => {
-  /* "and just have the upgrade event hub pro" … "i mean no more by part as well on the website." Held against the parts
+  /* "and just have the upgrade Event Pro" … "i mean no more by part as well on the website." Held against the parts
      table, so the retired list stays the one that was made in App Store Connect: one id a part, never drifted. */
   assert.deepEqual(RETIRED_HUB_PART_SERVICE_KEYS, HUB_PARTS.map((p) => p.sku));
   assert.deepEqual(RETIRED_HUB_PART_PRODUCT_IDS, HUB_PARTS.map((p) => `com.setnayan.app.hub_part_${p.id}`), 'a retired part id drifted — ids are forever');
   for (const id of RETIRED_HUB_PART_PRODUCT_IDS) {
-    assert.equal(iapProductById(id), null, `${id} is sold again — Event Hub Pro is sold whole`);
+    assert.equal(iapProductById(id), null, `${id} is sold again — Event Pro is sold whole`);
     assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
   }
   for (const key of RETIRED_HUB_PART_SERVICE_KEYS) assert.equal(iapProductForServiceKey(key), null, `${key} has an App Store product again`);

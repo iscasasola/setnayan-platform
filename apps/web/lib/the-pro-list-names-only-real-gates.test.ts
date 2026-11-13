@@ -154,7 +154,7 @@ test('3 · no line names something every couple already has', () => {
   if (editorialFree) {
     assert.equal(named, false, 'the Pro list names editorial editing, which FREE_FOR_ALL_SKUS gives every couple');
   } else {
-    assert.equal(named, true, 'EDITORIAL_PRO is no longer free — Event Hub Pro covers it again, put its line back');
+    assert.equal(named, true, 'EDITORIAL_PRO is no longer free — Event Pro covers it again, put its line back');
   }
   assert.ok(!items.some((i) => /colou?r/i.test(i)), 'the Pro list sells a colour, which is free');
   assert.ok(!items.some((i) => /₱|\bPHP\b/.test(i)), 'a price was written into the list — it is the catalogue’s');
@@ -206,7 +206,7 @@ test('4c · "One download of the whole designed set" is EXACTLY what the gate re
 test('5a · every guest’s ticket in one file and the Guest QR sheet are FREE — refused in no mode (owner 2026-10-22)', () => {
   for (const p of FREE_ALL_GUESTS) {
     assert.ok(EVERY_PRINT.includes(p), `"${p}" is not a print the gate knows — the probe is blind`);
-    for (const m of MODES) assert.equal(isAllInOnePrint(p, m), false, `"${p}" (${m}) is Event Hub Pro again — a free event cannot run its day`);
+    for (const m of MODES) assert.equal(isAllInOnePrint(p, m), false, `"${p}" (${m}) is Event Pro again — a free event cannot run its day`);
   }
   // …while Everything — which holds every guest's pass too — stays Pro.
   assert.equal(isAllInOnePrint('everything', 'print'), true, 'Everything downloads free');

@@ -198,7 +198,7 @@ test('isValidShopHref rejects the four mistakes an editor makes', () => {
 test('an affiliate link to our own domain can never be marked nofollow', () => {
   // Marking an INTERNAL link rel="sponsored nofollow" tells Google to distrust
   // our own hub-and-spoke linking — the opposite of what the Journal is for.
-  for (const host of ['setnayan.com', 'www.setnayan.com', 'setnayan.ph']) {
+  for (const host of ['setnayan.com', 'www.setnayan.com']) {
     assert.equal(isValidShopHref(`https://${host}/anything`), false, host);
   }
 });

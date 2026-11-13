@@ -4,7 +4,7 @@
  * More menu that would list them.
  *
  * ── WHAT SHIPPED (TestFlight build 5, 2026-10-21) ───────────────────────────
- * Event Details › Services read "Event Hub Pro · Not added" and "Setnayan AI ·
+ * Event Details › Services read "Event Pro · Not added" and "Setnayan AI ·
  * Not added" inside the app, the day build 5 went to App Review with notes
  * that say the digital extras are "not offered, priced, or advertised in the
  * app" and that a web extra unlocks nothing there (build-sessions/
@@ -55,8 +55,9 @@ const E = '00000000-0000-4000-8000-000000000000';
 const PAID_NAMES: string[] = [
   ...new Set(
     EVERY_ADD_ON.filter((a) => STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)).flatMap((a) =>
-      // "Event Hub PRO" is written "Event Hub Pro" in sentences — both spellings, still from the label.
-      [a.label, a.label.replace(/\bPRO\b/, 'Pro')],
+      // "Event Pro" is also written "Event PRO" — both spellings, still from the label.
+      // ⏳ TRANSITION #7605: the couple side still says the old name until #7605 merges — drop the old spellings then.
+      [a.label, a.label.replace(/\bPRO\b/, 'Pro'), a.label.replace(/\bPro\b/, 'PRO'), ...(a.label === 'Event Pro' ? ['Event Hub Pro', 'Event Hub PRO'] : [])],
     ),
   ),
 ];
@@ -65,7 +66,7 @@ const PAID = new RegExp(`\\b(?:${PAID_NAMES.map((n) => n.replace(/[.*+?^${}()|[\
 const MORE_ADDRESS = `${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
 
 test('1 · the paid names come from the one filter (premise)', () => {
-  for (const must of ['Papic', 'Setnayan AI', 'Live Watch', 'Event Hub Pro', 'Music Maker', 'Patiktok']) {
+  for (const must of ['Papic', 'Setnayan AI', 'Live Watch', 'Event Pro', 'Music Maker', 'Patiktok']) {
     assert.ok(PAID.test(must), `"${must}" is not among the derived paid names (${PAID_NAMES.join(', ')}) — the anchor moved`);
   }
   assert.ok(!PAID.test('Event Hub'), 'the free Event Hub must not count as a paid name');
@@ -144,7 +145,7 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/monogram/page.tsx', 'the page\'s <title> metadata (the free monogram design page shares the word), and the Logo & QR checkout name, built only under `!ownsAnimated && !storeShell` (2026-10-22)'],
   ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', 'the Logo & QR part\'s checkout names (2026-10-22); the component is mounted only by monogram/page.tsx as `!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade …/> : null` — never in the app'],
   ['app/dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx', 'mounted only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule)'],
-  ['app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', 'the Pro refusal notes appear only after an Event Hub Pro effect is picked; the picker offers none in the app (`storeShell` reaches it as `sellsOpenings`/price null) — OPEN: walk on TestFlight'],
+  ['app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx', 'the Pro refusal notes appear only after an Event Pro effect is picked; the picker offers none in the app (`storeShell` reaches it as `sellsOpenings`/price null) — OPEN: walk on TestFlight'],
   ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', 'the Story editor\'s Papic empty line — OPEN (PR body), the editorial page is a post-event surface'],
   ['app/dashboard/[eventId]/website/hero-photo/page.tsx', '`description` of WebsiteProLock, which in the app renders only "not included in the app" (website-pro-lock.tsx)'],
   ['app/dashboard/[eventId]/website/living-hero/page.tsx', 'same — WebsiteProLock description'],
@@ -156,10 +157,10 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx', 'the Select › Set… › Papic sheet: its options are offered only while `papic === \'on\'`, which the Guests page hands as `viewer.isCouple && !storeShell ? eventPapic : null` (2026-10-23)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
-  ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
+  ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Pro opening is picked — see StdBuilderClient'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],
   ['app/dashboard/[eventId]/_components/event-dashboard.tsx', '"Setnayan AI · The Watch" is drawn only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule: off in the app while the paywall is on)'],
-  ['app/dashboard/[eventId]/studio/save-the-date/page.tsx', 'the "part of Event Hub PRO" upsell is the last arm of `) : storeShell ? null : sellable ? (…) : (…)` — a chained ternary this scan does not follow'],
+  ['app/dashboard/[eventId]/studio/save-the-date/page.tsx', 'the "part of Event Pro" upsell is the last arm of `) : storeShell ? null : sellable ? (…) : (…)` — a chained ternary this scan does not follow'],
   ['app/dashboard/(account)/profile/concierge/page.tsx', '`notFound()` while CONCIERGE_ENABLED, which lib/concierge.ts holds permanently false'],
   ['app/dashboard/(account)/profile/page.tsx', 'the Setnayan AI rows sit under CONCIERGE_ENABLED (permanently false); the face-profile line under NEXT_PUBLIC_ACCOUNT_FACE_PROFILE_ENABLED (off) — OPEN if either flips'],
 ]);

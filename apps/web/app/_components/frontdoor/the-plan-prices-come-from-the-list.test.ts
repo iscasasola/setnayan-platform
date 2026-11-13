@@ -3,7 +3,7 @@
  * list's figure, or none.
  *
  * Owner rule: every price comes from `platform_retail_catalog_v2`, which Admin edits — never typed into a page.
- * Event Pro is Event Hub Pro (`COUPLE_WEBSITE_PRO`, on sale today); Event Plus is `EVENT_PLUS`, put on sale by the
+ * Event Pro is `COUPLE_WEBSITE_PRO` (`COUPLE_WEBSITE_PRO`, on sale today); Event Plus is `EVENT_PLUS`, put on sale by the
  * final price-sheet PR. Until a row is on sale its card says "per event" and names no figure, so Plus appears on
  * its own the day its row goes live.
  */
@@ -16,7 +16,7 @@ import { PLAN_PRICE_CODES, planPricesFrom } from './front-door-landing';
 
 const HERE = import.meta.dirname;
 
-test('Event Pro is Event Hub Pro, and Event Plus is EVENT_PLUS', () => {
+test('Event Pro is COUPLE_WEBSITE_PRO, and Event Plus is EVENT_PLUS', () => {
   assert.deepEqual(PLAN_PRICE_CODES, { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO' });
 });
 

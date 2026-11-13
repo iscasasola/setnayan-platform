@@ -381,7 +381,7 @@ export const FREE_PEEK: readonly string[] = [
  * the app today (`activateEventPlan`: Setnayan AI + the included credits; `hubOwnershipFrom`: what was paid counts
  * toward Event Pro). ⚠ Until Lane J the card also sold "All 10 themes · Your own music · Your own web address ·
  * Entrance animation · Only a small Setnayan mark" — a Plus order unlocks none of them (themes, music and the address
- * are Event Hub Pro parts; the watermark comes off with Event Pro only). They come back the day the app grants them.
+ * are Event Pro parts; the watermark comes off with Event Pro only). They come back the day the app grants them.
  */
 export function plusPeek(f: PlanFacts): readonly string[] {
   return ['Setnayan AI — tells you what’s next and flags what’s at risk', ...creditsLine(f.plusCredits)];

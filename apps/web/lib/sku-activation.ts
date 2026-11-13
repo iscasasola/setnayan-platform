@@ -1879,7 +1879,7 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
 /**
  * Basket items that are SWITCHED ON BY THE ORDER ITSELF and so need no hook.
  *
- * Event Hub Pro (`COUPLE_WEBSITE_PRO`, on the onboarding bill since 2026-09-25)
+ * Event Pro (`COUPLE_WEBSITE_PRO`, on the onboarding bill since 2026-09-25)
  * has never had an activation hook, and a direct Pro order does not need one:
  * every Pro gate asks `eventSkuActive`, which reads the order's status live —
  * and, since the basket landed, reads the basket's items too (`basketGrantsSku`).

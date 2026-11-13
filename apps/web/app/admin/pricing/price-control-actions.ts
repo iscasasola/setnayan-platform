@@ -327,7 +327,7 @@ export async function savePapicLadder(
  * sign-up is priced live from this same number by `setupPricePhp` (the card and
  * the charge), so no stored copy can lag it.
  *
- * ⚠ Event Hub Pro is deliberately NOT re-derived: its ₱3,000 sign-up price is
+ * ⚠ Event Pro is deliberately NOT re-derived: its ₱3,000 sign-up price is
  * its own owner-set row (2026-09-25), pinned by `event-hub-pro-signup-price.
  * test.ts`. `setupPricePhp` still gives it the deeper of the two.
  *

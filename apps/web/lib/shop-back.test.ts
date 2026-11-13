@@ -14,9 +14,16 @@
  *   3. THE WIRING, read from source: the shop page draws the foot from `shopBackDoor`, the sub-screens use
  *      `withShopArrival`, the doors in say where they are, and Share never sends where YOU came from.
  *
+ *   4. THE TOP-LEFT ‹ (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"; owner: "when we
+ *      enter a shop, event or anything, we should be able to go back to home"): the shop page draws the shipped
+ *      `BackButton` in its header, before the page's content, for everyone, returning in place; its address is the
+ *      arrival's own door (`shopTopBack` agrees with `shopBackDoor`), cold it is Discover signed out and Home signed
+ *      in; and the foot door is drawn only cold ("The low button stays for cold arrivals") — never two "Back"s.
+ *
  * Sabotage (each must fail): put `<Link href="/explore" …>Back to suppliers` back on the shop page; return
  * `/explore` for `discover`; make "See the shop" on Check a date a bare `/v/${…}`; drop `withShopArrival` from the
- * Discover shelf's ShopCard.
+ * Discover shelf's ShopCard. 2026-11-12: drop the header `<BackButton … inPlace />`; make `shopTopBack`'s cold
+ * signed-out fallback `/explore`; draw the foot door with an arrival too.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +38,7 @@ import {
   shareableShopUrl,
   shopBackDoor,
   shopHrefForEvent,
+  shopTopBack,
   withShopArrival,
 } from '@/lib/shop-back';
 
@@ -154,4 +162,51 @@ test('the doors into a shop say where they are', () => {
 
 test('Share uses the shareable address', () => {
   assert.match(src('app/v/[slug]/_components/share-button.tsx'), /shareableShopUrl\(window\.location\.href\)/);
+});
+
+/* ── 4 · the top-left ‹ (2026-11-12, "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED") ──────────────────────────────── */
+
+test('‹ cold: Discover for someone signed out, Home for someone signed in', () => {
+  assert.deepEqual(shopTopBack({ src: null, eventId: null }, false), { href: '/', label: 'Discover' });
+  assert.deepEqual(shopTopBack({ src: null, eventId: null }, true), { href: '/dashboard?hub=1', label: 'Home' });
+  // A tag with no back of its own is a cold arrival too.
+  assert.deepEqual(shopTopBack({ src: 'editorial', eventId: null }, false), { href: '/', label: 'Discover' });
+});
+
+test('‹ with an arrival goes to the SAME place as the arrival’s own door, named as a place', () => {
+  for (const [who, arrival, , back] of CASES) {
+    if (!back) continue;
+    for (const signedIn of [false, true]) {
+      const top = shopTopBack(arrival, signedIn);
+      assert.equal(top.href, shopBackDoor(arrival).href, `${who}: the top ‹ and the arrival's door disagree`);
+      assert.ok(!/^Back\b/.test(top.label) && /^[A-Z]/.test(top.label), `${who}: "${top.label}" is not a place's name`);
+    }
+  }
+  assert.equal(shopTopBack({ src: 'discover', eventId: null }, false).label, 'Discover');
+  assert.equal(shopTopBack({ src: 'explore', eventId: null }, true).label, 'Suppliers');
+  assert.equal(shopTopBack({ src: 'favorites', eventId: null }, true).label, 'Saved suppliers');
+});
+
+test('the shop page draws the shipped BackButton at the top left, returning in place, before its content', () => {
+  const page = src('app/v/[slug]/page.tsx');
+  assert.match(page, /from '@\/app\/_components\/back-button'/);
+  assert.match(page, /const shopTop = shopTopBack\(shopArrival, viewerSignedIn\)/);
+  const btn = page.search(/<BackButton href=\{shopTop\.href\} label=\{shopTop\.label\}[^>]*\binPlace\b[^>]*\/>/);
+  assert.ok(btn > -1, 'the top-left ‹ is gone (or no longer returns in place)');
+  const header = page.indexOf('<header className="border-b border-ink/5">');
+  const wordmark = page.indexOf('<Wordmark size={22} />');
+  const article = page.indexOf('<article');
+  assert.ok(header > -1 && header < btn, 'the ‹ left the page header');
+  assert.ok(btn < wordmark, 'the ‹ is not at the top LEFT (it sits after the wordmark)');
+  assert.ok(btn < article, 'the ‹ is not before the page content');
+  assert.equal((page.match(/<BackButton\b/g) ?? []).length, 1, 'one back button on the shop page, not two');
+});
+
+test('the foot door is drawn only for a cold arrival — never a second "Back"', () => {
+  const page = src('app/v/[slug]/page.tsx');
+  assert.match(
+    page,
+    /\{!shopBack\.back \? \(\s*<Link href=\{shopBack\.href\}[^>]*data-shop-back="cold"[^>]*>\s*\{shopBack\.label\}\s*<\/Link>\s*\) : null\}/,
+    'the foot door is drawn with an arrival too — two backs on one page',
+  );
 });

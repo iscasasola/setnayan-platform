@@ -54,7 +54,7 @@ import {
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
-import { changeKind, payToday, planChanges, planRowLine, sheetPlans } from '@/lib/plan-sheet';
+import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -72,6 +72,8 @@ import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-wo
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { downgradeFit } from '@/lib/downgrade-limits';
+import { readDowngradeFacts, storageAllowanceBytes } from '@/lib/downgrade-limits.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
@@ -473,6 +475,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     isStoreShellRequest(),
   ]);
   const pickBy = new Map(plans.map((p) => [p.key, p]));
+  // 📉 THE LIMITS SHEET (ruling 5683): what the shop has today that a LOWER plan does not hold — read once, only when
+  // there is a lower plan to show (Free has none below it).
+  const downgradeFacts =
+    currentTier === 'free' ? null : await readDowngradeFacts(supabase, createAdminClient(), profile.vendor_profile_id);
   const sheet: SheetPlan[] = sheetPlans(currentTier)
     .filter((t) => t === 'free' || t === 'verified' || (visibleTiers as readonly string[]).includes(t))
     .map((t) => {
@@ -502,6 +508,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         ),
         pickLine: planPickLine(currentTier, t, expiresOn),
         changes: planChanges(currentTier, t, paywallOn),
+        fit:
+          downgradeFacts && planDirection(currentTier, t) === 'down'
+            ? downgradeFit(downgradeFacts, currentTier, t, { paywallOn, storageAllowanceBytes: storageAllowanceBytes(t), now: new Date(now) })
+            : null,
       };
     });
   const currentPrice =

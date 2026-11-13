@@ -35,6 +35,7 @@ import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
+import { readBookedDayHours } from '@/lib/booked-day-hours.server';
 import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
@@ -1167,7 +1168,11 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead] = await reads;
+  const [[monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead], bookedHours] = await Promise.all([
+    reads,
+    // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
+    readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), todayIso),
+  ]);
   // 🔴 G7: refused (null) is not "nothing held" — the month says so over itself (`initialDayStatesRead`).
   const dayStates = monthDayStates ?? [];
   const blocks = blocksRead.blocks;
@@ -1248,7 +1253,7 @@ async function customersMonth({
       todayIso,
       pools,
       // Only what the month and the day's rows read — a block's contact and note never cross the wire.
-      bookings: datesBookingsForWire(bookings),
+      bookings: datesBookingsForWire(bookings, bookedHours),
       blocks: datesBlocksForWire(blocks),
       agents,
       agentCategories,

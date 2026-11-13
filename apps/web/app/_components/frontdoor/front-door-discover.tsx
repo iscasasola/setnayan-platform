@@ -130,6 +130,8 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
           <EmptyShelf
             line="No public events yet."
             tip="When a host makes an event public — a birthday, a concert, a grand opening — it shows here for everyone."
+            href={`#${PEOPLE_TO_FOLLOW_ID}`}
+            go="Find people to follow"
           />
         ) : (
           <EventGrid items={world.items} />

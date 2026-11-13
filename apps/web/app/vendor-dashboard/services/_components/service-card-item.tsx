@@ -105,7 +105,7 @@ export function ServiceCardItem({ liId, live, nameLower, face, below, row, actio
       <ServiceCardMenuRow {...row} action={action} save={save} />
       {below}
       {refusal ? (
-        <p role="alert" className="whitespace-pre-line text-[12.5px] leading-snug text-terracotta-700" data-card-delete-refusal="">
+        <p role="alert" className="whitespace-pre-line text-[13px] leading-snug text-[rgb(var(--color-danger))]" data-card-delete-refusal="">
           {refusal}
         </p>
       ) : null}
@@ -116,7 +116,7 @@ export function ServiceCardItem({ liId, live, nameLower, face, below, row, actio
           <h3 id={warnTitleId} className="text-[17px] font-semibold leading-snug text-ink">
             {`Delete “${row.cardName}”?`}
           </h3>
-          <ul className="list-disc space-y-1.5 pl-5 text-[15px] leading-snug text-ink/75" data-card-delete-warning="">
+          <ul className="list-disc space-y-1.5 pl-5 text-[15px] leading-snug text-[color:var(--m-slate-2)]" data-card-delete-warning="">
             {warningLines.map((l) => (
               <li key={l}>{l}</li>
             ))}

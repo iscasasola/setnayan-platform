@@ -40,17 +40,17 @@ export function RejectionNotice({ rejectedAt, reason }: RejectionNoticeProps) {
     <div
       role="status"
       data-testid="rejection-notice"
-      className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700"
+      className="rounded-[var(--m-r-lg)] bg-[rgb(var(--color-danger)/0.08)] px-4 py-3 text-sm text-ink"
     >
       {/* 🛑 A REJECTION WITH NO READABLE REASON STILL SAYS SOMETHING. The DB
           CHECK makes a blank reason unrepresentable, but a render that depends
           on a constraint it cannot see is how "pending review forever" happened
           in the first place — so the fallback names the state rather than
           drawing an empty red box. */}
-      <p className="font-medium">
+      <p className="font-semibold text-[rgb(var(--color-danger))]">
         {sentence || 'We couldn’t publish this photo.'}
       </p>
-      <p className="mt-1 text-danger-700/80">
+      <p className="mt-1 text-[color:var(--m-slate-2)]">
         Nothing is deleted — fix what’s named above, upload the corrected photo,
         and it goes back into review.
       </p>

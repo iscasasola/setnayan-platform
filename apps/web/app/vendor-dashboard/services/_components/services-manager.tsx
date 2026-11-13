@@ -571,8 +571,8 @@ export async function VendorServicesManager({
         {addCategory !== null || pickerRequested ? (
         <details
           id={SERVICE_PICKER_ANCHOR_ID}
-          className="scroll-mt-24 rounded-2xl border"
-          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          className="scroll-mt-24 border-y"
+          style={{ borderColor: 'var(--m-line)' }}
           open={addCategory !== null || pickerRequested}
         >
           <summary
@@ -586,13 +586,13 @@ export async function VendorServicesManager({
             <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
           </summary>
           <div className="space-y-4 border-t px-4 pb-4 pt-4" style={{ borderColor: 'var(--m-line)' }}>
-            <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+            <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
               Pick a category — a category can hold more than one listing, so
               you can add another even where you already have coverage.
             </p>
             {SERVICE_GROUPS.map((group) => (
               <div key={group.key} className="space-y-1.5">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
+                <p className="tabular-nums text-[12px] uppercase tracking-[0.15em]" style={{ color: 'var(--m-slate-3)' }}>
                   {group.label}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -612,13 +612,13 @@ export async function VendorServicesManager({
                         style={{
                           borderColor: count > 0 ? 'var(--m-orange-3)' : 'var(--m-line)',
                           background: 'var(--m-paper)',
-                          color: count > 0 ? 'var(--m-orange-2)' : 'var(--m-ink)',
+                          color: 'var(--m-ink)',
                         }}
                       >
                         <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-slate)' }} />
                         {opt.label}
                         {count > 0 ? (
-                          <span className="font-mono text-[10px] uppercase tracking-[0.1em]">{formatCount(count)} added</span>
+                          <span className="tabular-nums text-[12px] uppercase tracking-[0.1em]">{formatCount(count)} added</span>
                         ) : (
                           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} style={{ color: 'var(--m-slate-4)' }} />
                         )}
@@ -638,9 +638,10 @@ export async function VendorServicesManager({
             fallback path). */}
         {addCategory ? (
           <div
-            className="space-y-3 rounded-2xl border p-5"
+            // The one next step on the page (the add form a link opened) — the only framed thing: the warm surface (rule 2).
+            className="space-y-3 rounded-[var(--m-r-lg)] p-5"
             id={`add-${addCategory}`}
-            style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-paper)' }}
+            style={{ background: 'var(--m-paper-2)' }}
           >
             <h3 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
               Add: {labelFor(addCategory)}
@@ -670,16 +671,9 @@ export async function VendorServicesManager({
           const short = tally.total - tally.full;
           return (
             <p
-              className="rounded-xl border px-4 py-2.5 text-xs"
-              style={{
-                borderColor: 'var(--m-orange-3)',
-                background: 'var(--m-orange-4)',
-                // MEASURED, not assumed: the canonical text gold #8A6B39 is
-                // 4.21:1 on this #F3ECDF tint — an AA FAIL on its own wash.
-                // --m-orange-deep #5C4726 measures 7.5:1 here and 8.81:1 on
-                // white. Gold has no headroom; never tint under it.
-                color: 'var(--m-orange-deep)',
-              }}
+              // Read-only, so one line on the page — no tinted box (rule 2); the template's dark grey (rule 13).
+              className="px-1 py-1 text-[13px]"
+              style={{ color: 'var(--m-slate-2)' }}
             >
               <span className="font-semibold">
                 {formatCount(tally.full)} of {formatCount(tally.total)} {tally.total === 1 ? 'card is' : 'cards are'} reaching
@@ -754,15 +748,15 @@ export async function VendorServicesManager({
                   {showCovHeader ? (
                     <li className="px-1 pb-1 pt-3 first:pt-1" data-shop-card-group="">
                       <p
-                        className="font-mono text-[11px] font-medium uppercase tracking-[0.15em]"
+                        className="tabular-nums text-[12px] font-medium uppercase tracking-[0.15em]"
                         style={{ color: 'var(--m-slate-3)' }}
                         data-shop-card-group-label=""
                       >
                         {covHeaderLabel}
                       </p>
                       {groupTools ? (
-                        <p className="mt-1 text-[12px] leading-snug text-ink/60" data-shop-service-tools="">
-                          <span className="font-medium text-ink/75">Tools on every event · </span>
+                        <p className="mt-1 text-[12px] leading-snug text-[color:var(--m-slate-2)]" data-shop-service-tools="">
+                          <span className="font-medium text-[color:var(--m-slate-2)]">Tools on every event · </span>
                           {groupTools}
                         </p>
                       ) : null}
@@ -840,7 +834,7 @@ export async function VendorServicesManager({
                   remove={removeVendorServiceFromList}
                   below={
                     <>
-                    <p className="truncate text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                    <p className="truncate text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
                       {paxLabel} · assigned to {branchLabel}
                       {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                         ? ` · ${coverageLabelById.get(svc.coverage_id)}`
@@ -848,11 +842,11 @@ export async function VendorServicesManager({
                       {planHold?.hold === 'held' ? '' : svc.is_active ? '' : ' · hidden'}
                     </p>
                     {planHold?.hold === 'held' ? (
-                      <p className="text-xs" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
+                      <p className="text-[13px]" style={{ color: 'var(--m-orange-deep)' }} data-plan-hold="held">
                         {HOLD_WORDS.rowLine}
                       </p>
                     ) : planHold?.hold === 'scheduled' && planHold.startsOn ? (
-                      <p className="text-xs" style={{ color: 'var(--m-slate-2)' }} data-plan-hold="scheduled">
+                      <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }} data-plan-hold="scheduled">
                         {HOLD_WORDS.scheduledLine(planHold.startsOn)}
                       </p>
                     ) : null}
@@ -862,7 +856,7 @@ export async function VendorServicesManager({
                         ⛔ TWO STATES ONLY. A bigger price never earns more
                         reach; that would be selling placement. */}
                     <p
-                      className="mt-1 flex items-center gap-1.5 text-[11px]"
+                      className="mt-1 flex items-center gap-1.5 text-[12px]"
                       style={{
                         color:
                           reach.level === 'full'
@@ -932,8 +926,8 @@ export async function VendorServicesManager({
       {showProposeForm || myRequests.length > 0 || !requestsMeasured ? (
       <section
         id={PROPOSE_CATEGORY_ANCHOR_ID}
-        className="space-y-4 rounded-2xl border p-5"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        className="space-y-4 border-t pt-4"
+        style={{ borderColor: 'var(--m-line)' }}
         data-service-requests=""
       >
         <div className="space-y-1">
@@ -944,7 +938,7 @@ export async function VendorServicesManager({
             // back to it, not a second copy of that mechanism.
             <Link
               href={SERVICE_MAKER_HREF}
-              className="inline-flex text-xs font-medium underline underline-offset-2"
+              className="inline-flex min-h-11 items-center text-[13px] font-medium underline underline-offset-2"
               style={{ color: 'var(--m-slate)' }}
             >
               ← Back to your card
@@ -970,13 +964,13 @@ export async function VendorServicesManager({
             reviewed — it is not shown here right now.
           </p>
         ) : null}
-        <ul className="divide-y rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
+        <ul className="divide-y border-y" style={{ borderColor: 'var(--m-line)' }}>
           {myRequests.length > 0 ? (
             <li>
               <Link href={SERVICE_REQUESTS_HREF} className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm" data-your-requests-row="">
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium" style={{ color: 'var(--m-ink)' }}>Your requests</span>
-                  <span className="block text-xs" style={{ color: 'var(--m-slate-2)' }}>
+                  <span className="block text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
                     {waitingRequests ? `${waitingRequests} waiting · ` : ''}
                     {myRequests.length} sent
                   </span>
@@ -1005,11 +999,11 @@ export async function VendorServicesManager({
       {/* 🗂 THE CATEGORIES YOU SERVE — the events and faiths each one serves (the shipped panel, unchanged). Not a third
           section to pick any more: it folds shut at the foot of the one list, and opens in place (Lane E reading — see
           the PR: "No need to add coverage" retires ADDING it here; what each category serves is still edited here). */}
-      <details className="rounded-2xl border" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }} data-shop-categories-fold="">
+      <details className="border-y" style={{ borderColor: 'var(--m-line)' }} data-shop-categories-fold="">
         <summary className="flex min-h-12 cursor-pointer select-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium text-ink">
           <span>
             Your categories
-            <span className="block text-[12.5px] font-normal text-ink/60">the events and faiths each one serves</span>
+            <span className="block text-[13px] font-normal text-[color:var(--m-slate-2)]">the events and faiths each one serves</span>
           </span>
           <ChevronDown aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
         </summary>
@@ -1151,7 +1145,7 @@ function AddServiceForm({
       <ShowcaseMediaFields vendorProfileId={vendorProfileId} unsavedHint="press Add service below" />
       <SetnayanGiftField idPrefix={`new-${addCategory}`} giftOn={false} limitPct={giftLimitPct} />
       <div className="flex items-center justify-between">
-        <Link href={basePath} className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+        <Link href={basePath} className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
           Cancel
         </Link>
         <SubmitButton className="button-primary" pendingLabel="Adding…">
@@ -1192,11 +1186,11 @@ function LastMinuteFields({
   surchargeDefault?: number | null;
 }) {
   return (
-    <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}>
+    <div className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--m-line)' }}>
       <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
         Last-minute bookings
       </p>
-      <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
+      <p className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
         Setnayan AI surfaces you to couples close to their date. Set your
         comfortable lead time, how late you&rsquo;ll still take a rush booking,
         and an optional surcharge for it.
@@ -1248,7 +1242,7 @@ function LastMinuteFields({
           />
         </Field>
       </div>
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+      <p className="text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
         Make sure you can honor bookings all the way up to your &ldquo;accept
         until&rdquo; point.
       </p>
@@ -1352,20 +1346,20 @@ function SetnayanGiftField({
 }) {
   const cap = giftLimitPctOrDefault(limitPct);
   return (
-    <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)' }}>
+    <div className="space-y-2 border-t pt-3" style={{ borderColor: 'var(--m-line)' }}>
       <div className="flex items-center gap-2">
         <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--m-orange-2)' }} />
         <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           Setnayan gift
         </p>
         <span
-          className="inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em]"
-          style={{ background: 'var(--m-paper)', color: 'var(--m-orange-2)' }}
+          className="inline-flex items-center rounded-full px-2 py-0.5 tabular-nums text-[12px] uppercase tracking-[0.1em]"
+          style={{ background: 'var(--m-paper-2)', color: 'var(--m-slate-2)' }}
         >
           Optional
         </span>
       </div>
-      <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+      <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
         Say yes and every couple who books this card gets free Papic photos for their
         event — a real Setnayan product, given in your name. How many is worked out from
         your booking fee and appears on the quote, so there is nothing here to set. It is added
@@ -1394,7 +1388,7 @@ function SetnayanGiftField({
         ))}
       </fieldset>
       {legacyPerkText?.trim() ? (
-        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
+        <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
           <span className="font-medium" style={{ color: 'var(--m-ink)' }}>
             This card also still promises:
           </span>{' '}
@@ -1432,7 +1426,7 @@ function DiscountBadge({
     value != null ? (unit === 'php' ? ` · ${formatPhp(value)}` : ` · ${value}%`) : '';
   return (
     <span
-      className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] sm:inline-flex"
+      className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 tabular-nums text-[12px] uppercase tracking-[0.1em] sm:inline-flex"
       style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
     >
       <Tag className="h-3 w-3" strokeWidth={2} />

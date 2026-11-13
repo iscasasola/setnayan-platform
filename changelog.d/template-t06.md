@@ -24,6 +24,13 @@ action, query or data logic changed.
   in amber, and an empty one is one plain line. The conversation list is a column with a hairline, not a card.
   The supplier's customer sheet, its trigger and the saved-template quote follow (two PickMenus replace the native
   selects; Send waits until a template is chosen, as `required` did).
+- **The rest of T06 (supplier pages)** — on the day (crew QR on the warm surface, "No events yet" one line with
+  its ⓘ), plans (plan-change lines and the add-ons as hairline rows, not cards; button pieces), services (the
+  category fold, requests, refinements, gift and last-minute groups lose their boxes; the reach note is one line;
+  the coverage editor's Close/Save, crumbs and labels), the style library editor (button pieces, sections without
+  cards), attributes, and the shop kit (`ShopPill` / `ShopNotice` tones on state tokens, `ShopEmpty` one plain line):
+  ink at part strength → dark grey, 9–12.5 px captions → 12–13 px, no typewriter font, no gold small words, raw
+  state palette → `--color-ok/warn/danger`.
 - Guard `lib/the-blocker-row-and-the-plus-match-v8-3.test.ts`: the shut ＋ regex now reads the token pair
   (same intent — grey when shut); `lib/a-private-message-looks-private.test.ts` and
   `lib/the-chat-is-messenger-shaped.test.ts` read the new house-fill token the same way.

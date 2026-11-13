@@ -7,7 +7,6 @@ import QRCode from 'qrcode';
 import {
   Armchair,
   ArrowRight,
-  CalendarClock,
   CalendarDays,
   ClipboardList,
   FileText,
@@ -92,6 +91,7 @@ import { crewJoinPath, crewRoleOf } from '@/lib/crew-pass';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
 import { ShopEmpty } from '../_components/kit';
+import { InfoTip } from '@/app/_components/info-tip';
 import { resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { feeLockCopy } from '@/lib/event-access-stage';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
@@ -274,7 +274,7 @@ export default async function VendorOnTheDayPage({
   // Hub (not booked, not run) — inside the client that would draw a different couple's Hub, so it says so instead.
   if (embedHub && (!selected || selected.eventId !== configureId)) {
     return (
-      <div className="px-4 py-6 text-sm text-ink/70" data-picked-client-page="hub" data-empty="not-in-hub">
+      <div className="px-4 py-6 text-sm text-[color:var(--m-slate-2)]" data-picked-client-page="hub" data-empty="not-in-hub">
         <p>This event&rsquo;s Hub opens here once they book you, or once you run it for the hosts.</p>
       </div>
     );
@@ -285,14 +285,13 @@ export default async function VendorOnTheDayPage({
     return (
       <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" data-hub-screen="empty">
         <div data-tour="hub-empty">
+          {/* Rule 6 · empty is one plain line; rule 7 · what lands here sits behind its ⓘ. */}
           <ShopEmpty>
-            <CalendarClock aria-hidden className="mx-auto h-8 w-8" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.5} />
-            <p className="mt-3 text-base font-medium text-ink">No events yet</p>
-            <p className="mx-auto mt-1 max-w-md text-sm text-ink/65">
+            <InfoTip label="No events yet" align="start" labelClassName="text-[15px] font-medium text-ink">
               When a couple books you, their event lands here — set up its tools and crew ahead, and its Hub opens
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
-            </p>
-            <div className="mt-4 flex justify-center">
+            </InfoTip>
+            <div className="mt-3">
               <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href="/vendor-dashboard/customers" />
             </div>
           </ShopEmpty>
@@ -448,7 +447,7 @@ export default async function VendorOnTheDayPage({
     <HubScreen menu={menu} event={selected} seg={seg} pane={pane} thumb={<HubThumbRow seg={seg} add={hubAddChoices(selected)} />}>
       {/* Q7 — shown only once the owner sets an end date; says nothing while unset ("no invented deadline"). */}
       {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
-        <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
+        <p className="pt-3 text-sm text-[color:var(--m-slate-2)]">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
       ) : null}
       {body}
       {/* ↩ ONE Undo toast for the console — the shot list and issues log delete by swipe with Undo (owner 2026-11-03). */}
@@ -672,13 +671,13 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
               <p className="text-sm font-semibold text-ink">Delivery to the couple</p>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-bold text-ink">{DELIVERY_PCT}%</span>
-              <span className="text-sm text-ink/65">done · {DELIVERY_LABEL}</span>
+              <span className="tabular-nums text-2xl font-bold text-ink">{DELIVERY_PCT}%</span>
+              <span className="text-sm text-[color:var(--m-slate-2)]">done · {DELIVERY_LABEL}</span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m-line-soft)' }}>
               <div className="h-full rounded-full transition-all" style={{ width: `${DELIVERY_PCT}%`, background: 'var(--m-sage-deep)' }} />
             </div>
-            <p className="mt-3 text-xs text-ink/55">They see these updates live. Post your album link + mark complete from the brief.</p>
+            <p className="mt-3 text-xs text-[color:var(--m-slate-2)]">They see these updates live. Post your album link + mark complete from the brief.</p>
           </div>
           <div className="sn-tile">
             <div className="flex items-center gap-2">
@@ -686,12 +685,12 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
               <p className="text-sm font-semibold text-ink">Guests</p>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-bold text-ink">
+              <span className="tabular-nums text-2xl font-bold text-ink">
                 {attending == null || invited == null ? '—' : `${formatCount(attending)} / ${formatCount(invited)}`}
               </span>
-              <span className="text-sm text-ink/65">{attending == null ? 'couldn’t load' : 'pax'}</span>
+              <span className="text-sm text-[color:var(--m-slate-2)]">{attending == null ? 'couldn’t load' : 'pax'}</span>
             </div>
-            <p className="mt-3 text-xs text-ink/55">
+            <p className="mt-3 text-xs text-[color:var(--m-slate-2)]">
               Attending of invited — pulled live from the couple’s RSVPs. Know the headcount before you set up.
             </p>
           </div>
@@ -769,7 +768,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
               <Star aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
               <div>
                 <p className="text-sm font-medium text-ink">Your review QR appears once your page is live</p>
-                <p className="mt-1 text-sm text-ink/65">
+                <p className="mt-1 text-sm text-[color:var(--m-slate-2)]">
                   When your business is verified and your Setnayan page is published, a QR shows here — display or print
                   it at the event so guests can scan and review you.
                 </p>
@@ -815,7 +814,7 @@ async function crewBody({
         <HubEyebrow about="Crew join the Hub of a day your shop works. This event has no booked day for your shop.">
           Crew for the day
         </HubEyebrow>
-        <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Hub for a crew to join.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">No day of yours on this event — there is no Hub for a crew to join.</p>
       </div>
     );
   }
@@ -835,7 +834,7 @@ async function crewBody({
       <div>
         {crew}
         <HubEyebrow>Your team on this event</HubEyebrow>
-        <p className="py-3 text-[14px] text-ink/65">Couldn’t load your team — try again in a moment.</p>
+        <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">Couldn’t load your team — try again in a moment.</p>
       </div>
     );
   }
@@ -860,7 +859,7 @@ async function crewBody({
       ) : (
         <div>
           <HubEyebrow>Your team on this event</HubEyebrow>
-          <p className="py-3 text-[14px] text-ink/65">Only you so far — add teammates under Shop › Team.</p>
+          <p className="py-3 text-[14px] text-[color:var(--m-slate-2)]">Only you so far — add teammates under Shop › Team.</p>
         </div>
       )}
     </div>
@@ -955,7 +954,7 @@ function pagesBody({
     return (
       <div data-hub-pages="run">
         <HubEyebrow about={about}>The event’s pages</HubEyebrow>
-        <p className="pb-1 text-[13.5px] text-ink/65">You run it — as much as the hosts allowed you.</p>
+        <p className="pb-1 text-[13.5px] text-[color:var(--m-slate-2)]">You run it — as much as the hosts allowed you.</p>
         <HubPageRows>
           <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${base}/guests`} access={access} />
           <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${base}/seating`} access={access} />
@@ -981,7 +980,7 @@ function pagesBody({
   return (
     <div data-hub-pages="booked">
       <HubEyebrow about={about}>The event’s pages</HubEyebrow>
-      <p className="pb-1 text-[13.5px] text-ink/65">View only — ask the hosts for more.</p>
+      <p className="pb-1 text-[13.5px] text-[color:var(--m-slate-2)]">View only — ask the hosts for more.</p>
       <HubPageRows>
         {doors.map((d) => (
           <HubPageRow
@@ -1020,7 +1019,7 @@ function ShotListSection({
     return (
       <div>
         <h2
-          className="font-mono text-[11px] uppercase tracking-[0.2em]"
+          className="tabular-nums text-[12px] uppercase tracking-[0.2em]"
           style={{ color: 'var(--m-slate-3)' }}
         >
           Shot list · the couple can follow along
@@ -1069,14 +1068,14 @@ function CaptureCard({
           {title}
         </p>
       </div>
-      <p className="mt-3 font-mono text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
+      <p className="mt-3 tabular-nums text-xl font-bold" style={{ color: 'var(--m-ink)' }}>
         {value}
       </p>
       <p className="mt-1 text-xs" style={{ color: 'var(--m-slate-3)' }}>
         {sub}
       </p>
       {hint ? (
-        <p className="mt-2 text-[11px] font-medium" style={{ color: 'var(--m-sage-deep)' }}>
+        <p className="mt-2 text-[12px] font-medium" style={{ color: 'var(--m-sage-deep)' }}>
           {hint}
         </p>
       ) : null}

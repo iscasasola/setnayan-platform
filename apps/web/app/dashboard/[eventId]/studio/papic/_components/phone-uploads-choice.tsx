@@ -29,6 +29,7 @@ export async function PhoneUploadsChoice({ eventId }: { eventId: string }) {
         value={value}
         sheetTitle="Photos from guests’ phones"
       >
+        <div className="px-5 py-4">
         <p className="mb-4 text-sm text-ink/65">
           A guest can add photos they took on {day} from their own phone. Each one uses {per} from your pot, the same as a
           photo you add yourself.
@@ -40,6 +41,7 @@ export async function PhoneUploadsChoice({ eventId }: { eventId: string }) {
         ) : (
           <PhoneUploadsHeldPicker eventId={eventId} held={setting.held} />
         )}
+        </div>
       </SettingRow>
     </div>
   );

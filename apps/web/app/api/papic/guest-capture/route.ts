@@ -392,10 +392,11 @@ async function handleSign(
       return json({ error: 'not_recorded_yet' }, 409);
     }
     const duration = parseDuration(body);
-    const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
     const refused =
-      (isPhoneUpload(body) ? (await phoneUploadGate(session, admin, shotAtMs)).res : null) ??
-      (await chapterGate(session, admin, body, shotAtMs)).res ??
+      (isPhoneUpload(body)
+        ? (await phoneUploadGate(session, admin, judgedShotInstant(body.captured_at_ms, Date.now()))).res
+        : null) ??
+      (await chapterGate(session, admin, body, judgedShotInstant(body.captured_at_ms, Date.now()))).res ??
       (await moderationRefusal(session, admin)) ??
       (await creditRefusal(session, admin, shotCost(body, mediaType, duration.ok ? duration.ms : null)));
     if (refused) return refused;
@@ -486,7 +487,7 @@ async function handleRecord(
   // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
   // event pool meters. An absent or unparseable duration falls to the top band.
   // 📲 A phone upload pays the upload price (× PAPIC_UPLOAD_MULTIPLIER) — `shotCost`.
-  const cost = shotCost(body, isClip ? 'clip' : 'photo', durationMs);
+  const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs, isPhoneUpload(body) ? 'upload' : 'camera');
   const refused = await creditRefusal(session, admin, cost);
   if (refused) return refused;
 

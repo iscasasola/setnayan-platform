@@ -8,7 +8,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
-import type { WaitingPhoneUpload } from '@/lib/papic-phone-uploads.server';
+import type { WaitingPhoneUpload } from '@/lib/papic-phone-uploads';
 
 /**
  * 📲 FROM YOUR GUESTS' PHONES — the couple's check, on the Recap (guest upload v2, approved 2026-11-13; prototype
@@ -60,7 +60,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
   const out = Object.values(decided).filter((v) => v === 'out').length;
 
   return (
-    <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6" data-guest-phone-review="">
+    <section className="rounded-2xl bg-surface p-5 sm:p-6" data-guest-phone-review="">
       <div className="flex items-baseline justify-between gap-3">
         <InfoTip label="From your guests’ phones" labelClassName="text-base font-semibold text-ink" align="start">
           Photos your guests added from their own phones. You set them to wait for your check. Keep each one, or leave it
@@ -119,7 +119,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
                   aria-pressed={d === 'keep'}
                   disabled={busy !== null || d !== undefined}
                   onClick={() => void decide(w.captureId, 'keep')}
-                  className="min-h-11 flex-1 rounded-full border border-success-700/40 text-[13px] font-semibold text-success-700 aria-pressed:bg-success-700 aria-pressed:text-white"
+                  className="min-h-11 flex-1 rounded-full border border-success-700/40 px-1 text-[12.5px] font-semibold text-success-700 aria-pressed:bg-success-700 aria-pressed:text-white"
                 >
                   ✓ Keep
                 </button>
@@ -128,7 +128,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
                   aria-pressed={d === 'out'}
                   disabled={busy !== null || d !== undefined}
                   onClick={() => void decide(w.captureId, 'out')}
-                  className="min-h-11 flex-1 rounded-full border border-ink/20 text-[13px] font-semibold text-ink/70 aria-pressed:bg-ink aria-pressed:text-cream"
+                  className="min-h-11 flex-1 rounded-full border border-ink/20 px-1 text-[12.5px] font-semibold text-ink/70 aria-pressed:bg-ink aria-pressed:text-cream"
                 >
                   × Leave out
                 </button>
@@ -185,8 +185,9 @@ export function PublishRecapForm({
         )}
       </form>
       {asking ? (
-        <Sheet open onClose={() => setAsking(false)} title="Before it goes public">
-          <p className="text-[15px] text-ink">
+        <Sheet open onClose={() => setAsking(false)} title="Before it goes public" labelledById={`${formId}-ask`}>
+          <div className="px-5 py-4">
+          <p id={`${formId}-ask`} className="text-[15px] text-ink">
             {formatCount(unchecked)} {unchecked === 1 ? 'photo' : 'photos'} from your guests’ phones {unchecked === 1 ? 'is' : 'are'} not checked yet.
           </p>
           <p className="mt-2 text-sm text-ink/65">Unchecked photos stay out of the Recap and out of your Memories until you keep them.</p>
@@ -201,6 +202,7 @@ export function PublishRecapForm({
               <Globe aria-hidden className="h-4 w-4" strokeWidth={2} />
               Publish anyway
             </button>
+          </div>
           </div>
         </Sheet>
       ) : null}

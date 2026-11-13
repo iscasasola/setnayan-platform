@@ -398,8 +398,17 @@ export function AddFromPhoneSheet({
   }
 
   return (
-    <Sheet open={open} onClose={close} title={phase === 'checked' && trimItem ? 'Trim your video' : 'Add from your phone'} foot={foot}>
-      <div data-add-from-phone={phase}>{body}</div>
+    <Sheet
+      open={open}
+      onClose={close}
+      labelledById="add-from-phone-title"
+      title={phase === 'checked' && trimItem ? 'Trim your video' : 'Add from your phone'}
+      foot={foot ? <div className="border-t border-ink/10 px-5 py-3">{foot}</div> : undefined}
+    >
+      <h2 id="add-from-phone-title" className="sr-only">
+        Add from your phone
+      </h2>
+      <div data-add-from-phone={phase} className="px-5 pb-4">{body}</div>
     </Sheet>
   );
 }

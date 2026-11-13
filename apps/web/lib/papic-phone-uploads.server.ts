@@ -13,7 +13,8 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { memoriesRefs } from '@/lib/papic-display-ref';
-import { eventDaysOf, eventDaysWords, type EventDays } from '@/lib/papic-phone-uploads';
+import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
+import { eventDaysOf, eventDaysWords, type EventDays, type WaitingPhoneUpload } from '@/lib/papic-phone-uploads';
 
 export type PhoneUploadsSetting = { held: boolean; days: EventDays | null; daysWords: string | null };
 
@@ -33,14 +34,6 @@ export async function readPhoneUploadsSetting(eventId: string): Promise<PhoneUpl
   return { held: row.papic_phone_uploads_held === true, days, daysWords: days ? eventDaysWords(days) : null };
 }
 
-export type WaitingPhoneUpload = {
-  captureId: string;
-  who: string;
-  at: string;
-  media: 'photo' | 'clip';
-  durationMs: number | null;
-  url: string | null;
-};
 
 /** This event's phone uploads still waiting for the couple's check — screened clean ones, oldest first. Null = unread. */
 export async function readWaitingPhoneUploads(eventId: string): Promise<WaitingPhoneUpload[] | null> {
@@ -74,7 +67,7 @@ export async function readWaitingPhoneUploads(eventId: string): Promise<WaitingP
   const guestIds = [...new Set(rows.map((r) => r.guest_id))];
   const names = new Map<string, string>();
   if (guestIds.length > 0) {
-    const { data: guests, error: gErr } = await admin.from('guests').select('guest_id, display_name, first_name').in('guest_id', guestIds);
+    const { data: guests, error: gErr } = await admin.from('guests').select(ENTOURAGE_COLUMNS).in('guest_id', guestIds);
     if (gErr) console.error('[supabase-error] lib/papic-phone-uploads.server.ts · guests', gErr);
     for (const g of (guests ?? []) as { guest_id: string; display_name: string | null; first_name: string | null }[]) {
       names.set(g.guest_id, g.display_name?.trim() || g.first_name?.trim() || 'A guest');

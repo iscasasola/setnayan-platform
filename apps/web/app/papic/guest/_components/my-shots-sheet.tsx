@@ -184,7 +184,7 @@ export function MyShotsSheet({
               type="button"
               onClick={onAddFromPhone}
               data-add-from-phone-door=""
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-mulberry-600 px-4 text-[14px] font-semibold text-white"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-cream px-4 text-[14px] font-semibold text-ink"
             >
               <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />
               Add from your phone

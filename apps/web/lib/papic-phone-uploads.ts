@@ -213,3 +213,13 @@ export function eventDaysWords(days: EventDays): string {
 
 /** The phone-side state of a couple's choice. */
 export type PhoneUploadsMode = 'live' | 'held';
+
+/** One guest phone upload waiting for the couple's check (read in `papic-phone-uploads.server.ts`). */
+export type WaitingPhoneUpload = {
+  captureId: string;
+  who: string;
+  at: string;
+  media: 'photo' | 'clip';
+  durationMs: number | null;
+  url: string | null;
+};

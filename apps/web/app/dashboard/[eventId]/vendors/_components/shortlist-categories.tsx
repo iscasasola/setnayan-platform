@@ -1628,8 +1628,6 @@ function VendorCard({
             priceEl
           )
         ) : null}
-          </span>
-        ) : null}
         {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
         {basisLine && hasRecordedPrice ? (
           <span className="sc-rec" data-price-basis-after={basisLine.basis}>

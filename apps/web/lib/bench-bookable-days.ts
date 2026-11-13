@@ -51,6 +51,23 @@ export function unbookableDateScope(
   return Array.from({ length }, (_, i) => `${m[1]}-${mm}-${String(i + 1).padStart(2, '0')}`);
 }
 
+/**
+ * The date(s) a hide judged on, said the way a sentence needs them: one `day`, or a whole `month`
+ * (owner 2026-11-13, "we only show what fits" — an empty list says WHICH date nobody is free on,
+ * `lib/supplier-find-empty.ts`). Null exactly when `unbookableDateScope` is null: the two can never
+ * disagree because this one is built from that one.
+ */
+export type UnbookableScope = { kind: 'day' | 'month'; days: string[] };
+
+export function describeUnbookableScope(
+  eventDate: string | null | undefined,
+  precision: string | null | undefined,
+): UnbookableScope | null {
+  const days = unbookableDateScope(eventDate, precision);
+  if (!days || days.length === 0) return null;
+  return { kind: precision === 'month' ? 'month' : 'day', days };
+}
+
 /** The key the refusal set is stored under. */
 export function refusalKey(serviceId: string, day: string): string {
   return `${serviceId}@${day}`;

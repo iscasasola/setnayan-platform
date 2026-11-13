@@ -1,5 +1,5 @@
 /**
- * A SUPPLIERS-ONLY DELEGATE READS NO BOOKING AMOUNT — #5936 · migration 20271341392450.
+ * A SUPPLIERS-ONLY DELEGATE READS NO BOOKING AMOUNT — #5936 · migration 20271342818285.
  *
  * Build 3 lane B round 4 (20271333705710) closed every chat / quote / amendment route to an amount for a
  * coordinator without Budget & payments, and left ONE route open for the owner: the five price columns on
@@ -9,7 +9,7 @@
  *     amount NULL and money_shown = FALSE;
  *   • a delegate WITH Budget & payments, and the host, read the real figures through the reader;
  *   • a stranger reads no row at all; the service role reads every figure;
- *   • the readers are purely ADDITIVE — migration 20271341392450 closes no column, so the build still serving when
+ *   • the readers are purely ADDITIVE — migration 20271342818285 closes no column, so the build still serving when
  *     `db push` runs keeps working. The per-column close is migration B, a separate follow-up PR (controller audit
  *     on PR #7560), and that PR flips the last test here into "every direct read of an amount is refused".
  *

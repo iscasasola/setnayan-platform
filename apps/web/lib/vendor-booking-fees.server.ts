@@ -12,6 +12,8 @@ import {
 } from '@/lib/vendor-booking-fees';
 import { bookingFeeNoticeCopy } from '@/lib/booking-fee-disclosure';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { feeOrdersToEmail } from '@/lib/booking-fee-top-up';
 
 /**
  * Vendor Booking-Fee SURFACING — the DB-touching half (fetch + notification
@@ -136,9 +138,21 @@ export async function maybeSweepVendorBookingFeeNotifications(
     }>).filter((o) => isFeeOrderPayable(o.status as OrderRow['status']));
     if (dueOrders.length === 0) return;
 
+    // 💸 RULE 5 (owner 2026-11-12, "no new emails"): a booking-fee TOP-UP is told by the shipped chat line and
+    // Today's `booking_fee_overdue` blocker — never by this sweep, whose `order_quoted` type is on the EMAIL
+    // allowlist. FAIL CLOSED (audit hold, 13 Nov): only an order whose charge was READ as an ordinary fee is emailed.
+    // A refused read emails nobody (logged, the run skipped); an empty read emails nobody — never "no filter".
+    const charges = await readFeeChargeKinds(admin, dueOrders);
+    if (charges === null) return;
+    const toTell = feeOrdersToEmail(
+      dueOrders.map((o) => ({ ...o, chargeId: chargeIdFromBookingFeeLockServiceKey(o.service_key) })),
+      charges,
+    );
+    if (toTell.length === 0) return;
+
     // Which of those already have a notification (idempotency key = the pay-page
     // related_url). One query for all candidate URLs.
-    const payUrls = dueOrders.map((o) => vendorBookingFeePayPath(o.order_id));
+    const payUrls = toTell.map((o) => vendorBookingFeePayPath(o.order_id));
     const { data: existing } = await admin
       .from('notifications')
       .select('related_url')
@@ -152,7 +166,7 @@ export async function maybeSweepVendorBookingFeeNotifications(
 
     // Resolve event display names in one batch for the copy.
     const eventIds = Array.from(
-      new Set(dueOrders.map((o) => o.event_id).filter((id): id is string => !!id)),
+      new Set(toTell.map((o) => o.event_id).filter((id): id is string => !!id)),
     );
     const nameByEvent = new Map<string, string | null>();
     if (eventIds.length > 0) {
@@ -165,7 +179,7 @@ export async function maybeSweepVendorBookingFeeNotifications(
       }
     }
 
-    for (const o of dueOrders) {
+    for (const o of toTell) {
       const payUrl = vendorBookingFeePayPath(o.order_id);
       if (alreadyNotified.has(payUrl)) continue;
       const amountPhp = Number(o.confirmed_total_php ?? o.requested_total_php ?? 0);
@@ -197,4 +211,25 @@ export async function maybeSweepVendorBookingFeeNotifications(
     // Fail-soft: the vendor still sees the fee in the Booking fees hub even if
     // the notification sweep hiccups.
   }
+}
+
+/**
+ * The charge KIND of each of these fee orders (`booking_fee_charges.kind`; the order's `service_key` names its charge
+ * via `chargeIdFromBookingFeeLockServiceKey`). A refused read returns NULL — never an empty list — and is logged, so
+ * the sweep can tell "could not read" from "read, nothing ordinary" and email nobody on either.
+ */
+async function readFeeChargeKinds(
+  admin: ReturnType<typeof createAdminClient>,
+  orders: ReadonlyArray<{ service_key: string | null }>,
+): Promise<Array<{ charge_id: string; kind: string | null }> | null> {
+  const chargeIds = [
+    ...new Set(orders.map((o) => chargeIdFromBookingFeeLockServiceKey(o.service_key)).filter((id): id is string => !!id)),
+  ];
+  if (chargeIds.length === 0) return [];
+  const { data, error } = await admin.from('booking_fee_charges').select('charge_id,kind').in('charge_id', chargeIds);
+  if (error) {
+    logQueryError('vendor-booking-fees: charge kinds (sweep skipped, nobody emailed)', error);
+    return null;
+  }
+  return (data ?? []) as Array<{ charge_id: string; kind: string | null }>;
 }

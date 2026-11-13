@@ -1,12 +1,14 @@
 /**
  * event-vendor-money.ts — the ONE way app code reads a booking's five amounts.
  *
- * 🔒 #5936 · migration 20271341392450. `event_vendors.total_cost_php · deposit_paid_php · transport_php ·
- * food_allowance_php · pax_surcharge_php` are closed per column to every browser role: a Suppliers delegate
- * without Budget & payments reads the same row as the host, and RLS cannot hide a column. A direct select of any of
- * them on a user session (or a `select('*')`) is now REFUSED with "permission denied".
+ * 🔒 #5936 · migration 20271342818285 (migration A — readers only). `event_vendors.total_cost_php · deposit_paid_php ·
+ * transport_php · food_allowance_php · pax_surcharge_php` are still SELECT-able today: a Suppliers delegate without
+ * Budget & payments reads the same row as the host, and RLS cannot hide a column. The per-column close (a REVOKE, so
+ * a direct select or a `select('*')` on a user session is refused with "permission denied") lands in migration B, a
+ * later PR, once prod serves code that reads only through here.
  *
- * Read them through `public.event_vendor_money_read(event_id)` instead — this module. It returns every booking row
+ * Until then this module is the ONE app path to the amounts: read them through
+ * `public.event_vendor_money_read(event_id)` — this module. It returns every booking row
  * the caller may read, with the amounts filled only for a host or a delegate whose Budget area is not Off;
  * `money_shown: false` means HIDDEN, never ₱0. On the service role (the admin client) every amount is filled, so
  * a lib function called with either client reads the same way.

@@ -1,11 +1,11 @@
 /**
- * BOOKING MONEY READS THROUGH THE READER — the code half of #5936 (migration 20271341392450).
+ * BOOKING MONEY READS THROUGH THE READER — the code half of #5936 (migration 20271342818285).
  *
  * The database half (tests/db/a-suppliers-only-delegate-reads-no-booking-amount.db.test.ts) proves a Suppliers
- * delegate without Budget & payments is REFUSED any of the five amounts on `event_vendors`, and that the hosts read
- * them through `event_vendor_money_read`. What the database cannot see is the app: since the columns are closed per
- * column, a user-session select that still names one of them (or `*`) is refused outright and the page breaks for
- * the HOST too. So this walks every `.from('event_vendors')` select in app/, lib/ and components/ and fails on any
+ * delegate without Budget & payments reads none of the five amounts through `event_vendor_money_read`, and that the
+ * hosts do. What the database cannot see is the app: the reader is the one path today, and once migration B (a later
+ * PR) closes the five columns per column, a user-session select that still names one of them (or `*`) will be
+ * refused outright and the page will break for the HOST too. So this walks every `.from('event_vendors')` select in app/, lib/ and components/ and fails on any
  * that names an amount or `*` — unless the file is listed below as reading on the SERVICE ROLE (the admin client
  * keeps every column; a Suppliers-only delegate never reaches it).
  *
@@ -106,7 +106,7 @@ test('no user-session event_vendors select names a booking amount or *', () => {
     bad,
     [],
     `These select one of ${BOOKING_MONEY_COLUMNS.join(' · ')} (or *) from event_vendors. On a user session that is ` +
-      'refused since migration 20271341392450 (#5936). Read the amounts with readBookingMoney / withBookingMoney ' +
+      'refused once migration B closes the columns (#5936); the reader is the one path today. Read the amounts with readBookingMoney / withBookingMoney ' +
       '(lib/event-vendor-money.ts) — or, if this read is on the admin client, add the file to SERVICE_ROLE_READS with why.',
   );
 });

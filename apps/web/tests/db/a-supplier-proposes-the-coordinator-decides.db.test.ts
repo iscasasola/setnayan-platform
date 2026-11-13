@@ -455,7 +455,7 @@ test('🔒 4 · a proposal waits; a host or the coordinator accepts it in place;
 // ─── 5 · what a suppliers grant shows (verified, not changed) ────────────
 
 test('5 · a "Suppliers" grant shows the other suppliers’ contact details; the money reader hides their prices', async () => {
-  // #5936 · migration 20271341392450 (migration A of two): the app reads the five booking amounts only through
+  // #5936 · migration 20271342818285 (migration A of two): the app reads the five booking amounts only through
   // event_vendor_money_read, which hides them from a seat without Budget & payments. The direct column is still
   // selectable until migration B (the per-column close, a follow-up PR) — that PR turns the price assertion below
   // into "refused".

@@ -146,12 +146,28 @@ import {
 import { lastPlanReplot } from '@/lib/plan-replot';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { budgetPaymentProofPolicy, parseClientRef } from '@/lib/r2-client-ref';
-import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
-import type { PayWayView } from '@/lib/self-added-pay-ways';
+import { readPayWaysForRecord, writePayWaysToContactCard } from '@/lib/self-added-pay-ways.server';
+import {
+  PAY_WAYS_PRESENT_FIELD,
+  PAY_WAY_NEEDED_WORDS,
+  parsePostedPayWays,
+  payWaysNeeded,
+  planPostsPayments,
+  type PayWayView,
+} from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 import { bookingCostWrite } from '@/lib/booking-cost-write';
+import {
+  AGREED_COUNT_FIELD,
+  PRICE_BASIS_FIELD,
+  agreedCountFromRow,
+  basisFromColumn,
+  parseAgreedCount,
+  parseSelfAddedBasis,
+  type SelfAddedBasis,
+} from '@/lib/self-added-price-basis';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -5488,6 +5504,42 @@ export async function dismissVendorLockProposal(
 // finish on the workspace — never as a failed add, and never silently.
 // ============================================================================
 
+/**
+ * 🧾 HOW THE PRICE WORKS, SAVED — v2 (owner 2026-11-13, "SELF-ADDED PRICE: THE COUPLE RECORDS WHAT WAS AGREED"). The
+ * basis and the agreed count land on the booking: per guest → the guests agreed in the shipped `pax_quote_base`; per
+ * hour → `agreed_hours` (migration 20271342032145). The TOTAL is never written here — it goes through the shipped
+ * `updateVendorCosts` exactly as One price always did. One price clears the basis and its count.
+ * Only a record with no Setnayan shop — a claimed supplier's price is theirs.
+ */
+async function saveSelfAddedPriceBasis(
+  eventId: string,
+  vendorId: string,
+  basis: SelfAddedBasis,
+  countRaw: FormDataEntryValue | null,
+): Promise<{ ok: true } | { ok: false }> {
+  const supabase = await createClient();
+  const count = parseAgreedCount(basis, countRaw);
+  if (basis !== 'fixed' && count == null) return { ok: false };
+  const patch =
+    basis === 'per_pax'
+      ? { pricing_basis: basis, pax_quote_base: count, agreed_hours: null }
+      : basis === 'per_hour'
+        ? { pricing_basis: basis, agreed_hours: count }
+        : { pricing_basis: null, agreed_hours: null };
+  const { data: written, error } = await supabase
+    .from('event_vendors')
+    .update(patch)
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .is('marketplace_vendor_id', null)
+    .select('vendor_id');
+  if (error) {
+    console.error('[saveSelfAddedPriceBasis] the price basis was not saved:', error.message);
+    return { ok: false };
+  }
+  return written && written.length > 0 ? { ok: true } : { ok: false };
+}
+
 export type AddManualSupplierResult =
   | {
       status: 'ok';
@@ -5513,6 +5565,18 @@ export async function addManualSupplier(
   }
   if (typeof category !== 'string' || category.length === 0) {
     return { status: 'error', message: 'Missing category' };
+  }
+
+  // 0 · HOW TO PAY THEM (owner 2026-11-13) — read BEFORE anything exists: a way that cannot be kept as typed (a QR
+  //     that is not this event's own private object), or a plan with payments and nowhere to send them, refuses the
+  //     add instead of saving a supplier without them.
+  const payWays =
+    formData.get(PAY_WAYS_PRESENT_FIELD) === '1'
+      ? parsePostedPayWays(formData, (ref) => parseClientRef(ref, budgetPaymentProofPolicy(eventId)) != null)
+      : null;
+  if (payWays && !payWays.ok) return { status: 'error', message: payWays.message };
+  if (payWays?.ok && payWaysNeeded(planPostsPayments(formData), payWays.ways)) {
+    return { status: 'error', message: PAY_WAY_NEEDED_WORDS };
   }
 
   // 1 · The contact card. Owns the photo upload and re-asks the address rule,
@@ -5545,8 +5609,15 @@ export async function addManualSupplier(
 
   // 3 · Price. `updateVendorCosts` throws; a throw here would surface as a
   //     failed add for a supplier that was created, so it is caught.
+  //     v2 (owner 2026-11-13): the total is typed for every basis and goes through the same price-only write; Per
+  //     guest / Per hour also save the guests / hours agreed (never read from the guest list or the schedule).
+  const basis = parseSelfAddedBasis(formData.get(PRICE_BASIS_FIELD));
   const priceRaw = formData.get('total_cost_php');
   const priceNum = typeof priceRaw === 'string' ? Number(priceRaw.replace(/,/g, '')) : NaN;
+  if (basis === 'per_pax' || basis === 'per_hour') {
+    const priced = await saveSelfAddedPriceBasis(eventId, eventVendorId, basis, formData.get(AGREED_COUNT_FIELD));
+    if (!priced.ok) warnings.push('how the price works');
+  }
   if (Number.isFinite(priceNum) && priceNum > 0) {
     try {
       const costFd = new FormData();
@@ -5560,6 +5631,15 @@ export async function addManualSupplier(
     } catch {
       warnings.push('the price');
     }
+  }
+
+  // 3c · How to pay them — onto the contact card the couple owns (`event_manual_vendors.pay_ways`), under their own
+  //      RLS, exactly where the record card writes them.
+  //      Written by the pay-ways module, never here: this file writes the event's money, and a way to pay is inert
+  //      (`the-payment-note-is-inert.test.ts`).
+  if (payWays?.ok && payWays.ways.length > 0) {
+    const wrote = await writePayWaysToContactCard(await createClient(), eventId, created.manualVendorId, payWays.ways);
+    if (!wrote) warnings.push('how to pay them');
   }
 
   // 4 · Services covered + inclusions, through the shipped host-authored path.
@@ -5800,6 +5880,10 @@ export type SelfAddedSupplierPrefill = {
   inclusions: string;
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
+  /** How the price works (owner-approved 2026-11-13) — One price unless the record says per guest / per hour. */
+  basis?: SelfAddedBasis;
+  /** The guests / hours agreed when the basis is per guest / per hour; '' otherwise (v2). */
+  agreedCount?: string;
   planRows: EditablePlanRow[];
   /** A plan row EXISTS — so an empty `planRows` means "saved with no payments",
    *  not "no plan yet" (which opens on the 50/50 starter). */
@@ -5843,7 +5927,7 @@ export async function loadSelfAddedSupplier(
   const { data: evRow, error: evErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
+      'vendor_id, category, vendor_name, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id, pricing_basis, pax_quote_base, agreed_hours',
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
@@ -5863,6 +5947,9 @@ export async function loadSelfAddedSupplier(
     category_key: string | null;
     manual_vendor_id: string | null;
     marketplace_vendor_id: string | null;
+    pricing_basis: string | null;
+    pax_quote_base: number | string | null;
+    agreed_hours: number | string | null;
   };
   // Once they have an account, the card opens the vendor–user connection
   // instead — their details are theirs to publish, not the couple's to edit.
@@ -5947,6 +6034,11 @@ export async function loadSelfAddedSupplier(
       claimAsk,
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
+      basis: basisFromColumn(row.pricing_basis),
+      agreedCount: (() => {
+        const n = agreedCountFromRow(basisFromColumn(row.pricing_basis), row);
+        return n == null ? '' : String(n);
+      })(),
       // The lock's own 50/50 estimate comes back as its rule (on lock · 14 days
       // before), not as two blank-dated rows every later save would refuse.
       planRows: planInstancesToRows(planRow?.instances_json, { defaultSeeded: planRow?.is_default_seeded === true }),
@@ -6027,16 +6119,26 @@ export async function updateSelfAddedSupplier(
   }
 
   // 3 · Price — price-only, so nothing else on the row moves.
-  try {
-    const costFd = new FormData();
-    costFd.set('event_id', eventId);
-    costFd.set('vendor_id', vendorId);
-    const p = formData.get('total_cost_php');
-    costFd.set('total_cost_php', typeof p === 'string' ? p.replace(/,/g, '') : '');
-    costFd.set('price_only', '1');
-    await updateVendorCosts(costFd);
-  } catch {
-    warnings.push({ what: 'the price' });
+  //     🧾 How the price works (v2, owner 2026-11-13): the total is typed for every basis and written here as it always
+  //     was; Per guest / Per hour also save the guests / hours agreed, One price clears them. A form that posted no
+  //     basis (an older caller) leaves the facts alone.
+  const basis = parseSelfAddedBasis(formData.get(PRICE_BASIS_FIELD));
+  if (basis) {
+    const priced = await saveSelfAddedPriceBasis(eventId, vendorId, basis, formData.get(AGREED_COUNT_FIELD));
+    if (!priced.ok) warnings.push({ what: 'how the price works' });
+  }
+  {
+    try {
+      const costFd = new FormData();
+      costFd.set('event_id', eventId);
+      costFd.set('vendor_id', vendorId);
+      const p = formData.get('total_cost_php');
+      costFd.set('total_cost_php', typeof p === 'string' ? p.replace(/,/g, '') : '');
+      costFd.set('price_only', '1');
+      await updateVendorCosts(costFd);
+    } catch {
+      warnings.push({ what: 'the price' });
+    }
   }
 
   // 3b · THE PRICE CHECK (owner 2026-10-10: "10% allowance +-"). The record

@@ -60,7 +60,7 @@ $$;
 REVOKE ALL ON FUNCTION public.event_vendor_money_event_ids() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.event_vendor_money_event_ids() TO authenticated;
 COMMENT ON FUNCTION public.event_vendor_money_event_ids() IS
-  'The events whose booking amounts (event_vendors.total_cost_php · deposit_paid_php · transport_php · food_allowance_php · pax_surcharge_php) the caller may read: a host there, or a delegate whose Budget & payments area is not Off — and never a coordinator money_hidden_event_ids() hides. Migration 20271341392450 (#5936).';
+  'The events whose booking amounts (event_vendors.total_cost_php · deposit_paid_php · transport_php · food_allowance_php · pax_surcharge_php) the caller may read: a host there, or a delegate whose Budget & payments area is not Off — and never a coordinator money_hidden_event_ids() hides. Migration 20271342818285 (#5936).';
 
 -- ── §2 · the one reader ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.event_vendor_money_read(p_event_id UUID)
@@ -118,4 +118,4 @@ $$;
 REVOKE ALL ON FUNCTION public.event_vendor_money_read(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.event_vendor_money_read(UUID) TO authenticated, service_role;
 COMMENT ON FUNCTION public.event_vendor_money_read(UUID) IS
-  'The ONE browser read of a booking''s five amounts (event_vendors.total_cost_php · deposit_paid_php · transport_php · food_allowance_php · pax_surcharge_php). Returns every booking row of the event the caller may read (couple or Suppliers delegate — the table''s own two SELECT doors), amounts filled only where event_vendor_money_event_ids() admits the event; money_shown = FALSE means "hidden", never ₱0. The service role reads every amount. Migration 20271341392450 (#5936).';
+  'The ONE browser read of a booking''s five amounts (event_vendors.total_cost_php · deposit_paid_php · transport_php · food_allowance_php · pax_surcharge_php). Returns every booking row of the event the caller may read (couple or Suppliers delegate — the table''s own two SELECT doors), amounts filled only where event_vendor_money_event_ids() admits the event; money_shown = FALSE means "hidden", never ₱0. The service role reads every amount. Migration 20271342818285 (#5936).';

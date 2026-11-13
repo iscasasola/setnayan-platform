@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { readOverdueTopUpEventIds, readPageRefsFromEvents } from '@/lib/booking-fee-top-up.server';
+import { manilaToday } from '@/lib/std-views';
 import { logoFrameStyle, readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
@@ -1025,6 +1027,11 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
+  // 💸 UNLISTED AND UNCOUNTED (owner 2026-11-12): events whose booking-fee top-up is past its event day and unsettled.
+  // Their review, the photos put on this page from them and their featured story are left out until it is settled
+  // (the stars are uncounted in SQL). Empty with the fee lock off, and on a refused read.
+  const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
+  const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
   // ⭐ FROM GUESTS (owner, 6 Nov) — the guests' own reviews, read beside everything below. Three states: a refused read
   // is SAID under the hosts' list, never turned into "no guest reviews". It never feeds the overall (option A).
   const guestReviewsPromise: Promise<GuestReviewsRead> = readGuestReviewsForVendor(admin, vendor.vendor_profile_id, {
@@ -1042,7 +1049,7 @@ export async function renderVendorBySlug({
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
     fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
+    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents] }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
@@ -1382,7 +1389,7 @@ export async function renderVendorBySlug({
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire] = await Promise.all([
     fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioPhotos(vendor.portfolio_r2_keys),
+    resolvePortfolioPhotos((vendor.portfolio_r2_keys ?? []).filter((k: string) => !unlistedPageRefs.has(k))),
     // Microsite curation (My Shop → Website editor). Defensive read — an
     // un-curated vendor / not-yet-applied migration degrades to the
     // auto-composed baseline.
@@ -1443,7 +1450,9 @@ export async function renderVendorBySlug({
   // Pro hero override — a chosen portfolio photo leads the page as a banner.
   const heroPhotoUrl =
     proPicksRender && microsite.heroPhotoKey
-      ? (await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null
+      ? unlistedPageRefs.has(microsite.heroPhotoKey)
+        ? null
+        : ((await resolvePortfolioUrls([microsite.heroPhotoKey]))[0] ?? null)
       : null;
   // Solo accent — retint the microsite's accent ramp (undefined = default).
   const accentVars = canPersonalizePage
@@ -1465,6 +1474,8 @@ export async function renderVendorBySlug({
         vendor.vendor_profile_id,
         pinnedReviewId,
       );
+      // 💸 A pinned review from an unlisted event (overdue top-up) is not shown either.
+      if (pinnedOutsideWindow?.event_id && unlistedEvents.has(pinnedOutsideWindow.event_id)) pinnedOutsideWindow = null;
     } catch (err) {
       logQueryError(
         'PublicVendorPage.pinnedReview',
@@ -1559,7 +1570,9 @@ export async function renderVendorBySlug({
       // those here would tell the world about weddings the couple has not paid a
       // downpayment on. A public claim needs the pool row, not the handshake.
       const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
-      const stories = await loadVendorFeaturedStories(bookings.map((b) => b.eventId));
+      const stories = await loadVendorFeaturedStories(
+        bookings.map((b) => b.eventId).filter((id) => !unlistedEvents.has(id)),
+      );
       const byId = new Map(stories.map((s) => [s.eventId, s]));
       featuredEditorials = orderFeaturedFirst(
         stories.map((s) => s.eventId),

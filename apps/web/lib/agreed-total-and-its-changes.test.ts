@@ -690,7 +690,7 @@ const SOURCES: ReadonlyMap<string, string> = new Map(
 );
 const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, 'g')) ?? []).length;
 /** THE SET — derived from the source, never typed: every file that reads the column. */
-// #5936: a browser read of the price now arrives through lib/event-vendor-money.ts (the column is closed per column),
+// #5936: a browser read of the price now arrives through lib/event-vendor-money.ts (the one path today; the column close lands in migration B),
 // so a file that calls the reader reads total_cost_php as surely as one that names it — it stays on the roster.
 const BOOKING_MONEY_READ = /\b(readBookingMoney|readOneBookingMoney|withBookingMoney)\s*\(/;
 const READERS = new Set(
@@ -909,8 +909,8 @@ const NOT_A_PRICE_SHOWN: Record<string, string> = {
     'FIXTURE rows for /dev/swipe-rows-lab/suppliers (no event, no database, 404 in production) — priced NULL, so the lab prints no price; never read from event_vendors',
   'app/dev/budget-lab/fixture.ts':
     'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
-  'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
-    'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/_components/price-basis-rows.tsx':
+    'WRITES the typed total (One price’s Price, or Per guest / Per hour’s Total agreed) into the shipped `total_cost_php` field of the add sheet / record card (moved here with "How the price works ▾", 2026-11-13, v2); the "works out to" in its ⓘ is that typed total ÷ the typed count, and no table is queried here',
   'app/dashboard/[eventId]/_components/record-card-folds.tsx':
     'WRITES the HEADLINE price of a supplier the couple added (the record card, 2026-10-29) — its field starts from `loadSelfAddedSupplier`’s headline on purpose (pre-filling the agreed total would fold change lines into the headline on save), and the closed fold only echoes what is typed in that field; no table is queried here',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':

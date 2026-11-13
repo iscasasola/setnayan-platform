@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 314
+# facts: 322
 #   shadow  18
-#   omit    296
+#   omit    304
 shadow	app/(shell)/explore/_lib/marketplace-view.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/_lib/marketplace-view.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/_lib/marketplace-view.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -67,6 +67,10 @@ shadow	app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx	has
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	cap	app/onboarding/wedding/_components/weave-story.ts
 shadow	app/onboarding/wedding/_components/onboarding-shell.tsx	firstInitial	app/onboarding/wedding/_components/weave-story.ts
 shadow	lib/price-position.ts	regionLabel	lib/region-source.ts
+omit	app/(shell)/explore/_lib/marketplace-view.tsx	events	EVENT_CLOCK_COLUMNS	cleared_at
+omit	app/(shell)/explore/_lib/marketplace-view.tsx	events	EVENT_CLOCK_COLUMNS	launch_mode
+omit	app/(shell)/explore/_lib/marketplace-view.tsx	events	EVENT_CLOCK_COLUMNS	manual_phase
+omit	app/(shell)/explore/_lib/marketplace-view.tsx	events	EVENT_CLOCK_COLUMNS	std_invitation_launch_date
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_latitude
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_longitude
 omit	app/[slug]/_components/editorial/data.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
@@ -274,6 +278,10 @@ omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-pro
 omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
 omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
 omit	app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	public_id
+omit	app/dashboard/[eventId]/vendors/_actions/category-search.ts	events	EVENT_CLOCK_COLUMNS	cleared_at
+omit	app/dashboard/[eventId]/vendors/_actions/category-search.ts	events	EVENT_CLOCK_COLUMNS	launch_mode
+omit	app/dashboard/[eventId]/vendors/_actions/category-search.ts	events	EVENT_CLOCK_COLUMNS	manual_phase
+omit	app/dashboard/[eventId]/vendors/_actions/category-search.ts	events	EVENT_CLOCK_COLUMNS	std_invitation_launch_date
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix

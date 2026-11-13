@@ -61,7 +61,8 @@ export const MOMENT_TITLE_MAX = 80;
 
 /** The one line a free couple meets at the sixth story or any photo. Owner-worded. */
 export const LOVE_STORY_PRO_LINE = 'Add more stories and your photos';
-export const LOVE_STORY_PRO_CTA = 'Go Event Pro';
+// ⏳ TRANSITION #7605: main's dashboard test (the-love-story-reaches-the-pixels) pins this text; #7605 reads the constant — rename when it lands.
+export const LOVE_STORY_PRO_CTA = 'Go Event Hub Pro';
 
 /* ── SHAPE ──────────────────────────────────────────────────────────────── */
 

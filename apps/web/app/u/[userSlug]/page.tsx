@@ -1031,7 +1031,7 @@ const UPROF_CSS = `
     font-size: clamp(1.2rem, 3.5vw, 1.6rem);
     text-align: center;
     margin: 0 0 clamp(1.25rem, 3vw, 1.75rem);
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uprof-md-invite {
     max-width: 34rem;
@@ -1039,7 +1039,7 @@ const UPROF_CSS = `
     text-align: center;
     font-size: 0.95rem;
     line-height: 1.65;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 62%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 62%, transparent);
   }
   .uprof-md-list { list-style: none; margin: 0; padding: 0; }
   .uprof-md-item + .uprof-md-item { margin-top: 0.9rem; }
@@ -1048,7 +1048,7 @@ const UPROF_CSS = `
     align-items: center;
     gap: 0.9rem;
     padding: 0.95rem 1.1rem;
-    border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--m-ink) 12%, transparent);
     /* The same radius token as .uprof-empty, its actual neighbour in this
        column. ⚠ This comment used to point at .uprof-card, the event
        card — which the poster artwork replaced, and a poster rounds at 4px
@@ -1061,18 +1061,18 @@ const UPROF_CSS = `
   }
   .uprof-md-card:hover {
     background: #FFFFFF;
-    border-color: color-mix(in srgb, var(--m-ink, #1B1A17) 22%, transparent);
+    border-color: color-mix(in srgb, var(--m-ink) 22%, transparent);
   }
   .uprof-md-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1; }
-  .uprof-md-title { font-size: 1.02rem; color: var(--m-ink, #1B1A17); }
+  .uprof-md-title { font-size: 1.02rem; color: var(--m-ink); }
   .uprof-md-meta {
     font-size: 0.82rem;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 55%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 55%, transparent);
   }
   .uprof-md-chev {
     font-size: 1.35rem;
     line-height: 1;
-    color: color-mix(in srgb, var(--m-ink, #1B1A17) 35%, transparent);
+    color: color-mix(in srgb, var(--m-ink) 35%, transparent);
   }
 
   .uprof-inf-list {
@@ -1092,12 +1092,12 @@ const UPROF_CSS = `
     min-height: 52px;
     padding: 6px 16px 6px 6px;
     border-radius: var(--m-r-full, 999px);
-    background: var(--m-paper-2, #F4F2EC);
+    background: var(--m-paper-2);
     text-decoration: none;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     transition: background-color .15s;
   }
-  .uprof-inf-card:hover { background: var(--m-ivory, #EDEAE0); }
+  .uprof-inf-card:hover { background: var(--m-ivory); }
   .uprof-inf-logo {
     flex: 0 0 auto;
     width: 40px;
@@ -1120,13 +1120,13 @@ const UPROF_CSS = `
   .uprof-inf-name {
     font-size: 0.92rem;
     font-weight: 600;
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
 
   .uprof {
     min-height: 100dvh;
     background: var(--m-paper, #FBFBFA);
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1141,9 +1141,9 @@ const UPROF_CSS = `
   .uprof-preview {
     margin: 0 0 1.5rem;
     padding: 0.7rem 1rem;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-md, 14px);
-    background: var(--m-ivory, #EDEAE0);
+    background: var(--m-ivory);
     color: var(--m-slate, #4F535B);
     font-size: 0.85rem;
     text-align: center;
@@ -1190,20 +1190,20 @@ ${PROFILE_HEADER_CSS}
   }
   .uprof .uprof-follow {
     order: 1;
-    border: 1px solid var(--m-ink, #1B1A17);
-    background: var(--m-ink, #1B1A17);
+    border: 1px solid var(--m-ink);
+    background: var(--m-ink);
     color: var(--m-paper, #fff);
   }
   .uprof .uprof-follow[data-following='1'] {
     background: var(--m-paper, #fff);
-    color: var(--m-ink, #1B1A17);
-    border-color: var(--m-line, #E2DED4);
+    color: var(--m-ink);
+    border-color: var(--m-line);
   }
   .uprof .uprof-share {
     order: 2;
-    border: 1px solid var(--m-line, #E2DED4);
+    border: 1px solid var(--m-line);
     background: var(--m-paper, #fff);
-    color: var(--m-ink, #1B1A17);
+    color: var(--m-ink);
   }
   .uprof .uprof-follow:active,
   .uprof .uprof-share:active { transform: scale(.98); }
@@ -1226,7 +1226,7 @@ ${PROFILE_HEADER_CSS}
     gap: 4px;
     margin: 0 -16px;
     padding: 0 12px;
-    border-bottom: 1px solid var(--m-line, #E2DED4);
+    border-bottom: 1px solid var(--m-line);
     overflow-x: auto;
     scrollbar-width: none;
     background: color-mix(in srgb, var(--m-paper, #fff) 94%, transparent);
@@ -1246,7 +1246,7 @@ ${PROFILE_HEADER_CSS}
     border-bottom: 2px solid transparent;
     white-space: nowrap;
   }
-  .uprof-bar-nav a[aria-current] { color: var(--m-ink, #1B1A17); border-bottom-color: rgb(var(--color-terracotta)); }
+  .uprof-bar-nav a[aria-current] { color: var(--m-ink); border-bottom-color: rgb(var(--color-terracotta)); }
   .uprof-totop {
     position: sticky;
     right: 0;
@@ -1270,7 +1270,7 @@ ${PROFILE_HEADER_CSS}
   /* ── THE SECTIONS — one rule between each, the label in small mono capitals behind a short accent line. */
   .uprof-sec {
     padding: 30px 0;
-    border-top: 1px solid var(--m-line, #E2DED4);
+    border-top: 1px solid var(--m-line);
     display: grid;
     gap: 14px;
     scroll-margin-top: 56px;
@@ -1306,11 +1306,11 @@ ${PROFILE_HEADER_CSS}
     text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
     padding: 0.55rem 1rem;
-    border: 1px solid var(--m-line, #E1DCD1);
+    border: 1px solid var(--m-line);
     border-radius: var(--m-r-full, 999px);
   }
   .uprof-more-btn::-webkit-details-marker { display: none; }
-  .uprof-more-btn:hover { color: var(--m-ink, #2C2A29); border-color: var(--m-orange, #A9834B); }
+  .uprof-more-btn:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
   .uprof-more[open] .uprof-more-btn { margin-bottom: 1.1rem; }
   .uprof-more-grid { margin-top: 0; }
 
@@ -1443,7 +1443,7 @@ ${PROFILE_HEADER_CSS}
     position: absolute; left: 50%; top: 12cqw; transform: translateX(-50%);
     width: 78cqw; aspect-ratio: 1; border-radius: 50%;
     background: var(--m-paper, #FFFFFF);
-    color: var(--m-ink, #2C2A29);
+    color: var(--m-ink);
     display: grid; place-items: center; text-align: center; padding: 8cqw;
     box-shadow: 0 0 0 6px rgba(255,255,255,.24), 0 26px 44px -22px rgba(0,0,0,.5);
   }
@@ -1528,7 +1528,7 @@ ${PROFILE_HEADER_CSS}
      behind the words, never covered by the white moon. The moon is a
      colour-legibility device and a photograph has no single colour to measure;
      a scrim works on any picture, which is why it is the one used here. */
-  .uprof-poster[data-sheet="photograph"] { background: var(--m-ink, #2C2A29); color: #fff; }
+  .uprof-poster[data-sheet="photograph"] { background: var(--m-ink); color: #fff; }
   .uprof-pimg {
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
@@ -1549,21 +1549,21 @@ ${PROFILE_HEADER_CSS}
   .uprof-poster[data-sheet="letterpress"] {
     background:
       repeating-linear-gradient(45deg, rgba(44,42,41,.035) 0 1px, transparent 1px 7px),
-      var(--m-paper-2, #F4F2EC);
-    color: var(--m-ink, #2C2A29);
-    outline: 1px solid var(--m-line, #E1DCD1);
+      var(--m-paper-2);
+    color: var(--m-ink);
+    outline: 1px solid var(--m-line);
     outline-offset: -1px;
   }
-  .uprof-poster[data-sheet="letterpress"] .uprof-pframe { border: 3px solid var(--m-ink, #2C2A29); }
-  .uprof-poster[data-sheet="letterpress"] .uprof-pframe::after { border: 1px solid var(--m-ink, #2C2A29); }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe { border: 3px solid var(--m-ink); }
+  .uprof-poster[data-sheet="letterpress"] .uprof-pframe::after { border: 1px solid var(--m-ink); }
   .uprof-bill {
     position: absolute; inset: 18px;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 5cqw;
   }
   .uprof-orn { display: flex; align-items: center; gap: 2cqw; }
-  .uprof-orn i { width: 6px; height: 6px; background: var(--m-ink, #2C2A29); transform: rotate(45deg); }
-  .uprof-orn b { width: 14cqw; height: 1px; background: var(--m-ink, #2C2A29); }
+  .uprof-orn i { width: 6px; height: 6px; background: var(--m-ink); transform: rotate(45deg); }
+  .uprof-orn b { width: 14cqw; height: 1px; background: var(--m-ink); }
   .uprof-bill .uprof-names {
     font-weight: 700; line-height: .92; letter-spacing: .02em; text-transform: uppercase;
     margin: 5cqw 0 4.5cqw;
@@ -1578,18 +1578,18 @@ ${PROFILE_HEADER_CSS}
   .uprof-bill .uprof-amp { font-size: .55em; font-weight: 400; margin: .12em 0; }
   .uprof-bar {
     width: 100%; height: 7px;
-    border-top: 3px solid var(--m-ink, #2C2A29);
-    border-bottom: 1px solid var(--m-ink, #2C2A29);
+    border-top: 3px solid var(--m-ink);
+    border-bottom: 1px solid var(--m-ink);
   }
 
   .uprof-empty {
     text-align: center;
-    border: 1px dashed var(--m-line, #E2DED4);
+    border: 1px dashed var(--m-line);
     border-radius: var(--m-r-lg, 22px);
     padding: 2.75rem 1.5rem;
     background: #fff;
   }
-  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
+  .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }
 
   /* ── WHO WAS THERE ────────────────────────────────────────────────────
@@ -1639,7 +1639,7 @@ ${PROFILE_HEADER_CSS}
     font-size: 0.82rem; font-weight: 700; letter-spacing: 0.17em;
     text-transform: uppercase; color: #C24E25;
   }
-  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line, #E2DED4); }
+  .uprof-yr-rule { height: 2px; border-radius: var(--m-r-xs); flex: 1; background: var(--m-line); }
   .uprof-yr-c {
     font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
     color: var(--m-slate-2, #6A6E76);
@@ -1675,7 +1675,7 @@ ${PROFILE_HEADER_CSS}
   .uprof-foot {
     margin-top: 0;
     padding: 26px 0 8px;
-    border-top: 1px solid var(--m-line, #E2DED4);
+    border-top: 1px solid var(--m-line);
     display: grid;
     gap: 6px;
     justify-items: center;
@@ -1691,5 +1691,5 @@ ${PROFILE_HEADER_CSS}
     border-bottom: 1px solid transparent;
     transition: color .15s, border-color .15s;
   }
-  .uprof-foot-link:hover { color: var(--m-ink, #1B1A17); border-color: var(--m-orange, #A9834B); }
+  .uprof-foot-link:hover { color: var(--m-ink); border-color: var(--m-orange, #A9834B); }
 `;

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7774
+# facts: 7784
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     632
-#   col       5599
-#   policy    1138
+#   tpriv     633
+#   col       5605
+#   policy    1139
 #   view      10
-#   func      391
+#   func      393
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -71,6 +71,7 @@ tpriv	public.chat_blocker_shows|authenticated	S
 tpriv	public.chat_decision_messages|authenticated	S
 tpriv	public.chat_decision_topics|anon	S
 tpriv	public.chat_decision_topics|authenticated	S
+tpriv	public.chat_file_removals|authenticated	S
 tpriv	public.chat_message_flags|authenticated	SIUD
 tpriv	public.chat_message_hearts|authenticated	SIU
 tpriv	public.chat_messages|anon	SD
@@ -975,6 +976,11 @@ col	public.chat_decision_topics.reopened_at	anon=S authenticated=S
 col	public.chat_decision_topics.thread_id	anon=S authenticated=S
 col	public.chat_decision_topics.title	anon=S authenticated=S
 col	public.chat_decision_topics.topic_id	anon=S authenticated=S
+col	public.chat_file_removals.for_everyone	anon=- authenticated=S
+col	public.chat_file_removals.message_id	anon=- authenticated=S
+col	public.chat_file_removals.removed_at	anon=- authenticated=S
+col	public.chat_file_removals.thread_id	anon=- authenticated=S
+col	public.chat_file_removals.user_id	anon=- authenticated=S
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
 col	public.chat_message_flags.categories	anon=- authenticated=SIU
 col	public.chat_message_flags.created_at	anon=- authenticated=SIU
@@ -1011,6 +1017,7 @@ col	public.chat_messages.body	anon=S authenticated=SI
 col	public.chat_messages.change_order_id	anon=S authenticated=SI
 col	public.chat_messages.created_at	anon=S authenticated=S
 col	public.chat_messages.event_id	anon=S authenticated=SI
+col	public.chat_messages.file_removed_at	anon=S authenticated=S
 col	public.chat_messages.is_bot	anon=S authenticated=S
 col	public.chat_messages.message_id	anon=S authenticated=SI
 col	public.chat_messages.offer_good_until	anon=S authenticated=SI
@@ -6324,6 +6331,7 @@ policy	public.chat_blocker_shows|chat_blocker_shows_own_read	mode=PERMISSIVE cmd
 policy	public.chat_decision_messages|chat_decision_messages_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
 policy	public.chat_decision_topics|chat_decision_topics_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_text_has_money(title)) OR (opened_by_user_id = ( SELECT auth.uid() AS uid)) OR (NOT chat_thread_money_hidden(thread_id))) check=NULL
 policy	public.chat_decision_topics|chat_decision_topics_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
+policy	public.chat_file_removals|chat_file_removals_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR (for_everyone AND (EXISTS ( SELECT 1 FROM chat_messages m WHERE (m.message_id = chat_file_removals.message_id))))) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_message_hearts|chat_message_hearts_block_guard_insert	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT chat_pair_is_blocked(event_id, vendor_profile_id))
@@ -7458,6 +7466,7 @@ func	public.chat_decision_open(p_thread_id uuid, p_title text)	secdef=yes exec=a
 func	public.chat_decision_remove_message(p_topic_id uuid, p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_decision_rename(p_topic_id uuid, p_title text)	secdef=yes exec=authenticated search_path=public
 func	public.chat_decision_set_closed(p_topic_id uuid, p_closed boolean)	secdef=yes exec=authenticated search_path=public
+func	public.chat_file_removal_options(p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_add(p_thread_id uuid, p_people uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_create(p_event_id uuid, p_name text, p_people uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_head(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -7660,6 +7669,7 @@ func	public.release_deleted_guest_song_requests(p_event_id uuid, p_guest_ids uui
 func	public.release_full_schedule(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.remove_my_chat_file(p_message_id uuid, p_mode text)	secdef=yes exec=authenticated search_path=public
 func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.request_part_finalization(p_event_id uuid, p_part_id text, p_vendor_id uuid, p_snapshot jsonb)	secdef=yes exec=authenticated search_path=public
 func	public.request_part_reopen(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public

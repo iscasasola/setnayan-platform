@@ -1,6 +1,7 @@
 import { BadgeCheck, Info } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
+import { formatCount } from '@/lib/format-number';
 import type { VendorVerifiedMedian } from '@/lib/verified-median-read';
 import { formatMedianPhp, MIN_MEDIAN_SAMPLE } from '@/lib/verified-median';
 
@@ -45,11 +46,11 @@ export function VerifiedMedianCard({ data }: { data: VendorVerifiedMedian }) {
           <Info className="h-4 w-4 flex-none text-ink/70" strokeWidth={2} aria-hidden />
           <span>
             Not established yet
-            {result.sampleN > 0 ? ` — ${result.sampleN} of ${MIN_MEDIAN_SAMPLE} locked bookings so far` : ''}
+            {result.sampleN > 0 ? ` — ${formatCount(result.sampleN)} of ${formatCount(MIN_MEDIAN_SAMPLE)} locked bookings so far` : ''}
           </span>
           <InfoTip label="" ariaLabel="Why it is not established yet" align="end">
-            We show a verified price once you have at least {MIN_MEDIAN_SAMPLE} locked bookings with a declared price
-            {result.sampleN > 0 ? ` — you have ${result.sampleN} so far` : ''}. A median needs enough real bookings behind
+            We show a verified price once you have at least {formatCount(MIN_MEDIAN_SAMPLE)} locked bookings with a declared price
+            {result.sampleN > 0 ? ` — you have ${formatCount(result.sampleN)} so far` : ''}. A median needs enough real bookings behind
             it; we never estimate one from a handful.
           </InfoTip>
         </p>
@@ -64,7 +65,7 @@ export function VerifiedMedianCard({ data }: { data: VendorVerifiedMedian }) {
             </p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-ink">{formatMedianPhp(result.medianPhp)}</p>
             <p className="mt-0.5 text-sm text-ink/70">
-              from {result.sampleN} locked booking{result.sampleN === 1 ? '' : 's'}
+              from {formatCount(result.sampleN)} locked booking{result.sampleN === 1 ? '' : 's'}
             </p>
           </div>
           <div className="flex min-h-14 items-center justify-between gap-3 border-b border-ink/10 py-2">
@@ -77,7 +78,7 @@ export function VerifiedMedianCard({ data }: { data: VendorVerifiedMedian }) {
             </span>
           </div>
           <p className="mt-3 flex items-center gap-1 text-sm text-ink/70">
-            Based on {result.sampleN} locked booking{result.sampleN === 1 ? '' : 's'} you&apos;ve declared a price on.
+            Based on {formatCount(result.sampleN)} locked booking{result.sampleN === 1 ? '' : 's'} you&apos;ve declared a price on.
             <InfoTip label="" ariaLabel="What is left out" align="end">
               Comp / barter / ₱0 bookings marked non-representative are left out. This figure isn&apos;t a target —
               declare honestly and it settles where your real market is.

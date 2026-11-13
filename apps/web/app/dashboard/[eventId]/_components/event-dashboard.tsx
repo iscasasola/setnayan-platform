@@ -127,6 +127,12 @@ import { countNoun, formatCount } from '@/lib/format-number';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { mergeBookingMoney, readBookingMoney } from '@/lib/event-vendor-money';
+import {
+  anyBookingAmountHidden,
+  budgetTileCommitted,
+  COMMITTED_HIDDEN_LINE,
+} from '@/lib/budget-tile-committed';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -380,7 +386,7 @@ export async function EventDashboard({
     // Vendor picks — lean select (this surface needs no enrichment columns).
     (async () => {
       try {
-        return await supabase
+        const res = await supabase
           .from('event_vendors')
           // The change lines ride in the SAME query (owner 2026-09-11, "Show the
           // total now"): the committed figure is the agreed total NOW, not the
@@ -392,11 +398,19 @@ export async function EventDashboard({
             // 💳 + manual_vendor_id and the payments (owner 2026-10-20, "booked if
             // paid"): a hand-added supplier with a recorded payment reads Booked
             // here too — lib/booked-by-payment.ts, applied once below.
-            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
+            // 🔒 total_cost_php comes from event_vendor_money_read (#5936), not the row select.
+            `vendor_id, vendor_name, category, status, lock_request_state, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
           .order('created_at', { ascending: true });
+        if (res.error || !res.data) return res;
+        // A refused amounts read refuses the whole read (never [] — that would say "no suppliers").
+        const money = await readBookingMoney(supabase, eventId).catch((e: unknown) =>
+          e instanceof Error ? e : new Error(String(e)),
+        );
+        if (money instanceof Error) return { ...res, data: null, error: { message: money.message } } as never;
+        return { ...res, data: mergeBookingMoney(res.data, money) };
       } catch (caught) {
         logQueryError(
           'EventDashboard (event_vendors SELECT threw)',
@@ -939,6 +953,8 @@ export async function EventDashboard({
       category: VendorCategory;
       status: string | null;
       total_cost_php: number | string | null;
+      /** FALSE = event_vendor_money_read hid this booking's amounts from the caller (#5936) — never ₱0. */
+      money_shown?: boolean;
       marketplace_vendor_id: string | null;
       manual_vendor_id?: string | null;
       vendor_payments?: Array<{ payment_refused_at: string | null }> | null;
@@ -996,7 +1012,16 @@ export async function EventDashboard({
   // one was shown "₱0 committed" against it with a 0% ring. A number that is
   // silently short is worse than no number: it reads as progress they have not
   // made, on the screen they check to decide what they can still afford.
-  const committedMeasured = vendorsMeasured && ordersMeasured;
+  // 🔒 A HIDDEN AMOUNT IS NOT ₱0 (#5936): a Suppliers-only delegate reads every
+  // booking amount as hidden, and summing those as 0 printed "₱2,499 committed
+  // so far" against a real ₱152,499. Hidden is its own state — lib/budget-tile-committed.ts.
+  const committed = budgetTileCommitted({
+    vendorsMeasured,
+    ordersMeasured,
+    amountsHidden: anyBookingAmountHidden(eventVendors),
+    centavos: committedCentavos,
+  });
+  const committedMeasured = committed.state === 'measured';
   // 🔒 THE SAME MONEY, THE SAME QUESTION, ON THE FIRST SCREEN SHE LANDS ON.
   // The Budget tile prints "committed of ₱930,000" from this value, and an
   // accepted delegate reaches this dashboard. Fixing only /budget would have
@@ -1963,7 +1988,7 @@ export async function EventDashboard({
       </Link>,
     );
   }
-  if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {
+  if (committed.state === 'hidden' || committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {
     miniTiles.push(
       <Link
         key="budget"
@@ -1983,7 +2008,19 @@ export async function EventDashboard({
          *  point of the shape. With no target set there is no whole to be part
          *  of, so the tile stays a plain figure rather than drawing a ring
          *  against an invented denominator. */}
-        {budgetTargetCentavos && budgetTargetCentavos > 0 ? (
+        {committed.state === 'hidden' ? (
+          <>
+            <span
+              className="mt-3 block font-mono text-[20px] font-bold leading-none text-ink"
+              data-committed="hidden"
+            >
+              —
+            </span>
+            <span className="mt-0.5 block text-[11.5px] text-ink/55">
+              {COMMITTED_HIDDEN_LINE}
+            </span>
+          </>
+        ) : budgetTargetCentavos && budgetTargetCentavos > 0 ? (
           <span className="mt-3 flex items-center gap-3">
             <ProgressRing
               pct={budgetPct}

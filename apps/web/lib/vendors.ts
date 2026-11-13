@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { withBookedByPayment, type PaymentFact } from '@/lib/booked-by-payment';
+import { mergeBookingMoney, readBookingMoney, type BookingMoneyColumn } from '@/lib/event-vendor-money';
 
 export type VendorCategory =
   | 'venue'
@@ -343,11 +344,12 @@ export async function fetchEventVendors(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventVendorRow[]> {
-  const [{ data, error }, paymentsRes] = await Promise.all([
+  const [{ data, error }, paymentsRes, money] = await Promise.all([
     supabase
       .from('event_vendors')
       .select(
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,covered_where,category_key,created_at,marketplace_vendor_id,manual_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
+        // 🔒 the five amounts are NOT selectable on a user session (#5936) — they come from readBookingMoney below.
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,notes,host_inclusions,covers_plan_groups,covered_where,category_key,created_at,marketplace_vendor_id,manual_vendor_id,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
       )
       .eq('event_id', eventId)
       .order('created_at', { ascending: true }),
@@ -355,6 +357,7 @@ export async function fetchEventVendors(
     // supplier read Booked. Couple-scoped by RLS; any other caller reads none,
     // and the rows keep their stored status.
     supabase.from('event_vendor_payments').select('vendor_id,payment_refused_at').eq('event_id', eventId),
+    readBookingMoney(supabase, eventId),
   ]);
   if (error) throw new Error(`fetchEventVendors failed: ${error.message}`);
   if (paymentsRes.error) {
@@ -362,7 +365,8 @@ export async function fetchEventVendors(
     // their stored status, and the refusal is said, not swallowed.
     console.error('[supabase-error] lib/vendors.ts · fetchEventVendors · from:event_vendor_payments.select', paymentsRes.error);
   }
-  return withBookedByPayment((data ?? []) as EventVendorRow[], (paymentsRes.data ?? []) as PaymentFact[]);
+  const rows = mergeBookingMoney((data ?? []) as Array<Omit<EventVendorRow, BookingMoneyColumn>>, money) as EventVendorRow[];
+  return withBookedByPayment(rows, (paymentsRes.data ?? []) as PaymentFact[]);
 }
 
 /*

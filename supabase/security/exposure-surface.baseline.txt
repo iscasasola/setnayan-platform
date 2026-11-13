@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7772
+# facts: 7774
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5599
 #   policy    1136
 #   view      10
-#   func      391
+#   func      393
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7550,6 +7550,8 @@ func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.event_hub_viewers(p_event_id uuid, p_window_minutes integer)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.event_team_presence_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.event_vendor_money_event_ids()	secdef=yes exec=authenticated search_path=public
+func	public.event_vendor_money_read(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.expire_lapsed_quotes(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp

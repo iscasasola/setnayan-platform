@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { emitNotification } from '@/lib/notification-emit';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   PAPERS_LAPSED_AUDIT_ACTION,
   PAPERS_LAPSED_NOTICE,
@@ -30,7 +31,9 @@ import {
  *
  * NEVER THROWS.
  */
-export async function stampLapsedPapers(admin: SupabaseClient, now: Date = new Date()): Promise<number> {
+export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new Date()): Promise<number> {
+  // The SERVICE ROLE, inline: the shop's renewal day is a trust column no session reads (20271217955839).
+  const admin = createAdminClient();
   try {
     const { data, error } = await admin
       .from('vendor_profiles')
@@ -59,6 +62,7 @@ export async function stampLapsedPapers(admin: SupabaseClient, now: Date = new D
         .eq('vendor_profile_id', row.vendor_profile_id)
         .is('papers_lapsed_at', null)
         .select('vendor_profile_id');
+      if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
       if (stampErr || !Array.isArray(changed) || changed.length !== 1) continue;
       stamped += 1;
       if (row.user_id) {

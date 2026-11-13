@@ -316,6 +316,7 @@ async function renewalIsOpen(_supabase: SupabaseClient, vendorProfileId: string)
     .select('verification_state,next_renewal_due_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (error) logQueryError('inline-docs-actions.ts: renewalIsOpen vendor_profiles', error, { vendor_profile_id: vendorProfileId });
   if (error || !data) return false;
   const row = data as { verification_state: string | null; next_renewal_due_at: string | null };
   return row.verification_state !== 'verified' || renewalUploadOpen(row.next_renewal_due_at);

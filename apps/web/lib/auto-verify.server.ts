@@ -65,6 +65,7 @@ async function duplicateLookups(
         .eq('registration_number_normalized', parsed.normalized)
         .neq('vendor_profile_id', vendorProfileId)
         .limit(1);
+      if (error) console.error('[auto-verify] registration-number lookup failed', error.message);
       registrationNumber = error ? null : (data ?? []).length > 0;
     }
   } catch {
@@ -82,6 +83,7 @@ async function duplicateLookups(
         .limit(50);
       // Same base AND same branch code is a duplicate; the same base with a
       // different branch code is another branch of one business (owner 2026-11-14).
+      if (error) console.error('[auto-verify] TIN lookup failed', error.message);
       const mine = tinParts(tinRaw);
       tin = error || !mine
         ? null

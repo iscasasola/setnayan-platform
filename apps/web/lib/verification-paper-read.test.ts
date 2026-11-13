@@ -39,7 +39,9 @@ import { classifyPaperQr, hostIsUnder } from './verification-paper-read';
 const WEB = join(new URL('.', import.meta.url).pathname, '..');
 const SERVER = join(WEB, 'lib', 'verification-paper-read.server.ts');
 const ACTIONS = join(WEB, 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts');
-const PAIRS = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'verify-pairs.tsx');
+// The supplier's papers screen (design v10): the one upload place. It shows what was read read-only, never the raw
+// read block, the QR or its label.
+const PAIRS = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'paper-upload-place.tsx');
 const ADMIN_ACTIONS = join(WEB, 'app', 'admin', 'verify', 'actions.ts');
 
 const src = (p: string) => stripComments(readFileSync(p, 'utf8'));

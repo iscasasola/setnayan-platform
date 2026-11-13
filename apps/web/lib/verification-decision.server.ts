@@ -44,7 +44,7 @@ export type ApplicationDecisionInput = {
 };
 
 /* 🔒 NOT A SERVER ACTION (2026-10-28, admin supplier slice; moved here 2026-11-14). It was once exported from a
-   'use server' file, which made the badge's decision engine a public route with NO admin gate of its own. It now
+   server-actions file (one marked with the use-server directive), which made the badge's decision engine a public route with NO admin gate of its own. It now
    lives in this plain server module — importable by server code, never callable from a browser. Every caller checks
    who is asking: the admin actions (`requireAdmin`) and the automatic path (`runAutoVerifyOnSubmit`). */
 export async function applyApplicationDecision(

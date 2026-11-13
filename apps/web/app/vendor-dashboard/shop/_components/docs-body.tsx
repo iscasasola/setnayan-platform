@@ -51,9 +51,7 @@ const OPTIONAL_DOC_SLOTS = VENDOR_DOC_SLOTS.filter((s) => !PAIR_SLOT_KEYS.has(s.
 export function DocsBody({
   payload,
   vendorProfileId,
-  // Threaded from the page's one authoritative read (see verification-pairs-wiring.test.ts); the
-  // upload place itself does not need it.
-  isVerified: _isVerified,
+  isVerified,
   onSaved,
 }: {
   payload: InlineDocsPayload;
@@ -83,9 +81,8 @@ export function DocsBody({
           the pairs exist to remove. Its uniqueness claim is unchanged. */}
       {/* ── THE ONE UPLOAD PLACE (owner-approved design v10, 2026-11-14) — replaces
           the papers-beside-the-fields pairs: one button, the app tells which paper
-          each file is, what it read is filled in read-only. `isVerified` stays
-          threaded for the verified card above it. */}
-      <PaperUploadPlace payload={payload} vendorProfileId={vendorProfileId} onSaved={onSaved} />
+          each file is, what it read is filled in read-only. */}
+      <PaperUploadPlace payload={payload} vendorProfileId={vendorProfileId} isVerified={isVerified} onSaved={onSaved} />
 
       {/* ── The three OPTIONAL items — untouched, still today's cards. ── */}
       <div className="space-y-2">

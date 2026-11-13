@@ -156,6 +156,7 @@ export async function intakePapers(args: {
         .select('doc_uploads,updated_at,status')
         .eq('application_id', args.applicationId)
         .maybeSingle();
+      if (error) console.error('[intakePapers] application read failed', error.message);
       if (error || !data || (data as { status: string }).status !== 'draft') return null;
       const row = data as { doc_uploads: unknown; updated_at: string | null };
       return { docUploads: row.doc_uploads ?? {}, version: row.updated_at };

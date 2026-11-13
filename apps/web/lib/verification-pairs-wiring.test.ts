@@ -24,7 +24,9 @@ import { LOCKED_IDENTITY_FIELD_KEYS } from './vendor-corrections';
 const WEB = join(new URL('.', import.meta.url).pathname, '..');
 const ACTIONS = join(WEB, 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts');
 const DOCS_BODY = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'docs-body.tsx');
-const PAIRS = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'verify-pairs.tsx');
+// The papers-beside-the-fields pairs were RETIRED by the owner-approved design v10 (2026-11-14, "ONE UPLOAD
+// PLACE — THE APP TELLS WHICH PAPER IT IS"); the guards below that read them now hold the upload place.
+const PLACE = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'paper-upload-place.tsx');
 const SECTION = join(WEB, 'app', 'vendor-dashboard', 'shop', '_components', 'verify-section.tsx');
 
 function read(path: string): string {
@@ -52,12 +54,12 @@ test('"is this shop verified?" has ONE source — the page read, threaded down',
     !/isVerified/.test(actions),
     'the lazy payload grew its own verified probe — thread the page prop instead',
   );
-  for (const f of [SECTION, DOCS_BODY, PAIRS]) {
+  for (const f of [SECTION, DOCS_BODY, PLACE]) {
     assert.match(stripComments(read(f)), /isVerified/, 'the verified prop is not threaded');
   }
   assert.ok(
-    !/payload\.isVerified/.test(stripComments(read(PAIRS))),
-    'verify-pairs reads verified off the payload again',
+    !/payload\.isVerified/.test(stripComments(read(PLACE))),
+    'the upload place reads verified off the payload again',
   );
 });
 
@@ -84,48 +86,40 @@ test('the screen renders the ONE upload place (design v10), and the standalone r
     !/Government registration number/.test(body),
     'the standalone registration-number box is back — two boxes for one number',
   );
-  // Exactly one place in the vendor tree carries that input now.
-  const pairs = read(PAIRS);
-  assert.equal(
-    (pairs.match(/name="registration_number"/g) ?? []).length,
-    1,
-    'the registration-number input is duplicated or gone',
+  // The number is READ off the paper now (design v10): the upload place carries no number box at all.
+  assert.ok(
+    !/name="registration_number"/.test(read(PLACE)),
+    'a typed registration-number box is back on the upload place — the number comes off the paper',
   );
   // The optional slots are DERIVED, never hand-listed.
   assert.match(body, /VENDOR_DOC_SLOTS\.filter\(\(s\) => !PAIR_SLOT_KEYS\.has\(s\.key\)\)/);
 });
 
-test('a locked column is never drawn as a box the server would refuse', () => {
-  const src = read(PAIRS);
-  const start = src.indexOf('function LockedLine(');
-  assert.ok(start > 0, 'LockedLine is gone — a locked column would fall through to an input');
-  const body = src.slice(start);
-  assert.ok(!/<input\b/.test(body), 'LockedLine draws an input');
-  assert.ok(!/<textarea\b/.test(body), 'LockedLine draws a textarea');
-  // And the fork is decided by the shared helper, not by a hand-written list.
-  const stripped = stripComments(src);
-  assert.match(stripped, /pairFieldLockedKey\(/);
-  for (const key of LOCKED_IDENTITY_FIELD_KEYS) {
-    if (key === 'business_owner_name' || key === 'location_city') continue;
-    assert.ok(
-      !new RegExp(`'${key}'`).test(stripped),
-      `verify-pairs hand-names the locked field ${key} — derive it from LOCKED_IDENTITY_FIELD_KEYS`,
-    );
-  }
+test('what was read is shown READ-ONLY — the only typed box is the form after the third try', () => {
+  // Design v10: "If any of it is wrong, the fix is a clearer copy, never typing over it."
+  const src = stripComments(read(PLACE));
+  const lines = src.slice(src.indexOf('readLines(row.slot, model)'), src.indexOf('Something wrong? Upload a clearer copy'));
+  assert.ok(lines.length > 0, 'the read values are no longer drawn');
+  assert.ok(!/<input\b|<TypedRow\b|<textarea\b/.test(lines), 'a read value is drawn as a box the supplier can type over');
+  const typedForm = src.slice(src.indexOf('function TypedForm('));
+  assert.equal((src.match(/<TypedRow\b/g) ?? []).length, 1, 'a typed box appeared outside the third-try form');
+  assert.match(typedForm, /<TypedRow\b/);
+  assert.match(src, /s\?\.r2_key && s\.manual \? \(\s*<TypedForm/, 'the typed form opens on a paper that is not manual');
 });
 
 test('the faint labels clear AA — the drawing made this exact correction', () => {
   // Stripped: the docblock EXPLAINING why we avoid the faint token names it,
   // and a raw-source count reports the defect it just fixed.
-  const src = stripComments(read(PAIRS));
-  // --m-slate-3 is #8A857B → 3.67:1 on this page's white. The port uses
-  // #6E6A62 (5.38:1) for every small label and status line.
+  const src = stripComments(read(PLACE));
+  // --m-slate-3 is #8A857B → 3.67:1 on this page's white. The upload place uses
+  // #6E6A62 (5.38:1) for every small label and status line, through ONE constant.
   assert.equal(
     (src.match(/--m-slate-3/g) ?? []).length,
     0,
     'a faint label fell back to the page token that measures 3.67:1',
   );
-  assert.ok((src.match(/#6E6A62/g) ?? []).length >= 6, 'the AA-clearing grey is not being used');
+  assert.match(src, /const MUTE = '#6E6A62';/, 'the AA-clearing grey is not the label colour');
+  assert.ok((src.match(/\bMUTE\b/g) ?? []).length >= 6, 'the AA-clearing grey is not being used');
 });
 
 test('A VERIFIED SHOP CAN STILL REACH ITS PAPERS — no early return may come back', () => {
@@ -140,17 +134,11 @@ test('A VERIFIED SHOP CAN STILL REACH ITS PAPERS — no early return may come ba
   assert.match(src, /isVerified \|\| profileComplete/);
 });
 
-test('the pairs cover exactly the four papers the submit gate requires', () => {
-  const src = stripComments(read(PAIRS));
-  for (const pair of VERIFICATION_PAIRS) {
-    assert.ok(
-      src.includes('VERIFICATION_PAIRS'),
-      'verify-pairs stopped reading the model and hand-lists papers',
-    );
-    assert.ok(pair.slotKey.length > 0);
+test('the upload place covers exactly the three papers (bank proof dropped), in the model’s slots', () => {
+  const src = stripComments(read(PLACE));
+  for (const slot of ['dti_certificate', 'bir_2303', 'mayors_permit']) {
+    assert.match(src, new RegExp(`slot: '${slot}'`), `the upload place lost ${slot}`);
+    assert.ok(VERIFICATION_PAIRS.some((p) => p.slotKey === slot), `${slot} is not a slot the model knows`);
   }
-  // No paper may be hand-named in the screen — the list is the model's.
-  for (const slot of ['bir_2303', 'mayors_permit', 'bank_account_proof']) {
-    assert.ok(!new RegExp(`'${slot}'`).test(src), `verify-pairs hand-names ${slot}`);
-  }
+  assert.ok(!/bank_account_proof/.test(src), 'the bank proof is back on the upload place');
 });

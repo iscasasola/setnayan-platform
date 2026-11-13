@@ -640,12 +640,8 @@ function SubmitBlock({ missing }: { missing: string[] }) {
   if (state?.ok) {
     return (
       <div
-        className="mt-4 rounded-xl border p-3"
+        className="mt-4 space-y-0.5"
         role="status"
-        style={{
-          borderColor: state.verified ? 'var(--m-sage-3, #C9DECF)' : 'var(--m-line)',
-          background: state.verified ? 'var(--m-sage-4, #E6F0E9)' : 'var(--m-paper)',
-        }}
       >
         <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {state.verified ? 'You’re verified' : 'Waiting for Setnayan'}

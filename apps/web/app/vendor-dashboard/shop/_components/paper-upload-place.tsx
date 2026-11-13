@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Clock, Loader2, Minus, UserRound } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { TypedRow } from '@/app/_components/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { CityPin } from '@/app/open-shop/_components/city-pin';
+import { VERIFY_DOCS_ANCHOR } from '../../_components/get-verified-line';
 import { formatLongDate } from '@/lib/format-date';
+import { formatCount } from '@/lib/format-number';
 import {
   saveVerificationIdentityField,
   updateDocUploadInline,
@@ -124,10 +127,13 @@ function reportTail(r: IntakeReport): string {
 export function PaperUploadPlace({
   payload,
   vendorProfileId,
+  isVerified,
   onSaved,
 }: {
   payload: InlineDocsPayload;
   vendorProfileId: string;
+  /** From the page's one authoritative read, threaded down — never a probe here. */
+  isVerified: boolean;
   onSaved: () => void;
 }) {
   const toast = useToast();
@@ -143,6 +149,20 @@ export function PaperUploadPlace({
     [payload.docMap],
   );
   const inCount = ROWS.filter((r) => slots[r.slot]?.r2_key).length;
+  // 🛡 THE PAPER THAT HOLDS THEM BACK (owner 2026-10-29, v13 note 4 — carried over from the retired pairs): an
+  // unverified shop's FIRST missing paper is marked, and [Get verified] (`#docs`) brings it into view.
+  const firstMissing = isVerified || locked ? null : (ROWS.find((r) => !slots[r.slot]?.r2_key)?.slot ?? null);
+  const firstMissingRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!firstMissing) return;
+    const bring = () => {
+      if (window.location.hash !== `#${VERIFY_DOCS_ANCHOR}`) return;
+      window.setTimeout(() => firstMissingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+    };
+    bring();
+    window.addEventListener('hashchange', bring);
+    return () => window.removeEventListener('hashchange', bring);
+  }, [firstMissing]);
   const permit = slots.mayors_permit;
   const proposal = permit?.pin_proposal ?? null;
   const pinConfirmed =
@@ -210,10 +230,9 @@ export function PaperUploadPlace({
           {reports.map((r, i) => (
             <li
               key={`${r.r2Key}-${r.page ?? 'x'}-${i}`}
-              className="rounded-lg border px-3 py-2 text-xs"
+              className="rounded-lg px-3 py-2 text-xs"
               style={{
-                borderColor: r.outcome === 'read_ok' || r.outcome === 'replaced' ? 'var(--m-line)' : 'var(--m-orange-3, #EBC9BB)',
-                background: r.outcome === 'read_ok' || r.outcome === 'replaced' ? 'var(--m-paper)' : 'var(--m-orange-4)',
+                background: r.outcome === 'read_ok' || r.outcome === 'replaced' ? 'var(--m-paper-2, #FAF8F4)' : 'var(--m-orange-4)',
                 color: 'var(--m-ink)',
               }}
             >
@@ -234,11 +253,11 @@ export function PaperUploadPlace({
           Your three papers
         </h4>
         <span className="text-xs tabular-nums" style={{ color: MUTE }}>
-          {inCount} of 3
+          {formatCount(inCount)} of 3
         </span>
       </div>
 
-      <ol className="divide-y overflow-hidden rounded-xl border" style={{ borderColor: 'var(--m-line)' }}>
+      <ol className="divide-y" style={{ borderColor: 'var(--m-line)' }}>
         {ROWS.map((row) => {
           const s = slots[row.slot];
           const model = s?.evidence?.model ?? null;
@@ -249,13 +268,24 @@ export function PaperUploadPlace({
           else if (s && s.attempts > 0)
             status = {
               icon: 'wait',
-              text: `Not read yet · Try ${Math.min(s.attempts + 1, MAX_TRIES)} of ${MAX_TRIES}${s.attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`,
+              text: `Not read yet · Try ${formatCount(Math.min(s.attempts + 1, MAX_TRIES))} of ${formatCount(MAX_TRIES)}${s.attempts + 1 >= MAX_TRIES ? ' · last one' : ''}`,
             };
           else if (pending && checking > 0) status = { icon: 'wait', text: 'Checking…' };
           else status = { icon: 'none', text: 'Not uploaded yet' };
 
           return (
-            <li key={row.slot} className="bg-[color:var(--m-paper)] p-3" style={{ borderColor: 'var(--m-line)' }}>
+            <li
+              key={row.slot}
+              ref={row.slot === firstMissing ? firstMissingRef : undefined}
+              data-first-missing={row.slot === firstMissing ? '' : undefined}
+              className={`bg-[color:var(--m-paper)] p-3${row.slot === firstMissing ? ' scroll-mt-24 ring-2 ring-[color:var(--m-orange)]' : ''}`}
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              {row.slot === firstMissing ? (
+                <p className="mb-1.5 text-xs font-medium" style={{ color: 'var(--m-orange-deep)' }}>
+                  Start here
+                </p>
+              ) : null}
               <button
                 type="button"
                 className="flex w-full min-h-[44px] items-start gap-3 text-left"
@@ -385,18 +415,21 @@ function TypedForm({
           });
         }}
       >
-        {TYPED_FIELDS[slot].map((f) => (
-          <label key={f.key} className="block text-xs" style={{ color: 'var(--m-ink)' }}>
-            <span className="mb-1 block font-medium">{f.label}</span>
-            <input
-              className="h-12 w-full rounded-xl border px-3 text-base"
-              style={{ borderColor: 'var(--m-line)' }}
+        {TYPED_FIELDS[slot].map((f) =>
+          locked ? (
+            <p key={f.key} className="text-xs" style={{ color: 'var(--m-ink)' }}>
+              <span style={{ color: MUTE }}>{f.label}</span> {values[f.key] ?? '—'}
+            </p>
+          ) : (
+            <TypedRow
+              key={f.key}
+              name={f.label}
               value={values[f.key] ?? ''}
-              disabled={locked || pending}
-              onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+              boxed
+              onKeep={(t) => setValues((v) => ({ ...v, [f.key]: t }))}
             />
-          </label>
-        ))}
+          ),
+        )}
         {slot === 'bir_2303' ? (
           <p className="text-xs" style={{ color: MUTE }}>
             A BIR 2303 has no end date, so there is one date here.
@@ -429,8 +462,7 @@ function PermitPin({ address, city, onSaved }: { address: string; city: string; 
   return (
     <form
       ref={formRef}
-      className="space-y-2 rounded-xl border p-3"
-      style={{ borderColor: 'var(--m-line)' }}
+      className="space-y-2 pt-2"
       onSubmit={(e) => {
         e.preventDefault();
         // Enter in the address box is not a "Yes" — only the pin card's answer saves.

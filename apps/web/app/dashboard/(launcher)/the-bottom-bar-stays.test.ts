@@ -88,7 +88,7 @@ test('the current page is read, not assumed — by the canonical bar', () => {
   assert.match(bar, /from '@\/app\/_components\/nav\/bottom-nav'/, 'it must delegate to the canonical bar');
   // 🏠 The items are the bar's own (`accountBarItems(tabs)`). Since 13 Nov 2026 the section (and place) you left Home
   // on is the SHARED bar's memory (`tab-memory.ts`) — no second, Home-only door here.
-  assert.match(bar, /const items = accountBarItems\(tabs\);/, 'the items are no longer the bar\'s own');
+  assert.match(bar, /const items = accountBarItems\(tabs, \{ hasShop \}\);/, 'the items are no longer the bar\'s own');
   assert.ok(!/useHomeDoor|sessionStorage/.test(bar), 'the account bar grew its own tab memory beside the shared one');
   assert.match(bar, /<BottomDock>\s*<BottomNav items=\{items\} \/>\s*<\/BottomDock>/, 'mounted inside the dock');
   assert.ok(!/aria-current/.test(bar), 'a hardcoded current page was true on one route and a lie on every other');

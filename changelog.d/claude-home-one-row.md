@@ -14,9 +14,17 @@
   (`sn:tab-reselect`), else the bar scrolls up in place on the tab's first screen or opens that first screen — and the
   tab's kept view is forgotten. Home's own section memory (`useHomeDoor` + the `HOME_LAST_SEG_KEY` write) is retired in
   favour of the shared one; Home keeps its re-tap answer (top of the section you are in).
+- **The one double tap** (owner 13 Nov, DECISION_LOG): already on Home, the first tap goes to the top at once; a
+  second tap within 300 ms (`TWIN_TAP_MS`) opens your shop — the last-used one, via the existing `/vendor-dashboard`
+  + `sn_shop` cookie the account switcher's shop rows write (no new switching mechanism) — at Today's last view.
+  Mirrored: already on the supplier bar's Today, a double tap opens your Home at its last view. No shop = just the top;
+  a double tap on a tab you are not on = two ordinary taps; no other tab carries one (`BottomNavItem.twin`). The single
+  tap stays the accessible behaviour; the shop switch stays in the account sheet. Tab memory is keyed by each tab's
+  own address so the twin on another bar is found.
 - Guards: `lib/home-is-the-profile.test.ts` test 5 (no door row; People carries asking) ·
-  `app/_components/nav/every-tab-keeps-its-last-view.test.ts` (both rules, every bar draws the shared bar, no bar keeps
-  its own memory) · `the-chrome-steps-away.test.ts` and `the-bottom-bar-stays.test.ts` updated.
+  `app/_components/nav/every-tab-keeps-its-last-view.test.ts` (both rules, the double tap — first tap = top, quick second = switch, no shop =
+  no switch, not-on-tab = no switch — every bar draws the shared bar, no bar keeps its own memory) ·
+  `the-account-bar-is-the-ruling.test.ts` (layouts pass `hasShop`) · `the-chrome-steps-away.test.ts` and `the-bottom-bar-stays.test.ts` updated.
 - Not done: risen sheets that are client-only state (not in the URL) are not closed by a generic re-tap unless the page
   listens for `sn:tab-reselect`; a re-tap deeper in a tab opens the first screen, which closes URL-driven ones.
 

@@ -6,6 +6,9 @@ import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { AccountBarTab } from '@/lib/account-bar';
 import { HOME_HREF } from '@/lib/home-segments';
 
+/** The supplier bar's Today — the shop's first screen (`vendor-bottom-nav.tsx`), the Home tab's twin. */
+const SHOP_TODAY_HREF = '/vendor-dashboard';
+
 /**
  * AccountBottomNav — the phone bar on the account-level screens (the Events
  * board, Memories, People and the other account spokes). Desktop keeps the rail.
@@ -76,8 +79,11 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
 };
 
 /** The bar's items for a list of tabs — exported so the guard renders the real list. */
-export function accountBarItems(tabs: readonly AccountBarTab[]): BottomNavItem[] {
-  return tabs.map((t) => TAB[t]);
+export function accountBarItems(tabs: readonly AccountBarTab[], { hasShop = false }: { hasShop?: boolean } = {}): BottomNavItem[] {
+  // 👆👆 THE ONE DOUBLE TAP (owner 13 Nov 2026): already on Home, a second quick tap opens your shop — the last-used
+  // one, which `/vendor-dashboard` opens by the `sn_shop` cookie the account switcher's shop rows write — at Today's
+  // last view (`tab-memory.ts`). No shop, no twin: the double tap is just the top.
+  return tabs.map((t) => (t === 'home' && hasShop ? { ...TAB[t], twin: SHOP_TODAY_HREF } : TAB[t]));
 }
 
 /*
@@ -86,8 +92,8 @@ export function accountBarItems(tabs: readonly AccountBarTab[]): BottomNavItem[]
  * the same for every tab on every bar (`app/_components/nav/tab-memory.ts`, wired in `BottomNav`) — the Home tab's last
  * address is `/dashboard?seg=…`. Re-tapping Home ON Home is the page's to answer (the top, `useTabReselect('home')`).
  */
-export function AccountBottomNav({ tabs }: { tabs: readonly AccountBarTab[] }) {
-  const items = accountBarItems(tabs);
+export function AccountBottomNav({ tabs, hasShop = false }: { tabs: readonly AccountBarTab[]; hasShop?: boolean }) {
+  const items = accountBarItems(tabs, { hasShop });
   return (
     <div data-account-bar="">
       <BottomDock>

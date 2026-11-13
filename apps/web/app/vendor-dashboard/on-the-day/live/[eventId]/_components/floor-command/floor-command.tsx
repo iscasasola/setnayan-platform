@@ -1,5 +1,6 @@
-import Link from 'next/link';
 import { ArrowRight, Inbox, QrCode } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
@@ -13,7 +14,6 @@ import {
   type PanelReason,
 } from '@/lib/floor-command';
 import type { DelegateArea } from '@/lib/event-moderators';
-import { ConsoleRule } from '../../../../_components/pahina-console';
 import type { SpecializationSurfaceProps } from '../specialization-registry';
 import { fetchMyAreaGrants, fetchMyPendingAsk } from '@/lib/my-area-grants.server';
 import { decideRequestsPanel } from '@/lib/day-requests';
@@ -90,9 +90,8 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-ink/65">
-        Running {coupleName}’s floor. Call each part of the day, find a guest’s seat, and work
-        the requests coming in.
+      <p className="text-sm text-[color:var(--m-slate-2)]">
+        Running {coupleName}’s floor — call each part, find a guest’s seat, work the requests.
       </p>
 
       {model.needsHostAccess ? (
@@ -108,7 +107,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
 
       {model.schedule.state === 'ready' ? (
         <>
-          <ConsoleRule />
+          <hr className="border-[color:var(--m-line)]" />
           <ScheduleUpdater
             eventId={eventId}
             action={model.schedule.action}
@@ -128,7 +127,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
           notes. Renders only when this event actually has a host booked. */}
       <StageNoteCompose eventId={eventId} />
 
-      <ConsoleRule />
+      <hr className="border-[color:var(--m-line)]" />
 
       {/* 🪑 Anchored — the Hub's "Find a guest's seat" row lands here (S9, owner 2026-10-29). */}
       <div id="seat-finder" className="scroll-mt-24">
@@ -139,31 +138,29 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
         )}
       </div>
 
-      <ConsoleRule />
+      <hr className="border-[color:var(--m-line)]" />
 
       {model.qrKit.state === 'ready' ? (
         <section className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+          <div className="flex items-center gap-1.5">
             <QrCode aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />
-            The event QR kit
-          </h4>
-          <p className="text-xs text-ink/60">
-            The printed table signs and place cards for tonight — the same pack the couple
-            published. Open it if you need to reprint a card at the door.
-          </p>
-          <Link
+            <InfoTip label="The event QR kit" labelAs="h4" labelClassName="text-sm font-semibold text-ink" align="start">
+              The printed table signs and place cards for tonight — the same pack the couple published. Open it if you
+              need to reprint a card at the door.
+            </InfoTip>
+          </div>
+          <ActionButton
+            tone="neutral"
+            icon={ArrowRight}
+            label="Open the seat plan"
             href={`/vendor-dashboard/clients/${eventId}/seat-plan`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink/80 transition hover:border-terracotta"
-          >
-            Open the seat plan
-            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
+          />
         </section>
       ) : (
         <Closed title="The event QR kit" reason={model.qrKit.reason} />
       )}
 
-      <ConsoleRule />
+      <hr className="border-[color:var(--m-line)]" />
 
       {/* DAY-6 · THE INBOX OPENS WHERE THE COORDINATOR ALREADY IS.
           This section existed and its only affordance was a link to
@@ -181,7 +178,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
           there anything I have to deal with", in place. */}
       {model.requests.state === 'ready' ? (
         <section className="space-y-2">
-          <h4 className="flex items-center gap-1.5 text-sm font-medium text-ink">
+          <h4 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
             <Inbox aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.75} />
             Requests inbox
           </h4>
@@ -192,17 +189,11 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
                raised — the exact shape of failure this console exists to end.
                So the panel says what it does not know and keeps the way in. */
             <>
-              <p className="text-xs text-ink/60">
-                We couldn&rsquo;t load today&rsquo;s requests just now, so this list may be
-                incomplete. Nothing has been lost — open the desk to try again.
+              <p role="alert" className="text-sm text-[color:var(--m-slate-2)]">
+                <strong className="font-semibold text-ink">We couldn’t load today’s requests just now.</strong> This list
+                may be incomplete. Nothing has been lost — open the desk to try again.
               </p>
-              <Link
-                href="/vendor-dashboard/on-the-day"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink/80 transition hover:border-terracotta"
-              >
-                Open the inbox
-                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </Link>
+              <ActionButton tone="neutral" icon={ArrowRight} label="Open the inbox" href="/vendor-dashboard/on-the-day" />
             </>
           ) : panel === 'inbox' && requests.side ? (
             <>
@@ -211,18 +202,11 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
                 initialRows={requests.rows}
                 side={requests.side}
               />
-              <Link
-                href="/vendor-dashboard/on-the-day"
-                className="inline-flex items-center gap-1.5 text-xs text-ink/55 transition hover:text-ink"
-              >
-                Open the full desk
-                <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </Link>
+              <ActionButton tone="neutral" quiet icon={ArrowRight} label="Open the full desk" href="/vendor-dashboard/on-the-day" />
             </>
           ) : (
-            <p className="text-xs text-ink/60">
-              Everything raised today — by the couple, the hosts, or your suppliers — in one
-              list, once this event is on your books.
+            <p className="text-sm text-[color:var(--m-slate-2)]">
+              Everything raised today by the couple, hosts or suppliers shows here once this event is on your books.
             </p>
           )}
         </section>
@@ -247,8 +231,8 @@ function Closed({ title, reason }: { title: string; reason: PanelReason | null }
   };
   return (
     <section className="space-y-1">
-      <h4 className="text-sm font-medium text-ink/45">{title}</h4>
-      <p className="text-xs text-ink/50">{reason ? copy[reason] : 'Not available.'}</p>
+      <h4 className="text-sm font-medium text-[color:var(--m-slate-2)]">{title}</h4>
+      <p className="text-sm text-[color:var(--m-slate-2)]">{reason ? copy[reason] : 'Not available.'}</p>
     </section>
   );
 }

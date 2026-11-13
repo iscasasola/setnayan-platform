@@ -42,7 +42,7 @@ test('verified with no ring says the city only — never "0 km"', () => {
   assert.equal(shopReachLine({ kind: 'ring', km: 20 }, 'Tagaytay'), 'Serves up to 20 km around Tagaytay');
 });
 
-test('the own web address shows on Solo+ for a verified domain only (owner 2026-11-04)', () => {
+test('the own web address shows on Supplier Plus and up for a verified domain only (owner 2026-11-04)', () => {
   assert.equal(ownWebAddress({ planAllows: true, domain: 'SampaguitaTable.com', verifiedAt: '2026-10-01' }), 'sampaguitatable.com');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'https://shop.example.ph/', verifiedAt: '2026-10-01' }), 'shop.example.ph');
   assert.equal(ownWebAddress({ planAllows: true, domain: 'sampaguitatable.com', verifiedAt: null }), null);

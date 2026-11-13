@@ -14,7 +14,8 @@
 import { MessageCircle, Package, Plus } from 'lucide-react';
 import { CheckADateLink } from './check-a-date-link';
 
-export function ShopCanDoPanel({ checkHref, hasPackages }: { checkHref: string; hasPackages: boolean }) {
+/** `checkHref` null — the sample shop page (`SampleShopPage`): the door drawn, with no calendar behind it. */
+export function ShopCanDoPanel({ checkHref, hasPackages }: { checkHref: string | null; hasPackages: boolean }) {
   return (
     <div
       data-shop-can-do=""

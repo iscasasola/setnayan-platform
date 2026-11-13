@@ -68,7 +68,8 @@ const between = (html: string, from: string, to?: string) => {
 
 test('A1 · Today’s QR is the shop’s own page, /v/<slug> — never the root slug, never the shortlist invite', () => {
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.match(page, /const qrUrl = details\.slug \? myPageUrl\(siteOrigin\(\), details\.slug\) : null;/, 'the step-6 QR is not built by myPageUrl');
+  // 💳 The step-6 QR is the supplier's OWN code — the same page, tagged ?src=own (owner 2026-11-13, F-W1-58).
+  assert.match(page, /const qrUrl = details\.slug \? ownPageUrl\(siteOrigin\(\), details\.slug\) : null;/, 'the step-6 QR is not built by ownPageUrl');
   assert.doesNotMatch(page, /buildVendorInviteUrl/, 'Today’s QR went back to the shortlist invite');
   assert.doesNotMatch(page, /siteOrigin\(\)\}\/\$\{[^}]*slug/, 'a root /<slug> address (a couple Event Hub) is built on Today');
   const { myPageUrl } = require('@/lib/supplier-qr-codes') as typeof import('@/lib/supplier-qr-codes');

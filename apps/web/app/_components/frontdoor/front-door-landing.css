@@ -1312,8 +1312,9 @@
     max-width: 26ch;
     font-size: clamp(24px, 3.4vw, 32px);
   }
+  /* 💎 Four plans since Event Ultra (owner 2026-11-13): two by two here, one row of four from 1280. */
   .fd .fl-plans {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
   .fd .fl-atiles {
@@ -1428,6 +1429,9 @@
 
 /* The problems sit side by side once the list is wide enough to hold a photo and its answer. */
 @media (min-width: 1280px) {
+  .fd .fl-plans {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
   .fd .fl-solves-list {
     gap: 96px;
   }

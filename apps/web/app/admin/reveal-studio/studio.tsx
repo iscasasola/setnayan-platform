@@ -231,7 +231,7 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           </h2>
           <Toggle
             label="Show the reveal on couple sites"
-            hint="No longer switches the reveal on for couples: every reveal needs Event Hub Pro (owner 2026-09-24). A Pro couple who has not chosen gets the default template below; a free couple gets no reveal either way."
+            hint="No longer switches the reveal on for couples: every reveal needs Event Pro (owner 2026-09-24). A Pro couple who has not chosen gets the default template below; a free couple gets no reveal either way."
             checked={draft.enabled}
             onChange={(v) => setDraft((d) => ({ ...d, enabled: v }))}
           />

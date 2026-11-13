@@ -6,16 +6,16 @@ import { VerifySection } from '../shop/_components/verify-section';
 import { CouldNotLoad } from '../shop/_components/could-not-load';
 import type { DetailsData } from '../profile/details-data';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
-import { assembleSetup, setupChecklistKeys, setupDailyView, type SetupDailySchedule, type SetupFoldKey } from '@/lib/supplier-setup';
-import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
-import { updatePoolCapacity } from '../calendar/actions';
-import { SetupDailyStep } from './setup-daily-step';
+import { assembleSetup, setupChecklistKeys, type SetupFoldKey } from '@/lib/supplier-setup';
 import { displayServiceLabel } from '@/lib/vendors';
 import { SupplierSetupFolds } from './supplier-setup-folds';
 import { SetupOfferFold } from './setup-offer-fold';
 import { SetupDaysOffRow } from './setup-days-off-row';
 import { SetupPapers } from './setup-papers';
 import { SetupQrStep } from './setup-qr-step';
+
+/** The id of Today's papers list — the "Get verified" fold's documents step links to it (F-W1-11). */
+const SETUP_PAPERS_ID = 'setup-papers';
 
 /** The parts of Your details the six steps mount (`loadDetailsData`, or the lab's fixture). */
 export type SetupDetails = Pick<
@@ -39,8 +39,10 @@ export type SetupDetails = Pick<
  *                            review
  *   6 Download your QR     — the shop's own page, `/v/<slug>` (`SetupQrStep` → `QrCard`, Download first), then the
  *                            tour once; the days-off row stays under it
- *   7 How many a day       — under the six, never counted (Build 6 Lane E): the Clients ⚙ stepper, the same field
- *                            (`SetupDailyStep`); venues are asked "How many halls?"
+ *
+ * ⛔ NO STEP 7. "How many a day" sat under the six (Build 6 Lane E) and LEFT Today on the owner's ruling (13 Nov 2026,
+ *    DECISION_LOG d8ec0922): the daily limit is PER SERVICE — each service card's own `vendor_services.daily_capacity`,
+ *    asked in the card maker — not one number for the whole shop.
  *
  * Nothing is redrawn: each editor carries its own server action and saves itself. Server component — the page (and
  * the dev lab) hand in what was read.
@@ -55,7 +57,6 @@ export function SupplierSetupScreen({
   gear,
   tour = null,
   paperUrls,
-  daily = null,
 }: {
   d: SetupDetails;
   rail: FirstStepsRail;
@@ -71,8 +72,6 @@ export function SupplierSetupScreen({
   gear?: ReactNode;
   /** The lab's paper previews (ref → URL). Today leaves it out: the papers are private and signed on demand. */
   paperUrls?: Record<string, string>;
-  /** Step 7: the shop's schedules (null = that read was refused — said) and whether it is a venue. Left out, no row. */
-  daily?: { schedules: readonly SetupDailySchedule[] | null; venue: boolean } | null;
 }) {
   const view = assembleSetup({
     checklist: d.checklist,
@@ -128,7 +127,9 @@ export function SupplierSetupScreen({
     ),
     docs: (
       <div className="space-y-3">
-        <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+        <div id={SETUP_PAPERS_ID} className="scroll-mt-20">
+          <SetupPapers papers={d.papers} vendorProfileId={d.vendorId} reason={d.verify.decisionReason} displayUrls={paperUrls} />
+        </div>
         <Fold
           data="setup-papers-more"
           title="Get verified"
@@ -143,6 +144,8 @@ export function SupplierSetupScreen({
               profileComplete={d.profileComplete}
               profileFieldsLeft={d.fieldsLeft}
               verify={d.verify}
+              // 📄 F-W1-11: the papers are the list just above — asked once, pointed to here.
+              papersAbove={SETUP_PAPERS_ID}
             />
           </div>
         </Fold>
@@ -162,9 +165,5 @@ export function SupplierSetupScreen({
     ),
   };
 
-  const dailyStep = daily ? (
-    <SetupDailyStep view={setupDailyView(daily)} ceiling={DAILY_CAPACITY_MAX} action={lab ? null : updatePoolCapacity} lab={lab} />
-  ) : null;
-
-  return <SupplierSetupFolds view={view} bodies={bodies} gear={gear} tour={tour} daily={dailyStep} />;
+  return <SupplierSetupFolds view={view} bodies={bodies} gear={gear} tour={tour} />;
 }

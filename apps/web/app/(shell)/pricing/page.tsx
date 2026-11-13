@@ -12,7 +12,7 @@ import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { TOURS } from '@/lib/tours';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
-// The client pieces — Event Hub Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
+// The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 
 /**
@@ -474,6 +474,16 @@ export default async function PricingPage() {
                       }
                     />
                   </li>
+                  {/* 💎 Event Ultra (owner 2026-11-13) — the next rung, in the same list. Canvas prints are part of it but
+                      are not said until the Our Day poster ships (see ULTRA_PEEK, front-door-landing-data.ts). */}
+                  {prices.ultra != null ? (
+                    <PriceRowShell
+                      name="Event Ultra"
+                      tip="Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and more Papic credits. One unlock covers everyone on the event."
+                      what="Everything in Pro — and your day shared live and kept."
+                      figure={<Figure php={prices.ultra} />}
+                    />
+                  ) : null}
                 </ul>
               </>
             ) : null}

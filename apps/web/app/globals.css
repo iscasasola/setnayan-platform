@@ -10200,7 +10200,8 @@ input.sn-switch:focus-visible {
   -webkit-tap-highlight-color: transparent;
 }
 .ab svg { width: 18px; height: 18px; flex: 0 0 auto; }
-.ab:active { transform: scale(0.97); }
+.ab:active, .ab[data-busy] { transform: scale(0.97); }
+.ab[data-busy] { cursor: progress; }
 .ab:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 .ab:disabled, .ab[aria-disabled='true'] { opacity: 0.35; cursor: not-allowed; transform: none; }
 .ab.icon-only { width: 40px; padding: 0; }
@@ -10293,7 +10294,7 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   background: color-mix(in srgb, rgb(var(--color-ink)) 6%, transparent);
   border-color: color-mix(in srgb, rgb(var(--color-ink)) 10%, transparent);
 }
-@media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ab { transition: none; } .ab:active, .ab[data-busy] { transform: none; } }
 /* 🔒 PRIVATE IS SKY BLUE, AND THE PRIVATE COMPOSER IS ONE COLOUR (owner 9 Nov 2026 — "why red? use sky blue", corpus
  * 48503b43 + 701b38a3; then "Send turns sky blue too"). The private door (the 🔒 list's names) wears
  * the private TEXT token as their tone (#0369A1 on its 9 % wash ≈ 5.3, AA); in the composer row the quiet 🔒 and the box's

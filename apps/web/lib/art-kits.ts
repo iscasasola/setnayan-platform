@@ -22,7 +22,7 @@
  * · The church watercolour on the ceremony venue card (the proof's twelfth file) belongs to the venue-card build
  *   (`rd/venue-drawing`), not to this kit.
  * · Shimmer on the Event title belongs to the Cover Scene Edit/Animate build (sibling prototype), not to this kit.
- * · No price. Whether a kit costs anything rides on Event Hub Pro (`COUPLE_WEBSITE_PRO`), read live like every Pro
+ * · No price. Whether a kit costs anything rides on Event Pro (`COUPLE_WEBSITE_PRO`), read live like every Pro
  *   look — never typed here.
  *
  * PURE — no React, no I/O: the guest page, the Studio and the guards read one list.
@@ -245,7 +245,7 @@ export const ACCENT_LIBRARY: ArtKit = VINTAGE_KIT as ArtKit;
  *  · each scene's accent: the couple's pick (draft-overlaid on the host's canvas), else the look's default;
  *  · the look's own pieces (seal, flourish, divider) when the RESOLVED theme brings a kit (a lapsed Pro theme is
  *    already House here);
- *  · and, while `ART_KIT_IS_PRO`, only for an event that owns Event Hub Pro — or the host's own Maker canvas, where a
+ *  · and, while `ART_KIT_IS_PRO`, only for an event that owns Event Pro — or the host's own Maker canvas, where a
  *    Pro look is tried free (`tryOn`), never a guest's page.
  * Null when nothing is drawn — every mount then renders the page byte for byte as before.
  */

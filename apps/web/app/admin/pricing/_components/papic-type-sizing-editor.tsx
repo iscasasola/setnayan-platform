@@ -11,12 +11,12 @@ export type PapicTypeSizingRow = {
   initialPerGuest: number;
   floorPoints: number;
   ceilingPoints: number;
-  /** What was learned from finished celebrations, or null. */
+  /** What was learned from finished events, or null. */
   learnedPerGuest: number | null;
   /** Which of the two a couple is actually quoted. */
   inForce: number;
   inForceSource: 'initial' | 'learned';
-  /** Closed celebrations that did NOT run out of credits. */
+  /** Closed events that did NOT run out of credits. */
   sampleSize: number;
   censoredCount: number;
   minSample: number;
@@ -62,10 +62,10 @@ export function PapicTypeSizingEditor({
   return (
     <section className="mt-10">
       <h2 className="mb-1 text-base font-semibold tracking-tight">
-        Credits recommended, by kind of celebration
+        Credits recommended, by kind of event
       </h2>
       <p className="mb-4 max-w-prose text-sm leading-relaxed text-ink/60">
-        What we tell a couple their celebration is likely to want:{' '}
+        What we tell a couple their event is likely to want:{' '}
         <span className="font-mono text-[13px]">guests × per head</span>, held between the
         least and the most. A wedding and a christening are not the same job, so they do
         not carry the same number.
@@ -80,7 +80,7 @@ export function PapicTypeSizingEditor({
                 : `${formatCount(learnedCount)} figure${learnedCount === 1 ? ' is' : 's are'} learned`}
             </p>
             <p className="mt-0.5 max-w-prose text-[13px] leading-relaxed text-ink/60">
-              A figure is only learned from celebrations that have <em>finished</em> shooting{' '}
+              A figure is only learned from events that have <em>finished</em> shooting{' '}
               <em>and did not run out of credits</em> — an event that spent everything it had
               tells us it wanted <em>at least</em> that much, never that it wanted exactly
               that much. Those can raise a number; they can never lower one. Nothing here
@@ -162,7 +162,7 @@ function TypeRow({
         {learned ? (
           <>
             Quoting <span className="font-medium text-ink/75">{row.learnedPerGuest}</span> a head,
-            learned from {row.sampleSize} finished celebration
+            learned from {row.sampleSize} finished event
             {row.sampleSize === 1 ? '' : 's'}
             {row.censoredCount > 0
               ? ` (${formatCount(row.censoredCount)} more ran out of credits and only raised it)`

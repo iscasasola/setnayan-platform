@@ -89,7 +89,7 @@ import { loadDetailsData } from './profile/details-data';
 import { NewServiceMaker } from './services/new/_components/new-service-maker';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { renderUrlQrSvg } from '@/lib/qr';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { ownPageUrl } from '@/lib/supplier-qr-codes';
 import { siteOrigin } from '@/lib/site-origin';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
 import { fetchVendorPoolsOrNull } from '@/lib/vendor-schedule';
@@ -577,7 +577,7 @@ export default async function VendorOverviewPage({
     if (details) {
       // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
       // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
-      const qrUrl = details.slug ? myPageUrl(siteOrigin(), details.slug) : null;
+      const qrUrl = details.slug ? ownPageUrl(siteOrigin(), details.slug) : null; // 💳 the supplier's own code: ?src=own
       const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
       setup = (
         <SupplierSetupScreen

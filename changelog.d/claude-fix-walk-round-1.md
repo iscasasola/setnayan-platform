@@ -22,3 +22,11 @@ From the controller's 390 px walkthrough of the live site (0dc2f67), supplier pa
 - **F-W1-05** No change: "Free and Verified cover this" is correct (both hold 1 category × 1 service in `TIER_CAPS`).
 
 SPEC IMPACT: None (walk fixes to shipped screens; two owner questions are on the PR, not decided here).
+
+## 2026-11-13 · fix(supplier): "How many a day" is per service — it leaves Today's setup
+
+Owner, 13 Nov 2026 (DECISION_LOG d8ec0922): the daily limit is per SERVICE, not per shop. Today's setup step 7 ("How
+many a day", under the six) is removed — the checklist stays "N of 6" — and each service card asks it plainly: "How many
+events a day can this service take?", on the card's existing `vendor_services.daily_capacity` (no new column).
+
+SPEC IMPACT: None (the ruling is already in DECISION_LOG d8ec0922).
